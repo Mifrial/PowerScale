@@ -3,7 +3,9 @@ import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
 import { gamePhpCommandService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCommandService';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameParticipantCandidate } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidate';
@@ -104,6 +106,7 @@ const emit = defineEmits<{
 }>();
 
 const { currentUser } = useCurrentUser();
+const gameStore = useGameStore();
 const chatStore = useChatChannel();
 const combatThread = useCombatChatThread(() => props.gameId);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
@@ -297,7 +300,9 @@ async function load(): Promise<void> {
   try {
     const [nextInitiative, nextProcesses, nextPendingEffects, nextCommitted] = await Promise.all([
       gamePhpMode.isEnabled()
-        ? Promise.resolve(initiative.value)
+        ? Promise.resolve(
+            props.sessionRunning ? (gamePhpBattleContext.getScale() ?? initiative.value) : null,
+          )
         : getGameApi()
             .getInitiative(props.gameId)
             .catch(() => null),
@@ -505,6 +510,7 @@ async function onInitiativeSaved(projections: GameRuntimeEntityProjection[], sca
     emit('participants', keys);
     await props.ensureRuntimeProjections?.(keys);
     await refillParticipants(keys);
+    gameStore.applyGameUpdate(await getGameApi().getGame(props.gameId));
 
     return;
   }
@@ -1128,9 +1134,6 @@ watch(
 watch(
   () => props.sessionRunning,
   () => {
-    if (gamePhpMode.isEnabled()) {
-      return;
-    }
     void load();
   },
 );

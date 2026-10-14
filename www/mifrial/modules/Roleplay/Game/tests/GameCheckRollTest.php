@@ -171,6 +171,179 @@ final class GameCheckRollTest extends TestCase
     }
 
     /**
+     * Производная характеристика берёт min баз закупок, не строку себя.
+     *
+     * @return void
+     */
+    public function testDerivedCheckUsesMinOfPurchasedBases(): void
+    {
+        $captured = null;
+        $slices = $this->createMock(ICharacterRuleSlices::class);
+        $slices->method('get')->willReturn($this->derivedCheckSlice());
+        $mechanics = $this->createStub(IMechanics::class);
+        $mechanics->method('getList')->willReturn([]);
+        $rolls = $this->createMock(IMechanicRolls::class);
+        $rolls->method('roll')->willReturnCallback(
+            function (RollSpec $spec) use (&$captured): RollResult {
+                $captured = $spec;
+
+                return new RollResult($spec, [], [], [], [], 0, null);
+            },
+        );
+        $rolls->method('rate')->willReturn(new CheckRating(true, 1));
+        $roll = new GameCheckRoll(
+            $slices,
+            $this->createStub(ICharacters::class),
+            $mechanics,
+            $rolls,
+        );
+
+        $roll->throwCheck(1, 1, 'watch', 'solo', [
+            'characteristicPurchases' => [
+                ['characteristicCode' => 'attention', 'value' => ['base' => 4, 'size' => 0]],
+                ['characteristicCode' => 'reaction', 'value' => ['base' => 2, 'size' => 0]],
+            ],
+        ], null);
+
+        self::assertInstanceOf(RollSpec::class, $captured);
+        self::assertSame(2, $captured->getDiceCount());
+    }
+
+    /**
+     * Пустой лист: производная берёт automatic базы операндов.
+     *
+     * @return void
+     */
+    public function testDerivedCheckUsesAutomaticBasesWhenPurchasesEmpty(): void
+    {
+        $captured = null;
+        $slices = $this->createMock(ICharacterRuleSlices::class);
+        $slices->method('get')->willReturn($this->derivedCheckSlice());
+        $mechanics = $this->createStub(IMechanics::class);
+        $mechanics->method('getList')->willReturn([]);
+        $rolls = $this->createMock(IMechanicRolls::class);
+        $rolls->method('roll')->willReturnCallback(
+            function (RollSpec $spec) use (&$captured): RollResult {
+                $captured = $spec;
+
+                return new RollResult($spec, [], [], [], [], 0, null);
+            },
+        );
+        $rolls->method('rate')->willReturn(new CheckRating(true, 1));
+        $roll = new GameCheckRoll(
+            $slices,
+            $this->createStub(ICharacters::class),
+            $mechanics,
+            $rolls,
+        );
+
+        $roll->throwCheck(1, 1, 'watch', 'solo', ['characteristicPurchases' => []], null);
+
+        self::assertInstanceOf(RollSpec::class, $captured);
+        self::assertSame(3, $captured->getDiceCount());
+    }
+
+    /**
+     * Строит live hit-check с roll payload.
+     *
+     * @param int|null $defaultEfficiency Efficiency CheckSpec.
+     * @param int $payloadEfficiency Efficiency payload.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    /**
+     * Проверка на производное восприятие.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function derivedCheckSlice(): CharacterRuleSlice
+    {
+        $flags = [
+            'damage_endurance' => false,
+            'willpower' => false,
+            'concentration_threshold' => false,
+            'concentration_token' => false,
+            'unstable_roll' => false,
+            'initiative' => false,
+            'dodge_soak' => false,
+        ];
+
+        return new CharacterRuleSlice(
+            1,
+            1,
+            'world',
+            [
+                new CharacterResolvedRule($this->ruleRecord('attention', 'characteristic', 'Attention', [
+                    ...$flags,
+                    'automatic' => true,
+                ]), []),
+                new CharacterResolvedRule($this->ruleRecord('reaction', 'characteristic', 'Reaction', [
+                    ...$flags,
+                    'automatic' => true,
+                ]), []),
+                new CharacterResolvedRule($this->ruleRecord('perception', 'characteristic', 'Perception', [
+                    ...$flags,
+                    'formula' => 'min(attention, reaction)',
+                ]), []),
+                new CharacterResolvedRule($this->ruleRecord('watch', 'check', 'Watch', [
+                    'allow_characteristic_override' => true,
+                    'characteristic_code' => 'perception',
+                    'allowed_modes' => 'both',
+                    'ordinary_root' => true,
+                    'concentration_token' => false,
+                    'willpower' => false,
+                    'unstable_check' => false,
+                    'hit_check' => false,
+                    'initiative' => true,
+                    'difficulty_input' => ['kind' => 'none', 'state_code' => ''],
+                ], [[
+                    'mechanic_id' => 5,
+                    'mechanic_payload' => [
+                        'type' => 'roll',
+                        'data' => ['diceCount' => 1, 'dieFaces' => 6, 'efficiency' => 3],
+                    ],
+                ]]), []),
+            ],
+            [],
+        );
+    }
+
+    /**
+     * Живая версия правила.
+     *
+     * @param string $code Код.
+     * @param string $type Тип.
+     * @param string $name Имя.
+     * @param array<string, mixed> $spec Документ.
+     * @param array<int, mixed> $mechanics Механики.
+     *
+     * @return RuleVersionRecord Версия.
+     */
+    private function ruleRecord(
+        string $code,
+        string $type,
+        string $name,
+        array $spec,
+        array $mechanics = [],
+    ): RuleVersionRecord {
+        return new RuleVersionRecord(
+            1,
+            1,
+            $code,
+            true,
+            $type,
+            $name,
+            '',
+            $spec,
+            [],
+            $mechanics,
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+    }
+
+    /**
      * Строит live hit-check с roll payload.
      *
      * @param int|null $defaultEfficiency Efficiency CheckSpec.

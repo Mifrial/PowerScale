@@ -48,11 +48,7 @@ export class AttackDamageService {
     return this.characteristicByFlag(rules, 'unstable_roll');
   }
 
-  initiativeRule(rules: Rule[]): Rule | null {
-    return this.characteristicByFlag(rules, 'initiative');
-  }
-
-  private characteristicByFlag(rules: Rule[], flag: 'willpower' | 'unstable_roll' | 'initiative'): Rule | null {
+  private characteristicByFlag(rules: Rule[], flag: 'willpower' | 'unstable_roll'): Rule | null {
     return (
       rules.find((candidate) => {
         const spec = candidate.spec as CharacteristicSpec | undefined;

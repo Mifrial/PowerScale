@@ -59,6 +59,33 @@ describe('ChatApi.sendMessage', () => {
   });
 });
 
+describe('ChatApi.sendSystemMessage', () => {
+  it('пишет через chat.sendMessage и возвращает kind', async () => {
+    const runAction = vi.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: 3,
+        chatId: 1,
+        userId: 1,
+        username: 'U',
+        content: 'Новый раунд: 1',
+        attachments: [],
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    });
+    const api = new ChatApi({ runAction } as unknown as Engine);
+    const sent = await api.sendSystemMessage(1, 'Новый раунд: 1', 'highlighted', { id: 'r1', kind: 'round' });
+    expect(runAction).toHaveBeenCalledWith('chat.sendMessage', {
+      chatId: 1,
+      content: 'Новый раунд: 1',
+      attachments: [{ type: 'chat_system', payload: { kind: 'highlighted', thread: { id: 'r1', kind: 'round' } } }],
+    });
+    expect(sent.kind).toBe('highlighted');
+    expect(sent.thread).toEqual({ id: 'r1', kind: 'round' });
+  });
+});
+
 describe('ChatApi.updateMessageVisibility', () => {
   it('зовёт chat.updateMessageVisibility', async () => {
     const runAction = vi.fn().mockResolvedValue({

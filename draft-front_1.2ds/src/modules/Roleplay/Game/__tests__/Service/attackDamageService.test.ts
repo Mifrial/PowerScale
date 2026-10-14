@@ -1098,7 +1098,7 @@ describe('applyAttackDamage', () => {
     expect(attackDamageService.willpowerRule([flagged])?.code).toBe('resolve');
   });
 
-  it('ловкость неустойчивости и запасная инициатива ищутся по флагу', () => {
+  it('ловкость неустойчивости ищется по флагу', () => {
     const named = {
       code: 'dexterity',
       type: 'characteristic',
@@ -1109,16 +1109,9 @@ describe('applyAttackDamage', () => {
       type: 'characteristic',
       spec: { type: 'characteristic', unstable_roll: true },
     } as Rule;
-    const initiative = {
-      code: 'awareness',
-      type: 'characteristic',
-      spec: { type: 'characteristic', initiative: true },
-    } as Rule;
 
     expect(attackDamageService.unstableRollRule([named])).toBeNull();
     expect(attackDamageService.unstableRollRule([unstable])?.code).toBe('agility');
-    expect(attackDamageService.initiativeRule([named])).toBeNull();
-    expect(attackDamageService.initiativeRule([initiative])?.code).toBe('awareness');
   });
 
   it('увечье ищется по флагу состояния', () => {

@@ -50,15 +50,28 @@ function fromSpec(value: RuleSpec | null): CheckSpec {
 
 const draft = ref<CheckSpec>(fromSpec(props.spec));
 
+function specJson(value: CheckSpec | RuleSpec | null): string {
+  return JSON.stringify(value);
+}
+
 watch(
   () => props.spec,
   (value) => {
-    draft.value = fromSpec(value);
+    const next = fromSpec(value);
+    if (specJson(next) === specJson(draft.value)) return;
+    draft.value = next;
   },
 );
 
-const specToEmit = computed<CheckSpec>(() => cloneData(draft.value));
-watch(specToEmit, (value) => emit('update:spec', value), { deep: true, immediate: true });
+watch(
+  draft,
+  (value) => {
+    const next = cloneData(value);
+    if (specJson(next) === specJson(props.spec)) return;
+    emit('update:spec', next);
+  },
+  { deep: true, immediate: true },
+);
 
 const parentOptions = computed(() =>
   props.rules
@@ -236,6 +249,14 @@ const versusPreview = computed(() =>
         hide-details="auto"
         class="mb-3"
         @update:model-value="draft.hit_check = $event === true"
+      />
+      <v-switch
+        :model-value="draft.initiative === true"
+        label="Это инициатива"
+        color="primary"
+        hide-details="auto"
+        class="mb-3"
+        @update:model-value="draft.initiative = $event === true"
       />
       <v-select
         v-model="difficultyKind"

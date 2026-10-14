@@ -58,6 +58,7 @@ final class GameBattles implements IGameBattles
      * @param bool $viewAll Ключ game.view_all.
      * @param string $idempotencyKey Ключ.
      * @param array $participants Состав.
+     * @param array<mixed>|null $rolls Способы инициативы или null.
      *
      * @return array<string, mixed> Итог.
      */
@@ -68,8 +69,13 @@ final class GameBattles implements IGameBattles
         bool $viewAll,
         string $idempotencyKey,
         array $participants,
+        ?array $rolls = null,
     ): array {
         $normalized = $this->normalize($participants);
+        $body = ['participants' => $normalized];
+        if ($rolls !== null) {
+            $body['rolls'] = $rolls;
+        }
 
         return $this->execute(
             $gameId,
@@ -77,12 +83,13 @@ final class GameBattles implements IGameBattles
             $editAll,
             $viewAll,
             $idempotencyKey,
-            ['participants' => $normalized],
-            fn (int $sessionId): array => $this->battleMutator->start(
+            $body,
+            fn (int $sessionId): array => $this->writeStart(
                 $gameId,
                 $sessionId,
                 $idempotencyKey,
                 $normalized,
+                $rolls,
             ),
         );
     }
@@ -541,6 +548,37 @@ final class GameBattles implements IGameBattles
         }
 
         return $sessionId;
+    }
+
+    /**
+     * Старт боя. Ревизия нужна, если сразу пишется порядок.
+     *
+     * @param int $gameId Игра.
+     * @param int $sessionId Сессия.
+     * @param string $idempotencyKey Ключ.
+     * @param list<array{type: string, id: int}> $participants Состав.
+     * @param array<mixed>|null $rolls Способы или null.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    private function writeStart(
+        int $gameId,
+        int $sessionId,
+        string $idempotencyKey,
+        array $participants,
+        ?array $rolls,
+    ): array {
+        $game = $this->games->get($gameId);
+
+        return $this->battleMutator->start(
+            $gameId,
+            $sessionId,
+            $idempotencyKey,
+            $participants,
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $rolls,
+        );
     }
 
     /**

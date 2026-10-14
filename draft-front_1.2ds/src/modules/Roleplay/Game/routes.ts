@@ -8,7 +8,7 @@ function rootCrumb(): BreadcrumbItem[] {
 
 function gameCrumb(to: RouteLocationNormalizedLoaded, suffix: string | null): BreadcrumbItem[] {
   const store = useGameStore();
-  const name = store.currentGame?.game.name || String(to.params.id ?? 'Игра');
+  const name = store.currentGame?.game?.name || String(to.params.id ?? 'Игра');
   const crumbs: BreadcrumbItem[] = [
     { title: 'Игры', to: '/games' },
     { title: name, to: `/games/${to.params.id}` },

@@ -9,7 +9,7 @@ import type { CharacterValidationResult } from '@/modules/Roleplay/Character/Dto
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
 import type { CharacterCustomRuleCreateRequest } from '@/modules/Roleplay/Character/Dto/CharacterCustomRuleCreateRequest';
 import type { CharacterCustomRuleUpdateRequest } from '@/modules/Roleplay/Character/Dto/CharacterCustomRuleUpdateRequest';
-import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
+import type { CharacterMigrateRequest } from '@/modules/Roleplay/Character/Dto/CharacterMigrateRequest';
 import type { CharacterMigrationApplyRequest } from '@/modules/Roleplay/Character/Dto/CharacterMigrationApplyRequest';
 import { CharacterApiError } from '@/modules/Roleplay/Character/Service/CharacterApiError';
 import { characterHttpSaveService } from '@/modules/Roleplay/Character/Service/Instance/characterHttpSaveService';
@@ -112,14 +112,20 @@ export class CharacterApi implements ICharacterApi {
     return this.requireData(res, 'Character update custom rule failed');
   }
 
-  async migrateCharacter(
-    id: number,
-    target: { toSpaceId: number; toRevision: number },
-    signal?: AbortSignal,
-  ): Promise<MigrationResult> {
-    const res = await this.engine.runAction<MigrationResult>('character.migrate', { id, ...target }, signal);
+  async migrateCharacter(id: number, request: CharacterMigrateRequest, signal?: AbortSignal): Promise<CharacterDetail> {
+    const body =
+      request.choices !== undefined && request.creationConfig !== undefined
+        ? characterHttpSaveService.migrateResumeBody(
+            id,
+            request.revision,
+            request.expectedVersion,
+            request.choices,
+            request.creationConfig,
+          )
+        : characterHttpSaveService.migrateRemapBody(id, request.revision, request.expectedVersion);
+    const res = await this.engine.runAction<unknown>('character.migrate', body, signal);
 
-    return this.requireData(res, 'Character migrate failed');
+    return characterHttpViewService.migratedDetailOf(this.requireData(res, 'Character migrate failed'));
   }
 
   async applyMigration(

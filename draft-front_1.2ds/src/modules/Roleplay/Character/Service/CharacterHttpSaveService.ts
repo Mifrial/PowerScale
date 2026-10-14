@@ -59,6 +59,40 @@ export class CharacterHttpSaveService {
     };
   }
 
+  migrateRemapBody(id: number, revision: number, expectedVersion: number): Record<string, unknown> {
+    return { id, revision, expectedVersion };
+  }
+
+  migrateResumeBody(
+    id: number,
+    revision: number,
+    expectedVersion: number,
+    choices: CharacterBuild,
+    config: CharacterCreationConfig,
+  ): Record<string, unknown> {
+    const limits: Record<string, unknown> = { os: config.osTotal, or: config.orTotal };
+
+    return {
+      id,
+      revision,
+      expectedVersion,
+      name: choices.name,
+      shortDescription: choices.shortDescription ?? '',
+      fullDescription: choices.fullDescription ?? '',
+      ageYears: choices.ageYears,
+      limits,
+      raceCode: choices.raceRuleCode ?? '',
+      characteristicPurchases: choices.characteristicPurchases.map((row) => ({
+        characteristicCode: row.characteristicCode,
+        cost: row.cost,
+      })),
+      abilities: this.abilityRows(choices.abilities),
+      inventory: choices.inventory.map((item) => this.inventoryRow(item)),
+      customRules: [],
+      money: choices.money,
+    };
+  }
+
   private choicesBody(
     choices: CharacterBuild,
     config: CharacterCreationConfig,

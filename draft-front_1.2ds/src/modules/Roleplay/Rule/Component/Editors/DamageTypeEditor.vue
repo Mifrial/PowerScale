@@ -4,7 +4,7 @@ import type { DamageTypeSpec } from '@/modules/Roleplay/Rule/Dto/Damage/DamageTy
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
-import { computed, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
@@ -29,8 +29,7 @@ const emit = defineEmits<{
 
 const draft = ref<DamageTypeSpec>(cloneData(damageTypeSpecService.fromRuleSpec(props.spec, props.code)));
 
-const specToEmit = computed<DamageTypeSpec>(() => cloneData(draft.value));
-watch(specToEmit, (value) => emit('update:spec', value), { deep: true, immediate: true });
+watch(draft, (value) => emit('update:spec', cloneData(value)), { deep: true, immediate: true });
 
 function setMaxSuccessRatingEnabled(enabled: boolean): void {
   draft.value.max_success_rating = enabled ? 3 : null;

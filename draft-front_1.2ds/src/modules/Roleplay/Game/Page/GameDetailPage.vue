@@ -73,7 +73,7 @@ const gameId = computed(() => {
   return Number(raw);
 });
 
-const memberIds = computed(() => detail.value?.members.map((member) => member.userId) ?? []);
+const memberIds = computed(() => detail.value?.members?.map((member) => member.userId) ?? []);
 
 // Заявки на вступление: текущий пользователь и его статус (для не-участников).
 const joinRequests = ref<GameJoinRequest[]>([]);
@@ -114,7 +114,7 @@ const isMember = computed(() => {
   const user = currentUser.value;
   if (!user) return false;
   const current = detail.value;
-  if (!current) return false;
+  if (!current?.game) return false;
   if (current.game.ownerId === user.id) return true;
 
   return memberIds.value.includes(user.id);
@@ -262,7 +262,7 @@ watch(isMember, (member) => {
 });
 
 watch(detail, (value) => {
-  if (!value) {
+  if (!value?.game) {
     spaceName.value = null;
 
     return;

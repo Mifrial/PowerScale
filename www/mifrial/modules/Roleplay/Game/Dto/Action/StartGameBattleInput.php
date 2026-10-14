@@ -17,6 +17,7 @@ final class StartGameBattleInput implements IActionInput
      * @param int $gameId Игра.
      * @param string $idempotencyKey Ключ повтора.
      * @param array $participants Состав.
+     * @param array<mixed>|null $rolls Способы инициативы или null.
      *
      * @return void
      */
@@ -24,6 +25,7 @@ final class StartGameBattleInput implements IActionInput
         public readonly int $gameId,
         public readonly string $idempotencyKey,
         public readonly array $participants,
+        public readonly ?array $rolls = null,
     ) {
     }
 }

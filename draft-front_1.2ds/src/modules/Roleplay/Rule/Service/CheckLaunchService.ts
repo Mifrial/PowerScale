@@ -1,5 +1,5 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { CHECK_INITIATIVE_CODE, CHECK_INJURY_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { CHECK_INJURY_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import type { CheckResolutionService } from '@/modules/Roleplay/Rule/Service/CheckResolutionService';
 
 export class CheckLaunchService {
@@ -12,7 +12,7 @@ export class CheckLaunchService {
     if (!spec || spec.dialog_launch === false) return false;
     const hitCheckCode = this.checkResolution.firstCheckCode(rules, 'hit_check');
     if (
-      rule.code === CHECK_INITIATIVE_CODE ||
+      spec.initiative === true ||
       rule.code === CHECK_INJURY_CODE ||
       (hitCheckCode !== '' && rule.code === hitCheckCode)
     ) {

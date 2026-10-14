@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSessionParticipants;
+use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Interface\Service\IGameSessionRoster;
+use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
 /**
@@ -17,11 +19,13 @@ final class GameSessionRoster implements IGameSessionRoster, ICharacterSessionPa
      * Создаёт чтение.
      *
      * @param GameSessionRepository $sessionRepository Строки.
+     * @param GameBattleRepository $battleRepository Бои сессии.
      *
      * @return void
      */
     public function __construct(
         private readonly GameSessionRepository $sessionRepository,
+        private readonly GameBattleRepository $battleRepository,
     ) {
     }
 
@@ -65,5 +69,27 @@ final class GameSessionRoster implements IGameSessionRoster, ICharacterSessionPa
     public function isActiveSessionParticipant(int $characterId): bool
     {
         return $this->sessionRepository->hasCharacter($characterId);
+    }
+
+    /**
+     * Последний неудалённый бой текущей сессии.
+     *
+     * @param int $gameId Игра.
+     *
+     * @return GameBattleRecord|null Строка или null.
+     */
+    public function findOpenBattle(int $gameId): ?GameBattleRecord
+    {
+        $sessionId = $this->sessionRepository->findSessionId($gameId);
+        if ($sessionId === null) {
+            return null;
+        }
+
+        $ids = $this->battleRepository->findIdsBySession($sessionId);
+        if ($ids === []) {
+            return null;
+        }
+
+        return $this->battleRepository->find($ids[array_key_last($ids)]);
     }
 }

@@ -13,11 +13,12 @@ import { getCurrentUserId, getCurrentUserSummary } from '@/modules/Core/Auth/Moc
 import { mockCreateCharacterDiscussion } from '@/modules/Messages/Chat/Mock/mockChat';
 import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_VISIBILITY_PRESETS';
 import { fetchRevision, fetchSpace, fetchSpaceByCode } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
+import { keywords as mockKeywords } from '@/modules/Roleplay/Keyword/Mock/mockKeywords';
 import { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
 import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import { characterPatchService } from '@/modules/Roleplay/Character/Service/Instance/characterPatchService';
-import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
+import type { CharacterMigrateRequest } from '@/modules/Roleplay/Character/Dto/CharacterMigrateRequest';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
@@ -786,35 +787,66 @@ export async function updateCharacter(
   return toViewerDetail(id);
 }
 
-/** Миграция на новую ревизию правил (расчёт, НЕ применяет): ремап по code, пересчёт, классификация. */
+/** Запись перевода на другую ревизию того же мира: remap без choices, resume — с телом листа. */
 export async function migrateCharacter(
   characterId: number,
-  target: { toSpaceId: number; toRevision: number },
-  _signal?: AbortSignal,
-): Promise<MigrationResult> {
+  request: CharacterMigrateRequest,
+  signal?: AbortSignal,
+): Promise<CharacterDetail> {
   await delay();
   const character = characters.find((entry) => entry.id === characterId);
   if (!character) throw new Error(`Character ${characterId} not found`);
   const version = versions[characterId];
-  const oldRules = (await fetchRevision(character.spaceId, version.rulesRevision)).rules;
-  const newRevision = await fetchRevision(target.toSpaceId, target.toRevision);
-  const space = await fetchSpace(target.toSpaceId);
+  if (actualVersionByCharacterId[characterId] !== request.expectedVersion) {
+    throw conflictError(characterId, request.expectedVersion);
+  }
+  if (request.revision === version.rulesRevision) {
+    throw new CharacterApiError('CHARACTER_INVALID', 'Character revision cannot stay');
+  }
+  if (request.choices !== undefined && request.creationConfig !== undefined) {
+    const space = await fetchSpace(character.spaceId);
+    const target = await fetchRevision(character.spaceId, request.revision);
+    const next = characterEditorService.toVersion(
+      {
+        ...request.choices,
+        spaceId: character.spaceId,
+        spaceCode: space.code,
+        rulesRevision: request.revision,
+      },
+      target.rules,
+      request.creationConfig,
+      mockKeywords,
+    );
 
-  return characterMigrationService.migrate({
+    return applyMigration(characterId, next, signal, request.expectedVersion);
+  }
+  const oldRules = (await fetchRevision(character.spaceId, version.rulesRevision)).rules;
+  const newRevision = await fetchRevision(character.spaceId, request.revision);
+  const space = await fetchSpace(character.spaceId);
+  const migrated = characterMigrationService.migrate({
     version,
     oldRules,
     oldSpaceId: character.spaceId,
     newRules: newRevision.rules,
-    newSpaceId: target.toSpaceId,
+    newSpaceId: character.spaceId,
     newSpaceCode: space.code,
-    newRevision: target.toRevision,
-    // Standalone: реальные лимиты = стартовые лимиты версии (в игре — лимит игры + гранты, модуль игр).
+    newRevision: request.revision,
     effectiveLimits: {
       osTotal: version.budgets?.osTotal ?? null,
       orTotal: version.points.orTotal,
       moneyBudget: version.budgets?.moneyBudget ?? null,
     },
+    keywords: mockKeywords,
   });
+  if (migrated.kind === 'conflicts') {
+    throw new CharacterApiError(
+      'CHARACTER_INVALID',
+      migrated.problems.map((problem) => problem.detail ?? problem.label).join('; ') ||
+        'Character migration has conflicts',
+    );
+  }
+
+  return applyMigration(characterId, migrated.version, signal, request.expectedVersion);
 }
 
 /** Применение мигрированной версии: версия обновляется, предыдущая сохраняется для сравнения. */

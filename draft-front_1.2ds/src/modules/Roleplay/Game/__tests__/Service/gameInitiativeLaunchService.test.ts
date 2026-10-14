@@ -11,6 +11,7 @@ describe('gameInitiativeLaunchService', () => {
   beforeEach(() => {
     gamePhpBattleContext.battleId = null;
     gamePhpBattleContext.battleVersion = 1;
+    gamePhpBattleContext.lastOrder = null;
   });
 
   it('не бросает, если бой уже открыт', async () => {
@@ -26,22 +27,19 @@ describe('gameInitiativeLaunchService', () => {
     ).rejects.toThrow('Бой уже открыт');
   });
 
-  it('стартует сессию только если её нет, затем бой и бросок', async () => {
+  it('стартует сессию только если её нет, затем бой с порядком', async () => {
     const startGameSession = vi.fn(async () => {
       return { kind: 'transition' as const, conflict: undefined };
     });
     const startGameBattle = vi.fn(async () => {
-      gamePhpBattleContext.rememberBattle(4, 1);
+      gamePhpBattleContext.rememberBattle(4, 2);
+      gamePhpBattleContext.rememberOrder([
+        { type: 'character', id: 10, difficulty: null, roll: { base: 5, size: 0 }, success: true, rating: 5 },
+      ]);
 
       return { kind: 'transition' as const };
     });
-    const rollInitiative = vi.fn(async () => ({
-      battleId: 4,
-      version: 2,
-      order: [
-        { type: 'character' as const, id: 10, difficulty: null, roll: { base: 5, size: 0 }, success: true, rating: 5 },
-      ],
-    }));
+    const rollInitiative = vi.fn();
 
     const launched = await gameInitiativeLaunchService.launch(
       api({ startGameSession, startGameBattle, rollInitiative }),
@@ -53,7 +51,10 @@ describe('gameInitiativeLaunchService', () => {
 
     expect(startGameSession).toHaveBeenCalledOnce();
     expect(startGameBattle).toHaveBeenCalledOnce();
-    expect(rollInitiative).toHaveBeenCalledOnce();
+    expect(startGameBattle.mock.calls[0]?.[0]).toMatchObject({
+      rolls: [{ type: 'character', id: 10, method: 'characteristic' }],
+    });
+    expect(rollInitiative).not.toHaveBeenCalled();
     expect(launched.scale.participants[0]?.name).toBe('Герой');
     expect(launched.orderMessage).toContain('Герой');
   });

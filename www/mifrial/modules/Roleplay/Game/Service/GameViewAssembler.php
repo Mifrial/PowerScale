@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameMemberRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 
@@ -44,10 +45,11 @@ final class GameViewAssembler
      *
      * @param GameRecord $record Строка.
      * @param bool $sessionRunning Текущая сессия есть.
+     * @param GameBattleRecord|null $battle Открытый бой или null.
      *
      * @return array<string, mixed> JSON.
      */
-    public function detail(GameRecord $record, bool $sessionRunning): array
+    public function detail(GameRecord $record, bool $sessionRunning, ?GameBattleRecord $battle = null): array
     {
         return $this->listItem($record, $sessionRunning) + [
             'description' => $record->getDescription(),
@@ -57,6 +59,29 @@ final class GameViewAssembler
             'moneyLimit' => $record->getMoneyLimit(),
             'createdAt' => $record->getCreatedAt()->toUnix(),
             'updatedAt' => $record->getUpdatedAt()->toUnix(),
+            'battle' => $this->battleOf($battle),
+        ];
+    }
+
+    /**
+     * Снимок открытого боя или null.
+     *
+     * @param GameBattleRecord|null $battle Строка.
+     *
+     * @return array<string, mixed>|null JSON.
+     */
+    private function battleOf(?GameBattleRecord $battle): ?array
+    {
+        if ($battle === null) {
+            return null;
+        }
+
+        return [
+            'battleId' => $battle->getId(),
+            'version' => $battle->getStateVersion(),
+            'order' => $battle->getTurnOrder(),
+            'activeIndex' => $battle->getActiveIndex(),
+            'round' => $battle->getRound(),
         ];
     }
 

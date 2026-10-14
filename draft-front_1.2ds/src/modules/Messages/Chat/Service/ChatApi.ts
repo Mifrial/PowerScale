@@ -9,6 +9,7 @@ import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 import { chatSpeakerAttachmentService } from '@/modules/Messages/Chat/Service/Instance/chatSpeakerAttachmentService';
+import { chatSystemAttachmentService } from '@/modules/Messages/Chat/Service/Instance/chatSystemAttachmentService';
 
 /**
  * Real Chat: action и страница; SSE не через runAction.
@@ -32,7 +33,7 @@ export class ChatApi implements IChatApi {
     const res = await this.engine.runAction<ChatMessagePage>('chat.findMessagePage', { chatId, limit, offset });
     if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to load messages');
 
-    return chatSpeakerAttachmentService.pageOf(res.data);
+    return chatSystemAttachmentService.pageOf(chatSpeakerAttachmentService.pageOf(res.data));
   }
 
   async getMessages(chatId: number, limit: number, offset: number): Promise<ChatMessage[]> {
@@ -78,12 +79,18 @@ export class ChatApi implements IChatApi {
   }
 
   async sendSystemMessage(
-    _chatId: number,
-    _content: string,
-    _kind?: ChatMessage['kind'],
-    _thread?: ChatThreadRef,
+    chatId: number,
+    content: string,
+    kind: ChatMessage['kind'] = 'default',
+    thread?: ChatThreadRef,
   ): Promise<ChatMessage> {
-    throw new Error('chat.sendSystemMessage is not an action');
+    const message = await this.sendMessage(
+      chatId,
+      content,
+      chatSystemAttachmentService.attachmentsWithSystem([], kind, thread),
+    );
+
+    return chatSystemAttachmentService.messageOf(message);
   }
 
   async markChatRead(chatId: number): Promise<void> {

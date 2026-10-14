@@ -2,7 +2,7 @@
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { ItemModifierTypeSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierTypeSpec';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
-import { computed, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
@@ -36,9 +36,7 @@ watch(
   },
 );
 
-const specToEmit = computed<ItemModifierTypeSpec>(() => cloneData(draft.value));
-
-watch(specToEmit, (value) => emit('update:spec', value), { deep: true, immediate: true });
+watch(draft, (value) => emit('update:spec', cloneData(value)), { deep: true, immediate: true });
 </script>
 
 <template>

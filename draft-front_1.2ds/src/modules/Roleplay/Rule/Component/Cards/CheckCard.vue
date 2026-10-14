@@ -75,6 +75,7 @@ function modesLabel(): string {
       <div v-if="spec.willpower === true" class="text-body-2 mt-1">Проверка воли</div>
       <div v-if="spec.unstable_check === true" class="text-body-2 mt-1">Проверка ловкости при неустойчивости</div>
       <div v-if="spec.hit_check === true" class="text-body-2 mt-1">Проверка удара</div>
+      <div v-if="spec.initiative === true" class="text-body-2 mt-1">Это инициатива</div>
       <div v-if="spec.default_efficiency != null" class="text-body-2 mt-1">
         Эффективность по умолчанию: <strong>{{ spec.default_efficiency }}</strong>
       </div>

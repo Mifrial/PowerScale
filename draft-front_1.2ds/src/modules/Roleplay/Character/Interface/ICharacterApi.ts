@@ -7,7 +7,7 @@ import type { CharacterValidationResult } from '@/modules/Roleplay/Character/Dto
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
 import type { CharacterCustomRuleCreateRequest } from '@/modules/Roleplay/Character/Dto/CharacterCustomRuleCreateRequest';
 import type { CharacterCustomRuleUpdateRequest } from '@/modules/Roleplay/Character/Dto/CharacterCustomRuleUpdateRequest';
-import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
+import type { CharacterMigrateRequest } from '@/modules/Roleplay/Character/Dto/CharacterMigrateRequest';
 import type { CharacterMigrationApplyRequest } from '@/modules/Roleplay/Character/Dto/CharacterMigrationApplyRequest';
 
 export interface ICharacterApi {
@@ -24,11 +24,7 @@ export interface ICharacterApi {
     data: CharacterCustomRuleUpdateRequest,
     signal?: AbortSignal,
   ): Promise<CharacterDetail>;
-  migrateCharacter(
-    id: number,
-    target: { toSpaceId: number; toRevision: number },
-    signal?: AbortSignal,
-  ): Promise<MigrationResult>;
+  migrateCharacter(id: number, request: CharacterMigrateRequest, signal?: AbortSignal): Promise<CharacterDetail>;
   applyMigration(id: number, request: CharacterMigrationApplyRequest, signal?: AbortSignal): Promise<CharacterDetail>;
   updateOwnerNotes(id: number, notes: string, signal?: AbortSignal): Promise<CharacterDetail>;
 }

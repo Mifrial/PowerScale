@@ -256,7 +256,11 @@ final class GameHttp
      */
     private function card(GameRecord $record): array
     {
-        return $this->viewAssembler->detail($record, $this->sessionRoster->hasSession($record->getId()));
+        return $this->viewAssembler->detail(
+            $record,
+            $this->sessionRoster->hasSession($record->getId()),
+            $this->sessionRoster->findOpenBattle($record->getId()),
+        );
     }
 
     /**

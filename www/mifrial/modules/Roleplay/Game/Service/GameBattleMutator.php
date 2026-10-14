@@ -48,22 +48,48 @@ final class GameBattleMutator
      * @param int $sessionId Сессия.
      * @param string $idempotencyKey Ключ.
      * @param list<array{type: string, id: int}> $participants Состав.
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param array<mixed>|null $rolls Способы инициативы или null.
      *
      * @return array<string, mixed> Итог.
      *
      * @throws GameNotFoundException Если участника нет.
-     * @throws GameInvalidException Если поле.
+     * @throws GameInvalidException Если поле или проверка.
      * @throws GameBattleConflictException Если ключ занят.
      */
-    public function start(int $gameId, int $sessionId, string $idempotencyKey, array $participants): array
-    {
+    public function start(
+        int $gameId,
+        int $sessionId,
+        string $idempotencyKey,
+        array $participants,
+        int $spaceId,
+        int $rulesRevision,
+        ?array $rolls = null,
+    ): array {
         $this->assertMembers($gameId, $participants);
         $battle = $this->battles->add($sessionId);
         $this->battles->replaceParticipants($battle->getId(), $participants);
-        $result = $this->opened($battle->getId(), 1);
-        $this->commands->add($gameId, $sessionId, $idempotencyKey, [
-            'participants' => $participants,
-        ], $result);
+        $version = 1;
+        $order = null;
+        if ($rolls !== null) {
+            $order = $this->order->rollAll($spaceId, $rulesRevision, $participants, $rolls);
+            $saved = $this->battles->advanceVersion($battle->getId(), 1);
+            $this->battles->replaceTurnOrder($battle->getId(), $order, 0, 1);
+            $version = $saved->getStateVersion();
+        }
+
+        $result = $this->opened($battle->getId(), $version);
+        if ($order !== null) {
+            $result['order'] = $order;
+        }
+
+        $body = ['participants' => $participants];
+        if ($rolls !== null) {
+            $body['rolls'] = $rolls;
+        }
+
+        $this->commands->add($gameId, $sessionId, $idempotencyKey, $body, $result);
 
         return $result;
     }

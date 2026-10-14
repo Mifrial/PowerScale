@@ -36,4 +36,18 @@ describe('gameInitiativeSpecService', () => {
   it('без карточки не подставляет код', () => {
     expect(gameInitiativeSpecService.defaultCharacteristicCode([])).toBe('');
   });
+
+  it('флаг на характеристике без проверки инициативы не даёт дефолт', () => {
+    const rules = [
+      rule({
+        code: 'perception',
+        type: 'characteristic',
+        name: 'Восприятие',
+        spec: { type: 'characteristic', initiative: true },
+      }),
+    ];
+
+    expect(gameInitiativeSpecService.defaultCharacteristicCode(rules)).toBe('');
+    expect(gameInitiativeSpecService.initiativeCheckCode(rules)).toBe('');
+  });
 });

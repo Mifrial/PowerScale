@@ -31,8 +31,7 @@ const emit = defineEmits<{
 }>();
 
 const draft = ref<AgeSpec>(ageSpecService.fromRuleSpec(props.spec));
-const specToEmit = computed<AgeSpec>(() => cloneData(draft.value));
-watch(specToEmit, (value) => emit('update:spec', value), { deep: true, immediate: true });
+watch(draft, (value) => emit('update:spec', cloneData(value)), { deep: true, immediate: true });
 
 const characteristics = computed(() => ruleReferenceService.characteristicOptions(props.rules, props.spaceId));
 

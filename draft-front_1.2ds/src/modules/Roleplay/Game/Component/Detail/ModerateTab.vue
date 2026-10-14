@@ -18,6 +18,7 @@ import CharacterSubmissionSlider from '@/modules/Roleplay/Game/Component/Detail/
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
 import { characterHttpViewService } from '@/modules/Roleplay/Character/init';
+import { gameMembershipReviewService } from '@/modules/Roleplay/Game/Service/Instance/gameMembershipReviewService';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -49,13 +50,12 @@ const sliderOpen = ref(false);
 const sliderTarget = ref<GameCharacterMembership | null>(null);
 
 const queueMemberships = computed(() =>
-  allMemberships.value.filter((membership) => {
-    if (membership.membershipStatus === 'submitted') return true;
-    if (membership.membershipStatus !== 'active') return false;
-    if (membership.reviewState === 'returned') return true;
-
-    return moderationById.value[membership.characterId]?.diff?.hasChanges ?? false;
-  }),
+  allMemberships.value.filter((membership) =>
+    gameMembershipReviewService.inModerationQueue(
+      membership,
+      moderationById.value[membership.characterId]?.diff?.hasChanges,
+    ),
+  ),
 );
 
 function resolve(ruleCode: string): string {

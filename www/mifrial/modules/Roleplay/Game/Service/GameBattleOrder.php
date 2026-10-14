@@ -189,7 +189,7 @@ final class GameBattleOrder
             'solo',
             $this->sheet(['type' => $item['type'], 'id' => $item['id']]),
             null,
-            $this->overrideOf($spaceId, $rulesRevision, $check, $item),
+            $this->overrideOf($check, $item),
         );
 
         return $head + $thrown;
@@ -198,19 +198,14 @@ final class GameBattleOrder
     /**
      * Смена пула или null.
      *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
      * @param CheckSpec $check Карточка.
      * @param array<string, mixed> $item Способ.
      *
      * @return GameCheckThrowOverride|null Смена.
      *
      * @throws GameInvalidException Если override или код чужие.
-     * @throws GameNotFoundException Если ревизии нет.
      */
     private function overrideOf(
-        int $spaceId,
-        int $rulesRevision,
         CheckSpec $check,
         array $item,
     ): ?GameCheckThrowOverride {
@@ -232,9 +227,7 @@ final class GameBattleOrder
             return null;
         }
 
-        return new GameCheckThrowOverride(
-            $this->roll->findInitiativeCharacteristicCode($spaceId, $rulesRevision),
-        );
+        throw new GameInvalidException('Game initiative characteristic is invalid');
     }
 
     /**

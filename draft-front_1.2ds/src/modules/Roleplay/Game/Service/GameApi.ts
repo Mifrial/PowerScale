@@ -81,6 +81,8 @@ export class GameApi implements IGameApi {
 
   async getGame(id: number, signal?: AbortSignal): Promise<GameDetail> {
     const row = await this.requireData<unknown>('game.get', { id }, signal);
+    this.rememberPhpBattle(id, row);
+    await this.applyPhpBattleNames(id, signal);
 
     return this.detailWithMembers(gamePhpCardService.detailOf(row), signal);
   }
@@ -103,37 +105,14 @@ export class GameApi implements IGameApi {
       { gameId: command.gameId },
       signal,
     );
+    if (res.error?.code === 'GAME_CONFLICT') {
+      return this.phpSessionTransition(command, 'already_active', 'session_already_active');
+    }
     if (res.error) throw GameApiError.fromActionError(res.error);
     if (!res.data) throw new GameApiError('GAME_EMPTY_RESPONSE', 'Game session start failed');
     if ('kind' in res.data) return res.data;
 
-    return {
-      kind: 'transition',
-      commandId: command.commandId,
-      status: 'created',
-      snapshot: {
-        gameId: command.gameId,
-        session: {
-          gameId: command.gameId,
-          sessionId: 'php',
-          status: 'active',
-          sessionStateVersion: 1,
-          participantEntityKeys: [],
-          activeBattleId: null,
-          sessionMarkers: {},
-          startedAt: '',
-          updatedAt: '',
-        },
-        battle: null,
-      },
-      transition: {
-        type: 'session_created',
-        sessionId: 'php',
-        battleId: null,
-        endedBattleId: null,
-        cleanup: null,
-      },
-    };
+    return this.phpSessionTransition(command, 'created', 'session_created');
   }
 
   async startGameBattle(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult> {
@@ -142,13 +121,15 @@ export class GameApi implements IGameApi {
     }
     const participants = command.participants ?? [];
     const res = await this.engine.runAction<
-      { battleId: number; version: number; ended: boolean } | GameLifecycleResult
+      | { battleId: number; version: number; ended: boolean; order?: GameInitiativeOrderEntry[] }
+      | GameLifecycleResult
     >(
       'game.startBattle',
       {
         gameId: command.gameId,
         idempotencyKey: command.commandId,
         participants,
+        ...(command.rolls !== undefined ? { rolls: command.rolls } : {}),
       },
       signal,
     );
@@ -156,6 +137,10 @@ export class GameApi implements IGameApi {
     if (!res.data) throw new GameApiError('GAME_EMPTY_RESPONSE', 'Game battle start failed');
     if ('kind' in res.data) return res.data;
     gamePhpBattleContext.rememberBattle(res.data.battleId, res.data.version);
+    if (res.data.order !== undefined) {
+      gamePhpBattleContext.rememberOrder(res.data.order);
+      gamePhpBattleContext.rememberScale(this.scaleOf(command.gameId, res.data.order, 0, 1));
+    }
     const battleIdText = String(res.data.battleId);
 
     return {
@@ -217,10 +202,10 @@ export class GameApi implements IGameApi {
   }
 
   async stopGameSession(gameId: number, signal?: AbortSignal): Promise<GameDetail> {
-    const res = await this.engine.runAction<GameDetail>('game.stopSession', { gameId }, signal);
-    if (!res.data) throw new Error('Game stop session failed');
+    const row = await this.requireData<unknown>('game.stopSession', { gameId }, signal);
+    gamePhpBattleContext.clear();
 
-    return res.data;
+    return this.detailWithMembers(gamePhpCardService.detailOf(row), signal);
   }
 
   async getGameStateSnapshot(gameId: number, _signal?: AbortSignal): Promise<GameStateSnapshot> {
@@ -1043,6 +1028,40 @@ export class GameApi implements IGameApi {
     return result;
   }
 
+  private phpSessionTransition(
+    command: GameLifecycleCommand,
+    status: 'created' | 'already_active',
+    type: 'session_created' | 'session_already_active',
+  ): GameLifecycleResult {
+    return {
+      kind: 'transition',
+      commandId: command.commandId,
+      status,
+      snapshot: {
+        gameId: command.gameId,
+        session: {
+          gameId: command.gameId,
+          sessionId: 'php',
+          status: 'active',
+          sessionStateVersion: 1,
+          participantEntityKeys: [],
+          activeBattleId: null,
+          sessionMarkers: {},
+          startedAt: '',
+          updatedAt: '',
+        },
+        battle: null,
+      },
+      transition: {
+        type,
+        sessionId: 'php',
+        battleId: null,
+        endedBattleId: null,
+        cleanup: null,
+      },
+    };
+  }
+
   private async detailWithMembers(detail: GameDetail, signal?: AbortSignal): Promise<GameDetail> {
     detail.members = await this.readMemberList(detail.game.id, signal);
 
@@ -1126,5 +1145,72 @@ export class GameApi implements IGameApi {
       olBonus: Number(row.olBonus ?? 0),
       updatedAt: '',
     };
+  }
+
+  private rememberPhpBattle(gameId: number, row: unknown): void {
+    if (row === null || typeof row !== 'object') return;
+    const battle = (row as Record<string, unknown>).battle;
+    if (battle === null || typeof battle !== 'object') {
+      gamePhpBattleContext.clear();
+
+      return;
+    }
+    const record = battle as Record<string, unknown>;
+    const battleId = record.battleId;
+    const version = record.version;
+    if (typeof battleId !== 'number' || typeof version !== 'number') return;
+    gamePhpBattleContext.rememberBattle(battleId, version);
+    const order = Array.isArray(record.order) ? (record.order as GameInitiativeOrderEntry[]) : [];
+    if (order.length > 0) {
+      gamePhpBattleContext.rememberOrder(order);
+      const activeIndex = typeof record.activeIndex === 'number' ? record.activeIndex : 0;
+      const round = typeof record.round === 'number' && record.round > 0 ? record.round : 1;
+      gamePhpBattleContext.rememberScale(this.scaleOf(gameId, order, activeIndex, round));
+    }
+  }
+
+  private scaleOf(
+    gameId: number,
+    order: GameInitiativeOrderEntry[],
+    activeIndex: number,
+    round: number,
+  ): GameInitiative {
+    return {
+      gameId,
+      active: order.length > 0,
+      participants: order.map((entry) => ({
+        id: `${entry.type}:${entry.id}`,
+        name: `${entry.type}:${entry.id}`,
+        kind: entry.type,
+        entityId: entry.id,
+      })),
+      activeIndex,
+      round,
+      updatedAt: '',
+    };
+  }
+
+  private async applyPhpBattleNames(gameId: number, signal?: AbortSignal): Promise<void> {
+    const scale = gamePhpBattleContext.getScale();
+    if (scale === null) return;
+    try {
+      const roster = await this.getRoster({ gameId }, signal);
+      const names = new Map<string, string>();
+      for (const character of roster.characters) {
+        names.set(`character:${character.id}`, character.name);
+      }
+      for (const npc of roster.npcs) {
+        names.set(`npc:${npc.id}`, npc.name);
+      }
+      gamePhpBattleContext.rememberScale({
+        ...scale,
+        participants: scale.participants.map((participant) => ({
+          ...participant,
+          name: names.get(participant.id) || participant.name,
+        })),
+      });
+    } catch {
+      // Имена состава недоступны — в шкале остаётся ключ type:id.
+    }
   }
 }

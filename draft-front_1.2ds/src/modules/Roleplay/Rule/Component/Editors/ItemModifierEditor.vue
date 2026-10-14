@@ -49,9 +49,7 @@ watch(
   },
 );
 
-const specToEmit = computed<ItemModifierSpec>(() => cloneData(draft.value));
-
-watch(specToEmit, (value) => emit('update:spec', value), { deep: true, immediate: true });
+watch(draft, (value) => emit('update:spec', cloneData(value)), { deep: true, immediate: true });
 
 /** Селект-опции признаков (id → код → вариант). */
 const codeOptions = computed(() =>

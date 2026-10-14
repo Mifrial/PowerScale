@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import { CharacterMigrationService } from '@/modules/Roleplay/Character/Service/CharacterMigrationService';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
@@ -436,5 +437,81 @@ describe('CharacterMigrationService', () => {
     // Значение характеристики, ограниченное потолком снаряжения (щит: Сила − 3) — с пояснением.
     const dexterity = result.diffs.find((diff) => diff.label === 'Ловкость');
     expect(dexterity?.explanation).toContain('потолок');
+  });
+
+  it('derived has_ability: без keywords удар сброшен, со справочником — нет', () => {
+    const catalog: Keyword[] = [{ id: 1, code: 'section-melee', name: 'Ближний бой', description: '', active: true }];
+    const method: Rule = {
+      ...base(8, 'melee-method', 'ability', 'Фехтование', {
+        type: 'skill',
+        zones: { os: { kind: 'array', levels_cost: [2] } },
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+      }),
+      keywordIds: [1],
+    };
+    const derived = base(9, 'skill-melee', 'ability', 'Навыки боя', {
+      type: 'skill',
+      zones: {},
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+      derived_level: { source_keyword: 'section-melee', thresholds: [2, 8, 16] },
+    });
+    const strike = base(10, 'power-strike', 'ability', 'Силовой удар', {
+      type: 'action',
+      zones: { os: { kind: 'array', levels_cost: [1] } },
+      requirements: [{ level: 1, requirements: [{ type: 'has_ability', ability_code: 'skill-melee', min_level: 1 }] }],
+      grants: [],
+      parent_ability_code: null,
+      action_components: [],
+    });
+    const rules = [...makeRules(), method, derived, strike];
+    const version: CharacterVersion = {
+      ...makeVersion(),
+      abilities: [
+        { ruleCode: 'toughness', level: 1 },
+        { ruleCode: 'melee-method', level: 1 },
+        { ruleCode: 'power-strike', level: 1 },
+      ],
+    };
+    const limits = {
+      osTotal: version.budgets?.osTotal ?? null,
+      orTotal: version.points.orTotal,
+      moneyBudget: version.budgets?.moneyBudget ?? null,
+    };
+    const withoutKeywords = service.migrate({
+      version,
+      oldRules: rules,
+      oldSpaceId: 1,
+      newRules: rules,
+      newSpaceId: 1,
+      newSpaceCode: 'space',
+      newRevision: 1,
+      effectiveLimits: limits,
+    });
+    expect(withoutKeywords.version.abilities.some((ability) => ability.ruleCode === 'power-strike')).toBe(false);
+    expect(
+      withoutKeywords.problems.some(
+        (problem) => problem.kind === 'unmetRequirement' && problem.label === 'Силовой удар',
+      ),
+    ).toBe(true);
+
+    const withKeywords = service.migrate({
+      version,
+      oldRules: rules,
+      oldSpaceId: 1,
+      newRules: rules,
+      newSpaceId: 1,
+      newSpaceCode: 'space',
+      newRevision: 1,
+      effectiveLimits: limits,
+      keywords: catalog,
+    });
+    expect(withKeywords.version.abilities.some((ability) => ability.ruleCode === 'power-strike')).toBe(true);
+    expect(
+      withKeywords.problems.some((problem) => problem.kind === 'unmetRequirement' && problem.label === 'Силовой удар'),
+    ).toBe(false);
   });
 });

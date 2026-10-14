@@ -37,7 +37,7 @@ final class GameProcessPortFactory
         return new GameProcesses(
             $this->games($serviceLocator),
             new GameSessionRepository($gateway),
-            new GameSessionRoster(new GameSessionRepository($gateway)),
+            new GameSessionRoster(new GameSessionRepository($gateway), new GameBattleRepository($gateway)),
             new GameNpcRepository($gateway),
             new GameBattleRepository($gateway),
             new GameProcessRepository($gateway),

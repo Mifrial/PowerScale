@@ -71,7 +71,6 @@ function fromSpec(value: RuleSpec | null): {
   concentrationThreshold: boolean;
   concentrationToken: boolean;
   unstableRoll: boolean;
-  initiative: boolean;
   dodgeSoak: boolean;
 } {
   const spec = value && 'type' in value && value.type === 'characteristic' ? (value as CharacteristicSpec) : null;
@@ -93,7 +92,6 @@ function fromSpec(value: RuleSpec | null): {
     concentrationThreshold: spec?.concentration_threshold === true,
     concentrationToken: spec?.concentration_token === true,
     unstableRoll: spec?.unstable_roll === true,
-    initiative: spec?.initiative === true,
     dodgeSoak: spec?.dodge_soak === true,
   };
 }
@@ -115,7 +113,6 @@ const willpower = ref(loaded.willpower);
 const concentrationThreshold = ref(loaded.concentrationThreshold);
 const concentrationToken = ref(loaded.concentrationToken);
 const unstableRoll = ref(loaded.unstableRoll);
-const initiative = ref(loaded.initiative);
 const dodgeSoak = ref(loaded.dodgeSoak);
 
 const availableCharacteristics = computed(() => {
@@ -156,7 +153,6 @@ const specToEmit = computed<CharacteristicSpec>(() => {
   if (concentrationThreshold.value) spec.concentration_threshold = true;
   if (concentrationToken.value) spec.concentration_token = true;
   if (unstableRoll.value) spec.unstable_roll = true;
-  if (initiative.value) spec.initiative = true;
   if (dodgeSoak.value) spec.dodge_soak = true;
 
   return spec;
@@ -212,7 +208,6 @@ watch(specToEmit, (value) => emit('update:spec', cloneData(value)), { deep: true
             hide-details
             class="mt-2"
           />
-          <v-switch v-model="initiative" label="Запасная инициатива" color="primary" hide-details class="mt-2" />
           <v-switch v-model="dodgeSoak" label="Поглощение уклонения" color="primary" hide-details class="mt-2" />
           <v-switch
             v-if="automatic"

@@ -51,25 +51,22 @@ export class GameInitiativeLaunchService {
       expectedSessionStateVersion: 1,
       payload: {},
       participants,
+      rolls,
     });
     if (battleResult.kind === 'conflict') {
       throw new Error(battleResult.conflict.code);
     }
 
-    const battleId = gamePhpBattleContext.battleId;
-    if (battleId === null) {
+    if (gamePhpBattleContext.battleId === null) {
       throw new Error('Бой не открыт');
     }
 
-    const rolled = await api.rollInitiative({
-      gameId,
-      battleId,
-      idempotencyKey: createRandomId(),
-      expectedVersion: gamePhpBattleContext.battleVersion,
-      rolls,
-    });
+    const order = gamePhpBattleContext.takeOrder();
+    if (order === null) {
+      throw new Error('Порядок инициативы не записан');
+    }
 
-    const ordered = this.participantsOf(rolled.order, names);
+    const ordered = this.participantsOf(order, names);
     const scale: GameInitiative = {
       gameId,
       active: true,
@@ -81,7 +78,7 @@ export class GameInitiativeLaunchService {
 
     return {
       scale,
-      orderMessage: this.orderMessage(rolled.order, ordered),
+      orderMessage: this.orderMessage(order, ordered),
       firstName: ordered[0]?.name ?? null,
     };
   }

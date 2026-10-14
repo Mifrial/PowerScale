@@ -18,6 +18,7 @@ interface IGameBattles
      * @param bool $viewAll Ключ game.view_all.
      * @param string $idempotencyKey Ключ повтора.
      * @param array $participants Пары type/id.
+     * @param array<mixed>|null $rolls Способы инициативы или null.
      *
      * @return array<string, mixed> Итог без листа.
      */
@@ -28,6 +29,7 @@ interface IGameBattles
         bool $viewAll,
         string $idempotencyKey,
         array $participants,
+        ?array $rolls = null,
     ): array;
 
     /**

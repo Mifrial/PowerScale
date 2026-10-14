@@ -57,7 +57,7 @@ final class GameBattlePortFactory
                 new GameBattleRepository($gateway),
                 new GameBattleCommandRepository($gateway),
                 new GameNpcRepository($gateway),
-                new GameSessionRoster(new GameSessionRepository($gateway)),
+                new GameSessionRoster(new GameSessionRepository($gateway), new GameBattleRepository($gateway)),
                 new GameProcessRepository($gateway),
                 $order,
             ),

@@ -22,7 +22,14 @@ describe('checkLaunch', () => {
   it('скрывает инициативу, увечье и удар', () => {
     const rules = [
       check('check-simple'),
-      check('check-initiative'),
+      check('check-initiative', {
+        spec: {
+          type: 'check',
+          difficulty_input: { kind: 'ask' },
+          allowed_modes: 'both',
+          initiative: true,
+        },
+      }),
       check('check-injury', {
         spec: { type: 'check', difficulty_input: { kind: 'ask' }, allowed_modes: 'solo' },
       }),

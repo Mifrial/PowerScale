@@ -17,6 +17,7 @@ import type { Character } from '@/modules/Roleplay/Character/Dto/Character';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameRealtimeEvent } from '@/modules/Roleplay/Game/Dto/GameRealtimeEvent';
+import type { GameSheets } from '@/modules/Roleplay/Game/Dto/GameSheets';
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
 import SheetVisibilityDialog from '@/modules/Roleplay/Game/Component/Detail/SheetVisibilityDialog.vue';
 import CharacterMigrationDialog from '@/modules/Roleplay/Game/Component/Detail/CharacterMigrationDialog.vue';
@@ -24,6 +25,7 @@ import { SheetCard, characterHttpViewService } from '@/modules/Roleplay/Characte
 import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 import { UniqueRulesTab } from '@/modules/Roleplay/Character/init';
 import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { needsCharacterMigration } from '@/modules/Roleplay/Game/Utils/membershipRevision';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -50,6 +52,7 @@ const catalog = useUserCatalog();
 const memberships = ref<GameCharacterMembership[]>([]);
 const characterById = ref<Record<number, Character>>({});
 const runtimeById = ref<Record<string, GameRuntimeEntityProjection>>({});
+const sheetRevisionById = ref<Record<number, number>>({});
 const loading = ref(false);
 const error = ref<string | null>(null);
 let loadSequence = 0;
@@ -87,17 +90,20 @@ const uniqueRulesTarget = ref<GameCharacterMembership | null>(null);
 const migrationOpen = ref(false);
 const migrationTarget = ref<GameCharacterMembership | null>(null);
 
-/**
- * Персонаж требует перехода, если actual на другой ревизии, чем игра.
- */
-function needsMigration(membership: GameCharacterMembership): boolean {
-  if (membership.membershipStatus === 'left') return false;
-
+function knownSheetRevision(membership: GameCharacterMembership): number | null {
   const projection = runtimeById.value[`character:${membership.characterId}`];
-  const actualRulesRevision = projection?.actualRulesRevision;
-  if (actualRulesRevision === null || actualRulesRevision === undefined) return false;
 
-  return actualRulesRevision !== props.gameRulesRevision;
+  return (
+    projection?.actualRulesRevision ??
+    projection?.version?.rulesRevision ??
+    characterById.value[membership.characterId]?.rulesRevision ??
+    sheetRevisionById.value[membership.characterId] ??
+    null
+  );
+}
+
+function needsMigration(membership: GameCharacterMembership): boolean {
+  return needsCharacterMigration(membership, props.gameRulesRevision, knownSheetRevision(membership));
 }
 
 function canOwnerAct(membership: GameCharacterMembership): boolean {
@@ -215,14 +221,28 @@ async function load(): Promise<void> {
       : await getGameApi().getGameCharacters(props.gameId);
     if (requestSequence !== loadSequence) return;
     const entityKeys = membershipResult.map((membership) => `character:${membership.characterId}` as const);
-    const [runtimeResult, characters] = await Promise.all([
+    const emptySheets: GameSheets = { sheets: [], missing: [] };
+    const [runtimeResult, characters, sheets] = await Promise.all([
       gamePhpMode.isEnabled()
         ? Promise.resolve({ projections: [] as GameRuntimeEntityProjection[] })
         : getGameApi().getRuntimeEntities(props.gameId, { entityKeys, projectionLevel: 'summary' }),
       getCharacterApi().getCharacters(),
+      gamePhpMode.isEnabled() && membershipResult.length > 0
+        ? getGameApi()
+            .getSheets({
+              gameId: props.gameId,
+              keys: membershipResult.map((membership) => ({ type: 'character' as const, id: membership.characterId })),
+            })
+            .catch(() => emptySheets)
+        : Promise.resolve(emptySheets),
     ]);
     if (requestSequence !== loadSequence) return;
     memberships.value = membershipResult;
+    const revisions: Record<number, number> = {};
+    for (const row of sheets.sheets) {
+      if (typeof row.rulesRevision === 'number') revisions[row.id] = row.rulesRevision;
+    }
+    sheetRevisionById.value = revisions;
     const chars: Record<number, Character> = Object.fromEntries(
       characters
         .filter((character) => membershipResult.some((membership) => membership.characterId === character.id))

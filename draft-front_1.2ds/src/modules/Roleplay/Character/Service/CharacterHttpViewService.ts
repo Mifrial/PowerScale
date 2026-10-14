@@ -11,6 +11,7 @@ import type { ResourceValue } from '@/modules/Roleplay/Character/Dto/ResourceVal
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CharacterBuildService } from '@/modules/Roleplay/Character/Service/CharacterBuildService';
 import type { CharacterEditorService } from '@/modules/Roleplay/Character/Service/CharacterEditorService';
+import { CharacterApiError } from '@/modules/Roleplay/Character/Service/CharacterApiError';
 
 /**
  * Плоский JSON PHP character.get / character.getList / game.getSheets → DTO наброска.
@@ -44,6 +45,15 @@ export class CharacterHttpViewService {
       previousVersion: null,
       ownerNotes: typeof record.ownerNotes === 'string' ? record.ownerNotes : undefined,
     };
+  }
+
+  migratedDetailOf(payload: unknown): CharacterDetail {
+    const record = this.recordOf(payload);
+    if (record.kind === 'conflicts') {
+      throw new CharacterApiError('CHARACTER_INVALID', this.conflictMessagesOf(record.problems));
+    }
+
+    return this.detailOf(payload);
   }
 
   listItemOf(row: unknown): Character {
@@ -298,5 +308,15 @@ export class CharacterHttpViewService {
 
   private nullableStringOf(value: unknown): string | null {
     return typeof value === 'string' && value !== '' ? value : null;
+  }
+
+  private conflictMessagesOf(raw: unknown): string {
+    if (!Array.isArray(raw)) return 'Character migration has conflicts';
+    const messages = raw
+      .map((row) => this.recordOf(row))
+      .map((row) => this.stringOf(row.message))
+      .filter((message) => message !== '');
+
+    return messages.join('; ') || 'Character migration has conflicts';
   }
 }

@@ -50,6 +50,7 @@ final class GameBattleHttp
             $actor->hasKey(GamePermissionKeys::VIEW_ALL),
             $input->idempotencyKey,
             $input->participants,
+            $input->rolls,
         );
     }
 

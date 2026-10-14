@@ -24,6 +24,30 @@ const version = (partial: Partial<CharacterVersion> = {}): CharacterVersion =>
   }) as CharacterVersion;
 
 describe('GameMembershipEligibilityService', () => {
+  it('inModerationQueue: PHP changes_pending без projection тоже в очереди', () => {
+    expect(
+      gameMembershipReviewService.inModerationQueue(
+        { membershipStatus: 'active', reviewState: 'changes_pending' },
+        undefined,
+      ),
+    ).toBe(true);
+    expect(
+      gameMembershipReviewService.inModerationQueue({ membershipStatus: 'active', reviewState: 'clean' }, undefined),
+    ).toBe(false);
+    expect(
+      gameMembershipReviewService.inModerationQueue({ membershipStatus: 'active', reviewState: 'clean' }, true),
+    ).toBe(true);
+    expect(
+      gameMembershipReviewService.inModerationQueue(
+        { membershipStatus: 'submitted', reviewState: 'changes_pending' },
+        undefined,
+      ),
+    ).toBe(true);
+    expect(
+      gameMembershipReviewService.inModerationQueue({ membershipStatus: 'left', reviewState: 'changes_pending' }, true),
+    ).toBe(false);
+  });
+
   it('needsModeration при пустом approved и при diff', () => {
     expect(gameMembershipReviewService.needsModeration(null, version())).toBe(true);
     expect(gameMembershipReviewService.needsModeration(version(), version())).toBe(false);

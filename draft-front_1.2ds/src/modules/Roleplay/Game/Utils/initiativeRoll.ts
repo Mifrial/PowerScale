@@ -11,8 +11,8 @@ import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/Characterist
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
-import { CHECK_INITIATIVE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
+import { gameInitiativeSpecService } from '@/modules/Roleplay/Game/Service/Instance/gameInitiativeSpecService';
 
 /** Способ определения инициативы участника в окне проверки. */
 export type InitiativeRollMethod = 'characteristic' | 'free' | 'fixed';
@@ -109,8 +109,8 @@ function entrySpec(entry: InitiativeRollEntry): DiceRollSpec {
 
 /**
  * Проверка на инициативу каждого участника; результат нужен только для порядка (не хранится).
- * Запуск — check-initiative. Механики броска — с проверки выбранной характеристики
- * (дефолт восприятие); свободный бросок — с check-initiative.
+ * Запуск — единственная проверка с spec.initiative. Механики броска — с проверки
+ * выбранной характеристики; свободный бросок — с карточки инициативы.
  */
 export function rollInitiative(
   entries: InitiativeRollEntry[],
@@ -128,7 +128,7 @@ export function rollInitiative(
     const checkCode =
       entry.method === 'characteristic'
         ? checkResolutionService.resolveCheckCodeForCharacteristic(entry.characteristicCode, rules)
-        : CHECK_INITIATIVE_CODE;
+        : gameInitiativeSpecService.initiativeCheckCode(rules);
     const attachedRuleCodes = checkResolutionService.resolveCheckAttachedRuleCodes(checkCode, rules);
     const result = withMechanics
       ? rollEngine.roll(spec, rng, rules, mechanics, attachedRuleCodes, [])

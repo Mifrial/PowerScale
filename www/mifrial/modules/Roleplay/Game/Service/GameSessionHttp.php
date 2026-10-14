@@ -86,6 +86,7 @@ final class GameSessionHttp
         return $this->viewAssembler->detail(
             $this->games->get($gameId),
             $this->sessionRoster->hasSession($gameId),
+            $this->sessionRoster->findOpenBattle($gameId),
         );
     }
 

@@ -147,13 +147,14 @@ export const mockChecks: Rule[] = [
       allowed_modes: 'solo',
     },
   ),
-  checkRule(9005, CHECK_INITIATIVE_CODE, 'Проверка на инициативу', 'Совместная. Характеристику называет мастер.', {
+  checkRule(9005, CHECK_INITIATIVE_CODE, 'Проверка на инициативу', 'Мастер задаёт пул и бросает за всех.', {
     type: 'check',
     parent_check_code: CHECK_SIMPLE_CODE,
     characteristic_code: 'perception',
     allow_characteristic_override: true,
     difficulty_input: { kind: 'none' },
-    allowed_modes: 'joint',
+    allowed_modes: 'solo',
+    initiative: true,
   }),
   checkRule(
     9006,

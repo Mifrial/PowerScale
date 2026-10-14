@@ -11,6 +11,7 @@ import {
 import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
 import { users as realUsers } from '@/modules/Core/User/Mock/mockUsers';
 import { fetchRevision, fetchSpaceByCode } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
+import { keywords as mockKeywords } from '@/modules/Roleplay/Keyword/Mock/mockKeywords';
 import { characterMigrationService } from '@/modules/Roleplay/Character/init';
 import type { CreateNpcData } from '@/modules/Roleplay/Game/Dto/CreateNpcData';
 import type { UpdateNpcData } from '@/modules/Roleplay/Game/Dto/UpdateNpcData';
@@ -149,6 +150,7 @@ describe('mockGameNpcs: создание, предложение, модерац
         newSpaceCode: game.spaceCode,
         newRevision: game.rulesRevision,
         effectiveLimits: { osTotal: null, orTotal: null, moneyBudget: null },
+        keywords: mockKeywords,
       });
       expect(migrated.version.rulesRevision).toBe(game.rulesRevision);
       expect(migrated.version.abilities.some((ability) => ability.ruleCode === 'rule-26')).toBe(false);

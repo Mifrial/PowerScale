@@ -76,7 +76,10 @@ final class GameChecks implements IGameChecks
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->members = new GameMemberRepository($smartTableGateway);
         $this->battles = new GameBattleRepository($smartTableGateway);
-        $this->roster = new GameSessionRoster(new GameSessionRepository($smartTableGateway));
+        $this->roster = new GameSessionRoster(
+            new GameSessionRepository($smartTableGateway),
+            new GameBattleRepository($smartTableGateway),
+        );
         $this->processRows = new GameProcessRepository($smartTableGateway);
     }
 

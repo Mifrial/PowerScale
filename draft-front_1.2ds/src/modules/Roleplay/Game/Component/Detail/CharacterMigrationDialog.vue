@@ -6,17 +6,15 @@ import { useCharacterDraft } from '@/modules/Roleplay/Character/init';
 import { characterBuildService } from '@/modules/Roleplay/Character/init';
 import { characterMigrationService } from '@/modules/Roleplay/Character/init';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
-import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { CharacterSheetEditor } from '@/modules/Roleplay/Character/init';
 import { MigrationReport } from '@/modules/Roleplay/Character/init';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { isEmptyMembershipDiff, membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
-import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
   gameId: number;
@@ -36,13 +34,13 @@ const open = defineModel<boolean>('open', { default: false });
 
 const spaceRevision = useSpaceRevision();
 const draftStore = useCharacterDraft();
+const { keywords, error: keywordsError, fetchTags } = useKeywords();
 const { signal } = useAbortable();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
 const submitting = ref(false);
 const result = ref<MigrationResult | null>(null);
-const expectedActualToken = ref<string | null>(null);
 const phase = ref<'report' | 'editor'>('report');
 const editorCompareOpen = ref(false);
 
@@ -63,14 +61,6 @@ const effectiveLimits = computed<CharacterCreationConfig>(() => ({
 const draftKey = computed(() =>
   props.membership ? `character:${props.membership.characterId}:migrate:game:${props.gameId}` : null,
 );
-
-const sheetUnchanged = computed(() => {
-  const source = originalVersion.value;
-  const pending = result.value?.version;
-  if (!source || !pending) return false;
-
-  return isEmptyMembershipDiff(membershipDiff(source, pending));
-});
 
 function resolve(ruleCode: string): string {
   return names.value[ruleCode] ?? ruleCode;
@@ -94,6 +84,7 @@ const compareResult = computed<MigrationResult | null>(() => {
       oldRules.value,
       targetRules.value,
       effectiveLimits.value,
+      keywords.value,
     );
   }
 
@@ -108,7 +99,6 @@ async function run(): Promise<void> {
   try {
     const character = await getCharacterApi().getCharacter(membership.characterId);
     const source = character.version;
-    expectedActualToken.value = JSON.stringify(cloneData(source));
     const oldRevision = await spaceRevision.fetchRevision(
       character.character.spaceId,
       source.rulesRevision,
@@ -119,6 +109,14 @@ async function run(): Promise<void> {
     const newRevision = await spaceRevision.fetchRevision(props.gameSpaceId, props.gameRulesRevision, signal.value);
     names.value = Object.fromEntries(newRevision.rules.map((rule) => [rule.code, rule.name]));
     targetRules.value = newRevision.rules;
+    if (keywords.value.length === 0 || keywordsError.value) {
+      await fetchTags(signal.value);
+    }
+    if (keywordsError.value) {
+      error.value = keywordsError.value;
+
+      return;
+    }
     result.value = characterMigrationService.migrate({
       version: source,
       oldRules: oldRevision.rules,
@@ -128,6 +126,7 @@ async function run(): Promise<void> {
       newSpaceCode: props.gameSpaceCode,
       newRevision: props.gameRulesRevision,
       effectiveLimits: effectiveLimits.value,
+      keywords: keywords.value,
     });
     phase.value = 'report';
   } catch (e) {
@@ -139,17 +138,16 @@ async function run(): Promise<void> {
 
 function submit(): void {
   const membership = props.membership;
-  const migration = result.value;
-  if (!membership || !migration) return;
+  if (!membership) return;
   submitting.value = true;
   error.value = null;
   void (async () => {
     try {
-      await getGameApi().submitCharacterMigration(
-        props.gameId,
+      const character = await getCharacterApi().getCharacter(membership.characterId, signal.value);
+      await getCharacterApi().migrateCharacter(
         membership.characterId,
-        migration.version,
-        expectedActualToken.value ?? undefined,
+        { revision: props.gameRulesRevision, expectedVersion: character.actualVersion },
+        signal.value,
       );
       open.value = false;
     } catch (e) {
@@ -174,11 +172,17 @@ async function handleEditorSave(version: CharacterVersion): Promise<void> {
   submitting.value = true;
   error.value = null;
   try {
-    await getGameApi().submitCharacterMigration(
-      props.gameId,
+    const character = await getCharacterApi().getCharacter(props.membership.characterId, signal.value);
+    const choices = characterBuildService.fromVersion(version, props.gameSpaceId, targetRules.value);
+    await getCharacterApi().migrateCharacter(
       props.membership.characterId,
-      version,
-      expectedActualToken.value ?? undefined,
+      {
+        revision: props.gameRulesRevision,
+        expectedVersion: character.actualVersion,
+        choices,
+        creationConfig: effectiveLimits.value,
+      },
+      signal.value,
     );
     if (draftKey.value) draftStore.discard(draftKey.value);
     open.value = false;
@@ -222,11 +226,7 @@ watch(open, (value) => {
 
       <template v-if="result && phase === 'report'">
         <p class="text-body-2 text-medium-emphasis">
-          {{
-            sheetUnchanged
-              ? 'Изменений листа нет — перевод применится сразу.'
-              : 'Персонаж переводится на ревизию игры. Результат уйдёт на модерацию ведущему.'
-          }}
+          Персонаж переводится на ревизию игры. После записи лист уйдёт на модерацию ведущему.
         </p>
         <MigrationReport :result="result" :resolve="resolve" />
       </template>
@@ -251,9 +251,7 @@ watch(open, (value) => {
           </v-btn>
         </template>
         <template v-else>
-          <v-btn color="primary" variant="tonal" :loading="submitting" @click="submit">
-            {{ sheetUnchanged ? 'Применить' : 'Отправить на модерацию' }}
-          </v-btn>
+          <v-btn color="primary" variant="tonal" :loading="submitting" @click="submit"> Отправить на модерацию </v-btn>
         </template>
       </div>
       <div

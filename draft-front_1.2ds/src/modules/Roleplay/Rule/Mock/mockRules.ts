@@ -1143,7 +1143,6 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         group: 'primary',
         concentration_threshold: true,
         concentration_token: true,
-        initiative: true,
       },
       keywordIds: [4],
       mechanics: [],

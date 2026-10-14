@@ -23,6 +23,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Interface\Service\IGameAdmissions;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
+use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
 use Mifrial\Roleplay\Game\Repository\GameJoinRequestRepository;
@@ -348,7 +349,9 @@ final class GamePortFactory
      */
     private function sessionRoster(IServiceLocator $serviceLocator): GameSessionRoster
     {
-        return new GameSessionRoster(new GameSessionRepository($this->smartTableGateway($serviceLocator)));
+        $gateway = $this->smartTableGateway($serviceLocator);
+
+        return new GameSessionRoster(new GameSessionRepository($gateway), new GameBattleRepository($gateway));
     }
 
     /**

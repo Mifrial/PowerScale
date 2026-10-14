@@ -9,7 +9,7 @@ import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
-import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { CharacterSheetEditor } from '@/modules/Roleplay/Character/init';
 import MigrationReport from '@/modules/Roleplay/Character/Component/MigrationReport.vue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -24,6 +24,7 @@ const { currentUser } = useCurrentUser();
 const spaceCatalog = useSpaceCatalog();
 const spaceRevision = useSpaceRevision();
 const draftStore = useCharacterDraftStore();
+const { keywords, error: keywordsError, fetchTags } = useKeywords();
 const { signal } = useAbortable();
 
 const loading = ref(false);
@@ -92,6 +93,7 @@ const compareResult = computed<MigrationResult | null>(() => {
       oldRules.value,
       targetRules.value,
       effectiveLimits.value,
+      keywords.value,
     );
   }
 
@@ -127,6 +129,10 @@ async function load(): Promise<void> {
   } catch {
     oldRules.value = [];
   }
+  if (keywords.value.length === 0 || keywordsError.value) {
+    await fetchTags(signal.value);
+  }
+  if (keywordsError.value) loadError.value = keywordsError.value;
   // Цель по умолчанию — текущее пространство, его последняя ревизия.
   await onSpaceSelect(detail.character.spaceId, detail.character.rulesRevision);
   loading.value = false;
@@ -153,13 +159,31 @@ async function onSpaceSelect(spaceId: number | null, preferRevision?: number): P
 
 async function runMigration(): Promise<void> {
   const id = characterId.value;
-  if (id === null || selectedSpaceId.value === null || selectedRevision.value === null) return;
+  const detail = characterStore.currentCharacter;
+  const source = originalVersion.value ?? detail?.version ?? null;
+  if (id === null || selectedSpaceId.value === null || selectedRevision.value === null || !detail || !source) return;
   migrating.value = true;
   loadError.value = null;
   try {
-    result.value = await getCharacterApi().migrateCharacter(id, {
-      toSpaceId: selectedSpaceId.value,
-      toRevision: selectedRevision.value,
+    if (keywords.value.length === 0 || keywordsError.value) {
+      await fetchTags(signal.value);
+    }
+    if (keywordsError.value) {
+      loadError.value = keywordsError.value;
+
+      return;
+    }
+    const space = spaces.value.find((entry) => entry.id === selectedSpaceId.value);
+    result.value = characterMigrationService.migrate({
+      version: source,
+      oldRules: oldRules.value,
+      oldSpaceId: detail.character.spaceId,
+      newRules: targetRules.value,
+      newSpaceId: selectedSpaceId.value,
+      newSpaceCode: space?.code ?? detail.character.spaceCode,
+      newRevision: selectedRevision.value,
+      effectiveLimits: effectiveLimits.value,
+      keywords: keywords.value,
     });
     phase.value = 'report';
   } catch (e) {
@@ -169,22 +193,40 @@ async function runMigration(): Promise<void> {
   }
 }
 
-async function applyVersion(version: CharacterVersion): Promise<boolean> {
+async function applyVersion(version: CharacterVersion, resume: boolean): Promise<boolean> {
   const id = characterId.value;
-  if (id === null) return false;
   const detail = characterStore.currentCharacter;
+  if (id === null) return false;
   if (!detail) {
     loadError.value = 'Актуальный персонаж не загружен';
 
     return false;
   }
+  if (selectedSpaceId.value !== detail.character.spaceId) {
+    loadError.value = 'PHP character.migrate не меняет мир персонажа';
+
+    return false;
+  }
+  if (selectedRevision.value === null) {
+    loadError.value = 'Целевая ревизия не выбрана';
+
+    return false;
+  }
   running.value = true;
   try {
-    await getCharacterApi().applyMigration(id, {
-      commandId: createRandomId(),
-      expectedActualVersion: detail.actualVersion,
-      version,
-    });
+    const fresh = await getCharacterApi().getCharacter(id, signal.value);
+    await getCharacterApi().migrateCharacter(
+      id,
+      resume
+        ? {
+            revision: selectedRevision.value,
+            expectedVersion: fresh.actualVersion,
+            choices: characterBuildService.fromVersion(version, detail.character.spaceId, targetRules.value),
+            creationConfig: effectiveLimits.value,
+          }
+        : { revision: selectedRevision.value, expectedVersion: fresh.actualVersion },
+      signal.value,
+    );
     await router.push(`/characters/${id}`);
 
     return true;
@@ -209,7 +251,7 @@ function openConflictEditor(): void {
 
 /** Сохранение из конфликт-редактора: применённая (исправленная) версия миграции. */
 async function handleEditorSave(version: CharacterVersion): Promise<void> {
-  const applied = await applyVersion(version);
+  const applied = await applyVersion(version, true);
   if (applied && migrationDraftKey.value) draftStore.discard(migrationDraftKey.value);
 }
 
@@ -307,7 +349,7 @@ onMounted(load);
             </v-btn>
           </template>
           <template v-else>
-            <v-btn color="primary" variant="tonal" :loading="running" @click="applyVersion(result.version)">
+            <v-btn color="primary" variant="tonal" :loading="running" @click="applyVersion(result.version, false)">
               Перейти на версию
             </v-btn>
           </template>

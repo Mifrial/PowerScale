@@ -8,6 +8,7 @@ import { characterMigrationService } from '@/modules/Roleplay/Character/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { CharacterSheetEditor } from '@/modules/Roleplay/Character/init';
 import { MigrationReport } from '@/modules/Roleplay/Character/init';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -32,6 +33,7 @@ const emit = defineEmits<{
 const spaceCatalog = useSpaceCatalog();
 const spaceRevision = useSpaceRevision();
 const draftStore = useCharacterDraft();
+const { keywords, error: keywordsError, fetchTags } = useKeywords();
 const { signal } = useAbortable();
 
 const loading = ref(false);
@@ -79,6 +81,7 @@ const compareResult = computed<MigrationResult | null>(() => {
       oldRules.value,
       targetRules.value,
       npcLimits.value,
+      keywords.value,
     );
   }
 
@@ -116,6 +119,14 @@ async function run(): Promise<void> {
     const newRevision = await spaceRevision.fetchRevision(props.gameSpaceId, props.gameRulesRevision, signal.value);
     names.value = Object.fromEntries(newRevision.rules.map((rule) => [rule.code, rule.name]));
     targetRules.value = newRevision.rules;
+    if (keywords.value.length === 0 || keywordsError.value) {
+      await fetchTags(signal.value);
+    }
+    if (keywordsError.value) {
+      error.value = keywordsError.value;
+
+      return;
+    }
     result.value = characterMigrationService.migrate({
       version: source,
       oldRules: oldRevision.rules,
@@ -125,6 +136,7 @@ async function run(): Promise<void> {
       newSpaceCode: props.gameSpaceCode,
       newRevision: props.gameRulesRevision,
       effectiveLimits: npcLimits.value,
+      keywords: keywords.value,
     });
     phase.value = 'report';
   } catch (e) {

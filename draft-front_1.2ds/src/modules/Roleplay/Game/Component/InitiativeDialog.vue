@@ -37,6 +37,7 @@ import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMod
 import { gameInitiativeSpecService } from '@/modules/Roleplay/Game/Service/Instance/gameInitiativeSpecService';
 import { gameInitiativeLaunchService } from '@/modules/Roleplay/Game/Service/Instance/gameInitiativeLaunchService';
 import { gameInitiativeSheetPreviewService } from '@/modules/Roleplay/Game/Service/Instance/gameInitiativeSheetPreviewService';
+import { characterHttpViewService } from '@/modules/Roleplay/Character/init';
 
 /**
  * Окно проверки на инициативу (ТР §8 «Чат игры»): выбор участников (персонажи + НПС),
@@ -97,6 +98,7 @@ const candidateNextCursor = ref<string | null>(null);
 const candidateLoading = ref(false);
 const candidateError = ref<string | null>(null);
 const runtimeProjections = new Map<CombatEntityKey, GameRuntimeEntityProjection>();
+const phpSheets = new Map<CombatEntityKey, Record<string, unknown>>();
 const projectionLoading = new Set<CombatEntityKey>();
 const projectionLoadingCount = ref(0);
 const searchSequence = ref(0);
@@ -185,6 +187,7 @@ function reset(): void {
   candidateLoading.value = false;
   candidateError.value = null;
   runtimeProjections.clear();
+  phpSheets.clear();
   for (const [entityKey, projection] of Object.entries(props.cachedProjections ?? {})) {
     if (projection.projectionLevel === 'full') {
       runtimeProjections.set(entityKey as CombatEntityKey, projection);
@@ -288,13 +291,14 @@ function onCandidateMenuChange(isOpen: boolean): void {
 function addEntry(id: string): void {
   const candidate = candidateOf(id);
   if (!candidate || entries.value.some((entry) => entry.participant.id === id)) return;
-  const hasSheet = candidate.version !== null;
-  const canCharacteristic = hasSheet || defaultCharacteristicCode.value !== '';
+  const projection = runtimeProjections.get(id as CombatEntityKey);
+  const version = phpSheetVersion(projection) ?? candidate.version;
+  const hasSheet = version !== null;
   const entry: DialogEntry = {
     participant: { ...candidate.participant },
-    version: candidate.version,
-    method: canCharacteristic ? 'characteristic' : 'free',
-    characteristicCode: defaultCharacteristicCode.value,
+    version,
+    method: hasSheet ? 'characteristic' : 'free',
+    characteristicCode: '',
     modifier: 0,
     adv: 0,
     fixedValue: null,
@@ -304,7 +308,7 @@ function addEntry(id: string): void {
     characteristicsReady: !hasSheet,
   };
   entries.value.push(entry);
-  if (hasSheet) void ensureCharacteristics(entry);
+  if (hasSheet) void applyPhpSheetToEntry(entry);
 }
 
 function removeEntry(id: string): void {
@@ -328,9 +332,7 @@ async function hydrateSelectedEntries(): Promise<void> {
     return;
   }
   const requestedKeys = selectedIds.value.filter((id): id is CombatEntityKey => id.includes(':'));
-  const missingKeys = requestedKeys.filter(
-    (key) => runtimeProjections.get(key)?.projectionLevel !== 'full' && !projectionLoading.has(key),
-  );
+  const missingKeys = requestedKeys.filter((key) => !projectionLoading.has(key) && needsSheetHydration(key));
   if (missingKeys.length === 0) return;
 
   for (const key of missingKeys) projectionLoading.add(key);
@@ -381,6 +383,21 @@ function isProjectionLoading(entry: DialogEntry): boolean {
   return projectionLoading.has(entry.participant.id as CombatEntityKey);
 }
 
+function needsSheetHydration(key: CombatEntityKey): boolean {
+  const projection = runtimeProjections.get(key);
+  if (projection?.projectionLevel !== 'full') return true;
+  if (!gamePhpMode.isEnabled()) return false;
+
+  return phpSheetVersion(projection) === null;
+}
+
+function phpSheetVersion(projection: GameRuntimeEntityProjection | undefined): CharacterVersion | null {
+  const version = projection?.version ?? null;
+  if (version === null || version.characteristicPurchases === undefined) return null;
+
+  return version;
+}
+
 async function hydratePhpSheets(keys: CombatEntityKey[]): Promise<void> {
   const pack = await getGameApi().getSheets({
     gameId: props.gameId,
@@ -392,6 +409,14 @@ async function hydratePhpSheets(keys: CombatEntityKey[]): Promise<void> {
   });
   for (const sheet of pack.sheets) {
     const key = `${sheet.type}:${sheet.id}` as CombatEntityKey;
+    const version = characterHttpViewService.versionOf({
+      name: sheet.name,
+      spaceCode: '',
+      rulesRevision: sheet.rulesRevision ?? 0,
+      choices: sheet.choices,
+      sheet: sheet.sheet,
+    });
+    phpSheets.set(key, sheet.sheet);
     runtimeProjections.set(key, {
       entityKey: key,
       kind: sheet.type,
@@ -402,17 +427,43 @@ async function hydratePhpSheets(keys: CombatEntityKey[]): Promise<void> {
       source: sheet.type === 'npc' ? 'npcActual' : 'characterActual',
       summary: { name: sheet.name, shortDescription: null },
       projectionLevel: 'full',
-      version: null,
+      version,
       visibleSections: [],
     });
-    const entry = entries.value.find((candidate) => candidate.participant.id === key);
-    if (!entry) continue;
-    entry.characteristicValues = gameInitiativeSheetPreviewService.viewsOf(sheet.sheet, props.rules);
-    entry.characteristicsReady = true;
-    if (entry.characteristicCode !== '' && !entry.characteristicValues.has(entry.characteristicCode)) {
-      entry.characteristicCode = entry.characteristicValues.keys().next().value ?? defaultCharacteristicCode.value;
+  }
+  if (pack.missing.length > 0) {
+    const missingNames = pack.missing
+      .map((row) => {
+        const key = `${row.type}:${row.id}`;
+
+        return candidateSummaries.value.find((candidate) => candidate.entityKey === key)?.name ?? key;
+      })
+      .join(', ');
+    error.value = `Не удалось загрузить листы: ${missingNames}`;
+  }
+  const loadedKeys = new Set(pack.sheets.map((sheet) => `${sheet.type}:${sheet.id}`));
+  for (const entry of entries.value) {
+    if (loadedKeys.has(entry.participant.id)) {
+      await applyPhpSheetToEntry(entry);
     }
   }
+}
+
+async function applyPhpSheetToEntry(entry: DialogEntry): Promise<void> {
+  const key = entry.participant.id as CombatEntityKey;
+  const version = phpSheetVersion(runtimeProjections.get(key)) ?? entry.version;
+  if (version === null) return;
+  entry.version = version;
+  entry.characteristicsReady = false;
+  await ensureCharacteristics(entry);
+  if (entry.characteristicValues.size === 0) {
+    const sheet = phpSheets.get(key);
+    if (sheet) {
+      entry.characteristicValues = gameInitiativeSheetPreviewService.viewsOf(sheet, props.rules);
+    }
+  }
+  pickCharacteristicCode(entry);
+  entry.method = entry.characteristicValues.size > 0 ? 'characteristic' : 'free';
 }
 
 async function ensureCharacteristics(entry: DialogEntry): Promise<void> {
@@ -420,15 +471,22 @@ async function ensureCharacteristics(entry: DialogEntry): Promise<void> {
   try {
     const map = await initiativeCharacteristics(entry.version, props.spaceId, props.rules);
     entry.characteristicValues = map;
-    if (entry.characteristicCode !== '' && !map.has(entry.characteristicCode)) {
-      entry.characteristicCode = map.keys().next().value ?? '';
-    }
   } catch {
-    // Сборка недоступна — характеристика не выбрана; ГМ может использовать свободный бросок/фикс.
     entry.characteristicValues = new Map();
   } finally {
     entry.characteristicsReady = true;
   }
+}
+
+function pickCharacteristicCode(entry: DialogEntry): void {
+  const def = defaultCharacteristicCode.value;
+  if (def !== '' && entry.characteristicValues.has(def)) {
+    entry.characteristicCode = def;
+
+    return;
+  }
+  if (entry.characteristicCode !== '' && entry.characteristicValues.has(entry.characteristicCode)) return;
+  entry.characteristicCode = entry.characteristicValues.keys().next().value ?? '';
 }
 
 function valueLabel(view: InitiativeCharacteristicView | undefined): string {
@@ -449,7 +507,7 @@ function methodItems(entry: DialogEntry): { value: InitiativeRollMethod; title: 
     { value: 'free', title: 'Свободный бросок' },
     { value: 'fixed', title: 'Фиксированное значение' },
   ];
-  if (entry.version !== null || entry.characteristicValues.size > 0 || defaultCharacteristicCode.value !== '') {
+  if (entry.characteristicValues.size > 0) {
     items.unshift({ value: 'characteristic', title: 'Характеристика' });
   }
 
@@ -535,8 +593,7 @@ async function roll(): Promise<void> {
   for (const entry of entries.value) {
     if (
       entry.method === 'characteristic' &&
-      entry.characteristicValues.size > 0 &&
-      !entry.characteristicValues.get(entry.characteristicCode)
+      (entry.characteristicCode === '' || !entry.characteristicValues.get(entry.characteristicCode))
     ) {
       error.value = `Нет значения «${entry.characteristicCode}» у ${entry.participant.name}`;
       rolling.value = false;
@@ -698,7 +755,10 @@ async function roll(): Promise<void> {
             </v-btn>
           </div>
 
-          <div v-if="!entry.version" class="text-caption text-medium-emphasis mb-1">
+          <div
+            v-if="!entry.version && entry.characteristicValues.size === 0"
+            class="text-caption text-medium-emphasis mb-1"
+          >
             <span v-if="isProjectionLoading(entry)">Загрузка листа участника…</span>
             <span v-else>Нет листа участника с характеристиками. Доступны свободный и фиксированный броски.</span>
           </div>

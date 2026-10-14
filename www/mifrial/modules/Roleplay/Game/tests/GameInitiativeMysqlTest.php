@@ -89,6 +89,74 @@ final class GameInitiativeMysqlTest extends TestCase
     }
 
     /**
+     * Карточка только joint порядок не пишет.
+     *
+     * @return void
+     */
+    public function testJointInitiativeCheckDoesNotStoreOrder(): void
+    {
+        $world = $this->worldWithInitiative(true, false, false, 'joint');
+        $gameId = $this->addGame($world->getId());
+        $hero = $this->admit($world->getId(), $gameId, 'Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battleId = $this->battle($gameId, [$hero]);
+        $rolled = $this->roll($gameId, $battleId, 'joint', 1);
+        self::assertSame('GAME_INVALID', $rolled['error']['code']);
+        self::assertNull($this->turnOrder($battleId));
+    }
+
+    /**
+     * Старт с броском пишет порядок в той же команде.
+     *
+     * @return void
+     */
+    public function testStartBattleWithRollsStoresOrder(): void
+    {
+        $world = $this->worldWithInitiative(true);
+        $gameId = $this->addGame($world->getId());
+        $hero = $this->admit($world->getId(), $gameId, 'Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $started = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'with-rolls',
+            'participants' => [['type' => 'character', 'id' => $hero]],
+            'rolls' => [['type' => 'character', 'id' => $hero, 'method' => 'free', 'diceCount' => 1]],
+        ]);
+        self::assertTrue($started['success'], json_encode($started));
+        self::assertCount(1, $started['data']['order']);
+        self::assertSame($hero, $started['data']['order'][0]['id']);
+        self::assertNotNull($this->turnOrder($started['data']['battleId']));
+        $card = $this->dispatch('game.get', ['id' => $gameId]);
+        self::assertTrue($card['success']);
+        self::assertSame($started['data']['battleId'], $card['data']['battle']['battleId']);
+        self::assertSame($hero, $card['data']['battle']['order'][0]['id']);
+    }
+
+    /**
+     * Старт с joint-карточкой бой не оставляет.
+     *
+     * @return void
+     */
+    public function testStartBattleWithJointRollsDoesNotOpenBattle(): void
+    {
+        $world = $this->worldWithInitiative(true, false, false, 'joint');
+        $gameId = $this->addGame($world->getId());
+        $hero = $this->admit($world->getId(), $gameId, 'Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $started = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'joint-rolls',
+            'participants' => [['type' => 'character', 'id' => $hero]],
+            'rolls' => [['type' => 'character', 'id' => $hero, 'method' => 'characteristic']],
+        ]);
+        self::assertSame('GAME_INVALID', $started['error']['code']);
+        self::assertSame(0, $this->countAll(GameBattleTable::class));
+    }
+
+    /**
      * Две живые карточки с признаком не пишут порядок.
      *
      * @return void
@@ -387,6 +455,7 @@ final class GameInitiativeMysqlTest extends TestCase
      * @param bool $initiative Первая карточка.
      * @param bool $second Вторая карточка.
      * @param bool $hitCheck Признак попадания вместо инициативы на первой карточке.
+     * @param string $allowedModes Режимы карточки.
      *
      * @return \Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord Мир.
      */
@@ -394,6 +463,7 @@ final class GameInitiativeMysqlTest extends TestCase
         bool $initiative,
         bool $second = false,
         bool $hitCheck = false,
+        string $allowedModes = 'both',
     ): \Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -401,7 +471,7 @@ final class GameInitiativeMysqlTest extends TestCase
         $world = $this->addWorldWithRevision('razrabotka');
         $check = [
             'allow_characteristic_override' => false,
-            'allowed_modes' => 'both',
+            'allowed_modes' => $allowedModes,
             'ordinary_root' => true,
             'concentration_token' => false,
             'willpower' => false,
@@ -460,7 +530,6 @@ final class GameInitiativeMysqlTest extends TestCase
         $world = $this->addWorldWithRevision($spaceCode);
         $this->gameRuleSpaces()->commit($world->getId(), [
             RuleCommitEntry::put('awareness', new RuleVersionBody('characteristic', 'Awareness', '', [
-                'initiative' => true,
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('strength', new RuleVersionBody('characteristic', 'Strength', '', [], [], [], 'needs_work')),
             RuleCommitEntry::put('human', new RuleVersionBody('race', 'Human', '', [
