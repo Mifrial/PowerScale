@@ -120,7 +120,7 @@ Id: `Core/Auth:seed.bootstrap-groups`. После **всей** схемы CLI.
 Идемпотентно:
 
 1. Группа «Администраторы»: `bypass=true`, `permissions=[]`, `active=true`. Есть по имени — не создавать вторую (слот bypass один).
-2. Группа «Игрок»: `bypass=false`, `permissions=[]`.
+2. Группа «Игрок»: `bypass=false`, `permissions=['user.view']`. Уже существующей группе ключ дописывается, остальные не снимаются.
 3. Оператор: `auth.operator_login` / `operator_password` / `operator_name` из `local.php` (dist: `admin` / `changeme` / `Администратор`). Нет учётки с этим login → `add` + password identity + членство в «Администраторы» **и** в «Игрок» (как mock-админ: bypass не заменяет обычную группу). Учётка есть, identity нет → дописать hash. Пароль существующего оператора **не** перезаписывать. Членства дописать, если нет.
 
 `setup` в config: **closure локатора** (шагу нужны порты User). `getTableClasses()` без БД. `get(IUserAccounts)` в collect до DDL допустим: `open` не требует физики; запись — в `ISetupStep::run()` после графа. Не `get` внутри `getTableClasses()`.

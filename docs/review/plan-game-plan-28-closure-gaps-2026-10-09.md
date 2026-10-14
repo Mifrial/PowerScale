@@ -5,6 +5,12 @@
 battleground, wounds/DOT, review implementation artifacts,
 roadmap/readiness/status и конфигурация не изменялись.
 
+Финальный read-only gap-аудит 2026-10-11 сверил текущий backend-код,
+acceptance-evidence и git status/diff/log без запуска PHPUnit, MySQL или
+frontend. Обязательных gaps Game 28 не найдено. Текущий worktree не содержит
+tracked code/test diff; присутствующие untracked artifacts не относятся к
+закрытию Game 28 и не изменялись.
+
 ## Verdict
 
 **CLOSED FOR THE ACCEPTED BACKEND SCOPES; NOT A PROJECT-WIDE APPROVAL.**
@@ -133,8 +139,14 @@ cross-layer delivery path was run.
 
 ## Final gate
 
-**FINAL VERDICT: `GAME-PLAN-28 BACKEND CLOSURE APPROVED FOR THE ACCEPTED
-SCOPES ABOVE; PROJECT-WIDE APPROVAL: NOT GRANTED.**
+**FINAL VERDICT: `GAME-PLAN-28 CLOSED` — backend Game 28 only.**
+
+Full suite ранее пройден с одним environment-only Redis skip. Frontend →
+PHP → delivery E2E и deployment/live verification не подтверждены.
+`game-plan-29` остаётся следующим отдельным этапом и автоматически не
+переводится в `IMPLEMENTED`.
+
+Project-wide approval не предоставляется.
 
 The document records closure of the accepted P2b, P3
 (defender/block and efficiency), selected-instance, reliability,

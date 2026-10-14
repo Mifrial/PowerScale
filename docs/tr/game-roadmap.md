@@ -3,21 +3,37 @@
 **Статус:** план, 2026-10-05. Линия G1–G21 сделана. Следующий агрегирующий
 шаг Game — G22, он не начинается, пока C11 не назвал kind. Отдельные
 implementation side-plans `game-plan-22`–`game-plan-27` закрывают части
-расчёта и базовой записи, но не меняют статус G22. `game-plan-28` закрыт
-только частично: projection и базовый resistance path готовы, полный P1
-продолжается вне агрегирующей очереди G22. Канон — [`game-system.md`](game-system.md).
-Границы — [`architecture.md`](architecture.md), [`cross-domain.md`](cross-domain.md).
-Стык листа — [`character-system.md`](character-system.md), [`character-roadmap.md`](character-roadmap.md)
+расчёта и базовой записи, но не меняют статус G22. `game-plan-28` закрыт для backend Game 28: projection, полный P1 и persistence/delivery acceptance подтверждены. `game-plan-29` принят для backend принятого scope физических
+профилей атаки (`APPROVED`). Cover, координаты и карта, authority
+дальности/falloff и Game 30–33 в статус Game 29 не входят. `game-plan-30`
+принят для backend принятого scope immediate consequences (`APPROVED`):
+injury, damage/exhaustion, state hooks, stun/shock/knockout и проверки
+Воли/увечья для игрока и NPC внутри close `1 → 1` и `1 → N`. `game-plan-31`
+принят для backend принятого scope ран (`APPROVED`): уникальность `id`
+строки состояния, sidecar, `heldBy`, `game.woundAction`, `next_action_cost`,
+`pending_action_effects` и снятие зажима на `leave`. Вне статуса Game 31:
+DOT, tick и прибавка `clotting`, frontend E2E, C11 и G22, константа
+`WOUND_STATE_CODE` в PHP. `game-plan-32` принят для backend принятого
+scope конца хода (`APPROVED`): `endTurn`, clotting, кровь, DOT, refill F1,
+курсор, долг ОД (`declareStrike` / wide), continue/abort, leave/roster
+strip, replay/CAS. Вне этого статуса: магия, сцена, `N → N`, сутки,
+frontend E2E, C11 и G22, `WOUND_STATE_CODE`, `blood_clotting` в `runEvent`.
+Game 33 остаётся следующим отдельным этапом со статусом `TODO` и не
+переведён в `IMPLEMENTED`. Frontend → PHP → delivery E2E и
+deployment/live verification не подтверждены и в эти статусы не входят.
+Это не project-wide approval. Канон — `[game-system.md](game-system.md)`.
+Границы — `[architecture.md](architecture.md)`, `[cross-domain.md](cross-domain.md)`.
+Стык листа — `[character-system.md](character-system.md)`, `[character-roadmap.md](character-roadmap.md)`
 (C8, C9). Порядок стыка, не замена канона Game —
-[`../specs/character-actual-session-source-roadmap.md`](../specs/character-actual-session-source-roadmap.md).
-Сцена — [`battleground-system.md`](battleground-system.md), в эту линию не
-входит. PHP — [`php-coding-standards.md`](php-coding-standards.md).
+`[../specs/character-actual-session-source-roadmap.md](../specs/character-actual-session-source-roadmap.md)`.
+Сцена — `[battleground-system.md](battleground-system.md)`, в эту линию не
+входит. PHP — `[php-coding-standards.md](php-coding-standards.md)`.
 
-Цель линии: серверный модуль **`Roleplay/Game`**. Каркас G1–G5 — игра, люди, строка персонажа, смена ревизии и одна сессия без боя. Шаги ниже каркаса продолжают ту же линию. Сцена, каст, DOT и decay в неё по-прежнему не входят.
+Цель линии: серверный модуль `Roleplay/Game`. Каркас G1–G5 — игра, люди, строка персонажа, смена ревизии и одна сессия без боя. Шаги ниже каркаса продолжают ту же линию. Сцена, каст, DOT и decay в неё по-прежнему не входят.
 
 Перед планом шага сессия сверяет код: порт, таблица и формула, без которых шаг не работает, уже есть. Если нет — план реализации не пишется. Результат — имя недостающего шага в роудмапе владельца и остановка. Game не заводит свой бросок, свой обход формулы и пустые слоты «пока нет следующего шага». Поле листа выбирает Character. Следующий шаг этого файла не фиксирует физическую схему до плана, который её выбирает.
 
-Фактура на 2026-10-05: PHP `Roleplay/Game` есть, планы [`game-plan-01.md`](game-plan-01.md)–[`game-plan-20.md`](game-plan-20.md) сделаны. Character не импортирует Game. `character.migrate` не применяет потолки игры и бонусы GM и отказывает, если персонаж уже в текущей сессии. Vue `draft-front_1.2ds/.../Roleplay/Game` — эскиз транспорта и моков, не схема хранения.
+Фактура на 2026-10-05: PHP `Roleplay/Game` есть, планы `[game-plan-01.md](game-plan-01.md)`–`[game-plan-20.md](game-plan-20.md)` сделаны. Character не импортирует Game. `character.migrate` не применяет потолки игры и бонусы GM и отказывает, если персонаж уже в текущей сессии. Vue `draft-front_1.2ds/.../Roleplay/Game` — эскиз транспорта и моков, не схема хранения.
 
 ## Кто что хранит
 
@@ -42,7 +58,7 @@ Game читает строку actual через порт Character (`ICharacter
 
 `approvedCharacterVersion` — неизменяемая копия листа на момент approve. Это не история `CharacterVersion`. `actualCharacter` — единственный сохранённый лист. Overlay не хранит второй полный лист.
 
-Один персонаж не более чем в одной игре, пока статус не `left`. Инвариант есть в [`character-system.md`](character-system.md) и в комментарии `GameCharacterMembership`. Исключение `left` — часть того же инварианта, не вторая модель.
+Один персонаж не более чем в одной игре, пока статус не `left`. Инвариант есть в `[character-system.md](character-system.md)` и в комментарии `GameCharacterMembership`. Исключение `left` — часть того же инварианта, не вторая модель.
 
 ## Главный критерий каркаса
 
@@ -78,17 +94,17 @@ HTTP: `game.create`, `game.get`, `game.getList`, `game.update`. `game.update` с
 
 ### G2. Участники-люди и права — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-02.md`](game-plan-02.md). Владелец остаётся `game.owner_id` и строки участника не имеет. Строка участника — только `gm` или `player`. Таблицы `game_member_permissions` нет. `game.update` на `game.edit` ведущего не переведён. Приглашения и заявки — G8, не этот шаг.
+План: `[game-plan-02.md](game-plan-02.md)`. Владелец остаётся `game.owner_id` и строки участника не имеет. Строка участника — только `gm` или `player`. Таблицы `game_member_permissions` нет. `game.update` на `game.edit` ведущего не переведён. Приглашения и заявки — G8, не этот шаг.
 
 Зависимость: G1.
 
-Строки участника `(gameId, userId)` и роль `gm | player`. Это человек, не персонаж: бонусов ОС/ОЛ/ОР здесь нет. Владелец строки не имеет: `game.edit`, `game.moderate`, `game.manage` идут от `game.owner_id`. `gm` даёт `game.edit`, `game.moderate`; `player` из роли ничего не добавляет. Запись в `game_member_permissions` для этих ключей не дублирует роль ([`auth-system.md`](auth-system.md)). Один пользователь может потом подать несколько своих персонажей (G3).
+Строки участника `(gameId, userId)` и роль `gm | player`. Это человек, не персонаж: бонусов ОС/ОЛ/ОР здесь нет. Владелец строки не имеет: `game.edit`, `game.moderate`, `game.manage` идут от `game.owner_id`. `gm` даёт `game.edit`, `game.moderate`; `player` из роли ничего не добавляет. Запись в `game_member_permissions` для этих ключей не дублирует роль (`[auth-system.md](auth-system.md)`). Один пользователь может потом подать несколько своих персонажей (G3).
 
 HTTP: добавить / изменить / снять участника. Глобальные `game.create`, `game.view_all`, `game.edit_all` — проверка уже описанных ключей, не новый каталог прав.
 
 ### G3. Строка персонажа — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-03.md`](game-plan-03.md). Таблица `game_character`, один semantic diff, бонус на строке персонажа. Подача пишет пустой список секций. Отдельная запись списка — G7.
+План: `[game-plan-03.md](game-plan-03.md)`. Таблица `game_character`, один semantic diff, бонус на строке персонажа. Подача пишет пустой список секций. Отдельная запись списка — G7.
 
 Зависимость: G1, G2. Это серверная сторона гейта «C8 без Game».
 
@@ -102,7 +118,7 @@ HTTP: подать персонажа (`submitted`), approve, return, reject, в
 
 ### G4. Смена ревизии и допуск — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-04.md`](game-plan-04.md). `game.update` пишет `rulesRevision` того же мира. `isActiveSessionParticipant` в этом шаге возвращал `false`. Validation допуска — `ICharacterSheets::acceptsStoredChoices`.
+План: `[game-plan-04.md](game-plan-04.md)`. `game.update` пишет `rulesRevision` того же мира. `isActiveSessionParticipant` в этом шаге возвращал `false`. Validation допуска — `ICharacterSheets::acceptsStoredChoices`.
 
 Зависимость: G3. Character C7 уже есть.
 
@@ -124,7 +140,7 @@ Repair в PHP Character сейчас не статус строки: `needs_fix`
 
 ### G5. Сессия без боя — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-05.md`](game-plan-05.md). Одна текущая сессия. `sessionRunning` выводится из строки сессии. `isActiveSessionParticipant` читает её состав. Порт запрета migrate объявляет Character, реализует Game.
+План: `[game-plan-05.md](game-plan-05.md)`. Одна текущая сессия. `sessionRunning` выводится из строки сессии. `isActiveSessionParticipant` читает её состав. Порт запрета migrate объявляет Character, реализует Game.
 
 Зависимость: G4.
 
@@ -138,13 +154,13 @@ Migrate активного участника этой сессии запрещ
 
 ## После каркаса
 
-План-файл пишем, когда шаг начинается. C8 целиком эти шаги не закрывают: в нём ещё process, runtime-эффект и доставка. Серверный контракт боя — несколько независимых боёв в одной текущей сессии ([`game-system.md`](game-system.md)). Ограничение мока R3-FE «не больше одного active battle» в PHP не переносится.
+План-файл пишем, когда шаг начинается. C8 целиком эти шаги не закрывают: в нём ещё process, runtime-эффект и доставка. Серверный контракт боя — несколько независимых боёв в одной текущей сессии (`[game-system.md](game-system.md)`). Ограничение мока R3-FE «не больше одного active battle» в PHP не переносится.
 
-Хост Chat уже принимает непрозрачный тип ([`chat-roadmap.md`](chat-roadmap.md), шаг 7). Создание чатов игры — G16, не шаг Chat.
+Хост Chat уже принимает непрозрачный тип (`[chat-roadmap.md](chat-roadmap.md)`, шаг 7). Создание чатов игры — G16, не шаг Chat.
 
 ### G6. NPC — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-06.md`](game-plan-06.md).
+План: `[game-plan-06.md](game-plan-06.md)`.
 
 Зависимость: G1. Сессия G5 не обязательна для строки NPC и подключает NPC только следующим шагом боя.
 
@@ -156,7 +172,7 @@ HTTP: создать, прочитать, изменить, перевести �
 
 ### G7. Видимость секций строки персонажа — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-07.md`](game-plan-07.md).
+План: `[game-plan-07.md](game-plan-07.md)`.
 
 Зависимость: G3.
 
@@ -164,7 +180,7 @@ HTTP: создать, прочитать, изменить, перевести �
 
 ### G8. Вступление — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-08.md`](game-plan-08.md).
+План: `[game-plan-08.md](game-plan-08.md)`.
 
 Зависимость: G2.
 
@@ -174,7 +190,7 @@ HTTP: создать, прочитать, изменить, перевести �
 
 ### G9. Летопись — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-09.md`](game-plan-09.md).
+План: `[game-plan-09.md](game-plan-09.md)`.
 
 Зависимость: G1.
 
@@ -182,7 +198,7 @@ HTTP: создать, прочитать, изменить, перевести �
 
 ### G10. Порт мутации actual — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-10.md`](game-plan-10.md).
+План: `[game-plan-10.md](game-plan-10.md)`.
 
 Зависимость: G3. Это узкий шов C9, не DOT, каст и decay.
 
@@ -192,7 +208,7 @@ HTTP: создать, прочитать, изменить, перевести �
 
 ### G11. Экономика — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-11.md`](game-plan-11.md).
+План: `[game-plan-11.md](game-plan-11.md)`.
 
 Зависимость: G6, G10. Выдача в NPC пишет `npc.version`; без строки NPC операция в персонажа игры не превращается в создание NPC.
 
@@ -202,7 +218,7 @@ Typed `EconomyOperation`: buy, sell, discard, transfer_item, transfer_money, loo
 
 ### G12. Бой без тактики — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-12.md`](game-plan-12.md).
+План: `[game-plan-12.md](game-plan-12.md)`.
 
 Зависимость: G5, G6, G10.
 
@@ -212,7 +228,7 @@ Typed `EconomyOperation`: buy, sell, discard, transfer_item, transfer_money, loo
 
 ### G13. Один удар — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-13.md`](game-plan-13.md).
+План: `[game-plan-13.md](game-plan-13.md)`.
 
 Зависимость: G12.
 
@@ -220,7 +236,7 @@ Typed `EconomyOperation`: buy, sell, discard, transfer_item, transfer_money, loo
 
 ### G14. Проекции чтения — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-14.md`](game-plan-14.md).
+План: `[game-plan-14.md](game-plan-14.md)`.
 
 Зависимость: G6. Боевой subset опирается на G12. Список NPC от боя не зависит.
 
@@ -228,7 +244,7 @@ Typed `EconomyOperation`: buy, sell, discard, transfer_item, transfer_money, loo
 
 ### G15. Доставка — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-15.md`](game-plan-15.md).
+План: `[game-plan-15.md](game-plan-15.md)`.
 
 Зависимость: G14.
 
@@ -236,9 +252,9 @@ Typed `EconomyOperation`: buy, sell, discard, transfer_item, transfer_money, loo
 
 ### G16. Чаты донора — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-16.md`](game-plan-16.md).
+План: `[game-plan-16.md](game-plan-16.md)`.
 
-Зависимость: G1, G2, G3. Хост — шаг 7 [`chat-roadmap.md`](chat-roadmap.md): `IChatTypeRegistry` и `IChats::addTyped`.
+Зависимость: G1, G2, G3. Хост — шаг 7 `[chat-roadmap.md](chat-roadmap.md)`: `IChatTypeRegistry` и `IChats::addTyped`.
 
 Game регистрирует свои строки типов и создаёт чаты через `IChats`. Chat Game не импортирует. Колонки `game_id` в таблицах чата нет. Имена `game`, `game_discussion`, `character_discussion` — строки этого модуля, не каталог Chat.
 
@@ -246,9 +262,11 @@ Game регистрирует свои строки типов и создаёт
 
 Отмена process при return, вкладка Discussion на фронте и SSE battleground в этот шаг не входят.
 
+GAP обсуждения (не снимает DONE): вкладка «Обсуждение» видна тому, кого пускает карточка, тип `game_discussion`, а в `chat_member` сейчас только владелец при create и учётка при `game.addMember`. Целевой канон — читать тред может тот, кто видит карточку, посадка в члены при первом успешном сообщении; стол (`type game`) так не открывать. Способ посадки не выбран. Пока GAP открыт, `ChatThread` у зрителя даёт `CHAT_NOT_FOUND`. Inbox и `/api/chat/sync` без donor-типов.
+
 ### G17. Process — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-17.md`](game-plan-17.md).
+План: `[game-plan-17.md](game-plan-17.md)`.
 
 Зависимость: G5, G12. Return — G3. Удар G13 и чаты G16 этот шаг не пересчитывает.
 
@@ -258,7 +276,7 @@ Return отменяет незакрытые process этой строки пе�
 
 ### G18. Проверка — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-18.md`](game-plan-18.md).
+План: `[game-plan-18.md](game-plan-18.md)`.
 
 Зависимость: G17.
 
@@ -266,7 +284,7 @@ Return отменяет незакрытые process этой строки пе�
 
 ### G19. Широкий удар — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-19.md`](game-plan-19.md).
+План: `[game-plan-19.md](game-plan-19.md)`.
 
 Зависимость: G13, G18.
 
@@ -274,7 +292,7 @@ Return отменяет незакрытые process этой строки пе�
 
 ### G20. Исход удара — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-20.md`](game-plan-20.md).
+План: `[game-plan-20.md](game-plan-20.md)`.
 
 Зависимость: G13, G19, шаг 14 Rule и Character C10. Исполнитель формулы — `IFormulaEvaluations`. Контекст листа — `ICharacterFormulaContexts`.
 
@@ -282,7 +300,7 @@ Return отменяет незакрытые process этой строки пе�
 
 ### G21. Инициатива — `DONE` (`BACKEND_OPEN`)
 
-План: [`game-plan-21.md`](game-plan-21.md).
+План: `[game-plan-21.md](game-plan-21.md)`.
 
 Зависимость: G12, G18 и шаг 15 Rule. Пока у `CheckSpec` нет признака инициативы, план этого шага не пишется. Новый шаг Mechanic не нужен: бросок уже делает проверка G18.
 
@@ -300,32 +318,68 @@ Return отменяет незакрытые process этой строки пе�
 шаги в новые G22+. Подробный `game-plan-N` создаётся только при начале
 конкретного шага; отсутствие файла не означает, что контракт уже принят.
 
-1. **`game-plan-28` — защита и resistance layers (`PARTIAL`).** Базовая
-   Character/NPC projection и resistance path готовы. Остались defender
-   block-check, автопровал `{0|-1}`, успешный/проваленный block, penetration,
-   eligibility и списание ОД, production reliability capability и сквозные
-   тесты.
-2. **`game-plan-29` — все физические профили атаки (`TODO`).** После P1:
-   `strike`, `throw`, `shoot`, включая их authoritative-ограничения,
-   resolver дальности/укрытия/falloff и взаимодействие с защитой. Карта,
-   координаты и battleground в этот план не входят.
-3. **`game-plan-30` — immediate consequences (`TODO`).** Единый атомарный
-   pipeline: injury, damage/exhaustion, state hooks, stun/shock/knockout и
-   проверки Воли/увечья для игрока и NPC.
-4. **`game-plan-31` — wounds (`TODO`).** Экземпляры ран и sidecar, actions
-   зажать/перевязать, `heldBy`, CAS и запись для персонажа/NPC.
-5. **`game-plan-32` — конец хода и продолжение действия (`TODO`).** Clotting,
-   bleeding/DOT, автоматические проверки, continuation/cancellation долгого
-   действия и передача хода.
-6. **`game-plan-33` — frontend → PHP E2E (`TODO`).** Два аккаунта,
-   `1 → 1`/`1 → N`, реакции защиты, stale versions, replay/idempotency,
+1. `game-plan-28` **— защита и resistance layers (**`CLOSED`**, backend).**
+  Подтверждены Character/NPC parity, single/wide result shape, defender
+   block-check, `{0|-1}` auto-fail, penetration, reliability, resource/CAS,
+   replay/rollback, strike close, battle version, mutation и delivery path.
+   Полный suite ранее пройден с одним environment-only Redis skip; в
+   финальном read-only аудите тесты не запускались.
+2. **`game-plan-29` — физические профили атаки (`APPROVED`, backend
+  принятого scope).** Канон статуса —
+   `[game-plan-29.md](game-plan-29.md)`. Приняты `strike`, `throw` и
+   `shoot` в границах уже закрытого Game 28: identity профиля и выбранного
+   экземпляра, расход бросаемого предмета и боеприпаса, parity персонажа и
+   NPC, single/wide, CAS, replay и rollback. Cover, координаты и карта,
+   authority дальности и falloff в принятый scope не входят и не становятся
+   боевым отказом или модификатором. Evidence: `GamePhysicalProfileMysqlTest`
+   13/768; Game 28 strike/wide 26/1608; полный suite ранее 794/11776 с одним
+   environment-only Redis skip. Это не project-wide approval и не перевод
+   Game 30 в `IMPLEMENTED`.
+3. **`game-plan-30` — immediate consequences (`APPROVED`, backend
+  принятого scope).** Канон статуса —
+   `[game-plan-30.md](game-plan-30.md)`. Принят единый атомарный pipeline
+   close `1 → 1` и `1 → N`: injury, damage/exhaustion, state hooks,
+   stun/shock/knockout и проверки Воли/увечья для игрока и NPC. Вне
+   принятого scope: sidecar и `heldBy`, DOT и конец хода, frontend E2E,
+   cover/range/falloff, C11 и G22. Focused MySQL не покрывает рану-state,
+   пропуск Воли, увечье, blunt AND и chat thread/replay; эти пути закрыты
+   чтением кода. В documentation-only сессии PHPUnit и frontend не
+   запускались. Это не project-wide approval и не перевод Game 31 в
+   `IMPLEMENTED`.
+4. **`game-plan-31` — wounds (`APPROVED`, backend принятого scope).**
+  Канон статуса — `[game-plan-31.md](game-plan-31.md)`. Приняты уникальный
+  `id` строки `sheet.states`, sidecar раны, `heldBy`, команды
+  `game.woundAction` (зажать / отпустить / перевязать), `next_action_cost`,
+  карта `pending_action_effects` на открытом бою и снятие зажима на
+  `leave` для персонажа и NPC. Вне принятого scope: DOT, tick и прибавка
+  `clotting`, frontend E2E, C11 и G22, перенос `WOUND_STATE_CODE` в PHP.
+  В documentation-only сессии PHPUnit и frontend не запускались. Это не
+  project-wide approval и не перевод Game 32 в `IMPLEMENTED`.
+5. **`game-plan-32` — конец хода и продолжение действия (`APPROVED`,
+  backend принятого scope).** Канон статуса —
+   `[game-plan-32.md](game-plan-32.md)`. Приняты `endTurn`, clotting,
+   кровь, DOT, refill F1, курсор, долг ОД (`declareStrike` / wide),
+   continue/abort, leave/roster strip, replay и CAS. Вне принятого
+   scope: магия, сцена, `N → N`, сутки, frontend E2E, C11 и G22,
+   `WOUND_STATE_CODE`, `blood_clotting` в `runEvent`. Residual evidence:
+   focused MySQL не assert’ит `delivery.source` и увечье DOT; эти пути
+   закрыты чтением кода. Полный suite в verification не запускался. В
+   documentation-only сессии PHPUnit и frontend не запускались. Это не
+   project-wide approval и не перевод Game 33 в `IMPLEMENTED`.
+6. `game-plan-33` **— frontend → PHP E2E (**`TODO`**).** Два аккаунта,
+  `1 → 1`/`1 → N`, реакции защиты, stale versions, replay/idempotency,
    actual/NPC updates, delivery/SSE и обновление второго клиента.
 
-Зависимости: `game-plan-29` ждёт полного P1 из 28; 30 ждёт 28–29 и
-authoritative runtime-контракты Rule/Character; 31 ждёт 30 и runtime-модель
-состояний Character; 32 ждёт 31; 33 ждёт 28–32 и не повышает статус
-backend до E2E автоматически. Rule не собирает слои цели, Character не
-исполняет боевые последствия, Game не создаёт второй лист.
+Зависимости: `game-plan-29` принят после полного P1 из 28 и только для
+backend принятого scope. `game-plan-30` принят после 28–29 и только для
+backend принятого scope immediate consequences. `game-plan-31` принят
+после 28–30 и только для backend принятого scope ран. `game-plan-32`
+принят после 28–31 и только для backend принятого scope конца хода.
+Game 33 остаётся следующим отдельным этапом со статусом `TODO`, не
+`IMPLEMENTED`; 33 ждёт 28–32 и не повышает статус backend до E2E
+автоматически. Rule не собирает
+слои цели, Character не исполняет боевые последствия, Game не создаёт
+второй лист.
 
 ## Порядок
 
@@ -367,6 +421,8 @@ G6, G7, G8 и G9 друг от друга не зависят. G11 не начи
 - G20 как вторая модель проверки или как замена G18;
 - G21 как свой бросок, как строка `check-initiative` или как обход G18;
 - G22 как выбор поля листа или как новый kind, которого нет в C11.
+
+
 
 ## Гейты
 
@@ -410,7 +466,7 @@ G6, G7, G8 и G9 друг от друга не зависят. G11 не начи
 
 Личные заметки игры (`personalNotes`) остаются вне нарезки. Инициатива — G21. Запись исхода — G22 и не начинается без Character C11. Сцена, каст, DOT и decay в G1–G22 не входят.
 
-Legacy SQL в [`data-model.md`](data-model.md) (`games`, `game_members`, `game_rule_sets`, старый `game_characters`) — не физическая схема этого каркаса. Целевое membership там же помечено `implementation OPEN`. Колонки выбираются в плане шага.
+Legacy SQL в `[data-model.md](data-model.md)` (`games`, `game_members`, `game_rule_sets`, старый `game_characters`) — не физическая схема этого каркаса. Целевое membership там же помечено `implementation OPEN`. Колонки выбираются в плане шага.
 
 ## Дефекты эскиза
 
@@ -420,6 +476,8 @@ Legacy SQL в [`data-model.md`](data-model.md) (`games`, `game_members`, `game_r
 - Рядом есть `game.stopStateSession`. На каркасе один stop — `game.stopSession`.
 - `GameCharacterMembership.overlay: GameCombatOverlay` в эскизе исторически тащил лист. В PHP overlay каркаса нет: полный лист туда не пишется.
 - Лимиты ОС/ОЛ/ОР и `moneyLimit` живут на игре (`GameDetail`), не во входе `character.create`. `osBonus` / `orBonus` / `olBonus` в эскизе лежат на `GameCharacterMembership` (строка персонажа), не на `GameMember` (участник-пользователь). На участника и на строку игры их не переносить.
+
+
 
 ## Не входит
 

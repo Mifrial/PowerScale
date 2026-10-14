@@ -1,6 +1,29 @@
 # План Game 28 — слои цели на закрытии удара
 
-**Статус:** `PARTIAL`, 2026-10-09. Закрыты проекция слоёв цели и базовый resistance path для `1 → 1` и `1 → N`; полный P1 и полный эффект блока не закрыты. Реальные оставшиеся implementation gaps этого closure — P3 efficiency precedence и selected inventory instance в resource resolver. `ChosenAmount` не является implementation blocker `game-plan-28`: для текущего single-step action flow frontend proposal валидируется по live Rule, spend выполняется атомарно на open path, mutation получает typed `ResourceSpend`, а request body служит idempotency fingerprint. Persisted `frozen chosenAmounts` не требуется; отдельный action context отложен до будущего multi-step action со spend не на open. В [`game-roadmap.md`](game-roadmap.md) шаг не вписывается. Канон состава — [`combat-layers-prerequisite.md`](combat-layers-prerequisite.md). Проекция — [`character-plan-12.md`](character-plan-12.md): `ICharacterCombatLayers::project`. Capability среза — [`mechanic-plan-07.md`](mechanic-plan-07.md): `IMechanicEngine::hasReliabilityCut` и маркер `IReliabilityCut`; production handler/content отдельно не подтверждены. Nullable threshold — [`rule-plan-08.md`](rule-plan-08.md): нет `durability` — `null`. Итог удара уже размерный — [`game-plan-26.md`](game-plan-26.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** `CLOSED` для backend Game 28, 2026-10-11. Финальный
+read-only gap-аудит подтвердил projection/resistance, defender/block,
+размерный auto-fail, resource/action contract, reliability capability,
+penetration и persistence/delivery acceptance для `1 → 1` и `1 → N`.
+Закрытие не является project-wide approval: frontend → PHP → delivery E2E,
+deployment/live verification и полный production UI-контур не подтверждены.
+Полный suite ранее пройден с одним environment-only Redis skip; targeted
+reliability evidence составляет 19/19 MySQL tests и 1229 assertions,
+failures=0. В этой audit-сессии тесты не запускались.
+
+`ChosenAmount` закрыт как single-step open-path contract: proposal
+валидируется по live Rule, mutation получает typed `ResourceSpend`, spend и
+CAS атомарны, request body используется как idempotency fingerprint.
+Persisted `frozen chosenAmounts` и отдельный action context остаются будущим
+контрактом только для multi-step action со spend не на open. Game 29 остаётся
+следующим отдельным этапом и автоматически не переводится в
+`IMPLEMENTED`. Канон состава — [`combat-layers-prerequisite.md`](combat-layers-prerequisite.md).
+Проекция — [`character-plan-12.md`](character-plan-12.md):
+`ICharacterCombatLayers::project`. Capability среза —
+[`mechanic-plan-07.md`](mechanic-plan-07.md): live Rule → mechanic catalog →
+registered `IReliabilityCut` handler. Nullable threshold —
+[`rule-plan-08.md`](rule-plan-08.md): нет `durability` — `null`. Итог удара
+уже размерный — [`game-plan-26.md`](game-plan-26.md). Стандарты —
+[`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: закрытие `1 → 1` и `1 → N` считает `resistance` из проекции слоёв цели, а не из суммы слотов по `equippedModifiers`. Формула `injury` не меняется. `durabilityShave` не входит. Имена типов урона не сравниваются.
 
@@ -63,12 +86,17 @@ Suite `game`. Character и Mechanic не расширяются, кроме уж
 - `ignore` и `dodge` слои блока не добавляют.
 - Персонаж и NPC с теми же документами дают одну пару `resistance`.
 
-## Что остаётся для завершения P1
+## Финальный closure
 
-- Проверка блокирующего и отдельная ветка успешного/проваленного блока.
-- Автопровал атакующего `{0|-1}` до чтения слоёв блока.
-- `success = 1` только при успешном блоке.
-- Penetration профиля и его применение только к защите.
-- Authoritative eligibility и списание ОД реакции.
-- Реальный production handler/content для capability среза надёжности.
-- Сквозные тесты блока, penetration, reliability cut и delivery.
+Все обязательные backend-пункты Game 28 подтверждены текущим кодом и
+имеющимся acceptance-evidence: block-check и gate успешного/проваленного
+block, auto-fail `{0|-1}`, penetration только к defense, authoritative
+eligibility/resource spend, production reliability chain, single/wide и
+Character/NPC parity, replay/CAS/rollback и delivery signal/result path.
+
+Этот статус означает `CLOSED` только для backend Game 28. Full frontend →
+PHP → delivery E2E, deployment/live verification и production UI behaviour
+не подтверждены; полный suite ранее пройден с одним environment-only Redis
+skip. В финальном read-only аудите тесты не запускались. Game 29 остаётся
+следующим отдельным этапом со статусом `TODO` и автоматически не переводится
+в `IMPLEMENTED`.
