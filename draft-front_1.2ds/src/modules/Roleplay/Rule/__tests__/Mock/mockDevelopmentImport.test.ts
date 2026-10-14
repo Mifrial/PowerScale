@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 import { mockDevelopmentImport } from '@/modules/Roleplay/Rule/Mock/mockDevelopmentImport';
+import { keywords } from '@/modules/Roleplay/Keyword/Mock/mockKeywords';
+import { ruleValidationService } from '@/modules/Roleplay/Rule/Service/Instance/ruleValidationService';
 import type { AbilitySpecBase } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecBase';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
@@ -505,7 +507,7 @@ describe('mockDevelopmentImport (S14)', () => {
       levels: [2, 2, 2],
     });
     const experienceGrant = communicationDevelopment?.grants?.[0]?.grants?.[0];
-    expect(experienceGrant).toMatchObject({ source_code: 'experience' });
+    expect(experienceGrant).toMatchObject({ source_code: 'training' });
     expect(byCode.get('krasnorechie')?.keywordIds).not.toContain(58);
     expect(byCode.get('manera-obscheniya')?.keywordIds).not.toContain(58);
   });
@@ -964,5 +966,15 @@ describe('mockDevelopmentImport (S14)', () => {
     expect(long?.zones.or).toEqual({ kind: 'array', levels_cost: [3] });
     expect(JSON.stringify(long?.requirements)).toContain('"size":1');
     expect(long?.long_tension).toBe(true);
+  });
+
+  it('source_code грантов развития ссылаются на type=source', () => {
+    const sourceErrors = ruleValidationService
+      .validateRuleReferences(
+        ruleCatalog,
+        keywords.map((keyword) => ({ code: keyword.code, name: keyword.name })),
+      )
+      .filter((error) => error.expectedType === 'source');
+    expect(sourceErrors).toEqual([]);
   });
 });

@@ -11,7 +11,9 @@ const props = defineProps<{
 
 const spec = computed(() => damageTypeSpecService.asDamageTypeSpec(props.rule));
 const mechanicNames = computed(() =>
-  props.rule.mechanics.map((row) => props.mechanics?.find((mechanic) => mechanic.id === row.mechanicId)?.name ?? String(row.mechanicId)),
+  props.rule.mechanics.map(
+    (row) => props.mechanics?.find((mechanic) => mechanic.id === row.mechanicId)?.name ?? String(row.mechanicId),
+  ),
 );
 </script>
 

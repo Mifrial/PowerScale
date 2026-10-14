@@ -64,28 +64,38 @@ describe('RuleDraftService.createDraft', () => {
       data: { diceCount: 3, dieFaces: 6, efficiency: 3, adv: 0, sub_mechanics: ['advantage_disadvantage'] },
       futureField: { nested: [1] },
     } as unknown as RuleMechanicRef['mechanicPayload'];
-    const draft = ruleDraftService.createDraft(baseParams({
-      isEdit: true,
-      mechanics: [{ mechanicId: 5, mechanicPayload }],
-      loadedMechanics: [{ mechanicId: 5, mechanicPayload: null }],
-    }));
+    const draft = ruleDraftService.createDraft(
+      baseParams({
+        isEdit: true,
+        mechanics: [{ mechanicId: 5, mechanicPayload }],
+        loadedMechanics: [{ mechanicId: 5, mechanicPayload: null }],
+      }),
+    );
     expect(draft.mechanics[0]?.mechanicPayload).toEqual(mechanicPayload);
     expect(draft.mechanics[0]?.mechanicPayload).not.toBe(mechanicPayload);
   });
 
   it('смена mechanicId строки сбрасывает её payload', () => {
     const mechanicPayload = { type: 'injury_efficiency' as const, delta: -1 };
-    expect(ruleDraftService.createDraft(baseParams({
-      mechanics: [{ mechanicId: 6, mechanicPayload }],
-      loadedMechanics: [{ mechanicId: 5, mechanicPayload }],
-    })).mechanics[0]?.mechanicPayload).toBeNull();
+    expect(
+      ruleDraftService.createDraft(
+        baseParams({
+          mechanics: [{ mechanicId: 6, mechanicPayload }],
+          loadedMechanics: [{ mechanicId: 5, mechanicPayload }],
+        }),
+      ).mechanics[0]?.mechanicPayload,
+    ).toBeNull();
   });
 
   it('без смены id сохраняет null payload', () => {
-    expect(ruleDraftService.createDraft(baseParams({
-      mechanics: [{ mechanicId: 5, mechanicPayload: null }],
-      loadedMechanics: [{ mechanicId: 5, mechanicPayload: null }],
-    })).mechanics[0]?.mechanicPayload).toBeNull();
+    expect(
+      ruleDraftService.createDraft(
+        baseParams({
+          mechanics: [{ mechanicId: 5, mechanicPayload: null }],
+          loadedMechanics: [{ mechanicId: 5, mechanicPayload: null }],
+        }),
+      ).mechanics[0]?.mechanicPayload,
+    ).toBeNull();
   });
 
   it('прокидывает contentNote, иначе пустую строку', () => {

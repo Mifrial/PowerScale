@@ -29,6 +29,11 @@ export interface ResourceSpec {
   auto_add?: boolean;
   /** Ресурс жетонов на проверку. Ищет ConcentrationTokenService и запас редактора персонажа. */
   check_token?: boolean;
+  /**
+   * Пул, который refill в конце хода (F1). Не `auto_add` (положить на лист) и не жетон проверки.
+   * PHP: ровно одна живая карточка с true.
+   */
+  turn_refill?: boolean;
   /** Базовый лимит ресурса (стартовое значение + условия). У не-авто ресурсов — base, adjustments пустые. */
   limit?: ResourceLimit;
 }

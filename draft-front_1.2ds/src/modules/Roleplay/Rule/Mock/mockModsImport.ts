@@ -105,13 +105,31 @@ export const mockModsImport: Rule[] = [
       { type: 'advantage', delta: -1, source_code: 'tool', when: on('weapon') },
     ],
   ),
-  modifier(1, 'poorly-made', 'Плохо сделан', 'craft-quality', weaponApplies(), price({ factor: 0.5 }),     [{ text: 'Все проверки на попадание этим оружием имеют помеху от инструмента, а его прочность уменьшена на размер.' }],
+  modifier(
+    1,
+    'poorly-made',
+    'Плохо сделан',
+    'craft-quality',
+    weaponApplies(),
+    price({ factor: 0.5 }),
+    [
+      {
+        text: 'Все проверки на попадание этим оружием имеют помеху от инструмента, а его прочность уменьшена на размер.',
+      },
+    ],
     [
       { type: 'durability', add_size: -1, when: on('weapon') },
       { type: 'advantage', delta: -1, source_code: 'tool', when: on('weapon') },
     ],
   ),
-  modifier(2, 'sturdily-made', 'Крепко сделан', 'craft-quality', weaponApplies(), price({ factor: 1.2 }),     [
+  modifier(
+    2,
+    'sturdily-made',
+    'Крепко сделан',
+    'craft-quality',
+    weaponApplies(),
+    price({ factor: 1.2 }),
+    [
       {
         text: 'Все проверки на попадание этим оружием имеют помеху от инструмента, но его прочность увеличена на размер.',
       },
@@ -233,11 +251,18 @@ export const mockModsImport: Rule[] = [
       { type: 'defense', add_size: -1, when: on('armor-item') },
     ],
   ),
-  modifier(13, 'excellent-material', 'Отличный материал', 'material-quality', shieldApplies(), price({ factor: 10 }), [
-    {
-      text: 'Блокирование увеличено на ¼. Прочность +1.',
-    },
-  ],
+  modifier(
+    13,
+    'excellent-material',
+    'Отличный материал',
+    'material-quality',
+    shieldApplies(),
+    price({ factor: 10 }),
+    [
+      {
+        text: 'Блокирование увеличено на ¼. Прочность +1.',
+      },
+    ],
     [
       { type: 'block', factor: 1.25, when: on('shield-item') },
       { type: 'durability', delta: 1, when: on('shield-item') },
@@ -420,22 +445,36 @@ export const mockModsImport: Rule[] = [
       },
     ],
   ),
-  modifier(19, 'silvered', 'Посеребрённое', 'coating', equipmentApplies(), price({ add_gm_per_100g: 100 }), [
-    { label: 'Оружие/щит', text: 'Сопротивление магии увеличивается до 1.' },
-    {
-      label: 'Общее',
-      text: 'Предмет получает свойство Сопротивление магии 1.',
-    },
-  ],
+  modifier(
+    19,
+    'silvered',
+    'Посеребрённое',
+    'coating',
+    equipmentApplies(),
+    price({ add_gm_per_100g: 100 }),
+    [
+      { label: 'Оружие/щит', text: 'Сопротивление магии увеличивается до 1.' },
+      {
+        label: 'Общее',
+        text: 'Предмет получает свойство Сопротивление магии 1.',
+      },
+    ],
     [{ type: 'resistance', damage_type_code: 'magic-damage', mode: 'max', value: 1 }],
   ),
-  modifier(20, 'silver', 'Серебряное', 'material', metalApplies(), price({ factor: 10 }), [
-    { label: 'Оружие/щит', text: 'Прочность снижена на размер, сопротивление магии увеличивается до 5.' },
-    {
-      label: 'Общее',
-      text: 'Предмет получает свойство Сопротивление магии 5, +20% к весу от материала, +1 к минимальной силе (если есть), размер к прочности/блокированию/защите уменьшается на размер (если есть).',
-    },
-  ],
+  modifier(
+    20,
+    'silver',
+    'Серебряное',
+    'material',
+    metalApplies(),
+    price({ factor: 10 }),
+    [
+      { label: 'Оружие/щит', text: 'Прочность снижена на размер, сопротивление магии увеличивается до 5.' },
+      {
+        label: 'Общее',
+        text: 'Предмет получает свойство Сопротивление магии 5, +20% к весу от материала, +1 к минимальной силе (если есть), размер к прочности/блокированию/защите уменьшается на размер (если есть).',
+      },
+    ],
     [
       { type: 'weight', factor: 1.2 },
       { type: 'min_strength', delta: 1 },
@@ -445,13 +484,20 @@ export const mockModsImport: Rule[] = [
       { type: 'resistance', damage_type_code: 'magic-damage', mode: 'max', value: 5 },
     ],
   ),
-  modifier(21, 'gold', 'Золотое', 'material', metalApplies(), price({ factor: 100 }), [
-    { label: 'Оружие/щит', text: 'Прочность снижена на размер, оружие получает свойство Проводник магии 10.' },
-    {
-      label: 'Общее',
-      text: 'Предмет получает свойство Проводник магии 10, +250% к весу от материала, +4 к минимальной силе (если есть), размеры из прочности/блокирования/защиты уменьшается на размер (если есть).',
-    },
-  ],
+  modifier(
+    21,
+    'gold',
+    'Золотое',
+    'material',
+    metalApplies(),
+    price({ factor: 100 }),
+    [
+      { label: 'Оружие/щит', text: 'Прочность снижена на размер, оружие получает свойство Проводник магии 10.' },
+      {
+        label: 'Общее',
+        text: 'Предмет получает свойство Проводник магии 10, +250% к весу от материала, +4 к минимальной силе (если есть), размеры из прочности/блокирования/защиты уменьшается на размер (если есть).',
+      },
+    ],
     [
       { type: 'weight', factor: 3.5 },
       { type: 'min_strength', delta: 4 },
@@ -462,11 +508,18 @@ export const mockModsImport: Rule[] = [
       { type: 'keyword', add: ['magic-conductor'] },
     ],
   ),
-  modifier(22, 'steel-ferrule', 'Стальная оковка', 'ferrule', staffApplies(), price({ add_gm: 250 }), [
-    {
-      text: 'Оружие получает «металл» в описание, а все удары им отныне стоят минимум 2ОД. Вес +0,2кг, урон +1 от материала, минимальная сила +1, прочность +1 размер от материала.',
-    },
-  ],
+  modifier(
+    22,
+    'steel-ferrule',
+    'Стальная оковка',
+    'ferrule',
+    staffApplies(),
+    price({ add_gm: 250 }),
+    [
+      {
+        text: 'Оружие получает «металл» в описание, а все удары им отныне стоят минимум 2ОД. Вес +0,2кг, урон +1 от материала, минимальная сила +1, прочность +1 размер от материала.',
+      },
+    ],
     [
       { type: 'weight', add_kg: 0.2 },
       { type: 'min_strength', delta: 1, when: on('weapon') },
@@ -482,11 +535,18 @@ export const mockModsImport: Rule[] = [
       { type: 'keyword', add: ['metal'] },
     ],
   ),
-  modifier(23, 'silver-ferrule', 'Серебряная оковка', 'ferrule', staffApplies(), price({ add_gm: 5000 }), [
-    {
-      text: 'Оружие получает «металл» и «серебро» в описание, а все удары им отныне стоят минимум 2ОД. Вес +0,3кг, урон +1 от материала, минимальная сила +1, прочность +1 размер, сопротивление магии до 4. Сопротивление магии оружия позволяет ему поражать некоторых неосязаемых существ.',
-    },
-  ],
+  modifier(
+    23,
+    'silver-ferrule',
+    'Серебряная оковка',
+    'ferrule',
+    staffApplies(),
+    price({ add_gm: 5000 }),
+    [
+      {
+        text: 'Оружие получает «металл» и «серебро» в описание, а все удары им отныне стоят минимум 2ОД. Вес +0,3кг, урон +1 от материала, минимальная сила +1, прочность +1 размер, сопротивление магии до 4. Сопротивление магии оружия позволяет ему поражать некоторых неосязаемых существ.',
+      },
+    ],
     [
       { type: 'weight', add_kg: 0.3 },
       { type: 'min_strength', delta: 1, when: on('weapon') },
@@ -503,21 +563,35 @@ export const mockModsImport: Rule[] = [
       { type: 'keyword', add: ['metal', 'silver'] },
     ],
   ),
-  modifier(24, 'closed-helm', 'С закрытым шлемом', 'kit', armorApplies(), price({ add_gm: 10000 }), [
-    {
-      text: 'Надёжность всех защит доспеха +1. 1 помеха для проверок на внимательность от предмета.',
-    },
-  ],
+  modifier(
+    24,
+    'closed-helm',
+    'С закрытым шлемом',
+    'kit',
+    armorApplies(),
+    price({ add_gm: 10000 }),
+    [
+      {
+        text: 'Надёжность всех защит доспеха +1. 1 помеха для проверок на внимательность от предмета.',
+      },
+    ],
     [
       { type: 'armor_reliability', add: 1, when: on('armor-item') },
       { type: 'check_advantage', delta: -1, characteristic_codes: ['attention'] },
     ],
   ),
-  modifier(25, 'breastplate-only', 'Только нагрудник', 'kit', armorApplies(), price({ factor: 1 / 3 }), [
-    {
-      text: 'Доспех имеет только нагрудник. Его надёжность уменьшена до 1, но максимум Ловкости на размер больше, нет штрафа к силе и лишается свойства «Требует владения» (если имел). Вес нагрудника равен ¼ веса доспеха.',
-    },
-  ],
+  modifier(
+    25,
+    'breastplate-only',
+    'Только нагрудник',
+    'kit',
+    armorApplies(),
+    price({ factor: 1 / 3 }),
+    [
+      {
+        text: 'Доспех имеет только нагрудник. Его надёжность уменьшена до 1, но максимум Ловкости на размер больше, нет штрафа к силе и лишается свойства «Требует владения» (если имел). Вес нагрудника равен ¼ веса доспеха.',
+      },
+    ],
     [
       { type: 'weight', factor: 0.25 },
       { type: 'armor_reliability', set: 1, when: on('armor-item') },
@@ -526,22 +600,36 @@ export const mockModsImport: Rule[] = [
       { type: 'keyword', remove: ['requires-proficiency'] },
     ],
   ),
-  modifier(26, 'incomplete-kit', 'Неполная', 'kit', armorApplies(), price({ factor: 0.5 }), [
-    {
-      text: 'Доспех не полон. Надёжность уменьшена до 2, максимум Ловкости на 2 больше. Вес неполной комплектации равен ½ от полного.',
-    },
-  ],
+  modifier(
+    26,
+    'incomplete-kit',
+    'Неполная',
+    'kit',
+    armorApplies(),
+    price({ factor: 0.5 }),
+    [
+      {
+        text: 'Доспех не полон. Надёжность уменьшена до 2, максимум Ловкости на 2 больше. Вес неполной комплектации равен ½ от полного.',
+      },
+    ],
     [
       { type: 'weight', factor: 0.5 },
       { type: 'armor_reliability', set: 2, when: on('armor-item') },
       { type: 'max_agility', delta: 2, when: on('armor-item') },
     ],
   ),
-  modifier(27, 'insulated', 'Утеплённый', 'insulation', armorApplies(), price({ add_gm: 3000 }), [
-    {
-      text: 'Вес доспеха увеличен на 3 килограмма, максимум Ловкости снижен на 1, носитель получает 2 сопротивления холоду. В качестве материала для утепления может выступить модификатор с типом «материал», в котором указано, что может быть использован для утепления.',
-    },
-  ],
+  modifier(
+    27,
+    'insulated',
+    'Утеплённый',
+    'insulation',
+    armorApplies(),
+    price({ add_gm: 3000 }),
+    [
+      {
+        text: 'Вес доспеха увеличен на 3 килограмма, максимум Ловкости снижен на 1, носитель получает 2 сопротивления холоду. В качестве материала для утепления может выступить модификатор с типом «материал», в котором указано, что может быть использован для утепления.',
+      },
+    ],
     [
       { type: 'weight', add_kg: 3 },
       { type: 'max_agility', delta: -1, when: on('armor-item') },
@@ -572,21 +660,35 @@ export const mockModsImport: Rule[] = [
       },
     ],
   ),
-  modifier(29, 'sky-ray-leather', 'Кожа небесного ската', 'material', leatherArmorApplies(), price({ add_gm: 30000 }), [
-    {
-      text: '10 сопротивления электричеству; 1 сопротивления магии.',
-    },
-  ],
+  modifier(
+    29,
+    'sky-ray-leather',
+    'Кожа небесного ската',
+    'material',
+    leatherArmorApplies(),
+    price({ add_gm: 30000 }),
+    [
+      {
+        text: '10 сопротивления электричеству; 1 сопротивления магии.',
+      },
+    ],
     [
       { type: 'resistance', damage_type_code: 'electricity', mode: 'add', value: 10, when: on('armor-item') },
       { type: 'resistance', damage_type_code: 'magic-damage', mode: 'add', value: 1, when: on('armor-item') },
     ],
   ),
-  modifier(30, 'salamander-leather', 'Кожа саламандры', 'material', leatherArmorApplies(), price({ add_gm: 100000 }), [
-    {
-      text: 'Защита +1, максимум Ловкости -1; 20 сопротивления огню; 3 сопротивления магии.',
-    },
-  ],
+  modifier(
+    30,
+    'salamander-leather',
+    'Кожа саламандры',
+    'material',
+    leatherArmorApplies(),
+    price({ add_gm: 100000 }),
+    [
+      {
+        text: 'Защита +1, максимум Ловкости -1; 20 сопротивления огню; 3 сопротивления магии.',
+      },
+    ],
     [
       { type: 'defense', add: 1, when: on('armor-item') },
       { type: 'max_agility', delta: -1, when: on('armor-item') },

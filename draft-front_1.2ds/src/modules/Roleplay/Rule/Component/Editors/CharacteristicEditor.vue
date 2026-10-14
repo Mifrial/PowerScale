@@ -204,14 +204,14 @@ watch(specToEmit, (value) => emit('update:spec', cloneData(value)), { deep: true
             hide-details
             class="mt-2"
           />
+          <v-switch v-model="concentrationToken" label="Жетон концентрации" color="primary" hide-details class="mt-2" />
           <v-switch
-            v-model="concentrationToken"
-            label="Жетон концентрации"
+            v-model="unstableRoll"
+            label="Бросок при неустойчивости"
             color="primary"
             hide-details
             class="mt-2"
           />
-          <v-switch v-model="unstableRoll" label="Бросок при неустойчивости" color="primary" hide-details class="mt-2" />
           <v-switch v-model="initiative" label="Запасная инициатива" color="primary" hide-details class="mt-2" />
           <v-switch v-model="dodgeSoak" label="Поглощение уклонения" color="primary" hide-details class="mt-2" />
           <v-switch

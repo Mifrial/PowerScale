@@ -109,11 +109,7 @@ watch(
       <v-expansion-panel v-if="subtypes.includes('shield')" value="shield">
         <v-expansion-panel-title>Щит</v-expansion-panel-title>
         <v-expansion-panel-text>
-          <ShieldEditor
-            v-if="shield"
-            :shield="shield"
-            @update:shield="(v: ShieldBlock) => emit('update:shield', v)"
-          />
+          <ShieldEditor v-if="shield" :shield="shield" @update:shield="(v: ShieldBlock) => emit('update:shield', v)" />
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>

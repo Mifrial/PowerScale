@@ -39,9 +39,7 @@ const checkOptions = computed(() =>
 );
 
 const characteristicOptions = computed(() =>
-  props.rules
-    .filter((rule) => rule.type === 'characteristic')
-    .map((rule) => ({ title: rule.name, value: rule.code })),
+  props.rules.filter((rule) => rule.type === 'characteristic').map((rule) => ({ title: rule.name, value: rule.code })),
 );
 
 function patch(partial: Partial<MagicPathSpec>): void {

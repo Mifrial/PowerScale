@@ -264,27 +264,9 @@ function effectTitle(effect: StateEffect): string {
             hide-details
             class="mt-2"
           />
-          <v-switch
-            v-model="innerSpec.blood_loss"
-            label="Кровопотеря"
-            color="primary"
-            hide-details
-            class="mt-2"
-          />
-          <v-switch
-            v-model="innerSpec.decline_weakness"
-            label="Слабость"
-            color="primary"
-            hide-details
-            class="mt-2"
-          />
-          <v-switch
-            v-model="innerSpec.decline_disabled"
-            label="Обессилен"
-            color="primary"
-            hide-details
-            class="mt-2"
-          />
+          <v-switch v-model="innerSpec.blood_loss" label="Кровопотеря" color="primary" hide-details class="mt-2" />
+          <v-switch v-model="innerSpec.decline_weakness" label="Слабость" color="primary" hide-details class="mt-2" />
+          <v-switch v-model="innerSpec.decline_disabled" label="Обессилен" color="primary" hide-details class="mt-2" />
           <v-switch
             v-model="innerSpec.decline_unconscious"
             label="Потеря сознания"

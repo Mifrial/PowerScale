@@ -755,12 +755,17 @@ const importedRules: Rule[] = [
       'Третья и каждая следующая черта с признаком «общая» доплачивает 2 ОС сверх своей цены. Первые две таких черты без доплаты. Врождённые характеристики (Сила, Стойкость, Ловкость, Интеллект, Восприятие) в этот счёт не входят.',
     spaceId: 1,
     keywordIds: [COMMON_KEYWORD],
-    mechanics: [{ mechanicId: 4, mechanicPayload: {
-      type: 'purchase_surcharge',
-      filter: { keyword_code: 'common' },
-      free_count: 2,
-      surcharge: 2,
-    } }],
+    mechanics: [
+      {
+        mechanicId: 4,
+        mechanicPayload: {
+          type: 'purchase_surcharge',
+          filter: { keyword_code: 'common' },
+          free_count: 2,
+          surcharge: 2,
+        },
+      },
+    ],
     createdAt: 1786096800,
     catalogSection: INNATE_COMMON,
     contentNote: 'Считает keyword common; врождённые характеристики туда не входят.',

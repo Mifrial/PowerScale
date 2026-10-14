@@ -31,25 +31,7 @@ const emit = defineEmits<{
 
 const expandedPanels = ref<string[]>(['general', 'resource']);
 
-function resourceFromSpec(value: RuleSpec | null): ResourceSpec {
-  if (!value) return resourceSpecService.createEmpty();
-  const spec = value as ResourceSpec;
-  const legacy = spec as ResourceSpec & { initial_value?: DimensionalNumberValue | number | null };
-  const base: DimensionalNumberValue | number | undefined =
-    spec.limit?.base ?? (legacy.initial_value as DimensionalNumberValue | number | null | undefined) ?? undefined;
-
-  return {
-    is_dimensional: spec.is_dimensional ?? true,
-    auto_add: spec.auto_add ?? false,
-    check_token: spec.check_token ?? false,
-    limit: {
-      base: base ?? (spec.is_dimensional ? { base: 3, size: 0 } : 0),
-      adjustments: spec.limit?.adjustments ?? [],
-    },
-  };
-}
-
-const innerSpec = ref<ResourceSpec>(resourceFromSpec(props.spec));
+const innerSpec = ref<ResourceSpec>(resourceSpecService.fromRuleSpec(props.spec));
 
 const characteristics = computed(() =>
   (props.rules ?? [])
@@ -84,6 +66,7 @@ const specToEmit = computed<ResourceSpec>(() => ({
   is_dimensional: innerSpec.value.is_dimensional,
   auto_add: innerSpec.value.auto_add,
   check_token: innerSpec.value.check_token,
+  turn_refill: innerSpec.value.turn_refill,
   limit: innerSpec.value.limit
     ? { ...innerSpec.value.limit, adjustments: [...innerSpec.value.limit.adjustments] }
     : undefined,
@@ -169,6 +152,13 @@ function updateAdjustmentKind(index: number, type: Formula['type']): void {
           <v-switch
             v-model="innerSpec.check_token"
             label="Жетоны на проверку"
+            color="primary"
+            hide-details
+            class="mt-1"
+          />
+          <v-switch
+            v-model="innerSpec.turn_refill"
+            label="Восстановление в конце хода"
             color="primary"
             hide-details
             class="mt-1"

@@ -44,13 +44,15 @@ const catalog: Rule[] = [
     name: 'Бросок',
     description: '',
     spaceId: 1,
-    mechanics: [{
-      mechanicId: 5,
-      mechanicPayload: {
-        type: 'roll',
-        data: { sub_mechanics: ['advantage_disadvantage'], efficiency: 3 },
+    mechanics: [
+      {
+        mechanicId: 5,
+        mechanicPayload: {
+          type: 'roll',
+          data: { sub_mechanics: ['advantage_disadvantage'], efficiency: 3 },
+        },
       },
-    }],
+    ],
     createdAt: 1787400000,
   },
   checkRule(CHECK_SIMPLE_CODE, {
@@ -140,13 +142,15 @@ describe('checkResolution', () => {
       name: 'Бросок',
       description: '',
       spaceId: 1,
-      mechanics: [{
-        mechanicId: 5,
-        mechanicPayload: {
-          type: 'roll',
-          data: { sub_mechanics: [], efficiency: 4 },
+      mechanics: [
+        {
+          mechanicId: 5,
+          mechanicPayload: {
+            type: 'roll',
+            data: { sub_mechanics: [], efficiency: 4 },
+          },
         },
-      }],
+      ],
       createdAt: 1787400000,
     };
     const check = checkRule('plain', {
@@ -252,21 +256,20 @@ describe('жетон концентрации: матчинг проверки',
     expect(checkResolutionService.isConcentrationTokenCheck('stealth', tokenCatalog)).toBe(false);
     expect(checkResolutionService.isConcentrationTokenCheck('check-willpower', tokenCatalog)).toBe(false);
     const unflaggedHit = tokenCatalog.map((rule) =>
-      rule.code === 'check-hit' ? checkRule('check-hit', {
-        type: 'check',
-        difficulty_input: { kind: 'none' },
-        allowed_modes: 'joint',
-      }) : rule,
+      rule.code === 'check-hit'
+        ? checkRule('check-hit', {
+            type: 'check',
+            difficulty_input: { kind: 'none' },
+            allowed_modes: 'joint',
+          })
+        : rule,
     );
     expect(checkResolutionService.isConcentrationTokenCheck('check-hit', unflaggedHit)).toBe(false);
     const plain = tokenCatalog.map((rule) =>
       rule.code === 'intellect' ? characteristicRule('intellect', false) : rule,
     );
     expect(checkResolutionService.isConcentrationTokenCheck('check-spell-cast', plain, 'intellect')).toBe(false);
-    const other = [
-      ...tokenCatalog.filter((rule) => rule.code !== 'intellect'),
-      characteristicRule('resolve'),
-    ];
+    const other = [...tokenCatalog.filter((rule) => rule.code !== 'intellect'), characteristicRule('resolve')];
     expect(checkResolutionService.isConcentrationTokenCheck('check-spell-cast', other, 'resolve')).toBe(true);
   });
 });

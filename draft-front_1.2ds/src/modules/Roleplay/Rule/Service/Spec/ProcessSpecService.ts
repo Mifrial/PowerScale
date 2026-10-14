@@ -56,9 +56,7 @@ export class ProcessSpecService {
   }
 
   addStepCost(spec: ProcessSpec, stepIndex: number, resourceCode: string): ProcessSpec {
-    const cost = resourceCode
-      ? { resource_code: resourceCode, amount: 1 }
-      : { resource_code: '', amount: 1 };
+    const cost = resourceCode ? { resource_code: resourceCode, amount: 1 } : { resource_code: '', amount: 1 };
     const steps = spec.steps.map((s, i) => (i === stepIndex ? { ...s, costs: [...s.costs, cost] } : s));
 
     return { ...spec, steps };

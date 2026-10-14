@@ -537,16 +537,21 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         'Базовые параметры броска кубиков: дефолтные кубы, грани, эффективность. Скоринг «6 и 1» — у простой проверки, не здесь.',
       spaceId: 1,
       keywordIds: [],
-      mechanics: [{ mechanicId: 5, mechanicPayload: {
-        type: 'roll',
-        data: {
-          diceCount: 3,
-          dieFaces: 6,
-          efficiency: 3,
-          adv: 0,
-          sub_mechanics: ['advantage_disadvantage'],
+      mechanics: [
+        {
+          mechanicId: 5,
+          mechanicPayload: {
+            type: 'roll',
+            data: {
+              diceCount: 3,
+              dieFaces: 6,
+              efficiency: 3,
+              adv: 0,
+              sub_mechanics: ['advantage_disadvantage'],
+            },
+          },
         },
-      } }],
+      ],
       createdAt: 1768471200,
     },
     {
@@ -859,6 +864,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: {
         is_dimensional: false,
         auto_add: true,
+        turn_refill: true,
         limit: {
           base: 5,
           adjustments: [
@@ -1634,6 +1640,17 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       type: 'source',
       name: 'Восприятие',
       description: 'Источник вклада в лимит ОД от размера Восприятия.',
+      spaceId: 1,
+      keywordIds: [],
+      mechanics: [],
+      createdAt: 1786615200,
+    },
+    {
+      id: 610,
+      code: 'intellect_source',
+      type: 'source',
+      name: 'Интеллект',
+      description: 'Источник вклада в лимит от размера Интеллекта.',
       spaceId: 1,
       keywordIds: [],
       mechanics: [],

@@ -32,7 +32,9 @@ function setMechanicId(index: number, mechanicId: number | null): void {
 
   replace(
     props.mechanics.map((row, rowIndex) =>
-      rowIndex === index ? { mechanicId, mechanicPayload: row.mechanicId === mechanicId ? row.mechanicPayload : null } : row,
+      rowIndex === index
+        ? { mechanicId, mechanicPayload: row.mechanicId === mechanicId ? row.mechanicPayload : null }
+        : row,
     ),
   );
 }
