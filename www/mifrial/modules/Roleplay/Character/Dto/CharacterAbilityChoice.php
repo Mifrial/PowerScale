@@ -21,7 +21,8 @@ final class CharacterAbilityChoice
      * @param string $domainCode Код пути или домена.
      * @param string|null $grantedByRuleCode Код донора или null.
      * @param string|null $studyPairId Id пары или null.
-     * @param string|null $studyPairRole charged, free или null.
+     * @param string|null $studyPairRole Charged, free или null.
+     * @param array<string, int> $parameters Скалярные параметры формулы.
      *
      * @return void
      */
@@ -33,6 +34,7 @@ final class CharacterAbilityChoice
         private readonly ?string $grantedByRuleCode,
         private readonly ?string $studyPairId,
         private readonly ?string $studyPairRole,
+        private readonly array $parameters = [],
     ) {
     }
 
@@ -114,5 +116,15 @@ final class CharacterAbilityChoice
     public function instanceKey(): string
     {
         return $this->ruleCode . ':' . $this->domainCode . ':' . $this->domain;
+    }
+
+    /**
+     * Скалярные параметры грантов.
+     *
+     * @return array<string, int> Код → значение.
+     */
+    public function getParameters(): array
+    {
+        return $this->parameters;
     }
 }

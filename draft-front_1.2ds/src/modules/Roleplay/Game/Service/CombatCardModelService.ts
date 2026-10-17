@@ -18,6 +18,7 @@ import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { liveActionPointsLimitService } from '@/modules/Roleplay/Character/init';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
@@ -261,13 +262,10 @@ export class CombatCardModelService {
     const resource = version.resources.find((item) => item.ruleCode === rule.code);
     if (!resource) return null;
 
-    const live = liveActionPointsLimitService.liveAutoResourceLimit(
-      resource,
-      version,
-      rules,
-      stateRuntimeEffectsService.effectiveCharacteristicValues(version, rules),
-      rule.code,
-    );
+    const values = stateRuntimeEffectsService.effectiveCharacteristicValues(version, rules);
+    const live = gamePhpMode.isEnabled()
+      ? null
+      : liveActionPointsLimitService.liveAutoResourceLimit(resource, version, rules, values, rule.code);
     const max = live ?? Math.max(0, resourceLimitBase(resource));
 
     return { current: Math.min(resource.current.base, max), max };
@@ -380,10 +378,17 @@ export class CombatCardModelService {
 
       return { poison: this.poisonValueFromRule(rules, first?.ruleCode ?? null) };
     }
+    const spec = rules.find((rule) => rule.code === option.ruleCode && rule.type === 'state')?.spec as
+      | StateSpec
+      | undefined;
+    if (spec?.maim) {
+      return { value: 1, maim: { permanent: false, healTotal: 1, healUnit: 'months' } };
+    }
     if (option.code === WOUND_STATE_CODE) {
       return { value: 1, wound: woundInstanceService.emptyWound() };
     }
     if (option.valueType === 'dimensional') return { dimensionalValue: { base: 1, size: 0 } };
+    if (option.valueType === 'number') return { value: 1 };
 
     return {};
   }

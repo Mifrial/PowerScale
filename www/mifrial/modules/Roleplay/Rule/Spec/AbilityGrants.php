@@ -54,6 +54,25 @@ final class AbilityGrants
     }
 
     /**
+     * Плоский список грантов без блоков уровня.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return array<int, AbilityGrant> Гранты.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    public static function flat(array $document): array
+    {
+        $grants = [];
+        foreach (SpecShape::list($document, 'grants') as $row) {
+            $grants[] = self::one($row);
+        }
+
+        return $grants;
+    }
+
+    /**
      * Один блок уровня.
      *
      * @param mixed $row Строка.
@@ -64,9 +83,7 @@ final class AbilityGrants
      */
     private static function block(mixed $row): AbilityGrantBlock
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('grants');
-        }
+        $row = SpecShape::requireMap($row, 'grants');
 
         return new AbilityGrantBlock(SpecShape::int($row, 'level'), self::grants($row));
     }
@@ -99,11 +116,9 @@ final class AbilityGrants
      *
      * @throws RuleSpecShapeException Если форма чужая.
      */
-    private static function one(mixed $row): AbilityGrant
+    public static function one(mixed $row): AbilityGrant
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('grants');
-        }
+        $row = SpecShape::requireMap($row, 'grants');
 
         $type = SpecShape::string($row, 'type');
         $permanent = SpecShape::bool($row, 'permanent');
@@ -516,10 +531,6 @@ final class AbilityGrants
             return $value;
         }
 
-        if (!is_array($value) || array_is_list($value)) {
-            throw new RuleSpecShapeException($key);
-        }
-
-        return DimensionalNumbers::pair($value, $key);
+        return DimensionalNumbers::pair(SpecShape::requireMap($value, $key), $key);
     }
 }

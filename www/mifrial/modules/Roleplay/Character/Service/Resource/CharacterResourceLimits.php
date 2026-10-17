@@ -7,11 +7,15 @@ namespace Mifrial\Roleplay\Character\Service\Resource;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\CharacterValidation;
+use Mifrial\Roleplay\Character\Dto\ResourceLimitBonus;
 use Mifrial\Roleplay\Character\Dto\ResourceRow;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ResourceGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ResourceLimitChangeGrant;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizeGapScalar;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizePositiveScalar;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizeScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceAdjustment;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
@@ -47,6 +51,7 @@ final class CharacterResourceLimits
      * @param CharacterValidation $validation Validated character snapshot.
      * @param CharacterChoices $choices Selected abilities.
      * @param array<int, ResourceRow> $previousRows Existing typed rows.
+     * @param array<string, DimensionalNumber> $liveCharacteristics Живые характеристики.
      *
      * @return array<int, ResourceRow> Rows to persist.
      *
@@ -57,9 +62,14 @@ final class CharacterResourceLimits
         CharacterValidation $validation,
         CharacterChoices $choices,
         array $previousRows = [],
+        array $liveCharacteristics = [],
     ): array {
         $previous = $this->indexPrevious($previousRows);
-        $context = $this->context($validation);
+        $fallback = $liveCharacteristics === [];
+        $context = $fallback ? $this->context($validation) : new FormulaContext(
+            $liveCharacteristics,
+            $validation->getAbilityLevels(),
+        );
         $grants = $this->grantReader->getByResource($slice, $choices);
         $rows = [];
 
@@ -109,10 +119,12 @@ final class CharacterResourceLimits
             return null;
         }
 
-        $limit = $this->limit($spec, $resourceGrants, $context);
+        $base = $this->arithmetic->getBase($spec, $resourceGrants);
+        $bonuses = $this->bonuses($spec, $resourceGrants, $context);
+        $limit = $this->arithmetic->effective($base, $bonuses);
         $current = $previousRow?->getCurrent() ?? $this->arithmetic->value($limit);
 
-        return new ResourceRow($code, $this->arithmetic->clamp($current, $limit));
+        return new ResourceRow($code, $this->arithmetic->clamp($current, $limit), $base, $bonuses);
     }
 
     /**
@@ -137,6 +149,18 @@ final class CharacterResourceLimits
     }
 
     /**
+     * Тот же FormulaContext, что у сборки лимита.
+     *
+     * @param CharacterValidation $validation Снимок.
+     *
+     * @return FormulaContext Контекст.
+     */
+    public function contextOf(CharacterValidation $validation): FormulaContext
+    {
+        return $this->context($validation);
+    }
+
+    /**
      * Считает один effective native limit.
      *
      * @param ResourceSpec $spec Resource rule.
@@ -152,24 +176,104 @@ final class CharacterResourceLimits
         array $grants,
         FormulaContext $context,
     ): int|DimensionalNumber {
-        $delta = 0;
+        return $this->arithmetic->effective(
+            $this->arithmetic->getBase($spec, $grants),
+            $this->bonuses($spec, $grants, $context),
+        );
+    }
+
+    /**
+     * Вклады спеки и грантов с источниками.
+     *
+     * @param ResourceSpec $spec Карточка.
+     * @param array<int, ResourceGrant|ResourceLimitChangeGrant> $grants Гранты.
+     * @param FormulaContext $context Формулы.
+     *
+     * @return array<int, ResourceLimitBonus> Вклады.
+     *
+     * @throws CharacterInvalidException Если формула.
+     */
+    private function bonuses(
+        ResourceSpec $spec,
+        array $grants,
+        FormulaContext $context,
+    ): array {
+        $bonuses = [];
         $limit = $spec->getLimit();
         if ($limit !== null) {
             foreach ($limit->getAdjustments() as $adjustment) {
-                $delta += $this->evaluate($adjustment, $context);
+                $bonuses[] = new ResourceLimitBonus(
+                    $this->sourceOf($adjustment),
+                    $this->evaluate($adjustment, $context),
+                );
             }
         }
 
         foreach ($grants as $grant) {
             if ($grant instanceof ResourceLimitChangeGrant) {
-                $delta += $this->evaluateAmount($grant, $context);
+                $bonuses[] = new ResourceLimitBonus(
+                    $grant->getSourceCode(),
+                    $this->evaluateAmount($grant, $context),
+                );
             }
         }
 
-        return $this->arithmetic->applyDelta(
-            $this->arithmetic->getBase($spec, $grants),
-            $delta,
-        );
+        return $bonuses;
+    }
+
+    /**
+     * Источник поправки: поле спеки, иначе код характеристики формулы.
+     *
+     * @param ResourceAdjustment $adjustment Поправка.
+     *
+     * @return string|null Код.
+     */
+    private function sourceOf(ResourceAdjustment $adjustment): ?string
+    {
+        $code = $adjustment->getSourceCode();
+        if ($code !== '') {
+            return $code;
+        }
+
+        $node = $adjustment->getValue();
+        if (
+            $node instanceof CharacteristicSizeScalar
+            || $node instanceof CharacteristicSizePositiveScalar
+        ) {
+            return $node->getCharacteristicCode();
+        }
+
+        if ($node instanceof CharacteristicSizeGapScalar) {
+            return $node->getCharacteristicCodeFrom();
+        }
+
+        return null;
+    }
+
+    /**
+     * Effective native limit карточки, как в обзоре листа.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $code Код ресурса.
+     * @param CharacterChoices $choices Выборы.
+     * @param FormulaContext $context Формулы.
+     *
+     * @return int|DimensionalNumber Лимит.
+     *
+     * @throws CharacterInvalidException Если карточки нет или грант.
+     */
+    public function nativeLimit(
+        CharacterRuleSlice $slice,
+        string $code,
+        CharacterChoices $choices,
+        FormulaContext $context,
+    ): int|DimensionalNumber {
+        $spec = $slice->findLive($code)?->getSpec();
+        if (!$spec instanceof ResourceSpec) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        return $this->limit($spec, $this->grantReader->getByResource($slice, $choices)[$code] ?? [], $context);
     }
 
     /**

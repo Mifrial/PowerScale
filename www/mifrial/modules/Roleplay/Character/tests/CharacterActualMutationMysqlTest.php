@@ -169,7 +169,7 @@ final class CharacterActualMutationMysqlTest extends TestCase
         self::assertSame(3, $written->getActualVersion());
         self::assertSame([
             ['stateRuleCode' => 'earlier'],
-            ['stateRuleCode' => 'mark'],
+            ['id' => 1, 'stateRuleCode' => 'mark'],
         ], $written->getSheet()['states']);
         self::assertSame('stay', $written->getSheet()['marker']);
         $nine = $written->getSheet();
@@ -376,6 +376,30 @@ final class CharacterActualMutationMysqlTest extends TestCase
 
         $this->expectException(CharacterNotFoundException::class);
         $patch->apply(new ApplyCharacterActualPatchInput($characterId, 1, [$this->quantity('sword', 3)]));
+    }
+
+    /**
+     * HTTP не принимает setResourceCurrent.
+     *
+     * @return void
+     */
+    public function testHttpRejectsSetResourceCurrent(): void
+    {
+        $characterId = $this->addHero();
+        $access = $this->createMock(IUserAccess::class);
+        $access->method('requireActor')->willReturn(new RequestActor(
+            $this->characters()->get($characterId)->getOwnerId(),
+            [],
+            false,
+        ));
+        $patch = new CharacterActualPatch($access, $this->characters(), $this->port());
+
+        $this->expectException(CharacterInvalidException::class);
+        $patch->apply(new ApplyCharacterActualPatchInput($characterId, 1, [[
+            'kind' => 'setResourceCurrent',
+            'resourceCode' => 'action-points',
+            'current' => 1,
+        ]]));
     }
 
     /**

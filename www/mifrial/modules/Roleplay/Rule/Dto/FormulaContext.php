@@ -77,4 +77,21 @@ final class FormulaContext
     {
         return $this->actionCharacteristics[$action][$code] ?? null;
     }
+
+    /**
+     * Дописывает характеристики, не затирая уже заданные закупкой.
+     *
+     * @param array<string, DimensionalNumber> $defaults Автоматические значения.
+     *
+     * @return self Контекст.
+     */
+    public function mergeCharacteristics(array $defaults): self
+    {
+        return new self(
+            $this->characteristics + $defaults,
+            $this->abilityLevels,
+            $this->parameters,
+            $this->actionCharacteristics,
+        );
+    }
 }

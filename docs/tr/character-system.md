@@ -10,6 +10,8 @@
 
 Расчёты характеристик, способностей, ресурсов, модификаторов, инвентаря и боевых значений выполняются доменными сервисами. Компоненты отвечают за ввод и отображение, а не за вычисление производных данных.
 
+PHP-истина листа — полный пересчёт `Character` (`Service/Runtime/Character.php`) при любой загрузке и любой мутации: `fromRecord` / `fromDocument` / `apply`. Срез ревизии загружается до compute и внутри `apply` не читается заново. На `sheet` пишутся живые `characteristics` (база, модификаторы по источникам) и у строк `resources` база лимита из `ResourceSpec`/`resource` grant плюс `bonuses` (adjustments и `resource_limit_change` с источником); эффективный лимит = база + сумма дельт. Game не импортирует Runtime Character: фасад `ICharacterSheets::compute`, а мутации — generic kind (`putState`, `setResourceCurrent`, …), не «рана». Надётый предмет даёт гранты только после `ItemModifierOperations::apply`; рюкзак — нет. Штраф и потолок брони живут как `characteristic_modify` / `characteristic_limits` с кодом характеристики, не как `strength_penalty` / `max_agility` в калькуляторе. Клиенту real не доверяем: current и состояния — ввод; max и активность способностей считает сервер. `character.getList` лист не считает.
+
 ## Создание
 
 Канонический flow создания включает:
@@ -28,6 +30,12 @@
 ## Редактирование и состояние
 
 После создания персонаж может редактироваться владельцем с учётом прав и выбранной ревизии. Backend сохраняет actual character только после успешной проверки. Изменение actual character разрешено и между сессиями, и во время активной сессии: оно проходит общий Character mutation pipeline, optimistic guard и validation. В активной сессии Game получает факт успешного изменения через integration boundary; Character не импортирует Game и не отвечает за доставку в SSE или Chat.
+
+Kind `setResourceCurrent` живёт на порте `ICharacterActualMutations` (кламп
+по `ResourceSpec` / лимиту). Character HTTP `applyActualPatch` его не
+принимает: прямое измерение current в игровой сессии идёт через
+`game.manualSheet` (Game 34), чтобы правка попала в чат. G10 по-прежнему
+запрещает клиентский полный патч с этим kind; текст G10 не меняется.
 
 На персонаже могут присутствовать состояния, включая раны, истощение и отравление. Poison — контент правила, а отравление в персонаже — `state`. Состояния могут иметь decay/periodicity и влиять на проверки, характеристики или бой.
 

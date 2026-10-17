@@ -113,7 +113,40 @@ final class CharacterChoiceAssembler
             is_string($grant['ruleCode'] ?? null) ? $grant['ruleCode'] : null,
             is_string($ability['studyPairId'] ?? null) ? $ability['studyPairId'] : null,
             is_string($ability['studyPairRole'] ?? null) ? $ability['studyPairRole'] : null,
+            $this->abilityParameters($ability['parameters'] ?? null),
         );
+    }
+
+    /**
+     * Скаляры parameters способности. Размерный объект с size ≠ 0 пропускается.
+     *
+     * @param mixed $raw Карта или null.
+     *
+     * @return array<string, int> Код → значение.
+     */
+    private function abilityParameters(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $values = [];
+        foreach ($raw as $code => $value) {
+            if (!is_string($code) || $code === '') {
+                continue;
+            }
+
+            if (is_int($value)) {
+                $values[$code] = $value;
+                continue;
+            }
+
+            if (is_array($value) && is_int($value['base'] ?? null) && (int) ($value['size'] ?? 0) === 0) {
+                $values[$code] = $value['base'];
+            }
+        }
+
+        return $values;
     }
 
     /**
@@ -132,11 +165,35 @@ final class CharacterChoiceAssembler
                     $item['ruleCode'],
                     ($item['equipped'] ?? false) === true,
                     is_int($item['quantity'] ?? null) ? $item['quantity'] : 1,
+                    $this->modifierCodes($item['modifiers'] ?? null),
                 );
             }
         }
 
         return $choices;
+    }
+
+    /**
+     * Коды модификаторов строки инвентаря.
+     *
+     * @param mixed $modifiers Сырой список.
+     *
+     * @return array<int, string> Коды.
+     */
+    private function modifierCodes(mixed $modifiers): array
+    {
+        if (!is_array($modifiers)) {
+            return [];
+        }
+
+        $codes = [];
+        foreach ($modifiers as $code) {
+            if (is_string($code) && $code !== '') {
+                $codes[] = $code;
+            }
+        }
+
+        return $codes;
     }
 
     /**

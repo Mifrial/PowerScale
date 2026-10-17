@@ -26,6 +26,17 @@ interface ICharacterSheets
     public function validate(CharacterRuleSlice $slice, CharacterChoices $choices): CharacterValidation;
 
     /**
+     * Полный пересчёт производных ключей sheet.
+     *
+     * @param CharacterRuleSlice $slice Уже загруженный срез.
+     * @param array<string, mixed> $choices Документ choices.
+     * @param array<string, mixed> $sheet Документ sheet.
+     *
+     * @return array<string, mixed> Sheet после compute.
+     */
+    public function compute(CharacterRuleSlice $slice, array $choices, array $sheet): array;
+
+    /**
      * Пустой validate сохранённого документа choices. Запись не делает.
      *
      * @param int $spaceId Мир листа.

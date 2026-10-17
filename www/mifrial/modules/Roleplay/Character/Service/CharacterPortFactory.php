@@ -178,7 +178,11 @@ final class CharacterPortFactory
                 $sectionCodes,
                 new CharacterViewerParser($sectionCodes),
             ),
-            new CharacterViewAssembler(new CharacterSectionMask()),
+            new CharacterViewAssembler(
+                new CharacterSectionMask(),
+                $this->ruleSlices($serviceLocator),
+                $this->sheets($serviceLocator),
+            ),
         );
     }
 

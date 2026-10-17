@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Character\Tests;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Dto\CharacterValidation;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
@@ -50,10 +51,10 @@ final class CharacterActualStateTest extends TestCase
         self::assertSame('stay', $patched['sheet']['marker']);
         self::assertSame(8, $patched['sheet']['money']);
         self::assertSame([
-            ['stateRuleCode' => 'flagged'],
-            ['stateRuleCode' => 'counted', 'value' => 3],
-            ['stateRuleCode' => 'sized', 'value' => ['base' => 1, 'size' => 2]],
-            ['stateRuleCode' => 'counted', 'value' => 5],
+            ['stateRuleCode' => 'flagged', 'id' => 1],
+            ['stateRuleCode' => 'counted', 'value' => 3, 'id' => 2],
+            ['stateRuleCode' => 'sized', 'value' => ['base' => 1, 'size' => 2], 'id' => 3],
+            ['stateRuleCode' => 'counted', 'value' => 5, 'id' => 4],
         ], $patched['sheet']['states']);
     }
 
@@ -79,18 +80,187 @@ final class CharacterActualStateTest extends TestCase
         ]]);
 
         self::assertSame([
-            ['ruleCode' => 'action-points', 'current' => 3],
+            ['ruleCode' => 'action-points', 'current' => 3, 'base' => 5],
         ], $patched['sheet']['resources']);
     }
 
     /**
-     * Без putState ключ не появляется и лежащий список остаётся.
+     * setResourceCurrent клампит 0..limit.
+     *
+     * @return void
+     */
+    public function testSetResourceCurrentClamps(): void
+    {
+        $slice = $this->slice([
+            $this->rule('action-points', 'resource', [
+                'is_dimensional' => false,
+                'auto_add' => true,
+                'check_token' => false,
+                'limit' => ['base' => 5, 'adjustments' => []],
+            ]),
+        ]);
+        $high = $this->mutations($slice)->applyToDocument(1, 1, ['money' => 1], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 2]],
+        ], [['kind' => 'setResourceCurrent', 'resourceCode' => 'action-points', 'current' => 99]]);
+        $low = $this->mutations($slice)->applyToDocument(1, 1, ['money' => 1], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 2]],
+        ], [['kind' => 'setResourceCurrent', 'resourceCode' => 'action-points', 'current' => -4]]);
+
+        self::assertSame(5, $high['sheet']['resources'][0]['current']);
+        self::assertSame(5, $high['sheet']['resources'][0]['base']);
+        self::assertSame(0, $low['sheet']['resources'][0]['current']);
+    }
+
+    /**
+     * setResourceCurrent считает потолок по закупкам листа, не по base спеки.
+     *
+     * @return void
+     */
+    public function testSetResourceCurrentUsesSheetCharacteristicSizes(): void
+    {
+        $slice = $this->slice([
+            $this->rule('action-points', 'resource', [
+                'is_dimensional' => false,
+                'auto_add' => true,
+                'check_token' => false,
+                'limit' => [
+                    'base' => 5,
+                    'adjustments' => [[
+                        'value' => ['type' => 'characteristic_size', 'characteristic_code' => 'dexterity'],
+                        'source_code' => 'innate',
+                    ]],
+                ],
+            ]),
+        ]);
+        $patched = $this->mutations($slice)->applyToDocument(1, 1, ['money' => 1], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 2]],
+            'abilityLevels' => [],
+            'characteristicPurchases' => [[
+                'characteristicCode' => 'dexterity',
+                'cost' => 3,
+                'value' => ['base' => 3, 'size' => 1],
+            ]],
+        ], [['kind' => 'setResourceCurrent', 'resourceCode' => 'action-points', 'current' => 99]]);
+
+        self::assertSame(5, $patched['sheet']['resources'][0]['current']);
+    }
+
+    /**
+     * Sidecar maim только на spec.maim; без sidecar ударный put валиден.
+     *
+     * @return void
+     */
+    public function testMaimSidecarIsOptionalOnMaimSpec(): void
+    {
+        $slice = $this->slice([$this->rule('scar', 'state', ['value_type' => 'number', 'maim' => true])]);
+        $plain = $this->mutations($slice)->applyToDocument(1, 1, ['money' => 1], [], [[
+            'kind' => 'putState',
+            'stateRuleCode' => 'scar',
+            'value' => 2,
+        ]]);
+        $with = $this->mutations($slice)->applyToDocument(1, 1, ['money' => 1], [], [[
+            'kind' => 'putState',
+            'stateRuleCode' => 'scar',
+            'value' => 2,
+            'maim' => ['permanent' => false, 'healTotal' => 1, 'healUnit' => 'months'],
+        ]]);
+
+        self::assertSame(1, $plain['sheet']['states'][0]['id']);
+        self::assertArrayNotHasKey('maim', $plain['sheet']['states'][0]);
+        self::assertSame('months', $with['sheet']['states'][0]['maim']['healUnit']);
+    }
+
+    /**
+     * maim на не-увечье отвергается.
+     *
+     * @return void
+     */
+    public function testMaimSidecarRejectedOnOtherState(): void
+    {
+        $this->expectException(CharacterInvalidException::class);
+        $this->mutations($this->slice([$this->state('flagged', 'flag')]))->applyToDocument(1, 1, ['money' => 1], [], [[
+            'kind' => 'putState',
+            'stateRuleCode' => 'flagged',
+            'maim' => ['permanent' => true],
+        ]]);
+    }
+
+    /**
+     * refillTurnResource поднимает current карточки turn_refill до базы лимита.
+     *
+     * @return void
+     */
+    public function testRefillTurnResourceRestoresLimit(): void
+    {
+        $patched = $this->mutations($this->slice([
+            $this->rule('action-points', 'resource', [
+                'is_dimensional' => false,
+                'auto_add' => true,
+                'check_token' => false,
+                'turn_refill' => true,
+                'limit' => ['base' => 5, 'adjustments' => []],
+            ]),
+            $this->rule('spirit', 'resource', [
+                'is_dimensional' => false,
+                'auto_add' => true,
+                'check_token' => false,
+                'limit' => ['base' => 8, 'adjustments' => []],
+            ]),
+        ]))->applyToDocument(1, 1, ['money' => 1], [
+            'resources' => [
+                ['ruleCode' => 'action-points', 'current' => 1],
+                ['ruleCode' => 'spirit', 'current' => 2],
+            ],
+        ], [['kind' => 'refillTurnResource']]);
+
+        self::assertSame([
+            ['ruleCode' => 'action-points', 'current' => 5, 'base' => 5],
+            ['ruleCode' => 'spirit', 'current' => 2, 'base' => 8],
+        ], $patched['sheet']['resources']);
+    }
+
+    /**
+     * patchState меняет sidecar, removeState снимает строку по id.
+     *
+     * @return void
+     */
+    public function testPatchAndRemoveStateById(): void
+    {
+        $slice = $this->slice([$this->state('gash', 'number')]);
+        $mutations = $this->mutations($slice);
+        $created = $mutations->applyToDocument(1, 1, ['money' => 1], [], [[
+            'kind' => 'putState',
+            'stateRuleCode' => 'gash',
+            'value' => 4,
+            'bandage' => 0,
+            'clotting' => 0,
+            'internal' => false,
+            'aided' => false,
+            'heldBy' => null,
+        ]]);
+        $id = $created['sheet']['states'][0]['id'];
+        self::assertSame(1, $id);
+        $patched = $mutations->applyToDocument(1, 1, ['money' => 1], $created['sheet'], [[
+            'kind' => 'patchState',
+            'id' => $id,
+            'clotting' => 2,
+        ]]);
+        self::assertSame(2, $patched['sheet']['states'][0]['clotting']);
+        $removed = $mutations->applyToDocument(1, 1, ['money' => 1], $patched['sheet'], [[
+            'kind' => 'removeState',
+            'id' => $id,
+        ]]);
+        self::assertSame([], $removed['sheet']['states']);
+    }
+
+    /**
+     * Без putState ключ не появляется и лежащий список с id остаётся.
      *
      * @return void
      */
     public function testMoneyDoesNotCreateOrClearStates(): void
     {
-        $kept = [['stateRuleCode' => 'flagged']];
+        $kept = [['id' => 1, 'stateRuleCode' => 'flagged']];
         $mutations = $this->mutations($this->slice([$this->state('flagged', 'flag')]));
         $created = $mutations->applyToDocument(1, 1, ['money' => 1], ['marker' => 'stay'], [
             ['kind' => 'setMoney', 'amount' => 2],
@@ -116,9 +286,9 @@ final class CharacterActualStateTest extends TestCase
             $this->marked('tired', 'number', 'damage_exhaustion'),
         ]);
         $sheet = ['states' => [
-            ['stateRuleCode' => 'other'],
-            ['stateRuleCode' => 'hurt', 'value' => ['base' => 9, 'size' => 9], 'wound' => 1],
-            ['stateRuleCode' => 'tired', 'value' => 4],
+            ['id' => 1, 'stateRuleCode' => 'other'],
+            ['id' => 2, 'stateRuleCode' => 'hurt', 'value' => ['base' => 9, 'size' => 9], 'wound' => 1],
+            ['id' => 3, 'stateRuleCode' => 'tired', 'value' => 4],
         ]];
         $patched = $this->mutations($slice)->applyToDocument(1, 1, ['money' => 1], $sheet, [
             $this->split(['base' => 0, 'size' => 0], 3),
@@ -129,14 +299,14 @@ final class CharacterActualStateTest extends TestCase
 
         self::assertSame(['money' => 1], $patched['choices']);
         self::assertSame([
-            ['stateRuleCode' => 'other'],
-            ['stateRuleCode' => 'hurt', 'value' => ['base' => 0, 'size' => 0]],
-            ['stateRuleCode' => 'tired', 'value' => 7],
+            ['id' => 1, 'stateRuleCode' => 'other'],
+            ['stateRuleCode' => 'hurt', 'value' => ['base' => 0, 'size' => 0], 'id' => 2],
+            ['stateRuleCode' => 'tired', 'value' => 7, 'id' => 3],
         ], $patched['sheet']['states']);
         self::assertSame([
-            ['stateRuleCode' => 'other'],
-            ['stateRuleCode' => 'hurt', 'value' => ['base' => -1, 'size' => 2]],
-            ['stateRuleCode' => 'tired', 'value' => 4],
+            ['id' => 1, 'stateRuleCode' => 'other'],
+            ['stateRuleCode' => 'hurt', 'value' => ['base' => -1, 'size' => 2], 'id' => 2],
+            ['id' => 3, 'stateRuleCode' => 'tired', 'value' => 4],
         ], $kept['sheet']['states']);
     }
 
@@ -152,15 +322,15 @@ final class CharacterActualStateTest extends TestCase
             $this->marked('tired', 'number', 'damage_exhaustion'),
         ]);
         $patched = $this->mutations($slice)->applyToDocument(1, 1, [], ['states' => [
-            ['stateRuleCode' => 'other'],
+            ['id' => 4, 'stateRuleCode' => 'other'],
         ]], [
             $this->split(['base' => 1, 'size' => 2], 5),
         ]);
 
         self::assertSame([
-            ['stateRuleCode' => 'other'],
-            ['stateRuleCode' => 'hurt', 'value' => ['base' => 1, 'size' => 2]],
-            ['stateRuleCode' => 'tired', 'value' => 5],
+            ['id' => 4, 'stateRuleCode' => 'other'],
+            ['stateRuleCode' => 'hurt', 'value' => ['base' => 1, 'size' => 2], 'id' => 5],
+            ['stateRuleCode' => 'tired', 'value' => 5, 'id' => 6],
         ], $patched['sheet']['states']);
     }
 
@@ -182,13 +352,13 @@ final class CharacterActualStateTest extends TestCase
         ]);
 
         self::assertSame([
-            ['stateRuleCode' => 'hurt', 'value' => ['base' => 1, 'size' => 0]],
-            ['stateRuleCode' => 'hurt', 'value' => ['base' => 3, 'size' => 0]],
+            ['stateRuleCode' => 'hurt', 'value' => ['base' => 1, 'size' => 0], 'id' => 1],
+            ['stateRuleCode' => 'hurt', 'value' => ['base' => 3, 'size' => 0], 'id' => 2],
         ], $after['sheet']['states']);
 
         try {
             $mutations->applyToDocument(1, 1, [], ['states' => [
-                ['stateRuleCode' => 'hurt', 'value' => ['base' => 1, 'size' => 0]],
+                ['id' => 1, 'stateRuleCode' => 'hurt', 'value' => ['base' => 1, 'size' => 0]],
             ]], [
                 ['kind' => 'putState', 'stateRuleCode' => 'hurt', 'value' => ['base' => 2, 'size' => 0]],
                 $this->split(['base' => 4, 'size' => 0], 0),
@@ -248,8 +418,8 @@ final class CharacterActualStateTest extends TestCase
 
         try {
             $this->mutations($this->slice([$hurt, $tired]))->applyToDocument(1, 1, [], ['states' => [
-                ['stateRuleCode' => 'hurt', 'value' => ['base' => 1, 'size' => 0]],
-                ['stateRuleCode' => 'hurt', 'value' => ['base' => 2, 'size' => 0]],
+                ['id' => 1, 'stateRuleCode' => 'hurt', 'value' => ['base' => 1, 'size' => 0]],
+                ['id' => 2, 'stateRuleCode' => 'hurt', 'value' => ['base' => 2, 'size' => 0]],
             ]], [$this->split(['base' => 3, 'size' => 0], 0)]);
             self::fail('duplicate row must reject');
         } catch (CharacterInvalidException $exception) {
@@ -258,7 +428,7 @@ final class CharacterActualStateTest extends TestCase
 
         try {
             $this->mutations($this->slice([$hurt, $tired]))->applyToDocument(1, 1, [], ['states' => [
-                ['stateRuleCode' => 'tired', 'value' => 'x'],
+                ['id' => 1, 'stateRuleCode' => 'tired', 'value' => 'x'],
             ]], [$this->split(['base' => 1, 'size' => 0], 0)]);
             self::fail('exhaustion value must be int');
         } catch (CharacterInvalidException $exception) {
@@ -267,7 +437,7 @@ final class CharacterActualStateTest extends TestCase
 
         try {
             $this->mutations($this->slice([$hurt, $tired]))->applyToDocument(1, 1, [], ['states' => [
-                ['stateRuleCode' => 'tired', 'value' => 'x'],
+                ['id' => 1, 'stateRuleCode' => 'tired', 'value' => 'x'],
             ]], [$this->split(['base' => 1, 'size' => 0], 2)]);
             self::fail('exhaustion value must be int');
         } catch (CharacterInvalidException $exception) {
@@ -330,7 +500,7 @@ final class CharacterActualStateTest extends TestCase
         $mutations = new CharacterActualMutations(
             $this->createMock(ICharacters::class),
             $slices,
-            $this->createMock(ICharacterSheets::class),
+            $this->sheets(),
             new CharacterChoiceAssembler(),
             new CharacterSheetDocument(),
         );
@@ -356,10 +526,21 @@ final class CharacterActualStateTest extends TestCase
         return new CharacterActualMutations(
             $this->createMock(ICharacters::class),
             $slices,
-            $this->createMock(ICharacterSheets::class),
+            $this->sheets(),
             new CharacterChoiceAssembler(),
             new CharacterSheetDocument(),
         );
+    }
+
+    /**
+     * @return ICharacterSheets Мок без problems.
+     */
+    private function sheets(): ICharacterSheets
+    {
+        $sheets = $this->createMock(ICharacterSheets::class);
+        $sheets->method('validate')->willReturn(new CharacterValidation([], [], [], 0, [], [], [], true));
+
+        return $sheets;
     }
 
     /**

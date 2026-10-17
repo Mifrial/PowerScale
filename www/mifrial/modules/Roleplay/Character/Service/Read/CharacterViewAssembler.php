@@ -7,6 +7,9 @@ namespace Mifrial\Roleplay\Character\Service\Read;
 use Mifrial\Roleplay\Character\Dto\CharacterOpening;
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
 use Mifrial\Roleplay\Character\Dto\CharacterViewerRecord;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
+use Mifrial\Roleplay\Character\Service\Runtime\Character;
 
 /**
  * JSON list и detail. Не решает доступ.
@@ -22,6 +25,8 @@ final class CharacterViewAssembler
      */
     public function __construct(
         private readonly CharacterSectionMask $sectionMask,
+        private readonly ICharacterRuleSlices $ruleSlices,
+        private readonly ICharacterSheets $sheets,
     ) {
     }
 
@@ -54,12 +59,17 @@ final class CharacterViewAssembler
     public function detail(CharacterOpening $opening): array
     {
         $record = $opening->getRecord();
+        $sheet = Character::fromRecord(
+            $record,
+            $this->ruleSlices->get($record->getSpaceId(), $record->getRulesRevision()),
+            $this->sheets,
+        )->getSheet();
         $view = $this->listItem($record);
         if ($opening->isForOwner()) {
-            return $view + $this->ownerFields($opening, $record);
+            return $view + $this->ownerFields($opening, $record, $sheet);
         }
 
-        $masked = $this->sectionMask->apply($record->getChoices(), $record->getSheet(), $opening->getSections());
+        $masked = $this->sectionMask->apply($record->getChoices(), $sheet, $opening->getSections());
         $view['visibleSections'] = $opening->getSections();
         $view['choices'] = $masked['choices'];
         $view['sheet'] = $masked['sheet'];
@@ -72,15 +82,16 @@ final class CharacterViewAssembler
      *
      * @param CharacterOpening $opening Доступ.
      * @param CharacterRecord $record Строка.
+     * @param array<string, mixed> $sheet Посчитанный лист.
      *
      * @return array<string, mixed> JSON.
      */
-    private function ownerFields(CharacterOpening $opening, CharacterRecord $record): array
+    private function ownerFields(CharacterOpening $opening, CharacterRecord $record, array $sheet): array
     {
         return [
             'actualVersion' => $record->getActualVersion(),
             'choices' => $record->getChoices(),
-            'sheet' => $record->getSheet(),
+            'sheet' => $sheet,
             'ownerNotes' => $record->getOwnerNotes(),
             'visibilityFields' => $record->getVisibilityFields(),
             'viewers' => $this->viewers($opening->getViewers()),

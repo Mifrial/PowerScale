@@ -52,9 +52,28 @@ final class CharacterActualPatch
     public function apply(ApplyCharacterActualPatchInput $input): array
     {
         $this->owned($input->characterId, $this->userAccess->requireActor()->getUserId());
+        $this->assertHttpKinds($input->operations);
         $record = $this->mutations->apply($input->characterId, $input->expectedActualVersion, $input->operations);
 
         return $this->view($record);
+    }
+
+    /**
+     * setResourceCurrent только через Game-сессию.
+     *
+     * @param array $operations Список.
+     *
+     * @return void
+     *
+     * @throws CharacterInvalidException Если kind отсечён.
+     */
+    private function assertHttpKinds(array $operations): void
+    {
+        foreach ($operations as $operation) {
+            if (is_array($operation) && ($operation['kind'] ?? null) === 'setResourceCurrent') {
+                throw new CharacterInvalidException('Character patch operation is invalid');
+            }
+        }
     }
 
     /**

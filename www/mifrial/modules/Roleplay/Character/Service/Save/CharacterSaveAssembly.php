@@ -15,6 +15,7 @@ use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceLimits;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceArithmetic;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceGrantReader;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceStorage;
+use Mifrial\Roleplay\Character\Service\Runtime\Character;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
 use Mifrial\Roleplay\Rule\Service\FormulaEvaluations;
 
@@ -106,8 +107,9 @@ final class CharacterSaveAssembly
         );
         $validation = $this->sheets->validate($slice, $model);
         $money = $this->moneyOf($slice, $model, $limits, $updateMoney, $shopCreate);
-        $sheet = $this->buildSheet($slice, $validation, $model, $money['money'], $previousSheet);
+        $sheet = $this->buildSheet($slice, $validation, $model, $money['money'], $choices, $previousSheet);
         $choices['money'] = $money['money'];
+        $sheet = Character::fromDocument($slice, $choices, $sheet, $this->sheets)->getSheet();
 
         return $this->result($validation, $limits, $money['problems'], $sheet, $expectedSheet, $choices, $name);
     }
@@ -268,6 +270,7 @@ final class CharacterSaveAssembly
         CharacterValidation $validation,
         CharacterChoices $model,
         int $money,
+        array $choices,
         ?array $previousSheet,
     ): array {
         $previousRows = $this->previousRows($previousSheet, $slice);

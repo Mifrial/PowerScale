@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Item;
 
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
 
 /**
@@ -29,6 +30,7 @@ final class ItemSpec implements RuleSpec
      * @param ArmorBlock|null $armor Броня.
      * @param ShieldBlock|null $shield Щит.
      * @param BlockProfile|null $blockProfile Профиль блока.
+     * @param array<int, AbilityGrant> $grants Гранты надетого предмета.
      *
      * @return void
      */
@@ -48,6 +50,7 @@ final class ItemSpec implements RuleSpec
         private readonly ?ArmorBlock $armor,
         private readonly ?ShieldBlock $shield,
         private readonly ?BlockProfile $blockProfile,
+        private readonly array $grants = [],
     ) {
     }
 
@@ -209,5 +212,15 @@ final class ItemSpec implements RuleSpec
     public function getBlockProfile(): ?BlockProfile
     {
         return $this->blockProfile;
+    }
+
+    /**
+     * Гранты предмета.
+     *
+     * @return array<int, AbilityGrant> Список.
+     */
+    public function getGrants(): array
+    {
+        return $this->grants;
     }
 }

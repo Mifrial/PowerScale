@@ -112,12 +112,13 @@ export class CharacterOverviewService {
   sheetSummary(
     version: CharacterVersion,
     rules: Rule[],
-  ): { characteristics: CharacteristicOverview[]; abilities: AbilityOverview[] } {
+  ): { characteristics: CharacteristicOverview[]; abilities: AbilityOverview[]; resources: ResourceOverview[] } {
     const { synced, reference, withStates } = this.prepared(version, rules);
 
     return {
       characteristics: withStates,
       abilities: this.buildAbilities(synced, reference),
+      resources: this.buildResources(synced, reference, rules, withStates),
     };
   }
 
@@ -578,7 +579,7 @@ export class CharacterOverviewService {
   }
 
   private buildResourceBonuses(resource: ResourceValue, reference: CharacterReferenceService): ResourceLimitOverview[] {
-    return resource.bonuses.map((bonus) => {
+    return resource.bonuses.filter((bonus) => bonus.delta !== 0).map((bonus) => {
       const sourceRule = bonus.sourceRuleCode === null ? null : reference.ruleByCode(bonus.sourceRuleCode);
 
       return {
@@ -1267,20 +1268,25 @@ export class CharacterOverviewService {
           profile.type === 'shoot' ? this.hands.actionOccupy(item, spec) : this.hands.restOccupy(item, spec);
         const copies = this.hands.attackInstanceCount(item, profile.type, version.inventory, rules);
         for (let instanceIndex = 0; instanceIndex < copies; instanceIndex += 1) {
-          attacks.push(
-            this.buildAttack(
-              item.ruleCode,
-              copies > 1 ? `${rule?.name ?? item.ruleCode} ${instanceIndex + 1}` : (rule?.name ?? item.ruleCode),
-              profile,
-              reference,
-              this.withGripStrength(context, this.hands.gripBonus(occupyHands)),
-              distanceIpari,
-              profileIndex,
-              atDistance?.actionCharacteristicModifier ?? 0,
-              item.id,
-              copies > 1 ? instanceIndex : undefined,
-            ),
-          );
+          try {
+            attacks.push(
+              this.buildAttack(
+                item.ruleCode,
+                copies > 1 ? `${rule?.name ?? item.ruleCode} ${instanceIndex + 1}` : (rule?.name ?? item.ruleCode),
+                profile,
+                reference,
+                this.withGripStrength(context, this.hands.gripBonus(occupyHands)),
+                distanceIpari,
+                profileIndex,
+                atDistance?.actionCharacteristicModifier ?? 0,
+                item.id,
+                copies > 1 ? instanceIndex : undefined,
+              ),
+            );
+          } catch {
+            // PHP-лист без закупок/materialize: формула удара не должна ронять обзор чата.
+            continue;
+          }
         }
       }
     }

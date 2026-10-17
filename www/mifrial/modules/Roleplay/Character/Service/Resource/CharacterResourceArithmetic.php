@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Character\Service\Resource;
 
 use Mifrial\Roleplay\Character\Dto\DimensionalResourceValue;
+use Mifrial\Roleplay\Character\Dto\ResourceLimitBonus;
 use Mifrial\Roleplay\Character\Dto\ResourceRow;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Dto\ResourceValue;
@@ -64,6 +65,30 @@ final class CharacterResourceArithmetic
         }
 
         return new DimensionalNumber(max(0, $base->getBase() + $delta), $base->getSize());
+    }
+
+    /**
+     * Лимит = база + сумма вкладов с источниками.
+     *
+     * @param int|DimensionalNumber $base База спеки или гранта.
+     * @param array<int, ResourceLimitBonus> $bonuses Вклады.
+     *
+     * @return int|DimensionalNumber Эффективный лимит.
+     *
+     * @throws CharacterInvalidException Если вклад чужой формы.
+     */
+    public function effective(int|DimensionalNumber $base, array $bonuses): int|DimensionalNumber
+    {
+        $delta = 0;
+        foreach ($bonuses as $bonus) {
+            if (!$bonus instanceof ResourceLimitBonus) {
+                throw new CharacterInvalidException('Resource bonus is invalid');
+            }
+
+            $delta += $bonus->getDelta();
+        }
+
+        return $this->applyDelta($base, $delta);
     }
 
     /**
@@ -129,7 +154,12 @@ final class CharacterResourceArithmetic
             $amount = $totals[$code] ?? null;
             $next[$code] = $amount === null
                 ? $row
-                : new ResourceRow($code, $this->subtract($row->getCurrent(), $amount));
+                : new ResourceRow(
+                    $code,
+                    $this->subtract($row->getCurrent(), $amount),
+                    $row->getBase(),
+                    $row->getBonuses(),
+                );
         }
 
         if ($totals !== [] && count(array_intersect_key($totals, $indexed)) !== count($totals)) {

@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Character\Setup;
 
 use Mifrial\Core\Kernel\Interface\Service\IModuleSetup;
 use Mifrial\Core\Kernel\Interface\Service\ISetupStep;
+use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Roleplay\Character\Schema\CharacterSchema;
 
@@ -14,6 +15,18 @@ use Mifrial\Roleplay\Character\Schema\CharacterSchema;
  */
 final class CharacterModuleSetup implements IModuleSetup
 {
+    /**
+     * Создаёт setup.
+     *
+     * @param ISmartTableGateway $smartTableGateway Шлюз таблиц.
+     *
+     * @return void
+     */
+    public function __construct(
+        private readonly ISmartTableGateway $smartTableGateway,
+    ) {
+    }
+
     /**
      * Возвращает карты модуля.
      *
@@ -25,12 +38,12 @@ final class CharacterModuleSetup implements IModuleSetup
     }
 
     /**
-     * Data-шагов нет.
+     * Data-шаг снятия состояний без id.
      *
-     * @return array<int, ISetupStep> Пустой список.
+     * @return array<int, ISetupStep> Шаги.
      */
     public function getDataSteps(): array
     {
-        return [];
+        return [new DropUnidentifiedCharacterStatesStep($this->smartTableGateway)];
     }
 }

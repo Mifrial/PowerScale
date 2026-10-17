@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Character\Service;
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassTooLong
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh
+// phpcs:disable MifrialCodingStandard.Metrics.MethodQuality
+
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
@@ -31,10 +35,80 @@ final class CharacterActualStateRows
 
         $keys = array_keys($operation);
         sort($keys);
-        $shaped = $keys === ['kind', 'stateRuleCode'] || $keys === ['kind', 'stateRuleCode', 'value'];
         $code = $operation['stateRuleCode'] ?? null;
-        if (!$shaped || !is_string($code) || $code === '') {
+        if (!is_string($code) || $code === '' || ($operation['kind'] ?? null) !== 'putState') {
             throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        foreach ($keys as $key) {
+            $allowed = ['aided', 'bandage', 'clotting', 'heldBy', 'internal', 'kind', 'maim', 'stateRuleCode', 'value'];
+            if (!in_array($key, $allowed, true)) {
+                throw new CharacterInvalidException('Character patch operation is invalid');
+            }
+        }
+    }
+
+    /**
+     * Форма patchState: id и хотя бы одно поле.
+     *
+     * @param mixed $operation Операция.
+     *
+     * @return void
+     *
+     * @throws CharacterInvalidException Если ключи.
+     */
+    public function acceptPatch(mixed $operation): void
+    {
+        if (!is_array($operation) || ($operation['kind'] ?? null) !== 'patchState') {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        if (!$this->hasStateId($operation)) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        $fields = 0;
+        foreach (array_keys($operation) as $key) {
+            if ($key === 'kind' || $key === 'id') {
+                continue;
+            }
+
+            $allowed = ['aided', 'bandage', 'clotting', 'dotTurnsLeft', 'heldBy', 'internal', 'maim', 'value'];
+            if (!in_array($key, $allowed, true)) {
+                throw new CharacterInvalidException('Character patch operation is invalid');
+            }
+
+            $fields++;
+        }
+
+        if ($fields === 0) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+    }
+
+    /**
+     * Форма removeState: kind и id.
+     *
+     * @param mixed $operation Операция.
+     *
+     * @return void
+     *
+     * @throws CharacterInvalidException Если ключи.
+     */
+    public function acceptRemove(mixed $operation): void
+    {
+        if (
+            !is_array($operation)
+            || ($operation['kind'] ?? null) !== 'removeState'
+            || !$this->hasStateId($operation)
+        ) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        foreach (array_keys($operation) as $key) {
+            if ($key !== 'kind' && $key !== 'id') {
+                throw new CharacterInvalidException('Character patch operation is invalid');
+            }
         }
     }
 
@@ -77,7 +151,48 @@ final class CharacterActualStateRows
             if (is_array($operation) && ($operation['kind'] ?? null) === 'putDamageSplit') {
                 $sheet = $this->splitOne($sheet, $operation, $slice);
             }
+
+            if (is_array($operation) && ($operation['kind'] ?? null) === 'patchState') {
+                $sheet = $this->patchOne($sheet, $operation, $slice);
+            }
+
+            if (is_array($operation) && ($operation['kind'] ?? null) === 'removeState') {
+                $sheet = $this->removeOne($sheet, $operation);
+            }
         }
+
+        return $sheet;
+    }
+
+    /**
+     * Снимает строки без уникального id. Создавать такие нельзя.
+     *
+     * @param array<string, mixed> $sheet Снимок.
+     *
+     * @return array<string, mixed> Sheet.
+     *
+     * @throws CharacterInvalidException Если ключ не список.
+     */
+    public function withoutUnidentified(array $sheet): array
+    {
+        if (!array_key_exists('states', $sheet)) {
+            return $sheet;
+        }
+
+        $states = $sheet['states'];
+        if (!is_array($states) || !array_is_list($states)) {
+            throw new CharacterInvalidException('Character states shape is invalid');
+        }
+
+        $kept = [];
+        foreach ($states as $row) {
+            $id = is_array($row) ? ($row['id'] ?? null) : null;
+            if (is_int($id) && $id >= 1) {
+                $kept[] = $row;
+            }
+        }
+
+        $sheet['states'] = $kept;
 
         return $sheet;
     }
@@ -97,7 +212,12 @@ final class CharacterActualStateRows
     {
         $code = $operation['stateRuleCode'];
         $rows = $this->rowsOf($sheet);
-        $rows[] = $this->row($code, $operation, $this->specOf($slice, $code));
+        $spec = $this->specOf($slice, $code);
+        $this->assertMaimKey($operation, $spec);
+        $row = $this->row($code, $operation, $spec);
+        $row['id'] = $this->nextId($rows);
+
+        $rows[] = $row;
         $sheet['states'] = $rows;
 
         return $sheet;
@@ -151,7 +271,10 @@ final class CharacterActualStateRows
         }
 
         if ($valueType === 'dimensional') {
-            return ['stateRuleCode' => $code, 'value' => $this->dimensional($operation)];
+            return $this->withWoundSidecar(
+                $operation,
+                ['stateRuleCode' => $code, 'value' => $this->dimensional($operation)],
+            );
         }
 
         throw new CharacterInvalidException('Character state value is invalid');
@@ -173,7 +296,7 @@ final class CharacterActualStateRows
             throw new CharacterInvalidException('Character state value is invalid');
         }
 
-        return ['stateRuleCode' => $code];
+        return $this->withWoundSidecar($operation, ['stateRuleCode' => $code]);
     }
 
     /**
@@ -193,7 +316,7 @@ final class CharacterActualStateRows
             throw new CharacterInvalidException('Character state value is invalid');
         }
 
-        return ['stateRuleCode' => $code, 'value' => $value];
+        return $this->withWoundSidecar($operation, ['stateRuleCode' => $code, 'value' => $value]);
     }
 
     /**
@@ -439,14 +562,201 @@ final class CharacterActualStateRows
     {
         $row = ['stateRuleCode' => $code, 'value' => $value];
         if ($index === null) {
+            $row['id'] = $this->nextId($rows);
             $rows[] = $row;
 
             return $rows;
         }
 
+        $existing = $rows[$index];
+        $existingId = is_array($existing) ? ($existing['id'] ?? null) : null;
+        $row['id'] = is_int($existingId) && $existingId >= 1 ? $existingId : $this->nextId($rows);
         $rows[$index] = $row;
 
         return $rows;
+    }
+
+    /**
+     * Sidecar раны, если поля переданы.
+     *
+     * @param array<string, mixed> $operation Операция.
+     * @param array<string, mixed> $row Строка значения.
+     *
+     * @return array<string, mixed> Строка.
+     */
+    private function withWoundSidecar(array $operation, array $row): array
+    {
+        foreach (['bandage', 'clotting', 'internal', 'aided', 'heldBy', 'maim'] as $field) {
+            if (array_key_exists($field, $operation)) {
+                $row[$field] = $operation[$field];
+            }
+        }
+
+        return $row;
+    }
+
+    /**
+     * Sidecar увечья только на карточке maim. Ключ опционален.
+     *
+     * @param array<string, mixed> $operation Операция.
+     * @param StateSpec $spec Карточка.
+     *
+     * @return void
+     *
+     * @throws CharacterInvalidException Если ключ или форма.
+     */
+    private function assertMaimKey(array $operation, StateSpec $spec): void
+    {
+        if (!array_key_exists('maim', $operation)) {
+            return;
+        }
+
+        if (!$spec->isMaim()) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        $maim = $operation['maim'];
+        $keys = is_array($maim) ? array_keys($maim) : [];
+        $permanent = is_array($maim) ? ($maim['permanent'] ?? null) : null;
+        if (!is_array($maim) || array_is_list($maim) || !is_bool($permanent)) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        foreach ($keys as $key) {
+            if (!in_array($key, ['disfiguring', 'healTotal', 'healUnit', 'lethal', 'permanent'], true)) {
+                throw new CharacterInvalidException('Character patch operation is invalid');
+            }
+        }
+
+        if ($permanent) {
+            return;
+        }
+
+        $healTotal = $maim['healTotal'] ?? null;
+        $healUnit = $maim['healUnit'] ?? null;
+        $units = ['days', 'decades', 'months', 'years'];
+        if (!is_int($healTotal) || $healTotal < 1 || !is_string($healUnit) || !in_array($healUnit, $units, true)) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+    }
+
+    /**
+     * Следующий id списка.
+     *
+     * @param array<int, mixed> $rows Строки.
+     *
+     * @return int Id.
+     */
+    private function nextId(array $rows): int
+    {
+        $max = 0;
+        foreach ($rows as $row) {
+            $id = is_array($row) ? ($row['id'] ?? null) : null;
+            if (is_int($id) && $id > $max) {
+                $max = $id;
+            }
+        }
+
+        return $max + 1;
+    }
+
+    /**
+     * Патч строки по id.
+     *
+     * @param array<string, mixed> $sheet Снимок.
+     * @param array<string, mixed> $operation Операция.
+     * @param CharacterRuleSlice $slice Срез.
+     *
+     * @return array<string, mixed> Sheet.
+     *
+     * @throws CharacterInvalidException Если строки нет.
+     */
+    private function patchOne(array $sheet, array $operation, CharacterRuleSlice $slice): array
+    {
+        $rows = $this->rowsOf($sheet);
+        $index = $this->indexById($rows, (int) $operation['id']);
+        $code = $rows[$index]['stateRuleCode'] ?? null;
+        if (!is_string($code) || $code === '') {
+            throw new CharacterInvalidException('Character state was not found');
+        }
+
+        $this->assertMaimKey($operation, $this->specOf($slice, $code));
+
+        foreach (['value', 'bandage', 'clotting', 'internal', 'aided', 'heldBy', 'dotTurnsLeft', 'maim'] as $field) {
+            if (array_key_exists($field, $operation)) {
+                $rows[$index][$field] = $operation[$field];
+            }
+        }
+
+        $sheet['states'] = $rows;
+
+        return $sheet;
+    }
+
+    /**
+     * Удаление строки по id.
+     *
+     * @param array<string, mixed> $sheet Снимок.
+     * @param array<string, mixed> $operation Операция.
+     *
+     * @return array<string, mixed> Sheet.
+     *
+     * @throws CharacterInvalidException Если строки нет.
+     */
+    private function removeOne(array $sheet, array $operation): array
+    {
+        $rows = $this->rowsOf($sheet);
+        $index = $this->indexById($rows, (int) $operation['id']);
+        array_splice($rows, $index, 1);
+        $sheet['states'] = $rows;
+
+        return $sheet;
+    }
+
+    /**
+     * Уникальный id строки листа.
+     *
+     * @param array<string, mixed> $operation Операция.
+     *
+     * @return bool true, если id задан.
+     */
+    private function hasStateId(array $operation): bool
+    {
+        $id = $operation['id'] ?? null;
+
+        return is_int($id) && $id >= 1;
+    }
+
+    /**
+     * Индекс строки с id.
+     *
+     * @param array<int, mixed> $rows Строки.
+     * @param int $id Id.
+     *
+     * @return int Индекс.
+     *
+     * @throws CharacterInvalidException Если строки нет или две.
+     */
+    private function indexById(array $rows, int $id): int
+    {
+        $found = null;
+        foreach ($rows as $index => $row) {
+            if (!is_array($row) || ($row['id'] ?? null) !== $id) {
+                continue;
+            }
+
+            if ($found !== null) {
+                throw new CharacterInvalidException('Character state was not found');
+            }
+
+            $found = $index;
+        }
+
+        if (!is_int($found)) {
+            throw new CharacterInvalidException('Character state was not found');
+        }
+
+        return $found;
     }
 
     /**

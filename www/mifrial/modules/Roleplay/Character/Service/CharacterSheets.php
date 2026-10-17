@@ -15,6 +15,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
 use Mifrial\Roleplay\Character\Service\Sheet\CharacterActiveInput;
+use Mifrial\Roleplay\Character\Service\Sheet\CharacterSheetLive;
 use Mifrial\Roleplay\Character\Service\Sheet\CharacterCharacteristicPurchases;
 use Mifrial\Roleplay\Character\Service\Sheet\CharacterEquippedItems;
 use Mifrial\Roleplay\Character\Service\Sheet\CharacterGrantCoverage;
@@ -105,6 +106,20 @@ final class CharacterSheets implements ICharacterSheets
             $purchased,
             $choices->isActive(),
         );
+    }
+
+    /**
+     * Полный пересчёт производных ключей sheet.
+     *
+     * @param CharacterRuleSlice $slice Уже загруженный срез.
+     * @param array<string, mixed> $choices Документ choices.
+     * @param array<string, mixed> $sheet Документ sheet.
+     *
+     * @return array<string, mixed> Sheet после compute.
+     */
+    public function compute(CharacterRuleSlice $slice, array $choices, array $sheet): array
+    {
+        return (new CharacterSheetLive($this))->compute($slice, $choices, $sheet);
     }
 
     /**

@@ -80,6 +80,14 @@ final class CharacterResolvedRule
     }
 
     /**
+     * @return array<string|int, mixed> Сырой spec.
+     */
+    public function getSpecDocument(): array
+    {
+        return $this->ruleVersionRecord->getSpecDocument();
+    }
+
+    /**
      * Форма spec известного типа не разобралась.
      *
      * @return bool true, если версия битая.

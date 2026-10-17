@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
+use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
+use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Action\ApplyCharacterActualPatchAction;
 use Mifrial\Roleplay\Character\Action\CreateCharacterAction;
 use Mifrial\Roleplay\Character\Action\GetCharacterAction;
@@ -36,7 +38,14 @@ use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 return [
     'container' => CharacterContainer::class,
     'locator' => ICharacterContainer::class,
-    'setup' => CharacterModuleSetup::class,
+    'setup' => static function (IServiceLocator $serviceLocator): CharacterModuleSetup {
+        $smartTableGateway = $serviceLocator->get(ISmartTableContainer::class)->get(ISmartTableGateway::class);
+        if (!$smartTableGateway instanceof ISmartTableGateway) {
+            throw new KernelException('PORT_TYPE', 'Character setup requires ISmartTableGateway');
+        }
+
+        return new CharacterModuleSetup($smartTableGateway);
+    },
     'ports' => [
         ICharacters::class => static function (IServiceLocator $serviceLocator): ICharacters {
             return (new CharacterPortFactory())->create($serviceLocator);

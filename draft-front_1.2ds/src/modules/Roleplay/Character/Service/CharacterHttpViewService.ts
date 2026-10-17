@@ -7,7 +7,11 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { CharacteristicPurchase } from '@/modules/Roleplay/Character/Dto/Editor/CharacteristicPurchase';
+import type { ResourceLimitBonus } from '@/modules/Roleplay/Character/Dto/ResourceLimitBonus';
 import type { ResourceValue } from '@/modules/Roleplay/Character/Dto/ResourceValue';
+import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
+import type { CharacterWound } from '@/modules/Roleplay/Character/Dto/CharacterWound';
+import type { CharacterWoundHolder } from '@/modules/Roleplay/Character/Dto/CharacterWoundHolder';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CharacterBuildService } from '@/modules/Roleplay/Character/Service/CharacterBuildService';
 import type { CharacterEditorService } from '@/modules/Roleplay/Character/Service/CharacterEditorService';
@@ -99,8 +103,8 @@ export class CharacterHttpViewService {
       fullDescription: this.nullableStringOf(input.choices.fullDescription),
       spaceCode: input.spaceCode,
       rulesRevision: this.intOf(input.choices.revision, input.rulesRevision),
-      raceRuleCode: this.nullableStringOf(input.choices.raceCode ?? input.choices.raceRuleCode),
-      characteristics: this.characteristicsOf(input.sheet.characteristicPurchases, purchases),
+      raceRuleCode: this.nullableStringOf(input.choices.raceCode ?? input.choices.raceRuleCode ?? input.choices.race),
+      characteristics: this.liveCharacteristicsOf(input.sheet.characteristics) ?? this.characteristicsOf(input.sheet.characteristicPurchases, purchases),
       characteristicPurchases: purchases,
       resources: this.resourcesOf(input.sheet.resources),
       abilities: this.abilitiesOf(input.choices.abilities),
@@ -109,12 +113,12 @@ export class CharacterHttpViewService {
         olSpent: 0,
         olTotal: 0,
         orSpent: 0,
-        orTotal: this.intOf(limits.or),
+        orTotal: typeof limits.or === 'number' ? limits.or : null,
       },
       money: this.intOf(input.sheet.money),
       ageYears: typeof input.choices.ageYears === 'number' ? input.choices.ageYears : null,
       inventory: this.inventoryOf(input.choices.inventory),
-      states: [],
+      states: this.statesFromSheet(input.sheet.states),
       senses: [],
       customRules: Array.isArray(input.choices.customRules)
         ? (input.choices.customRules as CharacterVersion['customRules'])
@@ -144,8 +148,7 @@ export class CharacterHttpViewService {
   }
 
   /**
-   * PHP-снимок хранит закупки, не полный набор характеристик. Для обзора листа
-   * досчитываем версию тем же редактором, что и карточка персонажа.
+   * Mock-режим досчитывает лист редактором. PHP-режим отдаёт уже посчитанный sheet.
    */
   materialize(
     version: CharacterVersion,
@@ -165,6 +168,40 @@ export class CharacterHttpViewService {
       },
       [...keywords],
     );
+  }
+
+  /**
+   * Материализация листа без сброса текущего значения ресурсов (ОД в бою / PHP current).
+   */
+  materializeKeepingRuntime(
+    version: CharacterVersion,
+    spaceId: number,
+    rules: Rule[],
+    keywords: readonly Keyword[] = [],
+  ): CharacterVersion {
+    if (rules.length === 0) return version;
+
+    try {
+      const built = this.materialize(version, spaceId, rules, keywords);
+
+      return {
+        ...built,
+        states: version.states,
+        resources: this.withStoredCurrent(built.resources, version.resources),
+      };
+    } catch {
+      return version;
+    }
+  }
+
+  private withStoredCurrent(built: ResourceValue[], stored: ResourceValue[]): ResourceValue[] {
+    const currentByCode = new Map(stored.map((row) => [row.ruleCode, row.current]));
+
+    return built.map((row) => {
+      const current = currentByCode.get(row.ruleCode);
+
+      return current === undefined ? row : { ...row, current };
+    });
   }
 
   private hasNestedCharacter(record: Record<string, unknown>): boolean {
@@ -190,6 +227,40 @@ export class CharacterHttpViewService {
       if (!characteristicCode) return [];
 
       return [{ characteristicCode, cost }];
+    });
+  }
+
+  private liveCharacteristicsOf(raw: unknown): CharacteristicValue[] | null {
+    if (!Array.isArray(raw)) return null;
+
+    return raw.flatMap((row) => {
+      const record = this.recordOf(row);
+      const code = this.stringOf(record.characteristicCode || record.ruleCode);
+      if (!code) return [];
+      const modifiers = Array.isArray(record.modifiers)
+        ? record.modifiers.flatMap((entry) => {
+            const item = this.recordOf(entry);
+            const source = this.stringOf(item.sourceRuleCode);
+
+            return [
+              {
+                sourceRuleCode: source || null,
+                sourceLabel: null,
+                delta: this.intOf(item.delta),
+                target: code,
+                scope: null,
+              },
+            ];
+          })
+        : [];
+
+      return [
+        {
+          ruleCode: code,
+          base: this.dimOf(record.base ?? record.value),
+          modifiers,
+        },
+      ];
     });
   }
 
@@ -224,8 +295,27 @@ export class CharacterHttpViewService {
       const code = this.stringOf(record.ruleCode);
       if (!code) return [];
       const current = this.dimOf(record.current);
+      const bonuses = this.resourceBonusesOf(record.bonuses);
 
-      return [{ ruleCode: code, current, base: this.dimOf(record.base ?? record.current), bonuses: [] }];
+      return [{ ruleCode: code, current, base: this.dimOf(record.base ?? record.current), bonuses }];
+    });
+  }
+
+  private resourceBonusesOf(raw: unknown): ResourceLimitBonus[] {
+    if (!Array.isArray(raw)) return [];
+
+    return raw.flatMap((row) => {
+      const record = this.recordOf(row);
+      const delta = this.intOf(record.delta);
+      if (delta === 0) return [];
+
+      return [
+        {
+          sourceRuleCode: this.nullableStringOf(record.sourceRuleCode),
+          sourceLabel: this.nullableStringOf(record.sourceLabel),
+          delta,
+        },
+      ];
     });
   }
 
@@ -285,6 +375,84 @@ export class CharacterHttpViewService {
     }
 
     return Object.keys(parameters).length > 0 ? parameters : undefined;
+  }
+
+  statesFromSheet(raw: unknown): CharacterStateValue[] {
+    return Array.isArray(raw) ? raw.map((row) => this.stateFromSheet(row)) : [];
+  }
+
+  private stateFromSheet(row: unknown): CharacterStateValue {
+    const record = this.recordOf(row);
+    const nested = this.objectOf(record.wound);
+    const sidecar = nested ?? record;
+    const wound = this.woundFromSheet(sidecar, nested !== null);
+    const id = this.stateIdOf(record.id);
+
+    return {
+      ...(id !== undefined ? { id } : {}),
+      stateRuleCode: this.stringOf(record.stateRuleCode),
+      ...(typeof record.value === 'number' ? { value: record.value } : {}),
+      ...(record.dimensionalValue && typeof record.dimensionalValue === 'object'
+        ? { dimensionalValue: record.dimensionalValue as CharacterStateValue['dimensionalValue'] }
+        : {}),
+      ...(record.poison && typeof record.poison === 'object'
+        ? { poison: record.poison as CharacterStateValue['poison'] }
+        : {}),
+      ...(typeof record.dotTurnsLeft === 'number' ? { dotTurnsLeft: record.dotTurnsLeft } : {}),
+      ...(typeof record.boundSustainId === 'string' ? { boundSustainId: record.boundSustainId } : {}),
+      ...(typeof record.boundSourceKey === 'string' ? { boundSourceKey: record.boundSourceKey } : {}),
+      ...(record.maim && typeof record.maim === 'object' ? { maim: record.maim as CharacterStateValue['maim'] } : {}),
+      ...(wound ? { wound } : {}),
+    };
+  }
+
+  private woundFromSheet(sidecar: Record<string, unknown>, nested: boolean): CharacterWound | undefined {
+    const hasSidecar =
+      nested ||
+      'bandage' in sidecar ||
+      'clotting' in sidecar ||
+      'internal' in sidecar ||
+      'aided' in sidecar ||
+      'heldBy' in sidecar;
+    if (!hasSidecar) return undefined;
+
+    return {
+      bandage: typeof sidecar.bandage === 'number' ? sidecar.bandage : 0,
+      clotting: typeof sidecar.clotting === 'number' ? sidecar.clotting : 0,
+      internal: sidecar.internal === true,
+      aided: sidecar.aided === true,
+      heldBy: this.heldByFromSheet(sidecar.heldBy),
+    };
+  }
+
+  private heldByFromSheet(raw: unknown): CharacterWound['heldBy'] {
+    if (raw === null || raw === undefined || raw === '') return null;
+    if (typeof raw === 'string') return raw;
+    const record = this.objectOf(raw);
+    if (!record) return null;
+    const kind = record.kind;
+    const id = record.id;
+    if ((kind === 'character' || kind === 'npc') && typeof id === 'number' && id >= 1) {
+      return { kind, id } satisfies CharacterWoundHolder;
+    }
+
+    return null;
+  }
+
+  private objectOf(value: unknown): Record<string, unknown> | null {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+
+    return value as Record<string, unknown>;
+  }
+
+  private stateIdOf(value: unknown): number | undefined {
+    if (typeof value === 'number' && Number.isInteger(value) && value >= 1) return value;
+    if (typeof value === 'string' && /^\d+$/.test(value)) {
+      const id = Number(value);
+      if (id >= 1) return id;
+    }
+
+    return undefined;
   }
 
   private dimOf(raw: unknown): DimensionalNumberValue {

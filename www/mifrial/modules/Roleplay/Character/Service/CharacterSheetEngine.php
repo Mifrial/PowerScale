@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Character\Service;
 
 use Mifrial\Core\Kernel\Exception\ActionException;
-use Mifrial\Core\Kernel\Value\Optional\OptionalInt;
 use Mifrial\Roleplay\Character\Dto\CharacterProblem;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Exception\CharacterSaveRejectedException;
@@ -141,7 +140,6 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
             $choices,
             $previousSheet,
         );
-        $built['problems'] = $this->assembly->withClientCash($built['problems'], $this->clientMoney($choices));
         $problems = $this->withoutEmptyRace($built['problems'], $raceCode);
 
         return $this->report($revision, $problems, $built['choices'], $built['sheet'], $built['name']);
@@ -286,23 +284,5 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
         }
 
         return $choices['money'];
-    }
-
-    /**
-     * Ключ money для той же проверки, что update персонажа.
-     *
-     * @param array<string, mixed> $choices Документ.
-     *
-     * @return OptionalInt Наличные или отсутствие ключа.
-     */
-    private function clientMoney(array $choices): OptionalInt
-    {
-        if (!array_key_exists('money', $choices)) {
-            return OptionalInt::absent();
-        }
-
-        $money = $choices['money'];
-
-        return OptionalInt::present(is_int($money) ? $money : null);
     }
 }

@@ -7,13 +7,16 @@ namespace Mifrial\Roleplay\Character\Service;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
+use Mifrial\Roleplay\Character\Service\Runtime\Character;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
- * Разбор abilityLevels и characteristicPurchases в FormulaContext.
+ * FormulaContext из живых характеристик sheet, иначе из закупок.
  */
 final class CharacterFormulaContexts implements ICharacterFormulaContexts
 {
@@ -26,6 +29,8 @@ final class CharacterFormulaContexts implements ICharacterFormulaContexts
      */
     public function __construct(
         private readonly ICharacters $characters,
+        private readonly ?ICharacterRuleSlices $slices = null,
+        private readonly ?ICharacterSheets $sheets = null,
     ) {
     }
 
@@ -60,7 +65,16 @@ final class CharacterFormulaContexts implements ICharacterFormulaContexts
      */
     public function buildStored(int $characterId): FormulaContext
     {
-        return $this->build($this->characters->get($characterId)->getSheet());
+        $record = $this->characters->get($characterId);
+        if ($this->slices === null || $this->sheets === null) {
+            return $this->build($record->getSheet());
+        }
+
+        return $this->build(Character::fromRecord(
+            $record,
+            $this->slices->get($record->getSpaceId(), $record->getRulesRevision()),
+            $this->sheets,
+        )->getSheet());
     }
 
     /**
@@ -102,6 +116,10 @@ final class CharacterFormulaContexts implements ICharacterFormulaContexts
      */
     private function characteristics(array $sheet): array
     {
+        if (isset($sheet['characteristics']) && is_array($sheet['characteristics'])) {
+            return $this->liveCharacteristics($sheet['characteristics']);
+        }
+
         $rows = $sheet['characteristicPurchases'] ?? null;
         if (!is_array($rows)) {
             $this->reject();
@@ -112,6 +130,32 @@ final class CharacterFormulaContexts implements ICharacterFormulaContexts
         foreach ($rows as $row) {
             $code = $this->purchaseCode($row, $seen);
             $result[$code] = $this->purchaseValue($row);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Живые характеристики снимка.
+     *
+     * @param array<mixed> $rows Строки.
+     *
+     * @return array<string, DimensionalNumber> Код → пара.
+     *
+     * @throws CharacterInvalidException Если список битый.
+     */
+    private function liveCharacteristics(array $rows): array
+    {
+        $seen = [];
+        $result = [];
+        foreach ($rows as $row) {
+            $code = $this->purchaseCode($row, $seen);
+            $value = is_array($row) ? ($row['value'] ?? null) : null;
+            if (!is_array($value) || !is_int($value['base'] ?? null) || !is_int($value['size'] ?? null)) {
+                $this->reject();
+            }
+
+            $result[$code] = new CharacteristicNumber($value['base'], $value['size']);
         }
 
         return $result;

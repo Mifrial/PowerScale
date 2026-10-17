@@ -15,6 +15,7 @@ final class CharacterInventoryChoice
      * @param string $ruleCode Код предмета.
      * @param bool $equipped Надет.
      * @param int $quantity Количество. Нет ключа во входе — 1.
+     * @param array<int, string> $modifiers Коды модификаторов.
      *
      * @return void
      */
@@ -22,6 +23,7 @@ final class CharacterInventoryChoice
         private readonly string $ruleCode,
         private readonly bool $equipped,
         private readonly int $quantity = 1,
+        private readonly array $modifiers = [],
     ) {
     }
 
@@ -53,5 +55,15 @@ final class CharacterInventoryChoice
     public function getQuantity(): int
     {
         return $this->quantity;
+    }
+
+    /**
+     * Коды модификаторов предмета.
+     *
+     * @return array<int, string> Коды.
+     */
+    public function getModifiers(): array
+    {
+        return $this->modifiers;
     }
 }

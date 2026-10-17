@@ -7,6 +7,8 @@ namespace Mifrial\Roleplay\Character\Service;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
+use Mifrial\Roleplay\Character\Service\CharacterRuleSlicePortFactory;
+use Mifrial\Roleplay\Character\Service\CharacterSheetPortFactory;
 
 /**
  * Сборка контекста формулы из локатора.
@@ -24,6 +26,10 @@ final class CharacterFormulaContextPortFactory
      */
     public function create(IServiceLocator $serviceLocator): ICharacterFormulaContexts
     {
-        return new CharacterFormulaContexts((new CharacterPortFactory())->create($serviceLocator));
+        return new CharacterFormulaContexts(
+            (new CharacterPortFactory())->create($serviceLocator),
+            (new CharacterRuleSlicePortFactory())->create($serviceLocator),
+            (new CharacterSheetPortFactory())->create($serviceLocator),
+        );
     }
 }

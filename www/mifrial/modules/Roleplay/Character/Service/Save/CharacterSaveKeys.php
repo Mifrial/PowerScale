@@ -71,6 +71,7 @@ final class CharacterSaveKeys
         'coveredPaths',
         'characteristicPurchases',
         'characteristicPurchaseOs',
+        'characteristics',
         'active',
         'money',
     ];
@@ -79,6 +80,18 @@ final class CharacterSaveKeys
      * @var array<int, string>
      */
     private const EQUIPPED = ['ruleCode', 'strengthPenalty', 'maxAgility', 'characteristicLimits'];
+
+    /**
+     * @var array<int, string>
+     */
+    private const LIVE = [
+        'characteristicCode',
+        'ruleCode',
+        'base',
+        'value',
+        'delta',
+        'modifiers',
+    ];
 
     /**
      * Проверяет limits. money внутри — только если allowMoney.
@@ -135,6 +148,11 @@ final class CharacterSaveKeys
         $equipped = $expectedSheet['equippedModifiers'] ?? [];
         if (is_array($equipped)) {
             $this->assertRows($equipped, self::EQUIPPED, 'expectedSheet.equippedModifiers');
+        }
+
+        $live = $expectedSheet['characteristics'] ?? [];
+        if (is_array($live)) {
+            $this->assertRows($live, self::LIVE, 'expectedSheet.characteristics');
         }
     }
 

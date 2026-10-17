@@ -88,10 +88,31 @@ final class CharacterResourceStorage
             }
 
             $seen[$code] = true;
-            $serialized[] = [
+            $entry = [
                 'ruleCode' => $code,
                 'current' => $row->getCurrent()->toNative(),
             ];
+            $base = $row->getBase();
+            if (is_int($base)) {
+                $entry['base'] = $base;
+            } elseif ($base instanceof DimensionalNumber) {
+                $entry['base'] = ['base' => $base->getBase(), 'size' => $base->getSize()];
+            }
+
+            $bonuses = [];
+            foreach ($row->getBonuses() as $bonus) {
+                if ($bonus->getDelta() === 0) {
+                    continue;
+                }
+
+                $bonuses[] = $bonus->toNative();
+            }
+
+            if ($bonuses !== []) {
+                $entry['bonuses'] = $bonuses;
+            }
+
+            $serialized[] = $entry;
         }
 
         return $serialized;
@@ -125,6 +146,66 @@ final class CharacterResourceStorage
         }
 
         return $this->arithmetic->spendRows($rows, $validated);
+    }
+
+    /**
+     * Ставит current строки с клампом 0..effective limit.
+     *
+     * @param array<int, ResourceRow> $rows Строки.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $code Код ресурса.
+     * @param mixed $current Native current.
+     *
+     * @return array<int, ResourceRow> Строки.
+     *
+     * @throws CharacterInvalidException Если ресурса нет или форма.
+     */
+    public function setCurrentRows(
+        array $rows,
+        CharacterRuleSlice $slice,
+        string $code,
+        mixed $current,
+    ): array {
+        $spec = $this->spec($slice, $code);
+        $found = false;
+        $next = [];
+        foreach ($rows as $row) {
+            if ($row->getRuleCode() !== $code) {
+                $next[] = $row;
+                continue;
+            }
+
+            $found = true;
+            $parsed = $this->parseValue($this->floorNative($current, $spec), $spec);
+            $next[] = new ResourceRow($code, $parsed, $row->getBase(), $row->getBonuses());
+        }
+
+        if (!$found) {
+            throw new CharacterInvalidException('Resource row is missing');
+        }
+
+        return $next;
+    }
+
+    /**
+     * Нижняя граница 0 до разбора native.
+     *
+     * @param mixed $current Native.
+     * @param ResourceSpec $spec Карточка.
+     *
+     * @return mixed Native ≥ 0.
+     */
+    private function floorNative(mixed $current, ResourceSpec $spec): mixed
+    {
+        if (!$spec->isDimensional() && is_int($current)) {
+            return max(0, $current);
+        }
+
+        if (is_array($current) && is_int($current['base'] ?? null)) {
+            return [...$current, 'base' => max(0, $current['base'])];
+        }
+
+        return $current;
     }
 
     /**
@@ -168,9 +249,10 @@ final class CharacterResourceStorage
      */
     private function parseRow(mixed $row, CharacterRuleSlice $slice): ResourceRow
     {
-        [$ruleCode, $value] = $this->rowParts($row, $slice);
+        [$ruleCode, $value, $base] = $this->rowParts($row, $slice);
+        $spec = $this->spec($slice, $ruleCode);
 
-        return new ResourceRow($ruleCode, $this->parseValue($value, $this->spec($slice, $ruleCode)));
+        return new ResourceRow($ruleCode, $this->parseValue($value, $spec), $base);
     }
 
     /**
@@ -198,13 +280,22 @@ final class CharacterResourceStorage
      * @param mixed $row Native row.
      * @param CharacterRuleSlice $slice Live rule slice.
      *
-     * @return array{0: string, 1: mixed} Code and current.
+     * @return array{0: string, 1: mixed, 2: int|DimensionalNumber|null} Code, current, base.
      *
      * @throws CharacterInvalidException При неверной форме или live rule.
      */
     private function rowParts(mixed $row, CharacterRuleSlice $slice): array
     {
-        if (!is_array($row) || array_is_list($row) || !$this->hasKeys($row, ['ruleCode', 'current'])) {
+        $allowed = ['ruleCode', 'current'];
+        if (is_array($row) && array_key_exists('base', $row)) {
+            $allowed[] = 'base';
+        }
+
+        if (is_array($row) && array_key_exists('bonuses', $row)) {
+            $allowed[] = 'bonuses';
+        }
+
+        if (!is_array($row) || array_is_list($row) || !$this->hasKeys($row, $allowed)) {
             throw new CharacterInvalidException('Resource row shape is invalid');
         }
 
@@ -215,7 +306,33 @@ final class CharacterResourceStorage
 
         $this->spec($slice, $ruleCode);
 
-        return [$ruleCode, $row['current']];
+        return [$ruleCode, $row['current'], $this->parseBase($row['base'] ?? null)];
+    }
+
+    /**
+     * Разбирает сохранённый лимит.
+     *
+     * @param mixed $base Native.
+     *
+     * @return int|DimensionalNumber|null Лимит.
+     *
+     * @throws CharacterInvalidException Если форма чужая.
+     */
+    private function parseBase(mixed $base): int|DimensionalNumber|null
+    {
+        if ($base === null) {
+            return null;
+        }
+
+        if (is_int($base)) {
+            return $base;
+        }
+
+        if (is_array($base) && is_int($base['base'] ?? null) && is_int($base['size'] ?? null)) {
+            return new DimensionalNumber($base['base'], $base['size']);
+        }
+
+        throw new CharacterInvalidException('Resource base is invalid');
     }
 
     /**

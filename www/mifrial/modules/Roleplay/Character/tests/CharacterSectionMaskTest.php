@@ -7,6 +7,10 @@ namespace Mifrial\Roleplay\Character\Tests;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Character\Dto\CharacterOpening;
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Dto\CharacterValidation;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\Read\CharacterSectionMask;
 use Mifrial\Roleplay\Character\Service\Read\CharacterViewAssembler;
 use PHPUnit\Framework\TestCase;
@@ -58,7 +62,11 @@ final class CharacterSectionMaskTest extends TestCase
      */
     public function testStrangerDetailOmitsOwnerFields(): void
     {
-        $assembler = new CharacterViewAssembler(new CharacterSectionMask());
+        $slices = $this->createMock(ICharacterRuleSlices::class);
+        $slices->method('get')->willReturn(new CharacterRuleSlice(2, 3, 'world', [], []));
+        $sheets = $this->createMock(ICharacterSheets::class);
+        $sheets->method('validate')->willReturn(new CharacterValidation([], [], [], 0, [], [], [], true));
+        $assembler = new CharacterViewAssembler(new CharacterSectionMask(), $slices, $sheets);
         $record = CharacterRecord::fromNormalized([
             'id' => 4,
             'owner_id' => 1,

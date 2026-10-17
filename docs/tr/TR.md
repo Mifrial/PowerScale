@@ -103,12 +103,14 @@
 - [План User 4: HTTP групп](user-plan-04-groups-http.md) — `userGroup.*`, `memberCount`, subset ключей.
 - [План User 5: выправить контракт](user-plan-05-no-catalog-dump.md) — сделано; `findPage`, JSON-вид, Vue.
 - [Система правил](rule-system.md) — RuleType, ревизии, каталог, ресурсы и публикация.
-- [Система персонажей](character-system.md) — версии, membership, validation и модерация.
+- [Система персонажей](character-system.md) — версии, membership, validation; полный пересчёт листа (`Character` Runtime, `sheet.characteristics`, `resources[].base` + `bonuses`); Game только generic ops.
 - [Нарезка Character backend](character-roadmap.md) — actual state; save только после серверного build и validation; Engine — `runEvent`, не весь лист.
 - [План Character 1: контракт](character-plan-01.md) — выборы, свои лимиты, `grantedBy`/`studyPairId`, валидатор; спеки без отмашки не готовы.
 - [План Character 2: каркас](character-plan-02.md) — actual storage, `ICharacters` без save; видимость JSON+`is_public`; `BACKEND_OPEN`.
 - [План Character 3: срез ревизии](character-plan-03.md) — `ICharacterRuleSlices` через `IRuleSpaces`; keyword codes; `BACKEND_OPEN`.
 - [Система игр](game-system.md) — игра, бой, абстрактное движение, overlay, инвентарь и экономика.
+- [План Game 34](game-plan-34.md) — ручная правка листа в сессии (`game.manualSheet`).
+- [План Game 35](game-plan-35.md) — один журнал `game_command`.
 - [Система battleground](battleground-system.md) — тактическая сцена (`REQUIREMENT`, не реализована).
 - [Система Chat](chat-system.md) — host, attachments и plugin-контракты. PHP — [`chat-roadmap.md`](chat-roadmap.md).
 - [Пользователи и авторизация](auth-system.md) — профили, группы, права и сессии.
