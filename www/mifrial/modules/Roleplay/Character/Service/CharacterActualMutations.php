@@ -15,6 +15,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\CharacterValidation;
 use Mifrial\Roleplay\Character\Dto\ResourceBackfillResult;
+use Mifrial\Roleplay\Character\Dto\ResourceLimitBonus;
 use Mifrial\Roleplay\Character\Dto\ResourceRow;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
@@ -30,7 +31,11 @@ use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceStorage;
 use Mifrial\Roleplay\Character\Service\Runtime\Character;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSheetDocument;
+use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
+use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
+use Mifrial\Roleplay\Rule\Service\FormulaEvaluations;
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 
 /**
  * Меняет сохранённый actual операцией каталога и ожидаемой версией.
@@ -430,16 +435,15 @@ final class CharacterActualMutations implements ICharacterActualMutations
             }
 
             $typedRows = $this->resourceStorage->parseRows($rows, $slice);
+            $written = $this->resourceStorage->setCurrentRows(
+                $typedRows,
+                $slice,
+                $operation['resourceCode'],
+                $operation['current'],
+            );
             $sheet = [
                 ...$sheet,
-                'resources' => $this->resourceStorage->serializeRows(
-                    $this->resourceStorage->setCurrentRows(
-                        $typedRows,
-                        $slice,
-                        $operation['resourceCode'],
-                        $operation['current'],
-                    ),
-                ),
+                'resources' => $this->resourceStorage->serializeRows($written),
             ];
         }
 
@@ -502,7 +506,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
         $arithmetic = new CharacterResourceArithmetic();
         $next = [];
         foreach ($this->resourceStorage->parseRows($rows, $slice) as $row) {
-            $next[] = $this->refilledRow($slice, $arithmetic, $row);
+            $next[] = $this->refilledRow($slice, $arithmetic, $row, $sheet);
         }
 
         return [...$sheet, 'resources' => $this->resourceStorage->serializeRows($next)];
@@ -514,6 +518,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
      * @param CharacterRuleSlice $slice Срез.
      * @param CharacterResourceArithmetic $arithmetic Арифметика.
      * @param ResourceRow $row Строка.
+     * @param array<string, mixed> $sheet Sheet.
      *
      * @return ResourceRow Строка.
      */
@@ -521,6 +526,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
         CharacterRuleSlice $slice,
         CharacterResourceArithmetic $arithmetic,
         ResourceRow $row,
+        array $sheet,
     ): ResourceRow {
         $rule = $slice->findLive($row->getRuleCode());
         $spec = $rule instanceof CharacterResolvedRule && !$rule->isSpecBroken() ? $rule->getSpec() : null;
@@ -529,13 +535,93 @@ final class CharacterActualMutations implements ICharacterActualMutations
         }
 
         $base = $row->getBase() ?? $arithmetic->getBase($spec, []);
+        $bonuses = $this->withLimitAdjustments($spec, $row->getBonuses(), $sheet);
+        $refilled = $arithmetic->value($arithmetic->effective($base, $bonuses));
 
         return new ResourceRow(
             $row->getRuleCode(),
-            $arithmetic->value($arithmetic->effective($base, $row->getBonuses())),
+            $refilled,
             $base,
             $row->getBonuses(),
         );
+    }
+
+    /**
+     * Бонусы строки плюс поправки спеки, которых в строке ещё нет.
+     *
+     * @param ResourceSpec $spec Карточка.
+     * @param array<int, ResourceLimitBonus> $bonuses Вклады строки.
+     * @param array<string, mixed> $sheet Sheet.
+     *
+     * @return array<int, ResourceLimitBonus> Вклады для потолка.
+     *
+     * @throws CharacterInvalidException Если формула лимита битая.
+     */
+    private function withLimitAdjustments(ResourceSpec $spec, array $bonuses, array $sheet): array
+    {
+        $limit = $spec->getLimit();
+        if ($limit === null) {
+            return $bonuses;
+        }
+
+        $known = [];
+        foreach ($bonuses as $bonus) {
+            $source = $bonus->getSourceRuleCode();
+            if ($source !== null && $source !== '') {
+                $known[$source] = true;
+            }
+        }
+
+        $evaluations = new FormulaEvaluations();
+        $context = $this->characteristicContext($sheet);
+        foreach ($limit->getAdjustments() as $adjustment) {
+            $source = $adjustment->getSourceCode();
+            if ($source !== '' && isset($known[$source])) {
+                continue;
+            }
+
+            try {
+                $delta = $evaluations->evaluateScalar($adjustment->getValue(), $context);
+            } catch (RuleInvalidException $exception) {
+                throw new CharacterInvalidException('Resource limit formula is invalid', $exception);
+            }
+
+            $bonuses[] = new ResourceLimitBonus($source !== '' ? $source : null, $delta);
+        }
+
+        return $bonuses;
+    }
+
+    /**
+     * Характеристики sheet для формул лимита.
+     *
+     * @param array<string, mixed> $sheet Sheet.
+     *
+     * @return FormulaContext Контекст.
+     */
+    private function characteristicContext(array $sheet): FormulaContext
+    {
+        $values = [];
+        $rows = $sheet['characteristics'] ?? [];
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+
+                $code = $row['characteristicCode'] ?? null;
+                $value = $row['value'] ?? null;
+                $base = is_array($value) ? ($value['base'] ?? null) : null;
+                $size = is_array($value) ? ($value['size'] ?? null) : null;
+                if (!is_string($code) || !is_int($base) || !is_int($size)) {
+                    continue;
+                }
+
+                $values[$code] = new CharacteristicNumber($base, $size);
+            }
+        }
+
+        return new FormulaContext($values, []);
     }
 
     /**

@@ -41,6 +41,10 @@ final class CharacterSheetLive
 
     private readonly CharacterResourceArithmetic $arithmetic;
 
+    private readonly CharacterWeaponFamilyMastery $weaponFamilies;
+
+    private readonly CharacterDerivedLevels $derivedLevels;
+
     /**
      * Собирает части расчёта.
      *
@@ -69,6 +73,8 @@ final class CharacterSheetLive
         );
         $this->resourceStorage = new CharacterResourceStorage();
         $this->arithmetic = new CharacterResourceArithmetic();
+        $this->weaponFamilies = new CharacterWeaponFamilyMastery($equipped);
+        $this->derivedLevels = new CharacterDerivedLevels();
     }
 
     /**
@@ -85,13 +91,17 @@ final class CharacterSheetLive
         $model = $this->model($choices);
         $validation = $this->sheets->validate($slice, $model);
         $chosen = $validation->getAbilityLevels();
-        $levels = $chosen;
+        $levels = $this->withDerived($slice, $model, $chosen);
         $live = [];
         $resourceLimits = [];
         for ($pass = 0; $pass < 3; $pass++) {
             $rows = $this->characteristics->compute($slice, $model, $validation, $sheet, $levels);
             $live = $this->indexCharacteristics($rows);
-            $levels = $this->activity->effectiveLevels($slice, $model, $chosen, $live, $resourceLimits);
+            $levels = $this->withDerived(
+                $slice,
+                $model,
+                $this->activity->effectiveLevels($slice, $model, $chosen, $live, $resourceLimits),
+            );
             $resourceRows = $this->resources($slice, $validation, $model, $sheet, $live);
             $resourceLimits = $this->indexLimits($resourceRows);
             $sheet['characteristics'] = $rows;
@@ -99,6 +109,8 @@ final class CharacterSheetLive
             $sheet['abilityLevels'] = $levels;
         }
 
+        $sheet['senses'] = $this->characteristics->activeSenses($slice, $model, $validation, $levels);
+        $sheet['weaponFamilyMastery'] = $this->weaponFamilies->compute($slice, $model, $live);
         $sheet['racialAbilityCodes'] = $validation->getRacialAbilityCodes();
         $sheet['osSurchargeTotal'] = $validation->getOsSurchargeTotal();
         $sheet['equippedModifiers'] = $sheet['equippedModifiers'] ?? [];
@@ -110,7 +122,26 @@ final class CharacterSheetLive
             $sheet['money'] = $choices['money'];
         }
 
+
         return $sheet;
+    }
+
+    /**
+     * Поднимает уровни до производных по порогам опыта.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $model Выборы.
+     * @param array<string, int> $levels Уровни.
+     *
+     * @return array<string, int> Уровни.
+     */
+    private function withDerived(CharacterRuleSlice $slice, CharacterChoices $model, array $levels): array
+    {
+        foreach ($this->derivedLevels->levels($slice, $model) as $code => $level) {
+            $levels[$code] = max($levels[$code] ?? 0, $level);
+        }
+
+        return $levels;
     }
 
     /**

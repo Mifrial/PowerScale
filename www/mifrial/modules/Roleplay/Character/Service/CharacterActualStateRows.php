@@ -214,13 +214,102 @@ final class CharacterActualStateRows
         $rows = $this->rowsOf($sheet);
         $spec = $this->specOf($slice, $code);
         $this->assertMaimKey($operation, $spec);
-        $row = $this->row($code, $operation, $spec);
-        $row['id'] = $this->nextId($rows);
+        if ($this->isDecline($spec)) {
+            $rows = $this->withoutDecline($rows, $slice);
+        }
 
+        $row = $this->row($code, $operation, $spec);
+        $aggregation = $spec->getAggregation();
+        $index = ($aggregation === 'sum' || $aggregation === 'max') ? $this->firstRow($rows, $code) : null;
+        if ($index !== null) {
+            $existing = $rows[$index];
+            $existingId = is_array($existing) ? ($existing['id'] ?? null) : null;
+            $row['id'] = is_int($existingId) && $existingId >= 1 ? $existingId : $this->nextId($rows);
+            if (isset($existing['value'], $row['value'])) {
+                $row['value'] = $this->mergedValue($existing['value'], $row['value'], $aggregation);
+            }
+
+            $rows[$index] = $row;
+            $sheet['states'] = $rows;
+
+            return $sheet;
+        }
+
+        $row['id'] = $this->nextId($rows);
         $rows[] = $row;
         $sheet['states'] = $rows;
 
         return $sheet;
+    }
+
+    /**
+     * Упадок сил: на листе остаётся одно такое состояние.
+     *
+     * @param StateSpec $spec Карточка.
+     *
+     * @return bool true, если карточка из группы упадка.
+     */
+    private function isDecline(StateSpec $spec): bool
+    {
+        return $spec->isDeclineWeakness() || $spec->isDeclineDisabled() || $spec->isDeclineUnconscious();
+    }
+
+    /**
+     * Снимает другие состояния упадка.
+     *
+     * @param array<int, mixed> $rows Строки.
+     * @param CharacterRuleSlice $slice Срез.
+     *
+     * @return array<int, mixed> Строки.
+     */
+    private function withoutDecline(array $rows, CharacterRuleSlice $slice): array
+    {
+        $kept = [];
+        foreach ($rows as $row) {
+            $code = is_array($row) ? ($row['stateRuleCode'] ?? null) : null;
+            $spec = is_string($code) ? $slice->findLive($code)?->getSpec() : null;
+            if ($spec instanceof StateSpec && $this->isDecline($spec)) {
+                continue;
+            }
+
+            $kept[] = $row;
+        }
+
+        return $kept;
+    }
+
+    /**
+     * Сумма или максимум значения.
+     *
+     * @param mixed $current Лежащее.
+     * @param mixed $incoming Новое.
+     * @param string $aggregation sum или max.
+     *
+     * @return mixed Значение.
+     */
+    private function mergedValue(mixed $current, mixed $incoming, string $aggregation): mixed
+    {
+        if (is_int($current) && is_int($incoming)) {
+            return $aggregation === 'max' ? max($current, $incoming) : $current + $incoming;
+        }
+
+        $currentBase = is_array($current) ? ($current['base'] ?? null) : null;
+        $currentSize = is_array($current) ? ($current['size'] ?? null) : null;
+        $incomingBase = is_array($incoming) ? ($incoming['base'] ?? null) : null;
+        $incomingSize = is_array($incoming) ? ($incoming['size'] ?? null) : null;
+        if (!is_int($currentBase) || !is_int($currentSize) || !is_int($incomingBase) || !is_int($incomingSize)) {
+            return $incoming;
+        }
+
+        if ($aggregation === 'max') {
+            return $incomingBase > $currentBase ? $incoming : $current;
+        }
+
+        if ($currentSize !== $incomingSize) {
+            return $incoming;
+        }
+
+        return ['base' => $currentBase + $incomingBase, 'size' => $currentSize];
     }
 
     /**
@@ -516,6 +605,25 @@ final class CharacterActualStateRows
         }
 
         return $found;
+    }
+
+    /**
+     * Первая строка кода.
+     *
+     * @param array<int, mixed> $rows Строки.
+     * @param string $code Код.
+     *
+     * @return int|null Индекс.
+     */
+    private function firstRow(array $rows, string $code): int|null
+    {
+        foreach ($rows as $index => $row) {
+            if (is_array($row) && ($row['stateRuleCode'] ?? null) === $code) {
+                return $index;
+            }
+        }
+
+        return null;
     }
 
     /**

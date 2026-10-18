@@ -19,6 +19,8 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityProcessSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicModifyGrant;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SenseModifyGrant;
+use Mifrial\Roleplay\Rule\Dto\Spec\SenseSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Race\RaceSpec;
@@ -222,10 +224,13 @@ final class CharacterLiveCharacteristics
             }
 
             $context = new FormulaContext($bases, $abilityLevels, $this->parametersOf($slice, $choices, $grant));
-            $raw[$body->getCharacteristicCode()][] = [
-                'source' => $body->getSourceCode(),
-                'delta' => $this->amountOf($body, $context),
-            ];
+            $delta = $this->amountOf($body, $context);
+            foreach ($this->penaltyTargets($slice, $body->getCharacteristicCode()) as $target) {
+                $raw[$target][] = [
+                    'source' => $body->getSourceCode(),
+                    'delta' => $delta,
+                ];
+            }
         }
 
         $itemContext = new FormulaContext($bases, $abilityLevels);
@@ -235,10 +240,13 @@ final class CharacterLiveCharacteristics
                     continue;
                 }
 
-                $raw[$grant->getCharacteristicCode()][] = [
-                    'source' => $item['ruleCode'],
-                    'delta' => $this->amountOf($grant, $itemContext),
-                ];
+                $delta = $this->amountOf($grant, $itemContext);
+                foreach ($this->penaltyTargets($slice, $grant->getCharacteristicCode()) as $target) {
+                    $raw[$target][] = [
+                        'source' => $item['ruleCode'],
+                        'delta' => $delta,
+                    ];
+                }
             }
         }
 
@@ -248,7 +256,163 @@ final class CharacterLiveCharacteristics
             }
         }
 
+        $sense = $this->bestSenseDelta($this->senseRows($slice, $choices, $abilityLevels, $bases));
+        if ($sense !== null) {
+            $raw['attention'][] = $sense;
+        }
+
         return $this->aggregate($raw);
+    }
+
+    /**
+     * Активные чувства листа: auto_add и выданные грантом, без статуса «отсутствует».
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $choices Выборы.
+     * @param CharacterValidation $validation Снимок.
+     * @param array<string, int> $abilityLevels Уровни.
+     *
+     * @return array<int, array<string, mixed>> Строки.
+     */
+    public function activeSenses(
+        CharacterRuleSlice $slice,
+        CharacterChoices $choices,
+        CharacterValidation $validation,
+        array $abilityLevels,
+    ): array {
+        $rows = $this->senseRows(
+            $slice,
+            $choices,
+            $abilityLevels,
+            $this->bases($slice, $choices, $validation, $abilityLevels),
+        );
+        $active = [];
+        foreach ($rows as $row) {
+            if ($row['status'] === 'absent') {
+                continue;
+            }
+
+            $active[] = $row;
+        }
+
+        return $active;
+    }
+
+    /**
+     * Лучшее не-absent чувство. Бонус 0 не даёт модификатора.
+     *
+     * @param array<int, array<string, mixed>> $rows Чувства.
+     *
+     * @return array{source: string, delta: int}|null Вклад в Внимательность.
+     */
+    private function bestSenseDelta(array $rows): ?array
+    {
+        $bestCode = null;
+        $best = null;
+        foreach ($rows as $row) {
+            if ($row['status'] === 'absent' || !is_int($row['value']) || !is_string($row['ruleCode'])) {
+                continue;
+            }
+
+            if ($best === null || $row['value'] > $best) {
+                $best = $row['value'];
+                $bestCode = $row['ruleCode'];
+            }
+        }
+
+        if ($bestCode === null || $best === 0) {
+            return null;
+        }
+
+        return ['source' => $bestCode, 'delta' => $best];
+    }
+
+    /**
+     * Чувства с auto_add и чувства, на которые есть грант.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $choices Выборы.
+     * @param array<string, int> $abilityLevels Уровни.
+     * @param array<string, CharacteristicNumber> $bases Базы.
+     *
+     * @return array<int, array<string, mixed>> Строки.
+     */
+    private function senseRows(
+        CharacterRuleSlice $slice,
+        CharacterChoices $choices,
+        array $abilityLevels,
+        array $bases,
+    ): array {
+        $rows = [];
+        foreach ($slice->getLiveRules() as $rule) {
+            $spec = $rule->getSpec();
+            if ($spec instanceof SenseSpec && $spec->isAutoAdd()) {
+                $rows[$rule->getCode()] = $this->emptySense($rule->getCode(), $spec);
+            }
+        }
+
+        $ranks = ['precise' => 0, 'imprecise' => 1, 'vague' => 2, 'absent' => 3];
+        $names = ['precise', 'imprecise', 'vague', 'absent'];
+        foreach ($this->abilityGrants($slice, $choices, $abilityLevels) as $grant) {
+            $body = $grant->getGrant();
+            if (!$body instanceof SenseModifyGrant) {
+                continue;
+            }
+
+            $rule = $slice->findLive($body->getSenseCode());
+            $spec = $rule?->getSpec();
+            if (!$spec instanceof SenseSpec) {
+                continue;
+            }
+
+            if (!isset($rows[$body->getSenseCode()])) {
+                $rows[$body->getSenseCode()] = $this->emptySense($body->getSenseCode(), $spec);
+            }
+
+            $context = new FormulaContext($bases, $abilityLevels, $this->parametersOf($slice, $choices, $grant));
+            try {
+                $delta = $this->evaluations->evaluateScalar($body->getAmount(), $context);
+            } catch (RuleInvalidException) {
+                continue;
+            }
+
+            $rows[$body->getSenseCode()]['value'] += $delta;
+            $rows[$body->getSenseCode()]['modifiers'][] = [
+                'sourceRuleCode' => $body->getSourceCode(),
+                'delta' => $delta,
+            ];
+            $status = $body->getStatus();
+            $current = $ranks[$rows[$body->getSenseCode()]['status']] ?? 0;
+            if ($status !== null && ($ranks[$status] ?? -1) > $current) {
+                $rows[$body->getSenseCode()]['status'] = $names[$ranks[$status]];
+            }
+            if ($body->getTreatAsGoodDownTo() !== null) {
+                $rows[$body->getSenseCode()]['treatAsGoodDownTo'] = $body->getTreatAsGoodDownTo();
+            }
+        }
+
+        return array_values($rows);
+    }
+
+    /**
+     * Чувство без грантов.
+     *
+     * @param string $code Код.
+     * @param SenseSpec $spec Спека.
+     *
+     * @return array<string, mixed> Строка.
+     */
+    private function emptySense(string $code, SenseSpec $spec): array
+    {
+        $radius = $spec->getRadius();
+
+        return [
+            'ruleCode' => $code,
+            'value' => 0,
+            'modifiers' => [],
+            'status' => $spec->getStatus(),
+            'radius' => ['base' => $radius->getBase(), 'size' => $radius->getSize()],
+        ];
     }
 
     /**
@@ -286,7 +450,9 @@ final class CharacterLiveCharacteristics
 
                 $delta = $effect->getAmount() * ($effect->isPerUnit() ? $units : 1);
                 $source = is_string($code) ? $code : '';
-                $raw[$effect->getCharacteristicCode()][] = ['source' => $source, 'delta' => $delta];
+                foreach ($this->penaltyTargets($slice, $effect->getCharacteristicCode()) as $target) {
+                    $raw[$target][] = ['source' => $source, 'delta' => $delta];
+                }
             }
         }
 
@@ -312,6 +478,39 @@ final class CharacterLiveCharacteristics
         }
 
         return 1;
+    }
+
+    /**
+     * Модификатор производной раскладывается на характеристики формулы.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $code Код из эффекта.
+     *
+     * @return array<int, string> Коды, на которые ложится дельта.
+     */
+    private function penaltyTargets(CharacterRuleSlice $slice, string $code): array
+    {
+        $spec = $slice->findLive($code)?->getSpec();
+        $formula = $spec instanceof CharacteristicSpec ? $spec->getFormula() : null;
+        $parsed = is_string($formula) ? $this->parsedFormula($formula) : null;
+
+        return $parsed === null ? [$code] : $parsed['codes'];
+    }
+
+    /**
+     * min(a, b) или max(a, b).
+     *
+     * @param string $formula Формула.
+     *
+     * @return array{max: bool, codes: array<int, string>}|null Разбор или null.
+     */
+    private function parsedFormula(string $formula): ?array
+    {
+        if (preg_match('/^(min|max)\(\s*([^,]+)\s*,\s*([^)]+)\)$/i', trim($formula), $match) !== 1) {
+            return null;
+        }
+
+        return ['max' => strtolower($match[1]) === 'max', 'codes' => [trim($match[2]), trim($match[3])]];
     }
 
     /**
@@ -530,6 +729,16 @@ final class CharacterLiveCharacteristics
         foreach ($slice->getLiveRules() as $rule) {
             $spec = $rule->getSpec();
             $formula = $spec instanceof CharacteristicSpec ? $spec->getFormula() : null;
+            $parsed = is_string($formula) ? $this->parsedFormula($formula) : null;
+            if ($parsed !== null) {
+                $picked = $this->pick($values, $parsed['codes'], $parsed['max']);
+                if ($picked !== null) {
+                    $values[$rule->getCode()] = $picked;
+                }
+
+                continue;
+            }
+
             if ($formula !== 'min' && $formula !== 'max') {
                 continue;
             }

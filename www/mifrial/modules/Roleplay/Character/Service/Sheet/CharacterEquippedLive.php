@@ -42,6 +42,27 @@ final class CharacterEquippedLive
     }
 
     /**
+     * Надетые предметы и врождённые, даже если флаг надетости снят.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $choices Выборы.
+     *
+     * @return array<int, array{ruleCode: string, spec: ItemSpec}> Предметы.
+     */
+    public function equippedOrInnate(CharacterRuleSlice $slice, CharacterChoices $choices): array
+    {
+        $rows = [];
+        foreach ($choices->getInventory() as $item) {
+            $spec = $this->effective($slice, $item);
+            if ($spec !== null && ($item->isEquipped() || $spec->isInnate())) {
+                $rows[] = ['ruleCode' => $item->getRuleCode(), 'spec' => $spec];
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
      * Предмет после apply модификаторов.
      *
      * @param CharacterRuleSlice $slice Срез.
