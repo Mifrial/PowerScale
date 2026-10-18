@@ -91,7 +91,8 @@ const compareResult = computed<MigrationResult | null>(() => {
 async function applyVersion(version: CharacterVersion): Promise<void> {
   const npc = props.npc;
   if (!npc) return;
-  await getGameApi().updateNpc(npc.id, {
+  await getGameApi().translateNpc(npc.id, {
+    gameId: npc.gameId,
     name: version.name,
     shortDescription: version.shortDescription,
     fullDescription: version.fullDescription,

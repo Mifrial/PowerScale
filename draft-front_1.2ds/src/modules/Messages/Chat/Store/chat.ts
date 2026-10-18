@@ -14,6 +14,7 @@ import { ChatSyncService } from '@/modules/Messages/Chat/Service/ChatSyncService
 import { ChatReadAckService } from '@/modules/Messages/Chat/Service/ChatReadAckService';
 import { PAGE_SIZE } from '@/modules/Messages/Chat/Constant/Chat/PAGE_SIZE';
 import { chatSpeakerAttachmentService } from '@/modules/Messages/Chat/Service/Instance/chatSpeakerAttachmentService';
+import { chatSystemAttachmentService } from '@/modules/Messages/Chat/Service/Instance/chatSystemAttachmentService';
 import { MAX_STORED } from '@/modules/Messages/Chat/Constant/Chat/MAX_STORED';
 import { messagePreview } from '@/modules/Messages/Chat/Utils/messagePreview';
 import type { IChatTab } from '@/modules/Messages/Chat/Interface/IChatTab';
@@ -187,6 +188,17 @@ export const useChatStore = defineStore('chat', () => {
     } finally {
       loadingChats.value = false;
     }
+  }
+
+  async function refreshLatest(chatId: number) {
+    const page = await getChatApi().findMessagePage(chatId, PAGE_SIZE, 0);
+    let state = chatStates.value.get(chatId);
+    if (!state) {
+      state = createChatState();
+      chatStates.value.set(chatId, state);
+    }
+    state.messages = mergeMessages(state.messages, page.items);
+    state.initialized = true;
   }
 
   async function loadChat(chatId: number) {
@@ -446,7 +458,7 @@ export const useChatStore = defineStore('chat', () => {
       }
       state.messages = mergeMessages(
         state.messages,
-        msgs.map((item) => chatSpeakerAttachmentService.messageOf(item)),
+        msgs.map((item) => chatSystemAttachmentService.messageOf(chatSpeakerAttachmentService.messageOf(item))),
       );
       if (cid !== activeChatId.value) {
         state.messages = state.messages.slice(-MAX_STORED);
@@ -526,6 +538,7 @@ export const useChatStore = defineStore('chat', () => {
     addPrivate,
     addGroup,
     openChat,
+    refreshLatest,
     loadChat,
     loadOlderMessages,
     loadOlder,

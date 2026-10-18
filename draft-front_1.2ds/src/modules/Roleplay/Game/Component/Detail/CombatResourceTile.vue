@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceOverview';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import CombatResourcePopup from '@/modules/Roleplay/Game/Component/Detail/CombatResourcePopup.vue';
 
 withDefaults(
   defineProps<{
     resource: ResourceOverview;
     rules: Rule[];
-    /** Кнопки +/− доступны (CD-6: ГМ или владелец своего approved-персонажа). */
     canEdit?: boolean;
   }>(),
   {
@@ -16,40 +16,24 @@ withDefaults(
 );
 
 const emit = defineEmits<{
-  /** Изменить текущее значение ресурса на delta (в базовых пунктах). */
-  change: [resource: ResourceOverview, delta: number];
+  apply: [resource: ResourceOverview, current: DimensionalNumberValue];
 }>();
 </script>
 
 <template>
-  <v-menu location="right top" :close-on-content-click="false" :z-index="2200">
+  <v-menu location="right top" attach="body" :close-on-content-click="false" :z-index="4000">
     <template #activator="{ props: menuProps }">
       <div v-bind="menuProps" class="combat-card-resource" role="button" tabindex="0">
         <span class="combat-card-resource__label text-truncate">{{ resource.name }}</span>
         <span class="combat-card-resource__value">{{ resource.currentLabel }} / {{ resource.maxLabel }}</span>
-        <template v-if="canEdit">
-          <button
-            v-if="resource.current.base > 0"
-            type="button"
-            class="combat-card-resource__step"
-            :title="`Уменьшить «${resource.name}»`"
-            @click.stop="emit('change', resource, -1)"
-          >
-            <v-icon size="x-small">mdi-minus</v-icon>
-          </button>
-          <button
-            v-if="resource.current.base < resource.max.base"
-            type="button"
-            class="combat-card-resource__step"
-            :title="`Увеличить «${resource.name}»`"
-            @click.stop="emit('change', resource, 1)"
-          >
-            <v-icon size="x-small">mdi-plus</v-icon>
-          </button>
-        </template>
       </div>
     </template>
-    <CombatResourcePopup :resource="resource" :rules="rules" />
+    <CombatResourcePopup
+      :resource="resource"
+      :rules="rules"
+      :can-edit="canEdit"
+      @apply="(current) => emit('apply', resource, current)"
+    />
   </v-menu>
 </template>
 
@@ -80,21 +64,5 @@ const emit = defineEmits<{
   font-size: 13px;
   font-weight: 500;
   flex-shrink: 0;
-}
-.combat-card-resource__step {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-  color: rgb(var(--v-theme-on-surface));
-}
-.combat-card-resource__step:hover {
-  color: rgb(var(--v-theme-primary));
 }
 </style>

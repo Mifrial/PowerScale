@@ -86,6 +86,13 @@ describe('combatActions', () => {
     expect(attackActionById(rules, SIMPLE_MELEE_ATTACK_CODE)?.ruleCode).toBe(SIMPLE_MELEE_ATTACK_CODE);
   });
 
+  it('isAttack смотрит id тега attack из каталога, не константу 71', () => {
+    const live = ability(9, 'bystryy-udar', 'Быстрый удар', [2, 15, 151, 163], 1, true);
+    const catalog = [{ id: 151, code: 'attack', name: 'Атака', description: '', active: true }];
+    expect(attackActionById([pool, live], 'bystryy-udar')?.isAttack).toBe(false);
+    expect(attackActionById([pool, live], 'bystryy-udar', catalog)?.isAttack).toBe(true);
+  });
+
   it('asActionAbilitySpec / asProcessAbilitySpec не падают на пустом правиле', () => {
     expect(asActionAbilitySpec(null)).toBeNull();
     expect(asProcessAbilitySpec(undefined)).toBeNull();

@@ -11,7 +11,8 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import type { CharacterDiff } from '@/modules/Roleplay/Character/Dto/CharacterDiff';
-import { characterDiffService } from '@/modules/Roleplay/Character/init';
+import { characterDiffService, characterOverviewService } from '@/modules/Roleplay/Character/init';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 export type DiffKind = 'added' | 'removed' | 'changed';
 
@@ -106,21 +107,56 @@ function resourceLabel(resource: ResourceValue): string {
   return resource.ruleCode;
 }
 
-function resourceRender(resource: ResourceValue): string {
+function storedResourceLimit(resource: ResourceValue): DimensionalNumberValue {
   const bonuses = resource.bonuses.reduce((sum, bonus) => sum + bonus.delta, 0);
-  const limit = bonuses === 0 ? resource.base : DimensionalNumber.from(resource.base).modify(bonuses).value;
 
-  return `${dim(resource.current)} / ${dim(limit)}`;
+  return bonuses === 0 ? resource.base : DimensionalNumber.from(resource.base).modify(bonuses).value;
 }
 
-function resourceDetail(resource: ResourceValue, resolve: (ruleCode: string) => string): ResourceDiffDetail {
-  const bonuses = resource.bonuses.reduce((sum, bonus) => sum + bonus.delta, 0);
-  const limit = bonuses === 0 ? resource.base : DimensionalNumber.from(resource.base).modify(bonuses).value;
+function resourceBars(
+  version: CharacterVersion | null,
+  rules: Rule[],
+): Map<string, { current: string; limit: string; base: string }> {
+  const bars = new Map<string, { current: string; limit: string; base: string }>();
+  if (!version || rules.length === 0) {
+    return bars;
+  }
+
+  for (const resource of characterOverviewService.sheetSummary(version, rules).resources) {
+    bars.set(resource.ruleCode, {
+      current: resource.currentLabel,
+      limit: resource.maxLabel,
+      base: resource.baseLabel,
+    });
+  }
+
+  return bars;
+}
+
+function resourceRender(
+  resource: ResourceValue,
+  bars: Map<string, { current: string; limit: string; base: string }>,
+): string {
+  const live = bars.get(resource.ruleCode);
+  if (live) {
+    return `${live.current} / ${live.limit}`;
+  }
+
+  return `${dim(resource.current)} / ${dim(storedResourceLimit(resource))}`;
+}
+
+function resourceDetail(
+  resource: ResourceValue,
+  resolve: (ruleCode: string) => string,
+  bars: Map<string, { current: string; limit: string; base: string }>,
+): ResourceDiffDetail {
+  const live = bars.get(resource.ruleCode);
+  const limit = live?.limit ?? dim(storedResourceLimit(resource));
 
   return {
-    current: dim(resource.current),
-    limit: dim(limit),
-    base: dim(resource.base),
+    current: live?.current ?? dim(resource.current),
+    limit,
+    base: live?.base ?? dim(resource.base),
     bonuses: resource.bonuses.map((bonus) => ({
       name: bonus.sourceLabel ?? (bonus.sourceRuleCode ? resolve(bonus.sourceRuleCode) : 'источник'),
       delta: bonus.delta,
@@ -373,8 +409,11 @@ export function membershipDiff(
   active: CharacterVersion | null,
   pending: CharacterVersion | null,
   resolve: (ruleCode: string) => string = (ruleCode) => ruleCode,
+  rules: Rule[] = [],
 ): MembershipDiff {
   const characterDiff = characterDiffService.getCharacterDiff(active, pending);
+  const activeResourceBars = resourceBars(active, rules);
+  const pendingResourceBars = resourceBars(pending, rules);
   const sections: DiffSection[] = [
     {
       key: 'characteristics',
@@ -398,8 +437,14 @@ export function membershipDiff(
         pending?.resources ?? [],
         (item) => item.ruleCode,
         resourceLabel,
-        resourceRender,
-        (item) => resourceDetail(item, resolve),
+        (item) =>
+          resourceRender(item, pending?.resources.includes(item) ? pendingResourceBars : activeResourceBars),
+        (item) =>
+          resourceDetail(
+            item,
+            resolve,
+            pending?.resources.includes(item) ? pendingResourceBars : activeResourceBars,
+          ),
         'resources',
         characterDiff.changes,
       ),

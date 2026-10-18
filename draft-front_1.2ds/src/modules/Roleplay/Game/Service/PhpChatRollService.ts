@@ -1,0 +1,80 @@
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
+
+/** Вложение type=roll из PHP-проверки удара/воли: {roll, difficulty, success, rating}. */
+export class PhpChatRollService {
+  displayOf(payload: unknown): DiceRollResult | null {
+    const fromPhp = this.fromPhpCheck(payload);
+    if (fromPhp) return fromPhp;
+    if (this.hasSpec(payload)) return payload;
+
+    return null;
+  }
+
+  fromPhpCheck(payload: unknown): DiceRollResult | null {
+    if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    const row = payload as Record<string, unknown>;
+    if ('spec' in row) return null;
+    if (typeof row.success !== 'boolean' || typeof row.rating !== 'number') return null;
+    const difficulty = this.pair(row.difficulty);
+    const thrown = this.pair(row.roll);
+    if (!difficulty || !thrown) return null;
+    const faces = Array.isArray(row.faces) ? row.faces.filter((face): face is number => typeof face === 'number') : [];
+    const adjusted = Array.isArray(row.adjustedRolls)
+      ? row.adjustedRolls.filter((face): face is number => typeof face === 'number')
+      : faces;
+    const successes = Array.isArray(row.successes)
+      ? row.successes.filter((face): face is number => typeof face === 'number')
+      : adjusted.map(() => 0);
+    const dropped = Array.isArray(row.droppedRolls)
+      ? row.droppedRolls.filter((face): face is number => typeof face === 'number')
+      : [];
+    const dieFaces = typeof row.dieFaces === 'number' ? row.dieFaces : thrown.size || 6;
+    const label = typeof row.label === 'string' ? row.label : undefined;
+    const efficiency = this.pair(row.efficiency);
+
+    return {
+      spec: {
+        diceCount: Math.max(1, adjusted.length || faces.length),
+        dieFaces,
+        efficiency: efficiency?.base ?? 0,
+        ...(efficiency ? { efficiencySize: efficiency.size } : {}),
+        advantages: [],
+        dieSize: thrown.size,
+        ...(typeof row.poolSize === 'number' ? { poolSize: row.poolSize } : {}),
+        ...(label ? { label } : {}),
+      },
+      rolls: faces,
+      successes,
+      adjustedRolls: adjusted,
+      droppedRolls: dropped,
+      totalSuccesses: thrown.base,
+      check: {
+        check_code: label ?? 'check',
+        ...(label ? { check_name: label } : {}),
+        difficulty,
+        passed: row.success,
+        rating: row.rating,
+        ...(typeof row.min_success_size === 'number' ? { min_success_size: row.min_success_size } : {}),
+      },
+    };
+  }
+
+  private hasSpec(payload: unknown): payload is DiceRollResult {
+    return (
+      payload !== null &&
+      typeof payload === 'object' &&
+      'spec' in payload &&
+      (payload as DiceRollResult).spec !== null &&
+      typeof (payload as DiceRollResult).spec === 'object'
+    );
+  }
+
+  private pair(value: unknown): DimensionalNumberValue | null {
+    if (value === null || typeof value !== 'object') return null;
+    const row = value as Record<string, unknown>;
+    if (typeof row.base !== 'number' || typeof row.size !== 'number') return null;
+
+    return { base: row.base, size: row.size };
+  }
+}

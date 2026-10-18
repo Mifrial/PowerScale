@@ -56,13 +56,18 @@ export class ChatApi implements IChatApi {
     visibility?: ChatMessageVisibility,
     _thread?: ChatThreadRef,
   ): Promise<ChatMessage> {
-    const encoded = chatSpeakerAttachmentService.attachmentsWithSpeaker(attachments, speaker);
+    const withSpeaker = chatSpeakerAttachmentService.attachmentsWithSpeaker(attachments, speaker);
+    const encoded = _thread
+      ? chatSystemAttachmentService.attachmentsWithSystem(withSpeaker, undefined, _thread)
+      : withSpeaker;
     const payload: Record<string, unknown> = { chatId, content, attachments: encoded };
     if (visibility !== undefined) payload.visibility = visibility;
     const res = await this.engine.runAction<ChatMessage>('chat.sendMessage', payload);
     if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to send message');
 
-    return chatSpeakerAttachmentService.messageOf({ ...res.data, speaker: res.data.speaker ?? speaker });
+    return chatSystemAttachmentService.messageOf(
+      chatSpeakerAttachmentService.messageOf({ ...res.data, speaker: res.data.speaker ?? speaker }),
+    );
   }
 
   async updateMessageVisibility(

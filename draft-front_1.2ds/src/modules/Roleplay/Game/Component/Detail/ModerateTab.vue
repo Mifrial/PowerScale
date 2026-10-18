@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { getGameApi, getGameRealtimePort } from '@/modules/Roleplay/Game/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { GAME_MEMBERSHIP_STATUS_LABEL } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
@@ -12,12 +12,14 @@ import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/
 import type { GameCharacterModerationAction } from '@/modules/Roleplay/Game/Enum/GameCharacterModerationAction';
 import type { GameMembershipStatus } from '@/modules/Roleplay/Game/Enum/GameMembershipStatus';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { GameRealtimeEvent } from '@/modules/Roleplay/Game/Dto/GameRealtimeEvent';
 import MembershipDiffView from '@/modules/Roleplay/Game/Component/Detail/MembershipDiffView.vue';
 import CharacterSubmissionSlider from '@/modules/Roleplay/Game/Component/Detail/CharacterSubmissionSlider.vue';
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
 import { characterHttpViewService } from '@/modules/Roleplay/Character/init';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { gameMembershipReviewService } from '@/modules/Roleplay/Game/Service/Instance/gameMembershipReviewService';
 
 const props = defineProps<{
@@ -29,6 +31,7 @@ const props = defineProps<{
 }>();
 
 const spaceRevision = useSpaceRevision();
+const { keywords, fetchTags } = useKeywords();
 const { signal } = useAbortable();
 
 const allMemberships = ref<GameCharacterMembership[]>([]);
@@ -43,6 +46,7 @@ let realtimeCursor = 0;
 let realtimeApplyChain = Promise.resolve();
 
 const names = ref<Map<string, string>>(new Map());
+const revisionRules = ref<Rule[]>([]);
 
 const namesRecord = computed<Record<string, string>>(() => Object.fromEntries(names.value));
 
@@ -66,16 +70,30 @@ function actualOf(membership: GameCharacterMembership): CharacterVersion | null 
   return actualById.value[membership.characterId] ?? null;
 }
 
+function liveSheet(version: CharacterVersion | null): CharacterVersion | null {
+  if (!version || props.spaceId === null || revisionRules.value.length === 0) return version;
+
+  return characterHttpViewService.materializeKeepingRuntime(
+    version,
+    props.spaceId,
+    revisionRules.value,
+    keywords.value,
+  );
+}
+
 async function loadRules(): Promise<void> {
   const merged = new Map<string, string>();
+  let gameRules: Rule[] = [];
   if (props.spaceId !== null && props.rulesRevision !== null) {
     try {
       const revision = await spaceRevision.fetchRevision(props.spaceId, props.rulesRevision, signal.value);
+      gameRules = revision.rules;
       for (const rule of revision.rules) merged.set(rule.code, rule.name);
     } catch {
       // ревизия игры недоступна
     }
   }
+  revisionRules.value = gameRules;
   for (const membership of allMemberships.value) {
     const approved = membership.approvedCharacterVersion;
     if (!approved || props.spaceId === null) continue;
@@ -260,6 +278,10 @@ function openSlider(membership: GameCharacterMembership): void {
   sliderOpen.value = true;
 }
 
+onMounted(() => {
+  void fetchTags();
+});
+
 watch(
   () => props.active,
   (value) => {
@@ -320,7 +342,14 @@ onUnmounted(() => {
 
         <MembershipDiffView
           v-if="membership.approvedCharacterVersion && actualOf(membership)"
-          :diff="membershipDiff(membership.approvedCharacterVersion, actualOf(membership), resolve)"
+          :diff="
+            membershipDiff(
+              liveSheet(membership.approvedCharacterVersion),
+              liveSheet(actualOf(membership)),
+              resolve,
+              revisionRules,
+            )
+          "
           :names="namesRecord"
         />
 
@@ -367,9 +396,14 @@ onUnmounted(() => {
 
   <CharacterSubmissionSlider
     v-model:open="sliderOpen"
-    :membership="sliderTarget"
-    :actual="sliderTarget ? actualOf(sliderTarget) : null"
+    :membership="
+      sliderTarget
+        ? { ...sliderTarget, approvedCharacterVersion: liveSheet(sliderTarget.approvedCharacterVersion) }
+        : null
+    "
+    :actual="sliderTarget ? liveSheet(actualOf(sliderTarget)) : null"
     :names="namesRecord"
+    :rules="revisionRules"
   />
 </template>
 

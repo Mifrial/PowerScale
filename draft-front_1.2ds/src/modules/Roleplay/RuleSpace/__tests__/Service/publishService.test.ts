@@ -107,4 +107,15 @@ describe('PublishService.prepare', () => {
     expect(summary.catalogDirty).toBe(true);
     expect(summary.added).toEqual([]);
   });
+
+  it('подмешивает problems публикации с сервера', () => {
+    const summary = publishService.prepare([], [], [], []);
+    const merged = publishService.mergeServerProblems(summary, {
+      problems: [{ ruleCode: 'innate-strength', ruleName: 'Врождённая Сила', messages: ['spec.default'] }],
+    });
+
+    expect(merged.problems).toEqual([
+      { ruleCode: 'innate-strength', ruleName: 'Врождённая Сила', messages: ['spec.default'] },
+    ]);
+  });
 });

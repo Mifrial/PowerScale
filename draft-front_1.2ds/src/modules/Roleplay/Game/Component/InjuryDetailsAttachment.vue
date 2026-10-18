@@ -20,7 +20,7 @@ const props = defineProps<{
 
 const details = computed(() => props.attachment.payload);
 const difficultyRows = computed(() =>
-  details.value.injury.breakdown ? injuryDifficultyDetailRows(details.value.injury.breakdown) : [],
+  details.value.injury?.breakdown ? injuryDifficultyDetailRows(details.value.injury.breakdown) : [],
 );
 </script>
 
@@ -55,25 +55,25 @@ const difficultyRows = computed(() =>
           <span class="font-weight-medium">{{ row.value }}</span>
         </div>
         <div
-          v-if="!difficultyRows.length && details.injury.difficulty != null"
+          v-if="!difficultyRows.length && details.injury?.difficulty != null"
           class="d-flex align-center justify-space-between py-1 text-body-2"
         >
           <span class="text-medium-emphasis">Сложность</span>
           <span class="font-weight-medium">{{ details.injury.difficulty }}</span>
         </div>
-        <div v-if="details.injury.rating != null" class="d-flex align-center justify-space-between py-1 text-body-2">
+        <div v-if="details.injury?.rating != null" class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">РУ</span>
           <span class="font-weight-medium">{{ details.injury.rating }}</span>
         </div>
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Сила</span>
-          <span class="font-weight-medium">{{ details.injury.strength }}</span>
+          <span class="font-weight-medium">{{ details.injury?.strength ?? '—' }}</span>
         </div>
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Срок</span>
-          <span class="font-weight-medium">{{ details.injury.permanent ? 'постоянное' : 'временное' }}</span>
+          <span class="font-weight-medium">{{ details.injury?.permanent ? 'постоянное' : 'временное' }}</span>
         </div>
-        <div v-if="details.injury.heal" class="d-flex align-center justify-space-between py-1 text-body-2 ga-3">
+        <div v-if="details.injury?.heal" class="d-flex align-center justify-space-between py-1 text-body-2 ga-3">
           <span class="text-medium-emphasis">−1 силы за</span>
           <span class="font-weight-medium">
             {{ details.injury.heal.diceCount }}д{{ details.injury.heal.dieFaces }}
@@ -82,11 +82,11 @@ const difficultyRows = computed(() =>
         </div>
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Обезображивающее</span>
-          <span class="font-weight-medium">{{ details.injury.disfiguring ? 'да' : 'нет' }}</span>
+          <span class="font-weight-medium">{{ details.injury?.disfiguring ? 'да' : 'нет' }}</span>
         </div>
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Смертельное</span>
-          <span class="font-weight-medium">{{ details.injury.lethal ? 'да' : 'нет' }}</span>
+          <span class="font-weight-medium">{{ details.injury?.lethal ? 'да' : 'нет' }}</span>
         </div>
       </v-card-text>
     </v-card>

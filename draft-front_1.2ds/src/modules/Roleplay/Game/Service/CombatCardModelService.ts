@@ -18,7 +18,6 @@ import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { liveActionPointsLimitService } from '@/modules/Roleplay/Character/init';
-import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
@@ -263,9 +262,7 @@ export class CombatCardModelService {
     if (!resource) return null;
 
     const values = stateRuntimeEffectsService.effectiveCharacteristicValues(version, rules);
-    const live = gamePhpMode.isEnabled()
-      ? null
-      : liveActionPointsLimitService.liveAutoResourceLimit(resource, version, rules, values, rule.code);
+    const live = liveActionPointsLimitService.liveAutoResourceLimit(resource, version, rules, values, rule.code);
     const max = live ?? Math.max(0, resourceLimitBase(resource));
 
     return { current: Math.min(resource.current.base, max), max };

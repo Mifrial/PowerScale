@@ -57,4 +57,16 @@ export class GameMembershipEligibilityService {
   }): boolean {
     return input.membershipStatus === 'active' && input.sessionParticipant && !input.returned;
   }
+
+  /** PHP-флаги состава: бой берёт снимок сессии, не весь roster. */
+  isPhpSessionCandidate(
+    membership: { canStartSession?: boolean; isActiveSessionParticipant?: boolean },
+    sessionRunning: boolean,
+  ): boolean | null {
+    if (typeof membership.canStartSession !== 'boolean' || typeof membership.isActiveSessionParticipant !== 'boolean') {
+      return null;
+    }
+
+    return sessionRunning ? membership.isActiveSessionParticipant : membership.canStartSession;
+  }
 }

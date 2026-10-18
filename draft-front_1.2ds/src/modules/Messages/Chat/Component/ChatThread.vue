@@ -118,8 +118,14 @@ async function handleSend(
   visibility?: ChatMessageVisibility,
 ): Promise<boolean> {
   if (props.chatId === null) return false;
-
-  return store.sendMessage(text, attachments, props.chatId, speaker, visibility, props.messageThread ?? undefined);
+  return store.sendMessage(
+    text,
+    attachments,
+    props.chatId,
+    speaker,
+    visibility,
+    props.messageThread ?? undefined,
+  );
 }
 
 function retryAttach(): void {

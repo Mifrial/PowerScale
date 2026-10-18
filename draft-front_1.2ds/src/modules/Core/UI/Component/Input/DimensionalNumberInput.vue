@@ -75,6 +75,7 @@ function updateSize(val: number | null) {
         :model-value="modelValue?.size ?? 0"
         @update:model-value="updateSize"
         label="Размер"
+        :min="-20"
         reverse
         density="compact"
         hide-details

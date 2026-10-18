@@ -1,17 +1,42 @@
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue';
 import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceOverview';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { RuleLink } from '@/modules/Roleplay/Character/init';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 
-defineProps<{
+const props = defineProps<{
   resource: ResourceOverview;
   rules: Rule[];
+  canEdit?: boolean;
 }>();
+
+const emit = defineEmits<{
+  apply: [current: DimensionalNumberValue];
+}>();
+
+const draft = ref(props.resource.current.base);
+const fieldMax = computed(() =>
+  Math.max(new DimensionalNumber(props.resource.max).toNumber(), new DimensionalNumber(props.resource.current).toNumber()),
+);
+
+watch(
+  () => props.resource.current.base,
+  (base) => {
+    draft.value = base;
+  },
+);
 
 function signed(delta: number): string {
   if (delta > 0) return `+${delta}`;
 
   return String(delta);
+}
+
+function submit(): void {
+  emit('apply', { base: draft.value, size: props.resource.current.size });
 }
 </script>
 
@@ -55,6 +80,21 @@ function signed(delta: number): string {
         <span class="text-medium-emphasis">Бонусы лимита</span>
         <span class="text-medium-emphasis">нет</span>
       </div>
+
+      <template v-if="canEdit">
+        <ClampedNumberField
+          v-model="draft"
+          class="mt-3"
+          label="Задать текущее"
+          :min="0"
+          :max="fieldMax"
+          density="compact"
+          hide-details
+        />
+        <v-btn class="mt-3" color="primary" variant="tonal" size="small" block type="button" @click.stop="submit">
+          Применить
+        </v-btn>
+      </template>
     </v-card-text>
   </v-card>
 </template>

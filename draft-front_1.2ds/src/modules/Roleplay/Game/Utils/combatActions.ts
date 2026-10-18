@@ -8,6 +8,7 @@ import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpe
 import type { AbilitySpecBase } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecBase';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
 import type { ActionOperation } from '@/modules/Roleplay/Rule/Dto/Ability/ActionOperation';
 import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
@@ -118,6 +119,10 @@ export function isAutomaticAbility(spec: Pick<AbilitySpecBase, 'zones'>): boolea
   return Object.values(spec.zones).some((zone) => zone?.kind === 'automatic');
 }
 
+function keywordId(catalog: readonly Keyword[] | undefined, code: string, fallback: number): number {
+  return catalog?.find((item) => item.code === code)?.id ?? fallback;
+}
+
 function hasKeyword(rule: Rule, keywordId: number): boolean {
   return (rule.keywordIds ?? []).includes(keywordId);
 }
@@ -141,6 +146,7 @@ function optionFromAttackRule(
   rule: Rule,
   spec: NonNullable<ReturnType<typeof asActionAbilitySpec>>,
   resourceCode: string,
+  catalog?: readonly Keyword[],
 ): CombatActionOption {
   return {
     ruleCode: rule.code,
@@ -150,7 +156,7 @@ function optionFromAttackRule(
     effects: actionEffectService.effectsOf(rule),
     operations: spec.operations,
     attackMode: spec.attack_mode,
-    isAttack: hasKeyword(rule, ATTACK_KEYWORD_IDS.attack),
+    isAttack: hasKeyword(rule, keywordId(catalog, 'attack', ATTACK_KEYWORD_IDS.attack)),
   };
 }
 
@@ -158,32 +164,40 @@ export function listAttackActions(
   rules: Rule[],
   overview: CharacterOverview | null,
   profileType: 'strike' | 'throw' | 'shoot',
+  catalog?: readonly Keyword[],
 ): CombatActionOption[] {
   const owned = new Set(overview?.abilities.map((ability) => ability.ruleCode) ?? []);
   const options: CombatActionOption[] = [];
+  const attackId = keywordId(catalog, 'attack', ATTACK_KEYWORD_IDS.attack);
+  const meleeId = keywordId(catalog, 'melee', ATTACK_KEYWORD_IDS.melee);
+  const rangedId = keywordId(catalog, 'ranged', ATTACK_KEYWORD_IDS.ranged);
   for (const rule of rules) {
     const spec = asActionAbilitySpec(rule);
     if (!spec) continue;
-    const isAttack = hasKeyword(rule, ATTACK_KEYWORD_IDS.attack);
+    const isAttack = hasKeyword(rule, attackId);
     if (!isAttack) continue;
     if (!isAutomaticAbility(spec) && !owned.has(rule.code)) continue;
-    const melee = hasKeyword(rule, ATTACK_KEYWORD_IDS.melee);
-    const ranged = hasKeyword(rule, ATTACK_KEYWORD_IDS.ranged);
+    const melee = hasKeyword(rule, meleeId);
+    const ranged = hasKeyword(rule, rangedId);
     if (profileType === 'strike' && ranged && !melee) continue;
     if ((profileType === 'throw' || profileType === 'shoot') && melee && !ranged) continue;
-    options.push(optionFromAttackRule(rule, spec, turnResourceCode(rules)));
+    options.push(optionFromAttackRule(rule, spec, turnResourceCode(rules), catalog));
   }
 
   return options;
 }
 
-export function attackActionById(rules: Rule[], ruleCode: string | null | undefined): CombatActionOption | null {
+export function attackActionById(
+  rules: Rule[],
+  ruleCode: string | null | undefined,
+  catalog?: readonly Keyword[],
+): CombatActionOption | null {
   const rule = findRuleByRef(rules, ruleCode);
   if (!rule) return null;
   const spec = asActionAbilitySpec(rule);
   if (!spec) return null;
 
-  return optionFromAttackRule(rule, spec, turnResourceCode(rules));
+  return optionFromAttackRule(rule, spec, turnResourceCode(rules), catalog);
 }
 
 export function combatActionRule(rules: Rule[], role: CombatActionRole): Rule | undefined {

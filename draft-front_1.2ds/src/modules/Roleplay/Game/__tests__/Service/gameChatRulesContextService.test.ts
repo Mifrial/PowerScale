@@ -98,4 +98,19 @@ describe('buildChatRulesContext', () => {
     expect(faceSumKept[0].payload).toBe(faceSumSpec);
     expect(faceSumKept[0].payload).not.toHaveProperty('check');
   });
+
+  it('processAttachments не перебрасывает PHP-проверку удара', () => {
+    const context = gameChatRulesContextService.buildChatRulesContext(RULES, MECHANICS);
+    const phpCheck = {
+      roll: { base: 4, size: 0 },
+      difficulty: { base: 3, size: 0 },
+      success: true,
+      rating: 1,
+    };
+    const processed = context.processAttachments([{ type: ROLL_ATTACHMENT_TYPE, payload: phpCheck }]);
+    const result = processed[0].payload as { spec?: { dieSize: number }; check?: { rating: number; passed: boolean } };
+    expect(result.spec?.dieSize).toBe(0);
+    expect(result.check?.passed).toBe(true);
+    expect(result.check?.rating).toBe(1);
+  });
 });

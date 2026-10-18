@@ -230,6 +230,14 @@ async function openCard(npc: GameRosterNpc): Promise<void> {
   });
 }
 
+async function onNpcTranslated(): Promise<void> {
+  await load();
+  const id = selectedNpc.value?.id ?? migrationTarget.value?.id;
+  if (id === undefined) return;
+  const updated = await getGameApi().getNpc(props.gameId, id);
+  selectedNpc.value = updated;
+}
+
 function openDetail(npc: GameRosterNpc): void {
   void router.push({ name: 'NpcDetail', params: { id: String(props.gameId), npcId: String(npc.id) } });
 }
@@ -239,6 +247,7 @@ async function handleSave(npcId: number, data: NpcCardData): Promise<void> {
     const target = selectedNpc.value?.id === npcId ? selectedNpc.value : await getGameApi().getNpc(props.gameId, npcId);
     const updated = await getGameApi().updateNpc(npcId, {
       ...data,
+      gameId: props.gameId,
       version: target.version,
       expectedNpcActualVersion: target.actualVersion,
     });
@@ -270,6 +279,7 @@ async function saveVisibility(visibility: SheetVisibility): Promise<void> {
   await run(async () => {
     const current = await getGameApi().getNpc(props.gameId, target.id);
     const updated = await getGameApi().updateNpc(target.id, {
+      gameId: props.gameId,
       name: target.name,
       shortDescription: target.shortDescription,
       fullDescription: target.fullDescription,
@@ -442,7 +452,7 @@ onUnmounted(() => {
     :game-space-code="spaceCode"
     :game-rules-revision="rulesRevision"
     :npc="migrationTarget"
-    @applied="load"
+    @applied="onNpcTranslated"
   />
 
   <SheetVisibilityDialog

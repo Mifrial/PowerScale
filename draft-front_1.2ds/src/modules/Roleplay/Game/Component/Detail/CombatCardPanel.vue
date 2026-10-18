@@ -78,10 +78,11 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
+import { gameManualSheetClient } from '@/modules/Roleplay/Game/Service/Instance/gameManualSheetClient';
+import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
 import { defenseCounterService } from '@/modules/Roleplay/Game/Service/Instance/defenseCounterService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
-import { turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/init';
 
 const props = defineProps<{
@@ -361,8 +362,12 @@ function stateTileValue(state: CharacterStateValue | undefined, row: CombatState
 }
 
 function tileEditKind(row: CombatStateRow): CombatStateEditKind {
+  const spec = props.rules.find((rule) => rule.code === row.ruleCode && rule.type === 'state')?.spec as
+    | StateSpec
+    | undefined;
+  if (spec?.maim) return 'maim';
   if (row.code === WOUND_STATE_CODE) return 'wound';
-  if (row.code === poisoningCode.value) return 'poison';
+  if (spec?.poisoning || row.code === poisoningCode.value) return 'poison';
   if (row.valueType === 'dimensional') return 'dimensional';
   if (row.valueType === 'number') return 'numeric';
 
@@ -641,35 +646,17 @@ function isStarred(ruleCode: string): boolean {
   return (props.quickRolls[model.value.entityKey] ?? []).includes(ruleCode);
 }
 
-function clampResource(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-async function changeResource(resource: ResourceOverview, delta: number): Promise<void> {
+async function applyResource(resource: ResourceOverview, current: DimensionalNumberValue): Promise<void> {
   if (!model.value) return;
   error.value = null;
   try {
-    const current: DimensionalNumberValue = {
-      base: clampResource(resource.current.base + delta, 0, resource.max.base),
-      size: resource.current.size,
-    };
-    await getGameApi().setCombatResource(props.gameId, model.value.entityKey, resource.ruleCode, current);
-    const pool = turnResourceCode(props.rules);
-    const spentAp = pool && resource.ruleCode === pool ? resource.current.base - current.base : 0;
-    if (spentAp > 0) {
-      const nextEffects = actionEffectService.afterDeclaredAction(
-        pendingEffects.value,
-        spentAp,
-        {
-          isAttack: false,
-          component: 'strike',
-          baseCost: spentAp,
-        },
-        pool,
-      );
-      pendingEffects.value = nextEffects;
-      await getGameApi().setCombatActionEffects(props.gameId, model.value.entityKey, nextEffects);
-    }
+    await gameManualSheetClient.apply(
+      getGameApi(),
+      props.gameId,
+      model.value.entityKey,
+      'setResource',
+      gameManualSheetClient.resourceDetails(resource.ruleCode, current),
+    );
     notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить ресурс';
@@ -679,6 +666,11 @@ async function changeResource(resource: ResourceOverview, delta: number): Promis
 async function addState(option: CombatStateOption): Promise<void> {
   if (!model.value) return;
   if (option.code === poisoningCode.value) {
+    if (gamePhpMode.isEnabled()) {
+      pickerOpen.value = false;
+
+      return;
+    }
     pickerOpen.value = false;
     const first = combatCardModelService.poisonRuleOptions(props.rules)[0];
     fillPoisonDraft(combatCardModelService.poisonValueFromRule(props.rules, first?.ruleCode ?? null));
@@ -693,7 +685,13 @@ async function addState(option: CombatStateOption): Promise<void> {
       stateRuleCode: option.ruleCode,
       ...combatCardModelService.defaultStateEntry(option, props.rules),
     };
-    await getGameApi().addCombatState(props.gameId, model.value.entityKey, state);
+    await gameManualSheetClient.apply(
+      getGameApi(),
+      props.gameId,
+      model.value.entityKey,
+      'addState',
+      gameManualSheetClient.addDetails(state),
+    );
     notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось добавить состояние';
@@ -714,7 +712,7 @@ function onPoisonAddRuleChange(next: unknown): void {
 }
 
 async function confirmPoisonAdd(): Promise<void> {
-  if (!model.value) return;
+  if (!model.value || gamePhpMode.isEnabled()) return;
   const option = stateOptions.value.find((item) => item.code === poisoningCode.value);
   if (!option) return;
   error.value = null;
@@ -737,14 +735,24 @@ async function confirmPoisonAdd(): Promise<void> {
   }
 }
 
-async function setStateValue(index: number, value?: number): Promise<void> {
-  if (!model.value) return;
+async function setStateValue(index: number, value?: number): Promise<boolean> {
+  if (!model.value) return false;
   error.value = null;
   try {
-    await getGameApi().setCombatStateValue(props.gameId, model.value.entityKey, index, value);
+    const prev = effectiveVersion.value?.states[index];
+    if (!prev) return false;
+    await gameManualSheetClient.apply(
+      getGameApi(),
+      props.gameId,
+      model.value.entityKey,
+      'patchState',
+      gameManualSheetClient.patchDetails(prev, { value }),
+    );
     notifyMutation();
+    return true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить состояние';
+    return false;
   }
 }
 
@@ -752,7 +760,15 @@ async function removeState(index: number): Promise<void> {
   if (!model.value) return;
   error.value = null;
   try {
-    await getGameApi().removeCombatState(props.gameId, model.value.entityKey, index);
+    const prev = effectiveVersion.value?.states[index];
+    if (!prev) return;
+    await gameManualSheetClient.apply(
+      getGameApi(),
+      props.gameId,
+      model.value.entityKey,
+      'removeState',
+      gameManualSheetClient.removeDetails(prev),
+    );
     notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось убрать состояние';
@@ -825,37 +841,46 @@ async function afterStateSideEffects(
 }
 
 async function applyStateTile(tile: CombatStateTileModel, next: number): Promise<void> {
-  if (tile.code === WOUND_STATE_CODE) {
-    await applyWoundTile(tile, { value: next, internal: tile.woundInternal });
+  try {
+    if (tile.code === WOUND_STATE_CODE) {
+      await applyWoundTile(tile, { value: next, internal: tile.woundInternal });
 
-    return;
-  }
-  const version = effectiveVersion.value;
-  const current = version?.states[tile.index]?.value ?? 0;
-  let value = Math.max(0, Math.floor(next));
-  if (exhaustionCode.value !== '' && tile.code === exhaustionCode.value && version) {
-    const reserved = reservedExhaustion(
-      injuryCheckService.overlayStateTotal(version, props.rules, bloodLossCode.value),
-    );
-    value = Math.max(value, reserved);
-  }
-  if (value === current) return;
-  if (bloodLossCode.value !== '' && tile.code === bloodLossCode.value && value > current) {
-    await afterStateSideEffects(tile.code, value - current);
-
-    return;
-  }
-  if (value <= 0) {
-    await removeState(tile.index);
-    if (exhaustionCode.value !== '' && tile.code === exhaustionCode.value) {
-      await afterStateSideEffects(tile.code, 0, 'decrease');
+      return;
     }
+    const version = effectiveVersion.value;
+    const current = version?.states[tile.index]?.value ?? 0;
+    let value = Math.max(0, Math.floor(next));
+    if (exhaustionCode.value !== '' && tile.code === exhaustionCode.value && version) {
+      const reserved = reservedExhaustion(
+        injuryCheckService.overlayStateTotal(version, props.rules, bloodLossCode.value),
+      );
+      value = Math.max(value, reserved);
+    }
+    if (value === current) return;
+    if (bloodLossCode.value !== '' && tile.code === bloodLossCode.value && value > current) {
+      if (!gamePhpMode.isEnabled()) await afterStateSideEffects(tile.code, value - current);
 
-    return;
-  }
-  await setStateValue(tile.index, value);
-  if (exhaustionCode.value !== '' && tile.code === exhaustionCode.value) {
-    await afterStateSideEffects(tile.code, 0, value > current ? 'increase' : 'decrease');
+      return;
+    }
+    if (value <= 0) {
+      await removeState(tile.index);
+      if (!gamePhpMode.isEnabled() && exhaustionCode.value !== '' && tile.code === exhaustionCode.value) {
+        await afterStateSideEffects(tile.code, 0, 'decrease');
+      }
+
+      return;
+    }
+    const written = await setStateValue(tile.index, value);
+    if (
+      written &&
+      !gamePhpMode.isEnabled() &&
+      exhaustionCode.value !== '' &&
+      tile.code === exhaustionCode.value
+    ) {
+      await afterStateSideEffects(tile.code, 0, value > current ? 'increase' : 'decrease');
+    }
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось изменить состояние';
   }
 }
 
@@ -863,11 +888,29 @@ async function replaceStateAt(index: number, state: CharacterStateValue): Promis
   if (!model.value) return;
   error.value = null;
   try {
-    await getGameApi().replaceCombatState(props.gameId, model.value.entityKey, index, state);
+    await gameManualSheetClient.apply(
+      getGameApi(),
+      props.gameId,
+      model.value.entityKey,
+      'patchState',
+      gameManualSheetClient.patchDetails(state, {
+        value: state.value,
+        maim: state.maim,
+      }),
+    );
     notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить состояние';
   }
+}
+
+async function applyMaimTile(
+  tile: CombatStateTileModel,
+  next: { value: number; maim: NonNullable<CharacterStateValue['maim']> },
+): Promise<void> {
+  const prev = effectiveVersion.value?.states[tile.index];
+  if (!prev) return;
+  await replaceStateAt(tile.index, { ...prev, value: next.value, maim: next.maim });
 }
 
 async function applyDimensionalTile(tile: CombatStateTileModel, next: DimensionalNumberValue): Promise<void> {
@@ -1172,7 +1215,7 @@ function onSheetToggleEquipped(itemId: number): void {
                     :resource="resource"
                     :rules="rules"
                     :can-edit="model.canEdit"
-                    @change="changeResource"
+                    @apply="applyResource"
                   />
                 </div>
               </div>
@@ -1204,6 +1247,8 @@ function onSheetToggleEquipped(itemId: number): void {
                     :poison-items="poisonSelectItems"
                     :damage-type-items="damageTypeSelectItems"
                     :poison-template="(id) => combatCardModelService.poisonValueFromRule(rules, id)"
+                    :allow-poison-apply="!gamePhpMode.isEnabled()"
+                    :maim="effectiveVersion?.states[tile.index]?.maim ?? null"
                     :action-label="tile.actionLabel"
                     :wound-internal="tile.woundInternal"
                     :wound-held="tile.woundHeld"
@@ -1213,6 +1258,7 @@ function onSheetToggleEquipped(itemId: number): void {
                     @apply-dimensional="(next) => applyDimensionalTile(tile, next)"
                     @apply-poison="(next) => applyPoisonTile(tile, next)"
                     @apply-wound="(next) => applyWoundTile(tile, next)"
+                    @apply-maim="(next) => applyMaimTile(tile, next)"
                     @apply-internal="(internal) => applyWoundInternal(tile, internal)"
                     @release-hold="releaseWoundHold(tile)"
                     @remove="removeStateTile(tile)"

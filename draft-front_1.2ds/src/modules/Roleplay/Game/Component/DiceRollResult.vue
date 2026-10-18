@@ -4,6 +4,7 @@ import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment'
 import type { InlineSegment } from '@/modules/Messages/Chat/Dto/InlineSegment';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
+import { phpChatRollService } from '@/modules/Roleplay/Game/Service/Instance/phpChatRollService';
 import { checkSuccessRatingService } from '@/modules/Roleplay/Rule/init';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { resolveAppliedMechanicNames } from '@/modules/Roleplay/Game/Utils/appliedRollMechanics';
@@ -19,7 +20,7 @@ const props = defineProps<{
   context?: { openEntity?: (key: string) => void };
 }>();
 
-const roll = computed(() => props.attachment.payload);
+const roll = computed(() => phpChatRollService.displayOf(props.attachment.payload) ?? props.attachment.payload);
 const isFaceSum = computed(() => roll.value.spec.scoring === 'face_sum');
 const sizeSuffix = computed(() => rollService.formatRollSize(roll.value.spec.dieSize || 0));
 const netAdv = computed(() => aggregateSourceDeltasService.netSourceDelta(roll.value.spec.advantages));

@@ -41,4 +41,37 @@ describe('GameBattleSheetVersionService', () => {
     });
     expect(woundInstanceService.isHeld(state!)).toBe(true);
   });
+
+  it('нормализует PHP resources без bonuses в ResourceValue', () => {
+    const version = gameBattleSheetVersionService.toVersion({
+      type: 'character',
+      id: 4,
+      name: 'Герой',
+      actualVersion: 2,
+      choices: {},
+      sheet: { resources: [{ ruleCode: 'action-points', current: 3 }] },
+    });
+    expect(version.resources[0]).toEqual({
+      ruleCode: 'action-points',
+      current: { base: 3, size: 0 },
+      base: { base: 3, size: 0 },
+      bonuses: [],
+    });
+  });
+
+  it('не роняет лист, если материализация ревизии падает', () => {
+    const version = gameBattleSheetVersionService.toVersion(
+      {
+        type: 'npc',
+        id: 2,
+        name: 'Тестовичок',
+        actualVersion: 1,
+        choices: {},
+        sheet: { resources: [{ ruleCode: 'action-points', current: 2 }] },
+      },
+      { spaceId: 1, spaceCode: 'core', rules: [{ code: 'broken' } as never] },
+    );
+    expect(version.resources[0]?.ruleCode).toBe('action-points');
+    expect(version.resources[0]?.current.base).toBe(2);
+  });
 });

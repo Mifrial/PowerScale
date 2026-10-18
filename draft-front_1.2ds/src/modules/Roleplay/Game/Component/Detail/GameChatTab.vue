@@ -3,6 +3,7 @@ import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { computed, onUnmounted, provide, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
+import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 import { getGameApi, getGameRealtimePort } from '@/modules/Roleplay/Game/init';
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { gameMembershipEligibilityService } from '@/modules/Roleplay/Game/Service/Instance/gameMembershipEligibilityService';
@@ -45,6 +46,7 @@ import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleShe
 
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
+import { characterOverviewService } from '@/modules/Roleplay/Character/init';
 import type { ProcessActionContext } from '@/modules/Roleplay/Game/Dto/ProcessActionContext';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
@@ -67,6 +69,7 @@ const props = defineProps<{
 
 const { currentUser } = useCurrentUser();
 const store = useGameStore();
+const chatStore = useChatStore();
 const spaceRevision = useSpaceRevision();
 
 const chatId = computed(() => props.detail.gameChatId);
@@ -83,6 +86,16 @@ const {
 } = useConcentrationTokenAsk();
 provide(CONCENTRATION_TOKEN_ASK_INJECT_KEY, (input) => askTokenSpend(input.maxSpend, input.remaining));
 const messageThread = computed(() => combatThread.stamp());
+watch(
+  () => ({
+    messages: chatId.value === null ? [] : chatStore.messagesOf(chatId.value),
+    sessionRunning: props.detail.game.sessionRunning,
+    battleId: gamePhpBattleContext.battleId,
+  }),
+  ({ messages, sessionRunning, battleId }) => {
+    combatThread.adoptLive(messages, sessionRunning, battleId);
+  },
+);
 const liveFoldIds = combatThread.liveIds;
 
 function buildCombatChatFolds(messages: ChatMessage[]): ChatFoldChild[] {
@@ -286,6 +299,10 @@ const eligibleMemberships = computed(() => {
   const hasRuntimeSession = Boolean(gameStateSnapshot.value?.session);
 
   return memberships.value.filter((membership) => {
+    const phpCandidate = gameMembershipEligibilityService.isPhpSessionCandidate(membership, isPlaying);
+    if (phpCandidate !== null) {
+      return phpCandidate;
+    }
     const actual = moderationByCharacterId.value[membership.characterId]?.actualCharacterVersion ?? null;
     if (isPlaying) {
       return (
@@ -441,6 +458,19 @@ async function load(): Promise<void> {
     if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
     mechanics.value = nextMechanics;
     await loadRevision(requestSpaceId, requestRulesRevision, requestGameId, requestSequence);
+    if (gamePhpMode.isEnabled()) {
+      await loadPhpBattleSheetProjections(
+        [
+          ...initiativeKeys.value,
+          ...npcs.value.map((npc) => `npc:${npc.id}` as CombatEntityKey),
+          ...(gamePhpBattleContext.getScale()?.participants.map((participant) => participant.id) ?? []),
+        ],
+        requestGameId,
+      );
+      await getGameApi().getGame(requestGameId);
+      if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
+      await tryOpenPhpStrike();
+    }
     connectRealtime(requestGameId);
     if (!gamePhpMode.isEnabled()) {
       try {
@@ -488,14 +518,104 @@ function isKnownRealtimeEntity(entityKey: CombatEntityKey): boolean {
   return npcs.value.some((npc) => npc.id === npcId);
 }
 
+async function tryOpenPhpStrike(): Promise<void> {
+  if (!gamePhpMode.isEnabled()) {
+    return;
+  }
+  if (hitOpen.value) {
+    return;
+  }
+  const strike = gamePhpBattleContext.openStrike;
+  if (!strike) {
+    return;
+  }
+  const attackerKey = `${strike.attackerKind}:${strike.attackerId}` as CombatEntityKey;
+  const defenderKey = `${strike.defenderKind}:${strike.defenderId}` as CombatEntityKey;
+  await loadRuntimeProjections([attackerKey, defenderKey]);
+  const version = runtimeByKey.value[attackerKey]?.version;
+  if (!version) {
+    return;
+  }
+  const attacks = characterOverviewService.build(version, revisionRules.value).attacks;
+  const attack =
+    attacks.find(
+      (item) =>
+        item.itemRuleCode === strike.itemRuleCode &&
+        item.inventoryItemId === strike.itemInventoryId &&
+        (item.profileIndex ?? 0) === strike.profileIndex,
+    ) ??
+    attacks.find(
+      (item) =>
+        item.itemRuleCode === strike.itemRuleCode &&
+        item.profileType === strike.profileType &&
+        (item.profileIndex ?? 0) === strike.profileIndex,
+    );
+  if (!attack) {
+    return;
+  }
+  hitResumeOffer.value = null;
+  attackAction.value = null;
+  hitAttackerKey.value = attackerKey;
+  hitAttack.value = attack;
+  hitResumePhpStrike.value = true;
+  hitPhpDefenderKey.value = defenderKey;
+  hitOpen.value = true;
+}
+
+function sheetsCoverRealtime(event: GameRealtimeEvent): boolean {
+  const keys = Array.isArray(event.keys) ? event.keys : [];
+  if (keys.length === 0) {
+    const remembered = event.entityKey ? gamePhpBattleContext.sheetVersionByKey[event.entityKey] : undefined;
+
+    return typeof remembered === 'number' && remembered >= event.actualVersion;
+  }
+
+  return keys.every((row) => {
+    if (!row || typeof row !== 'object') return false;
+    const rec = row as { type?: string; id?: number; actualVersion?: number };
+    if ((rec.type !== 'character' && rec.type !== 'npc') || typeof rec.id !== 'number' || typeof rec.actualVersion !== 'number') {
+      return false;
+    }
+
+    return (gamePhpBattleContext.sheetVersionByKey[`${rec.type}:${rec.id}`] ?? 0) >= rec.actualVersion;
+  });
+}
+
 async function applyRealtimeEvent(event: GameRealtimeEvent): Promise<boolean> {
   if (event.gameId !== gameId.value || event.cursor <= realtimeCursor) return true;
-  if (event.source === 'strike' || event.source === 'turn' || event.source === 'wound') {
+  if (
+    event.source === 'strike' ||
+    event.source === 'turn' ||
+    event.source === 'battle' ||
+    event.source === 'wound' ||
+    event.source === 'manual_sheet'
+  ) {
     const battleId = typeof event.battleId === 'number' ? event.battleId : Number(event.battleId);
+    if (event.source === 'manual_sheet') {
+      if (!sheetsCoverRealtime(event)) {
+        const id = Number.isInteger(battleId) && battleId > 0 ? battleId : gamePhpBattleContext.battleId;
+        if (typeof id === 'number' && id > 0) {
+          gamePhpBattleContext.rememberBattle(id, gamePhpBattleContext.battleVersion);
+          applyBattleSheets(await getGameApi().getBattleSheets({ gameId: event.gameId, battleId: id }));
+        }
+      }
+      if (chatId.value !== null) {
+        await chatStore.refreshLatest(chatId.value);
+      }
+      realtimeCursor = event.cursor;
+
+      return true;
+    }
     if (Number.isInteger(battleId) && battleId > 0) {
       gamePhpBattleContext.rememberBattle(battleId, gamePhpBattleContext.battleVersion);
       const sheets = await getGameApi().getBattleSheets({ gameId: event.gameId, battleId });
       applyBattleSheets(sheets);
+      store.applyGameUpdate(await getGameApi().getGame(event.gameId));
+      battleRevision.value += 1;
+      await tryOpenPhpStrike();
+    }
+    if (chatId.value !== null) {
+      await chatStore.refreshLatest(chatId.value);
     }
     realtimeCursor = event.cursor;
 
@@ -658,7 +778,16 @@ function applyBattleSheets(payload: GameBattleSheets): void {
   const nextRuntime: Record<CombatEntityKey, GameRuntimeEntityProjection> = { ...runtimeByKey.value };
   for (const row of payload.sheets) {
     const key = `${row.type}:${row.id}` as CombatEntityKey;
-    const version = gameBattleSheetVersionService.toVersion(row);
+    let version: CharacterVersion;
+    try {
+      version = gameBattleSheetVersionService.toVersion(row, {
+        spaceId: row.spaceId ?? props.detail.game.spaceId,
+        spaceCode: props.detail.game.spaceCode,
+        rules: revisionRules.value,
+      });
+    } catch {
+      continue;
+    }
     next[key] = version;
     gamePhpBattleContext.rememberSheet(key, row.actualVersion);
     nextRuntime[key] = {
@@ -677,6 +806,7 @@ function applyBattleSheets(payload: GameBattleSheets): void {
   }
   liveSheetByKey.value = next;
   runtimeByKey.value = nextRuntime;
+  npcs.value = mergeBattleNpcSheets(npcs.value, nextRuntime, payload);
 }
 
 function applyRuntimeProjection(projection: GameRuntimeEntityProjection): void {
@@ -698,6 +828,25 @@ function applyRuntimeProjection(projection: GameRuntimeEntityProjection): void {
   npcs.value = npcs.value.map((npc) =>
     npc.id === projection.id ? { ...npc, version: projection.version, actualVersion: projection.actualVersion } : npc,
   );
+}
+
+async function loadPhpBattleSheetProjections(
+  projectionKeys: CombatEntityKey[],
+  targetGameId: number,
+): Promise<boolean> {
+  if (gamePhpBattleContext.battleId === null) {
+    await getGameApi().getGame(targetGameId);
+  }
+  const battleId = gamePhpBattleContext.battleId;
+  if (battleId === null) return false;
+  try {
+    const sheets = await getGameApi().getBattleSheets({ gameId: targetGameId, battleId });
+    applyBattleSheets(sheets);
+
+    return projectionKeys.every((key) => Boolean(runtimeByKey.value[key]?.version));
+  } catch {
+    return false;
+  }
 }
 
 async function loadRuntimeProjections(
@@ -722,6 +871,9 @@ async function loadRuntimeProjections(
     ),
   ];
   if (projectionKeys.length === 0) return true;
+  if (gamePhpMode.isEnabled()) {
+    return loadPhpBattleSheetProjections(projectionKeys, targetGameId);
+  }
 
   const requestSequences = new Map<CombatEntityKey, number>();
   for (const key of projectionKeys) {
@@ -765,9 +917,8 @@ async function loadRuntimeProjections(
 }
 
 async function ensureRuntimeProjectionsForInitiative(entityKeys: string[]): Promise<void> {
-  if (gamePhpMode.isEnabled()) return;
   const loaded = await loadRuntimeProjections(entityKeys);
-  if (!loaded) throw new Error('Не удалось загрузить полные листы выбранных участников');
+  if (!loaded && !gamePhpMode.isEnabled()) throw new Error('Не удалось загрузить полные листы выбранных участников');
 }
 
 function invalidateRuntimeProjections(): void {
@@ -804,6 +955,52 @@ async function loadRevision(
   const revision = await spaceRevision.fetchRevision(spaceId, rulesRevision);
   if (targetGameId !== gameId.value || targetLoadSequence !== loadSequence) return;
   revisionRules.value = revision.rules;
+  rematerializeRuntimeSheets();
+}
+
+function rematerializeRuntimeSheets(): void {
+  const rules = revisionRules.value;
+  if (rules.length === 0) return;
+  const spaceId = props.detail.game.spaceId;
+  const spaceCode = props.detail.game.spaceCode;
+  const nextRuntime: Record<CombatEntityKey, GameRuntimeEntityProjection> = { ...runtimeByKey.value };
+  for (const [key, projection] of Object.entries(nextRuntime)) {
+    if (projection.projectionLevel !== 'full' || !projection.version) continue;
+    try {
+      nextRuntime[key as CombatEntityKey] = {
+        ...projection,
+        version: gameBattleSheetVersionService.rematerialize(projection.version, { spaceId, spaceCode, rules }),
+      };
+    } catch {
+      nextRuntime[key as CombatEntityKey] = projection;
+    }
+  }
+  runtimeByKey.value = nextRuntime;
+  npcs.value = mergeBattleNpcSheets(npcs.value, nextRuntime);
+}
+
+function mergeBattleNpcSheets(
+  current: GameNpc[],
+  runtime: Record<CombatEntityKey, GameRuntimeEntityProjection>,
+  payload?: GameBattleSheets,
+): GameNpc[] {
+  const byId = new Map(current.map((npc) => [npc.id, npc]));
+  const npcRows = [
+    ...(payload?.npcs ?? []),
+    ...(payload?.sheets ?? []).filter((row) => row.type === 'npc').map((row) => ({ id: row.id, name: row.name })),
+  ];
+  for (const row of npcRows) {
+    if (!byId.has(row.id)) {
+      byId.set(row.id, toLegacyNpc({ id: row.id, name: row.name, actualVersion: 0 }));
+    }
+  }
+
+  return [...byId.values()].map((npc) => {
+    const projection = runtime[`npc:${npc.id}` as CombatEntityKey];
+    if (projection?.kind !== 'npc' || projection.projectionLevel !== 'full') return npc;
+
+    return { ...npc, version: projection.version, actualVersion: projection.actualVersion };
+  });
 }
 
 watch(
@@ -816,6 +1013,12 @@ watch(
     }
   },
   { immediate: true },
+);
+watch(
+  () => props.detail.game.sessionRunning,
+  () => {
+    if (props.active) void load();
+  },
 );
 
 watch(gameId, () => {
@@ -855,7 +1058,7 @@ const initiativeKeys = ref<string[]>([]);
 
 function onInitiativeParticipants(keys: string[]): void {
   initiativeKeys.value = keys;
-  if (!gamePhpMode.isEnabled()) void loadRuntimeProjections(keys);
+  void loadRuntimeProjections(keys);
 }
 
 function onInitiativeRuntimeProjections(projections: GameRuntimeEntityProjection[]): void {
@@ -869,14 +1072,19 @@ const cardKey = ref<CombatEntityKey | null>(null);
 // Ревизия оверлеев — счётчик мутаций боевых изменений: шкала инициативы перечитывает
 // оверлеи (Истощение) после правок в боевой карточке.
 const overlayRevision = ref(0);
+const battleRevision = ref(0);
 const processSessionsByEntity = ref<Record<CombatEntityKey, ProcessSession>>({});
 
 function onOverlayChanged(): void {
-  overlayRevision.value += 1;
   if (!gamePhpMode.isEnabled()) {
+    overlayRevision.value += 1;
     invalidateRuntimeProjections();
     void refreshProcessSessions();
+
+    return;
   }
+  const keys = cardKey.value ? [cardKey.value] : realtimeEntityKeys();
+  void loadPhpBattleSheetProjections(keys, gameId.value);
 }
 
 async function refreshProcessSessions(
@@ -965,6 +1173,8 @@ const resumeOffer = ref<CheckOffer | null>(null);
 const hitResumeOffer = ref<CheckOffer | null>(null);
 const hitAttackerKey = ref<CombatEntityKey | null>(null);
 const hitAttack = ref<AttackOverview | null>(null);
+const hitResumePhpStrike = ref(false);
+const hitPhpDefenderKey = ref<CombatEntityKey | null>(null);
 const processActionContext = ref<ProcessActionContext | null>(null);
 const attackAction = ref<AttackAction | null>(null);
 const pendingOffers = ref<CheckOffer[]>([]);
@@ -1142,6 +1352,8 @@ function onHitClosed(open: boolean): void {
   processActionContext.value = null;
   attackAction.value = null;
   hitAttackerKey.value = null;
+  hitResumePhpStrike.value = false;
+  hitPhpDefenderKey.value = null;
   hitOpen.value = false;
   void refreshPendingOffers();
 }
@@ -1152,6 +1364,8 @@ async function onLaunchHit(payload: { attackerKey: CombatEntityKey; attack: Atta
   attackAction.value = null;
   hitAttackerKey.value = payload.attackerKey;
   hitAttack.value = payload.attack;
+  hitResumePhpStrike.value = false;
+  hitPhpDefenderKey.value = null;
   hitOpen.value = true;
 }
 
@@ -1187,6 +1401,8 @@ async function onLaunchAttack(payload: AttackAction): Promise<void> {
   hitAttack.value = payload.strikes[0]?.profile ?? null;
   processActionContext.value = payload.source.kind === 'process' ? payload.source.process : null;
   hitResumeOffer.value = null;
+  hitResumePhpStrike.value = false;
+  hitPhpDefenderKey.value = null;
   hitOpen.value = true;
 }
 
@@ -1297,12 +1513,13 @@ onUnmounted(() => {
           :space-id="detail.game.spaceId"
           :chat-id="chatId"
           :can-edit="canEdit"
-          :characters="memberships"
+          :characters="eligibleMemberships"
           :npcs="npcs"
           :runtime-projections="runtimeByKey"
           :rules="revisionRules"
           :mechanics="mechanics"
           :overlay-revision="overlayRevision"
+          :battle-revision="battleRevision"
           :ensure-session="ensureSessionForInitiative"
           :ensure-runtime-projections="ensureRuntimeProjectionsForInitiative"
           :session-running="detail.game.sessionRunning"
@@ -1452,6 +1669,8 @@ onUnmounted(() => {
       :attack="hitAttack"
       :attack-action="attackAction"
       :resume-offer="hitResumeOffer"
+      :resume-php-strike="hitResumePhpStrike"
+      :php-defender-key="hitPhpDefenderKey"
       :process-context="processActionContext"
       :initiative-keys="initiativeKeys"
       :runtime-projections="runtimeByKey"

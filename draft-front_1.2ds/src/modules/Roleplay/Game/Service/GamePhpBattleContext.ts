@@ -1,5 +1,7 @@
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { GameInitiativeOrderEntry } from '@/modules/Roleplay/Game/Dto/GameInitiativeOrderEntry';
+import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 
 /** Числовой бой PHP для команд P4. */
 export class GamePhpBattleContext {
@@ -9,6 +11,8 @@ export class GamePhpBattleContext {
   lastDebt = false;
   lastOrder: GameInitiativeOrderEntry[] | null = null;
   lastScale: GameInitiative | null = null;
+  openStrike: GamePhpOpenStrike | null = null;
+  pendingActionEffects: Record<string, PendingActionEffect[]> = {};
 
   rememberBattle(battleId: number, version: number): void {
     this.battleId = battleId;
@@ -21,6 +25,14 @@ export class GamePhpBattleContext {
 
   rememberScale(scale: GameInitiative): void {
     this.lastScale = scale;
+  }
+
+  rememberOpenStrike(strike: GamePhpOpenStrike | null): void {
+    this.openStrike = strike;
+  }
+
+  rememberPending(pending: Record<string, PendingActionEffect[]>): void {
+    this.pendingActionEffects = pending;
   }
 
   getScale(): GameInitiative | null {
@@ -50,5 +62,7 @@ export class GamePhpBattleContext {
     this.lastDebt = false;
     this.lastOrder = null;
     this.lastScale = null;
+    this.openStrike = null;
+    this.pendingActionEffects = {};
   }
 }

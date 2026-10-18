@@ -8,6 +8,7 @@ import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
+import type { AbilitySpecBase } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecBase';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
@@ -49,6 +50,17 @@ export class HitRollService {
     );
 
     return tile?.value ?? section?.stat.value ?? HitRollService.FALLBACK_MASTERY;
+  }
+
+  dodgeEfficiency(rules: Rule[]): DimensionalNumberValue {
+    for (const rule of rules) {
+      if (rule.type !== 'ability') continue;
+      const spec = rule.spec as AbilitySpecBase | null | undefined;
+      if (spec?.combat_action !== 'dodge') continue;
+      if (spec.dodge_efficiency) return spec.dodge_efficiency;
+    }
+
+    throw new Error('У правила уклонения нет эффективности');
   }
 
   maxDimensional(a: DimensionalNumberValue, b: DimensionalNumberValue): DimensionalNumberValue {

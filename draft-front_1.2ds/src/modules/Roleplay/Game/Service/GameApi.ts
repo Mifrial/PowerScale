@@ -20,6 +20,7 @@ import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { CreateNpcData } from '@/modules/Roleplay/Game/Dto/CreateNpcData';
 import type { UpdateNpcData } from '@/modules/Roleplay/Game/Dto/UpdateNpcData';
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
+import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
 import type { CharacterGameContext } from '@/modules/Roleplay/Game/Dto/CharacterGameContext';
 import type { GameLoot } from '@/modules/Roleplay/Game/Dto/GameLoot';
 import type { CreateLootData } from '@/modules/Roleplay/Game/Dto/CreateLootData';
@@ -27,6 +28,7 @@ import type { DistributeLootData } from '@/modules/Roleplay/Game/Dto/DistributeL
 import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinRequest';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
+import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
 import type { Chronicle } from '@/modules/Roleplay/Game/Dto/Chronicle';
 import type { ChronicleEntry } from '@/modules/Roleplay/Game/Dto/ChronicleEntry';
 import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/CreateChronicleEntryData';
@@ -67,7 +69,11 @@ import type { GameInitiativeOrderEntry } from '@/modules/Roleplay/Game/Dto/GameI
 import { GameApiError } from '@/modules/Roleplay/Game/Service/GameApiError';
 import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
 import { gamePhpCardService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCardService';
-import { characterHttpViewService } from '@/modules/Roleplay/Character/init';
+import { characterHttpSaveService, characterHttpViewService } from '@/modules/Roleplay/Character/init';
+import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
+import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
+import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 /** HTTP-клиент `game.*` для PHP. Action, которых нет в бэке, не уходят в сеть. */
 export class GameApi implements IGameApi {
@@ -121,8 +127,7 @@ export class GameApi implements IGameApi {
     }
     const participants = command.participants ?? [];
     const res = await this.engine.runAction<
-      | { battleId: number; version: number; ended: boolean; order?: GameInitiativeOrderEntry[] }
-      | GameLifecycleResult
+      { battleId: number; version: number; ended: boolean; order?: GameInitiativeOrderEntry[] } | GameLifecycleResult
     >(
       'game.startBattle',
       {
@@ -191,10 +196,33 @@ export class GameApi implements IGameApi {
   }
 
   async endGameBattle(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult> {
-    const res = await this.engine.runAction<GameLifecycleResult>('game.endBattle', command, signal);
-    if (!res.data) throw new Error('Game battle end failed');
+    if (command.commandType !== 'endBattle') {
+      throw new GameApiError('INVALID_PARAMS', 'endBattle expected');
+    }
+    const battleId = Number(command.battleId);
+    const res = await this.engine.runAction<{ ended?: boolean }>('game.endBattle', {
+      gameId: command.gameId,
+      battleId,
+      idempotencyKey: command.commandId,
+      expectedVersion: command.expectedBattleStateVersion,
+    }, signal);
+    if (res.error) throw GameApiError.fromActionError(res.error);
+    if (!res.data) throw new GameApiError('GAME_EMPTY_RESPONSE', 'Game battle end failed');
+    gamePhpBattleContext.clear();
 
-    return res.data;
+    return {
+      kind: 'transition',
+      commandId: command.commandId,
+      status: 'ended',
+      snapshot: { gameId: command.gameId, session: null, battle: null },
+      transition: {
+        type: 'battle_ended',
+        sessionId: command.sessionId,
+        battleId: null,
+        endedBattleId: command.battleId,
+        cleanup: null,
+      },
+    };
   }
 
   async stopGameStateSession(_command: GameLifecycleCommand, _signal?: AbortSignal): Promise<GameLifecycleResult> {
@@ -464,7 +492,7 @@ export class GameApi implements IGameApi {
         const record = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
 
         return {
-          id: Number(record.id),
+          id: Number(record.id ?? record.npcId),
           name: typeof record.name === 'string' ? record.name : '',
           actualVersion: Number(record.actualVersion ?? 0),
         };
@@ -492,17 +520,27 @@ export class GameApi implements IGameApi {
   }
 
   async getNpc(gameId: number, npcId: number, signal?: AbortSignal): Promise<GameNpc> {
-    const res = await this.engine.runAction<GameNpc>('game.getNpc', { gameId, npcId }, signal);
+    const res = await this.engine.runAction<unknown>('game.getNpc', { gameId, npcId }, signal);
+    if (res.error) throw GameApiError.fromActionError(res.error);
     if (!res.data) throw new Error('NPC not found');
 
-    return res.data;
+    return this.npcOfPhp(res.data);
   }
 
   async createNpc(gameId: number, data: CreateNpcData, signal?: AbortSignal): Promise<GameNpc> {
-    const res = await this.engine.runAction<GameNpc>('game.createNpc', { gameId, ...data }, signal);
+    const res = await this.engine.runAction<GameNpc>(
+      'game.createNpc',
+      {
+        gameId,
+        name: data.name,
+        visibility: { scope: 'all', userIds: [], sections: [] },
+      },
+      signal,
+    );
+    if (res.error) throw GameApiError.fromActionError(res.error);
     if (!res.data) throw new Error('Create npc failed');
 
-    return res.data;
+    return this.npcOfPhp(res.data);
   }
 
   async proposeNpc(_gameId: number, _data: CreateNpcData, _signal?: AbortSignal): Promise<GameNpc> {
@@ -510,10 +548,87 @@ export class GameApi implements IGameApi {
   }
 
   async updateNpc(npcId: number, data: UpdateNpcData, signal?: AbortSignal): Promise<GameNpc> {
-    const res = await this.engine.runAction<GameNpc>('game.updateNpc', { npcId, ...data }, signal);
+    const unlimited: CharacterCreationConfig = { osTotal: null, orTotal: null, moneyBudget: null };
+    const config = data.creationConfig ?? unlimited;
+    const choices = data.choices
+      ? characterHttpSaveService.documentOf(data.choices, config)
+      : data.version
+        ? characterHttpSaveService.documentFromVersion(data.version, unlimited)
+        : characterHttpSaveService.documentOf(
+            {
+              name: data.name,
+              shortDescription: data.shortDescription,
+              fullDescription: data.fullDescription,
+              spaceId: data.spaceId ?? 0,
+              spaceCode: data.spaceCode ?? '',
+              rulesRevision: data.rulesRevision ?? 0,
+              raceRuleCode: null,
+              characteristicPurchases: [],
+              abilities: [],
+              resources: [],
+              inventory: [],
+              states: [],
+              money: 0,
+              ageYears: null,
+              olTotal: 0,
+            } satisfies CharacterBuild,
+            unlimited,
+          );
+    const payload: Record<string, unknown> = {
+      gameId: data.gameId,
+      npcId,
+      name: data.name,
+      visibility: this.phpNpcVisibilityOf(data.visibility),
+      choices,
+      expectedNpcActualVersion: data.expectedNpcActualVersion,
+    };
+    if (data.spaceId !== undefined) payload.spaceId = data.spaceId;
+    if (data.spaceCode !== undefined) payload.spaceCode = data.spaceCode;
+    if (data.rulesRevision !== undefined) payload.rulesRevision = data.rulesRevision;
+    const res = await this.engine.runAction<unknown>('game.updateNpc', payload, signal);
+    if (res.error) throw GameApiError.fromActionError(res.error);
     if (!res.data) throw new Error('Update npc failed');
+    const body = res.data !== null && typeof res.data === 'object' ? (res.data as Record<string, unknown>) : {};
+    const problems = Array.isArray(body.problems) ? body.problems : [];
+    if (body.kind === 'conflicts') {
+      const messages = problems
+        .map((row) => (row !== null && typeof row === 'object' ? (row as Record<string, unknown>).message : null))
+        .filter((message): message is string => typeof message === 'string' && message !== '');
 
-    return res.data;
+      throw new GameApiError('CHARACTER_INVALID', messages.join('; ') || 'Update npc failed', problems);
+    }
+
+    return this.npcOfPhp(res.data);
+  }
+
+  async translateNpc(npcId: number, data: UpdateNpcData, signal?: AbortSignal): Promise<GameNpc> {
+    const unlimited: CharacterCreationConfig = { osTotal: null, orTotal: null, moneyBudget: null };
+    const choices = data.choices
+      ? characterHttpSaveService.documentOf(data.choices, data.creationConfig ?? unlimited)
+      : data.version
+        ? characterHttpSaveService.documentFromVersion(data.version, unlimited)
+        : null;
+    const payload: Record<string, unknown> = {
+      gameId: data.gameId,
+      npcId,
+      expectedNpcActualVersion: data.expectedNpcActualVersion,
+      name: data.name,
+    };
+    if (choices) payload.choices = choices;
+    const res = await this.engine.runAction<unknown>('game.translateNpc', payload, signal);
+    if (res.error) throw GameApiError.fromActionError(res.error);
+    if (!res.data) throw new Error('Translate npc failed');
+    const body = res.data !== null && typeof res.data === 'object' ? (res.data as Record<string, unknown>) : {};
+    const problems = Array.isArray(body.problems) ? body.problems : [];
+    if (body.kind === 'conflicts') {
+      const messages = problems
+        .map((row) => (row !== null && typeof row === 'object' ? (row as Record<string, unknown>).message : null))
+        .filter((message): message is string => typeof message === 'string' && message !== '');
+
+      throw new GameApiError('CHARACTER_INVALID', messages.join('; ') || 'Translate npc failed', problems);
+    }
+
+    return this.npcOfPhp(res.data);
   }
 
   async moderateNpc(_npcId: number, _action: GameModerationAction, _signal?: AbortSignal): Promise<GameNpc> {
@@ -563,8 +678,43 @@ export class GameApi implements IGameApi {
     };
   }
 
-  async saveInitiative(_gameId: number, _data: GameInitiative, _signal?: AbortSignal): Promise<GameInitiative> {
-    this.throwPhpUnsupported();
+  async saveInitiative(gameId: number, data: GameInitiative, signal?: AbortSignal): Promise<GameInitiative> {
+    const battleId = gamePhpBattleContext.battleId;
+    if (battleId === null || !data.active) {
+      this.throwPhpUnsupported();
+    }
+    const participants = data.participants.map((participant) => ({
+      type: participant.kind,
+      id: participant.entityId ?? 0,
+    }));
+    const res = await this.engine.runAction<{
+      battleId: number;
+      version: number;
+      ended: boolean;
+      order?: GameInitiativeOrderEntry[];
+    }>(
+      'game.setBattleRoster',
+      {
+        gameId,
+        battleId,
+        idempotencyKey: createRandomId(),
+        participants,
+        expectedVersion: gamePhpBattleContext.battleVersion,
+      },
+      signal,
+    );
+    if (res.error) throw GameApiError.fromActionError(res.error);
+    if (!res.data) throw new GameApiError('GAME_EMPTY_RESPONSE', 'Game battle roster failed');
+    gamePhpBattleContext.rememberBattle(res.data.battleId, res.data.version);
+    if (res.data.order !== undefined) {
+      gamePhpBattleContext.rememberOrder(res.data.order);
+      const scale = this.scaleOf(gameId, res.data.order, 0, data.round);
+      gamePhpBattleContext.rememberScale(scale);
+
+      return scale;
+    }
+
+    return data;
   }
 
   async rollInitiative(body: GameInitiativeRollRequest, signal?: AbortSignal): Promise<GameInitiativeRollResult> {
@@ -583,7 +733,7 @@ export class GameApi implements IGameApi {
     _gameId: number,
     _signal?: AbortSignal,
   ): Promise<Record<CombatEntityKey, PendingActionEffect[]>> {
-    return {};
+    return gamePhpBattleContext.pendingActionEffects as Record<CombatEntityKey, PendingActionEffect[]>;
   }
 
   async setCombatActionEffects(
@@ -950,6 +1100,20 @@ export class GameApi implements IGameApi {
     return result;
   }
 
+  async manualSheet(
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      operation: 'setResource' | 'addState' | 'patchState' | 'removeState';
+      target: GamePhpWoundParty;
+      expectedSheetVersion: number;
+      details: Record<string, unknown>;
+    },
+    signal?: AbortSignal,
+  ): Promise<{ actualVersion: number }> {
+    return this.requireData<{ actualVersion: number }>('game.manualSheet', body, signal);
+  }
+
   async woundAction(
     body: {
       gameId: number;
@@ -1120,6 +1284,74 @@ export class GameApi implements IGameApi {
     };
   }
 
+  /**
+   * Карточка NPC: оболочка игры + тот же PHP-лист, что у персонажа (`choices`/`sheet`).
+   */
+  private npcOfPhp(row: unknown): GameNpc {
+    const record = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+    const version = characterHttpViewService.versionFromStored(record.version);
+    const status = record.status === 'proposed' ? 'proposed' : 'active';
+
+    return {
+      id: typeof record.npcId === 'number' ? record.npcId : Number(record.id),
+      gameId: Number(record.gameId),
+      name: typeof record.name === 'string' ? record.name : (version?.name ?? ''),
+      shortDescription: version?.shortDescription ?? null,
+      fullDescription: version?.fullDescription ?? null,
+      tags: Array.isArray(record.tags) ? record.tags.filter((tag): tag is string => typeof tag === 'string') : [],
+      version,
+      actualVersion: typeof record.actualVersion === 'number' ? record.actualVersion : 1,
+      status,
+      proposedBy: this.npcProposedByOf(record.proposedBy),
+      visibility: this.npcVisibilityOf(record.visibility),
+      updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : '',
+    };
+  }
+
+  private npcProposedByOf(raw: unknown): GameNpc['proposedBy'] {
+    if (raw === null || typeof raw !== 'object') return null;
+    const record = raw as Record<string, unknown>;
+    const userId = typeof record.userId === 'number' ? record.userId : 0;
+    if (userId <= 0) return null;
+
+    return { userId, userName: typeof record.userName === 'string' ? record.userName : '' };
+  }
+
+  private npcVisibilityOf(raw: unknown): SheetVisibility {
+    if (Array.isArray(raw)) return raw as SheetVisibility;
+    const record = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+    const allowed = new Set<string>(SHEET_VISIBLE_SECTIONS);
+    const sections = Array.isArray(record.sections)
+      ? record.sections.filter(
+          (section): section is SheetSection => typeof section === 'string' && allowed.has(section),
+        )
+      : [...SHEET_VISIBLE_SECTIONS];
+    if (record.scope === 'gm') return [{ audience: 'gm', sections }];
+    if (record.scope === 'users') {
+      const userIds = Array.isArray(record.userIds)
+        ? record.userIds.filter((id): id is number => typeof id === 'number')
+        : [];
+
+      return [{ audience: userIds, sections }];
+    }
+
+    return [{ audience: 'all', sections }];
+  }
+
+  private phpNpcVisibilityOf(visibility: SheetVisibility): {
+    scope: string;
+    userIds: number[];
+    sections: string[];
+  } {
+    const allowed = new Set(['characteristics', 'abilities', 'inventory', 'resources']);
+    const rule = visibility[0];
+    const sections = (rule?.sections ?? []).filter((section) => allowed.has(section));
+    if (!rule || rule.audience === 'all') return { scope: 'all', userIds: [], sections };
+    if (rule.audience === 'gm') return { scope: 'gm', userIds: [], sections };
+
+    return { scope: 'users', userIds: rule.audience, sections };
+  }
+
   private membershipOfPhp(row: Record<string, unknown>): GameCharacterMembership {
     const status = row.status === 'submitted' || row.status === 'left' ? row.status : 'active';
     const review = row.reviewState === 'changes_pending' || row.reviewState === 'returned' ? row.reviewState : 'clean';
@@ -1132,6 +1364,8 @@ export class GameApi implements IGameApi {
       characterOwnerName: '',
       role: 'player',
       membershipStatus: status,
+      canStartSession: row.canStartSession === true,
+      isActiveSessionParticipant: row.isActiveSessionParticipant === true,
       approvedCharacterVersion: characterHttpViewService.versionFromStored(row.approvedCharacterVersion),
       reviewState: review,
       membershipRevision: Number(row.membershipRevision ?? 0),
@@ -1167,6 +1401,63 @@ export class GameApi implements IGameApi {
       const round = typeof record.round === 'number' && record.round > 0 ? record.round : 1;
       gamePhpBattleContext.rememberScale(this.scaleOf(gameId, order, activeIndex, round));
     }
+    gamePhpBattleContext.rememberOpenStrike(this.openStrikeOf(record.openStrike));
+    gamePhpBattleContext.rememberPending(this.pendingOf(record.pendingActionEffects));
+  }
+
+  private pendingOf(value: unknown): Record<string, PendingActionEffect[]> {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
+    const pending: Record<string, PendingActionEffect[]> = {};
+    for (const [key, rows] of Object.entries(value)) {
+      if (!Array.isArray(rows)) continue;
+      const effects: PendingActionEffect[] = [];
+      for (const row of rows) {
+        if (row === null || typeof row !== 'object') continue;
+        const entry = row as Record<string, unknown>;
+        const effect = entry.effect;
+        if (typeof entry.sourceRuleCode !== 'string' || effect === null || typeof effect !== 'object') continue;
+        effects.push({ sourceRuleCode: entry.sourceRuleCode, effect: effect as PendingActionEffect['effect'] });
+      }
+      if (effects.length > 0) pending[key] = effects;
+    }
+
+    return pending;
+  }
+
+  private openStrikeOf(value: unknown): GamePhpOpenStrike | null {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+    const row = value as Record<string, unknown>;
+    const attackerId = this.intField(row.attackerId);
+    const defenderId = this.intField(row.defenderId);
+    const itemInventoryId = this.intField(row.itemInventoryId);
+    const profileIndex = this.intField(row.profileIndex);
+    if (typeof row.attackerKind !== 'string' || attackerId === null) return null;
+    if (typeof row.defenderKind !== 'string' || defenderId === null) return null;
+    if (typeof row.actionRuleCode !== 'string' || typeof row.itemRuleCode !== 'string') return null;
+    if (itemInventoryId === null || typeof row.profileType !== 'string' || profileIndex === null) return null;
+
+    return {
+      attackerKind: row.attackerKind,
+      attackerId,
+      defenderKind: row.defenderKind,
+      defenderId,
+      actionRuleCode: row.actionRuleCode,
+      itemInventoryId,
+      itemRuleCode: row.itemRuleCode,
+      profileType: row.profileType,
+      profileIndex,
+    };
+  }
+
+  private intField(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value);
+
+      return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+    }
+
+    return null;
   }
 
   private scaleOf(

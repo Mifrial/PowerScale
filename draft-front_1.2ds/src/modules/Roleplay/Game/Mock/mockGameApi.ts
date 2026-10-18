@@ -6,6 +6,7 @@ import * as mockJoinRequests from '@/modules/Roleplay/Game/Mock/mockGameJoinRequ
 import * as mockNpcs from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
 import * as mockLoot from '@/modules/Roleplay/Game/Mock/mockGameLoot';
 import * as mockCombatOverlays from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
+import * as mockManualSheet from '@/modules/Roleplay/Game/Mock/mockGameManualSheet';
 import * as mockPendingActionEffects from '@/modules/Roleplay/Game/Mock/mockGamePendingActionEffects';
 import * as mockProcessSessions from '@/modules/Roleplay/Game/Mock/mockGameProcessSessions';
 import * as mockCommittedActions from '@/modules/Roleplay/Game/Mock/mockGameCommittedActions';
@@ -102,6 +103,7 @@ export const mockGameApi: IGameApi = {
   createNpc: mockNpcs.createNpc,
   proposeNpc: mockNpcs.proposeNpc,
   updateNpc: mockNpcs.updateNpc,
+  translateNpc: mockNpcs.updateNpc,
   moderateNpc: mockNpcs.moderateNpc,
   deleteNpc: mockNpcs.deleteNpc,
   getLoot: mockLoot.fetchLoot,
@@ -167,6 +169,7 @@ export const mockGameApi: IGameApi = {
   declareWideStrike: async () => ({ version: 1 }),
   resolveWideStrike: async () => ({ version: 1 }),
   woundAction: async () => ({ version: 1 }),
+  manualSheet: mockManualSheet.manualSheet,
   endTurn: async () => ({ version: 1 }),
   continueAction: async () => ({ version: 1 }),
   abortAction: async () => ({ version: 1 }),

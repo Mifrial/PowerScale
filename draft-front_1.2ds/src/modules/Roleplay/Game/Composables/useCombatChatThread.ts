@@ -3,13 +3,18 @@ import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 import {
   COMBAT_CHAT_ATTACK,
+  COMBAT_CHAT_BATTLE,
   COMBAT_CHAT_INITIATIVE,
   COMBAT_CHAT_ROUND,
+  COMBAT_CHAT_SESSION,
   COMBAT_CHAT_TURN,
 } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 interface CombatChatThreadState {
+  sessionOpen: boolean;
+  liveBattleId: number | null;
+  sessionId: string | null;
   roundId: string | null;
   previousRoundId: string | null;
   turnId: string | null;
@@ -26,6 +31,9 @@ function stateOf(gameId: number): CombatChatThreadState {
   let state = byGame.get(gameId);
   if (!state) {
     state = reactive({
+      sessionOpen: false,
+      liveBattleId: null,
+      sessionId: null,
       roundId: null,
       previousRoundId: null,
       turnId: null,
@@ -129,6 +137,37 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
 
   function stamp(): ChatThreadRef | undefined {
     const current = state();
+    if (!current.sessionOpen) return stampLegacy();
+    if (current.liveBattleId === null) {
+      return current.sessionId ? { id: current.sessionId, kind: COMBAT_CHAT_SESSION } : undefined;
+    }
+    const prefix = `b${current.liveBattleId}-`;
+    if (current.attackId?.startsWith(prefix) || current.attackId?.startsWith(`b${current.liveBattleId}`)) {
+      return { id: current.attackId, parentId: current.turnId ?? undefined, kind: COMBAT_CHAT_ATTACK };
+    }
+    if (current.initiativeId?.startsWith(prefix)) {
+      return {
+        id: current.initiativeId,
+        parentId: current.roundId ?? undefined,
+        kind: COMBAT_CHAT_INITIATIVE,
+      };
+    }
+    if (current.turnId?.startsWith(prefix)) {
+      return { id: current.turnId, parentId: current.roundId ?? undefined, kind: COMBAT_CHAT_TURN };
+    }
+    if (current.roundId?.startsWith(prefix)) {
+      return { id: current.roundId, parentId: `b${current.liveBattleId}`, kind: COMBAT_CHAT_ROUND };
+    }
+
+    return {
+      id: `b${current.liveBattleId}`,
+      ...(current.sessionId ? { parentId: current.sessionId } : {}),
+      kind: COMBAT_CHAT_BATTLE,
+    };
+  }
+
+  function stampLegacy(): ChatThreadRef | undefined {
+    const current = state();
     if (current.attackId) {
       return { id: current.attackId, parentId: current.turnId ?? undefined, kind: COMBAT_CHAT_ATTACK };
     }
@@ -151,7 +190,6 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
 
   function recoverFromMessages(messages: ChatMessage[]): void {
     const current = state();
-    if (current.roundId || current.turnId) return;
     const turns: string[] = [];
     const rounds: string[] = [];
     const turnParent = new Map<string, string>();
@@ -169,6 +207,63 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     current.roundId = rounds[0] ?? (turns[0] ? (turnParent.get(turns[0]) ?? null) : null);
     const previousRound = rounds[1] ?? (turns[1] ? turnParent.get(turns[1]) : undefined);
     current.previousRoundId = previousRound && previousRound !== current.roundId ? previousRound : null;
+  }
+
+  function latestSessionId(messages: ChatMessage[]): string | null {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const thread = messages[i]?.thread;
+      if (thread?.kind === COMBAT_CHAT_SESSION) return thread.id;
+    }
+
+    return null;
+  }
+
+  function adoptLive(messages: ChatMessage[], sessionRunning: boolean, battleId: number | null): void {
+    const current = state();
+    current.sessionOpen = sessionRunning;
+    current.liveBattleId = sessionRunning ? battleId : null;
+    current.sessionId = sessionRunning ? latestSessionId(messages) : null;
+    if (!sessionRunning) {
+      clearLive();
+      current.sessionOpen = false;
+      current.liveBattleId = null;
+      current.sessionId = null;
+
+      return;
+    }
+    if (battleId === null) {
+      current.turnId = null;
+      current.previousTurnId = null;
+      current.roundId = null;
+      current.previousRoundId = null;
+      current.attackId = null;
+      current.initiativeId = null;
+      current.lastAttackId = null;
+      current.lastInitiativeId = null;
+
+      return;
+    }
+    const prefix = `b${battleId}-`;
+    recoverFromMessages(
+      messages.filter((message) => {
+        const id = message.thread?.id ?? '';
+
+        return id === `b${battleId}` || id.startsWith(prefix);
+      }),
+    );
+  }
+
+  function closeBattle(): void {
+    const current = state();
+    current.liveBattleId = null;
+    current.turnId = null;
+    current.previousTurnId = null;
+    current.roundId = null;
+    current.previousRoundId = null;
+    current.attackId = null;
+    current.initiativeId = null;
+    current.lastAttackId = null;
+    current.lastInitiativeId = null;
   }
 
   const liveIds = computed(() => {
@@ -196,6 +291,8 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     clearLive,
     stamp,
     recoverFromMessages,
+    adoptLive,
+    closeBattle,
     liveIds,
   };
 }

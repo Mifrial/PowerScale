@@ -90,20 +90,37 @@ function emptyBuild(
   };
 }
 
+function sheetSpaceId(found: GameNpc, gameDetail: GameDetail): number {
+  return gameDetail.game.spaceId;
+}
+
+function sheetRevision(found: GameNpc, gameDetail: GameDetail): number {
+  return found.version?.rulesRevision ?? gameDetail.game.rulesRevision;
+}
+
+function draftMatchesSheet(found: GameNpc, gameDetail: GameDetail): boolean {
+  const existing = draftStore.draftOf(draftKey.value);
+  if (!existing) return false;
+
+  return (
+    existing.build.spaceId === sheetSpaceId(found, gameDetail) &&
+    existing.build.rulesRevision === sheetRevision(found, gameDetail) &&
+    existing.config.osTotal === null &&
+    existing.config.orTotal === null &&
+    existing.config.moneyBudget === null
+  );
+}
+
 async function initDraft(found: GameNpc, gameDetail: GameDetail): Promise<void> {
   if (!draftKey.value) return;
-  const rules = await loadRules(gameDetail.game.spaceId, gameDetail.game.rulesRevision);
+  const spaceId = sheetSpaceId(found, gameDetail);
+  const rulesRevision = sheetRevision(found, gameDetail);
+  const rules = await loadRules(spaceId, rulesRevision);
   const config: CharacterCreationConfig = { osTotal: null, orTotal: null, moneyBudget: null };
-  const build = found.version
-    ? characterBuildService.fromVersion(found.version, gameDetail.game.spaceId, rules)
-    : emptyBuild(
-        found,
-        gameDetail.game.id,
-        gameDetail.game.spaceId,
-        gameDetail.game.spaceCode,
-        gameDetail.game.rulesRevision,
-      );
-  draftStore.initDraft(draftKey.value, build, config);
+  const loaded = found.version
+    ? characterBuildService.fromVersion(found.version, spaceId, rules)
+    : emptyBuild(found, gameDetail.game.id, spaceId, gameDetail.game.spaceCode, rulesRevision);
+  draftStore.initDraft(draftKey.value, { ...loaded, money: 0 }, config);
 }
 
 async function load(): Promise<void> {
@@ -132,8 +149,10 @@ async function load(): Promise<void> {
       needsNpcMigration(found, { rulesRevision: gameDetail.game.rulesRevision, spaceCode: gameDetail.game.spaceCode })
     ) {
       if (draftKey.value) draftStore.discard(draftKey.value);
-    } else if (!draftStore.hasDraft(draftKey.value)) {
+    } else if (!draftMatchesSheet(found, gameDetail)) {
       await initDraft(found, gameDetail);
+    } else if (draftStore.draftOf(draftKey.value)?.build.money !== 0) {
+      draftStore.patchBuild(draftKey.value, { money: 0 });
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -166,18 +185,25 @@ async function onMigrated(): Promise<void> {
   npcRef.value = found;
 }
 
-/** Сохранение листа НПС: version + согласованные top-level имя/описания; теги/видимость сохраняются. */
-async function handleSave(version: CharacterVersion): Promise<void> {
+/** Сохранение листа НПС тем же документом choices, что character.update. */
+async function handleSave(build: CharacterBuild, preview: CharacterVersion): Promise<void> {
   const npc = npcRef.value;
-  if (!npc) return;
+  const game = gameDetailRef.value;
+  if (!npc || !game) return;
   try {
     await getGameApi().updateNpc(npc.id, {
-      name: version.name,
-      shortDescription: version.shortDescription,
-      fullDescription: version.fullDescription,
+      gameId: game.game.id,
+      name: preview.name,
+      shortDescription: preview.shortDescription,
+      fullDescription: preview.fullDescription,
       tags: npc.tags,
       visibility: npc.visibility,
-      version,
+      version: preview,
+      choices: build,
+      creationConfig: { osTotal: null, orTotal: null, moneyBudget: null },
+      spaceId: game.game.spaceId,
+      spaceCode: game.game.spaceCode,
+      rulesRevision: preview.rulesRevision,
       expectedNpcActualVersion: npc.actualVersion,
     });
     await router.push(`/games/${gameId.value}`);
@@ -216,7 +242,7 @@ onMounted(load);
       v-else-if="npcRef && draftKey"
       :draft-key="draftKey"
       :require-race="false"
-      :save="handleSave"
+      :save-choices="handleSave"
     />
 
     <NpcMigrationDialog

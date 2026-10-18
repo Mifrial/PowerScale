@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
@@ -89,6 +90,8 @@ const props = defineProps<{
   mechanics: Mechanic[];
   /** Счётчик мутаций боевых оверлеев: при изменении — перечитать оверлеи (Истощение). */
   overlayRevision: number;
+  /** Курсор боя с SSE: шкала перечитывает getScale после хода/удара. */
+  battleRevision?: number;
   /** Создать session admission перед первым броском инициативы. */
   ensureSession?: (participantKeys?: CombatEntityKey[]) => Promise<void>;
   /** Загрузить full projections выбранных новых участников одним batch-запросом. */
@@ -212,6 +215,48 @@ const addOptions = computed(() => {
     }));
 });
 
+async function phpAddCandidates(): Promise<GameParticipantCandidate[]> {
+  const characters = props.characters
+    .filter((membership) => membership.membershipStatus !== 'left')
+    .map((membership) => ({
+      entityKey: `character:${membership.characterId}` as CombatEntityKey,
+      kind: 'character' as const,
+      id: membership.characterId,
+      name: membership.characterName,
+      status: 'active' as const,
+      availability: 'admissible' as const,
+    }));
+  let npcs = props.npcs
+    .filter((npc) => npc.status === 'active' && npc.id > 0)
+    .map((npc) => ({
+      entityKey: `npc:${npc.id}` as CombatEntityKey,
+      kind: 'npc' as const,
+      id: npc.id,
+      name: npc.name,
+      status: 'active' as const,
+      availability: 'admissible' as const,
+    }));
+  try {
+    const summaries = await getGameApi().getNpcSummaries({ gameId: props.gameId, limit: 200 });
+    if (summaries.items.length > 0) {
+      npcs = summaries.items
+        .filter((npc) => npc.id > 0)
+        .map((npc) => ({
+          entityKey: `npc:${npc.id}` as CombatEntityKey,
+          kind: 'npc' as const,
+          id: npc.id,
+          name: npc.name,
+          status: 'active' as const,
+          availability: 'admissible' as const,
+        }));
+    }
+  } catch {
+    // props.npcs
+  }
+
+  return [...characters, ...npcs];
+}
+
 async function loadAddCandidates(query = '', append = false): Promise<void> {
   const sequence = ++addSearchSequence;
   addCandidateLoading.value = true;
@@ -219,36 +264,7 @@ async function loadAddCandidates(query = '', append = false): Promise<void> {
   try {
     const result = gamePhpMode.isEnabled()
       ? {
-          items: [
-            ...props.characters
-              .filter((membership) => membership.membershipStatus !== 'left')
-              .filter(
-                (membership) =>
-                  query.trim() === '' ||
-                  membership.characterName.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
-              )
-              .map((membership) => ({
-                entityKey: `character:${membership.characterId}` as CombatEntityKey,
-                kind: 'character' as const,
-                id: membership.characterId,
-                name: membership.characterName,
-                status: 'active' as const,
-                availability: 'admissible' as const,
-              })),
-            ...props.npcs
-              .filter((npc) => npc.status === 'active')
-              .filter(
-                (npc) => query.trim() === '' || npc.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
-              )
-              .map((npc) => ({
-                entityKey: `npc:${npc.id}` as CombatEntityKey,
-                kind: 'npc' as const,
-                id: npc.id,
-                name: npc.name,
-                status: 'active' as const,
-                availability: 'admissible' as const,
-              })),
-          ],
+          items: await phpAddCandidates(),
           nextCursor: null as string | null,
         }
       : await getGameApi().getParticipantCandidates({
@@ -300,9 +316,7 @@ async function load(): Promise<void> {
   try {
     const [nextInitiative, nextProcesses, nextPendingEffects, nextCommitted] = await Promise.all([
       gamePhpMode.isEnabled()
-        ? Promise.resolve(
-            props.sessionRunning ? (gamePhpBattleContext.getScale() ?? initiative.value) : null,
-          )
+        ? Promise.resolve(props.sessionRunning ? (gamePhpBattleContext.getScale() ?? initiative.value) : null)
         : getGameApi()
             .getInitiative(props.gameId)
             .catch(() => null),
@@ -1040,6 +1054,23 @@ async function clearAccumulatedDamage(entityKey: string): Promise<void> {
 function endScale(): void {
   const data = initiative.value;
   if (!data) return;
+  if (gamePhpMode.isEnabled()) {
+    const battleId = gamePhpBattleContext.battleId;
+    combatThread.closeBattle();
+    if (battleId === null) return;
+    void getGameApi().endGameBattle({
+      commandId: createRandomId(),
+      gameId: props.gameId,
+      commandType: 'endBattle',
+      sessionId: '0',
+      battleId: String(battleId),
+      payload: {},
+      expectedSessionStateVersion: 1,
+      expectedBattleStateVersion: gamePhpBattleContext.battleVersion,
+    });
+
+    return;
+  }
   combatThread.clearLive();
   void save({ ...data, active: false });
 }
@@ -1064,12 +1095,14 @@ async function addToBattle(): Promise<void> {
   addProjectionLoading.value = true;
   error.value = null;
   try {
-    await props.ensureRuntimeProjections?.(options.map((option) => option.id));
-    const unresolved = options.filter(
-      (option) => runtimeProjectionOf(option.id as CombatEntityKey)?.projectionLevel !== 'full',
-    );
-    if (unresolved.length > 0) {
-      throw new Error(`Не удалось загрузить листы: ${unresolved.map((option) => option.name).join(', ')}`);
+    if (!gamePhpMode.isEnabled()) {
+      await props.ensureRuntimeProjections?.(options.map((option) => option.id));
+      const unresolved = options.filter(
+        (option) => runtimeProjectionOf(option.id as CombatEntityKey)?.projectionLevel !== 'full',
+      );
+      if (unresolved.length > 0) {
+        throw new Error(`Не удалось загрузить листы: ${unresolved.map((option) => option.name).join(', ')}`);
+      }
     }
 
     const saved = await save({
@@ -1129,6 +1162,13 @@ watch(
 watch(
   () => props.overlayRevision,
   () => void loadOverlays(),
+);
+
+watch(
+  () => props.battleRevision,
+  () => {
+    if (props.battleRevision) void load();
+  },
 );
 
 watch(

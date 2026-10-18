@@ -220,4 +220,26 @@ describe('GameMembershipEligibilityService', () => {
       }),
     ).toBe(false);
   });
+
+  it('isPhpSessionCandidate берёт снимок сессии с PHP, не весь roster', () => {
+    expect(
+      gameMembershipEligibilityService.isPhpSessionCandidate(
+        { canStartSession: true, isActiveSessionParticipant: false },
+        false,
+      ),
+    ).toBe(true);
+    expect(
+      gameMembershipEligibilityService.isPhpSessionCandidate(
+        { canStartSession: true, isActiveSessionParticipant: false },
+        true,
+      ),
+    ).toBe(false);
+    expect(
+      gameMembershipEligibilityService.isPhpSessionCandidate(
+        { canStartSession: false, isActiveSessionParticipant: true },
+        true,
+      ),
+    ).toBe(true);
+    expect(gameMembershipEligibilityService.isPhpSessionCandidate({}, false)).toBeNull();
+  });
 });

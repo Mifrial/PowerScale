@@ -17,7 +17,12 @@ export class GameInitiativeLaunchService {
     sessionRunning: boolean,
     rolls: GameInitiativeRoll[],
     names: Map<string, string>,
-  ): Promise<{ scale: GameInitiative; orderMessage: string; firstName: string | null }> {
+  ): Promise<{
+    scale: GameInitiative;
+    orderMessage: string;
+    firstName: string | null;
+    checks: GameInitiativeOrderEntry[];
+  }> {
     if (rolls.length === 0) {
       throw new Error('Выберите хотя бы одного участника');
     }
@@ -80,6 +85,7 @@ export class GameInitiativeLaunchService {
       scale,
       orderMessage: this.orderMessage(order, ordered),
       firstName: ordered[0]?.name ?? null,
+      checks: order.filter((entry) => Array.isArray(entry.faces)),
     };
   }
 

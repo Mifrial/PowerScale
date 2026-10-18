@@ -96,7 +96,7 @@ export class RuleSpaceApi implements IRuleSpaceApi {
       throw new ActionFailure(
         error?.code ?? 'RULESPACE_INVALID',
         error?.message ?? 'Не удалось опубликовать черновик',
-        this.conflictDetails(error),
+        error?.details ?? this.conflictDetails(error),
       );
     }
 

@@ -197,6 +197,26 @@ describe('membershipDiff: секции списков', () => {
     expect(detail.bonuses).toEqual([{ name: 'Источник', delta: -2 }]);
   });
 
+  it('авто-ресурс: текущее / живой лимит, не current как лимит', () => {
+    const apRule = {
+      id: 18,
+      code: 'action-points',
+      type: 'resource' as const,
+      name: 'Очки Действий',
+      description: '',
+      spaceId: 1,
+      keywordIds: [] as number[],
+      mechanics: [] as never[],
+      createdAt: 0,
+      spec: { is_dimensional: false, auto_add: true, limit: { base: 6, adjustments: [] } },
+    };
+    const active = makeVersion({ resources: [resource('action-points', 3, 3)] });
+    const pending = makeVersion({ resources: [resource('action-points', 1, 1)] });
+    const diff = membershipDiff(active, pending, (code) => code, [apRule]);
+    const changes = sectionChanges(diff, 'resources');
+    expect(changes[0]).toMatchObject({ kind: 'changed', before: '3 / 6', after: '1 / 6' });
+  });
+
   it('состояние добавлено, чувство изменено', () => {
     const active = makeVersion({ senses: [sense('rule-vision', 2)] });
     const pending = makeVersion({ states: [state('rule-bleed', 2)], senses: [sense('rule-vision', 3)] });

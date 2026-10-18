@@ -128,7 +128,16 @@ watch([gameId, npcId], load, { immediate: true });
         <h1 class="text-h5">{{ npc.name }}</h1>
         <v-chip v-if="npc.status === 'proposed'" color="warning" variant="tonal" size="small">На модерации</v-chip>
         <v-spacer />
-        <v-btn v-if="canEdit" variant="tonal" size="small" prepend-icon="mdi-pencil">Редактировать</v-btn>
+        <v-btn
+          v-if="canEdit"
+          variant="tonal"
+          color="primary"
+          size="small"
+          prepend-icon="mdi-pencil"
+          :to="`/games/${npc.gameId}/npcs/${npc.id}/edit`"
+        >
+          Редактировать
+        </v-btn>
         <v-btn v-if="canEdit && npc.status === 'proposed'" variant="tonal" size="small">Модерация</v-btn>
         <v-btn v-if="canEdit && showsFullSheet" variant="tonal" size="small">Боевая карточка</v-btn>
       </div>

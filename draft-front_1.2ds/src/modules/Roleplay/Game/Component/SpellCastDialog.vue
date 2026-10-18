@@ -314,7 +314,7 @@ const spellTargeting = computed(() => {
 const needsSpellTarget = computed(() => spellTargeting.value === 'entity');
 const targetsSelf = computed(() => spellTargeting.value === 'self');
 const touchActions = computed(() =>
-  listAttackActions(props.rules, overview.value, 'strike').map((action) => ({
+  listAttackActions(props.rules, overview.value, 'strike', keywords.value).map((action) => ({
     value: action.code,
     title: `${action.name} (${action.odCost} ОД)`,
   })),
@@ -903,7 +903,7 @@ async function offerTouchHit(
   trainingDifficultyDelta: number,
   pendingSignature: string | null,
 ): Promise<CheckOffer> {
-  const action = listAttackActions(props.rules, overview.value, 'strike').find(
+  const action = listAttackActions(props.rules, overview.value, 'strike', keywords.value).find(
     (item) => item.code === touchActionCode.value,
   );
 

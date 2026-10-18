@@ -11,6 +11,7 @@ import {
 } from '@/modules/Roleplay/Character/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
@@ -49,9 +50,7 @@ async function load(): Promise<void> {
   loading.value = true;
   gameStore.clearCurrent();
   const gameDetail = await gameStore.fetchGame(gid, signal.value);
-  const user = currentUser.value;
-  const isMember = gameDetail?.members.some((member) => member.userId === user?.id) ?? false;
-  if (!gameDetail || !isMember) {
+  if (!gameDetail || !gameAccessService.isGameParticipant(currentUser.value, gameDetail)) {
     router.replace({ name: 'NotFound' });
 
     return;

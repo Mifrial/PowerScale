@@ -171,7 +171,7 @@ onUnmounted(() => {
   if (searchTimer) clearTimeout(searchTimer);
 });
 
-/** По умолчанию выбираются только найденные eligible-персонажи; НПС добавляются вручную. */
+/** По умолчанию только допущенные персонажи. НПС ищутся в автокомплите и не отмечаются сами. */
 function defaultSelectedIds(): string[] {
   return candidateSummaries.value
     .filter((candidate) => candidate.kind === 'character')
@@ -207,11 +207,9 @@ function candidateOf(id: string): CandidateOption | null {
   return candidates.value.find((candidate) => candidate.participant.id === id) ?? null;
 }
 
-function rosterCandidates(query: string): GameParticipantCandidate[] {
-  const needle = query.trim().toLocaleLowerCase();
-  const characters = props.characters
+function characterRosterCandidates(): GameParticipantCandidate[] {
+  return props.characters
     .filter((membership) => membership.membershipStatus !== 'left')
-    .filter((membership) => needle === '' || membership.characterName.toLocaleLowerCase().includes(needle))
     .map((membership) => ({
       entityKey: `character:${membership.characterId}` as CombatEntityKey,
       kind: 'character' as const,
@@ -220,9 +218,11 @@ function rosterCandidates(query: string): GameParticipantCandidate[] {
       status: 'active' as const,
       availability: 'admissible' as const,
     }));
-  const npcs = props.npcs
-    .filter((npc) => npc.status === 'active')
-    .filter((npc) => needle === '' || npc.name.toLocaleLowerCase().includes(needle))
+}
+
+function npcRosterCandidatesFrom(rows: { id: number; name: string; status?: string }[]): GameParticipantCandidate[] {
+  return rows
+    .filter((npc) => npc.status !== 'proposed' && Number.isFinite(npc.id) && npc.id > 0)
     .map((npc) => ({
       entityKey: `npc:${npc.id}` as CombatEntityKey,
       kind: 'npc' as const,
@@ -231,6 +231,28 @@ function rosterCandidates(query: string): GameParticipantCandidate[] {
       status: 'active' as const,
       availability: 'admissible' as const,
     }));
+}
+
+async function phpRosterCandidates(query: string): Promise<GameParticipantCandidate[]> {
+  const needle = query.trim().toLocaleLowerCase();
+  const characters = characterRosterCandidates().filter(
+    (candidate) => needle === '' || candidate.name.toLocaleLowerCase().includes(needle),
+  );
+  let npcs = npcRosterCandidatesFrom(props.npcs).filter(
+    (candidate) => needle === '' || candidate.name.toLocaleLowerCase().includes(needle),
+  );
+  if (needle !== '') {
+    try {
+      const summaries = await getGameApi().getNpcSummaries({
+        gameId: props.gameId,
+        query: query.trim(),
+        limit: 50,
+      });
+      npcs = npcRosterCandidatesFrom(summaries.items);
+    } catch {
+      // props.npcs already filtered
+    }
+  }
 
   return [...characters, ...npcs];
 }
@@ -243,7 +265,7 @@ async function loadCandidates(query: string, append = false): Promise<void> {
   try {
     const result = gamePhpMode.isEnabled()
       ? {
-          items: rosterCandidates(query),
+          items: await phpRosterCandidates(query),
           nextCursor: null as string | null,
         }
       : await getGameApi().getParticipantCandidates({
@@ -556,18 +578,6 @@ async function rollOnServer(): Promise<void> {
     serverRolls(),
     names,
   );
-  if (props.chatId !== null) {
-    const round = combatThread.beginRound();
-    await chatStore.postSystemMessage(`Новый раунд: 1`, props.chatId, 'highlighted', round);
-    combatThread.beginInitiative();
-    await sendChat(launched.orderMessage, [], props.chatId, { kind: 'gm' });
-    combatThread.endInitiative();
-    if (launched.firstName) {
-      const turn = combatThread.beginTurn();
-      await chatStore.postSystemMessage(`Ходит ${launched.firstName}`, props.chatId, 'default', turn);
-    }
-  }
-
   emit('saved', [...runtimeProjections.values()], launched.scale);
   emit('update:open', false);
 }

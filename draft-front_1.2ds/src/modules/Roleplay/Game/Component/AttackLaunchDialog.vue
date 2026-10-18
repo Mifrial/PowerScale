@@ -44,6 +44,7 @@ import { AttackProfileOption } from '@/modules/Roleplay/Character/init';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
+import { getGameApi } from '@/modules/Roleplay/Game/init';
 
 const props = defineProps<{
   open: boolean;
@@ -125,7 +126,7 @@ const activeProcess = computed(() =>
 );
 const activeCommitted = computed(() => (actorKey.value ? (committedSessions.value[actorKey.value] ?? null) : null));
 const sources = computed(() => {
-  const available = attackActionSourceService.list(props.rules, actorOverview.value);
+  const available = attackActionSourceService.list(props.rules, actorOverview.value, keywords.value);
   const session = activeProcess.value;
   const processRule = session ? findRuleByRef(props.rules, session.processRuleCode) : null;
   const spec = processRule ? asProcessAbilitySpec(processRule) : null;
@@ -213,6 +214,7 @@ const compatibleProfiles = computed(() =>
     selectedSourceRule.value,
     actorOverview.value?.attacks ?? [],
     props.rules,
+    keywords.value,
   ),
 );
 const pendingEffects = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
@@ -533,6 +535,15 @@ function removeSameWeaponSlot(index: number): void {
   slots.value = slots.value.filter((_, slotIndex) => slotIndex !== index);
 }
 
+function wideTargetExclude(index: number): string[] {
+  if (!isWideAttack.value) return followUpExclude.value;
+  const taken = slots.value.flatMap((slot, slotIndex) =>
+    slotIndex !== index && slot.targetKey ? [slot.targetKey] : [],
+  );
+
+  return [...followUpExclude.value, ...taken];
+}
+
 function addTarget(): void {
   if (!isWideAttack.value || slots.value.length >= attackActionSourceService.maxTargets(selectedSourceRule.value))
     return;
@@ -751,6 +762,9 @@ watch(
     if (open) void hydrate();
   },
 );
+watch(sources, (items) => {
+  if (!sourceRuleCode.value && items[0]) sourceRuleCode.value = items[0].code;
+});
 watch(selectedSource, (source) => {
   processStepCode.value = source?.process?.start_step_code ?? source?.process?.steps[0]?.code ?? null;
   selectedOptionalChildCodes.value = [];
@@ -941,7 +955,7 @@ watch(followUpTargetKeys, (allowed) => {
               :characters="characters"
               :npcs="npcs"
               :initiative-keys="initiativeKeys"
-              :exclude="followUpExclude"
+              :exclude="wideTargetExclude(index)"
               :disabled="
                 busy || Boolean(comboLockedTarget) || (followUpTargetKeys !== null && followUpTargetKeys.length <= 1)
               "

@@ -59,6 +59,8 @@ import type { GamePhpWideStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePh
 import type { GamePhpStrikeResult } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeResult';
 import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
 import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
+import type { GameManualSheetRequest } from '@/modules/Roleplay/Game/Dto/GameManualSheetRequest';
+import type { GameManualSheetResult } from '@/modules/Roleplay/Game/Dto/GameManualSheetResult';
 import type { GameInitiativeRollRequest } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollRequest';
 import type { GameInitiativeRollResult } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollResult';
 
@@ -156,6 +158,7 @@ export interface IGameApi {
   createNpc(gameId: number, data: CreateNpcData, signal?: AbortSignal): Promise<GameNpc>;
   proposeNpc(gameId: number, data: CreateNpcData, signal?: AbortSignal): Promise<GameNpc>;
   updateNpc(npcId: number, data: UpdateNpcData, signal?: AbortSignal): Promise<GameNpc>;
+  translateNpc(npcId: number, data: UpdateNpcData, signal?: AbortSignal): Promise<GameNpc>;
   moderateNpc(npcId: number, action: GameModerationAction, signal?: AbortSignal): Promise<GameNpc>;
   deleteNpc(npcId: number, signal?: AbortSignal): Promise<void>;
   getLoot(gameId: number, signal?: AbortSignal): Promise<GameLoot[]>;
@@ -355,6 +358,7 @@ export interface IGameApi {
     },
     signal?: AbortSignal,
   ): Promise<GamePhpStrikeResult>;
+  manualSheet(body: GameManualSheetRequest, signal?: AbortSignal): Promise<GameManualSheetResult>;
   woundAction(
     body: {
       gameId: number;

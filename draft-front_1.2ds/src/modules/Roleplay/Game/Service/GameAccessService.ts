@@ -66,4 +66,15 @@ export class GameAccessService {
 
     return member.role === 'owner';
   }
+
+  /**
+   * Участник игры для подачи персонажа / предложений НПС: владелец карточки
+   * (PHP не кладёт owner в `game_members`) или строка в списке участников.
+   */
+  isGameParticipant(user: User | null | undefined, detail: GameDetail | null | undefined): boolean {
+    if (!user || !detail?.game) return false;
+    if (detail.game.ownerId === user.id) return true;
+
+    return this.memberOf(user, detail.members) !== null;
+  }
 }

@@ -9,6 +9,7 @@ import type { StateDecay } from '@/modules/Roleplay/Rule/Dto/State/StateDecay';
 import type { CombatStateDetailRow } from '@/modules/Roleplay/Game/Dto/CombatStateDetailRow';
 import type { CombatStateLinkedAction } from '@/modules/Roleplay/Game/Dto/CombatStateLinkedAction';
 import type { CombatStateEditKind } from '@/modules/Roleplay/Game/Enum/CombatStateEditKind';
+import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 
 const props = withDefaults(
   defineProps<{
@@ -27,6 +28,8 @@ const props = withDefaults(
     poisonItems?: { title: string; value: string }[];
     damageTypeItems?: { title: string; value: string }[];
     poisonTemplate?: (poisonRuleCode: string | null) => CharacterPoisonValue;
+    allowPoisonApply?: boolean;
+    maim?: CharacterStateValue['maim'] | null;
     woundInternal?: boolean;
     woundHeld?: boolean;
     isMaster?: boolean;
@@ -44,6 +47,8 @@ const props = withDefaults(
     actionLabel: null,
     poisonItems: () => [],
     damageTypeItems: () => [],
+    allowPoisonApply: true,
+    maim: null,
     woundInternal: false,
     woundHeld: false,
     isMaster: false,
@@ -56,6 +61,7 @@ const emit = defineEmits<{
   applyDimensional: [next: DimensionalNumberValue];
   applyPoison: [next: CharacterPoisonValue];
   applyWound: [next: { value: number; internal: boolean }];
+  applyMaim: [next: { value: number; maim: NonNullable<CharacterStateValue['maim']> }];
   applyInternal: [internal: boolean];
   releaseHold: [];
   remove: [];
@@ -72,6 +78,9 @@ const draftStrength = ref<DimensionalNumberValue>({ base: 1, size: 0 });
 const draftPeriodicity = ref<StatePeriodicity | undefined>();
 const draftDecay = ref<StateDecay | undefined>();
 const draftInternal = ref(false);
+const draftMaimPermanent = ref(false);
+const draftHealTotal = ref(1);
+const draftHealUnit = ref<'days' | 'decades' | 'months' | 'years'>('months');
 
 watch(menuOpen, (open) => {
   if (!open) return;
@@ -83,6 +92,9 @@ watch(menuOpen, (open) => {
   draftPeriodicity.value = props.poison?.periodicity;
   draftDecay.value = props.poison?.decay;
   draftInternal.value = props.woundInternal;
+  draftMaimPermanent.value = props.maim?.permanent === true;
+  draftHealTotal.value = props.maim?.healTotal ?? 1;
+  draftHealUnit.value = props.maim?.healUnit ?? 'months';
 });
 
 function submitNumeric(): void {
@@ -127,6 +139,22 @@ function submitWound(): void {
   menuOpen.value = false;
 }
 
+function submitMaim(): void {
+  emit('applyMaim', {
+    value: draft.value,
+    maim: draftMaimPermanent.value
+      ? { permanent: true, lethal: props.maim?.lethal, disfiguring: props.maim?.disfiguring }
+      : {
+          permanent: false,
+          healTotal: draftHealTotal.value,
+          healUnit: draftHealUnit.value,
+          lethal: props.maim?.lethal,
+          disfiguring: props.maim?.disfiguring,
+        },
+  });
+  menuOpen.value = false;
+}
+
 function onInternal(next: unknown): void {
   const internal = next === true;
   draftInternal.value = internal;
@@ -155,7 +183,7 @@ function submitRemove(): void {
 </script>
 
 <template>
-  <v-menu v-model="menuOpen" location="right top" :close-on-content-click="false" :z-index="2200">
+  <v-menu v-model="menuOpen" location="right top" attach="body" :close-on-content-click="false" :z-index="4000">
     <template #activator="{ props: menuProps }">
       <div v-bind="menuProps" class="combat-card-state" role="button" tabindex="0">
         <v-icon v-if="iconCode" :icon="iconCode" size="16" class="flex-shrink-0" />
@@ -166,7 +194,9 @@ function submitRemove(): void {
     <v-card class="rounded border" elevation="8" style="width: max-content; min-width: 280px; max-width: 420px">
       <v-card-title class="text-body-1">{{ name }}</v-card-title>
       <v-card-text class="pt-0">
-        <template v-if="!(canEdit && (editKind === 'dimensional' || editKind === 'poison' || editKind === 'wound'))">
+        <template
+          v-if="!(canEdit && (editKind === 'dimensional' || editKind === 'poison' || editKind === 'wound' || editKind === 'maim'))"
+        >
           <div class="d-flex align-center justify-space-between py-1 text-body-2">
             <span class="text-medium-emphasis">Сила</span>
             <span class="font-weight-medium">{{ valueLabel }}</span>
@@ -189,7 +219,15 @@ function submitRemove(): void {
             density="compact"
             hide-details
           />
-          <v-btn class="mt-3" color="primary" variant="tonal" size="small" block @click="submitNumeric">
+          <v-btn
+            class="mt-3"
+            color="primary"
+            variant="tonal"
+            size="small"
+            block
+            type="button"
+            @click.stop="submitNumeric"
+          >
             Изменить
           </v-btn>
         </template>
@@ -242,9 +280,51 @@ function submitRemove(): void {
             hide-details
           />
           <DimensionalNumberInput v-model="draftStrength" class="mt-3" label="Сила" />
-          <v-btn class="mt-3" color="primary" variant="tonal" size="small" block @click="submitPoison">
+          <v-btn
+            v-if="allowPoisonApply"
+            class="mt-3"
+            color="primary"
+            variant="tonal"
+            size="small"
+            block
+            @click="submitPoison"
+          >
             Изменить
           </v-btn>
+        </template>
+        <template v-else-if="canEdit && editKind === 'maim'">
+          <ClampedNumberField v-model="draft" class="mt-3" label="Сила" :min="1" density="compact" hide-details />
+          <v-checkbox
+            v-model="draftMaimPermanent"
+            class="mt-2"
+            label="Постоянное"
+            density="compact"
+            hide-details
+          />
+          <template v-if="!draftMaimPermanent">
+            <ClampedNumberField
+              v-model="draftHealTotal"
+              class="mt-2"
+              label="Срок"
+              :min="1"
+              density="compact"
+              hide-details
+            />
+            <v-select
+              v-model="draftHealUnit"
+              class="mt-2"
+              :items="[
+                { title: 'дни', value: 'days' },
+                { title: 'декады', value: 'decades' },
+                { title: 'месяцы', value: 'months' },
+                { title: 'годы', value: 'years' },
+              ]"
+              label="Единица"
+              density="compact"
+              hide-details
+            />
+          </template>
+          <v-btn class="mt-3" color="primary" variant="tonal" size="small" block @click="submitMaim">Изменить</v-btn>
         </template>
         <v-btn
           v-for="linked in linkedActions"

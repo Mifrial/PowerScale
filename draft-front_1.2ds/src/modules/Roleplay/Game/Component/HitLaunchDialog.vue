@@ -147,6 +147,8 @@ const props = defineProps<{
   resumeOffer: CheckOffer | null;
   processContext?: ProcessActionContext | null;
   attackAction?: AttackAction | null;
+  resumePhpStrike?: boolean;
+  phpDefenderKey?: CombatEntityKey | null;
   spatialResolver?: ISpatialResolver | null;
   initiativeKeys?: string[];
   runtimeProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
@@ -190,6 +192,13 @@ const coveringBlockItemRuleCode = ref<string | null>(null);
 const phpDeclared = ref(false);
 const phpDebt = ref(false);
 const phpWideTargets = ref<CombatEntityKey[]>([]);
+const phpWideChoices = ref<
+  Array<{
+    reaction: HitDefenseReaction;
+    blockItemInventoryId?: number;
+    blockItemProfileIndex?: number;
+  }>
+>([]);
 const coveringAdv = ref(0);
 const agreedCoveringAdv = ref(0);
 const coverChoicePending = ref<CoverChoicePending | null>(null);
@@ -245,7 +254,10 @@ const entityOptions = computed(() => {
 
 const opponentOptions = computed(() => entityOptions.value.filter((item) => item.value !== resolvedAttackerKey.value));
 
-const isCompose = computed(() => offer.value === null);
+const isPhpDefenseStep = computed(
+  () => gamePhpMode.isEnabled() && phpDeclared.value && !phpDebt.value,
+);
+const isCompose = computed(() => offer.value === null && !isPhpDefenseStep.value);
 const resolvedAttackAction = computed(() => offer.value?.proposal.attackAction ?? props.attackAction ?? null);
 const resolvedActionRuleCode = computed(() => {
   const source = resolvedAttackAction.value?.source;
@@ -316,7 +328,11 @@ const myTurn = computed(() => {
   return actor !== null && current.waitingOn === actor;
 });
 
-const isDefenderStep = computed(() => offer.value !== null && offer.value.waitingOn === 'opponent' && myTurn.value);
+const isDefenderStep = computed(() => {
+  if (isPhpDefenseStep.value) return true;
+
+  return offer.value !== null && offer.value.waitingOn === 'opponent' && myTurn.value;
+});
 const isCoveringStep = computed(() => offer.value !== null && offer.value.waitingOn === 'covering' && myTurn.value);
 
 const isWaiting = computed(() => offer.value !== null && offer.value.status === 'pending' && !myTurn.value);
@@ -533,7 +549,12 @@ const resolvedAttack = computed(() => {
 });
 
 const attackOptions = computed(() =>
-  listAttackActions(props.rules, overviewOf(resolvedAttackerKey.value), currentAttack.value?.profileType ?? 'strike'),
+  listAttackActions(
+    props.rules,
+    overviewOf(resolvedAttackerKey.value),
+    currentAttack.value?.profileType ?? 'strike',
+    keywords.value,
+  ),
 );
 
 const fixedActionRuleCode = computed(() =>
@@ -541,7 +562,7 @@ const fixedActionRuleCode = computed(() =>
 );
 const selectedAction = computed(
   () =>
-    attackActionById(props.rules, resolvedActionRuleCode.value ?? fixedActionRuleCode.value) ??
+    attackActionById(props.rules, resolvedActionRuleCode.value ?? fixedActionRuleCode.value, keywords.value) ??
     attackOptions.value[0] ??
     null,
 );
@@ -698,11 +719,10 @@ const resolvedSelectedAction = computed(() => {
 });
 
 function remainingAp(key: CombatEntityKey | null): number {
-  const overview = overviewOf(key);
-  if (!overview) return 0;
-  const resource = attackDamageService.actionPointsResource(overview, props.rules);
+  const version = versionOf(key);
+  if (!version) return 0;
 
-  return resource ? Math.max(0, resource.current.base) : 0;
+  return combatCardModelService.combatActionPoints(version, props.rules)?.current ?? 0;
 }
 
 const attackerAp = computed(() => remainingAp(resolvedAttackerKey.value));
@@ -791,6 +811,12 @@ async function abortCommittedOnDefense(
 }
 
 watch(attackOptions, (options) => {
+  const locked = fixedActionRuleCode.value;
+  if (locked) {
+    selectedActionRuleCode.value = locked;
+
+    return;
+  }
   if (
     selectedActionRuleCode.value &&
     options.some((item) => item.code === selectedActionRuleCode.value || item.ruleCode === selectedActionRuleCode.value)
@@ -834,7 +860,7 @@ function processContinueToken(key: CombatEntityKey): string {
 
 function applyReactionDefaults(next: HitDefenseReaction | null): void {
   if (next === 'dodge') {
-    defenseEfficiency.value = { ...procedure.value.dodgeEfficiency };
+    defenseEfficiency.value = { ...hitRollService.dodgeEfficiency(props.rules) };
     blockItemRuleCode.value = null;
   }
   if (next === 'block') {
@@ -892,7 +918,8 @@ async function hydrate(): Promise<void> {
     pendingEffectsByEntity.value = outcome.values.pending;
     committedSessions.value = outcome.values.committed;
     if (keywords.value.length === 0) {
-      void fetchTags();
+      await fetchTags();
+      if (generation !== loadGeneration) return;
     }
     if (props.resumeOffer) {
       offer.value = props.resumeOffer;
@@ -937,7 +964,11 @@ async function hydrate(): Promise<void> {
       }
     } else {
       offer.value = null;
-      opponentKey.value = resolvedAttackAction.value?.strikes[0]?.targetKey ?? opponentOptions.value[0]?.value ?? null;
+      opponentKey.value =
+        props.phpDefenderKey ??
+        resolvedAttackAction.value?.strikes[0]?.targetKey ??
+        opponentOptions.value[0]?.value ??
+        null;
       reaction.value = null;
       attackerAdv.value = 0;
       spendAttackerConcentration.value = 0;
@@ -953,7 +984,11 @@ async function hydrate(): Promise<void> {
       turn.value = false;
       coveringAdv.value = 0;
       agreedCoveringAdv.value = 0;
-      defenseEfficiency.value = { ...procedure.value.dodgeEfficiency };
+      defenseEfficiency.value = { ...hitRollService.dodgeEfficiency(props.rules) };
+      if (fixedActionRuleCode.value) selectedActionRuleCode.value = fixedActionRuleCode.value;
+      if (props.resumePhpStrike && gamePhpBattleContext.openStrike?.actionRuleCode) {
+        selectedActionRuleCode.value = gamePhpBattleContext.openStrike.actionRuleCode;
+      }
     }
     const attacker = resolvedAttackerKey.value;
     loadPhase.value = !attacker || !versionOf(attacker) ? 'incomplete' : 'ready';
@@ -970,6 +1005,8 @@ async function hydrate(): Promise<void> {
 watch(
   () => props.open,
   async (open) => {
+    phpDeclared.value = open && props.resumePhpStrike === true;
+    phpDebt.value = false;
     if (open) await hydrate();
   },
 );
@@ -1527,7 +1564,7 @@ async function acceptAndRoll(): Promise<void> {
         keywords.value,
       ) ?? attack)
     : attack;
-  const rawAction = attackActionById(props.rules, actionRuleCode);
+  const rawAction = attackActionById(props.rules, actionRuleCode, keywords.value);
   const pendingResolution = actionEffectService.resolveForNextAction(attackerPendingEffects.value, {
     isAttack: true,
     component: hit.profileType,
@@ -2824,7 +2861,7 @@ async function applyClickAttack(
     durabilityShave,
   });
   const action = resolvedSelectedAction.value ??
-    attackActionById(props.rules, hit.actionRuleCode) ?? {
+    attackActionById(props.rules, hit.actionRuleCode, keywords.value) ?? {
       ruleCode: hit.actionRuleCode ?? '',
       code: '',
       name: hit.actionName ?? 'Простая атака',
@@ -3004,9 +3041,11 @@ function phpWeaponFields() {
   if (!attack || !attacker) throw new Error('Нет атаки');
   if (attack.inventoryItemId == null) throw new Error('Нет экземпляра оружия');
 
+  const actionRuleCode = resolvedActionRuleCode.value ?? selectedActionRuleCode.value ?? '';
+
   return {
     attacker: gamePhpCommandService.participantOf(attacker),
-    actionRuleCode: selectedActionRuleCode.value ?? '',
+    actionRuleCode,
     itemInventoryId: attack.inventoryItemId,
     itemRuleCode: attack.itemRuleCode,
     profileType: attack.profileType,
@@ -3092,17 +3131,49 @@ async function phpWideDefense() {
   if (!chosen) throw new Error('Выберите реакцию');
   const keys = phpWideTargets.value.length ? phpWideTargets.value : phpTargetKeys();
   if (keys.length < 2) throw new Error('Для широкого удара нужны хотя бы две цели');
+  if (phpWideChoices.value.length !== keys.length) throw new Error('Не все защитники выбрали реакцию');
 
   return {
     ...phpBattleEnvelope(),
     defense: {
-      defenses: keys.map((key) => ({
-        reaction: chosen,
-        expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
-        ...(chosen === 'block' ? phpBlockFor(key) : {}),
-      })),
+      defenses: keys.map((key, index) => {
+        const choice = phpWideChoices.value[index];
+        if (!choice) throw new Error('Не все защитники выбрали реакцию');
+
+        return {
+          reaction: choice.reaction,
+          expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
+          ...(choice.reaction === 'block'
+            ? {
+                blockItemInventoryId: choice.blockItemInventoryId,
+                blockItemProfileIndex: choice.blockItemProfileIndex,
+              }
+            : {}),
+        };
+      }),
     },
   };
+}
+
+function rememberPhpWideChoice(): boolean {
+  const keys = phpWideTargets.value;
+  const current = opponentKey.value;
+  const index = current ? keys.indexOf(current) : -1;
+  const chosen = reaction.value;
+  if (index < 0 || !chosen) throw new Error('Выберите реакцию');
+  const next = [...phpWideChoices.value];
+  next[index] = {
+    reaction: chosen,
+    ...(chosen === 'block' ? phpBlockFor(current) : {}),
+  };
+  phpWideChoices.value = next;
+  const following = keys[index + 1];
+  if (!following) return true;
+  opponentKey.value = following;
+  reaction.value = null;
+  blockItemRuleCode.value = null;
+
+  return false;
 }
 
 async function submitPhpStrike(): Promise<boolean> {
@@ -3113,14 +3184,19 @@ async function submitPhpStrike(): Promise<boolean> {
       : await getGameApi().declareStrike(await phpStrikeAttack());
     phpDeclared.value = true;
     phpDebt.value = declared.debt === true;
+    phpWideChoices.value = [];
+    if (wide && phpWideTargets.value[0]) opponentKey.value = phpWideTargets.value[0];
     if (phpDebt.value) return false;
 
     return false;
   }
-  if (wide) await getGameApi().resolveWideStrike(await phpWideDefense());
-  else await getGameApi().resolveStrike(await phpDefense());
+  if (wide) {
+    if (!rememberPhpWideChoice()) return false;
+    await getGameApi().resolveWideStrike(await phpWideDefense());
+  } else await getGameApi().resolveStrike(await phpDefense());
   phpDeclared.value = false;
   phpWideTargets.value = [];
+  phpWideChoices.value = [];
 
   return true;
 }
@@ -3135,6 +3211,7 @@ async function continuePhpDebt(): Promise<void> {
     phpDebt.value = false;
     phpDeclared.value = false;
     phpWideTargets.value = [];
+    phpWideChoices.value = [];
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось продолжить';
   } finally {
@@ -3152,6 +3229,7 @@ async function abortPhpDebt(): Promise<void> {
     phpDebt.value = false;
     phpDeclared.value = false;
     phpWideTargets.value = [];
+    phpWideChoices.value = [];
     close();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось отменить долг';
@@ -3242,6 +3320,7 @@ async function submitRevise(): Promise<void> {
 }
 
 const primaryLabel = computed(() => {
+  if (isPhpDefenseStep.value) return 'Принять и бросить';
   if (!offer.value) return 'На одобрение';
   if (myTurn.value && advantageDirty.value) return 'На одобрение';
   if (myTurn.value && offer.value.waitingOn === 'covering') return 'Прикрыть';
@@ -3321,6 +3400,14 @@ const canSubmit = computed(() => {
         opponentKey.value,
       )
     );
+  }
+  if (isPhpDefenseStep.value) {
+    if (reaction.value === null) return false;
+    if (reaction.value === 'block' && !canBlock.value) return false;
+    if (reaction.value === 'dodge' && !dodgeAffordable.value) return false;
+    if (reaction.value === 'block' && !blockAffordable.value) return false;
+
+    return true;
   }
   if (!myTurn.value) return false;
   if (isDefenderStep.value) {
@@ -3408,7 +3495,7 @@ const canSubmit = computed(() => {
             </template>
           </div>
           <v-alert
-            v-if="offer && myTurn && isDefenderStep"
+            v-if="isDefenderStep"
             type="info"
             variant="tonal"
             density="compact"

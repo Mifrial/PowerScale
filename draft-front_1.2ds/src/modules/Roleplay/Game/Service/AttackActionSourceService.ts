@@ -2,6 +2,7 @@ import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/Characte
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import {
   ADVANTAGE_SOURCE_CIRCUMSTANCES,
@@ -20,13 +21,14 @@ import { ATTACK_KEYWORD_IDS } from '@/modules/Roleplay/Game/Constant/Combat/ATTA
 import { pushProfileService } from '@/modules/Roleplay/Game/Service/Instance/pushProfileService';
 
 export class AttackActionSourceService {
-  list(rules: Rule[], overview: CharacterOverview | null): CombatActionOption[] {
+  list(rules: Rule[], overview: CharacterOverview | null, catalog: readonly Keyword[] = []): CombatActionOption[] {
     const ownedRuleIds = new Set(overview?.abilities.map((ability) => ability.ruleCode) ?? []);
+    const attackKeywordId = this.keywordId(catalog, 'attack', ATTACK_KEYWORD_IDS.attack);
 
     return rules.flatMap((rule) => {
       const actionSpec = asActionAbilitySpec(rule);
       const processSpec = asProcessAbilitySpec(rule);
-      const isAttack = (rule.keywordIds ?? []).includes(ATTACK_KEYWORD_IDS.attack);
+      const isAttack = (rule.keywordIds ?? []).includes(attackKeywordId);
       if (!isAttack || (!actionSpec && !processSpec)) return [];
       if (!ownedRuleIds.has(rule.code) && !this.isAutomatic(actionSpec?.zones)) return [];
 
@@ -57,11 +59,20 @@ export class AttackActionSourceService {
     return [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: 'Обстоятельства', delta }];
   }
 
-  compatibleProfiles(rule: Rule | null, attacks: AttackOverview[], rules: Rule[] = []): AttackOverview[] {
+  compatibleProfiles(
+    rule: Rule | null,
+    attacks: AttackOverview[],
+    rules: Rule[] = [],
+    catalog: readonly Keyword[] = [],
+  ): AttackOverview[] {
     if (!rule) return attacks;
     const keywords = new Set(rule.keywordIds ?? []);
-    const melee = keywords.has(ATTACK_KEYWORD_IDS.melee) || keywords.has(ATTACK_KEYWORD_IDS.processMelee);
-    const ranged = keywords.has(ATTACK_KEYWORD_IDS.ranged) || keywords.has(ATTACK_KEYWORD_IDS.processRanged);
+    const melee =
+      keywords.has(this.keywordId(catalog, 'melee', ATTACK_KEYWORD_IDS.melee)) ||
+      keywords.has(this.keywordId(catalog, 'section-melee', ATTACK_KEYWORD_IDS.processMelee));
+    const ranged =
+      keywords.has(this.keywordId(catalog, 'ranged', ATTACK_KEYWORD_IDS.ranged)) ||
+      keywords.has(this.keywordId(catalog, 'section-ranged', ATTACK_KEYWORD_IDS.processRanged));
     const byRange =
       !melee && !ranged
         ? attacks
@@ -315,5 +326,9 @@ export class AttackActionSourceService {
     return Object.values(zones ?? {}).some(
       (zone) => typeof zone === 'object' && zone !== null && 'kind' in zone && zone.kind === 'automatic',
     );
+  }
+
+  private keywordId(catalog: readonly Keyword[], code: string, fallback: number): number {
+    return catalog.find((item) => item.code === code)?.id ?? fallback;
   }
 }

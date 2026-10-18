@@ -127,6 +127,19 @@ describe('canEditGame', () => {
   });
 });
 
+describe('isGameParticipant', () => {
+  it('считает владельца участником без строки в members', () => {
+    const detail = makeDetail(makeGame({ ownerId: 10 }), []);
+    expect(gameAccessService.isGameParticipant(makeUser({ id: 10 }), detail)).toBe(true);
+    expect(gameAccessService.isGameParticipant(makeUser({ id: 11 }), detail)).toBe(false);
+  });
+
+  it('считает строку members участником', () => {
+    const detail = makeDetail(makeGame({ ownerId: 7 }), [member(10, 'gm')]);
+    expect(gameAccessService.isGameParticipant(makeUser({ id: 10 }), detail)).toBe(true);
+  });
+});
+
 describe('canModerateGame', () => {
   it('разрешает владельцу и ведущему', () => {
     const owner = makeDetail(makeGame(), [member(10, 'owner')]);

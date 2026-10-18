@@ -8,4 +8,11 @@ export interface GameInitiativeOrderEntry {
   roll: DimensionalNumberValue | null;
   success: boolean | null;
   rating: number | null;
+  faces?: number[];
+  adjustedRolls?: number[];
+  successes?: number[];
+  droppedRolls?: number[];
+  dieFaces?: number;
+  efficiency?: DimensionalNumberValue;
+  label?: string;
 }

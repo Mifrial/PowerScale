@@ -110,15 +110,7 @@ const myJoinRequest = computed(() => {
 /** Активная (на рассмотрении) заявка текущего пользователя. */
 const myPendingJoinRequest = computed(() => (myJoinRequest.value?.status === 'pending' ? myJoinRequest.value : null));
 
-const isMember = computed(() => {
-  const user = currentUser.value;
-  if (!user) return false;
-  const current = detail.value;
-  if (!current?.game) return false;
-  if (current.game.ownerId === user.id) return true;
-
-  return memberIds.value.includes(user.id);
-});
+const isMember = computed(() => gameAccessService.isGameParticipant(currentUser.value, detail.value));
 
 const canRequestJoin = computed(() => {
   const current = detail.value;
@@ -162,12 +154,7 @@ const canAddMembers = computed(() => {
 });
 
 // Участник игры (для подачи персонажа): владелец/ведущий/игрок.
-const canSubmitCharacter = computed(() => {
-  const current = currentUser.value;
-  if (!current) return false;
-
-  return memberIds.value.includes(current.id);
-});
+const canSubmitCharacter = computed(() => isMember.value);
 
 async function load(): Promise<void> {
   const id = gameId.value;

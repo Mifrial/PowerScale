@@ -20,7 +20,8 @@ export class ChatSystemAttachmentService {
     thread?: ChatThreadRef,
   ): ChatAttachment[] {
     const withoutSystem = attachments.filter((attachment) => attachment.type !== this.attachmentType);
-    const payload: { kind: ChatMessage['kind']; thread?: ChatThreadRef } = { kind };
+    const payload: { kind?: ChatMessage['kind']; thread?: ChatThreadRef } = {};
+    if (kind !== undefined) payload.kind = kind;
     if (thread !== undefined) payload.thread = thread;
 
     return [...withoutSystem, { type: this.attachmentType, payload }];
@@ -33,7 +34,7 @@ export class ChatSystemAttachmentService {
 
     return {
       ...message,
-      kind: meta.kind,
+      ...(meta.kind !== undefined ? { kind: meta.kind } : {}),
       ...(meta.thread !== undefined ? { thread: meta.thread } : {}),
     };
   }
@@ -42,13 +43,14 @@ export class ChatSystemAttachmentService {
     return { items: page.items.map((item) => this.messageOf(item)), total: page.total };
   }
 
-  private metaFromPayload(payload: unknown): { kind: ChatMessage['kind']; thread?: ChatThreadRef } | null {
+  private metaFromPayload(payload: unknown): { kind?: ChatMessage['kind']; thread?: ChatThreadRef } | null {
     if (payload === null || typeof payload !== 'object') return null;
     const record = payload as Record<string, unknown>;
-    if (record.kind !== 'default' && record.kind !== 'highlighted') return null;
+    const kind = record.kind === 'default' || record.kind === 'highlighted' ? record.kind : undefined;
     const thread = this.threadFrom(record.thread);
+    if (kind === undefined && thread === undefined) return null;
 
-    return thread === undefined ? { kind: record.kind } : { kind: record.kind, thread };
+    return { ...(kind !== undefined ? { kind } : {}), ...(thread !== undefined ? { thread } : {}) };
   }
 
   private threadFrom(value: unknown): ChatThreadRef | undefined {

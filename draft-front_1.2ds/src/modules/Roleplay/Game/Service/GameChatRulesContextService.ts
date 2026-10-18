@@ -9,6 +9,7 @@ import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import { getTokenSources } from '@/modules/Messages/Chat/init';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
+import { phpChatRollService } from '@/modules/Roleplay/Game/Service/Instance/phpChatRollService';
 import { simpleCheckRollService } from '@/modules/Roleplay/Game/Service/Instance/simpleCheckRollService';
 
 export class GameChatRulesContextService {
@@ -49,6 +50,8 @@ export class GameChatRulesContextService {
 
       return attachments.map((attachment) => {
         if (attachment.type !== ROLL_ATTACHMENT_TYPE) return attachment;
+        const phpRoll = phpChatRollService.fromPhpCheck(attachment.payload);
+        if (phpRoll) return { ...attachment, payload: phpRoll };
         const raw = attachment.payload as DiceRollSpec | DiceRollResult;
         if (rollService.isDiceRollResult(raw)) return attachment;
         if (raw.scoring === 'face_sum') return attachment;

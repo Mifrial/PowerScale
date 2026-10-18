@@ -4,8 +4,10 @@ import type { ChatFoldNode } from '@/modules/Messages/Chat/Dto/ChatFoldNode';
 import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Attack/ATTACK_CALC_ATTACHMENT_TYPE';
 import {
   COMBAT_CHAT_ATTACK,
+  COMBAT_CHAT_BATTLE,
   COMBAT_CHAT_INITIATIVE,
   COMBAT_CHAT_ROUND,
+  COMBAT_CHAT_SESSION,
   COMBAT_CHAT_TURN,
 } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
 import type { CombatChatFoldGroup } from '@/modules/Roleplay/Game/Dto/CombatChatFoldGroup';
@@ -21,8 +23,10 @@ export class CombatChatFoldService {
     if (kind === COMBAT_CHAT_ATTACK) return COMBAT_CHAT_TURN;
     if (kind === COMBAT_CHAT_INITIATIVE) return COMBAT_CHAT_ROUND;
     if (kind === COMBAT_CHAT_TURN) return COMBAT_CHAT_ROUND;
+    if (kind === COMBAT_CHAT_ROUND) return COMBAT_CHAT_BATTLE;
+    if (kind === COMBAT_CHAT_BATTLE) return COMBAT_CHAT_SESSION;
 
-    return COMBAT_CHAT_ROUND;
+    return COMBAT_CHAT_SESSION;
   }
 
   private injurySummary(text: string): string | null {
@@ -184,7 +188,7 @@ export class CombatChatFoldService {
       kind: group.kind,
       summary: this.foldSummary(group.kind, header, body),
       chrome: group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_INITIATIVE ? 'end' : 'start',
-      tone: group.kind === COMBAT_CHAT_ROUND ? 'highlighted' : 'default',
+      tone: group.kind === COMBAT_CHAT_ROUND || group.kind === COMBAT_CHAT_SESSION ? 'highlighted' : 'default',
       variant: group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_INITIATIVE ? 'block' : 'divider',
       children,
       messageIds,

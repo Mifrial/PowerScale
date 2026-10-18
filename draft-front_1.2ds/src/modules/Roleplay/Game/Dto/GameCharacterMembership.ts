@@ -19,6 +19,10 @@ export interface GameCharacterMembership {
   characterOwnerName: string;
   role: GameMemberRole;
   membershipStatus: GameMembershipStatus;
+  /** PHP: допуск в снимок сессии. Без поля — клиент считает сам. */
+  canStartSession?: boolean;
+  /** PHP: персонаж уже в снимке текущей сессии. */
+  isActiveSessionParticipant?: boolean;
   approvedCharacterVersion: CharacterVersion | null;
   reviewState: GameMembershipReviewState;
   /** Технический CAS-счётчик membership/review metadata; не является версией Character. */

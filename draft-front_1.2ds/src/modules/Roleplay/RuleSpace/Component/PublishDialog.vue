@@ -8,6 +8,7 @@ import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LAB
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { publishService } from '@/modules/Roleplay/RuleSpace/Service/Instance/publishService';
+import { abilityParameterSpecService } from '@/modules/Roleplay/Rule/init';
 import { ActionFailure } from '@/modules/Core/Engine/Service/ActionFailure';
 import type { PublishSummary } from '@/modules/Roleplay/RuleSpace/Dto/PublishSummary';
 
@@ -55,6 +56,11 @@ const publishProblems = computed(() => summary.value?.problems ?? []);
 const publishSpaceErrors = computed(() => summary.value?.spaceErrors ?? []);
 
 const hasPublishProblems = computed(() => publishProblems.value.length > 0 || publishSpaceErrors.value.length > 0);
+const hasParameterBoundProblems = computed(() =>
+  publishProblems.value.some((entry) =>
+    entry.messages.some((message) => message.includes('kind scalar') || message.includes('kind dimensional')),
+  ),
+);
 const publishCount = computed(
   () =>
     publishAdded.value.length +
@@ -104,6 +110,15 @@ async function reloadBase() {
   await prepare();
 }
 
+function coerceParameterBounds(): void {
+  const space = props.space;
+  if (!space) return;
+  const changed = abilityParameterSpecService.coerceMismatchedOnRules(revisionStore.effectiveRules);
+  if (changed.length === 0) return;
+  drafts.saveRules(space.id, changed);
+  void prepare();
+}
+
 async function publishDraft() {
   const space = props.space;
   if (!space || hasPublishProblems.value) return;
@@ -128,6 +143,9 @@ async function publishDraft() {
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
     publishConflict.value = e instanceof ActionFailure && e.code === 'RULESPACE_CONFLICT';
+    if (e instanceof ActionFailure && summary.value) {
+      summary.value = publishService.mergeServerProblems(summary.value, e.details);
+    }
     const message = e instanceof Error ? e.message : 'Ошибка публикации';
     publishError.value = message;
     emit('error', message);
@@ -208,6 +226,16 @@ async function publishDraft() {
             <div class="text-body-2 text-error mb-2">
               В черновике есть правила с ошибками. Исправьте их перед публикацией.
             </div>
+            <v-btn
+              v-if="hasParameterBoundProblems"
+              class="mb-3"
+              size="small"
+              variant="tonal"
+              color="warning"
+              @click="coerceParameterBounds"
+            >
+              Привести границы параметров к kind
+            </v-btn>
             <div v-for="entry in publishProblems" :key="entry.ruleCode" class="pa-2 mb-1 bg-error-lighten-5 rounded">
               <div class="text-body-2 font-weight-medium">{{ entry.ruleName }}</div>
               <div v-for="(msg, i) in entry.messages" :key="i" class="text-body-2 text-error pa-1">

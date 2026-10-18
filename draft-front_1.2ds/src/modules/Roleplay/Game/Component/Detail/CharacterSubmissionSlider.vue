@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import MembershipDiffView from '@/modules/Roleplay/Game/Component/Detail/MembershipDiffView.vue';
 
 const props = defineProps<{
@@ -10,6 +11,7 @@ const props = defineProps<{
   actual: CharacterVersion | null;
   /** Имена правил (ruleCode → name) из ревизии игры. */
   names: Record<string, string>;
+  rules?: Rule[];
 }>();
 
 const open = defineModel<boolean>('open', { default: false });
@@ -23,6 +25,7 @@ const diff = computed(() => {
     membership.approvedCharacterVersion,
     props.actual,
     (ruleCode) => props.names[ruleCode] ?? `Удалённое правило (id: ${ruleCode})`,
+    props.rules ?? [],
   );
 });
 </script>
