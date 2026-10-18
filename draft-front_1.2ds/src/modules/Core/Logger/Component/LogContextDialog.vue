@@ -19,7 +19,7 @@ function close(): void {
 </script>
 
 <template>
-  <v-dialog :model-value="props.modelValue" max-width="640" @update:model-value="emit('update:modelValue', $event)">
+  <v-dialog :model-value="props.modelValue" max-width="960" @update:model-value="emit('update:modelValue', $event)">
     <v-card v-if="props.entry">
       <v-card-title>Запись {{ props.entry.id }}</v-card-title>
       <v-card-text>
@@ -27,7 +27,7 @@ function close(): void {
         <div class="text-caption text-medium-emphasis mb-4">
           {{ props.entry.level }} · {{ props.entry.source ?? '—' }} · {{ props.entry.errorCode ?? '—' }}
         </div>
-        <pre class="text-caption">{{ contextJson }}</pre>
+        <pre class="log-context text-caption">{{ contextJson }}</pre>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
@@ -36,3 +36,11 @@ function close(): void {
     </v-card>
   </v-dialog>
 </template>
+
+<style scoped>
+.log-context {
+  max-height: 70vh;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+</style>
