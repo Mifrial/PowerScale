@@ -119,7 +119,8 @@
 - [Актуальные решения](decisions.md) — реестр решений с уникальными ID.
 - [История](history.md) — отменённые модели, старые планы и отложенные вопросы.
 - [Карта миграции](migration-map.md) — соответствие разделов старого монолита новым документам.
-- [Статусы и владельцы контрактов](contract-status.md) — классификация, canonical owners и evidence.
+- [Статусы и владельцы контрактов](contract-status.md) — классификация, canonical owners, evidence и карта доверия стабильных модулей Core.
+- Карты входа стабильных Core-модулей — `README.md` внутри `www/mifrial/modules/Core/{Kernel,SmartTable,Event,Cache,Auth,Logger}`.
 - [Модель данных](data-model.md) — legacy-backed schema requirements и backend status.
 - [Матрица статусов claims](migration-claims-status.md) — независимые статусы источника, реализации и документа.
 - [Индекс evidence](migration-evidence-index.md) — exact source paths и symbols для claim verification.
@@ -155,7 +156,6 @@
 - [Baseline следующего этапа](migration-baseline-next-pass-2026-08.md).
 - [Baseline полного переноса содержания](migration-baseline-recon-2026-08.md).
 - [Журнал reconciliation](../review/tr-reconciliation-2026-08.md).
-
-- [Аудит кода против ТР](../review/tr-audit-2026-08.md)
-- [Журнал решений аудита](../review/tr-decisions-2026-08.md)
+- [Сверка ТР с реальным кодом](../review/tr-code-reconciliation-2026-08.md) — 2026-08-30.
+- [Журнал решений по аудиту ТР](../review/tr-decisions-2026-08.md) — сам `tr-audit-2026-08.md` в репозиторий не попал; рассмотренные пункты аудита здесь.
 - [Frontend rules](../../draft-front_1.2ds/frontend-rules.md)

@@ -21,7 +21,9 @@
     "phpcs-preflight": "@php tools/phpcs/preflight.php",
     "cs-check": "@php tools/phpcs/preflight.php && php-cs-fixer fix --dry-run --diff && phpcs",
     "cs-fix": "php-cs-fixer fix && phpcbf",
-    "quality": "@php tools/phpcs/preflight.php && phpcs --standard=phpcs-quality.xml.dist"
+    "quality": "@php tools/phpcs/preflight.php && phpcs --standard=phpcs-quality.xml.dist",
+    "map": "@php tools/module-map/generate.php",
+    "map-check": "@php tools/module-map/generate.php --check"
   },
   "autoload": {
     "psr-4": {

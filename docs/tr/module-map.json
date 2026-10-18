@@ -1,0 +1,1756 @@
+{
+    "generatedBy": "composer map",
+    "modules": [
+        {
+            "key": "Core/Agent",
+            "group": "Core",
+            "name": "Agent",
+            "path": "modules/Core/Agent",
+            "namespace": "Mifrial\\Core\\Agent",
+            "container": "Mifrial\\Core\\Agent\\Container\\AgentContainer",
+            "locator": "Mifrial\\Core\\Agent\\Interface\\Container\\IAgentContainer",
+            "setup": "Mifrial\\Core\\Agent\\Setup\\AgentModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Core\\Agent\\Interface\\Service\\IAgents"
+            ],
+            "routes": [],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IAgentContainer",
+                    "path": "Interface/Container/IAgentContainer.php",
+                    "summary": "Публичный контейнер модуля Agent."
+                },
+                {
+                    "name": "IAgentHandler",
+                    "path": "Interface/Service/IAgentHandler.php",
+                    "summary": "Обработчик тика агента. Класс донора, не PHP в БД."
+                },
+                {
+                    "name": "IAgents",
+                    "path": "Interface/Service/IAgents.php",
+                    "summary": "Расписание агентов и тик CLI."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable"
+            ],
+            "dependedOnBy": [
+                "Core/Mail"
+            ]
+        },
+        {
+            "key": "Core/Auth",
+            "group": "Core",
+            "name": "Auth",
+            "path": "modules/Core/Auth",
+            "namespace": "Mifrial\\Core\\Auth",
+            "container": "Mifrial\\Core\\Auth\\Container\\AuthContainer",
+            "locator": "Mifrial\\Core\\Auth\\Interface\\Container\\IAuthContainer",
+            "setup": "Closure(IServiceLocator)",
+            "requestBind": "Mifrial\\Core\\Auth\\Service\\AuthSessionBinder",
+            "ports": [
+                "Mifrial\\Core\\Auth\\Service\\AuthService",
+                "Mifrial\\Core\\Auth\\Service\\UserCreateService",
+                "Mifrial\\Core\\Auth\\Service\\AuthSessionBinder",
+                "Mifrial\\Core\\Auth\\Action\\LoginAction",
+                "Mifrial\\Core\\Auth\\Action\\RegisterAction",
+                "Mifrial\\Core\\Auth\\Action\\LogoutAction",
+                "Mifrial\\Core\\Auth\\Action\\GetCurrentUserAction",
+                "Mifrial\\Core\\Auth\\Action\\GuestAction",
+                "Mifrial\\Core\\Auth\\Action\\GetPasswordPolicyAction",
+                "Mifrial\\Core\\Auth\\Action\\UserCreateAction",
+                "Mifrial\\Core\\Auth\\Service\\PasswordResetService",
+                "Mifrial\\Core\\Auth\\Action\\StartPasswordResetAction",
+                "Mifrial\\Core\\Auth\\Action\\FinalPasswordResetAction",
+                "Mifrial\\Core\\Auth\\Service\\SetPasswordService",
+                "Mifrial\\Core\\Auth\\Action\\SetPasswordAction"
+            ],
+            "routes": [
+                {
+                    "action": "auth.login",
+                    "handler": "Mifrial\\Core\\Auth\\Action\\LoginAction",
+                    "csrf": false
+                },
+                {
+                    "action": "auth.register",
+                    "handler": "Mifrial\\Core\\Auth\\Action\\RegisterAction",
+                    "csrf": false
+                },
+                {
+                    "action": "auth.logout",
+                    "handler": "Mifrial\\Core\\Auth\\Action\\LogoutAction",
+                    "csrf": true
+                },
+                {
+                    "action": "auth.getCurrentUser",
+                    "handler": "Mifrial\\Core\\Auth\\Action\\GetCurrentUserAction",
+                    "csrf": false
+                },
+                {
+                    "action": "auth.guest",
+                    "handler": "Mifrial\\Core\\Auth\\Action\\GuestAction",
+                    "csrf": false
+                },
+                {
+                    "action": "auth.getPasswordPolicy",
+                    "handler": "Mifrial\\Core\\Auth\\Action\\GetPasswordPolicyAction",
+                    "csrf": false
+                },
+                {
+                    "action": "user.create",
+                    "handler": "Mifrial\\Core\\Auth\\Action\\UserCreateAction",
+                    "csrf": true
+                },
+                {
+                    "action": "auth.startPasswordReset",
+                    "handler": "Mifrial\\Core\\Auth\\Action\\StartPasswordResetAction",
+                    "csrf": false
+                },
+                {
+                    "action": "auth.finalPasswordReset",
+                    "handler": "Mifrial\\Core\\Auth\\Action\\FinalPasswordResetAction",
+                    "csrf": false
+                },
+                {
+                    "action": "auth.setPassword",
+                    "handler": "Mifrial\\Core\\Auth\\Action\\SetPasswordAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IAuthContainer",
+                    "path": "Interface/Container/IAuthContainer.php",
+                    "summary": "Публичный контейнер модуля Auth."
+                },
+                {
+                    "name": "IPasswordResetNotifier",
+                    "path": "Interface/Service/IPasswordResetNotifier.php",
+                    "summary": "Доставка сырого reset-токена."
+                }
+            ],
+            "readme": true,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/Mail",
+                "Core/SmartTable",
+                "Core/User"
+            ],
+            "dependedOnBy": []
+        },
+        {
+            "key": "Core/Cache",
+            "group": "Core",
+            "name": "Cache",
+            "path": "modules/Core/Cache",
+            "namespace": "Mifrial\\Core\\Cache",
+            "container": "Mifrial\\Core\\Cache\\Container\\CacheContainer",
+            "locator": "Mifrial\\Core\\Cache\\Interface\\Container\\ICacheContainer",
+            "setup": null,
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Core\\Cache\\Interface\\Service\\ICacheStore"
+            ],
+            "routes": [],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "ICacheContainer",
+                    "path": "Interface/Container/ICacheContainer.php",
+                    "summary": "Публичный контейнер модуля Cache."
+                },
+                {
+                    "name": "ICacheStore",
+                    "path": "Interface/Service/ICacheStore.php",
+                    "summary": "Байты по ключу с TTL и опциональными тегами."
+                }
+            ],
+            "readme": true,
+            "dependsOn": [
+                "Core/Kernel"
+            ],
+            "dependedOnBy": [
+                "Core/SmartTable",
+                "Versioning/Space"
+            ]
+        },
+        {
+            "key": "Core/Event",
+            "group": "Core",
+            "name": "Event",
+            "path": "modules/Core/Event",
+            "namespace": "Mifrial\\Core\\Event",
+            "container": "Mifrial\\Core\\Event\\Container\\EventContainer",
+            "locator": "Mifrial\\Core\\Event\\Interface\\Container\\IEventContainer",
+            "setup": null,
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Core\\Event\\Interface\\Service\\IEventManager"
+            ],
+            "routes": [],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IEventContainer",
+                    "path": "Interface/Container/IEventContainer.php",
+                    "summary": "Публичный контейнер портов модуля Event."
+                },
+                {
+                    "name": "IEventListener",
+                    "path": "Interface/Service/IEventListener.php",
+                    "summary": "Контракт синхронного listener runtime-события."
+                },
+                {
+                    "name": "IEventManager",
+                    "path": "Interface/Service/IEventManager.php",
+                    "summary": "Публичный порт синхронной runtime-доставки событий."
+                },
+                {
+                    "name": "IEventIssue",
+                    "path": "Interface/Value/IEventIssue.php",
+                    "summary": "Контракт структурированной ошибки или warning события."
+                },
+                {
+                    "name": "IEventPayload",
+                    "path": "Interface/Value/IEventPayload.php",
+                    "summary": "Контракт неизменяемого payload runtime-события."
+                },
+                {
+                    "name": "IEventResult",
+                    "path": "Interface/Value/IEventResult.php",
+                    "summary": "Контракт локального или агрегированного результата события."
+                }
+            ],
+            "readme": true,
+            "dependsOn": [
+                "Core/Kernel"
+            ],
+            "dependedOnBy": [
+                "Roleplay/Game"
+            ]
+        },
+        {
+            "key": "Core/Kernel",
+            "group": "Core",
+            "name": "Kernel",
+            "path": "modules/Core/Kernel",
+            "namespace": "Mifrial\\Core\\Kernel",
+            "container": "Mifrial\\Core\\Kernel\\Container\\KernelContainer",
+            "locator": "Mifrial\\Core\\Kernel\\Interface\\Container\\IKernelContainer",
+            "setup": "Mifrial\\Core\\Kernel\\Setup\\KernelModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Core\\Kernel\\Action\\PingAction"
+            ],
+            "routes": [
+                {
+                    "action": "mifrial.ping",
+                    "handler": "Mifrial\\Core\\Kernel\\Action\\PingAction",
+                    "csrf": false
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IActionHandler",
+                    "path": "Interface/Action/IActionHandler.php",
+                    "summary": "Маркер обработчика действия."
+                },
+                {
+                    "name": "IActionInput",
+                    "path": "Interface/Action/IActionInput.php",
+                    "summary": "Маркер входного DTO action: JSON гидрирует конструктор, не имя параметра handle."
+                },
+                {
+                    "name": "IKernelContainer",
+                    "path": "Interface/Container/IKernelContainer.php",
+                    "summary": "Публичный контейнер модуля Kernel."
+                },
+                {
+                    "name": "IModuleContainer",
+                    "path": "Interface/Container/IModuleContainer.php",
+                    "summary": "Контракт контейнера портов модуля."
+                },
+                {
+                    "name": "IHttpRequest",
+                    "path": "Interface/Http/IHttpRequest.php",
+                    "summary": "Контракт снимка HTTP-запроса."
+                },
+                {
+                    "name": "IRequestBinder",
+                    "path": "Interface/Http/IRequestBinder.php",
+                    "summary": "Кладёт снимок актора в контекст запроса. Реализация — модуль сессии."
+                },
+                {
+                    "name": "IRequestContext",
+                    "path": "Interface/Http/IRequestContext.php",
+                    "summary": "Процессный снимок входящих cookie и очередь исходящих."
+                },
+                {
+                    "name": "IApplication",
+                    "path": "Interface/Service/IApplication.php",
+                    "summary": "Контракт фасада процесса: HTTP и внутренний dispatch."
+                },
+                {
+                    "name": "IDispatcher",
+                    "path": "Interface/Service/IDispatcher.php",
+                    "summary": "Контракт диспетчера действий."
+                },
+                {
+                    "name": "ILogger",
+                    "path": "Interface/Service/ILogger.php",
+                    "summary": "Порт записи журнала ядра."
+                },
+                {
+                    "name": "IModuleManager",
+                    "path": "Interface/Service/IModuleManager.php",
+                    "summary": "Контракт загрузки модулей и маршрутов."
+                },
+                {
+                    "name": "IModuleSetup",
+                    "path": "Interface/Service/IModuleSetup.php",
+                    "summary": "Карты и data-шаги модуля для CLI setup. Не порт контейнера соседа."
+                },
+                {
+                    "name": "IRuntimeConfig",
+                    "path": "Interface/Service/IRuntimeConfig.php",
+                    "summary": "Локальная конфигурация процесса для портов модулей."
+                },
+                {
+                    "name": "IServiceLocator",
+                    "path": "Interface/Service/IServiceLocator.php",
+                    "summary": "Контракт каталога контейнеров модулей."
+                },
+                {
+                    "name": "ISetupStep",
+                    "path": "Interface/Service/ISetupStep.php",
+                    "summary": "Один data-шаг установки модуля. Идемпотентен при повторном CLI."
+                },
+                {
+                    "name": "ITransactionRunner",
+                    "path": "Interface/Service/ITransactionRunner.php",
+                    "summary": "Одна единица работы на соединении вызывающего."
+                }
+            ],
+            "readme": true,
+            "dependsOn": [
+                "Core/SmartTable"
+            ],
+            "dependedOnBy": [
+                "Core/Agent",
+                "Core/Auth",
+                "Core/Cache",
+                "Core/Event",
+                "Core/Logger",
+                "Core/Mail",
+                "Core/SmartTable",
+                "Core/User",
+                "Messages/Chat",
+                "Roleplay/Character",
+                "Roleplay/Game",
+                "Roleplay/Keyword",
+                "Roleplay/Mechanic",
+                "Roleplay/Rule",
+                "Roleplay/RuleSpace",
+                "Versioning/Space"
+            ]
+        },
+        {
+            "key": "Core/Logger",
+            "group": "Core",
+            "name": "Logger",
+            "path": "modules/Core/Logger",
+            "namespace": "Mifrial\\Core\\Logger",
+            "container": "Mifrial\\Core\\Logger\\Container\\LoggerContainer",
+            "locator": "Mifrial\\Core\\Logger\\Interface\\Container\\ILoggerContainer",
+            "setup": "Mifrial\\Core\\Logger\\Setup\\LoggerModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Core\\Logger\\Service\\TableLogWriter",
+                "Mifrial\\Core\\Logger\\Service\\LoggerHttpService",
+                "Mifrial\\Core\\Logger\\Action\\FindLogPageAction",
+                "Mifrial\\Core\\Logger\\Action\\GetLogAction"
+            ],
+            "routes": [
+                {
+                    "action": "logger.findPage",
+                    "handler": "Mifrial\\Core\\Logger\\Action\\FindLogPageAction",
+                    "csrf": true
+                },
+                {
+                    "action": "logger.get",
+                    "handler": "Mifrial\\Core\\Logger\\Action\\GetLogAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "ILoggerContainer",
+                    "path": "Interface/Container/ILoggerContainer.php",
+                    "summary": "Публичный контейнер модуля Logger."
+                }
+            ],
+            "readme": true,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Core/User"
+            ],
+            "dependedOnBy": []
+        },
+        {
+            "key": "Core/Mail",
+            "group": "Core",
+            "name": "Mail",
+            "path": "modules/Core/Mail",
+            "namespace": "Mifrial\\Core\\Mail",
+            "container": "Mifrial\\Core\\Mail\\Container\\MailContainer",
+            "locator": "Mifrial\\Core\\Mail\\Interface\\Container\\IMailContainer",
+            "setup": "Closure(IServiceLocator)",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Core\\Mail\\Interface\\Service\\IMail",
+                "Mifrial\\Core\\Mail\\Service\\MailFlushHandler"
+            ],
+            "routes": [],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IMailContainer",
+                    "path": "Interface/Container/IMailContainer.php",
+                    "summary": "Публичный контейнер модуля Mail."
+                },
+                {
+                    "name": "IMail",
+                    "path": "Interface/Service/IMail.php",
+                    "summary": "Сосед: поставить событие в очередь."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Agent",
+                "Core/Kernel",
+                "Core/SmartTable"
+            ],
+            "dependedOnBy": [
+                "Core/Auth"
+            ]
+        },
+        {
+            "key": "Core/SmartTable",
+            "group": "Core",
+            "name": "SmartTable",
+            "path": "modules/Core/SmartTable",
+            "namespace": "Mifrial\\Core\\SmartTable",
+            "container": "Mifrial\\Core\\SmartTable\\Container\\SmartTableContainer",
+            "locator": "Mifrial\\Core\\SmartTable\\Interface\\Container\\ISmartTableContainer",
+            "setup": "Mifrial\\Core\\SmartTable\\Setup\\SmartTableModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Core\\SmartTable\\Interface\\Service\\IDatabaseConnection",
+                "Mifrial\\Core\\SmartTable\\Interface\\Service\\ISmartTableGateway",
+                "Mifrial\\Core\\SmartTable\\Interface\\Service\\ITableCatalog",
+                "Mifrial\\Core\\SmartTable\\Service\\HydratorRegistry"
+            ],
+            "routes": [],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "ISmartTableContainer",
+                    "path": "Interface/Container/ISmartTableContainer.php",
+                    "summary": "Публичный контейнер модуля SmartTable."
+                },
+                {
+                    "name": "IFieldHydrator",
+                    "path": "Interface/Field/IFieldHydrator.php",
+                    "summary": "Преобразование JSON-документа в объект модуля и обратно."
+                },
+                {
+                    "name": "IConditionalOpenedRecords",
+                    "path": "Interface/Service/IConditionalOpenedRecords.php",
+                    "summary": "Условные операции одной открытой карты."
+                },
+                {
+                    "name": "IDatabaseConnection",
+                    "path": "Interface/Service/IDatabaseConnection.php",
+                    "summary": "Внутреннее ленивое соединение с MySQL без SQL-API для соседей."
+                },
+                {
+                    "name": "IOpenedRecords",
+                    "path": "Interface/Service/IOpenedRecords.php",
+                    "summary": "Строки одной открытой карты."
+                },
+                {
+                    "name": "IOpenedSchema",
+                    "path": "Interface/Service/IOpenedSchema.php",
+                    "summary": "DDL одной открытой карты."
+                },
+                {
+                    "name": "IOpenedTable",
+                    "path": "Interface/Service/IOpenedTable.php",
+                    "summary": "Сумка после open: схема и строки одной карты."
+                },
+                {
+                    "name": "ISmartTableGateway",
+                    "path": "Interface/Service/ISmartTableGateway.php",
+                    "summary": "Порт открытия таблиц по PHP-классу и транзакции соединения."
+                },
+                {
+                    "name": "ITableCatalog",
+                    "path": "Interface/Service/ITableCatalog.php",
+                    "summary": "Порт словаря: meta DDL и runtime-таблицы по имени."
+                }
+            ],
+            "readme": true,
+            "dependsOn": [
+                "Core/Cache",
+                "Core/Kernel"
+            ],
+            "dependedOnBy": [
+                "Core/Agent",
+                "Core/Auth",
+                "Core/Kernel",
+                "Core/Logger",
+                "Core/Mail",
+                "Core/User",
+                "Messages/Chat",
+                "Roleplay/Character",
+                "Roleplay/Game",
+                "Roleplay/Keyword",
+                "Roleplay/Mechanic",
+                "Roleplay/Rule",
+                "Roleplay/RuleSpace",
+                "Versioning/Space"
+            ]
+        },
+        {
+            "key": "Core/User",
+            "group": "Core",
+            "name": "User",
+            "path": "modules/Core/User",
+            "namespace": "Mifrial\\Core\\User",
+            "container": "Mifrial\\Core\\User\\Container\\UserContainer",
+            "locator": "Mifrial\\Core\\User\\Interface\\Container\\IUserContainer",
+            "setup": "Mifrial\\Core\\User\\Setup\\UserModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Core\\User\\Interface\\Service\\IUserAccounts",
+                "Mifrial\\Core\\User\\Interface\\Service\\IUserGroups",
+                "Mifrial\\Core\\User\\Interface\\Service\\IUserViews",
+                "Mifrial\\Core\\User\\Interface\\Service\\IUserAccess",
+                "Mifrial\\Core\\User\\Service\\UserHttpService",
+                "Mifrial\\Core\\User\\Action\\FindUserPageAction",
+                "Mifrial\\Core\\User\\Action\\GetUserAction",
+                "Mifrial\\Core\\User\\Action\\GetUsersByIdsAction",
+                "Mifrial\\Core\\User\\Action\\UpdateUserAction",
+                "Mifrial\\Core\\User\\Action\\DeactivateUserAction",
+                "Mifrial\\Core\\User\\Service\\GroupHttpService",
+                "Mifrial\\Core\\User\\Action\\FindGroupPageAction",
+                "Mifrial\\Core\\User\\Action\\GetGroupAction",
+                "Mifrial\\Core\\User\\Action\\GetGroupMembersAction",
+                "Mifrial\\Core\\User\\Action\\CreateGroupAction",
+                "Mifrial\\Core\\User\\Action\\UpdateGroupAction",
+                "Mifrial\\Core\\User\\Action\\DeactivateGroupAction"
+            ],
+            "routes": [
+                {
+                    "action": "user.findPage",
+                    "handler": "Mifrial\\Core\\User\\Action\\FindUserPageAction",
+                    "csrf": true
+                },
+                {
+                    "action": "user.get",
+                    "handler": "Mifrial\\Core\\User\\Action\\GetUserAction",
+                    "csrf": true
+                },
+                {
+                    "action": "user.getByIds",
+                    "handler": "Mifrial\\Core\\User\\Action\\GetUsersByIdsAction",
+                    "csrf": true
+                },
+                {
+                    "action": "user.update",
+                    "handler": "Mifrial\\Core\\User\\Action\\UpdateUserAction",
+                    "csrf": true
+                },
+                {
+                    "action": "user.deactivate",
+                    "handler": "Mifrial\\Core\\User\\Action\\DeactivateUserAction",
+                    "csrf": true
+                },
+                {
+                    "action": "userGroup.findPage",
+                    "handler": "Mifrial\\Core\\User\\Action\\FindGroupPageAction",
+                    "csrf": true
+                },
+                {
+                    "action": "userGroup.get",
+                    "handler": "Mifrial\\Core\\User\\Action\\GetGroupAction",
+                    "csrf": true
+                },
+                {
+                    "action": "userGroup.getMembers",
+                    "handler": "Mifrial\\Core\\User\\Action\\GetGroupMembersAction",
+                    "csrf": true
+                },
+                {
+                    "action": "userGroup.create",
+                    "handler": "Mifrial\\Core\\User\\Action\\CreateGroupAction",
+                    "csrf": true
+                },
+                {
+                    "action": "userGroup.update",
+                    "handler": "Mifrial\\Core\\User\\Action\\UpdateGroupAction",
+                    "csrf": true
+                },
+                {
+                    "action": "userGroup.deactivate",
+                    "handler": "Mifrial\\Core\\User\\Action\\DeactivateGroupAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IUserContainer",
+                    "path": "Interface/Container/IUserContainer.php",
+                    "summary": "Публичный контейнер модуля User."
+                },
+                {
+                    "name": "IUserAccess",
+                    "path": "Interface/Service/IUserAccess.php",
+                    "summary": "Guards HTTP учётки по снимку актора."
+                },
+                {
+                    "name": "IUserAccounts",
+                    "path": "Interface/Service/IUserAccounts.php",
+                    "summary": "Фасад учётки для соседей: профиль, без схемы и без таблиц."
+                },
+                {
+                    "name": "IUserGroups",
+                    "path": "Interface/Service/IUserGroups.php",
+                    "summary": "Фасад групп и членства для соседей: без схемы и без таблиц."
+                },
+                {
+                    "name": "IUserViews",
+                    "path": "Interface/Service/IUserViews.php",
+                    "summary": "JSON-профиль User для HTTP и Auth."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable"
+            ],
+            "dependedOnBy": [
+                "Core/Auth",
+                "Core/Logger",
+                "Messages/Chat",
+                "Roleplay/Character",
+                "Roleplay/Game",
+                "Roleplay/Keyword",
+                "Roleplay/Mechanic",
+                "Roleplay/RuleSpace"
+            ]
+        },
+        {
+            "key": "Messages/Chat",
+            "group": "Messages",
+            "name": "Chat",
+            "path": "modules/Messages/Chat",
+            "namespace": "Mifrial\\Messages\\Chat",
+            "container": "Mifrial\\Messages\\Chat\\Container\\ChatContainer",
+            "locator": "Mifrial\\Messages\\Chat\\Interface\\Container\\IChatContainer",
+            "setup": "Mifrial\\Messages\\Chat\\Setup\\ChatModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Messages\\Chat\\Interface\\Service\\IChatTypeRegistry",
+                "Mifrial\\Messages\\Chat\\Interface\\Service\\IChats",
+                "Mifrial\\Messages\\Chat\\Service\\ChatHttpService",
+                "Mifrial\\Messages\\Chat\\Service\\ChatSseService",
+                "Mifrial\\Messages\\Chat\\Action\\GetChatsAction",
+                "Mifrial\\Messages\\Chat\\Action\\FindMessagePageAction",
+                "Mifrial\\Messages\\Chat\\Action\\SendMessageAction",
+                "Mifrial\\Messages\\Chat\\Action\\MarkChatReadAction",
+                "Mifrial\\Messages\\Chat\\Action\\UpdateMessageVisibilityAction",
+                "Mifrial\\Messages\\Chat\\Action\\AddPrivateChatAction",
+                "Mifrial\\Messages\\Chat\\Action\\AddGroupChatAction"
+            ],
+            "routes": [
+                {
+                    "action": "chat.getChats",
+                    "handler": "Mifrial\\Messages\\Chat\\Action\\GetChatsAction",
+                    "csrf": true
+                },
+                {
+                    "action": "chat.findMessagePage",
+                    "handler": "Mifrial\\Messages\\Chat\\Action\\FindMessagePageAction",
+                    "csrf": true
+                },
+                {
+                    "action": "chat.sendMessage",
+                    "handler": "Mifrial\\Messages\\Chat\\Action\\SendMessageAction",
+                    "csrf": true
+                },
+                {
+                    "action": "chat.markChatRead",
+                    "handler": "Mifrial\\Messages\\Chat\\Action\\MarkChatReadAction",
+                    "csrf": true
+                },
+                {
+                    "action": "chat.updateMessageVisibility",
+                    "handler": "Mifrial\\Messages\\Chat\\Action\\UpdateMessageVisibilityAction",
+                    "csrf": true
+                },
+                {
+                    "action": "chat.addPrivate",
+                    "handler": "Mifrial\\Messages\\Chat\\Action\\AddPrivateChatAction",
+                    "csrf": true
+                },
+                {
+                    "action": "chat.addGroup",
+                    "handler": "Mifrial\\Messages\\Chat\\Action\\AddGroupChatAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IChatContainer",
+                    "path": "Interface/Container/IChatContainer.php",
+                    "summary": "Публичный контейнер модуля Chat."
+                },
+                {
+                    "name": "IChatTypeRegistry",
+                    "path": "Interface/Service/IChatTypeRegistry.php",
+                    "summary": "Память процесса: непрозрачные строки типов донора."
+                },
+                {
+                    "name": "IChats",
+                    "path": "Interface/Service/IChats.php",
+                    "summary": "Фасад чатов для соседей: без схемы и без таблиц."
+                },
+                {
+                    "name": "ISseClock",
+                    "path": "Interface/Service/ISseClock.php",
+                    "summary": "Часы и пауза цикла SSE; в тестах подмена без sleep(2)."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Core/User"
+            ],
+            "dependedOnBy": [
+                "Roleplay/Game"
+            ]
+        },
+        {
+            "key": "Roleplay/Character",
+            "group": "Roleplay",
+            "name": "Character",
+            "path": "modules/Roleplay/Character",
+            "namespace": "Mifrial\\Roleplay\\Character",
+            "container": "Mifrial\\Roleplay\\Character\\Container\\CharacterContainer",
+            "locator": "Mifrial\\Roleplay\\Character\\Interface\\Container\\ICharacterContainer",
+            "setup": "Closure(IServiceLocator)",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Roleplay\\Character\\Interface\\Service\\ICharacters",
+                "Mifrial\\Roleplay\\Character\\Interface\\Service\\ICharacterRuleSlices",
+                "Mifrial\\Roleplay\\Character\\Interface\\Service\\ICharacterOsSteps",
+                "Mifrial\\Roleplay\\Character\\Interface\\Service\\ICharacterFormulaContexts",
+                "Mifrial\\Roleplay\\Character\\Interface\\Service\\ICharacterCombatLayers",
+                "Mifrial\\Roleplay\\Character\\Interface\\Service\\ICharacterSheets",
+                "Mifrial\\Roleplay\\Character\\Interface\\Service\\ICharacterSheetEngines",
+                "Mifrial\\Roleplay\\Character\\Interface\\Service\\ICharacterActualMutations",
+                "Mifrial\\Roleplay\\Character\\Action\\ApplyCharacterActualPatchAction",
+                "Mifrial\\Roleplay\\Character\\Action\\CreateCharacterAction",
+                "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterAction",
+                "Mifrial\\Roleplay\\Character\\Action\\ValidateCharacterAction",
+                "Mifrial\\Roleplay\\Character\\Action\\MigrateCharacterAction",
+                "Mifrial\\Roleplay\\Character\\Action\\GetCharacterListAction",
+                "Mifrial\\Roleplay\\Character\\Action\\GetCharacterAction",
+                "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterVisibilityAction",
+                "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterOwnerNotesAction"
+            ],
+            "routes": [
+                {
+                    "action": "character.create",
+                    "handler": "Mifrial\\Roleplay\\Character\\Action\\CreateCharacterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "character.update",
+                    "handler": "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "character.validate",
+                    "handler": "Mifrial\\Roleplay\\Character\\Action\\ValidateCharacterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "character.migrate",
+                    "handler": "Mifrial\\Roleplay\\Character\\Action\\MigrateCharacterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "character.getList",
+                    "handler": "Mifrial\\Roleplay\\Character\\Action\\GetCharacterListAction",
+                    "csrf": true
+                },
+                {
+                    "action": "character.get",
+                    "handler": "Mifrial\\Roleplay\\Character\\Action\\GetCharacterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "character.updateVisibility",
+                    "handler": "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterVisibilityAction",
+                    "csrf": true
+                },
+                {
+                    "action": "character.updateOwnerNotes",
+                    "handler": "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterOwnerNotesAction",
+                    "csrf": true
+                },
+                {
+                    "action": "character.applyActualPatch",
+                    "handler": "Mifrial\\Roleplay\\Character\\Action\\ApplyCharacterActualPatchAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "ICharacterContainer",
+                    "path": "Interface/Container/ICharacterContainer.php",
+                    "summary": "Публичный контейнер модуля Roleplay/Character."
+                },
+                {
+                    "name": "ICharacterActualMutations",
+                    "path": "Interface/Service/ICharacterActualMutations.php",
+                    "summary": "Точечная запись actual: операция и ожидаемая actual_version."
+                },
+                {
+                    "name": "ICharacterCombatLayers",
+                    "path": "Interface/Service/ICharacterCombatLayers.php",
+                    "summary": "Чтение боевых слоёв из документов листа и выборов. Документы не пишет."
+                },
+                {
+                    "name": "ICharacterFormulaContexts",
+                    "path": "Interface/Service/ICharacterFormulaContexts.php",
+                    "summary": "Сборка узкого контекста формулы из уже записанного снимка листа."
+                },
+                {
+                    "name": "ICharacterOsSteps",
+                    "path": "Interface/Service/ICharacterOsSteps.php",
+                    "summary": "Шаг «Основа»: binding среза и узкий снимок в порт Mechanic Engine."
+                },
+                {
+                    "name": "ICharacterRuleSlices",
+                    "path": "Interface/Service/ICharacterRuleSlices.php",
+                    "summary": "Срез правил мира для построения персонажа: без persist и без HTTP."
+                },
+                {
+                    "name": "ICharacterSessionParticipants",
+                    "path": "Interface/Service/ICharacterSessionParticipants.php",
+                    "summary": "Персонаж уже в текущей сессии какой-либо игры. Реализацию даёт Game."
+                },
+                {
+                    "name": "ICharacterSheetEngines",
+                    "path": "Interface/Service/ICharacterSheetEngines.php",
+                    "summary": "Сборка и ремап листа без записи в character."
+                },
+                {
+                    "name": "ICharacterSheets",
+                    "path": "Interface/Service/ICharacterSheets.php",
+                    "summary": "Сборка листа и тот же валидатор, что пойдёт на validate-only."
+                },
+                {
+                    "name": "ICharacters",
+                    "path": "Interface/Service/ICharacters.php",
+                    "summary": "Фасад actual-строки персонажа: без схемы и без HTTP."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Core/User",
+                "Roleplay/Game",
+                "Roleplay/Keyword",
+                "Roleplay/Mechanic",
+                "Roleplay/Rule",
+                "Roleplay/RuleSpace"
+            ],
+            "dependedOnBy": [
+                "Roleplay/Game"
+            ]
+        },
+        {
+            "key": "Roleplay/Game",
+            "group": "Roleplay",
+            "name": "Game",
+            "path": "modules/Roleplay/Game",
+            "namespace": "Mifrial\\Roleplay\\Game",
+            "container": "Mifrial\\Roleplay\\Game\\Container\\GameContainer",
+            "locator": "Mifrial\\Roleplay\\Game\\Interface\\Container\\IGameContainer",
+            "setup": "Closure(IServiceLocator)",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Roleplay\\Game\\Interface\\Service\\IGames",
+                "Mifrial\\Roleplay\\Game\\Interface\\Service\\IGameMemberships",
+                "Mifrial\\Roleplay\\Game\\Interface\\Service\\IGameAdmissions",
+                "Mifrial\\Roleplay\\Game\\Interface\\Service\\IGameChronicles",
+                "Mifrial\\Roleplay\\Game\\Interface\\Service\\IGameEconomy",
+                "Mifrial\\Roleplay\\Game\\Interface\\Service\\IGameBattles",
+                "Mifrial\\Roleplay\\Game\\Interface\\Service\\IGameProcesses",
+                "Mifrial\\Roleplay\\Game\\Interface\\Service\\IGameChecks",
+                "Mifrial\\Roleplay\\Game\\Interface\\Service\\IGameStrikes",
+                "Mifrial\\Roleplay\\Game\\Interface\\Service\\IGameWideStrikes",
+                "Mifrial\\Roleplay\\Game\\Interface\\Service\\IGameProjections",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameRosterAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameSheetsAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameBattleSheetsAction",
+                "Mifrial\\Roleplay\\Game\\Action\\DeclareGameCheckAction",
+                "Mifrial\\Roleplay\\Game\\Action\\ProposeGameCheckAction",
+                "Mifrial\\Roleplay\\Game\\Action\\AnswerGameCheckAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GameWoundAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GameManualSheetAction",
+                "Mifrial\\Roleplay\\Game\\Action\\EndGameTurnAction",
+                "Mifrial\\Roleplay\\Game\\Action\\ContinueGameAction",
+                "Mifrial\\Roleplay\\Game\\Action\\AbortGameAction",
+                "Mifrial\\Roleplay\\Game\\Action\\DeclareGameStrikeAction",
+                "Mifrial\\Roleplay\\Game\\Action\\ResolveGameStrikeAction",
+                "Mifrial\\Roleplay\\Game\\Action\\DeclareGameWideStrikeAction",
+                "Mifrial\\Roleplay\\Game\\Action\\ResolveGameWideStrikeAction",
+                "Mifrial\\Roleplay\\Game\\Action\\StartGameBattleAction",
+                "Mifrial\\Roleplay\\Game\\Action\\SetGameBattleRosterAction",
+                "Mifrial\\Roleplay\\Game\\Action\\EndGameBattleAction",
+                "Mifrial\\Roleplay\\Game\\Action\\RollGameInitiativeAction",
+                "Mifrial\\Roleplay\\Game\\Action\\ApplyGameEconomyAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameShopAction",
+                "Mifrial\\Roleplay\\Game\\Action\\ReplaceGameShopAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameChronicleAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameChronicleEntriesAction",
+                "Mifrial\\Roleplay\\Game\\Action\\CreateGameChronicleEntryAction",
+                "Mifrial\\Roleplay\\Game\\Action\\UpdateGameChronicleEntryAction",
+                "Mifrial\\Roleplay\\Game\\Action\\DeleteGameChronicleEntryAction",
+                "Mifrial\\Roleplay\\Game\\Action\\InviteGameAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameInvitationsAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetMyGameInvitationsAction",
+                "Mifrial\\Roleplay\\Game\\Action\\RespondGameInvitationAction",
+                "Mifrial\\Roleplay\\Game\\Action\\RequestGameJoinAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameJoinRequestsAction",
+                "Mifrial\\Roleplay\\Game\\Action\\RespondGameJoinRequestAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameWhitelistAction",
+                "Mifrial\\Roleplay\\Game\\Action\\SetGameWhitelistAction",
+                "Mifrial\\Roleplay\\Game\\Action\\JoinGameWhitelistAction",
+                "Mifrial\\Roleplay\\Game\\Action\\CreateGameAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameListAction",
+                "Mifrial\\Roleplay\\Game\\Action\\UpdateGameAction",
+                "Mifrial\\Roleplay\\Game\\Action\\AddGameMemberAction",
+                "Mifrial\\Roleplay\\Game\\Action\\UpdateGameMemberAction",
+                "Mifrial\\Roleplay\\Game\\Action\\RemoveGameMemberAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameMemberListAction",
+                "Mifrial\\Roleplay\\Game\\Action\\SubmitGameCharacterAction",
+                "Mifrial\\Roleplay\\Game\\Action\\ApproveGameCharacterAction",
+                "Mifrial\\Roleplay\\Game\\Action\\ReturnGameCharacterAction",
+                "Mifrial\\Roleplay\\Game\\Action\\RejectGameCharacterAction",
+                "Mifrial\\Roleplay\\Game\\Action\\LeaveGameCharacterAction",
+                "Mifrial\\Roleplay\\Game\\Action\\SetGameCharacterBonusAction",
+                "Mifrial\\Roleplay\\Game\\Action\\SetGameCharacterSectionVisibilityAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameCharacterAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameCharacterListAction",
+                "Mifrial\\Roleplay\\Character\\Interface\\Service\\ICharacterSessionParticipants",
+                "Mifrial\\Roleplay\\Game\\Action\\StartGameSessionAction",
+                "Mifrial\\Roleplay\\Game\\Action\\StopGameSessionAction",
+                "Mifrial\\Roleplay\\Game\\Action\\CreateGameNpcAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameNpcAction",
+                "Mifrial\\Roleplay\\Game\\Action\\UpdateGameNpcAction",
+                "Mifrial\\Roleplay\\Game\\Action\\TranslateGameNpcAction"
+            ],
+            "routes": [
+                {
+                    "action": "game.create",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\CreateGameAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.get",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getList",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameListAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.update",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\UpdateGameAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.addMember",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\AddGameMemberAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.updateMember",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\UpdateGameMemberAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.removeMember",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\RemoveGameMemberAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getMemberList",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameMemberListAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.submitCharacter",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\SubmitGameCharacterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.approveCharacter",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ApproveGameCharacterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.returnCharacter",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ReturnGameCharacterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.rejectCharacter",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\RejectGameCharacterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.leaveCharacter",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\LeaveGameCharacterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.setCharacterBonus",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\SetGameCharacterBonusAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.setCharacterSectionVisibility",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\SetGameCharacterSectionVisibilityAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getCharacter",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameCharacterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getCharacterList",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameCharacterListAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.startSession",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\StartGameSessionAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.stopSession",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\StopGameSessionAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.createNpc",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\CreateGameNpcAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getNpc",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameNpcAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getRoster",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameRosterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getSheets",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameSheetsAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getBattleSheets",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameBattleSheetsAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.updateNpc",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\UpdateGameNpcAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.translateNpc",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\TranslateGameNpcAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.invite",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\InviteGameAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getInvitations",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameInvitationsAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getMyInvitations",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetMyGameInvitationsAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.respondInvitation",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\RespondGameInvitationAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.requestJoin",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\RequestGameJoinAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getJoinRequests",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameJoinRequestsAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.respondJoinRequest",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\RespondGameJoinRequestAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getWhitelist",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameWhitelistAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.setWhitelist",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\SetGameWhitelistAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.joinWhitelist",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\JoinGameWhitelistAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getChronicle",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameChronicleAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getChronicleEntries",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameChronicleEntriesAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.createChronicleEntry",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\CreateGameChronicleEntryAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.updateChronicleEntry",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\UpdateGameChronicleEntryAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.deleteChronicleEntry",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\DeleteGameChronicleEntryAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.startBattle",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\StartGameBattleAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.setBattleRoster",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\SetGameBattleRosterAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.endBattle",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\EndGameBattleAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.rollInitiative",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\RollGameInitiativeAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.declareCheck",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\DeclareGameCheckAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.proposeCheck",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ProposeGameCheckAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.answerCheck",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\AnswerGameCheckAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.woundAction",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GameWoundAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.manualSheet",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GameManualSheetAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.endTurn",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\EndGameTurnAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.continueAction",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ContinueGameAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.abortAction",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\AbortGameAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.declareStrike",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\DeclareGameStrikeAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.resolveStrike",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ResolveGameStrikeAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.declareWideStrike",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\DeclareGameWideStrikeAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.resolveWideStrike",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ResolveGameWideStrikeAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.applyEconomy",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ApplyGameEconomyAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getShop",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameShopAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.replaceShop",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ReplaceGameShopAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IGameContainer",
+                    "path": "Interface/Container/IGameContainer.php",
+                    "summary": "Публичный контейнер модуля Roleplay/Game."
+                },
+                {
+                    "name": "IGameAdmissions",
+                    "path": "Interface/Service/IGameAdmissions.php",
+                    "summary": "Приглашение, заявка и whitelist. Не строка игры."
+                },
+                {
+                    "name": "IGameBattles",
+                    "path": "Interface/Service/IGameBattles.php",
+                    "summary": "Идентичность боя, состав и CAS. Лист не пишет."
+                },
+                {
+                    "name": "IGameChecks",
+                    "path": "Interface/Service/IGameChecks.php",
+                    "summary": "Соло-проверка и pairwise одной цели."
+                },
+                {
+                    "name": "IGameChronicles",
+                    "path": "Interface/Service/IGameChronicles.php",
+                    "summary": "Записи летописи одной игры. Не лист и не сессия."
+                },
+                {
+                    "name": "IGameDelivery",
+                    "path": "Interface/Service/IGameDelivery.php",
+                    "summary": "Доставка уже применённой команды. Лист не пишет."
+                },
+                {
+                    "name": "IGameEconomy",
+                    "path": "Interface/Service/IGameEconomy.php",
+                    "summary": "Магазин и typed EconomyOperation."
+                },
+                {
+                    "name": "IGameMemberships",
+                    "path": "Interface/Service/IGameMemberships.php",
+                    "summary": "Строка персонажа в игре. Не пишет таблицу character."
+                },
+                {
+                    "name": "IGameProcesses",
+                    "path": "Interface/Service/IGameProcesses.php",
+                    "summary": "Строка process. Проверку и удар не считает."
+                },
+                {
+                    "name": "IGameProjections",
+                    "path": "Interface/Service/IGameProjections.php",
+                    "summary": "Краткий roster и полный лист по ключам. Сессию и бой не пишет."
+                },
+                {
+                    "name": "IGameSessionRoster",
+                    "path": "Interface/Service/IGameSessionRoster.php",
+                    "summary": "Чтение текущей сессии и её состава. Запись сессии сюда не входит."
+                },
+                {
+                    "name": "IGameStrikes",
+                    "path": "Interface/Service/IGameStrikes.php",
+                    "summary": "Один удар 1 → 1. Лист пишет только непустой список операций."
+                },
+                {
+                    "name": "IGameSyncClock",
+                    "path": "Interface/Service/IGameSyncClock.php",
+                    "summary": "Пауза и обрыв потока доставки. Не часы чата."
+                },
+                {
+                    "name": "IGameWideStrikes",
+                    "path": "Interface/Service/IGameWideStrikes.php",
+                    "summary": "Широкий удар 1 → N. Успех и урон этот шаг не считает."
+                },
+                {
+                    "name": "IGames",
+                    "path": "Interface/Service/IGames.php",
+                    "summary": "Строка игры без HTTP и без сессии."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Event",
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Core/User",
+                "Messages/Chat",
+                "Roleplay/Character",
+                "Roleplay/Mechanic",
+                "Roleplay/Rule",
+                "Roleplay/RuleSpace"
+            ],
+            "dependedOnBy": [
+                "Roleplay/Character"
+            ]
+        },
+        {
+            "key": "Roleplay/Keyword",
+            "group": "Roleplay",
+            "name": "Keyword",
+            "path": "modules/Roleplay/Keyword",
+            "namespace": "Mifrial\\Roleplay\\Keyword",
+            "container": "Mifrial\\Roleplay\\Keyword\\Container\\KeywordContainer",
+            "locator": "Mifrial\\Roleplay\\Keyword\\Interface\\Container\\IKeywordContainer",
+            "setup": "Mifrial\\Roleplay\\Keyword\\Setup\\KeywordModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Roleplay\\Keyword\\Interface\\Service\\IKeywords",
+                "Mifrial\\Roleplay\\Keyword\\Service\\KeywordHttpService",
+                "Mifrial\\Roleplay\\Keyword\\Action\\GetKeywordListAction",
+                "Mifrial\\Roleplay\\Keyword\\Action\\GetKeywordAction",
+                "Mifrial\\Roleplay\\Keyword\\Action\\CreateKeywordAction",
+                "Mifrial\\Roleplay\\Keyword\\Action\\UpdateKeywordAction",
+                "Mifrial\\Roleplay\\Keyword\\Action\\DeactivateKeywordAction"
+            ],
+            "routes": [
+                {
+                    "action": "keyword.getList",
+                    "handler": "Mifrial\\Roleplay\\Keyword\\Action\\GetKeywordListAction",
+                    "csrf": true
+                },
+                {
+                    "action": "keyword.get",
+                    "handler": "Mifrial\\Roleplay\\Keyword\\Action\\GetKeywordAction",
+                    "csrf": true
+                },
+                {
+                    "action": "keyword.create",
+                    "handler": "Mifrial\\Roleplay\\Keyword\\Action\\CreateKeywordAction",
+                    "csrf": true
+                },
+                {
+                    "action": "keyword.update",
+                    "handler": "Mifrial\\Roleplay\\Keyword\\Action\\UpdateKeywordAction",
+                    "csrf": true
+                },
+                {
+                    "action": "keyword.deactivate",
+                    "handler": "Mifrial\\Roleplay\\Keyword\\Action\\DeactivateKeywordAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IKeywordContainer",
+                    "path": "Interface/Container/IKeywordContainer.php",
+                    "summary": "Публичный контейнер модуля Roleplay/Keyword."
+                },
+                {
+                    "name": "IKeywords",
+                    "path": "Interface/Service/IKeywords.php",
+                    "summary": "Фасад справочника признаков: без схемы и без таблиц."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Core/User"
+            ],
+            "dependedOnBy": [
+                "Roleplay/Character",
+                "Roleplay/Rule"
+            ]
+        },
+        {
+            "key": "Roleplay/Mechanic",
+            "group": "Roleplay",
+            "name": "Mechanic",
+            "path": "modules/Roleplay/Mechanic",
+            "namespace": "Mifrial\\Roleplay\\Mechanic",
+            "container": "Mifrial\\Roleplay\\Mechanic\\Container\\MechanicContainer",
+            "locator": "Mifrial\\Roleplay\\Mechanic\\Interface\\Container\\IMechanicContainer",
+            "setup": "Mifrial\\Roleplay\\Mechanic\\Setup\\MechanicModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Roleplay\\Mechanic\\Interface\\Service\\IMechanics",
+                "Mifrial\\Roleplay\\Mechanic\\Interface\\Service\\IMechanicEngine",
+                "Mifrial\\Roleplay\\Mechanic\\Interface\\Service\\IMechanicRolls",
+                "Mifrial\\Roleplay\\Mechanic\\Service\\MechanicHttpService",
+                "Mifrial\\Roleplay\\Mechanic\\Action\\GetMechanicListAction",
+                "Mifrial\\Roleplay\\Mechanic\\Action\\GetMechanicAction",
+                "Mifrial\\Roleplay\\Mechanic\\Action\\CreateMechanicAction",
+                "Mifrial\\Roleplay\\Mechanic\\Action\\UpdateMechanicAction"
+            ],
+            "routes": [
+                {
+                    "action": "mechanic.getList",
+                    "handler": "Mifrial\\Roleplay\\Mechanic\\Action\\GetMechanicListAction",
+                    "csrf": true
+                },
+                {
+                    "action": "mechanic.get",
+                    "handler": "Mifrial\\Roleplay\\Mechanic\\Action\\GetMechanicAction",
+                    "csrf": true
+                },
+                {
+                    "action": "mechanic.create",
+                    "handler": "Mifrial\\Roleplay\\Mechanic\\Action\\CreateMechanicAction",
+                    "csrf": true
+                },
+                {
+                    "action": "mechanic.update",
+                    "handler": "Mifrial\\Roleplay\\Mechanic\\Action\\UpdateMechanicAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IMechanicContainer",
+                    "path": "Interface/Container/IMechanicContainer.php",
+                    "summary": "Публичный контейнер модуля Roleplay/Mechanic."
+                },
+                {
+                    "name": "IBloodClotting",
+                    "path": "Interface/IBloodClotting.php",
+                    "summary": "Маркер свёртывания на карточке состояния. runEvent его не зовёт."
+                },
+                {
+                    "name": "IBluntUnconscious",
+                    "path": "Interface/IBluntUnconscious.php",
+                    "summary": "Потеря сознания при пороге успеха и повреждении не ниже стойкости."
+                },
+                {
+                    "name": "IDamageAsWounds",
+                    "path": "Interface/IDamageAsWounds.php",
+                    "summary": "Повреждения этого удара пишутся раной, а не остатком."
+                },
+                {
+                    "name": "IExhaustionAmount",
+                    "path": "Interface/IExhaustionAmount.php",
+                    "summary": "Истощение этого удара пишется в состояние той же силы."
+                },
+                {
+                    "name": "IExhaustionWound",
+                    "path": "Interface/IExhaustionWound.php",
+                    "summary": "Истощение этого удара пишется в рану с множителем."
+                },
+                {
+                    "name": "IInjuryEfficiency",
+                    "path": "Interface/IInjuryEfficiency.php",
+                    "summary": "Помеха проверки увечья. Дельта лежит в payload хука."
+                },
+                {
+                    "name": "IMechanicHandler",
+                    "path": "Interface/IMechanicHandler.php",
+                    "summary": "Хендлер механики: подписки события на приоритет и мутация контекста."
+                },
+                {
+                    "name": "IReliabilityCut",
+                    "path": "Interface/IReliabilityCut.php",
+                    "summary": "Маркер хендлера, который срезает надёжность слоёв с порогом."
+                },
+                {
+                    "name": "MechanicPayload",
+                    "path": "Interface/MechanicPayload.php",
+                    "summary": "Payload binding: хендлер сам сужает тип. Общего поведения нет."
+                },
+                {
+                    "name": "IMechanicEngine",
+                    "path": "Interface/Service/IMechanicEngine.php",
+                    "summary": "Публичный событийный движок: сосед не регистрирует хендлеры и не видит реестр."
+                },
+                {
+                    "name": "IMechanicRolls",
+                    "path": "Interface/Service/IMechanicRolls.php",
+                    "summary": "Порт броска: сосед собирает binding и не пишет формулу кубов."
+                },
+                {
+                    "name": "IMechanics",
+                    "path": "Interface/Service/IMechanics.php",
+                    "summary": "Фасад справочника механик: без схемы и без таблиц."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Core/User"
+            ],
+            "dependedOnBy": [
+                "Roleplay/Character",
+                "Roleplay/Game",
+                "Roleplay/Rule"
+            ]
+        },
+        {
+            "key": "Roleplay/Rule",
+            "group": "Roleplay",
+            "name": "Rule",
+            "path": "modules/Roleplay/Rule",
+            "namespace": "Mifrial\\Roleplay\\Rule",
+            "container": "Mifrial\\Roleplay\\Rule\\Container\\RuleContainer",
+            "locator": "Mifrial\\Roleplay\\Rule\\Interface\\Container\\IRuleContainer",
+            "setup": "Closure(IServiceLocator)",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Roleplay\\Rule\\Interface\\Service\\IRules",
+                "Mifrial\\Roleplay\\Rule\\Interface\\Service\\IFormulaEvaluations"
+            ],
+            "routes": [],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IRuleContainer",
+                    "path": "Interface/Container/IRuleContainer.php",
+                    "summary": "Публичный контейнер модуля Roleplay/Rule."
+                },
+                {
+                    "name": "IFormulaEvaluations",
+                    "path": "Interface/Service/IFormulaEvaluations.php",
+                    "summary": "Обход уже разобранных узлов формулы."
+                },
+                {
+                    "name": "IRules",
+                    "path": "Interface/Service/IRules.php",
+                    "summary": "Фасад правил: identity по code, состав на часах."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Roleplay/Keyword",
+                "Roleplay/Mechanic",
+                "Versioning/Space"
+            ],
+            "dependedOnBy": [
+                "Roleplay/Character",
+                "Roleplay/Game",
+                "Roleplay/RuleSpace"
+            ]
+        },
+        {
+            "key": "Roleplay/RuleSpace",
+            "group": "Roleplay",
+            "name": "RuleSpace",
+            "path": "modules/Roleplay/RuleSpace",
+            "namespace": "Mifrial\\Roleplay\\RuleSpace",
+            "container": "Mifrial\\Roleplay\\RuleSpace\\Container\\RuleSpaceContainer",
+            "locator": "Mifrial\\Roleplay\\RuleSpace\\Interface\\Container\\IRuleSpaceContainer",
+            "setup": "Mifrial\\Roleplay\\RuleSpace\\Setup\\RuleSpaceModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Roleplay\\RuleSpace\\Interface\\Service\\IRuleSpaces",
+                "Mifrial\\Roleplay\\RuleSpace\\Service\\RuleSpaceHttpService",
+                "Mifrial\\Roleplay\\RuleSpace\\Action\\GetSpaceListAction",
+                "Mifrial\\Roleplay\\RuleSpace\\Action\\GetSpaceAction",
+                "Mifrial\\Roleplay\\RuleSpace\\Action\\GetSpaceByCodeAction",
+                "Mifrial\\Roleplay\\RuleSpace\\Action\\CreateSpaceAction",
+                "Mifrial\\Roleplay\\RuleSpace\\Action\\UpdateSpaceAction",
+                "Mifrial\\Roleplay\\RuleSpace\\Action\\DeactivateSpaceAction",
+                "Mifrial\\Roleplay\\RuleSpace\\Action\\GetSpaceRevisionsAction",
+                "Mifrial\\Roleplay\\RuleSpace\\Action\\GetSpaceRevisionAction",
+                "Mifrial\\Roleplay\\RuleSpace\\Action\\CommitSpaceDraftAction"
+            ],
+            "routes": [
+                {
+                    "action": "ruleSpace.getList",
+                    "handler": "Mifrial\\Roleplay\\RuleSpace\\Action\\GetSpaceListAction",
+                    "csrf": true
+                },
+                {
+                    "action": "ruleSpace.get",
+                    "handler": "Mifrial\\Roleplay\\RuleSpace\\Action\\GetSpaceAction",
+                    "csrf": true
+                },
+                {
+                    "action": "ruleSpace.getByCode",
+                    "handler": "Mifrial\\Roleplay\\RuleSpace\\Action\\GetSpaceByCodeAction",
+                    "csrf": true
+                },
+                {
+                    "action": "ruleSpace.create",
+                    "handler": "Mifrial\\Roleplay\\RuleSpace\\Action\\CreateSpaceAction",
+                    "csrf": true
+                },
+                {
+                    "action": "ruleSpace.update",
+                    "handler": "Mifrial\\Roleplay\\RuleSpace\\Action\\UpdateSpaceAction",
+                    "csrf": true
+                },
+                {
+                    "action": "ruleSpace.deactivate",
+                    "handler": "Mifrial\\Roleplay\\RuleSpace\\Action\\DeactivateSpaceAction",
+                    "csrf": true
+                },
+                {
+                    "action": "ruleSpace.getRevisions",
+                    "handler": "Mifrial\\Roleplay\\RuleSpace\\Action\\GetSpaceRevisionsAction",
+                    "csrf": true
+                },
+                {
+                    "action": "ruleSpace.getRevision",
+                    "handler": "Mifrial\\Roleplay\\RuleSpace\\Action\\GetSpaceRevisionAction",
+                    "csrf": true
+                },
+                {
+                    "action": "ruleSpace.commitDraft",
+                    "handler": "Mifrial\\Roleplay\\RuleSpace\\Action\\CommitSpaceDraftAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IRuleSpaceContainer",
+                    "path": "Interface/Container/IRuleSpaceContainer.php",
+                    "summary": "Публичный контейнер модуля Roleplay/RuleSpace."
+                },
+                {
+                    "name": "IRuleSpaces",
+                    "path": "Interface/Service/IRuleSpaces.php",
+                    "summary": "Оператор миров правил: sidecar и состав через IRules."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Core/User",
+                "Roleplay/Rule"
+            ],
+            "dependedOnBy": [
+                "Roleplay/Character",
+                "Roleplay/Game"
+            ]
+        },
+        {
+            "key": "Versioning/Space",
+            "group": "Versioning",
+            "name": "Space",
+            "path": "modules/Versioning/Space",
+            "namespace": "Mifrial\\Versioning\\Space",
+            "container": "Mifrial\\Versioning\\Space\\Container\\SpaceContainer",
+            "locator": "Mifrial\\Versioning\\Space\\Interface\\Container\\ISpaceContainer",
+            "setup": null,
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Versioning\\Space\\Interface\\Service\\IVersionedCatalog"
+            ],
+            "routes": [],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "ISpaceContainer",
+                    "path": "Interface/Container/ISpaceContainer.php",
+                    "summary": "Публичный контейнер модуля Versioning/Space."
+                },
+                {
+                    "name": "IVersionedCatalog",
+                    "path": "Interface/Service/IVersionedCatalog.php",
+                    "summary": "Открывает репозиторий по реестру или явной спецификации кластера."
+                },
+                {
+                    "name": "IVersionedRepository",
+                    "path": "Interface/Service/IVersionedRepository.php",
+                    "summary": "Часы и срез одной версионируемой сущности."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Cache",
+                "Core/Kernel",
+                "Core/SmartTable"
+            ],
+            "dependedOnBy": [
+                "Roleplay/Rule"
+            ]
+        }
+    ]
+}

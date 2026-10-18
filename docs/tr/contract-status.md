@@ -1,6 +1,6 @@
 # Статусы и владельцы контрактов
 
-**Статус:** канонический документ классификации ТР, 2026-08-30.
+**Статус:** канонический документ классификации ТР, 2026-10-18.
 
 ## Оси статусов
 
@@ -37,6 +37,38 @@
 - `TR.md` — индекс, glossary и правила чтения.
 
 Если контракта нет в списке владельцев, его нельзя добавлять в произвольный документ без обновления этой карты.
+
+## Карта доверия: стабильные модули Core
+
+Раздел для агентов и разработчиков: что читать про шесть стабильных модулей
+Core и что читать как контракт нельзя.
+
+`README.md` внутри модуля — карта входа, а не владелец контракта. Он описывает
+«как пользоваться» и ссылается на канон. При расхождении побеждает канон, затем
+код и тесты (порядок из `TR.md`).
+
+Колонка «Сверено» — дата, на которую карта входа проверена по коду: типы и их
+пути, границы значений, маршруты, рёбра зависимостей. Канон-документы этим
+разделом **не** проверялись сплошняком: для `smarttable.md` ключевые утверждения
+сверены с кодом и совпали, для остальных зафиксирована только роль (канон /
+вспомогательное / исторический протокол). Сплошная сверка канона — отдельная
+задача, а не этот раздел.
+
+Колонка «Не читать как контракт» не означает «мусор»: это реализованные или
+отменённые протоколы работ. Их читают как историю решений, а не как требование.
+
+| Модуль | Карта входа | Читать как канон | Вспомогательное | Не читать как контракт | Сверено |
+|---|---|---|---|---|---|
+| Core/Kernel | `www/mifrial/modules/Core/Kernel/README.md` | [`architecture.md`](architecture.md) — «Контракт фундамента сервера», «PHP: локатор, контейнер модуля, фабрика» (`DEC-070`) | [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md) — накат DDL и CLI setup | [`kernel-plan-02-action-input.md`](kernel-plan-02-action-input.md) — `сделано`, исторический протокол | 2026-10-18 |
+| Core/SmartTable | `www/mifrial/modules/Core/SmartTable/README.md` | [`smarttable.md`](smarttable.md) (`DEC-078`) | [`smarttable-roadmap.md`](smarttable-roadmap.md) — нарезка | `smarttable-plan-01…20` — реализованы, исторический протокол | 2026-10-18 |
+| Core/Event | `www/mifrial/modules/Core/Event/README.md` | [`architecture.md`](architecture.md) — «EventManager (sync MVP реализован, async DEFERRED)» | [`../specs/event-manager-backend-plan.md`](../specs/event-manager-backend-plan.md) — план, сверять с кодом | — | 2026-10-18 |
+| Core/Cache | `www/mifrial/modules/Core/Cache/README.md` | [`cache-plan-01.md`](cache-plan-01.md) (`DEC-081`); политику TTL консьюмера держит [`smarttable.md`](smarttable.md) §«Кэш» | [`smarttable-plan-08-cache.md`](smarttable-plan-08-cache.md) — кэш SmartTable | — | 2026-10-18 |
+| Core/Auth | `www/mifrial/modules/Core/Auth/README.md` | [`auth-system.md`](auth-system.md) — поведение, инварианты и права; backend-детали внутри помечены `OPEN`; канон учётки — [`user.md`](user.md) (модуль `Core/User`) | [`auth-plan-01-session.md`](auth-plan-01-session.md) — backend seed и сессия (ссылается сам канон) | `auth-plan-02-password-flow.md` … `auth-plan-04-guest.md` — `сделано`, исторический протокол | 2026-10-18 |
+| Core/Logger | `www/mifrial/modules/Core/Logger/README.md` | отдельного канон-документа нет; контракт описан картой входа | `logger-plan-01.md` … `logger-plan-04-view.md` — `сделано`; [`logger-plan-05-vue-datetime.md`](logger-plan-05-vue-datetime.md) — активный `TODO` (даты в UI, HTTP не трогать) | — | 2026-10-18 |
+
+Правило: новый документ про эти модули не добавляется, пока не обновлена эта
+таблица. Отсутствие у модуля канон-документа (Core/Logger) — сигнал для шага 3,
+а не разрешение писать контракт в произвольный файл.
 
 ## Evidence
 
@@ -141,3 +173,7 @@ R8-FE/mock evidence, 2026-09-30:
 - Проверены serial mock suites для Character editor, loot, membership/session
   stop и combat actual-source behavior. Backend/PHP/БД/migration/SSE остаются
   вне этой evidence boundary.
+
+Game 34 (`docs/tr/game-plan-34.md`): ручная правка листа в сессии через
+`game.manualSheet` пишет actual и чат. Character HTTP не принимает
+`setResourceCurrent`. Это не E2E Game 33.
