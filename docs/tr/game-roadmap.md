@@ -368,7 +368,13 @@ Return отменяет незакрытые process этой строки пе�
    project-wide approval и не перевод Game 33 в `IMPLEMENTED`.
 6. `game-plan-33` **— frontend → PHP E2E (**`TODO`**).** Два аккаунта,
   `1 → 1`/`1 → N`, реакции защиты, stale versions, replay/idempotency,
-   actual/NPC updates, delivery/SSE и обновление второго клиента.
+  actual/NPC updates, delivery/SSE и обновление второго клиента.
+7. **`game-plan-34` — ручная правка листа в сессии (`IMPLEMENTED`).**
+  Канон — `[game-plan-34.md](game-plan-34.md)`. HTTP `game.manualSheet`,
+  actual Character/NPC, чат, ACL цели. Слот 33 не занимает.
+8. **`game-plan-35` — один журнал команд (`IMPLEMENTED`).**
+  Канон — `[game-plan-35.md](game-plan-35.md)`. Таблица `game_command`,
+  data-шаг CLI. HTTP не сливаются. Delivery-source wide остаётся `strike`.
 
 Зависимости: `game-plan-29` принят после полного P1 из 28 и только для
 backend принятого scope. `game-plan-30` принят после 28–29 и только для

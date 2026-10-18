@@ -39,7 +39,7 @@ Game должен узнать, применяет ли атака срез на
 
 - Каталог и `resolveActive` сессий 2–3.
 - Не зависит от проекции Character и от nullable `durability`.
-- Rule новые поля `DamageTypeSpec` не добавляет. Привязка уже лежит в `RuleVersionBody::getMechanics()`: список `{mechanic_id, mechanic_payload}`. Отдельной колонки `mechanic_id` после `FoldRuleMechanicColumnsStep` нет.
+- Rule новые поля `DamageTypeSpec` не добавляет. Привязка уже лежит в `RuleVersionBody::getMechanics()`: список `{mechanic_id, mechanic_payload}`. Отдельной колонки `mechanic_id` нет: перенос выполнен одноразовым шагом `FoldRuleMechanicColumnsStep`, после переноса шаг удалён (2026-10-18).
 - Game этот план не реализует и флаг во вход удара не кладёт.
 
 ## Приёмка

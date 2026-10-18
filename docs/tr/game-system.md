@@ -20,6 +20,8 @@ NPC имеют актуальный `npc.version` и могут участвов
 
 Game overlay является частью общего игрового состояния. В нём остаются initiative, `battleId`, process/action state, offers, pending effects и transient markers. Полный player/NPC sheet, `states`, resources, money, inventory и equipment не являются его authoritative storage; они читаются из Character/NPC actual projection.
 
+Game 34: во время сессии ведущий (owner / `gm` / `game.edit_all`) правит любой лист в игре, игрок — только свой active-персонаж (не NPC). HTTP `game.manualSheet` пишет actual Character / `npc.version` (current ресурса, put/patch/remove состояния по `id`) и одно текстовое сообщение в чат. Бой не обязателен. Overlay эти правки не хранит.
+
 ## Session и летопись
 
 Игровая сессия связывает активную игру, участников, действия, проверки и сообщения. Летопись использует структурный `GameTime` и смещение для сортировки событий.
@@ -198,6 +200,9 @@ Check имеет solo и pairwise flow. В pairwise flow offer ждёт отве
 ### Game state и Character actual
 
 Пока запущена текущая сессия, Game state содержит только session/battle/process data. Player/NPC projections читаются через соответствующие authoritative boundaries; Game не пишет Character storage напрямую. Любая multi-entity game action открывает outer transaction в Game и вызывает Character/NPC mutation ports на том же transaction-bound gateway.
+
+Идемпотентность HTTP-сценариев Game живёт в одной таблице `game_command`
+(`source` + ключ). Канон — [game-plan-35.md](game-plan-35.md).
 
 Многошаговая атака может состоять из нескольких command requests: decision, offer/defense, process transition и authoritative resolution. Frontend отправляет решения, backend сам проверяет актуальные версии, права и допустимость перехода. Command response и SSE delivery являются разными границами; SSE доставляет authoritative updates, но не заменяет response и не является источником authority.
 
