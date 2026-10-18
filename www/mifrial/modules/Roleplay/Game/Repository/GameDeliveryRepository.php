@@ -117,6 +117,20 @@ final class GameDeliveryRepository
     }
 
     /**
+     * Все строки игры.
+     *
+     * @param int $gameId Игра.
+     *
+     * @return array<int, GameDeliveryRecord> Строки.
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    public function getListByGame(int $gameId): array
+    {
+        return $this->rows($gameId, null);
+    }
+
+    /**
      * Id уже лежащей пары.
      *
      * @param int $gameId Игра.
@@ -176,16 +190,10 @@ final class GameDeliveryRepository
         ));
         $records = [];
         foreach ($result->rows() as $row) {
-            if (!is_array($row)) {
-                continue;
+            $record = is_array($row) ? GameDeliveryRecord::fromNormalized($row) : null;
+            if ($record instanceof GameDeliveryRecord && ($afterCursor === null || $record->getId() > $afterCursor)) {
+                $records[] = $record;
             }
-
-            $record = GameDeliveryRecord::fromNormalized($row);
-            if ($afterCursor !== null && $record->getId() <= $afterCursor) {
-                continue;
-            }
-
-            $records[] = $record;
         }
 
         return $records;

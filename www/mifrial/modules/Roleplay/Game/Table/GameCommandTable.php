@@ -12,9 +12,9 @@ use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**
- * Команда проверки. Stop сессии удаляет строки этой сессии.
+ * Журнал команд игры. Stop сессии удаляет строки этой сессии.
  */
-final class GameCheckCommandTable extends SmartTableDefinition
+final class GameCommandTable extends SmartTableDefinition
 {
     /**
      * Задаёт физическое имя таблицы.
@@ -23,7 +23,7 @@ final class GameCheckCommandTable extends SmartTableDefinition
      */
     protected function tableName(): string
     {
-        return 'game_check_command';
+        return 'game_command';
     }
 
     /**
@@ -45,6 +45,7 @@ final class GameCheckCommandTable extends SmartTableDefinition
                 FieldSettings::fromOptions(['required' => true]),
                 GameSessionTable::class,
             ),
+            new StringField('source', FieldSettings::fromOptions(['required' => true]), 16),
             new StringField('idempotency_key', FieldSettings::fromOptions(['required' => true]), 255),
             new JsonField('body', FieldSettings::fromOptions(['required' => true])),
             new JsonField('result', FieldSettings::fromOptions(['required' => true])),
@@ -52,14 +53,14 @@ final class GameCheckCommandTable extends SmartTableDefinition
     }
 
     /**
-     * Пара игра+ключ уникальна.
+     * Пара игра+источник+ключ уникальна.
      *
      * @return array<int, array<int, string>> Кортежи.
      */
     protected function defineUniqueKeys(): array
     {
         return [
-            ['game_id', 'idempotency_key'],
+            ['game_id', 'source', 'idempotency_key'],
         ];
     }
 }

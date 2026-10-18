@@ -6,12 +6,11 @@ namespace Mifrial\Roleplay\Game\Schema;
 
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
-use Mifrial\Roleplay\Game\Table\GameWideStrikeCommandTable;
 use Mifrial\Roleplay\Game\Table\GameWideStrikeTable;
 use Mifrial\Roleplay\Game\Table\GameWideStrikeTargetTable;
 
 /**
- * Карта широкого удара, целей и команды.
+ * Карта широкого удара и целей.
  */
 final class GameWideStrikeSchema
 {
@@ -20,14 +19,12 @@ final class GameWideStrikeSchema
      *
      * @param IOpenedSchema $strikeSchema DDL удара.
      * @param IOpenedSchema $targetSchema DDL цели.
-     * @param IOpenedSchema $commandSchema DDL команды.
      *
      * @return void
      */
     public function __construct(
         private readonly IOpenedSchema $strikeSchema,
         private readonly IOpenedSchema $targetSchema,
-        private readonly IOpenedSchema $commandSchema,
     ) {
     }
 
@@ -41,7 +38,6 @@ final class GameWideStrikeSchema
         return [
             GameWideStrikeTable::class,
             GameWideStrikeTargetTable::class,
-            GameWideStrikeCommandTable::class,
         ];
     }
 
@@ -54,7 +50,6 @@ final class GameWideStrikeSchema
     {
         $this->installOne($this->strikeSchema);
         $this->installOne($this->targetSchema);
-        $this->installOne($this->commandSchema);
     }
 
     /**

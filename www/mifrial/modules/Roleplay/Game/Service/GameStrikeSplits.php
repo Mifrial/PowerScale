@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
-use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
+use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -21,21 +20,19 @@ final class GameStrikeSplits
      * Одна операция остатка и частного. Лист не пишет.
      *
      * @param CharacterRuleSlice $slice Срез ревизии игры.
-     * @param ICharacterFormulaContexts $contexts Разбор листа.
-     * @param array<string, mixed> $sheet Лист цели.
+     * @param FormulaContext $context Контекст характеристик.
      * @param DimensionalNumber $injury Повреждение.
      *
      * @return array{kind: string, remainder: array{base: int, size: int}, quotient: int} Операция.
      *
-     * @throws GameInvalidException Если карточки нет, их две, закупки нет или деление отвергнуто.
+     * @throws GameInvalidException Если карточки нет, их две, значения нет или деление отвергнуто.
      */
     public function operation(
         CharacterRuleSlice $slice,
-        ICharacterFormulaContexts $contexts,
-        array $sheet,
+        FormulaContext $context,
         DimensionalNumber $injury,
     ): array {
-        $endurance = $this->endurance($slice, $contexts, $sheet);
+        $endurance = $this->endurance($slice, $context);
         try {
             $split = $injury->divide($endurance);
         } catch (RuleInvalidException $exception) {
@@ -55,24 +52,17 @@ final class GameStrikeSplits
      * Пара единственной живой стойкости.
      *
      * @param CharacterRuleSlice $slice Срез.
-     * @param ICharacterFormulaContexts $contexts Разбор листа.
-     * @param array<string, mixed> $sheet Лист цели.
+     * @param FormulaContext $context Контекст.
      *
-     * @return DimensionalNumber Закупка.
+     * @return DimensionalNumber Стойкость.
      *
-     * @throws GameInvalidException Если карточки нет, их две или закупки нет.
+     * @throws GameInvalidException Если карточки нет, их две или значения нет.
      */
     private function endurance(
         CharacterRuleSlice $slice,
-        ICharacterFormulaContexts $contexts,
-        array $sheet,
+        FormulaContext $context,
     ): DimensionalNumber {
-        try {
-            $value = $contexts->build($sheet)->findCharacteristic($this->findCode($slice));
-        } catch (CharacterInvalidException $exception) {
-            throw new GameInvalidException('Game strike endurance is invalid', $exception);
-        }
-
+        $value = $context->findCharacteristic($this->findCode($slice));
         if ($value === null) {
             throw new GameInvalidException('Game strike endurance is invalid');
         }

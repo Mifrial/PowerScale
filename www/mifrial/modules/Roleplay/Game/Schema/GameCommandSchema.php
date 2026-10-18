@@ -6,17 +6,17 @@ namespace Mifrial\Roleplay\Game\Schema;
 
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
-use Mifrial\Roleplay\Game\Table\GameTurnCommandTable;
+use Mifrial\Roleplay\Game\Table\GameCommandTable;
 
 /**
- * Команды зажима и перевязки.
+ * Карта журнала команд игры.
  */
-final class GameTurnSchema
+final class GameCommandSchema
 {
     /**
      * Создаёт установщик.
      *
-     * @param IOpenedSchema $commandSchema DDL команды.
+     * @param IOpenedSchema $commandSchema DDL журнала.
      *
      * @return void
      */
@@ -31,7 +31,7 @@ final class GameTurnSchema
      */
     public static function getTableClasses(): array
     {
-        return [GameTurnCommandTable::class];
+        return [GameCommandTable::class];
     }
 
     /**

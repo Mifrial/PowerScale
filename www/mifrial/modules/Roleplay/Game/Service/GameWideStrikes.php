@@ -21,7 +21,7 @@ use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -37,7 +37,7 @@ final class GameWideStrikes implements IGameWideStrikes
 
     private readonly GameWideStrikeTargetRepository $targets;
 
-    private readonly GameWideStrikeCommandRepository $commands;
+    private readonly GameCommandRepository $commands;
 
     private readonly GameNpcRepository $npcs;
 
@@ -82,7 +82,7 @@ final class GameWideStrikes implements IGameWideStrikes
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->strikes = new GameWideStrikeRepository($smartTableGateway);
         $this->targets = new GameWideStrikeTargetRepository($smartTableGateway);
-        $this->commands = new GameWideStrikeCommandRepository($smartTableGateway);
+        $this->commands = new GameCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->characters = new GameCharacterRepository($smartTableGateway);
         $this->members = new GameMemberRepository($smartTableGateway);
@@ -275,7 +275,7 @@ final class GameWideStrikes implements IGameWideStrikes
     private function findReplay(int $gameId, string $idempotencyKey, array $requestBody): ?array
     {
         return $this->replayTransaction->find(
-            fn (): ?array => $this->commands->findByKey($gameId, $idempotencyKey),
+            fn (): ?array => $this->commands->findByKey($gameId, 'wide_strike', $idempotencyKey),
             $requestBody,
         );
     }
@@ -449,7 +449,7 @@ final class GameWideStrikes implements IGameWideStrikes
      */
     private function announce(int $gameId, string $idempotencyKey): void
     {
-        $stored = $this->commands->findByKey($gameId, $idempotencyKey);
+        $stored = $this->commands->findByKey($gameId, 'wide_strike', $idempotencyKey);
         if ($stored === null) {
             return;
         }
@@ -667,6 +667,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->attackerChoices($game->getId(), $attackerId) : null,
+            is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '',
         );
     }
 

@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Core\Kernel\Exception\ActionException;
+use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Dto\GameCharacterRecord;
 use Mifrial\Roleplay\Game\Dto\GameNpcRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
@@ -55,6 +58,8 @@ final class GameProjections implements IGameProjections
         private readonly ICharacters $characters,
         private readonly IGameMemberships $memberships,
         private readonly GameCharacterProjectionMask $characterMask,
+        private readonly ICharacterRuleSlices $ruleSlices,
+        private readonly ICharacterSheets $sheets,
     ) {
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->battles = new GameBattleRepository($smartTableGateway);
@@ -363,9 +368,14 @@ final class GameProjections implements IGameProjections
     {
         $actual = $this->actual($row->getCharacterId());
         $full = $this->characterOpen($game, $row, $actorUserId);
-        $masked = $this->characterMask->apply(
+        $sheet = $this->sheets->compute(
+            $this->ruleSlices->get($actual->getSpaceId(), $actual->getRulesRevision()),
             $actual->getChoices(),
             $actual->getSheet(),
+        );
+        $masked = $this->characterMask->apply(
+            $actual->getChoices(),
+            $sheet,
             $row->getSectionVisibility(),
             $full,
         );
@@ -420,6 +430,10 @@ final class GameProjections implements IGameProjections
      */
     private function oneKey(mixed $key, array &$seen): array
     {
+        if ($key instanceof JsonObject) {
+            $key = $key->getMembers();
+        }
+
         $names = is_array($key) ? array_keys($key) : [];
         sort($names);
         if ($names !== ['id', 'type']) {

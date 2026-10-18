@@ -12,7 +12,7 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -28,7 +28,7 @@ final class GameWideStrikeCommit
      * @param GameBattleRepository $battles Бои.
      * @param GameWideStrikeRepository $strikes Удары.
      * @param GameWideStrikeTargetRepository $targets Цели.
-     * @param GameWideStrikeCommandRepository $commands Команды.
+     * @param GameCommandRepository $commands Команды.
      * @param GameWideStrikeResults $results Результаты целей.
      * @param GameReplayTransaction $replayTransaction Общая граница replay.
      * @param GameStrikeRules $rules Срез.
@@ -41,7 +41,7 @@ final class GameWideStrikeCommit
         private readonly GameBattleRepository $battles,
         private readonly GameWideStrikeRepository $strikes,
         private readonly GameWideStrikeTargetRepository $targets,
-        private readonly GameWideStrikeCommandRepository $commands,
+        private readonly GameCommandRepository $commands,
         private readonly GameWideStrikeResults $results,
         private readonly GameReplayTransaction $replayTransaction,
         private readonly GameStrikeRules $rules,
@@ -139,10 +139,11 @@ final class GameWideStrikeCommit
         array $context,
     ): array {
         return $this->replayTransaction->execute(
-            fn (): ?array => $this->commands->findByKey($context['game']->getId(), $context['idempotencyKey']),
+            fn (): ?array => $this->commands->findByKey($context['game']->getId(), 'wide_strike', $context['idempotencyKey']),
             fn (): int => $this->commands->reserve(
                 $context['game']->getId(),
                 $context['sessionId'],
+                'wide_strike',
                 $context['idempotencyKey'],
                 $context['body'],
             ),
@@ -425,8 +426,8 @@ final class GameWideStrikeCommit
         GameWideStrikeOpening $opening,
     ): array {
         return $this->replayTransaction->execute(
-            fn (): ?array => $this->commands->findByKey($game->getId(), $idempotencyKey),
-            fn (): int => $this->commands->reserve($game->getId(), $sessionId, $idempotencyKey, $body),
+            fn (): ?array => $this->commands->findByKey($game->getId(), 'wide_strike', $idempotencyKey),
+            fn (): int => $this->commands->reserve($game->getId(), $sessionId, 'wide_strike', $idempotencyKey, $body),
             function (int $reservationId, array $result): void {
                 $this->commands->complete($reservationId, $result);
             },
@@ -467,6 +468,7 @@ final class GameWideStrikeCommit
             $context['penetration'] ?? null,
             $context['actorUserId'],
             $context['viewAll'],
+            is_array($context['open'] ?? null) ? $context['open'] : [],
         );
         $this->storeReactions($context['rows'], $context['choices'], $result['targetResults']);
         $this->strikes->close($context['strikeId']);
@@ -537,6 +539,7 @@ final class GameWideStrikeCommit
         ?Closure $penetrationFactory,
         int $actorUserId,
         bool $viewAll,
+        array $open = [],
     ): array {
         $targetResults = $this->targetResults(
             $game,
@@ -549,6 +552,7 @@ final class GameWideStrikeCommit
             $penetrationFactory,
             $actorUserId,
             $viewAll,
+            $open,
         );
 
         return [
@@ -623,6 +627,7 @@ final class GameWideStrikeCommit
         ?Closure $penetrationFactory,
         int $actorUserId,
         bool $viewAll,
+        array $open = [],
     ): array {
         return $this->results->build(
             $game,
@@ -637,6 +642,7 @@ final class GameWideStrikeCommit
             $actorUserId,
             $viewAll,
             $penetrationFactory,
+            $open,
         );
     }
 

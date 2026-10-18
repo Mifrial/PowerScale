@@ -1041,7 +1041,7 @@ final class GameEndOfTurnMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('swing', new RuleVersionBody('ability', 'Swing', '', [
                 'type' => 'action',
-                'components' => [[
+                'action_components' => [[
                     'type' => 'resource',
                     'resource_code' => 'ap',
                     'amount' => 1,
@@ -1050,7 +1050,7 @@ final class GameEndOfTurnMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('heavy', new RuleVersionBody('ability', 'Heavy', '', [
                 'type' => 'action',
-                'components' => [[
+                'action_components' => [[
                     'type' => 'resource',
                     'resource_code' => 'ap',
                     'amount' => 5,

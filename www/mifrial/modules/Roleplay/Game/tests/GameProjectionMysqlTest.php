@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Tests;
 
 use Mifrial\Core\Kernel\Dto\RequestActor;
+use Mifrial\Core\Kernel\Http\JsonDocuments;
 use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
@@ -177,6 +178,14 @@ final class GameProjectionMysqlTest extends TestCase
         ]);
         self::assertSame([], $missing['data']['sheets']);
         self::assertSame([['type' => 'npc', 'id' => 999]], $missing['data']['missing']);
+        $fromHttp = $this->dispatch(
+            'game.getSheets',
+            JsonDocuments::decode(
+                '{"gameId":' . $gameId . ',"keys":[{"type":"npc","id":999}]}',
+            ),
+        );
+        self::assertTrue($fromHttp['success']);
+        self::assertSame([['type' => 'npc', 'id' => 999]], $fromHttp['data']['missing']);
     }
 
     /**

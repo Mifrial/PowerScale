@@ -7,19 +7,14 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
-use Mifrial\Roleplay\Game\Repository\GameBattleCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
-use Mifrial\Roleplay\Game\Repository\GameCheckCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameCheckRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameStrikeCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
-use Mifrial\Roleplay\Game\Repository\GameTurnCommandRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
-use Mifrial\Roleplay\Game\Repository\GameWoundCommandRepository;
 
 /**
  * Снимает бои сессии и затем саму сессию одной транзакцией.
@@ -55,18 +50,13 @@ final class GameBattleCleanup
         $this->smartTableGateway->transaction(function () use ($sessionId): void {
             (new GameProcessRepository($this->smartTableGateway))->cancelOpenForSession($sessionId);
             (new GameCheckRepository($this->smartTableGateway))->deleteBySession($sessionId);
-            (new GameCheckCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
             $wideStrikes = new GameWideStrikeRepository($this->smartTableGateway);
             $wideStrikeIds = $wideStrikes->findIdsBySession($sessionId);
             (new GameWideStrikeTargetRepository($this->smartTableGateway))->deleteByStrikes($wideStrikeIds);
             $wideStrikes->deleteBySession($sessionId);
-            (new GameWideStrikeCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
             (new GameStrikeRepository($this->smartTableGateway))->deleteBySession($sessionId);
-            (new GameStrikeCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
-            (new GameWoundCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
-            (new GameTurnCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
+            (new GameCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
             (new GameBattleRepository($this->smartTableGateway))->deleteBySession($sessionId);
-            (new GameBattleCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
             $this->sessionRepository->deleteSession($sessionId);
         });
     }

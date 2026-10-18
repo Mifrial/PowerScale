@@ -31,6 +31,7 @@ use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
+use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
 use Mifrial\Roleplay\RuleSpace\Interface\Container\IRuleSpaceContainer;
 use Mifrial\Roleplay\RuleSpace\Interface\Service\IRuleSpaces;
 
@@ -82,6 +83,7 @@ final class GamePortFactory
             new GameViewAssembler(),
             $this->sessionRoster($serviceLocator),
             $this->cardAccess($serviceLocator),
+            new GameStrikeRepository($this->smartTableGateway($serviceLocator)),
         );
     }
 
@@ -203,12 +205,16 @@ final class GamePortFactory
      */
     public function createSessionHttp(IServiceLocator $serviceLocator): GameSessionHttp
     {
+        $gateway = $this->smartTableGateway($serviceLocator);
+
         return new GameSessionHttp(
             $this->userAccess($serviceLocator),
             $this->create($serviceLocator),
             $this->sessions($serviceLocator),
             $this->sessionRoster($serviceLocator),
             new GameViewAssembler(),
+            new GameSessionRepository($gateway),
+            new GameCombatNotices($this->chats($serviceLocator)),
         );
     }
 
@@ -262,6 +268,16 @@ final class GamePortFactory
      *
      * @throws KernelException Если порта нет.
      */
+    private function chats(IServiceLocator $serviceLocator): IChats
+    {
+        $chats = $serviceLocator->get(IChatContainer::class)->get(IChats::class);
+        if (!$chats instanceof IChats) {
+            throw new KernelException('PORT_TYPE', 'Game requires IChats');
+        }
+
+        return $chats;
+    }
+
     private function donorChats(IServiceLocator $serviceLocator): GameDonorChats
     {
         $chatContainer = $serviceLocator->get(IChatContainer::class);

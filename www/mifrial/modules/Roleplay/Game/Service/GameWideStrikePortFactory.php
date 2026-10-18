@@ -20,6 +20,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterCombatLayers;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameWideStrikes;
@@ -70,6 +71,7 @@ final class GameWideStrikePortFactory
             $this->formulaEvaluations($serviceLocator),
             $this->checkRoll($serviceLocator),
             $this->layers($serviceLocator),
+            $this->characterSheets($serviceLocator),
         );
 
         return new GameWideStrikes(
@@ -251,6 +253,25 @@ final class GameWideStrikePortFactory
     }
 
     /**
+     * Полный пересчёт листа.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return ICharacterSheets Порт.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function characterSheets(IServiceLocator $serviceLocator): ICharacterSheets
+    {
+        $sheets = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterSheets::class);
+        if (!$sheets instanceof ICharacterSheets) {
+            throw new KernelException('PORT_TYPE', 'Game wide strike requires ICharacterSheets');
+        }
+
+        return $sheets;
+    }
+
+    /**
      * Сопротивление слоёв.
      *
      * @param IServiceLocator $serviceLocator Каталог.
@@ -323,6 +344,7 @@ final class GameWideStrikePortFactory
             $this->characters($serviceLocator),
             $this->mechanics($serviceLocator),
             $this->rolls($serviceLocator),
+            $this->characterSheets($serviceLocator),
         );
     }
 

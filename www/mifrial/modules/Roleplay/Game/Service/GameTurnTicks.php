@@ -98,6 +98,19 @@ final class GameTurnTicks
             }
         }
 
+        foreach ($this->rows($sheet) as $row) {
+            $code = $row['stateRuleCode'] ?? null;
+            $id = $row['id'] ?? null;
+            if (!is_string($code) || !is_int($id)) {
+                continue;
+            }
+
+            $spec = $slice->findLive($code)?->getSpec();
+            if ($spec instanceof StateSpec && $spec->isDamageRemainder()) {
+                $operations[] = ['kind' => 'removeState', 'id' => $id];
+            }
+        }
+
         $pools = $this->turnRefillCount($slice);
         if ($pools > 1) {
             throw new GameInvalidException('Game turn resource is invalid');
@@ -321,7 +334,13 @@ final class GameTurnTicks
         if ($effect->getDamageKind() === 'value') {
             $value = $row['value'] ?? 0;
             if (is_array($value)) {
-                return new DimensionalNumber($value['base'], $value['size']);
+                $base = $value['base'] ?? null;
+                $size = $value['size'] ?? null;
+                if (!is_int($base) || !is_int($size)) {
+                    throw new GameInvalidException('Game turn state is invalid');
+                }
+
+                return new DimensionalNumber($base, $size);
             }
 
             return new DimensionalNumber(is_int($value) ? $value : 0, 0);

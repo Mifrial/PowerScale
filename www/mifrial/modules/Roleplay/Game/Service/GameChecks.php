@@ -22,7 +22,7 @@ use Mifrial\Roleplay\Game\Interface\Service\IGameChecks;
 use Mifrial\Roleplay\Game\Interface\Service\IGameProcesses;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
-use Mifrial\Roleplay\Game\Repository\GameCheckCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameCheckRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
@@ -36,7 +36,7 @@ final class GameChecks implements IGameChecks
 {
     private readonly GameSessionRepository $sessions;
 
-    private readonly GameCheckCommandRepository $commands;
+    private readonly GameCommandRepository $commands;
 
     private readonly GameCheckRepository $checks;
 
@@ -71,7 +71,7 @@ final class GameChecks implements IGameChecks
         private readonly GameCheckRoll $roll,
     ) {
         $this->sessions = new GameSessionRepository($smartTableGateway);
-        $this->commands = new GameCheckCommandRepository($smartTableGateway);
+        $this->commands = new GameCommandRepository($smartTableGateway);
         $this->checks = new GameCheckRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->members = new GameMemberRepository($smartTableGateway);
@@ -310,7 +310,7 @@ final class GameChecks implements IGameChecks
         $this->processes->resolve($opened['processId']);
         $result = $this->view($opened['processId'], 'resolved', $thrown, $sheetVersion);
         $this->checks->add($this->row($opened, 'solo', $choice, 'accepted', $thrown));
-        $this->commands->add($game->getId(), $opened['sessionId'], $idempotencyKey, [
+        $this->commands->add($game->getId(), $opened['sessionId'], 'check', $idempotencyKey, [
             'battleId' => $battleId,
             'check' => $choice,
             'expectedSheetVersion' => $expectedSheetVersion,
@@ -349,7 +349,7 @@ final class GameChecks implements IGameChecks
             $opened = $this->processes->open($game->getId(), $battleId, $choice['participant']['type'], $choice['participant']['id']);
             $result = $this->view($opened['processId'], 'open', null, null);
             $this->checks->add($this->row($opened, 'pairwise', $choice, 'pending', null));
-            $this->commands->add($game->getId(), $opened['sessionId'], $idempotencyKey, [
+            $this->commands->add($game->getId(), $opened['sessionId'], 'check', $idempotencyKey, [
                 'battleId' => $battleId,
                 'proposal' => $choice,
                 'expectedSheetVersion' => $expectedSheetVersion,
@@ -393,7 +393,7 @@ final class GameChecks implements IGameChecks
             &$result,
         ): void {
             $result = $this->applyAnswer($game, $processId, $decision, $open, $sheet, $expectedSheetVersion);
-            $this->commands->add($game->getId(), $open['sessionId'], $idempotencyKey, [
+            $this->commands->add($game->getId(), $open['sessionId'], 'check', $idempotencyKey, [
                 'processId' => $processId,
                 'answer' => $decision,
                 'expectedSheetVersion' => $expectedSheetVersion,
@@ -885,7 +885,7 @@ final class GameChecks implements IGameChecks
      */
     private function replay(int $gameId, string $idempotencyKey, array $requestBody): ?array
     {
-        $stored = $this->commands->findByKey($gameId, $idempotencyKey);
+        $stored = $this->commands->findByKey($gameId, 'check', $idempotencyKey);
         if ($stored === null) {
             return null;
         }

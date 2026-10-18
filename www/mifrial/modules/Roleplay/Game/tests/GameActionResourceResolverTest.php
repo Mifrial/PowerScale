@@ -164,7 +164,7 @@ final class GameActionResourceResolverTest extends TestCase
             '',
             [
                 'type' => 'action',
-                'components' => [[
+                'action_components' => [[
                     'type' => 'resource',
                     'resource_code' => 'ap',
                     'amount' => ['type' => 'chosen', 'max' => 'available'],

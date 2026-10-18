@@ -11,7 +11,9 @@ use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGameProjections;
@@ -49,6 +51,8 @@ final class GameProjectionPortFactory
             $this->characters($serviceLocator),
             $this->memberships($serviceLocator),
             new GameCharacterProjectionMask(),
+            $this->ruleSlices($serviceLocator),
+            $this->characterSheets($serviceLocator),
         );
     }
 
@@ -140,6 +144,44 @@ final class GameProjectionPortFactory
         }
 
         return $characters;
+    }
+
+    /**
+     * Срезы ревизии.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return ICharacterRuleSlices Порт.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function ruleSlices(IServiceLocator $serviceLocator): ICharacterRuleSlices
+    {
+        $slices = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterRuleSlices::class);
+        if (!$slices instanceof ICharacterRuleSlices) {
+            throw new KernelException('PORT_TYPE', 'Game projection requires ICharacterRuleSlices');
+        }
+
+        return $slices;
+    }
+
+    /**
+     * Полный пересчёт листа.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return ICharacterSheets Порт.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function characterSheets(IServiceLocator $serviceLocator): ICharacterSheets
+    {
+        $sheets = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterSheets::class);
+        if (!$sheets instanceof ICharacterSheets) {
+            throw new KernelException('PORT_TYPE', 'Game projection requires ICharacterSheets');
+        }
+
+        return $sheets;
     }
 
     /**

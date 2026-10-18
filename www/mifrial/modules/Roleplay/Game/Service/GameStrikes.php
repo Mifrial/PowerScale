@@ -7,8 +7,10 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Core\Event\Interface\Service\IEventManager;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
+use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
@@ -23,8 +25,11 @@ use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameStrikeCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
+use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -36,7 +41,7 @@ final class GameStrikes implements IGameStrikes
 
     private readonly GameStrikeRepository $strikes;
 
-    private readonly GameStrikeCommandRepository $commands;
+    private readonly GameCommandRepository $commands;
 
     private readonly GameNpcRepository $npcs;
 
@@ -96,7 +101,7 @@ final class GameStrikes implements IGameStrikes
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->strikes = new GameStrikeRepository($smartTableGateway);
-        $this->commands = new GameStrikeCommandRepository($smartTableGateway);
+        $this->commands = new GameCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->characters = new GameCharacterRepository($smartTableGateway);
         $this->members = new GameMemberRepository($smartTableGateway);
@@ -311,10 +316,11 @@ final class GameStrikes implements IGameStrikes
         ];
 
         $execution = $this->replayTransaction->execute(
-            fn (): ?array => $this->commands->findByKey($game->getId(), $idempotencyKey),
+            fn (): ?array => $this->commands->findByKey($game->getId(), 'strike', $idempotencyKey),
             fn (): int => $this->commands->reserve(
                 $game->getId(),
                 $sessionId,
+                'strike',
                 $idempotencyKey,
                 $body,
             ),
@@ -388,10 +394,11 @@ final class GameStrikes implements IGameStrikes
             'expectedVersion' => $expectedBattleVersion,
         ];
         $execution = $this->replayTransaction->execute(
-            fn (): ?array => $this->commands->findByKey($game->getId(), $idempotencyKey),
+            fn (): ?array => $this->commands->findByKey($game->getId(), 'strike', $idempotencyKey),
             fn (): int => $this->commands->reserve(
                 $game->getId(),
                 $sessionId,
+                'strike',
                 $idempotencyKey,
                 $body,
             ),
@@ -431,7 +438,7 @@ final class GameStrikes implements IGameStrikes
      */
     private function announce(int $gameId, string $idempotencyKey): void
     {
-        $stored = $this->commands->findByKey($gameId, $idempotencyKey);
+        $stored = $this->commands->findByKey($gameId, 'strike', $idempotencyKey);
         if ($stored === null) {
             return;
         }
@@ -454,7 +461,7 @@ final class GameStrikes implements IGameStrikes
     private function findReplay(int $gameId, string $idempotencyKey, array $requestBody): ?array
     {
         return $this->replayTransaction->find(
-            fn (): ?array => $this->commands->findByKey($gameId, $idempotencyKey),
+            fn (): ?array => $this->commands->findByKey($gameId, 'strike', $idempotencyKey),
             $requestBody,
         );
     }
@@ -721,19 +728,71 @@ final class GameStrikes implements IGameStrikes
         int $actorUserId,
         bool $viewAll,
     ): array {
+        try {
+            return $this->runCloseTransaction(
+                $game,
+                $battle,
+                $expectedBattleVersion,
+                $expectedSheetVersion,
+                $choice,
+                $strikeId,
+                $open,
+                $hitCode,
+                $actorUserId,
+                $viewAll,
+            );
+        } catch (GameInvalidException $exception) {
+            throw $exception;
+        }
+    }
+
+    /**
+     * Тело закрытия удара.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
+     * @param int $expectedBattleVersion Версия боя.
+     * @param int $expectedSheetVersion Версия листа.
+     * @param array{reaction: string, blockItemInventoryId: int|null, blockItemProfileIndex: int|null, blockItemRuleCode: string|null} $choice Защита.
+     * @param int $strikeId Удар.
+     * @param array<string, mixed> $open Строка.
+     * @param string $hitCode Код попадания.
+     * @param int $actorUserId Актор.
+     * @param bool $viewAll Полный просмотр.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    private function runCloseTransaction(
+        GameRecord $game,
+        GameBattleRecord $battle,
+        int $expectedBattleVersion,
+        int $expectedSheetVersion,
+        array $choice,
+        int $strikeId,
+        array $open,
+        string $hitCode,
+        int $actorUserId,
+        bool $viewAll,
+    ): array {
         $attackerRoll = $this->rollOf($game, $open, $hitCode);
         $defenderRoll = null;
+        if ($choice['reaction'] !== 'ignore' && $this->rules->isUnconscious($game->getSpaceId(), $game->getRulesRevision(), $this->defenderSheet($game, $open))) {
+            throw new GameInvalidException('Game strike defender is unconscious');
+        }
+        if ($choice['reaction'] === 'dodge') {
+            $defenderRoll = $this->dodgeRollOf($game, $open, $hitCode, $attackerRoll);
+            $attackerRoll = $this->rules->rerateHit($attackerRoll, $defenderRoll);
+        }
         if ($choice['reaction'] === 'block') {
             $defenderRoll = $this->blockRollOf($game, $open, $choice, $hitCode, $attackerRoll);
         }
 
-        if ($choice['reaction'] === 'ignore') {
-            return $this->resourceIgnoredResult($battle, $strikeId, $expectedBattleVersion, $attackerRoll, null);
-        }
-
-        $spends = $this->defenderResourceSpends($game, $open, $choice);
+        $spends = $choice['reaction'] === 'ignore'
+            ? []
+            : $this->defenderResourceSpends($game, $open, $choice);
         if (
-            $spends !== [] && !$this->rules->hasSufficientResources(
+            $choice['reaction'] !== 'ignore'
+            && $spends !== [] && !$this->rules->hasSufficientResources(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $this->defenderSheet($game, $open),
@@ -755,6 +814,7 @@ final class GameStrikes implements IGameStrikes
             $expectedBattleVersion,
             $attackerRoll,
             $defenderRoll,
+            $choice['reaction'],
         );
         $resistance = $result['success'] === 0
             ? $this->amounts->zero()
@@ -980,9 +1040,14 @@ final class GameStrikes implements IGameStrikes
             throw new GameInvalidException('Game strike defender is invalid');
         }
 
-        return $kind === 'character'
-            ? $this->rules->characterSnapshot($id)['sheet']
-            : $this->npcSheetSnapshot($game->getId(), $id)['sheet'];
+        if ($kind === 'character') {
+            return $this->rules->characterSnapshot($id)['sheet'];
+        }
+
+        $wrapped = $this->npcSheetSnapshot($game->getId(), $id)['sheet'];
+        $inner = is_array($wrapped) ? ($wrapped['sheet'] ?? null) : null;
+
+        return is_array($inner) ? $inner : $wrapped;
     }
 
     /**
@@ -1042,6 +1107,7 @@ final class GameStrikes implements IGameStrikes
         int $expectedBattleVersion,
         array $attackerRoll,
         ?array $defenderRoll,
+        string $reaction,
     ): array {
         $rating = $attackerRoll['rating'] ?? null;
         if (!is_int($rating)) {
@@ -1049,9 +1115,10 @@ final class GameStrikes implements IGameStrikes
         }
 
         $autoFail = $this->rules->isHitAutoFail($attackerRoll['roll']);
-        $success = $autoFail || $rating <= 0
-            ? 0
-            : ($defenderRoll !== null && ($defenderRoll['success'] ?? false) === true ? 1 : $rating);
+        $defenderWon = $defenderRoll !== null && ($defenderRoll['success'] ?? false) === true;
+        $success = $reaction === 'dodge'
+            ? (($autoFail || $defenderWon) ? 0 : max(0, $rating))
+            : ($autoFail || $rating <= 0 ? 0 : ($defenderWon ? 1 : $rating));
         $effectiveDamage = $success === 0 ? $this->amounts->zero() : $damage;
 
         $result = [
@@ -1105,6 +1172,9 @@ final class GameStrikes implements IGameStrikes
         $sheet = $kind === 'npc'
             ? $this->npcSheetSnapshot($game->getId(), $defenderId)['sheet']['sheet']
             : $this->rules->characterSnapshot($defenderId)['sheet'];
+        $npcChoices = $kind === 'npc'
+            ? $this->npcSheetSnapshot($game->getId(), $defenderId)['sheet']['choices']
+            : null;
         $split = $this->rules->splitInjury(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -1112,6 +1182,7 @@ final class GameStrikes implements IGameStrikes
             $defenderId,
             $kind === 'npc' ? $sheet : null,
             $injury,
+            is_array($npcChoices) ? $npcChoices : null,
         );
 
         return $this->consequences->effects(
@@ -1121,6 +1192,15 @@ final class GameStrikes implements IGameStrikes
             $success,
             $split,
             $this->rules->damageTypeCode($game->getSpaceId(), $game->getRulesRevision(), $itemRuleCode, $profileType, $profileIndex),
+            true,
+            $this->rules->enduranceOf(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $kind,
+                $defenderId,
+                $kind === 'npc' ? $sheet : null,
+                is_array($npcChoices) ? $npcChoices : null,
+            ),
         );
     }
 
@@ -1174,16 +1254,25 @@ final class GameStrikes implements IGameStrikes
     ): void {
         $defender = $this->entityToken($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
         $attacker = $this->entityToken($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0);
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $actionCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        $action = $actionCode !== '' ? '[[rule:' . $actionCode . ']]' : 'действие';
+        $actionAp = $this->actionAp($slice, $actionCode);
         $weapon = is_string($open['item_rule_code'] ?? null) ? '[[rule:' . $open['item_rule_code'] . ']]' : 'оружием';
         $kind = match ($open['profile_type'] ?? 'strike') {
             'throw' => 'бросок',
             'shoot' => 'выстрел',
             default => 'удар',
         };
-        $narrative = $attacker . ' наносит безымянный ' . $kind . ' оружием ' . $weapon . ' по ' . $defender . '.';
-        $narrative .= $reaction === 'ignore'
-            ? ' Тот не реагирует.'
-            : ' Тот пытается совершить ' . $reaction . ' за 0ОД!';
+        $typeBit = $this->damageTypeBit($game, $open, $slice);
+        $narrative = $attacker . ' наносит ' . $typeBit . ' ' . $kind . ' оружием ' . $weapon . ' по ' . $defender . '.';
+        if ($reaction === 'ignore') {
+            $narrative .= ' Тот не реагирует.';
+        } else {
+            $reactionCode = $this->reactionRuleCode($slice, $reaction);
+            $reactionToken = $reactionCode !== null ? '[[rule:' . $reactionCode . ']]' : $reaction;
+            $narrative .= ' Тот пытается совершить ' . $reactionToken . ' за ' . $this->actionAp($slice, $reactionCode ?? '') . 'ОД!';
+        }
         $exhaustion = $result['exhaustionDelta'] ?? 0;
         $wound = $result['wound'] ?? 0;
         $success = $result['success'] ?? 0;
@@ -1196,39 +1285,180 @@ final class GameStrikes implements IGameStrikes
             'roll' => $result['will'],
             'text' => $this->exhaustionText($defender, $result['will']['rating'] ?? 0, $result['willOutcome'] ?? 'clear'),
         ] : null;
+        $maimRating = is_int($result['maim']['rating'] ?? null) ? $result['maim']['rating'] : 0;
         $maim = isset($result['maim']) ? [
             'roll' => $result['maim'],
-            'text' => $this->maimText($defender, $result['maim']['rating'] ?? 0),
-            'details' => ['strength' => $result['maim']['rating'] ?? 0],
+            'text' => $this->maimText($defender, $maimRating),
+            'details' => [
+                'injury' => [
+                    'strength' => $maimRating < 0 ? -$maimRating : 0,
+                    'permanent' => false,
+                    'temporary' => true,
+                    'lethal' => false,
+                    'disfiguring' => false,
+                    'rating' => $maimRating,
+                    'difficulty' => is_array($result['maim']['difficulty'] ?? null)
+                        ? ($result['maim']['difficulty']['base'] ?? null)
+                        : null,
+                ],
+                'damageTypeName' => $typeBit,
+            ],
         ] : null;
         $this->consequences->post(
             $game,
             $actorUserId,
             'attack-' . $strikeId,
             true,
-            $attacker . ' совершает действие Простая атака (ближний бой) за 0ОД.',
+            $attacker . ' совершает действие ' . $action . ' за ' . $actionAp . 'ОД.',
             $narrative,
             $result['attackerRoll'],
             $success > 0
                 ? $attacker . ' попадает по ' . $defender . ' с ' . $success . ' РУ и наносит ' . implode(' и ', $bits) . '!'
                 : $attacker . ' промахивается по ' . $defender . '!',
             [
-                'damage' => $result['damage'] ?? null,
-                'resistance' => $result['resistance'] ?? null,
-                'injury' => $result['injury'] ?? null,
+                'raw' => is_array($result['injury'] ?? null) ? ($result['injury']['base'] ?? 0) : 0,
+                'damage' => is_array($result['damage'] ?? null) ? $result['damage'] : ['base' => 0, 'size' => 0],
+                'damageTypeName' => $typeBit,
+                'resistance' => is_array($result['resistance'] ?? null) ? ($result['resistance']['base'] ?? 0) : 0,
+                'endurance' => is_array($result['endurance'] ?? null) ? $result['endurance'] : ['base' => 0, 'size' => 0],
+                'defenseIgnored' => false,
+                'attackSrLabel' => (string) $success,
+                'appliedSr' => $success,
+                'srCap' => null,
+                'heading' => null,
+                'stun' => null,
+                'shock' => null,
                 'exhaustion' => $exhaustion,
+                'remainingHpDamage' => 0,
                 'wound' => $wound,
+                'knockout' => ($result['unconscious'] ?? false) === true,
+                'cuttingWound' => null,
+                'layers' => [],
             ],
             $will,
             $maim,
+            $this->speakerOf($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0),
+            is_array($result['defenderRoll'] ?? null) ? $result['defenderRoll'] : null,
         );
     }
 
     private function entityToken(mixed $kind, mixed $id): string
     {
         $prefix = $kind === 'npc' ? 'npc' : 'character';
+        $numericId = is_int($id) ? $id : (is_string($id) && ctype_digit($id) ? (int) $id : 0);
+        $name = $this->entityName(is_string($kind) ? $kind : 'character', $numericId);
 
-        return '[[' . $prefix . ':' . $id . ',' . $id . ']]';
+        return '[[' . $prefix . ':' . $numericId . ',' . $name . ']]';
+    }
+
+    /**
+     * @return array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}
+     */
+    private function speakerOf(mixed $kind, mixed $id): array
+    {
+        $numericId = is_int($id) ? $id : 0;
+        $name = $this->entityName(is_string($kind) ? $kind : 'character', $numericId);
+        if ($kind === 'npc') {
+            return ['kind' => 'npc', 'npcId' => $numericId, 'npcName' => $name];
+        }
+
+        return ['kind' => 'character', 'characterId' => $numericId, 'characterName' => $name];
+    }
+
+    private function entityName(string $kind, int $id): string
+    {
+        if ($id <= 0) {
+            return '';
+        }
+
+        try {
+            if ($kind === 'npc') {
+                return $this->npcs->getById($id)->getName();
+            }
+
+            return $this->rules->characterName($id);
+        } catch (GameNotFoundException | CharacterNotFoundException) {
+            return (string) $id;
+        }
+    }
+
+    private function actionAp(CharacterRuleSlice $slice, string $ruleCode): int
+    {
+        if ($ruleCode === '') {
+            return 0;
+        }
+
+        $spec = $slice->findLive($ruleCode)?->getSpec();
+        if (!$spec instanceof AbilityActionSpec) {
+            return 0;
+        }
+
+        $turnCode = $this->turnResourceCode($slice);
+        $sum = 0;
+        foreach ($spec->getComponents() as $component) {
+            if (!$component instanceof ResourceComponent) {
+                continue;
+            }
+
+            if ($turnCode !== null && $component->getResourceCode() !== $turnCode) {
+                continue;
+            }
+
+            $amount = $component->getAmount();
+            if (is_int($amount)) {
+                $sum += $amount;
+            } elseif ($amount instanceof DimensionalNumber) {
+                $sum += $amount->getBase();
+            }
+        }
+
+        return $sum;
+    }
+
+    private function turnResourceCode(CharacterRuleSlice $slice): ?string
+    {
+        foreach ($slice->getLiveRules() as $rule) {
+            $spec = $rule->getSpec();
+            if ($spec instanceof ResourceSpec && $spec->isTurnRefill()) {
+                return $rule->getCode();
+            }
+        }
+
+        return null;
+    }
+
+    private function reactionRuleCode(CharacterRuleSlice $slice, string $reaction): ?string
+    {
+        foreach ($slice->getLiveRules() as $rule) {
+            $spec = $rule->getSpec();
+            if ($spec instanceof AbilityActionSpec && $spec->getBase()->getCombatAction() === $reaction) {
+                return $rule->getCode();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $open Открытый удар.
+     */
+    private function damageTypeBit(GameRecord $game, array $open, CharacterRuleSlice $slice): string
+    {
+        $item = $open['item_rule_code'] ?? null;
+        $profile = $open['profile_type'] ?? null;
+        $index = $open['profile_index'] ?? null;
+        if (!is_string($item) || !is_string($profile) || !is_int($index)) {
+            return 'безымянный';
+        }
+
+        $code = $this->rules->damageTypeCode($game->getSpaceId(), $game->getRulesRevision(), $item, $profile, $index);
+        if ($code === null) {
+            return 'безымянный';
+        }
+
+        $name = $slice->findLive($code)?->getName();
+
+        return is_string($name) && $name !== '' ? mb_strtolower($name) : 'безымянный';
     }
 
     private function exhaustionText(string $target, int $rating, string $outcome): string
@@ -1582,6 +1812,7 @@ final class GameStrikes implements IGameStrikes
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
+            is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '',
         );
     }
 
@@ -1597,6 +1828,34 @@ final class GameStrikes implements IGameStrikes
      *
      * @throws GameInvalidException Если строка или выбор битые.
      * @throws GameNotFoundException Если лист отсутствует.
+     */
+    private function dodgeRollOf(GameRecord $game, array $open, string $hitCode, array $attackerRoll): array
+    {
+        $kind = $open['defender_kind'] ?? null;
+        $id = $open['defender_id'] ?? null;
+        $profileType = $open['profile_type'] ?? null;
+        if (!is_string($kind) || !is_int($id) || !is_string($profileType)) {
+            throw new GameInvalidException('Game strike defender is invalid');
+        }
+
+        return $this->rules->rollDodge(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $hitCode,
+            $this->defenderSheet($game, $open),
+            $this->defenderChoices($game, $kind, $id),
+            $profileType,
+            $attackerRoll,
+        );
+    }
+
+    /**
+     * @param GameRecord $game
+     * @param array<string, mixed> $open
+     * @param array<string, mixed> $choice
+     * @param array<string, mixed> $attackerRoll
+     *
+     * @return array<string, mixed>
      */
     private function blockRollOf(
         GameRecord $game,
@@ -1796,6 +2055,7 @@ final class GameStrikes implements IGameStrikes
             $kind,
             $defenderId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $defenderId) : null,
+            $kind === 'npc' ? $this->npcChoices($game->getId(), $defenderId) : null,
         );
     }
 

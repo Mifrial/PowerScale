@@ -566,7 +566,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('hurl', new RuleVersionBody('ability', 'Hurl', '', [
                 'type' => 'action',
-                'components' => [[
+                'action_components' => [[
                     'type' => 'resource',
                     'resource_code' => 'ap',
                     'amount' => 1,

@@ -22,11 +22,11 @@ final class UpdateGameNpcInput implements IActionInput
      * @param string $name Имя.
      * @param array<string, mixed> $visibility Видимость.
      * @param array<string, mixed> $choices Документ.
-     * @param array<string, mixed> $sheet Сверка.
      * @param int $expectedNpcActualVersion CAS.
      * @param int|null $spaceId Сверка мира.
      * @param string|null $spaceCode Сверка кода.
      * @param int|null $rulesRevision Сверка ревизии листа.
+     * @param array<string, mixed>|null $sheet Сверка листа, как expectedSheet у персонажа.
      *
      * @return void
      */
@@ -36,11 +36,11 @@ final class UpdateGameNpcInput implements IActionInput
         public readonly string $name,
         public readonly array $visibility,
         public readonly array $choices,
-        public readonly array $sheet,
         public readonly int $expectedNpcActualVersion,
         public readonly ?int $spaceId = null,
         public readonly ?string $spaceCode = null,
         public readonly ?int $rulesRevision = null,
+        public readonly ?array $sheet = null,
     ) {
     }
 }

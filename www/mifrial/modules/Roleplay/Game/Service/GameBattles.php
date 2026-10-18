@@ -8,14 +8,13 @@ use Closure;
 use JsonException;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
-use Mifrial\Roleplay\Game\Dto\GameBattleCommandRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGameBattles;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
-use Mifrial\Roleplay\Game\Repository\GameBattleCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
@@ -24,7 +23,7 @@ use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
  */
 final class GameBattles implements IGameBattles
 {
-    private readonly GameBattleCommandRepository $commands;
+    private readonly GameCommandRepository $commands;
 
     /**
      * Создаёт фасад.
@@ -45,8 +44,10 @@ final class GameBattles implements IGameBattles
         private readonly GameMemberRepository $members,
         private readonly GameSessionRepository $sessions,
         private readonly GameBattleMutator $battleMutator,
+        private readonly GameCombatNotices $notices,
+        private readonly GameDeliverySignal $delivery,
     ) {
-        $this->commands = new GameBattleCommandRepository($smartTableGateway);
+        $this->commands = new GameCommandRepository($smartTableGateway);
     }
 
     /**
@@ -77,21 +78,34 @@ final class GameBattles implements IGameBattles
             $body['rolls'] = $rolls;
         }
 
-        return $this->execute(
+        $wrote = false;
+        $opened = $this->execute(
             $gameId,
             $actorUserId,
             $editAll,
             $viewAll,
             $idempotencyKey,
             $body,
-            fn (int $sessionId): array => $this->writeStart(
-                $gameId,
-                $sessionId,
-                $idempotencyKey,
-                $normalized,
-                $rolls,
-            ),
+            function (int $sessionId) use ($gameId, $idempotencyKey, $normalized, $rolls, &$wrote): array {
+                $wrote = true;
+
+                return $this->writeStart($gameId, $sessionId, $idempotencyKey, $normalized, $rolls);
+            },
         );
+        $order = $opened['order'] ?? null;
+        $battleId = $opened['battleId'] ?? null;
+        if ($wrote && is_array($order) && is_int($battleId)) {
+            $sessionId = $this->sessions->findSessionId($gameId);
+            if ($sessionId !== null) {
+                $this->notices->opened($this->games->get($gameId), $actorUserId, $sessionId, $battleId, $order);
+            }
+            $stored = $this->commands->findByKey($gameId, 'battle', $idempotencyKey);
+            if ($stored !== null) {
+                $this->delivery->recorded($gameId, 'battle', $stored['id'], []);
+            }
+        }
+
+        return $opened;
     }
 
     /**
@@ -276,16 +290,16 @@ final class GameBattles implements IGameBattles
      */
     private function replay(int $gameId, string $idempotencyKey, array $body): ?array
     {
-        $stored = $this->commands->findByKey($gameId, $idempotencyKey);
-        if (!$stored instanceof GameBattleCommandRecord) {
+        $stored = $this->commands->findByKey($gameId, 'battle', $idempotencyKey);
+        if ($stored === null) {
             return null;
         }
 
-        if ($this->canonical($stored->getBody()) !== $this->canonical($body)) {
+        if ($this->canonical($stored['body']) !== $this->canonical($body)) {
             throw new GameBattleConflictException(null);
         }
 
-        return $this->present($stored->getResult());
+        return $this->present($stored['result']);
     }
 
     /**

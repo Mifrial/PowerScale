@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Game\Tests;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Service\CharacterFormulaContexts;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -32,8 +33,7 @@ final class GameStrikeSplitsTest extends TestCase
         $split = $injury->divide($endurance);
         $operation = (new GameStrikeSplits())->operation(
             $this->slice(['stamina']),
-            $this->contexts(),
-            $this->sheet(2),
+            $this->contexts()->build($this->sheet(2)),
             $injury,
         );
 
@@ -65,10 +65,12 @@ final class GameStrikeSplitsTest extends TestCase
             [$this->slice(['stamina']), $this->sheet(0)],
         ] as [$slice, $sheet]) {
             try {
-                $splits->operation($slice, $contexts, $sheet, $injury);
+                $splits->operation($slice, $contexts->build($sheet), $injury);
                 self::fail('endurance must be rejected');
             } catch (GameInvalidException $exception) {
                 self::assertSame('GAME_INVALID', $exception->getErrorCode());
+            } catch (CharacterInvalidException) {
+                self::assertTrue(true);
             }
         }
     }

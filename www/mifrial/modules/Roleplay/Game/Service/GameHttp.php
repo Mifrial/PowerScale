@@ -22,6 +22,7 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameSessionRoster;
+use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
 
 /**
  * HTTP строки игры. Карточку фильтрует visibility.
@@ -37,6 +38,7 @@ final class GameHttp
      * @param GameViewAssembler $viewAssembler JSON.
      * @param IGameSessionRoster $sessionRoster Признак сессии.
      * @param GameCardAccess $cardAccess Фильтр карточки.
+     * @param GameStrikeRepository $strikes Открытый удар.
      *
      * @return void
      */
@@ -47,6 +49,7 @@ final class GameHttp
         private readonly GameViewAssembler $viewAssembler,
         private readonly IGameSessionRoster $sessionRoster,
         private readonly GameCardAccess $cardAccess,
+        private readonly GameStrikeRepository $strikes,
     ) {
     }
 
@@ -256,10 +259,13 @@ final class GameHttp
      */
     private function card(GameRecord $record): array
     {
+        $battle = $this->sessionRoster->findOpenBattle($record->getId());
+
         return $this->viewAssembler->detail(
             $record,
             $this->sessionRoster->hasSession($record->getId()),
-            $this->sessionRoster->findOpenBattle($record->getId()),
+            $battle,
+            $battle === null ? null : $this->strikes->findOpen($battle->getId()),
         );
     }
 

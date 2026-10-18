@@ -9,7 +9,7 @@ use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGameSessionRoster;
-use Mifrial\Roleplay\Game\Repository\GameBattleCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
@@ -23,7 +23,7 @@ final class GameBattleMutator
      * Создаёт запись.
      *
      * @param GameBattleRepository $battles Бои.
-     * @param GameBattleCommandRepository $commands Команды.
+     * @param GameCommandRepository $commands Команды.
      * @param GameNpcRepository $npcs NPC.
      * @param IGameSessionRoster $sessionRoster Снимок сессии.
      * @param GameProcessRepository $processes Process боя.
@@ -33,7 +33,7 @@ final class GameBattleMutator
      */
     public function __construct(
         private readonly GameBattleRepository $battles,
-        private readonly GameBattleCommandRepository $commands,
+        private readonly GameCommandRepository $commands,
         private readonly GameNpcRepository $npcs,
         private readonly IGameSessionRoster $sessionRoster,
         private readonly GameProcessRepository $processes,
@@ -89,7 +89,7 @@ final class GameBattleMutator
             $body['rolls'] = $rolls;
         }
 
-        $this->commands->add($gameId, $sessionId, $idempotencyKey, $body, $result);
+        $this->commands->add($gameId, $sessionId, 'battle', $idempotencyKey, $body, $result);
 
         return $result;
     }
@@ -138,7 +138,7 @@ final class GameBattleMutator
             $result['order'] = $turnOrder;
         }
 
-        $this->commands->add($gameId, $sessionId, $idempotencyKey, [
+        $this->commands->add($gameId, $sessionId, 'battle', $idempotencyKey, [
             'battleId' => $battleId,
             'participants' => $participants,
             'expectedVersion' => $expectedVersion,
@@ -180,7 +180,7 @@ final class GameBattleMutator
             'battleId' => $battleId,
             'ended' => true,
         ];
-        $this->commands->add($gameId, $sessionId, $idempotencyKey, [
+        $this->commands->add($gameId, $sessionId, 'battle', $idempotencyKey, [
             'battleId' => $battleId,
             'expectedVersion' => $expectedVersion,
         ], $result);

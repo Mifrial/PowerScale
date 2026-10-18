@@ -20,6 +20,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterCombatLayers;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\Read\CharacterSectionMask;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
@@ -146,6 +147,7 @@ final class GameStrikePortFactory
             $strikes,
             $wide,
             $this->events($serviceLocator),
+            new GameCombatNotices($chats),
         ));
     }
 
@@ -264,6 +266,25 @@ final class GameStrikePortFactory
     }
 
     /**
+     * Полный пересчёт листа.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return ICharacterSheets Порт.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function characterSheets(IServiceLocator $serviceLocator): ICharacterSheets
+    {
+        $sheets = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterSheets::class);
+        if (!$sheets instanceof ICharacterSheets) {
+            throw new KernelException('PORT_TYPE', 'Game strike requires ICharacterSheets');
+        }
+
+        return $sheets;
+    }
+
+    /**
      * Правила удара со слоями.
      *
      * @param IServiceLocator $serviceLocator Каталог.
@@ -323,6 +344,7 @@ final class GameStrikePortFactory
             $this->formulaEvaluations($serviceLocator),
             $this->checkRoll($serviceLocator),
             $this->layers($serviceLocator),
+            $this->characterSheets($serviceLocator),
         );
     }
 
@@ -399,6 +421,7 @@ final class GameStrikePortFactory
             $this->characters($serviceLocator),
             $this->mechanics($serviceLocator),
             $this->rolls($serviceLocator),
+            $this->characterSheets($serviceLocator),
         );
     }
 

@@ -8,13 +8,12 @@ use Closure;
 use JsonException;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
-use Mifrial\Roleplay\Game\Dto\GameBattleCommandRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
-use Mifrial\Roleplay\Game\Repository\GameBattleCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
@@ -26,7 +25,7 @@ final class GameBattleInitiatives
 {
     private readonly GameBattleRepository $battles;
 
-    private readonly GameBattleCommandRepository $commands;
+    private readonly GameCommandRepository $commands;
 
     /**
      * Создаёт фасад.
@@ -49,7 +48,7 @@ final class GameBattleInitiatives
         private readonly GameBattleOrder $order,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
-        $this->commands = new GameBattleCommandRepository($smartTableGateway);
+        $this->commands = new GameCommandRepository($smartTableGateway);
     }
 
     /**
@@ -204,7 +203,7 @@ final class GameBattleInitiatives
             $body['rolls'] = $rolls;
         }
 
-        $this->commands->add($game->getId(), $sessionId, $idempotencyKey, $body, $result);
+        $this->commands->add($game->getId(), $sessionId, 'battle', $idempotencyKey, $body, $result);
 
         return $result;
     }
@@ -223,16 +222,16 @@ final class GameBattleInitiatives
      */
     private function replay(int $gameId, string $idempotencyKey, array $body): ?array
     {
-        $stored = $this->commands->findByKey($gameId, $idempotencyKey);
-        if (!$stored instanceof GameBattleCommandRecord) {
+        $stored = $this->commands->findByKey($gameId, 'battle', $idempotencyKey);
+        if ($stored === null) {
             return null;
         }
 
-        if ($this->canonical($stored->getBody()) !== $this->canonical($body)) {
+        if ($this->canonical($stored['body']) !== $this->canonical($body)) {
             throw new GameBattleConflictException(null);
         }
 
-        return $this->present($stored->getResult());
+        return $this->present($stored['result']);
     }
 
     /**
@@ -273,7 +272,7 @@ final class GameBattleInitiatives
                 throw new GameInvalidException('Game battle result is invalid');
             }
 
-            $entries[] = [
+            $row = [
                 'type' => $entry['type'],
                 'id' => $entry['id'],
                 'difficulty' => $entry['difficulty'] ?? null,
@@ -281,6 +280,12 @@ final class GameBattleInitiatives
                 'success' => $entry['success'] ?? null,
                 'rating' => $entry['rating'] ?? null,
             ];
+            foreach (['name', 'faces', 'adjustedRolls', 'successes', 'droppedRolls', 'dieFaces', 'efficiency', 'label'] as $key) {
+                if (array_key_exists($key, $entry)) {
+                    $row[$key] = $entry[$key];
+                }
+            }
+            $entries[] = $row;
         }
 
         return $entries;

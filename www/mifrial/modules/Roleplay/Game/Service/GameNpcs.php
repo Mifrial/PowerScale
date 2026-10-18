@@ -194,34 +194,32 @@ final class GameNpcs
      * @param GameNpcRecord $record Строка.
      * @param GameRecord $game Игра.
      * @param int $expectedActualVersion CAS.
+     * @param array<string, mixed>|null $choices Документ перевода.
+     * @param string|null $name Имя перевода.
+     * @param array<string, mixed>|null $sheet Сверка листа.
      *
      * @return array{record: GameNpcRecord|null, report: array<string, mixed>} Строка или conflicts.
      *
      * @throws GameConflictException Если CAS.
      * @throws GameInvalidException Если уже на ревизии, нет choices или нет ревизии.
      */
-    public function translate(GameNpcRecord $record, GameRecord $game, int $expectedActualVersion): array
-    {
+    public function translate(
+        GameNpcRecord $record,
+        GameRecord $game,
+        int $expectedActualVersion,
+        ?array $choices = null,
+        ?string $name = null,
+        ?array $sheet = null,
+    ): array {
         $this->assertVersion($record, $expectedActualVersion);
         $sourceRevision = $this->storedRevision($record);
         if ($sourceRevision === $game->getRulesRevision()) {
             throw new GameInvalidException('NPC sheet is already on the game revision');
         }
 
-        try {
-            $report = $this->sheetEngines->remap(
-                $this->choicesOf($record),
-                $game->getSpaceId(),
-                $sourceRevision,
-                $game->getRulesRevision(),
-                $this->sheetOf($record),
-            );
-        } catch (CharacterNotFoundException $exception) {
-            throw new GameInvalidException('NPC revision was not found', $exception);
-        } catch (CharacterInvalidException $exception) {
-            throw new GameInvalidException('NPC sheet is invalid', $exception);
-        }
-
+        $report = $choices === null || $choices === []
+            ? $this->remapReport($record, $game, $sourceRevision)
+            : $this->translatedReport($choices, $game, $name, $sheet, $record);
         if ($report['kind'] !== 'ok') {
             return ['record' => null, 'report' => $report];
         }
@@ -234,6 +232,68 @@ final class GameNpcs
         );
 
         return ['record' => $saved, 'report' => $report];
+    }
+
+    /**
+     * Серверный remap листа на ревизию игры.
+     *
+     * @param GameNpcRecord $record Строка.
+     * @param GameRecord $game Игра.
+     * @param int $sourceRevision Ревизия листа.
+     *
+     * @return array<string, mixed> Отчёт.
+     *
+     * @throws GameInvalidException Если ревизии нет или лист битый.
+     */
+    private function remapReport(GameNpcRecord $record, GameRecord $game, int $sourceRevision): array
+    {
+        try {
+            return $this->sheetEngines->remap(
+                $this->choicesOf($record),
+                $game->getSpaceId(),
+                $sourceRevision,
+                $game->getRulesRevision(),
+                $this->sheetOf($record),
+            );
+        } catch (CharacterNotFoundException $exception) {
+            throw new GameInvalidException('NPC revision was not found', $exception);
+        } catch (CharacterInvalidException $exception) {
+            throw new GameInvalidException('NPC sheet is invalid', $exception);
+        }
+    }
+
+    /**
+     * Сборка присланного перевода на ревизии игры.
+     *
+     * @param array<string, mixed> $choices Документ.
+     * @param GameRecord $game Игра.
+     * @param string|null $name Имя.
+     * @param array<string, mixed>|null $sheet Сверка.
+     * @param GameNpcRecord $record Строка.
+     *
+     * @return array<string, mixed> Отчёт.
+     *
+     * @throws GameInvalidException Если ревизии нет.
+     */
+    private function translatedReport(
+        array $choices,
+        GameRecord $game,
+        ?string $name,
+        ?array $sheet,
+        GameNpcRecord $record,
+    ): array {
+        if (is_string($name) && $name !== '') {
+            $choices['name'] = $name;
+        }
+        $report = $this->runBuild(
+            $choices,
+            $game,
+            null,
+            $game->getRulesRevision(),
+            $this->sheetOf($record),
+        );
+
+        return $this->withSheetCheck($report, $sheet);
     }
 
     /**

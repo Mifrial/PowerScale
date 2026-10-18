@@ -11,6 +11,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityProcessSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackCostEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionCostEffect;
 
 /**
@@ -52,7 +53,7 @@ final class GamePendingActionCosts
             $amounts[$spend->getResourceCode()] = ($amounts[$spend->getResourceCode()] ?? 0) + $native;
         }
 
-        $turned = $this->turn($slice, $choices, $actionRuleCode, $actorKind, $actorId, $pending, $amounts);
+        $turned = $this->turn($slice, $choices, $actionRuleCode, $actorKind, $actorId, $pending, $amounts, true);
         foreach ($turned['amounts'] as $code => $amount) {
             $kept[] = new ResourceSpend($code, new ScalarResourceValue($amount));
         }
@@ -70,6 +71,7 @@ final class GamePendingActionCosts
      * @param int $actorId Id актора.
      * @param array<string, mixed> $pending Карта боя.
      * @param array<string, int> $amounts Цены по ресурсам.
+     * @param bool $forAttack Команда — атака: снять next_action_attack_cost.
      *
      * @return array{amounts: array<string, int>, pending: array<string, mixed>, touched: array<string, bool>} Итог.
      */
@@ -81,18 +83,29 @@ final class GamePendingActionCosts
         int $actorId,
         array $pending,
         array $amounts,
+        bool $forAttack = false,
     ): array {
         $key = $actorKind . ':' . $actorId;
         $waiting = is_array($pending[$key] ?? null) ? $pending[$key] : [];
         $touched = [];
         foreach ($waiting as $entry) {
             $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
-            if (!is_array($effect) || !$this->matches($slice, $actionRuleCode, $effect)) {
+            if (!is_array($effect)) {
+                continue;
+            }
+
+            $attackCost = ($effect['type'] ?? null) === 'next_action_attack_cost';
+            if ($attackCost && !$forAttack) {
+                continue;
+            }
+
+            if (!$attackCost && !$this->matches($slice, $actionRuleCode, $effect)) {
                 continue;
             }
 
             $resource = $effect['resource_code'] ?? null;
             $delta = $effect['delta'] ?? null;
+
             if (!is_string($resource) || !is_int($delta) || !array_key_exists($resource, $amounts)) {
                 continue;
             }
@@ -101,7 +114,10 @@ final class GamePendingActionCosts
             $touched[$resource] = true;
         }
 
-        $pending[$key] = $this->queued($slice, $choices, $actionRuleCode);
+        $pending[$key] = array_merge(
+            $this->queued($slice, $choices, $actionRuleCode),
+            $this->attackCostOf($slice, $actionRuleCode),
+        );
         if ($pending[$key] === []) {
             unset($pending[$key]);
         }
@@ -207,6 +223,49 @@ final class GamePendingActionCosts
             if ($this->matches($slice, $actionRuleCode, $stored)) {
                 $rows[] = ['sourceRuleCode' => $skillCode, 'effect' => $stored];
             }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * next_action_attack_cost самой команды. Следующая атака снимет его.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка команды.
+     *
+     * @return array<int, array<string, mixed>> Строки карты.
+     */
+    private function attackCostOf(CharacterRuleSlice $slice, string $actionRuleCode): array
+    {
+        $spec = $slice->findLive($actionRuleCode)?->getSpec();
+        $base = null;
+        $supported = $spec instanceof AbilityActionSpec
+            || $spec instanceof AbilityPlainSpec
+            || $spec instanceof AbilityProcessSpec
+            || $spec instanceof AbilitySpellSpec;
+        if ($supported) {
+            $base = $spec->getBase();
+        }
+
+        if ($base === null) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($base->getActionEffects() as $effect) {
+            if (!$effect instanceof NextActionAttackCostEffect) {
+                continue;
+            }
+
+            $rows[] = [
+                'sourceRuleCode' => $actionRuleCode,
+                'effect' => [
+                    'type' => 'next_action_attack_cost',
+                    'resource_code' => $effect->getResourceCode(),
+                    'delta' => $effect->getDelta(),
+                ],
+            ];
         }
 
         return $rows;

@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Game\Dto\Action\GameSessionInput;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameSessionRoster;
+use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
 /**
  * HTTP старта и stop. Карточку не прячет через видимость game.get.
@@ -33,6 +35,8 @@ final class GameSessionHttp
         private readonly GameSessions $sessions,
         private readonly IGameSessionRoster $sessionRoster,
         private readonly GameViewAssembler $viewAssembler,
+        private readonly GameSessionRepository $sessionRepository,
+        private readonly GameCombatNotices $notices,
     ) {
     }
 
@@ -48,8 +52,12 @@ final class GameSessionHttp
      */
     public function start(GameSessionInput $input): array
     {
-        $this->assertEditor($input->gameId);
+        $actor = $this->assertEditor($input->gameId);
         $this->sessions->start($input->gameId);
+        $sessionId = $this->sessionRepository->findSessionId($input->gameId);
+        if ($sessionId !== null) {
+            $this->notices->sessionOpened($this->games->get($input->gameId), $actor->getUserId(), $sessionId);
+        }
 
         return $this->card($input->gameId);
     }
@@ -95,16 +103,16 @@ final class GameSessionHttp
      *
      * @param int $gameId Игра.
      *
-     * @return void
+     * @return RequestActor Актор.
      *
      * @throws ActionException AUTH_REQUIRED.
      * @throws GameNotFoundException Если права нет.
      */
-    private function assertEditor(int $gameId): void
+    private function assertEditor(int $gameId): RequestActor
     {
         $actor = $this->userAccess->requireActor();
         if ($actor->hasKey(GamePermissionKeys::EDIT_ALL)) {
-            return;
+            return $actor;
         }
 
         $game = $this->games->get($gameId);
@@ -119,5 +127,7 @@ final class GameSessionHttp
         if (!in_array(GamePermissionKeys::EDIT, $keys, true)) {
             throw new GameNotFoundException();
         }
+
+        return $actor;
     }
 }

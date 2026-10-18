@@ -104,7 +104,7 @@ final class GameDeliveryWoundMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('squeeze', new RuleVersionBody('ability', 'Squeeze', '', [
                 'type' => 'action',
-                'components' => [['type' => 'resource', 'resource_code' => 'ap', 'amount' => 1]],
+                'action_components' => [['type' => 'resource', 'resource_code' => 'ap', 'amount' => 1]],
                 'distinct_weapons' => false,
                 'same_weapon' => false,
                 'lift_parent_max_weapons' => false,

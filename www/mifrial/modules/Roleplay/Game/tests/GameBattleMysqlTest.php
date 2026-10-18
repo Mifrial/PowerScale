@@ -16,7 +16,6 @@ use Mifrial\Roleplay\Game\Dto\GamePatch;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
-use Mifrial\Roleplay\Game\Table\GameBattleCommandTable;
 use Mifrial\Roleplay\Game\Table\GameBattleParticipantTable;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
 use Mifrial\Roleplay\Game\Table\GameSessionCharacterTable;
@@ -262,7 +261,7 @@ final class GameBattleMysqlTest extends TestCase
         self::assertFalse($stopped['data']['sessionRunning']);
         self::assertSame('in_process', $stopped['data']['status']);
         self::assertSame(0, $this->countAll(GameBattleTable::class));
-        self::assertSame(0, $this->countAll(GameBattleCommandTable::class));
+        self::assertSame(0, $this->countCommands('battle'));
         self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
         $again = $this->dispatch('game.startBattle', [
             'gameId' => $gameId,

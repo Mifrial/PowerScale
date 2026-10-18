@@ -11,6 +11,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Dto\GameCheckThrowOverride;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
@@ -27,6 +28,8 @@ use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Mechanic\Service\DimensionalCheckNormalizer;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\State\CheckAdvantageEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -44,6 +47,7 @@ final class GameCheckRoll
      * @param ICharacters $characters Персонажи.
      * @param IMechanics $mechanics Каталог.
      * @param IMechanicRolls $rolls Порт броска.
+     * @param ICharacterSheets|null $sheets Пересчёт листа на чтении.
      *
      * @return void
      */
@@ -52,6 +56,7 @@ final class GameCheckRoll
         private readonly ICharacters $characters,
         private readonly IMechanics $mechanics,
         private readonly IMechanicRolls $rolls,
+        private readonly ?ICharacterSheets $sheets = null,
     ) {
         $this->normalizer = new DimensionalCheckNormalizer();
     }
@@ -73,7 +78,34 @@ final class GameCheckRoll
             throw new GameNotFoundException('Game character was not found', $exception);
         }
 
-        return ['version' => $record->getActualVersion(), 'sheet' => $record->getSheet()];
+        $sheet = $record->getSheet();
+        if ($this->sheets !== null) {
+            $sheet = $this->sheets->compute(
+                $this->slices->get($record->getSpaceId(), $record->getRulesRevision()),
+                $record->getChoices(),
+                $sheet,
+            );
+        }
+
+        return ['version' => $record->getActualVersion(), 'sheet' => $sheet];
+    }
+
+    /**
+     * Имя персонажа.
+     *
+     * @param int $characterId Персонаж.
+     *
+     * @return string Имя.
+     *
+     * @throws GameNotFoundException Если персонажа нет.
+     */
+    public function characterName(int $characterId): string
+    {
+        try {
+            return $this->characters->get($characterId)->getName();
+        } catch (CharacterNotFoundException $exception) {
+            throw new GameNotFoundException('Game character was not found', $exception);
+        }
     }
 
     /**
@@ -236,19 +268,51 @@ final class GameCheckRoll
         }
 
         $selectedEfficiency = $efficiency ?? $this->efficiency($check);
-
-        return $this->scored(
-            $difficulty,
-            $this->rollMastery(
-                $mastery,
-                $selectedEfficiency,
-                $efficiency !== null || $this->hasExplicitEfficiency($check),
-                $dieFaces,
-                $bindings,
-                $chain['attached'],
-            ),
-            new SizedBase(0, -1),
+        $rolled = $this->rollMastery(
+            $mastery,
+            $selectedEfficiency,
+            $efficiency !== null || $this->hasExplicitEfficiency($check),
+            $dieFaces,
+            $bindings,
+            $chain['attached'],
+            $this->stateAdvantages($slice, $sheet, null, true),
         );
+        $minimum = ['base' => 0, 'size' => -1];
+        if ($difficulty['base'] === 0 && $difficulty['size'] === 0) {
+            $difficulty = $minimum;
+        }
+
+        $scored = $this->scored($difficulty, $rolled, new SizedBase(0, -1));
+        $scored['poolSize'] = $mastery->getSize();
+        $scored['efficiency'] = ['base' => $selectedEfficiency->getBase(), 'size' => $selectedEfficiency->getSize()];
+        $scored['label'] = $slice->findLive($ruleCode)?->getName() ?? 'Попадание';
+        $scored['raw'] = $scored['roll'];
+
+        return $scored;
+    }
+
+    /**
+     * Оценивает уже брошенный пул против новой трудности, не бросая кубы заново.
+     *
+     * @param array<string, mixed> $check Итог броска.
+     * @param array{base: int, size: int} $difficulty Трудность.
+     *
+     * @return array<string, mixed> Тот же бросок с новым рейтингом.
+     */
+    public function rerate(array $check, array $difficulty): array
+    {
+        $roll = is_array($check['raw'] ?? null) ? $check['raw'] : $check['roll'];
+        $rating = $this->rolls->rate(
+            new SizedBase($roll['base'], $roll['size']),
+            new SizedBase($difficulty['base'], $difficulty['size']),
+            -1,
+        );
+        $check['difficulty'] = $difficulty;
+        $check['success'] = $rating->isPassed();
+        $check['rating'] = $rating->getRating();
+        $check['min_success_size'] = -1;
+
+        return $check;
     }
 
     /**
@@ -271,11 +335,12 @@ final class GameCheckRoll
         string $ruleCode,
         array $sheet,
         array $difficulty,
+        ?GameCheckThrowOverride $override = null,
     ): array {
         $slice = $this->slices->get($spaceId, $rulesRevision);
         $check = $this->checkOf($slice, $ruleCode, true);
 
-        return $this->thrown($slice, $check, $ruleCode, 'solo', $sheet, null, null, $difficulty);
+        return $this->thrown($slice, $check, $ruleCode, 'solo', $sheet, null, null, $difficulty, $override);
     }
 
     /**
@@ -417,6 +482,12 @@ final class GameCheckRoll
             'roll' => ['base' => $roll->getBase(), 'size' => $roll->getSize()],
             'success' => $rating->isPassed(),
             'rating' => $rating->getRating(),
+            'faces' => $rolled->getRolls(),
+            'adjustedRolls' => $rolled->getAdjustedRolls(),
+            'successes' => $rolled->getSuccesses(),
+            'droppedRolls' => $rolled->getDroppedRolls(),
+            'dieFaces' => $rolled->getSpec()->getDieFaces(),
+            'min_success_size' => $minimum?->getSize(),
         ];
     }
 
@@ -439,6 +510,7 @@ final class GameCheckRoll
         int $dieFaces,
         array $bindings,
         ?array $attached,
+        array $advantages = [],
     ): RollResult {
         if ($mastery->getBase() <= 0) {
             throw new GameInvalidException('Game check mastery pool is invalid');
@@ -450,7 +522,7 @@ final class GameCheckRoll
                 $dieFaces,
                 $efficiency->getBase(),
                 $mastery->getSize() + $efficiency->getSize(),
-                [],
+                $advantages,
                 $explicitEfficiency,
             ),
             static fn (): float => mt_rand(0, mt_getrandmax() - 1) / mt_getrandmax(),
@@ -500,7 +572,7 @@ final class GameCheckRoll
                 $pool['dieFaces'],
                 $efficiency->getBase(),
                 $efficiency->getSize(),
-                $this->advantagesOf($override),
+                $this->advantagesOf($override, $slice, $sheet, $chain['characteristic'], $check->isHitCheck()),
                 $this->hasExplicitEfficiency($check),
             ),
             static fn (): float => mt_rand(0, mt_getrandmax() - 1) / mt_getrandmax(),
@@ -509,7 +581,10 @@ final class GameCheckRoll
             new ResolveActiveOptions(null, $chain['attached']),
         );
 
-        return $this->scored($difficulty, $rolled, $minimum);
+        $scored = $this->scored($difficulty, $rolled, $minimum);
+        $scored['label'] = $slice->findLive($ruleCode)?->getName() ?? '';
+
+        return $scored;
     }
 
     /**
@@ -553,13 +628,136 @@ final class GameCheckRoll
      *
      * @return array<int, RollAdvantage> Записи.
      */
-    private function advantagesOf(?GameCheckThrowOverride $override): array
-    {
-        if ($override === null || $override->advantage === null || $override->advantage === 0) {
+    private function advantagesOf(
+        ?GameCheckThrowOverride $override,
+        ?CharacterRuleSlice $slice = null,
+        ?array $sheet = null,
+        ?string $characteristicCode = null,
+        bool $hit = false,
+    ): array {
+        $rows = [];
+        if ($override !== null && $override->advantage !== null && $override->advantage !== 0) {
+            $rows[] = new RollAdvantage('roll', $override->advantage);
+        }
+
+        if ($slice !== null && is_array($sheet)) {
+            array_push($rows, ...$this->stateAdvantages($slice, $sheet, $characteristicCode, $hit));
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Помехи состояний на попадание или характеристику и её производные.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $sheet Лист.
+     * @param string|null $characteristicCode Характеристика проверки или null.
+     * @param bool $hit Попадание.
+     *
+     * @return array<int, RollAdvantage> Записи.
+     */
+    private function stateAdvantages(
+        CharacterRuleSlice $slice,
+        array $sheet,
+        ?string $characteristicCode,
+        bool $hit,
+    ): array {
+        $states = $sheet['states'] ?? [];
+        if (!is_array($states)) {
             return [];
         }
 
-        return [new RollAdvantage('roll', $override->advantage)];
+        $rows = [];
+        foreach ($states as $state) {
+            if (!is_array($state)) {
+                continue;
+            }
+
+            $code = $state['stateRuleCode'] ?? null;
+            $spec = is_string($code) ? $slice->findLive($code)?->getSpec() : null;
+            if (!$spec instanceof StateSpec) {
+                continue;
+            }
+
+            $units = is_int($state['value'] ?? null) ? $state['value'] : 1;
+            foreach ($spec->getEffects() as $effect) {
+                if (!$effect instanceof CheckAdvantageEffect || !$this->advantageMatches($slice, $effect, $characteristicCode, $hit)) {
+                    continue;
+                }
+
+                $delta = $effect->getAmount() * ($effect->isPerUnit() ? $units : 1);
+                $max = $effect->getMaxAbs();
+                if ($max !== null) {
+                    $delta = max(-$max, min($max, $delta));
+                }
+
+                if ($delta !== 0) {
+                    $rows[] = new RollAdvantage(is_string($code) ? $code : 'state', $delta);
+                }
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Эффект относится к этому броску.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CheckAdvantageEffect $effect Эффект.
+     * @param string|null $characteristicCode Характеристика.
+     * @param bool $hit Попадание.
+     *
+     * @return bool true, если помеха входит в бросок.
+     */
+    private function advantageMatches(
+        CharacterRuleSlice $slice,
+        CheckAdvantageEffect $effect,
+        ?string $characteristicCode,
+        bool $hit,
+    ): bool {
+        if ($hit && $effect->isIncludesHit()) {
+            return true;
+        }
+
+        if ($characteristicCode === null) {
+            return false;
+        }
+
+        foreach ($effect->getCharacteristicCodes() as $root) {
+            if ($this->dependsOn($slice, $characteristicCode, $root)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Код сам или формула min/max от корня.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $code Проверяемая характеристика.
+     * @param string $root Корень эффекта.
+     *
+     * @return bool true, если зависит.
+     */
+    private function dependsOn(CharacterRuleSlice $slice, string $code, string $root, array $seen = []): bool
+    {
+        if ($code === $root || isset($seen[$code])) {
+            return $code === $root;
+        }
+
+        $seen[$code] = true;
+        $spec = $slice->findLive($code)?->getSpec();
+        $formula = $spec instanceof CharacteristicSpec ? $spec->getFormula() : null;
+        if (!is_string($formula) || preg_match('/^(?:min|max)\(\s*([^,]+)\s*,\s*([^)]+)\)$/i', trim($formula), $match) !== 1) {
+            return false;
+        }
+
+        return $this->dependsOn($slice, trim($match[1]), $root, $seen)
+            || $this->dependsOn($slice, trim($match[2]), $root, $seen);
     }
 
     /**
@@ -576,7 +774,8 @@ final class GameCheckRoll
     {
         $rule = $slice->findLive($ruleCode);
         $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        if (!$spec instanceof CheckSpec || !$spec->isHitCheck() || $this->hitBlocked($spec)) {
+        $blocked = $spec instanceof CheckSpec ? $this->hitBlocked($spec) : true;
+        if (!$spec instanceof CheckSpec || !$spec->isHitCheck() || $blocked) {
             throw new GameInvalidException('Game hit check is invalid');
         }
 
@@ -592,7 +791,7 @@ final class GameCheckRoll
      */
     private function hitBlocked(CheckSpec $spec): bool
     {
-        if ($spec->isConcentrationToken() || $spec->isWillpower() || $spec->isUnstableCheck()) {
+        if ($spec->isWillpower() || $spec->isUnstableCheck()) {
             return true;
         }
 

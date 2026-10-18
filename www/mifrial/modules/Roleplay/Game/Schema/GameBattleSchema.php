@@ -6,12 +6,11 @@ namespace Mifrial\Roleplay\Game\Schema;
 
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
-use Mifrial\Roleplay\Game\Table\GameBattleCommandTable;
 use Mifrial\Roleplay\Game\Table\GameBattleParticipantTable;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
 
 /**
- * Карта боя, состава и команды.
+ * Карта боя и состава.
  */
 final class GameBattleSchema
 {
@@ -20,14 +19,12 @@ final class GameBattleSchema
      *
      * @param IOpenedSchema $battleSchema DDL боя.
      * @param IOpenedSchema $participantSchema DDL состава.
-     * @param IOpenedSchema $commandSchema DDL команды.
      *
      * @return void
      */
     public function __construct(
         private readonly IOpenedSchema $battleSchema,
         private readonly IOpenedSchema $participantSchema,
-        private readonly IOpenedSchema $commandSchema,
     ) {
     }
 
@@ -41,7 +38,6 @@ final class GameBattleSchema
         return [
             GameBattleTable::class,
             GameBattleParticipantTable::class,
-            GameBattleCommandTable::class,
         ];
     }
 
@@ -54,7 +50,6 @@ final class GameBattleSchema
     {
         $this->installOne($this->battleSchema);
         $this->installOne($this->participantSchema);
-        $this->installOne($this->commandSchema);
     }
 
     /**

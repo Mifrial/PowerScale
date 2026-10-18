@@ -6,11 +6,10 @@ namespace Mifrial\Roleplay\Game\Schema;
 
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
-use Mifrial\Roleplay\Game\Table\GameCheckCommandTable;
 use Mifrial\Roleplay\Game\Table\GameCheckTable;
 
 /**
- * Карта проверки и её команды.
+ * Карта проверки.
  */
 final class GameCheckSchema
 {
@@ -18,13 +17,11 @@ final class GameCheckSchema
      * Создаёт установщик.
      *
      * @param IOpenedSchema $checkSchema DDL проверки.
-     * @param IOpenedSchema $commandSchema DDL команды.
      *
      * @return void
      */
     public function __construct(
         private readonly IOpenedSchema $checkSchema,
-        private readonly IOpenedSchema $commandSchema,
     ) {
     }
 
@@ -37,36 +34,22 @@ final class GameCheckSchema
     {
         return [
             GameCheckTable::class,
-            GameCheckCommandTable::class,
         ];
     }
 
     /**
-     * Приводит таблицы к текущей карте.
+     * Приводит таблицу к текущей карте.
      *
      * @return void
      */
     public function install(): void
     {
-        $this->installOne($this->checkSchema);
-        $this->installOne($this->commandSchema);
-    }
-
-    /**
-     * Создаёт или обновляет одну таблицу.
-     *
-     * @param IOpenedSchema $schema DDL.
-     *
-     * @return void
-     */
-    private function installOne(IOpenedSchema $schema): void
-    {
-        if ($schema->exists()) {
-            $schema->updateTable();
+        if ($this->checkSchema->exists()) {
+            $this->checkSchema->updateTable();
 
             return;
         }
 
-        $schema->createTable();
+        $this->checkSchema->createTable();
     }
 }

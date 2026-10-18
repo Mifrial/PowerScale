@@ -89,7 +89,9 @@ final class GameActionResourceResolver
             return [];
         }
 
-        $minimums = $this->minimums($slice, $itemInventoryId, $itemRuleCode, $choices, $components);
+        $minimums = $itemRuleCode === '' || $itemInventoryId < 1
+            ? []
+            : $this->minimums($slice, $itemInventoryId, $itemRuleCode, $choices, $components);
         $spends = [];
         foreach ($components as $component) {
             $resourceSpec = $this->resourceSpec($slice, $component->getResourceCode());

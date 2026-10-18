@@ -46,11 +46,16 @@ final class GameViewAssembler
      * @param GameRecord $record Строка.
      * @param bool $sessionRunning Текущая сессия есть.
      * @param GameBattleRecord|null $battle Открытый бой или null.
+     * @param array<string, mixed>|null $openStrike Открытый удар 1→1 или null.
      *
      * @return array<string, mixed> JSON.
      */
-    public function detail(GameRecord $record, bool $sessionRunning, ?GameBattleRecord $battle = null): array
-    {
+    public function detail(
+        GameRecord $record,
+        bool $sessionRunning,
+        ?GameBattleRecord $battle = null,
+        ?array $openStrike = null,
+    ): array {
         return $this->listItem($record, $sessionRunning) + [
             'description' => $record->getDescription(),
             'osPointsLimit' => $record->getOsPointsLimit(),
@@ -59,7 +64,7 @@ final class GameViewAssembler
             'moneyLimit' => $record->getMoneyLimit(),
             'createdAt' => $record->getCreatedAt()->toUnix(),
             'updatedAt' => $record->getUpdatedAt()->toUnix(),
-            'battle' => $this->battleOf($battle),
+            'battle' => $this->battleOf($battle, $openStrike),
         ];
     }
 
@@ -67,10 +72,11 @@ final class GameViewAssembler
      * Снимок открытого боя или null.
      *
      * @param GameBattleRecord|null $battle Строка.
+     * @param array<string, mixed>|null $openStrike Открытый удар или null.
      *
      * @return array<string, mixed>|null JSON.
      */
-    private function battleOf(?GameBattleRecord $battle): ?array
+    private function battleOf(?GameBattleRecord $battle, ?array $openStrike = null): ?array
     {
         if ($battle === null) {
             return null;
@@ -82,7 +88,53 @@ final class GameViewAssembler
             'order' => $battle->getTurnOrder(),
             'activeIndex' => $battle->getActiveIndex(),
             'round' => $battle->getRound(),
+            'openStrike' => $this->openStrikeOf($openStrike),
+            'pendingActionEffects' => $battle->getPendingActionEffects(),
         ];
+    }
+
+    /**
+     * JSON открытого удара.
+     *
+     * @param array<string, mixed>|null $row Колонки.
+     *
+     * @return array<string, mixed>|null JSON.
+     */
+    private function openStrikeOf(?array $row): ?array
+    {
+        if ($row === null) {
+            return null;
+        }
+
+        return [
+            'attackerKind' => is_string($row['attacker_kind'] ?? null) ? $row['attacker_kind'] : '',
+            'attackerId' => $this->intField($row, 'attacker_id'),
+            'defenderKind' => is_string($row['defender_kind'] ?? null) ? $row['defender_kind'] : '',
+            'defenderId' => $this->intField($row, 'defender_id'),
+            'actionRuleCode' => is_string($row['action_rule_code'] ?? null) ? $row['action_rule_code'] : '',
+            'itemInventoryId' => $this->intField($row, 'item_inventory_id'),
+            'itemRuleCode' => is_string($row['item_rule_code'] ?? null) ? $row['item_rule_code'] : '',
+            'profileType' => is_string($row['profile_type'] ?? null) ? $row['profile_type'] : '',
+            'profileIndex' => $this->intField($row, 'profile_index'),
+        ];
+    }
+
+    /**
+     * Целое поле строки удара.
+     *
+     * @param array<string, mixed> $row Колонки.
+     * @param string $key Ключ.
+     *
+     * @return int Значение.
+     */
+    private function intField(array $row, string $key): int
+    {
+        $value = $row[$key] ?? null;
+        if (is_int($value)) {
+            return $value;
+        }
+
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     /**

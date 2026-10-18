@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
-use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
+use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -20,27 +19,19 @@ final class GameStrikeSoaks
      * Сдвигает закупку единственной живой характеристики и возвращает пару.
      *
      * @param CharacterRuleSlice $slice Срез ревизии.
-     * @param ICharacterFormulaContexts $contexts Разбор листа.
-     * @param array<string, mixed> $sheet Лист цели.
+     * @param FormulaContext $context Контекст характеристик.
      * @param int $benefit Польза профиля.
      *
      * @return DimensionalNumber Пара.
      *
-     * @throws GameInvalidException Если карточки нет, их две или закупки нет.
+     * @throws GameInvalidException Если карточки нет, их две или значения нет.
      */
     public function shift(
         CharacterRuleSlice $slice,
-        ICharacterFormulaContexts $contexts,
-        array $sheet,
+        FormulaContext $context,
         int $benefit,
     ): DimensionalNumber {
-        $code = $this->findCode($slice);
-        try {
-            $value = $contexts->build($sheet)->findCharacteristic($code);
-        } catch (CharacterInvalidException $exception) {
-            throw new GameInvalidException('Game strike dodge soak is invalid', $exception);
-        }
-
+        $value = $context->findCharacteristic($this->findCode($slice));
         if ($value === null) {
             throw new GameInvalidException('Game strike dodge soak is invalid');
         }

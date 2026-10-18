@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Core\Event\Interface\Service\IEventManager;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Messages\Chat\Exception\ChatInvalidException;
 use Mifrial\Messages\Chat\Exception\ChatNotFoundException;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
@@ -23,7 +24,7 @@ use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
-use Mifrial\Roleplay\Game\Repository\GameTurnCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
 
 /**
@@ -33,7 +34,7 @@ final class GameTurns
 {
     private readonly GameBattleRepository $battles;
 
-    private readonly GameTurnCommandRepository $commands;
+    private readonly GameCommandRepository $commands;
 
     private readonly GameSessionRepository $sessions;
 
@@ -72,9 +73,10 @@ final class GameTurns
         private readonly GameStrikes $strikes,
         private readonly GameWideStrikes $wide,
         IEventManager $events,
+        private readonly GameCombatNotices $notices,
     ) {
         $this->battles = new GameBattleRepository($this->gateway);
-        $this->commands = new GameTurnCommandRepository($this->gateway);
+        $this->commands = new GameCommandRepository($this->gateway);
         $this->sessions = new GameSessionRepository($this->gateway);
         $this->characters = new GameCharacterRepository($this->gateway);
         $this->members = new GameMemberRepository($this->gateway);
@@ -176,8 +178,8 @@ final class GameTurns
         }
 
         $execution = $this->replay->execute(
-            fn (): ?array => $this->commands->findByKey($gameId, $this->key($body)),
-            fn (): int => $this->commands->reserve($gameId, $sessionId, $this->key($body), $body),
+            fn (): ?array => $this->commands->findByKey($gameId, 'turn', $this->key($body)),
+            fn (): int => $this->commands->reserve($gameId, $sessionId, 'turn', $this->key($body), $body),
             function (int $reservationId, array $result): void {
                 $this->commands->complete($reservationId, $result);
             },
@@ -185,7 +187,7 @@ final class GameTurns
             $body,
         );
         if (!$execution['replay']) {
-            $stored = $this->commands->findByKey($gameId, $this->key($body));
+            $stored = $this->commands->findByKey($gameId, 'turn', $this->key($body));
             if ($stored !== null) {
                 $this->delivery->recorded($gameId, 'turn', $stored['id'], []);
             }
@@ -226,7 +228,17 @@ final class GameTurns
         $current = $this->current($battle);
         $this->assertActor($game, $actorUserId, $editAll, $current);
         if ($command === 'end') {
-            return $this->endWork($game, $battle, $expectedBattle, $expectedSheet, $current);
+            $ended = $this->endWork($game, $battle, $expectedBattle, $expectedSheet, $current);
+            $order = $battle->getTurnOrder() ?? [];
+            $index = $ended['activeIndex'] ?? 0;
+            $entry = is_int($index) ? ($order[$index] ?? null) : null;
+            $name = is_array($entry) && is_string($entry['name'] ?? null) && $entry['name'] !== ''
+                ? $entry['name']
+                : 'Участник';
+            $round = is_int($ended['round'] ?? null) ? $ended['round'] : 1;
+            $this->notices->passed($game, $actorUserId, $battle->getId(), $round, is_int($index) ? $index : 0, $name);
+
+            return $ended;
         }
 
         if ($command === 'abort') {
@@ -463,9 +475,9 @@ final class GameTurns
             foreach ($rolls as $roll) {
                 $payload = $roll['roll'];
                 $attachment = isset($payload['roll']) ? [['type' => 'roll', 'payload' => $payload['roll']]] : [];
-                $this->chats->send($chatId, $game->getOwnerId(), $roll['text'], $attachment, null, null);
+                $this->chats->send($chatId, $game->getOwnerId(), $roll['text'], $attachment, null);
             }
-        } catch (ChatNotFoundException $exception) {
+        } catch (ChatNotFoundException | ChatInvalidException $exception) {
             throw new GameInvalidException('Game chat member is invalid', $exception);
         }
     }

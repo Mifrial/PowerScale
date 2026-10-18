@@ -20,6 +20,9 @@ final class TranslateGameNpcInput implements IActionInput
      * @param int|null $spaceId Сверка мира.
      * @param string|null $spaceCode Сверка кода.
      * @param int|null $rulesRevision Сверка ревизии листа.
+     * @param array<string, mixed>|null $choices Документ перевода, если лист уже собрал клиент.
+     * @param string|null $name Имя из перевода.
+     * @param array<string, mixed>|null $sheet Сверка листа.
      *
      * @return void
      */
@@ -30,6 +33,9 @@ final class TranslateGameNpcInput implements IActionInput
         public readonly ?int $spaceId = null,
         public readonly ?string $spaceCode = null,
         public readonly ?int $rulesRevision = null,
+        public readonly ?array $choices = null,
+        public readonly ?string $name = null,
+        public readonly ?array $sheet = null,
     ) {
     }
 }

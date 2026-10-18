@@ -211,7 +211,12 @@ final class GameStrikeLayers
                 throw new MechanicInvalidException('Mechanic binding is invalid');
             }
 
-            if (!array_key_exists('mechanic_payload', $row) || !is_array($row['mechanic_payload'])) {
+            $mechanicPayload = $row['mechanic_payload'] ?? [];
+            if ($mechanicPayload === null) {
+                $mechanicPayload = [];
+            }
+
+            if (!is_array($mechanicPayload)) {
                 throw new MechanicInvalidException('Mechanic binding payload is invalid');
             }
 

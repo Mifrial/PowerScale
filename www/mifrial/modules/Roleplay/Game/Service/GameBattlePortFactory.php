@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Core\Event\Interface\Container\IEventContainer;
+use Mifrial\Core\Event\Interface\Service\IEventManager;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
@@ -13,10 +15,11 @@ use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGameBattles;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
-use Mifrial\Roleplay\Game\Repository\GameBattleCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
@@ -26,6 +29,8 @@ use Mifrial\Roleplay\Game\Repository\GameRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
+use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
+use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 
 /**
@@ -55,12 +60,14 @@ final class GameBattlePortFactory
             new GameSessionRepository($gateway),
             new GameBattleMutator(
                 new GameBattleRepository($gateway),
-                new GameBattleCommandRepository($gateway),
+                new GameCommandRepository($gateway),
                 new GameNpcRepository($gateway),
                 new GameSessionRoster(new GameSessionRepository($gateway), new GameBattleRepository($gateway)),
                 new GameProcessRepository($gateway),
                 $order,
             ),
+            $this->notices($serviceLocator),
+            new GameDeliverySignal($this->events($serviceLocator)),
         );
     }
 
@@ -174,6 +181,7 @@ final class GameBattlePortFactory
             $this->port($serviceLocator, ICharacterContainer::class, ICharacters::class),
             $this->port($serviceLocator, IMechanicContainer::class, IMechanics::class),
             $this->port($serviceLocator, IMechanicContainer::class, IMechanicRolls::class),
+            $this->port($serviceLocator, ICharacterContainer::class, ICharacterSheets::class),
         );
     }
 
@@ -207,6 +215,26 @@ final class GameBattlePortFactory
      *
      * @throws KernelException Если порта нет.
      */
+    private function events(IServiceLocator $serviceLocator): IEventManager
+    {
+        $events = $serviceLocator->get(IEventContainer::class)->get(IEventManager::class);
+        if (!$events instanceof IEventManager) {
+            throw new KernelException('PORT_TYPE', 'Game battle requires IEventManager');
+        }
+
+        return $events;
+    }
+
+    private function notices(IServiceLocator $serviceLocator): GameCombatNotices
+    {
+        $chats = $serviceLocator->get(IChatContainer::class)->get(IChats::class);
+        if (!$chats instanceof IChats) {
+            throw new KernelException('PORT_TYPE', 'Chat service has a wrong type');
+        }
+
+        return new GameCombatNotices($chats);
+    }
+
     private function userAccess(IServiceLocator $serviceLocator): IUserAccess
     {
         $userAccess = $serviceLocator->get(IUserContainer::class)->get(IUserAccess::class);

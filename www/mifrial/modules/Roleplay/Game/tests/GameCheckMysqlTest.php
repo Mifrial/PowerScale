@@ -12,7 +12,6 @@ use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
-use Mifrial\Roleplay\Game\Table\GameCheckCommandTable;
 use Mifrial\Roleplay\Game\Table\GameCheckTable;
 use Mifrial\Roleplay\Game\Table\GameProcessTable;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
@@ -136,7 +135,7 @@ final class GameCheckMysqlTest extends TestCase
         self::assertSame('GAME_INVALID', $offer['error']['code']);
         self::assertTrue($this->dispatch('game.stopSession', ['gameId' => $gameId])['success']);
         self::assertSame(0, $this->countAll(GameCheckTable::class));
-        self::assertSame(0, $this->countAll(GameCheckCommandTable::class));
+        self::assertSame(0, $this->countCommands('check'));
         self::assertSame(0, $this->countAll(GameSessionTable::class));
         self::assertGreaterThan(0, $this->countAll(GameProcessTable::class));
     }

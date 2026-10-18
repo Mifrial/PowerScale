@@ -39,6 +39,18 @@ final class GameDeliveryKeys
     }
 
     /**
+     * Лист цели ручной правки.
+     *
+     * @param array<string, mixed> $result Колонка result.
+     *
+     * @return array<int, array<string, mixed>> Ключи.
+     */
+    public function fromManualSheet(array $result): array
+    {
+        return $this->fromEconomy($result);
+    }
+
+    /**
      * Пары id и версии одного вида.
      *
      * @param mixed $rows Список итога.

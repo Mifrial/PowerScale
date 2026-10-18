@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 
 /**
  * Совместимый адаптер поиска replay через общую границу.
@@ -15,13 +15,13 @@ final class GameWideStrikeReplay
      * Создаёт адаптер.
      *
      * @param GameReplayTransaction $replayTransaction Общая граница.
-     * @param GameWideStrikeCommandRepository $commands Журнал.
+     * @param GameCommandRepository $commands Журнал.
      *
      * @return void
      */
     public function __construct(
         private readonly GameReplayTransaction $replayTransaction,
-        private readonly GameWideStrikeCommandRepository $commands,
+        private readonly GameCommandRepository $commands,
     ) {
     }
 
@@ -37,7 +37,7 @@ final class GameWideStrikeReplay
     public function find(int $gameId, string $idempotencyKey, array $requestBody): ?array
     {
         return $this->replayTransaction->find(
-            fn (): ?array => $this->commands->findByKey($gameId, $idempotencyKey),
+            fn (): ?array => $this->commands->findByKey($gameId, 'wide_strike', $idempotencyKey),
             $requestBody,
         );
     }

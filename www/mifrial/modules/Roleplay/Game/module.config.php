@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
+use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
+use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSessionParticipants;
 use Mifrial\Roleplay\Game\Action\AbortGameAction;
 use Mifrial\Roleplay\Game\Action\AddGameMemberAction;
@@ -19,6 +22,7 @@ use Mifrial\Roleplay\Game\Action\DeclareGameWideStrikeAction;
 use Mifrial\Roleplay\Game\Action\DeleteGameChronicleEntryAction;
 use Mifrial\Roleplay\Game\Action\EndGameBattleAction;
 use Mifrial\Roleplay\Game\Action\EndGameTurnAction;
+use Mifrial\Roleplay\Game\Action\GameManualSheetAction;
 use Mifrial\Roleplay\Game\Action\GameWoundAction;
 use Mifrial\Roleplay\Game\Action\GetGameAction;
 use Mifrial\Roleplay\Game\Action\GetGameBattleSheetsAction;
@@ -85,13 +89,21 @@ use Mifrial\Roleplay\Game\Service\GameProcessPortFactory;
 use Mifrial\Roleplay\Game\Service\GameProjectionPortFactory;
 use Mifrial\Roleplay\Game\Service\GameStrikePortFactory;
 use Mifrial\Roleplay\Game\Service\GameWideStrikePortFactory;
+use Mifrial\Roleplay\Game\Service\GameManualSheetPortFactory;
 use Mifrial\Roleplay\Game\Service\GameWoundPortFactory;
 use Mifrial\Roleplay\Game\Setup\GameModuleSetup;
 
 return [
     'container' => GameContainer::class,
     'locator' => IGameContainer::class,
-    'setup' => GameModuleSetup::class,
+    'setup' => static function (IServiceLocator $serviceLocator): GameModuleSetup {
+        $smartTableGateway = $serviceLocator->get(ISmartTableContainer::class)->get(ISmartTableGateway::class);
+        if (!$smartTableGateway instanceof ISmartTableGateway) {
+            throw new KernelException('PORT_TYPE', 'Game setup requires ISmartTableGateway');
+        }
+
+        return new GameModuleSetup($smartTableGateway);
+    },
     'ports' => [
         IGames::class => static function (IServiceLocator $serviceLocator): IGames {
             return (new GamePortFactory())->create($serviceLocator);
@@ -146,6 +158,9 @@ return [
         },
         GameWoundAction::class => static function (IServiceLocator $serviceLocator): GameWoundAction {
             return new GameWoundAction((new GameWoundPortFactory())->createHttp($serviceLocator));
+        },
+        GameManualSheetAction::class => static function (IServiceLocator $serviceLocator): GameManualSheetAction {
+            return new GameManualSheetAction((new GameManualSheetPortFactory())->createHttp($serviceLocator));
         },
         EndGameTurnAction::class => static function (IServiceLocator $serviceLocator): EndGameTurnAction {
             return new EndGameTurnAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
@@ -510,6 +525,10 @@ return [
         ],
         'game.woundAction' => [
             'handler' => GameWoundAction::class,
+            'csrf' => true,
+        ],
+        'game.manualSheet' => [
+            'handler' => GameManualSheetAction::class,
             'csrf' => true,
         ],
         'game.endTurn' => [

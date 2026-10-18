@@ -110,7 +110,11 @@ final class GameBattleOrder
                 $this->sheet($participant),
                 null,
             );
-            $rows[] = ['type' => $participant['type'], 'id' => $participant['id']] + $thrown;
+            $rows[] = [
+                'type' => $participant['type'],
+                'id' => $participant['id'],
+                'name' => $this->nameOf($participant),
+            ] + $thrown;
         }
 
         return $rows;
@@ -170,7 +174,7 @@ final class GameBattleOrder
         CheckSpec $check,
         array $item,
     ): array {
-        $head = ['type' => $item['type'], 'id' => $item['id']];
+        $head = ['type' => $item['type'], 'id' => $item['id'], 'name' => $this->nameOf($item)];
         if ($item['method'] === 'fixed') {
             $value = $item['value'];
 
@@ -562,6 +566,28 @@ final class GameBattleOrder
      * @throws GameInvalidException Если у NPC нет листа.
      * @throws GameNotFoundException Если строки нет.
      */
+    /**
+     * Имя участника.
+     *
+     * @param array<string, mixed> $participant type и id.
+     *
+     * @return string Имя.
+     */
+    private function nameOf(array $participant): string
+    {
+        $type = $participant['type'] ?? null;
+        $id = $participant['id'] ?? null;
+        if (!is_string($type) || !is_int($id)) {
+            return '';
+        }
+
+        if ($type === 'npc') {
+            return $this->npcs->getById($id)->getName();
+        }
+
+        return $this->roll->characterName($id);
+    }
+
     private function sheet(array $participant): array
     {
         if ($participant['type'] === 'character') {

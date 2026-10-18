@@ -29,7 +29,7 @@ use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameWoundCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ActionResourceCutGrant;
@@ -46,7 +46,7 @@ final class GameWoundActions
 {
     private readonly GameBattleRepository $battles;
 
-    private readonly GameWoundCommandRepository $commands;
+    private readonly GameCommandRepository $commands;
 
     private readonly GameNpcRepository $npcs;
 
@@ -87,7 +87,7 @@ final class GameWoundActions
         IEventManager $events,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
-        $this->commands = new GameWoundCommandRepository($smartTableGateway);
+        $this->commands = new GameCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->characters = new GameCharacterRepository($smartTableGateway);
         $this->members = new GameMemberRepository($smartTableGateway);
@@ -155,8 +155,8 @@ final class GameWoundActions
         array $body,
     ): array {
         $execution = $this->replayTransaction->execute(
-            fn (): ?array => $this->commands->findByKey($game->getId(), $key),
-            fn (): int => $this->commands->reserve($game->getId(), $sessionId, $key, $body),
+            fn (): ?array => $this->commands->findByKey($game->getId(), 'wound', $key),
+            fn (): int => $this->commands->reserve($game->getId(), $sessionId, 'wound', $key, $body),
             function (int $reservationId, array $result): void {
                 $this->commands->complete($reservationId, $result);
             },
@@ -183,7 +183,7 @@ final class GameWoundActions
             return;
         }
 
-        $stored = $this->commands->findByKey($gameId, $idempotencyKey);
+        $stored = $this->commands->findByKey($gameId, 'wound', $idempotencyKey);
         if ($stored !== null) {
             $this->delivery->recorded($gameId, 'wound', $stored['id'], []);
         }

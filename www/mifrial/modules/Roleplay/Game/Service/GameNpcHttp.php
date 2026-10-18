@@ -127,7 +127,14 @@ final class GameNpcHttp
         $game = $this->npcs->openGame($input->gameId);
         $record = $this->npcs->get($input->gameId, $input->npcId);
         $this->assertSameWorld($record, $input->spaceId, $input->spaceCode, $input->rulesRevision);
-        $changed = $this->npcs->translate($record, $game, $input->expectedNpcActualVersion);
+        $changed = $this->npcs->translate(
+            $record,
+            $game,
+            $input->expectedNpcActualVersion,
+            $input->choices,
+            $input->name,
+            $input->sheet,
+        );
 
         return $this->changed($changed, true);
     }

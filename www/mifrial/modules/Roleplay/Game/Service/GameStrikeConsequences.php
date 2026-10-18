@@ -11,6 +11,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
+use Mifrial\Roleplay\Game\Dto\GameCheckThrowOverride;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
@@ -20,6 +21,7 @@ use Mifrial\Roleplay\Mechanic\Interface\IBluntUnconscious;
 use Mifrial\Roleplay\Mechanic\Interface\IDamageAsWounds;
 use Mifrial\Roleplay\Mechanic\Interface\IExhaustionAmount;
 use Mifrial\Roleplay\Mechanic\Interface\IExhaustionWound;
+use Mifrial\Roleplay\Mechanic\Interface\IInjuryEfficiency;
 use Mifrial\Roleplay\Mechanic\Interface\IMechanicHandler;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
@@ -70,6 +72,7 @@ final class GameStrikeConsequences
         array $split,
         ?string $damageTypeCode,
         bool $knockout = true,
+        ?DimensionalNumber $endurance = null,
     ): array {
         $slice = $this->slices->get($game->getSpaceId(), $game->getRulesRevision());
         $hooks = $damageTypeCode === null ? [] : $this->hooks($slice, $damageTypeCode);
@@ -107,31 +110,40 @@ final class GameStrikeConsequences
         }
 
         $consequence = ['wound' => $wound, 'exhaustionDelta' => $cutting ? 0 : $quotient];
+        if ($endurance instanceof DimensionalNumber) {
+            $consequence['endurance'] = ['base' => $endurance->getBase(), 'size' => $endurance->getSize()];
+        }
         $wasUnconscious = $this->hasFlag($slice, $sheet, 'unconscious');
         if (!$cutting && $quotient !== 0 && !$wasUnconscious) {
             $will = $this->will($game, $slice, $sheet, $quotient);
             $consequence['will'] = $will['roll'];
             $consequence['willOutcome'] = $will['outcome'];
-            if ($will['operation'] !== null) {
-                $operations[] = $will['operation'];
+            foreach ($this->declineSheetOps($sheet, $slice, $will['operation']) as $operation) {
+                $operations[] = $operation;
             }
         }
 
-        if ($knockout && $this->blunt($hooks, $success, $injury, $slice, $sheet)) {
+        if ($knockout && ($will['outcome'] ?? null) !== 'unconscious' && $this->blunt($hooks, $success, $injury, $slice, $sheet, $endurance)) {
             $code = $this->singleFlag($slice, 'unconscious');
-            $operations[] = ['kind' => 'replaceDecline', 'stateRuleCode' => $code];
+            foreach ($this->declineSheetOps($sheet, $slice, ['kind' => 'replaceDecline', 'stateRuleCode' => $code]) as $operation) {
+                $operations[] = $operation;
+            }
             $consequence['unconscious'] = true;
         }
 
         $delta = $consequence['exhaustionDelta'];
         if ($delta !== 0 || $wound > 0) {
-            $maim = $this->maim($game, $slice, $sheet, max($delta, intdiv($wound, 2)));
+            $maim = $this->maim($game, $slice, $sheet, max($delta, intdiv($wound, 2)), $hooks);
+            $strength = is_int($maim['rating'] ?? null) && $maim['rating'] < 0 ? -$maim['rating'] : 0;
             $consequence['maim'] = $maim;
-            $operations[] = [
-                'kind' => 'putState',
-                'stateRuleCode' => $this->singleFlag($slice, 'maim'),
-                'value' => $maim['rating'],
-            ];
+            if ($strength > 0) {
+                $operations[] = [
+                    'kind' => 'putState',
+                    'stateRuleCode' => $this->singleFlag($slice, 'maim'),
+                    'value' => $strength,
+                    'maim' => $this->maimSidecar($strength),
+                ];
+            }
         }
 
         return ['operations' => $operations, 'consequence' => $consequence];
@@ -200,6 +212,8 @@ final class GameStrikeConsequences
         array $calc,
         ?array $will = null,
         ?array $maim = null,
+        ?array $speaker = null,
+        ?array $defenseRoll = null,
     ): void {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
@@ -209,31 +223,151 @@ final class GameStrikeConsequences
         $thread = ['id' => $threadId, 'kind' => 'attack'];
         try {
             if ($announce) {
-                $this->chats->send($chatId, $actorUserId, $action, [], null, $thread);
-                $this->chats->send($chatId, $actorUserId, $strike, [], null, $thread);
+                $this->sendText($chatId, $actorUserId, $action, $thread, $speaker);
+                $this->sendText($chatId, $actorUserId, $strike, $thread, $speaker);
             }
 
-            $this->chats->send($chatId, $actorUserId, '', [['type' => 'roll', 'payload' => $hitRoll]], null, $thread);
-            $this->chats->send($chatId, $actorUserId, $result, [[
-                'type' => 'attack-calc',
-                'payload' => $calc,
-            ]
-            ], null, $thread);
-            if ($will !== null) {
-                $this->chats->send($chatId, $actorUserId, '', [['type' => 'roll', 'payload' => $will['roll']]], null, $thread);
-                $this->chats->send($chatId, $actorUserId, $will['text'], [], null, $thread);
+            $rolls = [$hitRoll];
+            if ($defenseRoll !== null) {
+                $rolls[] = $defenseRoll;
             }
+            $this->sendRolls($chatId, $actorUserId, $rolls, $thread, $speaker);
+            $this->sendOutcome($chatId, $actorUserId, $result, $calc, $will, $maim, $thread, $speaker);
+        } catch (ChatNotFoundException $exception) {
+            throw new GameInvalidException('Game chat member is invalid', $exception);
+        }
+    }
 
-            if ($maim !== null) {
-                $this->chats->send($chatId, $actorUserId, '', [['type' => 'roll', 'payload' => $maim['roll']]], null, $thread);
-                $this->chats->send($chatId, $actorUserId, $maim['text'], [[
-                    'type' => 'injury-details',
-                    'payload' => $maim['details'],
-                ]
-                ], null, $thread);
+    /**
+     * @param list<string> $lines Тексты.
+     * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     */
+    public function postLines(GameRecord $game, int $actorUserId, string $threadId, array $lines, ?array $speaker = null): void
+    {
+        $chatId = $this->chatId($game);
+        $thread = ['id' => $threadId, 'kind' => 'attack'];
+        try {
+            foreach ($lines as $line) {
+                $this->sendText($chatId, $actorUserId, $line, $thread, $speaker);
             }
         } catch (ChatNotFoundException $exception) {
             throw new GameInvalidException('Game chat member is invalid', $exception);
+        }
+    }
+
+    /**
+     * @param list<array<string, mixed>> $rolls Броски одной строкой.
+     * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     */
+    public function postRolls(GameRecord $game, int $actorUserId, string $threadId, array $rolls, ?array $speaker = null): void
+    {
+        $chatId = $this->chatId($game);
+        try {
+            $this->sendRolls($chatId, $actorUserId, $rolls, ['id' => $threadId, 'kind' => 'attack'], $speaker);
+        } catch (ChatNotFoundException $exception) {
+            throw new GameInvalidException('Game chat member is invalid', $exception);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $calc Payload attack-calc.
+     * @param array{roll: array<string, mixed>, text: string}|null $will Проверка истощения.
+     * @param array{roll: array<string, mixed>, text: string, details: array<string, mixed>}|null $maim Увечье.
+     * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     */
+    public function postOutcome(
+        GameRecord $game,
+        int $actorUserId,
+        string $threadId,
+        string $result,
+        array $calc,
+        ?array $will = null,
+        ?array $maim = null,
+        ?array $speaker = null,
+    ): void {
+        $chatId = $this->chatId($game);
+        try {
+            $this->sendOutcome(
+                $chatId,
+                $actorUserId,
+                $result,
+                $calc,
+                $will,
+                $maim,
+                ['id' => $threadId, 'kind' => 'attack'],
+                $speaker,
+            );
+        } catch (ChatNotFoundException $exception) {
+            throw new GameInvalidException('Game chat member is invalid', $exception);
+        }
+    }
+
+    private function chatId(GameRecord $game): int
+    {
+        $chatId = $game->getGameChatId();
+        if ($chatId === null) {
+            throw new GameInvalidException('Game chat is invalid');
+        }
+
+        return $chatId;
+    }
+
+    /**
+     * @param array{id: string, kind: string} $thread Нить.
+     * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     */
+    private function sendText(int $chatId, int $actorUserId, string $text, array $thread, ?array $speaker): void
+    {
+        $this->chats->send($chatId, $actorUserId, $text, $this->withThread([], $thread, $speaker), null);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $rolls Броски.
+     * @param array{id: string, kind: string} $thread Нить.
+     * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     */
+    private function sendRolls(int $chatId, int $actorUserId, array $rolls, array $thread, ?array $speaker): void
+    {
+        $attachments = [];
+        foreach ($rolls as $roll) {
+            $attachments[] = ['type' => 'roll', 'payload' => $roll];
+        }
+        $this->chats->send($chatId, $actorUserId, '', $this->withThread($attachments, $thread, $speaker), null);
+    }
+
+    /**
+     * @param array<string, mixed> $calc Payload.
+     * @param array{roll: array<string, mixed>, text: string}|null $will Воля.
+     * @param array{roll: array<string, mixed>, text: string, details: array<string, mixed>}|null $maim Увечье.
+     * @param array{id: string, kind: string} $thread Нить.
+     * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     */
+    private function sendOutcome(
+        int $chatId,
+        int $actorUserId,
+        string $result,
+        array $calc,
+        ?array $will,
+        ?array $maim,
+        array $thread,
+        ?array $speaker,
+    ): void {
+        $this->chats->send($chatId, $actorUserId, $result, $this->withThread([[
+            'type' => 'attack-calc',
+            'payload' => $calc,
+        ]
+        ], $thread, $speaker), null);
+        if ($will !== null) {
+            $this->chats->send($chatId, $actorUserId, '', $this->withThread([['type' => 'roll', 'payload' => $will['roll']]], $thread, $speaker), null);
+            $this->chats->send($chatId, $actorUserId, $will['text'], $this->withThread([], $thread, $speaker), null);
+        }
+        if ($maim !== null) {
+            $this->chats->send($chatId, $actorUserId, '', $this->withThread([['type' => 'roll', 'payload' => $maim['roll']]], $thread, $speaker), null);
+            $this->chats->send($chatId, $actorUserId, $maim['text'], $this->withThread([[
+                'type' => 'injury-details',
+                'payload' => $maim['details'],
+            ]
+            ], $thread, $speaker), null);
         }
     }
 
@@ -258,7 +392,7 @@ final class GameStrikeConsequences
      */
     private function stateCode(array $payload): string
     {
-        $code = $payload['stateRuleCode'] ?? null;
+        $code = $payload['stateRuleCode'] ?? $payload['state_code'] ?? null;
         if (!is_string($code) || $code === '') {
             throw new GameInvalidException('Game strike hook is invalid');
         }
@@ -322,7 +456,7 @@ final class GameStrikeConsequences
         }
 
         if ($handler instanceof IExhaustionWound) {
-            $multiplier = $payload['multiplier'] ?? null;
+            $multiplier = $payload['multiplier'] ?? 1;
             if (!is_int($multiplier)) {
                 throw new GameInvalidException('Game strike hook is invalid');
             }
@@ -339,30 +473,30 @@ final class GameStrikeConsequences
      * @param list<array{handler: IMechanicHandler, payload: array<string, mixed>}> $hooks Хуки.
      * @param array<string, mixed> $sheet Лист.
      */
-    private function blunt(array $hooks, int $success, DimensionalNumber $injury, CharacterRuleSlice $slice, array $sheet): bool
-    {
+    private function blunt(
+        array $hooks,
+        int $success,
+        DimensionalNumber $injury,
+        CharacterRuleSlice $slice,
+        array $sheet,
+        ?DimensionalNumber $endurance = null,
+    ): bool {
         foreach ($hooks as $hook) {
             if (!$hook['handler'] instanceof IBluntUnconscious) {
                 continue;
             }
 
-            $threshold = $hook['payload']['successAtLeast'] ?? null;
+            $threshold = $hook['payload']['successAtLeast'] ?? 6;
             if (!is_int($threshold)) {
-                throw new GameInvalidException('Game strike hook is invalid');
+                $threshold = 6;
             }
 
-            $endurance = $this->endurance($slice, $sheet);
-            $reached = $injury->isGreaterThan($endurance) || $this->samePair($injury, $endurance);
+            $endurance ??= $this->endurance($slice, $sheet);
 
-            return $success >= $threshold && $reached;
+            return $success >= $threshold || $injury->compare($endurance) >= 0;
         }
 
         return false;
-    }
-
-    private function samePair(DimensionalNumber $left, DimensionalNumber $right): bool
-    {
-        return !$left->isGreaterThan($right) && !$right->isGreaterThan($left);
     }
 
     /**
@@ -438,6 +572,7 @@ final class GameStrikeConsequences
             $sheet,
             ['base' => $after, 'size' => 0],
         );
+        $roll['label'] = $slice->findLive($checkCode)?->getName() ?? 'Проверка истощения';
         $next = $this->outcomeCode($slice, $checkCode, $roll['rating']);
         $current = $this->currentDecline($slice, $sheet);
         $operation = $this->declineOperation($quotient > 0, $current, $next);
@@ -447,25 +582,93 @@ final class GameStrikeConsequences
 
     /**
      * @param array<string, mixed> $sheet Лист.
+     * @param list<array{handler: IMechanicHandler, payload: array<string, mixed>}> $hooks Хуки.
      *
      * @return array<string, mixed> Бросок.
      */
-    private function maim(GameRecord $game, CharacterRuleSlice $slice, array $sheet, int $difficulty): array
+    private function maim(GameRecord $game, CharacterRuleSlice $slice, array $sheet, int $difficulty, array $hooks): array
     {
         $code = $this->singleFlag($slice, 'maim');
         $spec = $this->stateSpec($slice, $code);
         $checkCode = $spec->getCheckCode();
-        if ($spec->getValueType() !== 'number' || $checkCode === null || $checkCode === '') {
+        if ($checkCode === null || $checkCode === '') {
+            $checkCode = $this->injuryCheckCode($slice);
+        }
+        if ($spec->getValueType() !== 'number' || $checkCode === null) {
             throw new GameInvalidException('Game strike maim check is invalid');
         }
 
-        return $this->checks->throwWithDifficulty(
+        $roll = $this->checks->throwWithDifficulty(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $checkCode,
             $sheet,
             ['base' => $difficulty, 'size' => 0],
+            new GameCheckThrowOverride(null, 4, $this->injuryAdvantage($hooks)),
         );
+        $roll['label'] = $slice->findLive($checkCode)?->getName() ?? 'Проверка на увечье';
+
+        return $roll;
+    }
+
+    /**
+     * Сумма помех injury_efficiency. Нет delta в payload — −1.
+     *
+     * @param list<array{handler: IMechanicHandler, payload: array<string, mixed>}> $hooks Хуки.
+     *
+     * @return int Сумма delta.
+     */
+    /**
+     * Срок увечья по силе. Та же карта, что у проверки увечья на фронте.
+     *
+     * @return array{permanent: bool, healTotal: int, healUnit: string}
+     */
+    private function maimSidecar(int $strength): array
+    {
+        $spec = match (true) {
+            $strength <= 1 => [1, 6, 'days'],
+            $strength === 2 => [2, 6, 'days'],
+            $strength === 3 => [4, 6, 'days'],
+            $strength === 4 => [1, 6, 'decades'],
+            $strength === 5 => [1, 5, 'months'],
+            default => [1, 6, 'years'],
+        };
+        $total = 0;
+        for ($i = 0; $i < $spec[0]; $i++) {
+            $total += random_int(1, $spec[1]);
+        }
+
+        return ['permanent' => false, 'healTotal' => $total, 'healUnit' => $spec[2]];
+    }
+
+    private function injuryAdvantage(array $hooks): int
+    {
+        $delta = 0;
+        foreach ($hooks as $hook) {
+            if (!$hook['handler'] instanceof IInjuryEfficiency) {
+                continue;
+            }
+
+            $value = $hook['payload']['delta'] ?? -1;
+            if (!is_int($value)) {
+                throw new GameInvalidException('Game strike hook is invalid');
+            }
+
+            $delta += $value;
+        }
+
+        return $delta;
+    }
+
+    private function injuryCheckCode(CharacterRuleSlice $slice): ?string
+    {
+        $rule = $slice->findLive('check-injury');
+        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
+        if (!$spec instanceof CheckSpec || $rule === null) {
+            return null;
+        }
+
+        return $rule->getCode();
     }
 
     private function requireWillpower(CharacterRuleSlice $slice): void
@@ -506,44 +709,81 @@ final class GameStrikeConsequences
     }
 
     /**
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<string, mixed>|null $operation replaceDecline или null.
+     *
+     * @return list<array<string, mixed>> removeState и putState.
+     */
+    private function declineSheetOps(array $sheet, CharacterRuleSlice $slice, ?array $operation): array
+    {
+        if ($operation === null) {
+            return [];
+        }
+
+        $ops = [];
+        $states = $sheet['states'] ?? [];
+        if (is_array($states)) {
+            foreach ($states as $row) {
+                if (!is_array($row) || !is_int($row['id'] ?? null)) {
+                    continue;
+                }
+                $code = $row['stateRuleCode'] ?? null;
+                $spec = is_string($code) ? $this->optionalState($slice, $code) : null;
+                if ($spec !== null && $this->rank($spec) !== null) {
+                    $ops[] = ['kind' => 'removeState', 'id' => $row['id']];
+                }
+            }
+        }
+
+        $next = $operation['stateRuleCode'] ?? null;
+        if (is_string($next) && $next !== '') {
+            $ops[] = ['kind' => 'putState', 'stateRuleCode' => $next];
+        }
+
+        return $ops;
+    }
+
+    /**
      * @return array{code: string, rank: int}|null
      */
     private function outcomeCode(CharacterRuleSlice $slice, string $checkCode, int $rating): ?array
     {
-        $rule = $slice->findLive($checkCode);
-        $rows = [];
-        foreach ($rule?->getMechanics() ?? [] as $row) {
-            if (is_array($row) && is_array($row['mechanic_payload'] ?? null) && array_key_exists('outcomes', $row['mechanic_payload'])) {
-                $rows[] = $row['mechanic_payload']['outcomes'];
-            }
-        }
-
-        if (count($rows) !== 1 || !is_array($rows[0])) {
-            throw new GameInvalidException('Game strike will outcome is invalid');
-        }
-
-        $matched = null;
-        foreach ($rows[0] as $band) {
-            if (!is_array($band) || !is_int($band['maxRating'] ?? null) || !is_string($band['stateRuleCode'] ?? null)) {
-                throw new GameInvalidException('Game strike will outcome is invalid');
-            }
-
-            if ($rating <= $band['maxRating'] && ($matched === null || $band['maxRating'] < $matched['maxRating'])) {
-                $matched = $band;
-            }
-        }
-
-        if ($matched === null) {
+        if ($rating >= 0) {
             return null;
         }
 
-        $spec = $this->stateSpec($slice, $matched['stateRuleCode']);
+        $flag = $rating <= -3 ? 'unconscious' : ($rating === -2 ? 'disabled' : 'weakness');
+        $matched = null;
+        foreach ($slice->getLiveRules() as $rule) {
+            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
+            if (!$spec instanceof StateSpec) {
+                continue;
+            }
+            $selected = match ($flag) {
+                'unconscious' => $spec->isDeclineUnconscious(),
+                'disabled' => $spec->isDeclineDisabled(),
+                default => $spec->isDeclineWeakness(),
+            };
+            if (!$selected) {
+                continue;
+            }
+            if ($matched !== null) {
+                throw new GameInvalidException('Game strike will outcome is invalid');
+            }
+            $matched = $rule->getCode();
+        }
+
+        if (!is_string($matched)) {
+            throw new GameInvalidException('Game strike will outcome is invalid');
+        }
+
+        $spec = $this->stateSpec($slice, $matched);
         $rank = $this->rank($spec);
         if ($spec->getValueType() !== 'flag' || $rank === null) {
             throw new GameInvalidException('Game strike will outcome is invalid');
         }
 
-        return ['code' => $matched['stateRuleCode'], 'rank' => $rank];
+        return ['code' => $matched, 'rank' => $rank];
     }
 
     /**
@@ -713,5 +953,22 @@ final class GameStrikeConsequences
         }
 
         return $codes;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $attachments Вложения.
+     * @param array{id: string, kind: string} $thread Тред атаки.
+     * @param array<string, mixed>|null $speaker Говорящий персонаж или NPC.
+     *
+     * @return list<array<string, mixed>> Вложения с носителем треда.
+     */
+    private function withThread(array $attachments, array $thread, ?array $speaker): array
+    {
+        $attachments[] = ['type' => 'chat_system', 'payload' => ['thread' => $thread]];
+        if ($speaker !== null) {
+            $attachments[] = ['type' => 'chat_speaker', 'payload' => $speaker];
+        }
+
+        return $attachments;
     }
 }

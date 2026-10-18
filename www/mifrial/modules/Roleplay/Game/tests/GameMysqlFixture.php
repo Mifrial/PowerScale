@@ -8,6 +8,7 @@ use Mifrial\Core\Cache\Interface\Container\ICacheContainer;
 use Mifrial\Core\Cache\Interface\Service\ICacheStore;
 use Mifrial\Core\Kernel\Interface\Service\IApplication;
 use Mifrial\Core\Kernel\Service\ApplicationFactory;
+use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Exception\Database\DatabaseException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
@@ -41,16 +42,14 @@ use Mifrial\Roleplay\Game\Schema\GameDeliverySchema;
 use Mifrial\Roleplay\Game\Schema\GameEconomySchema;
 use Mifrial\Roleplay\Game\Schema\GameProcessSchema;
 use Mifrial\Roleplay\Game\Schema\GameSchema;
+use Mifrial\Roleplay\Game\Schema\GameCommandSchema;
 use Mifrial\Roleplay\Game\Schema\GameStrikeSchema;
-use Mifrial\Roleplay\Game\Schema\GameTurnSchema;
 use Mifrial\Roleplay\Game\Schema\GameWideStrikeSchema;
-use Mifrial\Roleplay\Game\Schema\GameWoundSchema;
-use Mifrial\Roleplay\Game\Table\GameBattleCommandTable;
 use Mifrial\Roleplay\Game\Table\GameBattleParticipantTable;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
 use Mifrial\Roleplay\Game\Table\GameCharacterTable;
-use Mifrial\Roleplay\Game\Table\GameCheckCommandTable;
 use Mifrial\Roleplay\Game\Table\GameCheckTable;
+use Mifrial\Roleplay\Game\Table\GameCommandTable;
 use Mifrial\Roleplay\Game\Table\GameChronicleEntryTable;
 use Mifrial\Roleplay\Game\Table\GameDeliveryTable;
 use Mifrial\Roleplay\Game\Table\GameEconomyOperationTable;
@@ -62,14 +61,10 @@ use Mifrial\Roleplay\Game\Table\GameProcessTable;
 use Mifrial\Roleplay\Game\Table\GameSessionCharacterTable;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
 use Mifrial\Roleplay\Game\Table\GameShopPositionTable;
-use Mifrial\Roleplay\Game\Table\GameStrikeCommandTable;
 use Mifrial\Roleplay\Game\Table\GameStrikeTable;
 use Mifrial\Roleplay\Game\Table\GameTable;
-use Mifrial\Roleplay\Game\Table\GameTurnCommandTable;
-use Mifrial\Roleplay\Game\Table\GameWideStrikeCommandTable;
 use Mifrial\Roleplay\Game\Table\GameWideStrikeTable;
 use Mifrial\Roleplay\Game\Table\GameWideStrikeTargetTable;
-use Mifrial\Roleplay\Game\Table\GameWoundCommandTable;
 use Mifrial\Roleplay\Keyword\Schema\KeywordSchema;
 use Mifrial\Roleplay\Keyword\Table\KeywordTable;
 use Mifrial\Roleplay\Mechanic\Schema\MechanicSchema;
@@ -151,18 +146,13 @@ trait GameMysqlFixture
         $gateway = $this->smartTableGateway;
         $this->deleteIfExists($gateway->open(GameDeliveryTable::class));
         $this->deleteIfExists($gateway->open(GameCheckTable::class));
-        $this->deleteIfExists($gateway->open(GameCheckCommandTable::class));
         $this->deleteIfExists($gateway->open(GameWideStrikeTargetTable::class));
         $this->deleteIfExists($gateway->open(GameWideStrikeTable::class));
-        $this->deleteIfExists($gateway->open(GameWideStrikeCommandTable::class));
         $this->deleteIfExists($gateway->open(GameStrikeTable::class));
-        $this->deleteIfExists($gateway->open(GameTurnCommandTable::class));
-        $this->deleteIfExists($gateway->open(GameWoundCommandTable::class));
-        $this->deleteIfExists($gateway->open(GameStrikeCommandTable::class));
+        $this->deleteIfExists($gateway->open(GameCommandTable::class));
         $this->deleteIfExists($gateway->open(GameBattleParticipantTable::class));
         $this->deleteIfExists($gateway->open(GameBattleTable::class));
         $this->deleteIfExists($gateway->open(GameProcessTable::class));
-        $this->deleteIfExists($gateway->open(GameBattleCommandTable::class));
         $this->deleteIfExists($gateway->open(GameSessionCharacterTable::class));
         $this->deleteIfExists($gateway->open(GameSessionTable::class));
         $this->deleteIfExists($gateway->open(GameNpcTable::class));
@@ -383,22 +373,16 @@ trait GameMysqlFixture
         ))->install();
         (new GameCheckSchema(
             $gateway->open(GameCheckTable::class)->schema(),
-            $gateway->open(GameCheckCommandTable::class)->schema(),
-        ))->install();
-        (new GameWoundSchema(
-            $gateway->open(GameWoundCommandTable::class)->schema(),
-        ))->install();
-        (new GameTurnSchema(
-            $gateway->open(GameTurnCommandTable::class)->schema(),
         ))->install();
         (new GameStrikeSchema(
             $gateway->open(GameStrikeTable::class)->schema(),
-            $gateway->open(GameStrikeCommandTable::class)->schema(),
         ))->install();
         (new GameWideStrikeSchema(
             $gateway->open(GameWideStrikeTable::class)->schema(),
             $gateway->open(GameWideStrikeTargetTable::class)->schema(),
-            $gateway->open(GameWideStrikeCommandTable::class)->schema(),
+        ))->install();
+        (new GameCommandSchema(
+            $gateway->open(GameCommandTable::class)->schema(),
         ))->install();
         (new GameDeliverySchema(
             $gateway->open(GameDeliveryTable::class)->schema(),
@@ -409,7 +393,6 @@ trait GameMysqlFixture
         (new GameBattleSchema(
             $gateway->open(GameBattleTable::class)->schema(),
             $gateway->open(GameBattleParticipantTable::class)->schema(),
-            $gateway->open(GameBattleCommandTable::class)->schema(),
         ))->install();
     }
 
@@ -446,5 +429,33 @@ trait GameMysqlFixture
         if ($openedTable->schema()->exists()) {
             $openedTable->schema()->deleteTable();
         }
+    }
+
+    /**
+     * Число команд источника.
+     *
+     * @param string $source Источник.
+     *
+     * @return int Число.
+     */
+    protected function countCommands(string $source): int
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $count = 0;
+        foreach ($gateway->open(GameCommandTable::class)->records()->getList(new ListQuery(
+            null,
+            ['id' => 'ASC'],
+            ListQuery::MAX_LIMIT,
+            0,
+            false,
+            null,
+        ))->rows() as $row) {
+            if (is_array($row) && ($row['source'] ?? null) === $source) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 }

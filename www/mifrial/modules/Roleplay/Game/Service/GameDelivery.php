@@ -11,12 +11,10 @@ use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGameDelivery;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameDeliveryRepository;
 use Mifrial\Roleplay\Game\Repository\GameEconomyOperationRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
-use Mifrial\Roleplay\Game\Repository\GameStrikeCommandRepository;
-use Mifrial\Roleplay\Game\Repository\GameTurnCommandRepository;
-use Mifrial\Roleplay\Game\Repository\GameWoundCommandRepository;
 
 /**
  * Строка outbox и кадр ключей. Мутацию не повторяет.
@@ -27,11 +25,7 @@ final class GameDelivery implements IGameDelivery
 
     private readonly GameEconomyOperationRepository $operations;
 
-    private readonly GameStrikeCommandRepository $commands;
-
-    private readonly GameTurnCommandRepository $turns;
-
-    private readonly GameWoundCommandRepository $wounds;
+    private readonly GameCommandRepository $commands;
 
     private readonly GameNpcRepository $npcs;
 
@@ -53,9 +47,7 @@ final class GameDelivery implements IGameDelivery
     ) {
         $this->rows = new GameDeliveryRepository($smartTableGateway);
         $this->operations = new GameEconomyOperationRepository($smartTableGateway);
-        $this->commands = new GameStrikeCommandRepository($smartTableGateway);
-        $this->turns = new GameTurnCommandRepository($smartTableGateway);
-        $this->wounds = new GameWoundCommandRepository($smartTableGateway);
+        $this->commands = new GameCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->keys = new GameDeliveryKeys();
     }
@@ -94,15 +86,7 @@ final class GameDelivery implements IGameDelivery
         }
 
         foreach ($this->commands->getListByGame($gameId) as $command) {
-            $this->rows->add($gameId, 'strike', $command['id'], $this->keys->fromStrike($command['result']));
-        }
-
-        foreach ($this->turns->getListByGame($gameId) as $command) {
-            $this->rows->add($gameId, 'turn', $command['id'], []);
-        }
-
-        foreach ($this->wounds->getListByGame($gameId) as $command) {
-            $this->rows->add($gameId, 'wound', $command['id'], []);
+            $this->catchUpCommand($gameId, $command);
         }
     }
 
@@ -129,6 +113,43 @@ final class GameDelivery implements IGameDelivery
         $cursor = $stored === [] ? $this->rows->getMaxCursor($gameId) : $stored[array_key_last($stored)]->getId();
 
         return ['cursor' => $cursor, 'events' => $this->eventsOf($game, $actorUserId, $stored)];
+    }
+
+    /**
+     * Outbox одной команды журнала.
+     *
+     * @param int $gameId Игра.
+     * @param array{id: int, source: string, result: array<string, mixed>} $command Строка.
+     *
+     * @return void
+     */
+    private function catchUpCommand(int $gameId, array $command): void
+    {
+        $delivery = $this->deliveryOf($command);
+        if ($delivery === null) {
+            return;
+        }
+
+        $this->rows->add($gameId, $delivery['source'], $command['id'], $delivery['keys']);
+    }
+
+    /**
+     * Источник outbox и ключи журнала.
+     *
+     * @param array{id: int, source: string, result: array<string, mixed>} $command Строка.
+     *
+     * @return array{source: string, keys: array<int, array<string, mixed>>}|null Пара или null.
+     */
+    private function deliveryOf(array $command): ?array
+    {
+        return match ($command['source']) {
+            'strike', 'wide_strike' => ['source' => 'strike', 'keys' => $this->keys->fromStrike($command['result'])],
+            'turn' => ['source' => 'turn', 'keys' => []],
+            'battle' => ['source' => 'battle', 'keys' => []],
+            'wound' => ['source' => 'wound', 'keys' => []],
+            'manual_sheet' => ['source' => 'manual_sheet', 'keys' => $this->keys->fromManualSheet($command['result'])],
+            default => null,
+        };
     }
 
     /**
@@ -208,7 +229,7 @@ final class GameDelivery implements IGameDelivery
     }
 
     /**
-     * Id боя журнала strike, turn или wound.
+     * Id боя журнала strike, turn, wound или manual_sheet.
      *
      * @param string $source Источник.
      * @param int $sourceId Id журнала.
@@ -217,12 +238,11 @@ final class GameDelivery implements IGameDelivery
      */
     private function battleIdOf(string $source, int $sourceId): ?int
     {
-        $stored = match ($source) {
-            'strike' => $this->commands->find($sourceId),
-            'turn' => $this->turns->find($sourceId),
-            'wound' => $this->wounds->find($sourceId),
-            default => null,
-        };
+        if ($source !== 'strike' && $source !== 'turn' && $source !== 'wound' && $source !== 'manual_sheet' && $source !== 'battle') {
+            return null;
+        }
+
+        $stored = $this->commands->find($sourceId);
         $fromResult = is_array($stored) ? ($stored['result']['battleId'] ?? null) : null;
         $fromBody = is_array($stored) ? ($stored['body']['battleId'] ?? null) : null;
         $battleId = is_int($fromResult) ? $fromResult : $fromBody;
