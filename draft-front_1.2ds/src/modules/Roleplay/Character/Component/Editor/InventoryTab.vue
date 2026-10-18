@@ -415,8 +415,18 @@ function mutateBuild(patch: Partial<CharacterBuild>): void {
   draftStore.patchBuild(props.draftKey, patch);
 }
 
+const chargesMoney = computed(() => props.model.budgets.money.total !== null);
+
 function buy(ruleCode: string): void {
-  const next = characterBuildService.buyItem(currentBuild(), ruleCode, 1, props.rules, props.keywords);
+  const next = characterBuildService.buyItem(
+    currentBuild(),
+    ruleCode,
+    1,
+    props.rules,
+    props.keywords,
+    [],
+    chargesMoney.value,
+  );
   mutateBuild({ inventory: next.inventory, money: next.money });
 }
 
@@ -428,6 +438,8 @@ function cancel(ruleCode: string, quantity: number): void {
     quantity,
     props.rules,
     props.keywords,
+    [],
+    chargesMoney.value,
   );
   mutateBuild({ inventory: next.inventory, money: next.money });
 }
@@ -439,6 +451,7 @@ function cancelInstance(itemId: number): void {
     itemId,
     props.rules,
     props.keywords,
+    chargesMoney.value,
   );
   mutateBuild({ inventory: next.inventory, money: next.money });
 }
@@ -474,6 +487,7 @@ function applyOwnedModifiers(itemId: number, modifierRuleCodes: string[]): void 
     modifierRuleCodes,
     props.rules,
     props.keywords,
+    chargesMoney.value,
   );
   mutateBuild({ inventory: next.inventory, money: next.money });
 }

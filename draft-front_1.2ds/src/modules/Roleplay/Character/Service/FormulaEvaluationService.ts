@@ -72,6 +72,8 @@ export class FormulaEvaluationService {
 
         return { base: modified.base * formula.multiplier, size: modified.size };
       }
+      default:
+        throw new Error(`Неизвестный узел формулы «${formula.type}»`);
     }
   }
 

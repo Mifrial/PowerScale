@@ -1,4 +1,5 @@
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
+import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacterCreateRequest } from '@/modules/Roleplay/Character/Dto/CharacterCreateRequest';
 import type { CharacterValidateRequest } from '@/modules/Roleplay/Character/Dto/CharacterValidateRequest';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
@@ -57,6 +58,55 @@ export class CharacterHttpSaveService {
       ...this.choicesBody(choices, config, false),
       expectedVersion,
     };
+  }
+
+  /**
+   * Документ choices PHP (персонаж и НПС): без spaceId/revision, они снаружи.
+   */
+  documentOf(choices: CharacterBuild, config: CharacterCreationConfig): Record<string, unknown> {
+    const body = this.choicesBody(choices, config, false);
+
+    return {
+      name: body.name,
+      shortDescription: body.shortDescription,
+      fullDescription: body.fullDescription,
+      ageYears: body.ageYears,
+      limits: body.limits,
+      raceCode: body.raceCode,
+      characteristicPurchases: body.characteristicPurchases,
+      abilities: body.abilities,
+      inventory: body.inventory,
+      customRules: body.customRules,
+      money: choices.money,
+      active: true,
+    };
+  }
+
+  documentFromVersion(version: CharacterVersion, config: CharacterCreationConfig): Record<string, unknown> {
+    return this.documentOf(
+      {
+        name: version.name,
+        shortDescription: version.shortDescription,
+        fullDescription: version.fullDescription,
+        spaceId: 0,
+        spaceCode: version.spaceCode,
+        rulesRevision: version.rulesRevision,
+        raceRuleCode: version.raceRuleCode,
+        characteristicPurchases: version.characteristicPurchases ?? [],
+        abilities: version.abilities,
+        resources: version.resources,
+        inventory: version.inventory,
+        states: version.states,
+        money: version.money,
+        ageYears: version.ageYears,
+        olTotal: version.points.olTotal,
+        ethnicityCode: version.ethnicityCode,
+        ethnicityText: version.ethnicityText,
+        nativeLanguageCode: version.nativeLanguageCode,
+        nativeLanguageText: version.nativeLanguageText,
+      },
+      config,
+    );
   }
 
   migrateRemapBody(id: number, revision: number, expectedVersion: number): Record<string, unknown> {

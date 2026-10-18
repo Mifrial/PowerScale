@@ -76,7 +76,7 @@ const stages = computed(() => {
     {
       key: 'inventory',
       title: 'Инвентарь',
-      subtitle: moneyBreakdownLabel(props.build.money),
+      subtitle: budgets.value?.money?.total === null ? 'без лимита' : moneyBreakdownLabel(props.build.money),
       warned: budgets.value?.money?.exceeded ?? false,
     },
     {

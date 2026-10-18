@@ -15,6 +15,7 @@ import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+import { characterHttpViewService } from '@/modules/Roleplay/Character/Service/Instance/characterHttpViewService';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import OverviewTab from '@/modules/Roleplay/Character/Component/Detail/OverviewTab.vue';
 import DescriptionTab from '@/modules/Roleplay/Character/Component/Detail/DescriptionTab.vue';
@@ -95,7 +96,12 @@ const hasFullView = computed(
   () => props.version !== null && props.visibleSections.length === SHEET_VISIBLE_SECTIONS.length,
 );
 
-const shownVersion = computed(() => props.version);
+const shownVersion = computed(() => {
+  if (!props.version) return null;
+  if (props.spaceId === null || rules.value.length === 0) return props.version;
+
+  return characterHttpViewService.materialize(props.version, props.spaceId, rules.value, keywords.value);
+});
 
 const creationConfig = computed<CharacterCreationConfig>(() => {
   const version = props.version;

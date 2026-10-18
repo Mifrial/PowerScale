@@ -9,7 +9,9 @@ import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { CharacteristicPurchase } from '@/modules/Roleplay/Character/Dto/Editor/CharacteristicPurchase';
 import type { ResourceLimitBonus } from '@/modules/Roleplay/Character/Dto/ResourceLimitBonus';
 import type { ResourceValue } from '@/modules/Roleplay/Character/Dto/ResourceValue';
+import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
+import type { SenseStatus } from '@/modules/Roleplay/Rule/Enum/SenseStatus';
 import type { CharacterWound } from '@/modules/Roleplay/Character/Dto/CharacterWound';
 import type { CharacterWoundHolder } from '@/modules/Roleplay/Character/Dto/CharacterWoundHolder';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
@@ -119,7 +121,7 @@ export class CharacterHttpViewService {
       ageYears: typeof input.choices.ageYears === 'number' ? input.choices.ageYears : null,
       inventory: this.inventoryOf(input.choices.inventory),
       states: this.statesFromSheet(input.sheet.states),
-      senses: [],
+      senses: this.sensesOf(input.sheet.senses),
       customRules: Array.isArray(input.choices.customRules)
         ? (input.choices.customRules as CharacterVersion['customRules'])
         : [],
@@ -377,6 +379,44 @@ export class CharacterHttpViewService {
     return Object.keys(parameters).length > 0 ? parameters : undefined;
   }
 
+  sensesOf(raw: unknown): CharacterSenseValue[] {
+    if (!Array.isArray(raw)) return [];
+    const statuses = new Set<SenseStatus>(['precise', 'imprecise', 'vague', 'absent']);
+    const senses: CharacterSenseValue[] = [];
+    for (const row of raw) {
+      if (row === null || typeof row !== 'object' || Array.isArray(row)) continue;
+      const record = row as Record<string, unknown>;
+      const status = this.stringOf(record.status);
+      if (!statuses.has(status as SenseStatus) || status === 'absent') continue;
+      const radius = this.dimOf(record.radius);
+      senses.push({
+        ruleCode: this.stringOf(record.ruleCode),
+        value: this.intOf(record.value),
+        modifiers: Array.isArray(record.modifiers)
+          ? record.modifiers.flatMap((modifier) => {
+              if (modifier === null || typeof modifier !== 'object') return [];
+              const entry = modifier as Record<string, unknown>;
+
+              return [{
+                sourceRuleCode: this.stringOf(entry.sourceRuleCode),
+                sourceLabel: null,
+                delta: this.intOf(entry.delta),
+                target: this.stringOf(record.ruleCode),
+                scope: null,
+              }];
+            })
+          : [],
+        status: status as SenseStatus,
+        radius,
+        ...(typeof record.treatAsGoodDownTo === 'string'
+          ? { treatAsGoodDownTo: record.treatAsGoodDownTo as CharacterSenseValue['treatAsGoodDownTo'] }
+          : {}),
+      });
+    }
+
+    return senses;
+  }
+
   statesFromSheet(raw: unknown): CharacterStateValue[] {
     return Array.isArray(raw) ? raw.map((row) => this.stateFromSheet(row)) : [];
   }
@@ -392,9 +432,7 @@ export class CharacterHttpViewService {
       ...(id !== undefined ? { id } : {}),
       stateRuleCode: this.stringOf(record.stateRuleCode),
       ...(typeof record.value === 'number' ? { value: record.value } : {}),
-      ...(record.dimensionalValue && typeof record.dimensionalValue === 'object'
-        ? { dimensionalValue: record.dimensionalValue as CharacterStateValue['dimensionalValue'] }
-        : {}),
+      ...this.dimensionalStateValue(record),
       ...(record.poison && typeof record.poison === 'object'
         ? { poison: record.poison as CharacterStateValue['poison'] }
         : {}),
@@ -404,6 +442,19 @@ export class CharacterHttpViewService {
       ...(record.maim && typeof record.maim === 'object' ? { maim: record.maim as CharacterStateValue['maim'] } : {}),
       ...(wound ? { wound } : {}),
     };
+  }
+
+  private dimensionalStateValue(
+    record: Record<string, unknown>,
+  ): { dimensionalValue: CharacterStateValue['dimensionalValue'] } | Record<string, never> {
+    const explicit = record.dimensionalValue;
+    const nested = record.value;
+    const source = explicit && typeof explicit === 'object' ? explicit : nested;
+    if (source === null || typeof source !== 'object' || Array.isArray(source)) return {};
+    const pair = source as Record<string, unknown>;
+    if (typeof pair.base !== 'number' || typeof pair.size !== 'number') return {};
+
+    return { dimensionalValue: { base: pair.base, size: pair.size } };
   }
 
   private woundFromSheet(sidecar: Record<string, unknown>, nested: boolean): CharacterWound | undefined {

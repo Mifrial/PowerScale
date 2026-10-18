@@ -385,15 +385,18 @@ export class CharacterEditorService {
       }
     }
 
-    // 3.3) Экипированное снаряжение: штраф к Силе доспеха — обычный модификатор к Силе.
+    // 3.3) Экипированное снаряжение: гранты предмета (в т.ч. characteristic_modify).
     for (const item of build.inventory) {
       const itemSpec = this.effectiveEquippedSpec(item, reference, keywords);
-      const penalty = itemSpec?.armor?.strength_penalty;
-      if (penalty === undefined || penalty === null || penalty === 0) continue;
-      const entry = { role: 'от предмета', sourceRuleCode: item.ruleCode, delta: penalty };
-      const strength = deltas.get('strength');
-      if (strength) strength.push(entry);
-      else deltas.set('strength', [entry]);
+      if (!itemSpec || item.ruleCode === null) continue;
+      for (const grant of itemSpec.grants ?? []) {
+        if (grant.type !== 'characteristic_modify') continue;
+        const delta = this.formula.evaluate(grant.amount, this.formulaContext(build, bases, reference, keywords));
+        const entry = { role: 'от предмета', sourceRuleCode: item.ruleCode, delta };
+        const list = deltas.get(grant.characteristic_code);
+        if (list) list.push(entry);
+        else deltas.set(grant.characteristic_code, [entry]);
+      }
     }
 
     // 3.4) base_from: база характеристики = база другой + её модификаторы с указанными источниками.
@@ -452,8 +455,7 @@ export class CharacterEditorService {
       };
     });
 
-    // 4.1) Экипированное снаряжение: потолки характеристик (доспех max_agility → Ловкость,
-    //      доспех/щит characteristic_limits → по кодам). Несколько ограничений — самый жёсткий.
+    // 4.1) Экипированное снаряжение: потолки по characteristic_limits с кодом.
     const finalValues = new Map(result.map((characteristic) => [characteristic.code, characteristic.value]));
     const equipmentContext = this.formulaContext(build, finalValues, reference, keywords);
     const limitResolveName = (code: string): string | null => reference.ruleByCode(code)?.name ?? null;
@@ -466,9 +468,6 @@ export class CharacterEditorService {
       if (!itemSpec || item.ruleCode === null) continue;
 
       const rawCaps: { characteristic_code: string; cap: DimensionalNumberValue; limitFormula: string | null }[] = [];
-      if (itemSpec.armor?.max_agility != null) {
-        rawCaps.push({ characteristic_code: 'dexterity', cap: itemSpec.armor.max_agility, limitFormula: null });
-      }
       // Потолок, основанный на отсутствующей характеристике (у персонажа нет её базы), не применяется:
       // «reaction ≤ strength − 3» без Силы не должен ужимать Реакцию в отрицательные значения.
       for (const limit of itemSpec.armor?.characteristic_limits ?? []) {
@@ -576,19 +575,21 @@ export class CharacterEditorService {
       }
     });
 
-    return [...byCode.entries()].map(([code, rule]) => {
+    return [...byCode.entries()].flatMap(([code, rule]) => {
       const modifiers = this.aggregateModifiers(code, deltas.get(code) ?? []);
       const value = modifiers.reduce((sum, modifier) => sum + modifier.delta, 0);
       const spec = rule.spec as SenseSpec;
+      const granted = deltas.has(code) || statusOverrides.has(code) || lightingBySense.has(code);
+      if (spec.auto_add !== true && !granted) return [];
 
-      return {
+      return [{
         ruleCode: rule.code,
         value,
         modifiers,
         status: statusOverrides.get(code) ?? spec.status,
         radius: spec.radius,
         treatAsGoodDownTo: lightingBySense.get(code),
-      };
+      }];
     });
   }
 

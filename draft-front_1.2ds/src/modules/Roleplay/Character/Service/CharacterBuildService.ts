@@ -598,6 +598,7 @@ export class CharacterBuildService {
     rules: Rule[],
     keywords: Keyword[] = [],
     _modifierRuleIds: readonly string[] = [],
+    chargesMoney = true,
   ): CharacterBuild {
     const cost = this.itemCostOf(ruleCode, rules, keywords, []);
     if (cost === null || quantity <= 0) return build;
@@ -610,7 +611,7 @@ export class CharacterBuildService {
         nextId += 1;
       }
 
-      return { ...build, inventory, money: build.money - cost * quantity };
+      return { ...build, inventory, money: this.cashAfter(build.money, -cost * quantity, chargesMoney) };
     }
 
     const inventory = build.inventory.map((item) =>
@@ -621,7 +622,7 @@ export class CharacterBuildService {
       inventory.push({ id: nextId, ruleCode, quantity, equipped: false, modifierRuleCodes: [] });
     }
 
-    return { ...build, inventory, money: build.money - cost * quantity };
+    return { ...build, inventory, money: this.cashAfter(build.money, -cost * quantity, chargesMoney) };
   }
 
   /**
@@ -637,6 +638,7 @@ export class CharacterBuildService {
     rules: Rule[],
     keywords: Keyword[] = [],
     _modifierRuleIds: readonly string[] = [],
+    chargesMoney = true,
   ): CharacterBuild {
     if (!baseline || quantity <= 0) return build;
 
@@ -660,7 +662,7 @@ export class CharacterBuildService {
       return {
         ...build,
         inventory: build.inventory.filter((entry) => !removedIds.has(entry.id)),
-        money: build.money + refund,
+        money: this.cashAfter(build.money, refund, chargesMoney),
       };
     }
 
@@ -684,7 +686,7 @@ export class CharacterBuildService {
             entry.id === item.id ? { ...entry, quantity: entry.quantity - amount } : entry,
           );
 
-    return { ...build, inventory, money: build.money + cost * amount };
+    return { ...build, inventory, money: this.cashAfter(build.money, cost * amount, chargesMoney) };
   }
 
   /**
@@ -696,6 +698,7 @@ export class CharacterBuildService {
     itemId: number,
     rules: Rule[],
     keywords: Keyword[] = [],
+    chargesMoney = true,
   ): CharacterBuild {
     if (!baseline) return build;
     const item = build.inventory.find((entry) => entry.id === itemId);
@@ -708,7 +711,7 @@ export class CharacterBuildService {
     return {
       ...build,
       inventory: build.inventory.filter((entry) => entry.id !== itemId),
-      money: build.money + cost,
+      money: this.cashAfter(build.money, cost, chargesMoney),
     };
   }
 
@@ -722,6 +725,7 @@ export class CharacterBuildService {
     modifierRuleCodes: readonly string[],
     rules: Rule[],
     keywords: Keyword[] = [],
+    chargesMoney = true,
   ): CharacterBuild {
     const source = build.inventory.find((item) => item.id === itemId);
     if (!source?.ruleCode || source.quantity < 1) return build;
@@ -745,7 +749,7 @@ export class CharacterBuildService {
       item.id === itemId ? { ...item, modifierRuleCodes: newMods } : item,
     );
 
-    return { ...build, inventory, money: build.money - (newCost - oldCost) };
+    return { ...build, inventory, money: this.cashAfter(build.money, -(newCost - oldCost), chargesMoney) };
   }
 
   /** Тумблер экипировки предмета: слоты рук, innate не снимается. */
@@ -778,6 +782,11 @@ export class CharacterBuildService {
       { ...build, inventory: baseline.inventory.map((item) => ({ ...item })), money: baseline.money },
       rules,
     );
+  }
+
+  /** Без лимита денег (НПС) закупка не трогает наличные. */
+  private cashAfter(money: number, delta: number, chargesMoney: boolean): number {
+    return chargesMoney ? money + delta : money;
   }
 
   /** Цена предмета в гм с учётом модификаторов; null для не-предметов, innate и без cost_gm (R5). */

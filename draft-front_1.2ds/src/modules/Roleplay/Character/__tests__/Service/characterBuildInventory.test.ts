@@ -103,6 +103,13 @@ describe('CharacterBuildService · инвентарь', () => {
       expect(next.inventory[0]?.quantity).toBe(1);
     });
 
+    it('без лимита денег закупка не списывает наличные', () => {
+      const next = service.buyItem(build(0), dagger.code, 1, rules, [], [], false);
+
+      expect(next.money).toBe(0);
+      expect(next.inventory[0]?.quantity).toBe(1);
+    });
+
     it('no-op при нулевом количестве', () => {
       const current = build(100);
       expect(service.buyItem(current, dagger.code, 0, rules)).toBe(current);

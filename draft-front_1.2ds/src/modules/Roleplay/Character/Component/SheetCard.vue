@@ -3,7 +3,6 @@ import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { SHEET_SECTION_LABELS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
-import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
@@ -48,13 +47,18 @@ const displayVersion = computed(() => {
   if (!props.version) return null;
   if (rules.value.length === 0) return props.version;
 
-  return characterHttpViewService.materialize(props.version, props.spaceId ?? 0, rules.value, keywords.value);
+  return characterHttpViewService.materializeKeepingRuntime(
+    props.version,
+    props.spaceId ?? 0,
+    rules.value,
+    keywords.value,
+  );
 });
 
 const sheetSummary = computed(() => {
   const version = displayVersion.value;
   if (!version || rules.value.length === 0) {
-    return { characteristics: [], abilities: [] };
+    return { characteristics: [], abilities: [], resources: [] };
   }
 
   return characterOverviewService.sheetSummary(version, rules.value);
@@ -62,6 +66,7 @@ const sheetSummary = computed(() => {
 
 const sheetAbilities = computed(() => sheetSummary.value.abilities);
 const sheetCharacteristics = computed(() => sheetSummary.value.characteristics);
+const sheetResources = computed(() => sheetSummary.value.resources);
 
 function ruleName(ruleCode: string | null): string | null {
   if (!ruleCode) return null;
@@ -130,16 +135,13 @@ watch(
       </div>
     </div>
 
-    <div v-if="sectionVisible('resources') && displayVersion?.resources.length" class="sheet-block">
+    <div v-if="sectionVisible('resources') && sheetResources.length" class="sheet-block">
       <div class="sheet-label">{{ SHEET_SECTION_LABELS.resources }}</div>
       <div class="d-flex flex-column">
-        <div v-for="resource in displayVersion.resources" :key="resource.ruleCode" class="sheet-row">
-          <span class="text-body-2">{{ ruleName(resource.ruleCode) }}</span>
+        <div v-for="resource in sheetResources" :key="resource.ruleCode" class="sheet-row">
+          <span class="text-body-2">{{ resource.name }}</span>
           <v-spacer />
-          <span class="text-body-2">
-            {{ DimensionalNumber.from(resource.current).toString() }} /
-            {{ DimensionalNumber.from(resource.base).toString() }}
-          </span>
+          <span class="text-body-2">{{ resource.currentLabel }} / {{ resource.maxLabel }}</span>
         </div>
       </div>
     </div>

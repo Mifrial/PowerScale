@@ -29,6 +29,7 @@ const statusLabels: Record<CharacterSenseValue['status'], string> = {
   vague: 'смутное',
   absent: 'отсутствует',
 };
+const activeSenses = computed(() => props.senses.filter((sense) => sense.status !== 'absent'));
 const showsSenses = computed(() => {
   const characteristicCode = byCode.value.get(props.characteristic.ruleCode)?.code;
 
@@ -137,7 +138,7 @@ function senseRule(sense: CharacterSenseValue): Rule | undefined {
           <v-divider class="my-2" />
           <div class="text-caption text-medium-emphasis mb-1">Чувства</div>
           <v-menu
-            v-for="sense in senses"
+            v-for="sense in activeSenses"
             :key="sense.ruleCode"
             location="right top"
             open-on-hover

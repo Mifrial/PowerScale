@@ -186,10 +186,10 @@ export class CharacterOverviewService {
       return { ...overview, derived: this.buildDerived(overview.derived.formula, byCode) };
     });
     const stateEffects = this.runtimeEffects.accumulateStateEffects(version.states, rules);
-    const withStates = allCharacteristics.map((overview) => {
+    const withStateLeaves = allCharacteristics.map((overview) => {
       const rule = reference.ruleByCode(overview.ruleCode);
       const amount = rule ? (stateEffects.characteristicDeltas.get(rule.code) ?? 0) : 0;
-      if (!amount) return overview;
+      if (!amount || this.stateDeltaAlreadyStored(overview, amount)) return overview;
       const value = new DimensionalNumber(overview.value).modify(amount, CHARACTERISTIC_BASE_RANGE).value;
 
       return {
@@ -198,6 +198,17 @@ export class CharacterOverviewService {
         valueLabel: new DimensionalNumber(value).toString(),
         delta: overview.delta + amount,
       };
+    });
+    const byState = new Map<string, CharacteristicOverview>();
+    for (const overview of withStateLeaves) {
+      const rule = reference.ruleByCode(overview.ruleCode);
+      if (rule) byState.set(rule.code, overview);
+    }
+    this.recomputeDerivedValues(withStateLeaves, byState);
+    const withStates = withStateLeaves.map((overview) => {
+      if (overview.derived === null) return overview;
+
+      return { ...overview, derived: this.buildDerived(overview.derived.formula, byState) };
     });
 
     return { synced, reference, withStates, context: this.buildFormulaContext(withStates, synced, reference) };
@@ -288,6 +299,11 @@ export class CharacterOverviewService {
     return version.inventory.some((item) => item.equipped && item.ruleCode === modifier.sourceRuleCode);
   }
 
+  /** Штраф состояния уже лежит в модификаторах листа — повторно не сдвигаем. */
+  private stateDeltaAlreadyStored(overview: CharacteristicOverview, amount: number): boolean {
+    return overview.modifiers.some((modifier) => modifier.source === 'От состояния' && modifier.delta === amount);
+  }
+
   /** Производные — min/max живых баз (после потолков), не снимок в версии. */
   private recomputeDerivedValues(
     coreList: CharacteristicOverview[],
@@ -340,8 +356,10 @@ export class CharacterOverviewService {
     const source = modifier.sourceRuleCode === null ? null : reference.resolve(modifier.sourceRuleCode);
     const target = reference.ruleByCode(modifier.target);
 
+    const stateSource = source?.rule?.type === 'state';
+
     return {
-      source: modifier.sourceLabel ?? source?.name ?? 'Персонаж',
+      source: stateSource ? 'От состояния' : (modifier.sourceLabel ?? source?.name ?? 'Персонаж'),
       sourceRuleCode: modifier.sourceRuleCode,
       sourceHref: source?.href ?? null,
       sourceResolved: source?.isResolved ?? false,
@@ -545,8 +563,24 @@ export class CharacterOverviewService {
           const characteristicRule = reference.ruleByCode(characteristic.ruleCode);
           if (characteristicRule) values.set(characteristicRule.code, characteristic.value);
         }
-        const live = this.liveActionPoints.liveActionPointsLimit(version, rules, values);
-        if (live !== null) max = { base: live, size: resource.base.size };
+        const live = this.liveActionPoints.liveAutoResourceView(version, rules, values, resource);
+        if (live !== null) {
+          max = { base: live.limit, size: resource.base.size };
+          resources.push({
+            ruleCode: resource.ruleCode,
+            name: reference.resolve(resource.ruleCode).name,
+            current: resource.current,
+            currentLabel: new DimensionalNumber(resource.current).toString(),
+            max,
+            maxLabel: new DimensionalNumber(max).toString(),
+            base: resource.base,
+            baseLabel: new DimensionalNumber(resource.base).toString(),
+            bonuses: live.bonuses,
+            href: reference.resolve(resource.ruleCode).href,
+            isResolved: reference.resolve(resource.ruleCode).isResolved,
+          });
+          continue;
+        }
       }
       // Лимит 0: авто-ресурс (ОД) рендерится всегда (персонаж не может действовать, но ресурс есть);
       // не-авто ресурс с лимитом 0 — у персонажа отсутствует (D38), не показываем.

@@ -23,6 +23,22 @@ const choices: CharacterBuild = {
 
 const config: CharacterCreationConfig = { osTotal: 10, orTotal: 8, moneyBudget: 100 };
 
+describe('CharacterHttpSaveService documentOf', () => {
+  it('документ NPC без spaceId и с пустыми лимитами', () => {
+    const body = characterHttpSaveService.documentOf(choices, {
+      osTotal: null,
+      orTotal: null,
+      moneyBudget: null,
+    });
+
+    expect(body).not.toHaveProperty('spaceId');
+    expect(body).not.toHaveProperty('revision');
+    expect(body.limits).toEqual({ os: null, or: null });
+    expect(body.shortDescription).toBe('');
+    expect(body.money).toBe(40);
+  });
+});
+
 describe('CharacterHttpSaveService migrate bodies', () => {
   it('remap: только id, revision, expectedVersion', () => {
     const body = characterHttpSaveService.migrateRemapBody(7, 4, 2);
