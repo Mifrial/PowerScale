@@ -252,7 +252,8 @@ final class MechanicRollTest extends TestCase
         self::assertEquals(new CheckRating(true, 2), $this->rolls->rate(new SizedBase(3, 1), new SizedBase(4, 0)));
         self::assertEquals(new CheckRating(false, -9), $this->rolls->rate(new SizedBase(1, -1), new SizedBase(5, 0)));
         self::assertEquals(new CheckRating(true, 9), $this->rolls->rate(new SizedBase(5, 0), new SizedBase(1, -1)));
-        self::assertEquals(new CheckRating(true, 0), $this->rolls->rate(new SizedBase(-2, 0), new SizedBase(0, 0)));
+        self::assertEquals(new CheckRating(false, -2), $this->rolls->rate(new SizedBase(-2, 0), new SizedBase(0, 0)));
+        self::assertEquals(new CheckRating(true, 0), $this->rolls->rate(new SizedBase(1, -1), new SizedBase(0, 0)));
         self::assertEquals(
             new CheckRating(true, 1),
             $this->rolls->rate(new SizedBase(5, -1), new SizedBase(8, -2), -1),

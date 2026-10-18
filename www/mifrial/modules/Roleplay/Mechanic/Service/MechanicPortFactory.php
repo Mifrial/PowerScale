@@ -16,6 +16,14 @@ use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Mechanic\Repository\MechanicRepository;
 use Mifrial\Roleplay\Mechanic\Service\Handler\AdvantageDisadvantageHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\BloodClottingHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\BluntUnconsciousHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\DamageAsWoundsHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\ExhaustionShockHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\ExhaustionStunHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\ExhaustionWoundHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\InjuryEfficiencyHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\PaySrVsReliabilityHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PlainRollHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PurchaseSurchargeHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\ReliabilityCutHandler;
@@ -44,7 +52,7 @@ final class MechanicPortFactory
     }
 
     /**
-     * Собирает движок с доплатой и хендлерами броска в реестре.
+     * Собирает движок с хендлерами броска, среза и маркеров урона.
      *
      * @return IMechanicEngine Движок.
      */
@@ -56,6 +64,14 @@ final class MechanicPortFactory
         $registry->register(new SixOneRuleHandler());
         $registry->register(new AdvantageDisadvantageHandler());
         $registry->register(new ReliabilityCutHandler());
+        $registry->register(new PaySrVsReliabilityHandler());
+        $registry->register(new InjuryEfficiencyHandler());
+        $registry->register(new ExhaustionStunHandler());
+        $registry->register(new ExhaustionShockHandler());
+        $registry->register(new ExhaustionWoundHandler());
+        $registry->register(new BluntUnconsciousHandler());
+        $registry->register(new DamageAsWoundsHandler());
+        $registry->register(new BloodClottingHandler());
 
         return new MechanicEngine($registry);
     }

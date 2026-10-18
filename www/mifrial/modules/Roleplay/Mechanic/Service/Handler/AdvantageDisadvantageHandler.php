@@ -79,6 +79,12 @@ final class AdvantageDisadvantageHandler implements IMechanicHandler
             return;
         }
 
+        $mark = $this->getCode() . ':' . $event;
+        if (in_array($mark, $context->getApplied(), true)) {
+            return;
+        }
+
+        $context->markApplied($mark);
         if ($event === RollEvent::POOL) {
             $context->growPool(abs($net));
 

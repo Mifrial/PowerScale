@@ -74,5 +74,16 @@ final class MechanicEnginePortTest extends TestCase
             ])],
             new ResolveActiveOptions(),
         ));
+        self::assertFalse($engine->hasReliabilityCut(
+            [new MechanicBinding('blunt', 6, null)],
+            [MechanicRecord::fromNormalized([
+                'id' => 6,
+                'code' => 'exhaustion_to_stun',
+                'name' => 'Stun',
+                'description' => '',
+                'handler_version' => '1.0.0',
+            ])],
+            new ResolveActiveOptions(),
+        ));
     }
 }

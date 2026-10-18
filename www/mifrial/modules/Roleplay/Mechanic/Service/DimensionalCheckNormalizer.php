@@ -27,7 +27,7 @@ final class DimensionalCheckNormalizer
 
         return [
             'successes' => $this->alignSuccesses($normalizedSuccesses, $targetSize),
-            'difficulty' => $this->align($normalizedDifficulty, $targetSize),
+            'difficulty' => $this->alignSuccesses($normalizedDifficulty, $targetSize),
         ];
     }
 
