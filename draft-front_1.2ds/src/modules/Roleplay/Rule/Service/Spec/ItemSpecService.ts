@@ -4,12 +4,48 @@ import type { WeaponBlock } from '@/modules/Roleplay/Rule/Dto/Item/WeaponBlock';
 import type { ArmorBlock } from '@/modules/Roleplay/Rule/Dto/Item/ArmorBlock';
 import type { ShieldBlock } from '@/modules/Roleplay/Rule/Dto/Item/ShieldBlock';
 import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
+/** Черновик спеки предмета: подтипы, вес в тиках, блоки оружия/брони/щита. */
 export class ItemSpecService {
   constructor(
     private readonly subtypeFields: Record<string, (keyof ItemSpecDraft)[]>,
     private readonly blockFields: (keyof ItemSpecDraft)[],
+    private readonly weightTickKilograms: number,
+    private readonly weightSize: number,
   ) {}
+
+  kilogramsToWeight(kilograms: number): DimensionalNumberValue {
+    return {
+      base: Math.max(0, Math.round(kilograms / this.weightTickKilograms)),
+      size: this.weightSize,
+    };
+  }
+
+  weightToKilograms(weight: DimensionalNumberValue | null | undefined): number | null {
+    if (!weight) {
+      return null;
+    }
+
+    return weight.base * this.weightTickKilograms * 2 ** (weight.size - this.weightSize);
+  }
+
+  setWeightKilograms(spec: ItemSpecDraft, kilograms: number | null): void {
+    spec.weight = kilograms === null ? null : this.kilogramsToWeight(kilograms);
+  }
+
+  setWeight(spec: ItemSpecDraft, weight: DimensionalNumberValue | null): void {
+    spec.weight = weight;
+  }
+
+  formatWeightKilograms(weight: DimensionalNumberValue | null | undefined): string {
+    const kilograms = this.weightToKilograms(weight);
+    if (kilograms === null) {
+      return '';
+    }
+
+    return `${kilograms} кг`;
+  }
 
   ensureWeapon(spec: ItemSpecDraft): WeaponBlock {
     if (!spec.weapon) {
@@ -77,29 +113,41 @@ export class ItemSpecService {
   }
 
   /**
-   * Оставляет в спеке только блоки активных подтипов (по манифесту).
-   * Применяется на границе эмита (specToEmit): при смене подтипа черновые поля
-   * редактора НЕ чистятся, но в сохранённый результат мусор не попадает.
+   * Блоки подтипов, которые сейчас не выбраны. Не удаляются сами — только по действию пользователя.
    */
-  prune(spec: ItemSpecDraft, subtypes: string[]): ItemSpec {
+  unsupportedBlocks(spec: ItemSpecDraft, subtypes: string[]): (keyof ItemSpecDraft)[] {
     const active = new Set<keyof ItemSpecDraft>();
     for (const subtype of subtypes) {
       for (const field of this.subtypeFields[subtype] ?? []) {
         active.add(field);
       }
     }
-    const out: ItemSpecDraft = { ...spec };
+    const extra: (keyof ItemSpecDraft)[] = [];
     for (const field of this.blockFields) {
-      if (!active.has(field)) {
-        delete out[field];
+      if (!active.has(field) && spec[field] !== undefined) {
+        extra.push(field);
       }
     }
-    if (out.innate) {
-      out.cost_gm = null;
-      out.weight = null;
+
+    return extra;
+  }
+
+  stripUnsupported(spec: ItemSpecDraft, subtypes: string[]): ItemSpecDraft {
+    const drop = new Set(this.unsupportedBlocks(spec, subtypes));
+    const out: ItemSpecDraft = { ...spec };
+    for (const field of drop) {
+      delete out[field];
     }
 
     return out;
+  }
+
+  applyInnateLimits(spec: ItemSpecDraft): ItemSpecDraft {
+    if (!spec.innate) {
+      return spec;
+    }
+
+    return { ...spec, cost_gm: null, weight: null };
   }
 
   patchOccupyHands(spec: ItemSpecDraft, field: 'min' | 'max' | 'action', value: number): void {

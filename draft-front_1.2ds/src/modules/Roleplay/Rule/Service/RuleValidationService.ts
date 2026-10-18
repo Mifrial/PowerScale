@@ -202,6 +202,14 @@ export class RuleValidationService {
         continue;
       }
 
+      errors.push(...this.validateParameterBounds(rule, spec));
+      for (const key of this.abilitySpec.unsupportedKeys(spec, type)) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: `поле «${key}» не относится к типу способности — очистите его до проверки`,
+        });
+      }
       const components = 'action_components' in spec ? spec.action_components : [];
       const operations = 'operations' in spec ? (spec.operations ?? []) : [];
       errors.push(...this.validateActionOperations(rule, operations));
@@ -1994,6 +2002,41 @@ export class RuleValidationService {
     }
 
     return [];
+  }
+
+  private validateParameterBounds(rule: Rule, spec: AbilitySpec): AbilityStructureError[] {
+    if (!('parameters' in spec) || spec.parameters === undefined) {
+      return [];
+    }
+
+    const errors: AbilityStructureError[] = [];
+    for (const parameter of spec.parameters) {
+      for (const [field, value] of [
+        ['default', parameter.default],
+        ['min', parameter.min],
+        ['max', parameter.max],
+      ] as const) {
+        if (value === undefined) continue;
+        const pair = this.isDimensionalNumberValue(value);
+        const integer = typeof value === 'number' && Number.isInteger(value);
+        if (parameter.kind === 'scalar' && !integer) {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: `параметр «${parameter.code}».${field} должен быть целым (kind scalar)`,
+          });
+        }
+        if (parameter.kind === 'dimensional' && !pair) {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: `параметр «${parameter.code}».${field} должен быть размерным числом (kind dimensional)`,
+          });
+        }
+      }
+    }
+
+    return errors;
   }
 
   private isSpellParameterValue(value: SpellValue): value is { type: 'parameter'; parameter_code: string } {

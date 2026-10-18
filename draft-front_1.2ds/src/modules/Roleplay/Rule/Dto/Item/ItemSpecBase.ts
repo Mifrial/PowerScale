@@ -2,6 +2,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { ItemCheckAdvantage } from '@/modules/Roleplay/Rule/Dto/Item/ItemCheckAdvantage';
 import type { ItemHandsSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemHandsSpec';
+import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 
 /** Общие поля предмета (не подтип-специфичные). */
 export interface ItemSpecBase {
@@ -22,4 +23,6 @@ export interface ItemSpecBase {
   check_advantages?: ItemCheckAdvantage[];
   /** Слоты рук: min/max покоя и опционально занятость на действии. */
   occupy_hands?: ItemHandsSpec;
+  /** Гранты надетого предмета (плоский список, без блоков уровня). */
+  grants?: Grant[];
 }

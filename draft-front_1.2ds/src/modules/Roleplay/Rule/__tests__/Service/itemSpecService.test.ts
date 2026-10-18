@@ -21,7 +21,7 @@ describe('ItemSpecService', () => {
     expect(profile?.dodge_benefit).toBeUndefined();
   });
 
-  it('innate: prune обнуляет стоимость и вес', () => {
+  it('innate: applyInnateLimits обнуляет стоимость и вес', () => {
     const draft: ItemSpecDraft = {
       category: 'equipment',
       cost_gm: 10,
@@ -30,6 +30,13 @@ describe('ItemSpecService', () => {
       innate: true,
     };
 
-    expect(itemSpecService.prune(draft, [])).toMatchObject({ cost_gm: null, weight: null, innate: true });
+    expect(itemSpecService.applyInnateLimits(draft)).toMatchObject({ cost_gm: null, weight: null, innate: true });
+  });
+
+  it('вес: килограммы в тики по 0.5 кг при size −5', () => {
+    expect(itemSpecService.kilogramsToWeight(0.5)).toEqual({ base: 1, size: -5 });
+    expect(itemSpecService.kilogramsToWeight(3.5)).toEqual({ base: 7, size: -5 });
+    expect(itemSpecService.weightToKilograms({ base: 7, size: -5 })).toBe(3.5);
+    expect(itemSpecService.formatWeightKilograms({ base: 7, size: -5 })).toBe('3.5 кг');
   });
 });

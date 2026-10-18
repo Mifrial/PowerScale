@@ -18,8 +18,9 @@ export const ABILITY_SPEC_FIELDS: Record<AbilityType, readonly (keyof AbilitySpe
     'same_weapon',
     'min_weapons',
     'max_weapons',
+    'operations',
   ],
   process: ['process'],
-  spell: ['action_components', 'action_effects', 'attack_mode', 'max_targets', 'spell'],
-  group: [],
+  spell: ['action_components', 'action_effects', 'attack_mode', 'max_targets', 'spell', 'operations'],
+  group: ['selectLimit'],
 };

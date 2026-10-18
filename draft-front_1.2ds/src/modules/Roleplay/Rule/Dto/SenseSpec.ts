@@ -9,4 +9,6 @@ export interface SenseSpec {
   type: 'sense';
   status: SenseStatus;
   radius: DimensionalNumberValue;
+  /** Есть у каждого персонажа. Остальные чувства появляются только из гранта sense_modify. */
+  auto_add: boolean;
 }

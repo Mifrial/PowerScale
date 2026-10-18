@@ -18,6 +18,7 @@ import { HIT_RESOLUTION_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability
 import { SPELL_DURATION_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/SPELL_DURATION_OPTIONS';
 import { spellDurationLabelService } from '@/modules/Roleplay/Rule/Service/Instance/spellDurationLabelService';
 import { spellDamageService } from '@/modules/Roleplay/Rule/Service/Instance/spellDamageService';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 
 const props = defineProps<{
   rule: Rule;
@@ -315,6 +316,10 @@ function grantLabel(grant: Grant): string {
           <strong>{{ formatAmount(comp.amount) }}</strong>
         </div>
         <div v-if="!resourceComponents.length" class="text-medium-emphasis">Без стоимости</div>
+        <div v-if="spec?.dodge_efficiency" class="mt-2">
+          Эффективность уклонения:
+          <strong>{{ DimensionalNumber.from(spec.dodge_efficiency).toString() }}</strong>
+        </div>
         <div v-if="nonResourceComponents.length && type !== 'spell'" class="mt-2">
           <div class="text-body-2 text-medium-emphasis mb-1">Компоненты</div>
           <div class="d-flex flex-wrap ga-2">

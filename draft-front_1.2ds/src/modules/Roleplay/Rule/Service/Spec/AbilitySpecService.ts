@@ -23,6 +23,7 @@ export class AbilitySpecService {
     private readonly distinctiveTag: Record<AbilityType, string>,
     private readonly specificFields: (keyof AbilitySpecDraft)[],
     private readonly typeKeywords: Record<AbilityType, string[]>,
+    private readonly sharedKeys: readonly (keyof AbilitySpecDraft)[],
   ) {}
 
   resolveTypeFromKeywords(keywords: string[]): AbilityType | null {
@@ -35,20 +36,56 @@ export class AbilitySpecService {
   }
 
   /**
-   * Оставляет в спеке только поля, релевантные типу (по манифесту), и проставляет type.
-   * Применяется на границе эмита (specToEmit): при смене типа черновые поля редактора
-   * НЕ чистятся, но в сохранённый результат мусор не попадает.
+   * Типоспецифичные и неизвестные ключи, которые редактор не должен молча выкидывать.
    */
-  prune(spec: AbilitySpecDraft, type: AbilityType): AbilitySpec {
-    const allowed = new Set<keyof AbilitySpecDraft>(this.manifest[type]);
-    const out: AbilitySpecDraft = { ...spec, type };
+  unsupportedKeys(spec: AbilitySpecDraft | AbilitySpec, type: AbilityType): string[] {
+    const allowed = new Set<string>(
+      type === 'group' ? ['type', ...this.manifest.group] : [...this.sharedKeys, ...this.manifest[type]],
+    );
+    const keys: string[] = [];
+    for (const key of Object.keys(spec)) {
+      if (!allowed.has(key) && this.isPresent(spec[key as keyof typeof spec])) {
+        keys.push(key);
+      }
+    }
     for (const key of this.specificFields) {
-      if (!allowed.has(key)) {
+      if (!allowed.has(String(key)) && this.isPresent(spec[key])) {
+        keys.push(String(key));
+      }
+    }
+
+    return [...new Set(keys)];
+  }
+
+  private isPresent(value: unknown): boolean {
+    if (value === undefined || value === null) {
+      return false;
+    }
+    if (Array.isArray(value) && value.length === 0) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Явная очистка: только по действию пользователя, не на эмите.
+   */
+  stripUnsupported(spec: AbilitySpecDraft, type: AbilityType): AbilitySpecDraft {
+    const allowed = new Set<string>(
+      type === 'group' ? ['type', ...this.manifest.group] : [...this.sharedKeys, ...this.manifest[type]],
+    );
+    const out: AbilitySpecDraft = { ...spec, type };
+    for (const key of this.unsupportedKeys(spec, type)) {
+      delete out[key as keyof AbilitySpecDraft];
+    }
+    for (const key of this.specificFields) {
+      if (!allowed.has(String(key))) {
         delete out[key];
       }
     }
 
-    return out as AbilitySpec;
+    return out;
   }
 
   updateReqLevel(spec: AbilitySpecDraft, levelIndex: number, value: number): AbilitySpecDraft {

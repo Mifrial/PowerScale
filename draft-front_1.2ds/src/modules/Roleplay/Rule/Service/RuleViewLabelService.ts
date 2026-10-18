@@ -219,6 +219,22 @@ export class RuleViewLabelService {
         if (op.add != null) return `Штраф к силе: ${op.add >= 0 ? '+' : ''}${op.add}`;
 
         return 'Штраф к силе';
+      case 'characteristic_modify': {
+        const name = this.ruleName(rules, op.characteristic_code);
+        if (op.set === 0) return `Модификатор «${name}»: снят`;
+        if (op.set != null) return `Модификатор «${name}»: ${op.set}`;
+        if (op.add != null) return `Модификатор «${name}»: ${op.add >= 0 ? '+' : ''}${op.add}`;
+
+        return `Модификатор «${name}»`;
+      }
+      case 'characteristic_limit': {
+        const name = this.ruleName(rules, op.characteristic_code);
+        const parts: string[] = [];
+        if (op.delta != null) parts.push(`${op.delta >= 0 ? '+' : ''}${op.delta}`);
+        if (op.add_size != null) parts.push(`размер ${op.add_size >= 0 ? '+' : ''}${op.add_size}`);
+
+        return `Потолок «${name}»: ${parts.join(' · ')}`;
+      }
       case 'action_strength': {
         const field = op.field === 'damage' ? 'урон' : 'пробитие';
         const profiles = op.profiles?.length ? ` (${op.profiles.join(', ')})` : '';

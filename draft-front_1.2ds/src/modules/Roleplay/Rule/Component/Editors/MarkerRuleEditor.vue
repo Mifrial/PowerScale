@@ -25,8 +25,12 @@ const emit = defineEmits<{
 const specToEmit = computed<SenseSpec>(() => {
   if (props.spec && 'type' in props.spec && props.spec.type === 'sense') return props.spec;
 
-  return { type: 'sense', status: 'precise', radius: { base: 30, size: 0 } };
+  return { type: 'sense', status: 'precise', radius: { base: 30, size: 0 }, auto_add: false };
 });
+
+function setAutoAdd(autoAdd: boolean): void {
+  emit('update:spec', { ...specToEmit.value, auto_add: autoAdd });
+}
 watch(specToEmit, (value) => emit('update:spec', value), { immediate: true });
 </script>
 
@@ -47,6 +51,14 @@ watch(specToEmit, (value) => emit('update:spec', value), { immediate: true });
       <div class="text-body-2 text-medium-emphasis mt-2">
         Чувство — метка для даров «модификатор чувства». Значение на персонаже складывается из даров.
       </div>
+      <v-switch
+        :model-value="specToEmit.auto_add === true"
+        label="Автодобавление персонажу"
+        color="primary"
+        hide-details
+        class="mt-2"
+        @update:model-value="(value) => setAutoAdd(value === true)"
+      />
     </template>
   </RuleEditorBase>
 </template>

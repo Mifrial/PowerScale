@@ -8,6 +8,8 @@ export type ItemModifierOp =
   | { type: 'armor_reliability'; set?: number; add?: number }
   | { type: 'max_agility'; delta?: number; add_size?: number }
   | { type: 'strength_penalty'; add?: number; set?: number | null }
+  | { type: 'characteristic_modify'; characteristic_code: string; add?: number; set?: number | null }
+  | { type: 'characteristic_limit'; characteristic_code: string; delta?: number; add_size?: number }
   | {
       type: 'action_strength';
       field: 'damage' | 'penetration';

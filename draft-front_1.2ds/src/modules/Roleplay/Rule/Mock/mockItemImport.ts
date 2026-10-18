@@ -19,7 +19,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 200,
-      weight: { base: 1.0, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-posokh',
       occupy_hands: { min: 1, max: 2 },
@@ -62,7 +62,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 2000,
-      weight: { base: 0.5, size: 0 },
+      weight: { base: 1, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-kogti-ruki',
       weapon: {
@@ -124,7 +124,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1000,
-      weight: { base: 1.0, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-serp-tsep',
       weapon: {
@@ -211,7 +211,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 2, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 100,
-      weight: { base: 0.7, size: 0 },
+      weight: { base: 1, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-knut',
       weapon: {
@@ -254,7 +254,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 800,
-      weight: { base: 0.5, size: 0 },
+      weight: { base: 1, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-kinzhal-nozh',
       weapon: {
@@ -348,7 +348,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 800,
-      weight: { base: 0.5, size: 0 },
+      weight: { base: 1, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-kinzhal-nozh',
       weapon: {
@@ -403,7 +403,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 2, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 200,
-      weight: { base: 0.2, size: 0 },
+      weight: { base: 0, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-kinzhal-nozh',
       weapon: {
@@ -489,7 +489,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 2000,
-      weight: { base: 1.0, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-mech-ne-dlinnyy',
       weapon: {
@@ -558,7 +558,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1500,
-      weight: { base: 1.0, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-sablya',
       weapon: {
@@ -628,7 +628,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 3500,
-      weight: { base: 1.5, size: 0 },
+      weight: { base: 3, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-mech',
       weapon: {
@@ -698,7 +698,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 6000,
-      weight: { base: 3.0, size: 0 },
+      weight: { base: 6, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-dlinnyy-mech',
       occupy_hands: { min: 1, max: 2 },
@@ -769,7 +769,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 10000,
-      weight: { base: 4.0, size: 0 },
+      weight: { base: 8, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-dlinnyy-mech',
       occupy_hands: { min: 2, max: 2 },
@@ -840,7 +840,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 4000,
-      weight: { base: 0.5, size: 0 },
+      weight: { base: 1, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-gibkiy-korotkiy',
       weapon: {
@@ -880,7 +880,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 4000,
-      weight: { base: 0.7, size: 0 },
+      weight: { base: 1, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-gibkiy-knut',
       weapon: {
@@ -920,7 +920,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 2000,
-      weight: { base: 1.0, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-pata',
       weapon: {
@@ -990,7 +990,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1200,
-      weight: { base: 1.0, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-prostoy-topor',
       weapon: {
@@ -1061,7 +1061,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 400,
-      weight: { base: 0.0, size: 0 },
+      weight: { base: 0, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-prostoy-topor',
       weapon: {
@@ -1132,7 +1132,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 4500,
-      weight: { base: 5.0, size: 0 },
+      weight: { base: 10, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-prostoy-topor',
       weapon: {
@@ -1180,7 +1180,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 800,
-      weight: { base: 3.0, size: 0 },
+      weight: { base: 6, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-kopyo',
       weapon: {
@@ -1238,7 +1238,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 300,
-      weight: { base: 1.0, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-kopyo',
       weapon: {
@@ -1309,7 +1309,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1500,
-      weight: { base: 3.5, size: 0 },
+      weight: { base: 7, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-alebardy',
       occupy_hands: { min: 2, max: 2 },
@@ -1380,7 +1380,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 6000,
-      weight: { base: 3.5, size: 0 },
+      weight: { base: 7, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-kosa',
       weapon: {
@@ -1449,7 +1449,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1000,
-      weight: { base: 2.0, size: 0 },
+      weight: { base: 4, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-palitsa',
       weapon: {
@@ -1492,7 +1492,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 8, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 10000,
-      weight: { base: 8.0, size: 0 },
+      weight: { base: 16, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-boevoy-molot',
       weapon: {
@@ -1535,7 +1535,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 15000,
-      weight: { base: 5.0, size: 0 },
+      weight: { base: 10, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-ognestrelnoe',
       weapon: {
@@ -1572,7 +1572,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1000,
-      weight: { base: 0.8, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-arbalet',
       weapon: {
@@ -1615,7 +1615,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 600,
-      weight: { base: 0.9, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
       occupy_hands: { min: 1, max: 2, action: 2 },
@@ -1666,7 +1666,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1000,
-      weight: { base: 1.2, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
       occupy_hands: { min: 1, max: 2, action: 2 },
@@ -1718,7 +1718,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 2000,
-      weight: { base: 1.0, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
       occupy_hands: { min: 1, max: 2, action: 2 },
@@ -1770,7 +1770,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 8000,
-      weight: { base: 1.0, size: 0 },
+      weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
       occupy_hands: { min: 1, max: 2, action: 2 },
@@ -1822,7 +1822,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 5, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 400,
-      weight: { base: 1.5, size: 0 },
+      weight: { base: 3, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-shchit',
       shield: {
@@ -1875,7 +1875,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 3, size: 1 }, defense: { base: 8, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1000,
-      weight: { base: 6.0, size: 0 },
+      weight: { base: 12, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-shchit',
       shield: {
@@ -1928,7 +1928,7 @@ export const mockItemImport: Rule[] = [
       block_profile: { efficiency: { base: 4, size: 1 }, defense: { base: 12, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 2000,
-      weight: { base: 15.0, size: 0 },
+      weight: { base: 30, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-shchit',
       shield: {
@@ -1979,13 +1979,12 @@ export const mockItemImport: Rule[] = [
     spec: {
       category: 'equipment',
       cost_gm: 2000,
-      weight: { base: 4.0, size: 0 },
+      weight: { base: 8, size: -5 },
       special_rule_codes: [],
       armor: {
         defense_slots: [{ defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' }],
         resistance_slots: [],
-        max_agility: { base: 3, size: 1 },
-        characteristic_limits: [],
+        characteristic_limits: [{ characteristic_code: 'dexterity', limit: { type: 'dimensional', base: 3, size: 1 } }],
       },
     },
     keywordIds: [79, 86, 100, 160],
@@ -2002,13 +2001,12 @@ export const mockItemImport: Rule[] = [
     spec: {
       category: 'equipment',
       cost_gm: 1200,
-      weight: { base: 6.0, size: 0 },
+      weight: { base: 12, size: -5 },
       special_rule_codes: [],
       armor: {
         defense_slots: [{ defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' }],
         resistance_slots: [],
-        max_agility: { base: 5, size: 0 },
-        characteristic_limits: [],
+        characteristic_limits: [{ characteristic_code: 'dexterity', limit: { type: 'dimensional', base: 5, size: 0 } }],
       },
     },
     keywordIds: [79, 86, 156, 160],
@@ -2024,9 +2022,10 @@ export const mockItemImport: Rule[] = [
       'Шумное: одетый в кольчугу получает 2 помехи для проверок на скрытность. Жёсткость: +1 урона ногам и рукам от материала.',
     spaceId: 1,
     spec: {
+      grants: [{ type: 'characteristic_modify', characteristic_code: 'strength', source_code: 'armor', check_codes: [], amount: -1, permanent: true }],
       category: 'equipment',
       cost_gm: 12000,
-      weight: { base: 15.0, size: 0 },
+      weight: { base: 30, size: -5 },
       special_rule_codes: [],
       armor: {
         defense_slots: [
@@ -2034,9 +2033,7 @@ export const mockItemImport: Rule[] = [
           { defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' },
         ],
         resistance_slots: [],
-        max_agility: { base: 5, size: -1 },
-        strength_penalty: -1,
-        characteristic_limits: [],
+        characteristic_limits: [{ characteristic_code: 'dexterity', limit: { type: 'dimensional', base: 5, size: -1 } }],
       },
     },
     keywordIds: [79, 86, 157, 161],
@@ -2052,9 +2049,10 @@ export const mockItemImport: Rule[] = [
       'Шумное: одетый в этот доспех получает 2 помехи для проверок на скрытность. Жёсткость: +1 урона ногам и рукам от материала.',
     spaceId: 1,
     spec: {
+      grants: [{ type: 'characteristic_modify', characteristic_code: 'strength', source_code: 'armor', check_codes: [], amount: -1, permanent: true }],
       category: 'equipment',
       cost_gm: 15000,
-      weight: { base: 20.0, size: 0 },
+      weight: { base: 40, size: -5 },
       special_rule_codes: [],
       armor: {
         defense_slots: [
@@ -2062,9 +2060,7 @@ export const mockItemImport: Rule[] = [
           { defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' },
         ],
         resistance_slots: [],
-        max_agility: { base: 3, size: -1 },
-        strength_penalty: -2,
-        characteristic_limits: [],
+        characteristic_limits: [{ characteristic_code: 'dexterity', limit: { type: 'dimensional', base: 3, size: -1 } }],
       },
     },
     keywordIds: [79, 86, 158, 161],
@@ -2080,9 +2076,10 @@ export const mockItemImport: Rule[] = [
       'Шумное: одетый в этот доспех получает 2 помехи для проверок на скрытность. / Требует владения: требует навыка владения, иначе уменьшает проворство ещё на один размер. Жёсткость: +1 урона ногам и рукам от материала.',
     spaceId: 1,
     spec: {
+      grants: [{ type: 'characteristic_modify', characteristic_code: 'strength', source_code: 'armor', check_codes: [], amount: -2, permanent: true }],
       category: 'equipment',
       cost_gm: 60000,
-      weight: { base: 25.0, size: 0 },
+      weight: { base: 50, size: -5 },
       special_rule_codes: [],
       armor: {
         defense_slots: [
@@ -2090,9 +2087,7 @@ export const mockItemImport: Rule[] = [
           { defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' },
         ],
         resistance_slots: [],
-        max_agility: { base: 4, size: -2 },
-        strength_penalty: -2,
-        characteristic_limits: [],
+        characteristic_limits: [{ characteristic_code: 'dexterity', limit: { type: 'dimensional', base: 4, size: -2 } }],
       },
     },
     keywordIds: [79, 86, 159, 162, 218],

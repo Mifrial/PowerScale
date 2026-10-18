@@ -299,8 +299,8 @@ export const mockModsImport: Rule[] = [
       { type: 'min_strength', delta: 1, when: on('shield-item'), source_code: 'mass' },
       { type: 'durability', delta: 1, when: on('shield-item'), source_code: 'mass' },
       { type: 'defense', factor: 1.25, when: on('armor-item'), source_code: 'mass' },
-      { type: 'max_agility', delta: -1, when: on('armor-item'), source_code: 'mass' },
-      { type: 'strength_penalty', add: -1, when: on('armor-item'), source_code: 'mass' },
+      { type: 'characteristic_limit', characteristic_code: 'dexterity', delta: -1, when: on('armor-item'), source_code: 'mass' },
+      { type: 'characteristic_modify', characteristic_code: 'strength', add: -1, when: on('armor-item'), source_code: 'mass' },
     ],
   ),
   modifier(
@@ -339,8 +339,8 @@ export const mockModsImport: Rule[] = [
         source_code: 'mass',
       },
       { type: 'defense', factor: 4 / 3, when: on('armor-item'), source_code: 'mass' },
-      { type: 'max_agility', delta: -3, when: on('armor-item'), source_code: 'mass' },
-      { type: 'strength_penalty', add: -2, when: on('armor-item'), source_code: 'mass' },
+      { type: 'characteristic_limit', characteristic_code: 'dexterity', delta: -3, when: on('armor-item'), source_code: 'mass' },
+      { type: 'characteristic_modify', characteristic_code: 'strength', add: -2, when: on('armor-item'), source_code: 'mass' },
     ],
   ),
   modifier(
@@ -379,7 +379,7 @@ export const mockModsImport: Rule[] = [
       { type: 'min_strength', delta: -2, when: on('shield-item'), source_code: 'mass' },
       { type: 'durability', delta: -1, when: on('shield-item'), source_code: 'mass' },
       { type: 'defense', factor: 0.75, min: 1, when: on('armor-item'), source_code: 'mass' },
-      { type: 'max_agility', delta: 1, when: on('armor-item'), source_code: 'mass' },
+      { type: 'characteristic_limit', characteristic_code: 'dexterity', delta: 1, when: on('armor-item'), source_code: 'mass' },
     ],
   ),
   modifier(
@@ -595,8 +595,8 @@ export const mockModsImport: Rule[] = [
     [
       { type: 'weight', factor: 0.25 },
       { type: 'armor_reliability', set: 1, when: on('armor-item') },
-      { type: 'max_agility', add_size: 1, when: on('armor-item') },
-      { type: 'strength_penalty', set: 0, when: on('armor-item') },
+      { type: 'characteristic_limit', characteristic_code: 'dexterity', add_size: 1, when: on('armor-item') },
+      { type: 'characteristic_modify', characteristic_code: 'strength', set: 0, when: on('armor-item') },
       { type: 'keyword', remove: ['requires-proficiency'] },
     ],
   ),
@@ -615,7 +615,7 @@ export const mockModsImport: Rule[] = [
     [
       { type: 'weight', factor: 0.5 },
       { type: 'armor_reliability', set: 2, when: on('armor-item') },
-      { type: 'max_agility', delta: 2, when: on('armor-item') },
+      { type: 'characteristic_limit', characteristic_code: 'dexterity', delta: 2, when: on('armor-item') },
     ],
   ),
   modifier(
@@ -632,7 +632,7 @@ export const mockModsImport: Rule[] = [
     ],
     [
       { type: 'weight', add_kg: 3 },
-      { type: 'max_agility', delta: -1, when: on('armor-item') },
+      { type: 'characteristic_limit', characteristic_code: 'dexterity', delta: -1, when: on('armor-item') },
       { type: 'resistance', damage_type_code: 'cold', mode: 'add', value: 2, when: on('armor-item') },
     ],
   ),
@@ -650,7 +650,7 @@ export const mockModsImport: Rule[] = [
     ],
     [
       { type: 'defense', add: -1, when: on('armor-item') },
-      { type: 'max_agility', delta: 1, when: on('armor-item') },
+      { type: 'characteristic_limit', characteristic_code: 'dexterity', delta: 1, when: on('armor-item') },
       {
         type: 'resistance',
         damage_type_code: 'electricity',
@@ -691,7 +691,7 @@ export const mockModsImport: Rule[] = [
     ],
     [
       { type: 'defense', add: 1, when: on('armor-item') },
-      { type: 'max_agility', delta: -1, when: on('armor-item') },
+      { type: 'characteristic_limit', characteristic_code: 'dexterity', delta: -1, when: on('armor-item') },
       { type: 'resistance', damage_type_code: 'fire', mode: 'add', value: 20, when: on('armor-item') },
       { type: 'resistance', damage_type_code: 'magic-damage', mode: 'add', value: 3, when: on('armor-item') },
     ],
@@ -710,8 +710,8 @@ export const mockModsImport: Rule[] = [
     ],
     [
       { type: 'defense', add: 4, when: on('armor-item') },
-      { type: 'max_agility', delta: -4, when: on('armor-item') },
-      { type: 'strength_penalty', add: -1, when: on('armor-item') },
+      { type: 'characteristic_limit', characteristic_code: 'dexterity', delta: -4, when: on('armor-item') },
+      { type: 'characteristic_modify', characteristic_code: 'strength', add: -1, when: on('armor-item') },
       { type: 'resistance', damage_type_code: 'electricity', mode: 'add', value: 5, when: on('armor-item') },
       { type: 'resistance', damage_type_code: 'magic-damage', mode: 'add', value: 1, when: on('armor-item') },
     ],

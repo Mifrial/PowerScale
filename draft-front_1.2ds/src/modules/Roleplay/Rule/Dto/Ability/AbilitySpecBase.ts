@@ -1,3 +1,4 @@
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ZoneId } from '@/modules/Roleplay/Rule/Dto/Ability/ZoneId';
 import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
@@ -62,6 +63,8 @@ export interface AbilitySpecBase {
   };
   /** Роль в бою. Нет роли — действие этим путём не находится. */
   combat_action?: 'dodge' | 'block' | 'turn' | 'wait' | 'recover-stability' | 'simple-touch';
+  /** Эффективность совместной проверки уклона. Только у combat_action dodge. */
+  dodge_efficiency?: DimensionalNumberValue;
   /** Включает трату нескольких жетонов. Пороги и «уровень + 1» остаются в сервисе. */
   peak_concentration?: boolean;
   /** Включает трату жетона на проверки воли. Порог воли остаётся в сервисе. */

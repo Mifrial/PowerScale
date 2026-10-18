@@ -84,6 +84,9 @@ const shield = computed(() => spec.value?.shield);
         <div v-if="specialRules.length" class="text-body-2">
           Особые правила: <strong>{{ specialRules.join(', ') }}</strong>
         </div>
+        <div v-for="(grant, index) in spec.grants ?? []" :key="`grant-${index}`" class="text-body-2">
+          {{ ruleViewLabelService.grant(grant, rules, []) }}
+        </div>
       </v-card-text>
     </v-card>
 
@@ -121,11 +124,13 @@ const shield = computed(() => spec.value?.shield);
     <v-card v-if="armor" variant="tonal" class="mb-3">
       <v-card-text>
         <div class="text-subtitle-2 mb-1">Доспех</div>
-        <div v-if="armor.max_agility" class="text-body-2">
-          Макс. ловкость: <strong>{{ ruleViewLabelService.dimensional(armor.max_agility) }}</strong>
-        </div>
-        <div v-if="armor.strength_penalty != null" class="text-body-2">
-          Штраф к силе: <strong>{{ armor.strength_penalty }}</strong>
+        <div v-for="(limit, index) in armor.characteristic_limits" :key="`lim-${index}`" class="text-body-2">
+          Потолок {{ ruleViewLabelService.ruleName(rules, limit.characteristic_code) }}:
+          <strong>{{
+            limit.limit.type === 'dimensional'
+              ? ruleViewLabelService.dimensional(limit.limit)
+              : ruleViewLabelService.ruleName(rules, limit.characteristic_code)
+          }}</strong>
         </div>
         <div v-for="(slot, index) in armor.defense_slots" :key="`d-${index}`" class="text-body-2">
           Защита {{ ruleViewLabelService.dimensional(slot.defense) }}, надёжность {{ slot.durability

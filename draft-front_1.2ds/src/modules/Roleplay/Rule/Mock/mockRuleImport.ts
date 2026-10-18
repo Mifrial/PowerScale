@@ -235,9 +235,9 @@ const innateTrait = (
           label: 'X',
           kind: 'scalar',
           resolution: 'purchase',
-          default: dim(0),
-          min: dim(limits?.min ?? -3),
-          max: dim(limits?.max ?? 3),
+          default: 0,
+          min: limits?.min ?? -3,
+          max: limits?.max ?? 3,
           ...(linked ? { linked } : {}),
         },
       ],
@@ -356,7 +356,7 @@ const importedRules: Rule[] = [
         type: 'trait',
         zones: { os: { kind: 'parameter', parameter_code: 'x', per_unit: 2 } },
         parameters: [
-          { code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: dim(1), min: dim(0), max: dim(10) },
+          { code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: 1, min: 0, max: 10 },
         ],
         grants: [
           {
@@ -601,7 +601,7 @@ const importedRules: Rule[] = [
       type: 'trait',
       zones: { os: { kind: 'parameter', parameter_code: 'x', per_unit: 1 } },
       parameters: [
-        { code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: dim(1), min: dim(0), max: dim(5) },
+        { code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: 1, min: 0, max: 5 },
       ],
       grants: [
         {
@@ -833,7 +833,7 @@ const importedRules: Rule[] = [
     description:
       'Чувство: восприятие звуков. База — неточное. Вклад во Внимательность. Глухота ставит статус «отсутствует». В спеке радиус 30; движок радиус не читает.',
     spaceId: 1,
-    spec: { type: 'sense', status: 'imprecise', radius: dim(30) },
+    spec: { type: 'sense', status: 'imprecise', radius: dim(30), auto_add: true },
     keywordIds: [233],
     mechanics: [],
     createdAt: 1786183200,
@@ -848,7 +848,7 @@ const importedRules: Rule[] = [
     description:
       'Чувство: свет и формы. База — точное. Слепота ставит статус «отсутствует». Ночное зрение — грант на этом чувстве (минимальное освещение как хорошее), не отдельное чувство. В спеке радиус 30; движок радиус не читает.',
     spaceId: 1,
-    spec: { type: 'sense', status: 'precise', radius: dim(30) },
+    spec: { type: 'sense', status: 'precise', radius: dim(30), auto_add: true },
     keywordIds: [233],
     mechanics: [],
     createdAt: 1786183200,
@@ -863,7 +863,7 @@ const importedRules: Rule[] = [
     description:
       '<p>Ощущение магии позволяет обнаруживать магические конструкты, формы магической энергии и предметы, взаимодействующие с магией. Оно не заменяет обычные чувства, а дополняет их магическим восприятием.</p><p>Ощущение магии позволяет определить наличие следующих свойств:</p><ul><li>Сопротивление магии, Поглощение магии, Проводник магии и их значения, если они не превышают Предел постижения магии чувства;</li><li>Хранилище магии, а также его Лимит маны и текущее значение Маны, если размерность хранимой энергии не превышает размерность Предела постижения магии чувства или её числовое значение не превышает десятикратного числового значения Предела.</li></ul><p>Если значение свойства превышает Предел постижения магии чувства, вы можете определить, что оно превышает ваш Предел, но не можете определить его точное значение.</p><p>Наличие свойства можно определить независимо от его значения, если этому не препятствуют другие магические свойства. Сопротивление магии или Поглощение магии, превышающие Предел постижения магии чувства, не позволяют определить прочие магические свойства предмета. При этом вы можете определить, какое именно свойство блокирует постижение.</p>',
     spaceId: 1,
-    spec: { type: 'sense', status: 'imprecise', radius: dim(0) },
+    spec: { type: 'sense', status: 'imprecise', radius: dim(0), auto_add: false },
     keywordIds: [233, 3],
     mechanics: [],
     createdAt: 1786183200,

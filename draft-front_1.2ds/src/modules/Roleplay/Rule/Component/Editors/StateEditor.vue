@@ -63,7 +63,9 @@ function stateFromSpec(value: RuleSpec | null): StateSpec {
 const innerSpec = ref<StateSpec>(stateFromSpec(props.spec));
 
 const characteristicOptions = computed(() =>
-  ruleReferenceService.characteristicOptions(props.rules, props.spaceId).map((c) => ({ title: c.name, value: c.code })),
+  props.rules
+    .filter((rule) => rule.type === 'characteristic' && rule.spaceId === props.spaceId)
+    .map((rule) => ({ title: rule.name, value: rule.code })),
 );
 const resourceOptions = computed(() =>
   ruleReferenceService.resourceOptions(props.rules).map((r) => ({ title: r.name, value: r.code })),

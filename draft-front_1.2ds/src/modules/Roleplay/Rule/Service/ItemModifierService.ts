@@ -21,6 +21,9 @@ import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfi
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemModifierApplyScope } from '@/modules/Roleplay/Rule/Enum/Item/ItemModifierApplyScope';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import { ITEM_WEIGHT_TICK_KILOGRAMS } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_WEIGHT_TICK_KILOGRAMS';
+import { ITEM_WEIGHT_SIZE } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_WEIGHT_SIZE';
+import { itemSpecService } from '@/modules/Roleplay/Rule/Service/Instance/itemSpecService';
 
 /**
  * Цена, применимость и эффективный спек модификаторов предмета (R29).
@@ -209,7 +212,12 @@ export class ItemModifierService {
   }
 
   private isCollapsedOperation(operation: ItemModifierOperation): boolean {
-    if (operation.type === 'strength_penalty' && operation.set !== undefined) return false;
+    if (
+      (operation.type === 'strength_penalty' || operation.type === 'characteristic_modify') &&
+      operation.set !== undefined
+    ) {
+      return false;
+    }
 
     return (
       operation.type === 'weight' ||
@@ -219,6 +227,8 @@ export class ItemModifierService {
       operation.type === 'durability' ||
       operation.type === 'max_agility' ||
       operation.type === 'strength_penalty' ||
+      operation.type === 'characteristic_modify' ||
+      operation.type === 'characteristic_limit' ||
       operation.type === 'action_strength'
     );
   }
@@ -229,7 +239,7 @@ export class ItemModifierService {
     for (const operation of operations) {
       const source = operation.source_code ?? `\0${unique}`;
       unique += 1;
-      const key = `${this.partKey(operation)}|${operation.type}|${this.actionKey(operation)}|${source}`;
+      const key = `${this.partKey(operation)}|${operation.type}|${this.actionKey(operation)}|${this.characteristicKey(operation)}|${source}`;
       const group = groups.get(key) ?? [];
       group.push(operation);
       groups.set(key, group);
@@ -246,6 +256,14 @@ export class ItemModifierService {
     if (operation.type !== 'action_strength') return '';
 
     return `${operation.field}|${(operation.profiles ?? []).join(',')}|${(operation.damage_type_codes ?? []).join(',')}`;
+  }
+
+  private characteristicKey(operation: ItemModifierOperation): string {
+    if (operation.type === 'characteristic_modify' || operation.type === 'characteristic_limit') {
+      return operation.characteristic_code;
+    }
+
+    return '';
   }
 
   private collapseGroup(group: ItemModifierOperation[]): ItemModifierOperation {
@@ -332,11 +350,18 @@ export class ItemModifierService {
 
   private operationDelta(operation: ItemModifierOperation): number {
     if (operation.type === 'weight') return operation.add_kg ?? 0;
-    if (operation.type === 'block' || operation.type === 'defense' || operation.type === 'strength_penalty') {
+    if (
+      operation.type === 'block' ||
+      operation.type === 'defense' ||
+      operation.type === 'strength_penalty' ||
+      operation.type === 'characteristic_modify'
+    ) {
       return operation.add ?? 0;
     }
     if (operation.type === 'min_strength' || operation.type === 'action_strength') return operation.delta;
-    if (operation.type === 'durability' || operation.type === 'max_agility') return operation.delta ?? 0;
+    if (operation.type === 'durability' || operation.type === 'max_agility' || operation.type === 'characteristic_limit') {
+      return operation.delta ?? 0;
+    }
 
     return 0;
   }
@@ -346,7 +371,8 @@ export class ItemModifierService {
       operation.type === 'block' ||
       operation.type === 'defense' ||
       operation.type === 'durability' ||
-      operation.type === 'max_agility'
+      operation.type === 'max_agility' ||
+      operation.type === 'characteristic_limit'
     ) {
       return operation.add_size ?? 0;
     }
@@ -374,10 +400,14 @@ export class ItemModifierService {
     if (operation.type === 'min_strength' || operation.type === 'action_strength') {
       return { ...operation, delta };
     }
-    if (operation.type === 'durability' || operation.type === 'max_agility') {
+    if (
+      operation.type === 'durability' ||
+      operation.type === 'max_agility' ||
+      operation.type === 'characteristic_limit'
+    ) {
       return { ...operation, delta: delta === 0 ? undefined : delta, add_size: size === 0 ? undefined : size };
     }
-    if (operation.type === 'strength_penalty') {
+    if (operation.type === 'strength_penalty' || operation.type === 'characteristic_modify') {
       return { ...operation, add: delta === 0 ? undefined : delta };
     }
 
@@ -449,6 +479,14 @@ export class ItemModifierService {
         this.applyStrengthPenalty(spec, op, scope);
 
         return;
+      case 'characteristic_modify':
+        this.applyCharacteristicModify(spec, op);
+
+        return;
+      case 'characteristic_limit':
+        this.applyCharacteristicLimit(spec, op, scope);
+
+        return;
       case 'action_strength':
         this.applyActionStrength(spec, op, scope);
 
@@ -498,7 +536,7 @@ export class ItemModifierService {
     let kg = this.weightKg(spec.weight);
     if (op.factor !== undefined) kg *= op.factor;
     if (op.add_kg !== undefined) kg += op.add_kg;
-    spec.weight = { base: kg, size: 0 };
+    spec.weight = itemSpecService.kilogramsToWeight(kg);
   }
 
   private applyMinStrength(spec: ItemSpec, delta: number, scope: ItemModifierApplyScope): void {
@@ -575,6 +613,81 @@ export class ItemModifierService {
     const current = spec.armor.strength_penalty ?? 0;
     const next = current + op.add;
     spec.armor.strength_penalty = next === 0 ? null : next;
+  }
+
+  private applyCharacteristicModify(
+    spec: ItemSpec,
+    op: Extract<ItemModifierOp, { type: 'characteristic_modify' }>,
+  ): void {
+    spec.grants = [...(spec.grants ?? [])];
+    const index = spec.grants.findIndex(
+      (grant) => grant.type === 'characteristic_modify' && grant.characteristic_code === op.characteristic_code,
+    );
+    if (op.set !== undefined) {
+      if (op.set === 0) {
+        if (index >= 0) spec.grants.splice(index, 1);
+
+        return;
+      }
+
+      const grant = {
+        type: 'characteristic_modify' as const,
+        characteristic_code: op.characteristic_code,
+        source_code: 'item',
+        check_codes: [] as string[],
+        amount: op.set,
+        permanent: true,
+      };
+      if (index >= 0) spec.grants[index] = grant;
+      else spec.grants.push(grant);
+
+      return;
+    }
+
+    if (op.add === undefined || op.add === 0) return;
+    if (index >= 0) {
+      const grant = spec.grants[index];
+      if (grant?.type !== 'characteristic_modify' || typeof grant.amount !== 'number') return;
+      const next = grant.amount + op.add;
+      if (next === 0) spec.grants.splice(index, 1);
+      else spec.grants[index] = { ...grant, amount: next };
+
+      return;
+    }
+
+    spec.grants.push({
+      type: 'characteristic_modify',
+      characteristic_code: op.characteristic_code,
+      source_code: 'item',
+      check_codes: [],
+      amount: op.add,
+      permanent: true,
+    });
+  }
+
+  private applyCharacteristicLimit(
+    spec: ItemSpec,
+    op: Extract<ItemModifierOp, { type: 'characteristic_limit' }>,
+    scope: ItemModifierApplyScope,
+  ): void {
+    const blocks = [];
+    if (this.includesArmor(scope) && spec.armor) blocks.push(spec.armor);
+    if (this.includesShield(scope) && spec.shield) blocks.push(spec.shield);
+    for (const block of blocks) {
+      const limits = [...(block.characteristic_limits ?? [])];
+      const index = limits.findIndex((row) => row.characteristic_code === op.characteristic_code);
+      if (index < 0) continue;
+      const row = limits[index];
+      if (!row || row.limit.type !== 'dimensional') continue;
+      const adjusted = this.adjustDimensional(
+        { base: row.limit.base, size: row.limit.size },
+        op.delta,
+        op.add_size,
+        true,
+      );
+      limits[index] = { ...row, limit: { type: 'dimensional', base: adjusted.base, size: adjusted.size } };
+      block.characteristic_limits = limits;
+    }
   }
 
   private applyActionStrength(
@@ -804,8 +917,12 @@ export class ItemModifierService {
     return Math.round(this.weightKg(weight) * 1000);
   }
 
-  /** Килограммы без floor toNumber: у веса база дробная ({0.5|0} = 0.5 кг). */
+  /** Килограммы: тики size −5 или старая пара 2^size. */
   private weightKg(weight: DimensionalNumberValue): number {
+    if (weight.size === ITEM_WEIGHT_SIZE) {
+      return weight.base * ITEM_WEIGHT_TICK_KILOGRAMS;
+    }
+
     return weight.base * Math.pow(2, weight.size);
   }
 }

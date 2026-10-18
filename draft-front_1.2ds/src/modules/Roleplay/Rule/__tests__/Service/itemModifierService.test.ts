@@ -7,6 +7,7 @@ import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemModifierApplies } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierApplies';
 import type { ItemModifierPrice } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierPrice';
+import { itemSpecService } from '@/modules/Roleplay/Rule/Service/Instance/itemSpecService';
 
 const service = new ItemModifierService();
 
@@ -164,12 +165,12 @@ describe('ItemModifierService', () => {
     it('облегчённый щит и доспех: вес ×0.75 один раз', () => {
       const lightened = mockModsImport.find((rule) => rule.code === 'lightened')!;
       const { spec } = service.applyStack(specOf(dagger), [lightened], ['shield-item', 'armor-item']);
-      expect(spec.weight).toEqual({ base: 0.375, size: 0 });
+      expect(spec.weight).toEqual({ base: 1, size: -5 });
     });
 
     it('утяжелённый из каталога: вес один раз, блок и урон оружия', () => {
       const { spec, cost } = service.applyStack(specOf(dagger), [weighted], ['weapon']);
-      expect(spec.weight).toEqual({ base: 0.625, size: 0 });
+      expect(spec.weight).toEqual({ base: 1, size: -5 });
       expect(spec.block_profile?.defense).toEqual({ base: 3.75, size: 0 });
       expect(spec.weapon?.min_strength).toEqual({ base: 3, size: 1 });
       expect(cost).toBe(1200);
@@ -211,7 +212,7 @@ describe('ItemModifierService', () => {
         },
       };
       const { spec } = service.applyStack(specOf(dagger), [weightedOps], ['weapon', 'shield-item']);
-      expect(spec.weight).toEqual({ base: 0.625, size: 0 });
+      expect(spec.weight).toEqual({ base: 1, size: -5 });
       expect(spec.block_profile?.defense).toEqual({ base: 3.75, size: 0 });
       const strike = spec.weapon?.weapon_profiles.find(
         (profile) => profile.type === 'strike' && profile.damage.formula.type === 'actionCharacteristic',
@@ -293,14 +294,20 @@ describe('ItemModifierService', () => {
     it('нагрудник оставляет четверть веса и снимает штраф силы', () => {
       const plateSpec = specOf(plate);
       const { spec } = service.applyStack(plateSpec, [breastplate], ['armor-item']);
-      expect(spec.weight.base).toBeCloseTo(plateSpec.weight.base * 0.25);
-      expect(spec.armor?.strength_penalty).toBeNull();
+      expect(spec.weight).toEqual(
+        itemSpecService.kilogramsToWeight((itemSpecService.weightToKilograms(plateSpec.weight) ?? 0) * 0.25),
+      );
+      expect(
+        spec.grants?.some(
+          (grant) => grant.type === 'characteristic_modify' && grant.characteristic_code === 'strength',
+        ) ?? false,
+      ).toBe(false);
     });
 
     it('два мода: цена посеребрения и вес утяжелённого', () => {
       const { spec, cost } = service.applyStack(specOf(dagger), [weighted, silvered], ['weapon']);
-      expect(spec.weight).toEqual({ base: 0.625, size: 0 });
-      expect(cost).toBe(1800);
+      expect(spec.weight).toEqual({ base: 1, size: -5 });
+      expect(cost).toBe(1700);
     });
 
     it('клонирует Vue-прокси спека без structuredClone-ошибки', () => {

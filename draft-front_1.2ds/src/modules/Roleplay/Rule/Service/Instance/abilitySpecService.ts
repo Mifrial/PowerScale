@@ -4,6 +4,7 @@ import { ABILITY_TYPE_PRECEDENCE } from '@/modules/Roleplay/Rule/Constant/Abilit
 import { ABILITY_TYPE_DISTINCTIVE_KEYWORD } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_DISTINCTIVE_KEYWORD';
 import { ABILITY_TYPE_SPECIFIC_FIELDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_SPECIFIC_FIELDS';
 import { ABILITY_TYPE_KEYWORDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_KEYWORDS';
+import { ABILITY_SHARED_SPEC_KEYS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SHARED_SPEC_KEYS';
 
 export const abilitySpecService = new AbilitySpecService(
   ABILITY_SPEC_FIELDS,
@@ -11,4 +12,5 @@ export const abilitySpecService = new AbilitySpecService(
   ABILITY_TYPE_DISTINCTIVE_KEYWORD,
   ABILITY_TYPE_SPECIFIC_FIELDS,
   ABILITY_TYPE_KEYWORDS,
+  ABILITY_SHARED_SPEC_KEYS,
 );

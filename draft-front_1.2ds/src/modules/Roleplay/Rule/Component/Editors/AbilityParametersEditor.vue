@@ -1,37 +1,28 @@
 <script setup lang="ts">
 import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityParameter';
-import type { ParameterValueKind } from '@/modules/Roleplay/Rule/Enum/Ability/ParameterValueKind';
+import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef';
+import AbilityParameterRow from '@/modules/Roleplay/Rule/Component/Editors/AbilityParameterRow.vue';
+import { abilityParameterSpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilityParameterSpecService';
 
 const props = defineProps<{
   modelValue: AbilityParameter[];
+  abilities: AbilityRef[];
 }>();
 
 const emit = defineEmits<{
   'update:modelValue': [value: AbilityParameter[]];
 }>();
 
-const kindItems: { title: string; value: ParameterValueKind }[] = [
-  { title: 'Скаляр', value: 'scalar' },
-  { title: 'Размерное значение', value: 'dimensional' },
-];
-
-const resolutionItems = [
-  { title: 'При покупке', value: 'purchase' },
-  { title: 'При активации', value: 'activation' },
-];
-
 function replace(next: AbilityParameter[]): void {
   emit('update:modelValue', next);
 }
 
-function patch(index: number, patchValue: Partial<AbilityParameter>): void {
-  replace(
-    props.modelValue.map((parameter, itemIndex) => (itemIndex === index ? { ...parameter, ...patchValue } : parameter)),
-  );
+function patchAt(index: number, parameter: AbilityParameter): void {
+  replace(props.modelValue.map((row, itemIndex) => (itemIndex === index ? parameter : row)));
 }
 
 function addParameter(): void {
-  replace([...props.modelValue, { code: '', label: '', kind: 'scalar', resolution: 'purchase', default: 0 }]);
+  replace([...props.modelValue, abilityParameterSpecService.createEmpty()]);
 }
 
 function removeParameter(index: number): void {
@@ -41,41 +32,14 @@ function removeParameter(index: number): void {
 
 <template>
   <div>
-    <div v-for="(parameter, index) in modelValue" :key="index" class="d-flex ga-2 align-center mb-2">
-      <v-text-field
-        :model-value="parameter.code"
-        label="Код"
-        density="compact"
-        hide-details
-        @update:model-value="patch(index, { code: String($event) })"
-      />
-      <v-text-field
-        :model-value="parameter.label"
-        label="Подпись"
-        density="compact"
-        hide-details
-        @update:model-value="patch(index, { label: String($event) })"
-      />
-      <v-select
-        :model-value="parameter.kind"
-        :items="kindItems"
-        label="Тип значения"
-        density="compact"
-        hide-details
-        @update:model-value="patch(index, { kind: $event as ParameterValueKind })"
-      />
-      <v-select
-        :model-value="parameter.resolution"
-        :items="resolutionItems"
-        label="Когда выбирается"
-        density="compact"
-        hide-details
-        @update:model-value="patch(index, { resolution: $event as AbilityParameter['resolution'] })"
-      />
-      <v-btn icon size="small" color="error" variant="text" @click="removeParameter(index)">
-        <v-icon>mdi-delete</v-icon>
-      </v-btn>
-    </div>
+    <AbilityParameterRow
+      v-for="(parameter, index) in modelValue"
+      :key="index"
+      :model-value="parameter"
+      :abilities="abilities"
+      @update:model-value="patchAt(index, $event)"
+      @remove="removeParameter(index)"
+    />
     <v-btn variant="text" color="primary" size="small" @click="addParameter">
       <v-icon start>mdi-plus</v-icon>
       Добавить параметр

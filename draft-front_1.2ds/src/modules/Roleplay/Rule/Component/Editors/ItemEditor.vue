@@ -9,8 +9,8 @@ import type { ArmorBlock } from '@/modules/Roleplay/Rule/Dto/Item/ArmorBlock';
 import type { ShieldBlock } from '@/modules/Roleplay/Rule/Dto/Item/ShieldBlock';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 import ItemEquipmentEditor from '@/modules/Roleplay/Rule/Component/Editors/Item/ItemEquipmentEditor.vue';
-import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import { ITEM_CATEGORIES } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_CATEGORIES';
 import { itemSpecService } from '@/modules/Roleplay/Rule/Service/Instance/itemSpecService';
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
@@ -42,7 +42,7 @@ function itemDraftFromSpec(value: RuleSpec | null): ItemSpecDraft {
   return {
     category: 'other',
     cost_gm: null,
-    weight: { base: 1, size: -1 },
+    weight: itemSpecService.kilogramsToWeight(0.5),
     special_rule_codes: [],
     innate: false,
   };
@@ -114,10 +114,23 @@ watch(subtypes, (newSubtypes) => {
   }
 });
 
-const specToEmit = computed<ItemSpec>(() => itemSpecService.prune(draft.value, subtypes.value));
+const unsupportedBlocks = computed(() => itemSpecService.unsupportedBlocks(draft.value, subtypes.value));
+
+function stripUnsupported(): void {
+  draft.value = itemSpecService.stripUnsupported(draft.value, subtypes.value);
+}
 
 watch(
-  specToEmit,
+  () => draft.value.innate,
+  (innate) => {
+    if (innate) {
+      draft.value = itemSpecService.applyInnateLimits(draft.value);
+    }
+  },
+);
+
+watch(
+  draft,
   (value) => {
     emit('update:spec', cloneData(value));
   },
@@ -139,10 +152,20 @@ function updateShield(value: ShieldBlock) {
 function patchOccupyHands(field: 'min' | 'max' | 'action', value: number) {
   itemSpecService.patchOccupyHands(draft.value, field, value);
 }
+
+function patchWeight(weight: ItemSpecDraft['weight']) {
+  itemSpecService.setWeight(draft.value, weight);
+}
+
+const weightKilogramsLabel = computed(() => itemSpecService.formatWeightKilograms(draft.value.weight));
 </script>
 
 <template>
   <div>
+    <v-alert v-if="unsupportedBlocks.length" type="warning" variant="tonal" density="compact" class="mb-2">
+      В спеке есть блоки невыбранных подтипов: {{ unsupportedBlocks.join(', ') }}. Тихая очистка запрещена.
+      <v-btn class="ml-2" size="small" variant="tonal" @click="stripUnsupported">Очистить до проверки</v-btn>
+    </v-alert>
     <v-expansion-panels v-model="expandedPanels" multiple>
       <v-expansion-panel value="general">
         <v-expansion-panel-title>Общее</v-expansion-panel-title>
@@ -189,7 +212,7 @@ function patchOccupyHands(field: 'min' | 'max' | 'action', value: number) {
             Естественные предметы (врождённое оружие/броня) скрывают вес и стоимость.
           </div>
 
-          <div v-if="!draft.innate" class="d-flex gap-2 mb-2">
+          <div v-if="!draft.innate" class="d-flex gap-2 mb-2 align-center">
             <ClampedNumberField
               :model-value="draft.cost_gm ?? 0"
               @update:model-value="(v) => (draft.cost_gm = v ?? 0)"
@@ -199,7 +222,12 @@ function patchOccupyHands(field: 'min' | 'max' | 'action', value: number) {
               hide-details
               style="flex: 1 1 auto"
             />
-            <DimensionalNumberInput v-model="draft.weight" label="Вес" />
+            <DimensionalNumberInput
+              :model-value="draft.weight"
+              @update:model-value="patchWeight"
+              label="Вес"
+            />
+            <span class="text-body-2 text-medium-emphasis text-no-wrap">{{ weightKilogramsLabel }}</span>
           </div>
 
           <v-autocomplete

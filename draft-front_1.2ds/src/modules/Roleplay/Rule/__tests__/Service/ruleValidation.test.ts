@@ -503,6 +503,28 @@ describe('validateAbilityStructure', () => {
     expect(ruleValidationService.validateAbilityStructure(rules, keywords)).toEqual([]);
   });
 
+  it('отклоняет размерную пару у scalar-параметра', () => {
+    const rules: Rule[] = [
+      baseRule(null, 'innate-strength', 'ability', {
+        type: 'trait',
+        parameters: [
+          {
+            code: 'x',
+            label: 'X',
+            kind: 'scalar',
+            resolution: 'purchase',
+            default: { base: 0, size: 0 },
+          },
+        ],
+        grants: [],
+        requirements: [],
+        parent_ability_code: null,
+      }),
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
+    expect(errors.some((error) => error.message.includes('kind scalar'))).toBe(true);
+  });
+
   it('requires at least two steps for a process', () => {
     const rules: Rule[] = [
       baseRule(null, 'movement', 'ability', {
@@ -853,7 +875,7 @@ describe('validateAbilityStructure', () => {
   });
 });
 
-describe('pruneAbilitySpecForType', () => {
+describe('stripUnsupportedAbilitySpecForType', () => {
   const draft = {
     type: undefined,
     zones: {},
@@ -870,7 +892,7 @@ describe('pruneAbilitySpecForType', () => {
   };
 
   it('keeps action_components only for action', () => {
-    const out = abilitySpecService.prune({ ...draft }, 'action') as any;
+    const out = abilitySpecService.stripUnsupported({ ...draft }, 'action') as any;
     expect(out.type).toBe('action');
     expect(out.action_components).toHaveLength(1);
     expect(out.process).toBeUndefined();
@@ -878,7 +900,7 @@ describe('pruneAbilitySpecForType', () => {
   });
 
   it('keeps process only for process and clears action_components', () => {
-    const out = abilitySpecService.prune({ ...draft }, 'process') as any;
+    const out = abilitySpecService.stripUnsupported({ ...draft }, 'process') as any;
     expect(out.type).toBe('process');
     expect(out.process).toBeDefined();
     expect(out.action_components).toBeUndefined();
@@ -886,7 +908,7 @@ describe('pruneAbilitySpecForType', () => {
   });
 
   it('keeps spell and action_components for spell', () => {
-    const out = abilitySpecService.prune({ ...draft }, 'spell') as any;
+    const out = abilitySpecService.stripUnsupported({ ...draft }, 'spell') as any;
     expect(out.type).toBe('spell');
     expect(out.spell).toBeDefined();
     expect(out.action_components).toHaveLength(1);
@@ -898,7 +920,7 @@ describe('pruneAbilitySpecForType', () => {
       ...draft,
       action_effects: [{ type: 'apply_state' as const, state_code: 'haste' }],
     };
-    const out = abilitySpecService.prune({ ...extra }, 'skill') as any;
+    const out = abilitySpecService.stripUnsupported({ ...extra }, 'skill') as any;
     expect(out.type).toBe('skill');
     expect(out.action_components).toBeUndefined();
     expect(out.process).toBeUndefined();
@@ -907,7 +929,7 @@ describe('pruneAbilitySpecForType', () => {
   });
 
   it('keeps shared fields (zones, requirements, grants) always', () => {
-    const out = abilitySpecService.prune({ ...draft }, 'skill') as any;
+    const out = abilitySpecService.stripUnsupported({ ...draft }, 'skill') as any;
     expect(out.zones).toEqual({});
     expect(out.requirements).toHaveLength(1);
     expect(out.grants).toEqual([]);
@@ -920,17 +942,17 @@ describe('pruneAbilitySpecForType', () => {
       action_effects: [{ type: 'apply_state' as const, state_code: 'haste' }],
       operations: [{ type: 'turn' as const, maxDegrees: 90 }],
     };
-    const spellOut = abilitySpecService.prune({ ...extra }, 'spell') as any;
+    const spellOut = abilitySpecService.stripUnsupported({ ...extra }, 'spell') as any;
     expect(spellOut.action_effects).toEqual([{ type: 'apply_state', state_code: 'haste' }]);
     expect(spellOut.operations).toEqual([{ type: 'turn', maxDegrees: 90 }]);
 
-    const actionOut = abilitySpecService.prune({ ...extra }, 'action') as any;
+    const actionOut = abilitySpecService.stripUnsupported({ ...extra }, 'action') as any;
     expect(actionOut.operations).toEqual([{ type: 'turn', maxDegrees: 90 }]);
     expect(actionOut.spell).toBeUndefined();
   });
 });
 
-describe('pruneItemSpecBySubtypes', () => {
+describe('stripUnsupportedItemSpecBySubtypes', () => {
   const draft = {
     category: 'equipment' as const,
     cost_gm: 100,
@@ -945,14 +967,14 @@ describe('pruneItemSpecBySubtypes', () => {
   };
 
   it('keeps only blocks of active subtypes', () => {
-    const out = itemSpecService.prune({ ...draft }, ['weapon', 'shield']) as any;
+    const out = itemSpecService.stripUnsupported({ ...draft }, ['weapon', 'shield']) as any;
     expect(out.weapon).toBeDefined();
     expect(out.shield).toBeDefined();
     expect(out.armor).toBeUndefined();
   });
 
   it('keeps shared fields always', () => {
-    const out = itemSpecService.prune({ ...draft }, []) as any;
+    const out = itemSpecService.stripUnsupported({ ...draft }, []) as any;
     expect(out.category).toBe('equipment');
     expect(out.cost_gm).toBe(100);
     expect(out.weapon).toBeUndefined();

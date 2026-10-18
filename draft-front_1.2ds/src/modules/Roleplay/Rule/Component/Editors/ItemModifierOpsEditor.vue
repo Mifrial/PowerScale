@@ -40,6 +40,10 @@ function emptyOp(type: ItemModifierOp['type'] = 'weight'): ItemModifierOperation
       return { type: 'max_agility' };
     case 'strength_penalty':
       return { type: 'strength_penalty' };
+    case 'characteristic_modify':
+      return { type: 'characteristic_modify', characteristic_code: 'strength' };
+    case 'characteristic_limit':
+      return { type: 'characteristic_limit', characteristic_code: 'dexterity' };
     case 'keyword':
       return { type: 'keyword', add: [], remove: [] };
     case 'min_action_cost':
@@ -146,7 +150,16 @@ function splitCodes(value: string): string[] {
           @update:model-value="(v: string) => patch(index, { field: v })"
         />
       </template>
-      <template v-else-if="op.type === 'durability' || op.type === 'max_agility'">
+      <template v-else-if="op.type === 'durability' || op.type === 'max_agility' || op.type === 'characteristic_limit'">
+        <v-text-field
+          v-if="op.type === 'characteristic_limit'"
+          :model-value="op.characteristic_code"
+          label="Характеристика"
+          density="compact"
+          hide-details
+          style="flex: 1 1 140px"
+          @update:model-value="(v: string) => patch(index, { characteristic_code: v })"
+        />
         <ClampedNumberField
           :model-value="op.delta ?? 0"
           label="Пункты"
@@ -190,6 +203,32 @@ function splitCodes(value: string): string[] {
           hide-details
           style="flex: 1 1 80px"
           @update:model-value="(v) => patch(index, { add_size: v != null && v !== 0 ? v : undefined })"
+        />
+      </template>
+      <template v-else-if="op.type === 'characteristic_modify'">
+        <v-text-field
+          :model-value="op.characteristic_code"
+          label="Характеристика"
+          density="compact"
+          hide-details
+          style="flex: 1 1 140px"
+          @update:model-value="(v: string) => patch(index, { characteristic_code: v })"
+        />
+        <ClampedNumberField
+          :model-value="op.set ?? 0"
+          label="Задать"
+          density="compact"
+          hide-details
+          style="flex: 1 1 100px"
+          @update:model-value="(v) => patch(index, { set: v != null && v !== 0 ? v : undefined })"
+        />
+        <ClampedNumberField
+          :model-value="op.add ?? 0"
+          label="Слагаемое"
+          density="compact"
+          hide-details
+          style="flex: 1 1 100px"
+          @update:model-value="(v) => patch(index, { add: v != null && v !== 0 ? v : undefined })"
         />
       </template>
       <template v-else-if="op.type === 'armor_reliability' || op.type === 'strength_penalty'">

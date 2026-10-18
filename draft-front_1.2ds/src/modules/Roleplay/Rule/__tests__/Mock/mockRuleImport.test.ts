@@ -187,9 +187,9 @@ describe('mockRuleImport (S2)', () => {
     });
     expect(strength?.parameters?.[0]).toMatchObject({
       code: 'x',
-      default: { base: 0, size: 0 },
-      min: { base: -3, size: 0 },
-      max: { base: 3, size: 0 },
+      default: 0,
+      min: -3,
+      max: 3,
       linked: { ability_code: 'innate-endurance', parameter_code: 'x', max_delta: 3 },
     });
 

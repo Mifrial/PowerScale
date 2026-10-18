@@ -6,6 +6,7 @@ import { registerPermissionCategory } from '@/modules/Core/User/init';
 import { RULE_PERMISSION_CATEGORY } from '@/modules/Roleplay/Rule/Constant/Permission/RULE_PERMISSION_CATEGORY';
 
 export { ruleValidationService } from '@/modules/Roleplay/Rule/Service/Instance/ruleValidationService';
+export { abilityParameterSpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilityParameterSpecService';
 export { ruleDiffService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDiffService';
 export { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 export { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';

@@ -22,6 +22,9 @@ import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditor
 import RequirementListEditor from '@/modules/Roleplay/Rule/Component/Editors/RequirementListEditor.vue';
 import GrantEditor from '@/modules/Roleplay/Rule/Component/Editors/GrantEditor.vue';
 import AbilityParametersEditor from '@/modules/Roleplay/Rule/Component/Editors/AbilityParametersEditor.vue';
+import AbilityRestFieldsEditor from '@/modules/Roleplay/Rule/Component/Editors/AbilityRestFieldsEditor.vue';
+import { abilityParameterSpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilityParameterSpecService';
+import { zoneCostSpecService } from '@/modules/Roleplay/Rule/Service/Instance/zoneCostSpecService';
 import ProcessEditor from '@/modules/Roleplay/Rule/Component/Editors/ProcessEditor.vue';
 import SpellEditor from '@/modules/Roleplay/Rule/Component/Editors/SpellEditor.vue';
 import ZoneCostsEditor from '@/modules/Roleplay/Rule/Component/Editors/ZoneCostsEditor.vue';
@@ -64,6 +67,7 @@ const expandedPanels = ref<string[]>([
   'grants',
   'action_components',
   'spell',
+  'rest',
   'upgrade',
 ]);
 
@@ -89,7 +93,7 @@ function abilityDraftFromSpec(value: RuleSpec | null): AbilitySpecDraft {
   return {
     ...loaded,
     type: loaded.type,
-    zones: loaded.zones ?? {},
+    zones: zoneCostSpecService.coerceZones(loaded.zones ?? {}),
     requirements: loaded.requirements ?? [],
     grants: loaded.grants ?? [],
     action_components: loaded.action_components ?? [],
@@ -97,7 +101,7 @@ function abilityDraftFromSpec(value: RuleSpec | null): AbilitySpecDraft {
     spell: loaded.spell,
     parent_ability_code: loaded.parent_ability_code ?? null,
     group_code: loaded.group_code ?? null,
-    selectLimit: loaded.selectLimit ?? 1,
+    selectLimit: loaded.selectLimit,
   };
 }
 
@@ -279,13 +283,35 @@ function updateGroupCode(value: string | null) {
   emit('update:keywordIds', abilitySpecService.syncGroupPartTag(value, props.keywordIds, catalogKeywords.value));
 }
 
-const specToEmit = computed<AbilitySpec | AbilitySpecDraft>(() => {
-  const type = currentType.value;
-  const plain = cloneData(innerSpec.value);
-  if (!type) return plain;
+const specToEmit = computed<AbilitySpec | AbilitySpecDraft>(() => cloneData(innerSpec.value));
 
-  return abilitySpecService.prune(plain, type);
+const unsupportedKeys = computed(() => {
+  const type = currentType.value;
+  if (!type) return [];
+
+  return abilitySpecService.unsupportedKeys(innerSpec.value, type);
 });
+
+const parameterBoundMismatches = computed(() =>
+  (innerSpec.value.parameters ?? []).flatMap((parameter) =>
+    abilityParameterSpecService.mismatchedBoundFields(parameter).map((field) => `${parameter.code || '?'}.${field}`),
+  ),
+);
+
+function stripUnsupported(): void {
+  const type = currentType.value;
+  if (!type) return;
+  innerSpec.value = abilitySpecService.stripUnsupported(innerSpec.value, type);
+}
+
+function coerceParameterBounds(): void {
+  innerSpec.value = {
+    ...innerSpec.value,
+    parameters: (innerSpec.value.parameters ?? []).map((parameter) =>
+      abilityParameterSpecService.coerceBoundsToKind(parameter),
+    ),
+  };
+}
 
 watch(specToEmit, (value) => emit('update:spec', cloneData(value) as AbilitySpec), { deep: true, immediate: true });
 
@@ -329,6 +355,15 @@ function hasActionPointCost(): boolean {
 
 <template>
   <div>
+    <v-alert v-if="unsupportedKeys.length" type="warning" variant="tonal" density="compact" class="mb-2">
+      В спеке есть поля, которых нет у текущего типа или которых редактор не знает:
+      {{ unsupportedKeys.join(', ') }}. Тихая очистка запрещена.
+      <v-btn class="ml-2" size="small" variant="tonal" @click="stripUnsupported">Очистить до проверки</v-btn>
+    </v-alert>
+    <v-alert v-if="parameterBoundMismatches.length" type="warning" variant="tonal" density="compact" class="mb-2">
+      Границы параметров не совпадают с kind: {{ parameterBoundMismatches.join(', ') }}.
+      <v-btn class="ml-2" size="small" variant="tonal" @click="coerceParameterBounds">Привести к kind</v-btn>
+    </v-alert>
     <v-alert v-if="keywordsError" type="error" variant="tonal" density="compact" class="mb-2">
       {{ keywordsError }}
       <v-btn class="ml-2" size="small" variant="tonal" @click="fetchTags()">Повторить</v-btn>
@@ -427,6 +462,7 @@ function hasActionPointCost(): boolean {
             :model-value="innerSpec.zones"
             @update:model-value="(v) => patchSpec('zones', v)"
             :zone-options="zoneOptions"
+            :parameters="innerSpec.parameters ?? []"
           />
         </v-expansion-panel-text>
       </v-expansion-panel>
@@ -576,6 +612,7 @@ function hasActionPointCost(): boolean {
         <v-expansion-panel-text>
           <AbilityParametersEditor
             :model-value="innerSpec.parameters ?? []"
+            :abilities="abilities"
             @update:model-value="(parameters) => patchSpec('parameters', parameters)"
           />
         </v-expansion-panel-text>
@@ -591,6 +628,18 @@ function hasActionPointCost(): boolean {
             :rules="rules"
             @update:model-value="(v) => patchSpec('spell', v)"
             @update:hit-resolution="(v) => patchSpec('hit_resolution', v)"
+          />
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <v-expansion-panel v-if="!isGroup" value="rest">
+        <v-expansion-panel-title>Прочие поля спеки</v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <AbilityRestFieldsEditor
+            :model-value="innerSpec"
+            :current-type="currentType"
+            :items="items"
+            @update:model-value="(value) => (innerSpec = value)"
           />
         </v-expansion-panel-text>
       </v-expansion-panel>
