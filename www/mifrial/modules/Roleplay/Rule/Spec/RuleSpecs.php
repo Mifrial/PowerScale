@@ -47,8 +47,8 @@ final class RuleSpecs
 
         try {
             return new RuleSpecRead(self::parse($ruleType, $document), false);
-        } catch (RuleSpecShapeException) {
-            return new RuleSpecRead(null, true);
+        } catch (RuleSpecShapeException $exception) {
+            return new RuleSpecRead(null, true, $exception->getMessage());
         }
     }
 

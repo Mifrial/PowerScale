@@ -37,9 +37,7 @@ final class AbilityRequirements
     {
         $blocks = [];
         foreach (SpecShape::list($document, 'requirements') as $row) {
-            if (!is_array($row) || array_is_list($row)) {
-                throw new RuleSpecShapeException('requirements');
-            }
+            $row = SpecShape::requireMap($row, 'requirements');
 
             $items = [];
             foreach (SpecShape::list($row, 'requirements') as $item) {
@@ -63,9 +61,7 @@ final class AbilityRequirements
      */
     private static function one(mixed $row): AbilityRequirement
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('requirements');
-        }
+        $row = SpecShape::requireMap($row, 'requirements');
 
         return self::byType(SpecShape::string($row, 'type'), $row);
     }
@@ -130,7 +126,7 @@ final class AbilityRequirements
     private static function children(array $row): array
     {
         $children = [];
-        foreach (SpecShape::list($row, 'requirements') as $child) {
+        foreach (SpecShape::list($row, 'children') as $child) {
             $children[] = self::one($child);
         }
 
@@ -157,9 +153,7 @@ final class AbilityRequirements
             return $min;
         }
 
-        if (!is_array($min) || array_is_list($min)) {
-            throw new RuleSpecShapeException('min');
-        }
+        $min = SpecShape::requireMap($min, 'min');
 
         return DimensionalNumbers::pair($min, 'min');
     }

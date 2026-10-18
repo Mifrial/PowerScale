@@ -38,12 +38,14 @@ final class RuleModuleSetup implements IModuleSetup
     }
 
     /**
-     * Data-шагов нет.
+     * Data-шаги модуля.
      *
-     * @return array<int, ISetupStep> Пустой список.
+     * @return array<int, ISetupStep> Шаги.
      */
     public function getDataSteps(): array
     {
-        return [new FoldRuleMechanicColumnsStep($this->smartTableGateway)];
+        return [
+            new FoldArmorCharacteristicFieldsStep($this->smartTableGateway),
+        ];
     }
 }

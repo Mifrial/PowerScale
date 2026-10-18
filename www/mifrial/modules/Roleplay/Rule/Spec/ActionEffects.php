@@ -70,9 +70,7 @@ final class ActionEffects
      */
     public static function one(mixed $row, string $key): ActionEffect
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException($key);
-        }
+        $row = SpecShape::requireMap($row, $key);
 
         return self::byType(SpecShape::string($row, 'type'), $row, $key);
     }
@@ -287,9 +285,7 @@ final class ActionEffects
     {
         $hits = [];
         foreach (SpecShape::list($row, 'hits') as $hit) {
-            if (!is_array($hit) || array_is_list($hit)) {
-                throw new RuleSpecShapeException('hits');
-            }
+            $hit = SpecShape::requireMap($hit, 'hits');
 
             $hits[] = new StrikeSnapshotHit(
                 SpecShape::string($hit, 'targetKey'),
@@ -360,9 +356,7 @@ final class ActionEffects
             return $amount;
         }
 
-        if (!is_array($amount) || array_is_list($amount)) {
-            throw new RuleSpecShapeException('amount');
-        }
+        $amount = SpecShape::requireMap($amount, 'amount');
 
         return DimensionalNumbers::pair($amount, 'amount');
     }

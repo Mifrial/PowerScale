@@ -61,6 +61,7 @@ final class AbilityBases
             AbilityCombat::strikeUpgrade($document),
             self::aggregate($document),
             self::derivedLevel($document),
+            DimensionalNumbers::optional($document, 'dodge_efficiency'),
         );
     }
 

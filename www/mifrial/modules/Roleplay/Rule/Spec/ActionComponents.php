@@ -29,8 +29,13 @@ final class ActionComponents
      */
     public static function read(array $document): array
     {
+        $rows = SpecShape::list($document, 'action_components');
+        if ($rows === []) {
+            $rows = SpecShape::list($document, 'components');
+        }
+
         $components = [];
-        foreach (SpecShape::list($document, 'components') as $row) {
+        foreach ($rows as $row) {
             $components[] = self::one($row);
         }
 
@@ -48,9 +53,7 @@ final class ActionComponents
      */
     private static function one(mixed $row): ActionComponent
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('components');
-        }
+        $row = SpecShape::requireMap($row, 'components');
 
         $type = SpecShape::string($row, 'type');
 
@@ -91,9 +94,7 @@ final class ActionComponents
             return $amount;
         }
 
-        if (!is_array($amount) || array_is_list($amount)) {
-            throw new RuleSpecShapeException('amount');
-        }
+        $amount = SpecShape::requireMap($amount, 'amount');
 
         if (($amount['type'] ?? null) === 'chosen') {
             return new ChosenAmount();

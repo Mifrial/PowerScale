@@ -52,4 +52,14 @@ final class AbilityProcessSpec implements AbilitySpec
     {
         return $this->process;
     }
+
+    /**
+     * Общие поля.
+     *
+     * @return AbilityBase База.
+     */
+    public function getBase(): AbilityBase
+    {
+        return $this->base;
+    }
 }

@@ -71,9 +71,7 @@ final class ItemWeapons
      */
     private static function profile(mixed $row): WeaponProfile
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('weapon_profiles');
-        }
+        $row = SpecShape::requireMap($row, 'weapon_profiles');
 
         return new WeaponProfile(
             SpecShape::string($row, 'type'),
@@ -154,9 +152,7 @@ final class ItemWeapons
      */
     private static function base(mixed $base): ActionCharacteristicBase
     {
-        if (!is_array($base) || array_is_list($base)) {
-            throw new RuleSpecShapeException('action_characteristics');
-        }
+        $base = SpecShape::requireMap($base, 'action_characteristics');
 
         return new ActionCharacteristicBase(
             SpecShape::string($base, 'characteristic'),

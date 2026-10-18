@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Spec;
 
+use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 
 /**
@@ -14,14 +15,14 @@ final class SpecShape
     /**
      * Список. Нет ключа или null — пустой список.
      *
-     * @param array<string|int, mixed> $document Документ.
+     * @param array<string|int, mixed>|JsonObject $document Документ.
      * @param string $key Ключ.
      *
      * @return array<int|string, mixed> Список.
      *
      * @throws RuleSpecShapeException Если ключ не список.
      */
-    public static function list(array $document, string $key): array
+    public static function list(array|JsonObject $document, string $key): array
     {
         $value = self::optional($document, $key);
         if ($value === null) {
@@ -32,27 +33,59 @@ final class SpecShape
             throw new RuleSpecShapeException($key);
         }
 
-        return $value;
+        $items = [];
+        foreach ($value as $item) {
+            $items[] = $item instanceof JsonObject ? $item->getMembers() : $item;
+        }
+
+        return $items;
     }
 
     /**
      * Объект. Нет ключа или null — null.
      *
-     * @param array<string|int, mixed> $document Документ.
+     * @param array<string|int, mixed>|JsonObject $document Документ.
      * @param string $key Ключ.
      *
      * @return array<string, mixed>|null Объект или null.
      *
      * @throws RuleSpecShapeException Если ключ не объект.
      */
-    public static function object(array $document, string $key): ?array
+    public static function object(array|JsonObject $document, string $key): ?array
     {
         $value = self::optional($document, $key);
         if ($value === null) {
             return null;
         }
 
-        if (!is_array($value) || array_is_list($value)) {
+        return self::requireMap($value, $key);
+    }
+
+    /**
+     * JSON-объект или PHP-словарь. Список — отказ.
+     *
+     * @param mixed $value Узел.
+     * @param string $key Ключ формы.
+     *
+     * @return array<string|int, mixed> Поля.
+     *
+     * @throws RuleSpecShapeException Если не объект.
+     */
+    public static function requireMap(mixed $value, string $key): array
+    {
+        if ($value instanceof JsonObject) {
+            return $value->getMembers();
+        }
+
+        if (!is_array($value)) {
+            throw new RuleSpecShapeException($key);
+        }
+
+        if ($value === []) {
+            return [];
+        }
+
+        if (array_is_list($value)) {
             throw new RuleSpecShapeException($key);
         }
 
@@ -69,7 +102,7 @@ final class SpecShape
      *
      * @throws RuleSpecShapeException Если ключ не строка.
      */
-    public static function string(array $document, string $key): string
+    public static function string(array|JsonObject $document, string $key): string
     {
         $value = self::optional($document, $key);
         if ($value === null) {
@@ -93,7 +126,7 @@ final class SpecShape
      *
      * @throws RuleSpecShapeException Если ключ не строка.
      */
-    public static function optionalString(array $document, string $key): ?string
+    public static function optionalString(array|JsonObject $document, string $key): ?string
     {
         if (!self::present($document, $key)) {
             return null;
@@ -117,7 +150,7 @@ final class SpecShape
      *
      * @throws RuleSpecShapeException Если ключ не int.
      */
-    public static function int(array $document, string $key): int
+    public static function int(array|JsonObject $document, string $key): int
     {
         $value = self::optional($document, $key);
         if ($value === null) {
@@ -141,7 +174,7 @@ final class SpecShape
      *
      * @throws RuleSpecShapeException Если ключ не int.
      */
-    public static function optionalInt(array $document, string $key): ?int
+    public static function optionalInt(array|JsonObject $document, string $key): ?int
     {
         if (!self::present($document, $key)) {
             return null;
@@ -165,7 +198,7 @@ final class SpecShape
      *
      * @throws RuleSpecShapeException Если ключ не bool.
      */
-    public static function bool(array $document, string $key): bool
+    public static function bool(array|JsonObject $document, string $key): bool
     {
         $value = self::optional($document, $key);
         if ($value === null) {
@@ -189,7 +222,7 @@ final class SpecShape
      *
      * @throws RuleSpecShapeException Если ключ не число.
      */
-    public static function number(array $document, string $key): int|float
+    public static function number(array|JsonObject $document, string $key): int|float
     {
         $value = self::optional($document, $key);
         if ($value === null) {
@@ -213,7 +246,7 @@ final class SpecShape
      *
      * @throws RuleSpecShapeException Если элемент не строка.
      */
-    public static function stringList(array $document, string $key): array
+    public static function stringList(array|JsonObject $document, string $key): array
     {
         $codes = [];
         foreach (self::list($document, $key) as $value) {
@@ -237,7 +270,7 @@ final class SpecShape
      *
      * @throws RuleSpecShapeException Если элемент не int.
      */
-    public static function intList(array $document, string $key): array
+    public static function intList(array|JsonObject $document, string $key): array
     {
         $numbers = [];
         foreach (self::list($document, $key) as $value) {
@@ -259,8 +292,12 @@ final class SpecShape
      *
      * @return bool true, если значение задано.
      */
-    private static function present(array $document, string $key): bool
+    private static function present(array|JsonObject $document, string $key): bool
     {
+        if ($document instanceof JsonObject) {
+            return $document->offsetExists($key) && $document[$key] !== null;
+        }
+
         return array_key_exists($key, $document) && $document[$key] !== null;
     }
 
@@ -272,7 +309,7 @@ final class SpecShape
      *
      * @return mixed Значение или null.
      */
-    private static function optional(array $document, string $key): mixed
+    private static function optional(array|JsonObject $document, string $key): mixed
     {
         if (!self::present($document, $key)) {
             return null;

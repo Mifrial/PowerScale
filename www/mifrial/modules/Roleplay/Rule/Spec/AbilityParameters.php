@@ -44,9 +44,7 @@ final class AbilityParameters
      */
     private static function one(mixed $row): AbilityParameter
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('parameters');
-        }
+        $row = SpecShape::requireMap($row, 'parameters');
 
         $kind = SpecShape::string($row, 'kind');
 

@@ -16,6 +16,7 @@ final class ResourceSpec implements RuleSpec
      * @param bool $autoAdd Автодобавление.
      * @param bool $checkToken Жетон проверки.
      * @param ?ResourceLimit $limit Лимит.
+     * @param bool $turnRefill Восстановление на конце хода.
      *
      * @return void
      */
@@ -24,6 +25,7 @@ final class ResourceSpec implements RuleSpec
         private readonly bool $autoAdd,
         private readonly bool $checkToken,
         private readonly ?ResourceLimit $limit,
+        private readonly bool $turnRefill = false,
     ) {
     }
 
@@ -46,6 +48,7 @@ final class ResourceSpec implements RuleSpec
     {
         return $this->dimensional;
     }
+
     /**
      * Автодобавление.
      *
@@ -55,6 +58,7 @@ final class ResourceSpec implements RuleSpec
     {
         return $this->autoAdd;
     }
+
     /**
      * Жетон проверки.
      *
@@ -64,6 +68,7 @@ final class ResourceSpec implements RuleSpec
     {
         return $this->checkToken;
     }
+
     /**
      * Лимит.
      *
@@ -72,5 +77,15 @@ final class ResourceSpec implements RuleSpec
     public function getLimit(): ?ResourceLimit
     {
         return $this->limit;
+    }
+
+    /**
+     * Восстановление current на конце хода.
+     *
+     * @return bool true, если карточка refill.
+     */
+    public function isTurnRefill(): bool
+    {
+        return $this->turnRefill;
     }
 }

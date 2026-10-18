@@ -133,9 +133,7 @@ final class SpellSpecs
     {
         $steps = [];
         foreach (SpecShape::list($damage, 'steps') as $row) {
-            if (!is_array($row) || array_is_list($row)) {
-                throw new RuleSpecShapeException('steps');
-            }
+            $row = SpecShape::requireMap($row, 'steps');
 
             $steps[] = new SpellDamageStep(SpecShape::int($row, 'min_experience'), SpecShape::int($row, 'modify'));
         }
@@ -194,10 +192,6 @@ final class SpellSpecs
             return $value;
         }
 
-        if (!is_array($value) || array_is_list($value)) {
-            throw new RuleSpecShapeException($key);
-        }
-
-        return DimensionalNumbers::pair($value, $key);
+        return DimensionalNumbers::pair(SpecShape::requireMap($value, $key), $key);
     }
 }

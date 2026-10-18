@@ -50,6 +50,7 @@ final class ItemSpecs
             self::armor($document),
             self::shield($document),
             self::blockProfile($document),
+            AbilityGrants::flat($document),
         );
     }
 
@@ -132,9 +133,7 @@ final class ItemSpecs
      */
     private static function one(mixed $row): CharacteristicLimit
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('characteristic_limits');
-        }
+        $row = SpecShape::requireMap($row, 'characteristic_limits');
 
         return new CharacteristicLimit(
             SpecShape::string($row, 'characteristic_code'),
@@ -172,9 +171,7 @@ final class ItemSpecs
      */
     private static function defense(mixed $row): DefenseSlot
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('defense_slots');
-        }
+        $row = SpecShape::requireMap($row, 'defense_slots');
 
         return new DefenseSlot(
             DimensionalNumbers::required($row, 'defense'),
@@ -213,9 +210,7 @@ final class ItemSpecs
      */
     private static function resistance(mixed $row): ResistanceSlot
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('resistance_slots');
-        }
+        $row = SpecShape::requireMap($row, 'resistance_slots');
 
         return new ResistanceSlot(
             SpecShape::optionalString($row, 'damage_type_code'),
@@ -275,9 +270,7 @@ final class ItemSpecs
      */
     private static function advantage(mixed $row): AdvantageModifier
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('advantages');
-        }
+        $row = SpecShape::requireMap($row, 'advantages');
 
         return new AdvantageModifier(
             SpecShape::optionalString($row, 'source_code'),
@@ -316,9 +309,7 @@ final class ItemSpecs
      */
     private static function checkAdvantage(mixed $row): ItemCheckAdvantage
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('check_advantages');
-        }
+        $row = SpecShape::requireMap($row, 'check_advantages');
 
         return new ItemCheckAdvantage(
             SpecShape::int($row, 'delta'),

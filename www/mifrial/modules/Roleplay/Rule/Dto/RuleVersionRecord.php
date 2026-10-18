@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Dto;
 
 use Mifrial\Core\Kernel\Value\DateTime;
+use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Spec\RuleSpecs;
@@ -300,6 +301,10 @@ final class RuleVersionRecord
     private static function requireArray(array $fields, string $fieldName): array
     {
         $value = $fields[$fieldName] ?? null;
+        if ($value instanceof JsonObject) {
+            return $value->getMembers();
+        }
+
         if (!is_array($value)) {
             throw new RuleInvalidException('Rule version record is incomplete');
         }

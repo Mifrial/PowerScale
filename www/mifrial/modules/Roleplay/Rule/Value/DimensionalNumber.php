@@ -67,6 +67,38 @@ class DimensionalNumber
     }
 
     /**
+     * Сравнивает с другим числом: оба к меньшему размеру, затем базы.
+     *
+     * @param self $other Второе число.
+     *
+     * @return int −1, 0 или 1.
+     */
+    public function compare(self $other): int
+    {
+        $size = min($this->size, $other->size);
+
+        return $this->baseAt($size) <=> $other->baseAt($size);
+    }
+
+    /**
+     * База, приведённая к размеру не больше собственного.
+     *
+     * @param int $size Целевой размер.
+     *
+     * @return int База.
+     */
+    private function baseAt(int $size): int
+    {
+        $base = $this->base;
+        $steps = $this->size - $size;
+        for ($step = 0; $step < $steps; $step++) {
+            $base *= 2;
+        }
+
+        return $base;
+    }
+
+    /**
      * Модифицирует базу по собственной шкале. Шаг размера — (max − min + 1).
      *
      * @param int $delta Пункты.

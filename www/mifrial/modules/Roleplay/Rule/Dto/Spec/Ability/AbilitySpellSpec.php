@@ -79,4 +79,14 @@ final class AbilitySpellSpec implements AbilitySpec
     {
         return $this->operations;
     }
+
+    /**
+     * Общие поля.
+     *
+     * @return AbilityBase База.
+     */
+    public function getBase(): AbilityBase
+    {
+        return $this->base;
+    }
 }

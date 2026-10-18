@@ -64,6 +64,7 @@ final class RootSpecs
         return new SenseSpec(
             SpecShape::string($document, 'status'),
             DimensionalNumbers::required($document, 'radius'),
+            SpecShape::bool($document, 'auto_add'),
         );
     }
 
@@ -105,6 +106,7 @@ final class RootSpecs
             SpecShape::bool($document, 'auto_add'),
             SpecShape::bool($document, 'check_token'),
             self::resourceLimit($document),
+            SpecShape::bool($document, 'turn_refill'),
         );
     }
 
@@ -318,9 +320,7 @@ final class RootSpecs
             return $value;
         }
 
-        if (!is_array($value) || array_is_list($value)) {
-            throw new RuleSpecShapeException('automatic');
-        }
+        $value = SpecShape::requireMap($value, 'automatic');
 
         return DimensionalNumbers::characteristic($value, 'value');
     }
@@ -360,9 +360,7 @@ final class RootSpecs
      */
     private static function adjustment(mixed $row): ResourceAdjustment
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('adjustments');
-        }
+        $row = SpecShape::requireMap($row, 'adjustments');
 
         return new ResourceAdjustment(Formulas::scalar($row, 'value'), SpecShape::string($row, 'source_code'));
     }
@@ -378,9 +376,7 @@ final class RootSpecs
      */
     private static function ageStep(mixed $row): AgeStep
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('ages');
-        }
+        $row = SpecShape::requireMap($row, 'ages');
 
         $effects = [];
         foreach (SpecShape::list($row, 'effects') as $effect) {
@@ -401,9 +397,7 @@ final class RootSpecs
      */
     private static function ageEffect(mixed $row): AgeEffect
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('effects');
-        }
+        $row = SpecShape::requireMap($row, 'effects');
 
         return new AgeEffect(
             SpecShape::string($row, 'characteristic_code'),
@@ -462,9 +456,7 @@ final class RootSpecs
     {
         $usages = [];
         foreach (SpecShape::list($document, 'usages') as $row) {
-            if (!is_array($row) || array_is_list($row)) {
-                throw new RuleSpecShapeException('usages');
-            }
+            $row = SpecShape::requireMap($row, 'usages');
 
             $usages[] = new EthnicityUsage(SpecShape::string($row, 'language_code'), SpecShape::stringList($row, 'script_codes'));
         }

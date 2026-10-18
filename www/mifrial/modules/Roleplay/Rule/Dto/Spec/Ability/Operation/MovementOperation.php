@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation;
 
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Distance\ProcessDistance;
-
 /**
  * Ветка movement.
  */
@@ -14,10 +12,11 @@ final class MovementOperation implements ProcessOperation
     /**
      * Создаёт ветку.
      *
-     * @param array $horizontal Горизонталь.
-     * @param array $vertical Вертикаль.
-     * @param ?ProcessDistance $distance Дистанция.
-     * @param ?int $maxDegrees Свободный поворот.
+     * @param array<int, string> $horizontal Горизонтальные направления.
+     * @param array<int, string> $vertical Вертикальные направления.
+     * @param MovementAxisDistance|null $horizontalDistance Горизонтальная вилка.
+     * @param MovementAxisDistance|null $verticalDistance Вертикальная вилка.
+     * @param int|null $maxDegrees Свободный поворот.
      * @param bool $free Поворот свободен.
      *
      * @return void
@@ -25,7 +24,8 @@ final class MovementOperation implements ProcessOperation
     public function __construct(
         private readonly array $horizontal,
         private readonly array $vertical,
-        private readonly ?ProcessDistance $distance,
+        private readonly ?MovementAxisDistance $horizontalDistance,
+        private readonly ?MovementAxisDistance $verticalDistance,
         private readonly ?int $maxDegrees,
         private readonly bool $free,
     ) {
@@ -42,9 +42,9 @@ final class MovementOperation implements ProcessOperation
     }
 
     /**
-     * Горизонталь.
+     * Горизонтальные направления.
      *
-     * @return array Значение.
+     * @return array<int, string> Значение.
      */
     public function getHorizontal(): array
     {
@@ -52,9 +52,9 @@ final class MovementOperation implements ProcessOperation
     }
 
     /**
-     * Вертикаль.
+     * Вертикальные направления.
      *
-     * @return array Значение.
+     * @return array<int, string> Значение.
      */
     public function getVertical(): array
     {
@@ -62,19 +62,29 @@ final class MovementOperation implements ProcessOperation
     }
 
     /**
-     * Дистанция.
+     * Горизонтальная вилка.
      *
-     * @return ?ProcessDistance Значение.
+     * @return MovementAxisDistance|null Значение.
      */
-    public function getDistance(): ?ProcessDistance
+    public function findHorizontalDistance(): ?MovementAxisDistance
     {
-        return $this->distance;
+        return $this->horizontalDistance;
+    }
+
+    /**
+     * Вертикальная вилка.
+     *
+     * @return MovementAxisDistance|null Значение.
+     */
+    public function findVerticalDistance(): ?MovementAxisDistance
+    {
+        return $this->verticalDistance;
     }
 
     /**
      * Свободный поворот.
      *
-     * @return ?int Значение.
+     * @return int|null Значение.
      */
     public function getMaxDegrees(): ?int
     {

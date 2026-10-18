@@ -6,6 +6,8 @@ namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierApplies;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierOperation;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\CharacteristicLimitOp;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\CharacteristicModifyOp;
 
 /**
  * Условие операции и блоки spec, которые она выбирает.
@@ -53,9 +55,18 @@ final class ItemModifierOperationWhen
      */
     public static function targets(ItemModifierOperation $operation): array
     {
-        $type = $operation->getOp()->getType();
+        $op = $operation->getOp();
+        $type = $op->getType();
         if ($type === 'min_action_cost' || $type === 'min_resource_cost') {
             return [];
+        }
+
+        if ($op instanceof CharacteristicModifyOp) {
+            return ['grants.characteristic_modify.' . $op->getCharacteristicCode()];
+        }
+
+        if ($op instanceof CharacteristicLimitOp) {
+            return self::namedTargets(self::parts($operation->getWhen()), 'characteristic_limit.' . $op->getCharacteristicCode());
         }
 
         if ($type === 'weight' || $type === 'block' || $type === 'action_strength') {

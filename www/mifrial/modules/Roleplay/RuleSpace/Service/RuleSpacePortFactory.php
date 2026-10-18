@@ -38,14 +38,16 @@ final class RuleSpacePortFactory
     public function create(IServiceLocator $serviceLocator): IRuleSpaces
     {
         $binder = new RuleSpaceCatalogBinder($this->catalogRepository($serviceLocator));
+        $rules = $this->rules($serviceLocator);
 
         return new RuleSpaces(
-            $this->rules($serviceLocator),
+            $rules,
             $this->ruleSpaceRepository($serviceLocator),
             new RuleSpaceWorldWriter(
-                $this->rules($serviceLocator),
+                $rules,
                 $this->ruleSpaceRepository($serviceLocator),
                 $binder,
+                new RuleRevisionSpecGuard($rules),
             ),
             $this->smartTableGateway($serviceLocator),
         );

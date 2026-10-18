@@ -15,6 +15,8 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\ActionStrengthOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\AdvantageOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\ArmorReliabilityOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\BlockOp;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\CharacteristicLimitOp;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\CharacteristicModifyOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\CheckAdvantageOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\DefenseOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\DurabilityOp;
@@ -111,9 +113,11 @@ final class ItemModifiers
         $map = SpecShape::object($price, 'by_keyword') ?? [];
         $overrides = [];
         foreach ($map as $code => $row) {
-            if (!is_string($code) || !is_array($row) || array_is_list($row)) {
+            if (!is_string($code)) {
                 throw new RuleSpecShapeException('by_keyword');
             }
+
+            $row = SpecShape::requireMap($row, 'by_keyword');
 
             $overrides[$code] = new ItemModifierPriceOverride(
                 self::optionalNumber($row, 'factor'),
@@ -156,9 +160,7 @@ final class ItemModifiers
      */
     private static function effect(mixed $row): ItemModifierEffect
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('effects');
-        }
+        $row = SpecShape::requireMap($row, 'effects');
 
         $ops = [];
         foreach (SpecShape::list($row, 'ops') as $op) {
@@ -198,9 +200,7 @@ final class ItemModifiers
      */
     private static function operation(mixed $row): ItemModifierOperation
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('operations');
-        }
+        $row = SpecShape::requireMap($row, 'operations');
 
         $when = SpecShape::object($row, 'when') ?? [];
 
@@ -226,9 +226,7 @@ final class ItemModifiers
      */
     private static function op(mixed $row): ItemModifierOp
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('ops');
-        }
+        $row = SpecShape::requireMap($row, 'ops');
 
         return self::byType(SpecShape::string($row, 'type'), $row);
     }
@@ -289,6 +287,16 @@ final class ItemModifiers
                 self::nativeNumber($row, 'minimum'),
             ),
             'magic_conductor' => new MagicConductorOp(SpecShape::int($row, 'value')),
+            'characteristic_modify' => new CharacteristicModifyOp(
+                SpecShape::string($row, 'characteristic_code'),
+                SpecShape::optionalInt($row, 'add'),
+                SpecShape::optionalInt($row, 'set'),
+            ),
+            'characteristic_limit' => new CharacteristicLimitOp(
+                SpecShape::string($row, 'characteristic_code'),
+                SpecShape::optionalInt($row, 'delta'),
+                SpecShape::optionalInt($row, 'add_size'),
+            ),
             'advantage' => new AdvantageOp(SpecShape::int($row, 'delta'), SpecShape::string($row, 'source_code')),
             'check_advantage' => new CheckAdvantageOp(
                 SpecShape::int($row, 'delta'),
@@ -358,10 +366,6 @@ final class ItemModifiers
             return $value;
         }
 
-        if (is_array($value) && !array_is_list($value)) {
-            return DimensionalNumbers::pair($value, $key);
-        }
-
-        throw new RuleSpecShapeException($key);
+        return DimensionalNumbers::pair(SpecShape::requireMap($value, $key), $key);
     }
 }

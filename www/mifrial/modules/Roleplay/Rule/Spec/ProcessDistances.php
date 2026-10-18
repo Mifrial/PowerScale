@@ -93,9 +93,7 @@ final class ProcessDistances
     {
         $parts = [];
         foreach (SpecShape::list($node, 'expressions') as $part) {
-            if (!is_array($part) || array_is_list($part)) {
-                throw new RuleSpecShapeException('expressions');
-            }
+            $part = SpecShape::requireMap($part, 'expressions');
 
             $parts[] = self::read($part);
         }

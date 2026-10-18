@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\BlockOp;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\CharacteristicLimitOp;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\CharacteristicModifyOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\DefenseOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\DurabilityOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\ItemModifierOp;
@@ -178,9 +180,12 @@ final class ItemModifierOperationNumbers
             $op instanceof WeightOp => (int) ($op->getAddKg() ?? 0),
             $op instanceof BlockOp,
                 $op instanceof DefenseOp,
-                $op instanceof StrengthPenaltyOp => $op->getAdd() ?? 0,
+                $op instanceof StrengthPenaltyOp,
+                $op instanceof CharacteristicModifyOp => $op->getAdd() ?? 0,
             $op instanceof MinStrengthOp => $op->getDelta(),
-            $op instanceof DurabilityOp, $op instanceof MaxAgilityOp => $op->getDelta() ?? 0,
+            $op instanceof DurabilityOp,
+                $op instanceof MaxAgilityOp,
+                $op instanceof CharacteristicLimitOp => $op->getDelta() ?? 0,
             default => 0,
         };
     }
@@ -197,7 +202,8 @@ final class ItemModifierOperationNumbers
         $sized = $op instanceof BlockOp
             || $op instanceof DefenseOp
             || $op instanceof DurabilityOp
-            || $op instanceof MaxAgilityOp;
+            || $op instanceof MaxAgilityOp
+            || $op instanceof CharacteristicLimitOp;
         if ($sized) {
             return $op->getAddSize() ?? 0;
         }

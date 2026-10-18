@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Spec;
 
+use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -72,15 +73,17 @@ final class DimensionalNumbers
     /**
      * Пара из объекта.
      *
-     * @param array<string, mixed> $value Объект.
+     * @param array<string, mixed>|JsonObject $value Объект.
      * @param string $key Ключ.
      *
      * @return DimensionalNumber Пара.
      *
      * @throws RuleSpecShapeException Если base или size не int.
      */
-    public static function pair(array $value, string $key): DimensionalNumber
+    public static function pair(array|JsonObject $value, string $key): DimensionalNumber
     {
+        $value = SpecShape::requireMap($value, $key);
+
         return new DimensionalNumber(SpecShape::int($value, 'base'), SpecShape::int($value, 'size'));
     }
 }

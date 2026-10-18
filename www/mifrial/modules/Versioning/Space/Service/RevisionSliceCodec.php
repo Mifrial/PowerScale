@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Mifrial\Versioning\Space\Service;
 
 use JsonException;
+use Mifrial\Core\Kernel\Http\JsonDocuments;
 use Mifrial\Core\Kernel\Value\DateTime;
+use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Versioning\Space\Dto\RecordValue;
 use Mifrial\Versioning\Space\Dto\RevisionRecord;
 use Mifrial\Versioning\Space\Dto\RevisionSlice;
@@ -64,7 +66,10 @@ final class RevisionSliceCodec
     public function decode(string $payload): RevisionSlice
     {
         try {
-            $decoded = json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
+            $decoded = JsonDocuments::decode($payload);
+            if ($decoded instanceof JsonObject) {
+                $decoded = $decoded->getMembers();
+            }
         } catch (JsonException $exception) {
             throw new SpaceInvalidException('Revision slice JSON is invalid', $exception);
         }
@@ -108,6 +113,10 @@ final class RevisionSliceCodec
      */
     private function decodeRevision(mixed $revisionValue): RevisionRecord
     {
+        if ($revisionValue instanceof JsonObject) {
+            $revisionValue = $revisionValue->getMembers();
+        }
+
         if (!is_array($revisionValue)) {
             throw new SpaceInvalidException('Revision slice JSON is invalid');
         }
@@ -150,11 +159,19 @@ final class RevisionSliceCodec
      */
     private function decodeItem(mixed $itemValue): VersionRecord
     {
+        if ($itemValue instanceof JsonObject) {
+            $itemValue = $itemValue->getMembers();
+        }
+
         if (!is_array($itemValue)) {
             throw new SpaceInvalidException('Revision slice JSON is invalid');
         }
 
         $fields = $itemValue['fields'] ?? null;
+        if ($fields instanceof JsonObject) {
+            $fields = $fields->getMembers();
+        }
+
         if (!is_array($fields)) {
             throw new SpaceInvalidException('Revision slice JSON is invalid');
         }

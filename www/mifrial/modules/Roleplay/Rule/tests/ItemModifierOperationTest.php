@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Tests;
 
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicModifyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\ActionCharacteristicNode;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\FixedNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ArmorBlock;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\CharacteristicLimit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\BlockProfile;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\DefenseSlot;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
@@ -245,6 +248,70 @@ final class ItemModifierOperationTest extends TestCase
         self::assertInstanceOf(ActionCharacteristicNode::class, $penetration);
         self::assertSame('mass', $penetration->getModifiers()[0]->getSourceCode());
         self::assertSame(2, $penetration->getModifiers()[0]->getDelta());
+    }
+
+    /**
+     * characteristic_modify пишет грант; strength_penalty грант не трогает.
+     *
+     * @return void
+     */
+    public function testCharacteristicModifyWritesGrantAndLegacyPenaltyDoesNot(): void
+    {
+        $item = $this->item(false, false, true);
+        $changed = ItemModifierOperations::apply($item, [$this->modifier([[
+            'type' => 'characteristic_modify',
+            'characteristic_code' => 'strength',
+            'add' => -2,
+            'source_code' => 'mass',
+        ]])], ['armor-item']);
+        $stale = ItemModifierOperations::apply($item, [$this->modifier([[
+            'type' => 'strength_penalty',
+            'add' => -4,
+            'source_code' => 'mass',
+        ]])], ['armor-item']);
+
+        self::assertInstanceOf(CharacteristicModifyGrant::class, $changed->getGrants()[0]);
+        self::assertSame('strength', $changed->getGrants()[0]->getCharacteristicCode());
+        self::assertSame([], $stale->getGrants());
+        self::assertSame(-4, $stale->getArmor()?->getStrengthPenalty());
+    }
+
+    /**
+     * characteristic_limit сдвигает существующую строку с кодом.
+     *
+     * @return void
+     */
+    public function testCharacteristicLimitShiftsMatchingRow(): void
+    {
+        $item = new ItemSpec(
+            'equipment',
+            null,
+            false,
+            new DimensionalNumber(8, 0),
+            [],
+            null,
+            null,
+            null,
+            [],
+            [],
+            null,
+            null,
+            new ArmorBlock(null, null, [
+                new CharacteristicLimit('agility', new DimensionalNode(new DimensionalNumber(4, 0))),
+            ], [new DefenseSlot(new DimensionalNumber(4, 0), 1, null)], []),
+            null,
+            null,
+        );
+        $changed = ItemModifierOperations::apply($item, [$this->modifier([[
+            'type' => 'characteristic_limit',
+            'characteristic_code' => 'agility',
+            'delta' => -1,
+            'source_code' => 'mass',
+        ]])], ['armor-item']);
+        $limit = $changed->getArmor()?->getCharacteristicLimits()[0]->getLimit();
+
+        self::assertInstanceOf(DimensionalNode::class, $limit);
+        self::assertSame(3, $limit->getNumber()->getBase());
     }
 
     /**

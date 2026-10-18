@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\RuleSpace\Service;
 
+use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionBody;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
@@ -75,7 +76,11 @@ final class RuleSpaceCommitDraftMapper
      */
     private function mapPut(mixed $ruleRow): RuleCommitEntry
     {
-        if (!is_array($ruleRow)) {
+        if ($ruleRow instanceof JsonObject) {
+            $ruleRow = $ruleRow->getMembers();
+        }
+
+        if (!is_array($ruleRow) || ($ruleRow !== [] && array_is_list($ruleRow))) {
             throw new RuleSpaceInvalidException('Commit rule must be an object');
         }
 
@@ -179,6 +184,10 @@ final class RuleSpaceCommitDraftMapper
         }
 
         $value = $ruleRow[$fieldName];
+        if ($value instanceof JsonObject) {
+            return $value->getMembers();
+        }
+
         if (!is_array($value)) {
             $this->rejectField($ruleCode, $fieldName);
         }
@@ -243,6 +252,10 @@ final class RuleSpaceCommitDraftMapper
 
         $rows = [];
         foreach ($value as $row) {
+            if ($row instanceof JsonObject) {
+                $row = $row->getMembers();
+            }
+
             if (!is_array($row) || !isset($row['mechanicId']) || !is_int($row['mechanicId'])) {
                 $this->rejectField($ruleCode, 'mechanics');
             }
@@ -250,6 +263,10 @@ final class RuleSpaceCommitDraftMapper
             $payload = $row['mechanicPayload'] ?? [];
             if ($payload === null) {
                 $payload = [];
+            }
+
+            if ($payload instanceof JsonObject) {
+                $payload = $payload->getMembers();
             }
 
             if (!is_array($payload)) {

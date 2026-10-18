@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Rule\Dto\RuleRevisionSlice;
 use Mifrial\Roleplay\Rule\Exception\RuleConflictException;
 use Mifrial\Roleplay\Rule\Interface\Service\IRules;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceCatalog;
+use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceSpecRejectedException;
 use Mifrial\Roleplay\RuleSpace\Repository\RuleSpaceRepository;
 
 /**
@@ -23,6 +24,7 @@ final class RuleSpaceWorldWriter
      * @param IRules $rules Часы.
      * @param RuleSpaceRepository $ruleSpaceRepository Sidecar.
      * @param RuleSpaceCatalogBinder $catalogBinder Каталог.
+     * @param RuleRevisionSpecGuard $specGuard Проверка spec состава.
      *
      * @return void
      */
@@ -30,6 +32,7 @@ final class RuleSpaceWorldWriter
         private readonly IRules $rules,
         private readonly RuleSpaceRepository $ruleSpaceRepository,
         private readonly RuleSpaceCatalogBinder $catalogBinder,
+        private readonly RuleRevisionSpecGuard $specGuard,
     ) {
     }
 
@@ -56,6 +59,7 @@ final class RuleSpaceWorldWriter
         $spaceId = $this->rules->addSpace($name);
         $this->ruleSpaceRepository->add($spaceId, $code, $name, $ownerUserId, $description);
         if ($sourceSlice instanceof RuleRevisionSlice && $inheritFromSpaceId !== null) {
+            $this->specGuard->assertRecords($sourceSlice->getItems());
             $revisionRecord = $this->rules->commit($spaceId, $this->keepEntries($sourceSlice));
             $this->catalogBinder->copyInherited(
                 $inheritFromSpaceId,
@@ -79,6 +83,7 @@ final class RuleSpaceWorldWriter
      * @return RuleRevisionRecord Ревизия.
      *
      * @throws RuleConflictException Если голова уже другая.
+     * @throws RuleSpaceSpecRejectedException Если spec состава битая.
      */
     public function publishWithCatalog(
         int $spaceId,
@@ -86,6 +91,7 @@ final class RuleSpaceWorldWriter
         ?RuleSpaceCatalog $catalog,
         ?int $expectedRevision = null,
     ): RuleRevisionRecord {
+        $this->specGuard->assertEntries($spaceId, $entries, $expectedRevision);
         $revisionRecord = $this->rules->commit(
             $spaceId,
             $entries,

@@ -224,9 +224,7 @@ final class AbilityCombat
 
         $modes = [];
         foreach (SpecShape::list($row, 'modes') as $mode) {
-            if (!is_array($mode) || array_is_list($mode)) {
-                throw new RuleSpecShapeException('modes');
-            }
+            $mode = SpecShape::requireMap($mode, 'modes');
 
             $modes[] = new StrikeUpgradeMode(
                 SpecShape::string($mode, 'code'),
@@ -280,9 +278,7 @@ final class AbilityCombat
 
         $steps = [];
         foreach (SpecShape::list($cap, 'steps') as $step) {
-            if (!is_array($step) || array_is_list($step)) {
-                throw new RuleSpecShapeException('steps');
-            }
+            $step = SpecShape::requireMap($step, 'steps');
 
             $steps[] = new SpellChargeCapStep(
                 SpecShape::int($step, 'min_experience'),

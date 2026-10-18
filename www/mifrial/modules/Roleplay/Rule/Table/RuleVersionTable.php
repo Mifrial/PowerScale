@@ -69,7 +69,7 @@ final class RuleVersionTable extends SmartTableDefinition
             new StringField('type', FieldSettings::fromOptions(['required' => true]), 64),
             new StringField('name', FieldSettings::fromOptions(['required' => true])),
             new TextField('description', FieldSettings::fromOptions(['required' => true])),
-            new JsonField('spec', FieldSettings::fromOptions(['required' => true])),
+            new JsonField('spec', FieldSettings::fromOptions(['required' => true]), null, true),
             new LinkSetField(
                 'keywords',
                 FieldSettings::fromOptions([]),

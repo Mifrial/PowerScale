@@ -53,9 +53,7 @@ final class StateEffects
      */
     private static function one(mixed $row): StateEffect
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('effects');
-        }
+        $row = SpecShape::requireMap($row, 'effects');
 
         return self::byType(SpecShape::string($row, 'type'), $row);
     }

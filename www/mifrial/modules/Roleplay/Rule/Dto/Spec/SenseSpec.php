@@ -22,6 +22,7 @@ final class SenseSpec implements RuleSpec
     public function __construct(
         private readonly string $status,
         private readonly DimensionalNumber $radius,
+        private readonly bool $autoAdd,
     ) {
     }
 
@@ -52,5 +53,15 @@ final class SenseSpec implements RuleSpec
     public function getRadius(): DimensionalNumber
     {
         return $this->radius;
+    }
+
+    /**
+     * Чувство есть у каждого персонажа с бонусом 0, пока грант его не изменит.
+     *
+     * @return bool Значение.
+     */
+    public function isAutoAdd(): bool
+    {
+        return $this->autoAdd;
     }
 }

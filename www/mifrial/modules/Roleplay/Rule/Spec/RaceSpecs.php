@@ -85,9 +85,7 @@ final class RaceSpecs
      */
     private static function characteristic(mixed $row): RaceCharacteristic
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('characteristics');
-        }
+        $row = SpecShape::requireMap($row, 'characteristics');
 
         return new RaceCharacteristic(
             SpecShape::string($row, 'characteristic_code'),
@@ -127,9 +125,7 @@ final class RaceSpecs
      */
     private static function level(mixed $level): RacePurchaseLevel
     {
-        if (!is_array($level) || array_is_list($level)) {
-            throw new RuleSpecShapeException('purchase');
-        }
+        $level = SpecShape::requireMap($level, 'purchase');
 
         return new RacePurchaseLevel(SpecShape::int($level, 'cost'), DimensionalNumbers::characteristic($level, 'value'));
     }
@@ -164,9 +160,7 @@ final class RaceSpecs
      */
     private static function ability(mixed $row): RaceAbilityRef
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('abilities');
-        }
+        $row = SpecShape::requireMap($row, 'abilities');
 
         return new RaceAbilityRef(
             SpecShape::string($row, 'ability_code'),
@@ -189,11 +183,11 @@ final class RaceSpecs
         $parameters = SpecShape::object($row, 'parameters') ?? [];
         $values = [];
         foreach ($parameters as $code => $value) {
-            if (!is_string($code) || !is_array($value) || array_is_list($value)) {
+            if (!is_string($code)) {
                 throw new RuleSpecShapeException('parameters');
             }
 
-            $values[$code] = DimensionalNumbers::pair($value, 'parameters');
+            $values[$code] = DimensionalNumbers::pair(SpecShape::requireMap($value, 'parameters'), 'parameters');
         }
 
         return $values;
@@ -229,9 +223,7 @@ final class RaceSpecs
      */
     private static function age(mixed $row): AgeRange
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('age_years');
-        }
+        $row = SpecShape::requireMap($row, 'age_years');
 
         return new AgeRange(SpecShape::string($row, 'age'), SpecShape::int($row, 'ageStart'), SpecShape::int($row, 'ageEnd'));
     }

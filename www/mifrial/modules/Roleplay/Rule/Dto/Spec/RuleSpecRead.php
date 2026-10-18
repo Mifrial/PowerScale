@@ -14,14 +14,14 @@ final class RuleSpecRead
      *
      * @param RuleSpec|null $spec Контракт или null.
      * @param bool $broken true, если форма известного типа чужая.
+     * @param string $shapeKey Ключ формы при отказе.
      *
      * @return void
-     * @param mixed $spec Поле.
-     * @param mixed $broken Поле.
      */
     public function __construct(
         private readonly ?RuleSpec $spec,
         private readonly bool $broken,
+        private readonly string $shapeKey = '',
     ) {
     }
 
@@ -43,5 +43,15 @@ final class RuleSpecRead
     public function isBroken(): bool
     {
         return $this->broken;
+    }
+
+    /**
+     * Ключ формы, если разбор отказал.
+     *
+     * @return string Ключ или пусто.
+     */
+    public function getShapeKey(): string
+    {
+        return $this->shapeKey;
     }
 }

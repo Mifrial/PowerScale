@@ -6,10 +6,16 @@ namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\ActionCharacteristicModifier;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\ActionCharacteristicNode;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\AddDimensionalNode;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\ChangeSizeNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\CharacteristicNode;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\CurrentMovementStepNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\FixedNode;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\SizeGapTimesStepNode;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\StepsNode;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\AbilityLevelScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizeGapScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizePositiveScalar;
@@ -64,11 +70,7 @@ final class Formulas
             return new FixedScalar($value);
         }
 
-        if (!is_array($value) || array_is_list($value)) {
-            throw new RuleSpecShapeException($key);
-        }
-
-        return self::scalarNode($value);
+        return self::scalarNode(SpecShape::requireMap($value, $key));
     }
 
     /**
@@ -87,6 +89,17 @@ final class Formulas
         return match ($type) {
             'fixed' => new FixedNode(SpecShape::int($node, 'value')),
             'dimensional' => new DimensionalNode(DimensionalNumbers::pair($node, 'dimensional')),
+            'literal' => new DimensionalNode(DimensionalNumbers::required($node, 'value')),
+            'steps' => self::steps($node),
+            'current_movement_step' => new CurrentMovementStepNode(SpecShape::int($node, 'multiplier')),
+            'size_gap_times_step' => new SizeGapTimesStepNode(
+                SpecShape::string($node, 'characteristic_code_from'),
+                SpecShape::string($node, 'characteristic_code_to'),
+                SpecShape::int($node, 'base_steps'),
+                SpecShape::int($node, 'gap_multiplier'),
+            ),
+            'change_size' => self::changeSize($node),
+            'add' => self::addDimensional($node),
             'characteristic' => self::characteristicNode($node),
             'actionCharacteristic' => self::actionNode($node),
             default => throw new RuleSpecShapeException('type'),
@@ -117,6 +130,59 @@ final class Formulas
             'characteristic_size_gap' => self::sizeGap($node),
             default => throw new RuleSpecShapeException('type'),
         };
+    }
+
+    /**
+     * Шаги: ноль — нулевая пара, иначе N шагов персонажа.
+     *
+     * @param array<string, mixed> $node Объект.
+     *
+     * @return DimensionalFormula Узел.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function steps(array $node): DimensionalFormula
+    {
+        $count = SpecShape::int($node, 'count');
+
+        return $count === 0
+            ? new DimensionalNode(new DimensionalNumber(0, 0))
+            : new StepsNode($count);
+    }
+
+    /**
+     * Сдвиг размера вложенной размерной формулы.
+     *
+     * @param array<string, mixed> $node Объект.
+     *
+     * @return ChangeSizeNode Узел.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function changeSize(array $node): ChangeSizeNode
+    {
+        return new ChangeSizeNode(self::dimensional($node, 'expression'), SpecShape::int($node, 'size_delta'));
+    }
+
+    /**
+     * Сумма размерных формул.
+     *
+     * @param array<string, mixed> $node Объект.
+     *
+     * @return AddDimensionalNode Узел.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function addDimensional(array $node): AddDimensionalNode
+    {
+        $parts = [];
+        foreach (SpecShape::list($node, 'expressions') as $part) {
+            $part = SpecShape::requireMap($part, 'expressions');
+
+            $parts[] = self::dimensionalNode($part);
+        }
+
+        return new AddDimensionalNode($parts);
     }
 
     /**
@@ -182,9 +248,7 @@ final class Formulas
      */
     private static function modifier(mixed $row): ActionCharacteristicModifier
     {
-        if (!is_array($row) || array_is_list($row)) {
-            throw new RuleSpecShapeException('modifier');
-        }
+        $row = SpecShape::requireMap($row, 'modifier');
 
         return new ActionCharacteristicModifier(
             SpecShape::int($row, 'delta'),

@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\HitResolution;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Общие поля способности, кроме ветки type.
@@ -52,6 +53,7 @@ final class AbilityBase
      * @param StrikeUpgrade|null $strikeUpgrade Улучшение удара.
      * @param AbilityAggregate|null $aggregate Агрегат уровня.
      * @param DerivedLevel|null $derivedLevel Производный уровень.
+     * @param DimensionalNumber|null $dodgeEfficiency Эффективность уклона.
      *
      * @return void
      */
@@ -93,6 +95,7 @@ final class AbilityBase
         private readonly ?StrikeUpgrade $strikeUpgrade,
         private readonly ?AbilityAggregate $aggregate,
         private readonly ?DerivedLevel $derivedLevel,
+        private readonly ?DimensionalNumber $dodgeEfficiency = null,
     ) {
     }
 
@@ -254,6 +257,16 @@ final class AbilityBase
     public function getCombatAction(): ?string
     {
         return $this->combatAction;
+    }
+
+    /**
+     * Эффективность уклона.
+     *
+     * @return DimensionalNumber|null Число или null.
+     */
+    public function getDodgeEfficiency(): ?DimensionalNumber
+    {
+        return $this->dodgeEfficiency;
     }
 
     /**
