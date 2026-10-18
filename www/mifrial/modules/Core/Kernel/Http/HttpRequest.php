@@ -154,7 +154,7 @@ final readonly class HttpRequest implements IHttpRequest
             return null;
         }
 
-        return json_decode($this->rawBody, true, 512, JSON_THROW_ON_ERROR);
+        return JsonDocuments::decode($this->rawBody);
     }
 
     /**

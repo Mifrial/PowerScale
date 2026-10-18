@@ -7,8 +7,10 @@ namespace Mifrial\Core\Kernel\Service;
 use Mifrial\Core\Kernel\Dto\ActionResponse;
 use Mifrial\Core\Kernel\Dto\HandlerResolveResult;
 use Mifrial\Core\Kernel\Exception\ActionException;
+use Mifrial\Core\Kernel\Http\ActionExceptionReporter;
 use Mifrial\Core\Kernel\Interface\Action\IActionHandler;
 use Mifrial\Core\Kernel\Interface\Service\IDispatcher;
+use Mifrial\Core\Kernel\Interface\Service\ILogger;
 use Mifrial\Core\Kernel\Interface\Service\IModuleManager;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use ReflectionMethod;
@@ -24,6 +26,8 @@ final class Dispatcher implements IDispatcher
      * @param IModuleManager $modules Менеджер модулей и маршрутов.
      * @param ActionParameterBinder $parameterBinder Биндер параметров handle.
      * @param IServiceLocator|null $serviceLocator Каталог; null — контейнер уже в менеджере.
+     * @param ILogger|null $logger Журнал доменных отказов; null — не писать.
+     * @param bool $debug Класть trace доменного отказа в JSON.
      *
      * @return void
      */
@@ -31,6 +35,8 @@ final class Dispatcher implements IDispatcher
         private readonly IModuleManager $modules,
         private readonly ActionParameterBinder $parameterBinder = new ActionParameterBinder(),
         private readonly ?IServiceLocator $serviceLocator = null,
+        private readonly ?ILogger $logger = null,
+        private readonly bool $debug = false,
     ) {
     }
 
@@ -54,7 +60,7 @@ final class Dispatcher implements IDispatcher
             return $resolveResult->errorResponse();
         }
 
-        return $this->invokeHandle($resolveResult->handler(), $payload);
+        return $this->invokeHandle($action, $resolveResult->handler(), $payload);
     }
 
     /**
@@ -154,12 +160,13 @@ final class Dispatcher implements IDispatcher
     /**
      * Биндит параметры, вызывает handle и собирает конверт.
      *
+     * @param string $action Код действия.
      * @param IActionHandler $handler Обработчик действия.
      * @param mixed $payload Полезная нагрузка запроса.
      *
      * @return ActionResponse Конверт успеха, параметров или доменной ошибки.
      */
-    private function invokeHandle(IActionHandler $handler, mixed $payload): ActionResponse
+    private function invokeHandle(string $action, IActionHandler $handler, mixed $payload): ActionResponse
     {
         $handleMethod = new ReflectionMethod($handler, 'handle');
         $bindResult = $this->parameterBinder->bind($handleMethod, $payload);
@@ -170,11 +177,7 @@ final class Dispatcher implements IDispatcher
         try {
             return ActionResponse::ok($handleMethod->invokeArgs($handler, $bindResult->arguments()));
         } catch (ActionException $actionException) {
-            return ActionResponse::fail(
-                $actionException->getErrorCode(),
-                $actionException->getMessage(),
-                $actionException->getErrorDetails(),
-            );
+            return (new ActionExceptionReporter($this->logger, $this->debug))->report($actionException, $action);
         }
     }
 }

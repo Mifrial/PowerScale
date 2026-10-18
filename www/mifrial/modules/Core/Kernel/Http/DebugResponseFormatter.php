@@ -40,7 +40,7 @@ final class DebugResponseFormatter
         return ActionResponse::fail(
             'INTERNAL',
             $throwable::class . ': ' . $throwable->getMessage(),
-            ['trace' => $throwable->getTraceAsString()],
+            ['trace' => (new ThrowableTraceFormatter())->format($throwable)],
         );
     }
 

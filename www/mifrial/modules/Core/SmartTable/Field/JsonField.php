@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Field;
 
 use JsonException;
+use Mifrial\Core\Kernel\Http\JsonDocuments;
 use Mifrial\Core\SmartTable\Dto\ColumnMeta;
 use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
@@ -21,6 +22,7 @@ final class JsonField extends BaseField
      * @param string $fieldName Имя поля.
      * @param FieldSettings $fieldSettings Настройки.
      * @param IFieldHydrator|null $fieldHydrator Опциональный hydrator объекта.
+     * @param bool $preserveObjectMaps true — JSON-объект не схлопывается в список.
      *
      * @return void
      */
@@ -28,6 +30,7 @@ final class JsonField extends BaseField
         string $fieldName,
         FieldSettings $fieldSettings,
         private readonly ?IFieldHydrator $fieldHydrator = null,
+        private readonly bool $preserveObjectMaps = false,
     ) {
         parent::__construct($fieldName, $fieldSettings);
     }
@@ -149,6 +152,10 @@ final class JsonField extends BaseField
     private function decodeJsonString(string $databaseValue): mixed
     {
         try {
+            if ($this->preserveObjectMaps) {
+                return JsonDocuments::decode($databaseValue);
+            }
+
             return json_decode($databaseValue, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
             $this->assertJsonCompatible($databaseValue);
@@ -170,6 +177,10 @@ final class JsonField extends BaseField
     {
         try {
             $encoded = json_encode($databaseValue, JSON_THROW_ON_ERROR);
+
+            if ($this->preserveObjectMaps) {
+                return JsonDocuments::decode($encoded);
+            }
 
             return json_decode($encoded, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException) {

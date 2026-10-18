@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Kernel\Value\Optional;
 
+use Mifrial\Core\Kernel\Value\JsonObject;
+
 /**
  * Массив в JSON: ключа нет или ключ есть (не null).
  */
@@ -55,6 +57,10 @@ final class OptionalArray extends OptionalValue
      */
     public static function fromJson(mixed $jsonValue): static
     {
+        if ($jsonValue instanceof JsonObject) {
+            return self::present($jsonValue->getMembers());
+        }
+
         if (is_array($jsonValue)) {
             return self::present($jsonValue);
         }

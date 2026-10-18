@@ -17,6 +17,7 @@ final class LogViewAssembler
     private const CONTEXT_KEYS = [
         'file' => true,
         'line' => true,
+        'trace' => true,
         'message' => true,
         'jobId' => true,
         'attempts' => true,
@@ -86,7 +87,7 @@ final class LogViewAssembler
         }
 
         if (is_string($contextValue)) {
-            return strlen($contextValue) <= 200 ? $contextValue : substr($contextValue, 0, 200);
+            return strlen($contextValue) <= 8000 ? $contextValue : substr($contextValue, 0, 8000);
         }
 
         return null;

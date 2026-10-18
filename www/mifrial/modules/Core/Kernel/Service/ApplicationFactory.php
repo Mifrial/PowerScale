@@ -69,7 +69,13 @@ final class ApplicationFactory
         return new Application(
             $serviceLocator,
             $moduleManager,
-            new Dispatcher($moduleManager, new ActionParameterBinder(), $serviceLocator),
+            new Dispatcher(
+                $moduleManager,
+                new ActionParameterBinder(),
+                $serviceLocator,
+                $processLogger,
+                ($config['debug'] ?? false) === true,
+            ),
             new ResponseEmitter(requestContext: $requestContext),
             $processLogger,
             $config,

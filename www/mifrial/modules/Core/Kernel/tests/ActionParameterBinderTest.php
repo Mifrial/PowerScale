@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\Kernel\Tests;
 
 use Mifrial\Core\Kernel\Dto\ParameterBindResult;
+use Mifrial\Core\Kernel\Http\JsonDocuments;
 use Mifrial\Core\Kernel\Service\ActionParameterBinder;
 use Mifrial\Core\Kernel\Tests\Fixture\ParameterBindingInputTarget;
 use Mifrial\Core\Kernel\Tests\Fixture\ParameterBindingTarget;
@@ -133,6 +134,31 @@ final class ActionParameterBinderTest extends TestCase
         self::assertSame([1.0, true], $floatResult->arguments());
         self::assertTrue($listResult->isOk());
         self::assertSame([[1, 2]], $listResult->arguments());
+    }
+
+    /**
+     * JSON-объект и список объектов биндятся в array.
+     *
+     * @return void
+     */
+    public function testBindsJsonObjectAsArray(): void
+    {
+        $decoded = JsonDocuments::decode(
+            '{"visibility":{"scope":"all","userIds":[],"sections":[]}}',
+        );
+        $result = $this->bind('withMap', $decoded);
+        $keys = $this->bind(
+            'withList',
+            JsonDocuments::decode('{"ids":[{"type":"character","id":2}]}'),
+        );
+
+        self::assertTrue($result->isOk());
+        self::assertSame(
+            [['scope' => 'all', 'userIds' => [], 'sections' => []]],
+            $result->arguments(),
+        );
+        self::assertTrue($keys->isOk());
+        self::assertSame([[['type' => 'character', 'id' => 2]]], $keys->arguments());
     }
 
     /**

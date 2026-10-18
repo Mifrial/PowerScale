@@ -16,6 +16,7 @@ use Mifrial\Core\Kernel\Http\ResponseEmitter;
 use Mifrial\Core\Kernel\Interface\Http\IHttpRequest;
 use Mifrial\Core\Kernel\Service\ModuleManager;
 use Mifrial\Core\Kernel\Service\ServiceLocator;
+use LogicException;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use stdClass;
@@ -95,13 +96,16 @@ final class KernelGuardTest extends TestCase
      */
     public function testDebugInternalIncludesTrace(): void
     {
-        $response = (new DebugResponseFormatter(true))->internalError(new RuntimeException('boom'));
+        $response = (new DebugResponseFormatter(true))->internalError(
+            new RuntimeException('boom', 0, new LogicException('inner')),
+        );
         $payload = $response->toArray();
 
         self::assertSame('INTERNAL', $payload['error']['code']);
         self::assertStringContainsString('RuntimeException', $payload['error']['message']);
         self::assertArrayHasKey('details', $payload['error']);
-        self::assertArrayHasKey('trace', $payload['error']['details']);
+        self::assertStringContainsString('RuntimeException: boom', $payload['error']['details']['trace']);
+        self::assertStringContainsString('LogicException: inner', $payload['error']['details']['trace']);
     }
 
     /**

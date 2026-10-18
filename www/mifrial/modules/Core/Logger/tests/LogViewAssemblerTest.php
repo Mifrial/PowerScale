@@ -35,7 +35,7 @@ final class LogViewAssemblerTest extends TestCase
                 'attempts' => 2,
                 'sql' => 'select 1',
                 'nested' => ['x' => 1],
-                'trace' => ['a'],
+                'trace' => 'Application.php:123',
             ],
         ]));
         self::assertSame(42, $view['id']);
@@ -52,6 +52,7 @@ final class LogViewAssemblerTest extends TestCase
                 'message' => 'inner',
                 'jobId' => 'j1',
                 'attempts' => 2,
+                'trace' => 'Application.php:123',
             ],
             $view['context'],
         );

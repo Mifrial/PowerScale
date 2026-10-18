@@ -9,9 +9,11 @@ use Mifrial\Core\Kernel\Dto\ActionResponse;
 use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\Kernel\Exception\MifrialException;
+use Mifrial\Core\Kernel\Http\ActionExceptionReporter;
 use Mifrial\Core\Kernel\Http\CsrfGuard;
 use Mifrial\Core\Kernel\Http\DebugResponseFormatter;
 use Mifrial\Core\Kernel\Http\ResponseEmitter;
+use Mifrial\Core\Kernel\Http\ThrowableTraceFormatter;
 use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Http\IHttpRequest;
 use Mifrial\Core\Kernel\Interface\Http\IRequestBinder;
@@ -109,10 +111,13 @@ final class Application implements IApplication
         }
 
         if ($throwable instanceof ActionException) {
-            $this->responseEmitter->emitJson(ActionResponse::fail(
-                $throwable->getErrorCode(),
-                $throwable->getMessage(),
-            ));
+            $actionCode = $httpRequest->getQueryValue('action');
+            $this->responseEmitter->emitJson(
+                $this->actionExceptionReporter()->report(
+                    $throwable,
+                    is_string($actionCode) && $actionCode !== '' ? $actionCode : null,
+                ),
+            );
         }
 
         $this->logUnhandled($httpRequest, $throwable);
@@ -278,7 +283,27 @@ final class Application implements IApplication
      */
     private function debugFormatter(): DebugResponseFormatter
     {
-        return new DebugResponseFormatter($this->config['debug'] ?? false);
+        return new DebugResponseFormatter($this->isDebug());
+    }
+
+    /**
+     * Репортёр доменного отказа с тем же debug, что и INTERNAL.
+     *
+     * @return ActionExceptionReporter Репортёр.
+     */
+    private function actionExceptionReporter(): ActionExceptionReporter
+    {
+        return new ActionExceptionReporter($this->logger, $this->isDebug());
+    }
+
+    /**
+     * Флаг debug из локальной конфигурации.
+     *
+     * @return bool true, если подробные ошибки включены.
+     */
+    private function isDebug(): bool
+    {
+        return ($this->config['debug'] ?? false) === true;
     }
 
     /**
@@ -296,6 +321,7 @@ final class Application implements IApplication
             'message' => $throwable->getMessage(),
             'file' => $throwable->getFile(),
             'line' => $throwable->getLine(),
+            'trace' => (new ThrowableTraceFormatter())->format($throwable),
         ];
         $actionCode = $httpRequest->getQueryValue('action');
         if (is_string($actionCode) && $actionCode !== '') {

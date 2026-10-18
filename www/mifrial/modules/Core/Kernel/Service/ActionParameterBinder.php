@@ -6,6 +6,7 @@ namespace Mifrial\Core\Kernel\Service;
 
 use Mifrial\Core\Kernel\Dto\ParameterBindResult;
 use Mifrial\Core\Kernel\Interface\Action\IActionInput;
+use Mifrial\Core\Kernel\Value\JsonObject;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
@@ -45,7 +46,7 @@ final class ActionParameterBinder
             return ParameterBindResult::fail('INVALID_PARAMS', 'Payload must be an object');
         }
 
-        $payloadMap = $payload ?? [];
+        $payloadMap = $payload instanceof JsonObject ? $payload->getMembers() : ($payload ?? []);
         $shapeError = $this->actionInputShapeError($handleMethod);
         if ($shapeError !== null) {
             return ParameterBindResult::fail('INVALID_PARAMS', $shapeError);
@@ -68,6 +69,10 @@ final class ActionParameterBinder
     private function isObjectPayload(mixed $payload): bool
     {
         if ($payload === null) {
+            return true;
+        }
+
+        if ($payload instanceof JsonObject) {
             return true;
         }
 

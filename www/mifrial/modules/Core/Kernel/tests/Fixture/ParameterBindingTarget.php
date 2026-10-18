@@ -84,6 +84,18 @@ final class ParameterBindingTarget implements IActionHandler
     }
 
     /**
+     * JSON-объект как array.
+     *
+     * @param array<string, mixed> $visibility Объект.
+     *
+     * @return array{visibility: array<string, mixed>} Объект.
+     */
+    public function withMap(array $visibility): array
+    {
+        return ['visibility' => $visibility];
+    }
+
+    /**
      * Неподдерживаемый объектный тип.
      *
      * @param stdClass $payload Объект.

@@ -6,6 +6,7 @@ namespace Mifrial\Core\Kernel\Service;
 
 use BackedEnum;
 use Mifrial\Core\Kernel\Dto\BoundArgument;
+use Mifrial\Core\Kernel\Value\JsonObject;
 use ReflectionNamedType;
 
 /**
@@ -47,7 +48,7 @@ final class ActionParameterTypeMatcher
             'float' => $this->matchFloat($value, $parameterName),
             'string' => $this->matchExact(is_string($value), $value, $parameterName),
             'bool' => $this->matchExact(is_bool($value), $value, $parameterName),
-            'array' => $this->matchExact(is_array($value), $value, $parameterName),
+            'array' => $this->matchArray($value, $parameterName),
             'mixed' => BoundArgument::valid($value),
             default => BoundArgument::invalid('Unsupported parameter: ' . $parameterName),
         };
@@ -86,6 +87,26 @@ final class ActionParameterTypeMatcher
     {
         if (is_int($value) || is_float($value)) {
             return BoundArgument::valid((float) $value);
+        }
+
+        return BoundArgument::invalid('Invalid parameter: ' . $parameterName);
+    }
+
+    /**
+     * JSON-объект или массив, в том числе список объектов.
+     *
+     * @param mixed $value JSON.
+     * @param string $parameterName Имя параметра.
+     *
+     * @return BoundArgument Массив или ошибка.
+     */
+    private function matchArray(mixed $value, string $parameterName): BoundArgument
+    {
+        if ($value instanceof JsonObject || is_array($value)) {
+            $unwrapped = JsonObject::unwrapValue($value);
+            if (is_array($unwrapped)) {
+                return BoundArgument::valid($unwrapped);
+            }
         }
 
         return BoundArgument::invalid('Invalid parameter: ' . $parameterName);
