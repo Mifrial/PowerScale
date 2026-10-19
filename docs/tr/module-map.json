@@ -1,5 +1,6 @@
 {
-    "generatedBy": "composer map",
+    "generatedBy": "composer maps",
+    "plansSource": "docs/tr/doc-index.json",
     "modules": [
         {
             "key": "Core/Agent",
@@ -40,6 +41,16 @@
             ],
             "dependedOnBy": [
                 "Core/Mail"
+            ],
+            "plans": [
+                {
+                    "path": "docs/tr/agent-plan-01-tick.md",
+                    "title": "План Agent 1 — тик по расписанию",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-03",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -141,7 +152,49 @@
                 "Core/SmartTable",
                 "Core/User"
             ],
-            "dependedOnBy": []
+            "dependedOnBy": [],
+            "plans": [
+                {
+                    "path": "docs/tr/auth-plan-01-session.md",
+                    "title": "План Auth 1 — сессия, пароль, seed",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/auth-plan-02-password-flow.md",
+                    "title": "План Auth 2 — политика пароля, remember, сброс и смена",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-03",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/auth-plan-03-mail-reset.md",
+                    "title": "План Auth 3 — сброс пароля через Mail",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-03",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/auth-plan-04-guest.md",
+                    "title": "План Auth 4 — гостевая сессия",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/auth-system.md",
+                    "title": "Пользователи и авторизация",
+                    "kind": "canon",
+                    "state": null,
+                    "date": null,
+                    "hasStatus": true
+                }
+            ]
         },
         {
             "key": "Core/Cache",
@@ -177,7 +230,8 @@
             "dependedOnBy": [
                 "Core/SmartTable",
                 "Versioning/Space"
-            ]
+            ],
+            "plans": []
         },
         {
             "key": "Core/Event",
@@ -232,7 +286,8 @@
             ],
             "dependedOnBy": [
                 "Roleplay/Game"
-            ]
+            ],
+            "plans": []
         },
         {
             "key": "Core/Kernel",
@@ -358,6 +413,24 @@
                 "Roleplay/Rule",
                 "Roleplay/RuleSpace",
                 "Versioning/Space"
+            ],
+            "plans": [
+                {
+                    "path": "docs/tr/kernel-plan-01-setup.md",
+                    "title": "План Kernel 1 — установка и обновление модулей",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/kernel-plan-02-action-input.md",
+                    "title": "План Kernel 2 — DTO входа action",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-03",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -402,7 +475,49 @@
                 "Core/SmartTable",
                 "Core/User"
             ],
-            "dependedOnBy": []
+            "dependedOnBy": [],
+            "plans": [
+                {
+                    "path": "docs/tr/logger-plan-01.md",
+                    "title": "План Logger 1 — узкий логер ошибок",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/logger-plan-02.md",
+                    "title": "План Logger 2 — куда писать",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/logger-plan-03.md",
+                    "title": "План Logger 3 — class-string логера в конфиге сайта",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/logger-plan-04-view.md",
+                    "title": "План Logger 4 — просмотр технического журнала",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-10",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/logger-plan-05-vue-datetime.md",
+                    "title": "План Logger 5 — даты на экране журнала",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-10",
+                    "hasStatus": true
+                }
+            ]
         },
         {
             "key": "Core/Mail",
@@ -440,6 +555,24 @@
             ],
             "dependedOnBy": [
                 "Core/Auth"
+            ],
+            "plans": [
+                {
+                    "path": "docs/tr/mail-roadmap.md",
+                    "title": "Нарезка Core/Mail и Core/Agent",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-03",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/mail-plan-01-queue.md",
+                    "title": "План Mail 1 — события, шаблоны, очередь",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-03",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -527,6 +660,184 @@
                 "Roleplay/Rule",
                 "Roleplay/RuleSpace",
                 "Versioning/Space"
+            ],
+            "plans": [
+                {
+                    "path": "docs/tr/smarttable-plan-01-connection.md",
+                    "title": "План 1 — соединение SmartTable",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-01",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-02-fields.md",
+                    "title": "План 2 — поля Basic и getMap",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-01",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-09-migrations.md",
+                    "title": "План 9 — DDL одной таблицы в SmartTable; прогон модулей не здесь",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-18-slice-batch.md",
+                    "title": "План 18 — срез до 10k и addMany",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-roadmap.md",
+                    "title": "Нарезка SmartTable",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-03-crud.md",
+                    "title": "План 3 — CRUD одной таблицы с PHP-классом",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-01",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-04-getlist.md",
+                    "title": "План 4 — getList",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-01",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-05-multiple.md",
+                    "title": "План 5 — multiple (mfv)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-01",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-05-reference.md",
+                    "title": "План 5b — reference",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-01",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-06-indexes.md",
+                    "title": "План 6 — индексы из определения",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-01",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-07-dictionary.md",
+                    "title": "План 7b — runtime-словарь",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-01",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-07-force-ddl.md",
+                    "title": "План 7a — forceUpdateTable и deleteTable",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-01",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-08-cache.md",
+                    "title": "План 8 — тегированный кэш",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-10-gates.md",
+                    "title": "План 10 — ворота Basic",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-13-datetime-now.md",
+                    "title": "План 13 — DateTime default «сейчас»",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-14-reference-path.md",
+                    "title": "План 14 — путь через `reference` в getList",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-15-bigint.md",
+                    "title": "План 15 — ширина INT/BIGINT и `onDelete: cascade`",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-16-composite-unique.md",
+                    "title": "План 16 — составной unique",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-17-aggregate.md",
+                    "title": "План 17 — агрегат своей таблицы",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-19-addmany-mfv.md",
+                    "title": "План 19 — addMany пишет mfv; вложенная TX",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable-plan-20-linkset.md",
+                    "title": "План 20 — тип `linkset` (`LinkSetField`, не hop)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/smarttable.md",
+                    "title": "SmartTable",
+                    "kind": "canon",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -657,6 +968,88 @@
                 "Roleplay/Keyword",
                 "Roleplay/Mechanic",
                 "Roleplay/RuleSpace"
+            ],
+            "plans": [
+                {
+                    "path": "docs/tr/user-plan-01-account.md",
+                    "title": "План 1 — учётка User",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/user-plan-02-groups.md",
+                    "title": "План 2 — группы и членство",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/user-plan-03-http.md",
+                    "title": "План User 3 — HTTP учётки и актор запроса",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-03",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/user-plan-04-groups-http.md",
+                    "title": "План User 4 — HTTP групп",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-03",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/user-plan-05-no-catalog-dump.md",
+                    "title": "План User 5 — выправить контракт (бэк + Vue)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-03",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/user-plan-06-members-page.md",
+                    "title": "План User 6 — страница членов группы",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/user-plan-07-member-unique.md",
+                    "title": "План User 7 — unique членства без member_key",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/user-plan-08-member-count-aggregate.md",
+                    "title": "План User 8 — memberCount через aggregate",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/user-roadmap.md",
+                    "title": "Нарезка Core/User",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-02",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/user.md",
+                    "title": "User (backend)",
+                    "kind": "canon",
+                    "state": null,
+                    "date": "2026-09-03",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -750,6 +1143,80 @@
             ],
             "dependedOnBy": [
                 "Roleplay/Game"
+            ],
+            "plans": [
+                {
+                    "path": "docs/tr/chat-plan-01.md",
+                    "title": "План Chat 1 — таблицы и фасад",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/chat-plan-02.md",
+                    "title": "План Chat 2 — HTTP commands",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/chat-plan-03.md",
+                    "title": "План Chat 3 — SSE sync",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/chat-plan-04.md",
+                    "title": "План Chat 4 — Vue real",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/chat-plan-05.md",
+                    "title": "План Chat 5 — visibility, unread, preview",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/chat-plan-06.md",
+                    "title": "План Chat 6 — создать host private/group",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/chat-plan-07.md",
+                    "title": "План Chat 7 — непрозрачный тип донора",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/chat-roadmap.md",
+                    "title": "Нарезка Messages/Chat",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/chat-system.md",
+                    "title": "Система Chat",
+                    "kind": "canon",
+                    "state": null,
+                    "date": "2026-08-30",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -775,7 +1242,6 @@
                 "Mifrial\\Roleplay\\Character\\Action\\CreateCharacterAction",
                 "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterAction",
                 "Mifrial\\Roleplay\\Character\\Action\\ValidateCharacterAction",
-                "Mifrial\\Roleplay\\Character\\Action\\MigrateCharacterAction",
                 "Mifrial\\Roleplay\\Character\\Action\\GetCharacterListAction",
                 "Mifrial\\Roleplay\\Character\\Action\\GetCharacterAction",
                 "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterVisibilityAction",
@@ -795,11 +1261,6 @@
                 {
                     "action": "character.validate",
                     "handler": "Mifrial\\Roleplay\\Character\\Action\\ValidateCharacterAction",
-                    "csrf": true
-                },
-                {
-                    "action": "character.migrate",
-                    "handler": "Mifrial\\Roleplay\\Character\\Action\\MigrateCharacterAction",
                     "csrf": true
                 },
                 {
@@ -886,7 +1347,6 @@
                 "Core/Kernel",
                 "Core/SmartTable",
                 "Core/User",
-                "Roleplay/Game",
                 "Roleplay/Keyword",
                 "Roleplay/Mechanic",
                 "Roleplay/Rule",
@@ -894,6 +1354,136 @@
             ],
             "dependedOnBy": [
                 "Roleplay/Game"
+            ],
+            "plans": [
+                {
+                    "path": "docs/specs/character-actual-session-source-plan.md",
+                    "title": "План перехода на `actualCharacter` как источник листа во время сессии",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-01.md",
+                    "title": "План Character 1 — серверный контракт",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-09",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-02.md",
+                    "title": "План Character 2 — каркас модуля и actual storage",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-10",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-03.md",
+                    "title": "План Character 3 — контекст ревизии (C2)",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-10",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-04.md",
+                    "title": "План Character 4 — порт Mechanic Engine (C3)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-05.md",
+                    "title": "План Character 5 — сборка листа и валидатор (C4)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-06.md",
+                    "title": "План Character 6 — authoritative create/update (C5)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-07.md",
+                    "title": "План Character 7 — чтение, видимость, заметки (C6)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-08.md",
+                    "title": "План Character 8 — миграция ревизии (C7)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-09.md",
+                    "title": "План Character 9 — контекст формулы (C10)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-10.md",
+                    "title": "План Character 10 — состояние на actual",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-11.md",
+                    "title": "План Character 11 — остаток повреждений и дельта истощения",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-plan-12.md",
+                    "title": "План Character — проекция боевых слоёв",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-roadmap.md",
+                    "title": "Нарезка Roleplay/Character",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/specs/character-actual-session-source-roadmap.md",
+                    "title": "Roadmap реализации `actualCharacter` как источника листа в session",
+                    "kind": "plan",
+                    "state": null,
+                    "date": "2026-09-28",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/character-system.md",
+                    "title": "Система персонажей",
+                    "kind": "canon",
+                    "state": null,
+                    "date": "2026-08-30",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -973,6 +1563,7 @@
                 "Mifrial\\Roleplay\\Game\\Action\\GetGameCharacterAction",
                 "Mifrial\\Roleplay\\Game\\Action\\GetGameCharacterListAction",
                 "Mifrial\\Roleplay\\Character\\Interface\\Service\\ICharacterSessionParticipants",
+                "Mifrial\\Roleplay\\Character\\Action\\MigrateCharacterAction",
                 "Mifrial\\Roleplay\\Game\\Action\\StartGameSessionAction",
                 "Mifrial\\Roleplay\\Game\\Action\\StopGameSessionAction",
                 "Mifrial\\Roleplay\\Game\\Action\\CreateGameNpcAction",
@@ -1064,6 +1655,11 @@
                 {
                     "action": "game.getCharacterList",
                     "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameCharacterListAction",
+                    "csrf": true
+                },
+                {
+                    "action": "character.migrate",
+                    "handler": "Mifrial\\Roleplay\\Character\\Action\\MigrateCharacterAction",
                     "csrf": true
                 },
                 {
@@ -1372,8 +1968,312 @@
                 "Roleplay/Rule",
                 "Roleplay/RuleSpace"
             ],
-            "dependedOnBy": [
-                "Roleplay/Character"
+            "dependedOnBy": [],
+            "plans": [
+                {
+                    "path": "docs/tr/game-plan-29.md",
+                    "title": "План Game 29 — физические профили атаки",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-10-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-30.md",
+                    "title": "План Game 30 — immediate consequences",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-10-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-31.md",
+                    "title": "План Game 31 — wounds",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-10-12",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-32.md",
+                    "title": "План Game 32 — конец хода и продолжение действия",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-10-12",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-34.md",
+                    "title": "План Game 34 — ручная правка листа в сессии",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-10-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-35.md",
+                    "title": "План Game 35 — один журнал команд",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-10-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-36-strike-owner-actions.md",
+                    "title": "План Game 36 — владелец персонажа в ударе 1 → 1",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-01.md",
+                    "title": "План Game 1 — каркас модуля и строка игры",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-13.md",
+                    "title": "План Game 13 — один удар",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-18.md",
+                    "title": "План Game 18 — проверка",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-16.md",
+                    "title": "План Game 16 — чаты донора",
+                    "kind": "plan",
+                    "state": "ОТМЕНЁН",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-17.md",
+                    "title": "План Game 17 — process",
+                    "kind": "plan",
+                    "state": "ОТМЕНЁН",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-02.md",
+                    "title": "План Game 2 — участники-люди и права",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-03.md",
+                    "title": "План Game 3 — строка персонажа в игре",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-04.md",
+                    "title": "План Game 4 — смена ревизии и допуск",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-05.md",
+                    "title": "План Game 5 — одна текущая сессия без боя",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-06.md",
+                    "title": "План Game 6 — NPC без владельца и без второго листа",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-07.md",
+                    "title": "План Game 7 — секции видимости строки персонажа",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-08.md",
+                    "title": "План Game 8 — фильтр карточки и вступление",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-09.md",
+                    "title": "План Game 9 — летопись",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-10.md",
+                    "title": "План Game 10 — порт мутации actual",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-11.md",
+                    "title": "План Game 11 — экономика",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-12.md",
+                    "title": "План Game 12 — бой без тактики",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-14.md",
+                    "title": "План Game 14 — проекции чтения",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-15.md",
+                    "title": "План Game 15 — доставка",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-19.md",
+                    "title": "План Game 19 — широкий удар",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-20.md",
+                    "title": "План Game 20 — исход удара",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-21.md",
+                    "title": "План Game 21 — инициатива",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-22.md",
+                    "title": "План Game 22 — попадание одного удара",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-23.md",
+                    "title": "План Game 23 — сопротивление цели одного удара",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-24.md",
+                    "title": "План Game 24 — смягчение S одного удара",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-25.md",
+                    "title": "План Game 25 — повреждение одного удара",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-26.md",
+                    "title": "План Game 26 — размерные урон, сопротивление и смягчение в итоге удара",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-27.md",
+                    "title": "План Game 27 — деление повреждения на стойкость при закрытии удара",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-28.md",
+                    "title": "План Game 28 — слои цели на закрытии удара",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-roadmap.md",
+                    "title": "Нарезка Roleplay/Game",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-system.md",
+                    "title": "Система игр",
+                    "kind": "canon",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-08-30",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-combat-readiness.md",
+                    "title": "Готовность боевой модели Game",
+                    "kind": "canon",
+                    "state": null,
+                    "date": "2026-10-07",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -1444,6 +2344,32 @@
             "dependedOnBy": [
                 "Roleplay/Character",
                 "Roleplay/Rule"
+            ],
+            "plans": [
+                {
+                    "path": "docs/tr/keyword-plan-01.md",
+                    "title": "План Keyword 1 — каркас справочника для Rule",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/keyword-plan-02.md",
+                    "title": "План Keyword 2 — HTTP справочника",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-06",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/keyword-plan-03.md",
+                    "title": "План Keyword 3 — Vue-модуль `Roleplay/Keyword`",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-06",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -1566,6 +2492,72 @@
                 "Roleplay/Character",
                 "Roleplay/Game",
                 "Roleplay/Rule"
+            ],
+            "plans": [
+                {
+                    "path": "docs/tr/mechanic-plan-05.md",
+                    "title": "План Mechanic 5 — публичный вызов Engine",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/mechanic-plan-06.md",
+                    "title": "План Mechanic 6 — бросок",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/mechanic-plan-01.md",
+                    "title": "План Mechanic 1 — каркас справочника для Rule",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/mechanic-plan-02.md",
+                    "title": "План Mechanic 2 — HTTP справочника",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-06",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/mechanic-plan-04.md",
+                    "title": "План Mechanic 4 — ядро Engine",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/mechanic-plan-03.md",
+                    "title": "План Mechanic 3 — Vue-модуль `Roleplay/Mechanic`",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/mechanic-plan-07.md",
+                    "title": "План Mechanic — capability среза надёжности",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/mechanic-roadmap.md",
+                    "title": "Нарезка PHP Engine Roleplay/Mechanic",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-07",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -1613,6 +2605,336 @@
                 "Roleplay/Character",
                 "Roleplay/Game",
                 "Roleplay/RuleSpace"
+            ],
+            "plans": [
+                {
+                    "path": "docs/tr/rule-content-plan-04-knowledge.md",
+                    "title": "C1/C2 — план: система знаний",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-13",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-08-strike-upgrades.md",
+                    "title": "C2 — план: улучшения удара (`strike_upgrade`)",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-15",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-09-melee-speed.md",
+                    "title": "C2 — аудит ветки ближнего боя «Скорость»",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-11-melee-accuracy.md",
+                    "title": "C2 — ветка ближнего боя «Точность»",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-20",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-12-dodge-benefit.md",
+                    "title": "C2 — Польза уклонения в профилях оружия",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-19",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-13-melee-quantity.md",
+                    "title": "C2 — аудит ветки ближнего боя «Количество»",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-20",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-14-future-ability-ideas.md",
+                    "title": "Идеи по навыкам на будущее",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-15-melee-tactics-design.md",
+                    "title": "C2 — дизайн способностей «Защита знанием» и «Прикрытие»",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-20",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-roadmap.md",
+                    "title": "Нарезка Roleplay/Rule",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-10-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-review-01.md",
+                    "title": "Review 01 — вопросы по терминам и пропускам магии",
+                    "kind": "canon",
+                    "state": "ПЛАН",
+                    "date": "2026-09-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-roadmap.md",
+                    "title": "Нарезка магии и заклинаний",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-09-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-07-languages.md",
+                    "title": "C2 — план: языки, письменность, народность, книжный червь",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-09-15",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-10-melee-power.md",
+                    "title": "C2 — аудит и посадка ветки ближнего боя «Сила»",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-09-17",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-roadmap.md",
+                    "title": "Нарезка редакционного прохода каталога",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-09-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-plan-05.md",
+                    "title": "План Rule — разделить уже существующий evaluate",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-10-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-inventory-01.md",
+                    "title": "Inventory 01 — магия из AI.html",
+                    "kind": "canon",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-09-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-plan-02-slice.md",
+                    "title": "План M2 — representative vertical slice магии",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-09-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-plan-01.md",
+                    "title": "План Rule 1 — кластер на часы",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-plan-03.md",
+                    "title": "План Rule 14 — обход формул",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-10-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-plan-04.md",
+                    "title": "План Rule 15 — признак инициативы на проверке",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-10-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-plan-07.md",
+                    "title": "План Rule — боевые слои",
+                    "kind": "plan",
+                    "state": "ОТМЕНЁН",
+                    "date": "2026-10-06",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-03-senses.md",
+                    "title": "C2 — обсуждение: чувства и освещение",
+                    "kind": "plan",
+                    "state": "ОТЛОЖЕН",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-01-editorial.md",
+                    "title": "План C1 — редакционный проход каталога",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-02-concentration.md",
+                    "title": "C2 — план реализации концентрации",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-13",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-05-knowledge-game.md",
+                    "title": "C2 — план реализации: Game знаний (5.2)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-13",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-06-wounds.md",
+                    "title": "C2 — план реализации: Game ран (5.3)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-13",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-plan-02-init-surface.md",
+                    "title": "План Rule 2 — поверхность Vue `Rule/init`",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-plan-06.md",
+                    "title": "План Rule — деление размерного числа на размерное",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-06",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-plan-08.md",
+                    "title": "План Rule — nullable durability слота",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-06",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-plan-09.md",
+                    "title": "План Rule — модель модификатора предмета",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-06",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-plan-10.md",
+                    "title": "План Rule — один профиль блока у предмета",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-10-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-plan-01-inventory.md",
+                    "title": "План M1 — inventory магии из AI.html",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-plan-03-contract.md",
+                    "title": "План M3 — контракт SpellSpec / Ability",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-08",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-plan-04-import.md",
+                    "title": "План M4 — mock catalog и revision fixture среза магии",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-08",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-plan-05-frontend.md",
+                    "title": "План M5 — отображение и редактирование среза магии",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-08",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-plan-06-cast-check.md",
+                    "title": "План M6 — контекст сотворения и Сложность сотворения",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-09",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-plan-07-runtime-slice.md",
+                    "title": "План M7 — первый эффект каста: компоненты, касание, урон",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-10",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-plan-08-runtime-expansion.md",
+                    "title": "План M8 — duration, `spell_upgrade` на каст, параметры активации",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-plan-09-magic-runtime.md",
+                    "title": "План M9 — провал каста: отклонение, аркан, стабильность",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-queue.md",
+                    "title": "Очередь правил: runtime и зависимости",
+                    "kind": "canon",
+                    "state": null,
+                    "date": "2026-09-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-system.md",
+                    "title": "Система правил и пространств",
+                    "kind": "canon",
+                    "state": null,
+                    "date": "2026-08-30",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -1708,6 +3030,72 @@
             "dependedOnBy": [
                 "Roleplay/Character",
                 "Roleplay/Game"
+            ],
+            "plans": [
+                {
+                    "path": "docs/tr/rulespace-plan-01.md",
+                    "title": "План RuleSpace 1 — оператор миров правил",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rulespace-plan-02.md",
+                    "title": "План RuleSpace 2 — мета мира и лента ревизий",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rulespace-plan-03.md",
+                    "title": "План RuleSpace 3 — выборочный commit",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rulespace-plan-04.md",
+                    "title": "План RuleSpace 4 — HTTP `ruleSpace.*`",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rulespace-plan-05.md",
+                    "title": "План RuleSpace 5 — права HTTP",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rulespace-plan-06.md",
+                    "title": "План RuleSpace 6 — секции каталога",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rulespace-plan-10.md",
+                    "title": "План RuleSpace 10 — Vue: Space → RuleSpace",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rulespace-plan-11-sections-vue.md",
+                    "title": "План RuleSpace 11 — Vue: редактор секций каталога",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-08",
+                    "hasStatus": true
+                }
             ]
         },
         {
@@ -1750,6 +3138,24 @@
             ],
             "dependedOnBy": [
                 "Roleplay/Rule"
+            ],
+            "plans": [
+                {
+                    "path": "docs/tr/versioning-plan-01.md",
+                    "title": "План Versioning 1 — кластер и фасад Space",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/versioning-roadmap.md",
+                    "title": "Нарезка Versioning/Space",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-09-05",
+                    "hasStatus": true
+                }
             ]
         }
     ]

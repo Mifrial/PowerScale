@@ -90,7 +90,7 @@ Ability поддерживает requirements, grants, references на character
 
 ## Пространство и ревизии
 
-Персистентность часов (identity, экземпляры, space, revision, состав) — универсальный модуль `Versioning/Space` ([`versioning-roadmap.md`](versioning-roadmap.md), `DEC-080`). Продуктовый оператор — `Roleplay/RuleSpace`. Секции каталога и `code` пространства — не поля универсального Space. Rule не импортирует RuleSpace/Versioning.
+Персистентность часов (identity, экземпляры, space, revision, состав) — универсальный модуль `Versioning/Space` ([`versioning-roadmap.md`](versioning-roadmap.md), `DEC-080`). Продуктовый оператор — `Roleplay/RuleSpace`. Секции каталога и `code` пространства — не поля универсального Space. Rule не импортирует RuleSpace. PHP Rule → Versioning. RuleSpace ходит в часы только через `IRules`. Character и Game ревизию берут у RuleSpace.
 
 Пространство изолирует набор правил. Наследование использует snapshot-copy: в момент наследования актуальные версии копируются в новое пространство, после чего пространства независимы (`DEC-002`). Копирование пространства является атомарной транзакцией-коммитом: либо создаётся целостная независимая копия, либо изменения не применяются. Отдельная очередь копирования и progress UI не являются текущим контрактом.
 

@@ -3,11 +3,30 @@
 declare(strict_types=1);
 
 /**
- * Собирает реестр модулей Mifrial из module.config.php и composer.json.
+ * Собирает карточки модулей Mifrial из module.config.php и doc-index.json.
  *
- * Запуск: composer map (запись) или composer map-check (сверка).
+ * Запуск: composer maps (запись) или composer maps-check (сверка).
  * Файл не подпадает под phpcs: правила стандарта соблюдаются вручную.
  */
+
+const PLAN_STATE_ORDER = [
+    'ПЛАН' => 0,
+    'В РАБОТЕ' => 1,
+    'ЧАСТИЧНО' => 2,
+    'ОТМЕНЁН' => 3,
+    'ОТЛОЖЕН' => 4,
+    'СДЕЛАНО' => 5,
+    'СНИМОК' => 6,
+];
+
+const TRUSTED_MODULES = [
+    'Core/SmartTable',
+    'Core/Kernel',
+    'Core/Event',
+    'Core/Cache',
+    'Core/Auth',
+    'Core/Logger',
+];
 
 $mapRoot = dirname(__DIR__, 2);
 $docsRoot = dirname($mapRoot, 2) . '/docs/tr';
@@ -16,23 +35,29 @@ $checkOnly = in_array('--check', $argv, true);
 $configs = discoverModuleConfigs($mapRoot);
 $namespaces = readComposerNamespaces($mapRoot);
 $modules = collectModules($configs, $namespaces, $mapRoot);
+$plans = readDocumentPlans($docsRoot . '/doc-index.json');
 
-$markdown = renderMarkdown($modules);
-$json = renderJson($modules) . PHP_EOL;
-
-$markdownPath = $docsRoot . '/module-map.md';
-$jsonPath = $docsRoot . '/module-map.json';
+$sliceRoot = $docsRoot . '/module-map';
+$indexMarkdown = renderIndex($modules, $plans);
+$json = renderJson($modules, $plans) . PHP_EOL;
+$slices = renderSlices($modules, $plans);
 
 if ($checkOnly) {
-    failUnlessSame($markdownPath, $markdown, 'module-map.md');
-    failUnlessSame($jsonPath, $json, 'module-map.json');
+    failUnlessSame($sliceRoot . '/index.md', $indexMarkdown, 'module-map/index.md');
+    failUnlessSame($docsRoot . '/module-map.json', $json, 'module-map.json');
+    checkSlices($sliceRoot, $slices);
     fwrite(STDOUT, 'module map is up to date' . PHP_EOL);
     exit(0);
 }
 
-writeFile($markdownPath, $markdown);
-writeFile($jsonPath, $json);
-fwrite(STDOUT, 'module map written: ' . count($modules) . ' modules' . PHP_EOL);
+writeFile($sliceRoot . '/index.md', $indexMarkdown);
+writeFile($docsRoot . '/module-map.json', $json);
+foreach ($slices as $relativePath => $contents) {
+    writeFile($sliceRoot . '/' . $relativePath, $contents);
+}
+
+removeStaleSlices($sliceRoot, array_keys($slices));
+fwrite(STDOUT, sprintf('module map written: %d modules, %d slices%s', count($modules), count($slices), PHP_EOL));
 exit(0);
 
 /**
@@ -378,61 +403,95 @@ function longestNamespaceOwner(string $reference, array $moduleNamespaces): ?str
 }
 
 /**
- * Рендерит markdown-реестр модулей.
+ * Рендерит короткий индекс реестра со ссылками на карточки модулей.
  *
  * @param array<int, array<string, mixed>> $modules Реестр.
+ * @param array<string, array<int, array<string, mixed>>> $plans Планы по модулям.
  *
  * @return string Markdown.
  */
-function renderMarkdown(array $modules): string
+function renderIndex(array $modules, array $plans): string
 {
     $lines = [
         '# Реестр модулей',
         '',
         '**СГЕНЕРИРОВАНО.** Не редактировать вручную.',
-        'Команда: `composer map` (из `www/mifrial`); сверка — `composer map-check`.',
-        'Источник: `module.config.php`, каталоги `Interface/` и импорты модулей.',
-        'Карты входа стабильных Core-модулей — `README.md` внутри модуля;',
-        'что считать каноном — раздел «Карта доверия: стабильные модули Core» в',
-        '[`contract-status.md`](contract-status.md).',
+        'Команда: `composer maps` (из `www/mifrial`) — обновляет `doc-index` и реестр;',
+        'сверка — `composer maps-check`.',
+        'Карточки: `<Группа>/<Модуль>.md` рядом с этим файлом; машиночитаемо — `../module-map.json`.',
+        'Планы в карточках — из `doc-index.json` (`composer docs-map`).',
         '',
         '## Сводка',
         '',
-        '| Группа | Модуль | Локатор | Портов | Маршрутов | Зависит от |',
-        '|---|---|---|---|---|---|',
+        '| Группа | Модуль | Локатор | Портов | Маршрутов | Зависит от | Документов |',
+        '|---|---|---|---|---|---|---|',
     ];
 
     foreach ($modules as $module) {
         $lines[] = sprintf(
-            '| %s | `%s` | %s | %d | %d | %s |',
+            '| %s | %s | %s | %d | %d | %s | %d |',
             $module['group'],
-            $module['name'],
+            relativeLink('docs/tr/module-map', 'docs/tr/module-map/' . slicePath($module), $module['name']),
             $module['locator'] === null ? '—' : '`' . shortName($module['locator']) . '`',
             count($module['ports']),
             count($module['routes']),
-            $module['dependsOn'] === [] ? '—' : implode(', ', $module['dependsOn']),
+            inlineList($module['dependsOn']),
+            count($plans[$module['key']] ?? []),
         );
-    }
-
-    foreach ($modules as $module) {
-        $lines = array_merge($lines, renderModuleSection($module));
     }
 
     return implode(PHP_EOL, $lines) . PHP_EOL;
 }
 
 /**
- * Рендерит раздел одного модуля.
+ * Рендерит карточки всех модулей.
+ *
+ * @param array<int, array<string, mixed>> $modules Реестр.
+ * @param array<string, array<int, array<string, mixed>>> $plans Планы по модулям.
+ *
+ * @return array<string, string> Markdown по относительному пути карточки.
+ */
+function renderSlices(array $modules, array $plans): array
+{
+    $slices = [];
+    foreach ($modules as $module) {
+        $slices[slicePath($module)] = renderSlice($module, $plans[$module['key']] ?? []);
+    }
+
+    return $slices;
+}
+
+/**
+ * Возвращает путь карточки относительно каталога module-map.
  *
  * @param array<string, mixed> $module Модуль.
  *
- * @return array<int, string> Строки markdown.
+ * @return string Относительный путь.
  */
-function renderModuleSection(array $module): array
+function slicePath(array $module): string
 {
+    return $module['group'] . '/' . $module['name'] . '.md';
+}
+
+/**
+ * Рендерит карточку одного модуля.
+ *
+ * @param array<string, mixed> $module Модуль.
+ * @param array<int, array<string, mixed>> $plans Документы модуля.
+ *
+ * @return string Markdown.
+ */
+function renderSlice(array $module, array $plans): string
+{
+    $fromDir = 'docs/tr/module-map/' . $module['group'];
     $lines = [
+        '# ' . $module['key'],
         '',
-        '## ' . $module['key'],
+        '**СГЕНЕРИРОВАНО.** Не редактировать вручную.',
+        'Команда: `composer maps` (из `www/mifrial`); сверка — `composer maps-check`.',
+        'Источник: `module.config.php`, `Interface/`, импорты модуля; планы — `doc-index.json`.',
+        'Карточка небольшая: открывать можно. Детали по планам — `show.php --module='
+            . $module['key'] . ' --zone=tr`.',
         '',
         '- **Путь:** `' . $module['path'] . '`',
         '- **Неймспейс:** `' . $module['namespace'] . '`',
@@ -446,22 +505,30 @@ function renderModuleSection(array $module): array
     }
 
     if ($module['readme'] === true) {
-        $lines[] = '- **Карта входа:** `README.md` в каталоге модуля';
+        $lines[] = '- **Карта входа:** ' . relativeLink(
+            $fromDir,
+            'www/mifrial/' . $module['path'] . '/README.md',
+            'README.md',
+        );
     }
 
+    $lines[] = '- **Канон:** ' . canonLine($module['key'], $fromDir);
     $lines[] = '';
-    $lines[] = '### Порты';
+    $lines[] = '## Порты';
     $lines[] = '';
     $lines = array_merge($lines, bulletList($module['ports'], 'нет'));
-
     $lines[] = '';
-    $lines[] = '### Маршруты';
+    $lines[] = '## Маршруты';
     $lines[] = '';
     $lines[] = '| Action | Handler | CSRF |';
     $lines[] = '|---|---|---|';
     foreach ($module['routes'] as $route) {
-        $csrf = $route['csrf'] ? 'да' : 'нет';
-        $lines[] = sprintf('| `%s` | `%s` | %s |', $route['action'], shortName($route['handler']), $csrf);
+        $lines[] = sprintf(
+            '| `%s` | `%s` | %s |',
+            $route['action'],
+            shortName($route['handler']),
+            $route['csrf'] ? 'да' : 'нет',
+        );
     }
 
     if ($module['routes'] === []) {
@@ -469,7 +536,7 @@ function renderModuleSection(array $module): array
     }
 
     $lines[] = '';
-    $lines[] = '### Контракты `Interface/`';
+    $lines[] = '## Контракты `Interface/`';
     $lines[] = '';
     foreach ($module['contracts'] as $contract) {
         $description = $contract['summary'] === '' ? '' : ' — ' . $contract['summary'];
@@ -481,17 +548,269 @@ function renderModuleSection(array $module): array
     }
 
     $lines[] = '';
-    $lines[] = '### Зависимости';
+    $lines[] = '## Зависимости';
     $lines[] = '';
-    $lines[] = '- **Зависит от:** ' . inlineList($module['dependsOn']);
-    $lines[] = '- **От него зависят:** ' . inlineList($module['dependedOnBy']);
+    $lines[] = '- **Зависит от:** ' . moduleLinks($module['dependsOn'], $fromDir);
+    $lines[] = '- **От него зависят:** ' . moduleLinks($module['dependedOnBy'], $fromDir);
     $lines[] = '';
-    $lines[] = '### События';
+    $lines[] = '## События';
     $lines[] = '';
     $lines[] = inlineList($module['events']);
     $lines[] = '';
+    $lines = array_merge($lines, renderPlansSection($plans, $fromDir));
+
+    return implode(PHP_EOL, $lines) . PHP_EOL;
+}
+
+/**
+ * Рендерит раздел «Планы и документы» карточки модуля.
+ *
+ * @param array<int, array<string, mixed>> $plans Документы модуля.
+ * @param string $fromDir Каталог карточки от корня репозитория.
+ *
+ * @return array<int, string> Строки markdown.
+ */
+function renderPlansSection(array $plans, string $fromDir): array
+{
+    if ($plans === []) {
+        return ['## Планы и документы', '', 'нет', ''];
+    }
+
+    $lines = [
+        '## Планы и документы',
+        '',
+        '| Документ | Тип | Состояние | Дата |',
+        '|---|---|---|---|',
+    ];
+    foreach ($plans as $plan) {
+        $lines[] = sprintf(
+            '| %s | %s | %s | %s |',
+            relativeLink($fromDir, (string) $plan['path'], basename((string) $plan['path'])),
+            $plan['kind'] === 'plan' ? 'план' : 'канон',
+            planStateCell($plan),
+            $plan['date'] ?? '—',
+        );
+    }
+
+    $lines[] = '';
 
     return $lines;
+}
+
+/**
+ * Возвращает ячейку состояния документа.
+ *
+ * @param array<string, mixed> $plan Документ.
+ *
+ * @return string Токен, `?` или прочерк.
+ */
+function planStateCell(array $plan): string
+{
+    if ($plan['state'] !== null) {
+        return '`~' . $plan['state'] . '~`';
+    }
+
+    return $plan['hasStatus'] === true ? '?' : '—';
+}
+
+/**
+ * Описывает канон модуля: карта доверия есть только для стабильных Core.
+ *
+ * @param string $key Ключ модуля.
+ * @param string $fromDir Каталог карточки от корня репозитория.
+ *
+ * @return string Описание канона.
+ */
+function canonLine(string $key, string $fromDir): string
+{
+    if (!in_array($key, TRUSTED_MODULES, true)) {
+        return 'не зафиксирован';
+    }
+
+    return 'раздел «Карта доверия: стабильные модули Core» в '
+        . relativeLink($fromDir, 'docs/tr/contract-status.md', 'contract-status.md');
+}
+
+/**
+ * Рендерит ключи модулей ссылками на их карточки.
+ *
+ * @param array<int, string> $keys Ключи модулей.
+ * @param string $fromDir Каталог карточки от корня репозитория.
+ *
+ * @return string Текст.
+ */
+function moduleLinks(array $keys, string $fromDir): string
+{
+    if ($keys === []) {
+        return '—';
+    }
+
+    $links = [];
+    foreach ($keys as $key) {
+        $links[] = relativeLink($fromDir, 'docs/tr/module-map/' . $key . '.md', $key);
+    }
+
+    return implode(', ', $links);
+}
+
+/**
+ * Читает планы и канон модулей из doc-index.json.
+ *
+ * @param string $path Путь к doc-index.json.
+ *
+ * @return array<string, array<int, array<string, mixed>>> Документы по модулям.
+ */
+function readDocumentPlans(string $path): array
+{
+    if (!is_file($path)) {
+        return [];
+    }
+
+    $decoded = json_decode((string) file_get_contents($path), true);
+    $documents = is_array($decoded) ? ($decoded['documents'] ?? []) : [];
+    $plans = [];
+    foreach ((array) $documents as $document) {
+        if (!is_array($document) || !in_array($document['kind'] ?? '', ['plan', 'canon'], true)) {
+            continue;
+        }
+
+        $entry = [
+            'path' => (string) ($document['path'] ?? ''),
+            'title' => (string) ($document['title'] ?? ''),
+            'kind' => (string) $document['kind'],
+            'state' => $document['state'] ?? null,
+            'date' => $document['date'] ?? null,
+            'hasStatus' => (string) ($document['statusRaw'] ?? '') !== '',
+        ];
+        foreach ((array) ($document['modules'] ?? []) as $module) {
+            $plans[(string) $module][] = $entry;
+        }
+    }
+
+    foreach (array_keys($plans) as $module) {
+        usort($plans[$module], 'comparePlans');
+    }
+
+    return $plans;
+}
+
+/**
+ * Сравнивает документы: сначала открытые, затем по пути.
+ *
+ * @param array<string, mixed> $left Документ.
+ * @param array<string, mixed> $right Документ.
+ *
+ * @return int Результат сравнения.
+ */
+function comparePlans(array $left, array $right): int
+{
+    $leftRank = PLAN_STATE_ORDER[$left['state'] ?? ''] ?? 9;
+    $rightRank = PLAN_STATE_ORDER[$right['state'] ?? ''] ?? 9;
+    if ($leftRank !== $rightRank) {
+        return $leftRank <=> $rightRank;
+    }
+
+    return (string) $left['path'] <=> (string) $right['path'];
+}
+
+/**
+ * Строит относительную markdown-ссылку.
+ *
+ * @param string $fromDir Каталог ссылающегося документа от корня репозитория.
+ * @param string $target Цель от корня репозитория.
+ * @param string $label Подпись ссылки.
+ *
+ * @return string Markdown-ссылка.
+ */
+function relativeLink(string $fromDir, string $target, string $label): string
+{
+    $fromParts = explode('/', $fromDir);
+    $targetParts = explode('/', $target);
+    $common = 0;
+    while (isset($fromParts[$common], $targetParts[$common]) && $fromParts[$common] === $targetParts[$common]) {
+        $common++;
+    }
+
+    $up = str_repeat('../', count($fromParts) - $common);
+
+    return sprintf('[%s](%s)', $label, $up . implode('/', array_slice($targetParts, $common)));
+}
+
+/**
+ * Сверяет карточки с ожидаемым содержимым и ищет лишние файлы.
+ *
+ * @param string $sliceRoot Каталог module-map.
+ * @param array<string, string> $slices Ожидаемые карточки.
+ *
+ * @return void
+ */
+function checkSlices(string $sliceRoot, array $slices): void
+{
+    foreach ($slices as $relativePath => $contents) {
+        failUnlessSame($sliceRoot . '/' . $relativePath, $contents, 'module-map/' . $relativePath);
+    }
+
+    $extra = array_diff(findSliceFiles($sliceRoot), array_keys($slices));
+    if ($extra === []) {
+        return;
+    }
+
+    fail(sprintf(
+        "устаревшие карточки модулей (%d), запустить composer maps:\n%s",
+        count($extra),
+        implode("\n", $extra),
+    ));
+}
+
+/**
+ * Удаляет карточки модулей, которых больше нет в реестре.
+ *
+ * @param string $sliceRoot Каталог module-map.
+ * @param array<int, string> $expected Ожидаемые карточки.
+ *
+ * @return void
+ */
+function removeStaleSlices(string $sliceRoot, array $expected): void
+{
+    foreach (array_diff(findSliceFiles($sliceRoot), $expected) as $relativePath) {
+        $path = $sliceRoot . '/' . $relativePath;
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
+}
+
+/**
+ * Перечисляет markdown-карточки в каталоге module-map.
+ *
+ * @param string $sliceRoot Каталог module-map.
+ *
+ * @return array<int, string> Пути относительно каталога, кроме index.md.
+ */
+function findSliceFiles(string $sliceRoot): array
+{
+    if (!is_dir($sliceRoot)) {
+        return [];
+    }
+
+    $found = [];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($sliceRoot, FilesystemIterator::SKIP_DOTS),
+    );
+    foreach ($iterator as $file) {
+        if (!$file instanceof SplFileInfo || $file->getExtension() !== 'md') {
+            continue;
+        }
+
+        $relativePath = ltrim(str_replace($sliceRoot, '', $file->getPathname()), '/');
+        if ($relativePath !== 'index.md') {
+            $found[] = $relativePath;
+        }
+    }
+
+    sort($found);
+
+    return $found;
 }
 
 /**
@@ -558,13 +877,19 @@ function inlineList(array $values): string
  * Рендерит JSON-реестр.
  *
  * @param array<int, array<string, mixed>> $modules Реестр.
+ * @param array<string, array<int, array<string, mixed>>> $plans Планы по модулям.
  *
  * @return string JSON.
  */
-function renderJson(array $modules): string
+function renderJson(array $modules, array $plans): string
 {
+    foreach ($modules as $index => $module) {
+        $modules[$index]['plans'] = $plans[$module['key']] ?? [];
+    }
+
     $payload = [
-        'generatedBy' => 'composer map',
+        'generatedBy' => 'composer maps',
+        'plansSource' => 'docs/tr/doc-index.json',
         'modules' => $modules,
     ];
 
@@ -607,7 +932,7 @@ function failUnlessSame(string $path, string $expected, string $label): void
 {
     $actual = is_file($path) ? (string) file_get_contents($path) : '';
     if ($actual !== $expected) {
-        fail($label . ' is out of date, run composer map: ' . $path);
+        fail($label . ' is out of date, run composer maps: ' . $path);
     }
 }
 

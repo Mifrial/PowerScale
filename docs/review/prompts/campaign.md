@@ -1,6 +1,6 @@
 # Кампания ревью фронта (актуальный промт)
 
-Канон: [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md) (все разделы, особенно DAG §2, Utils, §7). Сессия: [`AGENTS.md`](../../AGENTS.md). ТР: [`docs/tr/TR.md`](../tr/TR.md) §13 (канон 2026-08-25, DAG 2026-08-26) и §15 п.6–7.
+Канон: [`draft-front_1.2ds/frontend-rules.md`](../../../draft-front_1.2ds/frontend-rules.md) (все разделы, особенно DAG §2, Utils, §7). Сессия: [`AGENTS.md`](../../../AGENTS.md). ТР: [`docs/tr/TR.md`](../../tr/TR.md) §13 (канон 2026-08-25, DAG 2026-08-26) и §15 п.6–7.
 
 **Не канон:** `docs/review/context-*.md` и старый [`review-module-prompt.md`](review-module-prompt.md) — история. Не «всем только Core», не «не дублировать находки волны N», не план работ в конце ревью. Смотри текущий код и `frontend-rules.md`.
 

@@ -23,7 +23,12 @@
     "cs-fix": "php-cs-fixer fix && phpcbf",
     "quality": "@php tools/phpcs/preflight.php && phpcs --standard=phpcs-quality.xml.dist",
     "map": "@php tools/module-map/generate.php",
-    "map-check": "@php tools/module-map/generate.php --check"
+    "map-check": "@php tools/module-map/generate.php --check",
+    "docs-map": "@php tools/doc-index/generate.php",
+    "docs-check": "@php tools/doc-index/generate.php --check",
+    "docs:show": "@php tools/doc-index/show.php",
+    "maps": ["@docs-map", "@map"],
+    "maps-check": ["@docs-check", "@map-check"]
   },
   "autoload": {
     "psr-4": {
