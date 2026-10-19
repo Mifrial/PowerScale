@@ -1,0 +1,19 @@
+{
+  "links": [
+    {
+      "path": "docs/review/tr-code-reconciliation-2026-08.md",
+      "target": "docs/review/tr-audit-2026-08.md",
+      "reason": "снимок 2026-08-30: ссылается на документ аудита, который в репозиторий не попал"
+    },
+    {
+      "path": "docs/tr/spell-roadmap.md",
+      "target": "docs/tr/spell-plan-10-backend.md",
+      "reason": "документ запланирован (веха M10, статус TODO), ещё не написан"
+    },
+    {
+      "path": "docs/tr/smarttable-plan-01-connection.md",
+      "target": ".cursor/plans",
+      "reason": "внешний каталог планировщика, в репозитории его нет"
+    }
+  ]
+}
