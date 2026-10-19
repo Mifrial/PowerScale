@@ -52,4 +52,35 @@ final class RuleRevisionSpecGuardTest extends TestCase
             self::assertSame(['spec.default'], $exception->getErrorDetails()['problems'][0]['messages']);
         }
     }
+
+    /**
+     * Броня со скалярным resistance_slots не публикуется.
+     *
+     * @return void
+     */
+    public function testBrokenItemArmorSpecRejects(): void
+    {
+        $guard = new RuleRevisionSpecGuard($this->createMock(IRules::class));
+        try {
+            $guard->assertEntries(1, [
+                RuleCommitEntry::put('junk', new RuleVersionBody(
+                    'item',
+                    'Junk',
+                    '',
+                    [
+                        'category' => 'armor',
+                        'armor' => ['resistance_slots' => 'nope'],
+                    ],
+                    [],
+                    [],
+                    'needs_work',
+                )),
+            ], null);
+            self::fail('broken item spec must reject');
+        } catch (RuleSpaceSpecRejectedException $exception) {
+            self::assertSame('RULESPACE_INVALID', $exception->getErrorCode());
+            self::assertSame('junk', $exception->getErrorDetails()['problems'][0]['ruleCode']);
+            self::assertSame(['spec.resistance_slots'], $exception->getErrorDetails()['problems'][0]['messages']);
+        }
+    }
 }
