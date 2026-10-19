@@ -2019,14 +2019,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/game-plan-36-strike-owner-actions.md",
-                    "title": "План Game 36 — владелец персонажа в ударе 1 → 1",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": null,
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/game-plan-01.md",
                     "title": "План Game 1 — каркас модуля и строка игры",
                     "kind": "plan",
@@ -2045,6 +2037,14 @@
                 {
                     "path": "docs/tr/game-plan-18.md",
                     "title": "План Game 18 — проверка",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-36-strike-owner-actions.md",
+                    "title": "План Game 36 — владелец персонажа в ударе 1 → 1",
                     "kind": "plan",
                     "state": "ЧАСТИЧНО",
                     "date": null,

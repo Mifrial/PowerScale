@@ -1,6 +1,6 @@
 # План Game 36 — владелец персонажа в ударе 1 → 1
 
-**Статус:** ~В РАБОТЕ~
+**Статус:** ~ЧАСТИЧНО~
 **Реализация:** ~PHP~, ~VUE~
 **Опираться на:** ~PHP~
 
@@ -13,9 +13,11 @@
 
 Проверено: `npx vitest run src/modules/Roleplay/Game` — 742 теста, 109 файлов, зелёные; `vue-tsc` и ESLint по затронутым файлам без новых ошибок; из `www/mifrial` `composer maps-check` и `composer docs-check` зелёные.
 
-Не проверено на живом стенде и в MySQL-тестах: в `GameStrikeMysqlTest` до этого захода сломан фикстур `worldWithWeapon` (`RuleSpaceSpecRejectedException` на `junk`, затем `Mechanic id is invalid` при сборке NPC). Существующие тесты файла падают и без правок этого плана. Новые тесты `testCharacterOwnerCanDeclareAndResolve` и `testNpcStrikeStepsRequireWriter` добавлены в файл и ждут починки фикстуры/`GameStrikeMysqlTest` отдельным заходом.
+MySQL-тесты починены: `GameStrikeMysqlTest` — 20 тестов, 1205 утверждений, зелёные. В фикстуре `worldWithWeapon` убран невалидный `junk`, добавлены `dodge`, состояния `disabled`/`unconscious`, `accuracy` профилей, автоматические `strength`/`stamina`, лимит `focus`, базовая `agility`. Добавлен конкурентный тест «писатель + владелец защитника»: `runConcurrentStrikeRequests()` принимает актора, права и payload по воркерам; ровно один запрос успешен, второй получает `GAME_CONFLICT`/`GAME_INVALID`.
 
-Осталось: конкурентный тест «писатель + владелец защитника» (разные ключи, ровно один успех) не добавлен — `runConcurrentStrikeRequests()` сейчас раздаёт всем воркерам актора `ownerUserId` и один payload, а запускать его всё равно нельзя из-за фикстуры. Победителя обеспечивает существующий CAS версии боя.
+Попутно исправлена гидрация ревизии из кэша в `RuleVersionRecord`: вложенные `JsonObject` в `spec` и `mechanics` разворачиваются в PHP-массивы, иначе сборка NPC и удара падала на `Mechanic id is invalid`; закреплено `RuleVersionRecordTest::testNestedJsonObjectsAreUnwrapped()`. Отказ публикации битого item-spec закреплён в `RuleRevisionSpecGuardTest::testBrokenItemArmorSpecRejects()`.
+
+Не проверено: живой стенд. Статус `~ЧАСТИЧНО~` — код и MySQL-тесты готовы, живая проверка остаётся.
 
 ## Задача
 

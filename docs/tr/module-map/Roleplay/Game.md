@@ -191,10 +191,10 @@
 | [game-plan-32.md](../../game-plan-32.md) | план | `~ПЛАН~` | 2026-10-12 |
 | [game-plan-34.md](../../game-plan-34.md) | план | `~ПЛАН~` | 2026-10-16 |
 | [game-plan-35.md](../../game-plan-35.md) | план | `~ПЛАН~` | 2026-10-16 |
-| [game-plan-36-strike-owner-actions.md](../../game-plan-36-strike-owner-actions.md) | план | `~В РАБОТЕ~` | — |
 | [game-plan-01.md](../../game-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
 | [game-plan-13.md](../../game-plan-13.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
 | [game-plan-18.md](../../game-plan-18.md) | план | `~ЧАСТИЧНО~` | — |
+| [game-plan-36-strike-owner-actions.md](../../game-plan-36-strike-owner-actions.md) | план | `~ЧАСТИЧНО~` | — |
 | [game-plan-16.md](../../game-plan-16.md) | план | `~ОТМЕНЁН~` | 2026-10-04 |
 | [game-plan-17.md](../../game-plan-17.md) | план | `~ОТМЕНЁН~` | 2026-10-04 |
 | [game-plan-02.md](../../game-plan-02.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
