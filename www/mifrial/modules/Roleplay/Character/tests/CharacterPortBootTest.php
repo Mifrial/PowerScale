@@ -44,7 +44,6 @@ final class CharacterPortBootTest extends TestCase
         self::assertArrayHasKey('character.create', $routes);
         self::assertArrayHasKey('character.update', $routes);
         self::assertArrayHasKey('character.validate', $routes);
-        self::assertArrayHasKey('character.migrate', $routes);
         self::assertArrayHasKey('character.getList', $routes);
         self::assertArrayHasKey('character.get', $routes);
         self::assertArrayHasKey('character.updateVisibility', $routes);

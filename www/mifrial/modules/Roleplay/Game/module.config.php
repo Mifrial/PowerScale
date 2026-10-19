@@ -6,7 +6,9 @@ use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Roleplay\Character\Action\MigrateCharacterAction;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSessionParticipants;
+use Mifrial\Roleplay\Character\Service\CharacterPortFactory;
 use Mifrial\Roleplay\Game\Action\AbortGameAction;
 use Mifrial\Roleplay\Game\Action\AddGameMemberAction;
 use Mifrial\Roleplay\Game\Action\AnswerGameCheckAction;
@@ -311,6 +313,13 @@ return [
         ICharacterSessionParticipants::class => static function (IServiceLocator $serviceLocator): ICharacterSessionParticipants {
             return (new GamePortFactory())->createSessionParticipants($serviceLocator);
         },
+        MigrateCharacterAction::class => static function (IServiceLocator $serviceLocator): MigrateCharacterAction {
+            $sessionParticipants = (new GamePortFactory())->createSessionParticipants($serviceLocator);
+
+            return new MigrateCharacterAction(
+                (new CharacterPortFactory())->createMigration($serviceLocator, $sessionParticipants),
+            );
+        },
         StartGameSessionAction::class => static function (IServiceLocator $serviceLocator): StartGameSessionAction {
             return new StartGameSessionAction((new GamePortFactory())->createSessionHttp($serviceLocator));
         },
@@ -397,6 +406,10 @@ return [
         ],
         'game.getCharacterList' => [
             'handler' => GetGameCharacterListAction::class,
+            'csrf' => true,
+        ],
+        'character.migrate' => [
+            'handler' => MigrateCharacterAction::class,
             'csrf' => true,
         ],
         'game.startSession' => [
