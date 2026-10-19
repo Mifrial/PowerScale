@@ -222,7 +222,29 @@ function readHeader(string $contents): string
 {
     $lines = preg_split('/\r\n|\r|\n/', $contents) ?: [];
 
-    return implode("\n", array_slice($lines, 0, 14));
+    return implode("\n", array_slice($lines, frontMatterEnd($lines), 14));
+}
+
+/**
+ * Возвращает индекс первой строки после YAML-шапки.
+ *
+ * @param array<int, string> $lines Строки файла.
+ *
+ * @return int Индекс строки.
+ */
+function frontMatterEnd(array $lines): int
+{
+    if (($lines[0] ?? '') !== '---') {
+        return 0;
+    }
+
+    for ($index = 1, $total = count($lines); $index < $total; $index++) {
+        if ($lines[$index] === '---') {
+            return $index + 1;
+        }
+    }
+
+    return 0;
 }
 
 /**
@@ -300,6 +322,11 @@ function statusFromLine(string $text, array $status): array
 function stateFromProse(string $text): ?string
 {
     $lower = mb_strtolower($text);
+    $lower = (string) preg_replace(
+        '/not[ _]implemented|not[ _]done|не реализован\w*|не сделан\w*/u',
+        ' ',
+        $lower,
+    );
     if (preg_match('/каркас|частично|ядро php|ядро бэк/u', $lower) === 1) {
         return 'ЧАСТИЧНО';
     }
@@ -732,6 +759,7 @@ function renderMarkdown(array $documents, array $summary, array $allowlist): str
     $lines = array_merge($lines, renderZoneTable($summary));
     $lines = array_merge($lines, renderModuleTable($summary));
     $lines = array_merge($lines, renderLayerSection($documents));
+    $lines = array_merge($lines, renderDeferred($documents));
     $lines = array_merge($lines, renderAttention($documents, $allowlist));
 
     return implode(PHP_EOL, $lines) . PHP_EOL;
@@ -897,6 +925,30 @@ function moduleCell(string $module): string
     }
 
     return relativeLink('docs/tr', 'docs/tr/module-map/' . $module . '.md', $module);
+}
+
+/**
+ * Рендерит раздел про отложенные до следующих релизов документы.
+ *
+ * @param array<string, array<string, mixed>> $documents Документы.
+ *
+ * @return array<int, string> Строки markdown.
+ */
+function renderDeferred(array $documents): array
+{
+    $deferred = [];
+    foreach ($documents as $path => $document) {
+        if ($document['state'] === 'ОТЛОЖЕН') {
+            $deferred[] = $path;
+        }
+    }
+
+    return [
+        '## Отложено до следующих релизов',
+        '',
+        '`~ОТЛОЖЕН~` — известно, осознанно отложено, не потеряно: ' . inlinePaths($deferred) . '.',
+        '',
+    ];
 }
 
 /**

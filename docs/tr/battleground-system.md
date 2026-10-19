@@ -1,7 +1,8 @@
 # Система battleground
 
-**Статус:** `documentStatus: REQUIREMENT`, 2026-08-31. `implementationStatus: NOT_IMPLEMENTED`.
-Источник: согласованный дизайн [`docs/specs/battlegroundLockedDecisions.md`](../specs/battlegroundLockedDecisions.md). Не текущий frontend/domain канон. Код и тесты battleground отсутствуют.
+**Статус:** ~ОТЛОЖЕН~, 2026-08-31 — второй релиз, весна 2027; в первый релиз не входит.
+**Реализация:** ~НИГДЕ~ — код и тесты отсутствуют (`implementationStatus: NOT_IMPLEMENTED`).
+Источник: согласованный дизайн [`docs/specs/battlegroundLockedDecisions.md`](../specs/battlegroundLockedDecisions.md). Не текущий frontend/domain канон.
 
 Абстрактное движение (action/process, `ISpatialResolver` без координат сцены) остаётся в [`game-system.md`](game-system.md) (`DEC-026`). Этот документ — пространственная сцена и её связь с боем.
 

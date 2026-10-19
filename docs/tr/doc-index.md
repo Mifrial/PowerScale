@@ -40,8 +40,8 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | `promts` | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 |
 | `review` | 63 | 1 | 0 | 0 | 1 | 0 | 0 | 49 | 12 |
 | `rule` | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 6 |
-| `specs` | 22 | 3 | 0 | 0 | 0 | 0 | 0 | 5 | 14 |
-| `tr` | 215 | 31 | 13 | 27 | 110 | 1 | 3 | 7 | 23 |
+| `specs` | 22 | 2 | 0 | 0 | 0 | 4 | 0 | 5 | 11 |
+| `tr` | 215 | 31 | 13 | 27 | 109 | 2 | 3 | 7 | 23 |
 | `tz` | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 |
 
 ## Модуль × состояние × слой
@@ -64,13 +64,17 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Roleplay/Rule](module-map/Roleplay/Rule.md) | 42 | 11 | 6 | 3 | 17 | 3 | 7 | 10 | 1 |
 | [Roleplay/RuleSpace](module-map/Roleplay/RuleSpace.md) | 8 | 0 | 0 | 8 | 0 | 0 | 6 | 3 | 0 |
 | [Versioning/Space](module-map/Versioning/Space.md) | 2 | 0 | 0 | 0 | 2 | 0 | 2 | 0 | 0 |
-| — | 132 | 8 | 5 | 5 | 7 | 49 | 3 | 10 | 0 |
+| — | 132 | 7 | 5 | 5 | 6 | 46 | 3 | 10 | 0 |
 
 ## Реализация: где есть PHP и где только мок
 
 - **Не опираться на реализацию** (`~НЕ ОСНОВА~`): нет.
 - **Только мок, PHP нет**: нет.
 - **Есть PHP** — колонка `PHP` в таблице модулей ниже.
+
+## Отложено до следующих релизов
+
+`~ОТЛОЖЕН~` — известно, осознанно отложено, не потеряно: [battlegroundIdeaContext.md](../specs/battlegroundIdeaContext.md), [battlegroundImplementationPlan.md](../specs/battlegroundImplementationPlan.md), [battlegroundLockedDecisions.md](../specs/battlegroundLockedDecisions.md), [battlegroundPerformanceBenchmarkPlan.md](../specs/battlegroundPerformanceBenchmarkPlan.md), [battleground-system.md](battleground-system.md), [rule-content-plan-03-senses.md](rule-content-plan-03-senses.md).
 
 ## Требуют внимания
 

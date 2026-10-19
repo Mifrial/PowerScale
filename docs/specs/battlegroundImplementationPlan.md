@@ -35,6 +35,9 @@ todos:
 isProject: false
 ---
 
+**Статус:** ~ОТЛОЖЕН~ — второй релиз, весна 2027; в первый релиз не входит.
+**Реализация:** ~НИГДЕ~.
+
 # План реализации battleground
 
 Канон решений: [battlegroundLockedDecisions.md](battlegroundLockedDecisions.md).
@@ -328,6 +331,6 @@ npm run test
 ```
 
 Сверять реализацию с
-[docs/specs/battlegroundIdeaContext.md](docs/specs/battlegroundIdeaContext.md),
-[docs/specs/movementImplementationPlan.md](docs/specs/movementImplementationPlan.md)
-и [draft-front_1.2ds/frontend-rules.md](draft-front_1.2ds/frontend-rules.md).
+[docs/specs/battlegroundIdeaContext.md](battlegroundIdeaContext.md),
+[docs/specs/movementImplementationPlan.md](movementImplementationPlan.md)
+и [draft-front_1.2ds/frontend-rules.md](../../draft-front_1.2ds/frontend-rules.md).
