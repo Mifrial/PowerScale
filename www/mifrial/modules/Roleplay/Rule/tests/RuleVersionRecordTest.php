@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Tests;
 
 use Mifrial\Core\Kernel\Value\DateTime;
+use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Versioning\Space\Dto\VersionRecord;
@@ -44,6 +45,51 @@ final class RuleVersionRecordTest extends TestCase
         $record = RuleVersionRecord::fromClock($this->versionRecord(['mechanics' => $mechanics]), 'damage');
 
         self::assertSame($mechanics, $record->getMechanics());
+    }
+
+    /**
+     * Вложенные JsonObject из кэша разворачиваются в spec и mechanics.
+     *
+     * @return void
+     */
+    public function testNestedJsonObjectsAreUnwrapped(): void
+    {
+        $spec = new JsonObject([
+            'category' => 'armor',
+            'armor' => new JsonObject([
+                'resistance_slots' => [[
+                    'damage_type_code' => 'cut',
+                    'value' => new JsonObject(['base' => 3, 'size' => 0]),
+                    'durability' => 1,
+                ]],
+            ]),
+        ]);
+        $mechanics = [new JsonObject([
+            'mechanic_id' => 7,
+            'mechanic_payload' => new JsonObject([]),
+        ])];
+
+        $record = RuleVersionRecord::fromClock($this->versionRecord([
+            'type' => 'item',
+            'spec' => $spec,
+            'mechanics' => $mechanics,
+        ]), 'mail');
+
+        self::assertFalse($record->isSpecBroken());
+        self::assertSame([
+            'category' => 'armor',
+            'armor' => [
+                'resistance_slots' => [[
+                    'damage_type_code' => 'cut',
+                    'value' => ['base' => 3, 'size' => 0],
+                    'durability' => 1,
+                ]],
+            ],
+        ], $record->getSpecDocument());
+        self::assertSame([[
+            'mechanic_id' => 7,
+            'mechanic_payload' => [],
+        ]], $record->getMechanics());
     }
 
     /**

@@ -302,7 +302,7 @@ final class RuleVersionRecord
     {
         $value = $fields[$fieldName] ?? null;
         if ($value instanceof JsonObject) {
-            return $value->getMembers();
+            return $value->toNestedArray();
         }
 
         if (!is_array($value)) {
@@ -343,6 +343,7 @@ final class RuleVersionRecord
 
     /**
      * Список механик колонки mechanics. null — пустой список.
+     * Вложенные JsonObject из кэша разворачиваются в PHP-массивы.
      *
      * @param array<string, mixed> $fields Карта.
      *
@@ -356,7 +357,7 @@ final class RuleVersionRecord
             return [];
         }
 
-        $value = $fields['mechanics'];
+        $value = JsonObject::unwrapValue($fields['mechanics']);
         if (!is_array($value) || !array_is_list($value)) {
             throw new RuleInvalidException('Rule version record is incomplete');
         }
