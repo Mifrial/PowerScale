@@ -41,6 +41,18 @@ export class GameAccessService {
   }
 
   /**
+   * Право писателя удара: владелец игры, роль `gm` или глобальный `game.edit_all`.
+   * Per-game `game.edit` сюда не входит.
+   */
+  canWriteStrike(user: User | null | undefined, detail: GameDetail): boolean {
+    if (!user) return false;
+    if (accessService.hasAnyPermission(user, ['game.edit_all'])) return true;
+    if (detail.game.ownerId === user.id) return true;
+
+    return this.memberOf(user, detail.members)?.role === 'gm';
+  }
+
+  /**
    * Право модерации (панель ведущего): владелец/ведущий или индивидуальное
    * per-game право `game.moderate`.
    */

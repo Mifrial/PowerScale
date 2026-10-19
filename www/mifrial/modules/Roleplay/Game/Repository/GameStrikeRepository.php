@@ -59,6 +59,25 @@ final class GameStrikeRepository
     }
 
     /**
+     * Последняя строка боя или null.
+     *
+     * @param int $battleId Бой.
+     *
+     * @return array<string, mixed>|null Колонки.
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    public function findLatest(int $battleId): ?array
+    {
+        $rows = $this->rowsOfBattle($battleId);
+        if ($rows === []) {
+            return null;
+        }
+
+        return $rows[count($rows) - 1];
+    }
+
+    /**
      * Вставляет открытый удар.
      *
      * @param array<string, mixed> $fields Колонки.

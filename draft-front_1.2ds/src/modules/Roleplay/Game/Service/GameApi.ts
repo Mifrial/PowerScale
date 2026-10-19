@@ -1036,6 +1036,19 @@ export class GameApi implements IGameApi {
   ): Promise<GamePhpStrikeResult> {
     const result = await this.requireData<GamePhpStrikeResult>('game.declareStrike', body, signal);
     gamePhpBattleContext.rememberDebt(result.debt === true, result.version);
+    if (result.debt !== true) {
+      gamePhpBattleContext.rememberOpenStrike({
+        attackerKind: body.attack.attacker.type,
+        attackerId: body.attack.attacker.id,
+        defenderKind: body.attack.defender.type,
+        defenderId: body.attack.defender.id,
+        actionRuleCode: body.attack.actionRuleCode,
+        itemInventoryId: body.attack.itemInventoryId,
+        itemRuleCode: body.attack.itemRuleCode,
+        profileType: body.attack.profileType,
+        profileIndex: body.attack.profileIndex,
+      });
+    }
 
     return result;
   }
@@ -1057,6 +1070,7 @@ export class GameApi implements IGameApi {
   ): Promise<GamePhpStrikeResult> {
     const result = await this.requireData<GamePhpStrikeResult>('game.resolveStrike', body, signal);
     gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    gamePhpBattleContext.rememberOpenStrike(null);
 
     return result;
   }
@@ -1096,6 +1110,7 @@ export class GameApi implements IGameApi {
   ): Promise<GamePhpStrikeResult> {
     const result = await this.requireData<GamePhpStrikeResult>('game.resolveWideStrike', body, signal);
     gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    gamePhpBattleContext.rememberOpenStrike(null);
 
     return result;
   }

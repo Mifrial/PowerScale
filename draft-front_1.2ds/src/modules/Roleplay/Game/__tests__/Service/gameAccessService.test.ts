@@ -127,6 +127,25 @@ describe('canEditGame', () => {
   });
 });
 
+describe('canWriteStrike', () => {
+  it('разрешает владельцу игры, ведущему и game.edit_all', () => {
+    const ownerGame = makeDetail(makeGame({ ownerId: 10 }), []);
+    const gm = makeDetail(makeGame({ ownerId: 7 }), [member(10, 'gm')]);
+    const admin = makeDetail(makeGame({ ownerId: 7 }), []);
+    expect(gameAccessService.canWriteStrike(makeUser({ id: 10 }), ownerGame)).toBe(true);
+    expect(gameAccessService.canWriteStrike(makeUser({ id: 10 }), gm)).toBe(true);
+    expect(gameAccessService.canWriteStrike(makeUser({ id: 10, permissions: ['game.edit_all'] }), admin)).toBe(true);
+  });
+
+  it('не даёт per-game game.edit и постороннему игроку', () => {
+    const editor = makeDetail(makeGame({ ownerId: 7 }), [member(10, 'player', ['game.edit'])]);
+    const stranger = makeDetail(makeGame({ ownerId: 7 }), [member(11, 'player')]);
+    expect(gameAccessService.canWriteStrike(makeUser({ id: 10 }), editor)).toBe(false);
+    expect(gameAccessService.canWriteStrike(makeUser({ id: 10 }), stranger)).toBe(false);
+    expect(gameAccessService.canWriteStrike(null, editor)).toBe(false);
+  });
+});
+
 describe('isGameParticipant', () => {
   it('считает владельца участником без строки в members', () => {
     const detail = makeDetail(makeGame({ ownerId: 10 }), []);

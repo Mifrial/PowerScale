@@ -155,6 +155,7 @@ export { coveringService } from '@/modules/Roleplay/Game/Service/Instance/coveri
 export { blockHitService } from '@/modules/Roleplay/Game/Service/Instance/blockHitService';
 export { knowledgeCheckLaunchService } from '@/modules/Roleplay/Game/Service/Instance/knowledgeCheckLaunchService';
 export { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
+export { gameStrikeDefenseService } from '@/modules/Roleplay/Game/Service/Instance/gameStrikeDefenseService';
 export { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/Instance/gameStatusTransitionsService';
 export { hitRollService } from '@/modules/Roleplay/Game/Service/Instance/hitRollService';
 export { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';

@@ -44,7 +44,7 @@
 1. Карточка скрыта — `GAME_NOT_FOUND`, даже если ключ уже есть.
 2. Есть строка команды с этим ключом — сверка тела и возврат итога, без `AUTH_DENIED`.
 3. Игра `completed` или нет сессии — `GAME_INVALID`.
-4. Нет `game.edit` этой игры и нет `game.edit_all` — `AUTH_DENIED`. Проверка та же, что у экономики: владелец, `gm` или `editAll`.
+4. Нет прав писателя и актор не владелец действующего персонажа — `AUTH_DENIED`. Писатель: владелец игры, `gm` или `game.edit_all`; per-game `game.edit` прав на удар не даёт.
 5. `battleId` этой сессии. Атакующий и защитник — разные участники состава. Состав читается новым публичным методом `GameBattleRepository`: сейчас снаружи есть только `countParticipants`, а `kind` и `subject_id` читают приватные методы. Нет в составе — `GAME_NOT_FOUND`. Коды и профиль не прошли проверку среза — `GAME_INVALID`.
 6. Атака: открытого удара нет, версия боя совпала. Иначе `GAME_INVALID` или `GAME_CONFLICT`.
 7. Защита: открытый удар есть. Тело защитника не называет. Нет открытого удара — `GAME_INVALID`. Версия боя или листа не совпала — `GAME_CONFLICT`.
@@ -52,7 +52,7 @@
 
 **Чего шаг не делает.** Не принимает готовый урон и полный лист. Не пишет `choices.resources`. Не вызывает порт G10, пока расчёт не вернул операции. Не создаёт NPC. Не считает `1 → N`, DOT, каст и движение. Не пишет сцену. Не шлёт событие. `endBattle` сессию не останавливает.
 
-**Права.** Атака и защита — владелец, `gm` или `game.edit_all`. `player` удар не объявляет. Новый ключ прав не заводится.
+**Права.** Писатель игры — владелец карточки, `gm` или `game.edit_all`. Владелец действующего персонажа объявляет удар за своего атакующего и закрывает за своего защитника; NPC — только писатель. Per-game `game.edit` прав на удар не даёт. Актуальный контракт — [`game-plan-36-strike-owner-actions.md`](game-plan-36-strike-owner-actions.md). Новый ключ прав не заводится.
 
 ## Что даёт этот заход
 
@@ -90,7 +90,7 @@
 |---|---|
 | нет актора | `AUTH_REQUIRED` |
 | карточка скрыта; бой не этой сессии; участник не в составе | `GAME_NOT_FOUND` |
-| нет `game.edit` и нет `game.edit_all` | `AUTH_DENIED` |
+| нет прав на удар: не писатель и не владелец действующего персонажа | `AUTH_DENIED` |
 | пустой ключ; игра `completed`; сессии нет; второй открытый удар; нет открытого удара; код не живой; нет профиля; `reaction` или `profileType` вне набора; атакующий и защитник совпали | `GAME_INVALID` |
 | версия боя или листа не совпала; тот же ключ с другим телом | `GAME_CONFLICT`, записи нет |
 | лишний ключ; урон; `actionPointCost`; `resourceRuleCode`; список целей; полный лист | `INVALID_PARAMS` |
@@ -120,8 +120,8 @@
 
 | Action | Кто | Тело | Успех |
 |---|---|---|---|
-| `game.declareStrike` | владелец, `gm` или `game.edit_all` | `{ gameId, battleId, idempotencyKey, expectedVersion, attack }` | `{ battleId, strikeId, version, sheetVersion: null }` |
-| `game.resolveStrike` | тот же актор | `{ gameId, battleId, idempotencyKey, expectedVersion, expectedSheetVersion, defense }` | `{ battleId, strikeId, version, sheetVersion: null }` |
+| `game.declareStrike` | писатель или владелец персонажа-атакующего; NPC — только писатель | `{ gameId, battleId, idempotencyKey, expectedVersion, attack }` | `{ battleId, strikeId, version, sheetVersion: null }` |
+| `game.resolveStrike` | писатель или владелец персонажа-защитника; NPC — только писатель | `{ gameId, battleId, idempotencyKey, expectedVersion, expectedSheetVersion, defense }` | `{ battleId, strikeId, version, sheetVersion: null }` |
 
 Дефекты эскиза `draft-front_1.2ds`, в фасад не копировать:
 

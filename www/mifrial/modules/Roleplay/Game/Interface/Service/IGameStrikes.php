@@ -15,7 +15,7 @@ use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 interface IGameStrikes
 {
     /**
-     * Открывает удар.
+     * Открывает удар. Писатель игры или владелец персонажа-атакующего; NPC — только писатель.
      *
      * @param int $gameId Игра.
      * @param int $actorUserId Актор.
@@ -45,7 +45,7 @@ interface IGameStrikes
     ): array;
 
     /**
-     * Закрывает удар.
+     * Закрывает удар. Писатель игры или владелец персонажа-защитника; NPC — только писатель.
      *
      * @param int $gameId Игра.
      * @param int $actorUserId Актор.

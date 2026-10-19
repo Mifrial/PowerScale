@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { computed, onUnmounted, provide, ref, watch } from 'vue';
-import { useCurrentUser } from '@/modules/Core/User/init';
+import { displayName, useCurrentUser, useUserCatalog } from '@/modules/Core/User/init';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
-import { getGameApi, getGameRealtimePort } from '@/modules/Roleplay/Game/init';
+import {
+  gameAccessService,
+  gameStrikeDefenseService,
+  getGameApi,
+  getGameRealtimePort,
+} from '@/modules/Roleplay/Game/init';
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { gameMembershipEligibilityService } from '@/modules/Roleplay/Game/Service/Instance/gameMembershipEligibilityService';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
@@ -14,6 +19,7 @@ import { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/In
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameStateSnapshot } from '@/modules/Roleplay/Game/Dto/GameStateSnapshot';
+import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
 import type { GameLifecycleResult } from '@/modules/Roleplay/Game/Dto/GameLifecycleResult';
 import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerOption';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -274,6 +280,14 @@ const processAttachments = (attachments: ChatAttachment[]): ChatAttachment[] =>
   rulesContext.value.processAttachments(attachments);
 
 const memberships = ref<GameCharacterMembership[]>([]);
+const userCatalog = useUserCatalog();
+const warmedUserIds = new Set<number>();
+const canWriteStrike = computed(() => gameAccessService.canWriteStrike(currentUser.value, props.detail));
+const userNames = computed<Record<number, string>>(() =>
+  Object.fromEntries(
+    userCatalog.users.value.map((user) => [user.id, displayName(user.name, user.surname, user.login)]),
+  ),
+);
 const actualById = ref<Record<number, CharacterVersion>>({});
 const moderationByCharacterId = ref<Record<number, CharacterModerationProjection>>({});
 const npcs = ref<GameNpc[]>([]);
@@ -368,6 +382,19 @@ const speakerOptions = computed<ChatSpeakerOption[]>(() => {
   ];
 });
 
+async function warmStrikeUserNames(rows: GameCharacterMembership[]): Promise<void> {
+  const ids = [
+    ...new Set(
+      rows
+        .map((membership) => membership.characterOwnerId)
+        .filter((id) => id > 0 && !warmedUserIds.has(id)),
+    ),
+  ];
+  if (ids.length === 0) return;
+  for (const id of ids) warmedUserIds.add(id);
+  await userCatalog.ensureUsers(ids);
+}
+
 async function load(): Promise<void> {
   const requestSequence = ++loadSequence;
   const requestGameId = gameId.value;
@@ -418,6 +445,7 @@ async function load(): Promise<void> {
     if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
     gameStateSnapshot.value = snapshot;
     memberships.value = membershipsResult;
+    void warmStrikeUserNames(membershipsResult);
     const actuals: Record<number, CharacterVersion> = { ...actualById.value };
     const nextRuntimeProjections: Record<CombatEntityKey, GameRuntimeEntityProjection> = {
       ...runtimeByKey.value,
@@ -518,19 +546,39 @@ function isKnownRealtimeEntity(entityKey: CombatEntityKey): boolean {
   return npcs.value.some((npc) => npc.id === npcId);
 }
 
+function canAutoOpenPhpStrike(strike: GamePhpOpenStrike): boolean {
+  const user = currentUser.value;
+  if (!user) return false;
+
+  return gameStrikeDefenseService.shouldAutoOpen(strike, user.id, memberships.value, canWriteStrike.value);
+}
+
 async function tryOpenPhpStrike(): Promise<void> {
   if (!gamePhpMode.isEnabled()) {
     return;
   }
-  if (hitOpen.value) {
-    return;
-  }
   const strike = gamePhpBattleContext.openStrike;
+  const isPhpDialog = hitOpen.value && hitPhpStrikeMode.value;
   if (!strike) {
+    if (isPhpDialog && hitPhpBound.value) onHitClosed(false, false);
+
     return;
   }
   const attackerKey = `${strike.attackerKind}:${strike.attackerId}` as CombatEntityKey;
   const defenderKey = `${strike.defenderKind}:${strike.defenderId}` as CombatEntityKey;
+  if (isPhpDialog) {
+    if (hitPhpDefenderKey.value === defenderKey) {
+      hitPhpBound.value = true;
+
+      return;
+    }
+    // Окно набора нового удара не трогаем: серверный удар не про него.
+    if (!hitPhpBound.value) return;
+    onHitClosed(false, false);
+  }
+  if (hitOpen.value || !canAutoOpenPhpStrike(strike)) {
+    return;
+  }
   await loadRuntimeProjections([attackerKey, defenderKey]);
   const version = runtimeByKey.value[attackerKey]?.version;
   if (!version) {
@@ -558,7 +606,9 @@ async function tryOpenPhpStrike(): Promise<void> {
   hitAttackerKey.value = attackerKey;
   hitAttack.value = attack;
   hitResumePhpStrike.value = true;
+  hitPhpStrikeMode.value = true;
   hitPhpDefenderKey.value = defenderKey;
+  hitPhpBound.value = true;
   hitOpen.value = true;
 }
 
@@ -1087,6 +1137,16 @@ function onOverlayChanged(): void {
   void loadPhpBattleSheetProjections(keys, gameId.value);
 }
 
+async function onStrikeRefresh(): Promise<void> {
+  const keys = [hitAttackerKey.value, hitPhpDefenderKey.value].filter(
+    (key): key is CombatEntityKey => key !== null,
+  );
+  await loadPhpBattleSheetProjections(keys, gameId.value);
+  store.applyGameUpdate(await getGameApi().getGame(gameId.value));
+  battleRevision.value += 1;
+  await tryOpenPhpStrike();
+}
+
 async function refreshProcessSessions(
   targetGameId: number = gameId.value,
   targetLoadSequence: number = loadSequence,
@@ -1174,7 +1234,9 @@ const hitResumeOffer = ref<CheckOffer | null>(null);
 const hitAttackerKey = ref<CombatEntityKey | null>(null);
 const hitAttack = ref<AttackOverview | null>(null);
 const hitResumePhpStrike = ref(false);
+const hitPhpStrikeMode = ref(false);
 const hitPhpDefenderKey = ref<CombatEntityKey | null>(null);
+const hitPhpBound = ref(false);
 const processActionContext = ref<ProcessActionContext | null>(null);
 const attackAction = ref<AttackAction | null>(null);
 const pendingOffers = ref<CheckOffer[]>([]);
@@ -1332,7 +1394,7 @@ function onCheckClosed(open: boolean): void {
   void refreshPendingOffers();
 }
 
-function onHitClosed(open: boolean): void {
+function onHitClosed(open: boolean, refresh = true): void {
   if (open) return;
   const current = hitResumeOffer.value;
   const key = speakerEntityKey.value;
@@ -1353,8 +1415,18 @@ function onHitClosed(open: boolean): void {
   attackAction.value = null;
   hitAttackerKey.value = null;
   hitResumePhpStrike.value = false;
+  hitPhpStrikeMode.value = false;
   hitPhpDefenderKey.value = null;
+  hitPhpBound.value = false;
   hitOpen.value = false;
+  if (refresh) void refreshPendingOffers();
+}
+
+/** После действия в PHP-окне удара помнит, что окно привязано к серверному удару. */
+function onHitSettled(): void {
+  if (hitPhpStrikeMode.value && gamePhpBattleContext.openStrike !== null) {
+    hitPhpBound.value = true;
+  }
   void refreshPendingOffers();
 }
 
@@ -1402,7 +1474,9 @@ async function onLaunchAttack(payload: AttackAction): Promise<void> {
   processActionContext.value = payload.source.kind === 'process' ? payload.source.process : null;
   hitResumeOffer.value = null;
   hitResumePhpStrike.value = false;
-  hitPhpDefenderKey.value = null;
+  hitPhpStrikeMode.value = gamePhpMode.isEnabled();
+  hitPhpDefenderKey.value = payload.strikes[0]?.targetKey ?? null;
+  hitPhpBound.value = false;
   hitOpen.value = true;
 }
 
@@ -1659,11 +1733,14 @@ onUnmounted(() => {
       :game-id="gameId"
       :chat-id="chatId"
       :characters="eligibleMemberships"
+      :strike-memberships="memberships"
       :npcs="npcs"
       :rules="revisionRules"
       :mechanics="mechanics"
       :can-edit="canEdit"
+      :can-write-strike="canWriteStrike"
       :current-user-id="currentUser?.id ?? null"
+      :user-names="userNames"
       :active-speaker-key="activeSpeakerKey"
       :attacker-key="hitAttackerKey"
       :attack="hitAttack"
@@ -1675,8 +1752,9 @@ onUnmounted(() => {
       :initiative-keys="initiativeKeys"
       :runtime-projections="runtimeByKey"
       @update:open="onHitClosed"
-      @settled="refreshPendingOffers"
+      @settled="onHitSettled"
       @overlay-changed="onOverlayChanged"
+      @strike-refresh="onStrikeRefresh"
     />
     <InjuryLaunchDialog
       :open="injuryOpen"

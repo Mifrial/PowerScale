@@ -1,5 +1,6 @@
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
+import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
 import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
@@ -75,13 +76,15 @@ export class GamePhpCommandService {
     };
   }
 
-  async continueOrAbort(api: IGameApi, gameId: number, entityKey: CombatEntityKey, abort: boolean): Promise<void> {
+  async continueOrAbort(
+    api: IGameApi,
+    gameId: number,
+    entityKey: CombatEntityKey,
+    abort: boolean,
+  ): Promise<GamePhpTurnResult> {
     const body = this.turnBody(gameId, entityKey);
-    if (abort) {
-      await api.abortAction(body);
+    if (abort) return api.abortAction(body);
 
-      return;
-    }
-    await api.continueAction(body);
+    return api.continueAction(body);
   }
 }

@@ -22,6 +22,8 @@ import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefense
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
@@ -60,6 +62,7 @@ import { knowledgeDefenseService } from '@/modules/Roleplay/Game/Service/Instanc
 import { coveringService } from '@/modules/Roleplay/Game/Service/Instance/coveringService';
 import { blockHitService } from '@/modules/Roleplay/Game/Service/Instance/blockHitService';
 import { sequentialStrikeOfferService } from '@/modules/Roleplay/Game/Service/Instance/sequentialStrikeOfferService';
+import { gameStrikeDefenseService } from '@/modules/Roleplay/Game/Service/Instance/gameStrikeDefenseService';
 
 import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
@@ -136,11 +139,14 @@ const props = defineProps<{
   gameId: number;
   chatId: number | null;
   characters: GameCharacterMembership[];
+  strikeMemberships?: GameCharacterMembership[];
   npcs: GameNpc[];
   rules: Rule[];
   mechanics: Mechanic[];
   canEdit: boolean;
+  canWriteStrike: boolean;
   currentUserId: number | null;
+  userNames: Record<number, string>;
   activeSpeakerKey: string | null;
   attackerKey: CombatEntityKey | null;
   attack: AttackOverview | null;
@@ -161,6 +167,7 @@ const emit = defineEmits<{
   settled: [];
   offered: [];
   'overlay-changed': [];
+  'strike-refresh': [];
 }>();
 
 const combatThread = useCombatChatThread(() => props.gameId);
@@ -190,14 +197,17 @@ const flank = ref(false);
 const turn = ref(false);
 const coveringBlockItemRuleCode = ref<string | null>(null);
 const phpDeclared = ref(false);
+const phpDeclaredStrike = ref<GamePhpOpenStrike | null>(null);
+const phpPendingStrike = ref<GamePhpOpenStrike | null>(null);
+const phpOverride = ref(false);
 const phpDebt = ref(false);
 const phpWideTargets = ref<CombatEntityKey[]>([]);
 const phpWideChoices = ref<
-  Array<{
+  {
     reaction: HitDefenseReaction;
     blockItemInventoryId?: number;
     blockItemProfileIndex?: number;
-  }>
+  }[]
 >([]);
 const coveringAdv = ref(0);
 const agreedCoveringAdv = ref(0);
@@ -254,10 +264,67 @@ const entityOptions = computed(() => {
 
 const opponentOptions = computed(() => entityOptions.value.filter((item) => item.value !== resolvedAttackerKey.value));
 
-const isPhpDefenseStep = computed(
-  () => gamePhpMode.isEnabled() && phpDeclared.value && !phpDebt.value,
+const resolvedDefenderKey = computed(() => props.phpDefenderKey ?? opponentKey.value);
+const phpWideMode = computed(() => phpDeclared.value && phpWideTargets.value.length > 0);
+const phpFallbackStrike = computed<GamePhpOpenStrike | null>(() => {
+  const defender = resolvedDefenderKey.value;
+  const attacker = resolvedAttackerKey.value;
+  const attack = resolvedAttack.value;
+  if (!defender || !attacker || !attack || attack.inventoryItemId == null) return null;
+  const attackerPart = combatCardModelService.parseCombatEntityKey(attacker);
+  const defenderPart = combatCardModelService.parseCombatEntityKey(defender);
+
+  return {
+    attackerKind: attackerPart.kind,
+    attackerId: attackerPart.id,
+    defenderKind: defenderPart.kind,
+    defenderId: defenderPart.id,
+    actionRuleCode: resolvedActionRuleCode.value ?? '',
+    itemInventoryId: attack.inventoryItemId,
+    itemRuleCode: attack.itemRuleCode,
+    profileType: attack.profileType,
+    profileIndex: attack.profileIndex ?? 0,
+  };
+});
+const strikeMemberships = computed(() => props.strikeMemberships ?? props.characters);
+const phpStrike = computed(
+  () => phpDeclaredStrike.value ?? gamePhpBattleContext.openStrike ?? phpFallbackStrike.value,
 );
-const isCompose = computed(() => offer.value === null && !isPhpDefenseStep.value);
+const phpCanResolve = computed(() => {
+  const strike = phpStrike.value;
+  if (!strike) return false;
+
+  return gameStrikeDefenseService.canResolve(
+    strike,
+    props.currentUserId,
+    strikeMemberships.value,
+    props.canWriteStrike,
+    phpOverride.value,
+  );
+});
+const phpWaitingText = computed(() => {
+  const strike = phpStrike.value;
+  if (!strike) return 'Ожидаем реакцию защитника';
+  const npcNames = Object.fromEntries(props.npcs.map((npc) => [npc.id, npc.name]));
+
+  return gameStrikeDefenseService.waitingText(strike, strikeMemberships.value, props.userNames, npcNames);
+});
+const isPhpDefenseStep = computed(
+  () =>
+    gamePhpMode.isEnabled() &&
+    phpDeclared.value &&
+    !phpDebt.value &&
+    (phpWideMode.value || phpCanResolve.value),
+);
+const isPhpAwaiting = computed(
+  () =>
+    gamePhpMode.isEnabled() &&
+    phpDeclared.value &&
+    !phpDebt.value &&
+    !phpWideMode.value &&
+    !phpCanResolve.value,
+);
+const isCompose = computed(() => offer.value === null && !phpDeclared.value);
 const resolvedAttackAction = computed(() => offer.value?.proposal.attackAction ?? props.attackAction ?? null);
 const resolvedActionRuleCode = computed(() => {
   const source = resolvedAttackAction.value?.source;
@@ -1006,8 +1073,25 @@ watch(
   () => props.open,
   async (open) => {
     phpDeclared.value = open && props.resumePhpStrike === true;
+    phpDeclaredStrike.value = null;
+    phpPendingStrike.value = null;
+    phpOverride.value = false;
     phpDebt.value = false;
     if (open) await hydrate();
+  },
+);
+
+watch(
+  () => phpStrike.value,
+  (next, prev) => {
+    if (!next || !prev) return;
+    if (
+      next.attackerKind !== prev.attackerKind ||
+      next.attackerId !== prev.attackerId ||
+      next.itemInventoryId !== prev.itemInventoryId
+    ) {
+      phpOverride.value = false;
+    }
   },
 );
 
@@ -3176,17 +3260,51 @@ function rememberPhpWideChoice(): boolean {
   return false;
 }
 
+function phpStrikeFromAttack(attack: {
+  attacker: GamePhpParticipant;
+  defender: GamePhpParticipant;
+  actionRuleCode: string;
+  itemInventoryId: number;
+  itemRuleCode: string;
+  profileType: string;
+  profileIndex: number;
+}): GamePhpOpenStrike {
+  return {
+    attackerKind: attack.attacker.type,
+    attackerId: attack.attacker.id,
+    defenderKind: attack.defender.type,
+    defenderId: attack.defender.id,
+    actionRuleCode: attack.actionRuleCode,
+    itemInventoryId: attack.itemInventoryId,
+    itemRuleCode: attack.itemRuleCode,
+    profileType: attack.profileType,
+    profileIndex: attack.profileIndex,
+  };
+}
+
 async function submitPhpStrike(): Promise<boolean> {
   const wide = gamePhpCommandService.isWideStrike(resolvedAttackAction.value?.mode, phpTargetKeys());
   if (!phpDeclared.value) {
-    const declared = wide
-      ? await getGameApi().declareWideStrike(await phpWideStrikeAttack())
-      : await getGameApi().declareStrike(await phpStrikeAttack());
+    if (!wide) {
+      const attackBody = await phpStrikeAttack();
+      const declared = await getGameApi().declareStrike(attackBody);
+      phpDeclared.value = true;
+      phpDeclaredStrike.value = phpStrikeFromAttack(attackBody.attack);
+      phpPendingStrike.value = phpDeclaredStrike.value;
+      phpOverride.value = false;
+      phpDebt.value = declared.debt === true;
+      phpWideChoices.value = [];
+
+      return false;
+    }
+    const declared = await getGameApi().declareWideStrike(await phpWideStrikeAttack());
     phpDeclared.value = true;
+    phpDeclaredStrike.value = null;
+    phpPendingStrike.value = null;
+    phpOverride.value = false;
     phpDebt.value = declared.debt === true;
     phpWideChoices.value = [];
-    if (wide && phpWideTargets.value[0]) opponentKey.value = phpWideTargets.value[0];
-    if (phpDebt.value) return false;
+    if (phpWideTargets.value[0]) opponentKey.value = phpWideTargets.value[0];
 
     return false;
   }
@@ -3195,6 +3313,9 @@ async function submitPhpStrike(): Promise<boolean> {
     await getGameApi().resolveWideStrike(await phpWideDefense());
   } else await getGameApi().resolveStrike(await phpDefense());
   phpDeclared.value = false;
+  phpDeclaredStrike.value = null;
+  phpPendingStrike.value = null;
+  phpOverride.value = false;
   phpWideTargets.value = [];
   phpWideChoices.value = [];
 
@@ -3207,11 +3328,22 @@ async function continuePhpDebt(): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
-    await gamePhpCommandService.continueOrAbort(getGameApi(), props.gameId, attacker, false);
-    phpDebt.value = false;
-    phpDeclared.value = false;
-    phpWideTargets.value = [];
-    phpWideChoices.value = [];
+    const result = await gamePhpCommandService.continueOrAbort(getGameApi(), props.gameId, attacker, false);
+    if (result.opened === true) {
+      phpDebt.value = false;
+      phpDeclared.value = true;
+      phpDeclaredStrike.value = phpPendingStrike.value;
+      phpOverride.value = false;
+      emit('strike-refresh');
+
+      return;
+    }
+    if (result.refused) {
+      error.value = result.refused;
+
+      return;
+    }
+    phpDebt.value = true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось продолжить';
   } finally {
@@ -3228,6 +3360,9 @@ async function abortPhpDebt(): Promise<void> {
     await gamePhpCommandService.continueOrAbort(getGameApi(), props.gameId, attacker, true);
     phpDebt.value = false;
     phpDeclared.value = false;
+    phpDeclaredStrike.value = null;
+    phpPendingStrike.value = null;
+    phpOverride.value = false;
     phpWideTargets.value = [];
     phpWideChoices.value = [];
     close();
@@ -3300,6 +3435,7 @@ async function submit(): Promise<void> {
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось запустить попадание';
+    if (gamePhpMode.isEnabled()) emit('strike-refresh');
   } finally {
     busy.value = false;
   }
@@ -3320,6 +3456,7 @@ async function submitRevise(): Promise<void> {
 }
 
 const primaryLabel = computed(() => {
+  if (isPhpAwaiting.value) return 'Ожидаем защиту';
   if (isPhpDefenseStep.value) return 'Принять и бросить';
   if (!offer.value) return 'На одобрение';
   if (myTurn.value && advantageDirty.value) return 'На одобрение';
@@ -3494,6 +3631,19 @@ const canSubmit = computed(() => {
               </template>
             </template>
           </div>
+          <v-alert v-if="isPhpAwaiting" type="info" variant="tonal" density="compact" class="mt-2 mb-1">
+            <div>{{ phpWaitingText }}</div>
+            <v-btn
+              v-if="canWriteStrike"
+              variant="text"
+              size="small"
+              class="mt-1 px-0"
+              :disabled="busy"
+              @click="phpOverride = true"
+            >
+              Взять на себя
+            </v-btn>
+          </v-alert>
           <v-alert
             v-if="isDefenderStep"
             type="info"
@@ -3756,7 +3906,7 @@ const canSubmit = computed(() => {
           </v-btn>
         </template>
         <v-btn
-          v-else
+          v-else-if="!isPhpAwaiting"
           color="primary"
           size="small"
           :loading="busy"

@@ -145,6 +145,201 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Владелец атакующего объявляет, владелец защитника закрывает.
+     *
+     * @return void
+     */
+    public function testCharacterOwnerCanDeclareAndResolve(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1, true);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision(), 'open');
+        $attackerOwner = $this->addUser('attacker-owner');
+        $defenderOwner = $this->addUser('defender-owner');
+        $stranger = $this->addUser('stranger-owner');
+        $attackerId = $this->admit($world->getId(), $gameId, 'Hero', [], [], [], $attackerOwner);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Guard', [], [], [], $defenderOwner);
+        $defenderVersion = $this->characterFacade()->get($defenderId)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-owner',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $this->setActor($attackerOwner, []);
+        $opened = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-owner',
+            'expectedVersion' => 1,
+            'attack' => $this->characterAttack($attackerId, $defenderId),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $this->setActor($attackerOwner, []);
+        $wrong = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-wrong',
+            'expectedVersion' => 2,
+            'expectedSheetVersion' => $defenderVersion,
+            'defense' => ['reaction' => 'ignore'],
+        ]);
+        self::assertSame('AUTH_DENIED', $wrong['error']['code']);
+        $this->setActor($defenderOwner, []);
+        $closed = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-owner',
+            'expectedVersion' => 2,
+            'expectedSheetVersion' => $defenderVersion,
+            'defense' => ['reaction' => 'ignore'],
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $this->setActor($defenderOwner, []);
+        $again = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-again',
+            'expectedVersion' => 2,
+            'expectedSheetVersion' => $defenderVersion,
+            'defense' => ['reaction' => 'ignore'],
+        ]);
+        self::assertSame('GAME_INVALID', $again['error']['code']);
+        $this->setActor($stranger, []);
+        $foreign = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-foreign',
+            'expectedVersion' => 2,
+            'attack' => $this->characterAttack($attackerId, $defenderId),
+        ]);
+        self::assertSame('AUTH_DENIED', $foreign['error']['code']);
+    }
+
+    /**
+     * NPC-атаку объявляет только писатель, NPC-защиту закрывает только писатель.
+     *
+     * @return void
+     */
+    public function testNpcStrikeStepsRequireWriter(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1, true);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision(), 'open');
+        $player = $this->addUser('npc-player');
+        $characterId = $this->admit($world->getId(), $gameId, 'Hero', [], [], [], $player);
+        $characterVersion = $this->characterFacade()->get($characterId)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $npc = $this->endureNpc($gameId, $this->dispatch('game.createNpc', [
+            'gameId' => $gameId,
+            'name' => 'Guard',
+            'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
+        ]));
+        $attackerNpc = $this->endureNpc($gameId, $this->dispatch('game.createNpc', [
+            'gameId' => $gameId,
+            'name' => 'Raider',
+            'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
+        ]));
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $defenderBattle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-npc-defender',
+            'participants' => [
+                ['type' => 'character', 'id' => $characterId],
+                ['type' => 'npc', 'id' => $npc['data']['npcId']],
+            ],
+        ]);
+        $this->setActor($player, []);
+        self::assertTrue($this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $defenderBattle['data']['battleId'],
+            'idempotencyKey' => 's-npc-defender',
+            'expectedVersion' => 1,
+            'attack' => $this->attack($characterId, $npc['data']['npcId']),
+        ])['success']);
+        $this->setActor($player, []);
+        $npcDefense = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $defenderBattle['data']['battleId'],
+            'idempotencyKey' => 'd-npc-defender',
+            'expectedVersion' => 2,
+            'expectedSheetVersion' => $npc['data']['actualVersion'],
+            'defense' => ['reaction' => 'ignore'],
+        ]);
+        self::assertSame('AUTH_DENIED', $npcDefense['error']['code']);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $defenderBattle['data']['battleId'],
+            'idempotencyKey' => 'd-npc-defender',
+            'expectedVersion' => 2,
+            'expectedSheetVersion' => $npc['data']['actualVersion'],
+            'defense' => ['reaction' => 'ignore'],
+        ])['success']);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.endBattle', [
+            'gameId' => $gameId,
+            'battleId' => $defenderBattle['data']['battleId'],
+            'idempotencyKey' => 'e-npc-defender',
+            'expectedVersion' => 2,
+        ])['data']['ended']);
+        $attackerBattle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-npc-attacker',
+            'participants' => [
+                ['type' => 'npc', 'id' => $attackerNpc['data']['npcId']],
+                ['type' => 'character', 'id' => $characterId],
+            ],
+        ]);
+        $this->setActor($player, []);
+        $npcAttack = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $attackerBattle['data']['battleId'],
+            'idempotencyKey' => 's-npc-attacker',
+            'expectedVersion' => 1,
+            'attack' => [
+                'attacker' => ['type' => 'npc', 'id' => $attackerNpc['data']['npcId']],
+                'defender' => ['type' => 'character', 'id' => $characterId],
+                'actionRuleCode' => 'swing',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+            ],
+        ]);
+        self::assertSame('AUTH_DENIED', $npcAttack['error']['code']);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $attackerBattle['data']['battleId'],
+            'idempotencyKey' => 's-npc-attacker',
+            'expectedVersion' => 1,
+            'attack' => [
+                'attacker' => ['type' => 'npc', 'id' => $attackerNpc['data']['npcId']],
+                'defender' => ['type' => 'character', 'id' => $characterId],
+                'actionRuleCode' => 'swing',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+            ],
+        ])['success']);
+        $this->setActor($player, []);
+        self::assertTrue($this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $attackerBattle['data']['battleId'],
+            'idempotencyKey' => 'd-npc-attacker',
+            'expectedVersion' => 2,
+            'expectedSheetVersion' => $characterVersion,
+            'defense' => ['reaction' => 'ignore'],
+        ])['success']);
+    }
+
+    /**
      * Published damage types resolve reliability through live Rule and catalog.
      *
      * @return void
@@ -1380,6 +1575,27 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Выбор атаки персонажа по персонажу.
+     *
+     * @param int $attackerId Атакующий.
+     * @param int $defenderId Защитник.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function characterAttack(int $attackerId, int $defenderId): array
+    {
+        return [
+            'attacker' => ['type' => 'character', 'id' => $attackerId],
+            'defender' => ['type' => 'character', 'id' => $defenderId],
+            'actionRuleCode' => 'swing',
+            'itemInventoryId' => 1,
+            'itemRuleCode' => 'sword',
+            'profileType' => 'strike',
+            'profileIndex' => 0,
+        ];
+    }
+
+    /**
      * Выбор атаки мечом.
      *
      * @param int $characterId Персонаж.
@@ -1405,15 +1621,16 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @param int $spaceId Мир.
      * @param int $rulesRevision Ревизия.
+     * @param string $status Статус.
      *
      * @return int Игра.
      */
-    private function addGame(int $spaceId, int $rulesRevision): int
+    private function addGame(int $spaceId, int $rulesRevision, string $status = 'draft'): int
     {
         return $this->gameFacade()->add(NewGame::fromNormalized([
             'ownerUserId' => $this->ownerUserId,
             'name' => 'Tale',
-            'status' => 'draft',
+            'status' => $status,
             'visibility' => 'all',
             'joinPolicy' => 'anyone',
             'spaceId' => $spaceId,
@@ -1425,17 +1642,6 @@ final class GameStrikeMysqlTest extends TestCase
         ]));
     }
 
-    /**
-     * Допущенный active.
-     *
-     * @param int $spaceId Мир.
-     * @param int $gameId Игра.
-     * @param string $name Имя.
-     * @param array<int, array<string, mixed>> $purchases Закупки листа.
-     * @param array<string, mixed> $sheet Дополнение листа.
-     *
-     * @return int Персонаж.
-     */
     /**
      * Закрытие удара по персонажу с заданным листом.
      *
@@ -1591,6 +1797,19 @@ final class GameStrikeMysqlTest extends TestCase
         return $rows;
     }
 
+    /**
+     * Допущенный active.
+     *
+     * @param int $spaceId Мир.
+     * @param int $gameId Игра.
+     * @param string $name Имя.
+     * @param array<int, array<string, mixed>> $purchases Закупки листа.
+     * @param array<string, mixed> $sheet Дополнение листа.
+     * @param array<int, array<string, mixed>> $inventory Инвентарь.
+     * @param int|null $ownerUserId Владелец персонажа или владелец стенда.
+     *
+     * @return int Персонаж.
+     */
     private function admit(
         int $spaceId,
         int $gameId,
@@ -1598,9 +1817,11 @@ final class GameStrikeMysqlTest extends TestCase
         array $purchases = [],
         array $sheet = [],
         array $inventory = [],
+        ?int $ownerUserId = null,
     ): int {
+        $ownerUserId ??= $this->ownerUserId;
         $characterId = $this->characterFacade()->add(NewCharacter::fromNormalized([
-            'ownerUserId' => $this->ownerUserId,
+            'ownerUserId' => $ownerUserId,
             'spaceId' => $spaceId,
             'rulesRevision' => $this->worldRevision(),
             'name' => $name,
@@ -1638,7 +1859,7 @@ final class GameStrikeMysqlTest extends TestCase
             2,
             1,
         );
-        $this->membershipFacade()->submit($gameId, $characterId, $this->ownerUserId);
+        $this->membershipFacade()->submit($gameId, $characterId, $ownerUserId);
         $this->membershipFacade()->approve($gameId, $characterId, 2, 1);
 
         return $characterId;
@@ -1765,6 +1986,18 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertInstanceOf(IRequestContext::class, $requestContext);
         $this->requestContext = $requestContext;
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+    }
+
+    /**
+     * Учётка игрока.
+     *
+     * @param string $login Логин.
+     *
+     * @return int Пользователь.
+     */
+    private function addUser(string $login): int
+    {
+        return $this->gameUserAccounts()->addFromInput(['login' => $login, 'name' => $login]);
     }
 
     /**
