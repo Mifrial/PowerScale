@@ -960,10 +960,11 @@ final class GameWideStrikeMysqlTest extends TestCase
         $rollId = $this->plainRollId($mechanics);
         $reliabilityCutId = $this->reliabilityCutId($mechanics);
         $world = $this->addWorldWithRevision('razrabotka');
-        $swordProfile = ['type' => 'strike'];
+        $swordProfile = ['type' => 'strike', 'accuracy' => ['base' => 3, 'size' => 0]];
         if ($withPenetration) {
             $swordProfile = [
                 'type' => 'strike',
+                'accuracy' => ['base' => 3, 'size' => 0],
                 'damage' => [
                     'damage_type_code' => 'cut',
                     'formula' => ['type' => 'fixed', 'value' => 6],
@@ -1000,6 +1001,19 @@ final class GameWideStrikeMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('swing', new RuleVersionBody('language', 'Swing', '', [
                 'role' => 'spoken',
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('dodge', new RuleVersionBody('ability', 'Dodge', '', [
+                'type' => 'action',
+                'combat_action' => 'dodge',
+                'dodge_efficiency' => ['base' => 4, 'size' => -1],
+                'action_components' => [],
+                'distinct_weapons' => false,
+                'same_weapon' => false,
+                'lift_parent_max_weapons' => false,
+                'peak_concentration' => false,
+                'will_focus' => false,
+                'long_tension' => false,
+                'multiple' => false,
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('sword', new RuleVersionBody('item', 'Sword', '', [
                 'category' => 'weapon',
@@ -1049,6 +1063,7 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'weapon' => [
                     'weapon_profiles' => [[
                         'type' => 'strike',
+                        'accuracy' => ['base' => 3, 'size' => 0],
                         'damage' => [
                             'damage_type_code' => 'cut',
                             'formula' => ['type' => 'fixed', 'value' => 6],
@@ -1062,6 +1077,7 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'weapon' => [
                     'weapon_profiles' => [[
                         'type' => 'strike',
+                        'accuracy' => ['base' => 3, 'size' => 0],
                         'damage' => ['damage_type_code' => 'cut'],
                     ]],
                 ],
@@ -1134,12 +1150,15 @@ final class GameWideStrikeMysqlTest extends TestCase
             ]], 'needs_work')),
             RuleCommitEntry::put('agility', new RuleVersionBody('characteristic', 'Agility', '', [
                 'dodge_soak' => true,
+                'automatic' => ['value' => ['base' => 3, 'size' => 0]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('strength', new RuleVersionBody('characteristic', 'Strength', '', [
                 'weapon_mastery' => ['profiles' => ['strike']],
+                'automatic' => ['value' => ['base' => 3, 'size' => 0]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('stamina', new RuleVersionBody('characteristic', 'Stamina', '', [
                 'damage_endurance' => true,
+                'automatic' => ['value' => ['base' => 4, 'size' => 0]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('hurt', new RuleVersionBody('state', 'Hurt', '', [
                 'value_type' => 'dimensional',
@@ -1158,6 +1177,16 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'value_type' => 'flag',
                 'aggregation' => 'independent',
                 'decline_weakness' => true,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('disabled', new RuleVersionBody('state', 'Disabled', '', [
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
+                'decline_disabled' => true,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('unconscious', new RuleVersionBody('state', 'Unconscious', '', [
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
+                'decline_unconscious' => true,
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('maim', new RuleVersionBody('state', 'Maim', '', [
                 'value_type' => 'number',
