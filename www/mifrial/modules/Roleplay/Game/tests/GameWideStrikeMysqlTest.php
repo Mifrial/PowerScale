@@ -266,8 +266,8 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertSame($commandsBefore + 1, $this->countCommands('wide_strike'));
         self::assertSame(1, $this->countAll(GameWideStrikeTable::class));
         self::assertSame(2, $this->countAll(GameWideStrikeTargetTable::class));
-        self::assertSame($npc['actualVersion'], $this->npcVersion($gameId, $npc['npcId']));
-        self::assertSame($secondNpc['actualVersion'], $this->npcVersion($gameId, $secondNpc['npcId']));
+        self::assertSame($npc['actualVersion'] + 1, $this->npcVersion($gameId, $npc['npcId']));
+        self::assertSame($secondNpc['actualVersion'] + 1, $this->npcVersion($gameId, $secondNpc['npcId']));
 
         $sameBodyReplay = $this->dispatch('game.resolveWideStrike', $payload);
         self::assertTrue($sameBodyReplay['success']);
@@ -281,8 +281,8 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertSame($commandsBefore + 1, $this->countCommands('wide_strike'));
         self::assertSame(1, $this->countAll(GameWideStrikeTable::class));
         self::assertSame(2, $this->countAll(GameWideStrikeTargetTable::class));
-        self::assertSame($npc['actualVersion'], $this->npcVersion($gameId, $npc['npcId']));
-        self::assertSame($secondNpc['actualVersion'], $this->npcVersion($gameId, $secondNpc['npcId']));
+        self::assertSame($npc['actualVersion'] + 1, $this->npcVersion($gameId, $npc['npcId']));
+        self::assertSame($secondNpc['actualVersion'] + 1, $this->npcVersion($gameId, $secondNpc['npcId']));
     }
 
     /**
@@ -357,7 +357,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertSame('GAME_INVALID', $closed['data']['targetResults'][2]['code']);
         self::assertNull($closed['data']['targetResults'][3]['code']);
         self::assertSame(
-            $localTargets[3]['actualVersion'],
+            $localTargets[3]['actualVersion'] + 1,
             $this->npcVersion($gameId, $localTargets[3]['npcId']),
         );
     }
@@ -484,12 +484,12 @@ final class GameWideStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         self::assertSame($this->pair(6), $closed['data']['targetResults'][0]['damage']);
-        self::assertSame($this->pair(0), $closed['data']['targetResults'][1]['damage']);
-        self::assertSame($this->pair(14, -1), $closed['data']['targetResults'][0]['injury']);
+        self::assertSame($this->pair(6), $closed['data']['targetResults'][1]['damage']);
+        self::assertSame($this->pair(21, -1), $closed['data']['targetResults'][0]['injury']);
         self::assertArrayNotHasKey('S', $closed['data']['targetResults'][1]);
-        self::assertSame($this->pair(0), $closed['data']['targetResults'][1]['injury']);
+        self::assertSame($this->pair(32), $closed['data']['targetResults'][1]['injury']);
         self::assertSame($mailVersion + 1, $this->characterFacade()->get($mailId)->getActualVersion());
-        self::assertSame($clothVersion, $this->characterFacade()->get($clothId)->getActualVersion());
+        self::assertSame($clothVersion + 1, $this->characterFacade()->get($clothId)->getActualVersion());
     }
 
     /**
@@ -589,12 +589,7 @@ final class GameWideStrikeMysqlTest extends TestCase
     {
         $world = $this->worldWithWeapon(true);
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
-        $attackerId = $this->admit($world->getId(), $gameId, 'Penetrator', [
-            'characteristicPurchases' => [[
-                'characteristicCode' => 'strength',
-                'value' => ['base' => 1, 'size' => 0],
-            ]],
-        ], [
+        $attackerId = $this->admit($world->getId(), $gameId, 'Penetrator', [], [
             ['id' => 1, 'ruleCode' => 'sword', 'equipped' => true, 'modifiers' => []],
             ['id' => 2, 'ruleCode' => 'sword', 'equipped' => true, 'modifiers' => ['penetrator']],
         ]);
@@ -670,14 +665,30 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertCount(2, $results);
         self::assertSame(['base' => 6, 'size' => 0], $results[0]['damage']);
         self::assertSame(['base' => 6, 'size' => 0], $results[1]['damage']);
-        self::assertSame(['base' => 2, 'size' => 0], $results[0]['resistance']);
+        self::assertSame(['base' => 1, 'size' => 0], $results[0]['resistance']);
         self::assertSame(['base' => 1, 'size' => 0], $results[1]['resistance']);
-        self::assertSame(['base' => 5, 'size' => -1], $results[0]['injury']);
-        self::assertSame(['base' => 7, 'size' => -1], $results[1]['injury']);
+        self::assertSame(['base' => 37, 'size' => -1], $results[0]['injury']);
+        self::assertSame(['base' => 37, 'size' => -1], $results[1]['injury']);
         self::assertSame(['type' => 'character', 'id' => $plateId], $results[0]['target']);
         self::assertSame(['type' => 'character', 'id' => $clothId], $results[1]['target']);
         self::assertSame(
-            ['target', 'success', 'damage', 'resistance', 'injury', 'sheetVersion', 'code', 'S', 'wound', 'exhaustionDelta'],
+            [
+                'target',
+                'success',
+                'damage',
+                'resistance',
+                'injury',
+                'sheetVersion',
+                'code',
+                'defenderRoll',
+                'S',
+                'wound',
+                'exhaustionDelta',
+                'will',
+                'willOutcome',
+                'maim',
+                'chat',
+            ],
             array_keys($results[0]),
         );
         self::assertSame($plateVersion + 1, $this->characterFacade()->get($plateId)->getActualVersion());
@@ -706,12 +717,7 @@ final class GameWideStrikeMysqlTest extends TestCase
     {
         $world = $this->worldWithWeapon(true);
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
-        $attackerId = $this->admit($world->getId(), $gameId, 'Parity-Attacker', [
-            'characteristicPurchases' => [[
-                'characteristicCode' => 'strength',
-                'value' => ['base' => 1, 'size' => 0],
-            ]],
-        ], [[
+        $attackerId = $this->admit($world->getId(), $gameId, 'Parity-Attacker', [], [[
             'id' => 1,
             'ruleCode' => 'sword',
             'equipped' => true,
@@ -726,7 +732,7 @@ final class GameWideStrikeMysqlTest extends TestCase
             'id' => 1,
             'ruleCode' => 'plate',
             'equipped' => true,
-        ]]);
+        ]], false);
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
         $npc = $this->createNpc($gameId, 'Parity-Npc');
         $npcVersion = $this->setNpcInventory($npc, 'plate');
@@ -795,12 +801,7 @@ final class GameWideStrikeMysqlTest extends TestCase
     {
         $world = $this->worldWithWeapon(true);
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
-        $attackerId = $this->admit($world->getId(), $gameId, 'Penetrator', [
-            'characteristicPurchases' => [[
-                'characteristicCode' => 'strength',
-                'value' => ['base' => 1, 'size' => 0],
-            ]],
-        ], [
+        $attackerId = $this->admit($world->getId(), $gameId, 'Penetrator', [], [
             ['id' => 1, 'ruleCode' => 'sword', 'equipped' => true, 'modifiers' => []],
             ['id' => 2, 'ruleCode' => 'sword', 'equipped' => true, 'modifiers' => ['penetrator']],
         ]);
@@ -1514,11 +1515,19 @@ final class GameWideStrikeMysqlTest extends TestCase
      * @param int $gameId Игра.
      * @param string $name Имя.
      * @param array<string, mixed> $sheet Дополнение листа.
+     * @param array<int, array<string, mixed>> $inventory Инвентарь.
+     * @param bool $purchaseStrength Добавлять закупку силы по умолчанию.
      *
      * @return int Персонаж.
      */
-    private function admit(int $spaceId, int $gameId, string $name, array $sheet = [], array $inventory = []): int
-    {
+    private function admit(
+        int $spaceId,
+        int $gameId,
+        string $name,
+        array $sheet = [],
+        array $inventory = [],
+        bool $purchaseStrength = true,
+    ): int {
         $characterId = $this->characterFacade()->add(NewCharacter::fromNormalized([
             'ownerUserId' => $this->ownerUserId,
             'spaceId' => $spaceId,
@@ -1547,7 +1556,15 @@ final class GameWideStrikeMysqlTest extends TestCase
         }
         $bought[] = ['characteristicCode' => 'stamina', 'value' => ['base' => 4, 'size' => 0]];
         $document['characteristicPurchases'] = $bought;
-        $this->characterFacade()->replaceMigrated($characterId, $name, true, $this->storedChoices($name, $inventory), $document, 2, 1);
+        $this->characterFacade()->replaceMigrated(
+            $characterId,
+            $name,
+            true,
+            $this->storedChoices($name, $inventory, $purchaseStrength),
+            $document,
+            2,
+            1,
+        );
         $this->membershipFacade()->submit($gameId, $characterId, $this->ownerUserId);
         $this->membershipFacade()->approve($gameId, $characterId, 2, 1);
 
@@ -1720,7 +1737,7 @@ final class GameWideStrikeMysqlTest extends TestCase
      *
      * @return array<string, mixed> choices.
      */
-    private function storedChoices(string $name, array $inventory = []): array
+    private function storedChoices(string $name, array $inventory = [], bool $purchaseStrength = true): array
     {
         return [
             'name' => $name,
@@ -1729,7 +1746,9 @@ final class GameWideStrikeMysqlTest extends TestCase
             'inventory' => $this->inventoryWithIds($inventory === [] ? [
                 ['ruleCode' => 'sword', 'equipped' => true],
             ] : $inventory),
-            'characteristicPurchases' => [['characteristicCode' => 'strength', 'cost' => 2]],
+            'characteristicPurchases' => $purchaseStrength
+                ? [['characteristicCode' => 'strength', 'cost' => 2]]
+                : [],
             'customRules' => [],
             'money' => 0,
             'active' => true,
