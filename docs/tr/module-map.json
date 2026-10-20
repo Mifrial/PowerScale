@@ -2043,14 +2043,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/game-plan-36-strike-owner-actions.md",
-                    "title": "План Game 36 — владелец персонажа в ударе 1 → 1",
-                    "kind": "plan",
-                    "state": "ЧАСТИЧНО",
-                    "date": null,
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/game-plan-16.md",
                     "title": "План Game 16 — чаты донора",
                     "kind": "plan",
@@ -2248,6 +2240,14 @@
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-10-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-36-strike-owner-actions.md",
+                    "title": "План Game 36 — владелец персонажа в ударе 1 → 1",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
                     "hasStatus": true
                 },
                 {
