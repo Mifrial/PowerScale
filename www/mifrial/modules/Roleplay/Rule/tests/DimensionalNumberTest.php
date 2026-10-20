@@ -95,6 +95,72 @@ final class DimensionalNumberTest extends TestCase
     }
 
     /**
+     * Одинаковые размеры складываются как есть.
+     *
+     * @return void
+     */
+    public function testAddsEqualSizes(): void
+    {
+        $sum = (new DimensionalNumber(2, 0))->add(new DimensionalNumber(3, 0));
+
+        self::assertSame(5, $sum->getBase());
+        self::assertSame(0, $sum->getSize());
+    }
+
+    /**
+     * Больший размер приводится к меньшему: {1|1} + {10|0} = {12|0}.
+     *
+     * @return void
+     */
+    public function testAddsDifferentSizes(): void
+    {
+        $sum = (new DimensionalNumber(1, 1))->add(new DimensionalNumber(10, 0));
+
+        self::assertSame(12, $sum->getBase());
+        self::assertSame(0, $sum->getSize());
+
+        $reversed = (new DimensionalNumber(10, 0))->add(new DimensionalNumber(1, 1));
+
+        self::assertSame(12, $reversed->getBase());
+        self::assertSame(0, $reversed->getSize());
+    }
+
+    /**
+     * Отрицательные базы складываются без ограничений.
+     *
+     * @return void
+     */
+    public function testAddsNegativeBases(): void
+    {
+        $sum = (new DimensionalNumber(-2, 0))->add(new DimensionalNumber(5, 0));
+
+        self::assertSame(3, $sum->getBase());
+        self::assertSame(0, $sum->getSize());
+    }
+
+    /**
+     * Число со шкалой базы складывать нельзя.
+     *
+     * @return void
+     */
+    public function testAddRejectsBoundedNumber(): void
+    {
+        try {
+            (new DimensionalNumber(3, 0, 3, 5))->add(new DimensionalNumber(1, 0));
+            self::fail('bounded number must fail');
+        } catch (RuleInvalidException $exception) {
+            self::assertSame('RULE_INVALID', $exception->getErrorCode());
+        }
+
+        try {
+            (new DimensionalNumber(1, 0))->add(new DimensionalNumber(3, 0, 3, 5));
+            self::fail('bounded number must fail');
+        } catch (RuleInvalidException $exception) {
+            self::assertSame('RULE_INVALID', $exception->getErrorCode());
+        }
+    }
+
+    /**
      * Characteristic modification preserves scale and concrete type.
      *
      * @return void

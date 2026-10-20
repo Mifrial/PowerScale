@@ -99,6 +99,31 @@ class DimensionalNumber
     }
 
     /**
+     * Складывает с другим числом к меньшему размеру. Только числа без шкалы.
+     *
+     * @param self $other Второе число.
+     *
+     * @return static Сумма.
+     *
+     * @throws RuleInvalidException Если у числа есть шкала базы.
+     */
+    public function add(self $other): static
+    {
+        if ($this->baseMin !== null || $this->baseMax !== null
+            || $other->baseMin !== null || $other->baseMax !== null
+        ) {
+            throw new RuleInvalidException('Размерное число со шкалой нельзя складывать');
+        }
+
+        $size = min($this->size, $other->size);
+
+        return $this->copyWithBaseSize(
+            $this->baseAt($size) + $other->baseAt($size),
+            $size,
+        );
+    }
+
+    /**
      * Модифицирует базу по собственной шкале. Шаг размера — (max − min + 1).
      *
      * @param int $delta Пункты.
