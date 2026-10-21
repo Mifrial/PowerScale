@@ -4,27 +4,18 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Repository;
 
-use Mifrial\Core\SmartTable\Dto\FilterCondition;
-use Mifrial\Core\SmartTable\Dto\FilterGroup;
-use Mifrial\Core\SmartTable\Dto\ListQuery;
-use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
-use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
-use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
-use Mifrial\Core\SmartTable\Exception\Row\ReferenceConstraintException;
-use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
-use Mifrial\Core\SmartTable\Exception\Row\RowWriteFailedException;
-use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
-use Mifrial\Roleplay\Game\Table\GameStrikeTable;
 
 /**
- * Строки удара 1 → 1.
+ * Строки удара 1 → 1 на общей модели действия.
  */
 final class GameStrikeRepository
 {
-    private readonly IOpenedRecords $strikeRecords;
+    private readonly GameActionRepository $actions;
+
+    private readonly GameActionTargetRepository $targets;
 
     /**
      * Создаёт репозиторий.
@@ -33,9 +24,11 @@ final class GameStrikeRepository
      *
      * @return void
      */
-    public function __construct(ISmartTableGateway $smartTableGateway)
-    {
-        $this->strikeRecords = $smartTableGateway->open(GameStrikeTable::class)->records();
+    public function __construct(
+        private readonly ISmartTableGateway $smartTableGateway,
+    ) {
+        $this->actions = new GameActionRepository($smartTableGateway);
+        $this->targets = new GameActionTargetRepository($smartTableGateway);
     }
 
     /**
@@ -49,17 +42,13 @@ final class GameStrikeRepository
      */
     public function findOpen(int $battleId): ?array
     {
-        foreach ($this->rowsOfBattle($battleId) as $row) {
-            if (($row['open'] ?? null) === true) {
-                return $row;
-            }
-        }
+        $action = $this->actions->findOpenByBattle($battleId, 'strike');
 
-        return null;
+        return $action === null ? null : $this->row($action);
     }
 
     /**
-     * Последняя строка боя или null.
+     * Последняя строка удара боя или null.
      *
      * @param int $battleId Бой.
      *
@@ -69,12 +58,9 @@ final class GameStrikeRepository
      */
     public function findLatest(int $battleId): ?array
     {
-        $rows = $this->rowsOfBattle($battleId);
-        if ($rows === []) {
-            return null;
-        }
+        $action = $this->actions->findLatestByBattle($battleId, 'strike');
 
-        return $rows[count($rows) - 1];
+        return $action === null ? null : $this->row($action);
     }
 
     /**
@@ -89,18 +75,24 @@ final class GameStrikeRepository
      */
     public function add(array $fields): int
     {
-        try {
-            return $this->strikeRecords->add($fields);
-        } catch (ReferenceConstraintException $exception) {
-            throw new GameNotFoundException('Game session was not found', $exception);
-        } catch (
-            FieldRequiredException
-            | FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
-            throw new GameInvalidException('Game strike field is invalid', $exception);
-        }
+        $action = $this->actionFields($fields);
+        $target = [
+            'target_type' => $fields['defender_kind'] ?? null,
+            'target_id' => $fields['defender_id'] ?? null,
+            'reaction' => $fields['reaction'] ?? null,
+            'block_item_inventory_id' => $fields['block_item_inventory_id'] ?? null,
+            'block_item_profile_index' => $fields['block_item_profile_index'] ?? null,
+            'block_item_rule_code' => $fields['block_item_rule_code'] ?? null,
+            'expected_sheet_version' => $fields['expected_sheet_version'] ?? null,
+        ];
+
+        return $this->smartTableGateway->transaction(function () use ($action, $target): int {
+            $actionId = $this->actions->add($action);
+            $target['action_id'] = $actionId;
+            $this->targets->add($target);
+
+            return $actionId;
+        });
     }
 
     /**
@@ -124,24 +116,28 @@ final class GameStrikeRepository
         ?int $blockItemProfileIndex,
         ?string $blockItemRuleCode,
     ): void {
-        try {
-            $this->strikeRecords->update($strikeId, [
+        $target = $this->targets->findByAction($strikeId);
+        if ($target === null || !is_int($target['id'] ?? null)) {
+            throw new GameNotFoundException('Game strike was not found');
+        }
+
+        $targetId = $target['id'];
+        $this->smartTableGateway->transaction(function () use (
+            $strikeId,
+            $targetId,
+            $reaction,
+            $blockItemInventoryId,
+            $blockItemProfileIndex,
+            $blockItemRuleCode,
+        ): void {
+            $this->targets->update($targetId, [
                 'reaction' => $reaction,
                 'block_item_inventory_id' => $blockItemInventoryId,
                 'block_item_profile_index' => $blockItemProfileIndex,
                 'block_item_rule_code' => $blockItemRuleCode,
-                'open' => false,
             ]);
-        } catch (RowNotFoundException $exception) {
-            throw new GameNotFoundException('Game strike was not found', $exception);
-        } catch (
-            FieldRequiredException
-            | FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
-            throw new GameInvalidException('Game strike field is invalid', $exception);
-        }
+            $this->actions->close($strikeId);
+        });
     }
 
     /**
@@ -156,94 +152,68 @@ final class GameStrikeRepository
      */
     public function deleteBySession(int $sessionId): void
     {
-        $result = $this->strikeRecords->getList(new ListQuery(
-            new FilterGroup('AND', [
-                new FilterCondition('session_id', '=', $sessionId),
-            ]),
-            ['id' => 'ASC'],
-            ListQuery::MAX_LIMIT,
-            0,
-            false,
-            null,
-        ));
-        foreach ($result->rows() as $row) {
-            $this->delete($this->rowId($row));
-        }
-    }
-
-    /**
-     * Строки одного боя.
-     *
-     * @param int $battleId Бой.
-     *
-     * @return list<array<string, mixed>> Строки.
-     *
-     * @throws GameInvalidException Если строка битая.
-     */
-    private function rowsOfBattle(int $battleId): array
-    {
-        $result = $this->strikeRecords->getList(new ListQuery(
-            new FilterGroup('AND', [
-                new FilterCondition('battle_id', '=', $battleId),
-            ]),
-            ['id' => 'ASC'],
-            ListQuery::MAX_LIMIT,
-            0,
-            false,
-            null,
-        ));
-        $rows = [];
-        foreach ($result->rows() as $row) {
-            if (!is_array($row)) {
-                throw new GameInvalidException('Game strike row is invalid');
+        $this->smartTableGateway->transaction(function () use ($sessionId): void {
+            $ids = $this->actions->findIdsBySession($sessionId, 'strike');
+            $this->targets->deleteByActions($ids);
+            foreach ($ids as $strikeId) {
+                $this->actions->delete($strikeId);
             }
-
-            $rows[] = $row;
-        }
-
-        return $rows;
+        });
     }
 
     /**
-     * Удаляет строку.
+     * Колонки действия.
      *
-     * @param int $strikeId Удар.
+     * @param array<string, mixed> $fields Колонки удара.
      *
-     * @return void
-     *
-     * @throws GameNotFoundException Если строки нет.
-     * @throws GameInvalidException Если поле.
+     * @return array<string, mixed> Колонки действия.
      */
-    private function delete(int $strikeId): void
+    private function actionFields(array $fields): array
     {
-        try {
-            $this->strikeRecords->delete($strikeId);
-        } catch (RowNotFoundException $exception) {
-            throw new GameNotFoundException('Game strike was not found', $exception);
-        } catch (
-            FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
-            throw new GameInvalidException('Game strike field is invalid', $exception);
-        }
+        return [
+            'kind' => 'strike',
+            'battle_id' => $fields['battle_id'] ?? null,
+            'session_id' => $fields['session_id'] ?? null,
+            'attacker_kind' => $fields['attacker_kind'] ?? null,
+            'attacker_id' => $fields['attacker_id'] ?? null,
+            'action_rule_code' => $fields['action_rule_code'] ?? null,
+            'item_inventory_id' => $fields['item_inventory_id'] ?? null,
+            'item_rule_code' => $fields['item_rule_code'] ?? null,
+            'profile_type' => $fields['profile_type'] ?? null,
+            'profile_index' => $fields['profile_index'] ?? null,
+            'open' => $fields['open'] ?? true,
+        ];
     }
 
     /**
-     * Id строки.
+     * Строка удара в прежней форме defender_*.
      *
-     * @param mixed $row Строка ST.
+     * @param array<string, mixed> $action Действие.
      *
-     * @return int Id.
+     * @return array<string, mixed> Колонки.
      *
-     * @throws GameInvalidException Если id битый.
+     * @throws GameInvalidException Если цели нет.
      */
-    private function rowId(mixed $row): int
+    private function row(array $action): array
     {
-        if (!is_array($row) || !is_int($row['id'] ?? null)) {
+        $actionId = $action['id'] ?? null;
+        if (!is_int($actionId)) {
             throw new GameInvalidException('Game strike row is invalid');
         }
 
-        return $row['id'];
+        $target = $this->targets->findByAction($actionId);
+        if ($target === null) {
+            throw new GameInvalidException('Game strike row is invalid');
+        }
+
+        return array_merge($action, [
+            'defender_kind' => $target['target_type'] ?? null,
+            'defender_id' => $target['target_id'] ?? null,
+            'reaction' => $target['reaction'] ?? null,
+            'block_item_inventory_id' => $target['block_item_inventory_id'] ?? null,
+            'block_item_profile_index' => $target['block_item_profile_index'] ?? null,
+            'block_item_rule_code' => $target['block_item_rule_code'] ?? null,
+            'expected_sheet_version' => $target['expected_sheet_version'] ?? null,
+        ]);
     }
 }

@@ -18,7 +18,6 @@ use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
 use Mifrial\Roleplay\Game\Table\GameDeliveryTable;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
-use Mifrial\Roleplay\Game\Table\GameStrikeTable;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
 use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
@@ -100,7 +99,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertTrue($opened['success'], json_encode($opened));
         self::assertSame(2, $opened['data']['version']);
         self::assertNull($opened['data']['sheetVersion']);
-        self::assertSame(1, $this->countAll(GameStrikeTable::class));
+        self::assertSame(1, $this->countActions('strike'));
         self::assertSame($actual, $this->characterFacade()->get($characterId)->getActualVersion());
         self::assertSame($npcActual, $this->dispatch('game.getNpc', [
             'gameId' => $gameId,
@@ -133,7 +132,7 @@ final class GameStrikeMysqlTest extends TestCase
             'defense' => ['reaction' => 'ignore'],
         ]);
         self::assertEquals($closed['data'], $replay['data']);
-        self::assertSame(1, $this->countAll(GameStrikeTable::class));
+        self::assertSame(1, $this->countActions('strike'));
         $differentBody = $this->dispatch('game.resolveStrike', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
@@ -448,7 +447,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertTrue($results[0]['success']);
         self::assertTrue($results[1]['success']);
         self::assertSame($commandsBefore + 1, $this->countCommands('strike'));
-        self::assertSame(1, $this->countAll(GameStrikeTable::class));
+        self::assertSame(1, $this->countActions('strike'));
         self::assertSame($npcVersion + 1, $this->dispatch('game.getNpc', [
             'gameId' => $gameId,
             'npcId' => $npc['data']['npcId'],
@@ -465,7 +464,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertFalse($differentBodyResult['success']);
         self::assertSame('GAME_CONFLICT', $differentBodyResult['error']['code']);
         self::assertSame($commandsBefore + 1, $this->countCommands('strike'));
-        self::assertSame(1, $this->countAll(GameStrikeTable::class));
+        self::assertSame(1, $this->countActions('strike'));
         self::assertSame($deliveryBefore + 1, $this->countAll(GameDeliveryTable::class));
     }
 
@@ -557,7 +556,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertCount(1, $failures);
         self::assertContains($failures[0]['error']['code'] ?? null, ['GAME_CONFLICT', 'GAME_INVALID']);
         self::assertSame($commandsBefore + 1, $this->countCommands('strike'));
-        self::assertSame(1, $this->countAll(GameStrikeTable::class));
+        self::assertSame(1, $this->countActions('strike'));
     }
 
     /**
@@ -900,7 +899,7 @@ final class GameStrikeMysqlTest extends TestCase
             'attack' => $attack,
         ]);
         self::assertSame('GAME_INVALID', $bad['error']['code']);
-        self::assertSame(0, $this->countAll(GameStrikeTable::class));
+        self::assertSame(0, $this->countActions('strike'));
         $damage = $this->attack($characterId, $npc['data']['npcId']);
         $damage['actionPointCost'] = 1;
         $rejected = $this->dispatch('game.declareStrike', [
@@ -942,7 +941,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame('GAME_CONFLICT', $staleBattle['error']['code']);
         self::assertArrayNotHasKey('choices', $staleBattle['error']['details']);
         self::assertArrayNotHasKey('sheet', $staleBattle['error']['details']);
-        self::assertSame(1, $this->countWhere(GameStrikeTable::class, 'open', true));
+        self::assertSame(1, $this->countOpenActions('strike'));
         self::assertSame(1, $this->countCommands('strike'));
         $ended = $this->dispatch('game.endBattle', [
             'gameId' => $gameId,
@@ -954,7 +953,7 @@ final class GameStrikeMysqlTest extends TestCase
         $card = $this->dispatch('game.get', ['id' => $gameId]);
         self::assertTrue($card['data']['sessionRunning']);
         self::assertTrue($this->dispatch('game.stopSession', ['gameId' => $gameId])['success']);
-        self::assertSame(0, $this->countAll(GameStrikeTable::class));
+        self::assertSame(0, $this->countActions('strike'));
         self::assertSame(0, $this->countCommands('strike'));
         self::assertSame(0, $this->countAll(GameSessionTable::class));
     }
@@ -1059,7 +1058,7 @@ final class GameStrikeMysqlTest extends TestCase
             ],
         ])['success']);
         $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
-        $strike = $mysql->select('select item_inventory_id, item_rule_code, open from game_strike');
+        $strike = $mysql->select("select item_inventory_id, item_rule_code, open from game_action where kind = 'strike'");
         self::assertSame(2, (int) $strike[0]->item_inventory_id);
         self::assertSame('sword', (string) $strike[0]->item_rule_code);
         $commandsBefore = $this->countCommands('strike');
@@ -1092,7 +1091,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($defenderVersion + 1, $after->getActualVersion());
         self::assertSame($attackerVersion, $this->characterFacade()->get($attackerId)->getActualVersion());
         self::assertSame($commandsBefore, $this->countCommands('strike'));
-        self::assertSame(1, (int) $mysql->select('select open from game_strike')[0]->open);
+        self::assertSame(1, (int) $mysql->select("select open from game_action where kind = 'strike'")[0]->open);
         self::assertSame(2, (int) $mysql->select('select state_version from game_battle where id = ?', [$battleId])[0]->state_version);
     }
 
@@ -1179,7 +1178,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($defenderVersion + 1, $afterDefender->getActualVersion());
         self::assertSame([['base' => 5, 'current' => 0, 'ruleCode' => 'focus']], $afterDefender->getSheet()['resources']);
         self::assertSame($attackerVersion, $this->characterFacade()->get($attackerId)->getActualVersion());
-        self::assertSame(0, (int) $mysql->select('select open from game_strike')[0]->open);
+        self::assertSame(0, (int) $mysql->select("select open from game_action where kind = 'strike'")[0]->open);
         self::assertSame(3, (int) $mysql->select('select state_version from game_battle where id = ?', [$battleId])[0]->state_version);
     }
 
@@ -1272,7 +1271,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertEquals($defenderSheet, $this->characterFacade()->get($defenderId)->getSheet());
         self::assertSame($defenderVersion, $this->characterFacade()->get($defenderId)->getActualVersion());
         self::assertEquals($attackerSheet, $this->characterFacade()->get($attackerId)->getSheet());
-        self::assertSame(1, (int) $mysql->select('select open from game_strike')[0]->open);
+        self::assertSame(1, (int) $mysql->select("select open from game_action where kind = 'strike'")[0]->open);
         self::assertSame(2, (int) $mysql->select('select state_version from game_battle where id = ?', [$battleId])[0]->state_version);
         $replay = $this->dispatch('game.resolveStrike', [
             'gameId' => $gameId,

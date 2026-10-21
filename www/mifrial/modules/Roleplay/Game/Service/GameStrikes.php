@@ -26,6 +26,7 @@ use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
@@ -40,6 +41,8 @@ final class GameStrikes implements IGameStrikes
     private readonly GameBattleRepository $battles;
 
     private readonly GameStrikeRepository $strikes;
+
+    private readonly GameActionRepository $actions;
 
     private readonly GameCommandRepository $commands;
 
@@ -101,6 +104,7 @@ final class GameStrikes implements IGameStrikes
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->strikes = new GameStrikeRepository($smartTableGateway);
+        $this->actions = new GameActionRepository($smartTableGateway);
         $this->commands = new GameCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->characters = new GameCharacterRepository($smartTableGateway);
@@ -283,7 +287,7 @@ final class GameStrikes implements IGameStrikes
     ): array {
         $battle = $this->battleOf($sessionId, $battleId, $expectedBattleVersion);
         $this->assertPair($battleId, $choice['attacker'], $choice['defender']);
-        if ($this->strikes->findOpen($battleId) !== null) {
+        if ($this->actions->findOpenAny($battleId) !== null) {
             throw new GameInvalidException('Game strike is already open');
         }
 

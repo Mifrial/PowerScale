@@ -14,9 +14,8 @@ use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
+use Mifrial\Roleplay\Game\Table\GameActionTargetTable;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
-use Mifrial\Roleplay\Game\Table\GameWideStrikeTable;
-use Mifrial\Roleplay\Game\Table\GameWideStrikeTargetTable;
 use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
@@ -122,8 +121,8 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertTrue($opened['success'], json_encode($opened));
         self::assertSame([], $opened['data']['targetResults']);
         self::assertSame(2, $opened['data']['version']);
-        self::assertSame(1, $this->countAll(GameWideStrikeTable::class));
-        self::assertSame(2, $this->countAll(GameWideStrikeTargetTable::class));
+        self::assertSame(1, $this->countActions('wide_strike'));
+        self::assertSame(2, $this->countActionTargets());
         self::assertSame($actual, $this->characterFacade()->get($characterId)->getActualVersion());
         $staleBattle = $this->dispatch('game.resolveWideStrike', [
             'gameId' => $gameId,
@@ -204,6 +203,53 @@ final class GameWideStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Обычный открытый удар не даёт объявить широкий в том же бою.
+     *
+     * @return void
+     */
+    public function testNormalStrikeBlocksWideStrikeInSameBattle(): void
+    {
+        $world = $this->worldWithWeapon();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $characterId = $this->admit($world->getId(), $gameId, 'Cross-Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $npc = $this->createNpc($gameId, 'Cross-Guard');
+        $secondNpc = $this->createNpc($gameId, 'Cross-Archer');
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'cross-battle',
+            'participants' => [
+                ['type' => 'character', 'id' => $characterId],
+                ['type' => 'npc', 'id' => $npc['npcId']],
+                ['type' => 'npc', 'id' => $secondNpc['npcId']],
+            ],
+        ]);
+        $strikeAttack = $this->attack($characterId, [$npc['npcId']]);
+        $strikeAttack['defender'] = ['type' => 'npc', 'id' => $npc['npcId']];
+        unset($strikeAttack['targets']);
+        $opened = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'cross-strike',
+            'expectedVersion' => 1,
+            'attack' => $strikeAttack,
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertSame(1, $this->countActions('strike'));
+        $blocked = $this->dispatch('game.declareWideStrike', $this->declareBody(
+            $gameId,
+            $battle['data']['battleId'],
+            'cross-wide',
+            2,
+            $this->attack($characterId, [$npc['npcId'], $secondNpc['npcId']]),
+        ));
+        self::assertFalse($blocked['success'], json_encode($blocked));
+        self::assertSame('GAME_INVALID', $blocked['error']['code']);
+        self::assertSame(0, $this->countActions('wide_strike'));
+    }
+
+    /**
      * Две concurrent execution одного wide resolve дают один commit и replay.
      *
      * @return void
@@ -264,8 +310,8 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertTrue($results[0]['success']);
         self::assertTrue($results[1]['success']);
         self::assertSame($commandsBefore + 1, $this->countCommands('wide_strike'));
-        self::assertSame(1, $this->countAll(GameWideStrikeTable::class));
-        self::assertSame(2, $this->countAll(GameWideStrikeTargetTable::class));
+        self::assertSame(1, $this->countActions('wide_strike'));
+        self::assertSame(2, $this->countActionTargets());
         self::assertSame($npc['actualVersion'] + 1, $this->npcVersion($gameId, $npc['npcId']));
         self::assertSame($secondNpc['actualVersion'] + 1, $this->npcVersion($gameId, $secondNpc['npcId']));
 
@@ -279,8 +325,8 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertFalse($differentBodyResult['success']);
         self::assertSame('GAME_CONFLICT', $differentBodyResult['error']['code']);
         self::assertSame($commandsBefore + 1, $this->countCommands('wide_strike'));
-        self::assertSame(1, $this->countAll(GameWideStrikeTable::class));
-        self::assertSame(2, $this->countAll(GameWideStrikeTargetTable::class));
+        self::assertSame(1, $this->countActions('wide_strike'));
+        self::assertSame(2, $this->countActionTargets());
         self::assertSame($npc['actualVersion'] + 1, $this->npcVersion($gameId, $npc['npcId']));
         self::assertSame($secondNpc['actualVersion'] + 1, $this->npcVersion($gameId, $secondNpc['npcId']));
     }
@@ -400,12 +446,12 @@ final class GameWideStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($ended['success'], json_encode($ended));
         self::assertTrue($this->dispatch('game.get', ['id' => $gameId])['data']['sessionRunning']);
-        self::assertSame(1, $this->countAll(GameWideStrikeTable::class));
+        self::assertSame(1, $this->countActions('wide_strike'));
         $stopped = $this->dispatch('game.stopSession', ['gameId' => $gameId, 'targetStatus' => 'completed']);
         self::assertSame('INVALID_PARAMS', $stopped['error']['code']);
         self::assertTrue($this->dispatch('game.stopSession', ['gameId' => $gameId])['success']);
-        self::assertSame(0, $this->countAll(GameWideStrikeTable::class));
-        self::assertSame(0, $this->countAll(GameWideStrikeTargetTable::class));
+        self::assertSame(0, $this->countActions('wide_strike'));
+        self::assertSame(0, $this->countActionTargets());
         self::assertSame(0, $this->countCommands('wide_strike'));
         self::assertSame(0, $this->countAll(GameSessionTable::class));
     }
@@ -866,7 +912,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         ));
         self::assertTrue($opened['success'], json_encode($opened));
         $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
-        $strike = $mysql->select('select item_inventory_id, open from game_wide_strike');
+        $strike = $mysql->select("select item_inventory_id, open from game_action where kind = 'wide_strike'");
         self::assertSame(2, (int) $strike[0]->item_inventory_id);
         $commandsBefore = $this->countCommands('wide_strike');
         $probe = new PenetrationMutationCasProbe();
@@ -909,7 +955,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertEquals($clothChoices, $clothAfter->getChoices());
         self::assertSame($attackerVersion, $this->characterFacade()->get($attackerId)->getActualVersion());
         self::assertSame($commandsBefore, $this->countCommands('wide_strike'));
-        self::assertSame(1, (int) $mysql->select('select open from game_wide_strike')[0]->open);
+        self::assertSame(1, (int) $mysql->select("select open from game_action where kind = 'wide_strike'")[0]->open);
         self::assertSame(2, (int) $mysql->select(
             'select state_version from game_battle where id = ?',
             [$battleId],
@@ -1480,7 +1526,22 @@ final class GameWideStrikeMysqlTest extends TestCase
         $rows = (new GameWideStrikeTargetRepository($gateway))->getList($strikeId);
         $targetId = $rows[$index]['id'] ?? null;
         self::assertIsInt($targetId);
-        $gateway->open(GameWideStrikeTargetTable::class)->records()->update($targetId, $values);
+        $mapped = [];
+        if (array_key_exists('defender_kind', $values)) {
+            $mapped['target_type'] = $values['defender_kind'];
+        }
+
+        if (array_key_exists('defender_id', $values)) {
+            $mapped['target_id'] = $values['defender_id'];
+        }
+
+        foreach (['reaction', 'block_item_inventory_id', 'block_item_profile_index', 'block_item_rule_code'] as $key) {
+            if (array_key_exists($key, $values)) {
+                $mapped[$key] = $values[$key];
+            }
+        }
+
+        $gateway->open(GameActionTargetTable::class)->records()->update($targetId, $mapped);
     }
 
     /**

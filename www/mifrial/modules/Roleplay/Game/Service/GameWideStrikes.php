@@ -22,6 +22,7 @@ use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -34,6 +35,8 @@ final class GameWideStrikes implements IGameWideStrikes
     private readonly GameBattleRepository $battles;
 
     private readonly GameWideStrikeRepository $strikes;
+
+    private readonly GameActionRepository $actions;
 
     private readonly GameWideStrikeTargetRepository $targets;
 
@@ -81,6 +84,7 @@ final class GameWideStrikes implements IGameWideStrikes
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->strikes = new GameWideStrikeRepository($smartTableGateway);
+        $this->actions = new GameActionRepository($smartTableGateway);
         $this->targets = new GameWideStrikeTargetRepository($smartTableGateway);
         $this->commands = new GameCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
@@ -543,7 +547,7 @@ final class GameWideStrikes implements IGameWideStrikes
     {
         $opening = new GameWideStrikeOpening($this->battles, $this->targets);
         $opening->assertRoster($battleId, $choice);
-        if ($this->strikes->findOpen($battleId) !== null) {
+        if ($this->actions->findOpenAny($battleId) !== null) {
             throw new GameInvalidException('Game wide strike is already open');
         }
 

@@ -34,6 +34,7 @@ use Mifrial\Roleplay\Character\Table\CharacterViewerTable;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
+use Mifrial\Roleplay\Game\Schema\GameActionSchema;
 use Mifrial\Roleplay\Game\Schema\GameAdmissionSchema;
 use Mifrial\Roleplay\Game\Schema\GameBattleSchema;
 use Mifrial\Roleplay\Game\Schema\GameCheckSchema;
@@ -43,8 +44,8 @@ use Mifrial\Roleplay\Game\Schema\GameEconomySchema;
 use Mifrial\Roleplay\Game\Schema\GameProcessSchema;
 use Mifrial\Roleplay\Game\Schema\GameSchema;
 use Mifrial\Roleplay\Game\Schema\GameCommandSchema;
-use Mifrial\Roleplay\Game\Schema\GameStrikeSchema;
-use Mifrial\Roleplay\Game\Schema\GameWideStrikeSchema;
+use Mifrial\Roleplay\Game\Table\GameActionTable;
+use Mifrial\Roleplay\Game\Table\GameActionTargetTable;
 use Mifrial\Roleplay\Game\Table\GameBattleParticipantTable;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
 use Mifrial\Roleplay\Game\Table\GameCharacterTable;
@@ -61,10 +62,7 @@ use Mifrial\Roleplay\Game\Table\GameProcessTable;
 use Mifrial\Roleplay\Game\Table\GameSessionCharacterTable;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
 use Mifrial\Roleplay\Game\Table\GameShopPositionTable;
-use Mifrial\Roleplay\Game\Table\GameStrikeTable;
 use Mifrial\Roleplay\Game\Table\GameTable;
-use Mifrial\Roleplay\Game\Table\GameWideStrikeTable;
-use Mifrial\Roleplay\Game\Table\GameWideStrikeTargetTable;
 use Mifrial\Roleplay\Keyword\Schema\KeywordSchema;
 use Mifrial\Roleplay\Keyword\Table\KeywordTable;
 use Mifrial\Roleplay\Mechanic\Schema\MechanicSchema;
@@ -146,9 +144,8 @@ trait GameMysqlFixture
         $gateway = $this->smartTableGateway;
         $this->deleteIfExists($gateway->open(GameDeliveryTable::class));
         $this->deleteIfExists($gateway->open(GameCheckTable::class));
-        $this->deleteIfExists($gateway->open(GameWideStrikeTargetTable::class));
-        $this->deleteIfExists($gateway->open(GameWideStrikeTable::class));
-        $this->deleteIfExists($gateway->open(GameStrikeTable::class));
+        $this->deleteIfExists($gateway->open(GameActionTargetTable::class));
+        $this->deleteIfExists($gateway->open(GameActionTable::class));
         $this->deleteIfExists($gateway->open(GameCommandTable::class));
         $this->deleteIfExists($gateway->open(GameBattleParticipantTable::class));
         $this->deleteIfExists($gateway->open(GameBattleTable::class));
@@ -374,12 +371,9 @@ trait GameMysqlFixture
         (new GameCheckSchema(
             $gateway->open(GameCheckTable::class)->schema(),
         ))->install();
-        (new GameStrikeSchema(
-            $gateway->open(GameStrikeTable::class)->schema(),
-        ))->install();
-        (new GameWideStrikeSchema(
-            $gateway->open(GameWideStrikeTable::class)->schema(),
-            $gateway->open(GameWideStrikeTargetTable::class)->schema(),
+        (new GameActionSchema(
+            $gateway->open(GameActionTable::class)->schema(),
+            $gateway->open(GameActionTargetTable::class)->schema(),
         ))->install();
         (new GameCommandSchema(
             $gateway->open(GameCommandTable::class)->schema(),
@@ -457,5 +451,81 @@ trait GameMysqlFixture
         }
 
         return $count;
+    }
+
+    /**
+     * Число действий вида.
+     *
+     * @param string $kind Вид действия.
+     *
+     * @return int Число.
+     */
+    protected function countActions(string $kind): int
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $count = 0;
+        foreach ($gateway->open(GameActionTable::class)->records()->getList(new ListQuery(
+            null,
+            ['id' => 'ASC'],
+            ListQuery::MAX_LIMIT,
+            0,
+            false,
+            null,
+        ))->rows() as $row) {
+            if (is_array($row) && ($row['kind'] ?? null) === $kind) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Число открытых действий вида.
+     *
+     * @param string $kind Вид действия.
+     *
+     * @return int Число.
+     */
+    protected function countOpenActions(string $kind): int
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $count = 0;
+        foreach ($gateway->open(GameActionTable::class)->records()->getList(new ListQuery(
+            null,
+            ['id' => 'ASC'],
+            ListQuery::MAX_LIMIT,
+            0,
+            false,
+            null,
+        ))->rows() as $row) {
+            if (is_array($row) && ($row['kind'] ?? null) === $kind && ($row['open'] ?? null) === true) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Число целей действий.
+     *
+     * @return int Число.
+     */
+    protected function countActionTargets(): int
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+
+        return count($gateway->open(GameActionTargetTable::class)->records()->getList(new ListQuery(
+            null,
+            ['id' => 'ASC'],
+            ListQuery::MAX_LIMIT,
+            0,
+            false,
+            null,
+        ))->rows());
     }
 }

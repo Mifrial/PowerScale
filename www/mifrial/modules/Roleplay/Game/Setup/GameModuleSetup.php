@@ -8,6 +8,7 @@ use Mifrial\Core\Kernel\Interface\Service\IModuleSetup;
 use Mifrial\Core\Kernel\Interface\Service\ISetupStep;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Roleplay\Game\Schema\GameActionSchema;
 use Mifrial\Roleplay\Game\Schema\GameAdmissionSchema;
 use Mifrial\Roleplay\Game\Schema\GameBattleSchema;
 use Mifrial\Roleplay\Game\Schema\GameCheckSchema;
@@ -17,8 +18,6 @@ use Mifrial\Roleplay\Game\Schema\GameDeliverySchema;
 use Mifrial\Roleplay\Game\Schema\GameEconomySchema;
 use Mifrial\Roleplay\Game\Schema\GameProcessSchema;
 use Mifrial\Roleplay\Game\Schema\GameSchema;
-use Mifrial\Roleplay\Game\Schema\GameStrikeSchema;
-use Mifrial\Roleplay\Game\Schema\GameWideStrikeSchema;
 
 /**
  * Карта Game для CLI setup.
@@ -51,8 +50,7 @@ final class GameModuleSetup implements IModuleSetup
             GameEconomySchema::getTableClasses(),
             GameBattleSchema::getTableClasses(),
             GameProcessSchema::getTableClasses(),
-            GameStrikeSchema::getTableClasses(),
-            GameWideStrikeSchema::getTableClasses(),
+            GameActionSchema::getTableClasses(),
             GameCheckSchema::getTableClasses(),
             GameCommandSchema::getTableClasses(),
             GameDeliverySchema::getTableClasses(),

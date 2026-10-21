@@ -16,7 +16,6 @@ use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
 use Mifrial\Roleplay\Game\Service\GameStrikeSheetWrites;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
-use Mifrial\Roleplay\Game\Table\GameStrikeTable;
 use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
@@ -96,11 +95,11 @@ final class GameEndOfTurnMysqlTest extends TestCase
         self::assertSame($sheet, $this->characterFacade()->get($opened['hero'])->getActualVersion());
 
         $debt = $this->battlePair();
-        $strikesBefore = $this->countAll(GameStrikeTable::class);
+        $strikesBefore = $this->countActions('strike');
         $held = $this->declare($debt, 'debt-hit', $this->strike($debt['hero'], $debt['ally'], 'heavy'));
         self::assertTrue($held['success'], json_encode($held));
         self::assertTrue($held['data']['debt']);
-        self::assertSame($strikesBefore, $this->countAll(GameStrikeTable::class));
+        self::assertSame($strikesBefore, $this->countActions('strike'));
         $passed = $this->endTurn(
             $debt['gameId'],
             $debt['battleId'],
@@ -468,7 +467,7 @@ final class GameEndOfTurnMysqlTest extends TestCase
         $declared = $this->declare($scene, 'short', $this->throwBody($scene['hero'], $scene['ally']));
         self::assertTrue($declared['success'], json_encode($declared));
         self::assertTrue($declared['data']['debt']);
-        self::assertSame(0, $this->countAll(GameStrikeTable::class));
+        self::assertSame(0, $this->countActions('strike'));
         self::assertSame(1, $this->inventoryQuantity($scene['hero'], 1));
         $slot = $this->battleRow($scene['battleId'])['action_debt']['character:' . $scene['hero']];
         self::assertGreaterThan(0, $slot['remaining']);
@@ -509,7 +508,7 @@ final class GameEndOfTurnMysqlTest extends TestCase
         ]);
         self::assertTrue($continued['success'], json_encode($continued));
         self::assertFalse($continued['data']['opened']);
-        self::assertSame(0, $this->countAll(GameStrikeTable::class));
+        self::assertSame(0, $this->countActions('strike'));
         self::assertSame(0, $this->inventoryQuantity($scene['hero'], 1));
         self::assertSame(0, $this->battleRow($scene['battleId'])['action_debt']['character:' . $scene['hero']]['remaining']);
 
@@ -665,7 +664,7 @@ final class GameEndOfTurnMysqlTest extends TestCase
         ]);
         self::assertTrue($opened['success'], json_encode($opened));
         self::assertArrayNotHasKey('debt', $opened['data']);
-        self::assertSame(1, $this->countAll(GameStrikeTable::class));
+        self::assertSame(1, $this->countActions('strike'));
     }
 
     /**
