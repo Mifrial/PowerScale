@@ -125,6 +125,64 @@ final class GameWideStrikeCommit
     }
 
     /**
+     * Принимает ответы целей через общую replay boundary.
+     *
+     * @param array<string, mixed> $context Контекст ответа.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если поле или результат невалидны.
+     * @throws GameNotFoundException Если цель не найдена.
+     * @throws GameBattleConflictException Если версия боя или цели другая.
+     */
+    public function respond(array $context): array
+    {
+        $work = $context['work'] ?? null;
+        unset($context['work']);
+        if (!$work instanceof Closure) {
+            throw new GameInvalidException('Game wide strike response is invalid');
+        }
+
+        $context['body'] = $this->closeBody(
+            $context['battle'],
+            $context['requestChoices'] ?? [],
+            $context['expectedBattleVersion'],
+        );
+
+        return $this->replayTransaction->execute(
+            fn (): ?array => $this->commands->findByKey(
+                $context['game']->getId(),
+                'wide_strike',
+                $context['idempotencyKey'],
+            ),
+            fn (): int => $this->commands->reserve(
+                $context['game']->getId(),
+                $context['sessionId'],
+                'wide_strike',
+                $context['idempotencyKey'],
+                $context['body'],
+            ),
+            function (int $reservationId, array $result): void {
+                $this->commands->complete($reservationId, $result);
+            },
+            fn (): array => $work($context),
+            $context['body'],
+        )['result'];
+    }
+
+    /**
+     * Закрывает wide внутри уже открытой транзакции ответа.
+     *
+     * @param array<string, mixed> $context Контекст закрытия.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function closeInTransaction(array $context): array
+    {
+        return $this->executeClose($context);
+    }
+
+    /**
      * Выполняет закрытие wide через общую replay boundary.
      *
      * @param array<string, mixed> $context Контекст закрытия wide.

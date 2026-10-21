@@ -157,21 +157,57 @@ final class GameWideStrikeResults
         $refusals = [];
         foreach ($rows as $index => $row) {
             $target = $this->defender($row);
-            $refusals[$index] = $this->refusal($game, $battleId, $target, $choices[$index]);
-            if ($refusals[$index] !== null) {
-                continue;
-            }
-
-            $this->assertSheet(
+            $refusals[$index] = $this->assertTargetSheet(
                 $game,
+                $battleId,
                 $target,
-                $choices[$index]['expectedSheetVersion'],
+                $choices[$index],
                 $actorUserId,
                 $viewAll,
             );
         }
 
         return $refusals;
+    }
+
+    /**
+     * Проверяет лист одной цели.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $battleId Бой.
+     * @param array{type: string, id: int} $target Цель.
+     * @param array{reaction: string, blockItemInventoryId: int|null, blockItemProfileIndex: int|null, blockItemRuleCode: string|null, expectedSheetVersion: int} $choice Защита.
+     * @param int $actorUserId Актор.
+     * @param bool $viewAll Полный просмотр.
+     *
+     * @return string|null Non-CAS код отказа.
+     *
+     * @throws GameBattleConflictException Если версия листа другая.
+     * @throws GameInvalidException Если строка цели битая.
+     * @throws GameNotFoundException Если листа нет.
+     */
+    public function assertTargetSheet(
+        GameRecord $game,
+        int $battleId,
+        array $target,
+        array $choice,
+        int $actorUserId,
+        bool $viewAll,
+    ): ?string {
+        $code = $this->refusal($game, $battleId, $target, $choice);
+        if ($code !== null) {
+            return $code;
+        }
+
+        $this->assertSheet(
+            $game,
+            $target,
+            $choice['expectedSheetVersion'],
+            $actorUserId,
+            $viewAll,
+        );
+
+        return null;
     }
 
     /**

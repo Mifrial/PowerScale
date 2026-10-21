@@ -89,6 +89,7 @@ final class GameProjectionHttp
             $actor->getUserId(),
             $actor->hasKey(GamePermissionKeys::VIEW_ALL),
             $input->battleId,
+            $actor->hasKey(GamePermissionKeys::EDIT_ALL),
         );
     }
 }

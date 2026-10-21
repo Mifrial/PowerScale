@@ -50,11 +50,18 @@ interface IGameProjections
      * @param int $actorUserId Актор.
      * @param bool $viewAll Ключ game.view_all.
      * @param int $battleId Бой.
+     * @param bool $editAll Ключ game.edit_all.
      *
      * @return array<string, mixed> Состав и листы.
      *
      * @throws GameNotFoundException Если карточки, сессии или боя нет.
      * @throws GameInvalidException Если строка битая.
      */
-    public function battleSheets(int $gameId, int $actorUserId, bool $viewAll, int $battleId): array;
+    public function battleSheets(
+        int $gameId,
+        int $actorUserId,
+        bool $viewAll,
+        int $battleId,
+        bool $editAll = false,
+    ): array;
 }

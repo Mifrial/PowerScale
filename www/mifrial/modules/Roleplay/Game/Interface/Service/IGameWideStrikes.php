@@ -45,7 +45,7 @@ interface IGameWideStrikes
     ): array;
 
     /**
-     * Закрывает широкий удар.
+     * Принимает ответы за цели; последний необходимый ответ закрывает удар.
      *
      * @param int $gameId Игра.
      * @param int $actorUserId Актор.

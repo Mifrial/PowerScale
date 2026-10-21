@@ -21,8 +21,12 @@ use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGameProjections;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
+use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
+use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
+use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
+use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
 
 /**
  * Roster и лист по ключам. Запись сессии и боя не делает.
@@ -38,6 +42,12 @@ final class GameProjections implements IGameProjections
     private readonly GameSessionRepository $sessions;
 
     private readonly GameNpcVisibility $npcVisibility;
+
+    private readonly GameWideStrikeRepository $wideStrikes;
+
+    private readonly GameWideStrikeTargetRepository $wideTargets;
+
+    private readonly GameWideStrikeAccess $wideAccess;
 
     /**
      * Создаёт чтение.
@@ -65,6 +75,12 @@ final class GameProjections implements IGameProjections
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->sessions = new GameSessionRepository($smartTableGateway);
         $this->npcVisibility = new GameNpcVisibility();
+        $this->wideStrikes = new GameWideStrikeRepository($smartTableGateway);
+        $this->wideTargets = new GameWideStrikeTargetRepository($smartTableGateway);
+        $this->wideAccess = new GameWideStrikeAccess(
+            new GameMemberRepository($smartTableGateway),
+            new GameCharacterRepository($smartTableGateway),
+        );
     }
 
     /**
@@ -117,19 +133,121 @@ final class GameProjections implements IGameProjections
      * @param int $actorUserId Актор.
      * @param bool $viewAll Ключ game.view_all.
      * @param int $battleId Бой.
+     * @param bool $editAll Ключ game.edit_all.
      *
      * @return array<string, mixed> Состав и листы.
      *
      * @throws GameNotFoundException Если карточки, сессии или боя нет.
      * @throws GameInvalidException Если строка битая.
      */
-    public function battleSheets(int $gameId, int $actorUserId, bool $viewAll, int $battleId): array
-    {
+    public function battleSheets(
+        int $gameId,
+        int $actorUserId,
+        bool $viewAll,
+        int $battleId,
+        bool $editAll = false,
+    ): array {
         $game = $this->open($gameId, $actorUserId, $viewAll);
         $this->requireBattle($gameId, $battleId);
         $collected = $this->collect($game, $actorUserId, $this->battles->findParticipants($battleId));
 
-        return ['battleId' => $battleId] + $this->battleBriefs($gameId, $collected) + $collected;
+        return ['battleId' => $battleId]
+            + $this->battleBriefs($gameId, $collected)
+            + $collected
+            + ['openWideStrike' => $this->openWideStrike($game, $actorUserId, $viewAll, $editAll, $battleId)];
+    }
+
+    /**
+     * Открытый широкий удар боя для текущего читателя.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $viewAll Ключ game.view_all.
+     * @param bool $editAll Ключ game.edit_all.
+     * @param int $battleId Бой.
+     *
+     * @return array<string, mixed>|null JSON или null.
+     */
+    private function openWideStrike(
+        GameRecord $game,
+        int $actorUserId,
+        bool $viewAll,
+        bool $editAll,
+        int $battleId,
+    ): ?array {
+        $row = $this->wideStrikes->findOpen($battleId);
+        $strikeId = is_array($row) ? ($row['id'] ?? null) : null;
+        $attackerKind = is_array($row) ? ($row['attacker_kind'] ?? null) : null;
+        $attackerId = is_array($row) ? ($row['attacker_id'] ?? null) : null;
+        if (!is_int($strikeId) || !is_string($attackerKind) || !is_int($attackerId)) {
+            return null;
+        }
+
+        $writer = $this->wideAccess->isWriter($game, $actorUserId, $editAll);
+        $npcs = $this->npcIndex($game->getId());
+        if ($attackerKind === 'npc') {
+            $attacker = $npcs[$attackerId] ?? null;
+            if (!$attacker instanceof GameNpcRecord || !$this->npcAdmitted($game, $attacker, $actorUserId)) {
+                return null;
+            }
+        }
+
+        $targets = [];
+        foreach ($this->wideTargets->getList($strikeId) as $targetRow) {
+            $kind = $targetRow['defender_kind'] ?? null;
+            $targetId = $targetRow['defender_id'] ?? null;
+            if (!is_string($kind) || !is_int($targetId)) {
+                continue;
+            }
+
+            if ($kind === 'npc') {
+                $npc = $npcs[$targetId] ?? null;
+                if (!$npc instanceof GameNpcRecord || !$this->npcAdmitted($game, $npc, $actorUserId)) {
+                    continue;
+                }
+            } elseif ($kind !== 'character') {
+                continue;
+            }
+
+            $reaction = $targetRow['reaction'] ?? null;
+            $answered = is_string($reaction);
+            $target = [
+                'type' => $kind,
+                'id' => $targetId,
+                'answered' => $answered,
+            ];
+            $canRead = $writer || $this->wideAccess->canAnswer(
+                $game,
+                $actorUserId,
+                $editAll,
+                ['type' => $kind, 'id' => $targetId],
+            );
+            if ($answered && $canRead) {
+                $target['reaction'] = $reaction;
+                $target['blockItemInventoryId'] = is_int($targetRow['block_item_inventory_id'] ?? null)
+                    ? $targetRow['block_item_inventory_id']
+                    : null;
+                $target['blockItemProfileIndex'] = is_int($targetRow['block_item_profile_index'] ?? null)
+                    ? $targetRow['block_item_profile_index']
+                    : null;
+                $target['blockItemRuleCode'] = is_string($targetRow['block_item_rule_code'] ?? null)
+                    ? $targetRow['block_item_rule_code']
+                    : null;
+            }
+
+            $targets[] = $target;
+        }
+
+        return [
+            'id' => $strikeId,
+            'attacker' => ['type' => $attackerKind, 'id' => $attackerId],
+            'actionRuleCode' => is_string($row['action_rule_code'] ?? null) ? $row['action_rule_code'] : '',
+            'itemInventoryId' => is_int($row['item_inventory_id'] ?? null) ? $row['item_inventory_id'] : 0,
+            'itemRuleCode' => is_string($row['item_rule_code'] ?? null) ? $row['item_rule_code'] : '',
+            'profileType' => is_string($row['profile_type'] ?? null) ? $row['profile_type'] : '',
+            'profileIndex' => is_int($row['profile_index'] ?? null) ? $row['profile_index'] : 0,
+            'targets' => $targets,
+        ];
     }
 
     /**

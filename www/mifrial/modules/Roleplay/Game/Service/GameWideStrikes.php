@@ -38,6 +38,8 @@ final class GameWideStrikes implements IGameWideStrikes
 
     private readonly GameActionRepository $actions;
 
+    private readonly GameWideStrikeAccess $access;
+
     private readonly GameWideStrikeTargetRepository $targets;
 
     private readonly GameCommandRepository $commands;
@@ -90,6 +92,7 @@ final class GameWideStrikes implements IGameWideStrikes
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->characters = new GameCharacterRepository($smartTableGateway);
         $this->members = new GameMemberRepository($smartTableGateway);
+        $this->access = new GameWideStrikeAccess($this->members, $this->characters);
         $this->body = new GameWideStrikeBody();
         $this->results = $this->createResults($rules, $mutations, $consequences);
         $this->replayTransaction = new GameReplayTransaction($smartTableGateway);
@@ -122,7 +125,7 @@ final class GameWideStrikes implements IGameWideStrikes
         array $attack,
     ): array {
         $choice = $this->body->attack($attack);
-        $ready = $this->ready($gameId, $actorUserId, $editAll, $viewAll, $idempotencyKey, [
+        $ready = $this->ready($gameId, $actorUserId, $viewAll, $idempotencyKey, [
             'attack' => $choice,
             'battleId' => $battleId,
             'expectedVersion' => $expectedBattleVersion,
@@ -130,6 +133,8 @@ final class GameWideStrikes implements IGameWideStrikes
         if ($ready['replay'] !== null) {
             return $ready['replay'];
         }
+
+        $this->access->assertAttacker($ready['game'], $actorUserId, $editAll, $choice['attacker']);
 
         return $this->open(
             $ready['game'],
@@ -142,7 +147,7 @@ final class GameWideStrikes implements IGameWideStrikes
     }
 
     /**
-     * Закрывает широкий удар.
+     * Принимает ответы за цели; последний необходимый ответ закрывает удар.
      *
      * @param int $gameId Игра.
      * @param int $actorUserId Актор.
@@ -166,7 +171,7 @@ final class GameWideStrikes implements IGameWideStrikes
         array $defense,
     ): array {
         $choices = $this->body->defense($defense);
-        $ready = $this->ready($gameId, $actorUserId, $editAll, $viewAll, $idempotencyKey, [
+        $ready = $this->ready($gameId, $actorUserId, $viewAll, $idempotencyKey, [
             'battleId' => $battleId,
             'defense' => $choices,
             'expectedVersion' => $expectedBattleVersion,
@@ -183,6 +188,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $expectedBattleVersion,
             $choices,
             $actorUserId,
+            $editAll,
             $viewAll,
         );
     }
@@ -285,18 +291,16 @@ final class GameWideStrikes implements IGameWideStrikes
     }
 
     /**
-     * Видимость, повтор, право и сессия.
+     * Видимость, повтор и сессия.
      *
      * @param int $gameId Игра.
      * @param int $actorUserId Актор.
-     * @param bool $editAll Ключ.
      * @param bool $viewAll Ключ.
      * @param string $idempotencyKey Ключ.
      * @param array<string, mixed> $requestBody Тело.
      *
      * @return array{game: GameRecord, sessionId: int, replay: array<string, mixed>|null} Ход.
      *
-     * @throws ActionException AUTH_DENIED.
      * @throws GameNotFoundException Если карточки нет.
      * @throws GameInvalidException Если ключ, статус или сессия.
      * @throws GameBattleConflictException Если тело ключа чужое.
@@ -304,7 +308,6 @@ final class GameWideStrikes implements IGameWideStrikes
     private function ready(
         int $gameId,
         int $actorUserId,
-        bool $editAll,
         bool $viewAll,
         string $idempotencyKey,
         array $requestBody,
@@ -323,7 +326,6 @@ final class GameWideStrikes implements IGameWideStrikes
             throw new GameInvalidException('Game wide strike is invalid');
         }
 
-        (new GameWideStrikeWriter($this->members))->assert($game, $actorUserId, $editAll);
         $sessionId = $this->sessions->findSessionId($gameId);
         if ($sessionId === null) {
             throw new GameInvalidException('Game session is not running');
@@ -373,22 +375,24 @@ final class GameWideStrikes implements IGameWideStrikes
     }
 
     /**
-     * Считает записи целей и закрывает удар.
+     * Принимает ответы целей и при полном наборе закрывает удар.
      *
      * @param GameRecord $game Игра.
      * @param int $sessionId Сессия.
      * @param int $battleId Бой.
      * @param string $idempotencyKey Ключ.
      * @param int $expectedBattleVersion Версия боя.
-     * @param list<array{reaction: string, blockItemRuleCode: string|null, expectedSheetVersion: int}> $choices Защиты.
+     * @param list<array{target: array{type: string, id: int}, reaction: string, blockItemInventoryId: int|null, blockItemProfileIndex: int|null, blockItemRuleCode: string|null, expectedSheetVersion: int}> $choices Защиты.
      * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ.
      * @param bool $viewAll Полный просмотр.
      *
      * @return array<string, mixed> Итог.
      *
+     * @throws ActionException AUTH_DENIED.
      * @throws GameNotFoundException Если боя нет.
-     * @throws GameInvalidException Если удара нет или число защит чужое.
-     * @throws GameBattleConflictException Если версия боя другая.
+     * @throws GameInvalidException Если удара нет или цель чужая.
+     * @throws GameBattleConflictException Если версия боя или листа другая.
      */
     private function close(
         GameRecord $game,
@@ -398,15 +402,10 @@ final class GameWideStrikes implements IGameWideStrikes
         int $expectedBattleVersion,
         array $choices,
         int $actorUserId,
+        bool $editAll,
         bool $viewAll,
     ): array {
         $battle = $this->battleOf($sessionId, $battleId, $expectedBattleVersion);
-        $open = $this->requireOpen($battleId);
-        $rows = $this->targets->getList($open['id']);
-        if (count($rows) !== count($choices)) {
-            throw new GameInvalidException('Game wide strike defense count is invalid');
-        }
-
         $context = [
             'game' => $game,
             'sessionId' => $sessionId,
@@ -414,15 +413,115 @@ final class GameWideStrikes implements IGameWideStrikes
             'battle' => $battle,
             'idempotencyKey' => $idempotencyKey,
             'expectedBattleVersion' => $expectedBattleVersion,
-            'strikeId' => $open['id'],
-            'choices' => $choices,
             'requestChoices' => $choices,
+            'actorUserId' => $actorUserId,
+            'editAll' => $editAll,
+            'viewAll' => $viewAll,
+            'work' => fn (array $work): array => $this->respondWork($work),
+        ];
+        $result = $this->commit->respond($context);
+        $this->announce($game->getId(), $idempotencyKey);
+
+        return $result;
+    }
+
+    /**
+     * Принимает ответы внутри транзакции и закрывает удар при полноте.
+     *
+     * @param array<string, mixed> $context Контекст ответа.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws ActionException AUTH_DENIED.
+     * @throws GameNotFoundException Если цели нет.
+     * @throws GameInvalidException Если удар или цель битые.
+     * @throws GameBattleConflictException Если версия листа другая.
+     */
+    private function respondWork(array $context): array
+    {
+        $game = $context['game'];
+        $battleId = $context['battleId'];
+        $actorUserId = $context['actorUserId'];
+        $editAll = $context['editAll'];
+        $viewAll = $context['viewAll'];
+        $open = $this->requireOpen($battleId);
+        $strikeId = $open['id'];
+        $locked = $this->actions->lockById($strikeId);
+        if (
+            !is_array($locked)
+            || ($locked['open'] ?? null) !== true
+            || ($locked['kind'] ?? null) !== 'wide_strike'
+        ) {
+            throw new GameInvalidException('Game wide strike is not open');
+        }
+
+        $rows = $this->targets->getList($strikeId);
+        $indexByTarget = [];
+        foreach ($rows as $index => $row) {
+            $indexByTarget[$this->targetKey($this->rowTarget($row))] = $index;
+        }
+
+        foreach ($context['requestChoices'] as $choice) {
+            $index = $indexByTarget[$this->targetKey($choice['target'])] ?? null;
+            if (!is_int($index)) {
+                throw new GameInvalidException('Game wide strike target is invalid');
+            }
+
+            $this->access->assertTarget($game, $actorUserId, $editAll, $choice['target']);
+            $this->results->assertTargetSheet(
+                $game,
+                $battleId,
+                $choice['target'],
+                $choice,
+                $actorUserId,
+                $viewAll,
+            );
+            $targetId = $rows[$index]['id'] ?? null;
+            if (!is_int($targetId)) {
+                throw new GameInvalidException('Game wide strike target row is invalid');
+            }
+
+            $this->targets->answer($targetId, $choice);
+            $rows[$index]['reaction'] = $choice['reaction'];
+            $rows[$index]['block_item_inventory_id'] = $choice['blockItemInventoryId'];
+            $rows[$index]['block_item_profile_index'] = $choice['blockItemProfileIndex'];
+            $rows[$index]['block_item_rule_code'] = $choice['blockItemRuleCode'];
+            $rows[$index]['expected_sheet_version'] = $choice['expectedSheetVersion'];
+        }
+
+        $pending = $this->pendingTargets($rows);
+        if ($pending !== []) {
+            return [
+                'battleId' => $battleId,
+                'strikeId' => $strikeId,
+                'version' => $context['expectedBattleVersion'],
+                'closed' => false,
+                'pendingTargets' => $pending,
+                'targetResults' => [],
+            ];
+        }
+
+        $choices = [];
+        foreach ($rows as $row) {
+            $choices[] = $this->answerOfRow($row);
+        }
+
+        $close = [
+            'game' => $game,
+            'sessionId' => $context['sessionId'],
+            'battleId' => $battleId,
+            'battle' => $context['battle'],
+            'idempotencyKey' => $context['idempotencyKey'],
+            'expectedBattleVersion' => $context['expectedBattleVersion'],
+            'strikeId' => $strikeId,
+            'choices' => $choices,
+            'requestChoices' => $context['requestChoices'],
             'rows' => $rows,
-            'open' => $open,
+            'open' => $locked,
             'actorUserId' => $actorUserId,
             'viewAll' => $viewAll,
         ];
-        $context['refusals'] = $this->results->assertSheets(
+        $close['refusals'] = $this->results->assertSheets(
             $game,
             $battleId,
             $rows,
@@ -430,17 +529,108 @@ final class GameWideStrikes implements IGameWideStrikes
             $actorUserId,
             $viewAll,
         );
-        $context['choices'] = $this->results->resolveChoices(
+        $close['choices'] = $this->results->resolveChoices(
             $game,
             $rows,
             $choices,
-            $context['refusals'],
+            $close['refusals'],
         );
-        $context['prepare'] = fn (array $prepared): array => $this->prepareCloseContext($prepared);
-        $result = $this->commit->close($context);
-        $this->announce($game->getId(), $idempotencyKey);
+        $close['prepare'] = fn (array $prepared): array => $this->prepareCloseContext($prepared);
+        $result = $this->commit->closeInTransaction($close);
+        $result['closed'] = true;
+        $result['pendingTargets'] = [];
 
         return $result;
+    }
+
+    /**
+     * Цели без ответа.
+     *
+     * @param list<array<string, mixed>> $rows Цели.
+     *
+     * @return list<array{type: string, id: int}> Ожидание.
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    private function pendingTargets(array $rows): array
+    {
+        $pending = [];
+        foreach ($rows as $row) {
+            if (($row['reaction'] ?? null) !== null) {
+                continue;
+            }
+
+            $pending[] = $this->rowTarget($row);
+        }
+
+        return $pending;
+    }
+
+    /**
+     * Сохранённый ответ строки.
+     *
+     * @param array<string, mixed> $row Цель.
+     *
+     * @return array{reaction: string, blockItemInventoryId: int|null, blockItemProfileIndex: int|null, blockItemRuleCode: string|null, expectedSheetVersion: int} Ответ.
+     *
+     * @throws GameInvalidException Если поля битые.
+     */
+    private function answerOfRow(array $row): array
+    {
+        $reaction = $row['reaction'] ?? null;
+        $expectedSheetVersion = $row['expected_sheet_version'] ?? null;
+        $inventoryId = $row['block_item_inventory_id'] ?? null;
+        $profileIndex = $row['block_item_profile_index'] ?? null;
+        $ruleCode = $row['block_item_rule_code'] ?? null;
+        if (
+            !is_string($reaction)
+            || !is_int($expectedSheetVersion)
+            || ($inventoryId !== null && !is_int($inventoryId))
+            || ($profileIndex !== null && !is_int($profileIndex))
+            || ($ruleCode !== null && !is_string($ruleCode))
+        ) {
+            throw new GameInvalidException('Game wide strike target row is invalid');
+        }
+
+        return [
+            'reaction' => $reaction,
+            'blockItemInventoryId' => $inventoryId,
+            'blockItemProfileIndex' => $profileIndex,
+            'blockItemRuleCode' => $ruleCode,
+            'expectedSheetVersion' => $expectedSheetVersion,
+        ];
+    }
+
+    /**
+     * Пара цели из строки.
+     *
+     * @param array<string, mixed> $row Цель.
+     *
+     * @return array{type: string, id: int} Пара.
+     *
+     * @throws GameInvalidException Если поля битые.
+     */
+    private function rowTarget(array $row): array
+    {
+        $kind = $row['defender_kind'] ?? null;
+        $targetId = $row['defender_id'] ?? null;
+        if (!is_string($kind) || !is_int($targetId)) {
+            throw new GameInvalidException('Game wide strike target row is invalid');
+        }
+
+        return ['type' => $kind, 'id' => $targetId];
+    }
+
+    /**
+     * Ключ цели.
+     *
+     * @param array{type: string, id: int} $target Цель.
+     *
+     * @return string Ключ.
+     */
+    private function targetKey(array $target): string
+    {
+        return $target['type'] . ':' . $target['id'];
     }
 
     /**

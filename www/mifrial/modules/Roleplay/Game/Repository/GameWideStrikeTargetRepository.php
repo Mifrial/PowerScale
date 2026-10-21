@@ -109,6 +109,28 @@ final class GameWideStrikeTargetRepository
     }
 
     /**
+     * Сохраняет ответ цели вместе с ожидаемой версией листа.
+     *
+     * @param int $targetId Цель.
+     * @param array{reaction: string, blockItemInventoryId: int|null, blockItemProfileIndex: int|null, blockItemRuleCode: string|null, expectedSheetVersion: int} $choice Ответ.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если строки нет.
+     * @throws GameInvalidException Если поле.
+     */
+    public function answer(int $targetId, array $choice): void
+    {
+        $this->targets->update($targetId, [
+            'reaction' => $choice['reaction'],
+            'block_item_inventory_id' => $choice['blockItemInventoryId'],
+            'block_item_profile_index' => $choice['blockItemProfileIndex'],
+            'block_item_rule_code' => $choice['blockItemRuleCode'],
+            'expected_sheet_version' => $choice['expectedSheetVersion'],
+        ]);
+    }
+
+    /**
      * Снимает цели ударов.
      *
      * @param array<int, int> $strikeIds Удары.

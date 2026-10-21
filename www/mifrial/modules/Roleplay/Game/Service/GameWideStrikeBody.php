@@ -90,7 +90,7 @@ final class GameWideStrikeBody
      *
      * @param array<string, mixed> $defense Тело.
      *
-     * @return list<array{reaction: string, blockItemInventoryId: int|null, blockItemProfileIndex: int|null, blockItemRuleCode: string|null, expectedSheetVersion: int}> Защиты.
+     * @return list<array{target: array{type: string, id: int}, reaction: string, blockItemInventoryId: int|null, blockItemProfileIndex: int|null, blockItemRuleCode: string|null, expectedSheetVersion: int}> Защиты.
      *
      * @throws ActionException INVALID_PARAMS.
      */
@@ -103,8 +103,16 @@ final class GameWideStrikeBody
         }
 
         $choices = [];
+        $seen = [];
         foreach ($rows as $row) {
-            $choices[] = $this->oneDefense($row);
+            $choice = $this->oneDefense($row);
+            $key = $choice['target']['type'] . ':' . $choice['target']['id'];
+            if (isset($seen[$key])) {
+                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense target');
+            }
+
+            $seen[$key] = true;
+            $choices[] = $choice;
         }
 
         return $choices;
@@ -115,7 +123,7 @@ final class GameWideStrikeBody
      *
      * @param mixed $row Элемент.
      *
-     * @return array{reaction: string, blockItemInventoryId: int|null, blockItemProfileIndex: int|null, blockItemRuleCode: string|null, expectedSheetVersion: int} Выбор.
+     * @return array{target: array{type: string, id: int}, reaction: string, blockItemInventoryId: int|null, blockItemProfileIndex: int|null, blockItemRuleCode: string|null, expectedSheetVersion: int} Выбор.
      *
      * @throws ActionException INVALID_PARAMS.
      */
@@ -125,7 +133,7 @@ final class GameWideStrikeBody
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense row');
         }
 
-        $allowed = ['expectedSheetVersion', 'reaction'];
+        $allowed = ['expectedSheetVersion', 'reaction', 'target'];
         if (
             array_key_exists('blockItemInventoryId', $row)
             || array_key_exists('blockItemProfileIndex', $row)
@@ -135,15 +143,17 @@ final class GameWideStrikeBody
                 'blockItemProfileIndex',
                 'expectedSheetVersion',
                 'reaction',
+                'target',
             ];
             if (array_key_exists('blockItemRuleCode', $row)) {
                 $allowed[] = 'blockItemRuleCode';
             }
         } elseif (array_key_exists('blockItemRuleCode', $row)) {
-            $allowed = ['blockItemRuleCode', 'expectedSheetVersion', 'reaction'];
+            $allowed = ['blockItemRuleCode', 'expectedSheetVersion', 'reaction', 'target'];
         }
 
         $this->assertKeys($row, $allowed);
+        $target = $this->side($row['target'] ?? null);
         $reaction = $row['reaction'] ?? null;
         $blockItemInventoryId = $row['blockItemInventoryId'] ?? null;
         $blockItemProfileIndex = $row['blockItemProfileIndex'] ?? null;
@@ -163,6 +173,7 @@ final class GameWideStrikeBody
         }
 
         return [
+            'target' => $target,
             'reaction' => $reaction,
             'blockItemInventoryId' => $blockItemInventoryId,
             'blockItemProfileIndex' => $blockItemProfileIndex,
