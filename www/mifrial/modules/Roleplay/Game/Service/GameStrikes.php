@@ -1180,12 +1180,12 @@ final class GameStrikes implements IGameStrikes
             throw new GameInvalidException('Game strike row is invalid');
         }
 
-        $sheet = $kind === 'npc'
-            ? $this->npcSheetSnapshot($game->getId(), $defenderId)['sheet']['sheet']
+        $npcSnapshot = $kind === 'npc' ? $this->npcSheetSnapshot($game->getId(), $defenderId) : null;
+        $sheet = $npcSnapshot !== null
+            ? $npcSnapshot['sheet']['sheet']
             : $this->rules->characterSnapshot($defenderId)['sheet'];
-        $npcChoices = $kind === 'npc'
-            ? $this->npcSheetSnapshot($game->getId(), $defenderId)['sheet']['choices']
-            : null;
+        $npcChoices = $npcSnapshot !== null ? $npcSnapshot['sheet']['choices'] : null;
+        $sheetVersion = $npcSnapshot['actualVersion'] ?? null;
         $split = $this->rules->splitInjury(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -1194,6 +1194,7 @@ final class GameStrikes implements IGameStrikes
             $kind === 'npc' ? $sheet : null,
             $injury,
             is_array($npcChoices) ? $npcChoices : null,
+            is_int($sheetVersion) ? $sheetVersion : null,
         );
 
         return $this->consequences->effects(
@@ -1211,6 +1212,7 @@ final class GameStrikes implements IGameStrikes
                 $defenderId,
                 $kind === 'npc' ? $sheet : null,
                 is_array($npcChoices) ? $npcChoices : null,
+                is_int($sheetVersion) ? $sheetVersion : null,
             ),
         );
     }
@@ -1828,6 +1830,7 @@ final class GameStrikes implements IGameStrikes
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
             is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '',
+            $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
         );
     }
 
@@ -1861,6 +1864,7 @@ final class GameStrikes implements IGameStrikes
             $this->defenderChoices($game, $kind, $id),
             $profileType,
             $attackerRoll,
+            $this->participantKey($game, $kind, $id),
         );
     }
 
@@ -1896,6 +1900,7 @@ final class GameStrikes implements IGameStrikes
             $inventoryId,
             $profileIndex,
             $attackerRoll,
+            $this->participantKey($game, $kind, $id),
         );
     }
 
@@ -1960,6 +1965,7 @@ final class GameStrikes implements IGameStrikes
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
         );
     }
 
@@ -2071,6 +2077,7 @@ final class GameStrikes implements IGameStrikes
             $defenderId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $defenderId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $defenderId) : null,
+            $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $defenderId) : null,
         );
     }
 
@@ -2115,6 +2122,7 @@ final class GameStrikes implements IGameStrikes
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
         );
     }
 
@@ -2138,6 +2146,50 @@ final class GameStrikes implements IGameStrikes
         }
 
         return $sheet;
+    }
+
+    /**
+     * Версия листа NPC этой игры.
+     *
+     * @param int $gameId Игра.
+     * @param int $npcId NPC.
+     *
+     * @return int actualVersion.
+     *
+     * @throws GameNotFoundException Если строки нет или она чужая.
+     */
+    private function npcSheetVersion(int $gameId, int $npcId): int
+    {
+        $npc = $this->npcs->getById($npcId);
+        if ($npc->getGameId() !== $gameId) {
+            throw new GameNotFoundException('Game strike npc was not found');
+        }
+
+        return $npc->getActualVersion();
+    }
+
+    /**
+     * Ключ кэша листа участника удара.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $kind character или npc.
+     * @param int $id Идентификатор.
+     *
+     * @return string Ключ.
+     *
+     * @throws GameNotFoundException Если NPC чужой.
+     */
+    private function participantKey(GameRecord $game, string $kind, int $id): string
+    {
+        if ($kind === 'character') {
+            return $this->rules->makeParticipantKey(
+                'character',
+                $id,
+                $this->rules->characterSnapshot($id)['actualVersion'],
+            );
+        }
+
+        return $this->rules->makeParticipantKey('npc', $id, $this->npcSheetVersion($game->getId(), $id));
     }
 
     /**

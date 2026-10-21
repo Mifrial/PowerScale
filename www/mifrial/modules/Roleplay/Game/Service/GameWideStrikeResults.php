@@ -330,6 +330,7 @@ final class GameWideStrikeResults
                 $this->targetChoices($game, $target),
                 $profileType,
                 $attackerRoll,
+                $this->participantKey($game, $target),
             );
             $ratedRoll = $this->rules->rerateHit($attackerRoll, $defenderRoll);
         }
@@ -343,6 +344,7 @@ final class GameWideStrikeResults
                 $choice['blockItemInventoryId'],
                 $choice['blockItemProfileIndex'],
                 $attackerRoll,
+                $this->participantKey($game, $target),
             );
         }
 
@@ -445,6 +447,7 @@ final class GameWideStrikeResults
             $target['type'] === 'npc' ? $sheet : null,
             $injury,
             $choices,
+            $target['type'] === 'npc' ? $this->npcSheetVersion($game->getId(), $target['id']) : null,
         );
         $endurance = $this->rules->enduranceOf(
             $game->getSpaceId(),
@@ -453,6 +456,7 @@ final class GameWideStrikeResults
             $target['id'],
             $target['type'] === 'npc' ? $sheet : null,
             $choices,
+            $target['type'] === 'npc' ? $this->npcSheetVersion($game->getId(), $target['id']) : null,
         );
         $prepared = $this->consequences->effects(
             $game,
@@ -1016,6 +1020,55 @@ final class GameWideStrikeResults
     }
 
     /**
+     * Версия листа NPC этой игры.
+     *
+     * @param int $gameId Игра.
+     * @param int $npcId NPC.
+     *
+     * @return int actualVersion.
+     *
+     * @throws GameInvalidException Если строка чужая или снимка нет.
+     * @throws GameNotFoundException Если строки нет.
+     */
+    private function npcSheetVersion(int $gameId, int $npcId): int
+    {
+        $npc = $this->npcs->getById($npcId);
+        if ($npc->getGameId() !== $gameId) {
+            throw new GameInvalidException('Game wide strike npc sheet is missing');
+        }
+
+        return $npc->getActualVersion();
+    }
+
+    /**
+     * Ключ кэша листа цели.
+     *
+     * @param GameRecord $game Игра.
+     * @param array{type: string, id: int} $target Цель.
+     *
+     * @return string Ключ.
+     *
+     * @throws GameInvalidException Если NPC чужой.
+     * @throws GameNotFoundException Если цели нет.
+     */
+    private function participantKey(GameRecord $game, array $target): string
+    {
+        if ($target['type'] === 'character') {
+            return $this->rules->makeParticipantKey(
+                'character',
+                $target['id'],
+                $this->rules->characterSnapshot($target['id'])['actualVersion'],
+            );
+        }
+
+        return $this->rules->makeParticipantKey(
+            'npc',
+            $target['id'],
+            $this->npcSheetVersion($game->getId(), $target['id']),
+        );
+    }
+
+    /**
      * Документ choices NPC этой игры.
      *
      * @param int $gameId Игра.
@@ -1068,6 +1121,7 @@ final class GameWideStrikeResults
             $target['id'],
             $target['type'] === 'npc' ? $this->defenderSheet($game->getId(), $target['id']) : null,
             $target['type'] === 'npc' ? $this->defenderChoices($game->getId(), $target['id']) : null,
+            $target['type'] === 'npc' ? $this->npcSheetVersion($game->getId(), $target['id']) : null,
         );
     }
 

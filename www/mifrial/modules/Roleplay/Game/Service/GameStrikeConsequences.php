@@ -10,7 +10,6 @@ use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Game\Dto\GameCheckThrowOverride;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -39,7 +38,6 @@ final class GameStrikeConsequences
     /**
      * @param GameStrikeRules $rules Срез удара.
      * @param GameCheckRoll $checks Бросок с заданной трудностью.
-     * @param ICharacterRuleSlices $slices Срез ревизии.
      * @param ICharacterFormulaContexts $contexts Лист.
      * @param IMechanics $mechanics Каталог.
      * @param IMechanicEngine $engine Резолв хендлеров.
@@ -48,7 +46,6 @@ final class GameStrikeConsequences
     public function __construct(
         private readonly GameStrikeRules $rules,
         private readonly GameCheckRoll $checks,
-        private readonly ICharacterRuleSlices $slices,
         private readonly ICharacterFormulaContexts $contexts,
         private readonly IMechanics $mechanics,
         private readonly IMechanicEngine $engine,
@@ -74,7 +71,7 @@ final class GameStrikeConsequences
         bool $knockout = true,
         ?DimensionalNumber $endurance = null,
     ): array {
-        $slice = $this->slices->get($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $hooks = $damageTypeCode === null ? [] : $this->hooks($slice, $damageTypeCode);
         $cutting = $this->cutting($hooks);
         $quotient = $split['quotient'];
@@ -158,7 +155,7 @@ final class GameStrikeConsequences
      */
     public function willForDelta(GameRecord $game, array $sheet, int $delta): array
     {
-        $slice = $this->slices->get($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         if ($delta === 0 || $this->hasFlag($slice, $sheet, 'unconscious')) {
             return ['roll' => null, 'operation' => null, 'outcome' => null];
         }
@@ -175,7 +172,7 @@ final class GameStrikeConsequences
      */
     public function maimRoll(GameRecord $game, array $sheet, int $difficulty): array
     {
-        $slice = $this->slices->get($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
 
         return $this->maim($game, $slice, $sheet, $difficulty);
     }
@@ -185,7 +182,7 @@ final class GameStrikeConsequences
      */
     public function singleState(GameRecord $game, string $flag): string
     {
-        $slice = $this->slices->get($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
 
         return $this->singleFlag($slice, $flag);
     }

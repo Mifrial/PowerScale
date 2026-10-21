@@ -234,7 +234,6 @@ final class GameWideStrikePortFactory
         return new GameStrikeConsequences(
             $rules,
             $this->checkRoll($serviceLocator),
-            $this->ruleSlices($serviceLocator),
             $this->formulaContexts($serviceLocator),
             $this->mechanics($serviceLocator),
             $this->engine($serviceLocator),

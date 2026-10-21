@@ -718,6 +718,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->attackerChoices($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
         );
     }
 
@@ -862,6 +863,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->attackerChoices($game->getId(), $attackerId) : null,
             is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '',
+            $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
         );
     }
 
@@ -941,6 +943,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->attackerChoices($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
         );
     }
 
@@ -989,6 +992,27 @@ final class GameWideStrikes implements IGameWideStrikes
         }
 
         return $sheet;
+    }
+
+    /**
+     * Версия листа NPC этой игры.
+     *
+     * @param int $gameId Игра.
+     * @param int $npcId NPC.
+     *
+     * @return int actualVersion.
+     *
+     * @throws GameInvalidException Если строка чужая.
+     * @throws GameNotFoundException Если строки нет.
+     */
+    private function npcSheetVersion(int $gameId, int $npcId): int
+    {
+        $npc = $this->npcs->getById($npcId);
+        if ($npc->getGameId() !== $gameId) {
+            throw new GameInvalidException('Game wide strike npc sheet is missing');
+        }
+
+        return $npc->getActualVersion();
     }
 
     /**
