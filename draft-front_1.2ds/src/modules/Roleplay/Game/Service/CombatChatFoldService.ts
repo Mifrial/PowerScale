@@ -167,6 +167,25 @@ export class CombatChatFoldService {
     return header?.content || 'Свёртка';
   }
 
+  private groupFirstId(group: CombatChatFoldGroup): number {
+    return group.messages.reduce((first, message) => Math.min(first, message.id), Number.POSITIVE_INFINITY);
+  }
+
+  private attachOrphanAttacks(acc: Map<string, CombatChatFoldGroup>): void {
+    const groups = [...acc.values()].sort((left, right) => this.groupFirstId(left) - this.groupFirstId(right));
+    for (const group of groups) {
+      if (group.kind !== COMBAT_CHAT_ATTACK) continue;
+      if (group.parentId && acc.has(group.parentId)) continue;
+      const first = this.groupFirstId(group);
+      const parent = [...groups].reverse().find((candidate) =>
+        candidate.id !== group.id &&
+        [COMBAT_CHAT_TURN, COMBAT_CHAT_ROUND, COMBAT_CHAT_BATTLE, COMBAT_CHAT_SESSION].includes(candidate.kind) &&
+        this.groupFirstId(candidate) < first,
+      );
+      if (parent) group.parentId = parent.id;
+    }
+  }
+
   private toNode(acc: Map<string, CombatChatFoldGroup>, group: CombatChatFoldGroup): ChatFoldNode {
     const header =
       group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_INITIATIVE
@@ -211,6 +230,7 @@ export class CombatChatFoldService {
       }
       group.messages.push(message);
     }
+    this.attachOrphanAttacks(acc);
     for (const group of [...acc.values()]) {
       if (!group.parentId || acc.has(group.parentId)) continue;
       acc.set(group.parentId, {

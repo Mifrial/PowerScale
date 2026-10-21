@@ -214,6 +214,42 @@ describe('buildCombatChatFolds', () => {
     expect(initiative.fold.summary).toBe('Порядок инициативы: А (5), Б (2).');
   });
 
+  it('атаки без parentId привязываются к предшествующему ходу', () => {
+    const messages = [
+      msg(1, 'Ходит Тестовичок', { kind: 'default', thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
+      msg(2, 'Снимает состояние повреждения', { thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
+      msg(3, 'Первая атака', {
+        thread: { id: 'a1', kind: COMBAT_CHAT_ATTACK },
+        attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+      }),
+      msg(4, 'Вторая атака', {
+        thread: { id: 'a2', kind: COMBAT_CHAT_ATTACK },
+        attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+      }),
+      msg(5, 'Третья атака', {
+        thread: { id: 'a3', kind: COMBAT_CHAT_ATTACK },
+        attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+      }),
+      msg(6, 'Задаёт очки действия', { thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
+    ];
+    const forest = combatChatFoldService.buildCombatChatFolds(messages);
+    expect(forest).toHaveLength(1);
+    const turn = forest[0];
+    expect(turn?.type).toBe('fold');
+    if (turn?.type !== 'fold') return;
+    expect(turn.fold.id).toBe('t1');
+    const children = turn.fold.children.map((child) => (child.type === 'fold' ? child.fold.id : child.message.id));
+    expect(children).toEqual([2, 'a1', 'a2', 'a3', 6]);
+    const rows = chatFoldService.flattenChatFolds(forest, (id) => id === 't1', null);
+    const visible = rows.flatMap((row) => {
+      if (row.type === 'message') return [row.message.id];
+      if (row.type === 'panel') return [row.foldId];
+
+      return [];
+    });
+    expect(visible).toEqual([2, 'a1', 'a2', 'a3', 6]);
+  });
+
   it('сводка атаки включает итог рывка по помехе', () => {
     const forest = combatChatFoldService.buildCombatChatFolds([
       msg(1, 'Ходит Осведомитель', { kind: 'default', thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
