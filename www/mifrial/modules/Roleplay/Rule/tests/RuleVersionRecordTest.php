@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Tests;
 
+use Mifrial\Core\Kernel\Http\JsonDocuments;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
@@ -45,6 +46,36 @@ final class RuleVersionRecordTest extends TestCase
         $record = RuleVersionRecord::fromClock($this->versionRecord(['mechanics' => $mechanics]), 'damage');
 
         self::assertSame($mechanics, $record->getMechanics());
+    }
+
+    /**
+     * Вложенные объекты с нулевыми ключами остаются объектами при разборе spec.
+     *
+     * @return void
+     */
+    public function testNestedObjectMapsAreKeptForSpecRead(): void
+    {
+        $decoded = JsonDocuments::decode(
+            '{"type":"trait","zones":{"or":{"kind":"parameter_sum_tables","max_level":9,'
+            . '"tables":{"strength":{"0":0,"1":2,"2":4}}}}}',
+        );
+        self::assertInstanceOf(JsonObject::class, $decoded);
+
+        $record = RuleVersionRecord::fromClock($this->versionRecord([
+            'type' => 'ability',
+            'spec' => $decoded,
+        ]), 'trait');
+
+        self::assertFalse($record->isSpecBroken());
+        self::assertInstanceOf(JsonObject::class, $record->getSpecSource()['zones']);
+        self::assertSame([
+            'type' => 'trait',
+            'zones' => ['or' => [
+                'kind' => 'parameter_sum_tables',
+                'max_level' => 9,
+                'tables' => ['strength' => ['0' => 0, '1' => 2, '2' => 4]],
+            ]],
+        ], $record->getSpecDocument());
     }
 
     /**

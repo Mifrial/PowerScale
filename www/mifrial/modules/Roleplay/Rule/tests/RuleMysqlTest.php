@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Tests;
 
+use Mifrial\Core\Kernel\Http\JsonDocuments;
 use Mifrial\Core\Kernel\Service\ApplicationFactory;
+use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Core\SmartTable\Exception\Database\DatabaseException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
@@ -21,6 +23,8 @@ use Mifrial\Roleplay\Mechanic\Schema\MechanicSchema;
 use Mifrial\Roleplay\Mechanic\Table\MechanicTable;
 use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionBody;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Zone\ParameterSumTablesZone;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Exception\RuleNotFoundException;
 use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
@@ -321,6 +325,45 @@ final class RuleMysqlTest extends TestCase
         $rules->commit($spaceId, [RuleCommitEntry::put('human', $this->body('Dead'), false)]);
         self::assertTrue($rules->getRevision($spaceId, 1)->getItems()[0]->isActive());
         self::assertFalse($rules->getRevision($spaceId, 2)->getItems()[0]->isActive());
+    }
+
+    /**
+     * Таблица с нулевыми ключами читается после публикации.
+     *
+     * @return void
+     */
+    public function testZeroKeyParameterTablesSurviveRead(): void
+    {
+        $rules = $this->rules();
+        $spaceId = $rules->addSpace('A');
+        $decoded = JsonDocuments::decode(
+            '{"type":"trait","zones":{"or":{"kind":"parameter_sum_tables","max_level":9,'
+            . '"tables":{"strength":{"0":0,"1":2,"2":4}}}},'
+            . '"parameters":[{"code":"strength","label":"Strength","kind":"scalar","resolution":"purchase",'
+            . '"default":0,"min":0,"max":6}],'
+            . '"grants":[],"requirements":[],"parent_ability_code":null}',
+        );
+        self::assertInstanceOf(JsonObject::class, $decoded);
+
+        $rules->commit($spaceId, [
+            RuleCommitEntry::put('trait', new RuleVersionBody(
+                'ability',
+                'Trait',
+                '',
+                $decoded->getMembers(),
+                [],
+                [],
+                'needs_work',
+            )),
+        ]);
+        $record = $rules->getRevision($spaceId, 1)->getItems()[0];
+
+        self::assertFalse($record->isSpecBroken());
+        $spec = $record->getSpec();
+        self::assertInstanceOf(AbilityPlainSpec::class, $spec);
+        $zone = $spec->getBase()->getZones()['or'] ?? null;
+        self::assertInstanceOf(ParameterSumTablesZone::class, $zone);
+        self::assertSame(2, $zone->getTables()['strength']['1']);
     }
 
     /**

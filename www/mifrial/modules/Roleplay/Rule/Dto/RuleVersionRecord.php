@@ -24,6 +24,10 @@ final class RuleVersionRecord
 
     private readonly bool $specBroken;
 
+    private readonly array $specDocument;
+
+    private readonly array $specSource;
+
     /**
      * Создаёт запись.
      *
@@ -34,7 +38,7 @@ final class RuleVersionRecord
      * @param string $type Тип.
      * @param string $name Подпись.
      * @param string $description Текст.
-     * @param array<string|int, mixed> $specDocument Сырой JSON spec.
+     * @param array<string|int, mixed>|JsonObject $specDocument Сырой JSON spec.
      * @param array<int, int> $keywordIds Признаки.
      * @param array<int, array<string, mixed>> $mechanics Список механик.
      * @param string $contentStatus Статус.
@@ -51,14 +55,22 @@ final class RuleVersionRecord
         private readonly string $type,
         private readonly string $name,
         private readonly string $description,
-        private readonly array $specDocument,
+        array|JsonObject $specDocument,
         private readonly array $keywordIds,
         private readonly array $mechanics,
         private readonly string $contentStatus,
         private readonly string $contentNote,
         private readonly DateTime $createdAt,
     ) {
-        $read = RuleSpecs::read($this->type, $this->specDocument);
+        if ($specDocument instanceof JsonObject) {
+            $this->specDocument = $specDocument->toNestedArray();
+            $this->specSource = $specDocument->getMembers();
+        } else {
+            $this->specDocument = $specDocument;
+            $this->specSource = $specDocument;
+        }
+
+        $read = RuleSpecs::read($this->type, $this->specSource);
         $this->spec = $read->getSpec();
         $this->specBroken = $read->isBroken();
     }
@@ -85,7 +97,7 @@ final class RuleVersionRecord
             self::requireString($fields, 'type'),
             self::requireString($fields, 'name'),
             self::requireString($fields, 'description'),
-            self::requireArray($fields, 'spec'),
+            self::requireDocument($fields, 'spec'),
             self::requireIntList($fields, 'keywords'),
             self::requireMechanicList($fields),
             self::requireString($fields, 'content_status'),
@@ -182,6 +194,16 @@ final class RuleVersionRecord
     public function getSpecDocument(): array
     {
         return $this->specDocument;
+    }
+
+    /**
+     * Spec для разбора с сохранёнными JSON-объектами.
+     *
+     * @return array<string|int, mixed> Документ.
+     */
+    public function getSpecSource(): array
+    {
+        return $this->specSource;
     }
 
     /**
@@ -289,27 +311,23 @@ final class RuleVersionRecord
     }
 
     /**
-     * Массив поля.
+     * Документ поля: массив или JsonObject как есть.
      *
      * @param array<string, mixed> $fields Карта.
      * @param string $fieldName Ключ.
      *
-     * @return array<string|int, mixed> JSON.
+     * @return array<string|int, mixed>|JsonObject JSON.
      *
-     * @throws RuleInvalidException Если не массив.
+     * @throws RuleInvalidException Если не документ.
      */
-    private static function requireArray(array $fields, string $fieldName): array
+    private static function requireDocument(array $fields, string $fieldName): array|JsonObject
     {
         $value = $fields[$fieldName] ?? null;
-        if ($value instanceof JsonObject) {
-            return $value->toNestedArray();
+        if ($value instanceof JsonObject || is_array($value)) {
+            return $value;
         }
 
-        if (!is_array($value)) {
-            throw new RuleInvalidException('Rule version record is incomplete');
-        }
-
-        return $value;
+        throw new RuleInvalidException('Rule version record is incomplete');
     }
 
     /**

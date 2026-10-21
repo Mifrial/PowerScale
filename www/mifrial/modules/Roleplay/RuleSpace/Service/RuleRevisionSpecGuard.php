@@ -65,7 +65,7 @@ final class RuleRevisionSpecGuard
                 $problems,
                 $record->getCode(),
                 $record->getName(),
-                RuleSpecs::read($record->getType(), $record->getSpecDocument()),
+                RuleSpecs::read($record->getType(), $record->getSpecSource()),
             );
         }
 
@@ -91,7 +91,7 @@ final class RuleRevisionSpecGuard
                 $problems,
                 $record->getCode(),
                 $record->getName(),
-                RuleSpecs::read($record->getType(), $record->getSpecDocument()),
+                RuleSpecs::read($record->getType(), $record->getSpecSource()),
             );
         }
 
