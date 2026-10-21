@@ -601,6 +601,7 @@ final class GameWideStrikeCommit
     ): array {
         $targetResults = $this->targetResults(
             $game,
+            $battle,
             $rows,
             $choices,
             $refusals,
@@ -662,6 +663,7 @@ final class GameWideStrikeCommit
      * Результаты целей wide strike.
      *
      * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой для привязки треда атаки к ходу.
      * @param list<array<string, mixed>> $rows Цели.
      * @param array<int, mixed> $choices Защиты.
      * @param list<string|null> $refusals Отказы.
@@ -676,6 +678,7 @@ final class GameWideStrikeCommit
      */
     private function targetResults(
         GameRecord $game,
+        GameBattleRecord $battle,
         array $rows,
         array $choices,
         array $refusals,
@@ -701,6 +704,7 @@ final class GameWideStrikeCommit
             $viewAll,
             $penetrationFactory,
             $open,
+            $battle,
         );
     }
 

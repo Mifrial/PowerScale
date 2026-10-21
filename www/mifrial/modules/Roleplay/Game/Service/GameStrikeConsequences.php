@@ -197,6 +197,7 @@ final class GameStrikeConsequences
      * @param array<string, mixed> $calc Payload attack-calc.
      * @param array{roll: array<string, mixed>, text: string}|null $will Проверка истощения.
      * @param array{roll: array<string, mixed>, text: string, details: array<string, mixed>}|null $maim Увечье.
+     * @param string|null $parentId Родительский ход.
      *
      * @return void
      */
@@ -214,13 +215,14 @@ final class GameStrikeConsequences
         ?array $maim = null,
         ?array $speaker = null,
         ?array $defenseRoll = null,
+        ?string $parentId = null,
     ): void {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
             throw new GameInvalidException('Game chat is invalid');
         }
 
-        $thread = ['id' => $threadId, 'kind' => 'attack'];
+        $thread = $this->attackThread($threadId, $parentId);
         try {
             if ($announce) {
                 $this->sendText($chatId, $actorUserId, $action, $thread, $speaker);
@@ -241,11 +243,12 @@ final class GameStrikeConsequences
     /**
      * @param list<string> $lines Тексты.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     * @param string|null $parentId Родительский ход.
      */
-    public function postLines(GameRecord $game, int $actorUserId, string $threadId, array $lines, ?array $speaker = null): void
+    public function postLines(GameRecord $game, int $actorUserId, string $threadId, array $lines, ?array $speaker = null, ?string $parentId = null): void
     {
         $chatId = $this->chatId($game);
-        $thread = ['id' => $threadId, 'kind' => 'attack'];
+        $thread = $this->attackThread($threadId, $parentId);
         try {
             foreach ($lines as $line) {
                 $this->sendText($chatId, $actorUserId, $line, $thread, $speaker);
@@ -258,12 +261,13 @@ final class GameStrikeConsequences
     /**
      * @param list<array<string, mixed>> $rolls Броски одной строкой.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     * @param string|null $parentId Родительский ход.
      */
-    public function postRolls(GameRecord $game, int $actorUserId, string $threadId, array $rolls, ?array $speaker = null): void
+    public function postRolls(GameRecord $game, int $actorUserId, string $threadId, array $rolls, ?array $speaker = null, ?string $parentId = null): void
     {
         $chatId = $this->chatId($game);
         try {
-            $this->sendRolls($chatId, $actorUserId, $rolls, ['id' => $threadId, 'kind' => 'attack'], $speaker);
+            $this->sendRolls($chatId, $actorUserId, $rolls, $this->attackThread($threadId, $parentId), $speaker);
         } catch (ChatNotFoundException $exception) {
             throw new GameInvalidException('Game chat member is invalid', $exception);
         }
@@ -274,6 +278,7 @@ final class GameStrikeConsequences
      * @param array{roll: array<string, mixed>, text: string}|null $will Проверка истощения.
      * @param array{roll: array<string, mixed>, text: string, details: array<string, mixed>}|null $maim Увечье.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     * @param string|null $parentId Родительский ход.
      */
     public function postOutcome(
         GameRecord $game,
@@ -284,6 +289,7 @@ final class GameStrikeConsequences
         ?array $will = null,
         ?array $maim = null,
         ?array $speaker = null,
+        ?string $parentId = null,
     ): void {
         $chatId = $this->chatId($game);
         try {
@@ -294,7 +300,7 @@ final class GameStrikeConsequences
                 $calc,
                 $will,
                 $maim,
-                ['id' => $threadId, 'kind' => 'attack'],
+                $this->attackThread($threadId, $parentId),
                 $speaker,
             );
         } catch (ChatNotFoundException $exception) {
@@ -310,6 +316,24 @@ final class GameStrikeConsequences
         }
 
         return $chatId;
+    }
+
+    /**
+     * Тред атаки с родительским ходом.
+     *
+     * @param string $threadId Идентификатор атаки.
+     * @param string|null $parentId Родительский ход.
+     *
+     * @return array{id: string, kind: string, parentId?: string} Тред.
+     */
+    private function attackThread(string $threadId, ?string $parentId): array
+    {
+        $thread = ['id' => $threadId, 'kind' => 'attack'];
+        if ($parentId !== null) {
+            $thread['parentId'] = $parentId;
+        }
+
+        return $thread;
     }
 
     /**
@@ -355,7 +379,7 @@ final class GameStrikeConsequences
         $this->chats->send($chatId, $actorUserId, $result, $this->withThread([[
             'type' => 'attack-calc',
             'payload' => $calc,
-        ]
+        ],
         ], $thread, $speaker), null);
         if ($will !== null) {
             $this->chats->send($chatId, $actorUserId, '', $this->withThread([['type' => 'roll', 'payload' => $will['roll']]], $thread, $speaker), null);
@@ -366,7 +390,7 @@ final class GameStrikeConsequences
             $this->chats->send($chatId, $actorUserId, $maim['text'], $this->withThread([[
                 'type' => 'injury-details',
                 'payload' => $maim['details'],
-            ]
+            ],
             ], $thread, $speaker), null);
         }
     }
@@ -957,7 +981,7 @@ final class GameStrikeConsequences
 
     /**
      * @param list<array<string, mixed>> $attachments Вложения.
-     * @param array{id: string, kind: string} $thread Тред атаки.
+     * @param array{id: string, kind: string, parentId?: string} $thread Тред атаки.
      * @param array<string, mixed>|null $speaker Говорящий персонаж или NPC.
      *
      * @return list<array<string, mixed>> Вложения с носителем треда.

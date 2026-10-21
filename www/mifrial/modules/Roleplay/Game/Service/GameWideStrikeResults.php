@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
+use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameEconomyConflictException;
@@ -71,6 +72,7 @@ final class GameWideStrikeResults
      * @param int $actorUserId Актор.
      * @param bool $viewAll Полный просмотр.
      * @param Closure|null $penetrationFactory Lazy penetration resolver.
+     * @param GameBattleRecord|null $battle Бой для привязки треда атаки к ходу.
      *
      * @return list<array<string, mixed>> Итоги.
      *
@@ -91,6 +93,7 @@ final class GameWideStrikeResults
         bool $viewAll,
         ?Closure $penetrationFactory = null,
         array $open = [],
+        ?GameBattleRecord $battle = null,
     ): array {
         $results = [];
         $sharedPenetration = null;
@@ -125,7 +128,19 @@ final class GameWideStrikeResults
                 $sharedPenetrationFactory,
             );
         }
-        $this->postWide($game, $rows, $choices, $results, $attackerRoll, $itemRuleCode, $profileType, $profileIndex, $actorUserId, $open);
+        $this->postWide(
+            $game,
+            $rows,
+            $choices,
+            $results,
+            $attackerRoll,
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+            $actorUserId,
+            $open,
+            $battle,
+        );
 
         return $results;
     }
@@ -464,6 +479,7 @@ final class GameWideStrikeResults
      * @param list<array<string, mixed>> $choices Защиты.
      * @param list<array<string, mixed>> $results Итоги.
      * @param array<string, mixed> $attackerRoll Бросок атаки.
+     * @param GameBattleRecord|null $battle Бой для привязки треда атаки к ходу.
      */
     private function postWide(
         GameRecord $game,
@@ -476,6 +492,7 @@ final class GameWideStrikeResults
         int $profileIndex,
         int $actorUserId,
         array $open,
+        ?GameBattleRecord $battle,
     ): void {
         $shown = [];
         foreach ($results as $index => $record) {
@@ -514,6 +531,7 @@ final class GameWideStrikeResults
         $narrative = $attacker . ' наносит ' . $typeBit . ' ' . $kind . ' оружием [[rule:' . $itemRuleCode . ']] по '
             . $this->joinNames($targets) . '. ' . implode(', ', $reactions) . '!';
         $threadId = 'attack-wide-' . ($row['id'] ?? 0);
+        $parentId = $battle === null ? null : GameCombatThread::buildAttack($battle, $threadId)['parentId'];
         $speaker = $this->speakerOf($row['attacker_kind'] ?? 'character', $row['attacker_id'] ?? 0);
         $attackCard = $attackerRoll;
         $attackCard['label'] = 'Проверка на попадание · ' . $attackerName;
@@ -537,16 +555,26 @@ final class GameWideStrikeResults
         $this->consequences->postLines($game, $actorUserId, $threadId, [
             $attacker . ' совершает действие ' . $action . ' за ' . $this->actionAp($slice, $actionCode) . 'ОД.',
             $narrative,
-        ], $speaker);
-        $this->consequences->postRolls($game, $actorUserId, $threadId, $rolls, $speaker);
+        ], $speaker, $parentId);
+        $this->consequences->postRolls($game, $actorUserId, $threadId, $rolls, $speaker, $parentId);
         foreach ($shown as $item) {
-            $this->postWideOutcome($game, $actorUserId, $threadId, $attacker, $item['record'], $typeBit, $speaker);
+            $this->postWideOutcome(
+                $game,
+                $actorUserId,
+                $threadId,
+                $attacker,
+                $item['record'],
+                $typeBit,
+                $speaker,
+                $parentId,
+            );
         }
     }
 
     /**
      * @param array<string, mixed> $record Итог цели.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string} $speaker Спикер.
+     * @param string|null $parentId Родительский ход.
      */
     private function postWideOutcome(
         GameRecord $game,
@@ -556,6 +584,7 @@ final class GameWideStrikeResults
         array $record,
         string $typeBit,
         array $speaker,
+        ?string $parentId = null,
     ): void {
         $target = is_array($record['target'] ?? null) ? $record['target'] : ['type' => 'character', 'id' => 0];
         $defender = $this->entityToken($target['type'] ?? 'character', $target['id'] ?? 0);
@@ -609,6 +638,7 @@ final class GameWideStrikeResults
             $will,
             $maim,
             $speaker,
+            $parentId,
         );
     }
 

@@ -20,13 +20,13 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameStrikes;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
-use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
@@ -875,7 +875,7 @@ final class GameStrikes implements IGameStrikes
                     $viewAll,
                     $spends,
                 ));
-        $this->postStrikeChat($game, $open, $actorUserId, $strikeId, $choice['reaction'], $result);
+        $this->postStrikeChat($game, $battle, $open, $actorUserId, $strikeId, $choice['reaction'], $result);
         $this->strikes->close(
             $strikeId,
             $choice['reaction'],
@@ -1257,12 +1257,15 @@ final class GameStrikes implements IGameStrikes
      */
     private function postStrikeChat(
         GameRecord $game,
+        GameBattleRecord $battle,
         array $open,
         int $actorUserId,
         int $strikeId,
         string $reaction,
         array $result,
     ): void {
+        $threadId = 'attack-' . $strikeId;
+        $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
         $defender = $this->entityToken($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
         $attacker = $this->entityToken($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0);
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
@@ -1318,7 +1321,7 @@ final class GameStrikes implements IGameStrikes
         $this->consequences->post(
             $game,
             $actorUserId,
-            'attack-' . $strikeId,
+            $threadId,
             true,
             $attacker . ' совершает действие ' . $action . ' за ' . $actionAp . 'ОД.',
             $narrative,
@@ -1350,6 +1353,7 @@ final class GameStrikes implements IGameStrikes
             $maim,
             $this->speakerOf($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0),
             is_array($result['defenderRoll'] ?? null) ? $result['defenderRoll'] : null,
+            $parentId,
         );
     }
 
