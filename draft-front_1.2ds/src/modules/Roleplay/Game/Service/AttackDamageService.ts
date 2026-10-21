@@ -356,9 +356,11 @@ export class AttackDamageService {
     if (cuttingHook?.stateCode && raw > 0) {
       stateWrites.push({ stateCode: cuttingHook.stateCode, amount: raw });
     }
+    // Канон blunt_unconscious: нужны оба условия — порог РУ и урон не ниже стойкости.
     const knockout =
       apply.some((hook) => hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_BLUNT_KO) &&
-      (remainingSr >= 6 || hpDamage >= endurance.toNumber());
+      remainingSr >= 6 &&
+      hpDamage >= endurance.toNumber();
 
     return {
       remainingSr,

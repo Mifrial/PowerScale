@@ -746,7 +746,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       type: 'damage_type',
       name: 'Дробящий',
       description:
-        'Истощение → оглушение силой [истощение]. При РУ ≥ 6 или дробящих повреждениях ≥ Стойкости — потеря сознания.',
+        'Истощение → оглушение силой [истощение]. При РУ ≥ 6 и дробящих повреждениях ≥ Стойкости — потеря сознания.',
       spaceId: 1,
       spec: damageTypeSpec('blunt'),
       keywordIds: [],

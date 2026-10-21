@@ -238,7 +238,7 @@ describe('applyAttackDamage', () => {
     expect(result.hpDamage).toBe(4);
   });
 
-  it('режущий пишет рану, не HP; дробящий KO при РУ≥6', () => {
+  it('режущий пишет рану, не HP; дробящий KO при РУ≥6 и уроне не ниже стойкости', () => {
     const cutting = attackDamageService.applyAttackDamage({
       weaponDamage: { base: 3, size: 0 },
       sr: 2,
@@ -263,6 +263,26 @@ describe('applyAttackDamage', () => {
     });
     expect(blunt.knockout).toBe(true);
     expect(blunt.hpDamage).toBe(12);
+
+    const lowSr = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 2, size: 0 },
+      sr: 5,
+      damageTypeCode: 'blunt',
+      defense: null,
+      endurance: 4,
+      hooks: [hook(DAMAGE_TYPE_HOOK_MECHANIC_BLUNT_KO, 'apply')],
+    });
+    expect(lowSr.knockout).toBe(false);
+
+    const lowDamage = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 1, size: 0 },
+      sr: 6,
+      damageTypeCode: 'blunt',
+      defense: null,
+      endurance: 10,
+      hooks: [hook(DAMAGE_TYPE_HOOK_MECHANIC_BLUNT_KO, 'apply')],
+    });
+    expect(lowDamage.knockout).toBe(false);
   });
 
   it('истощение → стан и рана × множитель', () => {
