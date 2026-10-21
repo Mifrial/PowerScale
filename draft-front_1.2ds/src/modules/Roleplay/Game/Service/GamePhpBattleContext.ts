@@ -1,6 +1,7 @@
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { GameInitiativeOrderEntry } from '@/modules/Roleplay/Game/Dto/GameInitiativeOrderEntry';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpOpenWideStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrike';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 
 /** Числовой бой PHP для команд P4. */
@@ -12,6 +13,7 @@ export class GamePhpBattleContext {
   lastOrder: GameInitiativeOrderEntry[] | null = null;
   lastScale: GameInitiative | null = null;
   openStrike: GamePhpOpenStrike | null = null;
+  openWideStrike: GamePhpOpenWideStrike | null = null;
   pendingActionEffects: Record<string, PendingActionEffect[]> = {};
 
   rememberBattle(battleId: number, version: number): void {
@@ -29,6 +31,10 @@ export class GamePhpBattleContext {
 
   rememberOpenStrike(strike: GamePhpOpenStrike | null): void {
     this.openStrike = strike;
+  }
+
+  rememberOpenWideStrike(strike: GamePhpOpenWideStrike | null): void {
+    this.openWideStrike = strike;
   }
 
   rememberPending(pending: Record<string, PendingActionEffect[]>): void {
@@ -63,6 +69,7 @@ export class GamePhpBattleContext {
     this.lastOrder = null;
     this.lastScale = null;
     this.openStrike = null;
+    this.openWideStrike = null;
     this.pendingActionEffects = {};
   }
 }

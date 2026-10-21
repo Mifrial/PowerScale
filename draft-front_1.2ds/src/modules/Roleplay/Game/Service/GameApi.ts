@@ -29,6 +29,7 @@ import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinReques
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
 import type { Chronicle } from '@/modules/Roleplay/Game/Dto/Chronicle';
 import type { ChronicleEntry } from '@/modules/Roleplay/Game/Dto/ChronicleEntry';
 import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/CreateChronicleEntryData';
@@ -200,12 +201,16 @@ export class GameApi implements IGameApi {
       throw new GameApiError('INVALID_PARAMS', 'endBattle expected');
     }
     const battleId = Number(command.battleId);
-    const res = await this.engine.runAction<{ ended?: boolean }>('game.endBattle', {
-      gameId: command.gameId,
-      battleId,
-      idempotencyKey: command.commandId,
-      expectedVersion: command.expectedBattleStateVersion,
-    }, signal);
+    const res = await this.engine.runAction<{ ended?: boolean }>(
+      'game.endBattle',
+      {
+        gameId: command.gameId,
+        battleId,
+        idempotencyKey: command.commandId,
+        expectedVersion: command.expectedBattleStateVersion,
+      },
+      signal,
+    );
     if (res.error) throw GameApiError.fromActionError(res.error);
     if (!res.data) throw new GameApiError('GAME_EMPTY_RESPONSE', 'Game battle end failed');
     gamePhpBattleContext.clear();
@@ -1021,7 +1026,10 @@ export class GameApi implements IGameApi {
   }
 
   async getBattleSheets(query: { gameId: number; battleId: number }, signal?: AbortSignal): Promise<GameBattleSheets> {
-    return this.requireData<GameBattleSheets>('game.getBattleSheets', query, signal);
+    const result = await this.requireData<GameBattleSheets>('game.getBattleSheets', query, signal);
+    gamePhpBattleContext.rememberOpenWideStrike(result.openWideStrike ?? null);
+
+    return result;
   }
 
   async declareStrike(
@@ -1087,6 +1095,19 @@ export class GameApi implements IGameApi {
   ): Promise<GamePhpStrikeResult> {
     const result = await this.requireData<GamePhpStrikeResult>('game.declareWideStrike', body, signal);
     gamePhpBattleContext.rememberDebt(result.debt === true, result.version);
+    gamePhpBattleContext.rememberOpenStrike(null);
+    if (result.debt !== true && typeof result.strikeId === 'number') {
+      gamePhpBattleContext.rememberOpenWideStrike({
+        id: result.strikeId,
+        attacker: body.attack.attacker,
+        actionRuleCode: body.attack.actionRuleCode,
+        itemInventoryId: body.attack.itemInventoryId,
+        itemRuleCode: body.attack.itemRuleCode,
+        profileType: body.attack.profileType,
+        profileIndex: body.attack.profileIndex,
+        targets: body.attack.targets.map((target) => ({ ...target, answered: false })),
+      });
+    }
 
     return result;
   }
@@ -1099,6 +1120,7 @@ export class GameApi implements IGameApi {
       expectedVersion: number;
       defense: {
         defenses: {
+          target: GamePhpParticipant;
           reaction: string;
           expectedSheetVersion: number;
           blockItemInventoryId?: number;
@@ -1111,6 +1133,7 @@ export class GameApi implements IGameApi {
     const result = await this.requireData<GamePhpStrikeResult>('game.resolveWideStrike', body, signal);
     gamePhpBattleContext.rememberBattle(body.battleId, result.version);
     gamePhpBattleContext.rememberOpenStrike(null);
+    this.rememberWideAnswers(body.defense.defenses, result);
 
     return result;
   }
@@ -1437,6 +1460,41 @@ export class GameApi implements IGameApi {
     }
 
     return pending;
+  }
+
+  private rememberWideAnswers(
+    defenses: {
+      target: GamePhpParticipant;
+      reaction: string;
+      blockItemInventoryId?: number;
+      blockItemProfileIndex?: number;
+    }[],
+    result: GamePhpStrikeResult,
+  ): void {
+    if (result.closed === true) {
+      gamePhpBattleContext.rememberOpenWideStrike(null);
+
+      return;
+    }
+    const current = gamePhpBattleContext.openWideStrike;
+    if (!current) return;
+
+    const answers = new Map(defenses.map((row) => [`${row.target.type}:${row.target.id}`, row]));
+    const pending = new Set((result.pendingTargets ?? []).map((row) => `${row.type}:${row.id}`));
+    const targets = current.targets.map((target) => {
+      const key = `${target.type}:${target.id}`;
+      const answer = answers.get(key);
+      if (!answer) return { ...target, answered: !pending.has(key) && target.answered };
+
+      return {
+        ...target,
+        answered: true,
+        reaction: answer.reaction,
+        blockItemInventoryId: answer.blockItemInventoryId ?? null,
+        blockItemProfileIndex: answer.blockItemProfileIndex ?? null,
+      };
+    });
+    gamePhpBattleContext.rememberOpenWideStrike({ ...current, targets });
   }
 
   private openStrikeOf(value: unknown): GamePhpOpenStrike | null {

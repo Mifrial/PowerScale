@@ -156,6 +156,7 @@ export { blockHitService } from '@/modules/Roleplay/Game/Service/Instance/blockH
 export { knowledgeCheckLaunchService } from '@/modules/Roleplay/Game/Service/Instance/knowledgeCheckLaunchService';
 export { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
 export { gameStrikeDefenseService } from '@/modules/Roleplay/Game/Service/Instance/gameStrikeDefenseService';
+export { gameWideDefenseService } from '@/modules/Roleplay/Game/Service/Instance/gameWideDefenseService';
 export { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/Instance/gameStatusTransitionsService';
 export { hitRollService } from '@/modules/Roleplay/Game/Service/Instance/hitRollService';
 export { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';

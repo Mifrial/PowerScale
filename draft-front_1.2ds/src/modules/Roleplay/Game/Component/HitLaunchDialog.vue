@@ -23,6 +23,7 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpOpenWideStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrike';
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
@@ -63,6 +64,7 @@ import { coveringService } from '@/modules/Roleplay/Game/Service/Instance/coveri
 import { blockHitService } from '@/modules/Roleplay/Game/Service/Instance/blockHitService';
 import { sequentialStrikeOfferService } from '@/modules/Roleplay/Game/Service/Instance/sequentialStrikeOfferService';
 import { gameStrikeDefenseService } from '@/modules/Roleplay/Game/Service/Instance/gameStrikeDefenseService';
+import { gameWideDefenseService } from '@/modules/Roleplay/Game/Service/Instance/gameWideDefenseService';
 
 import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
@@ -202,6 +204,7 @@ const phpPendingStrike = ref<GamePhpOpenStrike | null>(null);
 const phpOverride = ref(false);
 const phpDebt = ref(false);
 const phpWideTargets = ref<CombatEntityKey[]>([]);
+const phpWideProjection = ref<GamePhpOpenWideStrike | null>(null);
 const phpWideChoices = ref<
   {
     reaction: HitDefenseReaction;
@@ -265,7 +268,7 @@ const entityOptions = computed(() => {
 const opponentOptions = computed(() => entityOptions.value.filter((item) => item.value !== resolvedAttackerKey.value));
 
 const resolvedDefenderKey = computed(() => props.phpDefenderKey ?? opponentKey.value);
-const phpWideMode = computed(() => phpDeclared.value && phpWideTargets.value.length > 0);
+const phpWideMode = computed(() => phpDeclared.value && phpWideProjection.value !== null);
 const phpFallbackStrike = computed<GamePhpOpenStrike | null>(() => {
   const defender = resolvedDefenderKey.value;
   const attacker = resolvedAttackerKey.value;
@@ -287,8 +290,17 @@ const phpFallbackStrike = computed<GamePhpOpenStrike | null>(() => {
   };
 });
 const strikeMemberships = computed(() => props.strikeMemberships ?? props.characters);
-const phpStrike = computed(
-  () => phpDeclaredStrike.value ?? gamePhpBattleContext.openStrike ?? phpFallbackStrike.value,
+const phpWideAnswerTargets = computed(() => {
+  const wide = phpWideProjection.value;
+  if (!wide) return [];
+
+  return gameWideDefenseService
+    .answerableTargets(wide, props.currentUserId, strikeMemberships.value, props.canWriteStrike)
+    .filter((target) => !target.answered);
+});
+const phpWideAnswering = computed(() => phpWideAnswerTargets.value.length > 0);
+const phpStrike = computed(() =>
+  phpWideMode.value ? null : (phpDeclaredStrike.value ?? gamePhpBattleContext.openStrike ?? phpFallbackStrike.value),
 );
 const phpCanResolve = computed(() => {
   const strike = phpStrike.value;
@@ -303,6 +315,12 @@ const phpCanResolve = computed(() => {
   );
 });
 const phpWaitingText = computed(() => {
+  const wide = phpWideProjection.value;
+  if (phpWideMode.value && wide) {
+    const npcNames = Object.fromEntries(props.npcs.map((npc) => [npc.id, npc.name]));
+
+    return gameWideDefenseService.waitingText(wide, strikeMemberships.value, npcNames);
+  }
   const strike = phpStrike.value;
   if (!strike) return 'Ожидаем реакцию защитника';
   const npcNames = Object.fromEntries(props.npcs.map((npc) => [npc.id, npc.name]));
@@ -314,15 +332,14 @@ const isPhpDefenseStep = computed(
     gamePhpMode.isEnabled() &&
     phpDeclared.value &&
     !phpDebt.value &&
-    (phpWideMode.value || phpCanResolve.value),
+    (phpWideMode.value ? phpWideAnswering.value : phpCanResolve.value),
 );
 const isPhpAwaiting = computed(
   () =>
     gamePhpMode.isEnabled() &&
     phpDeclared.value &&
     !phpDebt.value &&
-    !phpWideMode.value &&
-    !phpCanResolve.value,
+    (phpWideMode.value ? !phpWideAnswering.value : !phpCanResolve.value),
 );
 const isCompose = computed(() => offer.value === null && !phpDeclared.value);
 const resolvedAttackAction = computed(() => offer.value?.proposal.attackAction ?? props.attackAction ?? null);
@@ -1057,6 +1074,12 @@ async function hydrate(): Promise<void> {
         selectedActionRuleCode.value = gamePhpBattleContext.openStrike.actionRuleCode;
       }
     }
+    if (props.resumePhpStrike && gamePhpBattleContext.openWideStrike) {
+      phpWideProjection.value = gamePhpBattleContext.openWideStrike;
+      syncPhpWideTargets();
+    } else {
+      phpWideProjection.value = null;
+    }
     const attacker = resolvedAttackerKey.value;
     loadPhase.value = !attacker || !versionOf(attacker) ? 'incomplete' : 'ready';
   } catch (cause) {
@@ -1077,6 +1100,9 @@ watch(
     phpPendingStrike.value = null;
     phpOverride.value = false;
     phpDebt.value = false;
+    phpWideProjection.value = open && props.resumePhpStrike ? gamePhpBattleContext.openWideStrike : null;
+    phpWideTargets.value = [];
+    phpWideChoices.value = [];
     if (open) await hydrate();
   },
 );
@@ -3210,21 +3236,45 @@ function phpBlockFor(key: CombatEntityKey) {
   return { blockItemInventoryId: block.inventoryItemId, blockItemProfileIndex: block.profileIndex };
 }
 
+function syncPhpWideTargets(): void {
+  const wide = phpWideProjection.value;
+  if (!wide) {
+    phpWideTargets.value = [];
+    phpWideChoices.value = [];
+
+    return;
+  }
+  const keys = phpWideAnswerTargets.value.map((target) => gameWideDefenseService.targetKey(target));
+  phpWideTargets.value = keys;
+  phpWideChoices.value = [];
+  const first = keys[0];
+  if (first) {
+    opponentKey.value = first;
+    reaction.value = null;
+    blockItemRuleCode.value = null;
+  }
+}
+
 async function phpWideDefense() {
-  const chosen = reaction.value;
-  if (!chosen) throw new Error('Выберите реакцию');
-  const keys = phpWideTargets.value.length ? phpWideTargets.value : phpTargetKeys();
-  if (keys.length < 2) throw new Error('Для широкого удара нужны хотя бы две цели');
-  if (phpWideChoices.value.length !== keys.length) throw new Error('Не все защитники выбрали реакцию');
+  const wide = phpWideProjection.value;
+  if (!wide) throw new Error('Широкий удар уже закрыт');
+  const keys = phpWideTargets.value;
+  if (keys.length === 0) throw new Error('Нет цели для ответа');
+  if (phpWideChoices.value.length !== keys.length) throw new Error('Не все цели выбрали реакцию');
+  const targets = new Map(wide.targets.map((target) => [gameWideDefenseService.targetKey(target), target]));
 
   return {
     ...phpBattleEnvelope(),
     defense: {
       defenses: keys.map((key, index) => {
         const choice = phpWideChoices.value[index];
-        if (!choice) throw new Error('Не все защитники выбрали реакцию');
+        const target = targets.get(key);
+        if (!choice || !target) throw new Error('Не все цели выбрали реакцию');
+        if (target.type !== 'character' && target.type !== 'npc') throw new Error('Неизвестная цель широкого удара');
+        const targetType = target.type === 'npc' ? 'npc' : 'character';
 
         return {
+          target: { type: targetType, id: target.id },
           reaction: choice.reaction,
           expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
           ...(choice.reaction === 'block'
@@ -3244,7 +3294,7 @@ function rememberPhpWideChoice(): boolean {
   const current = opponentKey.value;
   const index = current ? keys.indexOf(current) : -1;
   const chosen = reaction.value;
-  if (index < 0 || !chosen) throw new Error('Выберите реакцию');
+  if (!current || index < 0 || !chosen) throw new Error('Выберите реакцию');
   const next = [...phpWideChoices.value];
   next[index] = {
     reaction: chosen,
@@ -3283,9 +3333,9 @@ function phpStrikeFromAttack(attack: {
 }
 
 async function submitPhpStrike(): Promise<boolean> {
-  const wide = gamePhpCommandService.isWideStrike(resolvedAttackAction.value?.mode, phpTargetKeys());
+  const wideAttack = gamePhpCommandService.isWideStrike(resolvedAttackAction.value?.mode, phpTargetKeys());
   if (!phpDeclared.value) {
-    if (!wide) {
+    if (!wideAttack) {
       const attackBody = await phpStrikeAttack();
       const declared = await getGameApi().declareStrike(attackBody);
       phpDeclared.value = true;
@@ -3303,19 +3353,34 @@ async function submitPhpStrike(): Promise<boolean> {
     phpPendingStrike.value = null;
     phpOverride.value = false;
     phpDebt.value = declared.debt === true;
-    phpWideChoices.value = [];
-    if (phpWideTargets.value[0]) opponentKey.value = phpWideTargets.value[0];
+    phpWideProjection.value = gamePhpBattleContext.openWideStrike;
+    syncPhpWideTargets();
 
     return false;
   }
-  if (wide) {
+  if (phpWideMode.value) {
     if (!rememberPhpWideChoice()) return false;
-    await getGameApi().resolveWideStrike(await phpWideDefense());
-  } else await getGameApi().resolveStrike(await phpDefense());
+    const result = await getGameApi().resolveWideStrike(await phpWideDefense());
+    phpWideProjection.value = gamePhpBattleContext.openWideStrike;
+    phpWideChoices.value = [];
+    syncPhpWideTargets();
+    if (result.closed === true || phpWideTargets.value.length === 0) {
+      phpDeclared.value = false;
+      phpWideProjection.value = null;
+      phpWideTargets.value = [];
+      phpWideChoices.value = [];
+
+      return true;
+    }
+
+    return false;
+  }
+  await getGameApi().resolveStrike(await phpDefense());
   phpDeclared.value = false;
   phpDeclaredStrike.value = null;
   phpPendingStrike.value = null;
   phpOverride.value = false;
+  phpWideProjection.value = null;
   phpWideTargets.value = [];
   phpWideChoices.value = [];
 
@@ -3644,13 +3709,7 @@ const canSubmit = computed(() => {
               Взять на себя
             </v-btn>
           </v-alert>
-          <v-alert
-            v-if="isDefenderStep"
-            type="info"
-            variant="tonal"
-            density="compact"
-            class="mt-2 mb-1"
-          >
+          <v-alert v-if="isDefenderStep" type="info" variant="tonal" density="compact" class="mt-2 mb-1">
             Вы отвечаете за защиту цели: <strong>{{ nameOf(opponentKey) }}</strong>
           </v-alert>
           <v-alert v-else-if="offer && isWaiting" type="info" variant="tonal" density="compact" class="mt-2 mb-1">

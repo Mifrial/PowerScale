@@ -55,6 +55,7 @@ import type { GameCharacterModerationCommand } from '@/modules/Roleplay/Game/Dto
 import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationResult';
 import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
 import type { GamePhpStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAttack';
+import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
 import type { GamePhpWideStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpWideStrikeAttack';
 import type { GamePhpStrikeResult } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeResult';
 import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
@@ -349,6 +350,7 @@ export interface IGameApi {
       expectedVersion: number;
       defense: {
         defenses: {
+          target: GamePhpParticipant;
           reaction: string;
           expectedSheetVersion: number;
           blockItemInventoryId?: number;

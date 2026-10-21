@@ -7,6 +7,7 @@ import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 import {
   gameAccessService,
   gameStrikeDefenseService,
+  gameWideDefenseService,
   getGameApi,
   getGameRealtimePort,
 } from '@/modules/Roleplay/Game/init';
@@ -20,6 +21,7 @@ import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCh
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameStateSnapshot } from '@/modules/Roleplay/Game/Dto/GameStateSnapshot';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpOpenWideStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrike';
 import type { GameLifecycleResult } from '@/modules/Roleplay/Game/Dto/GameLifecycleResult';
 import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerOption';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -384,11 +386,7 @@ const speakerOptions = computed<ChatSpeakerOption[]>(() => {
 
 async function warmStrikeUserNames(rows: GameCharacterMembership[]): Promise<void> {
   const ids = [
-    ...new Set(
-      rows
-        .map((membership) => membership.characterOwnerId)
-        .filter((id) => id > 0 && !warmedUserIds.has(id)),
-    ),
+    ...new Set(rows.map((membership) => membership.characterOwnerId).filter((id) => id > 0 && !warmedUserIds.has(id))),
   ];
   if (ids.length === 0) return;
   for (const id of ids) warmedUserIds.add(id);
@@ -553,8 +551,56 @@ function canAutoOpenPhpStrike(strike: GamePhpOpenStrike): boolean {
   return gameStrikeDefenseService.shouldAutoOpen(strike, user.id, memberships.value, canWriteStrike.value);
 }
 
+async function tryOpenPhpWideStrike(wide: GamePhpOpenWideStrike): Promise<void> {
+  if (!gamePhpMode.isEnabled()) return;
+  const user = currentUser.value;
+  if (!user) return;
+  if (hitOpen.value || !gameWideDefenseService.shouldAutoOpen(wide, user.id, memberships.value, canWriteStrike.value)) {
+    return;
+  }
+  const attackerKey = gameWideDefenseService.attackerKey(wide);
+  const targetKeys = wide.targets.map((target) => gameWideDefenseService.targetKey(target));
+  await loadRuntimeProjections([attackerKey, ...targetKeys]);
+  const version = runtimeByKey.value[attackerKey]?.version;
+  if (!version) {
+    return;
+  }
+  const attacks = characterOverviewService.build(version, revisionRules.value).attacks;
+  const attack =
+    attacks.find(
+      (item) =>
+        item.itemRuleCode === wide.itemRuleCode &&
+        item.inventoryItemId === wide.itemInventoryId &&
+        (item.profileIndex ?? 0) === wide.profileIndex,
+    ) ??
+    attacks.find(
+      (item) =>
+        item.itemRuleCode === wide.itemRuleCode &&
+        item.profileType === wide.profileType &&
+        (item.profileIndex ?? 0) === wide.profileIndex,
+    );
+  if (!attack) {
+    return;
+  }
+  hitResumeOffer.value = null;
+  attackAction.value = null;
+  hitAttackerKey.value = attackerKey;
+  hitAttack.value = attack;
+  hitResumePhpStrike.value = true;
+  hitPhpStrikeMode.value = true;
+  hitPhpDefenderKey.value = targetKeys[0] ?? null;
+  hitPhpBound.value = true;
+  hitOpen.value = true;
+}
+
 async function tryOpenPhpStrike(): Promise<void> {
   if (!gamePhpMode.isEnabled()) {
+    return;
+  }
+  const wide = gamePhpBattleContext.openWideStrike;
+  if (wide) {
+    await tryOpenPhpWideStrike(wide);
+
     return;
   }
   const strike = gamePhpBattleContext.openStrike;
@@ -623,7 +669,11 @@ function sheetsCoverRealtime(event: GameRealtimeEvent): boolean {
   return keys.every((row) => {
     if (!row || typeof row !== 'object') return false;
     const rec = row as { type?: string; id?: number; actualVersion?: number };
-    if ((rec.type !== 'character' && rec.type !== 'npc') || typeof rec.id !== 'number' || typeof rec.actualVersion !== 'number') {
+    if (
+      (rec.type !== 'character' && rec.type !== 'npc') ||
+      typeof rec.id !== 'number' ||
+      typeof rec.actualVersion !== 'number'
+    ) {
       return false;
     }
 
@@ -1138,9 +1188,7 @@ function onOverlayChanged(): void {
 }
 
 async function onStrikeRefresh(): Promise<void> {
-  const keys = [hitAttackerKey.value, hitPhpDefenderKey.value].filter(
-    (key): key is CombatEntityKey => key !== null,
-  );
+  const keys = [hitAttackerKey.value, hitPhpDefenderKey.value].filter((key): key is CombatEntityKey => key !== null);
   await loadPhpBattleSheetProjections(keys, gameId.value);
   store.applyGameUpdate(await getGameApi().getGame(gameId.value));
   battleRevision.value += 1;
@@ -1424,7 +1472,10 @@ function onHitClosed(open: boolean, refresh = true): void {
 
 /** После действия в PHP-окне удара помнит, что окно привязано к серверному удару. */
 function onHitSettled(): void {
-  if (hitPhpStrikeMode.value && gamePhpBattleContext.openStrike !== null) {
+  if (
+    hitPhpStrikeMode.value &&
+    (gamePhpBattleContext.openStrike !== null || gamePhpBattleContext.openWideStrike !== null)
+  ) {
     hitPhpBound.value = true;
   }
   void refreshPendingOffers();
