@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 312,
-        "plans": 193,
+        "documents": 313,
+        "plans": 194,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 215,
+            "tr": 216,
             "tz": 2
         },
         "byZoneState": {
@@ -75,7 +75,7 @@
                 "ПЛАН": 31,
                 "ЧАСТИЧНО": 27,
                 "В РАБОТЕ": 12,
-                "ОТМЕНЁН": 3,
+                "ОТМЕНЁН": 4,
                 "СНИМОК": 7
             },
             "tz": {
@@ -91,7 +91,7 @@
             "ОТЛОЖЕН": 6,
             "ЧАСТИЧНО": 27,
             "В РАБОТЕ": 12,
-            "ОТМЕНЁН": 3
+            "ОТМЕНЁН": 4
         }
     },
     "modules": {
@@ -204,19 +204,19 @@
             }
         },
         "Roleplay/Game": {
-            "docs": 41,
+            "docs": 42,
             "state": {
                 "СНИМОК": 3,
                 "нет": 1,
                 "ЧАСТИЧНО": 3,
                 "СДЕЛАНО": 26,
-                "ОТМЕНЁН": 2,
+                "ОТМЕНЁН": 3,
                 "ПЛАН": 6
             },
             "layer": {
-                "PHP": 34,
+                "PHP": 35,
                 "МОК": 1,
-                "VUE": 2
+                "VUE": 3
             }
         },
         "Roleplay/Keyword": {
@@ -2121,6 +2121,7 @@
                 "docs/tr/game-plan-13.md",
                 "docs/tr/game-plan-14.md",
                 "docs/tr/game-plan-15.md",
+                "docs/tr/game-plan-37-wide-strike-owner-actions.md",
                 "docs/tr/logger-plan-01.md",
                 "docs/tr/logger-plan-03.md",
                 "docs/tr/logger-plan-05-vue-datetime.md",
@@ -3754,12 +3755,12 @@
             ],
             "basis": null,
             "date": "2026-10-04",
-            "bytes": 27969,
-            "lines": 180,
+            "bytes": 28684,
+            "lines": 182,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 9,
+            "linksCount": 10,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-15.md",
@@ -3768,6 +3769,7 @@
                 "docs/tr/game-plan-20.md",
                 "docs/tr/game-plan-22.md",
                 "docs/tr/game-plan-24.md",
+                "docs/tr/game-plan-37-wide-strike-owner-actions.md",
                 "docs/tr/game-roadmap.md"
             ]
         },
@@ -3905,23 +3907,24 @@
             "title": "План Game 19 — широкий удар",
             "zone": "tr",
             "kind": "plan",
-            "state": "СДЕЛАНО",
+            "state": "ОТМЕНЁН",
             "stateSource": "prose",
-            "statusRaw": "широкий удар в PHP сделан. `BACKEND_OPEN`. Suite `game` по `GameWideStrikeMysqlTest` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G19. Канон — [`game-system.md`](game-system.md): обычный удар — `1 → 1`; `1 → N` считает одного атакующего против каждой цели и возвращает `targetResults[]` на каждого защитника; свёртка не прячет отказ одной цели; `N → 1` — backlog; `N → N` не контракт. Удар `1 → 1` — [`game-plan-13.md`](game-plan-13.md): готовый урон во входе не принимается; персонаж через порт G10, NPC через `npc.version` уже лежащей строки; повтор ключа эффект второй раз не применяет; `endBattle` сессию не гасит. Проверка — [`game-plan-18.md`](game-plan-18.md): соло и pairwise одной цели уже есть; этот шаг их не заменяет второй моделью броска и `game_check` не пишет. Process — [`game-plan-17.md`](game-plan-17.md): строка process уже есть; широкий удар её не открывает. Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).",
+            "statusRaw": "широкий удар в PHP сделан. `BACKEND_OPEN`. **Хранение и ответы заменены планом 37** — [`game-plan-37-wide-strike-owner-actions.md`](game-plan-37-wide-strike-owner-actions.md): общие `game_action`/`game_action_target`, ответы владельцев целей, per-target `defenses[]`. Ниже сохранено исходное описание G19; где оно расходится с планом 37, действует план 37. Suite `game` по `GameWideStrikeMysqlTest` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G19. Канон — [`game-system.md`](game-system.md): обычный удар — `1 → 1`; `1 → N` считает одного атакующего против каждой цели и возвращает `targetResults[]` на каждого защитника; свёртка не прячет отказ одной цели; `N → 1` — backlog; `N → N` не контракт. Удар `1 → 1` — [`game-plan-13.md`](game-plan-13.md): готовый урон во входе не принимается; персонаж через порт G10, NPC через `npc.version` уже лежащей строки; повтор ключа эффект второй раз не применяет; `endBattle` сессию не гасит. Проверка — [`game-plan-18.md`](game-plan-18.md): соло и pairwise одной цели уже есть; этот шаг их не заменяет второй моделью броска и `game_check` не пишет. Process — [`game-plan-17.md`](game-plan-17.md): строка process уже есть; широкий удар её не открывает. Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).",
             "layers": [
                 "PHP"
             ],
             "basis": null,
             "date": null,
-            "bytes": 26029,
+            "bytes": 27453,
             "lines": 169,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 7,
+            "linksCount": 8,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-20.md",
+                "docs/tr/game-plan-37-wide-strike-owner-actions.md",
                 "docs/tr/game-roadmap.md"
             ]
         },
@@ -4331,15 +4334,44 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 15589,
-            "lines": 184,
+            "bytes": 16152,
+            "lines": 186,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 0,
+            "linksCount": 1,
             "brokenLinks": [],
             "backlinks": [
-                "docs/tr/game-plan-13.md"
+                "docs/tr/game-plan-13.md",
+                "docs/tr/game-plan-37-wide-strike-owner-actions.md"
+            ]
+        },
+        {
+            "path": "docs/tr/game-plan-37-wide-strike-owner-actions.md",
+            "title": "План 37 — общая модель действий и ответы владельцев целей",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": null,
+            "bytes": 16468,
+            "lines": 127,
+            "modules": [
+                "Roleplay/Game"
+            ],
+            "linksCount": 6,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/game-plan-13.md",
+                "docs/tr/game-plan-19.md",
+                "docs/tr/game-plan-36-strike-owner-actions.md",
+                "docs/tr/game-system.md"
             ]
         },
         {
@@ -4416,12 +4448,12 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 25421,
-            "lines": 240,
+            "bytes": 26827,
+            "lines": 242,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 2,
+            "linksCount": 3,
             "brokenLinks": [],
             "backlinks": [
                 "docs/specs/character-actual-session-source-roadmap.md",
@@ -4446,6 +4478,7 @@
                 "docs/tr/game-plan-17.md",
                 "docs/tr/game-plan-18.md",
                 "docs/tr/game-plan-19.md",
+                "docs/tr/game-plan-37-wide-strike-owner-actions.md",
                 "docs/tr/game-roadmap.md"
             ]
         },
@@ -5594,6 +5627,7 @@
                 "docs/tr/game-plan-30.md",
                 "docs/tr/game-plan-31.md",
                 "docs/tr/game-plan-32.md",
+                "docs/tr/game-plan-37-wide-strike-owner-actions.md",
                 "docs/tr/game-roadmap.md",
                 "docs/tr/kernel-plan-01-setup.md",
                 "docs/tr/kernel-plan-02-action-input.md",

@@ -41,6 +41,8 @@ Backend-схема летописи, формат сохранения `event_ti
 
 Одна широкая атака может проверяться против нескольких защит. Вариант `N → 1` — несколько одновременных бросков атаки против одной защиты — пока `BACKLOG` и не должен выдаваться за реализованный контракт.
 
+Удар `1 → 1` и широкий удар хранятся в общей модели `game_action` (`kind`: `strike` / `wide_strike`) и `game_action_target`. Ответы широкого удара накапливаются по целям: владелец активного персонажа-цели отвечает за свою цель, писатель игры (`owner` / `gm` / `game.edit_all`) — за любую, NPC-цель обслуживает только писатель. Последний необходимый ответ атомарно закрывает действие и применяет расчёт; частичные ответы эффектов не применяют и не снимают запрет завершения хода. Открытый удар любого вида один на бой. Контракт — [`game-plan-37-wide-strike-owner-actions.md`](game-plan-37-wide-strike-owner-actions.md).
+
 `ActionEffect`, check payload, difficulty, success rating и текущие process/action DTO — рабочий частичный канон. Сложные расширения, reactions, interrupt, поддержание и исключения требуют отдельной реализации/проверки.
 
 ## Движение и battleground
@@ -107,7 +109,7 @@ action input → check/attack roll → defense resolution → damage → injury/
 
 `1 → 1` is the ordinary attack. `1 → N` resolves one attacker against each target and returns a `targetResults[]` entry per defender. `N → 1` remains backlog. `N → N` is not a current contract.
 
-Wide attack requires at least one target and a defender key for every target. Each target result carries its own defense, damage and state outcome; aggregation must not collapse target-specific failures.
+Wide attack requires at least one target and a defender key for every target. Each target result carries its own defense, damage and state outcome; aggregation must not collapse target-specific failures. Responses accumulate per target; the owner of an active target character may answer for that target, and the game writer may answer for any target (NPC targets are writer-only). The final required answer atomically resolves and closes the action. Only one open action of either kind exists per battle; `game.getBattleSheets` exposes `openWideStrike` with per-target `answered` and reply details visible to the target owner and the writer.
 
 ### ActionEffect and states
 

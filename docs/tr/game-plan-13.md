@@ -23,7 +23,7 @@
 
 **Сценарий.** Две команды одного боя. Атака открывает один незакрытый удар: один атакующий и один защитник, оба уже в составе этого `battleId`. Защита закрывает этот удар. Второй незакрытый удар того же боя — `GAME_INVALID`. Списка целей нет: лишний ключ — `INVALID_PARAMS`. Широкого удара и `targetResults` нет.
 
-Атака лист не меняет. `endBattle` строку `game_strike` не удаляет: у `battle_id` нет ссылки, ход конца боя не меняется. Незакрытый удар остаётся до stop и эффект задним числом не дописывает. Закрытие по уже снятому `battleId` — `GAME_NOT_FOUND`. Уже записанный лист `endBattle` и stop не откатывают.
+Атака лист не меняет. `endBattle` строку `game_action` не удаляет: у `battle_id` нет ссылки, ход конца боя не меняется. Незакрытый удар остаётся до stop и эффект задним числом не дописывает. Закрытие по уже снятому `battleId` — `GAME_NOT_FOUND`. Уже записанный лист `endBattle` и stop не откатывают.
 
 **Выборы, не расчёт.** Тело атаки: атакующий, защитник, `actionRuleCode`, `itemRuleCode`, `profileType` (`strike` | `throw` | `shoot`), `profileIndex` — целое ≥ 0. Тело защиты: `reaction` (`ignore` | `dodge` | `block`) и необязательный `blockItemRuleCode`. Во входе нет урона, `remaining`, `damageTypeCode`, `actionPointCost`, `resourceRuleCode` и полного листа. Имя ресурса и величину эффекта клиент не выбирает.
 
@@ -37,7 +37,7 @@
 
 **CAS.** Атака сверяет версию боя. Защита сверяет версию боя и ожидаемую версию листа защитника до записи, даже когда список операций пуст. Персонаж — `ICharacters::get` и `CharacterRecord::getActualVersion()`. NPC — `GameNpcRecord::getActualVersion()`. Чужая версия — `GAME_CONFLICT`, удар не закрывается, лист прежний. Версия сессии не участвует.
 
-**Идемпотентность.** Свой журнал `game_strike_command`, не `game_battle_command`. Ключ уникален в паре с `gameId`. Повтор с тем же телом возвращает сохранённый итог и ничего не пишет. Тот же ключ с другим телом — `GAME_CONFLICT`. Пустой ключ — `GAME_INVALID`.
+**Идемпотентность.** Общий журнал `game_command`, не `game_battle_command`; для обычного удара `source=strike`. Ключ уникален в паре с `gameId`. Повтор с тем же телом возвращает сохранённый итог и ничего не пишет. Тот же ключ с другим телом — `GAME_CONFLICT`. Пустой ключ — `GAME_INVALID`.
 
 **Ход записи.** До транзакции: видимость, повтор ключа, `completed`, право писать только на новом проходе.
 
@@ -97,11 +97,13 @@
 
 ## Таблицы
 
-Новая карта `GameStrikeSchema`. Колонки `game_battle`, `character` и `game_npc` не добавляются.
+Новая общая карта `GameActionSchema` (`kind='strike'`). Колонки `game_battle`, `character` и `game_npc` не добавляются.
 
-`game_strike`: `battle_id` без ссылки на бой; `session_id` — restrict на `GameSessionTable`; виды и id атакующего и защитника; `action_rule_code`, `item_rule_code` и `block_item_rule_code` — `StringField` длины 255, как `game_shop_position.rule_code`; `profile_type` длины 32; `profile_index`; `reaction` длины 32. `reaction` и `block_item_rule_code` не required: до защиты их нет. `open` — `BoolField`. Один открытый удар на бой держит шаг, не unique по всем историческим строкам.
+`game_action` (`kind='strike'`): `battle_id` без ссылки на бой; `session_id` — restrict на `GameSessionTable`; вид и id атакующего; `action_rule_code`, `item_rule_code` — `StringField` длины 255, как `game_shop_position.rule_code`; `profile_type` длины 32; `profile_index`; `open` — `BoolField`. Защитник, реакция и блок живут в `game_action_target`. Один открытый удар на бой держит шаг, не unique по всем историческим строкам.
 
-`game_strike_command`: `game_id`, `session_id` restrict, `idempotency_key` длины 255, тело и итог — два `JsonField`. Пара (`game_id`, ключ) уникальна.
+`game_action_target`: `action_id`, вид и id защитника, `reaction` длины 32, `block_item_inventory_id`, `block_item_profile_index`, `block_item_rule_code` длины 255. `reaction`, блок и `block_item_rule_code` не required: до защиты их нет. Пара (`action_id`, вид цели, id цели) уникальна.
+
+`game_command` — общий журнал: `session_id` restrict, `idempotency_key` длины 255, тело и итог — два `JsonField`, `source='strike'` для обычного удара. Пара (`game_id`, ключ) уникальна. Общая модель и ответы владельцев — [`game-plan-37-wide-strike-owner-actions.md`](game-plan-37-wide-strike-owner-actions.md).
 
 ## Фасад
 
@@ -128,7 +130,7 @@
 - `GameCombatCommand.action.actionPointCost` — уже посчитанное число. В PHP его нет.
 - `GameCombatEffect` с готовым `damage` — превью. Сервер его не принимает и сам в этом заходе лист не вычитает.
 - `commandId` эскиза — в PHP `idempotencyKey`.
-- Один `submitCombatCommand` с `processId` и `offerId`. В PHP два action и одна строка `game_strike`.
+- Один `submitCombatCommand` с `processId` и `offerId`. В PHP два action и одна строка `game_action` (`kind=strike`) с целью в `game_action_target`.
 - Широкий удар и `targetResults[]` этим шагом не открываются.
 - `GameCombatOverlay` тащил полный лист. В строку удара лист не пишется.
 
@@ -142,12 +144,12 @@ Mysql защиты. `ignore`, `dodge` и `block` закрывают удар и 
 
 Mysql отката. Чужая версия боя или листа на защите не закрывает удар и не пишет лист. Повтор того же ключа возвращает прежний итог и вторую строку не создаёт. Тот же ключ с другим телом — `GAME_CONFLICT`.
 
-Mysql сессии. `endBattle` снимает бой и сессию не гасит. `current` листа тот же, потому что лист не писался. Stop удаляет строки удара и команды этой сессии. `targetStatus` — `INVALID_PARAMS`. Тот же ключ в новой сессии — новая команда. Action широкого удара и сцены нет.
+Mysql сессии. `endBattle` снимает бой и сессию не гасит. `current` листа тот же, потому что лист не писался. Stop удаляет строки `game_action_target` и `game_action` этой сессии, затем команды `game_command`. `targetStatus` — `INVALID_PARAMS`. Тот же ключ в новой сессии — новая команда. Action широкого удара и сцены нет.
 
 ## Todo
 
-- [x] **schema** — `game_strike` с кодами выбора и профилем, `game_strike_command`.
-- [x] **cleanup** — строки удара снимаются до сессии. Конструктор `GameSessions` не растёт.
+- [x] **schema** — `game_action` (`kind='strike'`), `game_action_target`, `game_command` (`source='strike'`).
+- [x] **cleanup** — цели и действия удара снимаются до сессии. Конструктор `GameSessions` не растёт.
 - [x] **resolve** — проверка `actionRuleCode`, `itemRuleCode` и `WeaponProfile` по `ICharacterRuleSlices`. Выход — пустой список операций. Порт не вызывается.
 - [x] **facade** — атака и защита, CAS версии боя и листа, одна транзакция. Запись листа только при непустом списке.
 - [x] **http** — два action без урона и без `actionPointCost`.

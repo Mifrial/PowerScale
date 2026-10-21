@@ -2059,6 +2059,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/game-plan-19.md",
+                    "title": "План Game 19 — широкий удар",
+                    "kind": "plan",
+                    "state": "ОТМЕНЁН",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/game-plan-02.md",
                     "title": "План Game 2 — участники-люди и права",
                     "kind": "plan",
@@ -2163,14 +2171,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/game-plan-19.md",
-                    "title": "План Game 19 — широкий удар",
-                    "kind": "plan",
-                    "state": "СДЕЛАНО",
-                    "date": null,
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/game-plan-20.md",
                     "title": "План Game 20 — исход удара",
                     "kind": "plan",
@@ -2245,6 +2245,14 @@
                 {
                     "path": "docs/tr/game-plan-36-strike-owner-actions.md",
                     "title": "План Game 36 — владелец персонажа в ударе 1 → 1",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-37-wide-strike-owner-actions.md",
+                    "title": "План 37 — общая модель действий и ответы владельцев целей",
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": null,
