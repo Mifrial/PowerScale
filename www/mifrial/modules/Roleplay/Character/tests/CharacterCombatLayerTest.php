@@ -148,6 +148,60 @@ final class CharacterCombatLayerTest extends TestCase
     }
 
     /**
+     * Битая spec способности без сопротивления не блокирует проекцию.
+     *
+     * @return void
+     */
+    public function testBrokenGrantSpecIsSkipped(): void
+    {
+        $broken = $this->rule('broken', 'ability', [
+            'type' => 'trait',
+            'parameters' => [[
+                'code' => 'x',
+                'label' => 'X',
+                'kind' => 'scalar',
+                'resolution' => 'purchase',
+                'default' => ['base' => 0, 'size' => 0],
+            ]],
+        ], []);
+
+        $layers = $this->project([$broken], ['inventory' => []], null, ['broken' => 1]);
+
+        self::assertSame([], $layers);
+    }
+
+    /**
+     * Битая spec с грантом resistance отклоняется, а не теряет защиту.
+     *
+     * @return void
+     */
+    public function testBrokenResistanceGrantSpecIsRejected(): void
+    {
+        $broken = $this->rule('broken', 'ability', [
+            'type' => 'trait',
+            'parameters' => [[
+                'code' => 'x',
+                'label' => 'X',
+                'kind' => 'scalar',
+                'resolution' => 'purchase',
+                'default' => ['base' => 0, 'size' => 0],
+            ]],
+            'grants' => [[
+                'level' => 1,
+                'grants' => [[
+                    'type' => 'resistance',
+                    'damage_type_code' => 'fire',
+                    'source_code' => 'body',
+                    'value' => ['base' => 1, 'size' => 0],
+                ]],
+            ]],
+        ], []);
+
+        $this->expectException(CharacterInvalidException::class);
+        $this->project([$broken], ['inventory' => []], null, ['broken' => 1]);
+    }
+
+    /**
      * Проекция не читает строку персонажа.
      *
      * @return void

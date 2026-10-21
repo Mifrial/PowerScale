@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Character\Service;
 
+use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Roleplay\Character\Dto\CharacterCombatLayer;
 use Mifrial\Roleplay\Character\Dto\CharacterDonorGrant;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
@@ -96,7 +97,12 @@ final class CharacterCombatGrantLayers
         }
 
         if ($rule->isSpecBroken()) {
-            $this->reject();
+            if ($this->grantsResistance($rule->getSpecDocument())) {
+                $this->reject();
+            }
+
+            // Битая spec без resistance не блокирует удар: слой пропускается, как у предметов.
+            return [];
         }
 
         return $this->resistances(
@@ -249,6 +255,36 @@ final class CharacterCombatGrantLayers
             && is_array($pair)
             && is_int($pair['base'] ?? null)
             && is_int($pair['size'] ?? null);
+    }
+
+    /**
+     * Есть ли в сыром документе грант resistance.
+     *
+     * @param mixed $value Узел spec.
+     *
+     * @return bool true, если грант найден.
+     */
+    private function grantsResistance(mixed $value): bool
+    {
+        if ($value instanceof JsonObject) {
+            $value = $value->getMembers();
+        }
+
+        if (!is_array($value)) {
+            return false;
+        }
+
+        if (($value['type'] ?? null) === 'resistance') {
+            return true;
+        }
+
+        foreach ($value as $child) {
+            if ($this->grantsResistance($child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
