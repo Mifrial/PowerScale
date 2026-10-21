@@ -23,6 +23,7 @@ use Mifrial\Roleplay\Mechanic\Service\Handler\ExhaustionShockHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\ExhaustionStunHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\ExhaustionWoundHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\InjuryEfficiencyHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\InjuryExtraDiceHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PaySrVsReliabilityHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PlainRollHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PurchaseSurchargeHandler;
@@ -66,6 +67,7 @@ final class MechanicPortFactory
         $registry->register(new ReliabilityCutHandler());
         $registry->register(new PaySrVsReliabilityHandler());
         $registry->register(new InjuryEfficiencyHandler());
+        $registry->register(new InjuryExtraDiceHandler());
         $registry->register(new ExhaustionStunHandler());
         $registry->register(new ExhaustionShockHandler());
         $registry->register(new ExhaustionWoundHandler());

@@ -21,6 +21,7 @@ use Mifrial\Roleplay\Mechanic\Interface\IDamageAsWounds;
 use Mifrial\Roleplay\Mechanic\Interface\IExhaustionAmount;
 use Mifrial\Roleplay\Mechanic\Interface\IExhaustionWound;
 use Mifrial\Roleplay\Mechanic\Interface\IInjuryEfficiency;
+use Mifrial\Roleplay\Mechanic\Interface\IInjuryExtraDice;
 use Mifrial\Roleplay\Mechanic\Interface\IMechanicHandler;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
@@ -130,7 +131,13 @@ final class GameStrikeConsequences
 
         $delta = $consequence['exhaustionDelta'];
         if ($delta !== 0 || $wound > 0) {
-            $maim = $this->maim($game, $slice, $sheet, max($delta, intdiv($wound, 2)), $hooks);
+            $maim = $this->maim(
+                $game,
+                $slice,
+                $sheet,
+                max($delta, intdiv($wound, 2)) + $this->getInjuryExtra($hooks, $success),
+                $hooks,
+            );
             $strength = is_int($maim['rating'] ?? null) && $maim['rating'] < 0 ? -$maim['rating'] : 0;
             $consequence['maim'] = $maim;
             if ($strength > 0) {
@@ -661,6 +668,25 @@ final class GameStrikeConsequences
         }
 
         return ['permanent' => false, 'healTotal' => $total, 'healUnit' => $spec[2]];
+    }
+
+    /**
+     * Добавка ⌊РУ / 2⌋, если на типе есть маркер колющего увечья.
+     *
+     * @param list<array{handler: IMechanicHandler, payload: array<string, mixed>}> $hooks Хуки.
+     * @param int $success РУ атаки.
+     *
+     * @return int Добавка к сложности.
+     */
+    private function getInjuryExtra(array $hooks, int $success): int
+    {
+        foreach ($hooks as $hook) {
+            if ($hook['handler'] instanceof IInjuryExtraDice) {
+                return intdiv(max(0, $success), 2);
+            }
+        }
+
+        return 0;
     }
 
     private function injuryAdvantage(array $hooks): int
