@@ -517,7 +517,8 @@ final class GameStrikeConsequences
 
             $endurance ??= $this->endurance($slice, $sheet);
 
-            return $success >= $threshold || $injury->compare($endurance) >= 0;
+            // Канон: нужны оба условия — порог РУ и урон не ниже стойкости.
+            return $success >= $threshold && $injury->compare($endurance) >= 0;
         }
 
         return false;

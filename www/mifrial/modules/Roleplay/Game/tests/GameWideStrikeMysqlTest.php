@@ -1294,6 +1294,7 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'S',
                 'wound',
                 'exhaustionDelta',
+                'endurance',
                 'will',
                 'willOutcome',
                 'maim',

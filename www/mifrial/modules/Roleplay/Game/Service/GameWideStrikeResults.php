@@ -436,6 +436,7 @@ final class GameWideStrikeResults
         array &$record,
     ): int {
         $sheet = $this->targetSheet($game, $target);
+        $choices = $target['type'] === 'npc' ? $this->targetChoices($game, $target) : null;
         $split = $this->rules->splitInjury(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -443,7 +444,15 @@ final class GameWideStrikeResults
             $target['id'],
             $target['type'] === 'npc' ? $sheet : null,
             $injury,
-            $target['type'] === 'npc' ? $this->targetChoices($game, $target) : null,
+            $choices,
+        );
+        $endurance = $this->rules->enduranceOf(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $target['type'],
+            $target['id'],
+            $target['type'] === 'npc' ? $sheet : null,
+            $choices,
         );
         $prepared = $this->consequences->effects(
             $game,
@@ -452,6 +461,8 @@ final class GameWideStrikeResults
             $success,
             $split,
             $this->rules->damageTypeCode($game->getSpaceId(), $game->getRulesRevision(), $itemRuleCode, $profileType, $profileIndex),
+            true,
+            $endurance,
         );
         $record = array_merge($record, $prepared['consequence']);
         $version = $this->sheetWrites->write(
@@ -630,7 +641,7 @@ final class GameWideStrikeResults
                 'exhaustion' => $exhaustion,
                 'remainingHpDamage' => 0,
                 'wound' => $wound,
-                'knockout' => false,
+                'knockout' => ($record['unconscious'] ?? false) === true,
                 'cuttingWound' => null,
                 'layers' => [],
                 'injury' => $record['injury'] ?? null,
@@ -773,13 +784,19 @@ final class GameWideStrikeResults
 
     private function exhaustionText(string $target, int $rating, string $outcome): string
     {
+        $label = match ($outcome) {
+            'weakness' => 'Слабость',
+            'disabled' => 'Обессилен',
+            'unconscious' => 'Потеря сознания',
+            default => 'без Упадка сил',
+        };
         if ($outcome === 'clear') {
             $shown = ($rating >= 0 ? '+' : '') . $rating;
 
-            return $target . ' выдерживает истощение (РУ ' . $shown . ') — без Упадка сил.';
+            return $target . ' выдерживает истощение (РУ ' . $shown . ') — ' . $label . '.';
         }
 
-        return $target . ' не выдерживает истощение (РУ ' . $rating . ').';
+        return $target . ' не выдерживает истощение (РУ ' . $rating . ') — ' . $label . '.';
     }
 
     /**
