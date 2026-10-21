@@ -47,7 +47,7 @@ function wide(overrides: Partial<GamePhpOpenWideStrike> = {}): GamePhpOpenWideSt
 }
 
 describe('GameWideDefenseService', () => {
-  it('владелец отвечает только за свою цель, ведущий — за любую', () => {
+  it('владелец отвечает только за свою цель, ведущий — за НПС', () => {
     const rows = [membership()];
     const first = wide().targets[0];
     const npc = wide().targets[1];
@@ -55,6 +55,22 @@ describe('GameWideDefenseService', () => {
     expect(first && gameWideDefenseService.canAnswer(first, 11, rows, false)).toBe(false);
     expect(npc && gameWideDefenseService.canAnswer(npc, 10, rows, false)).toBe(false);
     expect(npc && gameWideDefenseService.canAnswer(npc, 7, rows, true)).toBe(true);
+    expect(first && gameWideDefenseService.canAnswer(first, 7, rows, true)).toBe(false);
+    expect(first && gameWideDefenseService.canAnswer(first, 7, rows, true, true)).toBe(true);
+  });
+
+  it('ведущий видит только НПС, пока не возьмёт защиту персонажа на себя', () => {
+    const strike = wide();
+    const npc = strike.targets[1];
+    expect(gameWideDefenseService.answerableTargets(strike, 7, [], true)).toEqual([npc]);
+    expect(gameWideDefenseService.answerableTargets(strike, 7, [], true, true)).toEqual(strike.targets);
+  });
+
+  it('ведущий видит ожидание чужого персонажа, но отвечает только после перехвата', () => {
+    const strike = wide({ targets: [{ type: 'character', id: 5, answered: false }] });
+    expect(gameWideDefenseService.shouldAutoOpen(strike, 7, [membership()], true)).toBe(true);
+    expect(gameWideDefenseService.answerableTargets(strike, 7, [membership()], true)).toEqual([]);
+    expect(gameWideDefenseService.answerableTargets(strike, 7, [membership()], true, true)).toEqual(strike.targets);
   });
 
   it('владелец атакующего видит ожидание, но не отвечает за чужие цели', () => {
@@ -87,7 +103,19 @@ describe('GameWideDefenseService', () => {
     });
     expect(gameWideDefenseService.shouldAutoOpen(strike, 10, rows, false)).toBe(false);
     expect(gameWideDefenseService.pendingTargets(strike)).toEqual([{ type: 'npc', id: 9, answered: false }]);
-    expect(gameWideDefenseService.waitingText(strike, rows, { 9: 'Страж' })).toBe('Ожидаем ответ: Страж');
+    expect(gameWideDefenseService.waitingText(strike, rows, {}, { 9: 'Страж' })).toBe(
+      'Ожидаем ответ: ведущего за Страж',
+    );
+  });
+
+  it('ожидание называет игрока и его персонажа', () => {
+    const strike = wide({
+      targets: [{ type: 'character', id: 5, answered: false }],
+    });
+
+    expect(gameWideDefenseService.waitingText(strike, [membership()], { 10: 'Игрок' })).toBe(
+      'Ожидаем ответ: Игрок за Герой',
+    );
   });
 
   it('ведущий закрывает ожидание НПС', () => {

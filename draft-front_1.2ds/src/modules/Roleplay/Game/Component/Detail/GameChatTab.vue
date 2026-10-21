@@ -555,6 +555,7 @@ async function tryOpenPhpWideStrike(wide: GamePhpOpenWideStrike): Promise<void> 
   if (!gamePhpMode.isEnabled()) return;
   const user = currentUser.value;
   if (!user) return;
+  openWideStrike.value = wide;
   if (hitOpen.value || !gameWideDefenseService.shouldAutoOpen(wide, user.id, memberships.value, canWriteStrike.value)) {
     return;
   }
@@ -907,6 +908,7 @@ function applyBattleSheets(payload: GameBattleSheets): void {
   liveSheetByKey.value = next;
   runtimeByKey.value = nextRuntime;
   npcs.value = mergeBattleNpcSheets(npcs.value, nextRuntime, payload);
+  if (payload.openWideStrike !== undefined) openWideStrike.value = payload.openWideStrike;
 }
 
 function applyRuntimeProjection(projection: GameRuntimeEntityProjection): void {
@@ -1127,6 +1129,7 @@ watch(gameId, () => {
   runtimeByKey.value = {};
   actualById.value = {};
   moderationByCharacterId.value = {};
+  openWideStrike.value = null;
   if (props.active) void load();
 });
 
@@ -1281,6 +1284,7 @@ const resumeOffer = ref<CheckOffer | null>(null);
 const hitResumeOffer = ref<CheckOffer | null>(null);
 const hitAttackerKey = ref<CombatEntityKey | null>(null);
 const hitAttack = ref<AttackOverview | null>(null);
+const openWideStrike = ref<GamePhpOpenWideStrike | null>(null);
 const hitResumePhpStrike = ref(false);
 const hitPhpStrikeMode = ref(false);
 const hitPhpDefenderKey = ref<CombatEntityKey | null>(null);
@@ -1472,6 +1476,7 @@ function onHitClosed(open: boolean, refresh = true): void {
 
 /** После действия в PHP-окне удара помнит, что окно привязано к серверному удару. */
 function onHitSettled(): void {
+  openWideStrike.value = gamePhpBattleContext.openWideStrike;
   if (
     hitPhpStrikeMode.value &&
     (gamePhpBattleContext.openStrike !== null || gamePhpBattleContext.openWideStrike !== null)
@@ -1798,6 +1803,7 @@ onUnmounted(() => {
       :attack-action="attackAction"
       :resume-offer="hitResumeOffer"
       :resume-php-strike="hitResumePhpStrike"
+      :open-wide-strike="openWideStrike"
       :php-defender-key="hitPhpDefenderKey"
       :process-context="processActionContext"
       :initiative-keys="initiativeKeys"

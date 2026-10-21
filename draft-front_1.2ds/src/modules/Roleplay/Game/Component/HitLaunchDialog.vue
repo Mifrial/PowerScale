@@ -156,6 +156,7 @@ const props = defineProps<{
   processContext?: ProcessActionContext | null;
   attackAction?: AttackAction | null;
   resumePhpStrike?: boolean;
+  openWideStrike?: GamePhpOpenWideStrike | null;
   phpDefenderKey?: CombatEntityKey | null;
   spatialResolver?: ISpatialResolver | null;
   initiativeKeys?: string[];
@@ -295,7 +296,7 @@ const phpWideAnswerTargets = computed(() => {
   if (!wide) return [];
 
   return gameWideDefenseService
-    .answerableTargets(wide, props.currentUserId, strikeMemberships.value, props.canWriteStrike)
+    .answerableTargets(wide, props.currentUserId, strikeMemberships.value, props.canWriteStrike, phpOverride.value)
     .filter((target) => !target.answered);
 });
 const phpWideAnswering = computed(() => phpWideAnswerTargets.value.length > 0);
@@ -319,7 +320,7 @@ const phpWaitingText = computed(() => {
   if (phpWideMode.value && wide) {
     const npcNames = Object.fromEntries(props.npcs.map((npc) => [npc.id, npc.name]));
 
-    return gameWideDefenseService.waitingText(wide, strikeMemberships.value, npcNames);
+    return gameWideDefenseService.waitingText(wide, strikeMemberships.value, props.userNames, npcNames);
   }
   const strike = phpStrike.value;
   if (!strike) return 'Ожидаем реакцию защитника';
@@ -1074,8 +1075,8 @@ async function hydrate(): Promise<void> {
         selectedActionRuleCode.value = gamePhpBattleContext.openStrike.actionRuleCode;
       }
     }
-    if (props.resumePhpStrike && gamePhpBattleContext.openWideStrike) {
-      phpWideProjection.value = gamePhpBattleContext.openWideStrike;
+    if (props.resumePhpStrike && (props.openWideStrike ?? gamePhpBattleContext.openWideStrike)) {
+      phpWideProjection.value = props.openWideStrike ?? gamePhpBattleContext.openWideStrike;
       syncPhpWideTargets();
     } else {
       phpWideProjection.value = null;
@@ -1100,10 +1101,20 @@ watch(
     phpPendingStrike.value = null;
     phpOverride.value = false;
     phpDebt.value = false;
-    phpWideProjection.value = open && props.resumePhpStrike ? gamePhpBattleContext.openWideStrike : null;
+    phpWideProjection.value =
+      open && props.resumePhpStrike ? (props.openWideStrike ?? gamePhpBattleContext.openWideStrike) : null;
     phpWideTargets.value = [];
     phpWideChoices.value = [];
     if (open) await hydrate();
+  },
+);
+
+watch(
+  () => props.openWideStrike,
+  (wide) => {
+    if (!phpDeclared.value || !wide) return;
+    phpWideProjection.value = wide;
+    syncPhpWideTargets();
   },
 );
 
@@ -3245,14 +3256,21 @@ function syncPhpWideTargets(): void {
     return;
   }
   const keys = phpWideAnswerTargets.value.map((target) => gameWideDefenseService.targetKey(target));
+  const changed =
+    keys.length !== phpWideTargets.value.length || keys.some((key, index) => key !== phpWideTargets.value[index]);
   phpWideTargets.value = keys;
-  phpWideChoices.value = [];
-  const first = keys[0];
-  if (first) {
-    opponentKey.value = first;
+  if (changed) phpWideChoices.value = [];
+  if (!opponentKey.value || !keys.includes(opponentKey.value)) {
+    const first = keys[0];
+    opponentKey.value = first ?? null;
     reaction.value = null;
     blockItemRuleCode.value = null;
   }
+}
+
+function takeOverPhpDefense(): void {
+  phpOverride.value = true;
+  if (phpWideMode.value) syncPhpWideTargets();
 }
 
 async function phpWideDefense() {
@@ -3271,7 +3289,7 @@ async function phpWideDefense() {
         const target = targets.get(key);
         if (!choice || !target) throw new Error('Не все цели выбрали реакцию');
         if (target.type !== 'character' && target.type !== 'npc') throw new Error('Неизвестная цель широкого удара');
-        const targetType = target.type === 'npc' ? 'npc' : 'character';
+        const targetType: GamePhpParticipant['type'] = target.type === 'npc' ? 'npc' : 'character';
 
         return {
           target: { type: targetType, id: target.id },
@@ -3364,7 +3382,8 @@ async function submitPhpStrike(): Promise<boolean> {
     phpWideProjection.value = gamePhpBattleContext.openWideStrike;
     phpWideChoices.value = [];
     syncPhpWideTargets();
-    if (result.closed === true || phpWideTargets.value.length === 0) {
+    const stillPending = phpWideProjection.value?.targets.some((target) => !target.answered) ?? false;
+    if (result.closed === true || !stillPending) {
       phpDeclared.value = false;
       phpWideProjection.value = null;
       phpWideTargets.value = [];
@@ -3704,7 +3723,7 @@ const canSubmit = computed(() => {
               size="small"
               class="mt-1 px-0"
               :disabled="busy"
-              @click="phpOverride = true"
+              @click="takeOverPhpDefense"
             >
               Взять на себя
             </v-btn>

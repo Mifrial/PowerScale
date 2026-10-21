@@ -6,8 +6,9 @@ import type { GamePhpOpenWideStrikeTarget } from '@/modules/Roleplay/Game/Dto/Ga
 /**
  * Права и ожидание широкого удара PHP 1 → N.
  *
- * Владелец активного персонажа-цели отвечает за свою цель. Ведущий отвечает
- * за любую цель, включая НПС. Владелец атакующего видит ожидание.
+ * Владелец активного персонажа-цели отвечает за свою цель. Ведущий сразу
+ * отвечает за НПС, а защиту персонажа берёт только явным переопределением.
+ * Владелец атакующего видит ожидание.
  */
 export class GameWideDefenseService {
   targetKey(target: GamePhpOpenWideStrikeTarget): CombatEntityKey {
@@ -45,11 +46,13 @@ export class GameWideDefenseService {
     userId: number | null | undefined,
     memberships: GameCharacterMembership[],
     canWriteStrike: boolean,
+    override = false,
   ): boolean {
     if (this.isTargetOwner(target, userId, memberships)) return true;
     if (!canWriteStrike) return false;
+    if (target.type === 'npc') return true;
 
-    return target.type === 'npc' || target.type === 'character';
+    return target.type === 'character' && override;
   }
 
   ownTargets(
@@ -65,10 +68,9 @@ export class GameWideDefenseService {
     userId: number | null | undefined,
     memberships: GameCharacterMembership[],
     canWriteStrike: boolean,
+    override = false,
   ): GamePhpOpenWideStrikeTarget[] {
-    if (canWriteStrike) return [...strike.targets];
-
-    return this.ownTargets(strike, userId, memberships);
+    return strike.targets.filter((target) => this.canAnswer(target, userId, memberships, canWriteStrike, override));
   }
 
   pendingTargets(strike: GamePhpOpenWideStrike): GamePhpOpenWideStrikeTarget[] {
@@ -80,10 +82,10 @@ export class GameWideDefenseService {
     userId: number | null | undefined,
     memberships: GameCharacterMembership[],
     canWriteStrike: boolean,
+    override = false,
   ): boolean {
-    return (
-      this.answerableTargets(strike, userId, memberships, canWriteStrike).some((target) => !target.answered) ||
-      (canWriteStrike && strike.targets.length > 0)
+    return this.answerableTargets(strike, userId, memberships, canWriteStrike, override).some(
+      (target) => !target.answered,
     );
   }
 
@@ -102,17 +104,30 @@ export class GameWideDefenseService {
   waitingText(
     strike: GamePhpOpenWideStrike,
     memberships: GameCharacterMembership[],
+    userNames: Record<number, string> = {},
     npcNames: Record<number, string> = {},
   ): string {
     const pending = this.pendingTargets(strike);
     if (pending.length === 0) return 'Все цели ответили';
 
-    const names = pending.map((target) =>
-      target.type === 'npc'
-        ? npcNames[target.id] || `НПС #${target.id}`
-        : memberships.find((row) => row.characterId === target.id)?.characterName || `персонаж #${target.id}`,
-    );
+    const names = pending.map((target) => this.targetLabel(target, memberships, userNames, npcNames));
 
     return `Ожидаем ответ: ${names.join(', ')}`;
+  }
+
+  private targetLabel(
+    target: GamePhpOpenWideStrikeTarget,
+    memberships: GameCharacterMembership[],
+    userNames: Record<number, string>,
+    npcNames: Record<number, string>,
+  ): string {
+    if (target.type === 'npc') {
+      return `ведущего за ${npcNames[target.id] || `НПС #${target.id}`}`;
+    }
+    const membership = memberships.find((row) => row.characterId === target.id);
+    const characterName = membership?.characterName || `персонажа #${target.id}`;
+    const ownerId = membership?.characterOwnerId;
+
+    return ownerId ? `${userNames[ownerId] || `#${ownerId}`} за ${characterName}` : `владельца за ${characterName}`;
   }
 }
