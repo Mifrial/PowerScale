@@ -92,6 +92,93 @@ describe('buildCombatChatFolds', () => {
     );
   });
 
+  it('сводка одиночной атаки включает действие и реакцию', () => {
+    const thread = { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK };
+    const action = '[[character:1,Гаррик]] совершает действие [[rule:udar]] за 2ОД.';
+    const narrative =
+      '[[character:1,Гаррик]] наносит дробящий удар оружием [[rule:mech]] по [[npc:2,Бородач]]. [[npc:2,Бородач]] пытается совершить [[rule:dodge]] за 1ОД!';
+    const hit = '[[character:1,Гаррик]] попадает по [[npc:2,Бородач]] с 4 РУ и наносит 2 истощения!';
+    const decline = '[[npc:2,Бородач]] не выдерживает истощение (РУ -1) — Слабость.';
+    const forest = combatChatFoldService.buildCombatChatFolds([
+      msg(1, action, { thread }),
+      msg(2, narrative, { thread }),
+      msg(3, hit, {
+        thread,
+        attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+      }),
+      msg(4, decline, { thread }),
+    ]);
+    const turn = forest[0];
+    expect(turn?.type).toBe('fold');
+    if (turn?.type !== 'fold') return;
+    const attack = turn.fold.children[0];
+    expect(attack?.type).toBe('fold');
+    if (attack?.type !== 'fold') return;
+    expect(attack.fold.summary).toBe(`${action} ${narrative} ${hit} [[npc:2,Бородач]] ослаблен!`);
+  });
+
+  it('сводка широкого удара: действие, реакции и все промахи', () => {
+    const thread = { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK };
+    const action = '[[npc:1,Тестовичок]] совершает действие [[rule:shirokiy-udar]] за 4ОД.';
+    const narrative =
+      '[[npc:1,Тестовичок]] наносит дробящий удар оружием [[rule:ruka]] по [[character:2,Воюн]] и [[npc:2,Вторец]]. [[character:2,Воюн]] пытается совершить [[rule:dodge]] за 1ОД, [[npc:2,Вторец]] пытается совершить [[rule:dodge]] за 1ОД!';
+    const missVoyun = '[[npc:1,Тестовичок]] промахивается по [[character:2,Воюн]]!';
+    const missVtor = '[[npc:1,Тестовичок]] промахивается по [[npc:2,Вторец]]!';
+    const forest = combatChatFoldService.buildCombatChatFolds([
+      msg(1, action, { thread }),
+      msg(2, narrative, { thread }),
+      msg(3, missVoyun, {
+        thread,
+        attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+      }),
+      msg(4, missVtor, {
+        thread,
+        attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+      }),
+    ]);
+    const turn = forest[0];
+    expect(turn?.type).toBe('fold');
+    if (turn?.type !== 'fold') return;
+    const attack = turn.fold.children[0];
+    expect(attack?.type).toBe('fold');
+    if (attack?.type !== 'fold') return;
+    expect(attack.fold.summary).toBe(`${action} ${narrative} ${missVoyun} ${missVtor}`);
+  });
+
+  it('сводка широкого удара: все попадания, увечья и Упадок сил', () => {
+    const thread = { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK };
+    const action = '[[npc:1,Тестовичок]] совершает действие [[rule:shirokiy-udar]] за 4ОД.';
+    const narrative =
+      '[[npc:1,Тестовичок]] наносит дробящий удар оружием [[rule:ruka]] по [[character:2,Воюн]] и [[npc:2,Вторец]]. [[character:2,Воюн]] пытается совершить [[rule:dodge]] за 1ОД, [[npc:2,Вторец]] пытается совершить [[rule:dodge]] за 1ОД!';
+    const hitVoyun = '[[npc:1,Тестовичок]] попадает по [[character:2,Воюн]] с 6 РУ и наносит 7 истощения!';
+    const hitVtor = '[[npc:1,Тестовичок]] попадает по [[npc:2,Вторец]] с 3 РУ и наносит 2 истощения!';
+    const forest = combatChatFoldService.buildCombatChatFolds([
+      msg(1, action, { thread }),
+      msg(2, narrative, { thread }),
+      msg(3, hitVoyun, {
+        thread,
+        attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+      }),
+      msg(4, '[[character:2,Воюн]] не выдерживает истощение (РУ -6) — Потеря сознания.', { thread }),
+      msg(5, '[[character:2,Воюн]] получает временное увечье с силой 4.', { thread }),
+      msg(6, hitVtor, {
+        thread,
+        attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+      }),
+      msg(7, '[[npc:2,Вторец]] выдерживает истощение (РУ +1) — без Упадка сил.', { thread }),
+      msg(8, '[[npc:2,Вторец]] получает временное увечье с силой 4.', { thread }),
+    ]);
+    const turn = forest[0];
+    expect(turn?.type).toBe('fold');
+    if (turn?.type !== 'fold') return;
+    const attack = turn.fold.children[0];
+    expect(attack?.type).toBe('fold');
+    if (attack?.type !== 'fold') return;
+    expect(attack.fold.summary).toBe(
+      `${action} ${narrative} ${hitVoyun} ${hitVtor} [[character:2,Воюн]] получает временное увечье силой 4. [[npc:2,Вторец]] получает временное увечье силой 4. [[character:2,Воюн]] потерял сознание! [[npc:2,Вторец]] выдерживает истощение — без Упадка сил.`,
+    );
+  });
+
   it('сообщения без thread остаются плоскими', () => {
     const forest = combatChatFoldService.buildCombatChatFolds([msg(1, 'привет'), msg(2, 'пока')]);
     expect(forest.every((child) => child.type === 'message')).toBe(true);

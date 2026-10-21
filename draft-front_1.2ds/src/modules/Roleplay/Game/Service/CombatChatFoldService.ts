@@ -31,16 +31,16 @@ export class CombatChatFoldService {
 
   private injurySummary(text: string): string | null {
     if (text.includes('не получает увечье')) return null;
-    const match = text.match(/^(.*) получает(?: постоянное)? увечье с силой (\d+)/m);
+    const match = text.match(/^(.*) получает(?: (постоянное|временное))? увечье с силой (\d+)/m);
     if (!match) return null;
     const target = match[1].trim();
     const attrs: string[] = [];
-    if (text.includes('постоянное увечье')) attrs.push('постоянное');
+    if (match[2]) attrs.push(match[2]);
     if (text.includes('обезображивает')) attrs.push('обезображивающее');
     if (text.includes('смертельно')) attrs.push('смертельное');
     const adj = attrs.length > 0 ? `${attrs.join(' ')} ` : '';
 
-    return `${target} получает ${adj}увечье силой ${match[2]}.`;
+    return `${target} получает ${adj}увечье силой ${match[3]}.`;
   }
 
   private rushSummary(text: string): string | null {
@@ -50,7 +50,11 @@ export class CombatChatFoldService {
     return null;
   }
 
-  private declineSummary(text: string): string | null {
+  private declineSummary(text: string, includeClear = false): string | null {
+    if (includeClear) {
+      const clear = text.match(/^(.*) выдерживает истощение[^\n]*— без Упадка сил\./m);
+      if (clear) return `${clear[1].trim()} выдерживает истощение — без Упадка сил.`;
+    }
     const match = text.match(/^(.*) не выдерживает истощение[^\n]*— (Слабость|Обессилен|Потеря сознания)\./m);
     if (!match) return null;
     const target = match[1].trim();
@@ -124,23 +128,71 @@ export class CombatChatFoldService {
     return null;
   }
 
+  private unique(values: string[]): string[] {
+    return [...new Set(values)];
+  }
+
+  private actionSummary(messages: ChatMessage[]): string | null {
+    const action = messages.find((message) => message.content.includes(' совершает действие '));
+
+    return action?.content ? this.compact(action.content) : null;
+  }
+
+  private narrativeSummary(messages: ChatMessage[]): string | null {
+    const narrative = messages.find(
+      (message) =>
+        / наносит [^\n]+ по /.test(message.content) &&
+        !this.isHitConnect(message.content) &&
+        !this.isSpellEffect(message.content),
+    );
+
+    return narrative?.content ? this.compact(narrative.content) : null;
+  }
+
+  private hitSummaries(messages: ChatMessage[]): string[] {
+    return this.unique(
+      messages
+        .filter((message) => this.isHitResult(message) && message.content)
+        .map((message) => this.compact(message.content)),
+    );
+  }
+
+  private injurySummaries(messages: ChatMessage[]): string[] {
+    return this.unique(
+      messages
+        .map((message) => this.injurySummary(message.content))
+        .filter((value): value is string => value !== null),
+    );
+  }
+
+  private declineSummaries(messages: ChatMessage[], includeClear = false): string[] {
+    return this.unique(
+      messages
+        .map((message) => this.declineSummary(message.content, includeClear))
+        .filter((value): value is string => value !== null),
+    );
+  }
+
   attackFoldSummary(messages: ChatMessage[]): string {
     const joined = messages.map((message) => message.content).join('\n');
     const spell = messages.find((message) => this.isSpellOutcome(message.content));
     const hasSpell = Boolean(spell) || messages.some((message) => this.isSpellEffect(message.content));
     const bits: string[] = [];
+    const action = this.actionSummary(messages);
+    if (action) bits.push(action);
+    const narrative = this.narrativeSummary(messages);
+    if (narrative) bits.push(narrative);
     if (spell?.content) bits.push(this.compact(spell.content));
+    const hits = this.hitSummaries(messages);
+    const wide = hits.length > 1;
     if (hasSpell) {
       const hit = this.combinedHitSummary(messages);
       if (hit) bits.push(hit);
     } else {
-      const hit = [...messages].reverse().find((message) => this.isHitResult(message));
-      if (hit?.content) bits.push(this.compact(hit.content));
+      bits.push(...hits);
     }
-    const injury = this.injurySummary(joined);
-    if (injury) bits.push(injury);
-    const decline = this.declineSummary(joined);
-    if (decline) bits.push(decline);
+    bits.push(...this.injurySummaries(messages));
+    bits.push(...this.declineSummaries(messages, wide));
     const rush = this.rushSummary(joined);
     if (rush) bits.push(rush);
     if (bits.length === 0) return 'Атака';
