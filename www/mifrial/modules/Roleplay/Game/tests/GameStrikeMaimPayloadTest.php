@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Tests;
 
-use Mifrial\Roleplay\Game\Service\GameStrikes;
-use Mifrial\Roleplay\Game\Service\GameWideStrikeResults;
+use Mifrial\Roleplay\Game\Service\GameStrikeChat;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use ReflectionMethod;
 
 /**
- * Проверка на увечье: знак текста и форма вложения одинаковы в обоих путях.
+ * Проверка на увечье: знак текста и форма вложения.
  */
 final class GameStrikeMaimPayloadTest extends TestCase
 {
@@ -22,19 +21,13 @@ final class GameStrikeMaimPayloadTest extends TestCase
      */
     public function testMaimTextSign(): void
     {
-        foreach ([GameStrikes::class, GameWideStrikeResults::class] as $class) {
-            $subject = (new ReflectionClass($class))->newInstanceWithoutConstructor();
-            $method = new ReflectionMethod($class, 'maimText');
-            $method->setAccessible(true);
+        $subject = (new ReflectionClass(GameStrikeChat::class))->newInstanceWithoutConstructor();
+        $method = new ReflectionMethod(GameStrikeChat::class, 'getMaimText');
+        $method->setAccessible(true);
 
-            self::assertSame(
-                'Цель получает временное увечье с силой 2.',
-                $method->invoke($subject, 'Цель', -2),
-                $class,
-            );
-            self::assertSame('Цель не получает увечье.', $method->invoke($subject, 'Цель', 0), $class);
-            self::assertSame('Цель не получает увечье.', $method->invoke($subject, 'Цель', 3), $class);
-        }
+        self::assertSame('Цель получает временное увечье с силой 2.', $method->invoke($subject, 'Цель', -2));
+        self::assertSame('Цель не получает увечье.', $method->invoke($subject, 'Цель', 0));
+        self::assertSame('Цель не получает увечье.', $method->invoke($subject, 'Цель', 3));
     }
 
     /**
@@ -42,19 +35,17 @@ final class GameStrikeMaimPayloadTest extends TestCase
      *
      * @return void
      */
-    public function testMaimPayloadShapeMatches(): void
+    public function testMaimPayloadShape(): void
     {
         $roll = ['rating' => -2, 'difficulty' => ['base' => 2, 'size' => 0]];
 
-        $single = $this->payload(GameStrikes::class, $roll);
-        $wide = $this->payload(GameWideStrikeResults::class, $roll);
+        $payload = $this->payload($roll);
 
-        self::assertSame($single, $wide);
-        self::assertSame(2, $single['details']['injury']['strength']);
-        self::assertSame(-2, $single['details']['injury']['rating']);
-        self::assertSame(2, $single['details']['injury']['difficulty']);
-        self::assertSame('Огонь', $single['details']['damageTypeName']);
-        self::assertSame('Цель получает временное увечье с силой 2.', $single['text']);
+        self::assertSame(2, $payload['details']['injury']['strength']);
+        self::assertSame(-2, $payload['details']['injury']['rating']);
+        self::assertSame(2, $payload['details']['injury']['difficulty']);
+        self::assertSame('Огонь', $payload['details']['damageTypeName']);
+        self::assertSame('Цель получает временное увечье с силой 2.', $payload['text']);
     }
 
     /**
@@ -64,26 +55,21 @@ final class GameStrikeMaimPayloadTest extends TestCase
      */
     public function testMaimPayloadWithoutInjury(): void
     {
-        $roll = ['rating' => 1, 'difficulty' => ['base' => 1, 'size' => 0]];
+        $payload = $this->payload(['rating' => 1, 'difficulty' => ['base' => 1, 'size' => 0]]);
 
-        $single = $this->payload(GameStrikes::class, $roll);
-        $wide = $this->payload(GameWideStrikeResults::class, $roll);
-
-        self::assertSame($single, $wide);
-        self::assertSame(0, $single['details']['injury']['strength']);
-        self::assertSame('Цель не получает увечье.', $single['text']);
+        self::assertSame(0, $payload['details']['injury']['strength']);
+        self::assertSame('Цель не получает увечье.', $payload['text']);
     }
 
     /**
-     * @param class-string $class Класс.
      * @param array<string, mixed> $roll Бросок проверки.
      *
      * @return array<string, mixed> Вложение.
      */
-    private function payload(string $class, array $roll): array
+    private function payload(array $roll): array
     {
-        $subject = (new ReflectionClass($class))->newInstanceWithoutConstructor();
-        $method = new ReflectionMethod($class, 'maimPayload');
+        $subject = (new ReflectionClass(GameStrikeChat::class))->newInstanceWithoutConstructor();
+        $method = new ReflectionMethod(GameStrikeChat::class, 'getMaimPayload');
         $method->setAccessible(true);
 
         /** @var array<string, mixed> $payload */

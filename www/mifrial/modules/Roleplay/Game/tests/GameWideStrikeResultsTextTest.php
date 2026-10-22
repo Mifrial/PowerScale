@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Tests;
 
-use Mifrial\Roleplay\Game\Service\GameWideStrikeResults;
+use Mifrial\Roleplay\Game\Service\GameStrikeChat;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use ReflectionMethod;
@@ -21,8 +21,8 @@ final class GameWideStrikeResultsTextTest extends TestCase
      */
     public function testExhaustionTextNamesOutcome(): void
     {
-        $subject = (new ReflectionClass(GameWideStrikeResults::class))->newInstanceWithoutConstructor();
-        $method = new ReflectionMethod(GameWideStrikeResults::class, 'exhaustionText');
+        $subject = (new ReflectionClass(GameStrikeChat::class))->newInstanceWithoutConstructor();
+        $method = new ReflectionMethod(GameStrikeChat::class, 'getExhaustionText');
         $method->setAccessible(true);
 
         self::assertSame(

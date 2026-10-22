@@ -9,7 +9,6 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
-use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
@@ -31,6 +30,8 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 final class GameWideStrikeResults
 {
     private readonly GameStrikeAmounts $amounts;
+
+    private readonly GameStrikeChat $chat;
 
     /**
      * Создаёт расчёт отказа.
@@ -57,6 +58,7 @@ final class GameWideStrikeResults
         private readonly GameStrikeConsequences $consequences,
     ) {
         $this->amounts = new GameStrikeAmounts();
+        $this->chat = new GameStrikeChat($npcs, $rules);
     }
 
     /**
@@ -601,8 +603,8 @@ final class GameWideStrikeResults
 
         $row = $open !== [] ? $open : $rows[0];
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $attacker = $this->entityToken($row['attacker_kind'] ?? 'character', $row['attacker_id'] ?? 0);
-        $attackerName = $this->entityName(
+        $attacker = $this->chat->getEntityToken($row['attacker_kind'] ?? 'character', $row['attacker_id'] ?? 0);
+        $attackerName = $this->chat->getEntityName(
             is_string($row['attacker_kind'] ?? null) ? $row['attacker_kind'] : 'character',
             is_int($row['attacker_id'] ?? null) ? $row['attacker_id'] : 0,
         );
@@ -613,21 +615,30 @@ final class GameWideStrikeResults
             'shoot' => 'выстрел',
             default => 'удар',
         };
-        $typeBit = $this->damageTypeBit($game, $itemRuleCode, $profileType, $profileIndex, $slice);
+        $typeBit = $this->chat->getDamageTypeBit($game, $itemRuleCode, $profileType, $profileIndex, $slice);
         $targets = [];
         $reactions = [];
         foreach ($shown as $item) {
             $target = $item['record']['target'] ?? $this->defender($item['row']);
-            $name = $this->entityToken($target['type'], $target['id']);
+            $name = $this->chat->getEntityToken($target['type'], $target['id']);
             $targets[] = $name;
-            $reactions[] = $this->reactionBit($slice, $name, $item['choice']['reaction'] ?? 'ignore');
+            $reaction = $item['choice']['reaction'] ?? 'ignore';
+            $reactionCode = $reaction === 'ignore'
+                ? null
+                : $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), $reaction);
+            $reactions[] = $this->chat->getReactionBit(
+                $name,
+                $reaction,
+                $reactionCode,
+                $this->actionAp($slice, $reactionCode ?? ''),
+            );
         }
 
         $narrative = $attacker . ' наносит ' . $typeBit . ' ' . $kind . ' оружием [[rule:' . $itemRuleCode . ']] по '
-            . $this->joinNames($targets) . '. ' . implode(', ', $reactions) . '!';
+            . $this->chat->getJoinNames($targets) . '. ' . implode(', ', $reactions) . '!';
         $threadId = 'attack-wide-' . ($row['id'] ?? 0);
         $parentId = $battle === null ? null : GameCombatThread::buildAttack($battle, $threadId)['parentId'];
-        $speaker = $this->speakerOf($row['attacker_kind'] ?? 'character', $row['attacker_id'] ?? 0);
+        $speaker = $this->chat->getSpeakerOf($row['attacker_kind'] ?? 'character', $row['attacker_id'] ?? 0);
         $attackCard = $attackerRoll;
         $attackCard['label'] = 'Проверка на попадание · ' . $attackerName;
         $attackCard['min_success_size'] = -1;
@@ -638,7 +649,7 @@ final class GameWideStrikeResults
             }
 
             $target = is_array($item['record']['target'] ?? null) ? $item['record']['target'] : ['type' => 'character', 'id' => 0];
-            $defenderName = $this->entityName(
+            $defenderName = $this->chat->getEntityName(
                 is_string($target['type'] ?? null) ? $target['type'] : 'character',
                 is_int($target['id'] ?? null) ? $target['id'] : 0,
             );
@@ -684,15 +695,15 @@ final class GameWideStrikeResults
         ?string $parentId = null,
     ): void {
         $target = is_array($record['target'] ?? null) ? $record['target'] : ['type' => 'character', 'id' => 0];
-        $defender = $this->entityToken($target['type'] ?? 'character', $target['id'] ?? 0);
+        $defender = $this->chat->getEntityToken($target['type'] ?? 'character', $target['id'] ?? 0);
         $success = is_int($record['success'] ?? null) ? $record['success'] : 0;
         $exhaustion = $record['exhaustionDelta'] ?? 0;
         $wound = $record['wound'] ?? 0;
         $will = isset($record['will']) ? [
             'roll' => $record['will'],
-            'text' => $this->exhaustionText($defender, $record['will']['rating'] ?? 0, $record['willOutcome'] ?? 'clear'),
+            'text' => $this->chat->getExhaustionText($defender, $record['will']['rating'] ?? 0, $record['willOutcome'] ?? 'clear'),
         ] : null;
-        $maim = isset($record['maim']) ? $this->maimPayload($defender, $record['maim'], $typeBit) : null;
+        $maim = isset($record['maim']) ? $this->chat->getMaimPayload($defender, $record['maim'], $typeBit) : null;
         $bits = [$exhaustion . ' истощения'];
         if ($wound > 0) {
             $bits[] = $wound . ' рану';
@@ -733,114 +744,6 @@ final class GameWideStrikeResults
         );
     }
 
-    /**
-     * Текст и вложение проверки на увечье.
-     *
-     * @param string $target Цель.
-     * @param array<string, mixed> $roll Бросок проверки.
-     * @param string $damageTypeName Вид урона.
-     *
-     * @return array{roll: array<string, mixed>, text: string, details: array<string, mixed>}
-     */
-    private function maimPayload(string $target, array $roll, string $damageTypeName): array
-    {
-        $rating = is_int($roll['rating'] ?? null) ? $roll['rating'] : 0;
-
-        return [
-            'roll' => $roll,
-            'text' => $this->maimText($target, $rating),
-            'details' => [
-                'injury' => [
-                    'strength' => $rating < 0 ? -$rating : 0,
-                    'permanent' => false,
-                    'temporary' => true,
-                    'lethal' => false,
-                    'disfiguring' => false,
-                    'rating' => $rating,
-                    'difficulty' => is_array($roll['difficulty'] ?? null)
-                        ? ($roll['difficulty']['base'] ?? null)
-                        : null,
-                ],
-                'damageTypeName' => $damageTypeName,
-            ],
-        ];
-    }
-
-    private function maimText(string $target, int $rating): string
-    {
-        if ($rating >= 0) {
-            return $target . ' не получает увечье.';
-        }
-
-        return $target . ' получает временное увечье с силой ' . (-$rating) . '.';
-    }
-
-    /**
-     * @param list<string> $names Имена.
-     */
-    private function joinNames(array $names): string
-    {
-        if (count($names) < 2) {
-            return $names[0] ?? '';
-        }
-
-        $last = array_pop($names);
-
-        return implode(', ', $names) . ' и ' . $last;
-    }
-
-    private function reactionBit(CharacterRuleSlice $slice, string $name, string $reaction): string
-    {
-        if ($reaction === 'ignore') {
-            return $name . ' не реагирует';
-        }
-
-        $code = $this->reactionRuleCode($slice, $reaction);
-        $token = $code !== null ? '[[rule:' . $code . ']]' : $reaction;
-
-        return $name . ' пытается совершить ' . $token . ' за ' . $this->actionAp($slice, $code ?? '') . 'ОД';
-    }
-
-    private function entityToken(mixed $kind, mixed $id): string
-    {
-        $prefix = $kind === 'npc' ? 'npc' : 'character';
-        $numericId = is_int($id) ? $id : 0;
-        $name = $this->entityName(is_string($kind) ? $kind : 'character', $numericId);
-
-        return '[[' . $prefix . ':' . $numericId . ',' . $name . ']]';
-    }
-
-    /**
-     * @return array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}
-     */
-    private function speakerOf(mixed $kind, mixed $id): array
-    {
-        $numericId = is_int($id) ? $id : 0;
-        $name = $this->entityName(is_string($kind) ? $kind : 'character', $numericId);
-        if ($kind === 'npc') {
-            return ['kind' => 'npc', 'npcId' => $numericId, 'npcName' => $name];
-        }
-
-        return ['kind' => 'character', 'characterId' => $numericId, 'characterName' => $name];
-    }
-
-    private function entityName(string $kind, int $id): string
-    {
-        if ($id <= 0) {
-            return '';
-        }
-
-        try {
-            if ($kind === 'npc') {
-                return $this->npcs->getById($id)->getName();
-            }
-
-            return $this->rules->characterName($id);
-        } catch (GameNotFoundException | CharacterNotFoundException) {
-            return (string) $id;
-        }
-    }
-
     private function actionAp(CharacterRuleSlice $slice, string $ruleCode): int
     {
         if ($ruleCode === '') {
@@ -879,54 +782,6 @@ final class GameWideStrikeResults
         }
 
         return $sum;
-    }
-
-    private function reactionRuleCode(CharacterRuleSlice $slice, string $reaction): ?string
-    {
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->getSpec();
-            if ($spec instanceof AbilityActionSpec && $spec->getBase()->getCombatAction() === $reaction) {
-                return $rule->getCode();
-            }
-        }
-
-        return null;
-    }
-
-    private function damageTypeBit(
-        GameRecord $game,
-        string $itemRuleCode,
-        string $profileType,
-        int $profileIndex,
-        CharacterRuleSlice $slice,
-    ): string {
-        $code = $this->rules->damageTypeCode(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $itemRuleCode,
-            $profileType,
-            $profileIndex,
-        );
-        $name = $code === null ? null : $slice->findLive($code)?->getName();
-
-        return is_string($name) && $name !== '' ? mb_strtolower($name) : 'безымянный';
-    }
-
-    private function exhaustionText(string $target, int $rating, string $outcome): string
-    {
-        $label = match ($outcome) {
-            'weakness' => 'Слабость',
-            'disabled' => 'Обессилен',
-            'unconscious' => 'Потеря сознания',
-            default => 'без Упадка сил',
-        };
-        if ($outcome === 'clear') {
-            $shown = ($rating >= 0 ? '+' : '') . $rating;
-
-            return $target . ' выдерживает истощение (РУ ' . $shown . ') — ' . $label . '.';
-        }
-
-        return $target . ' не выдерживает истощение (РУ ' . $rating . ') — ' . $label . '.';
     }
 
     /**
