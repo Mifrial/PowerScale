@@ -544,13 +544,6 @@ function isKnownRealtimeEntity(entityKey: CombatEntityKey): boolean {
   return npcs.value.some((npc) => npc.id === npcId);
 }
 
-function canAutoOpenPhpStrike(strike: GamePhpOpenStrike): boolean {
-  const user = currentUser.value;
-  if (!user) return false;
-
-  return gameStrikeDefenseService.shouldAutoOpen(strike, user.id, memberships.value, canWriteStrike.value);
-}
-
 function visibleAttacksOf(version: CharacterVersion | null | undefined): AttackOverview[] {
   if (!version) return [];
   try {
@@ -602,12 +595,13 @@ async function tryOpenPhpWideStrike(wide: GamePhpOpenWideStrike): Promise<void> 
   hitOpen.value = true;
 }
 
-async function tryOpenPhpStrike(): Promise<void> {
+async function tryOpenPhpStrike(force = false): Promise<void> {
   if (!gamePhpMode.isEnabled()) {
     return;
   }
   const wide = gamePhpBattleContext.openWideStrike;
   if (wide) {
+    phpOpenStrike.value = null;
     await tryOpenPhpWideStrike(wide);
 
     return;
@@ -615,24 +609,38 @@ async function tryOpenPhpStrike(): Promise<void> {
   const strike = gamePhpBattleContext.openStrike;
   const isPhpDialog = hitOpen.value && hitPhpStrikeMode.value;
   if (!strike) {
+    phpOpenStrike.value = null;
     if (isPhpDialog && hitPhpBound.value) onHitClosed(false, false);
 
     return;
   }
+  // Данные удара живут в рефе родителя: диалог не зависит от глобального
+  // контекста, который может обновиться или сброситься между событиями.
+  phpOpenStrike.value = strike;
   const attackerKey = `${strike.attackerKind}:${strike.attackerId}` as CombatEntityKey;
   const defenderKey = `${strike.defenderKind}:${strike.defenderId}` as CombatEntityKey;
-  if (isPhpDialog) {
-    if (hitPhpDefenderKey.value === defenderKey) {
+  if (!force) {
+    const action = gameStrikeDefenseService.windowAction(
+      strike,
+      currentUser.value?.id ?? null,
+      memberships.value,
+      canWriteStrike.value,
+      { open: hitOpen.value, defenderKey: hitPhpDefenderKey.value, bound: hitPhpBound.value },
+    );
+    if (action === 'keep') {
       hitPhpBound.value = true;
 
       return;
     }
-    // Окно набора нового удара не трогаем: серверный удар не про него.
-    if (!hitPhpBound.value) return;
-    onHitClosed(false, false);
-  }
-  if (hitOpen.value || !canAutoOpenPhpStrike(strike)) {
-    return;
+    if (action === 'switch') {
+      // Окно привязано к другому удару: освобождаем его под новый.
+      onHitClosed(false, false);
+    }
+    if (action === 'wait') {
+      // Окно набора нового удара не трогаем: серверный удар не про него.
+      // Внутри окна висит баннер «Есть открытый удар — ответить».
+      return;
+    }
   }
   await loadRuntimeProjections([attackerKey, defenderKey]);
   const version = runtimeByKey.value[attackerKey]?.version;
@@ -662,6 +670,11 @@ async function tryOpenPhpStrike(): Promise<void> {
   hitPhpDefenderKey.value = defenderKey;
   hitPhpBound.value = true;
   hitOpen.value = true;
+}
+
+/** Баннер в окне набора удара: пользователь сам переключает окно на защиту. */
+async function onAnswerPhpStrike(): Promise<void> {
+  await tryOpenPhpStrike(true);
 }
 
 function sheetsCoverRealtime(event: GameRealtimeEvent): boolean {
@@ -1290,6 +1303,8 @@ const hitResumeOffer = ref<CheckOffer | null>(null);
 const hitAttackerKey = ref<CombatEntityKey | null>(null);
 const hitAttack = ref<AttackOverview | null>(null);
 const openWideStrike = ref<GamePhpOpenWideStrike | null>(null);
+/** Открытый серверный удар 1 → 1: источник данных шага защиты в диалоге. */
+const phpOpenStrike = ref<GamePhpOpenStrike | null>(null);
 const hitResumePhpStrike = ref(false);
 const hitPhpStrikeMode = ref(false);
 const hitPhpDefenderKey = ref<CombatEntityKey | null>(null);
@@ -1809,6 +1824,7 @@ onUnmounted(() => {
       :resume-offer="hitResumeOffer"
       :resume-php-strike="hitResumePhpStrike"
       :open-wide-strike="openWideStrike"
+      :php-open-strike="phpOpenStrike"
       :php-defender-key="hitPhpDefenderKey"
       :process-context="processActionContext"
       :initiative-keys="initiativeKeys"
@@ -1817,6 +1833,7 @@ onUnmounted(() => {
       @settled="onHitSettled"
       @overlay-changed="onOverlayChanged"
       @strike-refresh="onStrikeRefresh"
+      @php-answer-strike="onAnswerPhpStrike"
     />
     <InjuryLaunchDialog
       :open="injuryOpen"

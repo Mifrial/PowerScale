@@ -9,6 +9,7 @@ import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/g
 import { gamePhpCommandService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCommandService';
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
+import { phpStrikeWindowMode } from '@/modules/Roleplay/Game/Utils/phpStrikeWindow';
 import { characterOverviewService, movementContextService } from '@/modules/Roleplay/Character/init';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
@@ -157,6 +158,8 @@ const props = defineProps<{
   attackAction?: AttackAction | null;
   resumePhpStrike?: boolean;
   openWideStrike?: GamePhpOpenWideStrike | null;
+  /** Открытый серверный удар: источник данных шага защиты. */
+  phpOpenStrike?: GamePhpOpenStrike | null;
   phpDefenderKey?: CombatEntityKey | null;
   spatialResolver?: ISpatialResolver | null;
   initiativeKeys?: string[];
@@ -171,6 +174,7 @@ const emit = defineEmits<{
   offered: [];
   'overlay-changed': [];
   'strike-refresh': [];
+  'php-answer-strike': [];
 }>();
 
 const combatThread = useCombatChatThread(() => props.gameId);
@@ -301,7 +305,9 @@ const phpWideAnswerTargets = computed(() => {
 });
 const phpWideAnswering = computed(() => phpWideAnswerTargets.value.length > 0);
 const phpStrike = computed(() =>
-  phpWideMode.value ? null : (phpDeclaredStrike.value ?? gamePhpBattleContext.openStrike ?? phpFallbackStrike.value),
+  phpWideMode.value
+    ? null
+    : (phpDeclaredStrike.value ?? props.phpOpenStrike ?? gamePhpBattleContext.openStrike ?? phpFallbackStrike.value),
 );
 const phpCanResolve = computed(() => {
   const strike = phpStrike.value;
@@ -335,6 +341,55 @@ const isPhpDefenseStep = computed(
     !phpDebt.value &&
     (phpWideMode.value ? phpWideAnswering.value : phpCanResolve.value),
 );
+/**
+ * Название действия открытого удара. Код берём из самого удара, а не из
+ * списка действий персонажа: защитник не обязан знать действия атакующего,
+ * но название атаки видеть должен.
+ */
+const phpStrikeActionLabel = computed(() => {
+  const code = props.phpOpenStrike?.actionRuleCode ?? gamePhpBattleContext.openStrike?.actionRuleCode;
+  if (!code) return null;
+
+  return props.rules.find((rule) => rule.code === code)?.name ?? code;
+});
+/**
+ * Открытый удар, на который окно ещё не переключилось: другое окно занято
+ * набором удара. Показываем баннер и ждём явного переключения.
+ */
+const phpPendingDefense = computed(() => {
+  if (phpDeclared.value) return null;
+  const strike = props.phpOpenStrike;
+  if (!strike) return null;
+  if (
+    !gameStrikeDefenseService.canAnswerPending(
+      strike,
+      props.currentUserId,
+      strikeMemberships.value,
+      props.canWriteStrike,
+    )
+  ) {
+    return null;
+  }
+
+  return strike;
+});
+const phpPendingDefenseIsOwner = computed(() => {
+  const strike = phpPendingDefense.value;
+  if (!strike) return false;
+
+  return gameStrikeDefenseService.isDefenderOwner(strike, props.currentUserId, strikeMemberships.value);
+});
+const phpPendingDefenseText = computed(() => {
+  const strike = phpPendingDefense.value;
+  if (!strike) return '';
+  if (phpPendingDefenseIsOwner.value) return 'Открыт удар по вашему персонажу — нужно выбрать реакцию защиты.';
+
+  return 'Открыт удар по персонажу игрока — ждём реакцию защиты.';
+});
+
+function answerPhpPendingStrike(): void {
+  emit('php-answer-strike');
+}
 const isPhpAwaiting = computed(
   () =>
     gamePhpMode.isEnabled() &&
@@ -1077,8 +1132,9 @@ async function hydrate(): Promise<void> {
       agreedCoveringAdv.value = 0;
       defenseEfficiency.value = { ...hitRollService.dodgeEfficiency(props.rules) };
       if (fixedActionRuleCode.value) selectedActionRuleCode.value = fixedActionRuleCode.value;
-      if (props.resumePhpStrike && gamePhpBattleContext.openStrike?.actionRuleCode) {
-        selectedActionRuleCode.value = gamePhpBattleContext.openStrike.actionRuleCode;
+      const phpActionRuleCode = props.phpOpenStrike?.actionRuleCode ?? gamePhpBattleContext.openStrike?.actionRuleCode;
+      if (props.resumePhpStrike && phpActionRuleCode) {
+        selectedActionRuleCode.value = phpActionRuleCode;
       }
     }
     if (props.resumePhpStrike && (props.openWideStrike ?? gamePhpBattleContext.openWideStrike)) {
@@ -1101,18 +1157,34 @@ async function hydrate(): Promise<void> {
 }
 
 watch(
-  () => props.open,
-  async (open) => {
-    phpDeclared.value = open && props.resumePhpStrike === true;
-    phpDeclaredStrike.value = null;
-    phpPendingStrike.value = null;
-    phpOverride.value = false;
-    phpDebt.value = false;
-    phpWideProjection.value =
-      open && props.resumePhpStrike ? (props.openWideStrike ?? gamePhpBattleContext.openWideStrike) : null;
+  () => [props.open, props.resumePhpStrike, props.phpOpenStrike] as const,
+  async ([open, resumePhpStrike]) => {
+    const mode = phpStrikeWindowMode(open, resumePhpStrike === true);
+    if (mode === 'close') {
+      // Закрытие окна: полный сброс шага.
+      phpDeclared.value = false;
+      phpDeclaredStrike.value = null;
+      phpPendingStrike.value = null;
+      phpOverride.value = false;
+      phpDebt.value = false;
+      phpWideProjection.value = null;
+      phpWideTargets.value = [];
+      phpWideChoices.value = [];
+
+      return;
+    }
+    if (mode === 'server') {
+      // Окно перевели на серверный удар: локальное объявление сбрасываем.
+      phpDeclared.value = true;
+      phpDeclaredStrike.value = null;
+      phpPendingStrike.value = null;
+      phpOverride.value = false;
+      phpDebt.value = false;
+    }
+    phpWideProjection.value = props.openWideStrike ?? gamePhpBattleContext.openWideStrike;
     phpWideTargets.value = [];
     phpWideChoices.value = [];
-    if (open) await hydrate();
+    await hydrate();
   },
 );
 
@@ -3688,6 +3760,19 @@ const canSubmit = computed(() => {
         </v-alert>
         <template v-else>
           <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-2">{{ error }}</v-alert>
+          <v-alert
+            v-if="phpPendingDefense"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mb-2"
+            data-test="php-pending-defense"
+          >
+            <div>{{ phpPendingDefenseText }}</div>
+            <v-btn variant="text" size="small" class="mt-1 px-0" :disabled="busy" @click="answerPhpPendingStrike">
+              {{ phpPendingDefenseIsOwner ? 'Ответить на удар' : 'Показать удар' }}
+            </v-btn>
+          </v-alert>
           <v-select
             v-if="isCompose && !attackAction"
             v-model="selectedActionRuleCode"
@@ -3715,7 +3800,7 @@ const canSubmit = computed(() => {
               {{ selectedAction?.name ?? 'Групповая атака' }} · {{ targetProposals.length }} цели
             </template>
             <template v-else>
-              {{ selectedAction?.name ?? 'Действие атаки' }}
+              {{ phpStrikeActionLabel ?? selectedAction?.name ?? 'Действие атаки' }}
               <template v-if="(resolvedAttackAction?.strikes.length ?? 0) > 1">
                 ·
                 {{ resolvedAttackAction?.strikes.map((strike) => strike.profile.itemName).join(' и ') }}

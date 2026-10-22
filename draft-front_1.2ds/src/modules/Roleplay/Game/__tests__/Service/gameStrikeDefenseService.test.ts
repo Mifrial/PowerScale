@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gameStrikeDefenseService } from '@/modules/Roleplay/Game/Service/Instance/gameStrikeDefenseService';
 
+import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
 
@@ -72,9 +73,7 @@ describe('GameStrikeDefenseService', () => {
 
   it('подпись ожидания различает персонажа и НПС', () => {
     const rows = [membership()];
-    expect(gameStrikeDefenseService.waitingText(strike(), rows, { 10: 'Аня' })).toBe(
-      'Ожидаем реакцию Аня за Герой',
-    );
+    expect(gameStrikeDefenseService.waitingText(strike(), rows, { 10: 'Аня' })).toBe('Ожидаем реакцию Аня за Герой');
     expect(gameStrikeDefenseService.waitingText(strike(), rows, {})).toBe('Ожидаем реакцию #10 за Герой');
     expect(
       gameStrikeDefenseService.waitingText(strike({ defenderKind: 'npc', defenderId: 9 }), rows, {}, { 9: 'Страж' }),
@@ -85,5 +84,46 @@ describe('GameStrikeDefenseService', () => {
     expect(gameStrikeDefenseService.waitingText(strike(), [membership({ characterOwnerId: 12 })], {})).toBe(
       'Ожидаем реакцию #12 за Герой',
     );
+  });
+
+  it('окно без удара открывают владелец защитника и ведущий', () => {
+    const rows = [membership()];
+    const closed = { open: false, defenderKey: null, bound: false };
+    expect(gameStrikeDefenseService.windowAction(strike(), 10, rows, false, closed)).toBe('open');
+    expect(gameStrikeDefenseService.windowAction(strike(), 7, rows, true, closed)).toBe('open');
+    expect(gameStrikeDefenseService.windowAction(strike(), 11, rows, false, closed)).toBe('wait');
+  });
+
+  it('окно, привязанное к этому удару, остаётся на месте', () => {
+    const rows = [membership()];
+    const bound = { open: true, defenderKey: 'character:5' as CombatEntityKey, bound: true };
+    expect(gameStrikeDefenseService.windowAction(strike(), 10, rows, false, bound)).toBe('keep');
+  });
+
+  it('окно ведущего, объявившего удар сам, остаётся на месте', () => {
+    const rows = [membership()];
+    const compose = { open: true, defenderKey: 'character:5' as CombatEntityKey, bound: false };
+    expect(gameStrikeDefenseService.windowAction(strike(), 7, rows, true, compose)).toBe('keep');
+  });
+
+  it('окно набора нового удара не трогают: ждут явного переключения', () => {
+    const rows = [membership()];
+    const compose = { open: true, defenderKey: 'npc:9' as CombatEntityKey, bound: false };
+    expect(gameStrikeDefenseService.windowAction(strike(), 10, rows, false, compose)).toBe('wait');
+    expect(gameStrikeDefenseService.windowAction(strike(), 7, rows, true, compose)).toBe('wait');
+  });
+
+  it('окно прошлого удара переключают на новый', () => {
+    const rows = [membership()];
+    const other = { open: true, defenderKey: 'character:8' as CombatEntityKey, bound: true };
+    expect(gameStrikeDefenseService.windowAction(strike(), 10, rows, false, other)).toBe('switch');
+    expect(gameStrikeDefenseService.windowAction(strike(), 11, rows, false, other)).toBe('wait');
+  });
+
+  it('баннер об открытом ударе видят владелец защитника и ведущий', () => {
+    const rows = [membership()];
+    expect(gameStrikeDefenseService.canAnswerPending(strike(), 10, rows, false)).toBe(true);
+    expect(gameStrikeDefenseService.canAnswerPending(strike(), 7, rows, true)).toBe(true);
+    expect(gameStrikeDefenseService.canAnswerPending(strike(), 11, rows, false)).toBe(false);
   });
 });

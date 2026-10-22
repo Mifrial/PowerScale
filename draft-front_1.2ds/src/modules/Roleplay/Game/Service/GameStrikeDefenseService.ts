@@ -2,6 +2,9 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
 
+/** Что делать с окном удара: открыть, переключить, оставить как есть или не трогать. */
+export type GameStrikeWindowAction = 'keep' | 'open' | 'switch' | 'wait';
+
 /**
  * Права и подписи шага защиты PHP-удара 1 → 1.
  *
@@ -60,6 +63,50 @@ export class GameStrikeDefenseService {
 
   /** Авто-открытие окна: только участник защиты, а не любой игрок. */
   shouldAutoOpen(
+    strike: GamePhpOpenStrike,
+    userId: number | null | undefined,
+    memberships: GameCharacterMembership[],
+    canWriteStrike: boolean,
+  ): boolean {
+    return this.isDefenderOwner(strike, userId, memberships) || canWriteStrike;
+  }
+
+  /**
+   * Что делать с окном при открытом ударе.
+   *
+   * 'keep' — открытое окно уже про этот удар.
+   * 'open' — окна нет, удар надо открыть.
+   * 'switch' — окно привязано к другому удару: закрываем его и открываем новый.
+   * 'wait' — открыто чужое окно (набор нового удара): не трогаем, ждём
+   * явного переключения от пользователя.
+   */
+  windowAction(
+    strike: GamePhpOpenStrike,
+    userId: number | null | undefined,
+    memberships: GameCharacterMembership[],
+    canWriteStrike: boolean,
+    window: { open: boolean; defenderKey: CombatEntityKey | null; bound: boolean },
+  ): GameStrikeWindowAction {
+    const visible = this.shouldAutoOpen(strike, userId, memberships, canWriteStrike);
+    if (!window.open) {
+      return visible ? 'open' : 'wait';
+    }
+    // Окно уже про этот удар: ведущий объявил его сам из этого окна.
+    if (window.defenderKey === this.defenderKey(strike)) return 'keep';
+    if (window.bound) {
+      return visible ? 'switch' : 'wait';
+    }
+
+    return 'wait';
+  }
+
+  /**
+   * Кому показывать баннер «Есть открытый удар — ответить».
+   *
+   * Владелец защитника отвечает за персонажа, ведущий может взять защиту
+   * на себя. Остальным баннер не нужен.
+   */
+  canAnswerPending(
     strike: GamePhpOpenStrike,
     userId: number | null | undefined,
     memberships: GameCharacterMembership[],
