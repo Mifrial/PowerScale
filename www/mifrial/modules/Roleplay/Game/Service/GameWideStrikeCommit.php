@@ -11,11 +11,10 @@ use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
@@ -30,8 +29,7 @@ final class GameWideStrikeCommit
      * Создаёт writer transaction.
      *
      * @param GameBattleRepository $battles Бои.
-     * @param GameWideStrikeRepository $strikes Удары.
-     * @param GameWideStrikeTargetRepository $targets Цели.
+     * @param GameActionRepository $actions Действия и цели.
      * @param GameCommandRepository $commands Команды.
      * @param GameWideStrikeResults $results Результаты целей.
      * @param GameReplayTransaction $replayTransaction Общая граница replay.
@@ -43,8 +41,7 @@ final class GameWideStrikeCommit
      */
     public function __construct(
         private readonly GameBattleRepository $battles,
-        private readonly GameWideStrikeRepository $strikes,
-        private readonly GameWideStrikeTargetRepository $targets,
+        private readonly GameActionRepository $actions,
         private readonly GameCommandRepository $commands,
         private readonly GameWideStrikeResults $results,
         private readonly GameReplayTransaction $replayTransaction,
@@ -260,7 +257,9 @@ final class GameWideStrikeCommit
             return $result;
         }
 
-        $result['strikeId'] = $this->strikes->add($opening->row($battle, $sessionId, $choice));
+        $row = $opening->row($battle, $sessionId, $choice);
+        $row['kind'] = 'wide_strike';
+        $result['strikeId'] = $this->actions->add($row);
         $opening->addTargets($result['strikeId'], $choice['targets']);
         $this->battles->replacePending(
             $battle->getId(),
@@ -316,7 +315,9 @@ final class GameWideStrikeCommit
             $this->sheetWrites->write($game, $kind, $id, $snapshot['actualVersion'], [], null, null, [], $inventorySpend);
         }
 
-        $strikeId = $this->strikes->add($opening->row($battle, $sessionId, $choice));
+        $row = $opening->row($battle, $sessionId, $choice);
+        $row['kind'] = 'wide_strike';
+        $strikeId = $this->actions->add($row);
         $opening->addTargets($strikeId, $choice['targets']);
         $debt = $battle->getActionDebt();
         unset($debt[(new GameActionDebt())->key($kind, $id)]);
@@ -555,7 +556,7 @@ final class GameWideStrikeCommit
             ['action-points' => $this->actionAp($slice, $actionRuleCode)],
         );
 
-        $this->strikes->close($context['strikeId']);
+        $this->actions->close($context['strikeId']);
         $this->battles->replacePending($context['battle']->getId(), $context['expectedBattleVersion'], $pending);
 
         return $result;
@@ -849,13 +850,12 @@ final class GameWideStrikeCommit
                 throw new GameInvalidException('Game wide strike target row is invalid');
             }
 
-            $this->targets->close(
-                $targetId,
-                $choices[$index]['reaction'],
-                $choices[$index]['blockItemInventoryId'],
-                $choices[$index]['blockItemProfileIndex'],
-                $choices[$index]['blockItemRuleCode'],
-            );
+            $this->actions->answerTarget($targetId, [
+                'reaction' => $choices[$index]['reaction'],
+                'block_item_inventory_id' => $choices[$index]['blockItemInventoryId'],
+                'block_item_profile_index' => $choices[$index]['blockItemProfileIndex'],
+                'block_item_rule_code' => $choices[$index]['blockItemRuleCode'],
+            ]);
         }
     }
 }

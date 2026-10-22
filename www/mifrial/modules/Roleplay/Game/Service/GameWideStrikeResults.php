@@ -1489,8 +1489,8 @@ final class GameWideStrikeResults
      */
     private function defender(array $row): array
     {
-        $kind = $row['defender_kind'] ?? null;
-        $defenderId = $row['defender_id'] ?? null;
+        $kind = $row['target_type'] ?? null;
+        $defenderId = $row['target_id'] ?? null;
         if (!is_string($kind) || !is_int($defenderId)) {
             throw new GameInvalidException('Game wide strike target row is invalid');
         }

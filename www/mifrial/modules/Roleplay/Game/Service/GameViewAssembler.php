@@ -106,11 +106,14 @@ final class GameViewAssembler
             return null;
         }
 
+        $targets = is_array($row['targets'] ?? null) ? $row['targets'] : [];
+        $target = is_array($targets[0] ?? null) ? $targets[0] : [];
+
         return [
             'attackerKind' => is_string($row['attacker_kind'] ?? null) ? $row['attacker_kind'] : '',
             'attackerId' => $this->intField($row, 'attacker_id'),
-            'defenderKind' => is_string($row['defender_kind'] ?? null) ? $row['defender_kind'] : '',
-            'defenderId' => $this->intField($row, 'defender_id'),
+            'defenderKind' => is_string($target['target_type'] ?? null) ? $target['target_type'] : '',
+            'defenderId' => $this->intField($target, 'target_id'),
             'actionRuleCode' => is_string($row['action_rule_code'] ?? null) ? $row['action_rule_code'] : '',
             'itemInventoryId' => $this->intField($row, 'item_inventory_id'),
             'itemRuleCode' => is_string($row['item_rule_code'] ?? null) ? $row['item_rule_code'] : '',

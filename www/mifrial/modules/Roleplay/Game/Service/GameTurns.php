@@ -18,14 +18,13 @@ use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
-use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
 
 /**
  * Конец хода, продолжение и отмена долга.
@@ -83,13 +82,10 @@ final class GameTurns
         $this->replay = new GameReplayTransaction($this->gateway);
         $this->delivery = new GameDeliverySignal($events);
         $this->sheets = new GameStrikeSheetWrites($mutations, new GameNpcRepository($this->gateway));
-        $this->strikesRepo = new GameStrikeRepository($this->gateway);
-        $this->wideRepo = new GameWideStrikeRepository($this->gateway);
+        $this->strikesRepo = new GameActionRepository($this->gateway);
     }
 
-    private readonly GameStrikeRepository $strikesRepo;
-
-    private readonly GameWideStrikeRepository $wideRepo;
+    private readonly GameActionRepository $strikesRepo;
 
     /**
      * Конец хода текущего.
@@ -260,7 +256,7 @@ final class GameTurns
         int $expectedSheet,
         array $current,
     ): array {
-        if ($this->strikesRepo->findOpen($battle->getId()) !== null || $this->wideRepo->findOpen($battle->getId()) !== null) {
+        if ($this->strikesRepo->findOpenAny($battle->getId()) !== null) {
             throw new GameInvalidException('Game strike is open');
         }
 

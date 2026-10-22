@@ -25,8 +25,7 @@ use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 
 /**
  * Roster и лист по ключам. Запись сессии и боя не делает.
@@ -43,9 +42,7 @@ final class GameProjections implements IGameProjections
 
     private readonly GameNpcVisibility $npcVisibility;
 
-    private readonly GameWideStrikeRepository $wideStrikes;
-
-    private readonly GameWideStrikeTargetRepository $wideTargets;
+    private readonly GameActionRepository $actions;
 
     private readonly GameWideStrikeAccess $wideAccess;
 
@@ -75,8 +72,7 @@ final class GameProjections implements IGameProjections
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->sessions = new GameSessionRepository($smartTableGateway);
         $this->npcVisibility = new GameNpcVisibility();
-        $this->wideStrikes = new GameWideStrikeRepository($smartTableGateway);
-        $this->wideTargets = new GameWideStrikeTargetRepository($smartTableGateway);
+        $this->actions = new GameActionRepository($smartTableGateway);
         $this->wideAccess = new GameWideStrikeAccess(
             new GameMemberRepository($smartTableGateway),
             new GameCharacterRepository($smartTableGateway),
@@ -175,7 +171,7 @@ final class GameProjections implements IGameProjections
         bool $editAll,
         int $battleId,
     ): ?array {
-        $row = $this->wideStrikes->findOpen($battleId);
+        $row = $this->actions->findOpenByBattle($battleId, 'wide_strike');
         $strikeId = is_array($row) ? ($row['id'] ?? null) : null;
         $attackerKind = is_array($row) ? ($row['attacker_kind'] ?? null) : null;
         $attackerId = is_array($row) ? ($row['attacker_id'] ?? null) : null;
@@ -193,9 +189,9 @@ final class GameProjections implements IGameProjections
         }
 
         $targets = [];
-        foreach ($this->wideTargets->getList($strikeId) as $targetRow) {
-            $kind = $targetRow['defender_kind'] ?? null;
-            $targetId = $targetRow['defender_id'] ?? null;
+        foreach ($this->actions->getTargets($strikeId) as $targetRow) {
+            $kind = $targetRow['target_type'] ?? null;
+            $targetId = $targetRow['target_id'] ?? null;
             if (!is_string($kind) || !is_int($targetId)) {
                 continue;
             }

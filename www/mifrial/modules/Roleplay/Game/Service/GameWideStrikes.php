@@ -24,8 +24,6 @@ use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -35,13 +33,9 @@ final class GameWideStrikes implements IGameWideStrikes
 {
     private readonly GameBattleRepository $battles;
 
-    private readonly GameWideStrikeRepository $strikes;
-
     private readonly GameActionRepository $actions;
 
     private readonly GameWideStrikeAccess $access;
-
-    private readonly GameWideStrikeTargetRepository $targets;
 
     private readonly GameCommandRepository $commands;
 
@@ -86,9 +80,7 @@ final class GameWideStrikes implements IGameWideStrikes
         private readonly GameStrikeConsequences $consequences,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
-        $this->strikes = new GameWideStrikeRepository($smartTableGateway);
         $this->actions = new GameActionRepository($smartTableGateway);
-        $this->targets = new GameWideStrikeTargetRepository($smartTableGateway);
         $this->commands = new GameCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->characters = new GameCharacterRepository($smartTableGateway);
@@ -247,7 +239,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $battle,
             $expectedBattleVersion,
             $choice,
-            new GameWideStrikeOpening($this->battles, $this->targets),
+            new GameWideStrikeOpening($this->battles, $this->actions),
         );
     }
 
@@ -260,8 +252,7 @@ final class GameWideStrikes implements IGameWideStrikes
     {
         return new GameWideStrikeCommit(
             $this->battles,
-            $this->strikes,
-            $this->targets,
+            $this->actions,
             $this->commands,
             $this->results,
             $this->replayTransaction,
@@ -456,7 +447,7 @@ final class GameWideStrikes implements IGameWideStrikes
             throw new GameInvalidException('Game wide strike is not open');
         }
 
-        $rows = $this->targets->getList($strikeId);
+        $rows = $this->actions->getTargets($strikeId);
         $indexByTarget = [];
         foreach ($rows as $index => $row) {
             $indexByTarget[$this->targetKey($this->rowTarget($row))] = $index;
@@ -482,7 +473,13 @@ final class GameWideStrikes implements IGameWideStrikes
                 throw new GameInvalidException('Game wide strike target row is invalid');
             }
 
-            $this->targets->answer($targetId, $choice);
+            $this->actions->answerTarget($targetId, [
+                'reaction' => $choice['reaction'],
+                'block_item_inventory_id' => $choice['blockItemInventoryId'],
+                'block_item_profile_index' => $choice['blockItemProfileIndex'],
+                'block_item_rule_code' => $choice['blockItemRuleCode'],
+                'expected_sheet_version' => $choice['expectedSheetVersion'],
+            ]);
             $rows[$index]['reaction'] = $choice['reaction'];
             $rows[$index]['block_item_inventory_id'] = $choice['blockItemInventoryId'];
             $rows[$index]['block_item_profile_index'] = $choice['blockItemProfileIndex'];
@@ -613,8 +610,8 @@ final class GameWideStrikes implements IGameWideStrikes
      */
     private function rowTarget(array $row): array
     {
-        $kind = $row['defender_kind'] ?? null;
-        $targetId = $row['defender_id'] ?? null;
+        $kind = $row['target_type'] ?? null;
+        $targetId = $row['target_id'] ?? null;
         if (!is_string($kind) || !is_int($targetId)) {
             throw new GameInvalidException('Game wide strike target row is invalid');
         }
@@ -742,7 +739,7 @@ final class GameWideStrikes implements IGameWideStrikes
      */
     private function openingFor(GameRecord $game, int $battleId, array $choice): GameWideStrikeOpening
     {
-        $opening = new GameWideStrikeOpening($this->battles, $this->targets);
+        $opening = new GameWideStrikeOpening($this->battles, $this->actions);
         $opening->assertRoster($battleId, $choice);
         if ($this->actions->findOpenAny($battleId) !== null) {
             throw new GameInvalidException('Game wide strike is already open');
@@ -1035,7 +1032,7 @@ final class GameWideStrikes implements IGameWideStrikes
      */
     private function requireOpen(int $battleId): array
     {
-        $open = $this->strikes->findOpen($battleId);
+        $open = $this->actions->findOpenByBattle($battleId, 'wide_strike');
         $strikeId = is_array($open) ? ($open['id'] ?? null) : null;
         if (!is_array($open) || !is_int($strikeId)) {
             throw new GameInvalidException('Game wide strike is not open');

@@ -8,13 +8,11 @@ use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameCheckRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
 
 /**
  * Снимает бои сессии и затем саму сессию одной транзакцией.
@@ -50,11 +48,9 @@ final class GameBattleCleanup
         $this->smartTableGateway->transaction(function () use ($sessionId): void {
             (new GameProcessRepository($this->smartTableGateway))->cancelOpenForSession($sessionId);
             (new GameCheckRepository($this->smartTableGateway))->deleteBySession($sessionId);
-            $wideStrikes = new GameWideStrikeRepository($this->smartTableGateway);
-            $wideStrikeIds = $wideStrikes->findIdsBySession($sessionId);
-            (new GameWideStrikeTargetRepository($this->smartTableGateway))->deleteByStrikes($wideStrikeIds);
-            $wideStrikes->deleteBySession($sessionId);
-            (new GameStrikeRepository($this->smartTableGateway))->deleteBySession($sessionId);
+            $actions = new GameActionRepository($this->smartTableGateway);
+            $actions->deleteBySession($sessionId, 'wide_strike');
+            $actions->deleteBySession($sessionId, 'strike');
             (new GameCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
             (new GameBattleRepository($this->smartTableGateway))->deleteBySession($sessionId);
             $this->sessionRepository->deleteSession($sessionId);

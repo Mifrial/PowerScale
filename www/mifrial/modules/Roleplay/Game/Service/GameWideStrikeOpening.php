@@ -7,8 +7,8 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
 
 /**
  * Состав и строки открытого широкого удара.
@@ -19,13 +19,13 @@ final class GameWideStrikeOpening
      * Создаёт проверку состава.
      *
      * @param GameBattleRepository $battles Состав.
-     * @param GameWideStrikeTargetRepository $targets Цели.
+     * @param GameActionRepository $actions Действия.
      *
      * @return void
      */
     public function __construct(
         private readonly GameBattleRepository $battles,
-        private readonly GameWideStrikeTargetRepository $targets,
+        private readonly GameActionRepository $actions,
     ) {
     }
 
@@ -94,10 +94,9 @@ final class GameWideStrikeOpening
     public function addTargets(int $strikeId, array $targets): void
     {
         foreach ($targets as $target) {
-            $this->targets->add([
-                'strike_id' => $strikeId,
-                'defender_kind' => $target['type'],
-                'defender_id' => $target['id'],
+            $this->actions->addTarget($strikeId, [
+                'target_type' => $target['type'],
+                'target_id' => $target['id'],
                 'reaction' => null,
                 'block_item_inventory_id' => null,
                 'block_item_profile_index' => null,

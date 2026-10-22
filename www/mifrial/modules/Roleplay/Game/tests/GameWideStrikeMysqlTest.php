@@ -16,7 +16,7 @@ use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
-use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
+use Mifrial\Roleplay\Game\Repository\GameActionTargetRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
 use Mifrial\Roleplay\Game\Table\GameActionTargetTable;
 use Mifrial\Roleplay\Game\Table\GameDeliveryTable;
@@ -2249,7 +2249,7 @@ final class GameWideStrikeMysqlTest extends TestCase
     {
         $gateway = $this->smartTableGateway;
         self::assertInstanceOf(ISmartTableGateway::class, $gateway);
-        $rows = (new GameWideStrikeTargetRepository($gateway))->getList($strikeId);
+        $rows = (new GameActionTargetRepository($gateway))->getList($strikeId);
         $targetId = $rows[$index]['id'] ?? null;
         self::assertIsInt($targetId);
         $mapped = [];

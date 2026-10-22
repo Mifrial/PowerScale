@@ -31,7 +31,7 @@ use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\RuleSpace\Interface\Container\IRuleSpaceContainer;
 use Mifrial\Roleplay\RuleSpace\Interface\Service\IRuleSpaces;
 
@@ -83,7 +83,7 @@ final class GamePortFactory
             new GameViewAssembler(),
             $this->sessionRoster($serviceLocator),
             $this->cardAccess($serviceLocator),
-            new GameStrikeRepository($this->smartTableGateway($serviceLocator)),
+            new GameActionRepository($this->smartTableGateway($serviceLocator)),
         );
     }
 

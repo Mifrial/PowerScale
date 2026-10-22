@@ -28,7 +28,6 @@ use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
@@ -40,8 +39,6 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 final class GameStrikes implements IGameStrikes
 {
     private readonly GameBattleRepository $battles;
-
-    private readonly GameStrikeRepository $strikes;
 
     private readonly GameActionRepository $actions;
 
@@ -104,7 +101,6 @@ final class GameStrikes implements IGameStrikes
         private readonly GameStrikeConsequences $consequences,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
-        $this->strikes = new GameStrikeRepository($smartTableGateway);
         $this->actions = new GameActionRepository($smartTableGateway);
         $this->commands = new GameCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
@@ -523,7 +519,8 @@ final class GameStrikes implements IGameStrikes
             return $result;
         }
 
-        $result['strikeId'] = $this->strikes->add($this->openRow($battle, $sessionId, $choice));
+        $row = $this->openRow($battle, $sessionId, $choice);
+        $result['strikeId'] = $this->actions->addWithTargets($row['action'], $row['targets']);
         $this->battles->replacePending(
             $battle->getId(),
             $expectedBattleVersion,
@@ -597,9 +594,11 @@ final class GameStrikes implements IGameStrikes
             null,
         );
 
+        $row = $this->openRow($battle, $sessionId, $choice);
+
         return [
             'battleId' => $battle->getId(),
-            'strikeId' => $this->strikes->add($this->openRow($battle, $sessionId, $choice)),
+            'strikeId' => $this->actions->addWithTargets($row['action'], $row['targets']),
             'version' => $saved->getStateVersion(),
         ];
     }
@@ -931,13 +930,12 @@ final class GameStrikes implements IGameStrikes
                     $spends,
                 ));
         $this->postStrikeChat($game, $battle, $open, $actorUserId, $strikeId, $choice['reaction'], $result);
-        $this->strikes->close(
-            $strikeId,
-            $choice['reaction'],
-            $choice['blockItemInventoryId'],
-            $choice['blockItemProfileIndex'],
-            $choice['blockItemRuleCode'],
-        );
+        $this->actions->closeWithAnswer($strikeId, [
+            'reaction' => $choice['reaction'],
+            'block_item_inventory_id' => $choice['blockItemInventoryId'],
+            'block_item_profile_index' => $choice['blockItemProfileIndex'],
+            'block_item_rule_code' => $choice['blockItemRuleCode'],
+        ]);
 
         $attackerKind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
@@ -2482,22 +2480,29 @@ final class GameStrikes implements IGameStrikes
         }
 
         return [
-            'battle_id' => $battle->getId(),
-            'session_id' => $sessionId,
-            'attacker_kind' => $choice['attacker']['type'],
-            'attacker_id' => $choice['attacker']['id'],
-            'defender_kind' => $choice['defender']['type'],
-            'defender_id' => $choice['defender']['id'],
-            'action_rule_code' => $choice['actionRuleCode'],
-            'item_inventory_id' => $choice['itemInventoryId'],
-            'item_rule_code' => $choice['itemRuleCode'],
-            'profile_type' => $choice['profileType'],
-            'profile_index' => $choice['profileIndex'],
-            'reaction' => null,
-            'block_item_inventory_id' => null,
-            'block_item_profile_index' => null,
-            'block_item_rule_code' => null,
-            'open' => true,
+            'action' => [
+                'kind' => 'strike',
+                'battle_id' => $battle->getId(),
+                'session_id' => $sessionId,
+                'attacker_kind' => $choice['attacker']['type'],
+                'attacker_id' => $choice['attacker']['id'],
+                'action_rule_code' => $choice['actionRuleCode'],
+                'item_inventory_id' => $choice['itemInventoryId'],
+                'item_rule_code' => $choice['itemRuleCode'],
+                'profile_type' => $choice['profileType'],
+                'profile_index' => $choice['profileIndex'],
+                'open' => true,
+            ],
+            'targets' => [
+                [
+                    'target_type' => $choice['defender']['type'],
+                    'target_id' => $choice['defender']['id'],
+                    'reaction' => null,
+                    'block_item_inventory_id' => null,
+                    'block_item_profile_index' => null,
+                    'block_item_rule_code' => null,
+                ],
+            ],
         ];
     }
 
@@ -2516,7 +2521,7 @@ final class GameStrikes implements IGameStrikes
      */
     private function openForClose(int $battleId, GameRecord $game, int $actorUserId, bool $editAll): array
     {
-        $open = $this->strikes->findOpen($battleId);
+        $open = $this->openRowOf($this->actions->findOpenWithTargets($battleId, 'strike'));
         if ($open !== null) {
             $this->assertStrikeActor($game, $actorUserId, $editAll, $this->defenderOf($open));
 
@@ -2527,13 +2532,41 @@ final class GameStrikes implements IGameStrikes
             throw new GameInvalidException('Game strike is not open');
         }
 
-        $latest = $this->strikes->findLatest($battleId);
+        $latest = $this->openRowOf($this->actions->findLatestWithTargets($battleId, 'strike'));
         if ($latest === null) {
             throw new ActionException('AUTH_DENIED', 'Permission denied');
         }
 
         $this->assertStrikeActor($game, $actorUserId, $editAll, $this->defenderOf($latest));
         throw new GameInvalidException('Game strike is not open');
+    }
+
+    /**
+     * Строка удара из канонической формы действия.
+     *
+     * @param array<string, mixed>|null $row Действие с целями.
+     *
+     * @return array<string, mixed>|null Колонки в прежней форме `defender_*`.
+     */
+    private function openRowOf(?array $row): ?array
+    {
+        if ($row === null) {
+            return null;
+        }
+
+        $targets = is_array($row['targets'] ?? null) ? $row['targets'] : [];
+        $target = is_array($targets[0] ?? null) ? $targets[0] : [];
+        unset($row['targets']);
+
+        return array_merge($row, [
+            'defender_kind' => $target['target_type'] ?? null,
+            'defender_id' => $target['target_id'] ?? null,
+            'reaction' => $target['reaction'] ?? null,
+            'block_item_inventory_id' => $target['block_item_inventory_id'] ?? null,
+            'block_item_profile_index' => $target['block_item_profile_index'] ?? null,
+            'block_item_rule_code' => $target['block_item_rule_code'] ?? null,
+            'expected_sheet_version' => $target['expected_sheet_version'] ?? null,
+        ]);
     }
 
     /**
