@@ -339,7 +339,7 @@ final class GameStrikeRules
     }
 
     /**
-     * Число урона профиля для атакующего. Рейтинг попадания считает rateHit.
+     * Число урона профиля для атакующего.
      *
      * @param int $spaceId Мир.
      * @param int $rulesRevision Ревизия игры.
@@ -614,41 +614,6 @@ final class GameStrikeRules
     public function isHitAutoFail(array $roll): bool
     {
         return $this->hitRoll->isCombatAutoFail($roll);
-    }
-
-    /**
-     * Рейтинг попадания атакующего.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param string $ruleCode Код карточки.
-     * @param string $attackerKind Character или npc.
-     * @param int $attackerId Атакующий.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC или null.
-     *
-     * @return int CheckRating.
-     *
-     * @throws GameInvalidException Если карточка, пул или лист чужие.
-     * @throws GameNotFoundException Если ревизии или персонажа нет.
-     */
-    public function rateHit(
-        int $spaceId,
-        int $rulesRevision,
-        string $ruleCode,
-        string $attackerKind,
-        int $attackerId,
-        ?array $npcSheet,
-    ): int {
-        if ($attackerKind !== 'character' && $attackerKind !== 'npc') {
-            throw new GameInvalidException('Game strike attacker is invalid');
-        }
-
-        $sheet = $attackerKind === 'npc' ? $npcSheet : $this->hitRoll->characterSheet($attackerId)['sheet'];
-        if (!is_array($sheet)) {
-            throw new GameInvalidException('Game strike npc sheet is missing');
-        }
-
-        return $this->hitRoll->throwHit($spaceId, $rulesRevision, $ruleCode, $sheet)['rating'];
     }
 
     /**

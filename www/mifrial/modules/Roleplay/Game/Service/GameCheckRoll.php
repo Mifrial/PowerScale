@@ -205,34 +205,6 @@ final class GameCheckRoll
     }
 
     /**
-     * Бросает карточку попадания. isHitCheck в checkOf не снимает.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param string $ruleCode Код уже найденной карточки.
-     * @param array<string, mixed> $sheet Лист атакующего.
-     *
-     * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
-     *
-     * @throws GameInvalidException Если карточка или пул чужие.
-     * @throws GameNotFoundException Если ревизии нет.
-     */
-    public function throwHit(int $spaceId, int $rulesRevision, string $ruleCode, array $sheet): array
-    {
-        $slice = $this->slices->get($spaceId, $rulesRevision);
-
-        return $this->thrown(
-            $slice,
-            $this->hitSpec($slice, $ruleCode),
-            $ruleCode,
-            'solo',
-            $sheet,
-            null,
-            new SizedBase(0, -1),
-        );
-    }
-
-    /**
      * Бросает попадание с derived mastery и размерной эффективностью.
      *
      * @param int $spaceId Мир.

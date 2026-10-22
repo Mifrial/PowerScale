@@ -1845,36 +1845,6 @@ final class GameStrikes implements IGameStrikes
     }
 
     /**
-     * Рейтинг попадания атакующего со строки удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Строка удара.
-     * @param string $hitCode Код карточки.
-     *
-     * @return int Рейтинг.
-     *
-     * @throws GameInvalidException Если строка, карточка или пул битые.
-     * @throws GameNotFoundException Если ревизии или персонажа нет.
-     */
-    private function rateOf(GameRecord $game, array $open, string $hitCode): int
-    {
-        $kind = $open['attacker_kind'] ?? null;
-        $attackerId = $open['attacker_id'] ?? null;
-        if (!is_string($kind) || !is_int($attackerId)) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        return $this->rules->rateHit(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $hitCode,
-            $kind,
-            $attackerId,
-            $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
-        );
-    }
-
-    /**
      * Выполняет и возвращает authoritative roll атакующего.
      *
      * @param GameRecord $game Игра.
