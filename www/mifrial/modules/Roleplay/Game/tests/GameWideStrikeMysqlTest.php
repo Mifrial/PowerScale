@@ -9,6 +9,9 @@ use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Messages\Chat\Dto\MessageRecord;
+use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
+use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
@@ -16,6 +19,7 @@ use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
 use Mifrial\Roleplay\Game\Table\GameActionTargetTable;
+use Mifrial\Roleplay\Game\Table\GameDeliveryTable;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
 use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
@@ -216,6 +220,116 @@ final class GameWideStrikeMysqlTest extends TestCase
             ]),
         ]);
         self::assertSame('GAME_CONFLICT', $other['error']['code']);
+    }
+
+    /**
+     * Чат широкого удара: порядок, вложения и ключи доставки.
+     *
+     * @return void
+     */
+    public function testWideStrikeChatFormIsStable(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Hero', [], [[
+            'id' => 1,
+            'ruleCode' => 'pike',
+            'equipped' => true,
+        ]]);
+        $mailId = $this->admit($world->getId(), $gameId, 'Mail', [
+            'characteristicPurchases' => [[
+                'characteristicCode' => 'agility',
+                'cost' => 2,
+                'value' => ['base' => 4, 'size' => 0],
+            ]],
+        ], [[
+            'id' => 1,
+            'ruleCode' => 'mail',
+            'equipped' => true,
+        ]]);
+        $clothId = $this->admit($world->getId(), $gameId, 'Cloth', [], [[
+            'id' => 1,
+            'ruleCode' => 'cloth',
+            'equipped' => true,
+        ]]);
+        $mailVersion = $this->characterFacade()->get($mailId)->getActualVersion();
+        $clothVersion = $this->characterFacade()->get($clothId)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'chat-wide-battle',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $mailId],
+                ['type' => 'character', 'id' => $clothId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.declareWideStrike', $this->declareBody($gameId, $battleId, 'chat-wide-open', 1, [
+            'attacker' => ['type' => 'character', 'id' => $attackerId],
+            'targets' => [
+                ['type' => 'character', 'id' => $mailId],
+                ['type' => 'character', 'id' => $clothId],
+            ],
+            'actionRuleCode' => 'swing',
+            'itemInventoryId' => 1,
+            'itemRuleCode' => 'pike',
+            'profileType' => 'strike',
+            'profileIndex' => 0,
+        ]));
+        self::assertTrue($opened['success'], json_encode($opened));
+        $foreign = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'chat-wide-as-single',
+            'expectedVersion' => 2,
+            'expectedSheetVersion' => $mailVersion,
+            'defense' => ['reaction' => 'ignore'],
+        ]);
+        self::assertSame('GAME_INVALID', $foreign['error']['code']);
+        self::assertSame(1, $this->countOpenActions('wide_strike'));
+        $closed = $this->dispatch('game.resolveWideStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'chat-wide-close',
+            'expectedVersion' => 2,
+            'defense' => $this->defenses([
+                ['type' => 'character', 'id' => $mailId],
+                ['type' => 'character', 'id' => $clothId],
+            ], [
+                ['reaction' => 'dodge', 'expectedSheetVersion' => $mailVersion],
+                ['reaction' => 'ignore', 'expectedSheetVersion' => $clothVersion],
+            ]),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        $messages = $this->chatMessages($gameId);
+        self::assertGreaterThanOrEqual(5, count($messages));
+        self::assertStringContainsString('совершает действие', $messages[0]->getContent());
+        self::assertStringContainsString('наносит', $messages[1]->getContent());
+        self::assertSame([], $this->contentAttachments($messages[0]));
+        self::assertSame([], $this->contentAttachments($messages[1]));
+        self::assertSame(['roll', 'roll'], array_column($this->contentAttachments($messages[2]), 'type'));
+
+        $calc = $this->attachmentsOfType($messages, 'attack-calc');
+        self::assertCount(2, $calc);
+        $details = $this->attachmentsOfType($messages, 'injury-details');
+        self::assertCount(2, $details);
+        foreach ($details as $detail) {
+            self::assertArrayHasKey('injury', $detail);
+            self::assertArrayHasKey('damageTypeName', $detail);
+            self::assertIsInt($detail['injury']['rating']);
+            self::assertSame(max(0, -$detail['injury']['rating']), $detail['injury']['strength']);
+        }
+
+        $delivery = $this->deliveryRows();
+        self::assertCount(2, $delivery);
+        foreach ($delivery as $row) {
+            self::assertSame('strike', $row['source']);
+            self::assertSame([], $row['keys']);
+        }
     }
 
     /**
@@ -2479,5 +2593,121 @@ final class GameWideStrikeMysqlTest extends TestCase
         }
 
         return $rows;
+    }
+
+    /**
+     * Чат игры.
+     *
+     * @return IChats Сервис.
+     */
+    private function chats(): IChats
+    {
+        $chats = $this->gameApplication()->getLocator()->get(IChatContainer::class)->get(IChats::class);
+        self::assertInstanceOf(IChats::class, $chats);
+
+        return $chats;
+    }
+
+    /**
+     * Сообщения игрового чата в хронологическом порядке.
+     *
+     * @param int $gameId Игра.
+     *
+     * @return array<int, MessageRecord> Сообщения.
+     */
+    private function chatMessages(int $gameId): array
+    {
+        $chatId = $this->gameFacade()->get($gameId)->getGameChatId();
+        self::assertIsInt($chatId);
+        $messages = array_reverse($this->chats()->findMessagePage($chatId, $this->ownerUserId, 100, 0)->getItems());
+
+        return array_values(array_filter(
+            $messages,
+            fn (MessageRecord $message): bool => $this->threadKind($message) === 'attack',
+        ));
+    }
+
+    /**
+     * Вид треда сообщения.
+     *
+     * @param MessageRecord $message Сообщение.
+     *
+     * @return string|null Вид или null.
+     */
+    private function threadKind(MessageRecord $message): ?string
+    {
+        foreach ($message->getAttachments() as $attachment) {
+            if (($attachment['type'] ?? null) !== 'chat_system') {
+                continue;
+            }
+            $thread = $attachment['payload']['thread'] ?? null;
+            if (is_array($thread) && is_string($thread['kind'] ?? null)) {
+                return $thread['kind'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Вложения сообщения без служебных.
+     *
+     * @param MessageRecord $message Сообщение.
+     *
+     * @return array<int, array{type: string, payload: mixed}> Вложения.
+     */
+    private function contentAttachments(MessageRecord $message): array
+    {
+        $attachments = [];
+        foreach ($message->getAttachments() as $attachment) {
+            if (in_array($attachment['type'] ?? null, ['chat_system', 'chat_speaker'], true)) {
+                continue;
+            }
+            $attachments[] = $attachment;
+        }
+
+        return $attachments;
+    }
+
+    /**
+     * Payload-ы вложений заданного типа.
+     *
+     * @param array<int, MessageRecord> $messages Сообщения.
+     * @param string $type Тип вложения.
+     *
+     * @return array<int, mixed> Payload-ы.
+     */
+    private function attachmentsOfType(array $messages, string $type): array
+    {
+        $found = [];
+        foreach ($messages as $message) {
+            foreach ($message->getAttachments() as $attachment) {
+                if (($attachment['type'] ?? null) === $type) {
+                    $found[] = $attachment['payload'] ?? null;
+                }
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * Строки outbox.
+     *
+     * @return array<int, array<string, mixed>> Строки.
+     */
+    private function deliveryRows(): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+
+        return $gateway->open(GameDeliveryTable::class)->records()->getList(new ListQuery(
+            null,
+            ['id' => 'ASC'],
+            ListQuery::MAX_LIMIT,
+            0,
+            false,
+            null,
+        ))->rows();
     }
 }
