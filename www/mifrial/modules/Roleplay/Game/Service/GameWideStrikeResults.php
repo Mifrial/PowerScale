@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Game\Service;
 use Closure;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
+use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
@@ -41,6 +42,7 @@ final class GameWideStrikeResults
      * @param GameNpcRepository $npcs NPC.
      * @param GameStrikeSheetWrites $sheetWrites Запись деления.
      * @param ConflictSheetProjection $conflictProjection Проекция конфликтов.
+     * @param GameStrikeConsequences $consequences Последствия попадания.
      *
      * @return void
      */
@@ -58,6 +60,23 @@ final class GameWideStrikeResults
     }
 
     /**
+     * Карта ожидания после реакций целей.
+     *
+     * @var array<string, mixed>
+     */
+    private array $pendingAfter = [];
+
+    /**
+     * Карта ожидания после последнего build.
+     *
+     * @return array<string, mixed> Карта.
+     */
+    public function pendingAfter(): array
+    {
+        return $this->pendingAfter;
+    }
+
+    /**
      * Записи целей. Отказ одной не выкидывает остальные.
      *
      * @param GameRecord $game Игра.
@@ -65,13 +84,14 @@ final class GameWideStrikeResults
      * @param list<array{reaction: string, blockItemRuleCode: string|null, expectedSheetVersion: int}> $choices Защиты.
      * @param list<string|null> $refusals Non-CAS отказы по целям.
      * @param DimensionalNumber $damage Пара формулы атакующего.
-     * @param int $rating Рейтинг попадания.
+     * @param array<string, mixed> $attackerRoll Бросок атакующего.
      * @param string $itemRuleCode Предмет удара.
      * @param string $profileType Вид профиля.
      * @param int $profileIndex Смещение.
      * @param int $actorUserId Актор.
      * @param bool $viewAll Полный просмотр.
      * @param Closure|null $penetrationFactory Lazy penetration resolver.
+     * @param array<string, mixed> $open Открытый удар.
      * @param GameBattleRecord|null $battle Бой для привязки треда атаки к ходу.
      *
      * @return list<array<string, mixed>> Итоги.
@@ -95,6 +115,7 @@ final class GameWideStrikeResults
         array $open = [],
         ?GameBattleRecord $battle = null,
     ): array {
+        $this->pendingAfter = $battle?->getPendingActionEffects() ?? [];
         $results = [];
         $sharedPenetration = null;
         $penetrationEvaluated = false;
@@ -128,6 +149,7 @@ final class GameWideStrikeResults
                 $sharedPenetrationFactory,
             );
         }
+
         $this->postWide(
             $game,
             $rows,
@@ -306,6 +328,32 @@ final class GameWideStrikeResults
         }
 
         $spends = $this->resourceSpends($game, $target, $choice);
+        $slice = null;
+        $reactionRuleCode = null;
+        $pending = $this->pendingAfter;
+        if ($choice['reaction'] !== 'ignore') {
+            $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+            $reactionRuleCode = $this->rules->reactionRuleCode(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $choice['reaction'],
+            );
+            if ($reactionRuleCode !== null) {
+                $declared = (new GamePendingActionCosts())->declare(
+                    $slice,
+                    $this->targetChoices($game, $target),
+                    $reactionRuleCode,
+                    $target['type'],
+                    $target['id'],
+                    $pending,
+                    $this->spendAmounts($spends),
+                    false,
+                );
+                $spends = $this->spendRows($declared['amounts']);
+                $pending = $declared['pending'];
+            }
+        }
+
         if (
             $spends !== [] && !$this->rules->hasSufficientResources(
                 $game->getSpaceId(),
@@ -319,32 +367,47 @@ final class GameWideStrikeResults
             return $this->row($target, null, null, $zero, $zero, null, $zero);
         }
 
+        $hitCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
+        $advantages = (new GamePendingActionCosts())->checkAdvantages(
+            $pending,
+            $target['type'],
+            $target['id'],
+            $hitCode,
+            'defender',
+        );
+        if ($reactionRuleCode !== null && $slice !== null) {
+            array_push($advantages, ...$this->rules->actionCheckAdvantages($slice, $reactionRuleCode, $hitCode));
+        }
+
         $defenderRoll = null;
         $ratedRoll = $attackerRoll;
         if ($choice['reaction'] === 'dodge') {
             $defenderRoll = $this->rules->rollDodge(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
-                $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision()),
+                $hitCode,
                 $this->targetSheet($game, $target),
                 $this->targetChoices($game, $target),
                 $profileType,
                 $attackerRoll,
                 $this->participantKey($game, $target),
+                $advantages,
             );
             $ratedRoll = $this->rules->rerateHit($attackerRoll, $defenderRoll);
         }
+
         if ($choice['reaction'] === 'block') {
             $defenderRoll = $this->rules->rollBlock(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
-                $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision()),
+                $hitCode,
                 $this->targetSheet($game, $target),
                 $this->targetChoices($game, $target),
                 $choice['blockItemInventoryId'],
                 $choice['blockItemProfileIndex'],
                 $attackerRoll,
                 $this->participantKey($game, $target),
+                $advantages,
             );
         }
 
@@ -413,6 +476,20 @@ final class GameWideStrikeResults
                     $record,
                 );
         }
+
+        if ($reactionRuleCode !== null && $slice !== null) {
+            $pending = (new GamePendingActionCosts())->complete(
+                $slice,
+                $this->targetChoices($game, $target),
+                $reactionRuleCode,
+                $target['type'],
+                $target['id'],
+                $pending,
+                $this->spendAmounts($spends),
+            );
+            $this->pendingAfter = $pending;
+        }
+
         $record['chat'] = true;
 
         return $record;
@@ -514,8 +591,10 @@ final class GameWideStrikeResults
             if (($record['chat'] ?? false) !== true) {
                 continue;
             }
+
             $shown[] = ['row' => $rows[$index], 'choice' => $choices[$index], 'record' => $record];
         }
+
         if ($shown === [] || !isset($rows[0])) {
             return;
         }
@@ -543,6 +622,7 @@ final class GameWideStrikeResults
             $targets[] = $name;
             $reactions[] = $this->reactionBit($slice, $name, $item['choice']['reaction'] ?? 'ignore');
         }
+
         $narrative = $attacker . ' наносит ' . $typeBit . ' ' . $kind . ' оружием [[rule:' . $itemRuleCode . ']] по '
             . $this->joinNames($targets) . '. ' . implode(', ', $reactions) . '!';
         $threadId = 'attack-wide-' . ($row['id'] ?? 0);
@@ -556,6 +636,7 @@ final class GameWideStrikeResults
             if (!is_array($item['record']['defenderRoll'] ?? null)) {
                 continue;
             }
+
             $target = is_array($item['record']['target'] ?? null) ? $item['record']['target'] : ['type' => 'character', 'id' => 0];
             $defenderName = $this->entityName(
                 is_string($target['type'] ?? null) ? $target['type'] : 'character',
@@ -567,6 +648,7 @@ final class GameWideStrikeResults
             $card['min_success_size'] = -1;
             $rolls[] = $card;
         }
+
         $this->consequences->postLines($game, $actorUserId, $threadId, [
             $attacker . ' совершает действие ' . $action . ' за ' . $this->actionAp($slice, $actionCode) . 'ОД.',
             $narrative,
@@ -622,6 +704,7 @@ final class GameWideStrikeResults
         if ($wound > 0) {
             $bits[] = $wound . ' рану';
         }
+
         $this->consequences->postOutcome(
             $game,
             $actorUserId,
@@ -665,6 +748,7 @@ final class GameWideStrikeResults
         if (count($names) < 2) {
             return $names[0] ?? '';
         }
+
         $last = array_pop($names);
 
         return implode(', ', $names) . ' и ' . $last;
@@ -675,6 +759,7 @@ final class GameWideStrikeResults
         if ($reaction === 'ignore') {
             return $name . ' не реагирует';
         }
+
         $code = $this->reactionRuleCode($slice, $reaction);
         $token = $code !== null ? '[[rule:' . $code . ']]' : $reaction;
 
@@ -709,6 +794,7 @@ final class GameWideStrikeResults
         if ($id <= 0) {
             return '';
         }
+
         try {
             if ($kind === 'npc') {
                 return $this->npcs->getById($id)->getName();
@@ -725,10 +811,12 @@ final class GameWideStrikeResults
         if ($ruleCode === '') {
             return 0;
         }
+
         $spec = $slice->findLive($ruleCode)?->getSpec();
         if (!$spec instanceof AbilityActionSpec) {
             return 0;
         }
+
         $turnCode = null;
         foreach ($slice->getLiveRules() as $rule) {
             $resource = $rule->getSpec();
@@ -736,14 +824,17 @@ final class GameWideStrikeResults
                 $turnCode = $rule->getCode();
             }
         }
+
         $sum = 0;
         foreach ($spec->getComponents() as $component) {
             if (!$component instanceof ResourceComponent) {
                 continue;
             }
+
             if ($turnCode !== null && $component->getResourceCode() !== $turnCode) {
                 continue;
             }
+
             $amount = $component->getAmount();
             if (is_int($amount)) {
                 $sum += $amount;
@@ -857,6 +948,45 @@ final class GameWideStrikeResults
             $this->targetChoices($game, $target),
             $this->targetSheet($game, $target),
         );
+    }
+
+    /**
+     * Целые траты в карту ресурсов.
+     *
+     * @param array<int, ResourceSpend> $spends Траты.
+     *
+     * @return array<string, int> Суммы.
+     */
+    private function spendAmounts(array $spends): array
+    {
+        $amounts = [];
+        foreach ($spends as $spend) {
+            $native = $spend->getAmount()->toNative();
+            if (!is_int($native)) {
+                continue;
+            }
+
+            $amounts[$spend->getResourceCode()] = ($amounts[$spend->getResourceCode()] ?? 0) + $native;
+        }
+
+        return $amounts;
+    }
+
+    /**
+     * Карта ресурсов в траты.
+     *
+     * @param array<string, int> $amounts Суммы.
+     *
+     * @return array<int, ResourceSpend> Траты.
+     */
+    private function spendRows(array $amounts): array
+    {
+        $rows = [];
+        foreach ($amounts as $code => $amount) {
+            $rows[] = new ResourceSpend($code, new ScalarResourceValue($amount));
+        }
+
+        return $rows;
     }
 
     /**

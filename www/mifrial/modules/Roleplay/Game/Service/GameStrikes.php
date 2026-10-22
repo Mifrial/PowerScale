@@ -9,6 +9,7 @@ use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
+use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
@@ -785,22 +786,76 @@ final class GameStrikes implements IGameStrikes
         int $actorUserId,
         bool $viewAll,
     ): array {
-        $attackerRoll = $this->rollOf($game, $open, $hitCode);
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $pending = $battle->getPendingActionEffects();
+        $defenderPending = $pending;
+        $defenderKind = $open['defender_kind'] ?? null;
+        $defenderId = $open['defender_id'] ?? null;
+        if (!is_string($defenderKind) || !is_int($defenderId)) {
+            throw new GameInvalidException('Game strike defender is invalid');
+        }
+
+        $reactionRuleCode = $choice['reaction'] === 'ignore'
+            ? null
+            : $this->reactionRuleCode($slice, $choice['reaction']);
+        $spends = $choice['reaction'] === 'ignore'
+            ? []
+            : $this->defenderResourceSpends($game, $open, $choice);
+        $defenderChoices = [];
+        if ($reactionRuleCode !== null) {
+            $defenderChoices = $this->defenderChoices($game, $defenderKind, $defenderId);
+            $declared = (new GamePendingActionCosts())->declare(
+                $slice,
+                $defenderChoices,
+                $reactionRuleCode,
+                $defenderKind,
+                $defenderId,
+                $defenderPending,
+                $this->spendAmounts($spends),
+                false,
+            );
+            $spends = $this->spendRows($declared['amounts']);
+            $defenderPending = $declared['pending'];
+            $defenderKey = $defenderKind . ':' . $defenderId;
+            if (array_key_exists($defenderKey, $defenderPending)) {
+                $pending[$defenderKey] = $defenderPending[$defenderKey];
+            } else {
+                unset($pending[$defenderKey]);
+            }
+        }
+
+        $attackerRoll = $this->rollOf($game, $open, $hitCode, $pending, $slice);
         $defenderRoll = null;
         if ($choice['reaction'] !== 'ignore' && $this->rules->isUnconscious($game->getSpaceId(), $game->getRulesRevision(), $this->defenderSheet($game, $open))) {
             throw new GameInvalidException('Game strike defender is unconscious');
         }
+
         if ($choice['reaction'] === 'dodge') {
-            $defenderRoll = $this->dodgeRollOf($game, $open, $hitCode, $attackerRoll);
+            $defenderRoll = $this->dodgeRollOf(
+                $game,
+                $open,
+                $hitCode,
+                $attackerRoll,
+                $defenderPending,
+                $reactionRuleCode,
+                $slice,
+            );
             $attackerRoll = $this->rules->rerateHit($attackerRoll, $defenderRoll);
         }
+
         if ($choice['reaction'] === 'block') {
-            $defenderRoll = $this->blockRollOf($game, $open, $choice, $hitCode, $attackerRoll);
+            $defenderRoll = $this->blockRollOf(
+                $game,
+                $open,
+                $choice,
+                $hitCode,
+                $attackerRoll,
+                $defenderPending,
+                $reactionRuleCode,
+                $slice,
+            );
         }
 
-        $spends = $choice['reaction'] === 'ignore'
-            ? []
-            : $this->defenderResourceSpends($game, $open, $choice);
         if (
             $choice['reaction'] !== 'ignore'
             && $spends !== [] && !$this->rules->hasSufficientResources(
@@ -883,7 +938,39 @@ final class GameStrikes implements IGameStrikes
             $choice['blockItemProfileIndex'],
             $choice['blockItemRuleCode'],
         );
-        $this->battles->advanceVersion($battle->getId(), $expectedBattleVersion);
+
+        $attackerKind = $open['attacker_kind'] ?? null;
+        $attackerId = $open['attacker_id'] ?? null;
+        if (!is_string($attackerKind) || !is_int($attackerId)) {
+            throw new GameInvalidException('Game strike attacker is invalid');
+        }
+
+        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        // Close не хранит фактическую цену с учётом cost-эффектов, поэтому
+        // уменьшение идёт по базовой стоимости карточки. Для текущих карточек
+        // порог висящей помехи (2 ОД) меньше базовых 4 ОД, остатка не возникает.
+        $pending = (new GamePendingActionCosts())->complete(
+            $slice,
+            $this->attackerChoices($game, $open),
+            $actionRuleCode,
+            $attackerKind,
+            $attackerId,
+            $pending,
+            ['action-points' => $this->actionAp($slice, $actionRuleCode)],
+        );
+        if ($reactionRuleCode !== null) {
+            $pending = (new GamePendingActionCosts())->complete(
+                $slice,
+                $defenderChoices,
+                $reactionRuleCode,
+                $defenderKind,
+                $defenderId,
+                $pending,
+                $this->spendAmounts($spends),
+            );
+        }
+
+        $this->battles->replacePending($battle->getId(), $expectedBattleVersion, $pending);
 
         return $result;
     }
@@ -1289,6 +1376,7 @@ final class GameStrikes implements IGameStrikes
             $reactionToken = $reactionCode !== null ? '[[rule:' . $reactionCode . ']]' : $reaction;
             $narrative .= ' Тот пытается совершить ' . $reactionToken . ' за ' . $this->actionAp($slice, $reactionCode ?? '') . 'ОД!';
         }
+
         $exhaustion = $result['exhaustionDelta'] ?? 0;
         $wound = $result['wound'] ?? 0;
         $success = $result['success'] ?? 0;
@@ -1798,8 +1886,13 @@ final class GameStrikes implements IGameStrikes
      * @throws GameInvalidException Если строка или документ битые.
      * @throws GameNotFoundException Если лист отсутствует.
      */
-    private function rollOf(GameRecord $game, array $open, string $hitCode): array
-    {
+    private function rollOf(
+        GameRecord $game,
+        array $open,
+        string $hitCode,
+        array $pending,
+        CharacterRuleSlice $slice,
+    ): array {
         $kind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
         $itemRuleCode = $open['item_rule_code'] ?? null;
@@ -1817,6 +1910,16 @@ final class GameStrikes implements IGameStrikes
             throw new GameInvalidException('Game strike row is invalid');
         }
 
+        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        $advantages = $this->rules->actionCheckAdvantages($slice, $actionRuleCode, $hitCode);
+        array_push($advantages, ...(new GamePendingActionCosts())->checkAdvantages(
+            $pending,
+            $kind,
+            $attackerId,
+            $hitCode,
+            'attacker',
+        ));
+
         return $this->rules->rollHit(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -1829,8 +1932,9 @@ final class GameStrikes implements IGameStrikes
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
-            is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '',
+            $actionRuleCode,
             $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
+            $advantages,
         );
     }
 
@@ -1847,13 +1951,31 @@ final class GameStrikes implements IGameStrikes
      * @throws GameInvalidException Если строка или выбор битые.
      * @throws GameNotFoundException Если лист отсутствует.
      */
-    private function dodgeRollOf(GameRecord $game, array $open, string $hitCode, array $attackerRoll): array
-    {
+    private function dodgeRollOf(
+        GameRecord $game,
+        array $open,
+        string $hitCode,
+        array $attackerRoll,
+        array $pending,
+        ?string $reactionRuleCode,
+        CharacterRuleSlice $slice,
+    ): array {
         $kind = $open['defender_kind'] ?? null;
         $id = $open['defender_id'] ?? null;
         $profileType = $open['profile_type'] ?? null;
         if (!is_string($kind) || !is_int($id) || !is_string($profileType)) {
             throw new GameInvalidException('Game strike defender is invalid');
+        }
+
+        $advantages = (new GamePendingActionCosts())->checkAdvantages(
+            $pending,
+            $kind,
+            $id,
+            $hitCode,
+            'defender',
+        );
+        if ($reactionRuleCode !== null) {
+            array_push($advantages, ...$this->rules->actionCheckAdvantages($slice, $reactionRuleCode, $hitCode));
         }
 
         return $this->rules->rollDodge(
@@ -1865,6 +1987,7 @@ final class GameStrikes implements IGameStrikes
             $profileType,
             $attackerRoll,
             $this->participantKey($game, $kind, $id),
+            $advantages,
         );
     }
 
@@ -1882,6 +2005,9 @@ final class GameStrikes implements IGameStrikes
         array $choice,
         string $hitCode,
         array $attackerRoll,
+        array $pending,
+        ?string $reactionRuleCode,
+        CharacterRuleSlice $slice,
     ): array {
         $kind = $open['defender_kind'] ?? null;
         $id = $open['defender_id'] ?? null;
@@ -1889,6 +2015,17 @@ final class GameStrikes implements IGameStrikes
         $profileIndex = $choice['blockItemProfileIndex'] ?? null;
         if (!is_string($kind) || !is_int($id) || !is_int($inventoryId) || !is_int($profileIndex)) {
             throw new GameInvalidException('Game strike block item is invalid');
+        }
+
+        $advantages = (new GamePendingActionCosts())->checkAdvantages(
+            $pending,
+            $kind,
+            $id,
+            $hitCode,
+            'defender',
+        );
+        if ($reactionRuleCode !== null) {
+            array_push($advantages, ...$this->rules->actionCheckAdvantages($slice, $reactionRuleCode, $hitCode));
         }
 
         return $this->rules->rollBlock(
@@ -1901,6 +2038,7 @@ final class GameStrikes implements IGameStrikes
             $profileIndex,
             $attackerRoll,
             $this->participantKey($game, $kind, $id),
+            $advantages,
         );
     }
 
@@ -2111,6 +2249,14 @@ final class GameStrikes implements IGameStrikes
             throw new GameInvalidException('Game strike row is invalid');
         }
 
+        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        $characteristicModifier = $this->rules->actionCharacteristicModifier(
+            $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+            $actionRuleCode,
+            $profileType,
+            1,
+        );
+
         return $this->rules->evaluateDamage(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -2123,6 +2269,7 @@ final class GameStrikes implements IGameStrikes
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
+            $characteristicModifier,
         );
     }
 
@@ -2146,6 +2293,69 @@ final class GameStrikes implements IGameStrikes
         }
 
         return $sheet;
+    }
+
+    /**
+     * Выборы атакующего из строки удара.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $open Строка удара.
+     *
+     * @return array<string, mixed> Выборы.
+     *
+     * @throws GameInvalidException Если строка битая.
+     * @throws GameNotFoundException Если документа нет.
+     */
+    private function attackerChoices(GameRecord $game, array $open): array
+    {
+        $kind = $open['attacker_kind'] ?? null;
+        $id = $open['attacker_id'] ?? null;
+        if (!is_string($kind) || !is_int($id)) {
+            throw new GameInvalidException('Game strike attacker is invalid');
+        }
+
+        return $kind === 'character'
+            ? $this->rules->characterSnapshot($id)['choices']
+            : $this->npcChoices($game->getId(), $id);
+    }
+
+    /**
+     * Целые траты в карту ресурсов.
+     *
+     * @param array<int, ResourceSpend> $spends Траты.
+     *
+     * @return array<string, int> Суммы.
+     */
+    private function spendAmounts(array $spends): array
+    {
+        $amounts = [];
+        foreach ($spends as $spend) {
+            $native = $spend->getAmount()->toNative();
+            if (!is_int($native)) {
+                continue;
+            }
+
+            $amounts[$spend->getResourceCode()] = ($amounts[$spend->getResourceCode()] ?? 0) + $native;
+        }
+
+        return $amounts;
+    }
+
+    /**
+     * Карта ресурсов в траты.
+     *
+     * @param array<string, int> $amounts Суммы.
+     *
+     * @return array<int, ResourceSpend> Траты.
+     */
+    private function spendRows(array $amounts): array
+    {
+        $rows = [];
+        foreach ($amounts as $code => $amount) {
+            $rows[] = new ResourceSpend($code, new ScalarResourceValue($amount));
+        }
+
+        return $rows;
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Closure;
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
@@ -15,6 +16,9 @@ use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
+use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -529,10 +533,124 @@ final class GameWideStrikeCommit
             is_array($context['open'] ?? null) ? $context['open'] : [],
         );
         $this->storeReactions($context['rows'], $context['choices'], $result['targetResults']);
+
+        $open = is_array($context['open'] ?? null) ? $context['open'] : [];
+        $attackerKind = $open['attacker_kind'] ?? null;
+        $attackerId = $open['attacker_id'] ?? null;
+        if (!is_string($attackerKind) || !is_int($attackerId)) {
+            throw new GameInvalidException('Game wide strike attacker is invalid');
+        }
+
+        $slice = $this->rules->ruleSlice($context['game']->getSpaceId(), $context['game']->getRulesRevision());
+        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        // Фактическая цена с cost-эффектами на close не сохраняется; базовая
+        // стоимость достаточна, пока порог висящей помехи меньше 4 ОД.
+        $pending = (new GamePendingActionCosts())->complete(
+            $slice,
+            $this->attackerChoices($context['game'], $open),
+            $actionRuleCode,
+            $attackerKind,
+            $attackerId,
+            $this->results->pendingAfter(),
+            ['action-points' => $this->actionAp($slice, $actionRuleCode)],
+        );
+
         $this->strikes->close($context['strikeId']);
-        $this->battles->advanceVersion($context['battle']->getId(), $context['expectedBattleVersion']);
+        $this->battles->replacePending($context['battle']->getId(), $context['expectedBattleVersion'], $pending);
 
         return $result;
+    }
+
+    /**
+     * Выборы атакующего из строки удара.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $open Строка удара.
+     *
+     * @return array<string, mixed> Выборы.
+     *
+     * @throws GameInvalidException Если строка битая.
+     * @throws GameNotFoundException Если документа нет.
+     */
+    private function attackerChoices(GameRecord $game, array $open): array
+    {
+        $kind = $open['attacker_kind'] ?? null;
+        $id = $open['attacker_id'] ?? null;
+        if (!is_string($kind) || !is_int($id)) {
+            throw new GameInvalidException('Game wide strike attacker is invalid');
+        }
+
+        if ($kind === 'character') {
+            return $this->rules->characterSnapshot($id)['choices'];
+        }
+
+        $npc = $this->npcs->getById($id);
+        $choices = $npc->getGameId() === $game->getId() ? ($npc->getVersion()['choices'] ?? null) : null;
+        if (!is_array($choices)) {
+            throw new GameInvalidException('Game wide strike npc choices are invalid');
+        }
+
+        return $choices;
+    }
+
+    /**
+     * Базовая стоимость действия в ОД.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $ruleCode Карточка.
+     *
+     * @return int Стоимость.
+     */
+    private function actionAp(CharacterRuleSlice $slice, string $ruleCode): int
+    {
+        if ($ruleCode === '') {
+            return 0;
+        }
+
+        $spec = $slice->findLive($ruleCode)?->getSpec();
+        if (!$spec instanceof AbilityActionSpec) {
+            return 0;
+        }
+
+        $turnCode = $this->turnResourceCode($slice);
+        $sum = 0;
+        foreach ($spec->getComponents() as $component) {
+            if (!$component instanceof ResourceComponent) {
+                continue;
+            }
+
+            if ($turnCode !== null && $component->getResourceCode() !== $turnCode) {
+                continue;
+            }
+
+            $amount = $component->getAmount();
+            if (is_int($amount)) {
+                $sum += $amount;
+            } elseif ($amount instanceof DimensionalNumber) {
+                $sum += $amount->getBase();
+            }
+        }
+
+        return $sum;
+    }
+
+    /**
+     * Код ресурса turn refill.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     *
+     * @return string|null Код или null.
+     */
+    private function turnResourceCode(CharacterRuleSlice $slice): ?string
+    {
+        foreach ($slice->getLiveRules() as $rule) {
+            $spec = $rule->getSpec();
+            if ($spec instanceof ResourceSpec && $spec->isTurnRefill()) {
+                return $rule->getCode();
+            }
+        }
+
+        return null;
     }
 
     /**

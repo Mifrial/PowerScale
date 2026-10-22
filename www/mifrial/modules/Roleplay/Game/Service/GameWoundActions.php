@@ -26,18 +26,16 @@ use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ActionResourceCutGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\WoundBandageAidGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Race\RaceSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Race\SpeciesSpec;
 
 /**
  * Зажать, отпустить и перевязать: лист, ресурс, карта ожидания и одно сообщение чата.
@@ -220,17 +218,45 @@ final class GameWoundActions
         $row = $this->rowOf($targetSheet['sheet'], $stateId);
         $patch = $this->patch($operation, $slice, $actorSheet, $row, $actor, $game);
         $priced = $this->priced($slice, $actorSheet['choices'], $actionRuleCode, $actor, $body);
-        $version = $this->sheetWrites->write(
-            $game,
-            $target['kind'],
-            $target['id'],
-            $expected,
-            [$patch],
-            null,
-            null,
-            $priced['spends'],
+
+        if ($actor['kind'] === $target['kind'] && $actor['id'] === $target['id']) {
+            $version = $this->sheetWrites->write(
+                $game,
+                $target['kind'],
+                $target['id'],
+                $expected,
+                [$patch],
+                null,
+                null,
+                $priced['spends'],
+            );
+        } else {
+            $this->sheetWrites->writeResources(
+                $game,
+                $actor['kind'],
+                $actor['id'],
+                $actorSheet['actualVersion'],
+                $priced['spends'],
+            );
+            $version = $this->sheetWrites->write(
+                $game,
+                $target['kind'],
+                $target['id'],
+                $expected,
+                [$patch],
+            );
+        }
+
+        $pending = $this->pendingCosts->complete(
+            $slice,
+            $actorSheet['choices'],
+            $actionRuleCode,
+            $actor['kind'],
+            $actor['id'],
+            $priced['pending'],
+            $this->spentAmounts($priced['spends']),
         );
-        $battleVersion = $this->storePending($body, $priced['pending']);
+        $battleVersion = $this->storePending($body, $pending);
         $this->say($game, $actorUserId, $operation);
         $result = [
             'operation' => $operation,
@@ -375,7 +401,7 @@ final class GameWoundActions
         $battle = $this->battleOf($body);
         $pending = $battle?->getPendingActionEffects() ?? [];
         if ($battle !== null) {
-            $turned = $this->pendingCosts->turn(
+            $declared = $this->pendingCosts->declare(
                 $slice,
                 $choices,
                 $actionRuleCode,
@@ -383,10 +409,11 @@ final class GameWoundActions
                 $actor['id'],
                 $pending,
                 $amounts,
+                false,
             );
-            $amounts = $turned['amounts'];
-            $pending = $turned['pending'];
-            $touched = array_merge($touched, $turned['touched']);
+            $amounts = $declared['amounts'];
+            $pending = $declared['pending'];
+            $touched = array_merge($touched, $declared['touched']);
         }
 
         $spends = [];
@@ -591,33 +618,19 @@ final class GameWoundActions
      */
     private function freeHands(CharacterRuleSlice $slice, array $actorSheet, array $actor, GameRecord $game): int
     {
-        return $this->handCount($slice, $actorSheet['choices'])
+        return $this->handCount()
             - $this->equippedHands($slice, $actorSheet['choices'])
             - $this->heldWounds($actor, $game);
     }
 
     /**
-     * Число рук расы. Нет поля — 2.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $choices Выборы.
+     * Число рук расы. У всех текущих рас — 2.
      *
      * @return int Число.
      */
-    private function handCount(CharacterRuleSlice $slice, array $choices): int
+    private function handCount(): int
     {
-        $code = $choices['raceCode'] ?? null;
-        $spec = is_string($code) ? $slice->findLive($code)?->getSpec() : null;
-        if ($spec instanceof SpeciesSpec) {
-            $parent = $spec->getParentRaceCode();
-            $spec = is_string($parent) ? $slice->findLive($parent)?->getSpec() : null;
-        }
-
-        if (!$spec instanceof RaceSpec || $spec->getHands() === null) {
-            return 2;
-        }
-
-        return $spec->getHands();
+        return 2;
     }
 
     /**
@@ -737,7 +750,7 @@ final class GameWoundActions
      * @param string $kind Вид.
      * @param int $id Id.
      *
-     * @return array{choices: array<string, mixed>, sheet: array<string, mixed>} Документ.
+     * @return array{actualVersion: int, choices: array<string, mixed>, sheet: array<string, mixed>} Документ.
      *
      * @throws GameNotFoundException Если строки нет.
      */
@@ -746,7 +759,11 @@ final class GameWoundActions
         if ($kind === 'character') {
             $snapshot = $this->rules->characterSnapshot($id);
 
-            return ['choices' => $snapshot['choices'], 'sheet' => $snapshot['sheet']];
+            return [
+                'actualVersion' => $snapshot['actualVersion'],
+                'choices' => $snapshot['choices'],
+                'sheet' => $snapshot['sheet'],
+            ];
         }
 
         $npc = $this->npcs->getById($id);
@@ -761,7 +778,33 @@ final class GameWoundActions
             throw new GameInvalidException('Game npc sheet is invalid');
         }
 
-        return ['choices' => $choices, 'sheet' => $sheet];
+        return [
+            'actualVersion' => $npc->getActualVersion(),
+            'choices' => $choices,
+            'sheet' => $sheet,
+        ];
+    }
+
+    /**
+     * Целые траты в карту ресурсов.
+     *
+     * @param array<int, ResourceSpend> $spends Траты.
+     *
+     * @return array<string, int> Суммы.
+     */
+    private function spentAmounts(array $spends): array
+    {
+        $amounts = [];
+        foreach ($spends as $spend) {
+            $native = $spend->getAmount()->toNative();
+            if (!is_int($native)) {
+                continue;
+            }
+
+            $amounts[$spend->getResourceCode()] = ($amounts[$spend->getResourceCode()] ?? 0) + $native;
+        }
+
+        return $amounts;
     }
 
     /**

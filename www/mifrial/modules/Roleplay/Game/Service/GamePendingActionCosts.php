@@ -7,10 +7,13 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityProcessSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\AfterActionUntilResourceSpentCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackCostEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionCostEffect;
 
@@ -19,6 +22,8 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionCostEffect;
  */
 final class GamePendingActionCosts
 {
+    private const DEFAULT_SOURCE = 'circumstances';
+
     /**
      * Сдвигает целые траты удара и возвращает новую карту. Пол 2 не ставит.
      *
@@ -53,16 +58,16 @@ final class GamePendingActionCosts
             $amounts[$spend->getResourceCode()] = ($amounts[$spend->getResourceCode()] ?? 0) + $native;
         }
 
-        $turned = $this->turn($slice, $choices, $actionRuleCode, $actorKind, $actorId, $pending, $amounts, true);
-        foreach ($turned['amounts'] as $code => $amount) {
+        $declared = $this->declare($slice, $choices, $actionRuleCode, $actorKind, $actorId, $pending, $amounts, true);
+        foreach ($declared['amounts'] as $code => $amount) {
             $kept[] = new ResourceSpend($code, new ScalarResourceValue($amount));
         }
 
-        return ['spends' => $kept, 'pending' => $turned['pending']];
+        return ['spends' => $kept, 'pending' => $declared['pending']];
     }
 
     /**
-     * Применяет совпавшие сдвиги и заменяет список актора эффектами этой команды.
+     * Начало действия: применяет cost-эффекты, не трогая висящие проверки.
      *
      * @param CharacterRuleSlice $slice Срез.
      * @param array<string, mixed> $choices Выборы актора.
@@ -71,11 +76,11 @@ final class GamePendingActionCosts
      * @param int $actorId Id актора.
      * @param array<string, mixed> $pending Карта боя.
      * @param array<string, int> $amounts Цены по ресурсам.
-     * @param bool $forAttack Команда — атака: снять next_action_attack_cost.
+     * @param bool $forAttack Команда — атака: применить next_action_attack_cost.
      *
      * @return array{amounts: array<string, int>, pending: array<string, mixed>, touched: array<string, bool>} Итог.
      */
-    public function turn(
+    public function declare(
         CharacterRuleSlice $slice,
         array $choices,
         string $actionRuleCode,
@@ -87,19 +92,26 @@ final class GamePendingActionCosts
     ): array {
         $key = $actorKind . ':' . $actorId;
         $waiting = is_array($pending[$key] ?? null) ? $pending[$key] : [];
+        $kept = [];
         $touched = [];
         foreach ($waiting as $entry) {
             $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
             if (!is_array($effect)) {
+                $kept[] = $entry;
                 continue;
             }
 
-            $attackCost = ($effect['type'] ?? null) === 'next_action_attack_cost';
-            if ($attackCost && !$forAttack) {
+            $type = $effect['type'] ?? null;
+            if ($type !== 'next_action_attack_cost' && $type !== 'next_action_cost') {
+                $kept[] = $entry;
                 continue;
             }
 
-            if (!$attackCost && !$this->matches($slice, $actionRuleCode, $effect)) {
+            if ($type === 'next_action_attack_cost' && !$forAttack) {
+                continue;
+            }
+
+            if ($type === 'next_action_cost' && !$this->matches($slice, $actionRuleCode, $effect)) {
                 continue;
             }
 
@@ -114,15 +126,86 @@ final class GamePendingActionCosts
             $touched[$resource] = true;
         }
 
-        $pending[$key] = array_merge(
-            $this->queued($slice, $choices, $actionRuleCode),
-            $this->attackCostOf($slice, $actionRuleCode),
-        );
-        if ($pending[$key] === []) {
+        $pending[$key] = $kept;
+        if ($kept === []) {
             unset($pending[$key]);
         }
 
         return ['amounts' => $amounts, 'pending' => $pending, 'touched' => $touched];
+    }
+
+    /**
+     * Конец действия: уменьшает старые висящие проверки и дописывает новые.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $choices Выборы актора.
+     * @param string $actionRuleCode Карточка команды.
+     * @param string $actorKind Вид character или npc.
+     * @param int $actorId Id актора.
+     * @param array<string, mixed> $pending Карта боя.
+     * @param array<string, int> $spentAmounts Фактическая трата по ресурсам.
+     *
+     * @return array<string, mixed> Новая карта.
+     */
+    public function complete(
+        CharacterRuleSlice $slice,
+        array $choices,
+        string $actionRuleCode,
+        string $actorKind,
+        int $actorId,
+        array $pending,
+        array $spentAmounts,
+    ): array {
+        $key = $actorKind . ':' . $actorId;
+        $waiting = is_array($pending[$key] ?? null) ? $pending[$key] : [];
+        $kept = $this->reduceAfterAction($waiting, $spentAmounts);
+
+        array_push($kept, ...$this->afterActionOf($slice, $actionRuleCode));
+        array_push($kept, ...$this->queued($slice, $choices, $actionRuleCode));
+        array_push($kept, ...$this->attackCostOf($slice, $actionRuleCode));
+
+        $pending[$key] = $kept;
+        if ($kept === []) {
+            unset($pending[$key]);
+        }
+
+        return $pending;
+    }
+
+    /**
+     * Висящие проверки актора для одного броска.
+     *
+     * @param array<string, mixed> $pending Карта боя.
+     * @param string $actorKind Вид character или npc.
+     * @param int $actorId Id актора.
+     * @param string $checkCode Код проверки.
+     * @param string $side Сторона attacker или defender.
+     *
+     * @return array<int, RollAdvantage> Записи.
+     */
+    public function checkAdvantages(
+        array $pending,
+        string $actorKind,
+        int $actorId,
+        string $checkCode,
+        string $side,
+    ): array {
+        $key = $actorKind . ':' . $actorId;
+        $waiting = is_array($pending[$key] ?? null) ? $pending[$key] : [];
+        $rows = [];
+        foreach ($waiting as $entry) {
+            $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+            if (!is_array($effect) || ($effect['type'] ?? null) !== 'after_action_until_resource_spent_check_modifier') {
+                continue;
+            }
+
+            $advantage = $this->checkAdvantageOf($effect, $checkCode, $side);
+            if ($advantage !== null) {
+                $rows[] = $advantage;
+            }
+        }
+
+        return $rows;
     }
 
     /**
@@ -137,13 +220,176 @@ final class GamePendingActionCosts
     public function matches(CharacterRuleSlice $slice, string $actionRuleCode, array $effect): bool
     {
         $keywords = $effect['keywords'] ?? null;
-        if (is_array($keywords) && $keywords !== []) {
-            $rule = $slice->findLive($actionRuleCode);
-
-            return $rule !== null && array_diff($keywords, $rule->getKeywordCodes()) === [];
+        if (!is_array($keywords) || $keywords === []) {
+            return ($effect['ruleCode'] ?? null) === $actionRuleCode;
         }
 
-        return ($effect['ruleCode'] ?? null) === $actionRuleCode;
+        $rule = $slice->findLive($actionRuleCode);
+
+        return $rule !== null && array_diff($keywords, $rule->getKeywordCodes()) === [];
+    }
+
+    /**
+     * Уменьшает старые последействия на фактическую трату.
+     *
+     * @param array<int, mixed> $waiting Ожидание актора.
+     * @param array<string, int> $spentAmounts Трата по ресурсам.
+     *
+     * @return array<int, mixed> Оставшиеся записи.
+     */
+    private function reduceAfterAction(array $waiting, array $spentAmounts): array
+    {
+        $kept = [];
+        foreach ($waiting as $entry) {
+            $keptEntry = $this->reduceAfterActionEntry($entry, $spentAmounts);
+            if ($keptEntry !== null) {
+                $kept[] = $keptEntry;
+            }
+        }
+
+        return $kept;
+    }
+
+    /**
+     * Уменьшает остаток одной записи последействия.
+     *
+     * @param mixed $entry Запись ожидания.
+     * @param array<string, int> $spentAmounts Трата по ресурсам.
+     *
+     * @return mixed Запись или null, если погашена.
+     */
+    private function reduceAfterActionEntry(mixed $entry, array $spentAmounts): mixed
+    {
+        $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+        $keep = true;
+        if (is_array($effect) && ($effect['type'] ?? null) === 'after_action_until_resource_spent_check_modifier') {
+            $resource = $effect['resource_code'] ?? null;
+            $amount = $effect['amount'] ?? null;
+            $spent = is_string($resource) ? ($spentAmounts[$resource] ?? 0) : 0;
+            if (is_int($amount) && is_int($spent) && $spent > 0) {
+                $remaining = $amount - $spent;
+                $keep = $remaining > 0;
+                if ($keep) {
+                    $effect['amount'] = $remaining;
+                    $entry['effect'] = $effect;
+                }
+            }
+        }
+
+        return $keep ? $entry : null;
+    }
+
+    /**
+     * Запись проверки из одного последействия.
+     *
+     * @param array<string, mixed> $effect Эффект.
+     * @param string $checkCode Код проверки.
+     * @param string $side Сторона attacker или defender.
+     *
+     * @return RollAdvantage|null Запись или null.
+     */
+    private function checkAdvantageOf(array $effect, string $checkCode, string $side): ?RollAdvantage
+    {
+        $codes = $effect['check_codes'] ?? null;
+        $appliesTo = $effect['applies_to'] ?? null;
+        $amount = $effect['amount'] ?? 0;
+        $delta = $effect['delta'] ?? null;
+        $skip = !is_array($codes)
+            || !in_array($checkCode, $codes, true)
+            || ($side === 'defender' && $appliesTo === 'attacker_hit')
+            || ($side === 'attacker' && $appliesTo === 'defender_hit')
+            || !is_int($amount) || $amount <= 0
+            || !is_int($delta) || $delta === 0;
+        if ($skip) {
+            return null;
+        }
+
+        $source = $effect['source_code'] ?? null;
+
+        return new RollAdvantage(
+            is_string($source) && $source !== '' ? $source : self::DEFAULT_SOURCE,
+            $delta,
+        );
+    }
+
+    /**
+     * Висящие проверки карточки действия.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка.
+     *
+     * @return array<int, array<string, mixed>> Строки карты.
+     */
+    private function afterActionOf(CharacterRuleSlice $slice, string $actionRuleCode): array
+    {
+        $base = $this->abilityBase($slice, $actionRuleCode);
+        if ($base === null) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($base->getActionEffects() as $effect) {
+            if (!$effect instanceof AfterActionUntilResourceSpentCheckModifierEffect) {
+                continue;
+            }
+
+            $rows[] = [
+                'sourceRuleCode' => $actionRuleCode,
+                'effect' => $this->afterActionStored($effect),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Сохраняемая форма висящей проверки.
+     *
+     * @param AfterActionUntilResourceSpentCheckModifierEffect $effect Эффект.
+     *
+     * @return array<string, mixed> Строка карты.
+     */
+    private function afterActionStored(AfterActionUntilResourceSpentCheckModifierEffect $effect): array
+    {
+        $stored = [
+            'type' => 'after_action_until_resource_spent_check_modifier',
+            'resource_code' => $effect->getResourceCode(),
+            'amount' => $effect->getAmount(),
+            'check_codes' => $effect->getCheckCodes(),
+            'delta' => $effect->getDelta(),
+        ];
+        if ($effect->getSourceCode() !== null) {
+            $stored['source_code'] = $effect->getSourceCode();
+        }
+
+        if ($effect->getAppliesTo() !== null) {
+            $stored['applies_to'] = $effect->getAppliesTo();
+        }
+
+        return $stored;
+    }
+
+    /**
+     * База поддерживаемой карточки действия.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка.
+     *
+     * @return AbilityBase|null База или null.
+     */
+    private function abilityBase(CharacterRuleSlice $slice, string $actionRuleCode): ?AbilityBase
+    {
+        $spec = $slice->findLive($actionRuleCode)?->getSpec();
+        if (
+            $spec instanceof AbilityActionSpec
+            || $spec instanceof AbilityPlainSpec
+            || $spec instanceof AbilityProcessSpec
+            || $spec instanceof AbilitySpellSpec
+        ) {
+            return $spec->getBase();
+        }
+
+        return null;
     }
 
     /**

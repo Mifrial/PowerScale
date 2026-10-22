@@ -16,9 +16,13 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackAccuracyEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackCharacteristicModifierEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
@@ -348,6 +352,7 @@ final class GameStrikeRules
      * @param array<string, mixed>|null $npcSheet Снимок sheet NPC или null.
      * @param array<string, mixed>|null $npcChoices Снимок choices NPC или null.
      * @param int|null $sheetVersion Версия листа NPC.
+     * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
      *
      * @return DimensionalNumber Пара формулы.
      *
@@ -366,6 +371,7 @@ final class GameStrikeRules
         ?array $npcSheet,
         ?array $npcChoices,
         ?int $sheetVersion = null,
+        ?int $actionCharacteristicModifier = null,
     ): DimensionalNumber {
         if ($attackerKind !== 'character' && $attackerKind !== 'npc') {
             throw new GameInvalidException('Game strike attacker is invalid');
@@ -387,14 +393,19 @@ final class GameStrikeRules
                 throw new GameInvalidException('Game strike damage profile is invalid');
             }
 
+            $context = $this->formulaContext(
+                $this->slice($spaceId, $rulesRevision),
+                $documents['sheet'],
+                $documents['choices'],
+                $documents['key'],
+            );
+            if ($actionCharacteristicModifier !== null && $actionCharacteristicModifier !== 0) {
+                $context = $context->withActionCharacteristicModifier($actionCharacteristicModifier);
+            }
+
             return $this->formulaEvaluations->evaluateDimensional(
                 $profile->getDamage()->getFormula(),
-                $this->formulaContext(
-                    $this->slice($spaceId, $rulesRevision),
-                    $documents['sheet'],
-                    $documents['choices'],
-                    $documents['key'],
-                ),
+                $context,
             );
         } catch (GameInvalidException $exception) {
             throw $exception;
@@ -656,6 +667,7 @@ final class GameStrikeRules
      * @param array<string, mixed>|null $npcChoices Снимок choices NPC.
      * @param string $actionRuleCode Карточка атаки. Пусто, если сдвига точности нет.
      * @param int|null $sheetVersion Версия листа NPC.
+     * @param array<int, RollAdvantage> $advantages Преимущества проверки.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Результат.
      *
@@ -676,6 +688,7 @@ final class GameStrikeRules
         ?array $npcChoices,
         string $actionRuleCode = '',
         ?int $sheetVersion = null,
+        array $advantages = [],
     ): array {
         $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
         $item = $this->selectedItem($spaceId, $rulesRevision, $documents['choices'], $itemInventoryId, $itemRuleCode);
@@ -705,6 +718,7 @@ final class GameStrikeRules
             $mastery,
             $accuracy,
             ['base' => 0, 'size' => 0],
+            $advantages,
         );
     }
 
@@ -748,6 +762,7 @@ final class GameStrikeRules
         string $profileType,
         array $attackerRoll,
         ?string $participantKey = null,
+        array $advantages = [],
     ): array {
         $slice = $this->slice($spaceId, $rulesRevision);
         $mastery = $this->bestEquippedMastery($slice, $sheet, $choices, $profileType, $participantKey);
@@ -765,6 +780,7 @@ final class GameStrikeRules
             $mastery,
             $this->dodgeEfficiency($this->dodgeRule($slice)),
             $raw,
+            $advantages,
         );
     }
 
@@ -795,6 +811,7 @@ final class GameStrikeRules
      * @param int $blockItemProfileIndex Профиль блока.
      * @param array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} $attackerRoll Результат атаки.
      * @param string|null $participantKey Ключ листа защитника.
+     * @param array<int, RollAdvantage> $advantages Преимущества проверки.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Результат.
      *
@@ -811,6 +828,7 @@ final class GameStrikeRules
         int $blockItemProfileIndex,
         array $attackerRoll,
         ?string $participantKey = null,
+        array $advantages = [],
     ): array {
         $this->assertBlockSelection(
             $spaceId,
@@ -843,7 +861,126 @@ final class GameStrikeRules
             $mastery,
             $profile->getEfficiency(),
             $attackerRoll['roll'],
+            $advantages,
         );
+    }
+
+    /**
+     * Текущие проверочные модификаторы карточки действия.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка.
+     * @param string $checkCode Код проверки.
+     *
+     * @return array<int, RollAdvantage> Записи.
+     */
+    public function actionCheckAdvantages(
+        CharacterRuleSlice $slice,
+        string $actionRuleCode,
+        string $checkCode,
+    ): array {
+        $base = $this->actionBase($slice, $actionRuleCode);
+        if ($base === null) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($base->getActionEffects() as $effect) {
+            if (!$effect instanceof CurrentActionCheckModifierEffect) {
+                continue;
+            }
+
+            if (!in_array($checkCode, $effect->getCheckCodes(), true)) {
+                continue;
+            }
+
+            $source = $effect->getSourceCode();
+            $rows[] = new RollAdvantage(
+                is_string($source) && $source !== '' ? $source : 'circumstances',
+                $effect->getDelta(),
+            );
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Карточка реакции с нужным combat action.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $reaction Сторона dodge или block.
+     *
+     * @return string|null Код или null.
+     */
+    public function reactionRuleCode(int $spaceId, int $rulesRevision, string $reaction): ?string
+    {
+        foreach ($this->slice($spaceId, $rulesRevision)->getLiveRules() as $rule) {
+            $spec = $rule->getSpec();
+            if ($spec instanceof AbilityActionSpec && $spec->getBase()->getCombatAction() === $reaction) {
+                return $rule->getCode();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Текущий сдвиг характеристики атаки карточки действия.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка.
+     * @param string $profileType Тип профиля strike, throw или shoot.
+     * @param int $hitNumber Номер попадания.
+     *
+     * @return int Сдвиг.
+     */
+    public function actionCharacteristicModifier(
+        CharacterRuleSlice $slice,
+        string $actionRuleCode,
+        string $profileType,
+        int $hitNumber,
+    ): int {
+        $base = $this->actionBase($slice, $actionRuleCode);
+        if ($base === null) {
+            return 0;
+        }
+
+        $delta = 0;
+        foreach ($base->getActionEffects() as $effect) {
+            if (!$effect instanceof CurrentActionAttackCharacteristicModifierEffect) {
+                continue;
+            }
+
+            $scope = $effect->getScope();
+            if (!in_array($profileType, $scope->getComponents(), true)) {
+                continue;
+            }
+
+            $hitCount = $scope->getHitCount();
+            if (is_int($hitCount) && ($hitNumber < 1 || $hitNumber > $hitCount)) {
+                continue;
+            }
+
+            $delta += $effect->getDelta();
+        }
+
+        return $delta;
+    }
+
+    /**
+     * База карточки действия.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка.
+     *
+     * @return AbilityBase|null База или null.
+     */
+    private function actionBase(CharacterRuleSlice $slice, string $actionRuleCode): ?AbilityBase
+    {
+        $spec = $slice->findLive($actionRuleCode)?->getSpec();
+
+        return $spec instanceof AbilityActionSpec ? $spec->getBase() : null;
     }
 
     /**

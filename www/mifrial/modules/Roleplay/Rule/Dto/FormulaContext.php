@@ -18,6 +18,7 @@ final class FormulaContext
      * @param array<string, int> $abilityLevels Уровни способностей.
      * @param array<string, int> $parameters Параметры.
      * @param array<string, array<string, DimensionalNumber>> $actionCharacteristics Базы характеристик действий.
+     * @param int $actionCharacteristicModifier Сдвиг характеристики действия.
      *
      * @return void
      */
@@ -26,6 +27,7 @@ final class FormulaContext
         private readonly array $abilityLevels = [],
         private readonly array $parameters = [],
         private readonly array $actionCharacteristics = [],
+        private readonly int $actionCharacteristicModifier = 0,
     ) {
     }
 
@@ -92,6 +94,35 @@ final class FormulaContext
             $this->abilityLevels,
             $this->parameters,
             $this->actionCharacteristics,
+            $this->actionCharacteristicModifier,
+        );
+    }
+
+    /**
+     * Сдвиг характеристики действия в этом контексте.
+     *
+     * @return int Пункты.
+     */
+    public function getActionCharacteristicModifier(): int
+    {
+        return $this->actionCharacteristicModifier;
+    }
+
+    /**
+     * Копия контекста со сдвигом характеристики действия.
+     *
+     * @param int $delta Пункты.
+     *
+     * @return self Контекст.
+     */
+    public function withActionCharacteristicModifier(int $delta): self
+    {
+        return new self(
+            $this->characteristics,
+            $this->abilityLevels,
+            $this->parameters,
+            $this->actionCharacteristics,
+            $delta,
         );
     }
 }

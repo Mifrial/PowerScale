@@ -289,6 +289,18 @@ final class FormulaEvaluationTest extends TestCase
     }
 
     /**
+     * Контекстный сдвиг меняет только характеристику действия.
+     *
+     * @return void
+     */
+    public function testActionCharacteristicContextModifier(): void
+    {
+        $context = $this->context()->withActionCharacteristicModifier(2);
+        $this->assertPair(new ActionCharacteristicNode('strike', 'strength', null, []), $context, 4, 1, 8);
+        $this->assertPair(new CharacteristicNode('strength', 0), $context, 5, 0, 5);
+    }
+
+    /**
      * Пара и её прежнее целое.
      *
      * @param DimensionalFormula $node Узел.

@@ -71,12 +71,18 @@ final class GameDeliveryWoundMysqlTest extends TestCase
         $this->clearDelivery();
         self::assertSame(0, $this->deliveryCount());
         $frames = $this->frames($this->runSync($scene['gameId'], 0, new FakeGameSyncClock(0)));
-        self::assertSame(1, $this->deliveryCount());
+        // catchUp восстанавливает и команду боя, и рану.
+        self::assertSame(2, $this->deliveryCount());
         $events = $frames[0]['events'] ?? [];
         self::assertIsArray($events);
-        self::assertSame('wound', $events[0]['source'] ?? null);
-        self::assertSame($scene['battleId'], $events[0]['battleId'] ?? null);
-        self::assertSame([], $events[0]['keys'] ?? null);
+        $wound = array_values(array_filter(
+            $events,
+            static fn (mixed $event): bool => is_array($event) && ($event['source'] ?? null) === 'wound',
+        ));
+        self::assertCount(1, $wound);
+        $event = $wound[0];
+        self::assertSame($scene['battleId'], $event['battleId'] ?? null);
+        self::assertSame([], $event['keys'] ?? null);
     }
 
     /**

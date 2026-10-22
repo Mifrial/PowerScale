@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Core\Event\Interface\Service\IEventManager;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Service\Read\CharacterSectionMask;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
@@ -664,7 +665,12 @@ final class GameWideStrikes implements IGameWideStrikes
      */
     private function prepareCloseContext(array $context): array
     {
-        $context['attackerRoll'] = $this->rollOf($context['game'], $context['open']);
+        $context['attackerRoll'] = $this->rollOf(
+            $context['game'],
+            $context['open'],
+            $context['battle'],
+            $this->rules->ruleSlice($context['game']->getSpaceId(), $context['game']->getRulesRevision()),
+        );
         $context['damage'] = $this->rules->isHitAutoFail($context['attackerRoll']['roll'])
             ? (new GameStrikeAmounts())->zero()
             : $this->damageOf($context['game'], $context['open']);
@@ -825,14 +831,20 @@ final class GameWideStrikes implements IGameWideStrikes
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $open Строка удара.
+     * @param GameBattleRecord $battle Бой.
+     * @param CharacterRuleSlice $slice Срез правил.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Roll.
      *
      * @throws GameInvalidException Если строка или документ битые.
      * @throws GameNotFoundException Если лист отсутствует.
      */
-    private function rollOf(GameRecord $game, array $open): array
-    {
+    private function rollOf(
+        GameRecord $game,
+        array $open,
+        GameBattleRecord $battle,
+        CharacterRuleSlice $slice,
+    ): array {
         $kind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
         $itemRuleCode = $open['item_rule_code'] ?? null;
@@ -850,10 +862,21 @@ final class GameWideStrikes implements IGameWideStrikes
             throw new GameInvalidException('Game wide strike row is invalid');
         }
 
+        $hitCode = $this->hitCode($game);
+        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        $advantages = $this->rules->actionCheckAdvantages($slice, $actionRuleCode, $hitCode);
+        array_push($advantages, ...(new GamePendingActionCosts())->checkAdvantages(
+            $battle->getPendingActionEffects(),
+            $kind,
+            $attackerId,
+            $hitCode,
+            'attacker',
+        ));
+
         return $this->rules->rollHit(
             $game->getSpaceId(),
             $game->getRulesRevision(),
-            $this->hitCode($game),
+            $hitCode,
             $itemRuleCode,
             $profileType,
             $profileIndex,
@@ -862,8 +885,9 @@ final class GameWideStrikes implements IGameWideStrikes
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->attackerChoices($game->getId(), $attackerId) : null,
-            is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '',
+            $actionRuleCode,
             $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
+            $advantages,
         );
     }
 
@@ -932,6 +956,14 @@ final class GameWideStrikes implements IGameWideStrikes
             throw new GameInvalidException('Game wide strike row is invalid');
         }
 
+        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        $characteristicModifier = $this->rules->actionCharacteristicModifier(
+            $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+            $actionRuleCode,
+            $profileType,
+            1,
+        );
+
         return $this->rules->evaluateDamage(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -944,6 +976,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->attackerChoices($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
+            $characteristicModifier,
         );
     }
 

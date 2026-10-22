@@ -259,7 +259,7 @@ final class FormulaEvaluations implements IFormulaEvaluations
     {
         $base = $context->findActionCharacteristic($node->getAction(), $node->getCharacteristic());
         $base ??= $context->findCharacteristic($node->getCharacteristic());
-        $delta = 0;
+        $delta = $context->getActionCharacteristicModifier();
         foreach ($node->getModifiers() as $modifier) {
             $delta += $modifier->getDelta();
         }

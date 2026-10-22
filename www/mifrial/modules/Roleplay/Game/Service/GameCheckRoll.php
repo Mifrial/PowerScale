@@ -242,6 +242,7 @@ final class GameCheckRoll
      * @param DimensionalNumber $mastery Derived mastery.
      * @param DimensionalNumber|null $efficiency Эффективность профиля или live fallback.
      * @param array{base: int, size: int} $difficulty Фактическая трудность.
+     * @param array<int, RollAdvantage> $advantages Явные преимущества действия.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
      *
@@ -256,6 +257,7 @@ final class GameCheckRoll
         DimensionalNumber $mastery,
         ?DimensionalNumber $efficiency,
         array $difficulty,
+        array $advantages = [],
     ): array {
         $slice = $this->slices->get($spaceId, $rulesRevision);
         $check = $this->hitSpec($slice, $ruleCode);
@@ -275,7 +277,10 @@ final class GameCheckRoll
             $dieFaces,
             $bindings,
             $chain['attached'],
-            $this->stateAdvantages($slice, $sheet, null, true),
+            array_merge(
+                $this->stateAdvantages($slice, $sheet, null, true),
+                $advantages,
+            ),
         );
         $minimum = ['base' => 0, 'size' => -1];
         if ($difficulty['base'] === 0 && $difficulty['size'] === 0) {

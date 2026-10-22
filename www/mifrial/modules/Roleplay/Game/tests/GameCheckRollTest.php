@@ -13,6 +13,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Game\Service\GameCheckRoll;
 use Mifrial\Roleplay\Mechanic\Dto\CheckRating;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Mechanic\Dto\RollMechanicPayload;
 use Mifrial\Roleplay\Mechanic\Dto\RollResult;
 use Mifrial\Roleplay\Mechanic\Dto\RollSpec;
@@ -168,6 +169,51 @@ final class GameCheckRollTest extends TestCase
         self::assertSame(1, $captured[3]->getDieSize());
         self::assertSame(4, $resolved->getEfficiency());
         self::assertSame(2, $resolved->getDieSize());
+    }
+
+    /**
+     * Явные преимущества действия попадают в бросок вместе с состоянием.
+     *
+     * @return void
+     */
+    public function testHitMergesExplicitAdvantages(): void
+    {
+        $captured = null;
+        $slices = $this->createMock(ICharacterRuleSlices::class);
+        $slices->method('get')->willReturn($this->hitSlice(null, 1));
+        $mechanics = $this->createStub(IMechanics::class);
+        $mechanics->method('getList')->willReturn([]);
+        $rolls = $this->createStub(IMechanicRolls::class);
+        $rolls->method('roll')->willReturnCallback(
+            function (RollSpec $spec) use (&$captured): RollResult {
+                $captured = $spec;
+
+                return new RollResult($spec, [], [], [], [], 0, null);
+            },
+        );
+        $rolls->method('rate')->willReturn(new CheckRating(false, 0));
+        $roll = new GameCheckRoll(
+            $slices,
+            $this->createStub(ICharacters::class),
+            $mechanics,
+            $rolls,
+        );
+
+        $roll->throwHitWithMastery(
+            1,
+            1,
+            'hit',
+            [],
+            new DimensionalNumber(2, 1),
+            null,
+            ['base' => 0, 'size' => 0],
+            [new RollAdvantage('circumstances', -2)],
+        );
+
+        self::assertInstanceOf(RollSpec::class, $captured);
+        self::assertCount(1, $captured->getAdvantages());
+        self::assertSame('circumstances', $captured->getAdvantages()[0]->getSourceCode());
+        self::assertSame(-2, $captured->getAdvantages()[0]->getDelta());
     }
 
     /**
