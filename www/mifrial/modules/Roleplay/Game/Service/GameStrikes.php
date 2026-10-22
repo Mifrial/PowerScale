@@ -65,6 +65,8 @@ final class GameStrikes implements IGameStrikes
 
     private readonly GameStrikeAccess $access;
 
+    private readonly GameStrikeSheets $sheets;
+
     /**
      * Карта ожидания после списания удара.
      *
@@ -117,6 +119,13 @@ final class GameStrikes implements IGameStrikes
         $this->conflictProjection = $conflictProjection;
         $this->chat = new GameStrikeChat($this->npcs, $rules);
         $this->access = new GameStrikeAccess($this->members, $this->characters, $this->battles, $cardAccess);
+        $this->sheets = new GameStrikeSheets(
+            $rules,
+            $this->npcs,
+            $this->characters,
+            $this->members,
+            $conflictProjection,
+        );
     }
 
     /**
@@ -396,7 +405,7 @@ final class GameStrikes implements IGameStrikes
             throw new GameInvalidException('Game strike row is invalid');
         }
 
-        $this->assertSheet($game, $open, $expectedSheetVersion, $actorUserId, $viewAll);
+        $this->sheets->assertDefenderSheet($game, $open, $expectedSheetVersion, $actorUserId, $viewAll);
         $hitCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
         $body = [
             'battleId' => $battleId,
@@ -558,8 +567,8 @@ final class GameStrikes implements IGameStrikes
         }
 
         $snapshot = $kind === 'character'
-            ? $this->characterSheetSnapshot($id)
-            : $this->npcSheetSnapshot($game->getId(), $id);
+            ? $this->sheets->getCharacterSnapshot($id)
+            : $this->sheets->getNpcSnapshot($game->getId(), $id);
         $inventorySpend = $this->rules->resolveInventorySpend(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -627,8 +636,8 @@ final class GameStrikes implements IGameStrikes
         }
 
         $snapshot = $kind === 'character'
-            ? $this->characterSheetSnapshot($id)
-            : $this->npcSheetSnapshot($game->getId(), $id);
+            ? $this->sheets->getCharacterSnapshot($id)
+            : $this->sheets->getNpcSnapshot($game->getId(), $id);
         $spends = $this->rules->resolveResourceSpends(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -828,7 +837,7 @@ final class GameStrikes implements IGameStrikes
 
         $attackerRoll = $this->rollOf($game, $open, $hitCode, $pending, $slice);
         $defenderRoll = null;
-        if ($choice['reaction'] !== 'ignore' && $this->rules->isUnconscious($game->getSpaceId(), $game->getRulesRevision(), $this->defenderSheet($game, $open))) {
+        if ($choice['reaction'] !== 'ignore' && $this->rules->isUnconscious($game->getSpaceId(), $game->getRulesRevision(), $this->sheets->getDefenderSheet($game, $open))) {
             throw new GameInvalidException('Game strike defender is unconscious');
         }
 
@@ -863,7 +872,7 @@ final class GameStrikes implements IGameStrikes
             && $spends !== [] && !$this->rules->hasSufficientResources(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
-                $this->defenderSheet($game, $open),
+                $this->sheets->getDefenderSheet($game, $open),
                 $spends,
             )
         ) {
@@ -1013,10 +1022,9 @@ final class GameStrikes implements IGameStrikes
             $expectedSheetVersion,
             $spends,
             ['type' => $kind, 'id' => $defenderId],
-            fn (CharacterConflictException|GameEconomyConflictException $exception): array => $this->projectWriteConflict(
+            fn (CharacterConflictException|GameEconomyConflictException $exception): array => $this->sheets->projectWriteConflict(
                 $game,
-                $kind,
-                $defenderId,
+                ['type' => $kind, 'id' => $defenderId],
                 $exception,
                 $actorUserId,
                 $viewAll,
@@ -1062,7 +1070,7 @@ final class GameStrikes implements IGameStrikes
             $choice['reaction'] === 'block' ? $choice['blockItemInventoryId'] : null,
             $blockRuleCode,
             $this->defenderChoices($game, $kind, $id),
-            $this->defenderSheet($game, $open),
+            $this->sheets->getDefenderSheet($game, $open),
         );
     }
 
@@ -1118,35 +1126,6 @@ final class GameStrikes implements IGameStrikes
         );
 
         return $choice;
-    }
-
-    /**
-     * Возвращает authoritative sheet защитника.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Open strike.
-     *
-     * @return array<string, mixed> Sheet.
-     *
-     * @throws GameInvalidException If row or NPC is invalid.
-     * @throws GameNotFoundException If target is absent.
-     */
-    private function defenderSheet(GameRecord $game, array $open): array
-    {
-        $kind = $open['defender_kind'] ?? null;
-        $id = $open['defender_id'] ?? null;
-        if (!is_string($kind) || !is_int($id)) {
-            throw new GameInvalidException('Game strike defender is invalid');
-        }
-
-        if ($kind === 'character') {
-            return $this->rules->characterSnapshot($id)['sheet'];
-        }
-
-        $wrapped = $this->npcSheetSnapshot($game->getId(), $id)['sheet'];
-        $inner = is_array($wrapped) ? ($wrapped['sheet'] ?? null) : null;
-
-        return is_array($inner) ? $inner : $wrapped;
     }
 
     /**
@@ -1268,7 +1247,7 @@ final class GameStrikes implements IGameStrikes
             throw new GameInvalidException('Game strike row is invalid');
         }
 
-        $npcSnapshot = $kind === 'npc' ? $this->npcSheetSnapshot($game->getId(), $defenderId) : null;
+        $npcSnapshot = $kind === 'npc' ? $this->sheets->getNpcSnapshot($game->getId(), $defenderId) : null;
         $sheet = $npcSnapshot !== null
             ? $npcSnapshot['sheet']['sheet']
             : $this->rules->characterSnapshot($defenderId)['sheet'];
@@ -1330,10 +1309,9 @@ final class GameStrikes implements IGameStrikes
             $expectedSheetVersion,
             $operations,
             ['type' => $kind, 'id' => $defenderId],
-            fn (CharacterConflictException|GameEconomyConflictException $exception): array => $this->projectWriteConflict(
+            fn (CharacterConflictException|GameEconomyConflictException $exception): array => $this->sheets->projectWriteConflict(
                 $game,
-                $kind,
-                $defenderId,
+                ['type' => $kind, 'id' => $defenderId],
                 $exception,
                 $actorUserId,
                 $viewAll,
@@ -1498,39 +1476,6 @@ final class GameStrikes implements IGameStrikes
     }
 
     /**
-     * Проецирует race-конфликт записи листа.
-     *
-     * @param GameRecord $game Игра.
-     * @param string $kind Вид цели.
-     * @param int $id Идентификатор цели.
-     * @param CharacterConflictException|GameEconomyConflictException $exception Исходный конфликт.
-     * @param int $actorUserId Актор.
-     * @param bool $viewAll Полный просмотр.
-     *
-     * @return array{choices: array<string, mixed>, sheet: array<string, mixed>} Проекция.
-     *
-     * @throws GameInvalidException Если снимок листа битый.
-     * @throws GameNotFoundException Если цель или membership отсутствуют.
-     */
-    private function projectWriteConflict(
-        GameRecord $game,
-        string $kind,
-        int $id,
-        CharacterConflictException|GameEconomyConflictException $exception,
-        int $actorUserId,
-        bool $viewAll,
-    ): array {
-        $current = $exception->getCurrentSheet();
-        if ($current === null) {
-            throw new GameInvalidException('Game strike conflict sheet is missing');
-        }
-
-        return $kind === 'character'
-            ? $this->projectCharacterConflict($game, $id, $current, $actorUserId, $viewAll)
-            : $this->projectNpcConflict($game, $id, $actorUserId, $viewAll, $current);
-    }
-
-    /**
      * Реакция и предмет блока.
      *
      * @param GameRecord $game Игра.
@@ -1570,183 +1515,6 @@ final class GameStrikes implements IGameStrikes
                 $choice['blockItemRuleCode'],
             );
         }
-    }
-
-    /**
-     * Версия листа защитника.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Открытый удар.
-     * @param int $expectedSheetVersion Ожидание.
-     * @param int $actorUserId Актор.
-     * @param bool $viewAll Полный просмотр.
-     *
-     * @return void
-     *
-     * @throws GameBattleConflictException Если версия другая.
-     * @throws GameInvalidException Если вид чужой.
-     * @throws GameNotFoundException Если листа нет.
-     */
-    private function assertSheet(
-        GameRecord $game,
-        array $open,
-        int $expectedSheetVersion,
-        int $actorUserId,
-        bool $viewAll,
-    ): void {
-        $kind = $open['defender_kind'] ?? null;
-        $defenderId = $open['defender_id'] ?? null;
-        if (($kind !== 'character' && $kind !== 'npc') || !is_int($defenderId)) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        $snapshot = $kind === 'character'
-            ? $this->characterSheetSnapshot($defenderId)
-            : $this->npcSheetSnapshot($game->getId(), $defenderId);
-
-        if ($snapshot['actualVersion'] !== $expectedSheetVersion) {
-            $sheet = $kind === 'character'
-                ? $this->projectCharacterConflict($game, $defenderId, $snapshot['sheet'], $actorUserId, $viewAll)
-                : $this->projectNpcConflict($game, $defenderId, $actorUserId, $viewAll);
-            throw new GameBattleConflictException(
-                $snapshot['actualVersion'],
-                currentSheet: $sheet,
-            );
-        }
-    }
-
-    /**
-     * Маскирует конфликтный лист Character.
-     *
-     * @param GameRecord $game Игра.
-     * @param int $characterId Персонаж.
-     * @param array<string, mixed> $sheet Снимок.
-     * @param int $actorUserId Актор.
-     * @param bool $viewAll Полный просмотр.
-     *
-     * @return array{choices: array<string, mixed>, sheet: array<string, mixed>} Маска.
-     *
-     * @throws GameNotFoundException Если membership отсутствует.
-     */
-    private function projectCharacterConflict(
-        GameRecord $game,
-        int $characterId,
-        array $sheet,
-        int $actorUserId,
-        bool $viewAll,
-    ): array {
-        $membership = $this->characters->getByPair($game->getId(), $characterId);
-        $full = $viewAll
-            || $game->getOwnerId() === $actorUserId
-            || $membership->getCharacterOwnerId() === $actorUserId
-            || $this->isGm($game->getId(), $actorUserId);
-        $choices = $sheet['choices'] ?? [];
-        $sheetBody = $sheet['sheet'] ?? [];
-        if (!is_array($choices) || !is_array($sheetBody)) {
-            throw new GameInvalidException('Game character sheet is invalid');
-        }
-
-        return $this->conflictProjection->projectGameCharacter(
-            $choices,
-            $sheetBody,
-            $membership->getSectionVisibility(),
-            $full,
-        );
-    }
-
-    /**
-     * Маскирует конфликтный лист NPC.
-     *
-     * @param GameRecord $game Игра.
-     * @param int $npcId NPC.
-     * @param int $actorUserId Актор.
-     * @param bool $viewAll Полный просмотр.
-     * @param array{choices: array<string, mixed>, sheet: array<string, mixed>}|null $currentSheet Снимок из race-конфликта.
-     *
-     * @return array{choices: array<string, mixed>, sheet: array<string, mixed>} Маска.
-     *
-     * @throws GameNotFoundException Если NPC отсутствует.
-     */
-    private function projectNpcConflict(
-        GameRecord $game,
-        int $npcId,
-        int $actorUserId,
-        bool $viewAll,
-        ?array $currentSheet = null,
-    ): array {
-        $npc = $this->npcs->getById($npcId);
-        if ($npc->getGameId() !== $game->getId()) {
-            throw new GameNotFoundException('Game strike npc was not found');
-        }
-
-        $full = $viewAll
-            || $game->getOwnerId() === $actorUserId
-            || $this->isGm($game->getId(), $actorUserId);
-        $version = $this->conflictProjection->projectNpc(
-            $currentSheet ?? $npc->getVersion(),
-            $npc->getVisibility(),
-            $full,
-        );
-        $choices = $version['choices'] ?? [];
-        $sheet = $version['sheet'] ?? [];
-        if (!is_array($choices) || !is_array($sheet)) {
-            throw new GameInvalidException('Game NPC sheet is invalid');
-        }
-
-        return ['choices' => $choices, 'sheet' => $sheet];
-    }
-
-    /**
-     * Читает свежий snapshot листа персонажа.
-     *
-     * @param int $characterId Персонаж.
-     *
-     * @return array<string, mixed> Snapshot.
-     *
-     * @throws GameNotFoundException Если персонажа нет.
-     */
-    private function characterSheetSnapshot(int $characterId): array
-    {
-        $snapshot = $this->rules->characterSnapshot($characterId);
-
-        return [
-            'actualVersion' => $snapshot['actualVersion'],
-            'sheet' => [
-                'choices' => $snapshot['choices'],
-                'sheet' => $snapshot['sheet'],
-            ],
-        ];
-    }
-
-    /**
-     * Читает свежий snapshot листа NPC этой игры.
-     *
-     * @param int $gameId Игра.
-     * @param int $npcId NPC.
-     *
-     * @return array<string, mixed> Snapshot.
-     *
-     * @throws GameNotFoundException Если NPC чужой или отсутствует.
-     */
-    private function npcSheetSnapshot(int $gameId, int $npcId): array
-    {
-        $npc = $this->npcs->getById($npcId);
-        if ($npc->getGameId() !== $gameId) {
-            throw new GameNotFoundException('Game strike npc was not found');
-        }
-
-        $actualVersion = $npc->getActualVersion();
-        $document = $npc->getVersion();
-        $choices = $document['choices'] ?? [];
-        $sheet = $document['sheet'] ?? [];
-
-        return [
-            'actualVersion' => $actualVersion,
-            'sheet' => [
-                'choices' => is_array($choices) ? $choices : [],
-                'sheet' => is_array($sheet) ? $sheet : [],
-            ],
-        ];
     }
 
     /**
@@ -1805,10 +1573,10 @@ final class GameStrikes implements IGameStrikes
             $itemInventoryId,
             $kind,
             $attackerId,
-            $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
             $actionRuleCode,
-            $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
             $advantages,
         );
     }
@@ -1857,7 +1625,7 @@ final class GameStrikes implements IGameStrikes
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $hitCode,
-            $this->defenderSheet($game, $open),
+            $this->sheets->getDefenderSheet($game, $open),
             $this->defenderChoices($game, $kind, $id),
             $profileType,
             $attackerRoll,
@@ -1907,7 +1675,7 @@ final class GameStrikes implements IGameStrikes
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $hitCode,
-            $this->defenderSheet($game, $open),
+            $this->sheets->getDefenderSheet($game, $open),
             $this->defenderChoices($game, $kind, $id),
             $inventoryId,
             $profileIndex,
@@ -1976,9 +1744,9 @@ final class GameStrikes implements IGameStrikes
             $inventoryId,
             $kind,
             $attackerId,
-            $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
-            $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
         );
     }
 
@@ -2020,7 +1788,7 @@ final class GameStrikes implements IGameStrikes
             $profileIndex,
             $kind,
             $defenderId,
-            $kind === 'npc' ? $this->attackerSheet($game->getId(), $defenderId) : null,
+            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $defenderId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $defenderId) : null,
             $choice['reaction'],
             $choice['blockItemInventoryId'],
@@ -2088,9 +1856,9 @@ final class GameStrikes implements IGameStrikes
             $profileIndex,
             $kind,
             $defenderId,
-            $kind === 'npc' ? $this->attackerSheet($game->getId(), $defenderId) : null,
+            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $defenderId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $defenderId) : null,
-            $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $defenderId) : null,
+            $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $defenderId) : null,
         );
     }
 
@@ -2141,33 +1909,11 @@ final class GameStrikes implements IGameStrikes
             $itemInventoryId,
             $kind,
             $attackerId,
-            $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
-            $kind === 'npc' ? $this->npcSheetVersion($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
             $characteristicModifier,
         );
-    }
-
-    /**
-     * Снимок sheet атакующего NPC.
-     *
-     * @param int $gameId Игра.
-     * @param int $npcId NPC.
-     *
-     * @return array<string, mixed> Документ sheet.
-     *
-     * @throws GameInvalidException Если строка чужая или снимка нет.
-     * @throws GameNotFoundException Если строки нет.
-     */
-    private function attackerSheet(int $gameId, int $npcId): array
-    {
-        $npc = $this->npcs->getById($npcId);
-        $sheet = $npc->getGameId() === $gameId ? ($npc->getVersion()['sheet'] ?? null) : null;
-        if (!is_array($sheet)) {
-            throw new GameInvalidException('Game strike npc sheet is missing');
-        }
-
-        return $sheet;
     }
 
     /**
@@ -2234,26 +1980,6 @@ final class GameStrikes implements IGameStrikes
     }
 
     /**
-     * Версия листа NPC этой игры.
-     *
-     * @param int $gameId Игра.
-     * @param int $npcId NPC.
-     *
-     * @return int actualVersion.
-     *
-     * @throws GameNotFoundException Если строки нет или она чужая.
-     */
-    private function npcSheetVersion(int $gameId, int $npcId): int
-    {
-        $npc = $this->npcs->getById($npcId);
-        if ($npc->getGameId() !== $gameId) {
-            throw new GameNotFoundException('Game strike npc was not found');
-        }
-
-        return $npc->getActualVersion();
-    }
-
-    /**
      * Ключ кэша листа участника удара.
      *
      * @param GameRecord $game Игра.
@@ -2274,7 +2000,7 @@ final class GameStrikes implements IGameStrikes
             );
         }
 
-        return $this->rules->makeParticipantKey('npc', $id, $this->npcSheetVersion($game->getId(), $id));
+        return $this->rules->makeParticipantKey('npc', $id, $this->sheets->getNpcVersion($game->getId(), $id));
     }
 
     /**

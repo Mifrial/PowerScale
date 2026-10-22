@@ -253,7 +253,7 @@ final class GameStrikeAccess
      *
      * @return bool Да, если gm.
      */
-    private function isGm(int $gameId, int $actorUserId): bool
+    public function isGm(int $gameId, int $actorUserId): bool
     {
         try {
             return $this->members->getByPair($gameId, $actorUserId)->getRole() === 'gm';
