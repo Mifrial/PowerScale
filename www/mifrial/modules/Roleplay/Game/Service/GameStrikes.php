@@ -63,6 +63,8 @@ final class GameStrikes implements IGameStrikes
 
     private readonly GameStrikeChat $chat;
 
+    private readonly GameStrikeAccess $access;
+
     /**
      * Карта ожидания после списания удара.
      *
@@ -114,6 +116,7 @@ final class GameStrikes implements IGameStrikes
         $this->replayTransaction = new GameReplayTransaction($smartTableGateway);
         $this->conflictProjection = $conflictProjection;
         $this->chat = new GameStrikeChat($this->npcs, $rules);
+        $this->access = new GameStrikeAccess($this->members, $this->characters, $this->battles, $cardAccess);
     }
 
     /**
@@ -239,9 +242,7 @@ final class GameStrikes implements IGameStrikes
         ?array $actingEntity = null,
     ): array {
         $game = $this->games->get($gameId);
-        if (!$this->cardAccess->isVisible($game, $actorUserId, $viewAll)) {
-            throw new GameNotFoundException('Game was not found');
-        }
+        $this->access->assertVisible($game, $actorUserId, $viewAll);
 
         $replay = $this->findReplay($gameId, $idempotencyKey, $requestBody);
         if ($replay !== null) {
@@ -253,7 +254,7 @@ final class GameStrikes implements IGameStrikes
         }
 
         if ($actingEntity !== null) {
-            $this->assertStrikeActor($game, $actorUserId, $editAll, $actingEntity);
+            $this->access->assertAttacker($game, $actorUserId, $editAll, $actingEntity);
         }
 
         $sessionId = $this->sessions->findSessionId($gameId);
@@ -285,7 +286,7 @@ final class GameStrikes implements IGameStrikes
         array $choice,
     ): array {
         $battle = $this->battleOf($sessionId, $battleId, $expectedBattleVersion);
-        $this->assertPair($battleId, $choice['attacker'], $choice['defender']);
+        $this->access->assertRoster($battleId, $choice['attacker'], [$choice['defender']]);
         if ($this->actions->findOpenAny($battleId) !== null) {
             throw new GameInvalidException('Game strike is already open');
         }
@@ -2325,35 +2326,6 @@ final class GameStrikes implements IGameStrikes
     }
 
     /**
-     * Две разные пары состава.
-     *
-     * @param int $battleId Бой.
-     * @param array{type: string, id: int} $attacker Атакующий.
-     * @param array{type: string, id: int} $defender Защитник.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если пара совпала или вид чужой.
-     * @throws GameNotFoundException Если пары нет в составе.
-     */
-    private function assertPair(int $battleId, array $attacker, array $defender): void
-    {
-        if ($attacker === $defender) {
-            throw new GameInvalidException('Game strike target is invalid');
-        }
-
-        $roster = $this->battles->findParticipants($battleId);
-        if (!in_array($attacker, $roster, true) || !in_array($defender, $roster, true)) {
-            throw new GameNotFoundException('Game battle participant was not found');
-        }
-
-        $kinds = [$attacker['type'], $defender['type']];
-        if (!in_array($kinds[0], ['character', 'npc'], true) || !in_array($kinds[1], ['character', 'npc'], true)) {
-            throw new GameInvalidException('Game strike participant is invalid');
-        }
-    }
-
-    /**
      * Колонки открытого удара.
      *
      * @param GameBattleRecord $battle Бой.
@@ -2414,12 +2386,12 @@ final class GameStrikes implements IGameStrikes
     {
         $open = $this->openRowOf($this->actions->findOpenWithTargets($battleId, 'strike'));
         if ($open !== null) {
-            $this->assertStrikeActor($game, $actorUserId, $editAll, $this->defenderOf($open));
+            $this->access->assertTarget($game, $actorUserId, $editAll, $this->defenderOf($open));
 
             return $open;
         }
 
-        if ($this->isWriter($game, $actorUserId, $editAll)) {
+        if ($this->access->isWriter($game, $actorUserId, $editAll)) {
             throw new GameInvalidException('Game strike is not open');
         }
 
@@ -2428,7 +2400,7 @@ final class GameStrikes implements IGameStrikes
             throw new ActionException('AUTH_DENIED', 'Permission denied');
         }
 
-        $this->assertStrikeActor($game, $actorUserId, $editAll, $this->defenderOf($latest));
+        $this->access->assertTarget($game, $actorUserId, $editAll, $this->defenderOf($latest));
         throw new GameInvalidException('Game strike is not open');
     }
 
@@ -2478,71 +2450,5 @@ final class GameStrikes implements IGameStrikes
         }
 
         return ['type' => $kind, 'id' => $id];
-    }
-
-    /**
-     * Писатель игры или владелец активного персонажа-актора.
-     *
-     * @param GameRecord $game Игра.
-     * @param int $actorUserId Актор.
-     * @param bool $editAll Ключ.
-     * @param array<string, mixed> $entity Действующая пара.
-     *
-     * @return void
-     *
-     * @throws ActionException AUTH_DENIED.
-     */
-    private function assertStrikeActor(GameRecord $game, int $actorUserId, bool $editAll, array $entity): void
-    {
-        if ($this->isWriter($game, $actorUserId, $editAll)) {
-            return;
-        }
-
-        $kind = $entity['type'] ?? null;
-        $id = $entity['id'] ?? null;
-        if (!is_string($kind) || !is_int($id) || $kind !== 'character') {
-            throw new ActionException('AUTH_DENIED', 'Permission denied');
-        }
-
-        try {
-            $row = $this->characters->getByPair($game->getId(), $id);
-        } catch (GameNotFoundException) {
-            throw new ActionException('AUTH_DENIED', 'Permission denied');
-        }
-
-        if ($row->getCharacterOwnerId() !== $actorUserId || $row->getStatus() !== 'active') {
-            throw new ActionException('AUTH_DENIED', 'Permission denied');
-        }
-    }
-
-    /**
-     * Владелец игры, gm или edit_all.
-     *
-     * @param GameRecord $game Игра.
-     * @param int $actorUserId Актор.
-     * @param bool $editAll Ключ.
-     *
-     * @return bool Да, если писатель.
-     */
-    private function isWriter(GameRecord $game, int $actorUserId, bool $editAll): bool
-    {
-        return $game->getOwnerId() === $actorUserId || $editAll || $this->isGm($game->getId(), $actorUserId);
-    }
-
-    /**
-     * Роль gm.
-     *
-     * @param int $gameId Игра.
-     * @param int $actorUserId Актор.
-     *
-     * @return bool Да, если gm.
-     */
-    private function isGm(int $gameId, int $actorUserId): bool
-    {
-        try {
-            return $this->members->getByPair($gameId, $actorUserId)->getRole() === 'gm';
-        } catch (GameNotFoundException) {
-            return false;
-        }
     }
 }

@@ -35,7 +35,7 @@ final class GameWideStrikes implements IGameWideStrikes
 
     private readonly GameActionRepository $actions;
 
-    private readonly GameWideStrikeAccess $access;
+    private readonly GameStrikeAccess $access;
 
     private readonly GameCommandRepository $commands;
 
@@ -85,7 +85,7 @@ final class GameWideStrikes implements IGameWideStrikes
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->characters = new GameCharacterRepository($smartTableGateway);
         $this->members = new GameMemberRepository($smartTableGateway);
-        $this->access = new GameWideStrikeAccess($this->members, $this->characters);
+        $this->access = new GameStrikeAccess($this->members, $this->characters, $this->battles, $this->cardAccess);
         $this->body = new GameWideStrikeBody();
         $this->results = $this->createResults($rules, $mutations, $consequences);
         $this->replayTransaction = new GameReplayTransaction($smartTableGateway);
@@ -239,7 +239,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $battle,
             $expectedBattleVersion,
             $choice,
-            new GameWideStrikeOpening($this->battles, $this->actions),
+            new GameWideStrikeOpening($this->actions),
         );
     }
 
@@ -305,9 +305,7 @@ final class GameWideStrikes implements IGameWideStrikes
         array $requestBody,
     ): array {
         $game = $this->games->get($gameId);
-        if (!$this->cardAccess->isVisible($game, $actorUserId, $viewAll)) {
-            throw new GameNotFoundException('Game was not found');
-        }
+        $this->access->assertVisible($game, $actorUserId, $viewAll);
 
         $replay = $this->findReplay($gameId, $idempotencyKey, $requestBody);
         if ($replay !== null) {
@@ -739,8 +737,8 @@ final class GameWideStrikes implements IGameWideStrikes
      */
     private function openingFor(GameRecord $game, int $battleId, array $choice): GameWideStrikeOpening
     {
-        $opening = new GameWideStrikeOpening($this->battles, $this->actions);
-        $opening->assertRoster($battleId, $choice);
+        $this->access->assertRoster($battleId, $choice['attacker'], $choice['targets']);
+        $opening = new GameWideStrikeOpening($this->actions);
         if ($this->actions->findOpenAny($battleId) !== null) {
             throw new GameInvalidException('Game wide strike is already open');
         }

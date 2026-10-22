@@ -6,54 +6,23 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
-use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
-use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 
 /**
- * Состав и строки открытого широкого удара.
+ * Строки открытого широкого удара.
  */
 final class GameWideStrikeOpening
 {
     /**
-     * Создаёт проверку состава.
+     * Создаёт построитель.
      *
-     * @param GameBattleRepository $battles Состав.
      * @param GameActionRepository $actions Действия.
      *
      * @return void
      */
     public function __construct(
-        private readonly GameBattleRepository $battles,
         private readonly GameActionRepository $actions,
     ) {
-    }
-
-    /**
-     * Атакующий и цели — разные участники состава.
-     *
-     * @param int $battleId Бой.
-     * @param array $choice Выбор.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если пара совпала или вид чужой.
-     * @throws GameNotFoundException Если пары нет в составе.
-     */
-    public function assertRoster(int $battleId, array $choice): void
-    {
-        $this->assertKind($choice['attacker']['type']);
-        foreach ($choice['targets'] as $target) {
-            $this->assertKind($target['type']);
-            if ($choice['attacker'] === $target) {
-                throw new GameInvalidException('Game wide strike target is invalid');
-            }
-        }
-
-        $this->assertPresent($battleId, $choice['attacker']);
-        foreach ($choice['targets'] as $target) {
-            $this->assertPresent($battleId, $target);
-        }
     }
 
     /**
@@ -102,39 +71,6 @@ final class GameWideStrikeOpening
                 'block_item_profile_index' => null,
                 'block_item_rule_code' => null,
             ]);
-        }
-    }
-
-    /**
-     * Вид участника.
-     *
-     * @param string $kind Вид.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если вид чужой.
-     */
-    private function assertKind(string $kind): void
-    {
-        if ($kind !== 'character' && $kind !== 'npc') {
-            throw new GameInvalidException('Game wide strike participant is invalid');
-        }
-    }
-
-    /**
-     * Пара есть в составе.
-     *
-     * @param int $battleId Бой.
-     * @param array{type: string, id: int} $side Участник.
-     *
-     * @return void
-     *
-     * @throws GameNotFoundException Если пары нет.
-     */
-    private function assertPresent(int $battleId, array $side): void
-    {
-        if (!in_array($side, $this->battles->findParticipants($battleId), true)) {
-            throw new GameNotFoundException('Game battle participant was not found');
         }
     }
 }

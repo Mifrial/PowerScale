@@ -44,7 +44,7 @@ final class GameProjections implements IGameProjections
 
     private readonly GameActionRepository $actions;
 
-    private readonly GameWideStrikeAccess $wideAccess;
+    private readonly GameStrikeAccess $wideAccess;
 
     /**
      * Создаёт чтение.
@@ -73,9 +73,11 @@ final class GameProjections implements IGameProjections
         $this->sessions = new GameSessionRepository($smartTableGateway);
         $this->npcVisibility = new GameNpcVisibility();
         $this->actions = new GameActionRepository($smartTableGateway);
-        $this->wideAccess = new GameWideStrikeAccess(
+        $this->wideAccess = new GameStrikeAccess(
             new GameMemberRepository($smartTableGateway),
             new GameCharacterRepository($smartTableGateway),
+            $this->battles,
+            $this->cardAccess,
         );
     }
 
