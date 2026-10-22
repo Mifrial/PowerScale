@@ -692,14 +692,7 @@ final class GameWideStrikeResults
             'roll' => $record['will'],
             'text' => $this->exhaustionText($defender, $record['will']['rating'] ?? 0, $record['willOutcome'] ?? 'clear'),
         ] : null;
-        $maimRating = is_int($record['maim']['rating'] ?? null) ? $record['maim']['rating'] : 0;
-        $maim = isset($record['maim']) ? [
-            'roll' => $record['maim'],
-            'text' => $maimRating < 0
-                ? $defender . ' получает временное увечье с силой ' . (-$maimRating) . '.'
-                : $defender . ' не получает увечье.',
-            'details' => ['strength' => $maimRating < 0 ? -$maimRating : 0],
-        ] : null;
+        $maim = isset($record['maim']) ? $this->maimPayload($defender, $record['maim'], $typeBit) : null;
         $bits = [$exhaustion . ' истощения'];
         if ($wound > 0) {
             $bits[] = $wound . ' рану';
@@ -738,6 +731,48 @@ final class GameWideStrikeResults
             $speaker,
             $parentId,
         );
+    }
+
+    /**
+     * Текст и вложение проверки на увечье.
+     *
+     * @param string $target Цель.
+     * @param array<string, mixed> $roll Бросок проверки.
+     * @param string $damageTypeName Вид урона.
+     *
+     * @return array{roll: array<string, mixed>, text: string, details: array<string, mixed>}
+     */
+    private function maimPayload(string $target, array $roll, string $damageTypeName): array
+    {
+        $rating = is_int($roll['rating'] ?? null) ? $roll['rating'] : 0;
+
+        return [
+            'roll' => $roll,
+            'text' => $this->maimText($target, $rating),
+            'details' => [
+                'injury' => [
+                    'strength' => $rating < 0 ? -$rating : 0,
+                    'permanent' => false,
+                    'temporary' => true,
+                    'lethal' => false,
+                    'disfiguring' => false,
+                    'rating' => $rating,
+                    'difficulty' => is_array($roll['difficulty'] ?? null)
+                        ? ($roll['difficulty']['base'] ?? null)
+                        : null,
+                ],
+                'damageTypeName' => $damageTypeName,
+            ],
+        ];
+    }
+
+    private function maimText(string $target, int $rating): string
+    {
+        if ($rating >= 0) {
+            return $target . ' не получает увечье.';
+        }
+
+        return $target . ' получает временное увечье с силой ' . (-$rating) . '.';
     }
 
     /**
