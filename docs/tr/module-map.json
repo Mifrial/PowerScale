@@ -2460,6 +2460,11 @@
                     "summary": "Помеха проверки увечья. Дельта лежит в payload хука."
                 },
                 {
+                    "name": "IInjuryExtraDice",
+                    "path": "Interface/IInjuryExtraDice.php",
+                    "summary": "К сложности автоувечья прибавляется ⌊РУ атаки / 2⌋."
+                },
+                {
                     "name": "IMechanicHandler",
                     "path": "Interface/IMechanicHandler.php",
                     "summary": "Хендлер механики: подписки события на приоритет и мутация контекста."

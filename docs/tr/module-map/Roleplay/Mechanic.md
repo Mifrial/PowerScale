@@ -41,6 +41,7 @@
 - `Interface/IExhaustionAmount.php` — Истощение этого удара пишется в состояние той же силы.
 - `Interface/IExhaustionWound.php` — Истощение этого удара пишется в рану с множителем.
 - `Interface/IInjuryEfficiency.php` — Помеха проверки увечья. Дельта лежит в payload хука.
+- `Interface/IInjuryExtraDice.php` — К сложности автоувечья прибавляется ⌊РУ атаки / 2⌋.
 - `Interface/IMechanicHandler.php` — Хендлер механики: подписки события на приоритет и мутация контекста.
 - `Interface/IReliabilityCut.php` — Маркер хендлера, который срезает надёжность слоёв с порогом.
 - `Interface/MechanicPayload.php` — Payload binding: хендлер сам сужает тип. Общего поведения нет.
