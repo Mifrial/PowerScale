@@ -196,7 +196,6 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolv
 }
 
 .rule-detail {
-  border-radius: 12px;
   padding: 16px;
 }
 
