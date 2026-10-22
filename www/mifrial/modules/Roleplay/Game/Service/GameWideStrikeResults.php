@@ -7,7 +7,6 @@ namespace Mifrial\Roleplay\Game\Service;
 use Closure;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
-use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
@@ -19,9 +18,6 @@ use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
-use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -34,6 +30,8 @@ final class GameWideStrikeResults
     private readonly GameStrikeChat $chat;
 
     private readonly GameStrikeSheets $sheets;
+
+    private readonly GameStrikeSpend $spend;
 
     /**
      * Создаёт расчёт отказа.
@@ -68,6 +66,7 @@ final class GameWideStrikeResults
             $members,
             $conflictProjection,
         );
+        $this->spend = new GameStrikeSpend();
     }
 
     /**
@@ -357,10 +356,10 @@ final class GameWideStrikeResults
                     $target['type'],
                     $target['id'],
                     $pending,
-                    $this->spendAmounts($spends),
+                    $this->spend->getSpendAmounts($spends),
                     false,
                 );
-                $spends = $this->spendRows($declared['amounts']);
+                $spends = $this->spend->getSpendRows($declared['amounts']);
                 $pending = $declared['pending'];
             }
         }
@@ -496,7 +495,7 @@ final class GameWideStrikeResults
                 $target['type'],
                 $target['id'],
                 $pending,
-                $this->spendAmounts($spends),
+                $this->spend->getSpendAmounts($spends),
             );
             $this->pendingAfter = $pending;
         }
@@ -639,7 +638,7 @@ final class GameWideStrikeResults
                 $name,
                 $reaction,
                 $reactionCode,
-                $this->actionAp($slice, $reactionCode ?? ''),
+                $this->spend->getActionAp($slice, $reactionCode ?? ''),
             );
         }
 
@@ -670,7 +669,7 @@ final class GameWideStrikeResults
         }
 
         $this->consequences->postLines($game, $actorUserId, $threadId, [
-            $attacker . ' совершает действие ' . $action . ' за ' . $this->actionAp($slice, $actionCode) . 'ОД.',
+            $attacker . ' совершает действие ' . $action . ' за ' . $this->spend->getActionAp($slice, $actionCode) . 'ОД.',
             $narrative,
         ], $speaker, $parentId);
         $this->consequences->postRolls($game, $actorUserId, $threadId, $rolls, $speaker, $parentId);
@@ -753,46 +752,6 @@ final class GameWideStrikeResults
         );
     }
 
-    private function actionAp(CharacterRuleSlice $slice, string $ruleCode): int
-    {
-        if ($ruleCode === '') {
-            return 0;
-        }
-
-        $spec = $slice->findLive($ruleCode)?->getSpec();
-        if (!$spec instanceof AbilityActionSpec) {
-            return 0;
-        }
-
-        $turnCode = null;
-        foreach ($slice->getLiveRules() as $rule) {
-            $resource = $rule->getSpec();
-            if ($resource instanceof ResourceSpec && $resource->isTurnRefill()) {
-                $turnCode = $rule->getCode();
-            }
-        }
-
-        $sum = 0;
-        foreach ($spec->getComponents() as $component) {
-            if (!$component instanceof ResourceComponent) {
-                continue;
-            }
-
-            if ($turnCode !== null && $component->getResourceCode() !== $turnCode) {
-                continue;
-            }
-
-            $amount = $component->getAmount();
-            if (is_int($amount)) {
-                $sum += $amount;
-            } elseif ($amount instanceof DimensionalNumber) {
-                $sum += $amount->getBase();
-            }
-        }
-
-        return $sum;
-    }
-
     /**
      * Убирает block layers после проигранного defender roll.
      *
@@ -847,45 +806,6 @@ final class GameWideStrikeResults
             $this->targetChoices($game, $target),
             $this->sheets->getTargetSheet($game, $target),
         );
-    }
-
-    /**
-     * Целые траты в карту ресурсов.
-     *
-     * @param array<int, ResourceSpend> $spends Траты.
-     *
-     * @return array<string, int> Суммы.
-     */
-    private function spendAmounts(array $spends): array
-    {
-        $amounts = [];
-        foreach ($spends as $spend) {
-            $native = $spend->getAmount()->toNative();
-            if (!is_int($native)) {
-                continue;
-            }
-
-            $amounts[$spend->getResourceCode()] = ($amounts[$spend->getResourceCode()] ?? 0) + $native;
-        }
-
-        return $amounts;
-    }
-
-    /**
-     * Карта ресурсов в траты.
-     *
-     * @param array<string, int> $amounts Суммы.
-     *
-     * @return array<int, ResourceSpend> Траты.
-     */
-    private function spendRows(array $amounts): array
-    {
-        $rows = [];
-        foreach ($amounts as $code => $amount) {
-            $rows[] = new ResourceSpend($code, new ScalarResourceValue($amount));
-        }
-
-        return $rows;
     }
 
     /**

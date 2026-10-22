@@ -9,7 +9,6 @@ use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
-use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
@@ -28,8 +27,6 @@ use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
-use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -66,6 +63,8 @@ final class GameStrikes implements IGameStrikes
     private readonly GameStrikeAccess $access;
 
     private readonly GameStrikeSheets $sheets;
+
+    private readonly GameStrikeSpend $spend;
 
     /**
      * Карта ожидания после списания удара.
@@ -126,6 +125,7 @@ final class GameStrikes implements IGameStrikes
             $this->members,
             $conflictProjection,
         );
+        $this->spend = new GameStrikeSpend();
     }
 
     /**
@@ -822,10 +822,10 @@ final class GameStrikes implements IGameStrikes
                 $defenderKind,
                 $defenderId,
                 $defenderPending,
-                $this->spendAmounts($spends),
+                $this->spend->getSpendAmounts($spends),
                 false,
             );
-            $spends = $this->spendRows($declared['amounts']);
+            $spends = $this->spend->getSpendRows($declared['amounts']);
             $defenderPending = $declared['pending'];
             $defenderKey = $defenderKind . ':' . $defenderId;
             if (array_key_exists($defenderKey, $defenderPending)) {
@@ -966,7 +966,7 @@ final class GameStrikes implements IGameStrikes
             $attackerKind,
             $attackerId,
             $pending,
-            ['action-points' => $this->actionAp($slice, $actionRuleCode)],
+            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode)],
         );
         if ($reactionRuleCode !== null) {
             $pending = (new GamePendingActionCosts())->complete(
@@ -976,7 +976,7 @@ final class GameStrikes implements IGameStrikes
                 $defenderKind,
                 $defenderId,
                 $pending,
-                $this->spendAmounts($spends),
+                $this->spend->getSpendAmounts($spends),
             );
         }
 
@@ -1339,7 +1339,7 @@ final class GameStrikes implements IGameStrikes
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actionCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $action = $actionCode !== '' ? '[[rule:' . $actionCode . ']]' : 'действие';
-        $actionAp = $this->actionAp($slice, $actionCode);
+        $actionAp = $this->spend->getActionAp($slice, $actionCode);
         $weapon = is_string($open['item_rule_code'] ?? null) ? '[[rule:' . $open['item_rule_code'] . ']]' : 'оружием';
         $kind = match ($open['profile_type'] ?? 'strike') {
             'throw' => 'бросок',
@@ -1362,7 +1362,7 @@ final class GameStrikes implements IGameStrikes
                 'Тот',
                 $reaction,
                 $reactionCode,
-                $this->actionAp($slice, $reactionCode ?? ''),
+                $this->spend->getActionAp($slice, $reactionCode ?? ''),
             ) . '!';
         }
 
@@ -1416,51 +1416,6 @@ final class GameStrikes implements IGameStrikes
             is_array($result['defenderRoll'] ?? null) ? $result['defenderRoll'] : null,
             $parentId,
         );
-    }
-
-    private function actionAp(CharacterRuleSlice $slice, string $ruleCode): int
-    {
-        if ($ruleCode === '') {
-            return 0;
-        }
-
-        $spec = $slice->findLive($ruleCode)?->getSpec();
-        if (!$spec instanceof AbilityActionSpec) {
-            return 0;
-        }
-
-        $turnCode = $this->turnResourceCode($slice);
-        $sum = 0;
-        foreach ($spec->getComponents() as $component) {
-            if (!$component instanceof ResourceComponent) {
-                continue;
-            }
-
-            if ($turnCode !== null && $component->getResourceCode() !== $turnCode) {
-                continue;
-            }
-
-            $amount = $component->getAmount();
-            if (is_int($amount)) {
-                $sum += $amount;
-            } elseif ($amount instanceof DimensionalNumber) {
-                $sum += $amount->getBase();
-            }
-        }
-
-        return $sum;
-    }
-
-    private function turnResourceCode(CharacterRuleSlice $slice): ?string
-    {
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->getSpec();
-            if ($spec instanceof ResourceSpec && $spec->isTurnRefill()) {
-                return $rule->getCode();
-            }
-        }
-
-        return null;
     }
 
     private function reactionRuleCode(CharacterRuleSlice $slice, string $reaction): ?string
@@ -1938,45 +1893,6 @@ final class GameStrikes implements IGameStrikes
         return $kind === 'character'
             ? $this->rules->characterSnapshot($id)['choices']
             : $this->npcChoices($game->getId(), $id);
-    }
-
-    /**
-     * Целые траты в карту ресурсов.
-     *
-     * @param array<int, ResourceSpend> $spends Траты.
-     *
-     * @return array<string, int> Суммы.
-     */
-    private function spendAmounts(array $spends): array
-    {
-        $amounts = [];
-        foreach ($spends as $spend) {
-            $native = $spend->getAmount()->toNative();
-            if (!is_int($native)) {
-                continue;
-            }
-
-            $amounts[$spend->getResourceCode()] = ($amounts[$spend->getResourceCode()] ?? 0) + $native;
-        }
-
-        return $amounts;
-    }
-
-    /**
-     * Карта ресурсов в траты.
-     *
-     * @param array<string, int> $amounts Суммы.
-     *
-     * @return array<int, ResourceSpend> Траты.
-     */
-    private function spendRows(array $amounts): array
-    {
-        $rows = [];
-        foreach ($amounts as $code => $amount) {
-            $rows[] = new ResourceSpend($code, new ScalarResourceValue($amount));
-        }
-
-        return $rows;
     }
 
     /**

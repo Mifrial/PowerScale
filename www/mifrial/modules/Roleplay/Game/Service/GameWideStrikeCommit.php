@@ -15,9 +15,6 @@ use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
-use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -25,6 +22,8 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
  */
 final class GameWideStrikeCommit
 {
+    private readonly GameStrikeSpend $spend;
+
     /**
      * Создаёт writer transaction.
      *
@@ -49,6 +48,7 @@ final class GameWideStrikeCommit
         private readonly GameNpcRepository $npcs,
         private readonly GameStrikeSheetWrites $sheetWrites,
     ) {
+        $this->spend = new GameStrikeSpend();
     }
 
     /**
@@ -553,7 +553,7 @@ final class GameWideStrikeCommit
             $attackerKind,
             $attackerId,
             $this->results->pendingAfter(),
-            ['action-points' => $this->actionAp($slice, $actionRuleCode)],
+            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode)],
         );
 
         $this->actions->close($context['strikeId']);
@@ -592,66 +592,6 @@ final class GameWideStrikeCommit
         }
 
         return $choices;
-    }
-
-    /**
-     * Базовая стоимость действия в ОД.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $ruleCode Карточка.
-     *
-     * @return int Стоимость.
-     */
-    private function actionAp(CharacterRuleSlice $slice, string $ruleCode): int
-    {
-        if ($ruleCode === '') {
-            return 0;
-        }
-
-        $spec = $slice->findLive($ruleCode)?->getSpec();
-        if (!$spec instanceof AbilityActionSpec) {
-            return 0;
-        }
-
-        $turnCode = $this->turnResourceCode($slice);
-        $sum = 0;
-        foreach ($spec->getComponents() as $component) {
-            if (!$component instanceof ResourceComponent) {
-                continue;
-            }
-
-            if ($turnCode !== null && $component->getResourceCode() !== $turnCode) {
-                continue;
-            }
-
-            $amount = $component->getAmount();
-            if (is_int($amount)) {
-                $sum += $amount;
-            } elseif ($amount instanceof DimensionalNumber) {
-                $sum += $amount->getBase();
-            }
-        }
-
-        return $sum;
-    }
-
-    /**
-     * Код ресурса turn refill.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     *
-     * @return string|null Код или null.
-     */
-    private function turnResourceCode(CharacterRuleSlice $slice): ?string
-    {
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->getSpec();
-            if ($spec instanceof ResourceSpec && $spec->isTurnRefill()) {
-                return $rule->getCode();
-            }
-        }
-
-        return null;
     }
 
     /**
