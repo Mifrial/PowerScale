@@ -551,6 +551,17 @@ function canAutoOpenPhpStrike(strike: GamePhpOpenStrike): boolean {
   return gameStrikeDefenseService.shouldAutoOpen(strike, user.id, memberships.value, canWriteStrike.value);
 }
 
+function visibleAttacksOf(version: CharacterVersion | null | undefined): AttackOverview[] {
+  if (!version) return [];
+  try {
+    return characterOverviewService.build(version, revisionRules.value).attacks;
+  } catch {
+    // Скрытый лист атакующего может не дать собрать профиль. Это не повод
+    // отменять окно реакции: расчёт удара всё равно идёт на сервере.
+    return [];
+  }
+}
+
 async function tryOpenPhpWideStrike(wide: GamePhpOpenWideStrike): Promise<void> {
   if (!gamePhpMode.isEnabled()) return;
   const user = currentUser.value;
@@ -563,10 +574,9 @@ async function tryOpenPhpWideStrike(wide: GamePhpOpenWideStrike): Promise<void> 
   const targetKeys = wide.targets.map((target) => gameWideDefenseService.targetKey(target));
   await loadRuntimeProjections([attackerKey, ...targetKeys]);
   const version = runtimeByKey.value[attackerKey]?.version;
-  if (!version) {
-    return;
-  }
-  const attacks = characterOverviewService.build(version, revisionRules.value).attacks;
+  const attacks = visibleAttacksOf(version);
+  // Атакующий может быть виден защитнику без инвентаря: тогда профиль удара
+  // не собрать, но окно реакции всё равно нужно открыть.
   const attack =
     attacks.find(
       (item) =>
@@ -579,10 +589,8 @@ async function tryOpenPhpWideStrike(wide: GamePhpOpenWideStrike): Promise<void> 
         item.itemRuleCode === wide.itemRuleCode &&
         item.profileType === wide.profileType &&
         (item.profileIndex ?? 0) === wide.profileIndex,
-    );
-  if (!attack) {
-    return;
-  }
+    ) ??
+    null;
   hitResumeOffer.value = null;
   attackAction.value = null;
   hitAttackerKey.value = attackerKey;
@@ -628,10 +636,9 @@ async function tryOpenPhpStrike(): Promise<void> {
   }
   await loadRuntimeProjections([attackerKey, defenderKey]);
   const version = runtimeByKey.value[attackerKey]?.version;
-  if (!version) {
-    return;
-  }
-  const attacks = characterOverviewService.build(version, revisionRules.value).attacks;
+  const attacks = visibleAttacksOf(version);
+  // Атакующий может быть виден защитнику без инвентаря: тогда профиль удара
+  // не собрать, но окно реакции всё равно нужно открыть.
   const attack =
     attacks.find(
       (item) =>
@@ -644,10 +651,8 @@ async function tryOpenPhpStrike(): Promise<void> {
         item.itemRuleCode === strike.itemRuleCode &&
         item.profileType === strike.profileType &&
         (item.profileIndex ?? 0) === strike.profileIndex,
-    );
-  if (!attack) {
-    return;
-  }
+    ) ??
+    null;
   hitResumeOffer.value = null;
   attackAction.value = null;
   hitAttackerKey.value = attackerKey;

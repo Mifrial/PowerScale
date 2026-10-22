@@ -344,6 +344,10 @@ final class GameStrikeMysqlTest extends TestCase
             ],
         ])['success']);
         $this->setActor($player, []);
+        $card = $this->dispatch('game.get', ['id' => $gameId]);
+        self::assertTrue($card['success'], json_encode($card));
+        self::assertSame($attackerNpc['data']['npcId'], $card['data']['battle']['openStrike']['attackerId'] ?? null);
+        self::assertSame($characterId, $card['data']['battle']['openStrike']['defenderId'] ?? null);
         self::assertTrue($this->dispatch('game.resolveStrike', [
             'gameId' => $gameId,
             'battleId' => $attackerBattle['data']['battleId'],

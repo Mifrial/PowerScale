@@ -606,9 +606,15 @@ function attackFromOffer(current: CheckOffer): AttackOverview | null {
 const currentAttack = computed(() =>
   offer.value ? attackFromOffer(offer.value) : (resolvedAttackAction.value?.strikes[0]?.profile ?? props.attack),
 );
-const isRanged = computed(
-  () => currentAttack.value?.profileType === 'throw' || currentAttack.value?.profileType === 'shoot',
+const phpProfileType = computed(
+  () =>
+    phpWideProjection.value?.profileType ??
+    phpDeclaredStrike.value?.profileType ??
+    gamePhpBattleContext.openStrike?.profileType ??
+    null,
 );
+const resolvedProfileType = computed(() => currentAttack.value?.profileType ?? phpProfileType.value);
+const isRanged = computed(() => resolvedProfileType.value === 'throw' || resolvedProfileType.value === 'shoot');
 
 const canEditCover = computed(() => isCompose.value || myTurn.value);
 
@@ -1081,8 +1087,9 @@ async function hydrate(): Promise<void> {
     } else {
       phpWideProjection.value = null;
     }
-    const attacker = resolvedAttackerKey.value;
-    loadPhase.value = !attacker || !versionOf(attacker) ? 'incomplete' : 'ready';
+    const requiredKey =
+      props.resumePhpStrike && phpDeclared.value ? resolvedDefenderKey.value : resolvedAttackerKey.value;
+    loadPhase.value = !requiredKey || !versionOf(requiredKey) ? 'incomplete' : 'ready';
   } catch (cause) {
     if (generation !== loadGeneration || isAbortError(cause)) return;
     const outcome = resolveLaunchLoad({ overlays: { ok: false as const, cause } });
@@ -3557,8 +3564,8 @@ const primaryLabel = computed(() => {
 });
 
 const hitDialogTitle = computed(() => {
-  if (resolvedAttack.value?.profileType === 'throw') return 'Бросок';
-  if (resolvedAttack.value?.profileType === 'shoot') return 'Выстрел';
+  if (resolvedProfileType.value === 'throw') return 'Бросок';
+  if (resolvedProfileType.value === 'shoot') return 'Выстрел';
 
   return 'Удар';
 });
