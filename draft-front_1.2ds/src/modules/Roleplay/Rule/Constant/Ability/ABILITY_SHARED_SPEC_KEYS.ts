@@ -18,6 +18,7 @@ export const ABILITY_SHARED_SPEC_KEYS: readonly (keyof AbilitySpecDraft)[] = [
   'lift_parent_max_weapons',
   'push',
   'max_targets',
+  'wide_target_check_advantage',
   'parent_ability_code',
   'spell_upgrade',
   'spell_saturation',

@@ -178,6 +178,17 @@ function setCombatAction(value: AbilitySpecDraft['combat_action'] | null): void 
         @update:model-value="$event === null ? clearKey('max_targets') : patch({ max_targets: $event })"
       />
       <ClampedNumberField
+        v-if="currentType !== 'skill' && (modelValue.max_targets ?? 0) > 1"
+        :model-value="modelValue.wide_target_check_advantage ?? null"
+        label="Помеха за цель сверх первой"
+        nullable
+        density="compact"
+        hide-details
+        @update:model-value="
+          $event === null ? clearKey('wide_target_check_advantage') : patch({ wide_target_check_advantage: $event })
+        "
+      />
+      <ClampedNumberField
         :model-value="modelValue.min_total_action_cost ?? null"
         label="Мин. итоговая стоимость ОД"
         :min="0"

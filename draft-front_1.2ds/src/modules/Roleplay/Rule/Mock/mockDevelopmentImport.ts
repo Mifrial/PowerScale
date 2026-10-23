@@ -4879,6 +4879,7 @@ const mockDevelopmentImportRaw: Rule[] = [
       ],
       attack_mode: 'wide',
       max_targets: 3,
+      wide_target_check_advantage: -1,
     },
     keywordIds: [13, 14, 64, 71],
     mechanics: [],

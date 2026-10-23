@@ -11,6 +11,7 @@ export const ABILITY_SPEC_FIELDS: Record<AbilityType, readonly (keyof AbilitySpe
     'action_effects',
     'attack_mode',
     'max_targets',
+    'wide_target_check_advantage',
     'push',
     'min_total_action_cost',
     'strike_count',
@@ -21,6 +22,14 @@ export const ABILITY_SPEC_FIELDS: Record<AbilityType, readonly (keyof AbilitySpe
     'operations',
   ],
   process: ['process'],
-  spell: ['action_components', 'action_effects', 'attack_mode', 'max_targets', 'spell', 'operations'],
+  spell: [
+    'action_components',
+    'action_effects',
+    'attack_mode',
+    'max_targets',
+    'wide_target_check_advantage',
+    'spell',
+    'operations',
+  ],
   group: ['selectLimit'],
 };

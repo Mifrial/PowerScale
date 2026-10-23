@@ -16,6 +16,7 @@ export type AbilitySpec =
       operations?: ActionOperation[];
       attack_mode?: 'single' | 'wide';
       max_targets?: number;
+      wide_target_check_advantage?: number;
     })
   | (AbilitySpecBase & { type: 'process'; process: ProcessSpec })
   | (AbilitySpecBase & {
@@ -25,4 +26,5 @@ export type AbilitySpec =
       operations?: ActionOperation[];
       attack_mode?: 'single' | 'wide';
       max_targets?: number;
+      wide_target_check_advantage?: number;
     });

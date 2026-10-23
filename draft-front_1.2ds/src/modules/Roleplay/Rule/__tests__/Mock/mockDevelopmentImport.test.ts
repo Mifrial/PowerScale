@@ -170,6 +170,7 @@ describe('mockDevelopmentImport (S14)', () => {
     });
     expect(wide?.attack_mode).toBe('wide');
     expect(wide?.max_targets).toBe(3);
+    expect(wide?.wide_target_check_advantage).toBe(-1);
     expect(sweeping?.attack_mode).toBeUndefined();
     expect(wide?.requirements?.[0]?.requirements).toContainEqual({
       type: 'and',

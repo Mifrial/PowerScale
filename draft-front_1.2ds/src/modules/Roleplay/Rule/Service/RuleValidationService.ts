@@ -236,6 +236,21 @@ export class RuleValidationService {
           message: 'максимальное количество целей можно указывать только для широкой атаки',
         });
       }
+      const wideTargetAdvantage = 'wide_target_check_advantage' in spec ? spec.wide_target_check_advantage : undefined;
+      if (wideTargetAdvantage !== undefined && !Number.isInteger(wideTargetAdvantage)) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'помеха за лишнюю цель должна быть целым числом',
+        });
+      }
+      if (wideTargetAdvantage !== undefined && (maxTargets ?? 1) < 2) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'помеху за лишнюю цель можно указывать только при максимуме целей больше 1',
+        });
+      }
       const actionEffects = 'action_effects' in spec ? (spec.action_effects ?? []) : [];
       if (actionEffects.length > 0 && type !== 'action' && type !== 'spell' && type !== 'skill') {
         errors.push({

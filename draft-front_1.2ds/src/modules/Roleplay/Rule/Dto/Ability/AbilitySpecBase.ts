@@ -38,6 +38,8 @@ export interface AbilitySpecBase {
   /** Толчок: контест Силы или урона оружия вместо обычного попадания. */
   push?: PushSpec;
   max_targets?: number;
+  /** Дельта помехи за каждую цель сверх первой; минус — помеха. */
+  wide_target_check_advantage?: number;
   parent_ability_code: string | null;
   /** Модификатор каста (дельта ОД, преимущество сотворения, цепь). С родителем — на то заклинание; без — на выбранный каст. */
   spell_upgrade?: SpellUpgrade;

@@ -12,6 +12,7 @@ export interface AbilitySpecDraft extends AbilitySpecBase {
   operations?: ActionOperation[];
   attack_mode?: 'single' | 'wide';
   max_targets?: number;
+  wide_target_check_advantage?: number;
   process?: ProcessSpec;
   spell?: SpellSpec;
   /** Сколько способностей можно выбрать в группе (только для type 'group'). */
