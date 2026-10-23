@@ -53,6 +53,32 @@ final class GameWideStrikeOpening
     /**
      * Строки целей.
      *
+     * @param list<array{type: string, id: int}> $targets Цели.
+     *
+     * @return list<array<string, mixed>> Строки.
+     *
+     * @throws GameInvalidException Если поле.
+     */
+    public function targets(array $targets): array
+    {
+        $rows = [];
+        foreach ($targets as $target) {
+            $rows[] = [
+                'target_type' => $target['type'],
+                'target_id' => $target['id'],
+                'reaction' => null,
+                'block_item_inventory_id' => null,
+                'block_item_profile_index' => null,
+                'block_item_rule_code' => null,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Строки целей.
+     *
      * @param int $strikeId Удар.
      * @param list<array{type: string, id: int}> $targets Цели.
      *

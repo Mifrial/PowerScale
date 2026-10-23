@@ -24,6 +24,8 @@ final class GameWideStrikeCommit
 {
     private readonly GameStrikeSpend $spend;
 
+    private readonly GameStrikeOpen $open;
+
     /**
      * Создаёт writer transaction.
      *
@@ -49,6 +51,7 @@ final class GameWideStrikeCommit
         private readonly GameStrikeSheetWrites $sheetWrites,
     ) {
         $this->spend = new GameStrikeSpend($rules, $sheetWrites);
+        $this->open = new GameStrikeOpen($battles, $actions, $this->spend);
     }
 
     /**
@@ -231,47 +234,31 @@ final class GameWideStrikeCommit
         $snapshot = $kind === 'character'
             ? $this->rules->characterSnapshot($id)
             : $this->npcSnapshot($game->getId(), $id);
-        $hold = $this->spend->spendAttacker(
+        $row = $opening->row($battle, $sessionId, $choice);
+        $row['kind'] = 'wide_strike';
+        $opened = $this->open->open(
             $game,
             $choice,
             $battle,
+            $expectedBattleVersion,
             [
                 'actualVersion' => $snapshot['actualVersion'],
                 'sheet' => ['choices' => $snapshot['choices'], 'sheet' => $snapshot['sheet']],
             ],
+            $row,
+            $opening->targets($choice['targets']),
             '1-n',
             'Game wide strike',
         );
         $result = [
             'battleId' => $battle->getId(),
-            'strikeId' => 0,
-            'version' => $expectedBattleVersion + 1,
+            'strikeId' => $opened['strikeId'],
+            'version' => $opened['version'],
             'targetResults' => [],
         ];
-        if ($hold['debtHold'] !== null) {
-            $saved = $this->battles->replaceTracked(
-                $battle->getId(),
-                $expectedBattleVersion,
-                $hold['pending'],
-                $hold['debtHold'],
-                null,
-                null,
-            );
-            $result['version'] = $saved->getStateVersion();
+        if ($opened['debt']) {
             $result['debt'] = true;
-
-            return $result;
         }
-
-        $row = $opening->row($battle, $sessionId, $choice);
-        $row['kind'] = 'wide_strike';
-        $result['strikeId'] = $this->actions->add($row);
-        $opening->addTargets($result['strikeId'], $choice['targets']);
-        $this->battles->replacePending(
-            $battle->getId(),
-            $expectedBattleVersion,
-            $hold['pending'],
-        );
 
         return $result;
     }

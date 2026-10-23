@@ -66,6 +66,8 @@ final class GameStrikes implements IGameStrikes
 
     private readonly GameStrikeSpend $spend;
 
+    private readonly GameStrikeOpen $open;
+
     private readonly GameStrikeResolution $resolution;
 
     /**
@@ -116,6 +118,7 @@ final class GameStrikes implements IGameStrikes
             $conflictProjection,
         );
         $this->spend = new GameStrikeSpend($rules, $this->sheetWrites);
+        $this->open = new GameStrikeOpen($this->battles, $this->actions, $this->spend);
         $this->resolution = new GameStrikeResolution(
             $rules,
             $this->sheets,
@@ -514,35 +517,27 @@ final class GameStrikes implements IGameStrikes
         $snapshot = $kind === 'character'
             ? $this->sheets->getCharacterSnapshot($id)
             : $this->sheets->getNpcSnapshot($game->getId(), $id);
-        $hold = $this->spend->spendAttacker($game, $choice, $battle, $snapshot, '1-1', 'Game strike');
+        $row = $this->openRow($battle, $sessionId, $choice);
+        $opened = $this->open->open(
+            $game,
+            $choice,
+            $battle,
+            $expectedBattleVersion,
+            $snapshot,
+            $row['action'],
+            $row['targets'],
+            '1-1',
+            'Game strike',
+        );
         $result = [
             'battleId' => $battle->getId(),
-            'strikeId' => 0,
-            'version' => $expectedBattleVersion + 1,
+            'strikeId' => $opened['strikeId'],
+            'version' => $opened['version'],
             'sheetVersion' => null,
         ];
-        if ($hold['debtHold'] !== null) {
-            $saved = $this->battles->replaceTracked(
-                $battle->getId(),
-                $expectedBattleVersion,
-                $hold['pending'],
-                $hold['debtHold'],
-                null,
-                null,
-            );
-            $result['version'] = $saved->getStateVersion();
+        if ($opened['debt']) {
             $result['debt'] = true;
-
-            return $result;
         }
-
-        $row = $this->openRow($battle, $sessionId, $choice);
-        $result['strikeId'] = $this->actions->addWithTargets($row['action'], $row['targets']);
-        $this->battles->replacePending(
-            $battle->getId(),
-            $expectedBattleVersion,
-            $hold['pending'],
-        );
 
         return $result;
     }
