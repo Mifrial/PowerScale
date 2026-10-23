@@ -92,6 +92,7 @@ final class GameStrikeSingleClose
         }
 
         $target = $this->rows->defender($row);
+        $targetKey = $this->rows->targetKey($target);
         $this->choices->assertReaction($game, $target, $requestChoice);
         $choice = $this->authoritativeChoice($game, $target, $requestChoice);
         $targetOpen = $this->rows->targetOpen($open, $target);
@@ -144,7 +145,7 @@ final class GameStrikeSingleClose
             }
         }
 
-        $attackerRoll = $this->resolution->rollOf($game, $open, $hitCode, $pending, $slice);
+        $attackerRoll = $this->resolution->rollOf($game, $open, $hitCode, $pending, $slice, [], [$targetKey]);
         $defenderRoll = null;
         if (
             $choice['reaction'] !== 'ignore'
@@ -310,6 +311,7 @@ final class GameStrikeSingleClose
             $attackerId,
             $pending,
             ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode)],
+            [$targetKey],
         );
         if ($reactionRuleCode !== null) {
             $pending = (new GamePendingActionCosts())->complete(

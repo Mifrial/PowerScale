@@ -432,6 +432,7 @@ final class GameStrikeTargetClose
      * @param GameBattleRecord $battle Бой.
      * @param CharacterRuleSlice $slice Срез.
      * @param int $targetCount Число целей.
+     * @param array<int, string> $targetKeys Ключи целей.
      *
      * @return array<string, mixed> Roll.
      */
@@ -441,6 +442,7 @@ final class GameStrikeTargetClose
         GameBattleRecord $battle,
         CharacterRuleSlice $slice,
         int $targetCount,
+        array $targetKeys = [],
     ): array {
         $hitCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
@@ -462,6 +464,7 @@ final class GameStrikeTargetClose
             $battle->getPendingActionEffects(),
             $slice,
             $advantages,
+            $targetKeys,
         );
     }
 }

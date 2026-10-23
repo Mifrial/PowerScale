@@ -229,6 +229,215 @@ final class GamePendingActionCostsTest extends TestCase
     }
 
     /**
+     * Завершение пишет хвосты следующей атаки с целью.
+     *
+     * @return void
+     */
+    public function testCompleteWritesAttackTailForSameTarget(): void
+    {
+        $costs = new GamePendingActionCosts();
+        $slice = $this->sliceWithAttackTail();
+
+        $pending = $costs->complete(
+            $slice,
+            [],
+            'synthetic',
+            'character',
+            1,
+            [],
+            ['action-points' => 2],
+            ['npc:7'],
+        );
+
+        $effects = array_map(
+            static fn (array $entry): array => $entry['effect'],
+            $pending['character:1'] ?? [],
+        );
+        self::assertCount(2, $effects);
+        self::assertSame('next_action_attack_accuracy', $effects[0]['type']);
+        self::assertSame(1, $effects[0]['delta']);
+        self::assertSame('npc:7', $effects[0]['targetKey']);
+        self::assertSame(['components' => ['strike'], 'hit_count' => 1], $effects[0]['scope']);
+        self::assertSame('next_action_attack_score_adjust', $effects[1]['type']);
+        self::assertSame(-1, $effects[1]['oneDelta']);
+        self::assertSame('npc:7', $effects[1]['targetKey']);
+    }
+
+    /**
+     * Следующее действие снимает чужие хвосты атаки и не трогает прочие.
+     *
+     * @return void
+     */
+    public function testCompleteConsumesPreviousAttackTails(): void
+    {
+        $costs = new GamePendingActionCosts();
+        $slice = new CharacterRuleSlice(1, 1, 'test', [], []);
+        $pending = [
+            'character:1' => [
+                [
+                    'sourceRuleCode' => 'old',
+                    'effect' => [
+                        'type' => 'next_action_attack_accuracy',
+                        'delta' => 1,
+                        'same_target' => false,
+                        'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                    ],
+                ],
+                [
+                    'sourceRuleCode' => 'old',
+                    'effect' => [
+                        'type' => 'next_action_attack_score_adjust',
+                        'oneDelta' => -1,
+                        'faceDelta' => 0,
+                        'same_target' => false,
+                    ],
+                ],
+                [
+                    'sourceRuleCode' => 'old',
+                    'effect' => [
+                        'type' => 'after_action_until_resource_spent_check_modifier',
+                        'resource_code' => 'action-points',
+                        'amount' => 2,
+                        'check_codes' => ['check-hit'],
+                        'delta' => -2,
+                    ],
+                ],
+            ],
+        ];
+
+        $result = $costs->complete($slice, [], 'wait', 'character', 1, $pending, []);
+
+        self::assertCount(1, $result['character:1'] ?? []);
+        self::assertSame(
+            'after_action_until_resource_spent_check_modifier',
+            $result['character:1'][0]['effect']['type'],
+        );
+    }
+
+    /**
+     * Хвосты атаки фильтруются по компоненту, попаданию и цели.
+     *
+     * @return void
+     */
+    public function testAttackAdjustmentFiltersByScopeHitAndTarget(): void
+    {
+        $costs = new GamePendingActionCosts();
+        $pending = [
+            'character:1' => [
+                [
+                    'sourceRuleCode' => 'a',
+                    'effect' => [
+                        'type' => 'next_action_attack_accuracy',
+                        'delta' => 1,
+                        'same_target' => true,
+                        'targetKey' => 'npc:1',
+                        'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                    ],
+                ],
+                [
+                    'sourceRuleCode' => 'b',
+                    'effect' => [
+                        'type' => 'next_action_attack_accuracy',
+                        'delta' => 2,
+                        'same_target' => false,
+                        'scope' => ['components' => ['shoot'], 'hit_count' => 1],
+                    ],
+                ],
+                [
+                    'sourceRuleCode' => 'c',
+                    'effect' => [
+                        'type' => 'next_action_attack_accuracy',
+                        'delta' => 4,
+                        'same_target' => false,
+                        'scope' => ['components' => ['strike'], 'hit_count' => 'all'],
+                    ],
+                ],
+                [
+                    'sourceRuleCode' => 'd',
+                    'effect' => [
+                        'type' => 'next_action_attack_score_adjust',
+                        'oneDelta' => -1,
+                        'faceDelta' => 0,
+                        'same_target' => true,
+                        'targetKey' => 'npc:2',
+                    ],
+                ],
+                [
+                    'sourceRuleCode' => 'e',
+                    'effect' => [
+                        'type' => 'next_action_attack_score_adjust',
+                        'oneDelta' => -2,
+                        'faceDelta' => 1,
+                        'same_target' => false,
+                    ],
+                ],
+            ],
+        ];
+
+        $tail = $costs->attackAdjustment($pending, 'character', 1, 'strike', ['npc:1']);
+
+        self::assertSame(5, $tail['accuracy']);
+        self::assertSame(-2, $tail['adjustment']->getOneDelta());
+        self::assertSame(1, $tail['adjustment']->getFaceDelta());
+        self::assertSame([], $tail['adjustment']->getRemap());
+    }
+
+    /**
+     * Срез с одной карточкой хвостов следующей атаки.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function sliceWithAttackTail(): CharacterRuleSlice
+    {
+        $record = new RuleVersionRecord(
+            1,
+            1,
+            'synthetic',
+            true,
+            'ability',
+            'Synthetic',
+            '',
+            [
+                'type' => 'action',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'requirements' => [],
+                'grants' => [],
+                'parent_ability_code' => null,
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 2,
+                    'label' => 'Действие',
+                ]],
+                'action_effects' => [[
+                    'type' => 'next_action_attack_accuracy',
+                    'delta' => 1,
+                    'same_target' => true,
+                    'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                ], [
+                    'type' => 'next_action_attack_score_adjust',
+                    'oneDelta' => -1,
+                    'faceDelta' => 0,
+                    'same_target' => true,
+                ]],
+            ],
+            [],
+            [],
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+
+        return new CharacterRuleSlice(
+            1,
+            1,
+            'test',
+            [new CharacterResolvedRule($record, [])],
+            [],
+        );
+    }
+
+    /**
      * Срез с одной карточкой after_action.
      *
      * @return CharacterRuleSlice Срез.

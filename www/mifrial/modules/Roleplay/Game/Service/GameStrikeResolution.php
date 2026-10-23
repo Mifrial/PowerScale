@@ -44,6 +44,7 @@ final class GameStrikeResolution
      * @param array<string, mixed> $pending Карта ожидания.
      * @param CharacterRuleSlice $slice Срез.
      * @param list<array<string, mixed>> $extraAdvantages Дополнительные преимущества (широкий удар).
+     * @param array<int, string> $targetKeys Цели атаки для хвостов прошлого действия.
      *
      * @return array<string, mixed> Roll.
      *
@@ -57,6 +58,7 @@ final class GameStrikeResolution
         array $pending,
         CharacterRuleSlice $slice,
         array $extraAdvantages = [],
+        array $targetKeys = [],
     ): array {
         $kind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
@@ -85,6 +87,13 @@ final class GameStrikeResolution
             'attacker',
         ));
         array_push($advantages, ...$extraAdvantages);
+        $tail = (new GamePendingActionCosts())->attackAdjustment(
+            $pending,
+            $kind,
+            $attackerId,
+            $profileType,
+            $targetKeys,
+        );
 
         return $this->rules->rollHit(
             $game->getSpaceId(),
@@ -101,6 +110,8 @@ final class GameStrikeResolution
             $actionRuleCode,
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
             $advantages,
+            $tail['accuracy'],
+            $tail['adjustment'],
         );
     }
 

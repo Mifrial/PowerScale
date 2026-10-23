@@ -56,6 +56,25 @@ final class RollAdjustment
     }
 
     /**
+     * Складывает две настройки.
+     *
+     * Ремап объединяется, свои грани остаются при конфликте; дельты успехов
+     * складываются.
+     *
+     * @param self $other Вторая настройка.
+     *
+     * @return RollAdjustment Итог.
+     */
+    public function merge(self $other): self
+    {
+        return new self(
+            $this->remap + $other->remap,
+            $this->oneDelta + $other->oneDelta,
+            $this->faceDelta + $other->faceDelta,
+        );
+    }
+
+    /**
      * Ничего не меняет.
      *
      * @return bool true, если настройка пустая.

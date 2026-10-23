@@ -16,6 +16,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdjustment;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
@@ -700,6 +701,8 @@ final class GameStrikeRules
      * @param string $actionRuleCode Карточка атаки. Пусто, если сдвига точности нет.
      * @param int|null $sheetVersion Версия листа NPC.
      * @param array<int, RollAdvantage> $advantages Преимущества проверки.
+     * @param int $pendingAccuracyDelta Точность из хвоста прошлого действия.
+     * @param RollAdjustment|null $pendingAdjustment Успехи из хвоста прошлого действия.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Результат.
      *
@@ -721,6 +724,8 @@ final class GameStrikeRules
         string $actionRuleCode = '',
         ?int $sheetVersion = null,
         array $advantages = [],
+        int $pendingAccuracyDelta = 0,
+        ?RollAdjustment $pendingAdjustment = null,
     ): array {
         $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
         $item = $this->selectedItem($spaceId, $rulesRevision, $documents['choices'], $itemInventoryId, $itemRuleCode);
@@ -737,7 +742,7 @@ final class GameStrikeRules
             $this->slice($spaceId, $rulesRevision),
             $actionRuleCode,
             $profileType,
-        );
+        ) + $pendingAccuracyDelta;
         if ($accuracyDelta !== 0) {
             $accuracy = (new CharacteristicNumber($accuracy->getBase(), $accuracy->getSize()))->modify($accuracyDelta);
         }
@@ -747,6 +752,9 @@ final class GameStrikeRules
             $actionRuleCode,
             $profileType,
         );
+        if ($pendingAdjustment !== null) {
+            $adjustment = $adjustment->merge($pendingAdjustment);
+        }
 
         return $this->hitRoll->throwHitWithMastery(
             $spaceId,

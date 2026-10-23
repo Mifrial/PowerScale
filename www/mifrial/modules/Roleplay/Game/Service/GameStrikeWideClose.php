@@ -83,6 +83,8 @@ final class GameStrikeWideClose
             $indexByTarget[$this->rows->targetKey($this->rows->rowTarget($row))] = $index;
         }
 
+        $targetKeys = array_keys($indexByTarget);
+
         foreach ($requestChoices as $choice) {
             $index = $indexByTarget[$this->rows->targetKey($choice['target'])] ?? null;
             if (!is_int($index)) {
@@ -146,7 +148,7 @@ final class GameStrikeWideClose
 
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $hitCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
-        $attackerRoll = $this->targets->rollOf($game, $open, $battle, $slice, count($rows));
+        $attackerRoll = $this->targets->rollOf($game, $open, $battle, $slice, count($rows), $targetKeys);
         $damage = $this->rules->isHitAutoFail($attackerRoll['roll'])
             ? $this->amounts->zero()
             : $this->resolution->damageOf($game, $open);
@@ -206,6 +208,7 @@ final class GameStrikeWideClose
             $attackerId,
             $this->targets->pendingAfter(),
             ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode)],
+            $targetKeys,
         );
 
         $this->actions->close($strikeId);

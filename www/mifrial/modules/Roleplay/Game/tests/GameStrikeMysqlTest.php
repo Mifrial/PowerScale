@@ -263,6 +263,36 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Хвост карточки применяется к следующей атаке по той же цели и снимается.
+     *
+     * @return void
+     */
+    public function testNextAttackScoreTailAppliesToNextStrike(): void
+    {
+        $world = $this->worldWithWeapon(cardEffects: [[
+            'type' => 'next_action_attack_score_adjust',
+            'oneDelta' => -1,
+            'faceDelta' => 0,
+            'same_target' => true,
+        ]]);
+        $result = $this->twoStrikesAfterCard($world);
+        $rolls = $result['rolls'];
+        self::assertCount(2, $rolls);
+
+        $pending = $result['pending'];
+        self::assertCount(1, $pending);
+        $effect = is_array($pending[0]) ? ($pending[0]['effect'] ?? null) : null;
+        self::assertIsArray($effect);
+        self::assertSame('next_action_attack_score_adjust', $effect['type']);
+        self::assertSame('character:' . $result['defenderId'], $effect['targetKey']);
+
+        $first = $rolls[0]['successes'];
+        $second = $rolls[1]['successes'];
+        self::assertSame(array_fill(0, count($first), 1), $first);
+        self::assertSame(array_fill(0, count($second), 0), $second);
+    }
+
+    /**
      * Чат одиночного удара: порядок, вложения и ключи доставки.
      *
      * @return void
@@ -2651,6 +2681,85 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertNotSame([], $rolls);
 
         return $rolls[0];
+    }
+
+    /**
+     * Два удара карточкой с эффектами: броски и ожидание после первого.
+     *
+     * @param RuleSpaceRecord $world Мир.
+     *
+     * @return array{rolls: list<array<string, mixed>>, pending: array<int, mixed>, defenderId: int} Итог.
+     */
+    private function twoStrikesAfterCard(RuleSpaceRecord $world): array
+    {
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker');
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-tail',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $version = 1;
+        $pending = [];
+        foreach ([1, 2] as $index) {
+            $opened = $this->dispatch('game.declareStrike', [
+                'gameId' => $gameId,
+                'battleId' => $battleId,
+                'idempotencyKey' => 's-tail-' . $index,
+                'expectedVersion' => $version,
+                'attack' => $this->characterAttack($attackerId, $defenderId),
+            ]);
+            self::assertTrue($opened['success'], json_encode($opened));
+            $closed = $this->dispatch('game.resolveStrike', [
+                'gameId' => $gameId,
+                'battleId' => $battleId,
+                'idempotencyKey' => 'd-tail-' . $index,
+                'expectedVersion' => $opened['data']['version'],
+                'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
+                'defense' => ['reaction' => 'ignore'],
+            ]);
+            self::assertTrue($closed['success'], json_encode($closed));
+            $version = $closed['data']['version'];
+            if ($index === 1) {
+                $pending = $this->pendingEntries($battleId, 'character:' . $attackerId);
+            }
+        }
+
+        return [
+            'rolls' => $this->chatRolls($gameId),
+            'pending' => $pending,
+            'defenderId' => $defenderId,
+        ];
+    }
+
+    /**
+     * Записи ожидания актора.
+     *
+     * @param int $battleId Бой.
+     * @param string $key Ключ актора.
+     *
+     * @return array<int, mixed> Записи.
+     */
+    private function pendingEntries(int $battleId, string $key): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $row = $gateway->open(GameBattleTable::class)->records()->getById($battleId);
+        self::assertIsArray($row);
+        $pending = $row['pending_action_effects'] ?? [];
+        self::assertIsArray($pending);
+
+        $entries = $pending[$key] ?? [];
+        self::assertIsArray($entries);
+
+        return array_values($entries);
     }
 
     /**
