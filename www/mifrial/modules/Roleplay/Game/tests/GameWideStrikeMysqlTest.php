@@ -89,8 +89,9 @@ final class GameWideStrikeMysqlTest extends TestCase
                 ['type' => 'npc', 'id' => $second['npcId']],
             ],
         ]);
-        $one = $this->attack($characterId, [$first['npcId']]);
-        $rejected = $this->dispatch('game.declareWideStrike', $this->declareBody($gameId, $battle['data']['battleId'], 'one', 1, $one));
+        $empty = $this->attack($characterId, [$first['npcId']]);
+        $empty['targets'] = [];
+        $rejected = $this->dispatch('game.declareWideStrike', $this->declareBody($gameId, $battle['data']['battleId'], 'empty', 1, $empty));
         self::assertSame('INVALID_PARAMS', $rejected['error']['code']);
         $plain = $this->attack($characterId, [$first['npcId'], $second['npcId']]);
         $plain['damage'] = 1;
@@ -1078,6 +1079,164 @@ final class GameWideStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Карточка с потолком принимает одну цель.
+     *
+     * @return void
+     */
+    public function testCardCapAllowsSingleTarget(): void
+    {
+        $world = $this->worldWithWeapon();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $characterId = $this->admit($world->getId(), $gameId, 'Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $target = $this->createNpc($gameId, 'Guard');
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'one-target-battle',
+            'participants' => [
+                ['type' => 'character', 'id' => $characterId],
+                ['type' => 'npc', 'id' => $target['npcId']],
+            ],
+        ]);
+
+        $declared = $this->dispatch('game.declareWideStrike', $this->declareBody(
+            $gameId,
+            $battle['data']['battleId'],
+            'one-target',
+            1,
+            $this->attack($characterId, [$target['npcId']]),
+        ));
+
+        self::assertTrue($declared['success'], json_encode($declared));
+        self::assertIsInt($declared['data']['strikeId']);
+        self::assertSame(1, $this->countActions('wide_strike'));
+    }
+
+    /**
+     * Число целей выше потолка карточки отклоняется.
+     *
+     * @return void
+     */
+    public function testTargetCountAboveCardCapIsRejected(): void
+    {
+        $world = $this->worldWithWeapon();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $characterId = $this->admit($world->getId(), $gameId, 'Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $targets = [];
+        for ($index = 0; $index < 5; $index++) {
+            $targets[] = $this->createNpc($gameId, 'Guard ' . $index);
+        }
+
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'cap-battle',
+            'participants' => array_merge(
+                [['type' => 'character', 'id' => $characterId]],
+                array_map(
+                    static fn (array $target): array => ['type' => 'npc', 'id' => $target['npcId']],
+                    $targets,
+                ),
+            ),
+        ]);
+        $rejected = $this->dispatch('game.declareWideStrike', $this->declareBody(
+            $gameId,
+            $battle['data']['battleId'],
+            'cap-over',
+            1,
+            $this->attack($characterId, array_column($targets, 'npcId')),
+        ));
+
+        self::assertSame('GAME_INVALID', $rejected['error']['code']);
+        self::assertSame(0, $this->countActions('wide_strike'));
+    }
+
+    /**
+     * Без max_targets карточка допускает одну цель и не допускает две.
+     *
+     * @return void
+     */
+    public function testCardWithoutMaxTargetsAcceptsOnlyOne(): void
+    {
+        $world = $this->worldWithWeapon();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $characterId = $this->admit($world->getId(), $gameId, 'Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $first = $this->createNpc($gameId, 'Guard');
+        $second = $this->createNpc($gameId, 'Archer');
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'no-max-battle',
+            'participants' => [
+                ['type' => 'character', 'id' => $characterId],
+                ['type' => 'npc', 'id' => $first['npcId']],
+                ['type' => 'npc', 'id' => $second['npcId']],
+            ],
+        ]);
+        $two = $this->attack($characterId, [$first['npcId'], $second['npcId']]);
+        $two['actionRuleCode'] = 'swing1';
+        $rejected = $this->dispatch('game.declareWideStrike', $this->declareBody(
+            $gameId,
+            $battle['data']['battleId'],
+            'no-max-two',
+            1,
+            $two,
+        ));
+        self::assertSame('GAME_INVALID', $rejected['error']['code']);
+
+        $one = $this->attack($characterId, [$first['npcId']]);
+        $one['actionRuleCode'] = 'swing1';
+        $declared = $this->dispatch('game.declareWideStrike', $this->declareBody(
+            $gameId,
+            $battle['data']['battleId'],
+            'no-max-one',
+            1,
+            $one,
+        ));
+        self::assertTrue($declared['success'], json_encode($declared));
+    }
+
+    /**
+     * attack_mode wide при max_targets 1 — битая карточка.
+     *
+     * @return void
+     */
+    public function testInconsistentAttackModeIsRejected(): void
+    {
+        $world = $this->worldWithWeapon();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $characterId = $this->admit($world->getId(), $gameId, 'Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $first = $this->createNpc($gameId, 'Guard');
+        $second = $this->createNpc($gameId, 'Archer');
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'mode-battle',
+            'participants' => [
+                ['type' => 'character', 'id' => $characterId],
+                ['type' => 'npc', 'id' => $first['npcId']],
+                ['type' => 'npc', 'id' => $second['npcId']],
+            ],
+        ]);
+        $attack = $this->attack($characterId, [$first['npcId'], $second['npcId']]);
+        $attack['actionRuleCode'] = 'widebroken';
+        $rejected = $this->dispatch('game.declareWideStrike', $this->declareBody(
+            $gameId,
+            $battle['data']['battleId'],
+            'mode-broken',
+            1,
+            $attack,
+        ));
+
+        self::assertSame('GAME_INVALID', $rejected['error']['code']);
+        self::assertSame(0, $this->countActions('wide_strike'));
+    }
+
+    /**
      * endBattle сессию не гасит. Stop снимает строки широкого удара.
      *
      * @return void
@@ -1734,8 +1893,21 @@ final class GameWideStrikeMysqlTest extends TestCase
                     ],
                 ]],
             ], [], [], 'needs_work')),
-            RuleCommitEntry::put('swing', new RuleVersionBody('language', 'Swing', '', [
-                'role' => 'spoken',
+            RuleCommitEntry::put('swing', new RuleVersionBody('ability', 'Swing', '', [
+                'type' => 'action',
+                'action_components' => [],
+                'attack_mode' => 'wide',
+                'max_targets' => 4,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('swing1', new RuleVersionBody('ability', 'Swing one', '', [
+                'type' => 'action',
+                'action_components' => [],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('widebroken', new RuleVersionBody('ability', 'Wide broken', '', [
+                'type' => 'action',
+                'action_components' => [],
+                'attack_mode' => 'wide',
+                'max_targets' => 1,
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('dodge', new RuleVersionBody('ability', 'Dodge', '', [
                 'type' => 'action',

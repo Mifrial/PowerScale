@@ -1467,8 +1467,9 @@ final class GameStrikeMysqlTest extends TestCase
             RuleCommitEntry::put('human', new RuleVersionBody('race', 'Human', '', [
                 'characteristics' => $this->raceCharacteristics($soakCards, $hitEfficiency),
             ], [], [], 'needs_work')),
-            RuleCommitEntry::put('swing', new RuleVersionBody('language', 'Swing', '', [
-                'role' => 'spoken',
+            RuleCommitEntry::put('swing', new RuleVersionBody('ability', 'Swing', '', [
+                'type' => 'action',
+                'action_components' => [],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('dodge', new RuleVersionBody('ability', 'Dodge', '', [
                 'type' => 'action',

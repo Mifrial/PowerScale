@@ -314,6 +314,12 @@ final class GameStrikes implements IGameStrikes
                 ? $this->npcChoices($game->getId(), $choice['attacker']['id'])
                 : null,
         );
+        $this->rules->assertAttackTargets(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['actionRuleCode'],
+            1,
+        );
         $this->rules->resolveInventorySpend(
             $game->getSpaceId(),
             $game->getRulesRevision(),

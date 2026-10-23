@@ -665,6 +665,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $context['open'],
             $context['battle'],
             $this->rules->ruleSlice($context['game']->getSpaceId(), $context['game']->getRulesRevision()),
+            count($context['rows']),
         );
         $context['damage'] = $this->rules->isHitAutoFail($context['attackerRoll']['roll'])
             ? (new GameStrikeAmounts())->zero()
@@ -757,6 +758,12 @@ final class GameWideStrikes implements IGameWideStrikes
                 ? $this->attackerChoices($game->getId(), $choice['attacker']['id'])
                 : null,
         );
+        $this->rules->assertAttackTargets(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['actionRuleCode'],
+            count($choice['targets']),
+        );
         $this->rules->resolveInventorySpend(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -782,6 +789,7 @@ final class GameWideStrikes implements IGameWideStrikes
      * @param array<string, mixed> $open Строка удара.
      * @param GameBattleRecord $battle Бой.
      * @param CharacterRuleSlice $slice Срез правил.
+     * @param int $targetCount Число целей.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Roll.
      *
@@ -793,6 +801,7 @@ final class GameWideStrikes implements IGameWideStrikes
         array $open,
         GameBattleRecord $battle,
         CharacterRuleSlice $slice,
+        int $targetCount,
     ): array {
         $kind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
@@ -821,6 +830,16 @@ final class GameWideStrikes implements IGameWideStrikes
             $hitCode,
             'attacker',
         ));
+
+        $wideAdvantage = $this->rules->wideTargetCheckAdvantage(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $actionRuleCode,
+            $targetCount,
+        );
+        if ($wideAdvantage !== null) {
+            $advantages[] = $wideAdvantage;
+        }
 
         return $this->rules->rollHit(
             $game->getSpaceId(),

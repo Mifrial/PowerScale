@@ -39,6 +39,7 @@ final class AbilityBases
             SpecShape::optionalInt($document, 'max_weapons'),
             SpecShape::bool($document, 'lift_parent_max_weapons'),
             SpecShape::optionalInt($document, 'max_targets'),
+            SpecShape::optionalInt($document, 'wide_target_check_advantage'),
             SpecShape::optionalString($document, 'combat_action'),
             SpecShape::bool($document, 'peak_concentration'),
             SpecShape::bool($document, 'will_focus'),

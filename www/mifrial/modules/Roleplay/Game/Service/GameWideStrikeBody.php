@@ -183,7 +183,7 @@ final class GameWideStrikeBody
     }
 
     /**
-     * Не меньше двух разных целей.
+     * Не меньше одной разной цели.
      *
      * @param mixed $targets Список.
      *
@@ -193,7 +193,7 @@ final class GameWideStrikeBody
      */
     private function targets(mixed $targets): array
     {
-        if (!is_array($targets) || !array_is_list($targets) || count($targets) < 2) {
+        if (!is_array($targets) || !array_is_list($targets) || count($targets) < 1) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: targets');
         }
 

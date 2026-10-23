@@ -236,6 +236,73 @@ final class GameStrikeRules
     }
 
     /**
+     * Проверяет число целей карточки: потолок `max_targets` и режим.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия игры.
+     * @param string $actionRuleCode Действие.
+     * @param int $targetCount Число целей.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если карточка битая или число целей вне потолка.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function assertAttackTargets(
+        int $spaceId,
+        int $rulesRevision,
+        string $actionRuleCode,
+        int $targetCount,
+    ): void {
+        $base = $this->actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
+        if ($base === null) {
+            throw new GameInvalidException('Game strike action is invalid');
+        }
+
+        $maxTargets = $base->getMaxTargets() ?? 1;
+        if ($maxTargets < 1) {
+            throw new GameInvalidException('Game strike max targets is invalid');
+        }
+
+        $mode = $base->getAttackMode();
+        if ($mode !== null && ($mode === 'wide') !== ($maxTargets > 1)) {
+            throw new GameInvalidException('Game strike attack mode is invalid');
+        }
+
+        if ($targetCount < 1 || $targetCount > $maxTargets) {
+            throw new GameInvalidException('Game strike target count is invalid');
+        }
+    }
+
+    /**
+     * Помеха за число целей широкой атаки.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия игры.
+     * @param string $actionRuleCode Действие.
+     * @param int $targetCount Число целей.
+     *
+     * @return RollAdvantage|null Запись или null.
+     *
+     * @throws GameInvalidException Если карточка битая.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function wideTargetCheckAdvantage(
+        int $spaceId,
+        int $rulesRevision,
+        string $actionRuleCode,
+        int $targetCount,
+    ): ?RollAdvantage {
+        $base = $this->actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
+        $delta = $base?->getWideTargetCheckAdvantage() ?? 0;
+        if ($delta === 0 || $targetCount < 2) {
+            return null;
+        }
+
+        return new RollAdvantage('circumstances', $delta * ($targetCount - 1));
+    }
+
+    /**
      * Разрешает списание выбранного предмета или боеприпаса.
      *
      * @param int $spaceId Мир.

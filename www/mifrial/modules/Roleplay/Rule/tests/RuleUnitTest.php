@@ -7,11 +7,44 @@ namespace Mifrial\Roleplay\Rule\Tests;
 use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionBody;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
+use Mifrial\Roleplay\Rule\Spec\AbilityBases;
 use Mifrial\Versioning\Space\Dto\RevisionSliceKey;
 use PHPUnit\Framework\TestCase;
 
 final class RuleUnitTest extends TestCase
 {
+    /**
+     * Поля широкой атаки читаются из документа карточки.
+     *
+     * @return void
+     */
+    public function testWideTargetFieldsAreParsed(): void
+    {
+        $base = AbilityBases::read([
+            'type' => 'action',
+            'attack_mode' => 'wide',
+            'max_targets' => 3,
+            'wide_target_check_advantage' => -1,
+        ]);
+
+        self::assertSame('wide', $base->getAttackMode());
+        self::assertSame(3, $base->getMaxTargets());
+        self::assertSame(-1, $base->getWideTargetCheckAdvantage());
+    }
+
+    /**
+     * Без полей широкой атаки значения пустые.
+     *
+     * @return void
+     */
+    public function testWideTargetFieldsAreOptional(): void
+    {
+        $base = AbilityBases::read(['type' => 'action']);
+
+        self::assertNull($base->getAttackMode());
+        self::assertNull($base->getMaxTargets());
+        self::assertNull($base->getWideTargetCheckAdvantage());
+    }
     /**
      * Ключ кэша часов для identity rule.
      *

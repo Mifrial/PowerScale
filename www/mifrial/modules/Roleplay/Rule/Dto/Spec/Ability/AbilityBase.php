@@ -31,6 +31,7 @@ final class AbilityBase
      * @param int|null $maxWeapons Максимум экземпляров.
      * @param bool $liftParentMaxWeapons Снять потолок родителя.
      * @param int|null $maxTargets Максимум целей.
+     * @param int|null $wideTargetCheckAdvantage Дельта помехи за лишнюю цель.
      * @param string|null $combatAction Роль в бою.
      * @param bool $peakConcentration Пик концентрации.
      * @param bool $willFocus Воля.
@@ -73,6 +74,7 @@ final class AbilityBase
         private readonly ?int $maxWeapons,
         private readonly bool $liftParentMaxWeapons,
         private readonly ?int $maxTargets,
+        private readonly ?int $wideTargetCheckAdvantage,
         private readonly ?string $combatAction,
         private readonly bool $peakConcentration,
         private readonly bool $willFocus,
@@ -247,6 +249,16 @@ final class AbilityBase
     public function getMaxTargets(): ?int
     {
         return $this->maxTargets;
+    }
+
+    /**
+     * Дельта помехи за каждую лишнюю цель.
+     *
+     * @return int|null Значение или null.
+     */
+    public function getWideTargetCheckAdvantage(): ?int
+    {
+        return $this->wideTargetCheckAdvantage;
     }
 
     /**

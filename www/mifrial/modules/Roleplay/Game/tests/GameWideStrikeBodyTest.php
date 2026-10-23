@@ -14,6 +14,46 @@ use PHPUnit\Framework\TestCase;
 final class GameWideStrikeBodyTest extends TestCase
 {
     /**
+     * Широкий транспорт принимает одну цель: потолок задаёт карточка.
+     *
+     * @return void
+     */
+    public function testSingleTargetIsAccepted(): void
+    {
+        $choice = (new GameWideStrikeBody())->attack([
+            'attacker' => ['type' => 'character', 'id' => 1],
+            'targets' => [['type' => 'npc', 'id' => 2]],
+            'actionRuleCode' => 'swing',
+            'itemInventoryId' => 7,
+            'itemRuleCode' => 'sword',
+            'profileType' => 'strike',
+            'profileIndex' => 0,
+        ]);
+
+        self::assertSame([['type' => 'npc', 'id' => 2]], $choice['targets']);
+    }
+
+    /**
+     * Пустой список целей отклоняется.
+     *
+     * @return void
+     */
+    public function testEmptyTargetsAreRejected(): void
+    {
+        $this->expectException(ActionException::class);
+
+        (new GameWideStrikeBody())->attack([
+            'attacker' => ['type' => 'character', 'id' => 1],
+            'targets' => [],
+            'actionRuleCode' => 'swing',
+            'itemInventoryId' => 7,
+            'itemRuleCode' => 'sword',
+            'profileType' => 'strike',
+            'profileIndex' => 0,
+        ]);
+    }
+
+    /**
      * Shoot wide transport сохраняет selected ammunition instance.
      *
      * @return void
