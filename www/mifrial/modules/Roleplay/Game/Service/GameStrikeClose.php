@@ -31,6 +31,12 @@ final class GameStrikeClose
      */
     private array $pendingAfter = [];
 
+    private readonly GameStrikeSingleChat $singleChat;
+
+    private readonly GameStrikeWideChat $wideChat;
+
+    private readonly GameStrikeCloseRows $rows;
+
     /**
      * Создаёт закрытие удара.
      *
@@ -65,6 +71,19 @@ final class GameStrikeClose
         private readonly GameStrikeAmounts $amounts,
         private readonly GameReplayTransaction $replayTransaction,
     ) {
+        $this->singleChat = new GameStrikeSingleChat(
+            $this->chat,
+            $this->consequences,
+            $this->spend,
+            $this->rules,
+        );
+        $this->wideChat = new GameStrikeWideChat(
+            $this->chat,
+            $this->consequences,
+            $this->spend,
+            $this->rules,
+        );
+        $this->rows = new GameStrikeCloseRows($this->battles, $this->actions, $this->access);
     }
 
     /**
@@ -212,8 +231,8 @@ final class GameStrikeClose
         bool $editAll,
         bool $viewAll,
     ): array {
-        $open = $this->openSingleForClose($battleId, $game, $actorUserId, $editAll);
-        $battle = $this->battleOf($sessionId, $battleId, $expectedBattleVersion);
+        $open = $this->rows->openSingle($battleId, $game, $actorUserId, $editAll);
+        $battle = $this->rows->battleOf($sessionId, $battleId, $expectedBattleVersion);
         $strikeId = $open['id'] ?? null;
         if (!is_int($strikeId)) {
             throw new GameInvalidException('Game strike row is invalid');
@@ -225,10 +244,10 @@ final class GameStrikeClose
             throw new GameInvalidException('Game strike row is invalid');
         }
 
-        $target = $this->defender($row);
+        $target = $this->rows->defender($row);
         $this->assertReaction($game, $target, $requestChoice);
         $choice = $this->authoritativeChoice($game, $target, $requestChoice);
-        $targetOpen = $this->targetOpen($open, $target);
+        $targetOpen = $this->rows->targetOpen($open, $target);
         $this->sheets->assertDefenderSheet(
             $game,
             $targetOpen,
@@ -413,7 +432,7 @@ final class GameStrikeClose
                     ),
                     $spends,
                 ));
-        $this->postStrikeChat(
+        $this->singleChat->post(
             $game,
             $battle,
             $targetOpen,
@@ -460,69 +479,6 @@ final class GameStrikeClose
         $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
 
         return $result;
-    }
-
-    /**
-     * Открытый одиночный удар с проверкой актора.
-     *
-     * @param int $battleId Бой.
-     * @param GameRecord $game Игра.
-     * @param int $actorUserId Актор.
-     * @param bool $editAll Ключ.
-     *
-     * @return array<string, mixed> Строка.
-     */
-    private function openSingleForClose(int $battleId, GameRecord $game, int $actorUserId, bool $editAll): array
-    {
-        $open = $this->actions->findOpenWithTargets($battleId, 'strike');
-        if ($open !== null) {
-            $this->access->assertTarget($game, $actorUserId, $editAll, $this->defenderOfRow($open));
-            $strikeId = $open['id'] ?? null;
-            if (!is_int($strikeId)) {
-                throw new GameInvalidException('Game strike row is invalid');
-            }
-
-            $locked = $this->actions->lockById($strikeId);
-            if (
-                !is_array($locked)
-                || ($locked['open'] ?? null) !== true
-                || ($locked['kind'] ?? null) !== 'strike'
-            ) {
-                throw new GameInvalidException('Game strike is not open');
-            }
-
-            return $open;
-        }
-
-        if ($this->access->isWriter($game, $actorUserId, $editAll)) {
-            throw new GameInvalidException('Game strike is not open');
-        }
-
-        $latest = $this->actions->findLatestWithTargets($battleId, 'strike');
-        if ($latest === null) {
-            throw new ActionException('AUTH_DENIED', 'Permission denied');
-        }
-
-        $this->access->assertTarget($game, $actorUserId, $editAll, $this->defenderOfRow($latest));
-        throw new GameInvalidException('Game strike is not open');
-    }
-
-    /**
-     * Защитник из строки с целями.
-     *
-     * @param array<string, mixed> $open Строка.
-     *
-     * @return array{type: string, id: int} Пара.
-     */
-    private function defenderOfRow(array $open): array
-    {
-        $targets = is_array($open['targets'] ?? null) ? $open['targets'] : [];
-        $row = is_array($targets[0] ?? null) ? $targets[0] : null;
-        if ($row === null) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        return $this->defender($row);
     }
 
     /**
@@ -628,122 +584,6 @@ final class GameStrikeClose
     }
 
     /**
-     * Чат одиночного удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param GameBattleRecord $battle Бой.
-     * @param array<string, mixed> $open Открытый удар.
-     * @param int $actorUserId Актор.
-     * @param int $strikeId Удар.
-     * @param string $reaction Реакция.
-     * @param array<string, mixed> $result Итог.
-     *
-     * @return void
-     */
-    private function postStrikeChat(
-        GameRecord $game,
-        GameBattleRecord $battle,
-        array $open,
-        int $actorUserId,
-        int $strikeId,
-        string $reaction,
-        array $result,
-    ): void {
-        $threadId = 'attack-' . $strikeId;
-        $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
-        $defender = $this->chat->getEntityToken($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
-        $attacker = $this->chat->getEntityToken($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0);
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $actionCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
-        $action = $actionCode !== '' ? '[[rule:' . $actionCode . ']]' : 'действие';
-        $actionAp = $this->spend->getActionAp($slice, $actionCode);
-        $weapon = is_string($open['item_rule_code'] ?? null) ? '[[rule:' . $open['item_rule_code'] . ']]' : 'оружием';
-        $kind = match ($open['profile_type'] ?? 'strike') {
-            'throw' => 'бросок',
-            'shoot' => 'выстрел',
-            default => 'удар',
-        };
-        $typeBit = $this->chat->getDamageTypeBit(
-            $game,
-            $open['item_rule_code'] ?? null,
-            $open['profile_type'] ?? null,
-            $open['profile_index'] ?? null,
-            $slice,
-        );
-        $narrative = $attacker . ' наносит ' . $typeBit . ' ' . $kind
-            . ' оружием ' . $weapon . ' по ' . $defender . '.';
-        if ($reaction === 'ignore') {
-            $narrative .= ' Тот не реагирует.';
-        } else {
-            $reactionCode = $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), $reaction);
-            $narrative .= ' ' . $this->chat->getReactionBit(
-                'Тот',
-                $reaction,
-                $reactionCode,
-                $this->spend->getActionAp($slice, $reactionCode ?? ''),
-            ) . '!';
-        }
-
-        $exhaustion = $result['exhaustionDelta'] ?? 0;
-        $wound = $result['wound'] ?? 0;
-        $success = $result['success'] ?? 0;
-        $bits = [$exhaustion . ' истощения'];
-        if ($wound > 0) {
-            $bits[] = $wound . ' рану';
-        }
-
-        $will = isset($result['will']) ? [
-            'roll' => $result['will'],
-            'text' => $this->chat->getExhaustionText(
-                $defender,
-                $result['will']['rating'] ?? 0,
-                $result['willOutcome'] ?? 'clear',
-            ),
-        ] : null;
-        $maim = isset($result['maim']) ? $this->chat->getMaimPayload($defender, $result['maim'], $typeBit) : null;
-        $this->consequences->post(
-            $game,
-            $actorUserId,
-            $threadId,
-            true,
-            $attacker . ' совершает действие ' . $action . ' за ' . $actionAp . 'ОД.',
-            $narrative,
-            $result['attackerRoll'],
-            $success > 0
-                ? $attacker . ' попадает по ' . $defender . ' с ' . $success
-                    . ' РУ и наносит ' . implode(' и ', $bits) . '!'
-                : $attacker . ' промахивается по ' . $defender . '!',
-            [
-                'raw' => is_array($result['injury'] ?? null) ? ($result['injury']['base'] ?? 0) : 0,
-                'damage' => is_array($result['damage'] ?? null) ? $result['damage'] : ['base' => 0, 'size' => 0],
-                'damageTypeName' => $typeBit,
-                'resistance' => is_array($result['resistance'] ?? null) ? ($result['resistance']['base'] ?? 0) : 0,
-                'endurance' => is_array($result['endurance'] ?? null)
-                    ? $result['endurance']
-                    : ['base' => 0, 'size' => 0],
-                'defenseIgnored' => false,
-                'attackSrLabel' => (string) $success,
-                'appliedSr' => $success,
-                'srCap' => null,
-                'heading' => null,
-                'stun' => null,
-                'shock' => null,
-                'exhaustion' => $exhaustion,
-                'remainingHpDamage' => 0,
-                'wound' => $wound,
-                'knockout' => ($result['unconscious'] ?? false) === true,
-                'cuttingWound' => null,
-                'layers' => [],
-            ],
-            $will,
-            $maim,
-            $this->chat->getSpeakerOf($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0),
-            is_array($result['defenderRoll'] ?? null) ? $result['defenderRoll'] : null,
-            $parentId,
-        );
-    }
-
-    /**
      * Тело закрытия широкого удара.
      *
      * @param GameRecord $game Игра.
@@ -766,16 +606,16 @@ final class GameStrikeClose
         bool $viewAll,
     ): array {
         $battleId = $battle->getId();
-        $open = $this->requireOpen($battleId, 'wide_strike');
+        $open = $this->rows->requireOpen($battleId, 'wide_strike');
         $strikeId = $open['id'];
         $rows = $this->actions->getTargets($strikeId);
         $indexByTarget = [];
         foreach ($rows as $index => $row) {
-            $indexByTarget[$this->targetKey($this->rowTarget($row))] = $index;
+            $indexByTarget[$this->rows->targetKey($this->rows->rowTarget($row))] = $index;
         }
 
         foreach ($requestChoices as $choice) {
-            $index = $indexByTarget[$this->targetKey($choice['target'])] ?? null;
+            $index = $indexByTarget[$this->rows->targetKey($choice['target'])] ?? null;
             if (!is_int($index)) {
                 throw new GameInvalidException('Game wide strike target is invalid');
             }
@@ -808,7 +648,7 @@ final class GameStrikeClose
             $rows[$index]['expected_sheet_version'] = $choice['expectedSheetVersion'];
         }
 
-        $pendingTargets = $this->pendingTargets($rows);
+        $pendingTargets = $this->rows->pendingTargets($rows);
         if ($pendingTargets !== []) {
             return [
                 'battleId' => $battleId,
@@ -822,7 +662,7 @@ final class GameStrikeClose
 
         $choices = [];
         foreach ($rows as $row) {
-            $choices[] = $this->answerOfRow($row);
+            $choices[] = $this->rows->answerOfRow($row);
         }
 
         $refusals = $this->assertSheets(
@@ -869,7 +709,7 @@ final class GameStrikeClose
             );
         }
 
-        $this->postWide(
+        $this->wideChat->post(
             $game,
             $rows,
             $choices,
@@ -943,7 +783,7 @@ final class GameStrikeClose
         int $actorUserId,
         bool $viewAll,
     ): array {
-        $target = $this->defender($row);
+        $target = $this->rows->defender($row);
         if ($refusalCode !== null) {
             return $this->row($target, $refusalCode, null, null, null);
         }
@@ -1125,7 +965,7 @@ final class GameStrikeClose
         ?CharacterRuleSlice $slice,
         string $hitCode,
     ): array {
-        $targetOpen = $this->targetOpen($open, $target);
+        $targetOpen = $this->rows->targetOpen($open, $target);
         $defenderRoll = null;
         $ratedRoll = $attackerRoll;
         if ($choice['reaction'] === 'dodge') {
@@ -1186,7 +1026,7 @@ final class GameStrikeClose
         DimensionalNumber $damage,
         callable $penetrationFactory,
     ): array {
-        $targetOpen = $this->targetOpen($open, $target);
+        $targetOpen = $this->rows->targetOpen($open, $target);
         $effectiveDamage = $success === 0 ? $this->amounts->zero() : $damage;
         $resistance = $success === 0
             ? $this->amounts->zero()
@@ -1239,7 +1079,7 @@ final class GameStrikeClose
     ): int {
         $prepared = $this->resolution->prepareSheet(
             $game,
-            $this->targetOpen($open, $target),
+            $this->rows->targetOpen($open, $target),
             $injury,
             $success,
         );
@@ -1328,7 +1168,7 @@ final class GameStrikeClose
     ): array {
         $refusals = [];
         foreach ($rows as $index => $row) {
-            $target = $this->defender($row);
+            $target = $this->rows->defender($row);
             $refusals[$index] = $this->assertTargetSheet(
                 $game,
                 $battleId,
@@ -1399,7 +1239,7 @@ final class GameStrikeClose
                 continue;
             }
 
-            $target = $this->defender($row);
+            $target = $this->rows->defender($row);
             $inventoryId = $choices[$index]['blockItemInventoryId'] ?? null;
             if (!is_int($inventoryId)) {
                 throw new GameInvalidException('Game wide strike block item is invalid');
@@ -1428,7 +1268,7 @@ final class GameStrikeClose
     {
         $code = null;
         try {
-            $this->assertDefender($battleId, $target);
+            $this->rows->assertDefender($battleId, $target);
             $this->assertReaction($game, $target, $choice);
         } catch (GameNotFoundException) {
             $code = 'GAME_NOT_FOUND';
@@ -1437,159 +1277,6 @@ final class GameStrikeClose
         }
 
         return $code;
-    }
-
-    /**
-     * Бой этой сессии с ожидаемой версией.
-     *
-     * @param int $sessionId Сессия.
-     * @param int $battleId Бой.
-     * @param int $expectedBattleVersion Версия.
-     *
-     * @return GameBattleRecord Строка.
-     */
-    private function battleOf(int $sessionId, int $battleId, int $expectedBattleVersion): GameBattleRecord
-    {
-        $battle = $this->battles->find($battleId);
-        if ($battle === null || $battle->getSessionId() !== $sessionId) {
-            throw new GameNotFoundException('Game battle was not found');
-        }
-
-        if ($battle->getStateVersion() !== $expectedBattleVersion) {
-            throw new GameBattleConflictException($battle->getStateVersion());
-        }
-
-        return $battle;
-    }
-
-    /**
-     * Открытый удар вида.
-     *
-     * @param int $battleId Бой.
-     * @param string $kind Вид.
-     *
-     * @return array<string, mixed> Строка.
-     */
-    private function requireOpen(int $battleId, string $kind): array
-    {
-        $open = $this->actions->findOpenByBattle($battleId, $kind);
-        $strikeId = is_array($open) ? ($open['id'] ?? null) : null;
-        if (!is_array($open) || !is_int($strikeId)) {
-            $message = $kind === 'wide_strike' ? 'Game wide strike is not open' : 'Game strike is not open';
-            throw new GameInvalidException($message);
-        }
-
-        $locked = $this->actions->lockById($strikeId);
-        if (
-            !is_array($locked)
-            || ($locked['open'] ?? null) !== true
-            || ($locked['kind'] ?? null) !== $kind
-        ) {
-            $message = $kind === 'wide_strike' ? 'Game wide strike is not open' : 'Game strike is not open';
-            throw new GameInvalidException($message);
-        }
-
-        return $locked;
-    }
-
-    /**
-     * Цели без ответа.
-     *
-     * @param list<array<string, mixed>> $rows Цели.
-     *
-     * @return list<array{type: string, id: int}> Ожидание.
-     */
-    private function pendingTargets(array $rows): array
-    {
-        $pending = [];
-        foreach ($rows as $row) {
-            if (($row['reaction'] ?? null) !== null) {
-                continue;
-            }
-
-            $pending[] = $this->rowTarget($row);
-        }
-
-        return $pending;
-    }
-
-    /**
-     * Сохранённый ответ строки.
-     *
-     * @param array<string, mixed> $row Цель.
-     *
-     * @return array<string, mixed> Ответ.
-     */
-    private function answerOfRow(array $row): array
-    {
-        $reaction = $row['reaction'] ?? null;
-        $expectedSheetVersion = $row['expected_sheet_version'] ?? null;
-        $inventoryId = $row['block_item_inventory_id'] ?? null;
-        $profileIndex = $row['block_item_profile_index'] ?? null;
-        $ruleCode = $row['block_item_rule_code'] ?? null;
-        if (
-            !is_string($reaction)
-            || !is_int($expectedSheetVersion)
-            || ($inventoryId !== null && !is_int($inventoryId))
-            || ($profileIndex !== null && !is_int($profileIndex))
-            || ($ruleCode !== null && !is_string($ruleCode))
-        ) {
-            throw new GameInvalidException('Game wide strike target row is invalid');
-        }
-
-        return [
-            'reaction' => $reaction,
-            'blockItemInventoryId' => $inventoryId,
-            'blockItemProfileIndex' => $profileIndex,
-            'blockItemRuleCode' => $ruleCode,
-            'expectedSheetVersion' => $expectedSheetVersion,
-        ];
-    }
-
-    /**
-     * Пара цели из строки.
-     *
-     * @param array<string, mixed> $row Цель.
-     *
-     * @return array{type: string, id: int} Пара.
-     */
-    private function rowTarget(array $row): array
-    {
-        $kind = $row['target_type'] ?? null;
-        $targetId = $row['target_id'] ?? null;
-        if (!is_string($kind) || !is_int($targetId)) {
-            throw new GameInvalidException('Game wide strike target row is invalid');
-        }
-
-        return ['type' => $kind, 'id' => $targetId];
-    }
-
-    /**
-     * Ключ цели.
-     *
-     * @param array{type: string, id: int} $target Цель.
-     *
-     * @return string Ключ.
-     */
-    private function targetKey(array $target): string
-    {
-        return $target['type'] . ':' . $target['id'];
-    }
-
-    /**
-     * Строка удара с подменой защитника.
-     *
-     * @param array<string, mixed> $open Открытый удар.
-     * @param array{type: string, id: int} $target Цель.
-     *
-     * @return array<string, mixed> Строка.
-     */
-    private function targetOpen(array $open, array $target): array
-    {
-        return array_merge($open, [
-            'defender_kind' => $target['type'],
-            'defender_id' => $target['id'],
-        ]);
     }
 
     /**
@@ -1620,210 +1307,6 @@ final class GameStrikeClose
                 'block_item_rule_code' => $choices[$index]['blockItemRuleCode'],
             ]);
         }
-    }
-
-    /**
-     * Чат широкого удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param list<array<string, mixed>> $rows Цели.
-     * @param list<array<string, mixed>> $choices Защиты.
-     * @param list<array<string, mixed>> $results Итоги.
-     * @param array<string, mixed> $attackerRoll Бросок атаки.
-     * @param array<string, mixed> $open Открытый удар.
-     * @param GameBattleRecord $battle Бой.
-     * @param CharacterRuleSlice $slice Срез.
-     * @param int $actorUserId Актор.
-     *
-     * @return void
-     */
-    private function postWide(
-        GameRecord $game,
-        array $rows,
-        array $choices,
-        array $results,
-        array $attackerRoll,
-        array $open,
-        GameBattleRecord $battle,
-        CharacterRuleSlice $slice,
-        int $actorUserId,
-    ): void {
-        $shown = [];
-        foreach ($results as $index => $record) {
-            if (($record['chat'] ?? false) !== true) {
-                continue;
-            }
-
-            $shown[] = ['row' => $rows[$index], 'choice' => $choices[$index], 'record' => $record];
-        }
-
-        if ($shown === [] || !isset($rows[0])) {
-            return;
-        }
-
-        $row = $open !== [] ? $open : $rows[0];
-        $attacker = $this->chat->getEntityToken($row['attacker_kind'] ?? 'character', $row['attacker_id'] ?? 0);
-        $attackerName = $this->chat->getEntityName(
-            is_string($row['attacker_kind'] ?? null) ? $row['attacker_kind'] : 'character',
-            is_int($row['attacker_id'] ?? null) ? $row['attacker_id'] : 0,
-        );
-        $actionCode = is_string($row['action_rule_code'] ?? null) ? $row['action_rule_code'] : '';
-        $action = $actionCode !== '' ? '[[rule:' . $actionCode . ']]' : 'действие';
-        $profileType = is_string($row['profile_type'] ?? null) ? $row['profile_type'] : 'strike';
-        $itemRuleCode = is_string($row['item_rule_code'] ?? null) ? $row['item_rule_code'] : '';
-        $profileIndex = is_int($row['profile_index'] ?? null) ? $row['profile_index'] : 0;
-        $kind = match ($profileType) {
-            'throw' => 'бросок',
-            'shoot' => 'выстрел',
-            default => 'удар',
-        };
-        $typeBit = $this->chat->getDamageTypeBit($game, $itemRuleCode, $profileType, $profileIndex, $slice);
-        $targets = [];
-        $reactions = [];
-        foreach ($shown as $item) {
-            $target = $item['record']['target'] ?? $this->defender($item['row']);
-            $name = $this->chat->getEntityToken($target['type'], $target['id']);
-            $targets[] = $name;
-            $reaction = $item['choice']['reaction'] ?? 'ignore';
-            $reactionCode = $reaction === 'ignore'
-                ? null
-                : $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), $reaction);
-            $reactions[] = $this->chat->getReactionBit(
-                $name,
-                $reaction,
-                $reactionCode,
-                $this->spend->getActionAp($slice, $reactionCode ?? ''),
-            );
-        }
-
-        $narrative = $attacker . ' наносит ' . $typeBit . ' ' . $kind . ' оружием [[rule:' . $itemRuleCode . ']] по '
-            . $this->chat->getJoinNames($targets) . '. ' . implode(', ', $reactions) . '!';
-        $threadId = 'attack-wide-' . ($row['id'] ?? 0);
-        $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
-        $speaker = $this->chat->getSpeakerOf($row['attacker_kind'] ?? 'character', $row['attacker_id'] ?? 0);
-        $attackCard = $attackerRoll;
-        $attackCard['label'] = 'Проверка на попадание · ' . $attackerName;
-        $attackCard['min_success_size'] = -1;
-        $rolls = [$attackCard];
-        foreach ($shown as $item) {
-            if (!is_array($item['record']['defenderRoll'] ?? null)) {
-                continue;
-            }
-
-            $target = is_array($item['record']['target'] ?? null)
-                ? $item['record']['target']
-                : ['type' => 'character', 'id' => 0];
-            $defenderName = $this->chat->getEntityName(
-                is_string($target['type'] ?? null) ? $target['type'] : 'character',
-                is_int($target['id'] ?? null) ? $target['id'] : 0,
-            );
-            $reaction = $item['choice']['reaction'] ?? 'ignore';
-            $card = $item['record']['defenderRoll'];
-            $card['label'] = ($reaction === 'block' ? 'Блок' : 'Уклонение')
-                . ' · ' . $defenderName . ' против ' . $attackerName;
-            $card['min_success_size'] = -1;
-            $rolls[] = $card;
-        }
-
-        $actionAp = $this->spend->getActionAp($slice, $actionCode);
-        $this->consequences->postLines($game, $actorUserId, $threadId, [
-            $attacker . ' совершает действие ' . $action . ' за ' . $actionAp . 'ОД.',
-            $narrative,
-        ], $speaker, $parentId);
-        $this->consequences->postRolls($game, $actorUserId, $threadId, $rolls, $speaker, $parentId);
-        foreach ($shown as $item) {
-            $this->postWideOutcome(
-                $game,
-                $actorUserId,
-                $threadId,
-                $attacker,
-                $item['record'],
-                $typeBit,
-                $speaker,
-                $parentId,
-            );
-        }
-    }
-
-    /**
-     * Итог одной цели в чат.
-     *
-     * @param GameRecord $game Игра.
-     * @param int $actorUserId Актор.
-     * @param string $threadId Тред.
-     * @param string $attacker Атакующий.
-     * @param array<string, mixed> $record Итог.
-     * @param string $typeBit Тип урона.
-     * @param array<string, mixed> $speaker Спикер.
-     * @param string|null $parentId Родитель.
-     *
-     * @return void
-     */
-    private function postWideOutcome(
-        GameRecord $game,
-        int $actorUserId,
-        string $threadId,
-        string $attacker,
-        array $record,
-        string $typeBit,
-        array $speaker,
-        ?string $parentId = null,
-    ): void {
-        $target = is_array($record['target'] ?? null) ? $record['target'] : ['type' => 'character', 'id' => 0];
-        $defender = $this->chat->getEntityToken($target['type'] ?? 'character', $target['id'] ?? 0);
-        $success = is_int($record['success'] ?? null) ? $record['success'] : 0;
-        $exhaustion = $record['exhaustionDelta'] ?? 0;
-        $wound = $record['wound'] ?? 0;
-        $will = isset($record['will']) ? [
-            'roll' => $record['will'],
-            'text' => $this->chat->getExhaustionText(
-                $defender,
-                $record['will']['rating'] ?? 0,
-                $record['willOutcome'] ?? 'clear',
-            ),
-        ] : null;
-        $maim = isset($record['maim']) ? $this->chat->getMaimPayload($defender, $record['maim'], $typeBit) : null;
-        $bits = [$exhaustion . ' истощения'];
-        if ($wound > 0) {
-            $bits[] = $wound . ' рану';
-        }
-
-        $this->consequences->postOutcome(
-            $game,
-            $actorUserId,
-            $threadId,
-            $success > 0
-                ? $attacker . ' попадает по ' . $defender . ' с ' . $success
-                    . ' РУ и наносит ' . implode(' и ', $bits) . '!'
-                : $attacker . ' промахивается по ' . $defender . '!',
-            [
-                'raw' => is_array($record['injury'] ?? null) ? ($record['injury']['base'] ?? 0) : 0,
-                'damage' => is_array($record['damage'] ?? null) ? $record['damage'] : ['base' => 0, 'size' => 0],
-                'damageTypeName' => $typeBit,
-                'resistance' => is_array($record['resistance'] ?? null) ? ($record['resistance']['base'] ?? 0) : 0,
-                'endurance' => is_array($record['endurance'] ?? null)
-                    ? $record['endurance']
-                    : ['base' => 0, 'size' => 0],
-                'defenseIgnored' => false,
-                'attackSrLabel' => (string) $success,
-                'appliedSr' => $success,
-                'srCap' => null,
-                'heading' => null,
-                'stun' => null,
-                'shock' => null,
-                'exhaustion' => $exhaustion,
-                'remainingHpDamage' => 0,
-                'wound' => $wound,
-                'knockout' => ($record['unconscious'] ?? false) === true,
-                'cuttingWound' => null,
-                'layers' => [],
-                'injury' => $record['injury'] ?? null,
-            ],
-            $will,
-            $maim,
-            $speaker,
-            $parentId,
-        );
     }
 
     /**
@@ -1892,22 +1375,6 @@ final class GameStrikeClose
     }
 
     /**
-     * Защитник всё ещё в составе.
-     *
-     * @param int $battleId Бой.
-     * @param array{type: string, id: int} $target Цель.
-     *
-     * @return void
-     */
-    private function assertDefender(int $battleId, array $target): void
-    {
-        $this->assertKind($target['type']);
-        if (!in_array($target, $this->battles->findParticipants($battleId), true)) {
-            throw new GameNotFoundException('Game battle participant was not found');
-        }
-    }
-
-    /**
      * Реакция и предмет блока этой цели.
      *
      * @param GameRecord $game Игра.
@@ -1939,38 +1406,6 @@ final class GameStrikeClose
                 $choice['blockItemProfileIndex'],
                 $choice['blockItemRuleCode'],
             );
-        }
-    }
-
-    /**
-     * Пара защитника из строки.
-     *
-     * @param array<string, mixed> $row Цель.
-     *
-     * @return array{type: string, id: int} Пара.
-     */
-    private function defender(array $row): array
-    {
-        $kind = $row['target_type'] ?? null;
-        $defenderId = $row['target_id'] ?? null;
-        if (!is_string($kind) || !is_int($defenderId)) {
-            throw new GameInvalidException('Game wide strike target row is invalid');
-        }
-
-        return ['type' => $kind, 'id' => $defenderId];
-    }
-
-    /**
-     * Вид участника.
-     *
-     * @param string $kind Вид.
-     *
-     * @return void
-     */
-    private function assertKind(string $kind): void
-    {
-        if ($kind !== 'character' && $kind !== 'npc') {
-            throw new GameInvalidException('Game wide strike participant is invalid');
         }
     }
 
