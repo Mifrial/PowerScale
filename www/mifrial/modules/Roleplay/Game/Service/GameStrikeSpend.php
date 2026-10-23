@@ -7,16 +7,196 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
+use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
+use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
+use Mifrial\Roleplay\Game\Exception\GameInvalidException;
+use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
- * Стоимость действия и преобразование трат.
+ * Стоимость действия, списание и преобразование трат.
  */
 final class GameStrikeSpend
 {
+    /**
+     * Создаёт расчёт стоимости.
+     *
+     * @param GameStrikeRules $rules Срез и версия персонажа.
+     * @param GameStrikeSheetWrites $sheetWrites Запись листа.
+     *
+     * @return void
+     */
+    public function __construct(
+        private readonly GameStrikeRules $rules,
+        private readonly GameStrikeSheetWrites $sheetWrites,
+    ) {
+    }
+
+    /**
+     * Списывает стоимость declaration у authoritative атакующего.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $choice Выбор атаки.
+     * @param GameBattleRecord $battle Бой.
+     * @param array{actualVersion: int, sheet: array{choices: array<string, mixed>, sheet: array<string, mixed>}} $snapshot
+     *        Снимок атакующего.
+     * @param string $lane Полоса долга.
+     * @param string $subject Подлежащее сообщений об ошибке.
+     *
+     * @return array{pending: array<string, mixed>, debtHold: array<string, mixed>|null}
+     *         Карта ожидания и удержанный долг.
+     *
+     * @throws GameInvalidException Если ресурс или атакующий невалидны.
+     * @throws GameNotFoundException Если revision или NPC отсутствует.
+     * @throws GameBattleConflictException Если CAS атакующего устарел.
+     */
+    public function spendAttacker(
+        GameRecord $game,
+        array $choice,
+        GameBattleRecord $battle,
+        array $snapshot,
+        string $lane,
+        string $subject,
+    ): array {
+        $kind = $choice['attacker']['type'] ?? null;
+        $id = $choice['attacker']['id'] ?? null;
+        if (!is_string($kind) || !is_int($id)) {
+            throw new GameInvalidException($subject . ' attacker is invalid');
+        }
+
+        $choices = $snapshot['sheet']['choices'];
+        $sheet = $snapshot['sheet']['sheet'];
+        $spends = $this->rules->resolveResourceSpends(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['actionRuleCode'],
+            $choice['itemInventoryId'],
+            $choice['itemRuleCode'],
+            $choices,
+            $sheet,
+            $choice['chosenAmounts'],
+        );
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $adjusted = (new GamePendingActionCosts())->adjustSpends(
+            $slice,
+            $choices,
+            $choice['actionRuleCode'],
+            $kind,
+            $id,
+            $battle->getPendingActionEffects(),
+            $spends,
+        );
+        $spends = $adjusted['spends'];
+        $debt = new GameActionDebt();
+        $actorKey = $debt->key($kind, $id);
+        $debt->assertFree($battle->getActionDebt(), $actorKey);
+        $planned = $debt->plan($slice, $sheet, $spends, $debt->refillCode($slice), $choice, $lane);
+        $spends = $planned['spends'];
+        $debtHold = null;
+        if (!$planned['open']) {
+            $debtHold = $battle->getActionDebt();
+            $debtHold[$actorKey] = $planned['slot'];
+        }
+
+        $inventorySpend = $planned['open'] ? $this->rules->resolveInventorySpend(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['itemRuleCode'],
+            $choice['profileType'],
+            $choice['profileIndex'],
+            $choice['itemInventoryId'],
+            $choice['ammunitionInventoryId'] ?? null,
+            $kind,
+            $id,
+            $kind === 'npc' ? $choices : null,
+        ) : null;
+        if (
+            $spends !== [] && !$this->rules->hasSufficientResources(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $sheet,
+                $spends,
+            )
+        ) {
+            throw new GameInvalidException($subject . ' attacker resource is insufficient');
+        }
+
+        if ($spends !== [] || $inventorySpend !== null) {
+            $this->sheetWrites->write(
+                $game,
+                $kind,
+                $id,
+                $snapshot['actualVersion'],
+                [],
+                null,
+                null,
+                $spends,
+                $inventorySpend,
+            );
+        }
+
+        return ['pending' => $adjusted['pending'], 'debtHold' => $debtHold];
+    }
+
+    /**
+     * Снимает долг атакующего после уплаты F1.
+     *
+     * @param GameBattleRecord $battle Бой.
+     * @param string $kind Вид атакующего.
+     * @param int $id Идентификатор.
+     *
+     * @return array<string, mixed> Новая карта долга.
+     */
+    public function releaseDebt(GameBattleRecord $battle, string $kind, int $id): array
+    {
+        $debt = $battle->getActionDebt();
+        unset($debt[(new GameActionDebt())->key($kind, $id)]);
+
+        return $debt;
+    }
+
+    /**
+     * Разрешает траты принятой реакции цели.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $choice Реакция.
+     * @param array<string, mixed> $choices Авторитетные выборы цели.
+     * @param array<string, mixed> $sheet Авторитетный лист цели.
+     *
+     * @return array<int, ResourceSpend> Траты.
+     *
+     * @throws GameInvalidException Если действие или ресурс невалидны.
+     * @throws GameNotFoundException Если ревизии или цели нет.
+     */
+    public function getReactionSpends(
+        GameRecord $game,
+        array $choice,
+        array $choices,
+        array $sheet,
+    ): array {
+        if ($choice['reaction'] === 'ignore') {
+            return [];
+        }
+
+        $blockRuleCode = $choice['reaction'] === 'block'
+            ? $this->rules->getBlockItemRuleCode($choices, $choice['blockItemInventoryId'])
+            : ($choice['blockItemRuleCode'] ?? '');
+
+        return $this->rules->resolveReactionResourceSpends(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['reaction'],
+            $choice['reaction'] === 'block' ? $choice['blockItemInventoryId'] : null,
+            $blockRuleCode,
+            $choices,
+            $sheet,
+        );
+    }
+
     /**
      * Базовая стоимость действия в ОД.
      *

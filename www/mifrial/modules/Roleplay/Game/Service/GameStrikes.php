@@ -67,18 +67,6 @@ final class GameStrikes implements IGameStrikes
     private readonly GameStrikeSpend $spend;
 
     /**
-     * Карта ожидания после списания удара.
-     *
-     * @var array<string, mixed>|null
-     */
-    private ?array $strikePending = null;
-
-    /**
-     * @var array<string, mixed>|null
-     */
-    private ?array $debtHold = null;
-
-    /**
      * Создаёт фасад.
      *
      * @param ISmartTableGateway $smartTableGateway Шлюз.
@@ -125,7 +113,7 @@ final class GameStrikes implements IGameStrikes
             $this->members,
             $conflictProjection,
         );
-        $this->spend = new GameStrikeSpend();
+        $this->spend = new GameStrikeSpend($rules, $this->sheetWrites);
     }
 
     /**
@@ -508,20 +496,28 @@ final class GameStrikes implements IGameStrikes
         int $expectedBattleVersion,
         array $choice,
     ): array {
-        $this->debtHold = null;
-        $this->spendAttacker($game, $choice, $battle);
+        $kind = $choice['attacker']['type'] ?? null;
+        $id = $choice['attacker']['id'] ?? null;
+        if (!is_string($kind) || !is_int($id)) {
+            throw new GameInvalidException('Game strike attacker is invalid');
+        }
+
+        $snapshot = $kind === 'character'
+            ? $this->sheets->getCharacterSnapshot($id)
+            : $this->sheets->getNpcSnapshot($game->getId(), $id);
+        $hold = $this->spend->spendAttacker($game, $choice, $battle, $snapshot, '1-1', 'Game strike');
         $result = [
             'battleId' => $battle->getId(),
             'strikeId' => 0,
             'version' => $expectedBattleVersion + 1,
             'sheetVersion' => null,
         ];
-        if ($this->debtHold !== null) {
+        if ($hold['debtHold'] !== null) {
             $saved = $this->battles->replaceTracked(
                 $battle->getId(),
                 $expectedBattleVersion,
-                $this->strikePending ?? $battle->getPendingActionEffects(),
-                $this->debtHold,
+                $hold['pending'],
+                $hold['debtHold'],
                 null,
                 null,
             );
@@ -536,7 +532,7 @@ final class GameStrikes implements IGameStrikes
         $this->battles->replacePending(
             $battle->getId(),
             $expectedBattleVersion,
-            $this->strikePending ?? $battle->getPendingActionEffects(),
+            $hold['pending'],
         );
 
         return $result;
@@ -595,8 +591,7 @@ final class GameStrikes implements IGameStrikes
             );
         }
 
-        $debt = $battle->getActionDebt();
-        unset($debt[(new GameActionDebt())->key($kind, $id)]);
+        $debt = $this->spend->releaseDebt($battle, $kind, $id);
         $saved = $this->battles->replaceTracked(
             $battle->getId(),
             $expectedBattleVersion,
@@ -613,109 +608,6 @@ final class GameStrikes implements IGameStrikes
             'strikeId' => $this->actions->addWithTargets($row['action'], $row['targets']),
             'version' => $saved->getStateVersion(),
         ];
-    }
-
-    /**
-     * Списывает стоимость declaration у authoritative атакующего.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $choice Выбор атаки.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если ресурс или атакующий невалидны.
-     * @throws GameNotFoundException Если revision или NPC отсутствует.
-     * @throws GameBattleConflictException Если CAS атакующего устарел.
-     */
-    private function spendAttacker(GameRecord $game, array $choice, GameBattleRecord $battle): void
-    {
-        $kind = $choice['attacker']['type'] ?? null;
-        $id = $choice['attacker']['id'] ?? null;
-        if (!is_string($kind) || !is_int($id)) {
-            throw new GameInvalidException('Game strike attacker is invalid');
-        }
-
-        $snapshot = $kind === 'character'
-            ? $this->sheets->getCharacterSnapshot($id)
-            : $this->sheets->getNpcSnapshot($game->getId(), $id);
-        $spends = $this->rules->resolveResourceSpends(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['actionRuleCode'],
-            $choice['itemInventoryId'],
-            $choice['itemRuleCode'],
-            $snapshot['sheet']['choices'],
-            $snapshot['sheet']['sheet'],
-            $choice['chosenAmounts'],
-        );
-        $adjusted = (new GamePendingActionCosts())->adjustSpends(
-            $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
-            $snapshot['sheet']['choices'],
-            $choice['actionRuleCode'],
-            $kind,
-            $id,
-            $battle->getPendingActionEffects(),
-            $spends,
-        );
-        $spends = $adjusted['spends'];
-        $this->strikePending = $adjusted['pending'];
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $debt = new GameActionDebt();
-        $actorKey = $debt->key($kind, $id);
-        $debt->assertFree($battle->getActionDebt(), $actorKey);
-        $planned = $debt->plan(
-            $slice,
-            $snapshot['sheet']['sheet'],
-            $spends,
-            $debt->refillCode($slice),
-            $choice,
-            '1-1',
-        );
-        $spends = $planned['spends'];
-        if (!$planned['open']) {
-            $held = $battle->getActionDebt();
-            $held[$actorKey] = $planned['slot'];
-            $this->debtHold = $held;
-        }
-
-        $inventorySpend = $planned['open'] ? $this->rules->resolveInventorySpend(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['itemRuleCode'],
-            $choice['profileType'],
-            $choice['profileIndex'],
-            $choice['itemInventoryId'],
-            $choice['ammunitionInventoryId'] ?? null,
-            $kind,
-            $id,
-            $kind === 'npc' ? $snapshot['sheet']['choices'] : null,
-        ) : null;
-        if ($spends === [] && $inventorySpend === null) {
-            return;
-        }
-
-        if (
-            $spends !== [] && !$this->rules->hasSufficientResources(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $snapshot['sheet']['sheet'],
-                $spends,
-            )
-        ) {
-            throw new GameInvalidException('Game strike attacker resource is insufficient');
-        }
-
-        $this->sheetWrites->write(
-            $game,
-            $kind,
-            $id,
-            $snapshot['actualVersion'],
-            [],
-            null,
-            null,
-            $spends,
-            $inventorySpend,
-        );
     }
 
     /**
@@ -809,12 +701,20 @@ final class GameStrikes implements IGameStrikes
         $reactionRuleCode = $choice['reaction'] === 'ignore'
             ? null
             : $this->reactionRuleCode($slice, $choice['reaction']);
+        $defenderChoices = [];
+        if ($reactionRuleCode !== null || $choice['reaction'] === 'block') {
+            $defenderChoices = $this->defenderChoices($game, $defenderKind, $defenderId);
+        }
+
         $spends = $choice['reaction'] === 'ignore'
             ? []
-            : $this->defenderResourceSpends($game, $open, $choice);
-        $defenderChoices = [];
+            : $this->spend->getReactionSpends(
+                $game,
+                $choice,
+                $defenderChoices,
+                $this->sheets->getDefenderSheet($game, $open),
+            );
         if ($reactionRuleCode !== null) {
-            $defenderChoices = $this->defenderChoices($game, $defenderKind, $defenderId);
             $declared = (new GamePendingActionCosts())->declare(
                 $slice,
                 $defenderChoices,
@@ -1029,48 +929,6 @@ final class GameStrikes implements IGameStrikes
                 $actorUserId,
                 $viewAll,
             ),
-        );
-    }
-
-    /**
-     * Разрешает spends accepted defender reaction.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Open strike.
-     * @param array{reaction: string, blockItemRuleCode: string|null} $choice Reaction.
-     *
-     * @return array<int, ResourceSpend> Native spends.
-     *
-     * @throws GameInvalidException If target document is invalid.
-     * @throws GameNotFoundException If target is absent.
-     */
-    private function defenderResourceSpends(GameRecord $game, array $open, array $choice): array
-    {
-        if ($choice['reaction'] === 'ignore') {
-            return [];
-        }
-
-        $kind = $open['defender_kind'] ?? null;
-        $id = $open['defender_id'] ?? null;
-        if (!is_string($kind) || !is_int($id)) {
-            throw new GameInvalidException('Game strike defender is invalid');
-        }
-
-        $blockRuleCode = $choice['reaction'] === 'block'
-            ? $this->rules->getBlockItemRuleCode(
-                $this->defenderChoices($game, $kind, $id),
-                $choice['blockItemInventoryId'],
-            )
-            : ($choice['blockItemRuleCode'] ?? '');
-
-        return $this->rules->resolveReactionResourceSpends(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['reaction'],
-            $choice['reaction'] === 'block' ? $choice['blockItemInventoryId'] : null,
-            $blockRuleCode,
-            $this->defenderChoices($game, $kind, $id),
-            $this->sheets->getDefenderSheet($game, $open),
         );
     }
 

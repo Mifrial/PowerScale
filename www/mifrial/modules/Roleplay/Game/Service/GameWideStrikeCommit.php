@@ -48,20 +48,8 @@ final class GameWideStrikeCommit
         private readonly GameNpcRepository $npcs,
         private readonly GameStrikeSheetWrites $sheetWrites,
     ) {
-        $this->spend = new GameStrikeSpend();
+        $this->spend = new GameStrikeSpend($rules, $sheetWrites);
     }
-
-    /**
-     * Карта ожидания после списания удара.
-     *
-     * @var array<string, mixed>|null
-     */
-    private ?array $strikePending = null;
-
-    /**
-     * @var array<string, mixed>|null
-     */
-    private ?array $debtHold = null;
 
     /**
      * Коммитит открытие wide strike.
@@ -234,20 +222,38 @@ final class GameWideStrikeCommit
         array $choice,
         GameWideStrikeOpening $opening,
     ): array {
-        $this->debtHold = null;
-        $this->spendAttacker($game, $choice, $battle);
+        $kind = $choice['attacker']['type'] ?? null;
+        $id = $choice['attacker']['id'] ?? null;
+        if (!is_string($kind) || !is_int($id)) {
+            throw new GameInvalidException('Game wide strike attacker is invalid');
+        }
+
+        $snapshot = $kind === 'character'
+            ? $this->rules->characterSnapshot($id)
+            : $this->npcSnapshot($game->getId(), $id);
+        $hold = $this->spend->spendAttacker(
+            $game,
+            $choice,
+            $battle,
+            [
+                'actualVersion' => $snapshot['actualVersion'],
+                'sheet' => ['choices' => $snapshot['choices'], 'sheet' => $snapshot['sheet']],
+            ],
+            '1-n',
+            'Game wide strike',
+        );
         $result = [
             'battleId' => $battle->getId(),
             'strikeId' => 0,
             'version' => $expectedBattleVersion + 1,
             'targetResults' => [],
         ];
-        if ($this->debtHold !== null) {
+        if ($hold['debtHold'] !== null) {
             $saved = $this->battles->replaceTracked(
                 $battle->getId(),
                 $expectedBattleVersion,
-                $this->strikePending ?? $battle->getPendingActionEffects(),
-                $this->debtHold,
+                $hold['pending'],
+                $hold['debtHold'],
                 null,
                 null,
             );
@@ -264,7 +270,7 @@ final class GameWideStrikeCommit
         $this->battles->replacePending(
             $battle->getId(),
             $expectedBattleVersion,
-            $this->strikePending ?? $battle->getPendingActionEffects(),
+            $hold['pending'],
         );
 
         return $result;
@@ -319,8 +325,7 @@ final class GameWideStrikeCommit
         $row['kind'] = 'wide_strike';
         $strikeId = $this->actions->add($row);
         $opening->addTargets($strikeId, $choice['targets']);
-        $debt = $battle->getActionDebt();
-        unset($debt[(new GameActionDebt())->key($kind, $id)]);
+        $debt = $this->spend->releaseDebt($battle, $kind, $id);
         $saved = $this->battles->replaceTracked(
             $battle->getId(),
             $expectedBattleVersion,
@@ -331,102 +336,6 @@ final class GameWideStrikeCommit
         );
 
         return ['battleId' => $battle->getId(), 'strikeId' => $strikeId, 'version' => $saved->getStateVersion()];
-    }
-
-    /**
-     * Списывает стоимость wide declaration один раз с атакующего.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $choice Выбор.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если ресурс или атакующий невалидны.
-     * @throws GameNotFoundException Если revision или NPC отсутствует.
-     * @throws GameBattleConflictException Если CAS атакующего устарел.
-     */
-    private function spendAttacker(GameRecord $game, array $choice, GameBattleRecord $battle): void
-    {
-        $kind = $choice['attacker']['type'] ?? null;
-        $id = $choice['attacker']['id'] ?? null;
-        if (!is_string($kind) || !is_int($id)) {
-            throw new GameInvalidException('Game wide strike attacker is invalid');
-        }
-
-        $snapshot = $kind === 'character'
-            ? $this->rules->characterSnapshot($id)
-            : $this->npcSnapshot($game->getId(), $id);
-        $spends = $this->rules->resolveResourceSpends(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['actionRuleCode'],
-            $choice['itemInventoryId'],
-            $choice['itemRuleCode'],
-            $snapshot['choices'],
-            $snapshot['sheet'],
-            $choice['chosenAmounts'],
-        );
-        $adjusted = (new GamePendingActionCosts())->adjustSpends(
-            $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
-            $snapshot['choices'],
-            $choice['actionRuleCode'],
-            $kind,
-            $id,
-            $battle->getPendingActionEffects(),
-            $spends,
-        );
-        $spends = $adjusted['spends'];
-        $this->strikePending = $adjusted['pending'];
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $debt = new GameActionDebt();
-        $actorKey = $debt->key($kind, $id);
-        $debt->assertFree($battle->getActionDebt(), $actorKey);
-        $planned = $debt->plan($slice, $snapshot['sheet'], $spends, $debt->refillCode($slice), $choice, '1-n');
-        $spends = $planned['spends'];
-        if (!$planned['open']) {
-            $held = $battle->getActionDebt();
-            $held[$actorKey] = $planned['slot'];
-            $this->debtHold = $held;
-        }
-
-        $inventorySpend = $planned['open'] ? $this->rules->resolveInventorySpend(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['itemRuleCode'],
-            $choice['profileType'],
-            $choice['profileIndex'],
-            $choice['itemInventoryId'],
-            $choice['ammunitionInventoryId'] ?? null,
-            $kind,
-            $id,
-            $kind === 'npc' ? $snapshot['choices'] : null,
-        ) : null;
-        if ($spends === [] && $inventorySpend === null) {
-            return;
-        }
-
-        if (
-            $spends !== [] && !$this->rules->hasSufficientResources(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $snapshot['sheet'],
-                $spends,
-            )
-        ) {
-            throw new GameInvalidException('Game wide strike attacker resource is insufficient');
-        }
-
-        $this->sheetWrites->write(
-            $game,
-            $kind,
-            $id,
-            $snapshot['actualVersion'],
-            [],
-            null,
-            null,
-            $spends,
-            $inventorySpend,
-        );
     }
 
     /**

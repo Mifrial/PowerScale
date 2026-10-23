@@ -6,7 +6,6 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Closure;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
-use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
@@ -66,7 +65,7 @@ final class GameWideStrikeResults
             $members,
             $conflictProjection,
         );
-        $this->spend = new GameStrikeSpend();
+        $this->spend = new GameStrikeSpend($rules, $sheetWrites);
     }
 
     /**
@@ -337,7 +336,12 @@ final class GameWideStrikeResults
             return $this->row($target, $refusalCode, null, null, null);
         }
 
-        $spends = $this->resourceSpends($game, $target, $choice);
+        $spends = $this->spend->getReactionSpends(
+            $game,
+            $choice,
+            $this->targetChoices($game, $target),
+            $this->sheets->getTargetSheet($game, $target),
+        );
         $slice = null;
         $reactionRuleCode = null;
         $pending = $this->pendingAfter;
@@ -770,42 +774,6 @@ final class GameWideStrikeResults
         }
 
         return $choice;
-    }
-
-    /**
-     * Разрешает resource spends accepted target.
-     *
-     * @param GameRecord $game Игра.
-     * @param array{type: string, id: int} $target Цель.
-     * @param array{reaction: string, blockItemRuleCode: string|null, expectedSheetVersion: int} $choice Reaction.
-     *
-     * @return array<int, ResourceSpend> Native spends.
-     *
-     * @throws GameInvalidException If action or resource is invalid.
-     * @throws GameNotFoundException If revision or target is absent.
-     */
-    private function resourceSpends(GameRecord $game, array $target, array $choice): array
-    {
-        if ($choice['reaction'] === 'ignore') {
-            return [];
-        }
-
-        $blockRuleCode = $choice['reaction'] === 'block'
-            ? $this->rules->getBlockItemRuleCode(
-                $this->targetChoices($game, $target),
-                $choice['blockItemInventoryId'],
-            )
-            : ($choice['blockItemRuleCode'] ?? '');
-
-        return $this->rules->resolveReactionResourceSpends(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['reaction'],
-            $choice['reaction'] === 'block' ? $choice['blockItemInventoryId'] : null,
-            $blockRuleCode,
-            $this->targetChoices($game, $target),
-            $this->sheets->getTargetSheet($game, $target),
-        );
     }
 
     /**
