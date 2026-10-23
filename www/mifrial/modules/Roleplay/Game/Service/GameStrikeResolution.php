@@ -43,6 +43,7 @@ final class GameStrikeResolution
      * @param string $hitCode Код hit-check.
      * @param array<string, mixed> $pending Карта ожидания.
      * @param CharacterRuleSlice $slice Срез.
+     * @param list<array<string, mixed>> $extraAdvantages Дополнительные преимущества (широкий удар).
      *
      * @return array<string, mixed> Roll.
      *
@@ -55,6 +56,7 @@ final class GameStrikeResolution
         string $hitCode,
         array $pending,
         CharacterRuleSlice $slice,
+        array $extraAdvantages = [],
     ): array {
         $kind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
@@ -82,6 +84,7 @@ final class GameStrikeResolution
             $hitCode,
             'attacker',
         ));
+        array_push($advantages, ...$extraAdvantages);
 
         return $this->rules->rollHit(
             $game->getSpaceId(),
