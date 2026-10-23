@@ -11,6 +11,7 @@ use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicRecord;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdjustment;
 use Mifrial\Roleplay\Mechanic\Dto\RollMechanicPayload;
 use Mifrial\Roleplay\Mechanic\Dto\RollResult;
 use Mifrial\Roleplay\Mechanic\Dto\RollSpec;
@@ -57,6 +58,109 @@ final class MechanicRollTest extends TestCase
         self::assertSame([1, 0, 1, 0], $result->getSuccesses());
         self::assertSame(2, $result->getTotalSuccesses());
         self::assertNull($result->getAppliedNames());
+    }
+
+    /**
+     * Ремап идёт после сброса и до правила 6 и 1, подстановка одновременная.
+     *
+     * @return void
+     */
+    public function testFaceRemapRunsBeforeSixAndOne(): void
+    {
+        $result = $this->rolls->roll(
+            $this->spec(4, adjustment: new RollAdjustment([5 => 6, 2 => 1])),
+            $this->rng([1, 6, 5, 2]),
+            $this->revisionBindings(),
+            $this->catalog(),
+            new ResolveActiveOptions(),
+        );
+
+        self::assertSame([1, 6, 5, 2], $result->getRolls());
+        self::assertSame([1, 6, 6, 1], $result->getAdjustedRolls());
+        self::assertSame([2, -1, -1, 2], $result->getSuccesses());
+        self::assertSame(2, $result->getTotalSuccesses());
+    }
+
+    /**
+     * Подстановка одновременная: 5→6 и 6→1 не дают 5→1.
+     *
+     * @return void
+     */
+    public function testFaceRemapIsSimultaneous(): void
+    {
+        $result = $this->rolls->roll(
+            $this->spec(2, adjustment: new RollAdjustment([5 => 6, 6 => 1])),
+            $this->rng([5, 6]),
+            $this->revisionBindings(),
+            $this->catalog(),
+            new ResolveActiveOptions(),
+        );
+
+        self::assertSame([6, 1], $result->getAdjustedRolls());
+    }
+
+    /**
+     * Дельты карточки складываются с правилом 6 и 1.
+     *
+     * @return void
+     */
+    public function testScoreDeltasStackOnTopOfSixAndOne(): void
+    {
+        $result = $this->rolls->roll(
+            $this->spec(4, adjustment: new RollAdjustment([], 1, -1)),
+            $this->rng([1, 6, 5, 6]),
+            $this->revisionBindings(),
+            $this->catalog(),
+            new ResolveActiveOptions(),
+        );
+
+        self::assertSame([3, -2, 0, -2], $result->getSuccesses());
+        self::assertSame(-1, $result->getTotalSuccesses());
+    }
+
+    /**
+     * Максимальная грань на эффективности — успех и не штрафуется.
+     *
+     * @return void
+     */
+    public function testMaxFaceAtEfficiencyIsNotPenalized(): void
+    {
+        $result = $this->rolls->roll(
+            $this->spec(1, efficiency: 6, adjustment: new RollAdjustment([], 0, -1)),
+            $this->rng([6]),
+            $this->revisionBindings(),
+            $this->catalog(),
+            new ResolveActiveOptions(),
+        );
+
+        self::assertSame([1], $result->getSuccesses());
+    }
+
+    /**
+     * Пустая настройка ничего не меняет.
+     *
+     * @return void
+     */
+    public function testEmptyAdjustmentChangesNothing(): void
+    {
+        $plain = $this->rolls->roll(
+            $this->spec(2),
+            $this->rng([1, 6]),
+            $this->revisionBindings(),
+            $this->catalog(),
+            new ResolveActiveOptions(),
+        );
+        $empty = $this->rolls->roll(
+            $this->spec(2, adjustment: new RollAdjustment()),
+            $this->rng([1, 6]),
+            $this->revisionBindings(),
+            $this->catalog(),
+            new ResolveActiveOptions(),
+        );
+
+        self::assertSame($plain->getAdjustedRolls(), $empty->getAdjustedRolls());
+        self::assertSame($plain->getSuccesses(), $empty->getSuccesses());
+        self::assertSame($plain->getTotalSuccesses(), $empty->getTotalSuccesses());
     }
 
     /**
@@ -321,6 +425,7 @@ final class MechanicRollTest extends TestCase
      * @param int $dieFaces Грани.
      * @param int $efficiency Эффективность.
      * @param array<int, RollAdvantage> $advantages Преимущества.
+     * @param RollAdjustment|null $adjustment Настройка карточки.
      *
      * @return RollSpec Спека.
      */
@@ -329,8 +434,9 @@ final class MechanicRollTest extends TestCase
         int $dieFaces = 6,
         int $efficiency = 3,
         array $advantages = [],
+        ?RollAdjustment $adjustment = null,
     ): RollSpec {
-        return new RollSpec($diceCount, $dieFaces, $efficiency, 0, $advantages);
+        return new RollSpec($diceCount, $dieFaces, $efficiency, 0, $advantages, false, $adjustment);
     }
 
     /**

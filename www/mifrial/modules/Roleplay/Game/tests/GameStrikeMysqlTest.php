@@ -224,6 +224,45 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Ремап карточки подменяет грани до правила 6 и 1.
+     *
+     * Мир задаёт одну грань (dieFaces 1), поэтому результат детерминирован.
+     *
+     * @return void
+     */
+    public function testCardFaceRemapChangesAdjustedRolls(): void
+    {
+        $world = $this->worldWithWeapon(cardEffects: [$this->remapEffect(1, 6)]);
+        $roll = $this->strikeRollAfterCard($world);
+        $faces = $roll['faces'];
+        self::assertNotSame([], $faces);
+
+        self::assertSame(array_fill(0, count($faces), 1), $faces);
+        self::assertSame(array_fill(0, count($faces), 6), $roll['adjustedRolls']);
+        self::assertSame(array_fill(0, count($faces), 0), $roll['successes']);
+    }
+
+    /**
+     * Дельта успехов карточки добавляет успех каждой грани.
+     *
+     * Слоение с правилом 6 и 1 проверяется на Mechanic-уровне: в этом мире
+     * карточка попадания его не подключает.
+     *
+     * @return void
+     */
+    public function testCardScoreDeltaAddsSuccessToEachFace(): void
+    {
+        $world = $this->worldWithWeapon(cardEffects: [$this->scoreEffect(1, -1)]);
+        $roll = $this->strikeRollAfterCard($world);
+        $faces = $roll['faces'];
+        self::assertNotSame([], $faces);
+
+        self::assertSame(array_fill(0, count($faces), 1), $roll['adjustedRolls']);
+        self::assertSame(array_fill(0, count($faces), 2), $roll['successes']);
+        self::assertSame(2 * count($faces), $roll['roll']['base']);
+    }
+
+    /**
      * Чат одиночного удара: порядок, вложения и ключи доставки.
      *
      * @return void
@@ -1514,6 +1553,7 @@ final class GameStrikeMysqlTest extends TestCase
         ?int $hitEfficiency = null,
         bool $withBlockResource = false,
         bool $withPendingEffects = false,
+        array $cardEffects = [],
     ): RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -1523,7 +1563,8 @@ final class GameStrikeMysqlTest extends TestCase
             'razrabotka-' . $hitCards . ($withPool ? '-pool' : '-empty') . '-s' . $soakCards
             . ($withPenetration ? '-penetration' : '')
             . ($withBlockResource ? '-block' : '')
-            . ($withPendingEffects ? '-pending' : ''),
+            . ($withPendingEffects ? '-pending' : '')
+            . ($cardEffects === [] ? '' : '-fx' . substr(md5((string) json_encode($cardEffects)), 0, 6)),
         );
         $check = [
             'allow_characteristic_override' => false,
@@ -1545,7 +1586,7 @@ final class GameStrikeMysqlTest extends TestCase
         $swingComponents = $withPendingEffects
             ? [['type' => 'resource', 'resource_code' => 'action-points', 'amount' => 2]]
             : [];
-        $swingEffects = $withPendingEffects
+        $pendingEffects = $withPendingEffects
             ? [
                 [
                     'type' => 'next_action_attack_cost',
@@ -1561,6 +1602,7 @@ final class GameStrikeMysqlTest extends TestCase
                 ],
             ]
             : [];
+        $swingEffects = [...$pendingEffects, ...$cardEffects];
         $entries = [
             RuleCommitEntry::put('human', new RuleVersionBody('race', 'Human', '', [
                 'characteristics' => $this->raceCharacteristics($soakCards, $hitEfficiency),
@@ -2562,6 +2604,111 @@ final class GameStrikeMysqlTest extends TestCase
         }
 
         return $types;
+    }
+
+    /**
+     * Удар по персонажу карточкой с эффектами; первый бросок из чата.
+     *
+     * @param RuleSpaceRecord $world Мир.
+     *
+     * @return array<string, mixed> Payload броска атакующего.
+     */
+    private function strikeRollAfterCard(RuleSpaceRecord $world): array
+    {
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker');
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-roll-adjust',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-roll-adjust',
+            'expectedVersion' => 1,
+            'attack' => $this->characterAttack($attackerId, $defenderId),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-roll-adjust',
+            'expectedVersion' => $opened['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
+            'defense' => ['reaction' => 'ignore'],
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        $rolls = $this->chatRolls($gameId);
+        self::assertNotSame([], $rolls);
+
+        return $rolls[0];
+    }
+
+    /**
+     * Payload бросков из чата игры в порядке сообщений.
+     *
+     * @param int $gameId Игра.
+     *
+     * @return list<array<string, mixed>> Payload.
+     */
+    private function chatRolls(int $gameId): array
+    {
+        $rolls = [];
+        foreach ($this->chatMessages($gameId) as $message) {
+            foreach ($message->getAttachments() as $attachment) {
+                $payload = is_array($attachment) ? ($attachment['payload'] ?? null) : null;
+                if (($attachment['type'] ?? null) === 'roll' && is_array($payload)) {
+                    $rolls[] = $payload;
+                }
+            }
+        }
+
+        return $rolls;
+    }
+
+    /**
+     * Эффект ремапа граней карточки.
+     *
+     * @param int $from Откуда.
+     * @param int $to Куда.
+     *
+     * @return array<string, mixed> Эффект.
+     */
+    private function remapEffect(int $from, int $to): array
+    {
+        return [
+            'type' => 'current_action_roll_face_remap',
+            'from' => $from,
+            'to' => $to,
+            'scope' => ['components' => ['strike'], 'hit_count' => 1],
+        ];
+    }
+
+    /**
+     * Эффект дельт успехов карточки.
+     *
+     * @param int $oneDelta Дельта единицы.
+     * @param int $faceDelta Дельта грани.
+     *
+     * @return array<string, mixed> Эффект.
+     */
+    private function scoreEffect(int $oneDelta, int $faceDelta): array
+    {
+        return [
+            'type' => 'current_action_roll_score_adjust',
+            'oneDelta' => $oneDelta,
+            'faceDelta' => $faceDelta,
+            'scope' => ['components' => ['strike'], 'hit_count' => 1],
+        ];
     }
 
     /**

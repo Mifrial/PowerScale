@@ -28,6 +28,7 @@ final class RollSpec
      * @param int $dieSize Размер успехов броска.
      * @param array<int, RollAdvantage> $advantages Преимущества и помехи.
      * @param bool $explicitEfficiency Признак явно заданной эффективности.
+     * @param RollAdjustment|null $adjustment Настройка граней и успехов карточки.
      *
      * @return void
      */
@@ -38,6 +39,7 @@ final class RollSpec
         private readonly int $dieSize,
         private readonly array $advantages = [],
         private readonly bool $explicitEfficiency = false,
+        private readonly ?RollAdjustment $adjustment = null,
     ) {
     }
 
@@ -57,6 +59,7 @@ final class RollSpec
             $this->dieSizeFrom($payload),
             $this->advantagesFrom($payload),
             $this->explicitEfficiency,
+            $this->adjustment,
         );
     }
 
@@ -118,6 +121,16 @@ final class RollSpec
     public function getAdvantages(): array
     {
         return $this->advantages;
+    }
+
+    /**
+     * Настройка граней и успехов из карточки.
+     *
+     * @return RollAdjustment|null Настройка или null.
+     */
+    public function getAdjustment(): ?RollAdjustment
+    {
+        return $this->adjustment;
     }
 
     /**

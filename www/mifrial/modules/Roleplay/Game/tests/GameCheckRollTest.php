@@ -14,6 +14,7 @@ use Mifrial\Roleplay\Game\Service\GameCheckRoll;
 use Mifrial\Roleplay\Mechanic\Dto\CheckRating;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdjustment;
 use Mifrial\Roleplay\Mechanic\Dto\RollMechanicPayload;
 use Mifrial\Roleplay\Mechanic\Dto\RollResult;
 use Mifrial\Roleplay\Mechanic\Dto\RollSpec;
@@ -72,6 +73,59 @@ final class GameCheckRollTest extends TestCase
         self::assertFalse($roll->isCombatAutoFail($results[0]['roll']));
         self::assertFalse($roll->isCombatAutoFail($results[1]['roll']));
         self::assertTrue($roll->isCombatAutoFail($results[2]['roll']));
+    }
+
+    /**
+     * Настройка карточки доезжает до RollSpec.
+     *
+     * @return void
+     */
+    public function testThrowHitWithMasteryPassesRollAdjustment(): void
+    {
+        $captured = [];
+        $slices = $this->createMock(ICharacterRuleSlices::class);
+        $slices->method('get')->willReturn($this->hitSlice(3, 4));
+        $mechanics = $this->createStub(IMechanics::class);
+        $mechanics->method('getList')->willReturn([]);
+        $rolls = $this->createMock(IMechanicRolls::class);
+        $rolls->expects(self::once())
+            ->method('roll')
+            ->willReturnCallback(
+                function (
+                    RollSpec $spec,
+                    Closure $rng,
+                    array $bindings,
+                    array $mechanicRecords,
+                    ResolveActiveOptions $options,
+                ) use (&$captured): RollResult {
+                    $captured[] = $spec;
+
+                    return new RollResult($spec, [], [], [], [], 0, null);
+                },
+            );
+        $rolls->method('rate')->willReturn(new CheckRating(false, 0));
+        $roll = new GameCheckRoll(
+            $slices,
+            $this->createStub(ICharacters::class),
+            $mechanics,
+            $rolls,
+        );
+        $adjustment = new RollAdjustment([5 => 6, 2 => 1], 1, -1);
+
+        $roll->throwHitWithMastery(
+            1,
+            1,
+            'hit',
+            [],
+            new DimensionalNumber(2, 1),
+            null,
+            ['base' => 0, 'size' => 0],
+            [],
+            $adjustment,
+        );
+
+        self::assertCount(1, $captured);
+        self::assertSame($adjustment, $captured[0]->getAdjustment());
     }
 
     /**

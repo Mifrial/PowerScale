@@ -18,6 +18,7 @@ use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdjustment;
 use Mifrial\Roleplay\Mechanic\Dto\RollMechanicPayload;
 use Mifrial\Roleplay\Mechanic\Dto\RollResult;
 use Mifrial\Roleplay\Mechanic\Dto\RollScoreAdjustPayload;
@@ -215,6 +216,7 @@ final class GameCheckRoll
      * @param DimensionalNumber|null $efficiency Эффективность профиля или live fallback.
      * @param array{base: int, size: int} $difficulty Фактическая трудность.
      * @param array<int, RollAdvantage> $advantages Явные преимущества действия.
+     * @param RollAdjustment|null $adjustment Настройка граней и успехов карточки.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
      *
@@ -230,6 +232,7 @@ final class GameCheckRoll
         ?DimensionalNumber $efficiency,
         array $difficulty,
         array $advantages = [],
+        ?RollAdjustment $adjustment = null,
     ): array {
         $slice = $this->slices->get($spaceId, $rulesRevision);
         $check = $this->hitSpec($slice, $ruleCode);
@@ -253,6 +256,7 @@ final class GameCheckRoll
                 $this->stateAdvantages($slice, $sheet, null, true),
                 $advantages,
             ),
+            $adjustment,
         );
         $minimum = ['base' => 0, 'size' => -1];
         if ($difficulty['base'] === 0 && $difficulty['size'] === 0) {
@@ -488,6 +492,7 @@ final class GameCheckRoll
         array $bindings,
         ?array $attached,
         array $advantages = [],
+        ?RollAdjustment $adjustment = null,
     ): RollResult {
         if ($mastery->getBase() <= 0) {
             throw new GameInvalidException('Game check mastery pool is invalid');
@@ -501,6 +506,7 @@ final class GameCheckRoll
                 $mastery->getSize() + $efficiency->getSize(),
                 $advantages,
                 $explicitEfficiency,
+                $adjustment,
             ),
             static fn (): float => mt_rand(0, mt_getrandmax() - 1) / mt_getrandmax(),
             $bindings,

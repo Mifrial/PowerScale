@@ -195,6 +195,31 @@ final class RollMechanicContext
     }
 
     /**
+     * Подменяет грани после сброса одной картой сразу, без цепочек.
+     *
+     * @param array<int, int> $remap Грань → грань.
+     *
+     * @return void
+     */
+    public function remapFaces(array $remap): void
+    {
+        if ($remap === []) {
+            return;
+        }
+
+        if ($this->adjustedRolls === []) {
+            $this->adjustedRolls = $this->rolls;
+        }
+
+        $next = [];
+        foreach ($this->adjustedRolls as $face) {
+            $next[] = $remap[$face] ?? $face;
+        }
+
+        $this->adjustedRolls = $next;
+    }
+
+    /**
      * Успехи.
      *
      * @return array<int, int> Успехи.

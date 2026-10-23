@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Mechanic\Dto\CheckRating;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicRecord;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdjustment;
 use Mifrial\Roleplay\Mechanic\Dto\RollMechanicContext;
 use Mifrial\Roleplay\Mechanic\Dto\RollMechanicPayload;
 use Mifrial\Roleplay\Mechanic\Dto\RollResult;
@@ -62,8 +63,17 @@ final class MechanicRolls implements IMechanicRolls
         $this->engine->runEvent(RollEvent::POOL, $context, $active);
         $context->setRolls($this->faces($rng, $context));
         $this->engine->runEvent(RollEvent::DROP, $context, $active);
+        $adjustment = $resolved->getAdjustment();
+        if ($adjustment instanceof RollAdjustment) {
+            $context->remapFaces($adjustment->getRemap());
+        }
+
         $context->scoreBase();
         $this->engine->runEvent(RollEvent::SCORE, $context, $active);
+        if ($adjustment instanceof RollAdjustment) {
+            $this->applyScoreDeltas($context, $adjustment);
+        }
+
         $context->sumSuccesses();
 
         return new RollResult(
@@ -95,6 +105,43 @@ final class MechanicRolls implements IMechanicRolls
         $rightBase = $normalized['difficulty']->getBase();
 
         return new CheckRating($leftBase >= $rightBase, $leftBase - $rightBase);
+    }
+
+    /**
+     * Дельты успехов карточки поверх правила 6 и 1.
+     *
+     * Единица даёт oneDelta, максимальная грань — faceDelta, но только если она
+     * выше эффективности: при эффективности на грани она уже успех.
+     *
+     * @param RollMechanicContext $context Контекст после roll.score.
+     * @param RollAdjustment $adjustment Настройка карточки.
+     *
+     * @return void
+     */
+    private function applyScoreDeltas(RollMechanicContext $context, RollAdjustment $adjustment): void
+    {
+        $oneDelta = $adjustment->getOneDelta();
+        $faceDelta = $adjustment->getFaceDelta();
+        if ($oneDelta === 0 && $faceDelta === 0) {
+            return;
+        }
+
+        $dieFaces = $context->getDieFaces();
+        $efficiency = $context->getEfficiency();
+        foreach ($context->getAdjustedRolls() as $index => $face) {
+            $delta = 0;
+            if ($face === 1) {
+                $delta += $oneDelta;
+            }
+
+            if ($face === $dieFaces && $face > $efficiency) {
+                $delta += $faceDelta;
+            }
+
+            if ($delta !== 0) {
+                $context->addSuccess($index, $delta);
+            }
+        }
     }
 
     /**

@@ -42,4 +42,23 @@ final class AttackScope
     {
         return $this->hitCount;
     }
+
+    /**
+     * Относится ли эффект к этому компоненту и попаданию.
+     *
+     * `hit_count` — сколько первых попаданий накрывает эффект, а не номер.
+     *
+     * @param string $component Вид профиля strike, throw или shoot.
+     * @param int $hitNumber Номер попадания с единицы.
+     *
+     * @return bool true, если эффект применяется.
+     */
+    public function appliesTo(string $component, int $hitNumber): bool
+    {
+        if (!in_array($component, $this->components, true)) {
+            return false;
+        }
+
+        return $this->hitCount === 'all' || $hitNumber <= $this->hitCount;
+    }
 }

@@ -742,6 +742,12 @@ final class GameStrikeRules
             $accuracy = (new CharacteristicNumber($accuracy->getBase(), $accuracy->getSize()))->modify($accuracyDelta);
         }
 
+        $adjustment = (new GameRollAdjustment())->fromCard(
+            $this->slice($spaceId, $rulesRevision),
+            $actionRuleCode,
+            $profileType,
+        );
+
         return $this->hitRoll->throwHitWithMastery(
             $spaceId,
             $rulesRevision,
@@ -751,6 +757,7 @@ final class GameStrikeRules
             $accuracy,
             ['base' => 0, 'size' => 0],
             $advantages,
+            $adjustment,
         );
     }
 
@@ -984,13 +991,7 @@ final class GameStrikeRules
                 continue;
             }
 
-            $scope = $effect->getScope();
-            if (!in_array($profileType, $scope->getComponents(), true)) {
-                continue;
-            }
-
-            $hitCount = $scope->getHitCount();
-            if (is_int($hitCount) && ($hitNumber < 1 || $hitNumber > $hitCount)) {
+            if (!$effect->getScope()->appliesTo($profileType, $hitNumber)) {
                 continue;
             }
 
@@ -1797,9 +1798,7 @@ final class GameStrikeRules
                 continue;
             }
 
-            $scope = $effect->getScope();
-            $hits = $scope->getHitCount();
-            if (!in_array($profileType, $scope->getComponents(), true) || ($hits !== 'all' && $hits < 1)) {
+            if (!$effect->getScope()->appliesTo($profileType, 1)) {
                 continue;
             }
 
