@@ -26,8 +26,12 @@ use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameStrikes;
 use Mifrial\Roleplay\Game\Interface\Service\IGameWideStrikes;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
+use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
+use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
@@ -160,11 +164,6 @@ final class GameStrikePortFactory
     {
         $gateway = $this->smartTableGateway($serviceLocator);
         $rules = $this->strikeRules($serviceLocator);
-        $wide = $serviceLocator->get(IGameContainer::class)->get(IGameWideStrikes::class);
-        $strikes = $this->create($serviceLocator);
-        if (!$wide instanceof GameWideStrikes || !$strikes instanceof GameStrikes) {
-            throw new KernelException('PORT_TYPE', 'Game turn requires strike services');
-        }
 
         $chatContainer = $serviceLocator->get(IChatContainer::class);
         $chats = $chatContainer->get(IChats::class);
@@ -194,11 +193,47 @@ final class GameStrikePortFactory
             $this->mutations($serviceLocator),
             $chats,
             $ticks,
-            $strikes,
-            $wide,
+            $this->strikeOpen($serviceLocator, $gateway, $rules),
             $this->events($serviceLocator),
             new GameCombatNotices($chats),
         ));
+    }
+
+    /**
+     * Открытие удара для конца хода: только порты записи.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param ISmartTableGateway $gateway Шлюз.
+     * @param GameStrikeRules $rules Срез.
+     *
+     * @return GameStrikeOpen Сервис открытия.
+     */
+    private function strikeOpen(
+        IServiceLocator $serviceLocator,
+        ISmartTableGateway $gateway,
+        GameStrikeRules $rules,
+    ): GameStrikeOpen {
+        $npcs = new GameNpcRepository($gateway);
+        $sheetWrites = new GameStrikeSheetWrites($this->mutations($serviceLocator), $npcs);
+
+        return new GameStrikeOpen(
+            new GameBattleRepository($gateway),
+            new GameActionRepository($gateway),
+            new GameStrikeSpend($rules, $sheetWrites),
+            $rules,
+            new GameStrikeSheets(
+                $rules,
+                $npcs,
+                new GameCharacterRepository($gateway),
+                new GameMemberRepository($gateway),
+                new ConflictSheetProjection(
+                    new CharacterSectionMask(),
+                    new GameCharacterProjectionMask(),
+                    new GameNpcVisibility(),
+                ),
+            ),
+            $sheetWrites,
+        );
     }
 
     /**

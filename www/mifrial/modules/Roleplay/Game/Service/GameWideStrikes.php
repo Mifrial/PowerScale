@@ -225,34 +225,6 @@ final class GameWideStrikes implements IGameWideStrikes
     }
 
     /**
-     * Открывает отложенный широкий удар.
-     *
-     * @param GameRecord $game Игра.
-     * @param int $sessionId Сессия.
-     * @param GameBattleRecord $battle Бой.
-     * @param int $expectedBattleVersion Версия.
-     * @param array<string, mixed> $choice Тело.
-     *
-     * @return array<string, mixed> Итог.
-     */
-    public function openPaid(
-        GameRecord $game,
-        int $sessionId,
-        GameBattleRecord $battle,
-        int $expectedBattleVersion,
-        array $choice,
-    ): array {
-        return $this->openService->openPaidAction(
-            $game,
-            $sessionId,
-            $battle,
-            $expectedBattleVersion,
-            $choice,
-            'wide_strike',
-        );
-    }
-
-    /**
      * Видимость, повтор и сессия.
      *
      * @param int $gameId Игра.

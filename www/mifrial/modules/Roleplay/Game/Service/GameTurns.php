@@ -57,9 +57,9 @@ final class GameTurns
      * @param ICharacterActualMutations $mutations Лист.
      * @param IChats $chats Чат.
      * @param GameTurnTicks $ticks Тики.
-     * @param GameStrikes $strikes Открытие 1→1.
-     * @param GameWideStrikes $wide Открытие 1→N.
+     * @param GameStrikeOpen $open Открытие удара.
      * @param IEventManager $events Доставка.
+     * @param GameCombatNotices $notices Заметки боя.
      */
     public function __construct(
         private readonly ISmartTableGateway $gateway,
@@ -69,8 +69,7 @@ final class GameTurns
         ICharacterActualMutations $mutations,
         private readonly IChats $chats,
         private readonly GameTurnTicks $ticks,
-        private readonly GameStrikes $strikes,
-        private readonly GameWideStrikes $wide,
+        private readonly GameStrikeOpen $open,
         IEventManager $events,
         private readonly GameCombatNotices $notices,
     ) {
@@ -260,7 +259,7 @@ final class GameTurns
             throw new GameInvalidException('Game strike is open');
         }
 
-        $snapshot = $this->snapshot($game, $current);
+        $snapshot = $this->snapshot($current);
         if ($snapshot['actualVersion'] !== $expectedSheet) {
             throw new GameBattleConflictException($snapshot['actualVersion']);
         }
@@ -322,7 +321,7 @@ final class GameTurns
             throw new GameInvalidException('Game action debt is missing');
         }
 
-        $snapshot = $this->snapshot($game, $current);
+        $snapshot = $this->snapshot($current);
         if ($snapshot['actualVersion'] !== $expectedSheet) {
             throw new GameBattleConflictException($snapshot['actualVersion']);
         }
@@ -346,9 +345,14 @@ final class GameTurns
         $attack = $paid['slot']['attack'] ?? null;
         if ($paid['open'] && is_array($attack)) {
             try {
-                $opened = ($paid['slot']['lane'] ?? null) === '1-n'
-                    ? $this->wide->openPaid($game, $sessionId, $battle, $expectedBattle, $attack)
-                    : $this->strikes->openPaid($game, $sessionId, $battle, $expectedBattle, $attack);
+                $opened = $this->open->openPaidAction(
+                    $game,
+                    $sessionId,
+                    $battle,
+                    $expectedBattle,
+                    $attack,
+                    $this->kindForLane($paid['slot']['lane'] ?? null),
+                );
             } catch (GameInvalidException $exception) {
                 $debtMap[$key] = $paid['slot'];
                 $saved = $this->battles->replaceTracked($battle->getId(), $expectedBattle, null, $debtMap, null, null);
@@ -375,6 +379,18 @@ final class GameTurns
             'remaining' => $paid['slot']['remaining'] ?? 0,
             'opened' => false,
         ];
+    }
+
+    /**
+     * Вид удара по полосе долга.
+     *
+     * @param mixed $lane Полоса слота долга.
+     *
+     * @return string Вид удара.
+     */
+    private function kindForLane(mixed $lane): string
+    {
+        return $lane === '1-n' ? 'wide_strike' : 'strike';
     }
 
     /**
@@ -430,7 +446,7 @@ final class GameTurns
      *
      * @return array{actualVersion: int, sheet: array<string, mixed>} Снимок.
      */
-    private function snapshot(GameRecord $game, array $current): array
+    private function snapshot(array $current): array
     {
         if ($current['type'] === 'character') {
             $snapshot = $this->rules->characterSnapshot($current['id']);

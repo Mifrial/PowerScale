@@ -509,34 +509,6 @@ final class GameStrikes implements IGameStrikes
     }
 
     /**
-     * Открывает удар, когда F1 уже уплачены. Инвентарь при отказе не коммитит этот вызов.
-     *
-     * @param GameRecord $game Игра.
-     * @param int $sessionId Сессия.
-     * @param GameBattleRecord $battle Бой.
-     * @param int $expectedBattleVersion Версия.
-     * @param array<string, mixed> $choice Тело declare.
-     *
-     * @return array<string, mixed> Итог.
-     */
-    public function openPaid(
-        GameRecord $game,
-        int $sessionId,
-        GameBattleRecord $battle,
-        int $expectedBattleVersion,
-        array $choice,
-    ): array {
-        return $this->open->openPaidAction(
-            $game,
-            $sessionId,
-            $battle,
-            $expectedBattleVersion,
-            $choice,
-            'strike',
-        );
-    }
-
-    /**
      * Документ choices NPC этой игры.
      *
      * @param int $gameId Игра.
