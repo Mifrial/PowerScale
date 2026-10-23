@@ -66,6 +66,8 @@ final class GameStrikes implements IGameStrikes
 
     private readonly GameStrikeSpend $spend;
 
+    private readonly GameStrikeResolution $resolution;
+
     /**
      * Создаёт фасад.
      *
@@ -114,6 +116,13 @@ final class GameStrikes implements IGameStrikes
             $conflictProjection,
         );
         $this->spend = new GameStrikeSpend($rules, $this->sheetWrites);
+        $this->resolution = new GameStrikeResolution(
+            $rules,
+            $this->sheets,
+            $this->npcs,
+            $consequences,
+            $this->amounts,
+        );
     }
 
     /**
@@ -735,14 +744,14 @@ final class GameStrikes implements IGameStrikes
             }
         }
 
-        $attackerRoll = $this->rollOf($game, $open, $hitCode, $pending, $slice);
+        $attackerRoll = $this->resolution->rollOf($game, $open, $hitCode, $pending, $slice);
         $defenderRoll = null;
         if ($choice['reaction'] !== 'ignore' && $this->rules->isUnconscious($game->getSpaceId(), $game->getRulesRevision(), $this->sheets->getDefenderSheet($game, $open))) {
             throw new GameInvalidException('Game strike defender is unconscious');
         }
 
         if ($choice['reaction'] === 'dodge') {
-            $defenderRoll = $this->dodgeRollOf(
+            $defenderRoll = $this->resolution->dodgeRollOf(
                 $game,
                 $open,
                 $hitCode,
@@ -755,7 +764,7 @@ final class GameStrikes implements IGameStrikes
         }
 
         if ($choice['reaction'] === 'block') {
-            $defenderRoll = $this->blockRollOf(
+            $defenderRoll = $this->resolution->blockRollOf(
                 $game,
                 $open,
                 $choice,
@@ -780,7 +789,7 @@ final class GameStrikes implements IGameStrikes
         }
 
         $autoFail = $this->rules->isHitAutoFail($attackerRoll['roll']);
-        $damage = $autoFail ? $this->amounts->zero() : $this->damageOf($game, $open);
+        $damage = $autoFail ? $this->amounts->zero() : $this->resolution->damageOf($game, $open);
         $result = $this->closeResult(
             $game,
             $battle,
@@ -795,14 +804,14 @@ final class GameStrikes implements IGameStrikes
         );
         $resistance = $result['success'] === 0
             ? $this->amounts->zero()
-            : $this->resistanceOf(
+            : $this->resolution->resistanceOf(
                 $game,
                 $open,
-                $this->resistanceChoice($choice, $result['defenderRoll'] ?? null),
+                $this->resolution->resistanceChoice($choice, $result['defenderRoll'] ?? null),
                 $result['success'],
-                $this->penetrationOf($game, $open),
+                $this->resolution->penetrationOf($game, $open),
             );
-        $soak = $choice['reaction'] === 'dodge' ? $this->soakOf($game, $open) : null;
+        $soak = $choice['reaction'] === 'dodge' ? $this->resolution->soakOf($game, $open) : null;
         $result['resistance'] = $this->amounts->view($resistance);
         if ($soak !== null) {
             $result['S'] = $this->amounts->view($soak);
@@ -811,7 +820,7 @@ final class GameStrikes implements IGameStrikes
         $effectiveDamage = $result['success'] === 0 ? $this->amounts->zero() : $damage;
         $injury = $this->amounts->injury($effectiveDamage, $resistance, $result['success'], $soak);
         $result['injury'] = $this->amounts->view($injury);
-        $prepared = $autoFail ? null : $this->prepareSheet(
+        $prepared = $autoFail ? null : $this->resolution->prepareSheet(
             $game,
             $open,
             $injury,
@@ -1045,16 +1054,7 @@ final class GameStrikes implements IGameStrikes
         ?array $defenderRoll,
         string $reaction,
     ): array {
-        $rating = $attackerRoll['rating'] ?? null;
-        if (!is_int($rating)) {
-            throw new GameInvalidException('Game strike attacker roll is invalid');
-        }
-
-        $autoFail = $this->rules->isHitAutoFail($attackerRoll['roll']);
-        $defenderWon = $defenderRoll !== null && ($defenderRoll['success'] ?? false) === true;
-        $success = $reaction === 'dodge'
-            ? (($autoFail || $defenderWon) ? 0 : max(0, $rating))
-            : ($autoFail || $rating <= 0 ? 0 : ($defenderWon ? 1 : $rating));
+        $success = $this->resolution->successOf($attackerRoll, $defenderRoll, $reaction);
         $effectiveDamage = $success === 0 ? $this->amounts->zero() : $damage;
 
         $result = [
@@ -1072,74 +1072,6 @@ final class GameStrikes implements IGameStrikes
         }
 
         return $result;
-    }
-
-    /**
-     * Пишет деление в лист защитника.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Строка удара.
-     * @param int $expectedSheetVersion Версия листа.
-     * @param DimensionalNumber $injury Повреждение.
-     * @param int $actorUserId Актор.
-     * @param bool $viewAll Полный просмотр.
-     *
-     * @return int Версия после записи.
-     *
-     * @throws GameInvalidException Если строка, стойкость или лист битые.
-     * @throws GameNotFoundException Если листа нет.
-     * @throws GameBattleConflictException Если версия листа другая.
-     */
-
-    /**
-     * @return array{operations: list<array<string, mixed>>, consequence: array<string, mixed>}
-     */
-    private function prepareSheet(GameRecord $game, array $open, DimensionalNumber $injury, int $success): array
-    {
-        $kind = $open['defender_kind'] ?? null;
-        $defenderId = $open['defender_id'] ?? null;
-        $itemRuleCode = $open['item_rule_code'] ?? null;
-        $profileType = $open['profile_type'] ?? null;
-        $profileIndex = $open['profile_index'] ?? null;
-        if (($kind !== 'character' && $kind !== 'npc') || !is_int($defenderId) || !is_string($itemRuleCode) || !is_string($profileType) || !is_int($profileIndex)) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        $npcSnapshot = $kind === 'npc' ? $this->sheets->getNpcSnapshot($game->getId(), $defenderId) : null;
-        $sheet = $npcSnapshot !== null
-            ? $npcSnapshot['sheet']['sheet']
-            : $this->rules->characterSnapshot($defenderId)['sheet'];
-        $npcChoices = $npcSnapshot !== null ? $npcSnapshot['sheet']['choices'] : null;
-        $sheetVersion = $npcSnapshot['actualVersion'] ?? null;
-        $split = $this->rules->splitInjury(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $kind,
-            $defenderId,
-            $kind === 'npc' ? $sheet : null,
-            $injury,
-            is_array($npcChoices) ? $npcChoices : null,
-            is_int($sheetVersion) ? $sheetVersion : null,
-        );
-
-        return $this->consequences->effects(
-            $game,
-            $sheet,
-            $injury,
-            $success,
-            $split,
-            $this->rules->damageTypeCode($game->getSpaceId(), $game->getRulesRevision(), $itemRuleCode, $profileType, $profileIndex),
-            true,
-            $this->rules->enduranceOf(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $kind,
-                $defenderId,
-                $kind === 'npc' ? $sheet : null,
-                is_array($npcChoices) ? $npcChoices : null,
-                is_int($sheetVersion) ? $sheetVersion : null,
-            ),
-        );
     }
 
     /**
@@ -1331,405 +1263,6 @@ final class GameStrikes implements IGameStrikes
     }
 
     /**
-     * Выполняет и возвращает authoritative roll атакующего.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Открытый удар.
-     * @param string $hitCode Код hit-check.
-     *
-     * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Roll.
-     *
-     * @throws GameInvalidException Если строка или документ битые.
-     * @throws GameNotFoundException Если лист отсутствует.
-     */
-    private function rollOf(
-        GameRecord $game,
-        array $open,
-        string $hitCode,
-        array $pending,
-        CharacterRuleSlice $slice,
-    ): array {
-        $kind = $open['attacker_kind'] ?? null;
-        $attackerId = $open['attacker_id'] ?? null;
-        $itemRuleCode = $open['item_rule_code'] ?? null;
-        $profileType = $open['profile_type'] ?? null;
-        $profileIndex = $open['profile_index'] ?? null;
-        $itemInventoryId = $open['item_inventory_id'] ?? null;
-        if (
-            !is_string($kind)
-            || !is_int($attackerId)
-            || !is_string($itemRuleCode)
-            || !is_string($profileType)
-            || !is_int($profileIndex)
-            || !is_int($itemInventoryId)
-        ) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
-        $advantages = $this->rules->actionCheckAdvantages($slice, $actionRuleCode, $hitCode);
-        array_push($advantages, ...(new GamePendingActionCosts())->checkAdvantages(
-            $pending,
-            $kind,
-            $attackerId,
-            $hitCode,
-            'attacker',
-        ));
-
-        return $this->rules->rollHit(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $hitCode,
-            $itemRuleCode,
-            $profileType,
-            $profileIndex,
-            $itemInventoryId,
-            $kind,
-            $attackerId,
-            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
-            $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
-            $actionRuleCode,
-            $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
-            $advantages,
-        );
-    }
-
-    /**
-     * Выполняет roll защитника для выбранного block instance.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Открытый удар.
-     * @param string $hitCode Код hit-check.
-     * @param array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} $attackerRoll Roll атаки.
-     *
-     * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Roll.
-     *
-     * @throws GameInvalidException Если строка или выбор битые.
-     * @throws GameNotFoundException Если лист отсутствует.
-     */
-    private function dodgeRollOf(
-        GameRecord $game,
-        array $open,
-        string $hitCode,
-        array $attackerRoll,
-        array $pending,
-        ?string $reactionRuleCode,
-        CharacterRuleSlice $slice,
-    ): array {
-        $kind = $open['defender_kind'] ?? null;
-        $id = $open['defender_id'] ?? null;
-        $profileType = $open['profile_type'] ?? null;
-        if (!is_string($kind) || !is_int($id) || !is_string($profileType)) {
-            throw new GameInvalidException('Game strike defender is invalid');
-        }
-
-        $advantages = (new GamePendingActionCosts())->checkAdvantages(
-            $pending,
-            $kind,
-            $id,
-            $hitCode,
-            'defender',
-        );
-        if ($reactionRuleCode !== null) {
-            array_push($advantages, ...$this->rules->actionCheckAdvantages($slice, $reactionRuleCode, $hitCode));
-        }
-
-        return $this->rules->rollDodge(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $hitCode,
-            $this->sheets->getDefenderSheet($game, $open),
-            $this->defenderChoices($game, $kind, $id),
-            $profileType,
-            $attackerRoll,
-            $this->participantKey($game, $kind, $id),
-            $advantages,
-        );
-    }
-
-    /**
-     * @param GameRecord $game
-     * @param array<string, mixed> $open
-     * @param array<string, mixed> $choice
-     * @param array<string, mixed> $attackerRoll
-     *
-     * @return array<string, mixed>
-     */
-    private function blockRollOf(
-        GameRecord $game,
-        array $open,
-        array $choice,
-        string $hitCode,
-        array $attackerRoll,
-        array $pending,
-        ?string $reactionRuleCode,
-        CharacterRuleSlice $slice,
-    ): array {
-        $kind = $open['defender_kind'] ?? null;
-        $id = $open['defender_id'] ?? null;
-        $inventoryId = $choice['blockItemInventoryId'] ?? null;
-        $profileIndex = $choice['blockItemProfileIndex'] ?? null;
-        if (!is_string($kind) || !is_int($id) || !is_int($inventoryId) || !is_int($profileIndex)) {
-            throw new GameInvalidException('Game strike block item is invalid');
-        }
-
-        $advantages = (new GamePendingActionCosts())->checkAdvantages(
-            $pending,
-            $kind,
-            $id,
-            $hitCode,
-            'defender',
-        );
-        if ($reactionRuleCode !== null) {
-            array_push($advantages, ...$this->rules->actionCheckAdvantages($slice, $reactionRuleCode, $hitCode));
-        }
-
-        return $this->rules->rollBlock(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $hitCode,
-            $this->sheets->getDefenderSheet($game, $open),
-            $this->defenderChoices($game, $kind, $id),
-            $inventoryId,
-            $profileIndex,
-            $attackerRoll,
-            $this->participantKey($game, $kind, $id),
-            $advantages,
-        );
-    }
-
-    /**
-     * Убирает block layers после проигранного defender roll.
-     *
-     * @param array<string, mixed> $choice Реакция.
-     * @param array<string, mixed>|null $defenderRoll Roll защитника.
-     *
-     * @return array<string, mixed> Выбор для projection.
-     */
-    private function resistanceChoice(array $choice, ?array $defenderRoll): array
-    {
-        if (
-            $choice['reaction'] === 'block'
-            && ($defenderRoll === null || ($defenderRoll['success'] ?? false) !== true)
-        ) {
-            $choice['blockItemInventoryId'] = null;
-        }
-
-        return $choice;
-    }
-
-    /**
-     * Вычисляет penetration принятого удара по документам атакующего.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Открытый удар.
-     *
-     * @return DimensionalNumber Проникновение.
-     *
-     * @throws GameInvalidException Если строка или формула битые.
-     * @throws GameNotFoundException Если атакующий отсутствует.
-     */
-    private function penetrationOf(GameRecord $game, array $open): DimensionalNumber
-    {
-        $kind = $open['attacker_kind'] ?? null;
-        $attackerId = $open['attacker_id'] ?? null;
-        $itemRuleCode = $open['item_rule_code'] ?? null;
-        $profileType = $open['profile_type'] ?? null;
-        $profileIndex = $open['profile_index'] ?? null;
-        $inventoryId = $open['item_inventory_id'] ?? null;
-        if (
-            !is_string($kind)
-            || !is_int($attackerId)
-            || !is_string($itemRuleCode)
-            || !is_string($profileType)
-            || !is_int($profileIndex)
-            || !is_int($inventoryId)
-        ) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        return $this->rules->evaluatePenetration(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $itemRuleCode,
-            $profileType,
-            $profileIndex,
-            $inventoryId,
-            $kind,
-            $attackerId,
-            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
-            $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
-            $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
-        );
-    }
-
-    /**
-     * Сопротивление брони защитника по профилю удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Строка удара.
-     * @param array{reaction: string, blockItemRuleCode: string|null} $choice Защита.
-     * @param int $rating Рейтинг.
-     * @param DimensionalNumber $penetration Проникновение.
-     *
-     * @return DimensionalNumber Сумма слоёв или ноль.
-     *
-     * @throws GameInvalidException Если строка, профиль или лист битые.
-     * @throws GameNotFoundException Если ревизии или листа нет.
-     */
-    private function resistanceOf(
-        GameRecord $game,
-        array $open,
-        array $choice,
-        int $rating,
-        DimensionalNumber $penetration,
-    ): DimensionalNumber {
-        $kind = $open['defender_kind'] ?? null;
-        $defenderId = $open['defender_id'] ?? null;
-        $itemRuleCode = $open['item_rule_code'] ?? null;
-        $profileType = $open['profile_type'] ?? null;
-        $profileIndex = $open['profile_index'] ?? null;
-        if (!$this->isResistanceRow($kind, $defenderId, $itemRuleCode, $profileType, $profileIndex)) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        return $this->rules->evaluateResistance(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $itemRuleCode,
-            $profileType,
-            $profileIndex,
-            $kind,
-            $defenderId,
-            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $defenderId) : null,
-            $kind === 'npc' ? $this->npcChoices($game->getId(), $defenderId) : null,
-            $choice['reaction'],
-            $choice['blockItemInventoryId'],
-            $rating,
-            $penetration,
-        );
-    }
-
-    /**
-     * Проверяет поля строки сопротивления.
-     *
-     * @param mixed $kind Вид защитника.
-     * @param mixed $defenderId Идентификатор защитника.
-     * @param mixed $itemRuleCode Код предмета.
-     * @param mixed $profileType Вид профиля.
-     * @param mixed $profileIndex Индекс профиля.
-     *
-     * @return bool true, если строка корректна.
-     */
-    private function isResistanceRow(
-        mixed $kind,
-        mixed $defenderId,
-        mixed $itemRuleCode,
-        mixed $profileType,
-        mixed $profileIndex,
-    ): bool {
-        return is_string($kind)
-            && is_int($defenderId)
-            && is_string($itemRuleCode)
-            && is_string($profileType)
-            && is_int($profileIndex);
-    }
-
-    /**
-     * Смягчение уклонения защитника по профилю удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Строка удара.
-     *
-     * @return DimensionalNumber Пара.
-     *
-     * @throws GameInvalidException Если строка, карточка или закупка битые.
-     * @throws GameNotFoundException Если ревизии или листа нет.
-     */
-    private function soakOf(GameRecord $game, array $open): DimensionalNumber
-    {
-        $kind = $open['defender_kind'] ?? null;
-        $defenderId = $open['defender_id'] ?? null;
-        $itemRuleCode = $open['item_rule_code'] ?? null;
-        $profileType = $open['profile_type'] ?? null;
-        $profileIndex = $open['profile_index'] ?? null;
-        if (!is_string($kind) || !is_int($defenderId) || !is_string($itemRuleCode)) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        if (!is_string($profileType) || !is_int($profileIndex)) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        return $this->rules->evaluateSoak(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $itemRuleCode,
-            $profileType,
-            $profileIndex,
-            $kind,
-            $defenderId,
-            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $defenderId) : null,
-            $kind === 'npc' ? $this->npcChoices($game->getId(), $defenderId) : null,
-            $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $defenderId) : null,
-        );
-    }
-
-    /**
-     * Число формулы урона по строке открытого удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Строка удара.
-     *
-     * @return DimensionalNumber Пара.
-     *
-     * @throws GameInvalidException Если строка или формула битые.
-     * @throws GameNotFoundException Если ревизии нет.
-     */
-    private function damageOf(GameRecord $game, array $open): DimensionalNumber
-    {
-        $kind = $open['attacker_kind'] ?? null;
-        $attackerId = $open['attacker_id'] ?? null;
-        $itemRuleCode = $open['item_rule_code'] ?? null;
-        $profileType = $open['profile_type'] ?? null;
-        $profileIndex = $open['profile_index'] ?? null;
-        $itemInventoryId = $open['item_inventory_id'] ?? null;
-        if (
-            !is_string($kind)
-            || !is_int($attackerId)
-            || !is_string($itemRuleCode)
-            || !is_string($profileType)
-            || !is_int($profileIndex)
-            || !is_int($itemInventoryId)
-        ) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
-        $characteristicModifier = $this->rules->actionCharacteristicModifier(
-            $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
-            $actionRuleCode,
-            $profileType,
-            1,
-        );
-
-        return $this->rules->evaluateDamage(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $itemRuleCode,
-            $profileType,
-            $profileIndex,
-            $itemInventoryId,
-            $kind,
-            $attackerId,
-            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
-            $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
-            $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
-            $characteristicModifier,
-        );
-    }
-
-    /**
      * Выборы атакующего из строки удара.
      *
      * @param GameRecord $game Игра.
@@ -1751,30 +1284,6 @@ final class GameStrikes implements IGameStrikes
         return $kind === 'character'
             ? $this->rules->characterSnapshot($id)['choices']
             : $this->npcChoices($game->getId(), $id);
-    }
-
-    /**
-     * Ключ кэша листа участника удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param string $kind character или npc.
-     * @param int $id Идентификатор.
-     *
-     * @return string Ключ.
-     *
-     * @throws GameNotFoundException Если NPC чужой.
-     */
-    private function participantKey(GameRecord $game, string $kind, int $id): string
-    {
-        if ($kind === 'character') {
-            return $this->rules->makeParticipantKey(
-                'character',
-                $id,
-                $this->rules->characterSnapshot($id)['actualVersion'],
-            );
-        }
-
-        return $this->rules->makeParticipantKey('npc', $id, $this->sheets->getNpcVersion($game->getId(), $id));
     }
 
     /**

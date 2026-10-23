@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Closure;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
@@ -31,6 +32,8 @@ final class GameWideStrikeResults
     private readonly GameStrikeSheets $sheets;
 
     private readonly GameStrikeSpend $spend;
+
+    private readonly GameStrikeResolution $resolution;
 
     /**
      * Создаёт расчёт отказа.
@@ -66,6 +69,13 @@ final class GameWideStrikeResults
             $conflictProjection,
         );
         $this->spend = new GameStrikeSpend($rules, $sheetWrites);
+        $this->resolution = new GameStrikeResolution(
+            $rules,
+            $this->sheets,
+            $npcs,
+            $consequences,
+            $this->amounts,
+        );
     }
 
     /**
@@ -336,6 +346,113 @@ final class GameWideStrikeResults
             return $this->row($target, $refusalCode, null, null, null);
         }
 
+        $reaction = $this->reactionOf($game, $target, $choice);
+        if ($reaction['insufficient']) {
+            $zero = $this->amounts->view($this->amounts->zero());
+
+            return $this->row($target, null, null, $zero, $zero, null, $zero);
+        }
+
+        $spends = $reaction['spends'];
+        $slice = $reaction['slice'];
+        $reactionRuleCode = $reaction['reactionRuleCode'];
+        $hitCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
+        $defense = $this->defenseOf(
+            $game,
+            $target,
+            $choice,
+            $attackerRoll,
+            $reaction['pending'],
+            $reactionRuleCode,
+            $slice,
+            $hitCode,
+            $profileType,
+        );
+        $outcome = $this->damageOf(
+            $game,
+            $target,
+            $choice,
+            $defense['defenderRoll'],
+            $defense['success'],
+            $damage,
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+            $penetrationFactory,
+        );
+        $record = $this->row(
+            $target,
+            null,
+            $defense['success'],
+            $this->amounts->view($outcome['effectiveDamage']),
+            $this->amounts->view($outcome['resistance']),
+            $outcome['soak'] === null ? null : $this->amounts->view($outcome['soak']),
+            $this->amounts->view($outcome['injury']),
+            $defense['defenderRoll'],
+        );
+        if (!$defense['autoFail'] || $spends !== []) {
+            $record['sheetVersion'] = $defense['autoFail']
+                ? $this->sheetWrites->writeResources(
+                    $game,
+                    $target['type'],
+                    $target['id'],
+                    $choice['expectedSheetVersion'],
+                    $spends,
+                    ['type' => $target['type'], 'id' => $target['id']],
+                    fn (CharacterConflictException|GameEconomyConflictException $exception): array => $this->sheets->projectWriteConflict(
+                        $game,
+                        $target,
+                        $exception,
+                        $actorUserId,
+                        $viewAll,
+                    ),
+                )
+                : $this->writeTarget(
+                    $game,
+                    $target,
+                    $choice,
+                    $itemRuleCode,
+                    $profileType,
+                    $profileIndex,
+                    $outcome['injury'],
+                    $defense['success'],
+                    $spends,
+                    $actorUserId,
+                    $viewAll,
+                    $record,
+                );
+        }
+
+        if ($reactionRuleCode !== null && $slice !== null) {
+            $this->pendingAfter = (new GamePendingActionCosts())->complete(
+                $slice,
+                $this->targetChoices($game, $target),
+                $reactionRuleCode,
+                $target['type'],
+                $target['id'],
+                $reaction['pending'],
+                $this->spend->getSpendAmounts($spends),
+            );
+        }
+
+        $record['chat'] = true;
+
+        return $record;
+    }
+
+    /**
+     * Траты и карта ожидания реакции цели.
+     *
+     * @param GameRecord $game Игра.
+     * @param array{type: string, id: int} $target Цель.
+     * @param array<string, mixed> $choice Защита.
+     *
+     * @return array{spends: array<int, ResourceSpend>, pending: array<string, mixed>,
+     *               slice: CharacterRuleSlice|null, reactionRuleCode: string|null, insufficient: bool}
+     */
+    private function reactionOf(GameRecord $game, array $target, array $choice): array
+    {
+        $pending = $this->pendingAfter;
         $spends = $this->spend->getReactionSpends(
             $game,
             $choice,
@@ -344,7 +461,6 @@ final class GameWideStrikeResults
         );
         $slice = null;
         $reactionRuleCode = null;
-        $pending = $this->pendingAfter;
         if ($choice['reaction'] !== 'ignore') {
             $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
             $reactionRuleCode = $this->rules->reactionRuleCode(
@@ -368,20 +484,48 @@ final class GameWideStrikeResults
             }
         }
 
-        if (
-            $spends !== [] && !$this->rules->hasSufficientResources(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $this->sheets->getTargetSheet($game, $target),
-                $spends,
-            )
-        ) {
-            $zero = $this->amounts->view($this->amounts->zero());
+        $insufficient = $spends !== [] && !$this->rules->hasSufficientResources(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $this->sheets->getTargetSheet($game, $target),
+            $spends,
+        );
 
-            return $this->row($target, null, null, $zero, $zero, null, $zero);
-        }
+        return [
+            'spends' => $spends,
+            'pending' => $pending,
+            'slice' => $slice,
+            'reactionRuleCode' => $reactionRuleCode,
+            'insufficient' => $insufficient,
+        ];
+    }
 
-        $hitCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
+    /**
+     * Броски защиты и число успеха.
+     *
+     * @param GameRecord $game Игра.
+     * @param array{type: string, id: int} $target Цель.
+     * @param array<string, mixed> $choice Защита.
+     * @param array<string, mixed> $attackerRoll Бросок атаки.
+     * @param array<string, mixed> $pending Карта ожидания.
+     * @param string|null $reactionRuleCode Карточка реакции.
+     * @param CharacterRuleSlice|null $slice Срез.
+     * @param string $hitCode Код hit-check.
+     * @param string $profileType Вид профиля.
+     *
+     * @return array{defenderRoll: array<string, mixed>|null, autoFail: bool, success: int}
+     */
+    private function defenseOf(
+        GameRecord $game,
+        array $target,
+        array $choice,
+        array $attackerRoll,
+        array $pending,
+        ?string $reactionRuleCode,
+        ?CharacterRuleSlice $slice,
+        string $hitCode,
+        string $profileType,
+    ): array {
         $advantages = (new GamePendingActionCosts())->checkAdvantages(
             $pending,
             $target['type'],
@@ -425,12 +569,41 @@ final class GameWideStrikeResults
             );
         }
 
-        $rating = $ratedRoll['rating'];
-        $autoFail = $this->rules->isHitAutoFail($attackerRoll['roll']);
-        $defenderWon = $defenderRoll !== null && ($defenderRoll['success'] ?? false) === true;
-        $success = $choice['reaction'] === 'dodge'
-            ? (($autoFail || $defenderWon) ? 0 : max(0, $rating))
-            : ($autoFail || $rating <= 0 ? 0 : ($defenderWon ? 1 : $rating));
+        return [
+            'defenderRoll' => $defenderRoll,
+            'autoFail' => $this->rules->isHitAutoFail($attackerRoll['roll']),
+            'success' => $this->resolution->successOf($ratedRoll, $defenderRoll, $choice['reaction']),
+        ];
+    }
+
+    /**
+     * Урон, сопротивление и повреждение цели.
+     *
+     * @param GameRecord $game Игра.
+     * @param array{type: string, id: int} $target Цель.
+     * @param array<string, mixed> $choice Защита.
+     * @param array<string, mixed>|null $defenderRoll Бросок защиты.
+     * @param int $success Успех.
+     * @param DimensionalNumber $damage Урон.
+     * @param string $itemRuleCode Предмет удара.
+     * @param string $profileType Вид профиля.
+     * @param int $profileIndex Смещение.
+     * @param Closure|null $penetrationFactory Lazy penetration resolver.
+     *
+     * @return array{effectiveDamage: DimensionalNumber, resistance: DimensionalNumber, soak: DimensionalNumber|null, injury: DimensionalNumber}
+     */
+    private function damageOf(
+        GameRecord $game,
+        array $target,
+        array $choice,
+        ?array $defenderRoll,
+        int $success,
+        DimensionalNumber $damage,
+        string $itemRuleCode,
+        string $profileType,
+        int $profileIndex,
+        ?Closure $penetrationFactory,
+    ): array {
         $effectiveDamage = $success === 0 ? $this->amounts->zero() : $damage;
         $resistance = $success === 0
             ? $this->amounts->zero()
@@ -440,73 +613,20 @@ final class GameWideStrikeResults
                 $itemRuleCode,
                 $profileType,
                 $profileIndex,
-                $this->resistanceChoice($choice, $defenderRoll),
+                $this->resolution->resistanceChoice($choice, $defenderRoll),
                 $success,
                 $penetrationFactory === null ? null : $penetrationFactory(),
             );
         $soak = $choice['reaction'] === 'dodge'
             ? $this->soakOf($game, $target, $itemRuleCode, $profileType, $profileIndex)
             : null;
-        $injury = $this->amounts->injury($effectiveDamage, $resistance, $success, $soak);
-        $record = $this->row(
-            $target,
-            null,
-            $success,
-            $this->amounts->view($effectiveDamage),
-            $this->amounts->view($resistance),
-            $soak === null ? null : $this->amounts->view($soak),
-            $this->amounts->view($injury),
-            $defenderRoll,
-        );
-        if (!$autoFail || $spends !== []) {
-            $record['sheetVersion'] = $autoFail
-                ? $this->sheetWrites->writeResources(
-                    $game,
-                    $target['type'],
-                    $target['id'],
-                    $choice['expectedSheetVersion'],
-                    $spends,
-                    ['type' => $target['type'], 'id' => $target['id']],
-                    fn (CharacterConflictException|GameEconomyConflictException $exception): array => $this->sheets->projectWriteConflict(
-                        $game,
-                        $target,
-                        $exception,
-                        $actorUserId,
-                        $viewAll,
-                    ),
-                )
-                : $this->writeTarget(
-                    $game,
-                    $target,
-                    $choice,
-                    $itemRuleCode,
-                    $profileType,
-                    $profileIndex,
-                    $injury,
-                    $success,
-                    $spends,
-                    $actorUserId,
-                    $viewAll,
-                    $record,
-                );
-        }
 
-        if ($reactionRuleCode !== null && $slice !== null) {
-            $pending = (new GamePendingActionCosts())->complete(
-                $slice,
-                $this->targetChoices($game, $target),
-                $reactionRuleCode,
-                $target['type'],
-                $target['id'],
-                $pending,
-                $this->spend->getSpendAmounts($spends),
-            );
-            $this->pendingAfter = $pending;
-        }
-
-        $record['chat'] = true;
-
-        return $record;
+        return [
+            'effectiveDamage' => $effectiveDamage,
+            'resistance' => $resistance,
+            'soak' => $soak,
+            'injury' => $this->amounts->injury($effectiveDamage, $resistance, $success, $soak),
+        ];
     }
 
     /**
@@ -754,26 +874,6 @@ final class GameWideStrikeResults
             $speaker,
             $parentId,
         );
-    }
-
-    /**
-     * Убирает block layers после проигранного defender roll.
-     *
-     * @param array<string, mixed> $choice Реакция.
-     * @param array<string, mixed>|null $defenderRoll Roll защитника.
-     *
-     * @return array<string, mixed> Выбор для projection.
-     */
-    private function resistanceChoice(array $choice, ?array $defenderRoll): array
-    {
-        if (
-            $choice['reaction'] === 'block'
-            && ($defenderRoll === null || ($defenderRoll['success'] ?? false) !== true)
-        ) {
-            $choice['blockItemInventoryId'] = null;
-        }
-
-        return $choice;
     }
 
     /**
