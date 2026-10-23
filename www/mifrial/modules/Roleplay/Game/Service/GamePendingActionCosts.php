@@ -348,6 +348,9 @@ final class GamePendingActionCosts
     /**
      * Снимает хвосты прошлого действия: их поглощает текущее действие.
      *
+     * Снимок прошлого удара тоже живёт до следующего действия; закрытие удара
+     * положит новый снимок после этой очистки.
+     *
      * @param array<int, mixed> $waiting Ожидание актора.
      *
      * @return array<int, mixed> Оставшиеся записи.
@@ -360,7 +363,9 @@ final class GamePendingActionCosts
                 $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
                 $type = is_array($effect) ? ($effect['type'] ?? null) : null;
 
-                return $type !== 'next_action_attack_accuracy' && $type !== 'next_action_attack_score_adjust';
+                return $type !== 'next_action_attack_accuracy'
+                    && $type !== 'next_action_attack_score_adjust'
+                    && $type !== 'last_strike_snapshot';
             },
         ));
     }

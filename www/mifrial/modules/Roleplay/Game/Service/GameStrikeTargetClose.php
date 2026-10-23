@@ -117,6 +117,13 @@ final class GameStrikeTargetClose
         $spends = $reaction['spends'];
         $slice = $reaction['slice'];
         $reactionRuleCode = $reaction['reactionRuleCode'];
+        $lastStrike = new GameLastStrikeSnapshot();
+        $previousSr = $lastStrike->previousSr(
+            $reaction['pending'],
+            is_string($open['attacker_kind'] ?? null) ? $open['attacker_kind'] : '',
+            is_int($open['attacker_id'] ?? null) ? $open['attacker_id'] : 0,
+            $target['type'] . ':' . $target['id'],
+        );
         $defense = $this->defenseOf(
             $game,
             $open,
@@ -128,20 +135,27 @@ final class GameStrikeTargetClose
             $slice,
             $hitCode,
         );
+        $slice ??= $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $success = $lastStrike->boostSuccess(
+            $slice,
+            is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '',
+            $defense['success'],
+            $previousSr,
+        );
         $outcome = $this->damageOf(
             $game,
             $open,
             $target,
             $choice,
             $defense['defenderRoll'],
-            $defense['success'],
+            $success,
             $damage,
             $penetrationFactory,
         );
         $record = GameStrikeTargetRow::row(
             $target,
             null,
-            $defense['success'],
+            $success,
             $this->amounts->view($outcome['effectiveDamage']),
             $this->amounts->view($outcome['resistance']),
             $outcome['soak'] === null ? null : $this->amounts->view($outcome['soak']),
@@ -173,7 +187,7 @@ final class GameStrikeTargetClose
                     $target,
                     $choice,
                     $outcome['injury'],
-                    $defense['success'],
+                    $success,
                     $spends,
                     $actorUserId,
                     $viewAll,

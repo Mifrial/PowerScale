@@ -192,7 +192,11 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         self::assertSame(
-            ['after_action_until_resource_spent_check_modifier', 'next_action_attack_cost'],
+            [
+                'after_action_until_resource_spent_check_modifier',
+                'next_action_attack_cost',
+                'last_strike_snapshot',
+            ],
             $this->pendingTypes($battleId, 'character:' . $attackerId),
         );
         $second = $this->dispatch('game.declareStrike', [
@@ -205,7 +209,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertTrue($second['success'], json_encode($second));
         self::assertSame(5, $this->actionPointsOf($attackerId));
         self::assertSame(
-            ['after_action_until_resource_spent_check_modifier'],
+            ['after_action_until_resource_spent_check_modifier', 'last_strike_snapshot'],
             $this->pendingTypes($battleId, 'character:' . $attackerId),
         );
         $closedAgain = $this->dispatch('game.resolveStrike', [
@@ -218,7 +222,11 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($closedAgain['success'], json_encode($closedAgain));
         self::assertSame(
-            ['after_action_until_resource_spent_check_modifier', 'next_action_attack_cost'],
+            [
+                'after_action_until_resource_spent_check_modifier',
+                'next_action_attack_cost',
+                'last_strike_snapshot',
+            ],
             $this->pendingTypes($battleId, 'character:' . $attackerId),
         );
     }
@@ -280,16 +288,204 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertCount(2, $rolls);
 
         $pending = $result['pending'];
-        self::assertCount(1, $pending);
+        self::assertCount(2, $pending);
         $effect = is_array($pending[0]) ? ($pending[0]['effect'] ?? null) : null;
         self::assertIsArray($effect);
         self::assertSame('next_action_attack_score_adjust', $effect['type']);
         self::assertSame('character:' . $result['defenderId'], $effect['targetKey']);
 
+        $snapshot = is_array($pending[1]) ? ($pending[1]['effect'] ?? null) : null;
+        self::assertIsArray($snapshot);
+        self::assertSame('last_strike_snapshot', $snapshot['type']);
+        self::assertSame('other', $snapshot['kind']);
+        self::assertSame('character:' . $result['defenderId'], $snapshot['hits'][0]['targetKey']);
+
         $first = $rolls[0]['successes'];
         $second = $rolls[1]['successes'];
         self::assertSame(array_fill(0, count($first), 1), $first);
         self::assertSame(array_fill(0, count($second), 0), $second);
+    }
+
+    /**
+     * Добивание требует повреждения прошлого удара и той же цели.
+     *
+     * @return void
+     */
+    public function testFollowUpGateRequiresDamagingPreviousAttack(): void
+    {
+        $world = $this->worldWithWeapon(withPenetration: true, extraCards: [
+            'critical' => [[
+                'type' => 'require_previous_attack',
+                'all_damaged' => true,
+                'same_target' => true,
+                'single_strike' => true,
+            ]],
+        ]);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker');
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender');
+        $otherId = $this->admit($world->getId(), $gameId, 'Other');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-follow-up',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+                ['type' => 'character', 'id' => $otherId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+
+        $blocked = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-follow-up-blocked',
+            'expectedVersion' => 1,
+            'attack' => $this->characterAttack($attackerId, $defenderId, 'critical'),
+        ]);
+        self::assertFalse($blocked['success']);
+        self::assertSame('GAME_INVALID', $blocked['error']['code']);
+
+        $first = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-follow-up-first',
+            'expectedVersion' => 1,
+            'attack' => $this->characterAttack($attackerId, $defenderId),
+        ]);
+        self::assertTrue($first['success'], json_encode($first));
+        $closed = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-follow-up-first',
+            'expectedVersion' => $first['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
+            'defense' => ['reaction' => 'ignore'],
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        $pending = $this->pendingEntries($battleId, 'character:' . $attackerId);
+        $snapshot = null;
+        foreach ($pending as $entry) {
+            $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+            if (is_array($effect) && ($effect['type'] ?? null) === 'last_strike_snapshot') {
+                $snapshot = $effect;
+            }
+        }
+
+        self::assertIsArray($snapshot);
+        self::assertSame('other', $snapshot['kind']);
+        self::assertTrue($snapshot['hits'][0]['damaged']);
+
+        $wrongTarget = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-follow-up-wrong',
+            'expectedVersion' => $closed['data']['version'],
+            'attack' => $this->characterAttack($attackerId, $otherId, 'critical'),
+        ]);
+        self::assertFalse($wrongTarget['success']);
+        self::assertSame('GAME_INVALID', $wrongTarget['error']['code']);
+
+        $second = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-follow-up-second',
+            'expectedVersion' => $closed['data']['version'],
+            'attack' => $this->characterAttack($attackerId, $defenderId, 'critical'),
+        ]);
+        self::assertTrue($second['success'], json_encode($second));
+    }
+
+    /**
+     * Смертельный удар добавляет успех от прошлого удара и пишет lethal-снимок.
+     *
+     * @return void
+     */
+    public function testLethalStrikeBoostsSuccessFromPrevious(): void
+    {
+        $world = $this->worldWithWeapon(withPenetration: true, extraCards: [
+            'lethal' => [
+                [
+                    'type' => 'require_previous_strike',
+                    'min_sr' => 1,
+                    'not_kind' => 'lethal',
+                    'same_target' => true,
+                ],
+                [
+                    'type' => 'attack_sr_from_previous',
+                    'floor_div' => 1,
+                    'cap' => 'double_this',
+                ],
+            ],
+        ]);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker');
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-lethal',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $first = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-lethal-first',
+            'expectedVersion' => 1,
+            'attack' => $this->characterAttack($attackerId, $defenderId),
+        ]);
+        self::assertTrue($first['success'], json_encode($first));
+        $closed = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-lethal-first',
+            'expectedVersion' => $first['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
+            'defense' => ['reaction' => 'ignore'],
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $previousSr = $closed['data']['success'];
+        self::assertGreaterThan(0, $previousSr);
+
+        $second = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-lethal-second',
+            'expectedVersion' => $closed['data']['version'],
+            'attack' => $this->characterAttack($attackerId, $defenderId, 'lethal'),
+        ]);
+        self::assertTrue($second['success'], json_encode($second));
+        $closedLethal = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-lethal-second',
+            'expectedVersion' => $second['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
+            'defense' => ['reaction' => 'ignore'],
+        ]);
+        self::assertTrue($closedLethal['success'], json_encode($closedLethal));
+        self::assertSame($previousSr * 2, $closedLethal['data']['success']);
+
+        $pending = $this->pendingEntries($battleId, 'character:' . $attackerId);
+        $snapshot = null;
+        foreach ($pending as $entry) {
+            $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+            if (is_array($effect) && ($effect['type'] ?? null) === 'last_strike_snapshot') {
+                $snapshot = $effect;
+            }
+        }
+
+        self::assertIsArray($snapshot);
+        self::assertSame('lethal', $snapshot['kind']);
+        self::assertSame($previousSr * 2, $snapshot['hits'][0]['attackSr']);
     }
 
     /**
@@ -1584,6 +1780,7 @@ final class GameStrikeMysqlTest extends TestCase
         bool $withBlockResource = false,
         bool $withPendingEffects = false,
         array $cardEffects = [],
+        array $extraCards = [],
     ): RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -1594,7 +1791,8 @@ final class GameStrikeMysqlTest extends TestCase
             . ($withPenetration ? '-penetration' : '')
             . ($withBlockResource ? '-block' : '')
             . ($withPendingEffects ? '-pending' : '')
-            . ($cardEffects === [] ? '' : '-fx' . substr(md5((string) json_encode($cardEffects)), 0, 6)),
+            . ($cardEffects === [] ? '' : '-fx' . substr(md5((string) json_encode($cardEffects)), 0, 6))
+            . ($extraCards === [] ? '' : '-ex' . substr(md5((string) json_encode($extraCards)), 0, 6)),
         );
         $check = [
             'allow_characteristic_override' => false,
@@ -1960,6 +2158,14 @@ final class GameStrikeMysqlTest extends TestCase
             ], [], [], 'needs_work'));
         }
 
+        foreach ($extraCards as $code => $effects) {
+            $entries[] = RuleCommitEntry::put($code, new RuleVersionBody('ability', ucfirst($code), '', [
+                'type' => 'action',
+                'action_components' => [],
+                ...($effects === [] ? [] : ['action_effects' => $effects]),
+            ], [], [], 'needs_work'));
+        }
+
         $this->worldRevision = $this->gameRuleSpaces()->commit($world->getId(), $entries)->getRevision();
 
         return $world;
@@ -1983,12 +2189,15 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return array<string, mixed> Тело.
      */
-    private function characterAttack(int $attackerId, int $defenderId): array
-    {
+    private function characterAttack(
+        int $attackerId,
+        int $defenderId,
+        string $actionRuleCode = 'swing',
+    ): array {
         return [
             'attacker' => ['type' => 'character', 'id' => $attackerId],
             'defender' => ['type' => 'character', 'id' => $defenderId],
-            'actionRuleCode' => 'swing',
+            'actionRuleCode' => $actionRuleCode,
             'itemInventoryId' => 1,
             'itemRuleCode' => 'sword',
             'profileType' => 'strike',

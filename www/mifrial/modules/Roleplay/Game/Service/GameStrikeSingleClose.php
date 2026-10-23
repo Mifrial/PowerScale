@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
@@ -93,6 +94,14 @@ final class GameStrikeSingleClose
 
         $target = $this->rows->defender($row);
         $targetKey = $this->rows->targetKey($target);
+        $attackerKind = $open['attacker_kind'] ?? null;
+        $attackerId = $open['attacker_id'] ?? null;
+        if (!is_string($attackerKind) || !is_int($attackerId)) {
+            throw new GameInvalidException('Game strike attacker is invalid');
+        }
+
+        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        $lastStrike = new GameLastStrikeSnapshot();
         $this->choices->assertReaction($game, $target, $requestChoice);
         $choice = $this->authoritativeChoice($game, $target, $requestChoice);
         $targetOpen = $this->rows->targetOpen($open, $target);
@@ -145,6 +154,7 @@ final class GameStrikeSingleClose
             }
         }
 
+        $previousSr = $lastStrike->previousSr($pending, $attackerKind, $attackerId, $targetKey);
         $attackerRoll = $this->resolution->rollOf($game, $open, $hitCode, $pending, $slice, [], [$targetKey]);
         $defenderRoll = null;
         if (
@@ -213,6 +223,9 @@ final class GameStrikeSingleClose
             $defenderRoll,
             $choice['reaction'],
             $autoFail ? $this->amounts->zero() : $damage,
+            $slice,
+            $actionRuleCode,
+            $previousSr,
         );
         $resistance = $result['success'] === 0
             ? $this->amounts->zero()
@@ -296,13 +309,6 @@ final class GameStrikeSingleClose
             'block_item_rule_code' => $choice['blockItemRuleCode'],
         ]);
 
-        $attackerKind = $open['attacker_kind'] ?? null;
-        $attackerId = $open['attacker_id'] ?? null;
-        if (!is_string($attackerKind) || !is_int($attackerId)) {
-            throw new GameInvalidException('Game strike attacker is invalid');
-        }
-
-        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $pending = (new GamePendingActionCosts())->complete(
             $slice,
             $this->choices->attackerChoices($game, $open),
@@ -324,6 +330,22 @@ final class GameStrikeSingleClose
                 $this->spend->getSpendAmounts($spends),
             );
         }
+
+        $pending = $lastStrike->store(
+            $pending,
+            $attackerKind,
+            $attackerId,
+            $actionRuleCode,
+            $lastStrike->kindOf($slice, $actionRuleCode),
+            [
+                [
+                    'targetKey' => $targetKey,
+                    'attackSr' => $result['success'],
+                    'reaction' => $choice['reaction'],
+                    'damaged' => $injury->toInteger() > 0,
+                ],
+            ],
+        );
 
         $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
 
@@ -400,6 +422,9 @@ final class GameStrikeSingleClose
      * @param array<string, mixed>|null $defenderRoll Бросок защиты.
      * @param string $reaction Реакция.
      * @param DimensionalNumber $damage Урон.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка удара.
+     * @param int $previousSr Успех прошлого удара по цели.
      *
      * @return array<string, mixed> Итог.
      */
@@ -411,8 +436,12 @@ final class GameStrikeSingleClose
         ?array $defenderRoll,
         string $reaction,
         DimensionalNumber $damage,
+        CharacterRuleSlice $slice,
+        string $actionRuleCode,
+        int $previousSr,
     ): array {
         $success = $this->resolution->successOf($attackerRoll, $defenderRoll, $reaction);
+        $success = (new GameLastStrikeSnapshot())->boostSuccess($slice, $actionRuleCode, $success, $previousSr);
         $effectiveDamage = $success === 0 ? $this->amounts->zero() : $damage;
 
         $result = [

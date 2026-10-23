@@ -211,6 +211,35 @@ final class GameStrikeWideClose
             $targetKeys,
         );
 
+        $hits = [];
+        foreach ($results as $index => $record) {
+            $target = is_array($record['target'] ?? null) ? $record['target'] : null;
+            if ($target === null || !is_string($target['type'] ?? null) || !is_int($target['id'] ?? null)) {
+                continue;
+            }
+
+            $injury = is_array($record['injury'] ?? null) ? $record['injury'] : null;
+            $hits[] = [
+                'targetKey' => $target['type'] . ':' . $target['id'],
+                'attackSr' => is_int($record['success'] ?? null) ? $record['success'] : 0,
+                'reaction' => is_string($rows[$index]['reaction'] ?? null) ? $rows[$index]['reaction'] : 'ignore',
+                'damaged' => $injury !== null && (new DimensionalNumber(
+                    (int) ($injury['base'] ?? 0),
+                    (int) ($injury['size'] ?? 0),
+                ))->toInteger() > 0,
+            ];
+        }
+
+        $lastStrike = new GameLastStrikeSnapshot();
+        $pending = $lastStrike->store(
+            $pending,
+            $attackerKind,
+            $attackerId,
+            $actionRuleCode,
+            $lastStrike->kindOf($slice, $actionRuleCode),
+            $hits,
+        );
+
         $this->actions->close($strikeId);
         $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
 

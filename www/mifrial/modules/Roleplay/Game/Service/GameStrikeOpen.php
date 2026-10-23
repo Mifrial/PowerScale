@@ -107,6 +107,7 @@ final class GameStrikeOpen
         string $lane,
         string $subject,
     ): array {
+        $this->assertFollowUp($game, $battle, $choice);
         $snapshot = $this->snapshot($game, $choice);
         $row = $this->action($battle, $sessionId, $choice, $kind);
         $opened = $this->open(
@@ -159,6 +160,7 @@ final class GameStrikeOpen
         array $choice,
         string $kind,
     ): array {
+        $this->assertFollowUp($game, $battle, $choice);
         $snapshot = $this->snapshot($game, $choice);
         $attacker = $choice['attacker'];
         $inventorySpend = $this->rules->resolveInventorySpend(
@@ -205,6 +207,60 @@ final class GameStrikeOpen
             'strikeId' => $strikeId,
             'version' => $saved->getStateVersion(),
         ];
+    }
+
+    /**
+     * Гейт добивания по снимку прошлого удара.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
+     * @param array<string, mixed> $choice Выбор.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если добивание не разрешено.
+     */
+    private function assertFollowUp(GameRecord $game, GameBattleRecord $battle, array $choice): void
+    {
+        $attacker = $choice['attacker'] ?? null;
+        $actionRuleCode = $choice['actionRuleCode'] ?? null;
+        if (
+            !is_array($attacker)
+            || !is_string($attacker['type'] ?? null)
+            || !is_int($attacker['id'] ?? null)
+            || !is_string($actionRuleCode)
+        ) {
+            return;
+        }
+
+        (new GameLastStrikeSnapshot())->assertFollowUp(
+            $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+            $actionRuleCode,
+            $battle->getPendingActionEffects(),
+            $attacker['type'],
+            $attacker['id'],
+            $this->targetKeys($choice),
+        );
+    }
+
+    /**
+     * Ключи целей выбора.
+     *
+     * @param array<string, mixed> $choice Выбор.
+     *
+     * @return array<int, string> Ключи.
+     */
+    private function targetKeys(array $choice): array
+    {
+        $targets = is_array($choice['targets'] ?? null) ? $choice['targets'] : [$choice['defender'] ?? null];
+        $keys = [];
+        foreach ($targets as $target) {
+            if (is_array($target) && is_string($target['type'] ?? null) && is_int($target['id'] ?? null)) {
+                $keys[] = $target['type'] . ':' . $target['id'];
+            }
+        }
+
+        return $keys;
     }
 
     /**
