@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Tests;
 
 use Mifrial\Core\Kernel\Exception\ActionException;
-use Mifrial\Roleplay\Game\Service\GameWideStrikeBody;
+use Mifrial\Roleplay\Game\Service\GameStrikeBody;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -20,7 +20,7 @@ final class GameWideStrikeBodyTest extends TestCase
      */
     public function testSingleTargetIsAccepted(): void
     {
-        $choice = (new GameWideStrikeBody())->attack([
+        $choice = (new GameStrikeBody())->wideAttack([
             'attacker' => ['type' => 'character', 'id' => 1],
             'targets' => [['type' => 'npc', 'id' => 2]],
             'actionRuleCode' => 'swing',
@@ -42,7 +42,7 @@ final class GameWideStrikeBodyTest extends TestCase
     {
         $this->expectException(ActionException::class);
 
-        (new GameWideStrikeBody())->attack([
+        (new GameStrikeBody())->wideAttack([
             'attacker' => ['type' => 'character', 'id' => 1],
             'targets' => [],
             'actionRuleCode' => 'swing',
@@ -60,7 +60,7 @@ final class GameWideStrikeBodyTest extends TestCase
      */
     public function testShootRequiresAndKeepsAmmunitionInventoryId(): void
     {
-        $choice = (new GameWideStrikeBody())->attack([
+        $choice = (new GameStrikeBody())->wideAttack([
             'attacker' => ['type' => 'character', 'id' => 1],
             'targets' => [
                 ['type' => 'npc', 'id' => 2],
@@ -86,7 +86,7 @@ final class GameWideStrikeBodyTest extends TestCase
     {
         $this->expectException(ActionException::class);
 
-        (new GameWideStrikeBody())->attack([
+        (new GameStrikeBody())->wideAttack([
             'attacker' => ['type' => 'character', 'id' => 1],
             'targets' => [
                 ['type' => 'npc', 'id' => 2],

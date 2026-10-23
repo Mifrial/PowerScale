@@ -91,7 +91,7 @@ final class GameStrikeBody
      *
      * @param array<string, mixed> $defense Тело.
      *
-     * @return array{reaction: string, blockItemInventoryId: int|null, blockItemProfileIndex: int|null, blockItemRuleCode: string|null} Выбор.
+     * @return array<string, mixed> Выбор.
      *
      * @throws ActionException INVALID_PARAMS.
      */
@@ -139,23 +139,216 @@ final class GameStrikeBody
     }
 
     /**
+     * Выбор атаки по нескольким целям.
+     *
+     * @param array<string, mixed> $attack Тело.
+     *
+     * @return array<string, mixed> Выбор.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    public function wideAttack(array $attack): array
+    {
+        $allowed = [
+            'actionRuleCode',
+            'attacker',
+            'itemInventoryId',
+            'itemRuleCode',
+            'profileIndex',
+            'profileType',
+            'targets',
+        ];
+        if (array_key_exists('chosenAmounts', $attack)) {
+            $allowed[] = 'chosenAmounts';
+        }
+
+        if (array_key_exists('ammunitionInventoryId', $attack)) {
+            $allowed[] = 'ammunitionInventoryId';
+        }
+
+        $this->assertKeys($attack, $allowed, 'wide strike');
+        $targets = $this->targets($attack['targets'] ?? null);
+        $profileType = $attack['profileType'] ?? null;
+        $profileIndex = $attack['profileIndex'] ?? null;
+        $actionRuleCode = $attack['actionRuleCode'] ?? null;
+        $itemInventoryId = $attack['itemInventoryId'] ?? null;
+        $itemRuleCode = $attack['itemRuleCode'] ?? null;
+        $ammunitionInventoryId = $attack['ammunitionInventoryId'] ?? null;
+        $chosenAmounts = $attack['chosenAmounts'] ?? [];
+        $codes = is_string($actionRuleCode) && is_string($itemRuleCode);
+        if (
+            !is_int($itemInventoryId)
+            || !is_string($profileType)
+            || !is_int($profileIndex)
+            || !$codes
+            || !is_array($chosenAmounts)
+            || ($profileType === 'shoot'
+                ? !is_int($ammunitionInventoryId)
+                : $ammunitionInventoryId !== null)
+        ) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: attack');
+        }
+
+        return [
+            'attacker' => $this->side($attack['attacker'] ?? null),
+            'targets' => $targets,
+            'actionRuleCode' => $actionRuleCode,
+            'itemInventoryId' => $itemInventoryId,
+            'itemRuleCode' => $itemRuleCode,
+            'profileType' => $profileType,
+            'profileIndex' => $profileIndex,
+            ...($profileType === 'shoot' ? ['ammunitionInventoryId' => $ammunitionInventoryId] : []),
+            'chosenAmounts' => $chosenAmounts,
+        ];
+    }
+
+    /**
+     * Выбор защиты по нескольким целям.
+     *
+     * @param array<string, mixed> $defense Тело.
+     *
+     * @return list<array<string, mixed>> Защиты.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    public function wideDefense(array $defense): array
+    {
+        $this->assertKeys($defense, ['defenses'], 'wide strike');
+        $rows = $defense['defenses'] ?? null;
+        if (!is_array($rows) || $rows === [] || !array_is_list($rows)) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense');
+        }
+
+        $choices = [];
+        $seen = [];
+        foreach ($rows as $row) {
+            $choice = $this->wideDefenseRow($row);
+            $key = $choice['target']['type'] . ':' . $choice['target']['id'];
+            if (isset($seen[$key])) {
+                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense target');
+            }
+
+            $seen[$key] = true;
+            $choices[] = $choice;
+        }
+
+        return $choices;
+    }
+
+    /**
+     * Одна защита широкого удара.
+     *
+     * @param mixed $row Элемент.
+     *
+     * @return array<string, mixed> Выбор.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function wideDefenseRow(mixed $row): array
+    {
+        if (!is_array($row)) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense row');
+        }
+
+        $allowed = ['expectedSheetVersion', 'reaction', 'target'];
+        if (
+            array_key_exists('blockItemInventoryId', $row)
+            || array_key_exists('blockItemProfileIndex', $row)
+        ) {
+            $allowed = [
+                'blockItemInventoryId',
+                'blockItemProfileIndex',
+                'expectedSheetVersion',
+                'reaction',
+                'target',
+            ];
+            if (array_key_exists('blockItemRuleCode', $row)) {
+                $allowed[] = 'blockItemRuleCode';
+            }
+        } elseif (array_key_exists('blockItemRuleCode', $row)) {
+            $allowed = ['blockItemRuleCode', 'expectedSheetVersion', 'reaction', 'target'];
+        }
+
+        $this->assertKeys($row, $allowed, 'wide strike');
+        $target = $this->side($row['target'] ?? null);
+        $reaction = $row['reaction'] ?? null;
+        $blockItemInventoryId = $row['blockItemInventoryId'] ?? null;
+        $blockItemProfileIndex = $row['blockItemProfileIndex'] ?? null;
+        $blockItemRuleCode = $row['blockItemRuleCode'] ?? null;
+        $expectedSheetVersion = $row['expectedSheetVersion'] ?? null;
+        $block = ($blockItemInventoryId === null || is_int($blockItemInventoryId))
+            && ($blockItemProfileIndex === null || is_int($blockItemProfileIndex))
+            && ($blockItemRuleCode === null || is_string($blockItemRuleCode));
+        if (
+            !is_string($reaction)
+            || !is_int($expectedSheetVersion)
+            || !$block
+            || ($reaction === 'block'
+                && (!is_int($blockItemInventoryId) || !is_int($blockItemProfileIndex)))
+        ) {
+            throw new ActionException(
+                'INVALID_PARAMS',
+                'Invalid parameter: defense values ' . json_encode($row),
+            );
+        }
+
+        return [
+            'target' => $target,
+            'reaction' => $reaction,
+            'blockItemInventoryId' => $blockItemInventoryId,
+            'blockItemProfileIndex' => $blockItemProfileIndex,
+            'blockItemRuleCode' => $blockItemRuleCode,
+            'expectedSheetVersion' => $expectedSheetVersion,
+        ];
+    }
+
+    /**
+     * Не меньше одной разной цели.
+     *
+     * @param mixed $targets Список.
+     *
+     * @return list<array{type: string, id: int}> Цели.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function targets(mixed $targets): array
+    {
+        if (!is_array($targets) || !array_is_list($targets) || count($targets) < 1) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: targets');
+        }
+
+        $sides = [];
+        foreach ($targets as $target) {
+            $side = $this->side($target);
+            if (in_array($side, $sides, true)) {
+                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: targets');
+            }
+
+            $sides[] = $side;
+        }
+
+        return $sides;
+    }
+
+    /**
      * Ровно названные ключи.
      *
      * @param array<string, mixed> $body Тело.
      * @param list<string> $allowed Ключи.
+     * @param string $subject Подлежащее сообщения.
      *
      * @return void
      *
      * @throws ActionException INVALID_PARAMS.
      */
-    private function assertKeys(array $body, array $allowed): void
+    private function assertKeys(array $body, array $allowed, string $subject = 'strike'): void
     {
         $keys = array_keys($body);
         sort($keys);
         $expected = $allowed;
         sort($expected);
         if ($keys !== $expected) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike');
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: ' . $subject);
         }
     }
 

@@ -42,7 +42,7 @@ final class GameWideStrikes implements IGameWideStrikes
 
     private readonly GameMemberRepository $members;
 
-    private readonly GameWideStrikeBody $body;
+    private readonly GameStrikeBody $body;
 
     private readonly GameStrikeClose $closeService;
 
@@ -83,7 +83,7 @@ final class GameWideStrikes implements IGameWideStrikes
         $this->characters = new GameCharacterRepository($smartTableGateway);
         $this->members = new GameMemberRepository($smartTableGateway);
         $this->access = new GameStrikeAccess($this->members, $this->characters, $this->battles, $this->cardAccess);
-        $this->body = new GameWideStrikeBody();
+        $this->body = new GameStrikeBody();
         $this->replayTransaction = new GameReplayTransaction($smartTableGateway);
 
         $sheetWrites = new GameStrikeSheetWrites($mutations, $this->npcs);
@@ -151,7 +151,7 @@ final class GameWideStrikes implements IGameWideStrikes
         int $expectedBattleVersion,
         array $attack,
     ): array {
-        $choice = $this->body->attack($attack);
+        $choice = $this->body->wideAttack($attack);
         $ready = $this->ready($gameId, $actorUserId, $viewAll, $idempotencyKey, [
             'attack' => $choice,
             'battleId' => $battleId,
@@ -197,7 +197,7 @@ final class GameWideStrikes implements IGameWideStrikes
         int $expectedBattleVersion,
         array $defense,
     ): array {
-        $choices = $this->body->defense($defense);
+        $choices = $this->body->wideDefense($defense);
         $ready = $this->ready($gameId, $actorUserId, $viewAll, $idempotencyKey, [
             'battleId' => $battleId,
             'defense' => $choices,
