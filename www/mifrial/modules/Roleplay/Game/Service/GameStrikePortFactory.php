@@ -98,6 +98,56 @@ final class GameStrikePortFactory
     }
 
     /**
+     * Создаёт порт широкого удара тем же составом зависимостей.
+     *
+     * @param IServiceLocator $serviceLocator Каталог контейнеров.
+     *
+     * @return IGameWideStrikes Фасад.
+     *
+     * @throws KernelException Если нет шлюза.
+     */
+    public function createWide(IServiceLocator $serviceLocator): IGameWideStrikes
+    {
+        $gateway = $this->smartTableGateway($serviceLocator);
+        $events = $this->events($serviceLocator);
+        $card = new GameCardAccess(
+            new GameRepository($gateway),
+            new GameMemberRepository($gateway),
+            new GameInvitationRepository($gateway),
+        );
+        GameDeliveryListener::register(
+            $events,
+            new GameDelivery($gateway, $this->games($serviceLocator), $card),
+        );
+        $rules = $this->strikeRules($serviceLocator);
+
+        return new GameWideStrikes(
+            $gateway,
+            $this->games($serviceLocator),
+            $card,
+            new GameSessionRepository($gateway),
+            $this->mutations($serviceLocator),
+            $rules,
+            $events,
+            $this->consequences($serviceLocator, $rules),
+        );
+    }
+
+    /**
+     * HTTP широкого удара.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameWideStrikeHttp Сценарий.
+     *
+     * @throws KernelException Если нет порта.
+     */
+    public function createWideHttp(IServiceLocator $serviceLocator): GameWideStrikeHttp
+    {
+        return new GameWideStrikeHttp($this->userAccess($serviceLocator), $this->createWide($serviceLocator));
+    }
+
+    /**
      * HTTP конца хода. Тот же состав портов, что у удара.
      *
      * @param IServiceLocator $serviceLocator Каталог.

@@ -90,7 +90,6 @@ use Mifrial\Roleplay\Game\Service\GamePortFactory;
 use Mifrial\Roleplay\Game\Service\GameProcessPortFactory;
 use Mifrial\Roleplay\Game\Service\GameProjectionPortFactory;
 use Mifrial\Roleplay\Game\Service\GameStrikePortFactory;
-use Mifrial\Roleplay\Game\Service\GameWideStrikePortFactory;
 use Mifrial\Roleplay\Game\Service\GameManualSheetPortFactory;
 use Mifrial\Roleplay\Game\Service\GameWoundPortFactory;
 use Mifrial\Roleplay\Game\Setup\GameModuleSetup;
@@ -135,7 +134,7 @@ return [
             return (new GameStrikePortFactory())->create($serviceLocator);
         },
         IGameWideStrikes::class => static function (IServiceLocator $serviceLocator): IGameWideStrikes {
-            return (new GameWideStrikePortFactory())->create($serviceLocator);
+            return (new GameStrikePortFactory())->createWide($serviceLocator);
         },
         IGameProjections::class => static function (IServiceLocator $serviceLocator): IGameProjections {
             return (new GameProjectionPortFactory())->create($serviceLocator);
@@ -180,10 +179,10 @@ return [
             return new ResolveGameStrikeAction((new GameStrikePortFactory())->createHttp($serviceLocator));
         },
         DeclareGameWideStrikeAction::class => static function (IServiceLocator $serviceLocator): DeclareGameWideStrikeAction {
-            return new DeclareGameWideStrikeAction((new GameWideStrikePortFactory())->createHttp($serviceLocator));
+            return new DeclareGameWideStrikeAction((new GameStrikePortFactory())->createWideHttp($serviceLocator));
         },
         ResolveGameWideStrikeAction::class => static function (IServiceLocator $serviceLocator): ResolveGameWideStrikeAction {
-            return new ResolveGameWideStrikeAction((new GameWideStrikePortFactory())->createHttp($serviceLocator));
+            return new ResolveGameWideStrikeAction((new GameStrikePortFactory())->createWideHttp($serviceLocator));
         },
         StartGameBattleAction::class => static function (IServiceLocator $serviceLocator): StartGameBattleAction {
             return new StartGameBattleAction((new GameBattlePortFactory())->createHttp($serviceLocator));
