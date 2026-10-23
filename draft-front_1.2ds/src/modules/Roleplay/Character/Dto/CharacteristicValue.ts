@@ -6,4 +6,8 @@ export interface CharacteristicValue {
   /** База характеристики — размерное число (3–5 + размерность). Итог считается: база + модификаторы. */
   base: DimensionalNumberValue;
   modifiers: CharacteristicModifier[];
+  /** Авторитетное значение из листа PHP. Моки его не задают — тогда итог считается из базы и модификаторов. */
+  value?: DimensionalNumberValue;
+  /** Сумма модификаторов из листа PHP. Только для сверки, значение берётся из value. */
+  delta?: number;
 }

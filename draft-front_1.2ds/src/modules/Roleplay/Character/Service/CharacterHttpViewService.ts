@@ -106,7 +106,9 @@ export class CharacterHttpViewService {
       spaceCode: input.spaceCode,
       rulesRevision: this.intOf(input.choices.revision, input.rulesRevision),
       raceRuleCode: this.nullableStringOf(input.choices.raceCode ?? input.choices.raceRuleCode ?? input.choices.race),
-      characteristics: this.liveCharacteristicsOf(input.sheet.characteristics) ?? this.characteristicsOf(input.sheet.characteristicPurchases, purchases),
+      characteristics:
+        this.liveCharacteristicsOf(input.sheet.characteristics) ??
+        this.characteristicsOf(input.sheet.characteristicPurchases, purchases),
       characteristicPurchases: purchases,
       resources: this.resourcesOf(input.sheet.resources),
       abilities: this.abilitiesOf(input.choices.abilities),
@@ -261,6 +263,8 @@ export class CharacterHttpViewService {
           ruleCode: code,
           base: this.dimOf(record.base ?? record.value),
           modifiers,
+          ...(record.value === undefined ? {} : { value: this.dimOf(record.value) }),
+          ...(typeof record.delta === 'number' ? { delta: record.delta } : {}),
         },
       ];
     });
@@ -397,13 +401,15 @@ export class CharacterHttpViewService {
               if (modifier === null || typeof modifier !== 'object') return [];
               const entry = modifier as Record<string, unknown>;
 
-              return [{
-                sourceRuleCode: this.stringOf(entry.sourceRuleCode),
-                sourceLabel: null,
-                delta: this.intOf(entry.delta),
-                target: this.stringOf(record.ruleCode),
-                scope: null,
-              }];
+              return [
+                {
+                  sourceRuleCode: this.stringOf(entry.sourceRuleCode),
+                  sourceLabel: null,
+                  delta: this.intOf(entry.delta),
+                  target: this.stringOf(record.ruleCode),
+                  scope: null,
+                },
+              ];
             })
           : [],
         status: status as SenseStatus,

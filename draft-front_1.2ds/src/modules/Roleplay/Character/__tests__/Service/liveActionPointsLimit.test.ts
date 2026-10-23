@@ -74,6 +74,28 @@ describe('liveActionPointsLimit', () => {
     expect(next).not.toBe(sheet);
   });
 
+  it('Берёт авторитетное значение характеристики из листа PHP', () => {
+    const sheet =
+      liveActionPointsLimitService.liveActionPointsLimit(
+        base,
+        rules,
+        stateRuntimeEffectsService.effectiveCharacteristicValues(base, rules),
+      ) ?? 0;
+    const stale = {
+      ...base,
+      characteristics: base.characteristics.map((row) =>
+        row.ruleCode === 'perception' ? { ...row, modifiers: [], value: { base: 3, size: 2 } } : row,
+      ),
+    };
+    const next =
+      liveActionPointsLimitService.liveActionPointsLimit(
+        stale,
+        rules,
+        stateRuntimeEffectsService.effectiveCharacteristicValues(stale, rules),
+      ) ?? 0;
+    expect(next).toBe(sheet + 2);
+  });
+
   it('увечья складывают помехи на попадание, Силу и Ловкость, не на Волю', () => {
     const one = withMaim(base, 2);
     const two = withMaim(one, 3);

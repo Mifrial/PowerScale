@@ -220,6 +220,48 @@ final class CharacterActualStateTest extends TestCase
     }
 
     /**
+     * refillTurnResource не поднимает current выше лимита состояния.
+     *
+     * @return void
+     */
+    public function testRefillTurnResourceRespectsStateLimit(): void
+    {
+        $patched = $this->mutations($this->slice([
+            $this->rule('action-points', 'resource', [
+                'is_dimensional' => false,
+                'auto_add' => true,
+                'check_token' => false,
+                'turn_refill' => true,
+                'limit' => ['base' => 6, 'adjustments' => []],
+            ]),
+            $this->rule('tired', 'state', [
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
+                'effects' => [[
+                    'type' => 'resource_limit_modify',
+                    'resource_code' => 'action-points',
+                    'amount' => -1,
+                    'per_unit' => false,
+                ]],
+            ]),
+        ]))->applyToDocument(1, 1, [], [
+            'states' => [['stateRuleCode' => 'tired', 'id' => 1]],
+            'resources' => [['ruleCode' => 'action-points', 'current' => 2]],
+        ], [['kind' => 'refillTurnResource']]);
+
+        self::assertSame([
+            ['ruleCode' => 'action-points', 'current' => 5, 'base' => 6],
+        ], array_map(
+            fn (array $row): array => [
+                'ruleCode' => $row['ruleCode'],
+                'current' => $row['current'],
+                'base' => $row['base'],
+            ],
+            $patched['sheet']['resources'],
+        ));
+    }
+
+    /**
      * patchState меняет sidecar, removeState снимает строку по id.
      *
      * @return void

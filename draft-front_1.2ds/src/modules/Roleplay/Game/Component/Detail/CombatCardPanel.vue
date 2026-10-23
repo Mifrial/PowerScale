@@ -241,16 +241,17 @@ const overview = computed(() => {
   const version = effectiveVersion.value;
   if (!version) return null;
   const live = sheetModel.value;
-  const patched = live
-    ? {
-        ...version,
-        characteristics: live.characteristics.map((characteristic) => ({
-          ruleCode: characteristic.ruleCode,
-          base: characteristic.base,
-          modifiers: characteristic.modifiers,
-        })),
-      }
-    : version;
+  const patched =
+    live && !gamePhpMode.isEnabled()
+      ? {
+          ...version,
+          characteristics: live.characteristics.map((characteristic) => ({
+            ruleCode: characteristic.ruleCode,
+            base: characteristic.base,
+            modifiers: characteristic.modifiers,
+          })),
+        }
+      : version;
 
   return characterOverviewService.build(patched, props.rules, keywords.value);
 });
@@ -363,8 +364,7 @@ function stateTileValue(state: CharacterStateValue | undefined, row: CombatState
 
 function tileEditKind(row: CombatStateRow): CombatStateEditKind {
   const spec = props.rules.find((rule) => rule.code === row.ruleCode && rule.type === 'state')?.spec as
-    | StateSpec
-    | undefined;
+    StateSpec | undefined;
   if (spec?.maim) return 'maim';
   if (row.code === WOUND_STATE_CODE) return 'wound';
   if (spec?.poisoning || row.code === poisoningCode.value) return 'poison';
@@ -749,9 +749,11 @@ async function setStateValue(index: number, value?: number): Promise<boolean> {
       gameManualSheetClient.patchDetails(prev, { value }),
     );
     notifyMutation();
+
     return true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить состояние';
+
     return false;
   }
 }
@@ -871,12 +873,7 @@ async function applyStateTile(tile: CombatStateTileModel, next: number): Promise
       return;
     }
     const written = await setStateValue(tile.index, value);
-    if (
-      written &&
-      !gamePhpMode.isEnabled() &&
-      exhaustionCode.value !== '' &&
-      tile.code === exhaustionCode.value
-    ) {
+    if (written && !gamePhpMode.isEnabled() && exhaustionCode.value !== '' && tile.code === exhaustionCode.value) {
       await afterStateSideEffects(tile.code, 0, value > current ? 'increase' : 'decrease');
     }
   } catch (e) {

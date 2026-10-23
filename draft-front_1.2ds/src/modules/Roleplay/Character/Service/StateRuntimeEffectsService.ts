@@ -84,7 +84,10 @@ export class StateRuntimeEffectsService {
       const rule = this.ruleByCode(rules, characteristic.ruleCode);
       if (!rule) continue;
       const delta = characteristic.modifiers.reduce((sum, modifier) => sum + modifier.delta, 0);
-      values.set(rule.code, new DimensionalNumber(characteristic.base).modify(delta, CHARACTERISTIC_BASE_RANGE).value);
+      const value =
+        characteristic.value ??
+        new DimensionalNumber(characteristic.base).modify(delta, CHARACTERISTIC_BASE_RANGE).value;
+      values.set(rule.code, value);
     }
 
     return values;

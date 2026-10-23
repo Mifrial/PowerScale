@@ -45,6 +45,25 @@ describe('CharacterHttpViewService.versionFromStored', () => {
     expect(version?.raceRuleCode).toBe('human');
   });
 
+  it('сохраняет авторитетное value и delta характеристики из sheet PHP', () => {
+    const version = characterHttpViewService.versionFromStored({
+      name: 'Герой',
+      rulesRevision: 1,
+      choices: { name: 'Герой', raceCode: 'human', abilities: [] },
+      sheet: {
+        characteristics: [
+          { characteristicCode: 'perception', base: dim(3), delta: 3, value: dim(3, 1), modifiers: [] },
+          { characteristicCode: 'strength', base: dim(3), delta: 0, value: dim(3), modifiers: [] },
+        ],
+      },
+    });
+
+    const perception = version?.characteristics.find((row) => row.ruleCode === 'perception');
+    expect(perception?.base).toEqual(dim(3));
+    expect(perception?.value).toEqual(dim(3, 1));
+    expect(perception?.delta).toBe(3);
+  });
+
   it('снимок NPC (choices/sheet без characteristics) даёт те же массивы листа', () => {
     const version = characterHttpViewService.versionFromStored({
       spaceCode: 'razrabotka',
@@ -204,7 +223,10 @@ describe('CharacterHttpViewService.materialize', () => {
             ruleCode: 'action-points',
             current: 6,
             base: 5,
-            bonuses: [{ sourceRuleCode: 'dexterity_source', delta: 1 }, { sourceRuleCode: 'perception_source', delta: 0 }],
+            bonuses: [
+              { sourceRuleCode: 'dexterity_source', delta: 1 },
+              { sourceRuleCode: 'perception_source', delta: 0 },
+            ],
           },
         ],
       },

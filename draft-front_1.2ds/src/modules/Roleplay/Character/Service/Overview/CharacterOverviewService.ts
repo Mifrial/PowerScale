@@ -250,10 +250,8 @@ export class CharacterOverviewService {
       .map((modifier) => this.buildModifier(modifier, reference, abilityLevels));
     const permanent = this.aggregateModifiers(modifiers.filter((modifier) => modifier.scope === null));
     const delta = permanent.reduce((sum, modifier) => sum + modifier.delta, 0);
-    const uncapped: DimensionalNumberValue = new DimensionalNumber(value.base).modify(
-      delta,
-      CHARACTERISTIC_BASE_RANGE,
-    ).value;
+    const uncapped: DimensionalNumberValue =
+      value.value ?? new DimensionalNumber(value.base).modify(delta, CHARACTERISTIC_BASE_RANGE).value;
     const computedValue = this.applyCharacteristicLimits(uncapped, permanent);
 
     return {
@@ -613,16 +611,18 @@ export class CharacterOverviewService {
   }
 
   private buildResourceBonuses(resource: ResourceValue, reference: CharacterReferenceService): ResourceLimitOverview[] {
-    return resource.bonuses.filter((bonus) => bonus.delta !== 0).map((bonus) => {
-      const sourceRule = bonus.sourceRuleCode === null ? null : reference.ruleByCode(bonus.sourceRuleCode);
+    return resource.bonuses
+      .filter((bonus) => bonus.delta !== 0)
+      .map((bonus) => {
+        const sourceRule = bonus.sourceRuleCode === null ? null : reference.ruleByCode(bonus.sourceRuleCode);
 
-      return {
-        source: sourceRule?.name ?? bonus.sourceLabel ?? bonus.sourceRuleCode ?? '',
-        sourceRuleCode: bonus.sourceRuleCode,
-        sourceHref: bonus.sourceRuleCode === null ? null : reference.href(bonus.sourceRuleCode),
-        delta: bonus.delta,
-      };
-    });
+        return {
+          source: sourceRule?.name ?? bonus.sourceLabel ?? bonus.sourceRuleCode ?? '',
+          sourceRuleCode: bonus.sourceRuleCode,
+          sourceHref: bonus.sourceRuleCode === null ? null : reference.href(bonus.sourceRuleCode),
+          delta: bonus.delta,
+        };
+      });
   }
 
   private maxAbilityLevelsByRuleId(abilities: CharacterVersion['abilities']): Map<string, number> {
