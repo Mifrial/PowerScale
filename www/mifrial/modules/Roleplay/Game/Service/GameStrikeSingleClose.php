@@ -318,7 +318,7 @@ final class GameStrikeSingleClose
                 $reactionRuleCode,
                 $target['type'],
                 $target['id'],
-                $defenderPending,
+                $pending,
                 $this->spend->getSpendAmounts($spends),
             );
         }

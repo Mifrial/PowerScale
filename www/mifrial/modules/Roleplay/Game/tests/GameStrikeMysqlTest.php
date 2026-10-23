@@ -19,6 +19,7 @@ use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
+use Mifrial\Roleplay\Game\Table\GameBattleTable;
 use Mifrial\Roleplay\Game\Table\GameDeliveryTable;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
@@ -145,6 +146,81 @@ final class GameStrikeMysqlTest extends TestCase
             'defense' => ['reaction' => 'dodge'],
         ]);
         self::assertSame('GAME_CONFLICT', $differentBody['error']['code']);
+    }
+
+    /**
+     * Висящие эффекты атакующего переживают ответ цели с реакцией.
+     *
+     * @return void
+     */
+    public function testResolveKeepsAttackerPendingEffectsWithReaction(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1, false, null, false, true);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Quick', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Dodger');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-pending',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        self::assertSame(10, $this->actionPointsOf($attackerId));
+        $opened = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-pending-1',
+            'expectedVersion' => 1,
+            'attack' => $this->characterAttack($attackerId, $defenderId),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertSame(8, $this->actionPointsOf($attackerId));
+        $closed = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-pending-1',
+            'expectedVersion' => $opened['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
+            'defense' => ['reaction' => 'dodge'],
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(
+            ['after_action_until_resource_spent_check_modifier', 'next_action_attack_cost'],
+            $this->pendingTypes($battleId, 'character:' . $attackerId),
+        );
+        $second = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-pending-2',
+            'expectedVersion' => $closed['data']['version'],
+            'attack' => $this->characterAttack($attackerId, $defenderId),
+        ]);
+        self::assertTrue($second['success'], json_encode($second));
+        self::assertSame(5, $this->actionPointsOf($attackerId));
+        self::assertSame(
+            ['after_action_until_resource_spent_check_modifier'],
+            $this->pendingTypes($battleId, 'character:' . $attackerId),
+        );
+        $closedAgain = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-pending-2',
+            'expectedVersion' => $second['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
+            'defense' => ['reaction' => 'ignore'],
+        ]);
+        self::assertTrue($closedAgain['success'], json_encode($closedAgain));
+        self::assertSame(
+            ['after_action_until_resource_spent_check_modifier', 'next_action_attack_cost'],
+            $this->pendingTypes($battleId, 'character:' . $attackerId),
+        );
     }
 
     /**
@@ -1437,6 +1513,7 @@ final class GameStrikeMysqlTest extends TestCase
         bool $withPenetration = false,
         ?int $hitEfficiency = null,
         bool $withBlockResource = false,
+        bool $withPendingEffects = false,
     ): RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -1444,7 +1521,9 @@ final class GameStrikeMysqlTest extends TestCase
         $reliabilityCutId = $this->reliabilityCutId($mechanics);
         $world = $this->addWorldWithRevision(
             'razrabotka-' . $hitCards . ($withPool ? '-pool' : '-empty') . '-s' . $soakCards
-            . ($withPenetration ? '-penetration' : ''),
+            . ($withPenetration ? '-penetration' : '')
+            . ($withBlockResource ? '-block' : '')
+            . ($withPendingEffects ? '-pending' : ''),
         );
         $check = [
             'allow_characteristic_override' => false,
@@ -1463,13 +1542,33 @@ final class GameStrikeMysqlTest extends TestCase
         $payload = $withPool
             ? ['diceCount' => 1, 'dieFaces' => 1]
             : [];
+        $swingComponents = $withPendingEffects
+            ? [['type' => 'resource', 'resource_code' => 'action-points', 'amount' => 2]]
+            : [];
+        $swingEffects = $withPendingEffects
+            ? [
+                [
+                    'type' => 'next_action_attack_cost',
+                    'resource_code' => 'action-points',
+                    'delta' => 1,
+                ],
+                [
+                    'type' => 'after_action_until_resource_spent_check_modifier',
+                    'resource_code' => 'action-points',
+                    'amount' => 2,
+                    'check_codes' => ['hit'],
+                    'delta' => -2,
+                ],
+            ]
+            : [];
         $entries = [
             RuleCommitEntry::put('human', new RuleVersionBody('race', 'Human', '', [
                 'characteristics' => $this->raceCharacteristics($soakCards, $hitEfficiency),
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('swing', new RuleVersionBody('ability', 'Swing', '', [
                 'type' => 'action',
-                'action_components' => [],
+                'action_components' => $swingComponents,
+                ...($swingEffects === [] ? [] : ['action_effects' => $swingEffects]),
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('dodge', new RuleVersionBody('ability', 'Dodge', '', [
                 'type' => 'action',
@@ -1776,6 +1875,16 @@ final class GameStrikeMysqlTest extends TestCase
                 'will_focus' => false,
                 'long_tension' => false,
                 'multiple' => false,
+            ], [], [], 'needs_work'));
+        }
+
+        if ($withPendingEffects) {
+            $entries[] = RuleCommitEntry::put('action-points', new RuleVersionBody('resource', 'Action points', '', [
+                'is_dimensional' => false,
+                'auto_add' => true,
+                'check_token' => false,
+                'turn_refill' => true,
+                'limit' => ['base' => 10, 'adjustments' => []],
             ], [], [], 'needs_work'));
         }
 
@@ -2395,6 +2504,64 @@ final class GameStrikeMysqlTest extends TestCase
             false,
             null,
         ))->rows());
+    }
+
+    /**
+     * Текущие ОД персонажа.
+     *
+     * @param int $characterId Персонаж.
+     *
+     * @return int Значение.
+     */
+    private function actionPointsOf(int $characterId): int
+    {
+        $resources = $this->characterFacade()->get($characterId)->getSheet()['resources'] ?? [];
+        self::assertIsArray($resources);
+        foreach ($resources as $row) {
+            if (!is_array($row) || ($row['ruleCode'] ?? null) !== 'action-points') {
+                continue;
+            }
+
+            $current = $row['current'] ?? null;
+            if (is_int($current)) {
+                return $current;
+            }
+
+            if (is_array($current) && is_int($current['base'] ?? null)) {
+                return $current['base'];
+            }
+        }
+
+        self::fail('Character action points are missing');
+    }
+
+    /**
+     * Виды висящих эффектов актора боя.
+     *
+     * @param int $battleId Бой.
+     * @param string $key Ключ актора.
+     *
+     * @return list<string> Виды по порядку карты.
+     */
+    private function pendingTypes(int $battleId, string $key): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $row = $gateway->open(GameBattleTable::class)->records()->getById($battleId);
+        self::assertIsArray($row);
+        $pending = $row['pending_action_effects'] ?? [];
+        self::assertIsArray($pending);
+        $entries = $pending[$key] ?? [];
+        self::assertIsArray($entries);
+        $types = [];
+        foreach ($entries as $entry) {
+            $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+            $type = is_array($effect) ? ($effect['type'] ?? null) : null;
+            self::assertIsString($type);
+            $types[] = $type;
+        }
+
+        return $types;
     }
 
     /**
