@@ -1111,6 +1111,25 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertTrue($declared['success'], json_encode($declared));
         self::assertIsInt($declared['data']['strikeId']);
         self::assertSame(1, $this->countActions('wide_strike'));
+
+        $closed = $this->dispatch('game.resolveWideStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'one-target-close',
+            'expectedVersion' => $declared['data']['version'],
+            'defense' => $this->defenses(
+                [['type' => 'npc', 'id' => $target['npcId']]],
+                [[
+                    'reaction' => 'ignore',
+                    'expectedSheetVersion' => $target['actualVersion'],
+                ]],
+            ),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertTrue($closed['data']['closed']);
+        self::assertCount(1, $closed['data']['targetResults']);
+        self::assertSame($target['actualVersion'] + 1, $this->npcVersion($gameId, $target['npcId']));
     }
 
     /**
