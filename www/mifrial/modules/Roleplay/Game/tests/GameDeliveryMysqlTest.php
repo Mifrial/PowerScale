@@ -162,10 +162,16 @@ final class GameDeliveryMysqlTest extends TestCase
                     'mode' => 'purchased',
                     'base' => ['base' => 3, 'size' => 0],
                     'purchase' => [['cost' => 2, 'value' => ['base' => 4, 'size' => 0]]],
+                ], [
+                    'characteristic_code' => 'stamina',
+                    'mode' => 'purchased',
+                    'base' => ['base' => 4, 'size' => 0],
+                    'purchase' => [['cost' => 1, 'value' => ['base' => 4, 'size' => 0]]],
                 ]],
             ], [], [], 'needs_work')),
-            RuleCommitEntry::put('swing', new RuleVersionBody('language', 'Swing', '', [
-                'role' => 'spoken',
+            RuleCommitEntry::put('swing', new RuleVersionBody('ability', 'Swing', '', [
+                'type' => 'action',
+                'action_components' => [],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('sword', new RuleVersionBody('item', 'Sword', '', [
                 'category' => 'weapon',
@@ -321,6 +327,15 @@ final class GameDeliveryMysqlTest extends TestCase
         self::assertIsArray($guardBought);
         $guardBought[] = ['characteristicCode' => 'stamina', 'value' => ['base' => 4, 'size' => 0]];
         $guardSheet['characteristicPurchases'] = $guardBought;
+        $guardCharacteristics = $guardSheet['characteristics'] ?? [];
+        self::assertIsArray($guardCharacteristics);
+        $guardCharacteristics[] = ['characteristicCode' => 'stamina', 'value' => ['base' => 4, 'size' => 0]];
+        $guardSheet['characteristics'] = $guardCharacteristics;
+        $guardChoices = $guardVersion['choices'] ?? [];
+        self::assertIsArray($guardChoices);
+        $guardChoices['raceCode'] = 'human';
+        $guardChoices['characteristicPurchases'] = [['characteristicCode' => 'stamina', 'cost' => 1]];
+        $guardVersion['choices'] = $guardChoices;
         if (!array_key_exists('abilityLevels', $guardSheet)) {
             $guardSheet['abilityLevels'] = [];
         }
@@ -369,6 +384,7 @@ final class GameDeliveryMysqlTest extends TestCase
         $rows = $this->deliveryRows();
         self::assertSame([], $rows[0]['keys']);
         self::assertSame([], $rows[1]['keys']);
+        $npc['data']['actualVersion'] = $repo->getById($npc['data']['npcId'])->getActualVersion();
 
         $playerId = $this->gameUserAccounts()->addFromInput(['login' => 'pl', 'name' => 'Pl']);
         $loot = $this->dispatch('game.applyEconomy', [

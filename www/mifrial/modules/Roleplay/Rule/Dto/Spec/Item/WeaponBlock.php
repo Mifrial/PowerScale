@@ -18,6 +18,7 @@ final class WeaponBlock
      * @param array<int, WeaponProfile> $weaponProfiles Профили атаки.
      * @param DimensionalNumber|null $durability Прочность.
      * @param int|null $minActionCost Минимум ОД.
+     * @param array<int, array<int, string>> $ammunitionRequirements Наборы кодов ключевых слов боеприпасов.
      *
      * @return void
      */
@@ -26,6 +27,7 @@ final class WeaponBlock
         private readonly array $weaponProfiles,
         private readonly ?DimensionalNumber $durability,
         private readonly ?int $minActionCost,
+        private readonly array $ammunitionRequirements = [],
     ) {
     }
 
@@ -67,5 +69,15 @@ final class WeaponBlock
     public function getMinActionCost(): ?int
     {
         return $this->minActionCost;
+    }
+
+    /**
+     * Наборы кодов ключевых слов боеприпасов: внешний OR, внутри AND.
+     *
+     * @return array<int, array<int, string>> Наборы.
+     */
+    public function getAmmunitionRequirements(): array
+    {
+        return $this->ammunitionRequirements;
     }
 }

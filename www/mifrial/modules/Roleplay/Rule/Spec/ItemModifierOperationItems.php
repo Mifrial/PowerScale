@@ -97,6 +97,7 @@ final class ItemModifierOperationItems
             self::profiles($weapon->getWeaponProfiles(), $actions, 'weapon'),
             self::characteristic($weapon->getDurability(), $collapsed['weapon.durability'] ?? null),
             $weapon->getMinActionCost(),
+            $weapon->getAmmunitionRequirements(),
         );
     }
 

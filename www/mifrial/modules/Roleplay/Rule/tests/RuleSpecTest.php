@@ -101,6 +101,52 @@ final class RuleSpecTest extends TestCase
     }
 
     /**
+     * Оружие читает альтернативные наборы ключевых слов боеприпасов.
+     *
+     * @return void
+     */
+    public function testWeaponReadsAmmunitionRequirements(): void
+    {
+        $record = $this->record('item', [
+            'category' => 'weapon',
+            'weapon' => [
+                'weapon_profiles' => [],
+                'ammunition_requirements' => [
+                    ['keyword_codes' => ['item', 'projectile', 'arrow']],
+                    ['keyword_codes' => ['item', 'bolt']],
+                ],
+            ],
+        ]);
+        $spec = $record->getSpec();
+
+        self::assertFalse($record->isSpecBroken());
+        self::assertInstanceOf(ItemSpec::class, $spec);
+        self::assertSame(
+            [['item', 'projectile', 'arrow'], ['item', 'bolt']],
+            $spec->getWeapon()?->getAmmunitionRequirements(),
+        );
+    }
+
+    /**
+     * Пустой набор боеприпасов ломает spec, а не принимает любой боеприпас.
+     *
+     * @return void
+     */
+    public function testEmptyAmmunitionRequirementBreaksItemSpec(): void
+    {
+        $record = $this->record('item', [
+            'category' => 'weapon',
+            'weapon' => [
+                'weapon_profiles' => [],
+                'ammunition_requirements' => [['keyword_codes' => []]],
+            ],
+        ]);
+
+        self::assertTrue($record->isSpecBroken());
+        self::assertNull($record->getSpec());
+    }
+
+    /**
      * Плоский список grants предмета читается.
      *
      * @return void

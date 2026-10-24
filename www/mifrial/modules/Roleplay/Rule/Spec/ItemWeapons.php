@@ -37,7 +37,33 @@ final class ItemWeapons
             self::profiles($part, 'weapon_profiles'),
             DimensionalNumbers::optional($part, 'durability'),
             SpecShape::optionalInt($part, 'min_action_cost'),
+            self::ammunitionRequirements($part),
         );
+    }
+
+    /**
+     * Наборы кодов ключевых слов боеприпасов.
+     *
+     * @param array<string, mixed> $part Блок.
+     *
+     * @return array<int, array<int, string>> Наборы.
+     *
+     * @throws RuleSpecShapeException Если форма чужая или набор пуст.
+     */
+    private static function ammunitionRequirements(array $part): array
+    {
+        $requirements = [];
+        foreach (SpecShape::list($part, 'ammunition_requirements') as $row) {
+            $row = SpecShape::requireMap($row, 'ammunition_requirements');
+            $codes = SpecShape::stringList($row, 'keyword_codes');
+            if ($codes === []) {
+                throw new RuleSpecShapeException('ammunition_requirements');
+            }
+
+            $requirements[] = $codes;
+        }
+
+        return $requirements;
     }
 
     /**

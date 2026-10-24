@@ -561,8 +561,17 @@ final class GamePhysicalProfileMysqlTest extends TestCase
                     'purchase' => [['cost' => 2, 'value' => ['base' => 4, 'size' => 0]]],
                 ]],
             ], [], [], 'needs_work')),
-            RuleCommitEntry::put('swing', new RuleVersionBody('language', 'Swing', '', [
-                'role' => 'spoken',
+            RuleCommitEntry::put('swing', new RuleVersionBody('ability', 'Swing', '', [
+                'type' => 'action',
+                'action_components' => [],
+                ...$actionFlags,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('wide-swing', new RuleVersionBody('ability', 'Wide swing', '', [
+                'type' => 'action',
+                'action_components' => [],
+                'attack_mode' => 'wide',
+                'max_targets' => 2,
+                ...$actionFlags,
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('hurl', new RuleVersionBody('ability', 'Hurl', '', [
                 'type' => 'action',
@@ -577,6 +586,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
                 'is_dimensional' => false,
                 'auto_add' => false,
                 'check_token' => false,
+                'limit' => ['base' => 3, 'adjustments' => []],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('sword', new RuleVersionBody('item', 'Sword', '', [
                 'category' => 'weapon',
@@ -1213,7 +1223,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         return [
             'attacker' => ['type' => 'character', 'id' => $attackerId],
             'targets' => $this->characterTargets($targetIds),
-            'actionRuleCode' => 'swing',
+            'actionRuleCode' => 'wide-swing',
             'itemInventoryId' => 1,
             'itemRuleCode' => 'dart',
             'profileType' => 'throw',
@@ -1235,7 +1245,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         return [
             'attacker' => ['type' => 'character', 'id' => $attackerId],
             'targets' => $this->characterTargets($targetIds),
-            'actionRuleCode' => 'swing',
+            'actionRuleCode' => 'wide-swing',
             'itemInventoryId' => 1,
             'itemRuleCode' => 'bow',
             'profileType' => 'shoot',
