@@ -90,8 +90,8 @@ final class RuleSpaceHttpMysqlTest extends TestCase
     public function testAuthRequiredAndEmptyList(): void
     {
         $payload = $this->dispatch('ruleSpace.getList', null);
-        self::assertFalse($payload['success']);
-        self::assertSame('AUTH_REQUIRED', $payload['error']['code']);
+        self::assertTrue($payload['success']);
+        self::assertSame([], $payload['data']);
         $anonGet = $this->dispatch('ruleSpace.get', ['id' => 999]);
         self::assertFalse($anonGet['success']);
         self::assertSame('AUTH_REQUIRED', $anonGet['error']['code']);

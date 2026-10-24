@@ -286,6 +286,7 @@ final class CharacterRuleSlicesTest extends TestCase
             'owner_id' => 1,
             'description' => '',
             'active' => $active,
+            'published_read' => 'owner',
             'created_at' => DateTime::now(),
         ]);
     }

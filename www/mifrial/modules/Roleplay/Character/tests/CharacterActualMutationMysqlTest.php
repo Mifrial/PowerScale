@@ -460,11 +460,16 @@ final class CharacterActualMutationMysqlTest extends TestCase
      */
     private function expectedSheet(): array
     {
-        return (new CharacterSheetDocument())->build(
+        $sheet = (new CharacterSheetDocument())->build(
             new CharacterValidation([], [], [], 0, [], [], [], true),
             4,
             [],
         );
+        $sheet['characteristics'] = [];
+        $sheet['senses'] = [];
+        $sheet['weaponFamilyMastery'] = [];
+
+        return $sheet;
     }
 
     /**

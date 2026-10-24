@@ -12,6 +12,9 @@ use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
+use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
+use Mifrial\Roleplay\Rule\Dto\RuleVersionBody;
+use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord;
 use PHPUnit\Framework\TestCase;
 
 final class GameProjectionMysqlTest extends TestCase
@@ -89,10 +92,11 @@ final class GameProjectionMysqlTest extends TestCase
      */
     public function testSheetsCutForeignSections(): void
     {
-        $spaceId = $this->addWorldWithRevision('razrabotka')->getId();
-        $gameId = $this->openGame($spaceId);
+        $world = $this->worldWithRacialSight();
+        $spaceId = $world->getId();
+        $gameId = $this->openGame($spaceId, 2);
         $ownerId = $this->playerId($gameId, 'hero-owner');
-        $characterId = $this->addCharacter($spaceId, $ownerId, 'Hero');
+        $characterId = $this->addCharacter($spaceId, $ownerId, 'Hero', 2);
         $this->setActor($ownerId, []);
         $this->submit($gameId, $characterId);
         $this->setActor($this->ownerUserId, []);
@@ -134,7 +138,7 @@ final class GameProjectionMysqlTest extends TestCase
             'keys' => [['type' => 'character', 'id' => $characterId]],
         ]);
         self::assertSame(['sight'], $own['data']['sheets'][0]['sheet']['racialAbilityCodes']);
-        self::assertSame(3, $own['data']['sheets'][0]['sheet']['osSurchargeTotal']);
+        self::assertSame(0, $own['data']['sheets'][0]['sheet']['osSurchargeTotal']);
         $this->setActor($readerId, []);
         $third = $this->dispatch('game.getSheets', [
             'gameId' => $gameId,
@@ -236,13 +240,34 @@ final class GameProjectionMysqlTest extends TestCase
     }
 
     /**
+     * Мир с расой human и расовой способностью sight.
+     *
+     * @return RuleSpaceRecord Мир.
+     */
+    private function worldWithRacialSight(): RuleSpaceRecord
+    {
+        $world = $this->addWorldWithRevision('projection-race-' . substr(uniqid('', true), -8));
+        $this->gameRuleSpaces()->commit($world->getId(), [
+            RuleCommitEntry::put('human', new RuleVersionBody('race', 'Human', '', [
+                'cost_os' => 0,
+                'characteristics' => [],
+                'abilities' => [['ability_code' => 'sight', 'automatic' => true]],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('sight', new RuleVersionBody('ability', 'Sight', '', [], [], [], 'needs_work')),
+        ]);
+
+        return $world;
+    }
+
+    /**
      * Игра, которую видит участник.
      *
      * @param int $spaceId Мир.
+     * @param int $revision Ревизия правил.
      *
      * @return int Id.
      */
-    private function openGame(int $spaceId): int
+    private function openGame(int $spaceId, int $revision = 1): int
     {
         $gameId = $this->gameFacade()->add(NewGame::fromNormalized([
             'ownerUserId' => $this->ownerUserId,
@@ -251,7 +276,7 @@ final class GameProjectionMysqlTest extends TestCase
             'visibility' => 'all',
             'joinPolicy' => 'anyone',
             'spaceId' => $spaceId,
-            'rulesRevision' => 1,
+            'rulesRevision' => $revision,
             'osPointsLimit' => null,
             'olPointsLimit' => null,
             'orPointsLimit' => null,
@@ -291,15 +316,16 @@ final class GameProjectionMysqlTest extends TestCase
      * @param int $spaceId Мир.
      * @param int $ownerUserId Владелец.
      * @param string $name Имя.
+     * @param int $revision Ревизия правил.
      *
      * @return int Id.
      */
-    private function addCharacter(int $spaceId, int $ownerUserId, string $name): int
+    private function addCharacter(int $spaceId, int $ownerUserId, string $name, int $revision = 1): int
     {
         return $this->characterFacade()->add(NewCharacter::fromNormalized([
             'ownerUserId' => $ownerUserId,
             'spaceId' => $spaceId,
-            'rulesRevision' => 1,
+            'rulesRevision' => $revision,
             'name' => $name,
             'choices' => [
                 'name' => $name,

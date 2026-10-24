@@ -85,7 +85,10 @@ final class LoggerHttpMysqlTest extends TestCase
         $this->setActor($alice, [], true);
         $ok = $this->dispatch('logger.findPage', ['limit' => 10, 'offset' => 0]);
         self::assertTrue($ok['success']);
-        self::assertSame(0, $ok['data']['total']);
+        self::assertSame(2, $ok['data']['total']);
+        $codes = array_column($ok['data']['items'], 'errorCode');
+        sort($codes);
+        self::assertSame(['AUTH_DENIED', 'AUTH_REQUIRED'], $codes);
         $this->setActor($alice, [LoggerPermissionKeys::VIEW]);
         $withKey = $this->dispatch('logger.findPage', ['limit' => 10, 'offset' => 0]);
         self::assertTrue($withKey['success']);

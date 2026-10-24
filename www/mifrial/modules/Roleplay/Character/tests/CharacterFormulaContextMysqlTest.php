@@ -23,6 +23,7 @@ use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Schema\CharacterSchema;
+use Mifrial\Roleplay\Character\Service\CharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Table\CharacterTable;
 use Mifrial\Roleplay\Character\Table\CharacterViewerTable;
 use Mifrial\Roleplay\Game\Table\GameCharacterTable;
@@ -95,8 +96,8 @@ final class CharacterFormulaContextMysqlTest extends TestCase
             'active' => true,
         ]));
 
-        $stored = $this->formulaContexts()->buildStored($characterId);
-        $document = $this->formulaContexts()->build($sheet);
+        $stored = (new CharacterFormulaContexts($this->characters()))->buildStored($characterId);
+        $document = (new CharacterFormulaContexts($this->characters()))->build($sheet);
         self::assertSame($document->findAbilityLevel('strike'), $stored->findAbilityLevel('strike'));
         $storedStrength = $stored->findCharacteristic('strength');
         $documentStrength = $document->findCharacteristic('strength');
