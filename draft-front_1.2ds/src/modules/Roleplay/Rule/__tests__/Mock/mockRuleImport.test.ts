@@ -239,11 +239,11 @@ describe('mockRuleImport (S2)', () => {
 
   it('Интеллект/Восприятие: модификатор от Телосложения ограничен ±1', () => {
     const intellect = abilitySpec('innate-intellect')?.parameters?.[0];
-    expect(intellect).toMatchObject({ min: { base: -1, size: 0 }, max: { base: 1, size: 0 } });
+    expect(intellect).toMatchObject({ min: -1, max: 1 });
     const perception = abilitySpec('innate-perception')?.parameters?.[0];
-    expect(perception).toMatchObject({ min: { base: -1, size: 0 }, max: { base: 1, size: 0 } });
+    expect(perception).toMatchObject({ min: -1, max: 1 });
     const dexterity = abilitySpec('innate-dexterity')?.parameters?.[0];
-    expect(dexterity).toMatchObject({ min: { base: -3, size: 0 }, max: { base: 3, size: 0 } });
+    expect(dexterity).toMatchObject({ min: -3, max: 3 });
   });
 
   it('Устрашающий вид: требует Омерзительную или Уродливую и даёт преимущество на запугивание', () => {

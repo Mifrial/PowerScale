@@ -1431,8 +1431,8 @@ describe('«Владение оружием» — мастерство оруж�
       const capMod = dexterity?.modifiers.find((m) => m.limit != null);
       expect(capMod?.limit).toEqual({ base: 4, size: -2 });
       expect(capMod?.sourceRuleCode).toBe(armor!.code);
-      // фикс. потолок (max_agility) формулы не несёт
-      expect(capMod?.limitFormula ?? null).toBeNull();
+      // потолок задан характеристикой: формула фиксированного размерного значения
+      expect(capMod?.limitFormula).toBe('число 4↓²');
     });
 
     it('щит ограничивает Ловкость формулой [Сила] (значение и формула в модификаторе)', () => {

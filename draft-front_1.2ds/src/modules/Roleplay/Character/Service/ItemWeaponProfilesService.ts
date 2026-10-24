@@ -5,6 +5,7 @@ import { WEAPON_PROFILE_LABELS } from '@/modules/Roleplay/Character/Constant/WEA
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
 import { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/Instance/weaponAttackRangeService';
 import { characterHandsService } from '@/modules/Roleplay/Character/Service/Instance/characterHandsService';
+import { itemSpecService } from '@/modules/Roleplay/Rule/init';
 import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaContext';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
@@ -44,7 +45,7 @@ export class ItemWeaponProfilesService {
     const weightLabel =
       spec.innate || spec.weight === null || spec.weight === undefined
         ? null
-        : `${new DimensionalNumber(spec.weight).toString()} кг`;
+        : itemSpecService.formatWeightKilograms(spec.weight);
     const minStrength = weapon?.min_strength ?? shield?.min_strength ?? null;
     const minStrengthLabel =
       minStrength === null || minStrength === undefined ? null : new DimensionalNumber(minStrength).toString();
@@ -85,7 +86,9 @@ export class ItemWeaponProfilesService {
         ? null
         : new DimensionalNumber(armor.max_agility).toString();
     const strengthPenaltyLabel =
-      armor?.strength_penalty === undefined || armor?.strength_penalty === null ? null : String(armor.strength_penalty);
+      armor?.strength_penalty !== undefined && armor?.strength_penalty !== null
+        ? String(armor.strength_penalty)
+        : this.strengthGrantLabel(spec, characteristicValues);
     const defenseLines = (armor?.defense_slots ?? []).map((slot) => ({
       defense: new DimensionalNumber(slot.defense).toString(),
       sourceLabel: this.defenseSourceLabel(slot.source_code),
@@ -162,6 +165,26 @@ export class ItemWeaponProfilesService {
     const genitive = DAMAGE_TYPE_FORMS[code]?.genitive ?? '';
 
     return genitive.replace(/ урона$/, '');
+  }
+
+  private strengthGrantLabel(spec: ItemSpec, characteristicValues: Map<string, DimensionalNumberValue>): string | null {
+    const context: FormulaContext = { characteristicValues, abilityLevels: new Map() };
+    let total = 0;
+    let found = false;
+    for (const grant of spec.grants ?? []) {
+      if (
+        grant.type !== 'characteristic_modify' ||
+        grant.characteristic_code !== 'strength' ||
+        (grant.check_codes?.length ?? 0) > 0
+      ) {
+        continue;
+      }
+
+      found = true;
+      total += this.formula.evaluate(grant.amount, context);
+    }
+
+    return !found || total === 0 ? null : String(total);
   }
 
   private formulaOrNull(formulaValue: Formula, resolveName: (code: string) => string | null): string | null {

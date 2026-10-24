@@ -57,7 +57,7 @@ export class StateRuntimeEffectsService {
       if (!spec) continue;
       const magnitude = this.stateMagnitude(state, spec);
       for (const effect of spec.effects ?? []) {
-        this.applyEffect(effect, magnitude, characteristicDeltas, resourceLimitModify, resourceLimitSet, rules);
+        this.applyEffect(effect, magnitude, characteristicDeltas, resourceLimitModify, resourceLimitSet);
       }
     }
 
@@ -200,11 +200,8 @@ export class StateRuntimeEffectsService {
     return Math.max(-effect.max_abs, Math.min(effect.max_abs, delta));
   }
 
-  private penaltyTargets(code: string, rules: Rule[]): string[] {
-    const spec = this.characteristicSpecOf(rules.find((item) => item.code === code && item.type === 'characteristic'));
-    const parsed = spec?.formula ? this.derivedCharacteristics.parseDerivedFormula(spec.formula) : null;
-
-    return parsed ? parsed.codes : [code];
+  private penaltyTargets(code: string): string[] {
+    return [code];
   }
 
   private applyEffect(
@@ -213,11 +210,10 @@ export class StateRuntimeEffectsService {
     characteristicDeltas: Map<string, number>,
     resourceLimitModify: Map<string, number>,
     resourceLimitSet: Map<string, number>,
-    rules: Rule[],
   ): void {
     if (effect.type === 'characteristic_modify') {
       const delta = this.scaledAmount(effect, magnitude);
-      for (const code of this.penaltyTargets(effect.characteristic_code, rules)) {
+      for (const code of this.penaltyTargets(effect.characteristic_code)) {
         characteristicDeltas.set(code, (characteristicDeltas.get(code) ?? 0) + delta);
       }
 

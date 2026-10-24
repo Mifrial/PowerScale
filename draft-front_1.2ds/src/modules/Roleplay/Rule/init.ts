@@ -9,6 +9,7 @@ export { ruleValidationService } from '@/modules/Roleplay/Rule/Service/Instance/
 export { abilityParameterSpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilityParameterSpecService';
 export { ruleDiffService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDiffService';
 export { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
+export { itemSpecService } from '@/modules/Roleplay/Rule/Service/Instance/itemSpecService';
 export { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
 export { checkSpecService } from '@/modules/Roleplay/Rule/Service/Instance/checkSpecService';
 export { checkLaunchService } from '@/modules/Roleplay/Rule/Service/Instance/checkLaunchService';

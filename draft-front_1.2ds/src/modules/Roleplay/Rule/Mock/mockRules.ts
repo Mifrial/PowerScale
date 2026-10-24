@@ -1646,7 +1646,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: 1786615200,
     },
     {
-      id: 610,
+      id: 620,
       code: 'intellect_source',
       type: 'source',
       name: 'Интеллект',

@@ -111,7 +111,7 @@ describe('itemParamsView (параметры предмета)', () => {
       ruleCatalog,
     );
 
-    expect(params?.weightLabel).toBe('0.8 кг');
+    expect(params?.weightLabel).toBe('1 кг');
     expect(params?.minStrengthLabel).toBe('4');
     expect(params?.blockDefenseLabel).toBe('4');
     expect(params?.blockEfficiencyLabel).toBe('3');
@@ -133,7 +133,8 @@ describe('itemParamsView (параметры предмета)', () => {
     const params = itemWeaponProfilesService.itemParamsView(specOf('Латный доспех'), characteristicValues, ruleCatalog);
 
     expect(params?.weightLabel).toBe('25 кг');
-    expect(params?.maxAgilityLabel).toBe('4↓²');
+    expect(params?.maxAgilityLabel).toBeNull();
+    expect(params?.characteristicLimitsLabel).toBe('Ловкость: 4↓² (число 4↓²)');
     expect(params?.strengthPenaltyLabel).toBe('-2');
     expect(params?.defenseLines).toEqual([
       { defense: '12', sourceLabel: 'доспеха', durability: 3 },

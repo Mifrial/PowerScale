@@ -15,7 +15,8 @@ import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/Characterist
  * (маленькие), а не 2.
  */
 export class FormulaEvaluationService {
-  evaluateScalar(formula: ScalarFormula, context: FormulaContext): number {
+  evaluateScalar(formula: ScalarFormula | number, context: FormulaContext): number {
+    if (typeof formula === 'number') return formula;
     switch (formula.type) {
       case 'fixed':
         return formula.value;
@@ -78,7 +79,7 @@ export class FormulaEvaluationService {
   }
 
   /** Скалярная формула. Размерная формула сюда не приводится. */
-  evaluate(formula: ScalarFormula, context: FormulaContext): number {
+  evaluate(formula: ScalarFormula | number, context: FormulaContext): number {
     return this.evaluateScalar(formula, context);
   }
 

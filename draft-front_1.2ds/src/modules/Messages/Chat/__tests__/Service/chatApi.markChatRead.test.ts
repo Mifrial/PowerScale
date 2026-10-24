@@ -33,7 +33,10 @@ describe('ChatApi.sendMessage', () => {
     expect(runAction).toHaveBeenCalledWith('chat.sendMessage', {
       chatId: 1,
       content: 'hi',
-      attachments: [{ type: 'chat_speaker', payload: { kind: 'gm' } }],
+      attachments: [
+        { type: 'chat_speaker', payload: { kind: 'gm' } },
+        { type: 'chat_system', payload: { thread: { id: 't', kind: 'turn' } } },
+      ],
       visibility: { all: false },
     });
     expect(sent.speaker).toEqual({ kind: 'gm' });
@@ -69,7 +72,7 @@ describe('ChatApi.sendSystemMessage', () => {
         userId: 1,
         username: 'U',
         content: 'Новый раунд: 1',
-        attachments: [],
+        attachments: [{ type: 'chat_system', payload: { kind: 'highlighted', thread: { id: 'r1', kind: 'round' } } }],
         createdAt: 0,
         updatedAt: 0,
       },
