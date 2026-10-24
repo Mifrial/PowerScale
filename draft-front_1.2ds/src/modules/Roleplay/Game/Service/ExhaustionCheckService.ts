@@ -1,10 +1,11 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
-import { EXHAUSTION_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
+import { checkResolutionService, checkSpecService } from '@/modules/Roleplay/Rule/init';
 import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Instance/concentrationTokenService';
 
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
@@ -56,36 +57,102 @@ export class ExhaustionCheckService {
     );
   }
 
-  private hasUnconscious(version: CharacterVersion, rules: Rule[]): boolean {
-    const rule = this.declineRule(rules, 'unconscious');
-    if (!rule) return false;
+  /** Исход проверки: сначала outcomes из спеки, для старых ревизий — флаги decline_*. */
+  outcomeForRating(
+    check: CheckSpec | null,
+    rules: Rule[],
+    rating: number,
+  ): { outcome: DeclineOutcome; code: string | null } {
+    const outcomes = check?.outcomes ?? [];
+    if (outcomes.length > 0) {
+      const matched = checkSpecService.matchOutcome(outcomes, rating);
+      const code = matched?.outcome.state_rule_code ?? null;
+      if (matched === null || code === null) return { outcome: 'clear', code: null };
 
-    return version.states.some((state) => state.stateRuleCode === rule.code);
+      return {
+        outcome: this.outcomeKind(checkSpecService.outcomeRank(outcomes, matched.index)),
+        code,
+      };
+    }
+
+    const outcome = declineOutcomeFromRating(rating);
+
+    return { outcome, code: this.declineRule(rules, outcome)?.code ?? null };
   }
 
-  private declineCodes(rules: Rule[]): string[] {
-    const outcomes: DeclineOutcome[] = ['weakness', 'disabled', 'unconscious'];
+  /** Коды состояний, которые снимает проверка истощения. */
+  declineCodes(rules: Rule[], check: CheckSpec | null): string[] {
+    const outcomeCodes = checkSpecService.outcomeStateCodes(check?.outcomes);
+    if (outcomeCodes.length > 0) return outcomeCodes;
 
-    return outcomes.flatMap((outcome) => {
-      const code = this.declineRule(rules, outcome)?.code;
+    return rules
+      .filter((candidate) => {
+        const spec = candidate.spec as StateSpec | undefined;
 
-      return code ? [code] : [];
-    });
+        return candidate.type === 'state' && spec !== undefined && this.declineRank(spec) !== null;
+      })
+      .map((candidate) => candidate.code);
+  }
+
+  private hasUnconscious(version: CharacterVersion, rules: Rule[], check: CheckSpec | null): boolean {
+    const codes = this.unconsciousCodes(rules, check);
+
+    return version.states.some((state) => codes.has(state.stateRuleCode));
+  }
+
+  private unconsciousCodes(rules: Rule[], check: CheckSpec | null): Set<string> {
+    const flagged = new Set(
+      rules
+        .filter((candidate) => {
+          const spec = candidate.spec as StateSpec | undefined;
+
+          return candidate.type === 'state' && spec?.decline_unconscious === true;
+        })
+        .map((candidate) => candidate.code),
+    );
+    const inOutcomes = checkSpecService.outcomeStateCodes(check?.outcomes).filter((code) => flagged.has(code));
+    if (inOutcomes.length > 0) return new Set(inOutcomes);
+
+    return flagged;
   }
 
   private checkCodeOf(rules: Rule[]): string | null {
-    const rule = rules.find((item) => item.code === EXHAUSTION_STATE_CODE && item.type === 'state');
+    const rule = attackDamageService.exhaustionRule(rules);
     const spec = rule?.spec as StateSpec | undefined;
     const code = spec?.check_code;
 
     return code ? code : null;
   }
 
+  private checkSpecOf(rules: Rule[], code: string): CheckSpec | null {
+    return checkResolutionService.asCheckSpec(rules.find((item) => item.code === code && item.type === 'check'));
+  }
+
+  private declineRank(spec: StateSpec): number | null {
+    const flags = [spec.decline_weakness, spec.decline_disabled, spec.decline_unconscious].filter(
+      (flag) => flag === true,
+    );
+    if (flags.length !== 1) return null;
+    if (spec.decline_weakness === true) return 1;
+    if (spec.decline_disabled === true) return 2;
+
+    return 3;
+  }
+
+  private outcomeKind(rank: number): DeclineOutcome {
+    if (rank === 1) return 'weakness';
+    if (rank === 2) return 'disabled';
+    if (rank === 3) return 'unconscious';
+
+    return 'clear';
+  }
+
   async applyExhaustionCheck(args: ApplyExhaustionCheckArgs): Promise<ApplyExhaustionCheckResult> {
-    if (shouldSkipExhaustionCheck(this.hasUnconscious(args.version, args.rules), args.change)) {
+    const checkCode = this.checkCodeOf(args.rules);
+    const check = checkCode ? this.checkSpecOf(args.rules, checkCode) : null;
+    if (shouldSkipExhaustionCheck(this.hasUnconscious(args.version, args.rules, check), args.change)) {
       return { roll: null, overlay: null, outcome: 'unconscious', skipped: true };
     }
-    const checkCode = this.checkCodeOf(args.rules);
     if (!checkCode) {
       return { roll: null, overlay: args.overlay ?? null, outcome: 'clear', skipped: true };
     }
@@ -97,10 +164,14 @@ export class ExhaustionCheckService {
       args.targetKey,
       version,
       args.rules,
-      this.declineCodes(args.rules),
+      this.declineCodes(args.rules, check),
     );
 
-    const exhaustion = injuryCheckService.overlayStateTotal(version, args.rules, EXHAUSTION_STATE_CODE);
+    const exhaustionRule = attackDamageService.exhaustionRule(args.rules);
+    if (!exhaustionRule) {
+      return { roll: null, overlay: args.overlay ?? null, outcome: 'clear', skipped: true };
+    }
+    const exhaustion = injuryCheckService.overlayStateTotal(version, args.rules, exhaustionRule.code);
     const adv = stateRuntimeEffectsService.checkAdvantageFromStates(version, args.rules);
     let spent = 0;
     const maxSpend = concentrationTokenService.maxSpend(version, overlay, args.rules, checkCode);
@@ -145,8 +216,7 @@ export class ExhaustionCheckService {
       args.mechanics,
     );
     const rating = roll.check?.rating ?? 0;
-    const outcome = declineOutcomeFromRating(rating);
-    const code = this.declineRule(args.rules, outcome)?.code ?? null;
+    const { outcome, code } = this.outcomeForRating(check, args.rules, rating);
     if (code) {
       await addFlagState(this.resolveGameApi(), args.gameId, args.targetKey, args.rules, code);
     }

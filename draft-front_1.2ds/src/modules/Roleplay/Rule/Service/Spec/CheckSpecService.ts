@@ -52,6 +52,33 @@ export class CheckSpecService {
     }));
   }
 
+  matchesOutcome(outcome: CheckOutcome, rating: number): boolean {
+    if (outcome.rating != null) return outcome.rating === rating;
+
+    return outcome.max_rating != null && rating <= outcome.max_rating;
+  }
+
+  matchOutcome(outcomes: CheckOutcome[] | undefined, rating: number): { index: number; outcome: CheckOutcome } | null {
+    const list = outcomes ?? [];
+    const index = list.findIndex((outcome) => this.matchesOutcome(outcome, rating));
+
+    return index >= 0 ? { index, outcome: list[index] } : null;
+  }
+
+  outcomeStateCodes(outcomes: CheckOutcome[] | undefined): string[] {
+    const codes = (outcomes ?? [])
+      .map((outcome) => outcome.state_rule_code)
+      .filter((code): code is string => code != null && code !== '');
+
+    return [...new Set(codes)];
+  }
+
+  outcomeRank(outcomes: CheckOutcome[] | undefined, index: number): number {
+    return (outcomes ?? [])
+      .slice(0, index + 1)
+      .filter((outcome) => outcome.state_rule_code != null && outcome.state_rule_code !== '').length;
+  }
+
   outcomeRows(outcomes: CheckOutcome[] | undefined, rules: Rule[]): { condition: string; stateName: string }[] {
     return (outcomes ?? []).map((outcome) => ({
       condition: this.outcomeCondition(outcome),

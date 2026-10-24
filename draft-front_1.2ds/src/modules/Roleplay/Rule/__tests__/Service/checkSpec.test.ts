@@ -51,4 +51,18 @@ describe('CheckSpecService', () => {
       { condition: 'РУ ≤ -4', stateName: 'чисто' },
     ]);
   });
+
+  it('matches exact and upper-bound outcomes in order', () => {
+    const outcomes = [
+      { rating: -1, state_rule_code: 'weakness' },
+      { max_rating: -3, state_rule_code: 'unconscious' },
+    ];
+
+    expect(service.matchOutcome(outcomes, -1)).toEqual({ index: 0, outcome: outcomes[0] });
+    expect(service.matchOutcome(outcomes, -2)).toBeNull();
+    expect(service.matchOutcome(outcomes, -4)).toEqual({ index: 1, outcome: outcomes[1] });
+    expect(service.outcomeStateCodes(outcomes)).toEqual(['weakness', 'unconscious']);
+    expect(service.outcomeRank(outcomes, 0)).toBe(1);
+    expect(service.outcomeRank(outcomes, 1)).toBe(2);
+  });
 });

@@ -10,6 +10,7 @@ export { abilityParameterSpecService } from '@/modules/Roleplay/Rule/Service/Ins
 export { ruleDiffService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDiffService';
 export { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 export { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
+export { checkSpecService } from '@/modules/Roleplay/Rule/Service/Instance/checkSpecService';
 export { checkLaunchService } from '@/modules/Roleplay/Rule/Service/Instance/checkLaunchService';
 export { checkSuccessRatingService } from '@/modules/Roleplay/Rule/Service/Instance/checkSuccessRatingService';
 export { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
