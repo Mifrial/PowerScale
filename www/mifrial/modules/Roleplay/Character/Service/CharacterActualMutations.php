@@ -251,6 +251,10 @@ final class CharacterActualMutations implements ICharacterActualMutations
             return $this->applyQuantity($choices, $operation, $kind === 'putInventoryQuantity');
         }
 
+        if ($kind === 'decrementInventoryQuantity') {
+            return $this->applyDecrement($choices, $operation);
+        }
+
         if ($kind === 'setMoney') {
             return $this->applyMoney($choices, $operation);
         }
@@ -697,6 +701,59 @@ final class CharacterActualMutations implements ICharacterActualMutations
             $inventory[$index]['quantity'] = $quantity;
         }
 
+        $choices['inventory'] = $inventory;
+
+        return $choices;
+    }
+
+    /**
+     * Уменьшает quantity строки инвентаря по id.
+     *
+     * @param array<string, mixed> $choices Документ.
+     * @param mixed $operation Объект.
+     *
+     * @return array<string, mixed> Документ.
+     *
+     * @throws CharacterInvalidException Если форма чужая или quantity ≤ 0.
+     */
+    private function applyDecrement(array $choices, mixed $operation): array
+    {
+        $keys = is_array($operation) ? array_keys($operation) : [];
+        sort($keys);
+        if ($keys !== ['inventoryId', 'kind', 'ruleCode']) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        $inventoryId = $operation['inventoryId'];
+        $ruleCode = $operation['ruleCode'];
+        if (!is_int($inventoryId) || !is_string($ruleCode) || $ruleCode === '') {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        $inventory = $choices['inventory'] ?? null;
+        if (!is_array($inventory)) {
+            throw new CharacterInvalidException('Character inventory is invalid');
+        }
+
+        $matched = [];
+        foreach ($inventory as $index => $row) {
+            if (is_array($row) && ($row['id'] ?? null) === $inventoryId) {
+                $matched[] = $index;
+            }
+        }
+
+        if (count($matched) !== 1) {
+            throw new CharacterInvalidException('Character inventory item is unavailable');
+        }
+
+        $index = $matched[0];
+        $row = $inventory[$index];
+        $quantity = $row['quantity'] ?? null;
+        if (($row['ruleCode'] ?? null) !== $ruleCode || !is_int($quantity) || $quantity < 1) {
+            throw new CharacterInvalidException('Character inventory quantity is invalid');
+        }
+
+        $inventory[$index]['quantity'] = $quantity - 1;
         $choices['inventory'] = $inventory;
 
         return $choices;
