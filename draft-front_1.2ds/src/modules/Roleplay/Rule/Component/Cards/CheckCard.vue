@@ -2,6 +2,7 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
 import { checkLaunchService } from '@/modules/Roleplay/Rule/Service/Instance/checkLaunchService';
+import { checkSpecService } from '@/modules/Roleplay/Rule/Service/Instance/checkSpecService';
 import { computed } from 'vue';
 
 const props = defineProps<{
@@ -32,6 +33,7 @@ const attachedRules = computed(() => {
 });
 
 const versusLabel = computed(() => checkLaunchService.checkVersusLabel(props.rule, props.rules));
+const outcomeRows = computed(() => checkSpecService.outcomeRows(spec.value?.outcomes, props.rules));
 
 function difficultyLabel(): string {
   const current = spec.value;
@@ -69,6 +71,11 @@ function modesLabel(): string {
       <div v-if="versusLabel" class="text-body-2 mt-1">{{ versusLabel }}</div>
       <div class="text-body-2 mt-1">Сложность: {{ difficultyLabel() }}</div>
       <div class="text-body-2 mt-1">Режимы: {{ modesLabel() }}</div>
+      <div class="text-body-2 mt-2">Исходы по рейтингу:</div>
+      <div class="text-body-2 ml-4">0 и выше — чисто</div>
+      <div v-for="(row, index) in outcomeRows" :key="index" class="text-body-2 ml-4">
+        {{ row.condition }} — {{ row.stateName }}
+      </div>
       <div v-if="spec.dialog_launch === false" class="text-body-2 mt-1">Не запускается из диалога</div>
       <div v-if="spec.ordinary_root === true" class="text-body-2 mt-1">Корень обычных проверок</div>
       <div v-if="spec.concentration_token === true" class="text-body-2 mt-1">Жетон концентрации</div>

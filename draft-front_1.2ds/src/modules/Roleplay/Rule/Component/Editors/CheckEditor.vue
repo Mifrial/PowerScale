@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
-import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
+import type { CheckOutcome, CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
+import CheckOutcomesEditor from '@/modules/Roleplay/Rule/Component/Editors/CheckOutcomesEditor.vue';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
 import { checkLaunchService } from '@/modules/Roleplay/Rule/Service/Instance/checkLaunchService';
 import { computed, ref, watch } from 'vue';
@@ -130,6 +131,10 @@ const stateCode = computed({
     draft.value.difficulty_input = { kind: 'from_state', state_code: code };
   },
 });
+
+function updateOutcomes(value: CheckOutcome[]): void {
+  draft.value.outcomes = value;
+}
 
 const versusPreview = computed(() =>
   checkLaunchService.checkVersusLabel(
@@ -278,6 +283,12 @@ const versusPreview = computed(() =>
         persistent-hint
         hide-details="auto"
         class="mb-3"
+      />
+      <CheckOutcomesEditor
+        :outcomes="draft.outcomes"
+        :state-options="stateOptions"
+        class="mb-3"
+        @update:outcomes="updateOutcomes"
       />
       <v-alert v-if="versusPreview" type="info" variant="tonal" density="compact" class="mb-3">
         На запуске: {{ versusPreview }}
