@@ -195,7 +195,7 @@ final class RuleSpaceMysqlTest extends TestCase
         $ruleSpaces->commit($world->getId(), [
             RuleCommitEntry::put('human', $this->body('Dead'), false),
             RuleCommitEntry::keep($ruleSpaces->getRevision($world->getId(), 1)->getItems()[1]->getVersionId()),
-        ]);
+        ], null, 1);
         $summaries = $ruleSpaces->getRevisionList($world->getId());
         self::assertCount(2, $summaries);
         self::assertSame(2, $summaries[0]->getRevision());
@@ -304,7 +304,7 @@ final class RuleSpaceMysqlTest extends TestCase
         $ruleSpaces->commit($parent->getId(), [
             RuleCommitEntry::put('human', $this->body('Human 2')),
             RuleCommitEntry::keep($parentItems[1]->getVersionId()),
-        ]);
+        ], null, 1);
         self::assertSame('Human', $ruleSpaces->getRevision($child->getId(), 1)->getItems()[0]->getName());
         self::assertSame('Human 2', $ruleSpaces->getRevision($parent->getId(), 2)->getItems()[0]->getName());
     }
@@ -331,7 +331,7 @@ final class RuleSpaceMysqlTest extends TestCase
         $ruleSpaces->commit($world->getId(), [
             RuleCommitEntry::keep($human->getVersionId()),
             RuleCommitEntry::put('orc', $this->body('Orc')),
-        ]);
+        ], null, 1);
         self::assertSame('combat', $ruleSpaces->getCatalog($world->getId(), 2)->getSections()[0]->getCode());
         self::assertSame($sectionCount, $this->sectionRowCount($world->getId()));
         $orc = $ruleSpaces->getRevision($world->getId(), 2)->getItems()[1];
@@ -342,6 +342,7 @@ final class RuleSpaceMysqlTest extends TestCase
                 RuleCommitEntry::keep($orc->getVersionId()),
             ],
             $this->oneSectionCatalog('magic', 'Магия', 'human'),
+            2,
         );
         self::assertSame(3, $catalogOnly->getRevision());
         self::assertSame('combat', $ruleSpaces->getCatalog($world->getId(), 1)->getSections()[0]->getCode());
@@ -364,6 +365,7 @@ final class RuleSpaceMysqlTest extends TestCase
             $parent->getId(),
             [RuleCommitEntry::keep($ruleSpaces->getRevision($parent->getId(), 1)->getItems()[0]->getVersionId())],
             $this->oneSectionCatalog('later', 'Later', 'human'),
+            1,
         );
         self::assertSame('combat', $ruleSpaces->getCatalog($child->getId(), 1)->getSections()[0]->getCode());
 
@@ -519,7 +521,7 @@ final class RuleSpaceMysqlTest extends TestCase
         $ruleSpaces->commit($world->getId(), [
             RuleCommitEntry::keep($human->getVersionId()),
             RuleCommitEntry::put('orc', $this->body('Orc')),
-        ]);
+        ], null, 1);
         self::assertSame('orc', $ruleSpaces->findInRevision($world->getId(), 2, 'orc')->getCode());
 
         $orphanId = $this->rules()->addSpace('Orphan');
@@ -606,7 +608,7 @@ final class RuleSpaceMysqlTest extends TestCase
         $ruleSpaces->commit($world->getId(), [
             RuleCommitEntry::put('human', $this->body('Human 3')),
             RuleCommitEntry::keep($orcVersionId),
-        ]);
+        ], null, 2);
         $rolled = $ruleSpaces->commitSelected($world->getId(), RuleSpaceSelection::fromParts(1, []));
         self::assertSame(4, $rolled->getRevision());
         self::assertSame('Human', $ruleSpaces->getRevision($world->getId(), 4)->getItems()[0]->getName());

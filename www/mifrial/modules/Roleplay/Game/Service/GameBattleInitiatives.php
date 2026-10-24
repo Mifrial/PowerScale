@@ -275,12 +275,23 @@ final class GameBattleInitiatives
             $row = [
                 'type' => $entry['type'],
                 'id' => $entry['id'],
-                'difficulty' => $entry['difficulty'] ?? null,
-                'roll' => $entry['roll'] ?? null,
-                'success' => $entry['success'] ?? null,
-                'rating' => $entry['rating'] ?? null,
             ];
-            foreach (['name', 'faces', 'adjustedRolls', 'successes', 'droppedRolls', 'dieFaces', 'efficiency', 'label'] as $key) {
+            $keys = [
+                'name',
+                'difficulty',
+                'roll',
+                'success',
+                'rating',
+                'faces',
+                'adjustedRolls',
+                'successes',
+                'droppedRolls',
+                'dieFaces',
+                'efficiency',
+                'min_success_size',
+                'label',
+            ];
+            foreach ($keys as $key) {
                 if (array_key_exists($key, $entry)) {
                     $row[$key] = $entry[$key];
                 }

@@ -327,6 +327,10 @@ final class RuleSpaces implements IRuleSpaces
     ): RuleRevisionRecord {
         $this->requireWorld($spaceId);
         $revisionSlice = $this->getRevision($spaceId, $selection->getBaseRevision());
+        if ($expectedRevision === null) {
+            $head = $this->getRevisionList($spaceId);
+            $expectedRevision = $head === [] ? null : $head[0]->getRevision();
+        }
 
         return $this->commit(
             $spaceId,

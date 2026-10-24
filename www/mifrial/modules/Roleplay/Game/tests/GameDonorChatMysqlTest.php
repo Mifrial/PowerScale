@@ -130,10 +130,10 @@ final class GameDonorChatMysqlTest extends TestCase
         self::assertContains($tableId, $inboxIds);
         self::assertContains($discussionId, $inboxIds);
         self::assertContains($characterChatId, $inboxIds);
-        $hostIds = $this->chatView()->hostChatIds($this->chats()->getChatIdsOfUser($this->ownerUserId));
-        self::assertNotContains($tableId, $hostIds);
-        self::assertNotContains($discussionId, $hostIds);
-        self::assertNotContains($characterChatId, $hostIds);
+        $memberIds = $this->chatView()->memberChatIds($this->chats()->getChatIdsOfUser($this->ownerUserId));
+        self::assertContains($tableId, $memberIds);
+        self::assertContains($discussionId, $memberIds);
+        self::assertContains($characterChatId, $memberIds);
     }
 
     private function addDraft(int $spaceId): int

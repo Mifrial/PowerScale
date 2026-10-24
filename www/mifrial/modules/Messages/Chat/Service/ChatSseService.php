@@ -100,7 +100,7 @@ final class ChatSseService
         $query = ChatSseQuery::fromRequest($httpRequest);
         $membershipIds = $this->chats->getChatIdsOfUser($this->userId);
         $this->classifiedChatIds = $membershipIds;
-        $this->knownChatIds = $this->viewAssembler->hostChatIds($membershipIds);
+        $this->knownChatIds = $this->viewAssembler->memberChatIds($membershipIds);
         $sseEmitter->start();
         $this->lastWriteUnix = $this->sseClock->now()->toUnix();
         if ($query->isLive) {
@@ -138,7 +138,7 @@ final class ChatSseService
     private function tick(SseEmitter $sseEmitter): bool
     {
         $horizon = $this->sseClock->now();
-        $newChatIds = $this->refreshHostMemberships();
+        $newChatIds = $this->refreshMemberships();
         $messageRecords = $this->messageRepository->getUpdatedSince(
             $this->knownChatIds,
             $this->userId,
@@ -178,20 +178,20 @@ final class ChatSseService
     }
 
     /**
-     * Новые host-id; known только host и текущее членство.
+     * Новые чаты членства; known — текущее членство.
      *
-     * @return array<int, int> Новые host-id.
+     * @return array<int, int> Новые id.
      */
-    private function refreshHostMemberships(): array
+    private function refreshMemberships(): array
     {
         $membershipIds = $this->chats->getChatIdsOfUser($this->userId);
         $unclassifiedIds = array_values(array_diff($membershipIds, $this->classifiedChatIds));
         $this->classifiedChatIds = $membershipIds;
-        $newHostIds = $this->viewAssembler->hostChatIds($unclassifiedIds);
+        $newChatIds = $this->viewAssembler->memberChatIds($unclassifiedIds);
         $stillMember = array_values(array_intersect($this->knownChatIds, $membershipIds));
-        $this->knownChatIds = array_values(array_unique(array_merge($stillMember, $newHostIds)));
+        $this->knownChatIds = array_values(array_unique(array_merge($stillMember, $newChatIds)));
 
-        return $newHostIds;
+        return $newChatIds;
     }
 
     /**

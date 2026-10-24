@@ -80,11 +80,11 @@ final class AdvantageDisadvantageHandler implements IMechanicHandler
         }
 
         $mark = $this->getCode() . ':' . $event;
-        if (in_array($mark, $context->getApplied(), true)) {
+        if (!$context->markInternal($mark)) {
             return;
         }
 
-        $context->markApplied($mark);
+        $context->markApplied($this->getCode());
         if ($event === RollEvent::POOL) {
             $context->growPool(abs($net));
 
@@ -123,7 +123,6 @@ final class AdvantageDisadvantageHandler implements IMechanicHandler
         );
         $count = min(abs($net), count($sorted));
         $context->applyDrop(array_slice($sorted, 0, $count), array_slice($sorted, $count));
-        $context->markApplied($this->getCode());
     }
 
     /**

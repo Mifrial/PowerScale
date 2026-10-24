@@ -117,6 +117,10 @@ final class GameCombatNotices
 
         $attachments[] = ['type' => 'chat_system', 'payload' => $payload];
         try {
+            if (!in_array($actorUserId, $this->chats->getMemberIds($chatId), true)) {
+                $this->chats->addMember($chatId, $actorUserId);
+            }
+
             $this->chats->send($chatId, $actorUserId, $text, $attachments, null);
         } catch (ChatNotFoundException | ChatInvalidException $exception) {
             throw new GameInvalidException('Game chat member is invalid', $exception);

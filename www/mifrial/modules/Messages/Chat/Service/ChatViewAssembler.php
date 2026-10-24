@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Messages\Chat\Service;
 
-use Mifrial\Messages\Chat\Dto\ChatHostTypes;
 use Mifrial\Messages\Chat\Dto\ChatMemberRecord;
 use Mifrial\Messages\Chat\Dto\ChatRecord;
 use Mifrial\Messages\Chat\Dto\InboxStats;
@@ -45,7 +44,7 @@ final class ChatViewAssembler
     public function assembleInbox(int $userId): array
     {
         $memberships = $this->memberRepository->getByUserId($userId);
-        $chats = ChatHostTypes::hostChats($this->chatRepository->getByIds($this->chatIdsOf($memberships)));
+        $chats = $this->chatRepository->getByIds($this->chatIdsOf($memberships));
         $chatIds = $this->chatIdsOfRecords($chats);
         $members = $this->memberRepository->getByChatIds($chatIds);
 
@@ -53,19 +52,15 @@ final class ChatViewAssembler
     }
 
     /**
-     * Host-id из набора членства; пустой список без запроса.
+     * Id чатов из набора членства; пустой список без запроса.
      *
      * @param array<int, int> $chatIds Кандидаты.
      *
-     * @return array<int, int> private и group.
+     * @return array<int, int> Все чаты членства.
      */
-    public function hostChatIds(array $chatIds): array
+    public function memberChatIds(array $chatIds): array
     {
-        if ($chatIds === []) {
-            return [];
-        }
-
-        return ChatHostTypes::hostIds($chatIds, $this->chatRepository->getByIds($chatIds));
+        return $chatIds;
     }
 
     /**

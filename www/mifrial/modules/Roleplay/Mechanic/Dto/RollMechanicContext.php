@@ -52,6 +52,13 @@ final class RollMechanicContext
     private array $applied = [];
 
     /**
+     * Внутренние метки шагов; в итог не попадают.
+     *
+     * @var array<int, string>
+     */
+    private array $internal = [];
+
+    /**
      * Собирает контекст. Пул задаёт вызывающий, списки пустые.
      *
      * @param int $dieFaces Число граней.
@@ -290,7 +297,7 @@ final class RollMechanicContext
     }
 
     /**
-     * Помечает механику сработавшей.
+     * Помечает механику сработавшей; повтор кода не дублируется.
      *
      * @param string $code Код семейства.
      *
@@ -298,6 +305,26 @@ final class RollMechanicContext
      */
     public function markApplied(string $code): void
     {
-        $this->applied[] = $code;
+        if (!in_array($code, $this->applied, true)) {
+            $this->applied[] = $code;
+        }
+    }
+
+    /**
+     * Ставит внутреннюю метку шага и сообщает, была ли она раньше.
+     *
+     * @param string $mark Метка.
+     *
+     * @return bool true если метка новая.
+     */
+    public function markInternal(string $mark): bool
+    {
+        if (in_array($mark, $this->internal, true)) {
+            return false;
+        }
+
+        $this->internal[] = $mark;
+
+        return true;
     }
 }
