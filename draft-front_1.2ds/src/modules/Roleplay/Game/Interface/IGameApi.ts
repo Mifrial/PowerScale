@@ -342,7 +342,7 @@ export interface IGameApi {
       expectedSheetVersion: number;
       actor: { type: 'character' | 'npc'; id: number };
       actionRuleCode: string;
-      followUpTargetKey: string;
+      followUpTargetKey: string | null;
     },
     signal?: AbortSignal,
   ): Promise<GamePhpActionResult>;

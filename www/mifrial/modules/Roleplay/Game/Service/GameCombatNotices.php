@@ -22,6 +22,10 @@ final class GameCombatNotices
 
     /**
      * Заголовок сессии. После stop в этот тред больше ничего не пишется.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор сообщения.
+     * @param int $sessionId Сессия.
      */
     public function sessionOpened(GameRecord $game, int $actorUserId, int $sessionId): void
     {
@@ -32,13 +36,17 @@ final class GameCombatNotices
     /**
      * Новый раунд, кубы инициативы в строке порядка и первый ход.
      *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор сообщения.
+     * @param int $sessionId Сессия.
+     * @param int $battleId Бой.
      * @param list<array<string, mixed>> $order Порядок.
      */
     public function opened(GameRecord $game, int $actorUserId, int $sessionId, int $battleId, array $order): void
     {
         $battle = ['id' => 'b' . $battleId, 'parentId' => 's' . $sessionId, 'kind' => 'battle'];
         $this->send($game, $actorUserId, 'Бой', [], $battle, 'default');
-        $round = ['id' => 'b' . $battleId . '-r1', 'parentId' => $battle['id'], 'kind' => 'round'];
+        $round = GameCombatThread::buildRound($battleId, 1);
         $this->send($game, $actorUserId, 'Новый раунд: 1', [], $round, 'highlighted');
         $initiative = ['id' => 'b' . $battleId . '-init', 'parentId' => $round['id'], 'kind' => 'initiative'];
         $rolls = [];
@@ -53,26 +61,35 @@ final class GameCombatNotices
         $this->send($game, $actorUserId, $this->orderText($order), $rolls, $initiative, null);
         $first = $order[0] ?? null;
         if (is_array($first)) {
-            $turn = ['id' => 'b' . $battleId . '-r1-t0', 'parentId' => $round['id'], 'kind' => 'turn'];
+            $turn = GameCombatThread::buildTurn($battleId, 1, 0);
             $this->send($game, $actorUserId, 'Ходит ' . $this->nameOf($first), [], $turn, 'default');
         }
     }
 
     /**
      * Следующий ход и новый раунд, если круг замкнулся.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор сообщения.
+     * @param int $battleId Бой.
+     * @param int $round Раунд.
+     * @param int $index Индекс хода.
+     * @param string $name Имя текущего.
      */
-    public function passed(GameRecord $game, int $actorUserId, int $battleId, int $round, int $index, string $name): void
-    {
-        $roundThread = ['id' => 'b' . $battleId . '-r' . $round, 'parentId' => 'b' . $battleId, 'kind' => 'round'];
+    public function passed(
+        GameRecord $game,
+        int $actorUserId,
+        int $battleId,
+        int $round,
+        int $index,
+        string $name,
+    ): void {
+        $roundThread = GameCombatThread::buildRound($battleId, $round);
         if ($index === 0 && $round > 1) {
             $this->send($game, $actorUserId, 'Новый раунд: ' . $round, [], $roundThread, 'highlighted');
         }
 
-        $turn = [
-            'id' => 'b' . $battleId . '-r' . $round . '-t' . $index,
-            'parentId' => $roundThread['id'],
-            'kind' => 'turn',
-        ];
+        $turn = GameCombatThread::buildTurn($battleId, $round, $index);
         $this->send($game, $actorUserId, 'Ходит ' . $name, [], $turn, 'default');
     }
 

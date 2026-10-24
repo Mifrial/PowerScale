@@ -601,6 +601,47 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertFalse($missing['success']);
         self::assertSame('GAME_INVALID', $missing['error']['code'] ?? null);
 
+        $apBeforeWait = $this->actionPointsOf($attackerId);
+        self::assertSame($beforeAp - 1, $apBeforeWait);
+        $wait = $this->dispatch('game.declareAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'a-action-wait',
+            'expectedVersion' => $action['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+            'actor' => ['type' => 'character', 'id' => $attackerId],
+            'actionRuleCode' => 'wait',
+            'followUpTargetKey' => null,
+        ]);
+        self::assertTrue($wait['success'], json_encode($wait));
+        self::assertSame($apBeforeWait, $wait['data']['spent']);
+        self::assertSame(0, $this->actionPointsOf($attackerId));
+        self::assertNull($wait['data']['targetKey']);
+        self::assertSame(0, $this->battleRow($battleId)['active_index']);
+        $pendingAfterWait = $this->pendingEntries($battleId, 'character:' . $attackerId);
+        $typesAfterWait = [];
+        foreach ($pendingAfterWait as $entry) {
+            $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+            if (is_array($effect) && is_string($effect['type'] ?? null)) {
+                $typesAfterWait[] = $effect['type'];
+            }
+        }
+
+        self::assertContains('prepared_defense_counter', $typesAfterWait);
+        self::assertNotContains('last_strike_snapshot', $typesAfterWait);
+
+        $turnMessages = $this->messagesByThreadKind($gameId, 'turn');
+        $actionMessages = array_values(array_filter(
+            $turnMessages,
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'совершает действие'),
+        ));
+        self::assertCount(2, $actionMessages);
+        foreach ($actionMessages as $message) {
+            self::assertSame('b' . $battleId . '-r1-t0', $this->threadOf($message)['id'] ?? null);
+            $speaker = $this->attachmentsOfType([$message], 'chat_speaker')[0] ?? null;
+            self::assertIsArray($speaker);
+            self::assertSame('character', $speaker['kind'] ?? null);
+        }
     }
 
     /**
@@ -3074,6 +3115,23 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Строка боя.
+     *
+     * @param int $battleId Бой.
+     *
+     * @return array<string, mixed> Строка.
+     */
+    private function battleRow(int $battleId): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $row = $gateway->open(GameBattleTable::class)->records()->getById($battleId);
+        self::assertIsArray($row);
+
+        return $row;
+    }
+
+    /**
      * Записи ожидания актора.
      *
      * @param int $battleId Бой.
@@ -3176,14 +3234,49 @@ final class GameStrikeMysqlTest extends TestCase
      */
     private function chatMessages(int $gameId): array
     {
+        return $this->messagesByThreadKind($gameId, 'attack');
+    }
+
+    /**
+     * Сообщения игрового чата заданного вида треда.
+     *
+     * @param int $gameId Игра.
+     * @param string $kind Вид треда.
+     *
+     * @return array<int, MessageRecord> Сообщения.
+     */
+    private function messagesByThreadKind(int $gameId, string $kind): array
+    {
         $chatId = $this->gameFacade()->get($gameId)->getGameChatId();
         self::assertIsInt($chatId);
         $messages = array_reverse($this->chats()->findMessagePage($chatId, $this->ownerUserId, 100, 0)->getItems());
 
         return array_values(array_filter(
             $messages,
-            fn (MessageRecord $message): bool => $this->threadKind($message) === 'attack',
+            fn (MessageRecord $message): bool => $this->threadKind($message) === $kind,
         ));
+    }
+
+    /**
+     * Тред сообщения.
+     *
+     * @param MessageRecord $message Сообщение.
+     *
+     * @return array<string, mixed>|null Тред или null.
+     */
+    private function threadOf(MessageRecord $message): ?array
+    {
+        foreach ($message->getAttachments() as $attachment) {
+            if (($attachment['type'] ?? null) !== 'chat_system') {
+                continue;
+            }
+            $thread = $attachment['payload']['thread'] ?? null;
+            if (is_array($thread)) {
+                return $thread;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -8,6 +8,9 @@ use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Messages\Chat\Dto\MessageRecord;
+use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
+use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
@@ -163,6 +166,27 @@ final class GameEndOfTurnMysqlTest extends TestCase
         $types = $this->waitEffectTypes($after);
         self::assertContains('prepared_defense_counter', $types);
         self::assertNotContains('last_strike_snapshot', $types);
+
+        $messages = $this->chatMessagesOfKind($scene['gameId'], 'turn');
+        $actionMessages = array_values(array_filter(
+            $messages,
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'совершает действие'),
+        ));
+        self::assertCount(1, $actionMessages);
+        self::assertSame(
+            'b' . $scene['battleId'] . '-r1-t0',
+            $this->threadOf($actionMessages[0])['id'] ?? null,
+        );
+        $speakers = $this->attachmentsOfType([$actionMessages[0]], 'chat_speaker');
+        self::assertIsArray($speakers[0] ?? null);
+        self::assertSame('character', $speakers[0]['kind'] ?? null);
+        self::assertNotEmpty($messages);
+        $last = $messages[array_key_last($messages)];
+        self::assertStringContainsString('Ходит', $last->getContent());
+        self::assertSame(
+            'b' . $scene['battleId'] . '-r1-t1',
+            $this->threadOf($last)['id'] ?? null,
+        );
     }
 
     /**
@@ -847,6 +871,72 @@ final class GameEndOfTurnMysqlTest extends TestCase
         self::assertIsArray($row);
 
         return $row;
+    }
+
+    /**
+     * Сообщения игрового чата заданного вида треда.
+     *
+     * @param int $gameId Игра.
+     * @param string $kind Вид треда.
+     *
+     * @return array<int, MessageRecord> Сообщения.
+     */
+    private function chatMessagesOfKind(int $gameId, string $kind): array
+    {
+        $chatId = $this->gameFacade()->get($gameId)->getGameChatId();
+        self::assertIsInt($chatId);
+        $chats = $this->gameApplication()->getLocator()->get(IChatContainer::class)->get(IChats::class);
+        self::assertInstanceOf(IChats::class, $chats);
+        $messages = array_reverse($chats->findMessagePage($chatId, $this->ownerUserId, 100, 0)->getItems());
+
+        return array_values(array_filter(
+            $messages,
+            fn (MessageRecord $message): bool => ($this->threadOf($message)['kind'] ?? null) === $kind,
+        ));
+    }
+
+    /**
+     * Тред сообщения.
+     *
+     * @param MessageRecord $message Сообщение.
+     *
+     * @return array<string, mixed>|null Тред или null.
+     */
+    private function threadOf(MessageRecord $message): ?array
+    {
+        foreach ($message->getAttachments() as $attachment) {
+            if (($attachment['type'] ?? null) !== 'chat_system') {
+                continue;
+            }
+            $thread = $attachment['payload']['thread'] ?? null;
+            if (is_array($thread)) {
+                return $thread;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Payload-ы вложений заданного типа.
+     *
+     * @param array<int, MessageRecord> $messages Сообщения.
+     * @param string $type Тип.
+     *
+     * @return array<int, mixed> Payload-ы.
+     */
+    private function attachmentsOfType(array $messages, string $type): array
+    {
+        $found = [];
+        foreach ($messages as $message) {
+            foreach ($message->getAttachments() as $attachment) {
+                if (($attachment['type'] ?? null) === $type) {
+                    $found[] = $attachment['payload'] ?? null;
+                }
+            }
+        }
+
+        return $found;
     }
 
     /**

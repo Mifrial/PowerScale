@@ -9,7 +9,7 @@ use Mifrial\Roleplay\Game\Dto\Action\DeclareGameActionInput;
 use Mifrial\Roleplay\Game\Service\GameActionHttp;
 
 /**
- * Не-атакующее действие после удара.
+ * Не-атакующее действие.
  */
 final class DeclareGameActionAction implements IActionHandler
 {

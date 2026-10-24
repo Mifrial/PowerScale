@@ -38,6 +38,9 @@ final class GameActionChat
      * @param int $actorId Идентификатор актора.
      * @param string $actionRuleCode Карточка действия.
      * @param int $spent Потрачено ОД.
+     * @param int $battleId Бой.
+     * @param int $round Раунд.
+     * @param int $activeIndex Индекс хода.
      *
      * @return void
      *
@@ -50,6 +53,9 @@ final class GameActionChat
         int $actorId,
         string $actionRuleCode,
         int $spent,
+        int $battleId,
+        int $round,
+        int $activeIndex,
     ): void {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
@@ -58,8 +64,13 @@ final class GameActionChat
 
         $token = $this->strikeChat->getEntityToken($actorKind, $actorId);
         $text = $token . ' совершает действие [[rule:' . $actionRuleCode . ']] за ' . $spent . 'ОД.';
+        $thread = GameCombatThread::buildTurn($battleId, $round, $activeIndex);
+        $attachments = [
+            ['type' => 'chat_system', 'payload' => ['thread' => $thread]],
+            ['type' => 'chat_speaker', 'payload' => $this->strikeChat->getSpeakerOf($actorKind, $actorId)],
+        ];
         try {
-            $this->chats->send($chatId, $actorUserId, $text, []);
+            $this->chats->send($chatId, $actorUserId, $text, $attachments, null);
         } catch (ChatNotFoundException | ChatInvalidException $exception) {
             throw new GameInvalidException('Game chat member is invalid', $exception);
         }

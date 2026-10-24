@@ -43,6 +43,24 @@ final class GameActionPerform
     }
 
     /**
+     * Нужен ли карточке предыдущий удар.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $actionRuleCode Карточка.
+     *
+     * @return bool true, если карточка требует снимок прошлой атаки.
+     *
+     * @throws GameInvalidException Если карточка не-атакующая, но серверу не по силам.
+     */
+    public function requiresFollowUp(GameRecord $game, string $actionRuleCode): bool
+    {
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $spec = $this->cards->assertServerPerformable($slice, $actionRuleCode);
+
+        return $this->cards->hasRequirePreviousAttack($spec);
+    }
+
+    /**
      * Реакция цели прошлого удара для карточки с require_previous_attack.
      *
      * @param GameRecord $game Игра.
@@ -65,7 +83,7 @@ final class GameActionPerform
         string $targetKey,
     ): string {
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $spec = $this->cards->assertNonAttackAction($slice, $actionRuleCode);
+        $spec = $this->cards->assertServerPerformable($slice, $actionRuleCode);
         if (!$this->cards->hasRequirePreviousAttack($spec)) {
             throw new GameInvalidException('Game action card requires no previous attack');
         }
@@ -236,7 +254,7 @@ final class GameActionPerform
         bool $allowZeroChosen,
     ): array {
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $spec = $this->cards->assertNonAttackAction($slice, $actionRuleCode);
+        $spec = $this->cards->assertServerPerformable($slice, $actionRuleCode);
         $document = $this->document($game, $actorKind, $actorId);
         $chosen = $this->chosen->resolve($slice, $spec, $document['sheet'], $allowZeroChosen);
         $spends = $this->resolveSpends($game, $actionRuleCode, $document, $chosen, $allowZeroChosen);

@@ -334,6 +334,9 @@ final class GameTurns
             $current['id'],
             $waitCode,
             $performed['spent'],
+            $battle->getId(),
+            $battle->getRound(),
+            $battle->getActiveIndex(),
         );
         $this->post($game, $built['rolls']);
 

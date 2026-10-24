@@ -7,6 +7,13 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\AfterActionUntilResourceSpentCheckModifierEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackAccuracyEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackCostEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackScoreAdjustEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionCostEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\RequirePreviousAttackEffect;
 
 /**
@@ -71,6 +78,41 @@ final class GameActionCards
     }
 
     /**
+     * Проверяет, что общий серверный сценарий умеет применить карточку.
+     *
+     * Поддержка определяется составом спецификации, а не кодом карточки:
+     * только ресурсные компоненты, без операций и с известными эффектами.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
+     * @param string $actionRuleCode Карточка.
+     *
+     * @return AbilityActionSpec Спецификация.
+     *
+     * @throws GameInvalidException Если карточка не-атакующая, но серверу не по силам.
+     */
+    public function assertServerPerformable(CharacterRuleSlice $slice, string $actionRuleCode): AbilityActionSpec
+    {
+        $spec = $this->assertNonAttackAction($slice, $actionRuleCode);
+        foreach ($spec->getComponents() as $component) {
+            if (!$component instanceof ResourceComponent) {
+                throw new GameInvalidException('Game action component is not supported on the server');
+            }
+        }
+
+        if ($spec->getOperations() !== []) {
+            throw new GameInvalidException('Game action operations are not supported on the server');
+        }
+
+        foreach ($spec->getBase()->getActionEffects() as $effect) {
+            if (!$this->isServerEffect($effect)) {
+                throw new GameInvalidException('Game action effect is not supported on the server');
+            }
+        }
+
+        return $spec;
+    }
+
+    /**
      * Нужен ли карточке предыдущий удар.
      *
      * @param AbilityActionSpec $spec Спецификация.
@@ -86,5 +128,22 @@ final class GameActionCards
         }
 
         return false;
+    }
+
+    /**
+     * Эффект умеет применять общий серверный сценарий.
+     *
+     * @param ActionEffect $effect Эффект.
+     *
+     * @return bool true, если эффект поддерживается.
+     */
+    private function isServerEffect(ActionEffect $effect): bool
+    {
+        return $effect instanceof RequirePreviousAttackEffect
+            || $effect instanceof NextActionAttackAccuracyEffect
+            || $effect instanceof NextActionAttackScoreAdjustEffect
+            || $effect instanceof AfterActionUntilResourceSpentCheckModifierEffect
+            || $effect instanceof NextActionCostEffect
+            || $effect instanceof NextActionAttackCostEffect;
     }
 }

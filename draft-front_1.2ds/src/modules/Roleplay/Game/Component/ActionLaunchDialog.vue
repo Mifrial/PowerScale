@@ -565,11 +565,23 @@ async function submit(): Promise<void> {
 
     return;
   }
+  const actionRule = findRuleByRef(props.rules, action.code);
+  if (!actionRule) throw new Error('Правило действия не найдено в текущей ревизии');
+  if (
+    gamePhpMode.isEnabled() &&
+    !action.isAttack &&
+    !action.isProcess &&
+    selectedMovementOperations.value.length === 0
+  ) {
+    await applyDeclaredAction(actionRule);
+
+    return;
+  }
   const actionOd = selectedActionOdCost.value;
   if (actionOd <= 0) throw new Error('Укажите количество ОД');
   if (
-    actionEffectService.requiresPreviousAttack(actionRuleOf(action.ruleCode)) &&
-    !lastStrikeService.canFollowUp(actionRuleOf(action.ruleCode), actorSnapshot.value, followUpTargetKey.value)
+    actionEffectService.requiresPreviousAttack(actionRule) &&
+    !lastStrikeService.canFollowUp(actionRule, actorSnapshot.value, followUpTargetKey.value)
   ) {
     throw new Error('Противодействовать защите можно только сразу после атаки по этой цели');
   }
@@ -577,13 +589,6 @@ async function submit(): Promise<void> {
     throw new Error('Сначала закончи или сорви текущее действие');
   }
   assertOtherResourceCosts();
-  const actionRule = findRuleByRef(props.rules, action.code);
-  if (!actionRule) throw new Error('Правило действия не найдено в текущей ревизии');
-  if (gamePhpMode.isEnabled() && !action.isAttack && actionEffectService.requiresPreviousAttack(actionRule)) {
-    await applyPreparedDefense(actionRule);
-
-    return;
-  }
 
   if (actionOd > actionPoints.value) {
     if (gamePhpMode.isEnabled() && woundActionLaunchService.isWoundAction(action.code)) {
@@ -793,11 +798,12 @@ async function applyWoundAction(code: string): Promise<void> {
   }
 }
 
-async function applyPreparedDefense(rule: Rule): Promise<void> {
+async function applyDeclaredAction(rule: Rule): Promise<void> {
   const key = actorKey.value;
-  const target = followUpTargetKey.value;
   if (!key) throw new Error('Нет исполнителя');
-  if (!target) throw new Error('Выберите цель');
+  const needsTarget = actionEffectService.requiresPreviousAttack(rule);
+  const target = needsTarget ? followUpTargetKey.value : null;
+  if (needsTarget && !target) throw new Error('Выберите цель');
   const battleId = gamePhpBattleContext.battleId;
   if (battleId === null) throw new Error('Бой ещё не известен');
   const result = await getGameApi().declareAction({

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 // phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassTooLong
 
 use Closure;
 use Mifrial\Core\Event\Interface\Service\IEventManager;
@@ -26,7 +27,7 @@ use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
 /**
- * HTTP-команда не-атакующего действия после удара.
+ * HTTP-команда не-атакующего действия.
  */
 final class GameActionDeclare
 {
@@ -148,8 +149,45 @@ final class GameActionDeclare
         array $body,
     ): array {
         $input = $this->input($body);
-        $battle = $this->battleFor($game, $actorUserId, $editAll, $input);
-        $applied = $this->apply($game, $input, $battle->getPendingActionEffects(), $actorUserId, $viewAll);
+        $followUp = $this->perform->requiresFollowUp($game, $input['actionRuleCode']);
+        if ($followUp && $input['targetKey'] === null) {
+            throw new GameInvalidException('Game action target is missing');
+        }
+
+        $battle = $this->battleFor($game, $actorUserId, $editAll, $input, $followUp);
+        $applied = $this->apply(
+            $game,
+            $input,
+            $battle->getPendingActionEffects(),
+            $actorUserId,
+            $viewAll,
+            $followUp,
+        );
+        $this->postChat($game, $actorUserId, $input, $applied, $battle);
+
+        return $this->result($battle, $input, $applied, $followUp);
+    }
+
+    /**
+     * Пишет сообщение о действии в тред текущего хода.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Пользователь.
+     * @param array<string, mixed> $input Вход.
+     * @param array<string, mixed> $applied Итог действия.
+     * @param GameBattleRecord $battle Бой.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чат недоступен.
+     */
+    private function postChat(
+        GameRecord $game,
+        int $actorUserId,
+        array $input,
+        array $applied,
+        GameBattleRecord $battle,
+    ): void {
         $this->chat->post(
             $game,
             $actorUserId,
@@ -157,14 +195,34 @@ final class GameActionDeclare
             $input['actor']['id'],
             $input['actionRuleCode'],
             $applied['performed']['spent'],
+            $battle->getId(),
+            $battle->getRound(),
+            $battle->getActiveIndex(),
         );
+    }
 
+    /**
+     * Узкий итог команды.
+     *
+     * @param GameBattleRecord $battle Бой.
+     * @param array<string, mixed> $input Вход.
+     * @param array<string, mixed> $applied Итог действия.
+     * @param bool $followUp Нужна ли подготовка после прошлого удара.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    private function result(
+        GameBattleRecord $battle,
+        array $input,
+        array $applied,
+        bool $followUp,
+    ): array {
         return [
             'battleId' => $battle->getId(),
             'version' => $applied['version'],
             'spent' => $applied['performed']['spent'],
             'sheetVersion' => $applied['performed']['sheetVersion'],
-            'targetKey' => $input['targetKey'],
+            'targetKey' => $followUp ? $input['targetKey'] : null,
             'reaction' => $applied['reaction'],
             'pendingActionEffects' => $applied['pending'],
         ];
@@ -178,12 +236,13 @@ final class GameActionDeclare
      * @param array<string, mixed> $pending Ожидание.
      * @param int $actorUserId Пользователь.
      * @param bool $viewAll Полный просмотр.
+     * @param bool $followUp Нужна ли подготовка после прошлого удара.
      *
      * @return array{
      *     pending: array<string, mixed>,
      *     performed: array<string, mixed>,
      *     version: int,
-     *     reaction: string
+     *     reaction: string|null
      * } Итог.
      *
      * @throws GameInvalidException Если действие отвергнуто.
@@ -196,16 +255,19 @@ final class GameActionDeclare
         array $pending,
         int $actorUserId,
         bool $viewAll,
+        bool $followUp,
     ): array {
-        $reaction = $this->perform->followUpReaction(
-            $game,
-            $input['actionRuleCode'],
-            $pending,
-            $input['actor']['type'],
-            $input['actor']['id'],
-            $input['targetKey'],
-        );
-        $performed = $this->performAction($game, $input, $pending, $actorUserId, $viewAll);
+        $reaction = $followUp
+            ? $this->perform->followUpReaction(
+                $game,
+                $input['actionRuleCode'],
+                $pending,
+                $input['actor']['type'],
+                $input['actor']['id'],
+                (string) $input['targetKey'],
+            )
+            : null;
+        $performed = $this->performAction($game, $input, $pending, $actorUserId, $viewAll, !$followUp);
         $stored = $this->store($input, $performed['pending'], $reaction);
 
         return [
@@ -217,26 +279,29 @@ final class GameActionDeclare
     }
 
     /**
-     * Пишет подготовку и версию боя.
+     * Сохраняет ожидание и, если нужно, подготовку.
      *
      * @param array<string, mixed> $input Вход.
      * @param array<string, mixed> $pending Ожидание.
-     * @param string $reaction Реакция цели.
+     * @param string|null $reaction Реакция цели или null для обычного действия.
      *
      * @return array{pending: array<string, mixed>, version: int} Итог.
      *
      * @throws GameBattleConflictException Если версия боя другая.
      */
-    private function store(array $input, array $pending, string $reaction): array
+    private function store(array $input, array $pending, ?string $reaction): array
     {
-        $pending = $this->prepared->replace(
-            $pending,
-            $input['actor']['type'],
-            $input['actor']['id'],
-            $input['targetKey'],
-            $reaction,
-            $input['actionRuleCode'],
-        );
+        if ($reaction !== null) {
+            $pending = $this->prepared->replace(
+                $pending,
+                $input['actor']['type'],
+                $input['actor']['id'],
+                (string) $input['targetKey'],
+                $reaction,
+                $input['actionRuleCode'],
+            );
+        }
+
         $battle = $this->battles->replacePending($input['battleId'], $input['expectedBattle'], $pending);
 
         return ['pending' => $pending, 'version' => $battle->getStateVersion()];
@@ -250,6 +315,7 @@ final class GameActionDeclare
      * @param array<string, mixed> $pending Ожидание.
      * @param int $actorUserId Пользователь.
      * @param bool $viewAll Полный просмотр.
+     * @param bool $allowZeroChosen Разрешить chosen 0.
      *
      * @return array<string, mixed> Итог сценария.
      *
@@ -263,6 +329,7 @@ final class GameActionDeclare
         array $pending,
         int $actorUserId,
         bool $viewAll,
+        bool $allowZeroChosen,
     ): array {
         return $this->perform->perform(
             $game,
@@ -271,7 +338,7 @@ final class GameActionDeclare
             $input['actionRuleCode'],
             $input['expectedSheet'],
             $pending,
-            false,
+            $allowZeroChosen,
             $this->conflictProjection(
                 $game,
                 ['type' => $input['actor']['type'], 'id' => $input['actor']['id']],
@@ -291,7 +358,7 @@ final class GameActionDeclare
      *     expectedBattle: int,
      *     expectedSheet: int,
      *     actionRuleCode: string,
-     *     targetKey: string,
+     *     targetKey: string|null,
      *     actor: array{type: string, id: int}
      * } Вход.
      *
@@ -309,7 +376,7 @@ final class GameActionDeclare
             throw new GameInvalidException('Game action is invalid');
         }
 
-        if (!is_string($actionRuleCode) || !is_string($targetKey)) {
+        if (!is_string($actionRuleCode) || ($targetKey !== null && !is_string($targetKey))) {
             throw new GameInvalidException('Game action is invalid');
         }
 
@@ -330,6 +397,7 @@ final class GameActionDeclare
      * @param int $actorUserId Пользователь.
      * @param bool $editAll Право править чужое.
      * @param array<string, mixed> $input Вход.
+     * @param bool $followUp Нужна ли цель прошлого удара.
      *
      * @return GameBattleRecord Бой.
      *
@@ -343,6 +411,7 @@ final class GameActionDeclare
         int $actorUserId,
         bool $editAll,
         array $input,
+        bool $followUp,
     ): GameBattleRecord {
         $this->access->assertAttacker($game, $actorUserId, $editAll, $input['actor']);
         $sessionId = $this->sessions->findSessionId($game->getId());
@@ -351,7 +420,8 @@ final class GameActionDeclare
             throw new GameInvalidException('Game action is already open');
         }
 
-        $this->access->assertRoster($input['battleId'], $input['actor'], [$this->targetOfKey($input['targetKey'])]);
+        $targets = $followUp ? [$this->targetOfKey((string) $input['targetKey'])] : [];
+        $this->access->assertRoster($input['battleId'], $input['actor'], $targets);
 
         return $battle;
     }
