@@ -32,6 +32,8 @@ final class GameActionResourceResolver
 
     private readonly CharacterResourceArithmetic $arithmetic;
 
+    private readonly GameActionChosenRange $range;
+
     /**
      * Создаёт resolver.
      *
@@ -41,6 +43,7 @@ final class GameActionResourceResolver
     {
         $this->storage = new CharacterResourceStorage();
         $this->arithmetic = new CharacterResourceArithmetic();
+        $this->range = new GameActionChosenRange();
     }
 
     /**
@@ -53,6 +56,7 @@ final class GameActionResourceResolver
      * @param array<string, mixed> $choices Authoritative choices.
      * @param array<string, mixed> $sheet Authoritative sheet.
      * @param array<string, mixed> $chosenAmounts Server-owned chosen amounts.
+     * @param bool $allowZeroChosen Разрешить chosen 0.
      *
      * @return array<int, ResourceSpend> Resolved native spends.
      *
@@ -66,6 +70,7 @@ final class GameActionResourceResolver
         array $choices,
         array $sheet,
         array $chosenAmounts = [],
+        bool $allowZeroChosen = false,
     ): array {
         $action = $slice->findLive($actionRuleCode);
         $spec = $action?->getSpec();
@@ -100,6 +105,7 @@ final class GameActionResourceResolver
                 $chosenAmounts,
                 $resourceSpec,
                 $this->currentScalar($sheet, $component->getResourceCode(), $slice, $component),
+                $allowZeroChosen,
             );
             $minimum = $minimums[$component->getResourceCode()] ?? null;
             if ($minimum instanceof ResourceValue) {
@@ -204,6 +210,7 @@ final class GameActionResourceResolver
      * @param array<string, mixed> $chosenAmounts Server choices.
      * @param ResourceSpec $spec Live resource spec.
      * @param ScalarResourceValue|null $current Current scalar value.
+     * @param bool $allowZeroChosen Разрешить chosen 0.
      *
      * @return ResourceValue Typed native amount.
      *
@@ -214,6 +221,7 @@ final class GameActionResourceResolver
         array $chosenAmounts,
         ResourceSpec $spec,
         ?ScalarResourceValue $current,
+        bool $allowZeroChosen,
     ): ResourceValue {
         $amount = $component->getAmount();
         if ($amount instanceof ChosenAmount) {
@@ -231,7 +239,7 @@ final class GameActionResourceResolver
             if (!$spec->isDimensional() && is_int($amount)) {
                 if (
                     $component->getAmount() instanceof ChosenAmount
-                    && ($amount < 1 || $current === null || $amount > $current->getValue())
+                    && $this->range->isOutOfRange($amount, $current, $allowZeroChosen)
                 ) {
                     throw new GameInvalidException('Game chosen resource amount is out of range');
                 }

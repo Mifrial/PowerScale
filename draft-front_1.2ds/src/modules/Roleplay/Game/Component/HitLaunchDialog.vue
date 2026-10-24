@@ -1505,8 +1505,7 @@ async function acceptWideAttack(
             ),
           )
           .concat(attackerSpent > 0 ? [concentrationTokenService.tokenAdvantage(attackerSpent)] : [])
-          .concat(attackActionSourceService.extraTargetHitModifiers(targetProposals.length))
-          .concat(defensePrepModifiers(target.targetKey, target.hit.reaction)),
+          .concat(attackActionSourceService.extraTargetHitModifiers(targetProposals.length)),
         defenderAdv: accepted.proposal.opponentAdv,
         defenderAdvantageModifiers: actionEffectService
           .checkAdvantageModifiers(pendingEffectsByEntity.value[target.targetKey] ?? [], hitCheckCode.value, 'defender')

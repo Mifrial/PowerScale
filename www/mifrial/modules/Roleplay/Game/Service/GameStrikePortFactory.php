@@ -152,6 +152,67 @@ final class GameStrikePortFactory
     }
 
     /**
+     * HTTP не-атакующего действия.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameActionHttp Сценарий.
+     *
+     * @throws KernelException Если порт чужой.
+     */
+    public function createActionHttp(IServiceLocator $serviceLocator): GameActionHttp
+    {
+        $gateway = $this->smartTableGateway($serviceLocator);
+        $events = $this->events($serviceLocator);
+        $card = new GameCardAccess(
+            new GameRepository($gateway),
+            new GameMemberRepository($gateway),
+            new GameInvitationRepository($gateway),
+        );
+        GameDeliveryListener::register(
+            $events,
+            new GameDelivery($gateway, $this->games($serviceLocator), $card),
+        );
+
+        $chatContainer = $serviceLocator->get(IChatContainer::class);
+        $chats = $chatContainer->get(IChats::class);
+        if (!$chats instanceof IChats) {
+            throw new KernelException('PORT_TYPE', 'Chat service has a wrong type');
+        }
+
+        $rules = $this->strikeRules($serviceLocator);
+        $npcs = new GameNpcRepository($gateway);
+        $writes = new GameStrikeSheetWrites($this->mutations($serviceLocator), $npcs);
+        $perform = new GameActionPerform($rules, $npcs, $writes, new GameActionCards(), new GamePendingActionCosts());
+        $strikeChat = new GameStrikeChat($npcs, $rules);
+        $sheets = new GameStrikeSheets(
+            $rules,
+            $npcs,
+            new GameCharacterRepository($gateway),
+            new GameMemberRepository($gateway),
+            new ConflictSheetProjection(
+                new CharacterSectionMask(),
+                new GameCharacterProjectionMask(),
+                new GameNpcVisibility(),
+            ),
+        );
+
+        return new GameActionHttp(
+            $this->userAccess($serviceLocator),
+            new GameActionDeclare(
+                $gateway,
+                $this->games($serviceLocator),
+                $card,
+                $perform,
+                new GamePreparedDefense(),
+                new GameActionChat($chats, $strikeChat),
+                $sheets,
+                $events,
+            ),
+        );
+    }
+
+    /**
      * HTTP конца хода. Тот же состав портов, что у удара.
      *
      * @param IServiceLocator $serviceLocator Каталог.

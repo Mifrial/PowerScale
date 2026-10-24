@@ -1519,6 +1519,7 @@
                 "Mifrial\\Roleplay\\Game\\Action\\EndGameTurnAction",
                 "Mifrial\\Roleplay\\Game\\Action\\ContinueGameAction",
                 "Mifrial\\Roleplay\\Game\\Action\\AbortGameAction",
+                "Mifrial\\Roleplay\\Game\\Action\\DeclareGameActionAction",
                 "Mifrial\\Roleplay\\Game\\Action\\DeclareGameStrikeAction",
                 "Mifrial\\Roleplay\\Game\\Action\\ResolveGameStrikeAction",
                 "Mifrial\\Roleplay\\Game\\Action\\DeclareGameWideStrikeAction",
@@ -1840,6 +1841,11 @@
                 {
                     "action": "game.abortAction",
                     "handler": "Mifrial\\Roleplay\\Game\\Action\\AbortGameAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.declareAction",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\DeclareGameActionAction",
                     "csrf": true
                 },
                 {

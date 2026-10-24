@@ -113,6 +113,59 @@ final class GameEndOfTurnMysqlTest extends TestCase
     }
 
     /**
+     * Конец хода прогоняет Ожидание: снимок сгорает, подготовка остаётся.
+     *
+     * @return void
+     */
+    public function testEndTurnRunsWaitAndKeepsPreparedDefense(): void
+    {
+        $scene = $this->battlePair();
+        $key = 'character:' . $scene['hero'];
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $targetKey = 'character:' . $scene['ally'];
+        $gateway->open(GameBattleTable::class)->records()->update($scene['battleId'], [
+            'pending_action_effects' => [$key => [
+                [
+                    'sourceRuleCode' => 'old-strike',
+                    'effect' => [
+                        'type' => 'last_strike_snapshot',
+                        'kind' => 'other',
+                        'hits' => [[
+                            'targetKey' => $targetKey,
+                            'attackSr' => 1,
+                            'reaction' => 'ignore',
+                            'damaged' => false,
+                        ]],
+                    ],
+                ],
+                [
+                    'sourceRuleCode' => 'counter',
+                    'effect' => [
+                        'type' => 'prepared_defense_counter',
+                        'targetKey' => $targetKey,
+                        'reaction' => 'ignore',
+                    ],
+                ],
+            ]],
+        ]);
+        $battle = $this->battleRow($scene['battleId']);
+        $ended = $this->endTurn(
+            $scene['gameId'],
+            $scene['battleId'],
+            'wait-only',
+            $battle['state_version'],
+            $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+        );
+        self::assertTrue($ended['success'], json_encode($ended));
+        self::assertArrayHasKey('pendingActionEffects', $ended['data']);
+        $after = $this->battleRow($scene['battleId'])['pending_action_effects'][$key] ?? [];
+        $types = $this->waitEffectTypes($after);
+        self::assertContains('prepared_defense_counter', $types);
+        self::assertNotContains('last_strike_snapshot', $types);
+    }
+
+    /**
      * Маркер свёртывания пишет clotting. Без маркера поле 0, тик крови есть. Зажим поднимает закрытость.
      *
      * @return void
@@ -980,6 +1033,29 @@ final class GameEndOfTurnMysqlTest extends TestCase
         return $this->worldRevision ?? throw new RuntimeException('World revision was not published');
     }
 
+    /**
+     * Типы эффектов ожидания.
+     *
+     * @param array<int, mixed> $entries Записи.
+     *
+     * @return list<string> Типы.
+     */
+    private function waitEffectTypes(array $entries): array
+    {
+        $types = [];
+        foreach ($entries as $entry) {
+            $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+            if (is_array($effect) && is_string($effect['type'] ?? null)) {
+                $types[] = $effect['type'];
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * @return RuleSpaceRecord Мир.
+     */
     private function world(): RuleSpaceRecord
     {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
@@ -1044,6 +1120,17 @@ final class GameEndOfTurnMysqlTest extends TestCase
                     'type' => 'resource',
                     'resource_code' => 'ap',
                     'amount' => 1,
+                ]],
+                ...$flags,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('wait', new RuleVersionBody('ability', 'Ожидание', '', [
+                'type' => 'action',
+                'combat_action' => 'wait',
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'ap',
+                    'amount' => ['type' => 'chosen', 'max' => 'available'],
+                    'label' => 'Действие',
                 ]],
                 ...$flags,
             ], [], [], 'needs_work')),

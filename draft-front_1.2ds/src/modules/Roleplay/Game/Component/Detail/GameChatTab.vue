@@ -707,6 +707,7 @@ async function applyRealtimeEvent(event: GameRealtimeEvent): Promise<boolean> {
     event.source === 'turn' ||
     event.source === 'battle' ||
     event.source === 'wound' ||
+    event.source === 'action' ||
     event.source === 'manual_sheet'
   ) {
     const battleId = typeof event.battleId === 'number' ? event.battleId : Number(event.battleId);

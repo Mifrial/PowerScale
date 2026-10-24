@@ -61,6 +61,7 @@ import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/
 import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
 import type { GamePhpStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAttack';
 import type { GamePhpWideStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpWideStrikeAttack';
+import type { GamePhpActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpActionResult';
 import type { GamePhpStrikeResult } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeResult';
 import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
 import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
@@ -1083,6 +1084,28 @@ export class GameApi implements IGameApi {
     return result;
   }
 
+  async declareAction(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      expectedSheetVersion: number;
+      actor: { type: 'character' | 'npc'; id: number };
+      actionRuleCode: string;
+      followUpTargetKey: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpActionResult> {
+    const result = await this.requireData<GamePhpActionResult>('game.declareAction', body, signal);
+    const actorKey = `${body.actor.type}:${body.actor.id}` as CombatEntityKey;
+    gamePhpBattleContext.rememberBattle(result.battleId, result.version);
+    gamePhpBattleContext.rememberPending(result.pendingActionEffects);
+    gamePhpBattleContext.rememberSheet(actorKey, result.sheetVersion);
+
+    return result;
+  }
+
   async declareWideStrike(
     body: {
       gameId: number;
@@ -1226,6 +1249,9 @@ export class GameApi implements IGameApi {
     const result = await this.requireData<GamePhpTurnResult>(action, body, signal);
     gamePhpBattleContext.rememberBattle(body.battleId, result.version);
     gamePhpBattleContext.rememberDebt(false, result.version);
+    if (result.pendingActionEffects) {
+      gamePhpBattleContext.rememberPending(result.pendingActionEffects);
+    }
 
     return result;
   }

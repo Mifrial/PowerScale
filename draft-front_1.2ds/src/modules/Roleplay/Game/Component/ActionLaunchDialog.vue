@@ -577,6 +577,14 @@ async function submit(): Promise<void> {
     throw new Error('Сначала закончи или сорви текущее действие');
   }
   assertOtherResourceCosts();
+  const actionRule = findRuleByRef(props.rules, action.code);
+  if (!actionRule) throw new Error('Правило действия не найдено в текущей ревизии');
+  if (gamePhpMode.isEnabled() && !action.isAttack && actionEffectService.requiresPreviousAttack(actionRule)) {
+    await applyPreparedDefense(actionRule);
+
+    return;
+  }
+
   if (actionOd > actionPoints.value) {
     if (gamePhpMode.isEnabled() && woundActionLaunchService.isWoundAction(action.code)) {
       throw new Error('Недостаточно ОД для действия');
@@ -624,8 +632,6 @@ async function submit(): Promise<void> {
   const version = versionOf(key);
   if (!version) throw new Error('Лист участника не найден');
   await payOtherResourceCosts(key);
-  const actionRule = findRuleByRef(props.rules, action.code);
-  if (!actionRule) throw new Error('Правило действия не найдено в текущей ревизии');
   let pendingEffects = pendingEffectsByEntity.value[key] ?? [];
   const processSession = activeProcess.value;
   if (processSession) {
@@ -785,6 +791,30 @@ async function applyWoundAction(code: string): Promise<void> {
     await getGameApi().replaceCombatState(props.gameId, target, index, woundInstanceService.applySqueeze(state, actor));
     emit('overlay-changed');
   }
+}
+
+async function applyPreparedDefense(rule: Rule): Promise<void> {
+  const key = actorKey.value;
+  const target = followUpTargetKey.value;
+  if (!key) throw new Error('Нет исполнителя');
+  if (!target) throw new Error('Выберите цель');
+  const battleId = gamePhpBattleContext.battleId;
+  if (battleId === null) throw new Error('Бой ещё не известен');
+  const result = await getGameApi().declareAction({
+    gameId: props.gameId,
+    idempotencyKey: createRandomId(),
+    battleId,
+    expectedVersion: gamePhpBattleContext.battleVersion,
+    expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
+    actor: gamePhpCommandService.participantOf(key),
+    actionRuleCode: rule.code,
+    followUpTargetKey: target,
+  });
+  pendingEffectsByEntity.value = {
+    ...pendingEffectsByEntity.value,
+    [key]: result.pendingActionEffects[key] ?? [],
+  };
+  emit('overlay-changed');
 }
 
 function actionRuleOf(ruleCode: string): Rule {

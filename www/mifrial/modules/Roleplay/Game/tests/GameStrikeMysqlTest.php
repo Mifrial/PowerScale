@@ -489,6 +489,121 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Противодействие после удара пишет подготовку и снимает снимок.
+     *
+     * @return void
+     */
+    public function testPreparedDefenseCounterAfterSingleStrike(): void
+    {
+        $world = $this->worldWithWeapon(withPenetration: true, withPendingEffects: true, extraCards: [
+            'counter' => [
+                'components' => [['type' => 'resource', 'resource_code' => 'action-points', 'amount' => 1]],
+                'effects' => [[
+                    'type' => 'require_previous_attack',
+                    'same_target' => true,
+                    'all_damaged' => false,
+                    'single_strike' => true,
+                ]],
+            ],
+            'wait' => [
+                'combat_action' => 'wait',
+                'components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => ['type' => 'chosen', 'max' => 'available'],
+                ]],
+                'effects' => [],
+            ],
+        ]);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-action',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-action',
+            'expectedVersion' => 1,
+            'attack' => $this->characterAttack($attackerId, $defenderId),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-action',
+            'expectedVersion' => $opened['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
+            'defense' => ['reaction' => 'ignore'],
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $beforeAp = $this->actionPointsOf($attackerId);
+        $sheetBefore = $this->characterFacade()->get($attackerId)->getActualVersion();
+        $action = $this->dispatch('game.declareAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'a-action',
+            'expectedVersion' => $closed['data']['version'],
+            'expectedSheetVersion' => $sheetBefore,
+            'actor' => ['type' => 'character', 'id' => $attackerId],
+            'actionRuleCode' => 'counter',
+            'followUpTargetKey' => 'character:' . $defenderId,
+        ]);
+        self::assertTrue($action['success'], json_encode($action));
+        self::assertSame($beforeAp - 1, $this->actionPointsOf($attackerId));
+        $pending = $this->pendingEntries($battleId, 'character:' . $attackerId);
+        $types = [];
+        foreach ($pending as $entry) {
+            $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+            if (is_array($effect) && is_string($effect['type'] ?? null)) {
+                $types[] = $effect['type'];
+            }
+        }
+
+        self::assertContains('prepared_defense_counter', $types);
+        self::assertNotContains('last_strike_snapshot', $types);
+        self::assertSame($closed['data']['version'] + 1, $action['data']['version']);
+
+        $replay = $this->dispatch('game.declareAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'a-action',
+            'expectedVersion' => $closed['data']['version'],
+            'expectedSheetVersion' => $sheetBefore,
+            'actor' => ['type' => 'character', 'id' => $attackerId],
+            'actionRuleCode' => 'counter',
+            'followUpTargetKey' => 'character:' . $defenderId,
+        ]);
+        self::assertTrue($replay['success'], json_encode($replay));
+        self::assertSame($beforeAp - 1, $this->actionPointsOf($attackerId));
+        $missing = $this->dispatch('game.declareAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'a-action-missing',
+            'expectedVersion' => $action['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+            'actor' => ['type' => 'character', 'id' => $attackerId],
+            'actionRuleCode' => 'counter',
+            'followUpTargetKey' => 'character:' . $defenderId,
+        ]);
+        self::assertFalse($missing['success']);
+        self::assertSame('GAME_INVALID', $missing['error']['code'] ?? null);
+
+    }
+
+    /**
      * Чат одиночного удара: порядок, вложения и ключи доставки.
      *
      * @return void
@@ -2158,10 +2273,20 @@ final class GameStrikeMysqlTest extends TestCase
             ], [], [], 'needs_work'));
         }
 
-        foreach ($extraCards as $code => $effects) {
+        foreach ($extraCards as $code => $definition) {
+            $effects = $definition;
+            $components = [];
+            $combatAction = null;
+            if (is_array($definition) && array_key_exists('effects', $definition)) {
+                $effects = is_array($definition['effects']) ? $definition['effects'] : [];
+                $components = is_array($definition['components'] ?? null) ? $definition['components'] : [];
+                $combatAction = is_string($definition['combat_action'] ?? null) ? $definition['combat_action'] : null;
+            }
+
             $entries[] = RuleCommitEntry::put($code, new RuleVersionBody('ability', ucfirst($code), '', [
                 'type' => 'action',
-                'action_components' => [],
+                ...($combatAction === null ? [] : ['combat_action' => $combatAction]),
+                'action_components' => $components,
                 ...($effects === [] ? [] : ['action_effects' => $effects]),
             ], [], [], 'needs_work'));
         }

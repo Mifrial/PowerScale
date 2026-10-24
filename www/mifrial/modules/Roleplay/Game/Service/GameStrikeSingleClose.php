@@ -155,7 +155,19 @@ final class GameStrikeSingleClose
         }
 
         $previousSr = $lastStrike->previousSr($pending, $attackerKind, $attackerId, $targetKey);
-        $attackerRoll = $this->resolution->rollOf($game, $open, $hitCode, $pending, $slice, [], [$targetKey]);
+        $advantages = [];
+        $prepared = (new GamePreparedDefense())->modifier(
+            $pending,
+            $attackerKind,
+            $attackerId,
+            $targetKey,
+            $choice['reaction'],
+        );
+        if ($prepared !== null) {
+            $advantages[] = $prepared;
+        }
+
+        $attackerRoll = $this->resolution->rollOf($game, $open, $hitCode, $pending, $slice, $advantages, [$targetKey]);
         $defenderRoll = null;
         if (
             $choice['reaction'] !== 'ignore'

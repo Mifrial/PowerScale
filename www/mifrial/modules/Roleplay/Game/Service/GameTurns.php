@@ -47,6 +47,14 @@ final class GameTurns
 
     private readonly GameStrikeSheetWrites $sheets;
 
+    private readonly GameNpcRepository $npcs;
+
+    private readonly GameActionCards $actionCards;
+
+    private readonly GameActionPerform $actionPerform;
+
+    private readonly GameActionChat $actionChat;
+
     /**
      * Создаёт сценарий.
      *
@@ -80,8 +88,18 @@ final class GameTurns
         $this->members = new GameMemberRepository($this->gateway);
         $this->replay = new GameReplayTransaction($this->gateway);
         $this->delivery = new GameDeliverySignal($events);
-        $this->sheets = new GameStrikeSheetWrites($mutations, new GameNpcRepository($this->gateway));
+        $this->npcs = new GameNpcRepository($this->gateway);
+        $this->sheets = new GameStrikeSheetWrites($mutations, $this->npcs);
         $this->strikesRepo = new GameActionRepository($this->gateway);
+        $this->actionCards = new GameActionCards();
+        $this->actionPerform = new GameActionPerform(
+            $rules,
+            $this->npcs,
+            $this->sheets,
+            $this->actionCards,
+            new GamePendingActionCosts(),
+        );
+        $this->actionChat = new GameActionChat($chats, new GameStrikeChat($this->npcs, $rules));
     }
 
     private readonly GameActionRepository $strikesRepo;
@@ -223,7 +241,7 @@ final class GameTurns
         $current = $this->current($battle);
         $this->assertActor($game, $actorUserId, $editAll, $current);
         if ($command === 'end') {
-            $ended = $this->endWork($game, $battle, $expectedBattle, $expectedSheet, $current);
+            $ended = $this->endWork($game, $battle, $expectedBattle, $expectedSheet, $current, $actorUserId);
             $order = $battle->getTurnOrder() ?? [];
             $index = $ended['activeIndex'] ?? 0;
             $entry = is_int($index) ? ($order[$index] ?? null) : null;
@@ -244,9 +262,20 @@ final class GameTurns
     }
 
     /**
+     * Конец хода: Ожидание, тики и передача хода.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
+     * @param int $expectedBattle Версия боя.
+     * @param int $expectedSheet Версия листа текущего.
      * @param array{type: string, id: int} $current Текущий.
+     * @param int $actorUserId Пользователь.
      *
      * @return array<string, mixed> Итог.
+     *
+     * @throws GameBattleConflictException Если версия боя или листа другая.
+     * @throws GameInvalidException Если карточки Ожидания нет или запись отвергнута.
+     * @throws GameNotFoundException Если листа нет.
      */
     private function endWork(
         GameRecord $game,
@@ -254,26 +283,34 @@ final class GameTurns
         int $expectedBattle,
         int $expectedSheet,
         array $current,
+        int $actorUserId,
     ): array {
         if ($this->strikesRepo->findOpenAny($battle->getId()) !== null) {
             throw new GameInvalidException('Game strike is open');
         }
 
-        $snapshot = $this->snapshot($current);
-        if ($snapshot['actualVersion'] !== $expectedSheet) {
-            throw new GameBattleConflictException($snapshot['actualVersion']);
-        }
-
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $waitCode = $this->actionCards->getByCombatAction($slice, 'wait');
+        $performed = $this->actionPerform->perform(
+            $game,
+            $current['type'],
+            $current['id'],
+            $waitCode,
+            $expectedSheet,
+            $battle->getPendingActionEffects(),
+            true,
+        );
+        $pending = $performed['pending'];
+        $snapshot = $this->snapshot($current);
         $built = $this->ticks->build($game, $slice, $snapshot['sheet']);
-        $sheetVersion = $expectedSheet;
+        $sheetVersion = $performed['sheetVersion'];
         if ($built['operations'] !== []) {
             try {
                 $sheetVersion = $this->sheets->write(
                     $game,
                     $current['type'],
                     $current['id'],
-                    $expectedSheet,
+                    $snapshot['actualVersion'],
                     $built['operations'],
                 );
             } catch (CharacterInvalidException $exception) {
@@ -285,10 +322,18 @@ final class GameTurns
         $saved = $this->battles->replaceTracked(
             $battle->getId(),
             $expectedBattle,
-            null,
+            $pending,
             null,
             $cursor['index'],
             $cursor['round'],
+        );
+        $this->actionChat->post(
+            $game,
+            $actorUserId,
+            $current['type'],
+            $current['id'],
+            $waitCode,
+            $performed['spent'],
         );
         $this->post($game, $built['rolls']);
 
@@ -298,6 +343,7 @@ final class GameTurns
             'sheetVersion' => $sheetVersion,
             'activeIndex' => $cursor['index'],
             'round' => $cursor['round'],
+            'pendingActionEffects' => $pending,
         ];
     }
 

@@ -18,6 +18,7 @@ use Mifrial\Roleplay\Game\Action\ContinueGameAction;
 use Mifrial\Roleplay\Game\Action\CreateGameAction;
 use Mifrial\Roleplay\Game\Action\CreateGameChronicleEntryAction;
 use Mifrial\Roleplay\Game\Action\CreateGameNpcAction;
+use Mifrial\Roleplay\Game\Action\DeclareGameActionAction;
 use Mifrial\Roleplay\Game\Action\DeclareGameCheckAction;
 use Mifrial\Roleplay\Game\Action\DeclareGameStrikeAction;
 use Mifrial\Roleplay\Game\Action\DeclareGameWideStrikeAction;
@@ -171,6 +172,9 @@ return [
         },
         AbortGameAction::class => static function (IServiceLocator $serviceLocator): AbortGameAction {
             return new AbortGameAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
+        },
+        DeclareGameActionAction::class => static function (IServiceLocator $serviceLocator): DeclareGameActionAction {
+            return new DeclareGameActionAction((new GameStrikePortFactory())->createActionHttp($serviceLocator));
         },
         DeclareGameStrikeAction::class => static function (IServiceLocator $serviceLocator): DeclareGameStrikeAction {
             return new DeclareGameStrikeAction((new GameStrikePortFactory())->createHttp($serviceLocator));
@@ -553,6 +557,10 @@ return [
         ],
         'game.abortAction' => [
             'handler' => AbortGameAction::class,
+            'csrf' => true,
+        ],
+        'game.declareAction' => [
+            'handler' => DeclareGameActionAction::class,
             'csrf' => true,
         ],
         'game.declareStrike' => [

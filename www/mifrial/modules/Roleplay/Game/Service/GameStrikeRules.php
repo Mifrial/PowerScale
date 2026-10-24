@@ -102,6 +102,7 @@ final class GameStrikeRules
      * @param array<string, mixed> $choices Authoritative choices.
      * @param array<string, mixed> $sheet Authoritative sheet.
      * @param array<string, mixed> $chosenAmounts Server-owned choices.
+     * @param bool $allowZeroChosen Разрешить chosen 0.
      *
      * @return array<int, ResourceSpend> Native spends.
      *
@@ -117,6 +118,7 @@ final class GameStrikeRules
         array $choices,
         array $sheet,
         array $chosenAmounts = [],
+        bool $allowZeroChosen = false,
     ): array {
         return $this->resourceResolver->resolve(
             $this->slice($spaceId, $rulesRevision),
@@ -126,6 +128,7 @@ final class GameStrikeRules
             $choices,
             $sheet,
             $chosenAmounts,
+            $allowZeroChosen,
         );
     }
 

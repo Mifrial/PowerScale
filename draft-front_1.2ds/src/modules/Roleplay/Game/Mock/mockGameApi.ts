@@ -166,6 +166,13 @@ export const mockGameApi: IGameApi = {
   }),
   declareStrike: async () => ({ version: 1 }),
   resolveStrike: async () => ({ version: 1 }),
+  declareAction: async () => ({
+    battleId: 0,
+    version: 1,
+    spent: 0,
+    sheetVersion: 1,
+    pendingActionEffects: {},
+  }),
   declareWideStrike: async () => ({ version: 1 }),
   resolveWideStrike: async () => ({ version: 1 }),
   woundAction: async () => ({ version: 1 }),

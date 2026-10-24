@@ -147,6 +147,7 @@ final class GameDelivery implements IGameDelivery
             'turn' => ['source' => 'turn', 'keys' => []],
             'battle' => ['source' => 'battle', 'keys' => []],
             'wound' => ['source' => 'wound', 'keys' => []],
+            'action' => ['source' => 'action', 'keys' => []],
             'manual_sheet' => ['source' => 'manual_sheet', 'keys' => $this->keys->fromManualSheet($command['result'])],
             default => null,
         };
@@ -238,7 +239,14 @@ final class GameDelivery implements IGameDelivery
      */
     private function battleIdOf(string $source, int $sourceId): ?int
     {
-        if ($source !== 'strike' && $source !== 'turn' && $source !== 'wound' && $source !== 'manual_sheet' && $source !== 'battle') {
+        if (
+            $source !== 'strike'
+            && $source !== 'turn'
+            && $source !== 'wound'
+            && $source !== 'action'
+            && $source !== 'manual_sheet'
+            && $source !== 'battle'
+        ) {
             return null;
         }
 

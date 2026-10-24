@@ -117,6 +117,40 @@ final class GameLastStrikeSnapshot
     }
 
     /**
+     * Реакция цели в снимке прошлого удара.
+     *
+     * @param array<string, mixed> $pending Карта боя.
+     * @param string $actorKind Вид character или npc.
+     * @param int $actorId Id актора.
+     * @param string $targetKey Ключ цели.
+     *
+     * @return string|null Реакция или null.
+     */
+    public function reactionOf(
+        array $pending,
+        string $actorKind,
+        int $actorId,
+        string $targetKey,
+    ): ?string {
+        $snapshot = $this->snapshotOf($pending, $actorKind, $actorId);
+        if ($snapshot === null) {
+            return null;
+        }
+
+        foreach ($this->hitsOf($snapshot) as $hit) {
+            if (($hit['targetKey'] ?? null) !== $targetKey) {
+                continue;
+            }
+
+            $reaction = $hit['reaction'] ?? null;
+
+            return is_string($reaction) ? $reaction : null;
+        }
+
+        return null;
+    }
+
+    /**
      * Вид удара карточки: lethal, если она добивает от прошлого успеха.
      *
      * @param CharacterRuleSlice $slice Срез.

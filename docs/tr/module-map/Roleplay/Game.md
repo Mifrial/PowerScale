@@ -36,6 +36,7 @@
 - `Mifrial\Roleplay\Game\Action\EndGameTurnAction`
 - `Mifrial\Roleplay\Game\Action\ContinueGameAction`
 - `Mifrial\Roleplay\Game\Action\AbortGameAction`
+- `Mifrial\Roleplay\Game\Action\DeclareGameActionAction`
 - `Mifrial\Roleplay\Game\Action\DeclareGameStrikeAction`
 - `Mifrial\Roleplay\Game\Action\ResolveGameStrikeAction`
 - `Mifrial\Roleplay\Game\Action\DeclareGameWideStrikeAction`
@@ -146,6 +147,7 @@
 | `game.endTurn` | `EndGameTurnAction` | да |
 | `game.continueAction` | `ContinueGameAction` | да |
 | `game.abortAction` | `AbortGameAction` | да |
+| `game.declareAction` | `DeclareGameActionAction` | да |
 | `game.declareStrike` | `DeclareGameStrikeAction` | да |
 | `game.resolveStrike` | `ResolveGameStrikeAction` | да |
 | `game.declareWideStrike` | `DeclareGameWideStrikeAction` | да |

@@ -57,6 +57,7 @@ import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleShe
 import type { GamePhpStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAttack';
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
 import type { GamePhpWideStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpWideStrikeAttack';
+import type { GamePhpActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpActionResult';
 import type { GamePhpStrikeResult } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeResult';
 import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
 import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
@@ -332,6 +333,19 @@ export interface IGameApi {
     },
     signal?: AbortSignal,
   ): Promise<GamePhpStrikeResult>;
+  declareAction(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      expectedSheetVersion: number;
+      actor: { type: 'character' | 'npc'; id: number };
+      actionRuleCode: string;
+      followUpTargetKey: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpActionResult>;
   declareWideStrike(
     body: {
       gameId: number;
