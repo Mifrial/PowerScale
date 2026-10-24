@@ -804,6 +804,10 @@ async function applyDeclaredAction(rule: Rule): Promise<void> {
   const needsTarget = actionEffectService.requiresPreviousAttack(rule);
   const target = needsTarget ? followUpTargetKey.value : null;
   if (needsTarget && !target) throw new Error('Выберите цель');
+  const chosenAmounts =
+    selectedAction.value?.isVariableCost === true && turnResourceCode(props.rules) !== ''
+      ? { [turnResourceCode(props.rules)]: selectedActionOdCost.value }
+      : {};
   const battleId = gamePhpBattleContext.battleId;
   if (battleId === null) throw new Error('Бой ещё не известен');
   const result = await getGameApi().declareAction({
@@ -815,6 +819,7 @@ async function applyDeclaredAction(rule: Rule): Promise<void> {
     actor: gamePhpCommandService.participantOf(key),
     actionRuleCode: rule.code,
     followUpTargetKey: target,
+    chosenAmounts,
   });
   pendingEffectsByEntity.value = {
     ...pendingEffectsByEntity.value,

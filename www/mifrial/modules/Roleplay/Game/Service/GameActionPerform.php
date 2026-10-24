@@ -115,6 +115,7 @@ final class GameActionPerform
      * @param int $expectedSheetVersion Версия листа актора.
      * @param array<string, mixed> $pending Карта ожидания.
      * @param bool $allowZeroChosen Разрешить chosen 0 (Ожидание).
+     * @param array<string, int> $chosenAmounts Выбранные суммы ресурсов.
      * @param Closure|null $projectConflict Проектор конфликта листа.
      *
      * @return array{
@@ -136,6 +137,7 @@ final class GameActionPerform
         int $expectedSheetVersion,
         array $pending,
         bool $allowZeroChosen = false,
+        array $chosenAmounts = [],
         ?Closure $projectConflict = null,
     ): array {
         $executed = $this->execute(
@@ -146,6 +148,7 @@ final class GameActionPerform
             $expectedSheetVersion,
             $pending,
             $allowZeroChosen,
+            $chosenAmounts,
             $projectConflict,
         );
 
@@ -162,6 +165,7 @@ final class GameActionPerform
      * @param int $expectedSheetVersion Версия листа.
      * @param array<string, mixed> $pending Ожидание.
      * @param bool $allowZeroChosen Разрешить chosen 0.
+     * @param array<string, int> $chosenAmounts Выбранные суммы ресурсов.
      * @param Closure|null $projectConflict Проектор конфликта.
      *
      * @return array{prepared: array<string, mixed>, priced: array<string, mixed>, sheetVersion: int} Итог.
@@ -178,9 +182,17 @@ final class GameActionPerform
         int $expectedSheetVersion,
         array $pending,
         bool $allowZeroChosen,
+        array $chosenAmounts,
         ?Closure $projectConflict,
     ): array {
-        $prepared = $this->prepare($game, $actorKind, $actorId, $actionRuleCode, $allowZeroChosen);
+        $prepared = $this->prepare(
+            $game,
+            $actorKind,
+            $actorId,
+            $actionRuleCode,
+            $allowZeroChosen,
+            $chosenAmounts,
+        );
         $priced = $this->priceFor($prepared, $actionRuleCode, $actorKind, $actorId, $pending);
         $this->assertResources($game, $prepared['document']['sheet'], $priced['spends']);
         $sheetVersion = $this->writePrepared(
@@ -236,6 +248,7 @@ final class GameActionPerform
      * @param int $actorId Идентификатор актора.
      * @param string $actionRuleCode Карточка.
      * @param bool $allowZeroChosen Разрешить chosen 0.
+     * @param array<string, int> $chosenAmounts Выбранные суммы ресурсов.
      *
      * @return array{
      *     slice: CharacterRuleSlice,
@@ -252,11 +265,13 @@ final class GameActionPerform
         int $actorId,
         string $actionRuleCode,
         bool $allowZeroChosen,
+        array $chosenAmounts,
     ): array {
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->cards->assertServerPerformable($slice, $actionRuleCode);
         $document = $this->document($game, $actorKind, $actorId);
         $chosen = $this->chosen->resolve($slice, $spec, $document['sheet'], $allowZeroChosen);
+        $chosen = array_replace($chosen, $chosenAmounts);
         $spends = $this->resolveSpends($game, $actionRuleCode, $document, $chosen, $allowZeroChosen);
 
         return ['slice' => $slice, 'document' => $document, 'spends' => $spends];

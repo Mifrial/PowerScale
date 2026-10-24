@@ -612,10 +612,11 @@ final class GameStrikeMysqlTest extends TestCase
             'actor' => ['type' => 'character', 'id' => $attackerId],
             'actionRuleCode' => 'wait',
             'followUpTargetKey' => null,
+            'chosenAmounts' => ['action-points' => 3],
         ]);
         self::assertTrue($wait['success'], json_encode($wait));
-        self::assertSame($apBeforeWait, $wait['data']['spent']);
-        self::assertSame(0, $this->actionPointsOf($attackerId));
+        self::assertSame(3, $wait['data']['spent']);
+        self::assertSame($apBeforeWait - 3, $this->actionPointsOf($attackerId));
         self::assertNull($wait['data']['targetKey']);
         self::assertSame(0, $this->battleRow($battleId)['active_index']);
         $pendingAfterWait = $this->pendingEntries($battleId, 'character:' . $attackerId);

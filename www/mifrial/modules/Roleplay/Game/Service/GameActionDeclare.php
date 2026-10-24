@@ -339,6 +339,7 @@ final class GameActionDeclare
             $input['expectedSheet'],
             $pending,
             $allowZeroChosen,
+            $input['chosenAmounts'],
             $this->conflictProjection(
                 $game,
                 ['type' => $input['actor']['type'], 'id' => $input['actor']['id']],
@@ -359,6 +360,7 @@ final class GameActionDeclare
      *     expectedSheet: int,
      *     actionRuleCode: string,
      *     targetKey: string|null,
+     *     chosenAmounts: array<string, int>,
      *     actor: array{type: string, id: int}
      * } Вход.
      *
@@ -371,6 +373,7 @@ final class GameActionDeclare
         $expectedSheet = $body['expectedSheetVersion'] ?? null;
         $actionRuleCode = $body['actionRuleCode'] ?? null;
         $targetKey = $body['followUpTargetKey'] ?? null;
+        $chosenAmounts = $this->chosenAmounts($body['chosenAmounts'] ?? []);
         $actor = $this->pair($body['actor'] ?? null);
         if (!is_int($battleId) || !is_int($expectedBattle) || !is_int($expectedSheet)) {
             throw new GameInvalidException('Game action is invalid');
@@ -386,8 +389,54 @@ final class GameActionDeclare
             'expectedSheet' => $expectedSheet,
             'actionRuleCode' => $actionRuleCode,
             'targetKey' => $targetKey,
+            'chosenAmounts' => $chosenAmounts,
             'actor' => $actor,
         ];
+    }
+
+    /**
+     * Проверяет карту выбранных сумм.
+     *
+     * @param mixed $value Значение из JSON.
+     *
+     * @return array<string, int> Суммы по ресурсам.
+     *
+     * @throws GameInvalidException Если карта чужая.
+     */
+    private function chosenAmounts(mixed $value): array
+    {
+        if ($value === []) {
+            return [];
+        }
+
+        if (!is_array($value) || array_is_list($value)) {
+            throw new GameInvalidException('Game action chosen amounts are invalid');
+        }
+
+        $amounts = [];
+        foreach ($value as $code => $amount) {
+            $this->assertChosenAmount($code, $amount);
+            $amounts[$code] = $amount;
+        }
+
+        return $amounts;
+    }
+
+    /**
+     * Проверяет одну выбранную сумму.
+     *
+     * @param mixed $code Код ресурса.
+     * @param mixed $amount Сумма.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если запись чужая.
+     */
+    private function assertChosenAmount(mixed $code, mixed $amount): void
+    {
+        if (!is_string($code) || $code === '' || !is_int($amount) || $amount < 0) {
+            throw new GameInvalidException('Game action chosen amounts are invalid');
+        }
     }
 
     /**

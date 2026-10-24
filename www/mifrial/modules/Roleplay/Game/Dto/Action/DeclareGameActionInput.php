@@ -24,6 +24,7 @@ final class DeclareGameActionInput implements IActionInput
      * @param array $actor Актор.
      * @param string $actionRuleCode Карточка действия.
      * @param string|null $followUpTargetKey Цель прошлого удара.
+     * @param array<string, int> $chosenAmounts Выбранные суммы ресурсов.
      *
      * @return void
      */
@@ -36,6 +37,7 @@ final class DeclareGameActionInput implements IActionInput
         public readonly array $actor,
         public readonly string $actionRuleCode,
         public readonly ?string $followUpTargetKey,
+        public readonly array $chosenAmounts = [],
     ) {
     }
 
@@ -54,6 +56,7 @@ final class DeclareGameActionInput implements IActionInput
             'actor' => $this->actor,
             'actionRuleCode' => $this->actionRuleCode,
             'followUpTargetKey' => $this->followUpTargetKey,
+            'chosenAmounts' => $this->chosenAmounts,
         ];
     }
 }

@@ -343,6 +343,7 @@ export interface IGameApi {
       actor: { type: 'character' | 'npc'; id: number };
       actionRuleCode: string;
       followUpTargetKey: string | null;
+      chosenAmounts?: Record<string, number>;
     },
     signal?: AbortSignal,
   ): Promise<GamePhpActionResult>;
