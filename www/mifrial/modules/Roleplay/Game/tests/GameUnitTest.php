@@ -143,6 +143,7 @@ final class GameUnitTest extends TestCase
             'owner_id' => 1,
             'description' => '',
             'active' => false,
+            'published_read' => 'owner',
             'created_at' => DateTime::fromUnix(1),
         ]);
     }

@@ -174,11 +174,11 @@ final class ChatHttpMysqlTest extends TestCase
     }
 
     /**
-     * Inbox не отдаёт type вне private/group.
+     * Inbox отдаёт чат любого типа, в котором актор — участник.
      *
      * @return void
      */
-    public function testInboxOmitsDonorType(): void
+    public function testInboxShowsDonorType(): void
     {
         $alice = $this->addUser('alice');
         $bob = $this->addUser('bob');
@@ -193,16 +193,18 @@ final class ChatHttpMysqlTest extends TestCase
         $this->setActor($alice);
         $inbox = $this->dispatch('chat.getChats', null);
         self::assertTrue($inbox['success']);
-        self::assertCount(1, $inbox['data']);
-        self::assertSame('private', $inbox['data'][0]['type']);
+        self::assertCount(2, $inbox['data']);
+        $types = array_column($inbox['data'], 'type');
+        sort($types);
+        self::assertSame(['game', 'private'], $types);
     }
 
     /**
-     * addTyped не попадает в chat.getChats.
+     * addTyped попадает в chat.getChats, если актор — участник.
      *
      * @return void
      */
-    public function testInboxOmitsRegisteredType(): void
+    public function testInboxShowsRegisteredType(): void
     {
         $alice = $this->addUser('alice');
         $chatContainer = $this->application()->getLocator()->get(IChatContainer::class);
@@ -217,7 +219,9 @@ final class ChatHttpMysqlTest extends TestCase
         $this->setActor($alice);
         $inbox = $this->dispatch('chat.getChats', null);
         self::assertTrue($inbox['success']);
-        self::assertSame([], $inbox['data']);
+        self::assertCount(1, $inbox['data']);
+        self::assertSame($typedId, $inbox['data'][0]['id']);
+        self::assertSame('donor_probe', $inbox['data'][0]['type']);
         self::assertSame('donor_probe', $this->chats()->getById($typedId)->getType());
     }
 

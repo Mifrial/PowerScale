@@ -216,11 +216,11 @@ final class ChatSseMysqlTest extends TestCase
     }
 
     /**
-     * Сообщение чата донорского типа не входит в кадр.
+     * Сообщение чата донорского типа входит в кадр для участника.
      *
      * @return void
      */
-    public function testDonorTypeStaysOutOfFrame(): void
+    public function testDonorTypeAppearsInFrame(): void
     {
         $alice = $this->addUser('alice');
         $registry = $this->chatContainer()->get(IChatTypeRegistry::class);
@@ -236,7 +236,10 @@ final class ChatSseMysqlTest extends TestCase
             $this->query(['since' => '0']),
             new FakeSseClock(20, 1),
         ));
-        self::assertSame([], $frames);
+        self::assertCount(1, $frames);
+        self::assertSame('donor_probe', $frames[0]['chats'][0]['type']);
+        self::assertSame('hidden', $frames[0]['chats'][0]['lastMessage']);
+        self::assertSame('hidden', $frames[0]['messages'][$typedId][0]['content']);
     }
 
     /**
