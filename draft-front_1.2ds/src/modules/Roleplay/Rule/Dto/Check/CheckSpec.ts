@@ -1,6 +1,13 @@
 import type { CheckAllowedModes } from '@/modules/Roleplay/Rule/Enum/CheckAllowedModes';
 import type { CheckDifficultyInput } from '@/modules/Roleplay/Rule/Dto/Check/CheckDifficultyInput';
 
+/** Исход проверки по рейтингу: точное значение или верхняя граница. */
+export interface CheckOutcome {
+  rating?: number | null;
+  max_rating?: number | null;
+  state_rule_code?: string | null;
+}
+
 /**
  * Спека правила type='check'. Наследование parent_check_code — механики броска и матчинг грантов.
  * Соло/joint — режим запуска, не отдельная карточка.
@@ -32,4 +39,6 @@ export interface CheckSpec {
    * Задано (в т.ч. []) — не наследовать у предка. Не коды механик.
    */
   attached_rule_codes?: string[] | null;
+  /** Исходы по рейтингу проверки; коды состояний — данные спеки. */
+  outcomes?: CheckOutcome[];
 }

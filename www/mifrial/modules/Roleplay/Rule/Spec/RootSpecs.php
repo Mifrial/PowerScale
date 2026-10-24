@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\AgeStep;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicBaseFrom;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CheckDifficulty;
+use Mifrial\Roleplay\Rule\Dto\Spec\CheckOutcome;
 use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\DamageTypeSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\EthnicitySpec;
@@ -184,7 +185,46 @@ final class RootSpecs
             SpecShape::bool($document, 'hit_check'),
             SpecShape::bool($document, 'initiative'),
             self::attached($document),
+            self::outcomes($document),
         );
+    }
+
+    /**
+     * Исходы проверки по рейтингу.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return array<int, CheckOutcome> Список.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function outcomes(array $document): array
+    {
+        $outcomes = [];
+        $seen = [];
+        foreach (SpecShape::list($document, 'outcomes') as $row) {
+            $row = SpecShape::requireMap($row, 'outcomes');
+            $rating = SpecShape::optionalInt($row, 'rating');
+            $maxRating = SpecShape::optionalInt($row, 'max_rating');
+            $state = SpecShape::optionalString($row, 'state_rule_code');
+            if (($rating === null) === ($maxRating === null)) {
+                throw new RuleSpecShapeException('outcomes');
+            }
+
+            if ($state === '') {
+                throw new RuleSpecShapeException('outcomes');
+            }
+
+            $key = $rating !== null ? 'rating:' . $rating : 'max:' . $maxRating;
+            if (isset($seen[$key])) {
+                throw new RuleSpecShapeException('outcomes');
+            }
+
+            $seen[$key] = true;
+            $outcomes[] = new CheckOutcome($rating, $maxRating, $state);
+        }
+
+        return $outcomes;
     }
 
     /**

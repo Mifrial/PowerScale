@@ -629,7 +629,7 @@ final class GameEndOfTurnMysqlTest extends TestCase
             'expectedSheetVersion' => $this->characterFacade()->get($paid['hero'])->getActualVersion(),
         ]);
         self::assertTrue($finished['success'], json_encode($finished));
-        self::assertTrue($finished['data']['opened']);
+        self::assertTrue($finished['data']['opened'], json_encode($finished));
         self::assertSame(0, $this->inventoryQuantity($paid['hero'], 1));
         self::assertSame([], $this->battleRow($paid['battleId'])['action_debt']);
 
@@ -1264,6 +1264,16 @@ final class GameEndOfTurnMysqlTest extends TestCase
                 'aggregation' => 'independent',
                 'decline_weakness' => true,
             ], [], [], 'needs_work')),
+            RuleCommitEntry::put('disabled', new RuleVersionBody('state', 'Disabled', '', [
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
+                'decline_disabled' => true,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('unconscious', new RuleVersionBody('state', 'Unconscious', '', [
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
+                'decline_unconscious' => true,
+            ], [], [], 'needs_work')),
             RuleCommitEntry::put('maim', new RuleVersionBody('state', 'Maim', '', [
                 'value_type' => 'number',
                 'aggregation' => 'max',
@@ -1336,13 +1346,18 @@ final class GameEndOfTurnMysqlTest extends TestCase
             RuleCommitEntry::put('will-check', new RuleVersionBody('check', 'Will', '', [
                 ...$check,
                 'willpower' => true,
+                'default_efficiency' => 0,
                 'difficulty_input' => ['kind' => 'from_state', 'state_code' => 'tired'],
+                'outcomes' => [
+                    ['rating' => -1, 'state_rule_code' => 'weak'],
+                    ['rating' => -2, 'state_rule_code' => 'disabled'],
+                    ['max_rating' => -3, 'state_rule_code' => 'unconscious'],
+                ],
             ], [], [[
                 'mechanic_id' => $rollId,
                 'mechanic_payload' => [
                     'type' => 'roll',
                     'data' => ['diceCount' => 1, 'dieFaces' => 1],
-                    'outcomes' => [['maxRating' => 5, 'stateRuleCode' => 'weak']],
                 ],
             ]], 'needs_work')),
             RuleCommitEntry::put('maim-check', new RuleVersionBody('check', 'Maim', '', $check, [], [[

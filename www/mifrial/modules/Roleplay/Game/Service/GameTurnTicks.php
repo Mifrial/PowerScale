@@ -209,8 +209,8 @@ final class GameTurnTicks
         if ($delta > 0) {
             $operations[] = $this->exhaustionWrite($slice, $sheet, $exhaustion, $delta);
             $will = $this->consequences->willForDelta($game, $sheet, $delta);
-            if ($will['operation'] !== null) {
-                $operations[] = $will['operation'];
+            foreach ($will['operations'] as $operation) {
+                $operations[] = $operation;
             }
 
             if ($will['roll'] !== null) {
@@ -277,7 +277,7 @@ final class GameTurnTicks
         }
 
         $injury = $this->injuryOf($effect, $row);
-        $split = $this->splits->operation($slice, $this->contexts, $sheet, $injury);
+        $split = $this->splits->operation($slice, $this->contexts->build($sheet), $injury);
         $effects = $this->consequences->effects($game, $sheet, $injury, 0, $split, $effect->getDamageTypeCode(), false);
         $operations = $effects['operations'];
         $next = $this->decay($effect, $row);
