@@ -19,7 +19,10 @@ const emit = defineEmits<{
 
 const draft = ref(props.resource.current.base);
 const fieldMax = computed(() =>
-  Math.max(new DimensionalNumber(props.resource.max).toNumber(), new DimensionalNumber(props.resource.current).toNumber()),
+  Math.max(
+    new DimensionalNumber(props.resource.max).toNumber(),
+    new DimensionalNumber(props.resource.current).toNumber(),
+  ),
 );
 
 watch(

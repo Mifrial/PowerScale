@@ -27,9 +27,7 @@ describe('gameManualSheetClient', () => {
   });
 
   it('patch/remove требуют id и не шлют index', () => {
-    expect(() => gameManualSheetClient.removeDetails({ stateRuleCode: 'mark' })).toThrow(
-      'У состояния нет id листа',
-    );
+    expect(() => gameManualSheetClient.removeDetails({ stateRuleCode: 'mark' })).toThrow('У состояния нет id листа');
     expect(gameManualSheetClient.patchDetails({ stateRuleCode: 'mark', id: 9 }, { value: 4 })).toEqual({
       stateRuleCode: 'mark',
       id: 9,

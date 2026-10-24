@@ -42,7 +42,8 @@ final class DimensionalCheckNormalizer
     public function clamp(SizedBase $roll, SizedBase $minimum): SizedBase
     {
         $normalized = $this->foldNegative($roll);
-        if ($normalized->getBase() === $minimum->getBase()
+        if (
+            $normalized->getBase() === $minimum->getBase()
             && $normalized->getSize() < $minimum->getSize()
         ) {
             return $minimum;

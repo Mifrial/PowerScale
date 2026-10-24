@@ -87,11 +87,11 @@ use Mifrial\Roleplay\Game\Service\GameBattlePortFactory;
 use Mifrial\Roleplay\Game\Service\GameCheckPortFactory;
 use Mifrial\Roleplay\Game\Service\GameChroniclePortFactory;
 use Mifrial\Roleplay\Game\Service\GameEconomyPortFactory;
+use Mifrial\Roleplay\Game\Service\GameManualSheetPortFactory;
 use Mifrial\Roleplay\Game\Service\GamePortFactory;
 use Mifrial\Roleplay\Game\Service\GameProcessPortFactory;
 use Mifrial\Roleplay\Game\Service\GameProjectionPortFactory;
 use Mifrial\Roleplay\Game\Service\GameStrikePortFactory;
-use Mifrial\Roleplay\Game\Service\GameManualSheetPortFactory;
 use Mifrial\Roleplay\Game\Service\GameWoundPortFactory;
 use Mifrial\Roleplay\Game\Setup\GameModuleSetup;
 

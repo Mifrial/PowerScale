@@ -4,20 +4,11 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
-use Mifrial\Core\Kernel\Exception\ActionException;
-use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
-use Mifrial\Roleplay\Character\Dto\ResourceSpend;
-use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
-use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
-use Mifrial\Roleplay\Game\Exception\GameEconomyConflictException;
-use Mifrial\Roleplay\Game\Exception\GameInvalidException;
-use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
-use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Закрытие удара по одной цели или по списку целей.

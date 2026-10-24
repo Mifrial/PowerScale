@@ -123,6 +123,5 @@ final class DropUnidentifiedCharacterStatesStep implements ISetupStep
         } catch (RowWriteFailedException $exception) {
             throw new KernelException('SETUP_FAILED', 'Character unidentified states drop failed', $exception);
         }
-
     }
 }

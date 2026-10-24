@@ -52,7 +52,9 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
         </div>
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Стойкость</span>
-          <span class="font-weight-medium">{{ calc.endurance ? new DimensionalNumber(calc.endurance).toString() : '—' }}</span>
+          <span class="font-weight-medium">{{
+            calc.endurance ? new DimensionalNumber(calc.endurance).toString() : '—'
+          }}</span>
         </div>
         <div v-if="(calc.layers ?? []).length" class="pt-1">
           <div v-for="(layer, index) in calc.layers ?? []" :key="index" class="text-caption py-1">

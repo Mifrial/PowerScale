@@ -285,6 +285,7 @@ final class GameNpcs
         if (is_string($name) && $name !== '') {
             $choices['name'] = $name;
         }
+
         $report = $this->runBuild(
             $choices,
             $game,

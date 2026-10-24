@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Character\Tests;
 
 use Mifrial\Core\Kernel\Value\DateTime;
-use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterAbilityChoice;
+use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\CharacterValidation;
 use Mifrial\Roleplay\Character\Dto\ResourceRow;
 use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
-use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceLimits;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceArithmetic;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceGrantReader;
+use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceLimits;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
 use Mifrial\Roleplay\Rule\Service\FormulaEvaluations;

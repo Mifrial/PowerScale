@@ -179,13 +179,13 @@ final class ItemModifierOperationNumbers
         return match (true) {
             $op instanceof WeightOp => (int) ($op->getAddKg() ?? 0),
             $op instanceof BlockOp,
-                $op instanceof DefenseOp,
-                $op instanceof StrengthPenaltyOp,
-                $op instanceof CharacteristicModifyOp => $op->getAdd() ?? 0,
+            $op instanceof DefenseOp,
+            $op instanceof StrengthPenaltyOp,
+            $op instanceof CharacteristicModifyOp => $op->getAdd() ?? 0,
             $op instanceof MinStrengthOp => $op->getDelta(),
             $op instanceof DurabilityOp,
-                $op instanceof MaxAgilityOp,
-                $op instanceof CharacteristicLimitOp => $op->getDelta() ?? 0,
+            $op instanceof MaxAgilityOp,
+            $op instanceof CharacteristicLimitOp => $op->getDelta() ?? 0,
             default => 0,
         };
     }

@@ -36,7 +36,11 @@ export class AbilityParameterSpecService {
     };
   }
 
-  withScalarBound(parameter: AbilityParameter, field: 'default' | 'min' | 'max', value: number | null): AbilityParameter {
+  withScalarBound(
+    parameter: AbilityParameter,
+    field: 'default' | 'min' | 'max',
+    value: number | null,
+  ): AbilityParameter {
     if (field === 'default') {
       return { ...parameter, default: value ?? 0 };
     }
@@ -108,10 +112,7 @@ export class AbilityParameterSpecService {
     return next;
   }
 
-  withLinked(
-    parameter: AbilityParameter,
-    linked: AbilityParameter['linked'] | null,
-  ): AbilityParameter {
+  withLinked(parameter: AbilityParameter, linked: AbilityParameter['linked'] | null): AbilityParameter {
     const next = { ...parameter };
     if (linked === null) {
       delete next.linked;

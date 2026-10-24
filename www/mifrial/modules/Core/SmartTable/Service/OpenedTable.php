@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Service;
 
+use Mifrial\Core\SmartTable\Interface\Service\IConditionalOpenedRecords;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedSchema;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
-use Mifrial\Core\SmartTable\Interface\Service\IConditionalOpenedRecords;
 use Mifrial\Core\SmartTable\Service\Cache\TableCache;
 use Mifrial\Core\SmartTable\Service\Query\TableAggregate;
 use Mifrial\Core\SmartTable\Service\Query\TableList;

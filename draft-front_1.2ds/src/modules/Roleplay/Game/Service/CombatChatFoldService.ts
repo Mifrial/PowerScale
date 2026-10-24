@@ -159,9 +159,7 @@ export class CombatChatFoldService {
 
   private injurySummaries(messages: ChatMessage[]): string[] {
     return this.unique(
-      messages
-        .map((message) => this.injurySummary(message.content))
-        .filter((value): value is string => value !== null),
+      messages.map((message) => this.injurySummary(message.content)).filter((value): value is string => value !== null),
     );
   }
 
@@ -229,11 +227,14 @@ export class CombatChatFoldService {
       if (group.kind !== COMBAT_CHAT_ATTACK) continue;
       if (group.parentId && acc.has(group.parentId)) continue;
       const first = this.groupFirstId(group);
-      const parent = [...groups].reverse().find((candidate) =>
-        candidate.id !== group.id &&
-        [COMBAT_CHAT_TURN, COMBAT_CHAT_ROUND, COMBAT_CHAT_BATTLE, COMBAT_CHAT_SESSION].includes(candidate.kind) &&
-        this.groupFirstId(candidate) < first,
-      );
+      const parent = [...groups]
+        .reverse()
+        .find(
+          (candidate) =>
+            candidate.id !== group.id &&
+            [COMBAT_CHAT_TURN, COMBAT_CHAT_ROUND, COMBAT_CHAT_BATTLE, COMBAT_CHAT_SESSION].includes(candidate.kind) &&
+            this.groupFirstId(candidate) < first,
+        );
       if (parent) group.parentId = parent.id;
     }
   }

@@ -271,5 +271,4 @@ final class MechanicRolls implements IMechanicRolls
 
         return $folded->raiseToMinSize($minSize);
     }
-
 }

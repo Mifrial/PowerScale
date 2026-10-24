@@ -10,9 +10,9 @@ use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\ReferenceConstraintException;
 use Mifrial\Core\SmartTable\Exception\Row\RowWriteFailedException;
+use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 use Mifrial\Core\SmartTable\Exception\Schema\SchemaMismatchException;
 use Mifrial\Core\SmartTable\Exception\Schema\TableMissingException;
-use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 
 /**
  * Условные операции одной открытой карты.

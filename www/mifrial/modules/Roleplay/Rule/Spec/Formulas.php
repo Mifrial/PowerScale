@@ -13,9 +13,6 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Formula\CurrentMovementStepNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\FixedNode;
-use Mifrial\Roleplay\Rule\Dto\Spec\Formula\SizeGapTimesStepNode;
-use Mifrial\Roleplay\Rule\Dto\Spec\Formula\StepsNode;
-use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\AbilityLevelScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizeGapScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizePositiveScalar;
@@ -25,7 +22,10 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ParameterFloorDivScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ParameterScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ScalarFormula;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ToScalar;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\SizeGapTimesStepNode;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\StepsNode;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Разбор размерной и скалярной формулы.

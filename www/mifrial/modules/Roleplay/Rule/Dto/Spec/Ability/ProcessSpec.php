@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability;
 
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\ProcessTransition;
+
 /**
  * Тело процесса.
  */
@@ -26,7 +28,7 @@ final class ProcessSpec
         private readonly array $steps,
         private readonly string $startStepCode,
         private readonly array $exitStepCodes,
-        private readonly \Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\ProcessTransition $transition,
+        private readonly ProcessTransition $transition,
         private readonly ?string $failure,
         private readonly array $completionEffects,
         private readonly bool $repeatWeaponCircumstance,
@@ -68,7 +70,7 @@ final class ProcessSpec
      *
      * @return \Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\ProcessTransition Узел.
      */
-    public function getTransition(): \Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\ProcessTransition
+    public function getTransition(): ProcessTransition
     {
         return $this->transition;
     }

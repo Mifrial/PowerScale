@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Spec;
 
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityAggregate;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DerivedLevel;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 
 /**
@@ -75,14 +77,14 @@ final class AbilityBases
      *
      * @throws RuleSpecShapeException Если форма чужая.
      */
-    private static function aggregate(array $document): ?\Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityAggregate
+    private static function aggregate(array $document): ?AbilityAggregate
     {
         $row = SpecShape::object($document, 'aggregate');
         if ($row === null) {
             return null;
         }
 
-        return new \Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityAggregate(
+        return new AbilityAggregate(
             SpecShape::string($row, 'characteristic_code'),
             SpecShape::string($row, 'method_keyword'),
             SpecShape::intList($row, 'levels'),
@@ -98,14 +100,14 @@ final class AbilityBases
      *
      * @throws RuleSpecShapeException Если форма чужая.
      */
-    private static function derivedLevel(array $document): ?\Mifrial\Roleplay\Rule\Dto\Spec\Ability\DerivedLevel
+    private static function derivedLevel(array $document): ?DerivedLevel
     {
         $row = SpecShape::object($document, 'derived_level');
         if ($row === null) {
             return null;
         }
 
-        return new \Mifrial\Roleplay\Rule\Dto\Spec\Ability\DerivedLevel(
+        return new DerivedLevel(
             SpecShape::string($row, 'source_keyword'),
             SpecShape::intList($row, 'thresholds'),
         );

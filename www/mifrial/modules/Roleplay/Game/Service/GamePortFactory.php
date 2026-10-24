@@ -23,6 +23,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Interface\Service\IGameAdmissions;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
@@ -31,7 +32,6 @@ use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\RuleSpace\Interface\Container\IRuleSpaceContainer;
 use Mifrial\Roleplay\RuleSpace\Interface\Service\IRuleSpaces;
 

@@ -46,6 +46,7 @@ final class PoisonSpec implements RuleSpec
     {
         return $this->iconCode;
     }
+
     /**
      * Тип урона.
      *
@@ -55,6 +56,7 @@ final class PoisonSpec implements RuleSpec
     {
         return $this->damageTypeCode;
     }
+
     /**
      * Сила по умолчанию.
      *

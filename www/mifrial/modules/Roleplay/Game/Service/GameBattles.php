@@ -99,6 +99,7 @@ final class GameBattles implements IGameBattles
             if ($sessionId !== null) {
                 $this->notices->opened($this->games->get($gameId), $actorUserId, $sessionId, $battleId, $order);
             }
+
             $stored = $this->commands->findByKey($gameId, 'battle', $idempotencyKey);
             if ($stored !== null) {
                 $this->delivery->recorded($gameId, 'battle', $stored['id'], []);

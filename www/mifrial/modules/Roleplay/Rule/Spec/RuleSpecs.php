@@ -4,26 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Spec;
 
-use Mifrial\Roleplay\Rule\Dto\Spec\AgeSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\DamageTypeSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\EthnicitySpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierTypeSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\MagicPath\MagicPathSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Race\RaceSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\LanguageSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\PoisonSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Race\SpeciesSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpecRead;
-use Mifrial\Roleplay\Rule\Dto\Spec\ScriptSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\SenseSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\WeaponFamilySpec;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 
 /**

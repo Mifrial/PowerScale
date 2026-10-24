@@ -8,7 +8,6 @@ use Illuminate\Database\Query\Builder;
 use Mifrial\Core\SmartTable\Dto\FilterGroup;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
-use Mifrial\Core\SmartTable\Exception\Row\RowWriteFailedException;
 use Mifrial\Core\SmartTable\Exception\Schema\SchemaMismatchException;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Service\DriverErrorTranslator;

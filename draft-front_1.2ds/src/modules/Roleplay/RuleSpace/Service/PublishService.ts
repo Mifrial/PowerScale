@@ -58,9 +58,10 @@ export class PublishService {
       if (row === null || typeof row !== 'object') continue;
       const ruleCode = 'ruleCode' in row && typeof row.ruleCode === 'string' ? row.ruleCode : '';
       const ruleName = 'ruleName' in row && typeof row.ruleName === 'string' ? row.ruleName : '';
-      const messages = 'messages' in row && Array.isArray(row.messages)
-        ? row.messages.filter((message): message is string => typeof message === 'string')
-        : [];
+      const messages =
+        'messages' in row && Array.isArray(row.messages)
+          ? row.messages.filter((message): message is string => typeof message === 'string')
+          : [];
       if (ruleCode !== '' && messages.length > 0) {
         problems.push({ ruleCode, ruleName, messages });
       }

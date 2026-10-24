@@ -359,7 +359,11 @@ export class ItemModifierService {
       return operation.add ?? 0;
     }
     if (operation.type === 'min_strength' || operation.type === 'action_strength') return operation.delta;
-    if (operation.type === 'durability' || operation.type === 'max_agility' || operation.type === 'characteristic_limit') {
+    if (
+      operation.type === 'durability' ||
+      operation.type === 'max_agility' ||
+      operation.type === 'characteristic_limit'
+    ) {
       return operation.delta ?? 0;
     }
 

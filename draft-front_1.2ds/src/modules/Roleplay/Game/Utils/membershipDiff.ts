@@ -437,14 +437,9 @@ export function membershipDiff(
         pending?.resources ?? [],
         (item) => item.ruleCode,
         resourceLabel,
+        (item) => resourceRender(item, pending?.resources.includes(item) ? pendingResourceBars : activeResourceBars),
         (item) =>
-          resourceRender(item, pending?.resources.includes(item) ? pendingResourceBars : activeResourceBars),
-        (item) =>
-          resourceDetail(
-            item,
-            resolve,
-            pending?.resources.includes(item) ? pendingResourceBars : activeResourceBars,
-          ),
+          resourceDetail(item, resolve, pending?.resources.includes(item) ? pendingResourceBars : activeResourceBars),
         'resources',
         characterDiff.changes,
       ),

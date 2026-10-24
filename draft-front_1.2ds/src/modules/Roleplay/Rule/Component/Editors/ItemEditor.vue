@@ -222,11 +222,7 @@ const weightKilogramsLabel = computed(() => itemSpecService.formatWeightKilogram
               hide-details
               style="flex: 1 1 auto"
             />
-            <DimensionalNumberInput
-              :model-value="draft.weight"
-              @update:model-value="patchWeight"
-              label="Вес"
-            />
+            <DimensionalNumberInput :model-value="draft.weight" @update:model-value="patchWeight" label="Вес" />
             <span class="text-body-2 text-medium-emphasis text-no-wrap">{{ weightKilogramsLabel }}</span>
           </div>
 

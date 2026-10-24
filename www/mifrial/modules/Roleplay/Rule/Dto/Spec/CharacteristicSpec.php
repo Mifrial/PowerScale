@@ -64,6 +64,7 @@ final class CharacteristicSpec implements RuleSpec
     {
         return $this->formula;
     }
+
     /**
      * Группа.
      *
@@ -73,6 +74,7 @@ final class CharacteristicSpec implements RuleSpec
     {
         return $this->group;
     }
+
     /**
      * Автополучение.
      *
@@ -82,6 +84,7 @@ final class CharacteristicSpec implements RuleSpec
     {
         return $this->automatic;
     }
+
     /**
      * Выносливость к урону.
      *
@@ -91,6 +94,7 @@ final class CharacteristicSpec implements RuleSpec
     {
         return $this->damageEndurance;
     }
+
     /**
      * Воля.
      *
@@ -100,6 +104,7 @@ final class CharacteristicSpec implements RuleSpec
     {
         return $this->willpower;
     }
+
     /**
      * Порог концентрации.
      *
@@ -109,6 +114,7 @@ final class CharacteristicSpec implements RuleSpec
     {
         return $this->concentrationThreshold;
     }
+
     /**
      * Жетон концентрации.
      *
@@ -118,6 +124,7 @@ final class CharacteristicSpec implements RuleSpec
     {
         return $this->concentrationToken;
     }
+
     /**
      * Бросок неустойчивости.
      *
@@ -127,6 +134,7 @@ final class CharacteristicSpec implements RuleSpec
     {
         return $this->unstableRoll;
     }
+
     /**
      * Инициатива.
      *
@@ -136,6 +144,7 @@ final class CharacteristicSpec implements RuleSpec
     {
         return $this->initiative;
     }
+
     /**
      * Поглощение уклонения.
      *

@@ -19,7 +19,6 @@ use Mifrial\Roleplay\Character\Exception\CharacterSaveRejectedException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
-use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSaveAssembly;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSaveKeys;
@@ -118,7 +117,6 @@ final class CharacterSave
         return $this->savedView($this->writeUpdate($record, $built, $input));
     }
 
-
     /**
      * Тот же прогон без записи.
      *
@@ -200,6 +198,7 @@ final class CharacterSave
             $this->requiredVersion($input),
         );
     }
+
     /**
      * Validate без id: правила create.
      *
@@ -523,5 +522,4 @@ final class CharacterSave
             'active' => $built['active'],
         ]);
     }
-
 }

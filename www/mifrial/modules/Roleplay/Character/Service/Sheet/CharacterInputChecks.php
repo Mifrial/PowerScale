@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Character\Service\Sheet;
 
 use Mifrial\Roleplay\Character\Dto\CharacterAbilityChoice;
-use Mifrial\Roleplay\Character\Dto\CharacterCustomRule;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
+use Mifrial\Roleplay\Character\Dto\CharacterCustomRule;
 use Mifrial\Roleplay\Character\Dto\CharacterProblemList;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 

@@ -566,6 +566,7 @@ final class GameBattleOrder
      * @throws GameInvalidException Если у NPC нет листа.
      * @throws GameNotFoundException Если строки нет.
      */
+
     /**
      * Имя участника.
      *

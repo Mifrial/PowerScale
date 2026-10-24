@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Dto\Spec;
 
-use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
-use Mifrial\Roleplay\Rule\Spec\SpecShape;
-use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
-
 /**
  * Spec правила weapon_family.
  */
@@ -24,7 +20,6 @@ final class WeaponFamilySpec implements RuleSpec
         private readonly array $costs,
     ) {
     }
-
 
     /**
      * Тип правила.
@@ -45,5 +40,4 @@ final class WeaponFamilySpec implements RuleSpec
     {
         return $this->costs;
     }
-
 }

@@ -9,16 +9,16 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\MovementOperation;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\PostureOperation;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\ProcessOperation;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\TurnOperation;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StepCost;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\ChainTransition;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\CustomTransition;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\FreeTransition;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\ProcessTransition;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\TransitionEdge;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StepCost;
-use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Тело процесса.

@@ -111,6 +111,7 @@ final class GameStrikeConsequences
         if ($endurance instanceof DimensionalNumber) {
             $consequence['endurance'] = ['base' => $endurance->getBase(), 'size' => $endurance->getSize()];
         }
+
         $wasUnconscious = $this->hasFlag($slice, $sheet, 'unconscious');
         if (!$cutting && $quotient !== 0 && !$wasUnconscious) {
             $will = $this->will($game, $slice, $sheet, $quotient);
@@ -126,6 +127,7 @@ final class GameStrikeConsequences
             foreach ($this->declineSheetOps($sheet, $slice, ['kind' => 'replaceDecline', 'stateRuleCode' => $code]) as $operation) {
                 $operations[] = $operation;
             }
+
             $consequence['unconscious'] = true;
         }
 
@@ -237,6 +239,7 @@ final class GameStrikeConsequences
             if ($defenseRoll !== null) {
                 $rolls[] = $defenseRoll;
             }
+
             $this->sendRolls($chatId, $actorUserId, $rolls, $thread, $speaker);
             $this->sendOutcome($chatId, $actorUserId, $result, $calc, $will, $maim, $thread, $speaker);
         } catch (ChatNotFoundException $exception) {
@@ -360,6 +363,7 @@ final class GameStrikeConsequences
         foreach ($rolls as $roll) {
             $attachments[] = ['type' => 'roll', 'payload' => $roll];
         }
+
         $this->chats->send($chatId, $actorUserId, '', $this->withThread($attachments, $thread, $speaker), null);
     }
 
@@ -389,6 +393,7 @@ final class GameStrikeConsequences
             $this->chats->send($chatId, $actorUserId, '', $this->withThread([['type' => 'roll', 'payload' => $will['roll']]], $thread, $speaker), null);
             $this->chats->send($chatId, $actorUserId, $will['text'], $this->withThread([], $thread, $speaker), null);
         }
+
         if ($maim !== null) {
             $this->chats->send($chatId, $actorUserId, '', $this->withThread([['type' => 'roll', 'payload' => $maim['roll']]], $thread, $speaker), null);
             $this->chats->send($chatId, $actorUserId, $maim['text'], $this->withThread([[
@@ -623,6 +628,7 @@ final class GameStrikeConsequences
         if ($checkCode === null || $checkCode === '') {
             $checkCode = $this->injuryCheckCode($slice);
         }
+
         if ($spec->getValueType() !== 'number' || $checkCode === null) {
             throw new GameInvalidException('Game strike maim check is invalid');
         }
@@ -647,6 +653,7 @@ final class GameStrikeConsequences
      *
      * @return int Сумма delta.
      */
+
     /**
      * Срок увечья по силе. Та же карта, что у проверки увечья на фронте.
      *
@@ -775,6 +782,7 @@ final class GameStrikeConsequences
                 if (!is_array($row) || !is_int($row['id'] ?? null)) {
                     continue;
                 }
+
                 $code = $row['stateRuleCode'] ?? null;
                 $spec = is_string($code) ? $this->optionalState($slice, $code) : null;
                 if ($spec !== null && $this->rank($spec) !== null) {
@@ -807,6 +815,7 @@ final class GameStrikeConsequences
             if (!$spec instanceof StateSpec) {
                 continue;
             }
+
             $selected = match ($flag) {
                 'unconscious' => $spec->isDeclineUnconscious(),
                 'disabled' => $spec->isDeclineDisabled(),
@@ -815,9 +824,11 @@ final class GameStrikeConsequences
             if (!$selected) {
                 continue;
             }
+
             if ($matched !== null) {
                 throw new GameInvalidException('Game strike will outcome is invalid');
             }
+
             $matched = $rule->getCode();
         }
 

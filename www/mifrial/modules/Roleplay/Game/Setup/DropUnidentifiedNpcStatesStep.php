@@ -129,6 +129,5 @@ final class DropUnidentifiedNpcStatesStep implements ISetupStep
         } catch (RowWriteFailedException $exception) {
             throw new KernelException('SETUP_FAILED', 'NPC unidentified states drop failed', $exception);
         }
-
     }
 }

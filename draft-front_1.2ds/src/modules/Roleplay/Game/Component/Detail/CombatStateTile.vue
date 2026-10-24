@@ -195,7 +195,12 @@ function submitRemove(): void {
       <v-card-title class="text-body-1">{{ name }}</v-card-title>
       <v-card-text class="pt-0">
         <template
-          v-if="!(canEdit && (editKind === 'dimensional' || editKind === 'poison' || editKind === 'wound' || editKind === 'maim'))"
+          v-if="
+            !(
+              canEdit &&
+              (editKind === 'dimensional' || editKind === 'poison' || editKind === 'wound' || editKind === 'maim')
+            )
+          "
         >
           <div class="d-flex align-center justify-space-between py-1 text-body-2">
             <span class="text-medium-emphasis">Сила</span>
@@ -294,13 +299,7 @@ function submitRemove(): void {
         </template>
         <template v-else-if="canEdit && editKind === 'maim'">
           <ClampedNumberField v-model="draft" class="mt-3" label="Сила" :min="1" density="compact" hide-details />
-          <v-checkbox
-            v-model="draftMaimPermanent"
-            class="mt-2"
-            label="Постоянное"
-            density="compact"
-            hide-details
-          />
+          <v-checkbox v-model="draftMaimPermanent" class="mt-2" label="Постоянное" density="compact" hide-details />
           <template v-if="!draftMaimPermanent">
             <ClampedNumberField
               v-model="draftHealTotal"

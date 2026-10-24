@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Rule\Dto\Spec\Item;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Spec предмета: цена, врождённость, профиль блока, броня и щит.
@@ -38,7 +39,7 @@ final class ItemSpec implements RuleSpec
         private readonly string $category,
         private readonly ?int $costGm,
         private readonly bool $innate,
-        private readonly ?\Mifrial\Roleplay\Rule\Value\DimensionalNumber $weight,
+        private readonly ?DimensionalNumber $weight,
         private readonly array $specialRuleCodes,
         private readonly ?string $groupCode,
         private readonly ?string $proficiencyFamilyCode,
@@ -99,7 +100,7 @@ final class ItemSpec implements RuleSpec
      *
      * @return \Mifrial\Roleplay\Rule\Value\DimensionalNumber|null Число или null.
      */
-    public function getWeight(): ?\Mifrial\Roleplay\Rule\Value\DimensionalNumber
+    public function getWeight(): ?DimensionalNumber
     {
         return $this->weight;
     }

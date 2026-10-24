@@ -46,9 +46,7 @@ function nextId(states: CharacterStateValue[]): number {
   return states.reduce((max, row) => Math.max(max, row.id ?? 0), 0) + 1;
 }
 
-function currentOf(
-  details: Record<string, unknown>,
-): DimensionalNumberValue {
+function currentOf(details: Record<string, unknown>): DimensionalNumberValue {
   const current = details.current;
   if (typeof current === 'number') return { base: current, size: 0 };
   if (current && typeof current === 'object' && 'base' in current) {
@@ -61,10 +59,7 @@ function currentOf(
 }
 
 /** Ручная правка мока: actual и строка чата. */
-export async function manualSheet(
-  body: GameManualSheetRequest,
-  _signal?: AbortSignal,
-): Promise<GameManualSheetResult> {
+export async function manualSheet(body: GameManualSheetRequest, _signal?: AbortSignal): Promise<GameManualSheetResult> {
   const key = entityKeyOf(body.target);
   const before = versionOf(body.gameId, key);
   if (!before) throw new Error('Лист участника не заполнен');

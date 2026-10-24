@@ -45,6 +45,7 @@ final class SenseSpec implements RuleSpec
     {
         return $this->status;
     }
+
     /**
      * Радиус.
      *

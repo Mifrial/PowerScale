@@ -29,7 +29,8 @@ class DimensionalNumber
         private readonly ?int $baseMin = null,
         private readonly ?int $baseMax = null,
     ) {
-        if (($baseMin === null) !== ($baseMax === null)
+        if (
+            ($baseMin === null) !== ($baseMax === null)
             || ($baseMin !== null && $baseMax !== null && $baseMin >= $baseMax)
         ) {
             throw new RuleInvalidException('Шкала размерного числа невалидна');
@@ -109,7 +110,8 @@ class DimensionalNumber
      */
     public function add(self $other): static
     {
-        if ($this->baseMin !== null || $this->baseMax !== null
+        if (
+            $this->baseMin !== null || $this->baseMax !== null
             || $other->baseMin !== null || $other->baseMax !== null
         ) {
             throw new RuleInvalidException('Размерное число со шкалой нельзя складывать');

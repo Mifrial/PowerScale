@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Item;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
-use Mifrial\Roleplay\Rule\Spec\SpecShape;
-use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 
 /**
  * Spec правила item_modifier_type.
@@ -24,7 +22,6 @@ final class ItemModifierTypeSpec implements RuleSpec
         private readonly bool $exclusive,
     ) {
     }
-
 
     /**
      * Тип правила.
@@ -45,5 +42,4 @@ final class ItemModifierTypeSpec implements RuleSpec
     {
         return $this->exclusive;
     }
-
 }

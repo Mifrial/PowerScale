@@ -46,9 +46,16 @@ function addAxis(): void {
           density="compact"
           hide-details
           style="min-width: 180px"
-          @update:model-value="patch({ tables: zoneCostSpecService.renameSumTable(modelValue.tables, code, String($event ?? code)) })"
+          @update:model-value="
+            patch({ tables: zoneCostSpecService.renameSumTable(modelValue.tables, code, String($event ?? code)) })
+          "
         />
-        <v-btn icon size="small" variant="text" @click="patch({ tables: zoneCostSpecService.removeSumTable(modelValue.tables, code) })">
+        <v-btn
+          icon
+          size="small"
+          variant="text"
+          @click="patch({ tables: zoneCostSpecService.removeSumTable(modelValue.tables, code) })"
+        >
           <v-icon>mdi-delete</v-icon>
         </v-btn>
       </div>
@@ -57,7 +64,12 @@ function addAxis(): void {
         @update:model-value="patch({ tables: zoneCostSpecService.replaceSumTable(modelValue.tables, code, $event) })"
       />
     </div>
-    <v-btn size="small" variant="text" :disabled="!zoneCostSpecService.unusedPurchaseCode(parameters, modelValue.tables)" @click="addAxis">
+    <v-btn
+      size="small"
+      variant="text"
+      :disabled="!zoneCostSpecService.unusedPurchaseCode(parameters, modelValue.tables)"
+      @click="addAxis"
+    >
       <v-icon start>mdi-plus</v-icon>
       Таблица параметра
     </v-btn>

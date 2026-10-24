@@ -9,11 +9,12 @@ use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterProblem;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\CharacterValidation;
+use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
-use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceLimits;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceArithmetic;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceGrantReader;
+use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceLimits;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceStorage;
 use Mifrial\Roleplay\Character\Service\Runtime\Character;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
@@ -301,7 +302,7 @@ final class CharacterSaveAssembly
 
         $resources = $previousSheet['resources'];
         if (!is_array($resources)) {
-            throw new \Mifrial\Roleplay\Character\Exception\CharacterInvalidException('Character resources are invalid');
+            throw new CharacterInvalidException('Character resources are invalid');
         }
 
         return $this->resourceStorage->parseRows($resources, $slice);

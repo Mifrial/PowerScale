@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Kernel\Tests;
 
+use LogicException;
 use Mifrial\Core\Kernel\Container\ModuleContainer;
 use Mifrial\Core\Kernel\Dto\ActionResponse;
 use Mifrial\Core\Kernel\Exception\KernelException;
@@ -16,7 +17,6 @@ use Mifrial\Core\Kernel\Http\ResponseEmitter;
 use Mifrial\Core\Kernel\Interface\Http\IHttpRequest;
 use Mifrial\Core\Kernel\Service\ModuleManager;
 use Mifrial\Core\Kernel\Service\ServiceLocator;
-use LogicException;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use stdClass;

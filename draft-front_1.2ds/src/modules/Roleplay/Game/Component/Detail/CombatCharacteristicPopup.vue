@@ -51,11 +51,13 @@ const weaponMastery = computed(() => {
 });
 
 const senses = computed(() =>
-  props.senses.filter((sense) => sense.status !== 'absent').map((sense) => ({
-    ...sense,
-    ruleCode: sense.ruleCode,
-    name: byCode.value.get(sense.ruleCode)?.name ?? sense.ruleCode,
-  })),
+  props.senses
+    .filter((sense) => sense.status !== 'absent')
+    .map((sense) => ({
+      ...sense,
+      ruleCode: sense.ruleCode,
+      name: byCode.value.get(sense.ruleCode)?.name ?? sense.ruleCode,
+    })),
 );
 
 const statusLabels: Record<CharacterSenseValue['status'], string> = {

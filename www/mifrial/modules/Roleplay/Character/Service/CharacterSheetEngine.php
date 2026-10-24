@@ -58,8 +58,7 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
         int $revision,
         ?array $expectedSheet,
         ?array $previousSheet = null,
-    ): array
-    {
+    ): array {
         return $this->assembled($choices, $spaceId, $revision, $expectedSheet, $previousSheet);
     }
 
@@ -83,8 +82,7 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
         int $sourceRevision,
         int $targetRevision,
         ?array $previousSheet = null,
-    ): array
-    {
+    ): array {
         $source = $this->ruleSlices->get($spaceId, $sourceRevision);
         $target = $this->ruleSlices->get($spaceId, $targetRevision);
         $remapped = $this->remap->remap($choices, $source, $target);
@@ -112,8 +110,7 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
         int $revision,
         ?array $expectedSheet,
         ?array $previousSheet,
-    ): array
-    {
+    ): array {
         $limits = $this->listOf($choices, 'limits');
         $abilities = $this->listOf($choices, 'abilities');
         $inventory = $this->listOf($choices, 'inventory');

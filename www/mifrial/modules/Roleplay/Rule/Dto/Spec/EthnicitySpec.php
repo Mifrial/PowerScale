@@ -48,6 +48,7 @@ final class EthnicitySpec implements RuleSpec
     {
         return $this->role;
     }
+
     /**
      * Родитель.
      *
@@ -57,6 +58,7 @@ final class EthnicitySpec implements RuleSpec
     {
         return $this->parentCode;
     }
+
     /**
      * Расы.
      *
@@ -66,6 +68,7 @@ final class EthnicitySpec implements RuleSpec
     {
         return $this->raceCodes;
     }
+
     /**
      * Языки.
      *
@@ -75,6 +78,7 @@ final class EthnicitySpec implements RuleSpec
     {
         return $this->languageCodes;
     }
+
     /**
      * Пары языка.
      *

@@ -48,6 +48,7 @@ final class DamageTypeSpec implements RuleSpec
     {
         return $this->genitive;
     }
+
     /**
      * Дательный.
      *
@@ -57,6 +58,7 @@ final class DamageTypeSpec implements RuleSpec
     {
         return $this->dative;
     }
+
     /**
      * Линии защиты не складываются.
      *
@@ -66,6 +68,7 @@ final class DamageTypeSpec implements RuleSpec
     {
         return $this->defenseIgnored;
     }
+
     /**
      * Меняет сложность сотворения.
      *
@@ -75,6 +78,7 @@ final class DamageTypeSpec implements RuleSpec
     {
         return $this->modifiesSpellDifficulty;
     }
+
     /**
      * Потолок РУ.
      *

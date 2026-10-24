@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Character\Dto\CharacterRecord;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
-use Mifrial\Roleplay\Character\Dto\CharacterRecord;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
@@ -25,10 +25,11 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackAccuracyEff
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackCharacteristicModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponProfile;
+use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 use Mifrial\Roleplay\Rule\Spec\ItemModifierOperations;
@@ -793,6 +794,7 @@ final class GameStrikeRules
             if (!is_array($row) || !is_string($row['stateRuleCode'] ?? null)) {
                 continue;
             }
+
             $rule = $slice->findLive($row['stateRuleCode']);
             $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
             if ($spec instanceof StateSpec && $spec->isDeclineUnconscious()) {
@@ -1600,7 +1602,7 @@ final class GameStrikeRules
             }
 
             $weapon = $spec->getWeapon();
-            if (!$weapon instanceof \Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock) {
+            if (!$weapon instanceof WeaponBlock) {
                 continue;
             }
 
@@ -1610,6 +1612,7 @@ final class GameStrikeRules
                     $matches = true;
                 }
             }
+
             if (!$matches || $spec->getProficiencyFamilyCode() === null) {
                 continue;
             }
@@ -1746,8 +1749,7 @@ final class GameStrikeRules
         string $itemRuleCode,
         int $spaceId,
         int $rulesRevision,
-    ): void
-    {
+    ): void {
         $inventory = $choices['inventory'] ?? null;
         if (!is_array($inventory)) {
             throw new GameInvalidException('Game strike inventory is invalid');

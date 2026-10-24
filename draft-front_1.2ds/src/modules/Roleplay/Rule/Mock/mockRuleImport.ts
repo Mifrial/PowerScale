@@ -355,9 +355,7 @@ const importedRules: Rule[] = [
       {
         type: 'trait',
         zones: { os: { kind: 'parameter', parameter_code: 'x', per_unit: 2 } },
-        parameters: [
-          { code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: 1, min: 0, max: 10 },
-        ],
+        parameters: [{ code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: 1, min: 0, max: 10 }],
         grants: [
           {
             type: 'resistance',
@@ -600,9 +598,7 @@ const importedRules: Rule[] = [
     {
       type: 'trait',
       zones: { os: { kind: 'parameter', parameter_code: 'x', per_unit: 1 } },
-      parameters: [
-        { code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: 1, min: 0, max: 5 },
-      ],
+      parameters: [{ code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: 1, min: 0, max: 5 }],
       grants: [
         {
           type: 'resistance',

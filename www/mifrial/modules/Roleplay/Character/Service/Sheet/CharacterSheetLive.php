@@ -122,7 +122,6 @@ final class CharacterSheetLive
             $sheet['money'] = $choices['money'];
         }
 
-
         return $sheet;
     }
 

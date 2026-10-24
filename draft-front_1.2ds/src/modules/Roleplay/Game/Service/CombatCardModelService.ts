@@ -376,8 +376,7 @@ export class CombatCardModelService {
       return { poison: this.poisonValueFromRule(rules, first?.ruleCode ?? null) };
     }
     const spec = rules.find((rule) => rule.code === option.ruleCode && rule.type === 'state')?.spec as
-      | StateSpec
-      | undefined;
+      StateSpec | undefined;
     if (spec?.maim) {
       return { value: 1, maim: { permanent: false, healTotal: 1, healUnit: 'months' } };
     }

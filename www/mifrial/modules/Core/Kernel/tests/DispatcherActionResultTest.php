@@ -57,7 +57,7 @@ final class DispatcherActionResultTest extends TestCase
     public function testDebugActionExceptionIncludesPreviousTrace(): void
     {
         $entries = [];
-        $handler = new class implements IActionHandler {
+        $handler = new class () implements IActionHandler {
             public function handle(): never
             {
                 throw new ActionException('GAME_INVALID', 'outer', new LogicException('inner'));
@@ -101,8 +101,7 @@ final class DispatcherActionResultTest extends TestCase
         IActionHandler $handler,
         ?ILogger $logger = null,
         bool $debug = false,
-    ): Dispatcher
-    {
+    ): Dispatcher {
         $moduleContainer = $this->createStub(IModuleContainer::class);
         $moduleContainer->method('get')->willReturn($handler);
 

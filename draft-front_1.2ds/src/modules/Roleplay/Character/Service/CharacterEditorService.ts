@@ -582,14 +582,16 @@ export class CharacterEditorService {
       const granted = deltas.has(code) || statusOverrides.has(code) || lightingBySense.has(code);
       if (spec.auto_add !== true && !granted) return [];
 
-      return [{
-        ruleCode: rule.code,
-        value,
-        modifiers,
-        status: statusOverrides.get(code) ?? spec.status,
-        radius: spec.radius,
-        treatAsGoodDownTo: lightingBySense.get(code),
-      }];
+      return [
+        {
+          ruleCode: rule.code,
+          value,
+          modifiers,
+          status: statusOverrides.get(code) ?? spec.status,
+          radius: spec.radius,
+          treatAsGoodDownTo: lightingBySense.get(code),
+        },
+      ];
     });
   }
 

@@ -6,11 +6,11 @@ namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\AdvantageModifier;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ArmorBlock;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemCheckAdvantage;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemHands;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\BlockProfile;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\CharacteristicLimit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\DefenseSlot;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemCheckAdvantage;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemHands;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ResistanceSlot;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ShieldBlock;
@@ -436,5 +436,4 @@ final class ItemSpecs
 
         return $encoded === false ? '' : $encoded;
     }
-
 }

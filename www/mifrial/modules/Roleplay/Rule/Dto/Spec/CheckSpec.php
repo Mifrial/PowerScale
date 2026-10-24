@@ -66,6 +66,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->parentCheckCode;
     }
+
     /**
      * Характеристика.
      *
@@ -75,6 +76,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->characteristicCode;
     }
+
     /**
      * Можно сменить характеристику.
      *
@@ -84,6 +86,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->allowCharacteristicOverride;
     }
+
     /**
      * Эффективность по умолчанию.
      *
@@ -93,6 +96,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->defaultEfficiency;
     }
+
     /**
      * Сложность.
      *
@@ -102,6 +106,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->difficulty;
     }
+
     /**
      * Режимы.
      *
@@ -111,6 +116,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->allowedModes;
     }
+
     /**
      * Запуск из диалога.
      *
@@ -120,6 +126,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->dialogLaunch;
     }
+
     /**
      * Корень обычных проверок.
      *
@@ -129,6 +136,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->ordinaryRoot;
     }
+
     /**
      * Жетон концентрации.
      *
@@ -138,6 +146,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->concentrationToken;
     }
+
     /**
      * Проверка воли.
      *
@@ -147,6 +156,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->willpower;
     }
+
     /**
      * Проверка неустойчивости.
      *
@@ -156,6 +166,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->unstableCheck;
     }
+
     /**
      * Проверка удара.
      *
@@ -165,6 +176,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->hitCheck;
     }
+
     /**
      * Проверка задаёт инициативу.
      *
@@ -174,6 +186,7 @@ final class CheckSpec implements RuleSpec
     {
         return $this->initiative;
     }
+
     /**
      * Коды правил на броске.
      *

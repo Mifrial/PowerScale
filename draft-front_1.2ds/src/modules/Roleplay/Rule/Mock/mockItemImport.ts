@@ -2022,7 +2022,16 @@ export const mockItemImport: Rule[] = [
       'Шумное: одетый в кольчугу получает 2 помехи для проверок на скрытность. Жёсткость: +1 урона ногам и рукам от материала.',
     spaceId: 1,
     spec: {
-      grants: [{ type: 'characteristic_modify', characteristic_code: 'strength', source_code: 'armor', check_codes: [], amount: -1, permanent: true }],
+      grants: [
+        {
+          type: 'characteristic_modify',
+          characteristic_code: 'strength',
+          source_code: 'armor',
+          check_codes: [],
+          amount: -1,
+          permanent: true,
+        },
+      ],
       category: 'equipment',
       cost_gm: 12000,
       weight: { base: 30, size: -5 },
@@ -2033,7 +2042,9 @@ export const mockItemImport: Rule[] = [
           { defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' },
         ],
         resistance_slots: [],
-        characteristic_limits: [{ characteristic_code: 'dexterity', limit: { type: 'dimensional', base: 5, size: -1 } }],
+        characteristic_limits: [
+          { characteristic_code: 'dexterity', limit: { type: 'dimensional', base: 5, size: -1 } },
+        ],
       },
     },
     keywordIds: [79, 86, 157, 161],
@@ -2049,7 +2060,16 @@ export const mockItemImport: Rule[] = [
       'Шумное: одетый в этот доспех получает 2 помехи для проверок на скрытность. Жёсткость: +1 урона ногам и рукам от материала.',
     spaceId: 1,
     spec: {
-      grants: [{ type: 'characteristic_modify', characteristic_code: 'strength', source_code: 'armor', check_codes: [], amount: -1, permanent: true }],
+      grants: [
+        {
+          type: 'characteristic_modify',
+          characteristic_code: 'strength',
+          source_code: 'armor',
+          check_codes: [],
+          amount: -1,
+          permanent: true,
+        },
+      ],
       category: 'equipment',
       cost_gm: 15000,
       weight: { base: 40, size: -5 },
@@ -2060,7 +2080,9 @@ export const mockItemImport: Rule[] = [
           { defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' },
         ],
         resistance_slots: [],
-        characteristic_limits: [{ characteristic_code: 'dexterity', limit: { type: 'dimensional', base: 3, size: -1 } }],
+        characteristic_limits: [
+          { characteristic_code: 'dexterity', limit: { type: 'dimensional', base: 3, size: -1 } },
+        ],
       },
     },
     keywordIds: [79, 86, 158, 161],
@@ -2076,7 +2098,16 @@ export const mockItemImport: Rule[] = [
       'Шумное: одетый в этот доспех получает 2 помехи для проверок на скрытность. / Требует владения: требует навыка владения, иначе уменьшает проворство ещё на один размер. Жёсткость: +1 урона ногам и рукам от материала.',
     spaceId: 1,
     spec: {
-      grants: [{ type: 'characteristic_modify', characteristic_code: 'strength', source_code: 'armor', check_codes: [], amount: -2, permanent: true }],
+      grants: [
+        {
+          type: 'characteristic_modify',
+          characteristic_code: 'strength',
+          source_code: 'armor',
+          check_codes: [],
+          amount: -2,
+          permanent: true,
+        },
+      ],
       category: 'equipment',
       cost_gm: 60000,
       weight: { base: 50, size: -5 },
@@ -2087,7 +2118,9 @@ export const mockItemImport: Rule[] = [
           { defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' },
         ],
         resistance_slots: [],
-        characteristic_limits: [{ characteristic_code: 'dexterity', limit: { type: 'dimensional', base: 4, size: -2 } }],
+        characteristic_limits: [
+          { characteristic_code: 'dexterity', limit: { type: 'dimensional', base: 4, size: -2 } },
+        ],
       },
     },
     keywordIds: [79, 86, 159, 162, 218],

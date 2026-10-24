@@ -74,6 +74,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->iconCode;
     }
+
     /**
      * Тип значения.
      *
@@ -83,6 +84,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->valueType;
     }
+
     /**
      * Агрегация.
      *
@@ -92,6 +94,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->aggregation;
     }
+
     /**
      * Коды действий.
      *
@@ -101,6 +104,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->actionCodes;
     }
+
     /**
      * Проверка.
      *
@@ -110,6 +114,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->checkCode;
     }
+
     /**
      * Остаток повреждений.
      *
@@ -119,6 +124,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->damageRemainder;
     }
+
     /**
      * Истощение от повреждений.
      *
@@ -128,6 +134,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->damageExhaustion;
     }
+
     /**
      * Кровопотеря.
      *
@@ -137,6 +144,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->bloodLoss;
     }
+
     /**
      * Упадок, слабость.
      *
@@ -146,6 +154,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->declineWeakness;
     }
+
     /**
      * Упадок, бессилие.
      *
@@ -155,6 +164,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->declineDisabled;
     }
+
     /**
      * Упадок, бессознательность.
      *
@@ -164,6 +174,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->declineUnconscious;
     }
+
     /**
      * Увечье.
      *
@@ -173,6 +184,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->maim;
     }
+
     /**
      * Горение.
      *
@@ -182,6 +194,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->burning;
     }
+
     /**
      * Отравление.
      *
@@ -191,6 +204,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->poisoning;
     }
+
     /**
      * Лежачее положение.
      *
@@ -200,6 +214,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->lying;
     }
+
     /**
      * Неустойчивость.
      *
@@ -209,6 +224,7 @@ final class StateSpec implements RuleSpec
     {
         return $this->unstable;
     }
+
     /**
      * Отклонение магии.
      *

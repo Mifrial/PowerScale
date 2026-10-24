@@ -18,14 +18,20 @@ function commit(table: Record<string, number>): void {
 <template>
   <div>
     <div class="text-body-2 text-medium-emphasis mb-1">Значение параметра → накопленная стоимость. Ключи — строки.</div>
-    <div class="d-flex ga-2 align-center flex-wrap mb-1" v-for="valueKey in zoneCostSpecService.tableKeys(modelValue)" :key="valueKey">
+    <div
+      class="d-flex ga-2 align-center flex-wrap mb-1"
+      v-for="valueKey in zoneCostSpecService.tableKeys(modelValue)"
+      :key="valueKey"
+    >
       <v-text-field
         :model-value="valueKey"
         label="Значение"
         density="compact"
         hide-details
         style="max-width: 120px"
-        @update:model-value="commit(zoneCostSpecService.patchTableKey(modelValue, valueKey, String($event ?? valueKey)))"
+        @update:model-value="
+          commit(zoneCostSpecService.patchTableKey(modelValue, valueKey, String($event ?? valueKey)))
+        "
       />
       <ClampedNumberField
         :model-value="modelValue[valueKey] ?? 0"

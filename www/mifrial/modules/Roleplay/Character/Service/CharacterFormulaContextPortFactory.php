@@ -7,8 +7,6 @@ namespace Mifrial\Roleplay\Character\Service;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
-use Mifrial\Roleplay\Character\Service\CharacterRuleSlicePortFactory;
-use Mifrial\Roleplay\Character\Service\CharacterSheetPortFactory;
 
 /**
  * Сборка контекста формулы из локатора.

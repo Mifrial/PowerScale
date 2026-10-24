@@ -92,7 +92,12 @@ function setLinkedEnabled(enabled: boolean): void {
     />
     <v-alert v-if="mismatched.length" type="warning" variant="tonal" density="compact" class="mb-2">
       Границы {{ mismatched.join(', ') }} не совпадают с kind «{{ modelValue.kind }}». Поля не подменяются сами.
-      <v-btn class="ml-2" size="small" variant="tonal" @click="patch(abilityParameterSpecService.coerceBoundsToKind(modelValue))">
+      <v-btn
+        class="ml-2"
+        size="small"
+        variant="tonal"
+        @click="patch(abilityParameterSpecService.coerceBoundsToKind(modelValue))"
+      >
         Привести к kind
       </v-btn>
     </v-alert>
@@ -121,7 +126,10 @@ function setLinkedEnabled(enabled: boolean): void {
         @update:model-value="patch(abilityParameterSpecService.withScalarBound(modelValue, 'max', $event))"
       />
     </div>
-    <div v-else-if="modelValue.kind === 'dimensional' && mismatched.length === 0" class="d-flex ga-2 align-center flex-wrap">
+    <div
+      v-else-if="modelValue.kind === 'dimensional' && mismatched.length === 0"
+      class="d-flex ga-2 align-center flex-wrap"
+    >
       <DimensionalNumberInput
         :model-value="typeof modelValue.default === 'object' ? modelValue.default : { base: 0, size: 0 }"
         label="По умолчанию"

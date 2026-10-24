@@ -20,16 +20,15 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicModifyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SenseModifyGrant;
-use Mifrial\Roleplay\Rule\Dto\Spec\SenseSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Race\RaceSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\SenseSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\State\CharacteristicModifyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
-use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Живые характеристики: раса, гранты, агрегация, потолки предмета.
@@ -386,6 +385,7 @@ final class CharacterLiveCharacteristics
             if ($status !== null && ($ranks[$status] ?? -1) > $current) {
                 $rows[$body->getSenseCode()]['status'] = $names[$ranks[$status]];
             }
+
             if ($body->getTreatAsGoodDownTo() !== null) {
                 $rows[$body->getSenseCode()]['treatAsGoodDownTo'] = $body->getTreatAsGoodDownTo();
             }

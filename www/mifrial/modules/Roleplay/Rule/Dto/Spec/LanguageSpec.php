@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Dto\Spec;
 
-use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
-use Mifrial\Roleplay\Rule\Spec\SpecShape;
-use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
-
 /**
  * Spec правила language.
  */
@@ -29,7 +25,6 @@ final class LanguageSpec implements RuleSpec
     ) {
     }
 
-
     /**
      * Тип правила.
      *
@@ -49,6 +44,7 @@ final class LanguageSpec implements RuleSpec
     {
         return $this->role;
     }
+
     /**
      * Родитель.
      *
@@ -58,6 +54,7 @@ final class LanguageSpec implements RuleSpec
     {
         return $this->parentCode;
     }
+
     /**
      * Письменности.
      *
@@ -67,5 +64,4 @@ final class LanguageSpec implements RuleSpec
     {
         return $this->scriptCodes;
     }
-
 }

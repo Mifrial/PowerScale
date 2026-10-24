@@ -57,9 +57,11 @@ final class RevisionPublisher
         if (!$allowUnchangedComposition) {
             $this->assertCompositionChanged($spaceId, $versionIds);
         }
+
         if ($expectedRevision !== null) {
             $this->assertExpectedHead($spaceId, $expectedRevision);
         }
+
         $revisionRow = $expectedRevision === null
             ? $this->insertRevision($spaceId)
             : $this->insertExpectedRevision($spaceId, $expectedRevision);

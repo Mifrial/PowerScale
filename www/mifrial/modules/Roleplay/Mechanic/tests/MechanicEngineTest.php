@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Mechanic\Tests;
 
-use stdClass;
 use Mifrial\Roleplay\Mechanic\Constant\PurchaseSurchargeEvent;
 use Mifrial\Roleplay\Mechanic\Dto\CharacterMechanicContext;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
@@ -22,6 +21,7 @@ use Mifrial\Roleplay\Mechanic\Service\Handler\ReliabilityCutHandler;
 use Mifrial\Roleplay\Mechanic\Service\MechanicEngine;
 use Mifrial\Roleplay\Mechanic\Service\MechanicHandlerRegistry;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 final class MechanicEngineTest extends TestCase
 {
@@ -339,7 +339,7 @@ final class MechanicEngineTest extends TestCase
      */
     private function cuttingHandler(): IMechanicHandler
     {
-        return new class implements IMechanicHandler, IReliabilityCut {
+        return new class () implements IMechanicHandler, IReliabilityCut {
             public function getCode(): string
             {
                 return 'cut';
