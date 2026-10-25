@@ -14,13 +14,13 @@ use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Tests\Support\MysqlSchemaFixture;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Schema\UserSchema;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
-use Mifrial\Core\User\Tests\UserMysqlTables;
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Messages\Chat\Interface\Service\IChatTypeRegistry;
@@ -34,6 +34,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ChatHttpMysqlTest extends TestCase
 {
+    use MysqlSchemaFixture;
+
     private ?IApplication $application = null;
 
     private ?IRequestContext $requestContext = null;
@@ -44,8 +46,10 @@ final class ChatHttpMysqlTest extends TestCase
 
     private ?ISmartTableGateway $smartTableGateway = null;
 
+    private ?IlluminateDatabaseConnection $databaseConnection = null;
+
     /**
-     * Подключается к MySQL или skip; сносит таблицы Chat и User.
+     * Подключается к MySQL или skip; готовит схемы и данные.
      *
      * @return void
      */
@@ -57,18 +61,16 @@ final class ChatHttpMysqlTest extends TestCase
             self::markTestSkipped($exception->getErrorCode() . ': MySQL is not available for Chat HTTP tests');
         }
 
-        $this->dropChatAndUserTables();
-        $this->installSchemas();
-    }
-
-    /**
-     * Сносит Chat, затем User.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropChatAndUserTables();
+        $databaseConnection = $this->databaseConnection;
+        self::assertInstanceOf(IlluminateDatabaseConnection::class, $databaseConnection);
+        $this->prepareMysql(
+            $databaseConnection,
+            'chat',
+            ['user', 'user_group', 'user_group_member', 'chat', 'chat_member', 'chat_message'],
+            function (): void {
+                $this->installSchemas();
+            },
+        );
     }
 
     /**
@@ -322,6 +324,7 @@ final class ChatHttpMysqlTest extends TestCase
         }
 
         $databaseConnection->ping();
+        $this->databaseConnection = $databaseConnection;
     }
 
     /**
@@ -342,21 +345,6 @@ final class ChatHttpMysqlTest extends TestCase
             $gateway->open(ChatMemberTable::class)->schema(),
             $gateway->open(ChatMessageTable::class)->schema(),
         ))->install();
-    }
-
-    /**
-     * Сносит Chat и User.
-     *
-     * @return void
-     */
-    private function dropChatAndUserTables(): void
-    {
-        if (!$this->smartTableGateway instanceof ISmartTableGateway) {
-            return;
-        }
-
-        ChatMysqlTables::drop($this->smartTableGateway);
-        UserMysqlTables::drop($this->smartTableGateway);
     }
 
     /**

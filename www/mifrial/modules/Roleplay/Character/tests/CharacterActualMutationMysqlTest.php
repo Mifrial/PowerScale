@@ -12,6 +12,7 @@ use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Tests\Support\MysqlSchemaFixture;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
@@ -19,7 +20,6 @@ use Mifrial\Core\User\Schema\UserSchema;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
-use Mifrial\Core\User\Tests\UserMysqlTables;
 use Mifrial\Roleplay\Character\Dto\Action\ApplyCharacterActualPatchInput;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
@@ -40,21 +40,24 @@ use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSheetDocument;
 use Mifrial\Roleplay\Character\Table\CharacterTable;
 use Mifrial\Roleplay\Character\Table\CharacterViewerTable;
-use Mifrial\Roleplay\Game\Table\GameCharacterTable;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
 use Mifrial\Roleplay\Rule\Table\RuleSpaceTable;
 use PHPUnit\Framework\TestCase;
 
 final class CharacterActualMutationMysqlTest extends TestCase
 {
+    use MysqlSchemaFixture;
+
     private ?ICharacters $characters = null;
 
     private ?IUserAccounts $userAccounts = null;
 
     private ?ISmartTableGateway $smartTableGateway = null;
 
+    private ?IlluminateDatabaseConnection $databaseConnection = null;
+
     /**
-     * MySQL или skip.
+     * MySQL или skip; готовит схемы и данные.
      *
      * @return void
      */
@@ -66,18 +69,17 @@ final class CharacterActualMutationMysqlTest extends TestCase
             self::markTestSkipped($exception->getErrorCode() . ': MySQL is not available for Character tests');
         }
 
-        $this->dropCharacterTables();
-        $this->installSchemas();
-    }
-
-    /**
-     * Снос таблиц.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropCharacterTables();
+        $databaseConnection = $this->databaseConnection;
+        self::assertInstanceOf(IlluminateDatabaseConnection::class, $databaseConnection);
+        $this->prepareMysql(
+            $databaseConnection,
+            'character',
+            ['user', 'user_group', 'user_group_member', 'rule_space', 'character', 'character_viewer'],
+            function (): void {
+                $this->installSchemas();
+            },
+            ['rule_space', 'rulespace'],
+        );
     }
 
     /**
@@ -595,6 +597,7 @@ final class CharacterActualMutationMysqlTest extends TestCase
         }
 
         $databaseConnection->ping();
+        $this->databaseConnection = $databaseConnection;
     }
 
     /**
@@ -621,33 +624,6 @@ final class CharacterActualMutationMysqlTest extends TestCase
             $gateway->open(CharacterTable::class)->schema(),
             $gateway->open(CharacterViewerTable::class)->schema(),
         ))->install();
-    }
-
-    /**
-     * Drop FK-порядка.
-     *
-     * @return void
-     */
-    private function dropCharacterTables(): void
-    {
-        if (!$this->smartTableGateway instanceof ISmartTableGateway) {
-            return;
-        }
-
-        $gateway = $this->smartTableGateway;
-        $gameCharacterSchema = $gateway->open(GameCharacterTable::class)->schema();
-        if ($gameCharacterSchema->exists()) {
-            $gameCharacterSchema->deleteTable();
-        }
-
-        foreach ([CharacterViewerTable::class, CharacterTable::class] as $tableClass) {
-            $schema = $gateway->open($tableClass)->schema();
-            if ($schema->exists()) {
-                $schema->deleteTable();
-            }
-        }
-
-        UserMysqlTables::drop($gateway);
     }
 
     /**

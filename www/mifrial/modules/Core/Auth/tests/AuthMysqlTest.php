@@ -50,6 +50,7 @@ use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Service\SmartTableTransactionRunner;
 use Mifrial\Core\SmartTable\Tests\GatewayHarness;
+use Mifrial\Core\SmartTable\Tests\Support\MysqlSchemaFixture;
 use Mifrial\Core\User\Dto\NewGroup;
 use Mifrial\Core\User\Dto\UserPatch;
 use Mifrial\Core\User\Exception\UserNotFoundException;
@@ -72,6 +73,8 @@ use RuntimeException;
 
 final class AuthMysqlTest extends TestCase
 {
+    use MysqlSchemaFixture;
+
     private ?AuthService $authService = null;
 
     private ?IUserAccounts $userAccounts = null;
@@ -81,6 +84,8 @@ final class AuthMysqlTest extends TestCase
     private ?IRequestContext $requestContext = null;
 
     private ?ISmartTableGateway $smartTableGateway = null;
+
+    private ?IlluminateDatabaseConnection $databaseConnection = null;
 
     private ?UserIdentityRepository $identityRepository = null;
 
@@ -93,7 +98,7 @@ final class AuthMysqlTest extends TestCase
     private ?SetPasswordService $setPasswordService = null;
 
     /**
-     * MySQL или skip; ставит схемы User и Auth.
+     * MySQL или skip; готовит схемы и данные.
      *
      * @return void
      */
@@ -105,19 +110,26 @@ final class AuthMysqlTest extends TestCase
             self::markTestSkipped($exception->getErrorCode() . ': MySQL is not available for Auth tests');
         }
 
-        $this->dropAuthAndUserTables();
-        $this->installSchemas();
+        $databaseConnection = $this->databaseConnection;
+        self::assertInstanceOf(IlluminateDatabaseConnection::class, $databaseConnection);
+        $this->prepareMysql(
+            $databaseConnection,
+            'auth',
+            [
+                'user',
+                'user_group',
+                'user_group_member',
+                'user_identity',
+                'auth_session',
+                'auth_security_policy',
+                'auth_group_security_policy',
+                'auth_password_reset',
+            ],
+            function (): void {
+                $this->installSchemas();
+            },
+        );
         $this->passwordPolicyService()->ensureDefaults();
-    }
-
-    /**
-     * Сносит таблицы Auth и User.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropAuthAndUserTables();
     }
 
     /**
@@ -769,6 +781,7 @@ final class AuthMysqlTest extends TestCase
                 $this->settingsFromEnv($envHost),
             );
             $databaseConnection->ping();
+            $this->databaseConnection = $databaseConnection;
             $this->bindOnGateway(GatewayHarness::make($databaseConnection));
 
             return;
@@ -793,6 +806,7 @@ final class AuthMysqlTest extends TestCase
         }
 
         $databaseConnection->ping();
+        $this->databaseConnection = $databaseConnection;
     }
 
     /**
@@ -976,35 +990,6 @@ final class AuthMysqlTest extends TestCase
         $httpRequest = $this->createStub(IHttpRequest::class);
         $httpRequest->method('getCookieMap')->willReturn(['mifrial-session' => $rawToken]);
         $this->requestContext()->bindIncoming($httpRequest);
-    }
-
-    /**
-     * Сносит таблицы Auth, затем User.
-     *
-     * @return void
-     */
-    private function dropAuthAndUserTables(): void
-    {
-        if (!$this->smartTableGateway instanceof ISmartTableGateway) {
-            return;
-        }
-
-        $tableClasses = [
-            AuthPasswordResetTable::class,
-            AuthSessionTable::class,
-            UserIdentityTable::class,
-            AuthGroupSecurityPolicyTable::class,
-            AuthSecurityPolicyTable::class,
-            UserGroupMemberTable::class,
-            UserGroupTable::class,
-            UserTable::class,
-        ];
-        foreach ($tableClasses as $tableClass) {
-            $openedTable = $this->smartTableGateway->open($tableClass);
-            if ($openedTable->schema()->exists()) {
-                $openedTable->schema()->deleteTable();
-            }
-        }
     }
 
     /**

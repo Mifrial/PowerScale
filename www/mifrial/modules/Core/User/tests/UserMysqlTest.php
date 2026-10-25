@@ -15,6 +15,7 @@ use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Tests\GatewayHarness;
+use Mifrial\Core\SmartTable\Tests\Support\MysqlSchemaFixture;
 use Mifrial\Core\User\Dto\NewUser;
 use Mifrial\Core\User\Dto\UserPatch;
 use Mifrial\Core\User\Dto\UserRecord;
@@ -33,14 +34,18 @@ use PHPUnit\Framework\TestCase;
 
 final class UserMysqlTest extends TestCase
 {
+    use MysqlSchemaFixture;
+
     private ?IUserAccounts $userAccounts = null;
 
     private ?UserSchema $userSchema = null;
 
     private ?ISmartTableGateway $smartTableGateway = null;
 
+    private ?IlluminateDatabaseConnection $databaseConnection = null;
+
     /**
-     * Подключается к MySQL или skip; сносит таблицы модуля User.
+     * Подключается к MySQL или skip; готовит схему и данные.
      *
      * @return void
      */
@@ -52,18 +57,16 @@ final class UserMysqlTest extends TestCase
             self::markTestSkipped($exception->getErrorCode() . ': MySQL is not available for User tests');
         }
 
-        $this->dropUserModuleTables();
-        $this->userSchema()->install();
-    }
-
-    /**
-     * Удаляет таблицу `user`.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropUserModuleTables();
+        $databaseConnection = $this->databaseConnection;
+        self::assertInstanceOf(IlluminateDatabaseConnection::class, $databaseConnection);
+        $this->prepareMysql(
+            $databaseConnection,
+            'user',
+            ['user', 'user_group', 'user_group_member'],
+            function (): void {
+                $this->userSchema()->install();
+            },
+        );
     }
 
     /**
@@ -171,6 +174,7 @@ final class UserMysqlTest extends TestCase
                 $this->settingsFromEnv($envHost),
             );
             $databaseConnection->ping();
+            $this->databaseConnection = $databaseConnection;
             $this->smartTableGateway = GatewayHarness::make($databaseConnection);
             $this->bindUserModule($this->smartTableGateway);
 
@@ -193,6 +197,7 @@ final class UserMysqlTest extends TestCase
         }
 
         $databaseConnection->ping();
+        $this->databaseConnection = $databaseConnection;
     }
 
     /**
@@ -271,20 +276,6 @@ final class UserMysqlTest extends TestCase
             $smartTableGateway->open(UserGroupTable::class)->schema(),
             $smartTableGateway->open(UserGroupMemberTable::class)->schema(),
         );
-    }
-
-    /**
-     * Удаляет таблицы модуля User, если есть.
-     *
-     * @return void
-     */
-    private function dropUserModuleTables(): void
-    {
-        if (!$this->smartTableGateway instanceof ISmartTableGateway) {
-            return;
-        }
-
-        UserMysqlTables::drop($this->smartTableGateway);
     }
 
     /**

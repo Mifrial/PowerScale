@@ -23,6 +23,7 @@ use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Tests\GatewayHarness;
+use Mifrial\Core\SmartTable\Tests\Support\MysqlSchemaFixture;
 use Mifrial\Core\User\Dto\Action\CreateGroupInput;
 use Mifrial\Core\User\Dto\Action\DeactivateUserInput;
 use Mifrial\Core\User\Dto\Action\FindPageInput;
@@ -57,6 +58,8 @@ use PHPUnit\Framework\TestCase;
 
 final class UserHttpMysqlTest extends TestCase
 {
+    use MysqlSchemaFixture;
+
     private ?IUserAccounts $userAccounts = null;
 
     private ?IUserGroups $userGroups = null;
@@ -69,8 +72,10 @@ final class UserHttpMysqlTest extends TestCase
 
     private ?IRequestContext $requestContext = null;
 
+    private ?IlluminateDatabaseConnection $databaseConnection = null;
+
     /**
-     * MySQL или skip.
+     * MySQL или skip; готовит схему и данные.
      *
      * @return void
      */
@@ -82,18 +87,16 @@ final class UserHttpMysqlTest extends TestCase
             self::markTestSkipped($exception->getErrorCode() . ': MySQL is not available for User tests');
         }
 
-        $this->dropUserModuleTables();
-        $this->userSchema()->install();
-    }
-
-    /**
-     * Сносит таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropUserModuleTables();
+        $databaseConnection = $this->databaseConnection;
+        self::assertInstanceOf(IlluminateDatabaseConnection::class, $databaseConnection);
+        $this->prepareMysql(
+            $databaseConnection,
+            'user',
+            ['user', 'user_group', 'user_group_member'],
+            function (): void {
+                $this->userSchema()->install();
+            },
+        );
     }
 
     /**
@@ -573,6 +576,7 @@ final class UserHttpMysqlTest extends TestCase
                 $this->settingsFromEnv($envHost),
             );
             $databaseConnection->ping();
+            $this->databaseConnection = $databaseConnection;
             $this->smartTableGateway = GatewayHarness::make($databaseConnection);
             $this->bindFacades($this->smartTableGateway);
 
@@ -603,6 +607,7 @@ final class UserHttpMysqlTest extends TestCase
         }
 
         $databaseConnection->ping();
+        $this->databaseConnection = $databaseConnection;
     }
 
     /**
@@ -694,18 +699,6 @@ final class UserHttpMysqlTest extends TestCase
     private function newGroup(array $values): NewGroup
     {
         return (new GroupInputNormalizer())->newGroup($values);
-    }
-
-    /**
-     * @return void
-     */
-    private function dropUserModuleTables(): void
-    {
-        if (!$this->smartTableGateway instanceof ISmartTableGateway) {
-            return;
-        }
-
-        UserMysqlTables::drop($this->smartTableGateway);
     }
 
     /**

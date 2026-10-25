@@ -62,6 +62,7 @@ use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Service\SmartTableTransactionRunner;
 use Mifrial\Core\SmartTable\Tests\GatewayHarness;
+use Mifrial\Core\SmartTable\Tests\Support\MysqlSchemaFixture;
 use Mifrial\Core\User\Dto\NewGroup;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
@@ -85,6 +86,8 @@ use RuntimeException;
  */
 final class AuthWorkflowAtomicityMysqlTest extends TestCase
 {
+    use MysqlSchemaFixture;
+
     private ?ISmartTableGateway $smartTableGateway = null;
 
     private ?IUserAccounts $userAccounts = null;
@@ -95,8 +98,10 @@ final class AuthWorkflowAtomicityMysqlTest extends TestCase
 
     private ?PasswordPolicyService $passwordPolicyService = null;
 
+    private ?IlluminateDatabaseConnection $databaseConnection = null;
+
     /**
-     * MySQL или skip.
+     * MySQL или skip; готовит схемы и данные.
      *
      * @return void
      */
@@ -108,20 +113,27 @@ final class AuthWorkflowAtomicityMysqlTest extends TestCase
             self::markTestSkipped($exception->getErrorCode() . ': MySQL is not available for Auth tests');
         }
 
-        $this->dropTables();
-        $this->installSchemas();
+        $databaseConnection = $this->databaseConnection;
+        self::assertInstanceOf(IlluminateDatabaseConnection::class, $databaseConnection);
+        $this->prepareMysql(
+            $databaseConnection,
+            'auth',
+            [
+                'user',
+                'user_group',
+                'user_group_member',
+                'user_identity',
+                'auth_session',
+                'auth_security_policy',
+                'auth_group_security_policy',
+                'auth_password_reset',
+            ],
+            function (): void {
+                $this->installSchemas();
+            },
+        );
         $this->passwordPolicy()->ensureDefaults();
         $this->seedPlayerGroup();
-    }
-
-    /**
-     * Сносит таблицы сценария.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropTables();
     }
 
     /**
@@ -446,6 +458,7 @@ final class AuthWorkflowAtomicityMysqlTest extends TestCase
                 $this->settingsFromEnv($envHost),
             );
             $databaseConnection->ping();
+            $this->databaseConnection = $databaseConnection;
             $this->bindGateway(GatewayHarness::make($databaseConnection));
 
             return;
@@ -475,6 +488,7 @@ final class AuthWorkflowAtomicityMysqlTest extends TestCase
         }
 
         $databaseConnection->ping();
+        $this->databaseConnection = $databaseConnection;
     }
 
     /**
@@ -565,38 +579,6 @@ final class AuthWorkflowAtomicityMysqlTest extends TestCase
             'auth.password_reset',
             'Сброс пароля',
         );
-    }
-
-    /**
-     * Сносит таблицы.
-     *
-     * @return void
-     */
-    private function dropTables(): void
-    {
-        if (!$this->smartTableGateway instanceof ISmartTableGateway) {
-            return;
-        }
-
-        $tableClasses = [
-            MailJobTable::class,
-            MailTemplateTable::class,
-            MailEventTable::class,
-            AuthPasswordResetTable::class,
-            AuthSessionTable::class,
-            UserIdentityTable::class,
-            AuthGroupSecurityPolicyTable::class,
-            AuthSecurityPolicyTable::class,
-            UserGroupMemberTable::class,
-            UserGroupTable::class,
-            UserTable::class,
-        ];
-        foreach ($tableClasses as $tableClass) {
-            $openedTable = $this->smartTableGateway->open($tableClass);
-            if ($openedTable->schema()->exists()) {
-                $openedTable->schema()->deleteTable();
-            }
-        }
     }
 
     /**

@@ -10,9 +10,9 @@ use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Core\SmartTable\Exception\Database\DatabaseException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
-use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Tests\Support\MysqlSchemaFixture;
 use Mifrial\Roleplay\Keyword\Interface\Container\IKeywordContainer;
 use Mifrial\Roleplay\Keyword\Interface\Service\IKeywords;
 use Mifrial\Roleplay\Keyword\Schema\KeywordSchema;
@@ -39,6 +39,8 @@ use PHPUnit\Framework\TestCase;
 
 final class RuleMysqlTest extends TestCase
 {
+    use MysqlSchemaFixture;
+
     private ?IRules $rules = null;
 
     private ?IKeywords $keywords = null;
@@ -47,8 +49,10 @@ final class RuleMysqlTest extends TestCase
 
     private ?ISmartTableGateway $smartTableGateway = null;
 
+    private ?IlluminateDatabaseConnection $databaseConnection = null;
+
     /**
-     * Подключается к MySQL или skip.
+     * Подключается к MySQL или skip; готовит схемы и данные.
      *
      * @return void
      */
@@ -60,18 +64,17 @@ final class RuleMysqlTest extends TestCase
             self::markTestSkipped($exception->getErrorCode() . ': MySQL is not available for Rule tests');
         }
 
-        $this->dropTables();
-        $this->installSchemas();
-    }
-
-    /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropTables();
+        $databaseConnection = $this->databaseConnection;
+        self::assertInstanceOf(IlluminateDatabaseConnection::class, $databaseConnection);
+        $this->prepareMysql(
+            $databaseConnection,
+            'rule',
+            ['keyword', 'mechanic', 'rule', 'rule_space', 'rule_version', 'rule_revision', 'rule_revision_item'],
+            function (): void {
+                $this->installSchemas();
+            },
+            ['rule_space', 'rulespace'],
+        );
     }
 
     /**
@@ -396,6 +399,7 @@ final class RuleMysqlTest extends TestCase
         }
 
         $databaseConnection->ping();
+        $this->databaseConnection = $databaseConnection;
     }
 
     /**
@@ -415,41 +419,6 @@ final class RuleMysqlTest extends TestCase
             $gateway->open(RuleRevisionTable::class)->schema(),
             $gateway->open(RuleRevisionItemTable::class)->schema(),
         ))->install();
-    }
-
-    /**
-     * Снятие по FK.
-     *
-     * @return void
-     */
-    private function dropTables(): void
-    {
-        if (!$this->smartTableGateway instanceof ISmartTableGateway) {
-            return;
-        }
-
-        $gateway = $this->smartTableGateway;
-        $this->deleteIfExists($gateway->open(RuleRevisionItemTable::class));
-        $this->deleteIfExists($gateway->open(RuleRevisionTable::class));
-        $this->deleteIfExists($gateway->open(RuleVersionTable::class));
-        $this->deleteIfExists($gateway->open(RuleSpaceTable::class));
-        $this->deleteIfExists($gateway->open(RuleTable::class));
-        $this->deleteIfExists($gateway->open(MechanicTable::class));
-        $this->deleteIfExists($gateway->open(KeywordTable::class));
-    }
-
-    /**
-     * deleteTable если есть.
-     *
-     * @param IOpenedTable $openedTable Карта.
-     *
-     * @return void
-     */
-    private function deleteIfExists(IOpenedTable $openedTable): void
-    {
-        if ($openedTable->schema()->exists()) {
-            $openedTable->schema()->deleteTable();
-        }
     }
 
     /**

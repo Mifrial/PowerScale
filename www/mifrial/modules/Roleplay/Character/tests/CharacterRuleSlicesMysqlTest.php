@@ -10,16 +10,15 @@ use Mifrial\Core\Kernel\Service\ApplicationFactory;
 use Mifrial\Core\SmartTable\Exception\Database\DatabaseException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
-use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Tests\Support\MysqlSchemaFixture;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Schema\UserSchema;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
-use Mifrial\Core\User\Tests\UserMysqlTables;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
@@ -49,6 +48,8 @@ use PHPUnit\Framework\TestCase;
 
 final class CharacterRuleSlicesMysqlTest extends TestCase
 {
+    use MysqlSchemaFixture;
+
     private ?ICharacterRuleSlices $characterRuleSlices = null;
 
     private ?IRuleSpaces $ruleSpaces = null;
@@ -61,10 +62,12 @@ final class CharacterRuleSlicesMysqlTest extends TestCase
 
     private ?IUserAccounts $userAccounts = null;
 
+    private ?IlluminateDatabaseConnection $databaseConnection = null;
+
     private int $ownerUserId = 0;
 
     /**
-     * MySQL или skip.
+     * MySQL или skip; готовит схемы и данные.
      *
      * @return void
      */
@@ -76,23 +79,37 @@ final class CharacterRuleSlicesMysqlTest extends TestCase
             self::markTestSkipped($exception->getErrorCode() . ': MySQL is not available for Character slice tests');
         }
 
-        $this->dropTables();
+        $databaseConnection = $this->databaseConnection;
+        self::assertInstanceOf(IlluminateDatabaseConnection::class, $databaseConnection);
+        $this->prepareMysql(
+            $databaseConnection,
+            'rulespace',
+            [
+                'user',
+                'user_group',
+                'user_group_member',
+                'keyword',
+                'mechanic',
+                'rule',
+                'rule_space',
+                'rule_version',
+                'rule_revision',
+                'rule_revision_item',
+                'rulespace',
+                'rulespace_catalog_section',
+                'rulespace_catalog_item',
+                'rulespace_revision_catalog',
+            ],
+            function (): void {
+                $this->installSchemas();
+            },
+            ['rule_space', 'rulespace'],
+        );
         $this->flushRuleSliceCache();
-        $this->installSchemas();
         $this->ownerUserId = $this->userAccounts()->addFromInput([
             'login' => 'owner',
             'name' => 'Owner',
         ]);
-    }
-
-    /**
-     * Снос таблиц.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropTables();
     }
 
     /**
@@ -196,6 +213,7 @@ final class CharacterRuleSlicesMysqlTest extends TestCase
         }
 
         $databaseConnection->ping();
+        $this->databaseConnection = $databaseConnection;
         $cacheStore = $locator->get(ICacheContainer::class)->get(ICacheStore::class);
         self::assertInstanceOf(ICacheStore::class, $cacheStore);
         $this->cacheStore = $cacheStore;
@@ -235,32 +253,6 @@ final class CharacterRuleSlicesMysqlTest extends TestCase
     }
 
     /**
-     * Снятие по FK.
-     *
-     * @return void
-     */
-    private function dropTables(): void
-    {
-        if (!$this->smartTableGateway instanceof ISmartTableGateway) {
-            return;
-        }
-
-        $gateway = $this->smartTableGateway;
-        $this->deleteIfExists($gateway->open(RuleSpaceCatalogItemTable::class));
-        $this->deleteIfExists($gateway->open(RuleSpaceRevisionCatalogTable::class));
-        $this->deleteIfExists($gateway->open(RuleSpaceCatalogSectionTable::class));
-        $this->deleteIfExists($gateway->open(RuleSpaceMetaTable::class));
-        $this->deleteIfExists($gateway->open(RuleRevisionItemTable::class));
-        $this->deleteIfExists($gateway->open(RuleRevisionTable::class));
-        $this->deleteIfExists($gateway->open(RuleVersionTable::class));
-        $this->deleteIfExists($gateway->open(RuleSpaceTable::class));
-        $this->deleteIfExists($gateway->open(RuleTable::class));
-        $this->deleteIfExists($gateway->open(MechanicTable::class));
-        $this->deleteIfExists($gateway->open(KeywordTable::class));
-        UserMysqlTables::drop($gateway);
-    }
-
-    /**
      * Сбрасывает кэш срезов часов.
      *
      * @return void
@@ -279,20 +271,6 @@ final class CharacterRuleSlicesMysqlTest extends TestCase
         }
 
         $this->cacheStore->deleteKeys($cacheKeys);
-    }
-
-    /**
-     * deleteTable если есть.
-     *
-     * @param IOpenedTable $openedTable Карта.
-     *
-     * @return void
-     */
-    private function deleteIfExists(IOpenedTable $openedTable): void
-    {
-        if ($openedTable->schema()->exists()) {
-            $openedTable->schema()->deleteTable();
-        }
     }
 
     /**
