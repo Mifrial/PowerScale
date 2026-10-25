@@ -50,6 +50,7 @@ export class StateRuntimeEffectsService {
     const characteristicDeltas = new Map<string, number>();
     const resourceLimitModify = new Map<string, number>();
     const resourceLimitSet = new Map<string, number>();
+    const derivedTargets = new Set<string>();
 
     for (const state of states) {
       const rule = this.ruleByCode(rules, state.stateRuleCode);
@@ -57,11 +58,19 @@ export class StateRuntimeEffectsService {
       if (!spec) continue;
       const magnitude = this.stateMagnitude(state, spec);
       for (const effect of spec.effects ?? []) {
-        this.applyEffect(effect, magnitude, characteristicDeltas, resourceLimitModify, resourceLimitSet);
+        this.applyEffect(
+          effect,
+          magnitude,
+          characteristicDeltas,
+          resourceLimitModify,
+          resourceLimitSet,
+          derivedTargets,
+          rules,
+        );
       }
     }
 
-    return { characteristicDeltas, resourceLimitModify, resourceLimitSet };
+    return { characteristicDeltas, resourceLimitModify, resourceLimitSet, derivedTargets };
   }
 
   applyCharacteristicStateDeltas(
@@ -95,11 +104,52 @@ export class StateRuntimeEffectsService {
 
   effectiveCharacteristicValues(version: CharacterVersion, rules: Rule[]): Map<string, DimensionalNumberValue> {
     const effects = this.accumulateStateEffects(version.states, rules);
-
-    return this.applyCharacteristicStateDeltas(
+    const values = this.applyCharacteristicStateDeltas(
       this.sheetCharacteristicValues(version, rules),
       effects.characteristicDeltas,
     );
+    if (effects.derivedTargets.size === 0) return values;
+
+    return this.recomputeDerivedCharacteristicValues(values, rules, effects.derivedTargets);
+  }
+
+  /** Пересчитывает производные, на которые прямо нацелены эффекты состояния. */
+  private recomputeDerivedCharacteristicValues(
+    values: Map<string, DimensionalNumberValue>,
+    rules: Rule[],
+    targets: ReadonlySet<string>,
+  ): Map<string, DimensionalNumberValue> {
+    const next = new Map(values);
+    const resolved = new Map<string, DimensionalNumberValue | null>();
+    const resolving = new Set<string>();
+
+    const valueOf = (code: string): DimensionalNumberValue | undefined => {
+      if (resolved.has(code)) return resolved.get(code) ?? undefined;
+      const rule = rules.find((item) => item.code === code && item.type === 'characteristic');
+      const spec = this.characteristicSpecOf(rule);
+      const formula = spec?.formula;
+      if (!formula) {
+        const value = next.get(code);
+        resolved.set(code, value ?? null);
+
+        return value;
+      }
+      if (resolving.has(code)) return next.get(code);
+      resolving.add(code);
+      const parsed = this.derivedCharacteristics.parseDerivedFormula(formula);
+      const value = parsed
+        ? this.derivedCharacteristics.evaluateDerivedValue(parsed, (component) => valueOf(component))
+        : null;
+      resolving.delete(code);
+      if (value !== null) next.set(code, value);
+      resolved.set(code, value);
+
+      return value ?? next.get(code);
+    };
+
+    for (const code of targets) valueOf(code);
+
+    return next;
   }
 
   checkAdvantageFromStates(
@@ -200,8 +250,11 @@ export class StateRuntimeEffectsService {
     return Math.max(-effect.max_abs, Math.min(effect.max_abs, delta));
   }
 
-  private penaltyTargets(code: string): string[] {
-    return [code];
+  private penaltyTargets(code: string, rules: Rule[]): string[] {
+    const spec = this.characteristicSpecOf(rules.find((item) => item.code === code && item.type === 'characteristic'));
+    const parsed = spec?.formula ? this.derivedCharacteristics.parseDerivedFormula(spec.formula) : null;
+
+    return parsed ? parsed.codes : [code];
   }
 
   private applyEffect(
@@ -210,10 +263,14 @@ export class StateRuntimeEffectsService {
     characteristicDeltas: Map<string, number>,
     resourceLimitModify: Map<string, number>,
     resourceLimitSet: Map<string, number>,
+    derivedTargets: Set<string>,
+    rules: Rule[],
   ): void {
     if (effect.type === 'characteristic_modify') {
       const delta = this.scaledAmount(effect, magnitude);
-      for (const code of this.penaltyTargets(effect.characteristic_code)) {
+      const targetRule = this.ruleByCode(rules, effect.characteristic_code);
+      if (this.characteristicSpecOf(targetRule)?.formula) derivedTargets.add(effect.characteristic_code);
+      for (const code of this.penaltyTargets(effect.characteristic_code, rules)) {
         characteristicDeltas.set(code, (characteristicDeltas.get(code) ?? 0) + delta);
       }
 

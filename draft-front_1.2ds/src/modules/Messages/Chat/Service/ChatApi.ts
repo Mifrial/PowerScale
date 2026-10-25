@@ -94,8 +94,9 @@ export class ChatApi implements IChatApi {
       content,
       chatSystemAttachmentService.attachmentsWithSystem([], kind, thread),
     );
+    const attachments = chatSystemAttachmentService.attachmentsWithSystem(message.attachments, kind, thread);
 
-    return chatSystemAttachmentService.messageOf(message);
+    return chatSystemAttachmentService.messageOf({ ...message, attachments });
   }
 
   async markChatRead(chatId: number): Promise<void> {

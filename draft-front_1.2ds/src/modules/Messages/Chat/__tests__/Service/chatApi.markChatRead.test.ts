@@ -72,7 +72,7 @@ describe('ChatApi.sendSystemMessage', () => {
         userId: 1,
         username: 'U',
         content: 'Новый раунд: 1',
-        attachments: [{ type: 'chat_system', payload: { kind: 'highlighted', thread: { id: 'r1', kind: 'round' } } }],
+        attachments: [],
         createdAt: 0,
         updatedAt: 0,
       },

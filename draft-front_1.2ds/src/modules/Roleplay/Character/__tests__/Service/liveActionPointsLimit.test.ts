@@ -75,15 +75,18 @@ describe('liveActionPointsLimit', () => {
   });
 
   it('Берёт авторитетное значение характеристики из листа PHP', () => {
+    // Без эффектов состояний: проверяем именно авторитетное значение листа,
+    // а пересчёт производных под состояниями покрыт тестом «Обессилен».
+    const clean = { ...base, states: [] };
     const sheet =
       liveActionPointsLimitService.liveActionPointsLimit(
-        base,
+        clean,
         rules,
-        stateRuntimeEffectsService.effectiveCharacteristicValues(base, rules),
+        stateRuntimeEffectsService.effectiveCharacteristicValues(clean, rules),
       ) ?? 0;
     const stale = {
-      ...base,
-      characteristics: base.characteristics.map((row) =>
+      ...clean,
+      characteristics: clean.characteristics.map((row) =>
         row.ruleCode === 'perception' ? { ...row, modifiers: [], value: { base: 3, size: 2 } } : row,
       ),
     };
