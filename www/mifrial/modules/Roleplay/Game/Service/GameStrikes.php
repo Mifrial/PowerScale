@@ -605,6 +605,15 @@ final class GameStrikes implements IGameStrikes
             throw new GameInvalidException('Game strike same weapon is invalid');
         }
 
+        if ($base->isDistinctWeapons() && count($codes) !== $count) {
+            throw new GameInvalidException('Game strike distinct weapons are invalid');
+        }
+
+        $strikeCount = $base->getStrikeCount();
+        if (is_int($strikeCount) && $strikeCount > 0 && $count !== $strikeCount) {
+            throw new GameInvalidException('Game strike count is invalid');
+        }
+
         $min = $base->getMinWeapons();
         $max = $base->getMaxWeapons();
         if (is_int($min) && $count < $min) {

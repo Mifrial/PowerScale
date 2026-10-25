@@ -1044,6 +1044,14 @@ export class GameApi implements IGameApi {
       if (actor) gamePhpBattleContext.rememberSheet(`${actor.type}:${actor.id}`, result.sheetVersion ?? 1);
     }
 
+    if (body.action.kind === 'strike' && body.action.phase === 'respond') {
+      for (const row of result.strikes ?? []) {
+        if (typeof row.sheetVersion === 'number') {
+          gamePhpBattleContext.rememberSheet(`${row.target.type}:${row.target.id}`, row.sheetVersion);
+        }
+      }
+    }
+
     return result;
   }
 

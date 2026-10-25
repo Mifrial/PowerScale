@@ -218,6 +218,7 @@ final class GameStrikeRules
      * @param string $attackerKind Вид атакующего.
      * @param int $attackerId Атакующий.
      * @param array<string, mixed>|null $npcChoices Выборы NPC.
+     * @param int $instanceIndex Экземпляр внутри стопки.
      *
      * @return void
      *
@@ -318,6 +319,25 @@ final class GameStrikeRules
         }
 
         return false;
+    }
+
+    /**
+     * Последовательные удары: свой бросок и реакция на каждый.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия игры.
+     * @param string $actionRuleCode Действие.
+     *
+     * @return bool true для последовательных ударов.
+     *
+     * @throws GameInvalidException Если карточка битая.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function isSequentialStrike(int $spaceId, int $rulesRevision, string $actionRuleCode): bool
+    {
+        $base = $this->actionBaseOf($spaceId, $rulesRevision, $actionRuleCode);
+
+        return $base !== null && (($base->getStrikeCount() ?? 1) > 1 || $base->isDistinctWeapons());
     }
 
     /**

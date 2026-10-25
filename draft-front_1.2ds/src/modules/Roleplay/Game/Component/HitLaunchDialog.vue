@@ -3686,7 +3686,7 @@ async function submitPhpStrike(): Promise<boolean> {
     return false;
   }
   const defense = await phpDefense();
-  await getGameApi().runAction({
+  const result = await getGameApi().runAction({
     gameId: defense.gameId,
     battleId: defense.battleId,
     idempotencyKey: defense.idempotencyKey,
@@ -3699,6 +3699,27 @@ async function submitPhpStrike(): Promise<boolean> {
       },
     },
   });
+  if (result.closed !== true) {
+    const next = result.strikes?.find((row) => row.reaction === null);
+    phpPendingStrike.value = next
+      ? {
+          attackerKind: phpDeclaredStrike.value?.attackerKind ?? props.attackerKey?.split(':')[0] ?? 'character',
+          attackerId: Number(props.attackerKey?.split(':')[1] ?? 0),
+          defenderKind: next.target.type,
+          defenderId: next.target.id,
+          actionRuleCode: resolvedActionRuleCode.value ?? selectedActionRuleCode.value ?? '',
+          itemInventoryId: next.itemInventoryId,
+          itemRuleCode: next.itemRuleCode,
+          profileType: next.profileType,
+          profileIndex: next.profileIndex,
+        }
+      : phpPendingStrike.value;
+    reaction.value = null;
+    blockItemRuleCode.value = null;
+
+    return false;
+  }
+
   gamePhpBattleContext.rememberOpenStrike(null);
   phpDeclared.value = false;
   phpDeclaredStrike.value = null;

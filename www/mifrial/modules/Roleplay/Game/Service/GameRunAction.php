@@ -626,8 +626,12 @@ final class GameRunAction
     {
         $strikeId = is_int($open['id'] ?? null) ? $open['id'] : 0;
         $rows = $strikeId > 0 ? $this->repository->getStrikes($strikeId) : [];
+        $sequential = ($result['sequential'] ?? false) === true;
+        $resolvedIndex = is_int($result['resolvedIndex'] ?? null) ? $result['resolvedIndex'] : 0;
         $entries = [];
+        $pending = [];
         foreach ($rows as $index => $row) {
+            $reaction = is_string($row['reaction'] ?? null) ? $row['reaction'] : null;
             $entry = [
                 'index' => $index,
                 'itemInventoryId' => is_int($row['item_inventory_id'] ?? null) ? $row['item_inventory_id'] : 0,
@@ -636,33 +640,40 @@ final class GameRunAction
                 'profileIndex' => is_int($row['profile_index'] ?? null) ? $row['profile_index'] : 0,
                 'instanceIndex' => is_int($row['instance_index'] ?? null) ? $row['instance_index'] : 0,
                 'target' => $this->rowTarget($row),
-                'reaction' => $defense['reaction'],
-                'roll' => $result['attackerRoll'] ?? null,
-                'defenseRoll' => $result['defenderRoll'] ?? null,
-                'success' => $result['success'] ?? 0,
-                'damage' => $result['damage'] ?? null,
-                'resistance' => $result['resistance'] ?? null,
-                'injury' => $result['injury'] ?? null,
-                'sheetVersion' => $result['sheetVersion'] ?? null,
+                'reaction' => $reaction,
             ];
-            if (array_key_exists('S', $result)) {
-                $entry['S'] = $result['S'];
+            if (!$sequential || $index === $resolvedIndex) {
+                $entry = array_merge($entry, [
+                    'roll' => $result['attackerRoll'] ?? null,
+                    'defenseRoll' => $result['defenderRoll'] ?? null,
+                    'success' => $result['success'] ?? 0,
+                    'damage' => $result['damage'] ?? null,
+                    'resistance' => $result['resistance'] ?? null,
+                    'injury' => $result['injury'] ?? null,
+                    'sheetVersion' => $result['sheetVersion'] ?? null,
+                ]);
+                if (array_key_exists('S', $result)) {
+                    $entry['S'] = $result['S'];
+                }
+
+                if (array_key_exists('durabilityShave', $result)) {
+                    $entry['durabilityShave'] = $result['durabilityShave'];
+                }
             }
 
-            if (array_key_exists('durabilityShave', $result)) {
-                $entry['durabilityShave'] = $result['durabilityShave'];
+            if ($reaction === null) {
+                $pending[] = ['index' => $index, 'target' => $this->rowTarget($row)];
             }
 
             $entries[] = $entry;
         }
 
         $base = $result;
-        unset($base['attackerRoll'], $base['defenderRoll']);
+        unset($base['attackerRoll'], $base['defenderRoll'], $base['sequential'], $base['resolvedIndex']);
         $base['kind'] = 'strike';
         $base['phase'] = 'respond';
-        $base['closed'] = true;
         $base['strikes'] = $entries;
-        $base['pendingStrikes'] = [];
+        $base['pendingStrikes'] = $pending;
 
         return $base;
     }

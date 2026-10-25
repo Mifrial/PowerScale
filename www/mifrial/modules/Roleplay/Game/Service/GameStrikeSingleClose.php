@@ -87,12 +87,34 @@ final class GameStrikeSingleClose
         }
 
         $strikes = is_array($open['strikes'] ?? null) ? $open['strikes'] : [];
-        $row = is_array($strikes[0] ?? null) ? $strikes[0] : null;
+        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        $sequential = $this->rules->isSequentialStrike(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $actionRuleCode,
+        );
+        $activeIndex = 0;
+        if ($sequential) {
+            foreach ($strikes as $index => $strikeRow) {
+                if (($strikeRow['reaction'] ?? null) === null) {
+                    $activeIndex = $index;
+                    break;
+                }
+            }
+        }
+
+        $row = is_array($strikes[$activeIndex] ?? null) ? $strikes[$activeIndex] : null;
         if ($row === null) {
             throw new GameInvalidException('Game strike row is invalid');
         }
 
-        $packets = max(1, count($strikes));
+        $open = array_merge($open, [
+            'item_inventory_id' => $row['item_inventory_id'] ?? null,
+            'item_rule_code' => $row['item_rule_code'] ?? null,
+            'profile_type' => $row['profile_type'] ?? null,
+            'profile_index' => $row['profile_index'] ?? null,
+        ]);
+        $packets = $sequential ? 1 : max(1, count($strikes));
         $target = $this->rows->defender($row);
         $targetKey = $this->rows->targetKey($target);
         $attackerKind = $open['attacker_kind'] ?? null;
@@ -101,7 +123,6 @@ final class GameStrikeSingleClose
             throw new GameInvalidException('Game strike attacker is invalid');
         }
 
-        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $lastStrike = new GameLastStrikeSnapshot();
         $this->choices->assertReaction($game, $target, $requestChoice);
         $choice = $this->authoritativeChoice($game, $target, $requestChoice);
@@ -353,12 +374,46 @@ final class GameStrikeSingleClose
             );
         }
 
-        $this->actions->closeWithAnswers($strikeId, [
+        $answer = [
             'reaction' => $choice['reaction'],
             'block_item_inventory_id' => $choice['blockItemInventoryId'],
             'block_item_profile_index' => $choice['blockItemProfileIndex'],
             'block_item_rule_code' => $choice['blockItemRuleCode'],
-        ]);
+        ];
+        if ($sequential) {
+            $this->actions->answerStrike(is_int($row['id'] ?? null) ? $row['id'] : 0, $answer);
+        } else {
+            $this->actions->closeWithAnswers($strikeId, $answer);
+        }
+
+        $remaining = $sequential ? $this->remainingStrikes($strikeId, $activeIndex, $choice['reaction']) : 0;
+        if ($remaining > 0) {
+            $pending = $lastStrike->store(
+                $pending,
+                $attackerKind,
+                $attackerId,
+                $actionRuleCode,
+                $lastStrike->kindOf($slice, $actionRuleCode),
+                [
+                    [
+                        'targetKey' => $targetKey,
+                        'attackSr' => $result['success'],
+                        'reaction' => $choice['reaction'],
+                        'damaged' => $injury->toInteger() > 0,
+                    ],
+                ],
+            );
+            $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
+            $result['closed'] = false;
+            $result['sequential'] = true;
+            $result['resolvedIndex'] = $activeIndex;
+
+            return $result;
+        }
+
+        if ($sequential) {
+            $this->actions->close($strikeId);
+        }
 
         $pending = (new GamePendingActionCosts())->complete(
             $slice,
@@ -399,8 +454,34 @@ final class GameStrikeSingleClose
         );
 
         $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
+        $result['closed'] = true;
+        $result['sequential'] = $sequential;
+        $result['resolvedIndex'] = $activeIndex;
 
         return $result;
+    }
+
+    /**
+     * Сколько ударов ещё ждут ответа.
+     *
+     * @param int $strikeId Действие.
+     * @param int $activeIndex Только что отвеченный удар.
+     * @param string $reaction Ответ.
+     *
+     * @return int Число.
+     */
+    private function remainingStrikes(int $strikeId, int $activeIndex, string $reaction): int
+    {
+        $remaining = 0;
+        foreach ($this->actions->getStrikes($strikeId) as $index => $row) {
+            $answered = $index === $activeIndex ? $reaction : ($row['reaction'] ?? null);
+
+            if ($answered === null) {
+                ++$remaining;
+            }
+        }
+
+        return $remaining;
     }
 
     /**

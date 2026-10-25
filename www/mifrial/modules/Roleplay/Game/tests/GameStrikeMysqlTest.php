@@ -1533,7 +1533,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($this->pair(1), $closed['data']['resistance']);
         self::assertSame($this->pair(36, -1), $closed['data']['injury']);
         self::assertSame(
-            ['battleId', 'strikeId', 'version', 'success', 'damage', 'resistance', 'sheetVersion', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim', 'kind', 'phase', 'closed', 'strikes', 'pendingStrikes'],
+            ['battleId', 'strikeId', 'version', 'success', 'damage', 'resistance', 'sheetVersion', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim', 'closed', 'kind', 'phase', 'strikes', 'pendingStrikes'],
             array_keys($closed['data']),
         );
         self::assertSame($defenderVersion + 1, $this->characterFacade()->get($defenderId)->getActualVersion());
@@ -2231,6 +2231,113 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($closed['data']['strikes'][0]['success'], $closed['data']['strikes'][1]['success']);
         self::assertSame($defenderVersion + 1, $closed['data']['sheetVersion']);
         self::assertSame([], $closed['data']['pendingStrikes']);
+    }
+
+    /**
+     * Обоерукая: два удара разным оружием, у каждого свой бросок и реакция.
+     *
+     * @return void
+     */
+    public function testDistinctWeaponStrikesCloseOneByOne(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: [
+            'twin' => [
+                'type' => 'ability',
+                'name' => 'Twin',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'strike_count' => 2,
+                    'distinct_weapons' => true,
+                    'action_components' => [],
+                ],
+            ],
+        ]);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit(
+            $world->getId(),
+            $gameId,
+            'Dual Hero',
+            inventory: [
+                ['ruleCode' => 'sword', 'equipped' => true],
+                ['ruleCode' => 'blade', 'equipped' => true],
+            ],
+        );
+        $defenderId = $this->admit($world->getId(), $gameId, 'Dual Guard', sheet: ['hp' => 100]);
+        $defenderVersion = $this->characterFacade()->get($defenderId)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'dual-battle',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'dual-open',
+            'expectedVersion' => 1,
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'strike',
+                'code' => 'twin',
+                'actor' => ['type' => 'character', 'id' => $attackerId],
+                'context' => [
+                    'strikes' => [
+                        [
+                            'itemInventoryId' => 1,
+                            'itemRuleCode' => 'sword',
+                            'profileType' => 'strike',
+                            'profileIndex' => 0,
+                            'target' => ['type' => 'character', 'id' => $defenderId],
+                        ],
+                        [
+                            'itemInventoryId' => 2,
+                            'itemRuleCode' => 'blade',
+                            'profileType' => 'strike',
+                            'profileIndex' => 0,
+                            'target' => ['type' => 'character', 'id' => $defenderId],
+                        ],
+                    ],
+                    'chosenAmounts' => [],
+                ],
+            ],
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertCount(2, $opened['data']['strikes']);
+        $first = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'dual-first',
+            'expectedVersion' => 2,
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $defenderVersion),
+        ]);
+        self::assertTrue($first['success'], json_encode($first));
+        self::assertFalse($first['data']['closed']);
+        self::assertCount(1, $first['data']['pendingStrikes']);
+        self::assertNull($first['data']['strikes'][1]['reaction']);
+        self::assertArrayNotHasKey('roll', $first['data']['strikes'][1]);
+        self::assertSame(3, $first['data']['version']);
+        $second = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'dual-second',
+            'expectedVersion' => $first['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($second['success'], json_encode($second));
+        self::assertTrue($second['data']['closed']);
+        self::assertSame([], $second['data']['pendingStrikes']);
+        self::assertSame($defenderVersion + 2, $second['data']['sheetVersion']);
+        self::assertSame($defenderVersion + 2, $this->characterFacade()->get($defenderId)->getActualVersion());
     }
 
     /**
