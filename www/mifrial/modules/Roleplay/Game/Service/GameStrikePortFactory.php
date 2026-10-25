@@ -22,6 +22,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\Read\CharacterSectionMask;
+use Mifrial\Roleplay\Character\Service\Sheet\CharacterRequirementFacts;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameStrikes;
@@ -40,6 +41,7 @@ use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
 use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
+use Mifrial\Roleplay\Rule\Service\AbilityRequirementCheck;
 
 /**
  * Сборка удара. Не метод GamePortFactory.
@@ -84,6 +86,7 @@ final class GameStrikePortFactory
             ),
             $events,
             $this->consequences($serviceLocator, $rules),
+            $this->cardAvailability($serviceLocator, $gateway, $rules),
         );
     }
 
@@ -134,6 +137,7 @@ final class GameStrikePortFactory
             $rules,
             $events,
             $this->consequences($serviceLocator, $rules),
+            $this->cardAvailability($serviceLocator, $gateway, $rules),
         );
     }
 
@@ -183,7 +187,14 @@ final class GameStrikePortFactory
         $rules = $this->strikeRules($serviceLocator);
         $npcs = new GameNpcRepository($gateway);
         $writes = new GameStrikeSheetWrites($this->mutations($serviceLocator), $npcs);
-        $perform = new GameActionPerform($rules, $npcs, $writes, new GameActionCards(), new GamePendingActionCosts());
+        $perform = new GameActionPerform(
+            $rules,
+            $npcs,
+            $writes,
+            new GameActionCards(),
+            new GamePendingActionCosts(),
+            $this->cardAvailability($serviceLocator, $gateway, $rules),
+        );
         $strikeChat = new GameStrikeChat($npcs, $rules);
         $sheets = new GameStrikeSheets(
             $rules,
@@ -257,7 +268,45 @@ final class GameStrikePortFactory
             $this->strikeOpen($serviceLocator, $gateway, $rules),
             $this->events($serviceLocator),
             new GameCombatNotices($chats),
+            $this->cardAvailability($serviceLocator, $gateway, $rules),
         ));
+    }
+
+    /**
+     * Гейт принадлежности и требований карточки действия.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param ISmartTableGateway $gateway Шлюз.
+     * @param GameStrikeRules $rules Срез.
+     *
+     * @return GameCardAvailability Сервис.
+     *
+     * @throws KernelException Если нет порта листов.
+     */
+    private function cardAvailability(
+        IServiceLocator $serviceLocator,
+        ISmartTableGateway $gateway,
+        GameStrikeRules $rules,
+    ): GameCardAvailability {
+        $npcs = new GameNpcRepository($gateway);
+
+        return new GameCardAvailability(
+            $rules,
+            new GameStrikeSheets(
+                $rules,
+                $npcs,
+                new GameCharacterRepository($gateway),
+                new GameMemberRepository($gateway),
+                new ConflictSheetProjection(
+                    new CharacterSectionMask(),
+                    new GameCharacterProjectionMask(),
+                    new GameNpcVisibility(),
+                ),
+            ),
+            $this->characterSheets($serviceLocator),
+            new CharacterRequirementFacts(),
+            new AbilityRequirementCheck(),
+        );
     }
 
     /**

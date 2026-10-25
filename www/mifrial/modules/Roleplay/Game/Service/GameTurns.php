@@ -68,6 +68,7 @@ final class GameTurns
      * @param GameStrikeOpen $open Открытие удара.
      * @param IEventManager $events Доставка.
      * @param GameCombatNotices $notices Заметки боя.
+     * @param GameCardAvailability $availability Принадлежность и требования карточки.
      */
     public function __construct(
         private readonly ISmartTableGateway $gateway,
@@ -80,6 +81,7 @@ final class GameTurns
         private readonly GameStrikeOpen $open,
         IEventManager $events,
         private readonly GameCombatNotices $notices,
+        GameCardAvailability $availability,
     ) {
         $this->battles = new GameBattleRepository($this->gateway);
         $this->commands = new GameCommandRepository($this->gateway);
@@ -98,6 +100,7 @@ final class GameTurns
             $this->sheets,
             $this->actionCards,
             new GamePendingActionCosts(),
+            $availability,
         );
         $this->actionChat = new GameActionChat($chats, new GameStrikeChat($this->npcs, $rules));
     }

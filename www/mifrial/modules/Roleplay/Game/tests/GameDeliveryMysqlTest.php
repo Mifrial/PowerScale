@@ -161,6 +161,7 @@ final class GameDeliveryMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('swing', new RuleVersionBody('ability', 'Swing', '', [
                 'type' => 'action',
+                'zones' => ['or' => ['kind' => 'automatic']],
                 'action_components' => [],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('sword', new RuleVersionBody('item', 'Sword', '', [

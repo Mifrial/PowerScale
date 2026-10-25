@@ -1400,6 +1400,78 @@ final class GameWideStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Широкая атака без карточки у атакующего — отказ.
+     *
+     * @return void
+     */
+    public function testWideStrikeRejectsCardNotOwned(): void
+    {
+        $opened = $this->declareWideCard('wide-locked');
+
+        self::assertSame('GAME_INVALID', $opened['error']['code'] ?? null);
+    }
+
+    /**
+     * Широкая automatic-карточка с невыполненным требованием — отказ.
+     *
+     * @return void
+     */
+    public function testWideStrikeRejectsAutomaticCardWithUnmetRequirement(): void
+    {
+        $opened = $this->declareWideCard('wide-gated');
+
+        self::assertSame('GAME_INVALID', $opened['error']['code'] ?? null);
+    }
+
+    /**
+     * Широкая automatic-карточка без уровня объявляется.
+     *
+     * @return void
+     */
+    public function testWideStrikeAcceptsAutomaticCardWithoutLevel(): void
+    {
+        $opened = $this->declareWideCard('swing');
+
+        self::assertTrue($opened['success'], json_encode($opened));
+    }
+
+    /**
+     * Объявляет широкую атаку по одной цели заданной карточкой.
+     *
+     * @param string $actionRuleCode Карточка.
+     *
+     * @return array<string, mixed> Ответ объявления.
+     */
+    private function declareWideCard(string $actionRuleCode): array
+    {
+        $world = $this->worldWithWeapon();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Hero-' . $actionRuleCode);
+        $targetId = $this->admit($world->getId(), $gameId, 'Target-' . $actionRuleCode);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-wide-card-' . $actionRuleCode,
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $targetId],
+            ],
+        ]);
+        $attack = $this->attack($attackerId, []);
+        $attack['targets'] = [['type' => 'character', 'id' => $targetId]];
+        $attack['actionRuleCode'] = $actionRuleCode;
+
+        return $this->dispatch('game.declareWideStrike', $this->declareBody(
+            $gameId,
+            $battle['data']['battleId'],
+            's-wide-card-' . $actionRuleCode,
+            1,
+            $attack,
+        ));
+    }
+
+    /**
      * Широкая атака не применяет бонус к характеристике урона от РУ.
      *
      * @return void
@@ -1993,16 +2065,19 @@ final class GameWideStrikeMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('swing', new RuleVersionBody('ability', 'Swing', '', [
                 'type' => 'action',
+                'zones' => ['or' => ['kind' => 'automatic']],
                 'action_components' => [],
                 'attack_mode' => 'wide',
                 'max_targets' => 4,
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('swing1', new RuleVersionBody('ability', 'Swing one', '', [
                 'type' => 'action',
+                'zones' => ['or' => ['kind' => 'automatic']],
                 'action_components' => [],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('swingfx', new RuleVersionBody('ability', 'Swing fx', '', [
                 'type' => 'action',
+                'zones' => ['or' => ['kind' => 'automatic']],
                 'action_components' => [],
                 'attack_mode' => 'wide',
                 'max_targets' => 4,
@@ -2015,9 +2090,28 @@ final class GameWideStrikeMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('widebroken', new RuleVersionBody('ability', 'Wide broken', '', [
                 'type' => 'action',
+                'zones' => ['or' => ['kind' => 'automatic']],
                 'action_components' => [],
                 'attack_mode' => 'wide',
                 'max_targets' => 1,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('wide-locked', new RuleVersionBody('ability', 'Wide locked', '', [
+                'type' => 'action',
+                'action_components' => [],
+                'attack_mode' => 'wide',
+                'max_targets' => 4,
+                'zones' => [],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('wide-gated', new RuleVersionBody('ability', 'Wide gated', '', [
+                'type' => 'action',
+                'zones' => ['or' => ['kind' => 'automatic']],
+                'action_components' => [],
+                'attack_mode' => 'wide',
+                'max_targets' => 4,
+                'requirements' => [[
+                    'level' => 1,
+                    'requirements' => [['type' => 'has_ability', 'ability_code' => 'missing', 'min_level' => 1]],
+                ]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('dodge', new RuleVersionBody('ability', 'Dodge', '', [
                 'type' => 'action',

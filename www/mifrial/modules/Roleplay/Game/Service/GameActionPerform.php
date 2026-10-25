@@ -29,6 +29,7 @@ final class GameActionPerform
      * @param GameStrikeSheetWrites $sheetWrites Запись листов.
      * @param GameActionCards $cards Карточки действий.
      * @param GamePendingActionCosts $pendingCosts Карта ожидания.
+     * @param GameCardAvailability $availability Принадлежность и требования карточки.
      *
      * @return void
      */
@@ -38,6 +39,7 @@ final class GameActionPerform
         private readonly GameStrikeSheetWrites $sheetWrites,
         private readonly GameActionCards $cards,
         private readonly GamePendingActionCosts $pendingCosts,
+        private readonly GameCardAvailability $availability,
     ) {
         $this->chosen = new GameActionChosenAmounts();
     }
@@ -269,6 +271,7 @@ final class GameActionPerform
     ): array {
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->cards->assertServerPerformable($slice, $actionRuleCode);
+        $this->availability->assertAvailable($game, $actorKind, $actorId, $actionRuleCode);
         $document = $this->document($game, $actorKind, $actorId);
         $chosen = $this->chosen->resolve($slice, $spec, $document['sheet'], $allowZeroChosen);
         $chosen = array_replace($chosen, $chosenAmounts);

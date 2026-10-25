@@ -63,6 +63,7 @@ final class GameWideStrikes implements IGameWideStrikes
      * @param GameStrikeRules $rules Срез и версия персонажа.
      * @param IEventManager $events Доставка.
      * @param GameStrikeConsequences $consequences Проверки удара.
+     * @param GameCardAvailability $availability Принадлежность и требования карточки.
      *
      * @return void
      */
@@ -75,6 +76,7 @@ final class GameWideStrikes implements IGameWideStrikes
         private readonly GameStrikeRules $rules,
         IEventManager $events,
         private readonly GameStrikeConsequences $consequences,
+        private readonly GameCardAvailability $availability,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->actions = new GameActionRepository($smartTableGateway);
@@ -356,6 +358,12 @@ final class GameWideStrikes implements IGameWideStrikes
             $game->getRulesRevision(),
             $choice['actionRuleCode'],
             count($choice['targets']),
+        );
+        $this->availability->assertAvailable(
+            $game,
+            $choice['attacker']['type'],
+            $choice['attacker']['id'],
+            $choice['actionRuleCode'],
         );
         $this->rules->resolveInventorySpend(
             $game->getSpaceId(),

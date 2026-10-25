@@ -533,6 +533,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         $fireKw = $this->keywordId($keywords, 'fire-explosion', 'Fire');
         $world = $this->addWorldWithRevision('physical-profiles-' . substr(uniqid('', true), -8));
         $actionFlags = [
+            'zones' => ['or' => ['kind' => 'automatic']],
             'distinct_weapons' => false,
             'same_weapon' => false,
             'lift_parent_max_weapons' => false,

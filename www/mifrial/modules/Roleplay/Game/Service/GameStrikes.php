@@ -78,6 +78,7 @@ final class GameStrikes implements IGameStrikes
      * @param ConflictSheetProjection $conflictProjection Проекция конфликтов.
      * @param IEventManager $events Сигнал доставки.
      * @param GameStrikeConsequences $consequences Проверки удара.
+     * @param GameCardAvailability $availability Принадлежность и требования карточки.
      *
      * @return void
      */
@@ -91,6 +92,7 @@ final class GameStrikes implements IGameStrikes
         ConflictSheetProjection $conflictProjection,
         IEventManager $events,
         private readonly GameStrikeConsequences $consequences,
+        private readonly GameCardAvailability $availability,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->actions = new GameActionRepository($smartTableGateway);
@@ -337,6 +339,12 @@ final class GameStrikes implements IGameStrikes
             $game->getRulesRevision(),
             $choice['actionRuleCode'],
             1,
+        );
+        $this->availability->assertAvailable(
+            $game,
+            $choice['attacker']['type'],
+            $choice['attacker']['id'],
+            $choice['actionRuleCode'],
         );
         $this->rules->resolveInventorySpend(
             $game->getSpaceId(),

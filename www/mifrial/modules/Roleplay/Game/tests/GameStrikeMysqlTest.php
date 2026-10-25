@@ -1233,6 +1233,258 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Карточка не у атакующего и без automatic-зоны — отказ.
+     *
+     * @return void
+     */
+    public function testStrikeRejectsCardNotOwned(): void
+    {
+        $opened = $this->declareActionCard('locked', extraCards: [
+            'locked' => ['effects' => [], 'zones' => []],
+        ]);
+
+        self::assertSame('GAME_INVALID', $opened['error']['code'] ?? null);
+        self::assertSame(0, $this->countActions('strike'));
+    }
+
+    /**
+     * Неавтоматическая карточка с уровнем объявляется.
+     *
+     * @return void
+     */
+    public function testStrikeAcceptsOwnedCard(): void
+    {
+        $opened = $this->declareActionCard(
+            'locked',
+            abilities: [['ruleCode' => 'locked', 'level' => 1]],
+            extraCards: ['locked' => ['effects' => [], 'zones' => []]],
+        );
+
+        self::assertTrue($opened['success'], json_encode($opened));
+    }
+
+    /**
+     * automatic-карточка без уровня объявляется.
+     *
+     * @return void
+     */
+    public function testStrikeAcceptsAutomaticCardWithoutLevel(): void
+    {
+        $opened = $this->declareActionCard('free', extraCards: [
+            'free' => ['effects' => []],
+        ]);
+
+        self::assertTrue($opened['success'], json_encode($opened));
+    }
+
+    /**
+     * automatic-карточка с невыполненным has_ability — отказ (G2).
+     *
+     * @return void
+     */
+    public function testStrikeRejectsAutomaticCardWithUnmetRequirement(): void
+    {
+        $opened = $this->declareActionCard('gated', extraCards: [
+            'gated' => [
+                'effects' => [],
+                'requirements' => [[
+                    'level' => 1,
+                    'requirements' => [['type' => 'has_ability', 'ability_code' => 'missing', 'min_level' => 1]],
+                ]],
+            ],
+        ]);
+
+        self::assertSame('GAME_INVALID', $opened['error']['code'] ?? null);
+    }
+
+    /**
+     * Требование карточки выполнено магическим путём — данных нет, отказ.
+     *
+     * @return void
+     */
+    public function testStrikeRejectsUnmodelledRequirement(): void
+    {
+        $opened = $this->declareActionCard('mage-card', extraCards: [
+            'mage-card' => [
+                'effects' => [],
+                'requirements' => [[
+                    'level' => 1,
+                    'requirements' => [['type' => 'has_magic_path', 'path_code' => 'psionic']],
+                ]],
+            ],
+        ]);
+
+        self::assertSame('GAME_INVALID', $opened['error']['code'] ?? null);
+    }
+
+    /**
+     * Требование удовлетворено производным уровнем из посчитанного листа.
+     *
+     * @return void
+     */
+    public function testStrikeAcceptsRequirementMetByDerivedLevel(): void
+    {
+        $keywords = $this->gameApplication()->getLocator()->get(IKeywordContainer::class)->get(IKeywords::class);
+        self::assertInstanceOf(IKeywords::class, $keywords);
+        try {
+            $sectionId = $keywords->add('section-melee', 'Ближний бой');
+        } catch (KeywordInvalidException) {
+            $sectionId = $keywords->getByCode('section-melee')->getId();
+        }
+
+        $opened = $this->declareActionCard(
+            'power-strike',
+            abilities: [
+                ['ruleCode' => 'section-blade', 'level' => 1],
+                ['ruleCode' => 'power-strike', 'level' => 1],
+            ],
+            extraCards: [
+                'power-strike' => [
+                    'effects' => [],
+                    'zones' => [],
+                    'requirements' => [[
+                        'level' => 1,
+                        'requirements' => [[
+                            'type' => 'has_ability',
+                            'ability_code' => 'derived-blade',
+                            'min_level' => 1,
+                        ]],
+                    ]],
+                ],
+            ],
+            extraRules: [
+                'section-blade' => [
+                    'type' => 'ability',
+                    'name' => 'Section blade',
+                    'spec' => [
+                        'type' => 'skill',
+                        'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+                        'requirements' => [],
+                    ],
+                    'keywordIds' => [$sectionId],
+                ],
+                'derived-blade' => [
+                    'type' => 'ability',
+                    'name' => 'Derived blade',
+                    'spec' => [
+                        'type' => 'skill',
+                        'derived_level' => ['source_keyword' => 'section-melee', 'thresholds' => [2]],
+                    ],
+                ],
+            ],
+        );
+
+        self::assertTrue($opened['success'], json_encode($opened));
+    }
+
+    /**
+     * min_weapon_mastery выполняется уровнем владения семьёй предмета.
+     *
+     * @return void
+     */
+    public function testStrikeAcceptsWeaponMasteryRequirement(): void
+    {
+        $keywords = $this->gameApplication()->getLocator()->get(IKeywordContainer::class)->get(IKeywords::class);
+        self::assertInstanceOf(IKeywords::class, $keywords);
+        try {
+            $tagId = $keywords->add('tagged-blade', 'Клинок');
+        } catch (KeywordInvalidException) {
+            $tagId = $keywords->getByCode('tagged-blade')->getId();
+        }
+
+        $opened = $this->declareActionCard(
+            'mastered',
+            abilities: [
+                ['ruleCode' => 'mastery', 'level' => 2, 'domainCode' => 'tagged'],
+                ['ruleCode' => 'mastered', 'level' => 1],
+            ],
+            itemRuleCode: 'tagged-sword',
+            inventory: [['ruleCode' => 'tagged-sword', 'equipped' => true]],
+            extraCards: [
+                'mastered' => [
+                    'effects' => [],
+                    'zones' => [],
+                    'requirements' => [[
+                        'level' => 1,
+                        'requirements' => [[
+                            'type' => 'min_weapon_mastery',
+                            'keyword_code' => 'tagged-blade',
+                            'min_level' => 2,
+                        ]],
+                    ]],
+                ],
+            ],
+            extraRules: [
+                'tagged-sword' => [
+                    'type' => 'item',
+                    'name' => 'Tagged sword',
+                    'spec' => [
+                        'category' => 'weapon',
+                        'innate' => false,
+                        'special_rule_codes' => [],
+                        'proficiency_family_code' => 'tagged',
+                        'weapon' => ['weapon_profiles' => [[
+                            'type' => 'strike',
+                            'accuracy' => ['base' => 3, 'size' => 0],
+                        ]]],
+                    ],
+                    'keywordIds' => [$tagId],
+                ],
+                'mastery' => [
+                    'type' => 'ability',
+                    'name' => 'Mastery',
+                    'spec' => [
+                        'type' => 'skill',
+                        'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1, 1, 1]]],
+                        'multiple' => true,
+                        'domain_ref' => 'weapon-family',
+                        'requirements' => [],
+                    ],
+                ],
+            ],
+        );
+
+        self::assertTrue($opened['success'], json_encode($opened));
+    }
+
+    /**
+     * declareAction отвергает карточку, которой нет у актора.
+     *
+     * @return void
+     */
+    public function testDeclareActionRejectsCardNotOwned(): void
+    {
+        $world = $this->worldWithWeapon(extraCards: [
+            'locked-action' => ['effects' => [], 'zones' => []],
+        ]);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $actorId = $this->admit($world->getId(), $gameId, 'Actor');
+        $otherId = $this->admit($world->getId(), $gameId, 'Other');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-locked-action',
+            'participants' => [
+                ['type' => 'character', 'id' => $actorId],
+                ['type' => 'character', 'id' => $otherId],
+            ],
+        ]);
+        $declared = $this->dispatch('game.declareAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'a-locked-action',
+            'expectedVersion' => 1,
+            'expectedSheetVersion' => $this->characterFacade()->get($actorId)->getActualVersion(),
+            'actor' => ['type' => 'character', 'id' => $actorId],
+            'actionRuleCode' => 'locked-action',
+            'followUpTargetKey' => null,
+        ]);
+
+        self::assertSame('GAME_INVALID', $declared['error']['code'] ?? null);
+    }
+
+    /**
      * Single penetration использует live profile, выбранный instance и modifier.
      *
      * @return void
@@ -2557,6 +2809,7 @@ final class GameStrikeMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('swing', new RuleVersionBody('ability', 'Swing', '', [
                 'type' => 'action',
+                'zones' => ['or' => ['kind' => 'automatic']],
                 'action_components' => $swingComponents,
                 ...($swingEffects === [] ? [] : ['action_effects' => $swingEffects]),
             ], [], [], 'needs_work')),
@@ -2890,16 +3143,22 @@ final class GameStrikeMysqlTest extends TestCase
             $effects = $definition;
             $components = [];
             $combatAction = null;
+            $zones = ['or' => ['kind' => 'automatic']];
+            $requirements = [];
             if (is_array($definition) && array_key_exists('effects', $definition)) {
                 $effects = is_array($definition['effects']) ? $definition['effects'] : [];
                 $components = is_array($definition['components'] ?? null) ? $definition['components'] : [];
                 $combatAction = is_string($definition['combat_action'] ?? null) ? $definition['combat_action'] : null;
+                $zones = is_array($definition['zones'] ?? null) ? $definition['zones'] : $zones;
+                $requirements = is_array($definition['requirements'] ?? null) ? $definition['requirements'] : [];
             }
 
             $entries[] = RuleCommitEntry::put($code, new RuleVersionBody('ability', ucfirst($code), '', [
                 'type' => 'action',
+                'zones' => $zones,
                 ...($combatAction === null ? [] : ['combat_action' => $combatAction]),
                 'action_components' => $components,
+                ...($requirements === [] ? [] : ['requirements' => $requirements]),
                 ...($effects === [] ? [] : ['action_effects' => $effects]),
             ], [], [], 'needs_work'));
         }
@@ -3001,6 +3260,70 @@ final class GameStrikeMysqlTest extends TestCase
             'orPointsLimit' => null,
             'moneyLimit' => null,
         ]));
+    }
+
+    /**
+     * Объявляет удар по NPC заданной карточкой.
+     *
+     * @param string $actionRuleCode Карточка.
+     * @param array<int, array<string, mixed>> $abilities Способности атакующего.
+     * @param string $itemRuleCode Оружие.
+     * @param array<int, array<string, mixed>> $inventory Инвентарь.
+     * @param array<string, array<string, mixed>> $extraCards Карточки мира.
+     * @param array<string, array<string, mixed>> $extraRules Правила мира.
+     *
+     * @return array<string, mixed> Ответ объявления.
+     */
+    private function declareActionCard(
+        string $actionRuleCode,
+        array $abilities = [],
+        string $itemRuleCode = 'sword',
+        array $inventory = [],
+        array $extraCards = [],
+        array $extraRules = [],
+    ): array {
+        $world = $this->worldWithWeapon(extraCards: $extraCards, extraRules: $extraRules);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $characterId = $this->admit(
+            $world->getId(),
+            $gameId,
+            'Hero-' . $actionRuleCode . '-' . $gameId,
+            [],
+            [],
+            $inventory,
+            abilities: $abilities,
+        );
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $npc = $this->endureNpc($gameId, $this->dispatch('game.createNpc', [
+            'gameId' => $gameId,
+            'name' => 'Guard',
+            'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
+        ]));
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-card-' . $gameId,
+            'participants' => [
+                ['type' => 'character', 'id' => $characterId],
+                ['type' => 'npc', 'id' => $npc['data']['npcId']],
+            ],
+        ]);
+
+        return $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 's-card-' . $gameId,
+            'expectedVersion' => 1,
+            'attack' => [
+                'attacker' => ['type' => 'character', 'id' => $characterId],
+                'defender' => ['type' => 'npc', 'id' => $npc['data']['npcId']],
+                'actionRuleCode' => $actionRuleCode,
+                'itemInventoryId' => 1,
+                'itemRuleCode' => $itemRuleCode,
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+            ],
+        ]);
     }
 
     /**
@@ -3221,6 +3544,7 @@ final class GameStrikeMysqlTest extends TestCase
         array $inventory = [],
         ?int $ownerUserId = null,
         ?array $choicePurchases = null,
+        array $abilities = [],
     ): int {
         $ownerUserId ??= $this->ownerUserId;
         $characterId = $this->characterFacade()->add(NewCharacter::fromNormalized([
@@ -3257,7 +3581,7 @@ final class GameStrikeMysqlTest extends TestCase
             true,
             $this->storedChoices($name, $inventory === [] ? [
                 ['ruleCode' => 'sword', 'equipped' => true],
-            ] : $inventory, $choicePurchases),
+            ] : $inventory, $choicePurchases, $abilities),
             $document,
             2,
             1,
@@ -3448,11 +3772,12 @@ final class GameStrikeMysqlTest extends TestCase
         string $name,
         array $inventory = [],
         ?array $choicePurchases = null,
+        array $abilities = [],
     ): array {
         return [
             'name' => $name,
             'raceCode' => 'human',
-            'abilities' => [],
+            'abilities' => $abilities,
             'inventory' => $this->inventoryWithIds($inventory),
             'characteristicPurchases' => $choicePurchases
                 ?? [['characteristicCode' => 'strength', 'cost' => 2]],

@@ -1144,6 +1144,7 @@ final class GameEndOfTurnMysqlTest extends TestCase
         $clotId = $this->mechanicId($mechanics, 'blood_clotting');
         $world = $this->addWorldWithRevision('end-turn-' . substr(uniqid('', true), -8));
         $flags = [
+            'zones' => ['or' => ['kind' => 'automatic']],
             'distinct_weapons' => false,
             'same_weapon' => false,
             'lift_parent_max_weapons' => false,
