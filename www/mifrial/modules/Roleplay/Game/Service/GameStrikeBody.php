@@ -49,6 +49,10 @@ final class GameStrikeBody
             $allowed[] = 'ammunitionInventoryId';
         }
 
+        if (array_key_exists('instanceIndex', $attack)) {
+            $allowed[] = 'instanceIndex';
+        }
+
         $this->assertKeys($attack, $allowed);
         $attacker = $this->side($attack['attacker'] ?? null);
         $defender = $this->side($attack['defender'] ?? null);
@@ -58,10 +62,13 @@ final class GameStrikeBody
         $itemRuleCode = $attack['itemRuleCode'] ?? null;
         $itemInventoryId = $attack['itemInventoryId'] ?? null;
         $ammunitionInventoryId = $attack['ammunitionInventoryId'] ?? null;
+        $instanceIndex = $attack['instanceIndex'] ?? 0;
         $chosenAmounts = $attack['chosenAmounts'] ?? [];
         $codes = is_string($actionRuleCode) && is_string($itemRuleCode);
         if (
             !is_int($itemInventoryId)
+            || !is_int($instanceIndex)
+            || $instanceIndex < 0
             || !is_string($profileType)
             || !is_int($profileIndex)
             || !$codes
@@ -82,6 +89,7 @@ final class GameStrikeBody
             'profileType' => $profileType,
             'profileIndex' => $profileIndex,
             ...($profileType === 'shoot' ? ['ammunitionInventoryId' => $ammunitionInventoryId] : []),
+            'instanceIndex' => $instanceIndex,
             'chosenAmounts' => $chosenAmounts,
         ];
     }
@@ -166,6 +174,10 @@ final class GameStrikeBody
             $allowed[] = 'ammunitionInventoryId';
         }
 
+        if (array_key_exists('instanceIndex', $attack)) {
+            $allowed[] = 'instanceIndex';
+        }
+
         $this->assertKeys($attack, $allowed, 'wide strike');
         $targets = $this->targets($attack['targets'] ?? null);
         $profileType = $attack['profileType'] ?? null;
@@ -174,10 +186,13 @@ final class GameStrikeBody
         $itemInventoryId = $attack['itemInventoryId'] ?? null;
         $itemRuleCode = $attack['itemRuleCode'] ?? null;
         $ammunitionInventoryId = $attack['ammunitionInventoryId'] ?? null;
+        $instanceIndex = $attack['instanceIndex'] ?? 0;
         $chosenAmounts = $attack['chosenAmounts'] ?? [];
         $codes = is_string($actionRuleCode) && is_string($itemRuleCode);
         if (
             !is_int($itemInventoryId)
+            || !is_int($instanceIndex)
+            || $instanceIndex < 0
             || !is_string($profileType)
             || !is_int($profileIndex)
             || !$codes
@@ -198,6 +213,7 @@ final class GameStrikeBody
             'profileType' => $profileType,
             'profileIndex' => $profileIndex,
             ...($profileType === 'shoot' ? ['ammunitionInventoryId' => $ammunitionInventoryId] : []),
+            'instanceIndex' => $instanceIndex,
             'chosenAmounts' => $chosenAmounts,
         ];
     }

@@ -494,6 +494,165 @@ trait GameMysqlFixture
     }
 
     /**
+     * Конверт объявления одиночного удара из плоского выбора.
+     *
+     * @param array<string, mixed> $attack Плоский выбор.
+     *
+     * @return array<string, mixed> Действие.
+     */
+    protected function strikeEnvelope(array $attack): array
+    {
+        $context = [
+            'strikes' => [[
+                'itemInventoryId' => $attack['itemInventoryId'] ?? null,
+                'itemRuleCode' => $attack['itemRuleCode'] ?? null,
+                'profileType' => $attack['profileType'] ?? null,
+                'profileIndex' => $attack['profileIndex'] ?? null,
+                'target' => $attack['defender'] ?? null,
+                ...(array_key_exists('ammunitionInventoryId', $attack)
+                    ? ['ammunitionInventoryId' => $attack['ammunitionInventoryId']]
+                    : []),
+                ...(array_key_exists('instanceIndex', $attack)
+                    ? ['instanceIndex' => $attack['instanceIndex']]
+                    : []),
+            ]],
+        ];
+        if (array_key_exists('chosenAmounts', $attack)) {
+            $context['chosenAmounts'] = $attack['chosenAmounts'];
+        }
+
+        return [
+            'phase' => 'declare',
+            'kind' => 'strike',
+            'code' => $attack['actionRuleCode'] ?? null,
+            'actor' => $attack['attacker'] ?? null,
+            'context' => $context,
+        ];
+    }
+
+    /**
+     * Конверт объявления широкого удара из плоского выбора.
+     *
+     * @param array<string, mixed> $attack Плоский выбор.
+     *
+     * @return array<string, mixed> Действие.
+     */
+    protected function wideStrikeEnvelope(array $attack): array
+    {
+        $strikes = [];
+        foreach ($attack['targets'] as $target) {
+            $strikes[] = [
+                'itemInventoryId' => $attack['itemInventoryId'] ?? null,
+                'itemRuleCode' => $attack['itemRuleCode'] ?? null,
+                'profileType' => $attack['profileType'] ?? null,
+                'profileIndex' => $attack['profileIndex'] ?? null,
+                'target' => $target,
+                ...(array_key_exists('ammunitionInventoryId', $attack)
+                    ? ['ammunitionInventoryId' => $attack['ammunitionInventoryId']]
+                    : []),
+                ...(array_key_exists('instanceIndex', $attack)
+                    ? ['instanceIndex' => $attack['instanceIndex']]
+                    : []),
+            ];
+        }
+
+        $context = ['strikes' => $strikes];
+        if (array_key_exists('chosenAmounts', $attack)) {
+            $context['chosenAmounts'] = $attack['chosenAmounts'];
+        }
+
+        return [
+            'phase' => 'declare',
+            'kind' => 'strike',
+            'code' => $attack['actionRuleCode'] ?? null,
+            'actor' => $attack['attacker'] ?? null,
+            'context' => $context,
+        ];
+    }
+
+    /**
+     * Конверт ответа одиночного удара.
+     *
+     * @param array<string, mixed> $defense Плоская защита.
+     * @param int $expectedSheetVersion Версия листа.
+     *
+     * @return array<string, mixed> Действие.
+     */
+    protected function strikeDefenseEnvelope(array $defense, int $expectedSheetVersion): array
+    {
+        return [
+            'phase' => 'respond',
+            'kind' => 'strike',
+            'context' => ['defenses' => [['expectedSheetVersion' => $expectedSheetVersion] + $defense]],
+        ];
+    }
+
+    /**
+     * Конверт ответа широкого удара.
+     *
+     * @param array<string, mixed> $defense Тело `defenses`.
+     *
+     * @return array<string, mixed> Действие.
+     */
+    protected function wideDefenseEnvelope(array $defense): array
+    {
+        return [
+            'phase' => 'respond',
+            'kind' => 'strike',
+            'context' => $defense,
+        ];
+    }
+
+    /**
+     * Конверт карточки действия из плоского тела.
+     *
+     * @param array<string, mixed> $body Плоское тело.
+     *
+     * @return array<string, mixed> Действие.
+     */
+    protected function actionEnvelope(array $body): array
+    {
+        $context = [
+            'expectedSheetVersion' => $body['expectedSheetVersion'],
+            'followUpTargetKey' => $body['followUpTargetKey'],
+        ];
+        if (array_key_exists('chosenAmounts', $body)) {
+            $context['chosenAmounts'] = $body['chosenAmounts'];
+        }
+
+        return [
+            'phase' => 'declare',
+            'kind' => 'action',
+            'code' => $body['actionRuleCode'],
+            'actor' => $body['actor'],
+            'context' => $context,
+        ];
+    }
+
+    /**
+     * Конверт раны из плоского тела.
+     *
+     * @param array<string, mixed> $body Плоское тело.
+     *
+     * @return array<string, mixed> Действие.
+     */
+    protected function woundEnvelope(array $body): array
+    {
+        return [
+            'phase' => 'declare',
+            'kind' => 'wound',
+            'code' => $body['actionRuleCode'],
+            'actor' => ['type' => $body['actor']['kind'], 'id' => $body['actor']['id']],
+            'context' => [
+                'operation' => $body['operation'],
+                'target' => $body['target'],
+                'stateId' => $body['stateId'],
+                'expectedSheetVersion' => $body['expectedSheetVersion'],
+            ],
+        ];
+    }
+
+    /**
      * Число строк ударов.
      *
      * @return int Число.

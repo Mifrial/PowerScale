@@ -7,9 +7,9 @@ namespace Mifrial\Roleplay\Game\Dto\Action;
 use Mifrial\Core\Kernel\Interface\Action\IActionInput;
 
 /**
- * Вход game.resolveWideStrike.
+ * Вход game.runAction.
  */
-final class ResolveGameWideStrikeInput implements IActionInput
+final class RunGameActionInput implements IActionInput
 {
     /**
      * Собирает вход.
@@ -18,7 +18,7 @@ final class ResolveGameWideStrikeInput implements IActionInput
      * @param int $battleId Бой.
      * @param string $idempotencyKey Ключ повтора.
      * @param int $expectedVersion Версия боя.
-     * @param array $defense Выбор.
+     * @param array $action Конверт действия.
      *
      * @return void
      */
@@ -27,7 +27,7 @@ final class ResolveGameWideStrikeInput implements IActionInput
         public readonly int $battleId,
         public readonly string $idempotencyKey,
         public readonly int $expectedVersion,
-        public readonly array $defense,
+        public readonly array $action,
     ) {
     }
 }

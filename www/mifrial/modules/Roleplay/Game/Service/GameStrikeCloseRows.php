@@ -147,7 +147,32 @@ final class GameStrikeCloseRows
             throw new GameInvalidException($message);
         }
 
-        return $locked;
+        return $this->withFirstStrike($locked);
+    }
+
+    /**
+     * Действие с полями первого удара.
+     *
+     * @param array<string, mixed> $open Колонки действия.
+     *
+     * @return array<string, mixed> Колонки действия и `strikes`.
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    private function withFirstStrike(array $open): array
+    {
+        $strikeId = $open['id'] ?? null;
+        $strikes = is_int($strikeId) ? $this->actions->getStrikes($strikeId) : [];
+        $first = $strikes[0] ?? [];
+
+        return array_merge($open, [
+            'item_inventory_id' => $first['item_inventory_id'] ?? null,
+            'item_rule_code' => $first['item_rule_code'] ?? null,
+            'profile_type' => $first['profile_type'] ?? null,
+            'profile_index' => $first['profile_index'] ?? null,
+            'instance_index' => $first['instance_index'] ?? null,
+            'strikes' => $strikes,
+        ]);
     }
 
     /**

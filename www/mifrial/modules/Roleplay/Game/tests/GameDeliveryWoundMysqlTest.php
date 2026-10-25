@@ -52,11 +52,11 @@ final class GameDeliveryWoundMysqlTest extends TestCase
     public function testWoundSignalCatchUpAndBattleId(): void
     {
         $scene = $this->woundScene();
-        $held = $this->dispatch('game.woundAction', $this->holdBody($scene, 'hold-1'));
+        $held = $this->dispatch('game.runAction', $this->holdBody($scene, 'hold-1'));
         self::assertTrue($held['success'], json_encode($held));
         self::assertSame(1, $this->deliveryCount());
         self::assertSame('wound', $this->deliveryRows()[0]['source']);
-        self::assertTrue($this->dispatch('game.woundAction', $this->holdBody($scene, 'hold-1'))['success']);
+        self::assertTrue($this->dispatch('game.runAction', $this->holdBody($scene, 'hold-1'))['success']);
         self::assertSame(1, $this->deliveryCount());
         $this->clearDelivery();
         self::assertSame(0, $this->deliveryCount());
@@ -157,15 +157,17 @@ final class GameDeliveryWoundMysqlTest extends TestCase
     {
         return [
             'gameId' => $scene['gameId'],
-            'idempotencyKey' => $key,
-            'operation' => 'hold',
-            'actor' => ['kind' => 'character', 'id' => $scene['hero']],
-            'target' => ['kind' => 'character', 'id' => $scene['hero']],
-            'stateId' => $scene['stateId'],
-            'actionRuleCode' => 'squeeze',
-            'expectedSheetVersion' => $scene['sheetVersion'],
             'battleId' => $scene['battleId'],
-            'expectedBattleVersion' => 1,
+            'idempotencyKey' => $key,
+            'expectedVersion' => 1,
+            'action' => $this->woundEnvelope([
+                'operation' => 'hold',
+                'actor' => ['kind' => 'character', 'id' => $scene['hero']],
+                'target' => ['kind' => 'character', 'id' => $scene['hero']],
+                'stateId' => $scene['stateId'],
+                'actionRuleCode' => 'squeeze',
+                'expectedSheetVersion' => $scene['sheetVersion'],
+            ]),
         ];
     }
 

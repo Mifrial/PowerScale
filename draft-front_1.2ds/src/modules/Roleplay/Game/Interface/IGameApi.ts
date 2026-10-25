@@ -54,12 +54,10 @@ import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/
 import type { GameCharacterModerationCommand } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationCommand';
 import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationResult';
 import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
-import type { GamePhpStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAttack';
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
-import type { GamePhpWideStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpWideStrikeAttack';
-import type { GamePhpActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpActionResult';
-import type { GamePhpStrikeResult } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeResult';
 import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
+import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionRequest';
+import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
 import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
 import type { GameManualSheetRequest } from '@/modules/Roleplay/Game/Dto/GameManualSheetRequest';
 import type { GameManualSheetResult } from '@/modules/Roleplay/Game/Dto/GameManualSheetResult';
@@ -308,89 +306,8 @@ export interface IGameApi {
     signal?: AbortSignal,
   ): Promise<GameSheets>;
   getBattleSheets(query: { gameId: number; battleId: number }, signal?: AbortSignal): Promise<GameBattleSheets>;
-  declareStrike(
-    body: {
-      gameId: number;
-      battleId: number;
-      idempotencyKey: string;
-      expectedVersion: number;
-      attack: GamePhpStrikeAttack;
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpStrikeResult>;
-  resolveStrike(
-    body: {
-      gameId: number;
-      battleId: number;
-      idempotencyKey: string;
-      expectedVersion: number;
-      expectedSheetVersion: number;
-      defense: {
-        reaction: string;
-        blockItemInventoryId?: number;
-        blockItemProfileIndex?: number;
-      };
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpStrikeResult>;
-  declareAction(
-    body: {
-      gameId: number;
-      battleId: number;
-      idempotencyKey: string;
-      expectedVersion: number;
-      expectedSheetVersion: number;
-      actor: { type: 'character' | 'npc'; id: number };
-      actionRuleCode: string;
-      followUpTargetKey: string | null;
-      chosenAmounts?: Record<string, number>;
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpActionResult>;
-  declareWideStrike(
-    body: {
-      gameId: number;
-      battleId: number;
-      idempotencyKey: string;
-      expectedVersion: number;
-      attack: GamePhpWideStrikeAttack;
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpStrikeResult>;
-  resolveWideStrike(
-    body: {
-      gameId: number;
-      battleId: number;
-      idempotencyKey: string;
-      expectedVersion: number;
-      defense: {
-        defenses: {
-          target: GamePhpParticipant;
-          reaction: string;
-          expectedSheetVersion: number;
-          blockItemInventoryId?: number;
-          blockItemProfileIndex?: number;
-        }[];
-      };
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpStrikeResult>;
+  runAction(body: GamePhpRunActionRequest, signal?: AbortSignal): Promise<GamePhpRunActionResult>;
   manualSheet(body: GameManualSheetRequest, signal?: AbortSignal): Promise<GameManualSheetResult>;
-  woundAction(
-    body: {
-      gameId: number;
-      idempotencyKey: string;
-      operation: 'hold' | 'release' | 'bandage';
-      actor: GamePhpWoundParty;
-      target: GamePhpWoundParty;
-      stateId: number;
-      actionRuleCode: string;
-      expectedSheetVersion: number;
-      battleId: number;
-      expectedBattleVersion: number;
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpTurnResult>;
   endTurn(
     body: {
       gameId: number;

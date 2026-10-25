@@ -955,17 +955,24 @@ async function releaseWoundHold(tile: CombatStateTileModel): Promise<void> {
       if (!prev.id) throw new Error('У раны нет id листа');
       const battleId = gamePhpBattleContext.battleId;
       if (battleId === null) throw new Error('Бой ещё не известен');
-      await getGameApi().woundAction({
+      const actorParty = gamePhpCommandService.woundPartyFromHeldBy(holder);
+      await getGameApi().runAction({
         gameId: props.gameId,
-        idempotencyKey: createRandomId(),
-        operation: 'release',
-        actor: gamePhpCommandService.woundPartyFromHeldBy(holder),
-        target: gamePhpCommandService.woundPartyOf(model.value.entityKey),
-        stateId: prev.id,
-        actionRuleCode: SQUEEZE_ABILITY_CODE,
-        expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[model.value.entityKey] ?? 1,
         battleId,
-        expectedBattleVersion: gamePhpBattleContext.battleVersion,
+        idempotencyKey: createRandomId(),
+        expectedVersion: gamePhpBattleContext.battleVersion,
+        action: {
+          phase: 'declare',
+          kind: 'wound',
+          code: SQUEEZE_ABILITY_CODE,
+          actor: { type: actorParty.kind, id: actorParty.id },
+          context: {
+            operation: 'release',
+            target: gamePhpCommandService.woundPartyOf(model.value.entityKey),
+            stateId: prev.id,
+            expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[model.value.entityKey] ?? 1,
+          },
+        },
       });
       notifyMutation();
     } catch (e) {

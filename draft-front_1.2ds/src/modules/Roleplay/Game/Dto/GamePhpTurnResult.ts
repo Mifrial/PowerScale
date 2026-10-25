@@ -1,7 +1,7 @@
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 
-/** Ответ конца хода / continue / abort / woundAction. */
+/** Ответ конца хода / continue / abort / раны. */
 export interface GamePhpTurnResult {
   pendingActionEffects?: Record<CombatEntityKey, PendingActionEffect[]>;
   version: number;

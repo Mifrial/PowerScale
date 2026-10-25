@@ -6,6 +6,7 @@ import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
 import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
 import { gamePhpCommandService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCommandService';
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
@@ -3249,6 +3250,7 @@ function phpWeaponFields() {
     itemRuleCode: attack.itemRuleCode,
     profileType: attack.profileType,
     profileIndex: attack.profileIndex ?? 0,
+    instanceIndex: attack.instanceIndex ?? 0,
     ...(attack.profileType === 'shoot' ? { ammunitionInventoryId: attack.inventoryItemId } : {}),
   };
 }
@@ -3428,27 +3430,145 @@ function phpStrikeFromAttack(attack: {
   };
 }
 
+function phpSingleStrikeEnvelope(attack: {
+  attacker: GamePhpParticipant;
+  defender: GamePhpParticipant;
+  actionRuleCode: string;
+  itemInventoryId: number;
+  itemRuleCode: string;
+  profileType: string;
+  profileIndex: number;
+  instanceIndex?: number;
+  ammunitionInventoryId?: number;
+  chosenAmounts?: Record<string, unknown>;
+}) {
+  return {
+    phase: 'declare' as const,
+    kind: 'strike' as const,
+    code: attack.actionRuleCode,
+    actor: attack.attacker,
+    context: {
+      strikes: [
+        {
+          itemInventoryId: attack.itemInventoryId,
+          itemRuleCode: attack.itemRuleCode,
+          profileType: attack.profileType,
+          profileIndex: attack.profileIndex,
+          instanceIndex: attack.instanceIndex ?? 0,
+          ...(attack.ammunitionInventoryId !== undefined
+            ? { ammunitionInventoryId: attack.ammunitionInventoryId }
+            : {}),
+          target: attack.defender,
+        },
+      ],
+      chosenAmounts: attack.chosenAmounts ?? {},
+    },
+  };
+}
+
+function phpWideStrikeEnvelope(attack: {
+  attacker: GamePhpParticipant;
+  targets: GamePhpParticipant[];
+  actionRuleCode: string;
+  itemInventoryId: number;
+  itemRuleCode: string;
+  profileType: string;
+  profileIndex: number;
+  instanceIndex?: number;
+  ammunitionInventoryId?: number;
+}) {
+  return {
+    phase: 'declare' as const,
+    kind: 'strike' as const,
+    code: attack.actionRuleCode,
+    actor: attack.attacker,
+    context: {
+      strikes: attack.targets.map((target) => ({
+        itemInventoryId: attack.itemInventoryId,
+        itemRuleCode: attack.itemRuleCode,
+        profileType: attack.profileType,
+        profileIndex: attack.profileIndex,
+        instanceIndex: attack.instanceIndex ?? 0,
+        ...(attack.ammunitionInventoryId !== undefined
+          ? { ammunitionInventoryId: attack.ammunitionInventoryId }
+          : {}),
+        target,
+      })),
+    },
+  };
+}
+
+function applyPhpWideResponse(result: GamePhpRunActionResult): void {
+  const current = gamePhpBattleContext.openWideStrike;
+  if (result.closed === true) {
+    gamePhpBattleContext.rememberOpenWideStrike(null);
+
+    return;
+  }
+  if (!current || !result.strikes) return;
+  const reactions = new Map(
+    result.strikes.map((row) => [gameWideDefenseService.targetKey(row.target), row.reaction] as const),
+  );
+  gamePhpBattleContext.rememberOpenWideStrike({
+    ...current,
+    targets: current.targets.map((target) => {
+      const reaction = reactions.get(gameWideDefenseService.targetKey(target));
+      if (reaction === null || reaction === undefined) return { ...target, answered: false };
+
+      return { ...target, answered: true, reaction };
+    }),
+  });
+}
+
 async function submitPhpStrike(): Promise<boolean> {
   const wideAttack = gamePhpCommandService.isWideStrike(resolvedAttackAction.value?.mode, phpTargetKeys());
   if (!phpDeclared.value) {
     if (!wideAttack) {
       const attackBody = await phpStrikeAttack();
-      const declared = await getGameApi().declareStrike(attackBody);
+      const declared = await getGameApi().runAction({
+        gameId: attackBody.gameId,
+        battleId: attackBody.battleId,
+        idempotencyKey: attackBody.idempotencyKey,
+        expectedVersion: attackBody.expectedVersion,
+        action: phpSingleStrikeEnvelope(attackBody.attack),
+      });
       phpDeclared.value = true;
       phpDeclaredStrike.value = phpStrikeFromAttack(attackBody.attack);
       phpPendingStrike.value = phpDeclaredStrike.value;
       phpOverride.value = false;
       phpDebt.value = declared.debt === true;
       phpWideChoices.value = [];
+      if (declared.debt !== true) gamePhpBattleContext.rememberOpenStrike(phpDeclaredStrike.value);
 
       return false;
     }
-    const declared = await getGameApi().declareWideStrike(await phpWideStrikeAttack());
+    const wideBody = await phpWideStrikeAttack();
+    const declared = await getGameApi().runAction({
+      gameId: wideBody.gameId,
+      battleId: wideBody.battleId,
+      idempotencyKey: wideBody.idempotencyKey,
+      expectedVersion: wideBody.expectedVersion,
+      action: phpWideStrikeEnvelope(wideBody.attack),
+    });
     phpDeclared.value = true;
     phpDeclaredStrike.value = null;
     phpPendingStrike.value = null;
     phpOverride.value = false;
     phpDebt.value = declared.debt === true;
+    gamePhpBattleContext.rememberOpenWideStrike(
+      declared.debt === true || declared.strikeId === undefined
+        ? null
+        : {
+            id: declared.strikeId,
+            attacker: wideBody.attack.attacker,
+            actionRuleCode: wideBody.attack.actionRuleCode,
+            itemInventoryId: wideBody.attack.itemInventoryId,
+            itemRuleCode: wideBody.attack.itemRuleCode,
+            profileType: wideBody.attack.profileType,
+            profileIndex: wideBody.attack.profileIndex,
+            targets: wideBody.attack.targets.map((target) => ({ ...target, answered: false })),
+          },
+    );
     phpWideProjection.value = gamePhpBattleContext.openWideStrike;
     syncPhpWideTargets();
 
@@ -3456,7 +3576,15 @@ async function submitPhpStrike(): Promise<boolean> {
   }
   if (phpWideMode.value) {
     if (!rememberPhpWideChoice()) return false;
-    const result = await getGameApi().resolveWideStrike(await phpWideDefense());
+    const wideDefense = await phpWideDefense();
+    const result = await getGameApi().runAction({
+      gameId: wideDefense.gameId,
+      battleId: wideDefense.battleId,
+      idempotencyKey: wideDefense.idempotencyKey,
+      expectedVersion: wideDefense.expectedVersion,
+      action: { phase: 'respond', kind: 'strike', context: wideDefense.defense },
+    });
+    applyPhpWideResponse(result);
     phpWideProjection.value = gamePhpBattleContext.openWideStrike;
     phpWideChoices.value = [];
     syncPhpWideTargets();
@@ -3472,7 +3600,21 @@ async function submitPhpStrike(): Promise<boolean> {
 
     return false;
   }
-  await getGameApi().resolveStrike(await phpDefense());
+  const defense = await phpDefense();
+  await getGameApi().runAction({
+    gameId: defense.gameId,
+    battleId: defense.battleId,
+    idempotencyKey: defense.idempotencyKey,
+    expectedVersion: defense.expectedVersion,
+    action: {
+      phase: 'respond',
+      kind: 'strike',
+      context: {
+        defenses: [{ ...defense.defense, expectedSheetVersion: defense.expectedSheetVersion }],
+      },
+    },
+  });
+  gamePhpBattleContext.rememberOpenStrike(null);
   phpDeclared.value = false;
   phpDeclaredStrike.value = null;
   phpPendingStrike.value = null;

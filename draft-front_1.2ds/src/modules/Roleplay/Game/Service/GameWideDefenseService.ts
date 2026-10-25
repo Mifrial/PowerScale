@@ -11,7 +11,7 @@ import type { GamePhpOpenWideStrikeTarget } from '@/modules/Roleplay/Game/Dto/Ga
  * Владелец атакующего видит ожидание.
  */
 export class GameWideDefenseService {
-  targetKey(target: GamePhpOpenWideStrikeTarget): CombatEntityKey {
+  targetKey(target: { type: string | null; id: number }): CombatEntityKey {
     return `${target.type}:${target.id}` as CombatEntityKey;
   }
 

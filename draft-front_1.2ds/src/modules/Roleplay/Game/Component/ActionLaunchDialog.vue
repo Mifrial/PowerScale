@@ -758,17 +758,24 @@ async function applyWoundAction(code: string): Promise<void> {
     for (const index of indices) {
       const state = version.states[index ?? -1];
       if (!state?.id) throw new Error('У раны нет id листа');
-      await getGameApi().woundAction({
+      const actorParty = gamePhpCommandService.woundPartyOf(actor);
+      await getGameApi().runAction({
         gameId: props.gameId,
-        idempotencyKey: createRandomId(),
-        operation,
-        actor: gamePhpCommandService.woundPartyOf(actor),
-        target: gamePhpCommandService.woundPartyOf(target),
-        stateId: state.id,
-        actionRuleCode: code,
-        expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[target] ?? 1,
         battleId,
-        expectedBattleVersion: gamePhpBattleContext.battleVersion,
+        idempotencyKey: createRandomId(),
+        expectedVersion: gamePhpBattleContext.battleVersion,
+        action: {
+          phase: 'declare',
+          kind: 'wound',
+          code,
+          actor: { type: actorParty.kind, id: actorParty.id },
+          context: {
+            operation,
+            target: gamePhpCommandService.woundPartyOf(target),
+            stateId: state.id,
+            expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[target] ?? 1,
+          },
+        },
       });
     }
     emit('overlay-changed');
@@ -810,20 +817,26 @@ async function applyDeclaredAction(rule: Rule): Promise<void> {
       : {};
   const battleId = gamePhpBattleContext.battleId;
   if (battleId === null) throw new Error('Бой ещё не известен');
-  const result = await getGameApi().declareAction({
+  const result = await getGameApi().runAction({
     gameId: props.gameId,
-    idempotencyKey: createRandomId(),
     battleId,
+    idempotencyKey: createRandomId(),
     expectedVersion: gamePhpBattleContext.battleVersion,
-    expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
-    actor: gamePhpCommandService.participantOf(key),
-    actionRuleCode: rule.code,
-    followUpTargetKey: target,
-    chosenAmounts,
+    action: {
+      phase: 'declare',
+      kind: 'action',
+      code: rule.code,
+      actor: gamePhpCommandService.participantOf(key),
+      context: {
+        expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
+        followUpTargetKey: target,
+        chosenAmounts,
+      },
+    },
   });
   pendingEffectsByEntity.value = {
     ...pendingEffectsByEntity.value,
-    [key]: result.pendingActionEffects[key] ?? [],
+    [key]: result.pendingActionEffects?.[key] ?? [],
   };
   emit('overlay-changed');
 }

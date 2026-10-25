@@ -30,6 +30,7 @@ use Mifrial\Roleplay\Game\Interface\Service\IGameWideStrikes;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
+use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
@@ -91,20 +92,6 @@ final class GameStrikePortFactory
     }
 
     /**
-     * HTTP удара.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return GameStrikeHttp Сценарий.
-     *
-     * @throws KernelException Если нет порта.
-     */
-    public function createHttp(IServiceLocator $serviceLocator): GameStrikeHttp
-    {
-        return new GameStrikeHttp($this->userAccess($serviceLocator), $this->create($serviceLocator));
-    }
-
-    /**
      * Создаёт порт широкого удара тем же составом зависимостей.
      *
      * @param IServiceLocator $serviceLocator Каталог контейнеров.
@@ -142,29 +129,44 @@ final class GameStrikePortFactory
     }
 
     /**
-     * HTTP широкого удара.
+     * HTTP единого входа действий.
      *
      * @param IServiceLocator $serviceLocator Каталог.
      *
-     * @return GameWideStrikeHttp Сценарий.
+     * @return GameRunActionHttp Сценарий.
      *
-     * @throws KernelException Если нет порта.
+     * @throws KernelException Если порта нет.
      */
-    public function createWideHttp(IServiceLocator $serviceLocator): GameWideStrikeHttp
+    public function createRunActionHttp(IServiceLocator $serviceLocator): GameRunActionHttp
     {
-        return new GameWideStrikeHttp($this->userAccess($serviceLocator), $this->createWide($serviceLocator));
+        $gateway = $this->smartTableGateway($serviceLocator);
+
+        return new GameRunActionHttp(
+            $this->userAccess($serviceLocator),
+            new GameRunAction(
+                new GameRunActionBody(),
+                $this->create($serviceLocator),
+                $this->createWide($serviceLocator),
+                $this->createActionDomain($serviceLocator),
+                (new GameWoundPortFactory())->createActions($serviceLocator),
+                new GameActionRepository($gateway),
+                new GameCommandRepository($gateway),
+                $this->games($serviceLocator),
+                $this->strikeRules($serviceLocator),
+            ),
+        );
     }
 
     /**
-     * HTTP не-атакующего действия.
+     * Доменная команда карточки действия.
      *
      * @param IServiceLocator $serviceLocator Каталог.
      *
-     * @return GameActionHttp Сценарий.
+     * @return GameActionDeclare Команда.
      *
-     * @throws KernelException Если порт чужой.
+     * @throws KernelException Если порта нет.
      */
-    public function createActionHttp(IServiceLocator $serviceLocator): GameActionHttp
+    public function createActionDomain(IServiceLocator $serviceLocator): GameActionDeclare
     {
         $gateway = $this->smartTableGateway($serviceLocator);
         $events = $this->events($serviceLocator);
@@ -208,18 +210,15 @@ final class GameStrikePortFactory
             ),
         );
 
-        return new GameActionHttp(
-            $this->userAccess($serviceLocator),
-            new GameActionDeclare(
-                $gateway,
-                $this->games($serviceLocator),
-                $card,
-                $perform,
-                new GamePreparedDefense(),
-                new GameActionChat($chats, $strikeChat),
-                $sheets,
-                $events,
-            ),
+        return new GameActionDeclare(
+            $gateway,
+            $this->games($serviceLocator),
+            $card,
+            $perform,
+            new GamePreparedDefense(),
+            new GameActionChat($chats, $strikeChat),
+            $sheets,
+            $events,
         );
     }
 

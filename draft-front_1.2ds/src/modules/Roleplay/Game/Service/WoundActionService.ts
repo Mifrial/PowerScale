@@ -119,17 +119,24 @@ export class WoundActionService {
     for (const index of indices) {
       const state = index != null ? version.states[index] : undefined;
       if (!state?.id) throw new Error('У раны нет id листа');
-      await this.resolveGameApi().woundAction({
+      const actorParty = gamePhpCommandService.woundPartyOf(actorKey);
+      await this.resolveGameApi().runAction({
         gameId,
-        idempotencyKey: createRandomId(),
-        operation,
-        actor: gamePhpCommandService.woundPartyOf(actorKey),
-        target: gamePhpCommandService.woundPartyOf(target),
-        stateId: state.id,
-        actionRuleCode: session.actionRuleCode,
-        expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[target] ?? row.actualVersion,
         battleId,
-        expectedBattleVersion: gamePhpBattleContext.battleVersion,
+        idempotencyKey: createRandomId(),
+        expectedVersion: gamePhpBattleContext.battleVersion,
+        action: {
+          phase: 'declare',
+          kind: 'wound',
+          code: session.actionRuleCode,
+          actor: { type: actorParty.kind, id: actorParty.id },
+          context: {
+            operation,
+            target: gamePhpCommandService.woundPartyOf(target),
+            stateId: state.id,
+            expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[target] ?? row.actualVersion,
+          },
+        },
       });
     }
   }

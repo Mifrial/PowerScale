@@ -115,10 +115,10 @@ final class GameViewAssembler
             'defenderKind' => is_string($target['target_type'] ?? null) ? $target['target_type'] : '',
             'defenderId' => $this->intField($target, 'target_id'),
             'actionRuleCode' => is_string($row['action_rule_code'] ?? null) ? $row['action_rule_code'] : '',
-            'itemInventoryId' => $this->intField($row, 'item_inventory_id'),
-            'itemRuleCode' => is_string($row['item_rule_code'] ?? null) ? $row['item_rule_code'] : '',
-            'profileType' => is_string($row['profile_type'] ?? null) ? $row['profile_type'] : '',
-            'profileIndex' => $this->intField($row, 'profile_index'),
+            'itemInventoryId' => $this->intField($target, 'item_inventory_id'),
+            'itemRuleCode' => is_string($target['item_rule_code'] ?? null) ? $target['item_rule_code'] : '',
+            'profileType' => is_string($target['profile_type'] ?? null) ? $target['profile_type'] : '',
+            'profileIndex' => $this->intField($target, 'profile_index'),
         ];
     }
 

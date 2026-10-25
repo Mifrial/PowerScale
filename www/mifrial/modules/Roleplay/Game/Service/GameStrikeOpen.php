@@ -319,10 +319,6 @@ final class GameStrikeOpen
             'attacker_kind' => $choice['attacker']['type'],
             'attacker_id' => $choice['attacker']['id'],
             'action_rule_code' => $choice['actionRuleCode'],
-            'item_inventory_id' => $choice['itemInventoryId'],
-            'item_rule_code' => $choice['itemRuleCode'],
-            'profile_type' => $choice['profileType'],
-            'profile_index' => $choice['profileIndex'],
             'open' => true,
         ];
 

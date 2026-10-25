@@ -87,12 +87,12 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             ['type' => 'npc', 'id' => $npc['npcId']],
             ['type' => 'character', 'id' => $defenderId],
         ]);
-        $opened = $this->dispatch('game.declareStrike', [
+        $opened = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'npc-throw',
             'expectedVersion' => 1,
-            'attack' => $this->throwAttack($npc['npcId'], $defenderId, 'npc', 'character'),
+            'action' => $this->strikeEnvelope($this->throwAttack($npc['npcId'], $defenderId, 'npc', 'character')),
         ]);
         self::assertTrue($opened['success'], json_encode($opened));
         $this->assertNpcInventoryQuantity($npc['npcId'], 1, 'dart', 0);
@@ -493,12 +493,12 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             ['type' => 'character', 'id' => $attackerId],
             ['type' => 'character', 'id' => $defenderId],
         ]);
-        $rejected = $this->dispatch('game.declareStrike', [
+        $rejected = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'strike-ammo',
             'expectedVersion' => 1,
-            'attack' => [
+            'action' => $this->strikeEnvelope([
                 'attacker' => ['type' => 'character', 'id' => $attackerId],
                 'defender' => ['type' => 'character', 'id' => $defenderId],
                 'actionRuleCode' => 'swing',
@@ -507,7 +507,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
                 'profileType' => 'strike',
                 'profileIndex' => 0,
                 'ammunitionInventoryId' => 2,
-            ],
+            ]),
         ]);
         self::assertSame('INVALID_PARAMS', $rejected['error']['code'] ?? null, json_encode($rejected));
         $this->assertInventoryQuantity($attackerId, 1, 'sword', 1);
@@ -1121,12 +1121,12 @@ final class GamePhysicalProfileMysqlTest extends TestCase
      */
     private function declareStrike(array $prepared, string $key, array $attack): array
     {
-        return $this->dispatch('game.declareStrike', [
+        return $this->dispatch('game.runAction', [
             'gameId' => $prepared['gameId'],
             'battleId' => $prepared['battleId'],
             'idempotencyKey' => $key,
             'expectedVersion' => 1,
-            'attack' => $attack,
+            'action' => $this->strikeEnvelope($attack),
         ]);
     }
 
@@ -1141,12 +1141,12 @@ final class GamePhysicalProfileMysqlTest extends TestCase
      */
     private function declareWide(array $prepared, string $key, array $attack): array
     {
-        return $this->dispatch('game.declareWideStrike', [
+        return $this->dispatch('game.runAction', [
             'gameId' => $prepared['gameId'],
             'battleId' => $prepared['battleId'],
             'idempotencyKey' => $key,
             'expectedVersion' => 1,
-            'attack' => $attack,
+            'action' => $this->wideStrikeEnvelope($attack),
         ]);
     }
 

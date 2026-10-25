@@ -722,12 +722,12 @@ final class GameEndOfTurnMysqlTest extends TestCase
         ]);
         self::assertTrue($battle['success'], json_encode($battle));
         self::assertNull($this->battleRow($battle['data']['battleId'])['turn_order']);
-        $opened = $this->dispatch('game.declareStrike', [
+        $opened = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'free-declare',
             'expectedVersion' => 1,
-            'attack' => $this->strike($hero, $ally, 'swing'),
+            'action' => $this->strikeEnvelope($this->strike($hero, $ally, 'swing')),
         ]);
         self::assertTrue($opened['success'], json_encode($opened));
         self::assertArrayNotHasKey('debt', $opened['data']);
@@ -795,12 +795,12 @@ final class GameEndOfTurnMysqlTest extends TestCase
      */
     private function declare(array $scene, string $key, array $attack): array
     {
-        return $this->dispatch('game.declareStrike', [
+        return $this->dispatch('game.runAction', [
             'gameId' => $scene['gameId'],
             'battleId' => $scene['battleId'],
             'idempotencyKey' => $key,
             'expectedVersion' => $this->battleRow($scene['battleId'])['state_version'],
-            'attack' => $attack,
+            'action' => $this->strikeEnvelope($attack),
         ]);
     }
 

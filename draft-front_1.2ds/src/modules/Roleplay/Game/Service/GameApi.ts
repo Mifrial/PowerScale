@@ -59,12 +59,10 @@ import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/
 import type { GameCharacterModerationCommand } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationCommand';
 import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationResult';
 import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
-import type { GamePhpStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAttack';
-import type { GamePhpWideStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpWideStrikeAttack';
-import type { GamePhpActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpActionResult';
-import type { GamePhpStrikeResult } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeResult';
 import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
 import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
+import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionRequest';
+import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
 import type { GameInitiativeRollRequest } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollRequest';
 import type { GameInitiativeRollResult } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollResult';
 import type { GameInitiativeOrderEntry } from '@/modules/Roleplay/Game/Dto/GameInitiativeOrderEntry';
@@ -1033,131 +1031,18 @@ export class GameApi implements IGameApi {
     return result;
   }
 
-  async declareStrike(
-    body: {
-      gameId: number;
-      battleId: number;
-      idempotencyKey: string;
-      expectedVersion: number;
-      attack: GamePhpStrikeAttack;
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpStrikeResult> {
-    const result = await this.requireData<GamePhpStrikeResult>('game.declareStrike', body, signal);
-    gamePhpBattleContext.rememberDebt(result.debt === true, result.version);
-    if (result.debt !== true) {
-      gamePhpBattleContext.rememberOpenStrike({
-        attackerKind: body.attack.attacker.type,
-        attackerId: body.attack.attacker.id,
-        defenderKind: body.attack.defender.type,
-        defenderId: body.attack.defender.id,
-        actionRuleCode: body.attack.actionRuleCode,
-        itemInventoryId: body.attack.itemInventoryId,
-        itemRuleCode: body.attack.itemRuleCode,
-        profileType: body.attack.profileType,
-        profileIndex: body.attack.profileIndex,
-      });
+  async runAction(body: GamePhpRunActionRequest, signal?: AbortSignal): Promise<GamePhpRunActionResult> {
+    const result = await this.requireData<GamePhpRunActionResult>('game.runAction', body, signal);
+    gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    if (body.action.kind === 'strike' && body.action.phase === 'declare') {
+      gamePhpBattleContext.rememberDebt(result.debt === true, result.version);
     }
 
-    return result;
-  }
-
-  async resolveStrike(
-    body: {
-      gameId: number;
-      battleId: number;
-      idempotencyKey: string;
-      expectedVersion: number;
-      expectedSheetVersion: number;
-      defense: {
-        reaction: string;
-        blockItemInventoryId?: number;
-        blockItemProfileIndex?: number;
-      };
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpStrikeResult> {
-    const result = await this.requireData<GamePhpStrikeResult>('game.resolveStrike', body, signal);
-    gamePhpBattleContext.rememberBattle(body.battleId, result.version);
-    gamePhpBattleContext.rememberOpenStrike(null);
-
-    return result;
-  }
-
-  async declareAction(
-    body: {
-      gameId: number;
-      battleId: number;
-      idempotencyKey: string;
-      expectedVersion: number;
-      expectedSheetVersion: number;
-      actor: { type: 'character' | 'npc'; id: number };
-      actionRuleCode: string;
-      followUpTargetKey: string | null;
-      chosenAmounts?: Record<string, number>;
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpActionResult> {
-    const result = await this.requireData<GamePhpActionResult>('game.declareAction', body, signal);
-    const actorKey = `${body.actor.type}:${body.actor.id}` as CombatEntityKey;
-    gamePhpBattleContext.rememberBattle(result.battleId, result.version);
-    gamePhpBattleContext.rememberPending(result.pendingActionEffects);
-    gamePhpBattleContext.rememberSheet(actorKey, result.sheetVersion);
-
-    return result;
-  }
-
-  async declareWideStrike(
-    body: {
-      gameId: number;
-      battleId: number;
-      idempotencyKey: string;
-      expectedVersion: number;
-      attack: GamePhpWideStrikeAttack;
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpStrikeResult> {
-    const result = await this.requireData<GamePhpStrikeResult>('game.declareWideStrike', body, signal);
-    gamePhpBattleContext.rememberDebt(result.debt === true, result.version);
-    gamePhpBattleContext.rememberOpenStrike(null);
-    if (result.debt !== true && typeof result.strikeId === 'number') {
-      gamePhpBattleContext.rememberOpenWideStrike({
-        id: result.strikeId,
-        attacker: body.attack.attacker,
-        actionRuleCode: body.attack.actionRuleCode,
-        itemInventoryId: body.attack.itemInventoryId,
-        itemRuleCode: body.attack.itemRuleCode,
-        profileType: body.attack.profileType,
-        profileIndex: body.attack.profileIndex,
-        targets: body.attack.targets.map((target) => ({ ...target, answered: false })),
-      });
+    if (body.action.kind === 'action') {
+      const actor = body.action.actor;
+      gamePhpBattleContext.rememberPending(result.pendingActionEffects ?? {});
+      if (actor) gamePhpBattleContext.rememberSheet(`${actor.type}:${actor.id}`, result.sheetVersion ?? 1);
     }
-
-    return result;
-  }
-
-  async resolveWideStrike(
-    body: {
-      gameId: number;
-      battleId: number;
-      idempotencyKey: string;
-      expectedVersion: number;
-      defense: {
-        defenses: {
-          target: GamePhpParticipant;
-          reaction: string;
-          expectedSheetVersion: number;
-          blockItemInventoryId?: number;
-          blockItemProfileIndex?: number;
-        }[];
-      };
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpStrikeResult> {
-    const result = await this.requireData<GamePhpStrikeResult>('game.resolveWideStrike', body, signal);
-    gamePhpBattleContext.rememberBattle(body.battleId, result.version);
-    gamePhpBattleContext.rememberOpenStrike(null);
-    this.rememberWideAnswers(body.defense.defenses, result);
 
     return result;
   }
@@ -1174,27 +1059,6 @@ export class GameApi implements IGameApi {
     signal?: AbortSignal,
   ): Promise<{ actualVersion: number }> {
     return this.requireData<{ actualVersion: number }>('game.manualSheet', body, signal);
-  }
-
-  async woundAction(
-    body: {
-      gameId: number;
-      idempotencyKey: string;
-      operation: 'hold' | 'release' | 'bandage';
-      actor: GamePhpWoundParty;
-      target: GamePhpWoundParty;
-      stateId: number;
-      actionRuleCode: string;
-      expectedSheetVersion: number;
-      battleId: number;
-      expectedBattleVersion: number;
-    },
-    signal?: AbortSignal,
-  ): Promise<GamePhpTurnResult> {
-    const result = await this.requireData<GamePhpTurnResult>('game.woundAction', body, signal);
-    gamePhpBattleContext.rememberBattle(body.battleId, result.version ?? body.expectedBattleVersion);
-
-    return result;
   }
 
   async endTurn(
@@ -1487,41 +1351,6 @@ export class GameApi implements IGameApi {
     }
 
     return pending;
-  }
-
-  private rememberWideAnswers(
-    defenses: {
-      target: GamePhpParticipant;
-      reaction: string;
-      blockItemInventoryId?: number;
-      blockItemProfileIndex?: number;
-    }[],
-    result: GamePhpStrikeResult,
-  ): void {
-    if (result.closed === true) {
-      gamePhpBattleContext.rememberOpenWideStrike(null);
-
-      return;
-    }
-    const current = gamePhpBattleContext.openWideStrike;
-    if (!current) return;
-
-    const answers = new Map(defenses.map((row) => [`${row.target.type}:${row.target.id}`, row]));
-    const pending = new Set((result.pendingTargets ?? []).map((row) => `${row.type}:${row.id}`));
-    const targets = current.targets.map((target) => {
-      const key = `${target.type}:${target.id}`;
-      const answer = answers.get(key);
-      if (!answer) return { ...target, answered: !pending.has(key) && target.answered };
-
-      return {
-        ...target,
-        answered: true,
-        reaction: answer.reaction,
-        blockItemInventoryId: answer.blockItemInventoryId ?? null,
-        blockItemProfileIndex: answer.blockItemProfileIndex ?? null,
-      };
-    });
-    gamePhpBattleContext.rememberOpenWideStrike({ ...current, targets });
   }
 
   private openStrikeOf(value: unknown): GamePhpOpenStrike | null {

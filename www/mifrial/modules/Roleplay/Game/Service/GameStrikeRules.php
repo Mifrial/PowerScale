@@ -248,6 +248,28 @@ final class GameStrikeRules
     }
 
     /**
+     * Широкая ли карточка: потолок целей больше одной.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия игры.
+     * @param string $actionRuleCode Действие.
+     *
+     * @return bool true для широкой атаки.
+     *
+     * @throws GameInvalidException Если карточка битая.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function isWideAttack(int $spaceId, int $rulesRevision, string $actionRuleCode): bool
+    {
+        $base = $this->actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
+        if ($base === null) {
+            throw new GameInvalidException('Game strike action is invalid');
+        }
+
+        return ($base->getMaxTargets() ?? 1) > 1;
+    }
+
+    /**
      * Проверяет число целей карточки: потолок `max_targets` и режим.
      *
      * @param int $spaceId Мир.

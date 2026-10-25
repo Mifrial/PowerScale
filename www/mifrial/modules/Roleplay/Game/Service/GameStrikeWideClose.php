@@ -76,7 +76,7 @@ final class GameStrikeWideClose
         $battleId = $battle->getId();
         $open = $this->rows->requireOpen($battleId, 'wide_strike');
         $strikeId = $open['id'];
-        $rows = $this->actions->getStrikes($strikeId);
+        $rows = is_array($open['strikes'] ?? null) ? $open['strikes'] : $this->actions->getStrikes($strikeId);
         $indexByTarget = [];
         foreach ($rows as $index => $row) {
             $indexByTarget[$this->rows->targetKey($this->rows->rowTarget($row))] = $index;

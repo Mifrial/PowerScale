@@ -86,12 +86,12 @@ final class GameStrikeMysqlTest extends TestCase
                 ['type' => 'npc', 'id' => $npc['data']['npcId']],
             ],
         ]);
-        $opened = $this->dispatch('game.declareStrike', [
+        $opened = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 's1',
             'expectedVersion' => 1,
-            'attack' => $this->attack($characterId, $npc['data']['npcId']),
+            'action' => $this->strikeEnvelope($this->attack($characterId, $npc['data']['npcId'])),
         ]);
         self::assertTrue($opened['success'], json_encode($opened));
         self::assertSame(2, $opened['data']['version']);
@@ -102,13 +102,12 @@ final class GameStrikeMysqlTest extends TestCase
             'gameId' => $gameId,
             'npcId' => $npc['data']['npcId'],
         ])['data']['actualVersion']);
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'd1',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $npcActual,
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $npcActual),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         self::assertSame($npcActual + 1, $closed['data']['sheetVersion']);
@@ -120,23 +119,21 @@ final class GameStrikeMysqlTest extends TestCase
             'gameId' => $gameId,
             'npcId' => $npc['data']['npcId'],
         ])['data']['actualVersion']);
-        $replay = $this->dispatch('game.resolveStrike', [
+        $replay = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'd1',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $npcActual,
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $npcActual),
         ]);
         self::assertEquals($closed['data'], $replay['data']);
         self::assertSame(1, $this->countActions('strike'));
-        $differentBody = $this->dispatch('game.resolveStrike', [
+        $differentBody = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'd1',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $npcActual,
-            'defense' => ['reaction' => 'dodge'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'dodge'], $npcActual),
         ]);
         self::assertSame('GAME_CONFLICT', $differentBody['error']['code']);
     }
@@ -166,22 +163,21 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         $battleId = $battle['data']['battleId'];
         self::assertSame(10, $this->actionPointsOf($attackerId));
-        $opened = $this->dispatch('game.declareStrike', [
+        $opened = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-pending-1',
             'expectedVersion' => 1,
-            'attack' => $this->characterAttack($attackerId, $defenderId),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
         ]);
         self::assertTrue($opened['success'], json_encode($opened));
         self::assertSame(8, $this->actionPointsOf($attackerId));
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'd-pending-1',
             'expectedVersion' => $opened['data']['version'],
-            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
-            'defense' => ['reaction' => 'dodge'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'dodge'], $this->characterFacade()->get($defenderId)->getActualVersion()),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         self::assertSame(
@@ -192,12 +188,12 @@ final class GameStrikeMysqlTest extends TestCase
             ],
             $this->pendingTypes($battleId, 'character:' . $attackerId),
         );
-        $second = $this->dispatch('game.declareStrike', [
+        $second = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-pending-2',
             'expectedVersion' => $closed['data']['version'],
-            'attack' => $this->characterAttack($attackerId, $defenderId),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
         ]);
         self::assertTrue($second['success'], json_encode($second));
         self::assertSame(5, $this->actionPointsOf($attackerId));
@@ -205,13 +201,12 @@ final class GameStrikeMysqlTest extends TestCase
             ['after_action_until_resource_spent_check_modifier', 'last_strike_snapshot'],
             $this->pendingTypes($battleId, 'character:' . $attackerId),
         );
-        $closedAgain = $this->dispatch('game.resolveStrike', [
+        $closedAgain = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'd-pending-2',
             'expectedVersion' => $second['data']['version'],
-            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $this->characterFacade()->get($defenderId)->getActualVersion()),
         ]);
         self::assertTrue($closedAgain['success'], json_encode($closedAgain));
         self::assertSame(
@@ -331,31 +326,30 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         $battleId = $battle['data']['battleId'];
 
-        $blocked = $this->dispatch('game.declareStrike', [
+        $blocked = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-follow-up-blocked',
             'expectedVersion' => 1,
-            'attack' => $this->characterAttack($attackerId, $defenderId, 'critical'),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId, 'critical')),
         ]);
         self::assertFalse($blocked['success']);
         self::assertSame('GAME_INVALID', $blocked['error']['code']);
 
-        $first = $this->dispatch('game.declareStrike', [
+        $first = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-follow-up-first',
             'expectedVersion' => 1,
-            'attack' => $this->characterAttack($attackerId, $defenderId),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
         ]);
         self::assertTrue($first['success'], json_encode($first));
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'd-follow-up-first',
             'expectedVersion' => $first['data']['version'],
-            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $this->characterFacade()->get($defenderId)->getActualVersion()),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
 
@@ -372,22 +366,22 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame('other', $snapshot['kind']);
         self::assertTrue($snapshot['hits'][0]['damaged']);
 
-        $wrongTarget = $this->dispatch('game.declareStrike', [
+        $wrongTarget = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-follow-up-wrong',
             'expectedVersion' => $closed['data']['version'],
-            'attack' => $this->characterAttack($attackerId, $otherId, 'critical'),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $otherId, 'critical')),
         ]);
         self::assertFalse($wrongTarget['success']);
         self::assertSame('GAME_INVALID', $wrongTarget['error']['code']);
 
-        $second = $this->dispatch('game.declareStrike', [
+        $second = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-follow-up-second',
             'expectedVersion' => $closed['data']['version'],
-            'attack' => $this->characterAttack($attackerId, $defenderId, 'critical'),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId, 'critical')),
         ]);
         self::assertTrue($second['success'], json_encode($second));
     }
@@ -428,41 +422,39 @@ final class GameStrikeMysqlTest extends TestCase
             ],
         ]);
         $battleId = $battle['data']['battleId'];
-        $first = $this->dispatch('game.declareStrike', [
+        $first = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-lethal-first',
             'expectedVersion' => 1,
-            'attack' => $this->characterAttack($attackerId, $defenderId),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
         ]);
         self::assertTrue($first['success'], json_encode($first));
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'd-lethal-first',
             'expectedVersion' => $first['data']['version'],
-            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $this->characterFacade()->get($defenderId)->getActualVersion()),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         $previousSr = $closed['data']['success'];
         self::assertGreaterThan(0, $previousSr);
 
-        $second = $this->dispatch('game.declareStrike', [
+        $second = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-lethal-second',
             'expectedVersion' => $closed['data']['version'],
-            'attack' => $this->characterAttack($attackerId, $defenderId, 'lethal'),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId, 'lethal')),
         ]);
         self::assertTrue($second['success'], json_encode($second));
-        $closedLethal = $this->dispatch('game.resolveStrike', [
+        $closedLethal = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'd-lethal-second',
             'expectedVersion' => $second['data']['version'],
-            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $this->characterFacade()->get($defenderId)->getActualVersion()),
         ]);
         self::assertTrue($closedLethal['success'], json_encode($closedLethal));
         self::assertSame($previousSr * 2, $closedLethal['data']['success']);
@@ -525,34 +517,35 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($battle['success'], json_encode($battle));
         $battleId = $battle['data']['battleId'];
-        $opened = $this->dispatch('game.declareStrike', [
+        $opened = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-action',
             'expectedVersion' => 1,
-            'attack' => $this->characterAttack($attackerId, $defenderId),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
         ]);
         self::assertTrue($opened['success'], json_encode($opened));
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'd-action',
             'expectedVersion' => $opened['data']['version'],
-            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $this->characterFacade()->get($defenderId)->getActualVersion()),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         $beforeAp = $this->actionPointsOf($attackerId);
         $sheetBefore = $this->characterFacade()->get($attackerId)->getActualVersion();
-        $action = $this->dispatch('game.declareAction', [
+        $action = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'a-action',
             'expectedVersion' => $closed['data']['version'],
-            'expectedSheetVersion' => $sheetBefore,
-            'actor' => ['type' => 'character', 'id' => $attackerId],
-            'actionRuleCode' => 'counter',
-            'followUpTargetKey' => 'character:' . $defenderId,
+            'action' => $this->actionEnvelope([
+                    'expectedSheetVersion' => $sheetBefore,
+                    'actor' => ['type' => 'character', 'id' => $attackerId],
+                    'actionRuleCode' => 'counter',
+                    'followUpTargetKey' => 'character:' . $defenderId,
+                ]),
         ]);
         self::assertTrue($action['success'], json_encode($action));
         self::assertSame($beforeAp - 1, $this->actionPointsOf($attackerId));
@@ -569,43 +562,49 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertNotContains('last_strike_snapshot', $types);
         self::assertSame($closed['data']['version'] + 1, $action['data']['version']);
 
-        $replay = $this->dispatch('game.declareAction', [
+        $replay = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'a-action',
             'expectedVersion' => $closed['data']['version'],
-            'expectedSheetVersion' => $sheetBefore,
-            'actor' => ['type' => 'character', 'id' => $attackerId],
-            'actionRuleCode' => 'counter',
-            'followUpTargetKey' => 'character:' . $defenderId,
+            'action' => $this->actionEnvelope([
+                    'expectedSheetVersion' => $sheetBefore,
+                    'actor' => ['type' => 'character', 'id' => $attackerId],
+                    'actionRuleCode' => 'counter',
+                    'followUpTargetKey' => 'character:' . $defenderId,
+                ]),
         ]);
         self::assertTrue($replay['success'], json_encode($replay));
         self::assertSame($beforeAp - 1, $this->actionPointsOf($attackerId));
-        $missing = $this->dispatch('game.declareAction', [
+        $missing = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'a-action-missing',
             'expectedVersion' => $action['data']['version'],
-            'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
-            'actor' => ['type' => 'character', 'id' => $attackerId],
-            'actionRuleCode' => 'counter',
-            'followUpTargetKey' => 'character:' . $defenderId,
+            'action' => $this->actionEnvelope([
+                    'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+                    'actor' => ['type' => 'character', 'id' => $attackerId],
+                    'actionRuleCode' => 'counter',
+                    'followUpTargetKey' => 'character:' . $defenderId,
+                ]),
         ]);
         self::assertFalse($missing['success']);
         self::assertSame('GAME_INVALID', $missing['error']['code'] ?? null);
 
         $apBeforeWait = $this->actionPointsOf($attackerId);
         self::assertSame($beforeAp - 1, $apBeforeWait);
-        $wait = $this->dispatch('game.declareAction', [
+        $wait = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'a-action-wait',
             'expectedVersion' => $action['data']['version'],
-            'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
-            'actor' => ['type' => 'character', 'id' => $attackerId],
-            'actionRuleCode' => 'wait',
-            'followUpTargetKey' => null,
-            'chosenAmounts' => ['action-points' => 3],
+            'action' => $this->actionEnvelope([
+                    'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+                    'actor' => ['type' => 'character', 'id' => $attackerId],
+                    'actionRuleCode' => 'wait',
+                    'followUpTargetKey' => null,
+                    'chosenAmounts' => ['action-points' => 3],
+                ]),
         ]);
         self::assertTrue($wait['success'], json_encode($wait));
         self::assertSame(3, $wait['data']['spent']);
@@ -669,12 +668,12 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($battle['success'], json_encode($battle));
         $battleId = $battle['data']['battleId'];
-        self::assertTrue($this->dispatch('game.declareStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'chat-single-open',
             'expectedVersion' => 1,
-            'attack' => [
+            'action' => $this->strikeEnvelope([
                 'attacker' => ['type' => 'character', 'id' => $attackerId],
                 'defender' => ['type' => 'character', 'id' => $defenderId],
                 'actionRuleCode' => 'swing',
@@ -682,15 +681,14 @@ final class GameStrikeMysqlTest extends TestCase
                 'itemRuleCode' => 'sword',
                 'profileType' => 'strike',
                 'profileIndex' => 0,
-            ],
+            ]),
         ])['success']);
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'chat-single-close',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $defenderVersion,
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $defenderVersion),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         self::assertLessThan(0, $closed['data']['maim']['rating']);
@@ -757,51 +755,48 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertTrue($battle['success'], json_encode($battle));
         $battleId = $battle['data']['battleId'];
         $this->setActor($attackerOwner, []);
-        $opened = $this->dispatch('game.declareStrike', [
+        $opened = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-owner',
             'expectedVersion' => 1,
-            'attack' => $this->characterAttack($attackerId, $defenderId),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
         ]);
         self::assertTrue($opened['success'], json_encode($opened));
         $this->setActor($attackerOwner, []);
-        $wrong = $this->dispatch('game.resolveStrike', [
+        $wrong = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'd-wrong',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $defenderVersion,
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $defenderVersion),
         ]);
         self::assertSame('AUTH_DENIED', $wrong['error']['code']);
         $this->setActor($defenderOwner, []);
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'd-owner',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $defenderVersion,
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $defenderVersion),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         $this->setActor($defenderOwner, []);
-        $again = $this->dispatch('game.resolveStrike', [
+        $again = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'd-again',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $defenderVersion,
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $defenderVersion),
         ]);
         self::assertSame('GAME_INVALID', $again['error']['code']);
         $this->setActor($stranger, []);
-        $foreign = $this->dispatch('game.declareStrike', [
+        $foreign = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-foreign',
             'expectedVersion' => 2,
-            'attack' => $this->characterAttack($attackerId, $defenderId),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
         ]);
         self::assertSame('AUTH_DENIED', $foreign['error']['code']);
     }
@@ -844,31 +839,29 @@ final class GameStrikeMysqlTest extends TestCase
             ],
         ]);
         $this->setActor($player, []);
-        self::assertTrue($this->dispatch('game.declareStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $defenderBattle['data']['battleId'],
             'idempotencyKey' => 's-npc-defender',
             'expectedVersion' => 1,
-            'attack' => $this->attack($characterId, $npc['data']['npcId']),
+            'action' => $this->strikeEnvelope($this->attack($characterId, $npc['data']['npcId'])),
         ])['success']);
         $this->setActor($player, []);
-        $npcDefense = $this->dispatch('game.resolveStrike', [
+        $npcDefense = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $defenderBattle['data']['battleId'],
             'idempotencyKey' => 'd-npc-defender',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $npc['data']['actualVersion'],
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $npc['data']['actualVersion']),
         ]);
         self::assertSame('AUTH_DENIED', $npcDefense['error']['code']);
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
-        self::assertTrue($this->dispatch('game.resolveStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $defenderBattle['data']['battleId'],
             'idempotencyKey' => 'd-npc-defender',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $npc['data']['actualVersion'],
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $npc['data']['actualVersion']),
         ])['success']);
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
         self::assertTrue($this->dispatch('game.endBattle', [
@@ -886,12 +879,12 @@ final class GameStrikeMysqlTest extends TestCase
             ],
         ]);
         $this->setActor($player, []);
-        $npcAttack = $this->dispatch('game.declareStrike', [
+        $npcAttack = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $attackerBattle['data']['battleId'],
             'idempotencyKey' => 's-npc-attacker',
             'expectedVersion' => 1,
-            'attack' => [
+            'action' => $this->strikeEnvelope([
                 'attacker' => ['type' => 'npc', 'id' => $attackerNpc['data']['npcId']],
                 'defender' => ['type' => 'character', 'id' => $characterId],
                 'actionRuleCode' => 'swing',
@@ -899,16 +892,16 @@ final class GameStrikeMysqlTest extends TestCase
                 'itemRuleCode' => 'sword',
                 'profileType' => 'strike',
                 'profileIndex' => 0,
-            ],
+            ]),
         ]);
         self::assertSame('AUTH_DENIED', $npcAttack['error']['code']);
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
-        self::assertTrue($this->dispatch('game.declareStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $attackerBattle['data']['battleId'],
             'idempotencyKey' => 's-npc-attacker',
             'expectedVersion' => 1,
-            'attack' => [
+            'action' => $this->strikeEnvelope([
                 'attacker' => ['type' => 'npc', 'id' => $attackerNpc['data']['npcId']],
                 'defender' => ['type' => 'character', 'id' => $characterId],
                 'actionRuleCode' => 'swing',
@@ -916,20 +909,19 @@ final class GameStrikeMysqlTest extends TestCase
                 'itemRuleCode' => 'sword',
                 'profileType' => 'strike',
                 'profileIndex' => 0,
-            ],
+            ]),
         ])['success']);
         $this->setActor($player, []);
         $card = $this->dispatch('game.get', ['id' => $gameId]);
         self::assertTrue($card['success'], json_encode($card));
         self::assertSame($attackerNpc['data']['npcId'], $card['data']['battle']['openStrike']['attackerId'] ?? null);
         self::assertSame($characterId, $card['data']['battle']['openStrike']['defenderId'] ?? null);
-        self::assertTrue($this->dispatch('game.resolveStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $attackerBattle['data']['battleId'],
             'idempotencyKey' => 'd-npc-attacker',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $characterVersion,
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $characterVersion),
         ])['success']);
     }
 
@@ -1000,25 +992,24 @@ final class GameStrikeMysqlTest extends TestCase
                 ['type' => 'npc', 'id' => $npc['data']['npcId']],
             ],
         ]);
-        self::assertTrue($this->dispatch('game.declareStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'concurrent-open',
             'expectedVersion' => 1,
-            'attack' => $this->attack($characterId, $npc['data']['npcId']),
+            'action' => $this->strikeEnvelope($this->attack($characterId, $npc['data']['npcId'])),
         ])['success']);
         $payload = [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'concurrent-close',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $npcVersion,
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $npcVersion),
         ];
         $deliveryBefore = $this->countAll(GameDeliveryTable::class);
         $commandsBefore = $this->countCommands('strike');
 
-        $results = $this->runConcurrentStrikeRequests('game.resolveStrike', $payload);
+        $results = $this->runConcurrentStrikeRequests('game.runAction', $payload);
         $this->reconnectGameAfterFork();
 
         self::assertCount(2, $results);
@@ -1033,13 +1024,13 @@ final class GameStrikeMysqlTest extends TestCase
         ])['data']['actualVersion']);
         self::assertSame($deliveryBefore + 1, $this->countAll(GameDeliveryTable::class));
 
-        $sameBodyReplay = $this->dispatch('game.resolveStrike', $payload);
+        $sameBodyReplay = $this->dispatch('game.runAction', $payload);
         self::assertTrue($sameBodyReplay['success']);
         self::assertEquals($results[0]['data'], $sameBodyReplay['data']);
 
         $differentBody = $payload;
-        $differentBody['defense'] = ['reaction' => 'dodge'];
-        $differentBodyResult = $this->dispatch('game.resolveStrike', $differentBody);
+        $differentBody['action']['context']['defenses'][0]['reaction'] = 'dodge';
+        $differentBodyResult = $this->dispatch('game.runAction', $differentBody);
         self::assertFalse($differentBodyResult['success']);
         self::assertSame('GAME_CONFLICT', $differentBodyResult['error']['code']);
         self::assertSame($commandsBefore + 1, $this->countCommands('strike'));
@@ -1089,12 +1080,12 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($battle['success'] ?? false, json_encode($battle));
         $battleId = $battle['data']['battleId'];
-        self::assertTrue($this->dispatch('game.declareStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'concurrent-owner-open',
             'expectedVersion' => 1,
-            'attack' => $this->characterAttack($attackerId, $defenderId),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
         ])['success']);
         $commandsBefore = $this->countCommands('strike');
         $writerPayload = [
@@ -1102,13 +1093,12 @@ final class GameStrikeMysqlTest extends TestCase
             'battleId' => $battleId,
             'idempotencyKey' => 'concurrent-owner-writer',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $defenderVersion,
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $defenderVersion),
         ];
         $ownerPayload = $writerPayload;
         $ownerPayload['idempotencyKey'] = 'concurrent-owner-defender';
 
-        $results = $this->runConcurrentStrikeRequests('game.resolveStrike', $writerPayload, [
+        $results = $this->runConcurrentStrikeRequests('game.runAction', $writerPayload, [
             [
                 'payload' => $writerPayload,
                 'userId' => $this->ownerUserId,
@@ -1169,25 +1159,24 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         $attack = $this->attack($characterId, $npc['data']['npcId']);
         $attack['itemRuleCode'] = 'axe';
-        self::assertTrue($this->dispatch('game.declareStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 's1',
             'expectedVersion' => 1,
-            'attack' => $attack,
+            'action' => $this->strikeEnvelope($attack),
         ])['success']);
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'd1',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $npc['data']['actualVersion'],
-            'defense' => [
+            'action' => $this->strikeDefenseEnvelope([
                 'reaction' => 'block',
                 'blockItemInventoryId' => 1,
                 'blockItemProfileIndex' => 0,
                 'blockItemRuleCode' => 'sword',
-            ],
+            ], $npc['data']['actualVersion']),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         self::assertSame(8, $closed['data']['success']);
@@ -1470,15 +1459,17 @@ final class GameStrikeMysqlTest extends TestCase
                 ['type' => 'character', 'id' => $otherId],
             ],
         ]);
-        $declared = $this->dispatch('game.declareAction', [
+        $declared = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'a-locked-action',
             'expectedVersion' => 1,
-            'expectedSheetVersion' => $this->characterFacade()->get($actorId)->getActualVersion(),
-            'actor' => ['type' => 'character', 'id' => $actorId],
-            'actionRuleCode' => 'locked-action',
-            'followUpTargetKey' => null,
+            'action' => $this->actionEnvelope([
+                    'expectedSheetVersion' => $this->characterFacade()->get($actorId)->getActualVersion(),
+                    'actor' => ['type' => 'character', 'id' => $actorId],
+                    'actionRuleCode' => 'locked-action',
+                    'followUpTargetKey' => null,
+                ]),
         ]);
 
         self::assertSame('GAME_INVALID', $declared['error']['code'] ?? null);
@@ -1522,20 +1513,19 @@ final class GameStrikeMysqlTest extends TestCase
             'profileType' => 'strike',
             'profileIndex' => 0,
         ];
-        self::assertTrue($this->dispatch('game.declareStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'single-penetration-open',
             'expectedVersion' => 1,
-            'attack' => $attack,
+            'action' => $this->strikeEnvelope($attack),
         ])['success']);
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'single-penetration-close',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $defenderVersion,
-            'defense' => ['reaction' => 'dodge'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'dodge'], $defenderVersion),
         ]);
 
         self::assertTrue($closed['success'], json_encode($closed));
@@ -1543,7 +1533,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($this->pair(1), $closed['data']['resistance']);
         self::assertSame($this->pair(36, -1), $closed['data']['injury']);
         self::assertSame(
-            ['battleId', 'strikeId', 'version', 'attackerRoll', 'success', 'damage', 'resistance', 'sheetVersion', 'defenderRoll', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim'],
+            ['battleId', 'strikeId', 'version', 'success', 'damage', 'resistance', 'sheetVersion', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim', 'kind', 'phase', 'closed', 'strikes', 'pendingStrikes'],
             array_keys($closed['data']),
         );
         self::assertSame($defenderVersion + 1, $this->characterFacade()->get($defenderId)->getActualVersion());
@@ -1836,36 +1826,37 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($battle['success'], json_encode($battle));
         $battleId = $battle['data']['battleId'];
-        $prepared = $this->dispatch('game.declareAction', [
+        $prepared = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'a-soak-prep',
             'expectedVersion' => 1,
-            'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
-            'actor' => ['type' => 'character', 'id' => $attackerId],
-            'actionRuleCode' => $prepCode,
-            'followUpTargetKey' => null,
+            'action' => $this->actionEnvelope([
+                    'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+                    'actor' => ['type' => 'character', 'id' => $attackerId],
+                    'actionRuleCode' => $prepCode,
+                    'followUpTargetKey' => null,
+                ]),
         ]);
         self::assertTrue($prepared['success'], json_encode($prepared));
         self::assertContains(
             'next_action_attack_dodge_soak_from_reaction',
             $this->pendingTypes($battleId, 'character:' . $attackerId),
         );
-        $opened = $this->dispatch('game.declareStrike', [
+        $opened = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-soak-tail',
             'expectedVersion' => $prepared['data']['version'],
-            'attack' => $this->characterAttack($attackerId, $defenderId, $attackCode, 'wand'),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId, $attackCode, 'wand')),
         ]);
         self::assertTrue($opened['success'], json_encode($opened));
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'd-soak-tail',
             'expectedVersion' => $opened['data']['version'],
-            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
-            'defense' => ['reaction' => 'dodge'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'dodge'], $this->characterFacade()->get($defenderId)->getActualVersion()),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         $soak = is_array($closed['data']['S'] ?? null) ? $closed['data']['S'] : null;
@@ -2286,52 +2277,50 @@ final class GameStrikeMysqlTest extends TestCase
         ])['data']['battleId'];
         $attack = $this->attack($characterId, $npc['data']['npcId']);
         $attack['itemRuleCode'] = 'buckler';
-        $bad = $this->dispatch('game.declareStrike', [
+        $bad = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'bad',
             'expectedVersion' => 1,
-            'attack' => $attack,
+            'action' => $this->strikeEnvelope($attack),
         ]);
         self::assertSame('GAME_INVALID', $bad['error']['code']);
         self::assertSame(0, $this->countActions('strike'));
-        $damage = $this->attack($characterId, $npc['data']['npcId']);
-        $damage['actionPointCost'] = 1;
-        $rejected = $this->dispatch('game.declareStrike', [
+        $damage = $this->strikeEnvelope($this->attack($characterId, $npc['data']['npcId']));
+        $damage['context']['strikes'][0]['actionPointCost'] = 1;
+        $rejected = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'dmg',
             'expectedVersion' => 1,
-            'attack' => $damage,
+            'action' => $damage,
         ]);
         self::assertSame('INVALID_PARAMS', $rejected['error']['code']);
-        $opened = $this->dispatch('game.declareStrike', [
+        $opened = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's1',
             'expectedVersion' => 1,
-            'attack' => $this->attack($characterId, $npc['data']['npcId']),
+            'action' => $this->strikeEnvelope($this->attack($characterId, $npc['data']['npcId'])),
         ]);
         self::assertTrue($opened['success']);
-        $stale = $this->dispatch('game.resolveStrike', [
+        $stale = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'stale',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $npc['data']['actualVersion'] + 1,
-            'defense' => ['reaction' => 'dodge'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'dodge'], $npc['data']['actualVersion'] + 1),
         ]);
         self::assertSame('GAME_CONFLICT', $stale['error']['code']);
         self::assertArrayHasKey('choices', $stale['error']['details']);
         self::assertArrayHasKey('sheet', $stale['error']['details']);
         self::assertArrayNotHasKey('currentSheet', $stale['error']['details']);
-        $staleBattle = $this->dispatch('game.resolveStrike', [
+        $staleBattle = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'stale-battle',
             'expectedVersion' => 1,
-            'expectedSheetVersion' => $npc['data']['actualVersion'],
-            'defense' => ['reaction' => 'dodge'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'dodge'], $npc['data']['actualVersion']),
         ]);
         self::assertSame('GAME_CONFLICT', $staleBattle['error']['code']);
         self::assertArrayNotHasKey('choices', $staleBattle['error']['details']);
@@ -2380,20 +2369,19 @@ final class GameStrikeMysqlTest extends TestCase
                 ['type' => 'npc', 'id' => $npc['data']['npcId']],
             ],
         ]);
-        self::assertTrue($this->dispatch('game.declareStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 's-' . $gameId,
             'expectedVersion' => 1,
-            'attack' => $this->attack($characterId, $npc['data']['npcId']),
+            'action' => $this->strikeEnvelope($this->attack($characterId, $npc['data']['npcId'])),
         ])['success']);
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'd-' . $gameId,
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $npc['data']['actualVersion'],
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $npc['data']['actualVersion']),
         ]);
         self::assertSame('GAME_INVALID', $closed['error']['code']);
         self::assertSame($actual, $this->characterFacade()->get($characterId)->getActualVersion());
@@ -2437,12 +2425,12 @@ final class GameStrikeMysqlTest extends TestCase
             ],
         ]);
         $battleId = $battle['data']['battleId'];
-        self::assertTrue($this->dispatch('game.declareStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'single-cas-open',
             'expectedVersion' => 1,
-            'attack' => [
+            'action' => $this->strikeEnvelope([
                 'attacker' => ['type' => 'character', 'id' => $attackerId],
                 'defender' => ['type' => 'character', 'id' => $defenderId],
                 'actionRuleCode' => 'swing',
@@ -2450,24 +2438,23 @@ final class GameStrikeMysqlTest extends TestCase
                 'itemRuleCode' => 'sword',
                 'profileType' => 'strike',
                 'profileIndex' => 0,
-            ],
+            ]),
         ])['success']);
         $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
-        $strike = $mysql->select("select item_inventory_id, item_rule_code, open from game_action where kind = 'strike'");
+        $strike = $mysql->select("select s.item_inventory_id, s.item_rule_code, a.open from game_action_strike s join game_action a on a.id = s.action_id where a.kind = 'strike'");
         self::assertSame(2, (int) $strike[0]->item_inventory_id);
         self::assertSame('sword', (string) $strike[0]->item_rule_code);
         $commandsBefore = $this->countCommands('strike');
         $probe = new PenetrationMutationCasProbe();
         $probe->arm($mysql, [$defenderId]);
         try {
-            $closed = $this->dispatch('game.resolveStrike', [
-                'gameId' => $gameId,
-                'battleId' => $battleId,
-                'idempotencyKey' => 'single-cas-close',
-                'expectedVersion' => 2,
-                'expectedSheetVersion' => $defenderVersion,
-                'defense' => ['reaction' => 'dodge'],
-            ]);
+            $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'single-cas-close',
+            'expectedVersion' => 2,
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'dodge'], $defenderVersion),
+        ]);
         } finally {
             $probe->disarm();
         }
@@ -2524,12 +2511,12 @@ final class GameStrikeMysqlTest extends TestCase
             ],
         ]);
         $battleId = $battle['data']['battleId'];
-        self::assertTrue($this->dispatch('game.declareStrike', [
+        self::assertTrue($this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'auto-fail-open',
             'expectedVersion' => 1,
-            'attack' => [
+            'action' => $this->strikeEnvelope([
                 'attacker' => ['type' => 'character', 'id' => $attackerId],
                 'defender' => ['type' => 'character', 'id' => $defenderId],
                 'actionRuleCode' => 'swing',
@@ -2537,31 +2524,30 @@ final class GameStrikeMysqlTest extends TestCase
                 'itemRuleCode' => 'sword',
                 'profileType' => 'strike',
                 'profileIndex' => 0,
-            ],
+            ]),
         ])['success']);
         $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
         $probe = new PenetrationMutationCasProbe();
         $probe->arm($mysql, []);
         try {
-            $closed = $this->dispatch('game.resolveStrike', [
-                'gameId' => $gameId,
-                'battleId' => $battleId,
-                'idempotencyKey' => 'auto-fail-close',
-                'expectedVersion' => 2,
-                'expectedSheetVersion' => $defenderVersion,
-                'defense' => [
+            $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'auto-fail-close',
+            'expectedVersion' => 2,
+            'action' => $this->strikeDefenseEnvelope([
                     'reaction' => 'block',
                     'blockItemInventoryId' => 1,
                     'blockItemProfileIndex' => 0,
                     'blockItemRuleCode' => 'sword',
-                ],
-            ]);
+                ], $defenderVersion),
+        ]);
         } finally {
             $probe->disarm();
         }
 
         self::assertTrue($closed['success'] ?? false, json_encode($closed));
-        self::assertSame(['base' => 0, 'size' => -1], $closed['data']['attackerRoll']['roll'] ?? null);
+        self::assertSame(['base' => 0, 'size' => -1], $closed['data']['strikes'][0]['roll']['roll'] ?? null);
         self::assertSame(0, $closed['data']['success']);
         self::assertSame($this->pair(0), $closed['data']['damage']);
         self::assertSame($this->pair(0), $closed['data']['resistance']);
@@ -2617,12 +2603,12 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($battle['success'] ?? false, json_encode($battle));
         $battleId = $battle['data']['battleId'];
-        $opened = $this->dispatch('game.declareStrike', [
+        $opened = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'resource-ignore-open',
             'expectedVersion' => 1,
-            'attack' => [
+            'action' => $this->strikeEnvelope([
                 'attacker' => ['type' => 'character', 'id' => $attackerId],
                 'defender' => ['type' => 'character', 'id' => $defenderId],
                 'actionRuleCode' => 'swing',
@@ -2630,26 +2616,25 @@ final class GameStrikeMysqlTest extends TestCase
                 'itemRuleCode' => 'sword',
                 'profileType' => 'strike',
                 'profileIndex' => 0,
-            ],
+            ]),
         ]);
         self::assertTrue($opened['success'], json_encode($opened));
         $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
         $probe = new PenetrationMutationCasProbe();
         $probe->arm($mysql, []);
         try {
-            $closed = $this->dispatch('game.resolveStrike', [
-                'gameId' => $gameId,
-                'battleId' => $battleId,
-                'idempotencyKey' => 'resource-ignore-close',
-                'expectedVersion' => 2,
-                'expectedSheetVersion' => $defenderVersion,
-                'defense' => [
+            $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'resource-ignore-close',
+            'expectedVersion' => 2,
+            'action' => $this->strikeDefenseEnvelope([
                     'reaction' => 'block',
                     'blockItemInventoryId' => 1,
                     'blockItemProfileIndex' => 0,
                     'blockItemRuleCode' => 'sword',
-                ],
-            ]);
+                ], $defenderVersion),
+        ]);
         } finally {
             $probe->disarm();
         }
@@ -2661,25 +2646,24 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($this->pair(0), $closed['data']['resistance']);
         self::assertSame($this->pair(0), $closed['data']['injury']);
         self::assertNull($closed['data']['sheetVersion']);
-        self::assertArrayHasKey('defenderRoll', $closed['data']);
+        self::assertArrayHasKey('defenseRoll', $closed['data']['strikes'][0]);
         self::assertSame([], $probe->getUpdates(), json_encode($probe->getSeenSql()));
         self::assertEquals($defenderSheet, $this->characterFacade()->get($defenderId)->getSheet());
         self::assertSame($defenderVersion, $this->characterFacade()->get($defenderId)->getActualVersion());
         self::assertEquals($attackerSheet, $this->characterFacade()->get($attackerId)->getSheet());
         self::assertSame(1, (int) $mysql->select("select open from game_action where kind = 'strike'")[0]->open);
         self::assertSame(2, (int) $mysql->select('select state_version from game_battle where id = ?', [$battleId])[0]->state_version);
-        $replay = $this->dispatch('game.resolveStrike', [
+        $replay = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'resource-ignore-close',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $defenderVersion,
-            'defense' => [
+            'action' => $this->strikeDefenseEnvelope([
                 'reaction' => 'block',
                 'blockItemInventoryId' => 1,
                 'blockItemProfileIndex' => 0,
                 'blockItemRuleCode' => 'sword',
-            ],
+            ], $defenderVersion),
         ]);
         self::assertEquals($closed['data'], $replay['data']);
     }
@@ -3309,12 +3293,12 @@ final class GameStrikeMysqlTest extends TestCase
             ],
         ]);
 
-        return $this->dispatch('game.declareStrike', [
+        return $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 's-card-' . $gameId,
             'expectedVersion' => 1,
-            'attack' => [
+            'action' => $this->strikeEnvelope([
                 'attacker' => ['type' => 'character', 'id' => $characterId],
                 'defender' => ['type' => 'npc', 'id' => $npc['data']['npcId']],
                 'actionRuleCode' => $actionRuleCode,
@@ -3322,7 +3306,7 @@ final class GameStrikeMysqlTest extends TestCase
                 'itemRuleCode' => $itemRuleCode,
                 'profileType' => 'strike',
                 'profileIndex' => 0,
-            ],
+            ]),
         ]);
     }
 
@@ -3411,12 +3395,12 @@ final class GameStrikeMysqlTest extends TestCase
                 ['type' => 'character', 'id' => $defenderId],
             ],
         ]);
-        $opened = $this->dispatch('game.declareStrike', [
+        $opened = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 's-resist',
             'expectedVersion' => 1,
-            'attack' => [
+            'action' => $this->strikeEnvelope([
                 'attacker' => ['type' => 'character', 'id' => $attackerId],
                 'defender' => ['type' => 'character', 'id' => $defenderId],
                 'actionRuleCode' => 'swing',
@@ -3424,23 +3408,22 @@ final class GameStrikeMysqlTest extends TestCase
                 'itemRuleCode' => $itemRuleCode,
                 'profileType' => 'strike',
                 'profileIndex' => 0,
-            ],
+            ]),
         ]);
         self::assertTrue($opened['success'], json_encode($opened));
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battle['data']['battleId'],
             'idempotencyKey' => 'd-resist',
             'expectedVersion' => 2,
-            'expectedSheetVersion' => $defenderVersion,
-            'defense' => $reaction === 'block'
+            'action' => $this->strikeDefenseEnvelope($reaction === 'block'
                 ? [
                     'reaction' => 'block',
                     'blockItemInventoryId' => 1,
                     'blockItemProfileIndex' => 0,
                     'blockItemRuleCode' => 'buckler',
                 ]
-                : ['reaction' => $reaction],
+                : ['reaction' => $reaction], $defenderVersion),
         ]);
         if (!$expectClose) {
             return $closed;
@@ -3448,14 +3431,13 @@ final class GameStrikeMysqlTest extends TestCase
 
         self::assertTrue($closed['success'], json_encode($closed));
         if ($replay) {
-            $again = $this->dispatch('game.resolveStrike', [
-                'gameId' => $gameId,
-                'battleId' => $battle['data']['battleId'],
-                'idempotencyKey' => 'd-resist',
-                'expectedVersion' => 2,
-                'expectedSheetVersion' => $defenderVersion,
-                'defense' => ['reaction' => $reaction],
-            ]);
+            $again = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'd-resist',
+            'expectedVersion' => 2,
+            'action' => $this->strikeDefenseEnvelope(['reaction' => $reaction], $defenderVersion),
+        ]);
             self::assertEquals($closed['data'], $again['data']);
         }
 
@@ -3988,21 +3970,20 @@ final class GameStrikeMysqlTest extends TestCase
             ],
         ]);
         $battleId = $battle['data']['battleId'];
-        $opened = $this->dispatch('game.declareStrike', [
+        $opened = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 's-roll-adjust',
             'expectedVersion' => 1,
-            'attack' => $this->characterAttack($attackerId, $defenderId),
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
         ]);
         self::assertTrue($opened['success'], json_encode($opened));
-        $closed = $this->dispatch('game.resolveStrike', [
+        $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
             'idempotencyKey' => 'd-roll-adjust',
             'expectedVersion' => $opened['data']['version'],
-            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
-            'defense' => ['reaction' => 'ignore'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $this->characterFacade()->get($defenderId)->getActualVersion()),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
 
@@ -4038,22 +4019,21 @@ final class GameStrikeMysqlTest extends TestCase
         $version = 1;
         $pending = [];
         foreach ([1, 2] as $index) {
-            $opened = $this->dispatch('game.declareStrike', [
-                'gameId' => $gameId,
-                'battleId' => $battleId,
-                'idempotencyKey' => 's-tail-' . $index,
-                'expectedVersion' => $version,
-                'attack' => $this->characterAttack($attackerId, $defenderId),
-            ]);
+            $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-tail-' . $index,
+            'expectedVersion' => $version,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
             self::assertTrue($opened['success'], json_encode($opened));
-            $closed = $this->dispatch('game.resolveStrike', [
-                'gameId' => $gameId,
-                'battleId' => $battleId,
-                'idempotencyKey' => 'd-tail-' . $index,
-                'expectedVersion' => $opened['data']['version'],
-                'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
-                'defense' => ['reaction' => 'ignore'],
-            ]);
+            $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-tail-' . $index,
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $this->characterFacade()->get($defenderId)->getActualVersion()),
+        ]);
             self::assertTrue($closed['success'], json_encode($closed));
             $version = $closed['data']['version'];
             if ($index === 1) {

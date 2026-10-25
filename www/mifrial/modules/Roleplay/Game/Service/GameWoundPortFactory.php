@@ -10,8 +10,6 @@ use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
-use Mifrial\Core\User\Interface\Container\IUserContainer;
-use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
@@ -28,15 +26,15 @@ use Mifrial\Roleplay\Game\Repository\GameRepository;
 final class GameWoundPortFactory
 {
     /**
-     * HTTP сценарий.
+     * Доменные команды раны.
      *
      * @param IServiceLocator $serviceLocator Каталог.
      *
-     * @return GameWoundHttp Сценарий.
+     * @return GameWoundActions Команды.
      *
      * @throws KernelException Если порта нет.
      */
-    public function createHttp(IServiceLocator $serviceLocator): GameWoundHttp
+    public function createActions(IServiceLocator $serviceLocator): GameWoundActions
     {
         $ports = $this->ports($serviceLocator);
         $card = new GameCardAccess(
@@ -50,7 +48,7 @@ final class GameWoundPortFactory
             $card,
         ));
 
-        return new GameWoundHttp($ports['users'], new GameWoundActions(
+        return new GameWoundActions(
             $ports['gateway'],
             $ports['games'],
             $card,
@@ -58,7 +56,7 @@ final class GameWoundPortFactory
             $ports['mutations'],
             $ports['chats'],
             $ports['events'],
-        ));
+        );
     }
 
     /**
@@ -71,7 +69,6 @@ final class GameWoundPortFactory
      *     games: IGames,
      *     mutations: ICharacterActualMutations,
      *     chats: IChats,
-     *     users: IUserAccess,
      *     events: IEventManager
      * } Порты.
      *
@@ -83,13 +80,11 @@ final class GameWoundPortFactory
         $games = $serviceLocator->get(IGameContainer::class)->get(IGames::class);
         $mutations = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterActualMutations::class);
         $chats = $serviceLocator->get(IChatContainer::class)->get(IChats::class);
-        $users = $serviceLocator->get(IUserContainer::class)->get(IUserAccess::class);
         $events = $serviceLocator->get(IEventContainer::class)->get(IEventManager::class);
         $ports = $gateway instanceof ISmartTableGateway
             && $games instanceof IGames
             && $mutations instanceof ICharacterActualMutations
             && $chats instanceof IChats
-            && $users instanceof IUserAccess
             && $events instanceof IEventManager;
         if (!$ports) {
             throw new KernelException('PORT_TYPE', 'Game wound action requires its ports');
@@ -100,7 +95,6 @@ final class GameWoundPortFactory
             'games' => $games,
             'mutations' => $mutations,
             'chats' => $chats,
-            'users' => $users,
             'events' => $events,
         ];
     }

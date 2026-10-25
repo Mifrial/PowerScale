@@ -18,15 +18,11 @@ use Mifrial\Roleplay\Game\Action\ContinueGameAction;
 use Mifrial\Roleplay\Game\Action\CreateGameAction;
 use Mifrial\Roleplay\Game\Action\CreateGameChronicleEntryAction;
 use Mifrial\Roleplay\Game\Action\CreateGameNpcAction;
-use Mifrial\Roleplay\Game\Action\DeclareGameActionAction;
 use Mifrial\Roleplay\Game\Action\DeclareGameCheckAction;
-use Mifrial\Roleplay\Game\Action\DeclareGameStrikeAction;
-use Mifrial\Roleplay\Game\Action\DeclareGameWideStrikeAction;
 use Mifrial\Roleplay\Game\Action\DeleteGameChronicleEntryAction;
 use Mifrial\Roleplay\Game\Action\EndGameBattleAction;
 use Mifrial\Roleplay\Game\Action\EndGameTurnAction;
 use Mifrial\Roleplay\Game\Action\GameManualSheetAction;
-use Mifrial\Roleplay\Game\Action\GameWoundAction;
 use Mifrial\Roleplay\Game\Action\GetGameAction;
 use Mifrial\Roleplay\Game\Action\GetGameBattleSheetsAction;
 use Mifrial\Roleplay\Game\Action\GetGameCharacterAction;
@@ -51,12 +47,11 @@ use Mifrial\Roleplay\Game\Action\RejectGameCharacterAction;
 use Mifrial\Roleplay\Game\Action\RemoveGameMemberAction;
 use Mifrial\Roleplay\Game\Action\ReplaceGameShopAction;
 use Mifrial\Roleplay\Game\Action\RequestGameJoinAction;
-use Mifrial\Roleplay\Game\Action\ResolveGameStrikeAction;
-use Mifrial\Roleplay\Game\Action\ResolveGameWideStrikeAction;
 use Mifrial\Roleplay\Game\Action\RespondGameInvitationAction;
 use Mifrial\Roleplay\Game\Action\RespondGameJoinRequestAction;
 use Mifrial\Roleplay\Game\Action\ReturnGameCharacterAction;
 use Mifrial\Roleplay\Game\Action\RollGameInitiativeAction;
+use Mifrial\Roleplay\Game\Action\RunGameActionAction;
 use Mifrial\Roleplay\Game\Action\SetGameBattleRosterAction;
 use Mifrial\Roleplay\Game\Action\SetGameCharacterBonusAction;
 use Mifrial\Roleplay\Game\Action\SetGameCharacterSectionVisibilityAction;
@@ -92,7 +87,6 @@ use Mifrial\Roleplay\Game\Service\GamePortFactory;
 use Mifrial\Roleplay\Game\Service\GameProcessPortFactory;
 use Mifrial\Roleplay\Game\Service\GameProjectionPortFactory;
 use Mifrial\Roleplay\Game\Service\GameStrikePortFactory;
-use Mifrial\Roleplay\Game\Service\GameWoundPortFactory;
 use Mifrial\Roleplay\Game\Setup\GameModuleSetup;
 
 return [
@@ -158,9 +152,6 @@ return [
         AnswerGameCheckAction::class => static function (IServiceLocator $serviceLocator): AnswerGameCheckAction {
             return new AnswerGameCheckAction((new GameCheckPortFactory())->createHttp($serviceLocator));
         },
-        GameWoundAction::class => static function (IServiceLocator $serviceLocator): GameWoundAction {
-            return new GameWoundAction((new GameWoundPortFactory())->createHttp($serviceLocator));
-        },
         GameManualSheetAction::class => static function (IServiceLocator $serviceLocator): GameManualSheetAction {
             return new GameManualSheetAction((new GameManualSheetPortFactory())->createHttp($serviceLocator));
         },
@@ -173,20 +164,8 @@ return [
         AbortGameAction::class => static function (IServiceLocator $serviceLocator): AbortGameAction {
             return new AbortGameAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
         },
-        DeclareGameActionAction::class => static function (IServiceLocator $serviceLocator): DeclareGameActionAction {
-            return new DeclareGameActionAction((new GameStrikePortFactory())->createActionHttp($serviceLocator));
-        },
-        DeclareGameStrikeAction::class => static function (IServiceLocator $serviceLocator): DeclareGameStrikeAction {
-            return new DeclareGameStrikeAction((new GameStrikePortFactory())->createHttp($serviceLocator));
-        },
-        ResolveGameStrikeAction::class => static function (IServiceLocator $serviceLocator): ResolveGameStrikeAction {
-            return new ResolveGameStrikeAction((new GameStrikePortFactory())->createHttp($serviceLocator));
-        },
-        DeclareGameWideStrikeAction::class => static function (IServiceLocator $serviceLocator): DeclareGameWideStrikeAction {
-            return new DeclareGameWideStrikeAction((new GameStrikePortFactory())->createWideHttp($serviceLocator));
-        },
-        ResolveGameWideStrikeAction::class => static function (IServiceLocator $serviceLocator): ResolveGameWideStrikeAction {
-            return new ResolveGameWideStrikeAction((new GameStrikePortFactory())->createWideHttp($serviceLocator));
+        RunGameActionAction::class => static function (IServiceLocator $serviceLocator): RunGameActionAction {
+            return new RunGameActionAction((new GameStrikePortFactory())->createRunActionHttp($serviceLocator));
         },
         StartGameBattleAction::class => static function (IServiceLocator $serviceLocator): StartGameBattleAction {
             return new StartGameBattleAction((new GameBattlePortFactory())->createHttp($serviceLocator));
@@ -539,10 +518,6 @@ return [
             'handler' => AnswerGameCheckAction::class,
             'csrf' => true,
         ],
-        'game.woundAction' => [
-            'handler' => GameWoundAction::class,
-            'csrf' => true,
-        ],
         'game.manualSheet' => [
             'handler' => GameManualSheetAction::class,
             'csrf' => true,
@@ -559,24 +534,8 @@ return [
             'handler' => AbortGameAction::class,
             'csrf' => true,
         ],
-        'game.declareAction' => [
-            'handler' => DeclareGameActionAction::class,
-            'csrf' => true,
-        ],
-        'game.declareStrike' => [
-            'handler' => DeclareGameStrikeAction::class,
-            'csrf' => true,
-        ],
-        'game.resolveStrike' => [
-            'handler' => ResolveGameStrikeAction::class,
-            'csrf' => true,
-        ],
-        'game.declareWideStrike' => [
-            'handler' => DeclareGameWideStrikeAction::class,
-            'csrf' => true,
-        ],
-        'game.resolveWideStrike' => [
-            'handler' => ResolveGameWideStrikeAction::class,
+        'game.runAction' => [
+            'handler' => RunGameActionAction::class,
             'csrf' => true,
         ],
         'game.applyEconomy' => [

@@ -190,8 +190,10 @@ final class GameProjections implements IGameProjections
             }
         }
 
+        $strikeRows = $this->actions->getStrikes($strikeId);
+        $firstStrike = $strikeRows[0] ?? [];
         $targets = [];
-        foreach ($this->actions->getStrikes($strikeId) as $targetRow) {
+        foreach ($strikeRows as $targetRow) {
             $kind = $targetRow['target_type'] ?? null;
             $targetId = $targetRow['target_id'] ?? null;
             if (!is_string($kind) || !is_int($targetId)) {
@@ -240,10 +242,10 @@ final class GameProjections implements IGameProjections
             'id' => $strikeId,
             'attacker' => ['type' => $attackerKind, 'id' => $attackerId],
             'actionRuleCode' => is_string($row['action_rule_code'] ?? null) ? $row['action_rule_code'] : '',
-            'itemInventoryId' => is_int($row['item_inventory_id'] ?? null) ? $row['item_inventory_id'] : 0,
-            'itemRuleCode' => is_string($row['item_rule_code'] ?? null) ? $row['item_rule_code'] : '',
-            'profileType' => is_string($row['profile_type'] ?? null) ? $row['profile_type'] : '',
-            'profileIndex' => is_int($row['profile_index'] ?? null) ? $row['profile_index'] : 0,
+            'itemInventoryId' => is_int($firstStrike['item_inventory_id'] ?? null) ? $firstStrike['item_inventory_id'] : 0,
+            'itemRuleCode' => is_string($firstStrike['item_rule_code'] ?? null) ? $firstStrike['item_rule_code'] : '',
+            'profileType' => is_string($firstStrike['profile_type'] ?? null) ? $firstStrike['profile_type'] : '',
+            'profileIndex' => is_int($firstStrike['profile_index'] ?? null) ? $firstStrike['profile_index'] : 0,
             'targets' => $targets,
         ];
     }

@@ -418,8 +418,17 @@ final class GameActionRepository
     private function withStrikes(array $action): array
     {
         $actionId = $this->rowId($action);
+        $strikes = $this->strikes->getList($actionId);
+        $first = $strikes[0] ?? [];
 
-        return array_merge($action, ['strikes' => $this->strikes->getList($actionId)]);
+        return array_merge($action, [
+            'item_inventory_id' => $first['item_inventory_id'] ?? null,
+            'item_rule_code' => $first['item_rule_code'] ?? null,
+            'profile_type' => $first['profile_type'] ?? null,
+            'profile_index' => $first['profile_index'] ?? null,
+            'instance_index' => $first['instance_index'] ?? null,
+            'strikes' => $strikes,
+        ]);
     }
 
     /**
