@@ -619,6 +619,7 @@ final class GameRunAction
             'version' => $result['version'] ?? 0,
             'strikeId' => $result['strikeId'] ?? 0,
             'closed' => false,
+            'sheetVersion' => null,
             'strikes' => $rows,
             'pendingStrikes' => $pending,
         ];
