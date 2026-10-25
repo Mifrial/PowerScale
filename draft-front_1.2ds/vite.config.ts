@@ -5,6 +5,8 @@ import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify';
 import { VueMcp } from 'vite-plugin-vue-mcp';
 import { resolve } from 'path';
 
+const isTest = Boolean(process.env.VITEST);
+
 /** GitHub Pages отдаёт проект с /<repo>/; локальный dev остаётся на корне. */
 function publicBase(): string {
   const raw = process.env.VITE_BASE ?? '/';
@@ -15,7 +17,7 @@ function publicBase(): string {
 
 export default defineConfig({
   base: publicBase(),
-  plugins: [vue({ template: { transformAssetUrls } }), vuetify({ autoImport: true }), VueMcp()],
+  plugins: [vue({ template: { transformAssetUrls } }), vuetify({ autoImport: true }), ...(isTest ? [] : [VueMcp()])],
   server: {
     host: 'powerscale.test.ru',
     port: 3000,
@@ -32,5 +34,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     include: ['src/**/*.{test,spec}.ts', 'eslint/**/*.test.ts'],
+    isolate: false,
+    setupFiles: ['./src/test/setup.ts'],
   },
 });
