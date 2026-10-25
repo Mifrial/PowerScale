@@ -265,7 +265,7 @@ final class GameHttp
             $record,
             $this->sessionRoster->hasSession($record->getId()),
             $battle,
-            $battle === null ? null : $this->actions->findOpenWithTargets($battle->getId(), 'strike'),
+            $battle === null ? null : $this->actions->findOpenWithStrikes($battle->getId(), 'strike'),
         );
     }
 

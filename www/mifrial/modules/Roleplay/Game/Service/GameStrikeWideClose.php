@@ -76,7 +76,7 @@ final class GameStrikeWideClose
         $battleId = $battle->getId();
         $open = $this->rows->requireOpen($battleId, 'wide_strike');
         $strikeId = $open['id'];
-        $rows = $this->actions->getTargets($strikeId);
+        $rows = $this->actions->getStrikes($strikeId);
         $indexByTarget = [];
         foreach ($rows as $index => $row) {
             $indexByTarget[$this->rows->targetKey($this->rows->rowTarget($row))] = $index;
@@ -104,7 +104,7 @@ final class GameStrikeWideClose
                 throw new GameInvalidException('Game wide strike target row is invalid');
             }
 
-            $this->actions->answerTarget($targetId, [
+            $this->actions->answerStrike($targetId, [
                 'reaction' => $choice['reaction'],
                 'block_item_inventory_id' => $choice['blockItemInventoryId'],
                 'block_item_profile_index' => $choice['blockItemProfileIndex'],
@@ -407,7 +407,7 @@ final class GameStrikeWideClose
                 throw new GameInvalidException('Game wide strike target row is invalid');
             }
 
-            $this->actions->answerTarget($targetId, [
+            $this->actions->answerStrike($targetId, [
                 'reaction' => $choices[$index]['reaction'],
                 'block_item_inventory_id' => $choices[$index]['blockItemInventoryId'],
                 'block_item_profile_index' => $choices[$index]['blockItemProfileIndex'],

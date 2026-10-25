@@ -12,7 +12,7 @@ use Mifrial\Messages\Chat\Table\ChatTable;
 use Mifrial\Roleplay\Character\Table\CharacterTable;
 use Mifrial\Roleplay\Character\Table\CharacterViewerTable;
 use Mifrial\Roleplay\Game\Table\GameActionTable;
-use Mifrial\Roleplay\Game\Table\GameActionTargetTable;
+use Mifrial\Roleplay\Game\Table\GameActionStrikeTable;
 use Mifrial\Roleplay\Game\Table\GameBattleParticipantTable;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
 use Mifrial\Roleplay\Game\Table\GameCharacterTable;
@@ -59,7 +59,7 @@ final class GameMysqlTables
         $tableClasses = [
             GameDeliveryTable::class,
             GameCheckTable::class,
-            GameActionTargetTable::class,
+            GameActionStrikeTable::class,
             GameActionTable::class,
             GameCommandTable::class,
             GameBattleParticipantTable::class,

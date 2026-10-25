@@ -46,7 +46,7 @@ final class GameStrikeCloseRows
      */
     public function openSingle(int $battleId, GameRecord $game, int $actorUserId, bool $editAll): array
     {
-        $open = $this->actions->findOpenWithTargets($battleId, 'strike');
+        $open = $this->actions->findOpenWithStrikes($battleId, 'strike');
         if ($open !== null) {
             $this->access->assertTarget($game, $actorUserId, $editAll, $this->defenderOfRow($open));
             $strikeId = $open['id'] ?? null;
@@ -70,7 +70,7 @@ final class GameStrikeCloseRows
             throw new GameInvalidException('Game strike is not open');
         }
 
-        $latest = $this->actions->findLatestWithTargets($battleId, 'strike');
+        $latest = $this->actions->findLatestWithStrikes($battleId, 'strike');
         if ($latest === null) {
             throw new ActionException('AUTH_DENIED', 'Permission denied');
         }
@@ -80,7 +80,7 @@ final class GameStrikeCloseRows
     }
 
     /**
-     * Защитник из строки с целями.
+     * Защитник из строки с ударами.
      *
      * @param array<string, mixed> $open Строка.
      *
@@ -88,8 +88,8 @@ final class GameStrikeCloseRows
      */
     private function defenderOfRow(array $open): array
     {
-        $targets = is_array($open['targets'] ?? null) ? $open['targets'] : [];
-        $row = is_array($targets[0] ?? null) ? $targets[0] : null;
+        $strikes = is_array($open['strikes'] ?? null) ? $open['strikes'] : [];
+        $row = is_array($strikes[0] ?? null) ? $strikes[0] : null;
         if ($row === null) {
             throw new GameInvalidException('Game strike row is invalid');
         }

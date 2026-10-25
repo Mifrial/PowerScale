@@ -85,8 +85,8 @@ final class GameStrikeSingleClose
             throw new GameInvalidException('Game strike row is invalid');
         }
 
-        $targets = is_array($open['targets'] ?? null) ? $open['targets'] : [];
-        $row = is_array($targets[0] ?? null) ? $targets[0] : null;
+        $strikes = is_array($open['strikes'] ?? null) ? $open['strikes'] : [];
+        $row = is_array($strikes[0] ?? null) ? $strikes[0] : null;
         if ($row === null) {
             throw new GameInvalidException('Game strike row is invalid');
         }

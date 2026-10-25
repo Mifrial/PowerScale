@@ -7,10 +7,10 @@ namespace Mifrial\Roleplay\Game\Schema;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Roleplay\Game\Table\GameActionTable;
-use Mifrial\Roleplay\Game\Table\GameActionTargetTable;
+use Mifrial\Roleplay\Game\Table\GameActionStrikeTable;
 
 /**
- * Карта общего действия и его целей.
+ * Карта общего действия и его ударов.
  */
 final class GameActionSchema
 {
@@ -18,7 +18,7 @@ final class GameActionSchema
      * Создаёт установщик.
      *
      * @param IOpenedSchema $actionSchema DDL действия.
-     * @param IOpenedSchema $targetSchema DDL цели.
+     * @param IOpenedSchema $targetSchema DDL удара.
      *
      * @return void
      */
@@ -37,7 +37,7 @@ final class GameActionSchema
     {
         return [
             GameActionTable::class,
-            GameActionTargetTable::class,
+            GameActionStrikeTable::class,
         ];
     }
 

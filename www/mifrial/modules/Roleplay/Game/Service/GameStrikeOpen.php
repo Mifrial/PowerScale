@@ -46,7 +46,7 @@ final class GameStrikeOpen
      * @param int $expectedBattleVersion Ожидаемая версия.
      * @param array<string, mixed> $snapshot Снимок атакующего.
      * @param array<string, mixed> $action Строка действия.
-     * @param list<array<string, mixed>> $targets Строки целей.
+     * @param list<array<string, mixed>> $targets Строки ударов.
      * @param string $lane Полоса долга.
      * @param string $subject Подлежащее сообщений об ошибке.
      *
@@ -77,7 +77,7 @@ final class GameStrikeOpen
             return ['debt' => true, 'strikeId' => 0, 'version' => $saved->getStateVersion()];
         }
 
-        $strikeId = $this->actions->addWithTargets($action, $targets);
+        $strikeId = $this->actions->addWithStrikes($action, $targets);
         $this->battles->replacePending($battle->getId(), $expectedBattleVersion, $hold['pending']);
 
         return ['debt' => false, 'strikeId' => $strikeId, 'version' => $expectedBattleVersion + 1];
@@ -117,7 +117,7 @@ final class GameStrikeOpen
             $expectedBattleVersion,
             $snapshot,
             $row['action'],
-            $row['targets'],
+            $row['strikes'],
             $lane,
             $subject,
         );
@@ -200,7 +200,7 @@ final class GameStrikeOpen
         );
 
         $row = $this->action($battle, $sessionId, $choice, $kind);
-        $strikeId = $this->actions->addWithTargets($row['action'], $row['targets']);
+        $strikeId = $this->actions->addWithStrikes($row['action'], $row['strikes']);
 
         return [
             'battleId' => $battle->getId(),
@@ -294,7 +294,7 @@ final class GameStrikeOpen
      * @param array<string, mixed> $choice Выбор.
      * @param string $kind Вид удара.
      *
-     * @return array{action: array<string, mixed>, targets: list<array<string, mixed>>} Строки.
+     * @return array{action: array<string, mixed>, strikes: list<array<string, mixed>>} Строки.
      *
      * @throws GameInvalidException Если вид или профиль битый.
      */
@@ -332,22 +332,29 @@ final class GameStrikeOpen
 
         return [
             'action' => $action,
-            'targets' => $this->targets($targets),
+            'strikes' => $this->strikes($targets, $choice),
         ];
     }
 
     /**
-     * Строки целей.
+     * Строки ударов.
      *
      * @param list<array{type: string, id: int}> $targets Цели.
+     * @param array<string, mixed> $choice Выбор.
      *
      * @return list<array<string, mixed>> Строки.
      */
-    private function targets(array $targets): array
+    private function strikes(array $targets, array $choice): array
     {
+        $instanceIndex = is_int($choice['instanceIndex'] ?? null) ? $choice['instanceIndex'] : 0;
         $rows = [];
         foreach ($targets as $target) {
             $rows[] = [
+                'instance_index' => $instanceIndex,
+                'item_inventory_id' => $choice['itemInventoryId'],
+                'item_rule_code' => $choice['itemRuleCode'],
+                'profile_type' => $choice['profileType'],
+                'profile_index' => $choice['profileIndex'],
                 'target_type' => $target['type'],
                 'target_id' => $target['id'],
                 'reaction' => null,

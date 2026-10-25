@@ -191,7 +191,7 @@ final class GameProjections implements IGameProjections
         }
 
         $targets = [];
-        foreach ($this->actions->getTargets($strikeId) as $targetRow) {
+        foreach ($this->actions->getStrikes($strikeId) as $targetRow) {
             $kind = $targetRow['target_type'] ?? null;
             $targetId = $targetRow['target_id'] ?? null;
             if (!is_string($kind) || !is_int($targetId)) {

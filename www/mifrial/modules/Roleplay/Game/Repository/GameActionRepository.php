@@ -30,7 +30,7 @@ final class GameActionRepository
 
     private readonly IConditionalOpenedRecords $conditionalRecords;
 
-    private readonly GameActionTargetRepository $targets;
+    private readonly GameActionStrikeRepository $strikes;
 
     /**
      * Создаёт репозиторий.
@@ -45,7 +45,7 @@ final class GameActionRepository
         $openedTable = $smartTableGateway->open(GameActionTable::class);
         $this->records = $openedTable->records();
         $this->conditionalRecords = $openedTable->conditionalRecords();
-        $this->targets = new GameActionTargetRepository($smartTableGateway);
+        $this->strikes = new GameActionStrikeRepository($smartTableGateway);
     }
 
     /**
@@ -104,41 +104,41 @@ final class GameActionRepository
     }
 
     /**
-     * Открытое действие боя вместе с целями или null.
+     * Открытое действие боя вместе с ударами или null.
      *
      * @param int $battleId Бой.
      * @param string|null $kind Вид действия.
      *
-     * @return array<string, mixed>|null Колонки действия и `targets`.
+     * @return array<string, mixed>|null Колонки действия и `strikes`.
      *
      * @throws GameInvalidException Если строка битая.
      */
-    public function findOpenWithTargets(int $battleId, ?string $kind = null): ?array
+    public function findOpenWithStrikes(int $battleId, ?string $kind = null): ?array
     {
         $action = $this->findOpenByBattle($battleId, $kind);
 
-        return $action === null ? null : $this->withTargets($action);
+        return $action === null ? null : $this->withStrikes($action);
     }
 
     /**
-     * Последнее действие вида вместе с целями или null.
+     * Последнее действие вида вместе с ударами или null.
      *
      * @param int $battleId Бой.
      * @param string $kind Вид действия.
      *
-     * @return array<string, mixed>|null Колонки действия и `targets`.
+     * @return array<string, mixed>|null Колонки действия и `strikes`.
      *
      * @throws GameInvalidException Если строка битая.
      */
-    public function findLatestWithTargets(int $battleId, string $kind): ?array
+    public function findLatestWithStrikes(int $battleId, string $kind): ?array
     {
         $action = $this->findLatestByBattle($battleId, $kind);
 
-        return $action === null ? null : $this->withTargets($action);
+        return $action === null ? null : $this->withStrikes($action);
     }
 
     /**
-     * Цели действия.
+     * Удары действия.
      *
      * @param int $actionId Действие.
      *
@@ -146,28 +146,29 @@ final class GameActionRepository
      *
      * @throws GameInvalidException Если строка битая.
      */
-    public function getTargets(int $actionId): array
+    public function getStrikes(int $actionId): array
     {
-        return $this->targets->getList($actionId);
+        return $this->strikes->getList($actionId);
     }
 
     /**
-     * Вставляет действие и его цели одной транзакцией.
+     * Вставляет действие и его удары одной транзакцией.
      *
      * @param array<string, mixed> $action Колонки действия.
-     * @param list<array<string, mixed>> $targets Колонки целей.
+     * @param list<array<string, mixed>> $strikes Колонки ударов.
      *
      * @return int Id действия.
      *
      * @throws GameNotFoundException Если сессии нет.
      * @throws GameInvalidException Если поле.
      */
-    public function addWithTargets(array $action, array $targets): int
+    public function addWithStrikes(array $action, array $strikes): int
     {
-        return $this->smartTableGateway->transaction(function () use ($action, $targets): int {
+        return $this->smartTableGateway->transaction(function () use ($action, $strikes): int {
             $actionId = $this->add($action);
-            foreach ($targets as $target) {
-                $this->addTarget($actionId, $target);
+            foreach (array_values($strikes) as $index => $strike) {
+                $strike['strike_index'] = $index;
+                $this->addStrike($actionId, $strike);
             }
 
             return $actionId;
@@ -175,26 +176,26 @@ final class GameActionRepository
     }
 
     /**
-     * Вставляет цель действия.
+     * Вставляет удар действия.
      *
      * @param int $actionId Действие.
-     * @param array<string, mixed> $fields Колонки цели.
+     * @param array<string, mixed> $fields Колонки удара.
      *
-     * @return int Id цели.
+     * @return int Id удара.
      *
-     * @throws GameInvalidException Если поле или цель повторена.
+     * @throws GameInvalidException Если поле или позиция повторена.
      */
-    public function addTarget(int $actionId, array $fields): int
+    public function addStrike(int $actionId, array $fields): int
     {
         $fields['action_id'] = $actionId;
 
-        return $this->targets->add($fields);
+        return $this->strikes->add($fields);
     }
 
     /**
-     * Пишет ответ цели.
+     * Пишет ответ удара.
      *
-     * @param int $targetId Цель.
+     * @param int $strikeId Удар.
      * @param array<string, mixed> $fields Колонки.
      *
      * @return void
@@ -202,13 +203,13 @@ final class GameActionRepository
      * @throws GameNotFoundException Если строки нет.
      * @throws GameInvalidException Если поле.
      */
-    public function answerTarget(int $targetId, array $fields): void
+    public function answerStrike(int $strikeId, array $fields): void
     {
-        $this->targets->update($targetId, $fields);
+        $this->strikes->update($strikeId, $fields);
     }
 
     /**
-     * Пишет ответ единственной цели и закрывает действие.
+     * Пишет ответ единственного удара и закрывает действие.
      *
      * @param int $actionId Действие.
      * @param array<string, mixed> $fields Колонки ответа.
@@ -221,19 +222,19 @@ final class GameActionRepository
     public function closeWithAnswer(int $actionId, array $fields): void
     {
         $this->smartTableGateway->transaction(function () use ($actionId, $fields): void {
-            $target = $this->targets->findByAction($actionId);
-            $targetId = $target['id'] ?? null;
-            if (!is_int($targetId)) {
-                throw new GameNotFoundException('Game action target was not found');
+            $strike = $this->strikes->findFirst($actionId);
+            $strikeId = $strike['id'] ?? null;
+            if (!is_int($strikeId)) {
+                throw new GameNotFoundException('Game action strike was not found');
             }
 
-            $this->targets->update($targetId, $fields);
+            $this->strikes->update($strikeId, $fields);
             $this->close($actionId);
         });
     }
 
     /**
-     * Снимает действия вида вместе с целями.
+     * Снимает действия вида вместе с ударами.
      *
      * @param int $sessionId Сессия.
      * @param string $kind Вид действия.
@@ -247,7 +248,7 @@ final class GameActionRepository
     {
         return $this->smartTableGateway->transaction(function () use ($sessionId, $kind): array {
             $ids = $this->findIdsBySession($sessionId, $kind);
-            $this->targets->deleteByActions($ids);
+            $this->strikes->deleteByActions($ids);
             foreach ($ids as $actionId) {
                 $this->delete($actionId);
             }
@@ -406,19 +407,19 @@ final class GameActionRepository
     }
 
     /**
-     * Действие вместе с целями.
+     * Действие вместе с ударами.
      *
      * @param array<string, mixed> $action Колонки действия.
      *
-     * @return array<string, mixed> Колонки действия и `targets`.
+     * @return array<string, mixed> Колонки действия и `strikes`.
      *
      * @throws GameInvalidException Если строка битая.
      */
-    private function withTargets(array $action): array
+    private function withStrikes(array $action): array
     {
         $actionId = $this->rowId($action);
 
-        return array_merge($action, ['targets' => $this->targets->getList($actionId)]);
+        return array_merge($action, ['strikes' => $this->strikes->getList($actionId)]);
     }
 
     /**

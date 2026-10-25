@@ -19,12 +19,12 @@ use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
-use Mifrial\Roleplay\Game\Table\GameActionTargetTable;
+use Mifrial\Roleplay\Game\Table\GameActionStrikeTable;
 
 /**
- * Общие строки целей действия.
+ * Общие строки ударов действия.
  */
-final class GameActionTargetRepository
+final class GameActionStrikeRepository
 {
     private readonly IOpenedRecords $records;
 
@@ -39,13 +39,13 @@ final class GameActionTargetRepository
      */
     public function __construct(ISmartTableGateway $smartTableGateway)
     {
-        $openedTable = $smartTableGateway->open(GameActionTargetTable::class);
+        $openedTable = $smartTableGateway->open(GameActionStrikeTable::class);
         $this->records = $openedTable->records();
         $this->conditionalRecords = $openedTable->conditionalRecords();
     }
 
     /**
-     * Цели действия по id.
+     * Удары действия по id.
      *
      * @param int $actionId Действие.
      *
@@ -59,7 +59,7 @@ final class GameActionTargetRepository
             new FilterGroup('AND', [
                 new FilterCondition('action_id', '=', $actionId),
             ]),
-            ['id' => 'ASC'],
+            ['strike_index' => 'ASC'],
             ListQuery::MAX_LIMIT,
             0,
             false,
@@ -68,7 +68,7 @@ final class GameActionTargetRepository
         $rows = [];
         foreach ($result->rows() as $row) {
             if (!is_array($row)) {
-                throw new GameInvalidException('Game action target row is invalid');
+                throw new GameInvalidException('Game action strike row is invalid');
             }
 
             $rows[] = $row;
@@ -78,7 +78,7 @@ final class GameActionTargetRepository
     }
 
     /**
-     * Первая цель действия или null.
+     * Первый удар действия или null.
      *
      * @param int $actionId Действие.
      *
@@ -86,43 +86,43 @@ final class GameActionTargetRepository
      *
      * @throws GameInvalidException Если строка битая.
      */
-    public function findByAction(int $actionId): ?array
+    public function findFirst(int $actionId): ?array
     {
         return $this->getList($actionId)[0] ?? null;
     }
 
     /**
-     * Строка цели по id без блокировки.
+     * Строка удара по id без блокировки.
      *
-     * @param int $targetId Цель.
-     *
-     * @return array<string, mixed>|null Строка.
-     */
-    public function getById(int $targetId): ?array
-    {
-        return $this->records->getById($targetId);
-    }
-
-    /**
-     * Строка цели по id с блокировкой до конца транзакции.
-     *
-     * @param int $targetId Цель.
+     * @param int $strikeId Удар.
      *
      * @return array<string, mixed>|null Строка.
      */
-    public function lockById(int $targetId): ?array
+    public function getById(int $strikeId): ?array
     {
-        return $this->conditionalRecords->getCurrentById($targetId);
+        return $this->records->getById($strikeId);
     }
 
     /**
-     * Вставляет цель.
+     * Строка удара по id с блокировкой до конца транзакции.
+     *
+     * @param int $strikeId Удар.
+     *
+     * @return array<string, mixed>|null Строка.
+     */
+    public function lockById(int $strikeId): ?array
+    {
+        return $this->conditionalRecords->getCurrentById($strikeId);
+    }
+
+    /**
+     * Вставляет удар.
      *
      * @param array<string, mixed> $fields Колонки.
      *
      * @return int Id.
      *
-     * @throws GameInvalidException Если поле или цель повторена.
+     * @throws GameInvalidException Если поле или позиция повторена.
      */
     public function add(array $fields): int
     {
@@ -136,14 +136,14 @@ final class GameActionTargetRepository
             | ReferenceConstraintException
             | UniqueConstraintException $exception
         ) {
-            throw new GameInvalidException('Game action target field is invalid', $exception);
+            throw new GameInvalidException('Game action strike field is invalid', $exception);
         }
     }
 
     /**
-     * Обновляет цель.
+     * Обновляет удар.
      *
-     * @param int $targetId Цель.
+     * @param int $strikeId Удар.
      * @param array<string, mixed> $fields Колонки.
      *
      * @return void
@@ -151,12 +151,12 @@ final class GameActionTargetRepository
      * @throws GameNotFoundException Если строки нет.
      * @throws GameInvalidException Если поле.
      */
-    public function update(int $targetId, array $fields): void
+    public function update(int $strikeId, array $fields): void
     {
         try {
-            $this->records->update($targetId, $fields);
+            $this->records->update($strikeId, $fields);
         } catch (RowNotFoundException $exception) {
-            throw new GameNotFoundException('Game action target was not found', $exception);
+            throw new GameNotFoundException('Game action strike was not found', $exception);
         } catch (
             FieldRequiredException
             | FieldInvalidException
@@ -165,12 +165,12 @@ final class GameActionTargetRepository
             | ReferenceConstraintException
             | UniqueConstraintException $exception
         ) {
-            throw new GameInvalidException('Game action target field is invalid', $exception);
+            throw new GameInvalidException('Game action strike field is invalid', $exception);
         }
     }
 
     /**
-     * Снимает цели действий.
+     * Снимает удары действий.
      *
      * @param array<int, int> $actionIds Действия.
      *
@@ -189,28 +189,28 @@ final class GameActionTargetRepository
     }
 
     /**
-     * Удаляет цель.
+     * Удаляет удар.
      *
-     * @param int $targetId Цель.
+     * @param int $strikeId Удар.
      *
      * @return void
      *
      * @throws GameNotFoundException Если строки нет.
      * @throws GameInvalidException Если поле.
      */
-    private function delete(int $targetId): void
+    private function delete(int $strikeId): void
     {
         try {
-            $this->records->delete($targetId);
+            $this->records->delete($strikeId);
         } catch (RowNotFoundException $exception) {
-            throw new GameNotFoundException('Game action target was not found', $exception);
+            throw new GameNotFoundException('Game action strike was not found', $exception);
         } catch (
             FieldInvalidException
             | MapInvalidException
             | RowWriteFailedException
             | ReferenceConstraintException $exception
         ) {
-            throw new GameInvalidException('Game action target field is invalid', $exception);
+            throw new GameInvalidException('Game action strike field is invalid', $exception);
         }
     }
 
@@ -226,7 +226,7 @@ final class GameActionTargetRepository
     private function rowId(array $row): int
     {
         if (!is_int($row['id'] ?? null)) {
-            throw new GameInvalidException('Game action target row is invalid');
+            throw new GameInvalidException('Game action strike row is invalid');
         }
 
         return $row['id'];

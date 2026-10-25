@@ -45,7 +45,7 @@ use Mifrial\Roleplay\Game\Schema\GameEconomySchema;
 use Mifrial\Roleplay\Game\Schema\GameProcessSchema;
 use Mifrial\Roleplay\Game\Schema\GameSchema;
 use Mifrial\Roleplay\Game\Table\GameActionTable;
-use Mifrial\Roleplay\Game\Table\GameActionTargetTable;
+use Mifrial\Roleplay\Game\Table\GameActionStrikeTable;
 use Mifrial\Roleplay\Game\Table\GameBattleParticipantTable;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
 use Mifrial\Roleplay\Game\Table\GameCharacterTable;
@@ -371,7 +371,7 @@ trait GameMysqlFixture
         ))->install();
         (new GameActionSchema(
             $gateway->open(GameActionTable::class)->schema(),
-            $gateway->open(GameActionTargetTable::class)->schema(),
+            $gateway->open(GameActionStrikeTable::class)->schema(),
         ))->install();
         (new GameCommandSchema(
             $gateway->open(GameCommandTable::class)->schema(),
@@ -494,16 +494,16 @@ trait GameMysqlFixture
     }
 
     /**
-     * Число целей действий.
+     * Число строк ударов.
      *
      * @return int Число.
      */
-    protected function countActionTargets(): int
+    protected function countActionStrikes(): int
     {
         $gateway = $this->smartTableGateway;
         self::assertInstanceOf(ISmartTableGateway::class, $gateway);
 
-        return count($gateway->open(GameActionTargetTable::class)->records()->getList(new ListQuery(
+        return count($gateway->open(GameActionStrikeTable::class)->records()->getList(new ListQuery(
             null,
             ['id' => 'ASC'],
             ListQuery::MAX_LIMIT,

@@ -18,10 +18,10 @@ use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
-use Mifrial\Roleplay\Game\Repository\GameActionTargetRepository;
+use Mifrial\Roleplay\Game\Repository\GameActionStrikeRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
-use Mifrial\Roleplay\Game\Table\GameActionTargetTable;
+use Mifrial\Roleplay\Game\Table\GameActionStrikeTable;
 use Mifrial\Roleplay\Game\Table\GameDeliveryTable;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
 use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
@@ -139,7 +139,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertSame([], $opened['data']['targetResults']);
         self::assertSame(2, $opened['data']['version']);
         self::assertSame(1, $this->countActions('wide_strike'));
-        self::assertSame(2, $this->countActionTargets());
+        self::assertSame(2, $this->countActionStrikes());
         self::assertSame($actual, $this->characterFacade()->get($characterId)->getActualVersion());
         $staleBattle = $this->dispatch('game.resolveWideStrike', [
             'gameId' => $gameId,
@@ -560,7 +560,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertSame(3, $this->countCommands('wide_strike'));
         $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
         $answered = $mysql->select(
-            'select reaction from game_action_target where target_id = ? and target_type = ?',
+            'select reaction from game_action_strike where target_id = ? and target_type = ?',
             [$targetId, 'character'],
         );
         self::assertSame('dodge', (string) $answered[0]->reaction);
@@ -852,7 +852,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertSame(1, $this->countCommands('wide_strike'));
         $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
         $rows = $mysql->select(
-            'select reaction, expected_sheet_version from game_action_target where target_id in (?, ?) order by id',
+            'select reaction, expected_sheet_version from game_action_strike where target_id in (?, ?) order by id',
             [$first['npcId'], $second['npcId']],
         );
         self::assertCount(2, $rows);
@@ -918,7 +918,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         $successes = array_filter($results, static fn (array $result): bool => ($result['success'] ?? false) === true);
         self::assertNotEmpty($successes);
         self::assertSame(1, $this->countActions('wide_strike'));
-        self::assertSame(2, $this->countActionTargets());
+        self::assertSame(2, $this->countActionStrikes());
         self::assertSame(1, $this->countOpenActions('wide_strike'));
     }
 
@@ -987,7 +987,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertTrue($results[1]['success']);
         self::assertSame($commandsBefore + 1, $this->countCommands('wide_strike'));
         self::assertSame(1, $this->countActions('wide_strike'));
-        self::assertSame(2, $this->countActionTargets());
+        self::assertSame(2, $this->countActionStrikes());
         self::assertSame($npc['actualVersion'] + 1, $this->npcVersion($gameId, $npc['npcId']));
         self::assertSame($secondNpc['actualVersion'] + 1, $this->npcVersion($gameId, $secondNpc['npcId']));
 
@@ -1002,7 +1002,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertSame('GAME_CONFLICT', $differentBodyResult['error']['code']);
         self::assertSame($commandsBefore + 1, $this->countCommands('wide_strike'));
         self::assertSame(1, $this->countActions('wide_strike'));
-        self::assertSame(2, $this->countActionTargets());
+        self::assertSame(2, $this->countActionStrikes());
         self::assertSame($npc['actualVersion'] + 1, $this->npcVersion($gameId, $npc['npcId']));
         self::assertSame($secondNpc['actualVersion'] + 1, $this->npcVersion($gameId, $secondNpc['npcId']));
     }
@@ -1309,7 +1309,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertSame('INVALID_PARAMS', $stopped['error']['code']);
         self::assertTrue($this->dispatch('game.stopSession', ['gameId' => $gameId])['success']);
         self::assertSame(0, $this->countActions('wide_strike'));
-        self::assertSame(0, $this->countActionTargets());
+        self::assertSame(0, $this->countActionStrikes());
         self::assertSame(0, $this->countCommands('wide_strike'));
         self::assertSame(0, $this->countAll(GameSessionTable::class));
     }
@@ -2625,7 +2625,7 @@ final class GameWideStrikeMysqlTest extends TestCase
     {
         $gateway = $this->smartTableGateway;
         self::assertInstanceOf(ISmartTableGateway::class, $gateway);
-        $rows = (new GameActionTargetRepository($gateway))->getList($strikeId);
+        $rows = (new GameActionStrikeRepository($gateway))->getList($strikeId);
         $targetId = $rows[$index]['id'] ?? null;
         self::assertIsInt($targetId);
         $mapped = [];
@@ -2643,7 +2643,7 @@ final class GameWideStrikeMysqlTest extends TestCase
             }
         }
 
-        $gateway->open(GameActionTargetTable::class)->records()->update($targetId, $mapped);
+        $gateway->open(GameActionStrikeTable::class)->records()->update($targetId, $mapped);
     }
 
     /**
