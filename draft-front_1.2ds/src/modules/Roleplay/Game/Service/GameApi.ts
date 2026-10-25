@@ -1033,7 +1033,7 @@ export class GameApi implements IGameApi {
 
   async runAction(body: GamePhpRunActionRequest, signal?: AbortSignal): Promise<GamePhpRunActionResult> {
     const result = await this.requireData<GamePhpRunActionResult>('game.runAction', body, signal);
-    gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    if (body.battleId > 0) gamePhpBattleContext.rememberBattle(body.battleId, result.version);
     if (body.action.kind === 'strike' && body.action.phase === 'declare') {
       gamePhpBattleContext.rememberDebt(result.debt === true, result.version);
     }
