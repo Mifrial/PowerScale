@@ -44,6 +44,7 @@ final class CharacterAbilityActivity
      * @param array<string, int> $chosen Купленные уровни.
      * @param array<string, DimensionalNumber> $characteristics Живые характеристики.
      * @param array<string, int|DimensionalNumber> $resourceLimits Лимиты ресурсов.
+     * @param array<string, int> $requirementLevels Уровни для требований, включая производные.
      *
      * @return array<string, int> Код → уровень.
      */
@@ -53,13 +54,21 @@ final class CharacterAbilityActivity
         array $chosen,
         array $characteristics,
         array $resourceLimits,
+        array $requirementLevels = [],
     ): array {
-        $facts = $this->facts->forModel($slice, $choices, $chosen, $characteristics, $resourceLimits);
+        $derived = $requirementLevels;
+        $facts = $this->facts->forModel(
+            $slice,
+            $choices,
+            $chosen + $derived,
+            $characteristics,
+            $resourceLimits,
+        );
         $levels = $chosen;
         foreach ($choices->getAbilities() as $ability) {
             $code = $ability->getRuleCode();
-            $wanted = $levels[$code] ?? 0;
-            $levels[$code] = $this->capped($slice, $code, $wanted, $facts->withLevels($levels));
+            $wanted = $chosen[$code] ?? 0;
+            $levels[$code] = $this->capped($slice, $code, $wanted, $facts->withLevels($levels + $derived));
         }
 
         return $levels;

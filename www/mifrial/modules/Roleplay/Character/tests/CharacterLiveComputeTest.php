@@ -408,6 +408,43 @@ final class CharacterLiveComputeTest extends TestCase
     }
 
     /**
+     * Производный уровень удовлетворяет требование другой карточки.
+     *
+     * @return void
+     */
+    public function testDerivedLevelSatisfiesRequirementOfOtherCard(): void
+    {
+        $slice = $this->slice([
+            $this->ability('blade', [
+                'type' => 'trait',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+            ], ['section-melee']),
+            $this->ability('derived-blade', [
+                'type' => 'trait',
+                'derived_level' => ['source_keyword' => 'section-melee', 'thresholds' => [2]],
+            ]),
+            $this->ability('power-strike', [
+                'type' => 'trait',
+                'requirements' => [[
+                    'level' => 1,
+                    'requirements' => [['type' => 'has_ability', 'ability_code' => 'derived-blade', 'min_level' => 1]],
+                ]],
+            ]),
+        ]);
+        $character = Character::fromDocument($slice, [
+            'abilities' => [
+                ['ruleCode' => 'blade', 'level' => 1],
+                ['ruleCode' => 'power-strike', 'level' => 1],
+            ],
+        ], [], $this->sheets());
+        $levels = $character->getSheet()['abilityLevels'];
+
+        self::assertSame(1, $levels['blade']);
+        self::assertSame(1, $levels['derived-blade']);
+        self::assertSame(1, $levels['power-strike']);
+    }
+
+    /**
      * @param CharacterRuleSlice $slice Срез.
      *
      * @return CharacterActualMutations Порт.

@@ -91,7 +91,8 @@ final class CharacterSheetLive
         $model = $this->model($choices);
         $validation = $this->sheets->validate($slice, $model);
         $chosen = $validation->getAbilityLevels();
-        $levels = $this->withDerived($slice, $model, $chosen);
+        $requirementLevels = $this->withDerived($slice, $model, $chosen);
+        $levels = $requirementLevels;
         $live = [];
         $resourceLimits = [];
         for ($pass = 0; $pass < 3; $pass++) {
@@ -100,7 +101,7 @@ final class CharacterSheetLive
             $levels = $this->withDerived(
                 $slice,
                 $model,
-                $this->activity->effectiveLevels($slice, $model, $chosen, $live, $resourceLimits),
+                $this->activity->effectiveLevels($slice, $model, $chosen, $live, $resourceLimits, $requirementLevels),
             );
             $resourceRows = $this->resources($slice, $validation, $model, $sheet, $live);
             $resourceLimits = $this->indexLimits($resourceRows);
