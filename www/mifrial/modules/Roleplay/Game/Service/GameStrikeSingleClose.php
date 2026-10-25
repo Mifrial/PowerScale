@@ -304,13 +304,30 @@ final class GameStrikeSingleClose
             $result['durabilityShave'] = $durabilityShave;
         }
 
-        $effectiveDamage = $result['success'] === 0 ? $this->amounts->zero() : $damage;
-        $injury = $this->amounts->injury($effectiveDamage, $resistance, $result['success'], $soak);
+        $packetDamages = [];
+        $packetInjuries = [];
+        for ($packet = 1; $packet <= $packets; ++$packet) {
+            $packetDamage = $autoFail
+                ? $this->amounts->zero()
+                : $this->resolution->damageOf($game, $open, $success, $packet);
+            $packetDamages[] = $packetDamage;
+            $packetInjuries[] = $this->amounts->injury(
+                $result['success'] === 0 ? $this->amounts->zero() : $packetDamage,
+                $resistance,
+                $result['success'],
+                $soak,
+            );
+        }
+
+        $injury = $packetInjuries[0];
+        $result['damage'] = $this->amounts->view($packetDamages[0]);
         $result['injury'] = $this->amounts->view($injury);
+        $result['packetDamages'] = array_map($this->amounts->view(...), $packetDamages);
+        $result['packetInjuries'] = array_map($this->amounts->view(...), $packetInjuries);
         $prepared = $autoFail ? null : $this->resolution->prepareSheet(
             $game,
             $targetOpen,
-            $this->amounts->times($injury, $packets),
+            $this->amounts->sum($packetInjuries),
             $result['success'],
         );
         if (is_array($prepared)) {
@@ -365,6 +382,9 @@ final class GameStrikeSingleClose
             $result,
         );
         for ($packet = 2; $packet <= $packets; ++$packet) {
+            $packetResult = $result;
+            $packetResult['injury'] = $result['packetInjuries'][$packet - 1] ?? $result['injury'];
+            $packetResult['damage'] = $result['packetDamages'][$packet - 1] ?? $result['damage'];
             $this->chat->postPacket(
                 $game,
                 $battle,
@@ -372,7 +392,7 @@ final class GameStrikeSingleClose
                 $actorUserId,
                 $strikeId,
                 $packet,
-                $result,
+                $packetResult,
             );
         }
 

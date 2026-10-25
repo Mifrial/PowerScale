@@ -454,14 +454,19 @@ final class GameStrikeResolution
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $open Строка удара.
      * @param int|null $success Рейтинг успеха или null, если бонус от РУ не применяется.
+     * @param int $hitNumber Номер попадания с единицы.
      *
      * @return DimensionalNumber Пара.
      *
      * @throws GameInvalidException Если строка или формула битые.
      * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если ревизии нет.
      */
-    public function damageOf(GameRecord $game, array $open, ?int $success = null): DimensionalNumber
-    {
+    public function damageOf(
+        GameRecord $game,
+        array $open,
+        ?int $success = null,
+        int $hitNumber = 1,
+    ): DimensionalNumber {
         $kind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
         $itemRuleCode = $open['item_rule_code'] ?? null;
@@ -485,14 +490,14 @@ final class GameStrikeResolution
             $slice,
             $actionRuleCode,
             $profileType,
-            1,
+            $hitNumber,
         );
         if ($success !== null) {
             $characteristicModifier += $this->rules->successRatingCharacteristicModifier(
                 $slice,
                 $actionRuleCode,
                 $profileType,
-                1,
+                $hitNumber,
                 $success,
             );
         }

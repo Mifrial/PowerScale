@@ -662,9 +662,13 @@ final class GameRunAction
                     'roll' => $result['attackerRoll'] ?? null,
                     'defenseRoll' => $result['defenderRoll'] ?? null,
                     'success' => $result['success'] ?? 0,
-                    'damage' => $result['damage'] ?? null,
+                    'damage' => $sequential
+                        ? ($result['damage'] ?? null)
+                        : ($result['packetDamages'][$index] ?? $result['damage'] ?? null),
                     'resistance' => $result['resistance'] ?? null,
-                    'injury' => $result['injury'] ?? null,
+                    'injury' => $sequential
+                        ? ($result['injury'] ?? null)
+                        : ($result['packetInjuries'][$index] ?? $result['injury'] ?? null),
                     'sheetVersion' => $result['sheetVersion'] ?? null,
                 ]);
                 if (array_key_exists('S', $result)) {
@@ -684,7 +688,14 @@ final class GameRunAction
         }
 
         $base = $result;
-        unset($base['attackerRoll'], $base['defenderRoll'], $base['sequential'], $base['resolvedIndex']);
+        unset(
+            $base['attackerRoll'],
+            $base['defenderRoll'],
+            $base['sequential'],
+            $base['resolvedIndex'],
+            $base['packetDamages'],
+            $base['packetInjuries'],
+        );
         $base['kind'] = 'strike';
         $base['phase'] = 'respond';
         $base['strikes'] = $entries;
