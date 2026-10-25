@@ -12,6 +12,25 @@ const props = defineProps<{
 
 const calc = computed(() => props.attachment.payload);
 const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toString());
+const injuryLabel = computed(() =>
+  calc.value.injury ? new DimensionalNumber(calc.value.injury).toString() : String(calc.value.raw),
+);
+const dodgeSoakLabel = computed(() => {
+  const value = calc.value.dodgeSoak;
+  if (typeof value === 'number') return value > 0 ? String(value) : null;
+  if (!value) return null;
+  const soak = new DimensionalNumber(value);
+
+  return soak.value.base > 0 ? soak.toString() : null;
+});
+const remainingHpDamageLabel = computed(() => {
+  const value = calc.value.remainingHpDamage;
+  if (typeof value === 'number') return value > 0 ? String(value) : null;
+  if (!value) return null;
+  const remainder = new DimensionalNumber(value);
+
+  return remainder.value.base > 0 ? remainder.toString() : null;
+});
 </script>
 
 <template>
@@ -34,7 +53,7 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
       <v-card-text class="pt-0">
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Повреждения</span>
-          <span class="font-weight-medium">{{ calc.raw }}</span>
+          <span class="font-weight-medium">{{ injuryLabel }}</span>
         </div>
         <div class="d-flex align-center justify-space-between py-1 text-body-2 ga-3">
           <span class="text-medium-emphasis">Урон</span>
@@ -78,9 +97,9 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
           <span class="text-medium-emphasis">Срез надёжности</span>
           <span class="font-weight-medium">{{ calc.durabilityShave }}</span>
         </div>
-        <div v-if="(calc.dodgeSoak ?? 0) > 0" class="d-flex align-center justify-space-between py-1 text-body-2">
+        <div v-if="dodgeSoakLabel !== null" class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Смягчение уклона</span>
-          <span class="font-weight-medium">{{ calc.dodgeSoak }}</span>
+          <span class="font-weight-medium">{{ dodgeSoakLabel }}</span>
         </div>
         <div v-if="calc.srCap != null" class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Кап РУ типа</span>
@@ -109,9 +128,9 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
           <span class="text-medium-emphasis">Истощение</span>
           <span class="font-weight-medium">{{ calc.exhaustion }}</span>
         </div>
-        <div v-if="calc.remainingHpDamage > 0" class="d-flex align-center justify-space-between py-1 text-body-2">
+        <div v-if="remainingHpDamageLabel !== null" class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Остаток повреждений</span>
-          <span class="font-weight-medium">{{ calc.remainingHpDamage }}</span>
+          <span class="font-weight-medium">{{ remainingHpDamageLabel }}</span>
         </div>
         <div v-if="calc.wound !== null" class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Рана</span>

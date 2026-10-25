@@ -22,6 +22,9 @@ use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
 use Mifrial\Roleplay\Game\Table\GameDeliveryTable;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
+use Mifrial\Roleplay\Keyword\Exception\KeywordInvalidException;
+use Mifrial\Roleplay\Keyword\Interface\Container\IKeywordContainer;
+use Mifrial\Roleplay\Keyword\Interface\Service\IKeywords;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
 use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
@@ -1254,7 +1257,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($this->pair(1), $closed['data']['resistance']);
         self::assertSame($this->pair(36, -1), $closed['data']['injury']);
         self::assertSame(
-            ['battleId', 'strikeId', 'version', 'attackerRoll', 'success', 'damage', 'resistance', 'sheetVersion', 'defenderRoll', 'S', 'injury', 'wound', 'exhaustionDelta', 'endurance', 'will', 'willOutcome', 'maim'],
+            ['battleId', 'strikeId', 'version', 'attackerRoll', 'success', 'damage', 'resistance', 'sheetVersion', 'defenderRoll', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim'],
             array_keys($closed['data']),
         );
         self::assertSame($defenderVersion + 1, $this->characterFacade()->get($defenderId)->getActualVersion());
@@ -1338,6 +1341,523 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Смягчение берёт Ловкость из спеки реакции и пользе профиля.
+     *
+     * Урон {3|0}, сопротивление {1|0}, польза −4, Ловкость {5|0} дают S {4|-1};
+     * повреждение вычитает S из (урон − сопротивление) × РУ.
+     *
+     * @return void
+     */
+    public function testResolveSoakFromAgilityAndWeaponBenefit(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1, false, null, false, false, [], [], null, [
+            'soak-sword' => [
+                'type' => 'item',
+                'name' => 'Soak sword',
+                'spec' => [
+                    'category' => 'weapon',
+                    'proficiency_family_code' => 'melee',
+                    'weapon' => ['weapon_profiles' => [[
+                        'type' => 'strike',
+                        'accuracy' => ['base' => 3, 'size' => 0],
+                        'damage' => [
+                            'damage_type_code' => 'cut',
+                            'formula' => ['type' => 'fixed', 'value' => 3],
+                        ],
+                        'dodge_benefit' => -4,
+                    ]]],
+                ],
+            ],
+            'soak-mail' => [
+                'type' => 'item',
+                'name' => 'Soak mail',
+                'spec' => [
+                    'category' => 'armor',
+                    'armor' => ['resistance_slots' => [[
+                        'damage_type_code' => 'cut',
+                        'value' => ['base' => 1, 'size' => 0],
+                        'durability' => null,
+                    ]]],
+                ],
+            ],
+        ]);
+        $closed = $this->resolveDefense(
+            $world->getId(),
+            [],
+            'soak-sword',
+            true,
+            'dodge',
+            false,
+            [['id' => 1, 'ruleCode' => 'soak-mail', 'equipped' => true]],
+            [
+                ['characteristicCode' => 'strength', 'cost' => 2],
+                ['characteristicCode' => 'agility', 'cost' => 4],
+            ],
+        );
+        self::assertSame(4, $closed['success']);
+        self::assertSame($this->pair(3), $closed['damage']);
+        self::assertSame($this->pair(1), $closed['resistance']);
+        self::assertSame($this->pair(4, -1), $closed['S']);
+        self::assertSame($this->pair(12, -1), $closed['injury']);
+    }
+
+    /**
+     * Направленный удар режет S на размер шкалы характеристики.
+     *
+     * @return void
+     */
+    public function testResolveDodgeSoakCutByCardReducesSize(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1, false, null, false, false, [[
+            'type' => 'current_action_attack_dodge_soak',
+            'size_delta' => -3,
+            'ignore_at_sr' => 5,
+            'scope' => ['components' => ['strike'], 'hit_count' => 1],
+        ]]);
+        $closed = $this->resolveDefense($world->getId(), [], 'sword', true, 'dodge');
+        self::assertSame(4, $closed['success']);
+        self::assertSame($this->pair(4, -2), $closed['S']);
+    }
+
+    /**
+     * При РУ не ниже ignore_at_sr смягчение обнуляется.
+     *
+     * @return void
+     */
+    public function testResolveDodgeSoakCutIgnoresSoakAtRating(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1, false, null, false, false, [[
+            'type' => 'current_action_attack_dodge_soak',
+            'size_delta' => -3,
+            'ignore_at_sr' => 3,
+            'scope' => ['components' => ['strike'], 'hit_count' => 1],
+        ]]);
+        $closed = $this->resolveDefense($world->getId(), [], 'sword', true, 'dodge');
+        self::assertSame(4, $closed['success']);
+        self::assertSame($this->pair(0), $closed['S']);
+        self::assertSame($this->pair(0), $closed['injury']);
+    }
+
+    /**
+     * Чужой компонент профиля эффект не применяет.
+     *
+     * @return void
+     */
+    public function testResolveDodgeSoakCutSkipsOtherComponent(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1, false, null, false, false, [[
+            'type' => 'current_action_attack_dodge_soak',
+            'size_delta' => -3,
+            'ignore_at_sr' => 3,
+            'scope' => ['components' => ['shoot'], 'hit_count' => 1],
+        ]]);
+        $closed = $this->resolveDefense($world->getId(), [], 'sword', true, 'dodge');
+        self::assertSame($this->pair(4, -1), $closed['S']);
+    }
+
+    /**
+     * Подготовка Стремительного снижает S следующей атаки на Реакцию.
+     *
+     * @return void
+     */
+    public function testPreparedDodgeSoakTailReducesSoak(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1, false, null, false, true, [], [
+            'soak-prep' => [
+                'components' => [['type' => 'resource', 'resource_code' => 'action-points', 'amount' => 1]],
+                'effects' => [[
+                    'type' => 'next_action_attack_dodge_soak_from_reaction',
+                    'max_total_action_cost' => 2,
+                    'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                ]],
+            ],
+        ]);
+        $closed = $this->prepareThenStrike($world->getId(), 'soak-prep', 'swing');
+        self::assertSame(4, $closed['success']);
+        self::assertSame($this->pair(2), $closed['S']);
+    }
+
+    /**
+     * Атака дороже потолка ОД снимает хвост без применения.
+     *
+     * @return void
+     */
+    public function testPreparedDodgeSoakTailDropsAboveCost(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1, false, null, false, true, [], [
+            'soak-prep' => [
+                'components' => [['type' => 'resource', 'resource_code' => 'action-points', 'amount' => 1]],
+                'effects' => [[
+                    'type' => 'next_action_attack_dodge_soak_from_reaction',
+                    'max_total_action_cost' => 2,
+                    'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                ]],
+            ],
+            'heavy' => [
+                'components' => [['type' => 'resource', 'resource_code' => 'action-points', 'amount' => 3]],
+                'effects' => [],
+            ],
+        ]);
+        $closed = $this->prepareThenStrike($world->getId(), 'soak-prep', 'heavy');
+        self::assertSame(4, $closed['success']);
+        self::assertSame($this->pair(5), $closed['S']);
+    }
+
+    /**
+     * Подготовка хвоста и закрытие атаки по цели с Ловкостью {5|0}.
+     *
+     * @param int $spaceId Мир.
+     * @param string $prepCode Карточка подготовки.
+     * @param string $attackCode Карточка атаки.
+     *
+     * @return array<string, mixed> Итог закрытия.
+     */
+    private function prepareThenStrike(int $spaceId, string $prepCode, string $attackCode): array
+    {
+        $gameId = $this->addGame($spaceId, $this->worldRevision());
+        $attackerId = $this->admit(
+            $spaceId,
+            $gameId,
+            'Attacker',
+            [],
+            ['resources' => [['ruleCode' => 'action-points', 'current' => 10]]],
+            [['ruleCode' => 'wand', 'equipped' => true]],
+            null,
+            [['characteristicCode' => 'strength', 'cost' => 2]],
+        );
+        $defenderId = $this->admit(
+            $spaceId,
+            $gameId,
+            'Defender',
+            [],
+            [],
+            [],
+            null,
+            [
+                ['characteristicCode' => 'strength', 'cost' => 2],
+                ['characteristicCode' => 'agility', 'cost' => 4],
+            ],
+        );
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-soak-tail',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $prepared = $this->dispatch('game.declareAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'a-soak-prep',
+            'expectedVersion' => 1,
+            'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+            'actor' => ['type' => 'character', 'id' => $attackerId],
+            'actionRuleCode' => $prepCode,
+            'followUpTargetKey' => null,
+        ]);
+        self::assertTrue($prepared['success'], json_encode($prepared));
+        self::assertContains(
+            'next_action_attack_dodge_soak_from_reaction',
+            $this->pendingTypes($battleId, 'character:' . $attackerId),
+        );
+        $opened = $this->dispatch('game.declareStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-soak-tail',
+            'expectedVersion' => $prepared['data']['version'],
+            'attack' => $this->characterAttack($attackerId, $defenderId, $attackCode, 'wand'),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.resolveStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-soak-tail',
+            'expectedVersion' => $opened['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($defenderId)->getActualVersion(),
+            'defense' => ['reaction' => 'dodge'],
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $soak = is_array($closed['data']['S'] ?? null) ? $closed['data']['S'] : null;
+        self::assertIsArray($soak);
+        $calc = $this->attachmentsOfType($this->chatMessages($gameId), 'attack-calc');
+        self::assertCount(1, $calc);
+        self::assertSame($soak, $calc[0]['dodgeSoak'] ?? null);
+        self::assertSame($closed['data']['injury'], $calc[0]['injury'] ?? null);
+        self::assertSame(0, $calc[0]['durabilityShave'] ?? null);
+
+        return $closed['data'];
+    }
+
+    /**
+     * Живой reliability_cut типа урона снимает слои с надёжностью не выше РУ.
+     *
+     * @return void
+     */
+    public function testReliabilityCutRemovesLayersAtOrBelowRating(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: [
+            'reliability-blade' => [
+                'type' => 'item',
+                'name' => 'Reliability blade',
+                'spec' => [
+                    'category' => 'weapon',
+                    'proficiency_family_code' => 'melee',
+                    'weapon' => ['weapon_profiles' => [[
+                        'type' => 'strike',
+                        'accuracy' => ['base' => 3, 'size' => 0],
+                        'damage' => ['damage_type_code' => 'cutting'],
+                    ]]],
+                ],
+            ],
+            'reliability-mail' => [
+                'type' => 'item',
+                'name' => 'Reliability mail',
+                'spec' => [
+                    'category' => 'armor',
+                    'armor' => ['resistance_slots' => [
+                        [
+                            'damage_type_code' => 'cutting',
+                            'value' => ['base' => 1, 'size' => 0],
+                            'durability' => null,
+                        ],
+                        [
+                            'damage_type_code' => 'cutting',
+                            'value' => ['base' => 3, 'size' => 0],
+                            'durability' => 5,
+                        ],
+                        [
+                            'damage_type_code' => 'cutting',
+                            'value' => ['base' => 1, 'size' => 0],
+                            'durability' => 3,
+                        ],
+                        [
+                            'damage_type_code' => 'cutting',
+                            'value' => ['base' => 1, 'size' => 0],
+                            'durability' => 0,
+                        ],
+                    ]],
+                ],
+            ],
+        ]);
+        $closed = $this->resolveDefense(
+            $world->getId(),
+            [],
+            'reliability-blade',
+            true,
+            'dodge',
+            false,
+            [['id' => 1, 'ruleCode' => 'reliability-mail', 'equipped' => true]],
+        );
+        self::assertSame(4, $closed['success']);
+        self::assertSame($this->pair(4), $closed['resistance']);
+    }
+
+    /**
+     * Тип урона без reliability_cut не снимает слой с надёжностью 1.
+     *
+     * @return void
+     */
+    public function testDamageTypeWithoutReliabilityCutKeepsLayer(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: [
+            'reliability-blunt' => [
+                'type' => 'item',
+                'name' => 'Reliability blunt',
+                'spec' => [
+                    'category' => 'weapon',
+                    'proficiency_family_code' => 'melee',
+                    'weapon' => ['weapon_profiles' => [[
+                        'type' => 'strike',
+                        'accuracy' => ['base' => 3, 'size' => 0],
+                        'damage' => ['damage_type_code' => 'crush'],
+                    ]]],
+                ],
+            ],
+            'reliability-plate' => [
+                'type' => 'item',
+                'name' => 'Reliability plate',
+                'spec' => [
+                    'category' => 'armor',
+                    'armor' => ['resistance_slots' => [[
+                        'damage_type_code' => 'crush',
+                        'value' => ['base' => 2, 'size' => 0],
+                        'durability' => 1,
+                    ]]],
+                ],
+            ],
+        ]);
+        $closed = $this->resolveDefense(
+            $world->getId(),
+            [],
+            'reliability-blunt',
+            true,
+            'dodge',
+            false,
+            [['id' => 1, 'ruleCode' => 'reliability-plate', 'equipped' => true]],
+        );
+        self::assertSame(4, $closed['success']);
+        self::assertSame($this->pair(2), $closed['resistance']);
+    }
+
+    /**
+     * Удар в сочленение сдвигает порог надёжности на единицы броска.
+     *
+     * @return void
+     */
+    public function testDurabilityShaveAddsOneCountToThreshold(): void
+    {
+        $world = $this->worldWithWeapon(
+            cardEffects: [$this->durabilityShaveEffect(false)],
+            extraRules: $this->shaveGear(),
+        );
+        $closed = $this->resolveDefense(
+            $world->getId(),
+            [],
+            'shave-blade',
+            true,
+            'dodge',
+            false,
+            [['id' => 1, 'ruleCode' => 'shave-mail', 'equipped' => true]],
+        );
+        self::assertSame(4, $closed['success']);
+        self::assertSame(4, $closed['durabilityShave']);
+        self::assertSame($this->pair(3), $closed['resistance']);
+    }
+
+    /**
+     * Короткое оружие добавляет единицу к срезу только при выпавшей единице.
+     *
+     * @return void
+     */
+    public function testDurabilityShaveShortWeaponAddsOne(): void
+    {
+        $keywords = $this->gameApplication()->getLocator()->get(IKeywordContainer::class)->get(IKeywords::class);
+        self::assertInstanceOf(IKeywords::class, $keywords);
+        try {
+            $shortId = $keywords->add('short', 'Короткий');
+        } catch (KeywordInvalidException) {
+            $shortId = $keywords->getByCode('short')->getId();
+        }
+
+        $gear = $this->shaveGear();
+        $gear['shave-blade']['keywordIds'] = [$shortId];
+        $world = $this->worldWithWeapon(
+            cardEffects: [$this->durabilityShaveEffect(true)],
+            extraRules: $gear,
+        );
+        $closed = $this->resolveDefense(
+            $world->getId(),
+            [],
+            'shave-blade',
+            true,
+            'dodge',
+            false,
+            [['id' => 1, 'ruleCode' => 'shave-mail', 'equipped' => true]],
+        );
+        self::assertSame(4, $closed['success']);
+        self::assertSame(5, $closed['durabilityShave']);
+        self::assertSame($this->pair(0), $closed['resistance']);
+    }
+
+    /**
+     * Без единиц на гранях срез нулевой.
+     *
+     * @return void
+     */
+    public function testDurabilityShaveNeedsOneFaces(): void
+    {
+        $world = $this->worldWithWeapon(
+            cardEffects: [
+                $this->durabilityShaveEffect(true),
+                [
+                    'type' => 'current_action_roll_face_remap',
+                    'from' => 1,
+                    'to' => 2,
+                    'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                ],
+            ],
+            extraRules: $this->shaveGear(),
+        );
+        $closed = $this->resolveDefense(
+            $world->getId(),
+            [],
+            'shave-blade',
+            true,
+            'dodge',
+            false,
+            [['id' => 1, 'ruleCode' => 'shave-mail', 'equipped' => true]],
+        );
+        self::assertSame(4, $closed['success']);
+        self::assertArrayNotHasKey('durabilityShave', $closed);
+        self::assertSame($this->pair(5), $closed['resistance']);
+    }
+
+    /**
+     * Эффект среза надёжности.
+     *
+     * @param bool $shortExtra Короткое оружие.
+     *
+     * @return array<string, mixed> Эффект.
+     */
+    private function durabilityShaveEffect(bool $shortExtra): array
+    {
+        return [
+            'type' => 'current_action_durability_shave',
+            'short_extra_on_first_one' => $shortExtra,
+            'scope' => ['components' => ['strike'], 'hit_count' => 1],
+            'damage_type_codes' => ['cutting'],
+        ];
+    }
+
+    /**
+     * Оружие и доспех для среза надёжности.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function shaveGear(): array
+    {
+        return [
+            'shave-blade' => [
+                'type' => 'item',
+                'name' => 'Shave blade',
+                'spec' => [
+                    'category' => 'weapon',
+                    'proficiency_family_code' => 'melee',
+                    'weapon' => ['weapon_profiles' => [[
+                        'type' => 'strike',
+                        'accuracy' => ['base' => 3, 'size' => 0],
+                        'damage' => ['damage_type_code' => 'cutting'],
+                    ]]],
+                ],
+            ],
+            'shave-mail' => [
+                'type' => 'item',
+                'name' => 'Shave mail',
+                'spec' => [
+                    'category' => 'armor',
+                    'armor' => ['resistance_slots' => [
+                        [
+                            'damage_type_code' => 'cutting',
+                            'value' => ['base' => 2, 'size' => 0],
+                            'durability' => 8,
+                        ],
+                        [
+                            'damage_type_code' => 'cutting',
+                            'value' => ['base' => 3, 'size' => 0],
+                            'durability' => 9,
+                        ],
+                    ]],
+                ],
+            ],
+        ];
+    }
+
+    /**
      * ignore и block ключ S не пишут и без карточки закрываются.
      *
      * @return void
@@ -1355,27 +1875,40 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
-     * Без карточки или с двумя карточками уклон отклоняется.
-     * Одна карточка даёт базовую ловкость и без закупки.
+     * Нет dodge_soak в спеке реакции — смягчения нет, удар закрывается.
      *
      * @return void
      */
-    public function testResolveDodgeRequiresExactlyOneCardAndUsesBaseAgility(): void
+    public function testResolveDodgeWithoutSoakFieldOmitsSoak(): void
     {
-        $none = $this->worldWithWeapon();
-        $two = $this->worldWithWeapon(1, true, 2);
-        $one = $this->worldWithWeapon(1, true, 1);
-        self::assertSame('GAME_INVALID', $this->resolveDefense($none->getId(), [], 'sword', false, 'dodge')['error']['code']);
-        self::assertSame('GAME_INVALID', $this->resolveDefense($two->getId(), [
-            'characteristicPurchases' => [[
-                'characteristicCode' => 'agility',
-                'cost' => 2,
-                'value' => ['base' => 4, 'size' => 0],
-            ]],
-        ], 'sword', false, 'dodge')['error']['code']);
-        $closed = $this->resolveDefense($one->getId(), [
-            'characteristicPurchases' => [],
-        ], 'sword', true, 'dodge');
+        $world = $this->worldWithWeapon();
+        $closed = $this->resolveDefense($world->getId(), [], 'sword', true, 'dodge');
+        self::assertArrayNotHasKey('S', $closed);
+        self::assertSame($this->pair(0), $closed['injury']);
+        self::assertSame(4, $closed['success']);
+    }
+
+    /**
+     * dodge_soak есть, а характеристики в листе нет — GAME_INVALID.
+     *
+     * @return void
+     */
+    public function testResolveDodgeSoakMissingCharacteristicFails(): void
+    {
+        $world = $this->worldWithWeapon(dodgeSoak: 'missing');
+        $closed = $this->resolveDefense($world->getId(), [], 'sword', false, 'dodge');
+        self::assertSame('GAME_INVALID', $closed['error']['code']);
+    }
+
+    /**
+     * Одна карточка реакции даёт базовую ловкость и без закупки.
+     *
+     * @return void
+     */
+    public function testResolveDodgeUsesBaseAgilityCharacteristic(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1);
+        $closed = $this->resolveDefense($world->getId(), ['characteristicPurchases' => []], 'sword', true, 'dodge');
         self::assertSame(4, $closed['success']);
         self::assertSame($this->pair(4, -1), $closed['S']);
     }
@@ -1928,6 +2461,8 @@ final class GameStrikeMysqlTest extends TestCase
         bool $withPendingEffects = false,
         array $cardEffects = [],
         array $extraCards = [],
+        ?string $dodgeSoak = null,
+        array $extraRules = [],
     ): RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -1939,7 +2474,9 @@ final class GameStrikeMysqlTest extends TestCase
             . ($withBlockResource ? '-block' : '')
             . ($withPendingEffects ? '-pending' : '')
             . ($cardEffects === [] ? '' : '-fx' . substr(md5((string) json_encode($cardEffects)), 0, 6))
-            . ($extraCards === [] ? '' : '-ex' . substr(md5((string) json_encode($extraCards)), 0, 6)),
+            . ($extraCards === [] ? '' : '-ex' . substr(md5((string) json_encode($extraCards)), 0, 6))
+            . ($dodgeSoak === null ? '' : '-ds' . substr(md5($dodgeSoak), 0, 6))
+            . ($extraRules === [] ? '' : '-er' . substr(md5((string) json_encode($extraRules)), 0, 6)),
         );
         $check = [
             'allow_characteristic_override' => false,
@@ -1991,6 +2528,9 @@ final class GameStrikeMysqlTest extends TestCase
                 'type' => 'action',
                 'combat_action' => 'dodge',
                 'dodge_efficiency' => ['base' => 4, 'size' => -1],
+                ...(($dodgeSoak ?? ($soakCards >= 1 ? 'agility' : null)) === null
+                    ? []
+                    : ['dodge_soak' => $dodgeSoak ?? 'agility']),
                 'action_components' => [],
                 'distinct_weapons' => false,
                 'same_weapon' => false,
@@ -2150,6 +2690,9 @@ final class GameStrikeMysqlTest extends TestCase
                 'weapon_mastery' => ['profiles' => ['strike']],
                 'automatic' => ['value' => ['base' => 3, 'size' => 0]],
             ], [], [], 'needs_work')),
+            RuleCommitEntry::put('reaction', new RuleVersionBody('characteristic', 'Reaction', '', [
+                'automatic' => ['value' => ['base' => 3, 'size' => 0]],
+            ], [], [], 'needs_work')),
             RuleCommitEntry::put('stamina', new RuleVersionBody('characteristic', 'Stamina', '', [
                 'damage_endurance' => true,
                 'automatic' => ['value' => ['base' => 4, 'size' => 0]],
@@ -2226,9 +2769,7 @@ final class GameStrikeMysqlTest extends TestCase
             ]], 'needs_work')),
         ];
         if ($soakCards >= 1) {
-            $entries[] = RuleCommitEntry::put('agility', new RuleVersionBody('characteristic', 'Agility', '', [
-                'dodge_soak' => true,
-            ], [], [], 'needs_work'));
+            $entries[] = RuleCommitEntry::put('agility', new RuleVersionBody('characteristic', 'Agility', '', [], [], [], 'needs_work'));
             $entries[] = RuleCommitEntry::put('rapier', new RuleVersionBody('item', 'Rapier', '', [
                 'category' => 'weapon',
                 'proficiency_family_code' => 'melee',
@@ -2250,12 +2791,6 @@ final class GameStrikeMysqlTest extends TestCase
                         'dodge_benefit' => 0,
                     ]],
                 ],
-            ], [], [], 'needs_work'));
-        }
-
-        if ($soakCards >= 2) {
-            $entries[] = RuleCommitEntry::put('balance', new RuleVersionBody('characteristic', 'Balance', '', [
-                'dodge_soak' => true,
             ], [], [], 'needs_work'));
         }
 
@@ -2323,6 +2858,18 @@ final class GameStrikeMysqlTest extends TestCase
             ], [], [], 'needs_work'));
         }
 
+        foreach ($extraRules as $code => $definition) {
+            $entries[] = RuleCommitEntry::put($code, new RuleVersionBody(
+                is_string($definition['type'] ?? null) ? $definition['type'] : 'simple',
+                is_string($definition['name'] ?? null) ? $definition['name'] : ucfirst($code),
+                '',
+                is_array($definition['spec'] ?? null) ? $definition['spec'] : [],
+                is_array($definition['keywordIds'] ?? null) ? $definition['keywordIds'] : [],
+                [],
+                'needs_work',
+            ));
+        }
+
         $this->worldRevision = $this->gameRuleSpaces()->commit($world->getId(), $entries)->getRevision();
 
         return $world;
@@ -2350,13 +2897,14 @@ final class GameStrikeMysqlTest extends TestCase
         int $attackerId,
         int $defenderId,
         string $actionRuleCode = 'swing',
+        string $itemRuleCode = 'sword',
     ): array {
         return [
             'attacker' => ['type' => 'character', 'id' => $attackerId],
             'defender' => ['type' => 'character', 'id' => $defenderId],
             'actionRuleCode' => $actionRuleCode,
             'itemInventoryId' => 1,
-            'itemRuleCode' => 'sword',
+            'itemRuleCode' => $itemRuleCode,
             'profileType' => 'strike',
             'profileIndex' => 0,
         ];
@@ -2427,6 +2975,7 @@ final class GameStrikeMysqlTest extends TestCase
         string $reaction = 'ignore',
         bool $replay = false,
         array $inventory = [],
+        ?array $choicePurchases = null,
     ): array {
         $gameId = $this->addGame($spaceId, $this->worldRevision());
         $attackerId = $this->admit(
@@ -2446,6 +2995,8 @@ final class GameStrikeMysqlTest extends TestCase
             $reaction === 'block' && $inventory === []
                 ? [['ruleCode' => 'buckler', 'equipped' => true]]
                 : $inventory,
+            $this->ownerUserId,
+            $choicePurchases,
         );
         $defenderVersion = $this->characterFacade()->get($defenderId)->getActualVersion();
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
@@ -2559,7 +3110,10 @@ final class GameStrikeMysqlTest extends TestCase
                 'characteristic_code' => 'agility',
                 'mode' => 'purchased',
                 'base' => ['base' => 4, 'size' => 0],
-                'purchase' => [['cost' => 2, 'value' => ['base' => 4, 'size' => 0]]],
+                'purchase' => [
+                    ['cost' => 2, 'value' => ['base' => 4, 'size' => 0]],
+                    ['cost' => 4, 'value' => ['base' => 5, 'size' => 0]],
+                ],
             ];
         }
 
@@ -2587,6 +3141,7 @@ final class GameStrikeMysqlTest extends TestCase
         array $sheet = [],
         array $inventory = [],
         ?int $ownerUserId = null,
+        ?array $choicePurchases = null,
     ): int {
         $ownerUserId ??= $this->ownerUserId;
         $characterId = $this->characterFacade()->add(NewCharacter::fromNormalized([
@@ -2623,7 +3178,7 @@ final class GameStrikeMysqlTest extends TestCase
             true,
             $this->storedChoices($name, $inventory === [] ? [
                 ['ruleCode' => 'sword', 'equipped' => true],
-            ] : $inventory),
+            ] : $inventory, $choicePurchases),
             $document,
             2,
             1,
@@ -2810,14 +3365,18 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return array<string, mixed> choices.
      */
-    private function storedChoices(string $name, array $inventory = []): array
-    {
+    private function storedChoices(
+        string $name,
+        array $inventory = [],
+        ?array $choicePurchases = null,
+    ): array {
         return [
             'name' => $name,
             'raceCode' => 'human',
             'abilities' => [],
             'inventory' => $this->inventoryWithIds($inventory),
-            'characteristicPurchases' => [['characteristicCode' => 'strength', 'cost' => 2]],
+            'characteristicPurchases' => $choicePurchases
+                ?? [['characteristicCode' => 'strength', 'cost' => 2]],
             'customRules' => [],
             'limits' => [],
             'money' => 0,

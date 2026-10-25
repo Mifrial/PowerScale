@@ -151,6 +151,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
         combat_action: 'dodge',
         dodge_efficiency: { base: 4, size: -1 },
+        dodge_soak: 'dexterity',
       },
       keywordIds: [14, 53],
       mechanics: [],

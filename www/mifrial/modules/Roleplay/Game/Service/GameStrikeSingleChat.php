@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Чат одиночного удара.
@@ -117,10 +118,13 @@ final class GameStrikeSingleChat
                     . ' РУ и наносит ' . implode(' и ', $bits) . '!'
                 : $attacker . ' промахивается по ' . $defender . '!',
             [
-                'raw' => is_array($result['injury'] ?? null) ? ($result['injury']['base'] ?? 0) : 0,
+                'raw' => $this->integerOf($result['injury'] ?? null),
                 'damage' => is_array($result['damage'] ?? null) ? $result['damage'] : ['base' => 0, 'size' => 0],
                 'damageTypeName' => $typeBit,
                 'resistance' => is_array($result['resistance'] ?? null) ? ($result['resistance']['base'] ?? 0) : 0,
+                'injury' => $this->pairOf($result['injury'] ?? null),
+                'dodgeSoak' => $this->pairOf($result['S'] ?? null),
+                'durabilityShave' => is_int($result['durabilityShave'] ?? null) ? $result['durabilityShave'] : 0,
                 'endurance' => is_array($result['endurance'] ?? null)
                     ? $result['endurance']
                     : ['base' => 0, 'size' => 0],
@@ -132,7 +136,7 @@ final class GameStrikeSingleChat
                 'stun' => null,
                 'shock' => null,
                 'exhaustion' => $exhaustion,
-                'remainingHpDamage' => 0,
+                'remainingHpDamage' => $this->pairOf($result['damageRemainder'] ?? null),
                 'wound' => $wound,
                 'knockout' => ($result['unconscious'] ?? false) === true,
                 'cuttingWound' => null,
@@ -144,5 +148,37 @@ final class GameStrikeSingleChat
             is_array($result['defenderRoll'] ?? null) ? $result['defenderRoll'] : null,
             $parentId,
         );
+    }
+
+    /**
+     * Пара base/size или ноль.
+     *
+     * @param mixed $pair Пара base/size.
+     *
+     * @return array{base: int, size: int} Пара.
+     */
+    private function pairOf(mixed $pair): array
+    {
+        if (!is_array($pair) || !is_int($pair['base'] ?? null) || !is_int($pair['size'] ?? null)) {
+            return ['base' => 0, 'size' => 0];
+        }
+
+        return ['base' => $pair['base'], 'size' => $pair['size']];
+    }
+
+    /**
+     * Целое значение пары или 0.
+     *
+     * @param mixed $pair Пара base/size.
+     *
+     * @return int Число.
+     */
+    private function integerOf(mixed $pair): int
+    {
+        if (!is_array($pair) || !is_int($pair['base'] ?? null) || !is_int($pair['size'] ?? null)) {
+            return 0;
+        }
+
+        return (new DimensionalNumber($pair['base'], $pair['size']))->toInteger();
     }
 }

@@ -131,6 +131,16 @@ const characteristics = computed<CharacteristicRef[]>(() =>
   ruleReferenceService.characteristicOptions(props.rules, props.spaceId),
 );
 
+const characteristicSelectOptions = computed<{ title: string; value: string }[]>(() => {
+  const options = characteristics.value.map((ref) => ({ title: ref.name, value: ref.code }));
+  const current = innerSpec.value.dodge_soak;
+  if (current && !options.some((option) => option.value === current)) {
+    options.push({ title: current, value: current });
+  }
+
+  return options;
+});
+
 const resources = computed<ResourceRef[]>(() => ruleReferenceService.resourceOptions(props.rules));
 
 const abilities = computed<AbilityRef[]>(() => ruleReferenceService.abilityOptions(props.rules));
@@ -639,6 +649,7 @@ function hasActionPointCost(): boolean {
             :model-value="innerSpec"
             :current-type="currentType"
             :items="items"
+            :characteristics="characteristicSelectOptions"
             @update:model-value="(value) => (innerSpec = value)"
           />
         </v-expansion-panel-text>

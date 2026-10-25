@@ -330,6 +330,7 @@ final class GameStrikeResolution
      * @param array{reaction: string, blockItemInventoryId: int|null, blockItemRuleCode: string|null} $choice Защита.
      * @param int $rating Рейтинг.
      * @param DimensionalNumber $penetration Проникновение.
+     * @param int $durabilityShave Срез надёжности с единиц удара.
      *
      * @return DimensionalNumber Сумма слоёв или ноль.
      *
@@ -342,6 +343,7 @@ final class GameStrikeResolution
         array $choice,
         int $rating,
         DimensionalNumber $penetration,
+        int $durabilityShave = 0,
     ): DimensionalNumber {
         $kind = $open['defender_kind'] ?? null;
         $defenderId = $open['defender_id'] ?? null;
@@ -366,27 +368,38 @@ final class GameStrikeResolution
             $choice['blockItemInventoryId'],
             $rating,
             $penetration,
+            $durabilityShave,
         );
     }
 
     /**
-     * Смягчение уклонения защитника по профилю удара.
+     * Смягчение выбранной реакции защитника по профилю удара.
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $open Строка удара.
+     * @param string $reaction Выбранная реакция защиты.
+     * @param int $success Успех попадания.
+     * @param array<string, mixed> $pending Карта ожидания атакующего.
      *
-     * @return DimensionalNumber Пара.
+     * @return DimensionalNumber|null Пара или null, если у реакции нет dodge_soak.
      *
      * @throws GameInvalidException Если строка, карточка или закупка битые.
      * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если ревизии или листа нет.
      */
-    public function soakOf(GameRecord $game, array $open): DimensionalNumber
-    {
+    public function soakOf(
+        GameRecord $game,
+        array $open,
+        string $reaction,
+        int $success,
+        array $pending = [],
+    ): ?DimensionalNumber {
         $kind = $open['defender_kind'] ?? null;
         $defenderId = $open['defender_id'] ?? null;
         $itemRuleCode = $open['item_rule_code'] ?? null;
         $profileType = $open['profile_type'] ?? null;
         $profileIndex = $open['profile_index'] ?? null;
+        $attackerKind = $open['attacker_kind'] ?? null;
+        $attackerId = $open['attacker_id'] ?? null;
         if (!is_string($kind) || !is_int($defenderId) || !is_string($itemRuleCode)) {
             throw new GameInvalidException('Game strike row is invalid');
         }
@@ -394,6 +407,23 @@ final class GameStrikeResolution
         if (!is_string($profileType) || !is_int($profileIndex)) {
             throw new GameInvalidException('Game strike row is invalid');
         }
+
+        if (!is_string($attackerKind) || !is_int($attackerId)) {
+            throw new GameInvalidException('Game strike attacker is invalid');
+        }
+
+        $reduceBy = $this->rules->dodgeSoakReduction(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $pending,
+            $attackerKind,
+            $attackerId,
+            $profileType,
+            1,
+            $attackerKind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
+            $attackerKind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
+            $attackerKind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
+        );
 
         return $this->rules->evaluateSoak(
             $game->getSpaceId(),
@@ -406,6 +436,10 @@ final class GameStrikeResolution
             $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $defenderId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $defenderId) : null,
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $defenderId) : null,
+            $reaction,
+            is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '',
+            $success,
+            $reduceBy,
         );
     }
 

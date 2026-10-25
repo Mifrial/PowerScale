@@ -23,7 +23,9 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackAccuracyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackCharacteristicModifierEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackDodgeSoakEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionCheckModifierEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionDurabilityShaveEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
@@ -41,6 +43,8 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
  */
 final class GameStrikeRules
 {
+    private const REACTION_CHARACTERISTIC = 'reaction';
+
     private readonly GameStrikeSoaks $soaks;
 
     private readonly GameStrikeAmounts $amounts;
@@ -567,6 +571,7 @@ final class GameStrikeRules
      * @param int|null $blockItemInventoryId Строка предмета блока.
      * @param int $rating Рейтинг попадания.
      * @param DimensionalNumber|null $penetration Проникновение атакующего.
+     * @param int $durabilityShave Срез надёжности с единиц удара.
      *
      * @return DimensionalNumber Сумма слоёв или ноль.
      *
@@ -587,6 +592,7 @@ final class GameStrikeRules
         ?int $blockItemInventoryId,
         int $rating,
         ?DimensionalNumber $penetration = null,
+        int $durabilityShave = 0,
     ): DimensionalNumber {
         if ($defenderKind !== 'character' && $defenderKind !== 'npc') {
             throw new GameInvalidException('Game strike defender is invalid');
@@ -610,11 +616,12 @@ final class GameStrikeRules
             $blockItemInventoryId,
             $rating,
             $penetration,
+            $durabilityShave,
         );
     }
 
     /**
-     * Смягчение уклонения цели. В лист не пишется.
+     * Смягчение реакции цели. В лист не пишется.
      *
      * @param int $spaceId Мир.
      * @param int $rulesRevision Ревизия игры.
@@ -626,10 +633,14 @@ final class GameStrikeRules
      * @param array<string, mixed>|null $npcSheet Снимок sheet NPC или null.
      * @param array<string, mixed>|null $npcChoices Выборы NPC или null.
      * @param int|null $sheetVersion Версия листа NPC.
+     * @param string $reaction Выбранная реакция защиты.
+     * @param string $actionRuleCode Карточка удара.
+     * @param int $success Успех попадания.
+     * @param int $reduceBy Снижение от Реакции атакующего.
      *
-     * @return DimensionalNumber Пара после сдвига.
+     * @return DimensionalNumber|null Пара после сдвига или null, если у реакции нет dodge_soak.
      *
-     * @throws GameInvalidException Если карточка, закупка или профиль битые.
+     * @throws GameInvalidException Если характеристика или профиль битые.
      * @throws GameNotFoundException Если ревизии или листа нет.
      */
     public function evaluateSoak(
@@ -641,22 +652,79 @@ final class GameStrikeRules
         string $defenderKind,
         int $defenderId,
         ?array $npcSheet,
-        ?array $npcChoices = null,
-        ?int $sheetVersion = null,
-    ): DimensionalNumber {
+        ?array $npcChoices,
+        ?int $sheetVersion,
+        string $reaction,
+        string $actionRuleCode,
+        int $success,
+        int $reduceBy = 0,
+    ): ?DimensionalNumber {
         if ($defenderKind !== 'character' && $defenderKind !== 'npc') {
             throw new GameInvalidException('Game strike defender is invalid');
         }
 
+        $slice = $this->slice($spaceId, $rulesRevision);
+        $characteristicCode = $this->dodgeSoakCode($slice, $reaction);
+        if ($characteristicCode === null) {
+            return null;
+        }
+
         $benefit = $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex)
             ->getDodgeBenefit() ?? -3;
-        $slice = $this->slice($spaceId, $rulesRevision);
         $documents = $this->defenderDocuments($defenderKind, $defenderId, $npcSheet, $npcChoices, $sheetVersion);
-
-        return $this->soaks->shift(
-            $slice,
+        $soak = $this->soaks->shift(
             $this->formulaContext($slice, $documents['sheet'], $documents['choices'], $documents['key']),
+            $characteristicCode,
             $benefit,
+        );
+
+        return $this->cutSoak($slice, $actionRuleCode, $profileType, $success, $soak, $reduceBy);
+    }
+
+    /**
+     * Снижение смягчения от Реакции атакующего по хвосту подготовки.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param array<string, mixed> $pending Карта ожидания.
+     * @param string $actorKind Вид атакующего.
+     * @param int $actorId Атакующий.
+     * @param string $profileType Тип профиля.
+     * @param int $hitNumber Номер попадания.
+     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
+     * @param array<string, mixed>|null $npcChoices Выборы NPC.
+     * @param int|null $npcVersion Версия листа NPC.
+     *
+     * @return int Целое значение Реакции или 0, если хвоста нет.
+     *
+     * @throws GameInvalidException Если у атакующего нет Реакции.
+     * @throws GameNotFoundException Если листа нет.
+     */
+    public function dodgeSoakReduction(
+        int $spaceId,
+        int $rulesRevision,
+        array $pending,
+        string $actorKind,
+        int $actorId,
+        string $profileType,
+        int $hitNumber,
+        ?array $npcSheet,
+        ?array $npcChoices,
+        ?int $npcVersion,
+    ): int {
+        $effect = $this->armedSoakTail($pending, $actorKind, $actorId, $profileType, $hitNumber);
+        if ($effect === null) {
+            return 0;
+        }
+
+        return $this->reactionValue(
+            $spaceId,
+            $rulesRevision,
+            $actorKind,
+            $actorId,
+            $npcSheet,
+            $npcChoices,
+            $npcVersion,
         );
     }
 
@@ -1012,6 +1080,141 @@ final class GameStrikeRules
         }
 
         return $delta;
+    }
+
+    /**
+     * Срез надёжности доспеха с единиц броска попадания.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $actionRuleCode Карточка удара.
+     * @param string $itemRuleCode Оружие удара.
+     * @param string $profileType Тип профиля.
+     * @param int $profileIndex Смещение.
+     * @param array<string, mixed> $attackerRoll Бросок попадания.
+     * @param int $success Успех попадания.
+     * @param int $hitNumber Номер попадания.
+     *
+     * @return int Срез или 0.
+     *
+     * @throws GameInvalidException Если профиль или карточка битые.
+     */
+    public function durabilityShave(
+        int $spaceId,
+        int $rulesRevision,
+        string $actionRuleCode,
+        string $itemRuleCode,
+        string $profileType,
+        int $profileIndex,
+        array $attackerRoll,
+        int $success,
+        int $hitNumber = 1,
+    ): int {
+        if ($success <= 0 || $actionRuleCode === '') {
+            return 0;
+        }
+
+        $slice = $this->slice($spaceId, $rulesRevision);
+        $damageType = $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex)
+            ->getDamage()
+            ->getDamageTypeCode();
+        $shortExtra = $this->shaveShortExtra($slice, $actionRuleCode, $profileType, $damageType, $hitNumber);
+        $oneCount = $shortExtra === null ? 0 : $this->oneCount($attackerRoll);
+        if ($oneCount <= 0) {
+            return 0;
+        }
+
+        $keywords = $slice->findLive($itemRuleCode)?->getKeywordCodes() ?? [];
+
+        return $oneCount + ($shortExtra && in_array('short', $keywords, true) ? 1 : 0);
+    }
+
+    /**
+     * Флаг короткого лишнего из эффекта среза, подходящего к типу урона.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка удара.
+     * @param string $profileType Тип профиля.
+     * @param string|null $damageType Тип урона профиля.
+     * @param int $hitNumber Номер попадания.
+     *
+     * @return bool|null true или false при найденном эффекте; null, если эффекта нет.
+     */
+    private function shaveShortExtra(
+        CharacterRuleSlice $slice,
+        string $actionRuleCode,
+        string $profileType,
+        ?string $damageType,
+        int $hitNumber,
+    ): ?bool {
+        $base = $this->actionBase($slice, $actionRuleCode);
+        if ($base === null) {
+            return null;
+        }
+
+        $shortExtra = null;
+        foreach ($base->getActionEffects() as $effect) {
+            if (!$effect instanceof CurrentActionDurabilityShaveEffect) {
+                continue;
+            }
+
+            if (!$this->shaveAppliesTo($effect, $profileType, $damageType, $hitNumber)) {
+                continue;
+            }
+
+            $shortExtra = ($shortExtra ?? false) || $effect->isShortExtraOnFirstOne();
+        }
+
+        return $shortExtra;
+    }
+
+    /**
+     * Эффект среза накрывает компонент, попадание и тип урона.
+     *
+     * @param CurrentActionDurabilityShaveEffect $effect Эффект.
+     * @param string $profileType Тип профиля.
+     * @param string|null $damageType Тип урона.
+     * @param int $hitNumber Номер попадания.
+     *
+     * @return bool true, если накрывает.
+     */
+    private function shaveAppliesTo(
+        CurrentActionDurabilityShaveEffect $effect,
+        string $profileType,
+        ?string $damageType,
+        int $hitNumber,
+    ): bool {
+        if (!$effect->getScope()->appliesTo($profileType, $hitNumber)) {
+            return false;
+        }
+
+        $types = $effect->getDamageTypeCodes();
+
+        return $types === [] || (is_string($damageType) && in_array($damageType, $types, true));
+    }
+
+    /**
+     * Число единиц на итоговых гранях броска.
+     *
+     * @param array<string, mixed> $roll Бросок.
+     *
+     * @return int Единицы.
+     */
+    private function oneCount(array $roll): int
+    {
+        $faces = is_array($roll['adjustedRolls'] ?? null) ? $roll['adjustedRolls'] : [];
+        if ($faces === []) {
+            $faces = is_array($roll['faces'] ?? null) ? $roll['faces'] : [];
+        }
+
+        $count = 0;
+        foreach ($faces as $face) {
+            if ($face === 1) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /**
@@ -2108,4 +2311,196 @@ final class GameStrikeRules
 
         return $slice;
     }
+    /**
+     * Режет смягчение эффектами карточки удара.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка удара.
+     * @param string $profileType Тип профиля.
+     * @param int $success Успех попадания.
+     * @param DimensionalNumber $soak Базовое смягчение.
+     * @param int $reduceBy Снижение от Реакции атакующего.
+     *
+     * @return DimensionalNumber Смягчение после эффектов.
+     */
+    private function cutSoak(
+        CharacterRuleSlice $slice,
+        string $actionRuleCode,
+        string $profileType,
+        int $success,
+        DimensionalNumber $soak,
+        int $reduceBy,
+    ): DimensionalNumber {
+        $cuts = $this->soakCuts($slice, $actionRuleCode, $profileType);
+        if ($cuts['sizeDelta'] !== 0) {
+            $soak = $soak->modify($cuts['sizeDelta']);
+        }
+
+        if ($cuts['ignoreAtSr'] !== null && $success >= $cuts['ignoreAtSr']) {
+            return new DimensionalNumber(0, 0);
+        }
+
+        if ($reduceBy > 0) {
+            return new DimensionalNumber(max(0, $soak->toInteger() - $reduceBy), 0);
+        }
+
+        return $soak;
+    }
+
+    /**
+     * Суммарный сдвиг размера и порог игнора эффектов текущей атаки.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка удара.
+     * @param string $profileType Тип профиля.
+     *
+     * @return array{sizeDelta: int, ignoreAtSr: int|null} Сдвиг и порог.
+     */
+    private function soakCuts(CharacterRuleSlice $slice, string $actionRuleCode, string $profileType): array
+    {
+        $sizeDelta = 0;
+        $ignoreAtSr = null;
+        $base = $this->actionBase($slice, $actionRuleCode);
+        foreach ($base?->getActionEffects() ?? [] as $effect) {
+            if (!$effect instanceof CurrentActionAttackDodgeSoakEffect) {
+                continue;
+            }
+
+            if (!$effect->getScope()->appliesTo($profileType, 1)) {
+                continue;
+            }
+
+            $sizeDelta += $effect->getSizeDelta();
+            $ignore = $effect->getIgnoreAtSr();
+            if ($ignore !== null) {
+                $ignoreAtSr = $ignoreAtSr === null ? $ignore : min($ignoreAtSr, $ignore);
+            }
+        }
+
+        return ['sizeDelta' => $sizeDelta, 'ignoreAtSr' => $ignoreAtSr];
+    }
+
+    /**
+     * Код характеристики смягчения из спеки выбранной реакции.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $reaction dodge или block.
+     *
+     * @return string|null Код или null, если поля нет.
+     */
+    private function dodgeSoakCode(CharacterRuleSlice $slice, string $reaction): ?string
+    {
+        $ruleCode = $this->reactionRuleCode($slice->getSpaceId(), $slice->getRevision(), $reaction);
+        if ($ruleCode === null) {
+            return null;
+        }
+
+        $spec = $slice->findLive($ruleCode)?->getSpec();
+        if (!$spec instanceof AbilityActionSpec) {
+            return null;
+        }
+
+        $code = $spec->getBase()->getDodgeSoak();
+
+        return is_string($code) && $code !== '' ? $code : null;
+    }
+
+    /**
+     * Взведённый хвост смягчения, подходящий к попаданию.
+     *
+     * @param array<string, mixed> $pending Карта ожидания.
+     * @param string $actorKind Вид атакующего.
+     * @param int $actorId Атакующий.
+     * @param string $profileType Тип профиля.
+     * @param int $hitNumber Номер попадания.
+     *
+     * @return array<string, mixed>|null Эффект или null.
+     */
+    private function armedSoakTail(
+        array $pending,
+        string $actorKind,
+        int $actorId,
+        string $profileType,
+        int $hitNumber,
+    ): ?array {
+        $key = $actorKind . ':' . $actorId;
+        $waiting = is_array($pending[$key] ?? null) ? $pending[$key] : [];
+        foreach ($waiting as $entry) {
+            $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+            if (
+                !is_array($effect)
+                || ($effect['type'] ?? null) !== 'next_action_attack_dodge_soak_from_reaction'
+                || ($effect['armed'] ?? false) !== true
+            ) {
+                continue;
+            }
+
+            if (!$this->soakTailApplies($effect, $profileType, $hitNumber)) {
+                continue;
+            }
+
+            return $effect;
+        }
+
+        return null;
+    }
+
+    /**
+     * Область хвоста смягчения накрывает попадание.
+     *
+     * @param array<string, mixed> $effect Эффект.
+     * @param string $profileType Тип профиля.
+     * @param int $hitNumber Номер попадания.
+     *
+     * @return bool true, если накрывает.
+     */
+    private function soakTailApplies(array $effect, string $profileType, int $hitNumber): bool
+    {
+        $scope = is_array($effect['scope'] ?? null) ? $effect['scope'] : [];
+        $components = is_array($scope['components'] ?? null) ? $scope['components'] : [];
+        if (!in_array($profileType, $components, true)) {
+            return false;
+        }
+
+        $hitCount = $scope['hit_count'] ?? 1;
+
+        return $hitCount === 'all' || (is_int($hitCount) && $hitNumber <= $hitCount);
+    }
+
+    /**
+     * Целое значение Реакции атакующего.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $actorKind Вид атакующего.
+     * @param int $actorId Атакующий.
+     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
+     * @param array<string, mixed>|null $npcChoices Выборы NPC.
+     * @param int|null $npcVersion Версия листа NPC.
+     *
+     * @return int Значение.
+     *
+     * @throws GameInvalidException Если у атакующего нет Реакции.
+     * @throws GameNotFoundException Если листа нет.
+     */
+    private function reactionValue(
+        int $spaceId,
+        int $rulesRevision,
+        string $actorKind,
+        int $actorId,
+        ?array $npcSheet,
+        ?array $npcChoices,
+        ?int $npcVersion,
+    ): int {
+        $slice = $this->slice($spaceId, $rulesRevision);
+        $documents = $this->attackerDocuments($actorKind, $actorId, $npcSheet, $npcChoices, $npcVersion);
+        $value = $this->formulaContext($slice, $documents['sheet'], $documents['choices'], $documents['key'])
+            ->findCharacteristic(self::REACTION_CHARACTERISTIC);
+        if ($value === null) {
+            throw new GameInvalidException('Game strike reaction characteristic is invalid');
+        }
+
+        return max(0, $value->toInteger());
+    }
+
 }

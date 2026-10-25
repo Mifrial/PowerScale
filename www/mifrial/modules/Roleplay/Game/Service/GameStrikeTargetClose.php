@@ -149,6 +149,9 @@ final class GameStrikeTargetClose
             $success,
             $damage,
             $penetrationFactory,
+            // Широкий удар — одна проверка на несколько целей: хвост «Стремительного» не применяется.
+            [],
+            $attackerRoll,
         );
         $record = GameStrikeTargetRow::row(
             $target,
@@ -160,6 +163,10 @@ final class GameStrikeTargetClose
             $this->amounts->view($outcome['injury']),
             $defense['defenderRoll'],
         );
+        if ($outcome['durabilityShave'] > 0) {
+            $record['durabilityShave'] = $outcome['durabilityShave'];
+        }
+
         if (!$defense['autoFail'] || $spends !== []) {
             $record['sheetVersion'] = $defense['autoFail']
                 ? $this->sheetWrites->writeResources(
@@ -343,9 +350,11 @@ final class GameStrikeTargetClose
      * @param int $success Успех.
      * @param DimensionalNumber $damage Урон.
      * @param callable(): DimensionalNumber $penetrationFactory Ленивое проникновение.
+     * @param array<string, mixed> $pending Карта ожидания атакующего.
+     * @param array<string, mixed> $attackerRoll Бросок атаки.
      *
      * @return array{effectiveDamage: DimensionalNumber, resistance: DimensionalNumber,
-     *               soak: DimensionalNumber|null, injury: DimensionalNumber}
+     *               soak: DimensionalNumber|null, durabilityShave: int, injury: DimensionalNumber}
      */
     private function damageOf(
         GameRecord $game,
@@ -356,8 +365,23 @@ final class GameStrikeTargetClose
         int $success,
         DimensionalNumber $damage,
         callable $penetrationFactory,
+        array $pending,
+        array $attackerRoll,
     ): array {
         $targetOpen = GameStrikeTargetRow::targetOpen($open, $target);
+        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        $durabilityShave = $success === 0
+            ? 0
+            : $this->rules->durabilityShave(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $actionRuleCode,
+                is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '',
+                is_string($open['profile_type'] ?? null) ? $open['profile_type'] : '',
+                is_int($open['profile_index'] ?? null) ? $open['profile_index'] : 0,
+                $attackerRoll,
+                $success,
+            );
         $effectiveDamage = $success === 0 ? $this->amounts->zero() : $damage;
         $resistance = $success === 0
             ? $this->amounts->zero()
@@ -367,15 +391,15 @@ final class GameStrikeTargetClose
                 $this->resolution->resistanceChoice($choice, $defenderRoll),
                 $success,
                 $penetrationFactory(),
+                $durabilityShave,
             );
-        $soak = $choice['reaction'] === 'dodge'
-            ? $this->resolution->soakOf($game, $targetOpen)
-            : null;
+        $soak = $this->resolution->soakOf($game, $targetOpen, $choice['reaction'], $success, $pending);
 
         return [
             'effectiveDamage' => $effectiveDamage,
             'resistance' => $resistance,
             'soak' => $soak,
+            'durabilityShave' => $durabilityShave,
             'injury' => $this->amounts->injury($effectiveDamage, $resistance, $success, $soak),
         ];
     }

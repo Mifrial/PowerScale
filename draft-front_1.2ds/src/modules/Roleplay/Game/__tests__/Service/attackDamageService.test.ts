@@ -994,7 +994,7 @@ describe('applyAttackDamage', () => {
     expect(calc.damage).toEqual({ base: 4, size: 1 });
     expect(calc.damageTypeName).toBe('дробящий');
     expect(calc.raw).toBe(16);
-    expect(calc.dodgeSoak).toBe(0);
+    expect(calc.dodgeSoak).toEqual({ base: 0, size: 0 });
     expect(
       formatSpellEffectMessage({
         spellRuleCode: 'discharge',

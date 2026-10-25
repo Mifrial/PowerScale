@@ -108,6 +108,10 @@ final class GameStrikeConsequences
         }
 
         $consequence = ['wound' => $wound, 'exhaustionDelta' => $cutting ? 0 : $quotient];
+        if ($cutting === null) {
+            $consequence['damageRemainder'] = $split['remainder'];
+        }
+
         if ($endurance instanceof DimensionalNumber) {
             $consequence['endurance'] = ['base' => $endurance->getBase(), 'size' => $endurance->getSize()];
         }

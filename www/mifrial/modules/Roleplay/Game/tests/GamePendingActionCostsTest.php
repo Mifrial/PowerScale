@@ -438,6 +438,145 @@ final class GamePendingActionCostsTest extends TestCase
     }
 
     /**
+     * Хвост Стремительного ставится завершением подготовки.
+     *
+     * @return void
+     */
+    public function testCompleteWritesDodgeSoakTail(): void
+    {
+        $costs = new GamePendingActionCosts();
+        $pending = $costs->complete(
+            $this->sliceWithDodgeSoakTail(),
+            [],
+            'synthetic',
+            'character',
+            1,
+            [],
+            ['action-points' => 1],
+        );
+
+        $effect = $pending['character:1'][0]['effect'] ?? [];
+        self::assertSame('next_action_attack_dodge_soak_from_reaction', $effect['type'] ?? null);
+        self::assertSame(2, $effect['max_total_action_cost'] ?? null);
+        self::assertSame(['components' => ['strike'], 'hit_count' => 1], $effect['scope'] ?? null);
+        self::assertArrayNotHasKey('armed', $effect);
+    }
+
+    /**
+     * Хвост взводится только атакой в пределах потолка ОД.
+     *
+     * @return void
+     */
+    public function testDeclareArmsDodgeSoakTailWithinCost(): void
+    {
+        $costs = new GamePendingActionCosts();
+        $slice = $this->sliceWithDodgeSoakTail();
+        $pending = $this->dodgeSoakPending();
+
+        $attack = $costs->declare($slice, [], 'synthetic', 'character', 1, $pending, ['action-points' => 2], true);
+        self::assertTrue($attack['pending']['character:1'][0]['effect']['armed'] ?? false);
+
+        $tooExpensive = $costs->declare($slice, [], 'synthetic', 'character', 1, $pending, ['action-points' => 3], true);
+        self::assertSame([], $tooExpensive['pending']['character:1'] ?? []);
+
+        $wait = $costs->declare($slice, [], 'wait', 'character', 1, $pending, ['action-points' => 1], false);
+        self::assertSame([], $wait['pending']['character:1'] ?? []);
+    }
+
+    /**
+     * Атака снимает взведённый хвост после расчёта.
+     *
+     * @return void
+     */
+    public function testCompleteConsumesArmedDodgeSoakTail(): void
+    {
+        $costs = new GamePendingActionCosts();
+        $slice = $this->sliceWithDodgeSoakTail();
+        $pending = $costs->declare(
+            $slice,
+            [],
+            'synthetic',
+            'character',
+            1,
+            $this->dodgeSoakPending(),
+            ['action-points' => 1],
+            true,
+        )['pending'];
+
+        $result = $costs->complete($slice, [], 'wait', 'character', 1, $pending, ['action-points' => 1]);
+
+        self::assertSame([], $result['character:1'] ?? []);
+    }
+
+    /**
+     * Хвост смягчения без взвода.
+     *
+     * @return array<string, mixed> Карта.
+     */
+    private function dodgeSoakPending(): array
+    {
+        return [
+            'character:1' => [[
+                'sourceRuleCode' => 'synthetic',
+                'effect' => [
+                    'type' => 'next_action_attack_dodge_soak_from_reaction',
+                    'max_total_action_cost' => 2,
+                    'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                ],
+            ]],
+        ];
+    }
+
+    /**
+     * Срез с одной карточкой хвоста смягчения.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function sliceWithDodgeSoakTail(): CharacterRuleSlice
+    {
+        $record = new RuleVersionRecord(
+            1,
+            1,
+            'synthetic',
+            true,
+            'ability',
+            'Synthetic',
+            '',
+            [
+                'type' => 'action',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'requirements' => [],
+                'grants' => [],
+                'parent_ability_code' => null,
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 1,
+                    'label' => 'Действие',
+                ]],
+                'action_effects' => [[
+                    'type' => 'next_action_attack_dodge_soak_from_reaction',
+                    'max_total_action_cost' => 2,
+                    'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                ]],
+            ],
+            [],
+            [],
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+
+        return new CharacterRuleSlice(
+            1,
+            1,
+            'test',
+            [new CharacterResolvedRule($record, [])],
+            [],
+        );
+    }
+
+    /**
      * Срез с одной карточкой after_action.
      *
      * @return CharacterRuleSlice Срез.

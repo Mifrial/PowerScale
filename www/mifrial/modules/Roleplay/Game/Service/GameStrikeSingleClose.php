@@ -239,6 +239,18 @@ final class GameStrikeSingleClose
             $actionRuleCode,
             $previousSr,
         );
+        $durabilityShave = $result['success'] === 0
+            ? 0
+            : $this->rules->durabilityShave(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $actionRuleCode,
+                is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '',
+                is_string($open['profile_type'] ?? null) ? $open['profile_type'] : '',
+                is_int($open['profile_index'] ?? null) ? $open['profile_index'] : 0,
+                $attackerRoll,
+                $result['success'],
+            );
         $resistance = $result['success'] === 0
             ? $this->amounts->zero()
             : $this->resolution->resistanceOf(
@@ -247,11 +259,16 @@ final class GameStrikeSingleClose
                 $this->resolution->resistanceChoice($choice, $result['defenderRoll'] ?? null),
                 $result['success'],
                 $this->resolution->penetrationOf($game, $open),
+                $durabilityShave,
             );
-        $soak = $choice['reaction'] === 'dodge' ? $this->resolution->soakOf($game, $targetOpen) : null;
+        $soak = $this->resolution->soakOf($game, $targetOpen, $choice['reaction'], $result['success'], $pending);
         $result['resistance'] = $this->amounts->view($resistance);
         if ($soak !== null) {
             $result['S'] = $this->amounts->view($soak);
+        }
+
+        if ($durabilityShave > 0) {
+            $result['durabilityShave'] = $durabilityShave;
         }
 
         $effectiveDamage = $result['success'] === 0 ? $this->amounts->zero() : $damage;

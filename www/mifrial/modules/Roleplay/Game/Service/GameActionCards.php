@@ -12,6 +12,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\AfterActionUntilResourceSpentCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackAccuracyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackCostEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackDodgeSoakFromReactionEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackScoreAdjustEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionCostEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\RequirePreviousAttackEffect;
@@ -142,6 +143,7 @@ final class GameActionCards
         return $effect instanceof RequirePreviousAttackEffect
             || $effect instanceof NextActionAttackAccuracyEffect
             || $effect instanceof NextActionAttackScoreAdjustEffect
+            || $effect instanceof NextActionAttackDodgeSoakFromReactionEffect
             || $effect instanceof AfterActionUntilResourceSpentCheckModifierEffect
             || $effect instanceof NextActionCostEffect
             || $effect instanceof NextActionAttackCostEffect;

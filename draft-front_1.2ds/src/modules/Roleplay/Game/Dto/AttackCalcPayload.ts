@@ -23,8 +23,10 @@ export interface AttackCalcPayload {
   /** Пробитие оружия; в расчёте уменьшает защиту, не ниже 0. */
   penetration?: number;
   /** Смягчение уклона после (урон − сопротивление) × РУ. */
-  dodgeSoak?: number;
+  dodgeSoak?: DimensionalNumberValue | number;
   durabilityShave?: number;
+  /** Повреждение до деления на стойкость. */
+  injury?: DimensionalNumberValue;
   endurance: DimensionalNumberValue;
   defenseIgnored: boolean;
   attackSrLabel: string;
@@ -34,7 +36,7 @@ export interface AttackCalcPayload {
   stun: number | null;
   shock: number | null;
   exhaustion: number;
-  remainingHpDamage: number;
+  remainingHpDamage?: DimensionalNumberValue | number;
   wound: number | null;
   knockout: boolean;
   cuttingWound: number | null;

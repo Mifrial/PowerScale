@@ -9,6 +9,7 @@ const props = defineProps<{
   modelValue: AbilitySpecDraft;
   currentType: string | null;
   items: NamedOption[];
+  characteristics: { title: string; value: string }[];
 }>();
 
 const emit = defineEmits<{
@@ -52,6 +53,7 @@ function setCombatAction(value: AbilitySpecDraft['combat_action'] | null): void 
   if (!value) {
     delete next.combat_action;
     delete next.dodge_efficiency;
+    delete next.dodge_soak;
     emit('update:modelValue', next);
 
     return;
@@ -61,6 +63,7 @@ function setCombatAction(value: AbilitySpecDraft['combat_action'] | null): void 
     next.dodge_efficiency = next.dodge_efficiency ?? { base: 4, size: -1 };
   } else {
     delete next.dodge_efficiency;
+    delete next.dodge_soak;
   }
   emit('update:modelValue', next);
 }
@@ -82,6 +85,18 @@ function setCombatAction(value: AbilitySpecDraft['combat_action'] | null): void 
       :model-value="modelValue.dodge_efficiency ?? null"
       label="Эффективность уклонения"
       @update:model-value="patch({ dodge_efficiency: $event })"
+    />
+    <v-select
+      v-if="modelValue.combat_action === 'dodge'"
+      :model-value="modelValue.dodge_soak ?? null"
+      :items="characteristics"
+      item-title="title"
+      item-value="value"
+      label="Характеристика смягчения"
+      density="compact"
+      hide-details
+      clearable
+      @update:model-value="patch({ dodge_soak: $event ?? null })"
     />
     <v-autocomplete
       :model-value="modelValue.weapon_item_code ?? null"

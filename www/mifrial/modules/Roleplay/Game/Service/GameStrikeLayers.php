@@ -53,6 +53,7 @@ final class GameStrikeLayers
      * @param int|null $blockItemInventoryId Id предмета блока.
      * @param int $rating Рейтинг попадания.
      * @param DimensionalNumber|null $penetration Проникновение атакующего.
+     * @param int $durabilityShave Срез надёжности с единиц удара.
      *
      * @return DimensionalNumber Сумма.
      *
@@ -67,6 +68,7 @@ final class GameStrikeLayers
         ?int $blockItemInventoryId,
         int $rating,
         ?DimensionalNumber $penetration = null,
+        int $durabilityShave = 0,
     ): DimensionalNumber {
         $type = $this->damageType($slice, $damageType);
         try {
@@ -86,7 +88,7 @@ final class GameStrikeLayers
             throw new GameInvalidException('Game strike resistance is invalid', $exception);
         }
 
-        $values = $this->kept($projected, $damageType, $type['ignored'], $cut, $rating);
+        $values = $this->kept($projected, $damageType, $type['ignored'], $cut, $rating, $durabilityShave);
         $defense = $this->amounts->sum($values['defense']);
         $resistance = $this->amounts->sum($values['resistance']);
         $effectiveDefense = $this->amounts->effectiveDefense(
@@ -234,14 +236,24 @@ final class GameStrikeLayers
      * @param bool $defenseIgnored Защита типа выключена.
      * @param bool $cut Срез включён.
      * @param int $rating Рейтинг.
+     * @param int $durabilityShave Срез надёжности с единиц.
      *
      * @return array{defense: list<DimensionalNumber>, resistance: list<DimensionalNumber>} Пары по виду.
      */
-    private function kept(array $layers, string $damageType, bool $defenseIgnored, bool $cut, int $rating): array
-    {
+    private function kept(
+        array $layers,
+        string $damageType,
+        bool $defenseIgnored,
+        bool $cut,
+        int $rating,
+        int $durabilityShave,
+    ): array {
         $matched = [];
         foreach ($layers as $layer) {
-            if ($this->matches($layer, $damageType, $defenseIgnored) && !$this->shaved($layer, $cut, $rating)) {
+            if (
+                $this->matches($layer, $damageType, $defenseIgnored)
+                && !$this->shaved($layer, $cut, $rating, $durabilityShave)
+            ) {
                 $matched[] = $layer;
             }
         }
@@ -293,19 +305,29 @@ final class GameStrikeLayers
     }
 
     /**
-     * Срез снимает слой с порогом не выше рейтинга.
+     * Порог снимает слой: надёжность не выше (срез ? рейтинг : 0) + сдвиг единиц.
      *
      * @param CharacterCombatLayer $layer Слой.
      * @param bool $cut Срез включён.
      * @param int $rating Рейтинг.
+     * @param int $durabilityShave Срез надёжности с единиц.
      *
      * @return bool true, если слой снят.
      */
-    private function shaved(CharacterCombatLayer $layer, bool $cut, int $rating): bool
-    {
+    private function shaved(
+        CharacterCombatLayer $layer,
+        bool $cut,
+        int $rating,
+        int $durabilityShave,
+    ): bool {
         $durability = $layer->getDurability();
+        if ($durability === null || (!$cut && $durabilityShave <= 0)) {
+            return false;
+        }
 
-        return $cut && $durability !== null && $durability <= $rating;
+        $threshold = ($cut ? $rating : 0) + $durabilityShave;
+
+        return $durability <= $threshold;
     }
 
     /**

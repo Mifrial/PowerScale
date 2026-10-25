@@ -83,6 +83,39 @@ final class GameStrikeLayersTest extends TestCase
     }
 
     /**
+     * Срез единиц сдвигает порог надёжности без второго броска.
+     *
+     * @param bool $cut Срез типа урона включён.
+     * @param int $shave Срез единиц.
+     * @param int $expectedBase Ожидаемая сумма.
+     *
+     * @return void
+     *
+     * @dataProvider durabilityShaveProvider
+     */
+    public function testDurabilityShaveExtendsThreshold(bool $cut, int $shave, int $expectedBase): void
+    {
+        $layers = [
+            new CharacterCombatLayer('resistance', new DimensionalNumber(1, 0), 2, '', 'piercing'),
+            new CharacterCombatLayer('resistance', new DimensionalNumber(2, 0), 3, '', 'piercing'),
+        ];
+
+        $amount = $this->layers($layers, $cut)->total(
+            $this->damageTypeSlice(),
+            'piercing',
+            [],
+            [],
+            'dodge',
+            null,
+            1,
+            null,
+            $shave,
+        );
+
+        self::assertSame($expectedBase, $amount->getBase());
+    }
+
+    /**
      * Defense и resistance используют одинаковую threshold semantics.
      *
      * @return void
@@ -262,6 +295,23 @@ final class GameStrikeLayersTest extends TestCase
             'equal rating is removed before collapse' => [1, true, 3],
             'below rating is removed before collapse' => [0, true, 3],
             'cut disabled keeps layer' => [1, false, 7],
+        ];
+    }
+
+    /**
+     * Порог (cut ? рейтинг : 0) + срез единиц.
+     *
+     * @return array<string, array{bool, int, int}> Наборы.
+     */
+    public static function durabilityShaveProvider(): array
+    {
+        return [
+            'cut without shave' => [true, 0, 3],
+            'cut and one' => [true, 1, 2],
+            'cut and two' => [true, 2, 0],
+            'no cut and no shave' => [false, 0, 3],
+            'no cut and two' => [false, 2, 2],
+            'no cut and three' => [false, 3, 0],
         ];
     }
 

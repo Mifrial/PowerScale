@@ -67,6 +67,8 @@ export interface AbilitySpecBase {
   combat_action?: 'dodge' | 'block' | 'turn' | 'wait' | 'recover-stability' | 'simple-touch';
   /** Эффективность совместной проверки уклона. Только у combat_action dodge. */
   dodge_efficiency?: DimensionalNumberValue;
+  /** Код характеристики смягчения реакции. Только у combat_action dodge; нет поля — смягчения нет. */
+  dodge_soak?: string | null;
   /** Включает трату нескольких жетонов. Пороги и «уровень + 1» остаются в сервисе. */
   peak_concentration?: boolean;
   /** Включает трату жетона на проверки воли. Порог воли остаётся в сервисе. */

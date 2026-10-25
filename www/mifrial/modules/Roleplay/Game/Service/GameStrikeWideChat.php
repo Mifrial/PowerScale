@@ -8,6 +8,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Чат широкого удара.
@@ -207,10 +208,13 @@ final class GameStrikeWideChat
                     . ' РУ и наносит ' . implode(' и ', $bits) . '!'
                 : $attacker . ' промахивается по ' . $defender . '!',
             [
-                'raw' => is_array($record['injury'] ?? null) ? ($record['injury']['base'] ?? 0) : 0,
+                'raw' => $this->integerOf($record['injury'] ?? null),
                 'damage' => is_array($record['damage'] ?? null) ? $record['damage'] : ['base' => 0, 'size' => 0],
                 'damageTypeName' => $typeBit,
                 'resistance' => is_array($record['resistance'] ?? null) ? ($record['resistance']['base'] ?? 0) : 0,
+                'injury' => $this->pairOf($record['injury'] ?? null),
+                'dodgeSoak' => $this->pairOf($record['S'] ?? null),
+                'durabilityShave' => is_int($record['durabilityShave'] ?? null) ? $record['durabilityShave'] : 0,
                 'endurance' => is_array($record['endurance'] ?? null)
                     ? $record['endurance']
                     : ['base' => 0, 'size' => 0],
@@ -222,12 +226,11 @@ final class GameStrikeWideChat
                 'stun' => null,
                 'shock' => null,
                 'exhaustion' => $exhaustion,
-                'remainingHpDamage' => 0,
+                'remainingHpDamage' => $this->pairOf($record['damageRemainder'] ?? null),
                 'wound' => $wound,
                 'knockout' => ($record['unconscious'] ?? false) === true,
                 'cuttingWound' => null,
                 'layers' => [],
-                'injury' => $record['injury'] ?? null,
             ],
             $will,
             $maim,
@@ -252,5 +255,37 @@ final class GameStrikeWideChat
         }
 
         return ['type' => $kind, 'id' => $defenderId];
+    }
+
+    /**
+     * Пара base/size или ноль.
+     *
+     * @param mixed $pair Пара base/size.
+     *
+     * @return array{base: int, size: int} Пара.
+     */
+    private function pairOf(mixed $pair): array
+    {
+        if (!is_array($pair) || !is_int($pair['base'] ?? null) || !is_int($pair['size'] ?? null)) {
+            return ['base' => 0, 'size' => 0];
+        }
+
+        return ['base' => $pair['base'], 'size' => $pair['size']];
+    }
+
+    /**
+     * Целое значение пары или 0.
+     *
+     * @param mixed $pair Пара base/size.
+     *
+     * @return int Число.
+     */
+    private function integerOf(mixed $pair): int
+    {
+        if (!is_array($pair) || !is_int($pair['base'] ?? null) || !is_int($pair['size'] ?? null)) {
+            return 0;
+        }
+
+        return (new DimensionalNumber($pair['base'], $pair['size']))->toInteger();
     }
 }

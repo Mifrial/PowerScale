@@ -17,8 +17,10 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\AfterActionUntilResourceSpentCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackAccuracyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackCostEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackDodgeSoakFromReactionEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackScoreAdjustEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionCostEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 
 /**
  * Читает, снимает и ставит карту ожидания следующего действия.
@@ -129,6 +131,7 @@ final class GamePendingActionCosts
             $touched[$resource] = true;
         }
 
+        $kept = $this->keepSoakTail($slice, $kept, $forAttack, $amounts);
         $pending[$key] = $kept;
         if ($kept === []) {
             unset($pending[$key]);
@@ -169,6 +172,7 @@ final class GamePendingActionCosts
         array_push($kept, ...$this->afterActionOf($slice, $actionRuleCode));
         array_push($kept, ...$this->queued($slice, $choices, $actionRuleCode));
         array_push($kept, ...$this->attackCostOf($slice, $actionRuleCode));
+        array_push($kept, ...$this->dodgeSoakTailOf($slice, $actionRuleCode));
 
         $pending[$key] = $kept;
         if ($kept === []) {
@@ -365,6 +369,7 @@ final class GamePendingActionCosts
 
                 return $type !== 'next_action_attack_accuracy'
                     && $type !== 'next_action_attack_score_adjust'
+                    && $type !== 'next_action_attack_dodge_soak_from_reaction'
                     && $type !== 'last_strike_snapshot';
             },
         ));
@@ -688,6 +693,43 @@ final class GamePendingActionCosts
     }
 
     /**
+     * Хвост смягчения от Реакции, подготовленный карточкой.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка.
+     *
+     * @return array<int, array<string, mixed>> Строки карты.
+     */
+    private function dodgeSoakTailOf(CharacterRuleSlice $slice, string $actionRuleCode): array
+    {
+        $base = $this->abilityBase($slice, $actionRuleCode);
+        if ($base === null) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($base->getActionEffects() as $effect) {
+            if (!$effect instanceof NextActionAttackDodgeSoakFromReactionEffect) {
+                continue;
+            }
+
+            $rows[] = [
+                'sourceRuleCode' => $actionRuleCode,
+                'effect' => [
+                    'type' => 'next_action_attack_dodge_soak_from_reaction',
+                    'max_total_action_cost' => $effect->getMaxTotalActionCost(),
+                    'scope' => [
+                        'components' => array_values($effect->getScope()->getComponents()),
+                        'hit_count' => $effect->getScope()->getHitCount(),
+                    ],
+                ],
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
      * next_action_attack_cost самой команды. Следующая атака снимет его.
      *
      * @param CharacterRuleSlice $slice Срез.
@@ -729,4 +771,91 @@ final class GamePendingActionCosts
 
         return $rows;
     }
+    /**
+     * Оставляет хвост смягчения только для атаки, уложившейся в потолок ОД.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<int, mixed> $entries Записи после cost-эффектов.
+     * @param bool $forAttack Команда — атака.
+     * @param array<string, int> $amounts Итоговая цена по ресурсам.
+     *
+     * @return array<int, mixed> Записи.
+     */
+    private function keepSoakTail(
+        CharacterRuleSlice $slice,
+        array $entries,
+        bool $forAttack,
+        array $amounts,
+    ): array {
+        $cost = $this->actionCost($slice, $amounts);
+        $kept = [];
+        foreach ($entries as $entry) {
+            if (!$this->isSoakTail($entry)) {
+                $kept[] = $entry;
+                continue;
+            }
+
+            $effect = is_array($entry['effect'] ?? null) ? $entry['effect'] : [];
+            if ($forAttack && $this->soakTailFits($effect, $cost)) {
+                $entry['effect']['armed'] = true;
+                $kept[] = $entry;
+            }
+        }
+
+        return $kept;
+    }
+
+    /**
+     * Запись карты — хвост смягчения от Реакции.
+     *
+     * @param mixed $entry Запись.
+     *
+     * @return bool true, если хвост.
+     */
+    private function isSoakTail(mixed $entry): bool
+    {
+        $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+
+        return is_array($effect) && ($effect['type'] ?? null) === 'next_action_attack_dodge_soak_from_reaction';
+    }
+
+    /**
+     * Цена атаки не превышает потолок хвоста.
+     *
+     * @param array<string, mixed> $effect Эффект.
+     * @param int $cost Цена в ОД.
+     *
+     * @return bool true, если хвост применяется.
+     */
+    private function soakTailFits(array $effect, int $cost): bool
+    {
+        $max = $effect['max_total_action_cost'] ?? null;
+
+        return !is_int($max) || $cost <= $max;
+    }
+
+    /**
+     * Фактическая цена действия в ОД после cost-эффектов.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, int> $amounts Цена по ресурсам.
+     *
+     * @return int Очки действия.
+     */
+    private function actionCost(CharacterRuleSlice $slice, array $amounts): int
+    {
+        foreach ($slice->getLiveRules() as $rule) {
+            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
+            if ($spec instanceof ResourceSpec && $spec->isTurnRefill()) {
+                $value = $amounts[$rule->getCode()] ?? null;
+
+                return is_int($value) ? $value : 0;
+            }
+        }
+
+        $fallback = $amounts['action-points'] ?? null;
+
+        return is_int($fallback) ? $fallback : 0;
+    }
+
 }

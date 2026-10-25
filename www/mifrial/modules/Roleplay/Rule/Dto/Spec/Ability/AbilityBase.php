@@ -55,6 +55,7 @@ final class AbilityBase
      * @param AbilityAggregate|null $aggregate Агрегат уровня.
      * @param DerivedLevel|null $derivedLevel Производный уровень.
      * @param DimensionalNumber|null $dodgeEfficiency Эффективность уклона.
+     * @param string|null $dodgeSoak Код характеристики смягчения.
      *
      * @return void
      */
@@ -98,6 +99,7 @@ final class AbilityBase
         private readonly ?AbilityAggregate $aggregate,
         private readonly ?DerivedLevel $derivedLevel,
         private readonly ?DimensionalNumber $dodgeEfficiency = null,
+        private readonly ?string $dodgeSoak = null,
     ) {
     }
 
@@ -279,6 +281,16 @@ final class AbilityBase
     public function getDodgeEfficiency(): ?DimensionalNumber
     {
         return $this->dodgeEfficiency;
+    }
+
+    /**
+     * Код характеристики смягчения реакции. Нет поля — смягчения нет.
+     *
+     * @return string|null Код или null.
+     */
+    public function getDodgeSoak(): ?string
+    {
+        return $this->dodgeSoak;
     }
 
     /**

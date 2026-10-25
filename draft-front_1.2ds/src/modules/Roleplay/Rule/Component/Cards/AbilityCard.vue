@@ -320,6 +320,10 @@ function grantLabel(grant: Grant): string {
           Эффективность уклонения:
           <strong>{{ DimensionalNumber.from(spec.dodge_efficiency).toString() }}</strong>
         </div>
+        <div v-if="spec?.dodge_soak" class="mt-2">
+          Смягчение от характеристики:
+          <strong>{{ spec.dodge_soak }}</strong>
+        </div>
         <div v-if="nonResourceComponents.length && type !== 'spell'" class="mt-2">
           <div class="text-body-2 text-medium-emphasis mb-1">Компоненты</div>
           <div class="d-flex flex-wrap ga-2">

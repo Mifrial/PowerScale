@@ -1597,6 +1597,7 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'S',
                 'wound',
                 'exhaustionDelta',
+                'damageRemainder',
                 'endurance',
                 'will',
                 'willOutcome',
@@ -1943,6 +1944,7 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'type' => 'action',
                 'combat_action' => 'dodge',
                 'dodge_efficiency' => ['base' => 4, 'size' => -1],
+                'dodge_soak' => 'agility',
                 'action_components' => [],
                 'distinct_weapons' => false,
                 'same_weapon' => false,
@@ -2086,7 +2088,6 @@ final class GameWideStrikeMysqlTest extends TestCase
                 ]],
             ]], 'needs_work')),
             RuleCommitEntry::put('agility', new RuleVersionBody('characteristic', 'Agility', '', [
-                'dodge_soak' => true,
                 'automatic' => ['value' => ['base' => 3, 'size' => 0]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('strength', new RuleVersionBody('characteristic', 'Strength', '', [

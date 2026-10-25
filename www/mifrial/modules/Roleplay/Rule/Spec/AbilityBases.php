@@ -65,6 +65,7 @@ final class AbilityBases
             self::aggregate($document),
             self::derivedLevel($document),
             DimensionalNumbers::optional($document, 'dodge_efficiency'),
+            SpecShape::optionalString($document, 'dodge_soak'),
         );
     }
 
