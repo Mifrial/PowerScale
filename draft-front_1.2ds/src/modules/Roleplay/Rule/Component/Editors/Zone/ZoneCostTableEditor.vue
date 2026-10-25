@@ -2,7 +2,7 @@
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { zoneCostSpecService } from '@/modules/Roleplay/Rule/Service/Instance/zoneCostSpecService';
 
-const props = defineProps<{
+defineProps<{
   modelValue: Record<string, number>;
 }>();
 

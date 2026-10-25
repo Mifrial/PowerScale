@@ -5,6 +5,7 @@ import { AUTH_PERMISSION_CATEGORY } from '@/modules/Core/Auth/Constant/Permissio
 import { registerPermissionCategory, registerUserEditSection } from '@/modules/Core/User/init';
 
 export { passwordValidatorService } from '@/modules/Core/Auth/Service/Instance/passwordValidatorService';
+export { useAuthStore } from '@/modules/Core/Auth/Store/auth';
 
 export function registerAuthApi(api: IAuthApi): void {
   serviceLocator.set('Core.Auth.Service.AuthApi', api);

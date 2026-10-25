@@ -3,7 +3,7 @@ import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { computed, onUnmounted, provide, ref, watch } from 'vue';
 import { displayName, useCurrentUser, useUserCatalog } from '@/modules/Core/User/init';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { useChatStore } from '@/modules/Messages/Chat/init';
 import {
   gameAccessService,
   gameStrikeDefenseService,
@@ -489,7 +489,8 @@ async function load(): Promise<void> {
         [
           ...initiativeKeys.value,
           ...npcs.value.map((npc) => `npc:${npc.id}` as CombatEntityKey),
-          ...(gamePhpBattleContext.getScale()?.participants.map((participant) => participant.id) ?? []),
+          ...(gamePhpBattleContext.getScale()?.participants.map((participant) => participant.id as CombatEntityKey) ??
+            []),
         ],
         requestGameId,
       );
@@ -1176,10 +1177,10 @@ function onTurn(participantId: string | null): void {
   applySpeakerKey();
 }
 
-const initiativeKeys = ref<string[]>([]);
+const initiativeKeys = ref<CombatEntityKey[]>([]);
 
 function onInitiativeParticipants(keys: string[]): void {
-  initiativeKeys.value = keys;
+  initiativeKeys.value = keys as CombatEntityKey[];
   void loadRuntimeProjections(keys);
 }
 

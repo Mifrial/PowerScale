@@ -1,4 +1,3 @@
-import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ItemSpecDraft } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpecDraft';
 import type { WeaponBlock } from '@/modules/Roleplay/Rule/Dto/Item/WeaponBlock';
 import type { ArmorBlock } from '@/modules/Roleplay/Rule/Dto/Item/ArmorBlock';

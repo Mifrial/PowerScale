@@ -17,6 +17,7 @@ import { GROUPS_MENU_ITEM } from '@/modules/Core/User/Constant/Navigation/GROUPS
 import { registerMenuContribution, registerMenuItem, registerMenuSection } from '@/modules/Core/UI/init';
 
 export { accessService } from '@/modules/Core/User/Service/Instance/accessService';
+export { useUserStore } from '@/modules/Core/User/Store/users';
 export { currentUserSessionService } from '@/modules/Core/User/Service/Instance/currentUserSessionService';
 export { useCurrentUser } from '@/modules/Core/User/Composables/useCurrentUser';
 export { useUserCatalog } from '@/modules/Core/User/Composables/useUserCatalog';

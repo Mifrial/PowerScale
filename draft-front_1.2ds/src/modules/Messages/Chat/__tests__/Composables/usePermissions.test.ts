@@ -4,8 +4,8 @@ import { usePermissions } from '@/modules/Messages/Chat/Composables/usePermissio
 import { registerAuthApi } from '@/modules/Core/Auth/init';
 import { resetRegisteredApis } from '@/modules/Core/Engine/init';
 import { mockAuthApi } from '@/modules/Core/Auth/Mock/mockAuthApi';
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
-import { useUserStore } from '@/modules/Core/User/Store/users';
+import { useAuthStore } from '@/modules/Core/Auth/init';
+import { useUserStore } from '@/modules/Core/User/init';
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 
 function listedChat(userId: number): Chat {

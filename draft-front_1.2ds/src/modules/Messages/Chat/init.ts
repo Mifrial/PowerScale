@@ -25,6 +25,7 @@ export { chatInlineRendererContext } from '@/modules/Messages/Chat/Utils/chatInl
 export type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
 export { chatVisibilityService } from '@/modules/Messages/Chat/Service/Instance/chatVisibilityService';
 export { chatFoldService } from '@/modules/Messages/Chat/Service/Instance/chatFoldService';
+export { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 export { useChatChannel } from '@/modules/Messages/Chat/Composables/useChatChannel';
 export { CHAT_PERMISSION_SEE_ALL } from '@/modules/Messages/Chat/Constant/Chat/CHAT_PERMISSION_SEE_ALL';
 

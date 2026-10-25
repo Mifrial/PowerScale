@@ -20,8 +20,19 @@ const props = defineProps<{
 
 const byCode = computed(() => new Map(props.rules.map((rule) => [rule.code, rule])));
 
+const senses = computed(() =>
+  props.senses.map((sense) => ({
+    ...sense,
+    ruleCode: sense.ruleCode,
+    name: byCode.value.get(sense.ruleCode)?.name ?? sense.ruleCode,
+    value: sense.value,
+    status: sense.status,
+    radius: sense.radius,
+  })),
+);
+
 /** Чувства относятся к Внимательности: показываем блок у неё самой или у её производных. */
-const activeSenses = computed(() => props.senses.filter((sense) => sense.status !== 'absent'));
+const activeSenses = computed(() => senses.value.filter((sense) => sense.status !== 'absent'));
 const showsSenses = computed(() => {
   return props.stat.characteristic.code === 'attention';
 });
@@ -40,17 +51,6 @@ const weaponMastery = computed(() => {
     props.rules,
   );
 });
-
-const senses = computed(() =>
-  props.senses.map((sense) => ({
-    ...sense,
-    ruleCode: sense.ruleCode,
-    name: byCode.value.get(sense.ruleCode)?.name ?? sense.ruleCode,
-    value: sense.value,
-    status: sense.status,
-    radius: sense.radius,
-  })),
-);
 
 function label(value: { base: number; size: number }): string {
   return new DimensionalNumber(value).toString();
