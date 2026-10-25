@@ -234,6 +234,38 @@ final class GameActionRepository
     }
 
     /**
+     * Пишет ответ всех ударов и закрывает действие.
+     *
+     * @param int $actionId Действие.
+     * @param array<string, mixed> $fields Колонки ответа.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если строк нет.
+     * @throws GameInvalidException Если поле.
+     */
+    public function closeWithAnswers(int $actionId, array $fields): void
+    {
+        $this->smartTableGateway->transaction(function () use ($actionId, $fields): void {
+            $strikes = $this->strikes->getList($actionId);
+            if ($strikes === []) {
+                throw new GameNotFoundException('Game action strikes were not found');
+            }
+
+            foreach ($strikes as $strike) {
+                $strikeId = $strike['id'] ?? null;
+                if (!is_int($strikeId)) {
+                    throw new GameInvalidException('Game action strike row is invalid');
+                }
+
+                $this->strikes->update($strikeId, $fields);
+            }
+
+            $this->close($actionId);
+        });
+    }
+
+    /**
      * Снимает действия вида вместе с ударами.
      *
      * @param int $sessionId Сессия.

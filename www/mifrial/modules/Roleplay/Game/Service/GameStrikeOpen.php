@@ -326,10 +326,43 @@ final class GameStrikeOpen
             ? [$choice['defender']]
             : $choice['targets'];
 
+        $strikes = is_array($choice['strikes'] ?? null) && $choice['strikes'] !== []
+            ? $this->strikeRows($choice['strikes'])
+            : $this->strikes($targets, $choice);
+
         return [
             'action' => $action,
-            'strikes' => $this->strikes($targets, $choice),
+            'strikes' => $strikes,
         ];
+    }
+
+    /**
+     * Строки ударов из разобранного выбора.
+     *
+     * @param list<array<string, mixed>> $strikes Строки.
+     *
+     * @return list<array<string, mixed>> Строки.
+     */
+    private function strikeRows(array $strikes): array
+    {
+        $rows = [];
+        foreach ($strikes as $strike) {
+            $rows[] = [
+                'instance_index' => $strike['instanceIndex'],
+                'item_inventory_id' => $strike['itemInventoryId'],
+                'item_rule_code' => $strike['itemRuleCode'],
+                'profile_type' => $strike['profileType'],
+                'profile_index' => $strike['profileIndex'],
+                'target_type' => $strike['target']['type'],
+                'target_id' => $strike['target']['id'],
+                'reaction' => null,
+                'block_item_inventory_id' => null,
+                'block_item_profile_index' => null,
+                'block_item_rule_code' => null,
+            ];
+        }
+
+        return $rows;
     }
 
     /**

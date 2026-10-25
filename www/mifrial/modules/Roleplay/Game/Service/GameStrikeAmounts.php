@@ -79,6 +79,19 @@ final class GameStrikeAmounts
     }
 
     /**
+     * Умножает пару на целое.
+     *
+     * @param DimensionalNumber $number Число.
+     * @param int $factor Множитель.
+     *
+     * @return DimensionalNumber Пара.
+     */
+    public function times(DimensionalNumber $number, int $factor): DimensionalNumber
+    {
+        return new DimensionalNumber($number->getBase() * $factor, $number->getSize());
+    }
+
+    /**
      * Пара для JSON итога.
      *
      * @param DimensionalNumber $number Число.

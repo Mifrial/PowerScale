@@ -11,6 +11,7 @@ use Mifrial\Roleplay\Game\Exception\GameEconomyConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -91,6 +92,7 @@ final class GameStrikeSingleClose
             throw new GameInvalidException('Game strike row is invalid');
         }
 
+        $packets = max(1, count($strikes));
         $target = $this->rows->defender($row);
         $targetKey = $this->rows->targetKey($target);
         $attackerKind = $open['attacker_kind'] ?? null;
@@ -155,6 +157,10 @@ final class GameStrikeSingleClose
 
         $previousSr = $lastStrike->previousSr($pending, $attackerKind, $attackerId, $targetKey);
         $advantages = [];
+        if ($packets > 1) {
+            $advantages[] = new RollAdvantage('multi_attack', -$packets);
+        }
+
         $prepared = (new GamePreparedDefense())->modifier(
             $pending,
             $attackerKind,
@@ -281,7 +287,7 @@ final class GameStrikeSingleClose
         $prepared = $autoFail ? null : $this->resolution->prepareSheet(
             $game,
             $targetOpen,
-            $injury,
+            $this->amounts->times($injury, $packets),
             $result['success'],
         );
         if (is_array($prepared)) {
@@ -335,7 +341,19 @@ final class GameStrikeSingleClose
             $choice['reaction'],
             $result,
         );
-        $this->actions->closeWithAnswer($strikeId, [
+        for ($packet = 2; $packet <= $packets; ++$packet) {
+            $this->chat->postPacket(
+                $game,
+                $battle,
+                $targetOpen,
+                $actorUserId,
+                $strikeId,
+                $packet,
+                $result,
+            );
+        }
+
+        $this->actions->closeWithAnswers($strikeId, [
             'reaction' => $choice['reaction'],
             'block_item_inventory_id' => $choice['blockItemInventoryId'],
             'block_item_profile_index' => $choice['blockItemProfileIndex'],

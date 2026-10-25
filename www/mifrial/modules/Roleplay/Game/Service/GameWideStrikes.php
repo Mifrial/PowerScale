@@ -352,6 +352,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $choice['attacker']['type'] === 'npc'
                 ? $this->attackerChoices($game->getId(), $choice['attacker']['id'])
                 : null,
+            $choice['instanceIndex'] ?? 0,
         );
         $this->rules->assertAttackTargets(
             $game->getSpaceId(),

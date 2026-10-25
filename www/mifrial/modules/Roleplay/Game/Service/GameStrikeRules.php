@@ -21,6 +21,7 @@ use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackAccuracyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackCharacteristicModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackDodgeSoakEffect;
@@ -234,6 +235,7 @@ final class GameStrikeRules
         string $attackerKind,
         int $attackerId,
         ?array $npcChoices,
+        int $instanceIndex = 0,
     ): void {
         $this->assertLive($spaceId, $rulesRevision, $actionRuleCode);
         $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex);
@@ -244,7 +246,78 @@ final class GameStrikeRules
             throw new GameInvalidException('Game strike attacker choices are invalid');
         }
 
-        $this->assertInventoryItem($choices, $itemInventoryId, $itemRuleCode, $spaceId, $rulesRevision);
+        $this->assertInventoryItem($choices, $itemInventoryId, $itemRuleCode, $spaceId, $rulesRevision, $instanceIndex);
+    }
+
+    /**
+     * Общие поля карточки действия.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия игры.
+     * @param string $actionRuleCode Действие.
+     *
+     * @return AbilityBase|null Поля или null.
+     *
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function actionBaseOf(int $spaceId, int $rulesRevision, string $actionRuleCode): ?AbilityBase
+    {
+        return $this->actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
+    }
+
+    /**
+     * Снимает ли навык потолок экземпляров оружия.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия игры.
+     * @param string $actionRuleCode Действие.
+     * @param string $actorKind Вид актора.
+     * @param int $actorId Идентификатор актора.
+     * @param array<string, mixed>|null $npcChoices Choices NPC.
+     *
+     * @return bool true, если снимает.
+     *
+     * @throws GameInvalidException Если лист битый.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function liftsMaxWeapons(
+        int $spaceId,
+        int $rulesRevision,
+        string $actionRuleCode,
+        string $actorKind,
+        int $actorId,
+        ?array $npcChoices,
+    ): bool {
+        if ($actorKind === 'character') {
+            $snapshot = $this->characterSnapshot($actorId);
+            $sheet = is_array($snapshot['sheet'] ?? null) ? $snapshot['sheet'] : [];
+        } else {
+            $sheet = is_array($npcChoices['sheet'] ?? null) ? $npcChoices['sheet'] : [];
+        }
+
+        $levels = is_array($sheet['abilityLevels'] ?? null) ? $sheet['abilityLevels'] : [];
+        $slice = $this->slice($spaceId, $rulesRevision);
+        foreach ($slice->getLiveRules() as $rule) {
+            $spec = $rule->getSpec();
+            if (!$spec instanceof AbilityActionSpec && !$spec instanceof AbilityPlainSpec) {
+                continue;
+            }
+
+            $base = $spec->getBase();
+            if (
+                $base->getParentAbilityCode() !== $actionRuleCode
+                || !$base->isLiftParentMaxWeapons()
+            ) {
+                continue;
+            }
+
+            $level = $levels[$rule->getCode()] ?? 0;
+            if (is_int($level) && $level >= 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -2008,6 +2081,7 @@ final class GameStrikeRules
         string $itemRuleCode,
         int $spaceId,
         int $rulesRevision,
+        int $instanceIndex = 0,
     ): void {
         $inventory = $choices['inventory'] ?? null;
         if (!is_array($inventory)) {
@@ -2022,10 +2096,14 @@ final class GameStrikeRules
         }
 
         $item = $this->item($spaceId, $rulesRevision, $itemRuleCode);
+        $quantity = count($matches) === 1 ? ($matches[0]['quantity'] ?? 1) : 0;
         if (
             count($matches) !== 1
             || !$this->isCarried($matches[0], $item)
             || ($matches[0]['ruleCode'] ?? null) !== $itemRuleCode
+            || !is_int($quantity)
+            || $instanceIndex < 0
+            || $instanceIndex >= $quantity
         ) {
             throw new GameInvalidException('Game strike inventory item is invalid');
         }

@@ -193,6 +193,49 @@ final class GameStrikes implements IGameStrikes
     }
 
     /**
+     * Открывает удар из нескольких экземпляров одного оружия.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ game.edit_all.
+     * @param bool $viewAll Ключ game.view_all.
+     * @param int $battleId Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedBattleVersion Версия боя.
+     * @param array $choice Разобранный выбор со strikes.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function declareMultiStrike(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        int $battleId,
+        string $idempotencyKey,
+        int $expectedBattleVersion,
+        array $choice,
+    ): array {
+        $ready = $this->ready($gameId, $actorUserId, $editAll, $viewAll, $idempotencyKey, [
+            'attack' => $choice,
+            'battleId' => $battleId,
+            'expectedVersion' => $expectedBattleVersion,
+        ], $choice['attacker']);
+        if ($ready['replay'] !== null) {
+            return $ready['replay'];
+        }
+
+        return $this->open(
+            $ready['game'],
+            $ready['sessionId'],
+            $battleId,
+            $idempotencyKey,
+            $expectedBattleVersion,
+            $choice,
+        );
+    }
+
+    /**
      * Закрывает удар. Писатель игры или владелец персонажа-защитника; NPC — только писатель.
      *
      * @param int $gameId Игра.
@@ -320,26 +363,33 @@ final class GameStrikes implements IGameStrikes
             throw new GameInvalidException('Game strike is already open');
         }
 
-        $this->rules->assertAttack(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['actionRuleCode'],
-            $choice['itemInventoryId'],
-            $choice['itemRuleCode'],
-            $choice['profileType'],
-            $choice['profileIndex'],
-            $choice['attacker']['type'],
-            $choice['attacker']['id'],
-            $choice['attacker']['type'] === 'npc'
-                ? $this->npcChoices($game->getId(), $choice['attacker']['id'])
-                : null,
-        );
+        $npcChoices = $choice['attacker']['type'] === 'npc'
+            ? $this->npcChoices($game->getId(), $choice['attacker']['id'])
+            : null;
+        $strikes = is_array($choice['strikes'] ?? null) ? $choice['strikes'] : [$choice];
+        foreach ($strikes as $strike) {
+            $this->rules->assertAttack(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $choice['actionRuleCode'],
+                $strike['itemInventoryId'],
+                $strike['itemRuleCode'],
+                $strike['profileType'],
+                $strike['profileIndex'],
+                $choice['attacker']['type'],
+                $choice['attacker']['id'],
+                $npcChoices,
+                $strike['instanceIndex'] ?? 0,
+            );
+        }
+
         $this->rules->assertAttackTargets(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['actionRuleCode'],
             1,
         );
+        $this->assertWeaponShape($game, $choice, $npcChoices);
         $this->availability->assertAvailable(
             $game,
             $choice['attacker']['type'],
@@ -514,6 +564,70 @@ final class GameStrikes implements IGameStrikes
             '1-1',
             'Game strike',
         );
+    }
+
+    /**
+     * Форма нескольких экземпляров одного оружия.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $choice Выбор.
+     * @param array<string, mixed>|null $npcChoices Choices NPC.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если форма нарушена.
+     */
+    private function assertWeaponShape(GameRecord $game, array $choice, ?array $npcChoices): void
+    {
+        $strikes = is_array($choice['strikes'] ?? null) ? $choice['strikes'] : [];
+        if ($strikes === []) {
+            return;
+        }
+
+        $codes = [];
+        $instances = [];
+        foreach ($strikes as $strike) {
+            $codes[$strike['itemRuleCode']] = true;
+            $instances[$strike['itemInventoryId'] . ':' . $strike['instanceIndex']] = true;
+        }
+
+        $base = $this->rules->actionBaseOf(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['actionRuleCode'],
+        );
+        if ($base === null) {
+            throw new GameInvalidException('Game strike action is invalid');
+        }
+
+        $count = count($strikes);
+        if ($base->isSameWeapon() && count($codes) !== 1) {
+            throw new GameInvalidException('Game strike same weapon is invalid');
+        }
+
+        $min = $base->getMinWeapons();
+        $max = $base->getMaxWeapons();
+        if (is_int($min) && $count < $min) {
+            throw new GameInvalidException('Game strike weapon count is invalid');
+        }
+
+        if (is_int($max) && $count > $max) {
+            $lifted = $this->rules->liftsMaxWeapons(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $choice['actionRuleCode'],
+                $choice['attacker']['type'],
+                $choice['attacker']['id'],
+                $npcChoices,
+            );
+            if (!$lifted) {
+                throw new GameInvalidException('Game strike weapon count is invalid');
+            }
+        }
+
+        if (count($instances) !== $count) {
+            throw new GameInvalidException('Game strike weapons repeat');
+        }
     }
 
     /**

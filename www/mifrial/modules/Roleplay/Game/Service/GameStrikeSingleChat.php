@@ -151,6 +151,70 @@ final class GameStrikeSingleChat
     }
 
     /**
+     * Строка урона дополнительного пакета.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
+     * @param array<string, mixed> $open Открытый удар.
+     * @param int $actorUserId Актор.
+     * @param int $strikeId Удар.
+     * @param int $packet Номер пакета.
+     * @param array<string, mixed> $result Итог.
+     *
+     * @return void
+     */
+    public function postPacket(
+        GameRecord $game,
+        GameBattleRecord $battle,
+        array $open,
+        int $actorUserId,
+        int $strikeId,
+        int $packet,
+        array $result,
+    ): void {
+        $threadId = 'attack-' . $strikeId;
+        $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
+        $defender = $this->chat->getEntityToken($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
+        $injury = $this->integerOf($result['injury'] ?? null);
+        $this->consequences->postOutcome(
+            $game,
+            $actorUserId,
+            $threadId,
+            'Пакет ' . $packet . ': ' . $defender . ' получает ещё ' . $injury . ' повреждения.',
+            [
+                'raw' => $injury,
+                'damage' => is_array($result['damage'] ?? null) ? $result['damage'] : ['base' => 0, 'size' => 0],
+                'damageTypeName' => '',
+                'resistance' => is_array($result['resistance'] ?? null) ? ($result['resistance']['base'] ?? 0) : 0,
+                'injury' => $this->pairOf($result['injury'] ?? null),
+                'dodgeSoak' => $this->pairOf($result['S'] ?? null),
+                'durabilityShave' => is_int($result['durabilityShave'] ?? null) ? $result['durabilityShave'] : 0,
+                'endurance' => is_array($result['endurance'] ?? null)
+                    ? $result['endurance']
+                    : ['base' => 0, 'size' => 0],
+                'defenseIgnored' => false,
+                'attackSrLabel' => '',
+                'appliedSr' => is_int($result['success'] ?? null) ? $result['success'] : 0,
+                'srCap' => null,
+                'heading' => null,
+                'stun' => null,
+                'shock' => null,
+                'exhaustion' => 0,
+                'remainingHpDamage' => ['base' => 0, 'size' => 0],
+                'wound' => 0,
+                'knockout' => false,
+                'cuttingWound' => null,
+                'layers' => [],
+            ],
+            null,
+            null,
+            $this->chat->getSpeakerOf($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0),
+            null,
+            $parentId,
+        );
+    }
+
+    /**
      * Пара base/size или ноль.
      *
      * @param mixed $pair Пара base/size.

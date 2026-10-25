@@ -3270,6 +3270,26 @@ function phpBattleEnvelope() {
 async function phpStrikeAttack() {
   const defender = opponentKey.value;
   if (!defender) throw new Error('Нет атаки');
+  const action = resolvedAttackAction.value;
+  const attacker = props.attackerKey;
+  if (action && action.strikes.length > 1 && attacker) {
+    return {
+      ...phpBattleEnvelope(),
+      attack: {
+        attacker: gamePhpCommandService.participantOf(attacker),
+        actionRuleCode: resolvedActionRuleCode.value ?? selectedActionRuleCode.value ?? '',
+        chosenAmounts: {},
+        strikes: action.strikes.map((strike) => ({
+          itemInventoryId: strike.profile.inventoryItemId ?? 0,
+          itemRuleCode: strike.profile.itemRuleCode,
+          profileType: strike.profile.profileType,
+          profileIndex: strike.profile.profileIndex ?? 0,
+          instanceIndex: strike.profile.instanceIndex ?? 0,
+          target: gamePhpCommandService.participantOf(strike.targetKey),
+        })),
+      },
+    };
+  }
 
   return {
     ...phpBattleEnvelope(),
@@ -3430,6 +3450,53 @@ function phpStrikeFromAttack(attack: {
   };
 }
 
+type PhpSingleAttack = {
+  attacker: GamePhpParticipant;
+  defender: GamePhpParticipant;
+  actionRuleCode: string;
+  itemInventoryId: number;
+  itemRuleCode: string;
+  profileType: string;
+  profileIndex: number;
+  instanceIndex?: number;
+  ammunitionInventoryId?: number;
+  chosenAmounts?: Record<string, unknown>;
+};
+
+type PhpMultiAttack = {
+  attacker: GamePhpParticipant;
+  actionRuleCode: string;
+  chosenAmounts?: Record<string, unknown>;
+  strikes: {
+    itemInventoryId: number;
+    itemRuleCode: string;
+    profileType: string;
+    profileIndex: number;
+    instanceIndex?: number;
+    target: GamePhpParticipant;
+  }[];
+};
+
+function phpStrikeRow(row: {
+  itemInventoryId: number;
+  itemRuleCode: string;
+  profileType: string;
+  profileIndex: number;
+  instanceIndex?: number;
+  ammunitionInventoryId?: number;
+  target: GamePhpParticipant;
+}) {
+  return {
+    itemInventoryId: row.itemInventoryId,
+    itemRuleCode: row.itemRuleCode,
+    profileType: row.profileType,
+    profileIndex: row.profileIndex,
+    instanceIndex: row.instanceIndex ?? 0,
+    ...(row.ammunitionInventoryId !== undefined ? { ammunitionInventoryId: row.ammunitionInventoryId } : {}),
+    target: row.target,
+  };
+}
+
 function phpSingleStrikeEnvelope(attack: {
   attacker: GamePhpParticipant;
   defender: GamePhpParticipant;
@@ -3448,19 +3515,32 @@ function phpSingleStrikeEnvelope(attack: {
     code: attack.actionRuleCode,
     actor: attack.attacker,
     context: {
-      strikes: [
-        {
-          itemInventoryId: attack.itemInventoryId,
-          itemRuleCode: attack.itemRuleCode,
-          profileType: attack.profileType,
-          profileIndex: attack.profileIndex,
-          instanceIndex: attack.instanceIndex ?? 0,
-          ...(attack.ammunitionInventoryId !== undefined
-            ? { ammunitionInventoryId: attack.ammunitionInventoryId }
-            : {}),
-          target: attack.defender,
-        },
-      ],
+      strikes: [phpStrikeRow({ ...attack, target: attack.defender })],
+      chosenAmounts: attack.chosenAmounts ?? {},
+    },
+  };
+}
+
+function phpMultiStrikeEnvelope(attack: {
+  attacker: GamePhpParticipant;
+  actionRuleCode: string;
+  chosenAmounts?: Record<string, unknown>;
+  strikes: {
+    itemInventoryId: number;
+    itemRuleCode: string;
+    profileType: string;
+    profileIndex: number;
+    instanceIndex?: number;
+    target: GamePhpParticipant;
+  }[];
+}) {
+  return {
+    phase: 'declare' as const,
+    kind: 'strike' as const,
+    code: attack.actionRuleCode,
+    actor: attack.attacker,
+    context: {
+      strikes: attack.strikes.map(phpStrikeRow),
       chosenAmounts: attack.chosenAmounts ?? {},
     },
   };
@@ -3525,15 +3605,20 @@ async function submitPhpStrike(): Promise<boolean> {
   if (!phpDeclared.value) {
     if (!wideAttack) {
       const attackBody = await phpStrikeAttack();
+      const multi = 'strikes' in attackBody.attack ? attackBody.attack : null;
       const declared = await getGameApi().runAction({
         gameId: attackBody.gameId,
         battleId: attackBody.battleId,
         idempotencyKey: attackBody.idempotencyKey,
         expectedVersion: attackBody.expectedVersion,
-        action: phpSingleStrikeEnvelope(attackBody.attack),
+        action: multi
+          ? phpMultiStrikeEnvelope(multi as PhpMultiAttack)
+          : phpSingleStrikeEnvelope(attackBody.attack as PhpSingleAttack),
       });
       phpDeclared.value = true;
-      phpDeclaredStrike.value = phpStrikeFromAttack(attackBody.attack);
+      phpDeclaredStrike.value = multi
+        ? null
+        : phpStrikeFromAttack(attackBody.attack as PhpSingleAttack);
       phpPendingStrike.value = phpDeclaredStrike.value;
       phpOverride.value = false;
       phpDebt.value = declared.debt === true;

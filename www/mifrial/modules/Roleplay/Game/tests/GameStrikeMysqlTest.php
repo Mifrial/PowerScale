@@ -2166,6 +2166,216 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Сдвоенный удар: два экземпляра одного оружия, один бросок, два пакета.
+     *
+     * @return void
+     */
+    public function testSameWeaponStrikeClosesWithTwoPackets(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: [
+            'double' => [
+                'type' => 'ability',
+                'name' => 'Double',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'same_weapon' => true,
+                    'min_weapons' => 2,
+                    'max_weapons' => 2,
+                    'action_components' => [],
+                ],
+            ],
+        ]);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit(
+            $world->getId(),
+            $gameId,
+            'Twin Hero',
+            inventory: [['ruleCode' => 'sword', 'equipped' => true, 'quantity' => 2]],
+        );
+        $defenderId = $this->admit($world->getId(), $gameId, 'Twin Guard', sheet: ['hp' => 100]);
+        $defenderVersion = $this->characterFacade()->get($defenderId)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'twin-battle',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'twin-open',
+            'expectedVersion' => 1,
+            'action' => $this->sameWeaponEnvelope('double', $attackerId, $defenderId, 2),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertCount(2, $opened['data']['strikes']);
+        self::assertCount(2, $opened['data']['pendingStrikes']);
+        self::assertSame(2, $this->countActionStrikes());
+        self::assertSame(1, $this->countActions('strike'));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'twin-close',
+            'expectedVersion' => 2,
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $defenderVersion),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertCount(2, $closed['data']['strikes']);
+        self::assertSame($closed['data']['strikes'][0]['injury'], $closed['data']['strikes'][1]['injury']);
+        self::assertSame($closed['data']['strikes'][0]['success'], $closed['data']['strikes'][1]['success']);
+        self::assertSame($defenderVersion + 1, $closed['data']['sheetVersion']);
+        self::assertSame([], $closed['data']['pendingStrikes']);
+    }
+
+    /**
+     * Потолок экземпляров без навыка отвергает третий удар.
+     *
+     * @return void
+     */
+    public function testSameWeaponStrikeRejectsThirdCopyWithoutSkill(): void
+    {
+        $world = $this->sameWeaponWorld();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit(
+            $world->getId(),
+            $gameId,
+            'Twin Hero',
+            inventory: [['ruleCode' => 'sword', 'equipped' => true, 'quantity' => 3]],
+        );
+        $defenderId = $this->admit($world->getId(), $gameId, 'Twin Guard', sheet: ['hp' => 100]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'twin-limit',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $rejected = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'twin-three',
+            'expectedVersion' => 1,
+            'action' => $this->sameWeaponEnvelope('double', $attackerId, $defenderId, 3),
+        ]);
+        self::assertSame('GAME_INVALID', $rejected['error']['code']);
+        self::assertSame(0, $this->countActions('strike'));
+    }
+
+    /**
+     * Навык «Оружия много — удар один» снимает потолок.
+     *
+     * @return void
+     */
+    public function testSameWeaponSkillLiftsMaxWeapons(): void
+    {
+        $world = $this->sameWeaponWorld();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit(
+            $world->getId(),
+            $gameId,
+            'Twin Hero',
+            inventory: [['ruleCode' => 'sword', 'equipped' => true, 'quantity' => 3]],
+            abilities: [['ruleCode' => 'many', 'level' => 1]],
+        );
+        $defenderId = $this->admit($world->getId(), $gameId, 'Twin Guard', sheet: ['hp' => 100]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'twin-lift',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'twin-lift-open',
+            'expectedVersion' => 1,
+            'action' => $this->sameWeaponEnvelope('double', $attackerId, $defenderId, 3),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertCount(3, $opened['data']['strikes']);
+        self::assertSame(3, $this->countActionStrikes());
+    }
+
+    /**
+     * Мир с карточкой Сдвоенного и навыком снятия потолка.
+     *
+     * @return RuleSpaceRecord Мир.
+     */
+    private function sameWeaponWorld(): RuleSpaceRecord
+    {
+        return $this->worldWithWeapon(extraRules: [
+            'double' => [
+                'type' => 'ability',
+                'name' => 'Double',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'same_weapon' => true,
+                    'min_weapons' => 2,
+                    'max_weapons' => 2,
+                    'action_components' => [],
+                ],
+            ],
+            'many' => [
+                'type' => 'ability',
+                'name' => 'Many weapons',
+                'spec' => [
+                    'type' => 'skill',
+                    'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                    'parent_ability_code' => 'double',
+                    'lift_parent_max_weapons' => true,
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Конверт Сдвоенного удара с N экземплярами.
+     *
+     * @param string $code Карточка.
+     * @param int $attackerId Атакующий.
+     * @param int $defenderId Цель.
+     * @param int $count Экземпляры.
+     *
+     * @return array<string, mixed> Действие.
+     */
+    private function sameWeaponEnvelope(string $code, int $attackerId, int $defenderId, int $count): array
+    {
+        $strikes = [];
+        for ($index = 0; $index < $count; ++$index) {
+            $strikes[] = [
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+                'instanceIndex' => $index,
+                'target' => ['type' => 'character', 'id' => $defenderId],
+            ];
+        }
+
+        return [
+            'phase' => 'declare',
+            'kind' => 'strike',
+            'code' => $code,
+            'actor' => ['type' => 'character', 'id' => $attackerId],
+            'context' => ['strikes' => $strikes, 'chosenAmounts' => []],
+        ];
+    }
+
+    /**
      * dodge_soak есть, а характеристики в листе нет — GAME_INVALID.
      *
      * @return void

@@ -251,16 +251,27 @@ final class GameRunAction
             $targetKeys[$strike['target']['type'] . ':' . $strike['target']['id']] = true;
         }
 
-        if (count($strikes) > 1 && count($targetKeys) === 1) {
-            throw new GameInvalidException('Game multi strike is not supported yet');
-        }
-
         $game = $this->games->get($gameId);
         $wideCard = $this->rules->isWideAttack(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $parsed['code'],
         );
+        if (!$wideCard && count($strikes) > 1 && count($targetKeys) === 1) {
+            $result = $this->strikes->declareMultiStrike(
+                $gameId,
+                $actorUserId,
+                $editAll,
+                $viewAll,
+                $battleId,
+                $idempotencyKey,
+                $expectedVersion,
+                $this->multiAttack($parsed, $strikes),
+            );
+
+            return $this->declared($result, $strikes);
+        }
+
         if ($wideCard || count($targetKeys) > 1) {
             $result = $this->wideStrikes->declareWideStrike(
                 $gameId,
@@ -485,6 +496,36 @@ final class GameRunAction
     }
 
     /**
+     * Выбор нескольких экземпляров одного оружия.
+     *
+     * @param array<string, mixed> $parsed Разбор.
+     * @param list<array<string, mixed>> $strikes Строки.
+     *
+     * @return array<string, mixed> Выбор.
+     */
+    private function multiAttack(array $parsed, array $strikes): array
+    {
+        $first = $strikes[0];
+        $attack = [
+            'attacker' => $parsed['actor'],
+            'defender' => $first['target'],
+            'actionRuleCode' => $parsed['code'],
+            'itemInventoryId' => $first['itemInventoryId'],
+            'itemRuleCode' => $first['itemRuleCode'],
+            'profileType' => $first['profileType'],
+            'profileIndex' => $first['profileIndex'],
+            'instanceIndex' => $first['instanceIndex'],
+            'chosenAmounts' => $parsed['context']['chosenAmounts'],
+            'strikes' => $strikes,
+        ];
+        if ($first['ammunitionInventoryId'] !== null) {
+            $attack['ammunitionInventoryId'] = $first['ammunitionInventoryId'];
+        }
+
+        return $attack;
+    }
+
+    /**
      * Старый выбор широкого удара.
      *
      * @param array<string, mixed> $parsed Разбор.
@@ -583,31 +624,36 @@ final class GameRunAction
      */
     private function respondedSingle(array $open, array $result, array $defense): array
     {
-        $strikes = $this->repository->getStrikes(is_int($open['id'] ?? null) ? $open['id'] : 0);
-        $row = $strikes[0] ?? [];
-        $entry = [
-            'index' => 0,
-            'itemInventoryId' => is_int($row['item_inventory_id'] ?? null) ? $row['item_inventory_id'] : 0,
-            'itemRuleCode' => is_string($row['item_rule_code'] ?? null) ? $row['item_rule_code'] : '',
-            'profileType' => is_string($row['profile_type'] ?? null) ? $row['profile_type'] : '',
-            'profileIndex' => is_int($row['profile_index'] ?? null) ? $row['profile_index'] : 0,
-            'instanceIndex' => is_int($row['instance_index'] ?? null) ? $row['instance_index'] : 0,
-            'target' => $this->rowTarget($row),
-            'reaction' => $defense['reaction'],
-            'roll' => $result['attackerRoll'] ?? null,
-            'defenseRoll' => $result['defenderRoll'] ?? null,
-            'success' => $result['success'] ?? 0,
-            'damage' => $result['damage'] ?? null,
-            'resistance' => $result['resistance'] ?? null,
-            'injury' => $result['injury'] ?? null,
-            'sheetVersion' => $result['sheetVersion'] ?? null,
-        ];
-        if (array_key_exists('S', $result)) {
-            $entry['S'] = $result['S'];
-        }
+        $strikeId = is_int($open['id'] ?? null) ? $open['id'] : 0;
+        $rows = $strikeId > 0 ? $this->repository->getStrikes($strikeId) : [];
+        $entries = [];
+        foreach ($rows as $index => $row) {
+            $entry = [
+                'index' => $index,
+                'itemInventoryId' => is_int($row['item_inventory_id'] ?? null) ? $row['item_inventory_id'] : 0,
+                'itemRuleCode' => is_string($row['item_rule_code'] ?? null) ? $row['item_rule_code'] : '',
+                'profileType' => is_string($row['profile_type'] ?? null) ? $row['profile_type'] : '',
+                'profileIndex' => is_int($row['profile_index'] ?? null) ? $row['profile_index'] : 0,
+                'instanceIndex' => is_int($row['instance_index'] ?? null) ? $row['instance_index'] : 0,
+                'target' => $this->rowTarget($row),
+                'reaction' => $defense['reaction'],
+                'roll' => $result['attackerRoll'] ?? null,
+                'defenseRoll' => $result['defenderRoll'] ?? null,
+                'success' => $result['success'] ?? 0,
+                'damage' => $result['damage'] ?? null,
+                'resistance' => $result['resistance'] ?? null,
+                'injury' => $result['injury'] ?? null,
+                'sheetVersion' => $result['sheetVersion'] ?? null,
+            ];
+            if (array_key_exists('S', $result)) {
+                $entry['S'] = $result['S'];
+            }
 
-        if (array_key_exists('durabilityShave', $result)) {
-            $entry['durabilityShave'] = $result['durabilityShave'];
+            if (array_key_exists('durabilityShave', $result)) {
+                $entry['durabilityShave'] = $result['durabilityShave'];
+            }
+
+            $entries[] = $entry;
         }
 
         $base = $result;
@@ -615,7 +661,7 @@ final class GameRunAction
         $base['kind'] = 'strike';
         $base['phase'] = 'respond';
         $base['closed'] = true;
-        $base['strikes'] = [$entry];
+        $base['strikes'] = $entries;
         $base['pendingStrikes'] = [];
 
         return $base;
