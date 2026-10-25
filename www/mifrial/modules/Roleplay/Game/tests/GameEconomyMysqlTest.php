@@ -35,16 +35,6 @@ final class GameEconomyMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Покупка, конфликт версии, повтор ключа и выдача в NPC.
      *
      * @return void

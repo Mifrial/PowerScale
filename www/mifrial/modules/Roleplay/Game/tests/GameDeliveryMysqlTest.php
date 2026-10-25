@@ -52,16 +52,6 @@ final class GameDeliveryMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Повтор и сбой доставки лист не пишут второй раз. Догон кладёт одну строку.
      *
      * @return void

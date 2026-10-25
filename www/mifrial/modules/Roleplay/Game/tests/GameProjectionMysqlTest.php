@@ -37,16 +37,6 @@ final class GameProjectionMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Roster без листа. NPC вне scope нет. left нет.
      *
      * @return void

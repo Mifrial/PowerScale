@@ -30,16 +30,6 @@ final class GameMemberHttpMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Состав: актор, владелец, edit_all, view_all, игрок.
      *
      * @return void

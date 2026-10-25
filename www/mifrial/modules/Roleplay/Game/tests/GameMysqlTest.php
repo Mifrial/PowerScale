@@ -25,16 +25,6 @@ final class GameMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * add+get копирует код мира и оставляет null потолка.
      *
      * @return void

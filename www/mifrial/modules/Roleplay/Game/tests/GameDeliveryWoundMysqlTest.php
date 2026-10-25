@@ -45,16 +45,6 @@ final class GameDeliveryWoundMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Рана пишет сигнал. Повтор ключа строку не дублирует. CatchUp и кадр несут battleId.
      *
      * @return void

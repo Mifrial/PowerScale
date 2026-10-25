@@ -33,16 +33,6 @@ final class GameCharacterHttpMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Подача, чужой лист, approve edit_all, view_all, лишнее поле, конфликт.
      *
      * @return void

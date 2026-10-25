@@ -12,16 +12,16 @@ use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Exception\Database\DatabaseException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
-use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Tests\Support\MysqlSchemaRegistry;
+use Mifrial\Core\SmartTable\Tests\Support\MysqlTableCleaner;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Schema\UserSchema;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
-use Mifrial\Core\User\Tests\UserMysqlTables;
 use Mifrial\Messages\Chat\Schema\ChatSchema;
 use Mifrial\Messages\Chat\Table\ChatMemberTable;
 use Mifrial\Messages\Chat\Table\ChatMessageTable;
@@ -104,12 +104,14 @@ trait GameMysqlFixture
 
     private ?ISmartTableGateway $smartTableGateway = null;
 
+    private ?IlluminateDatabaseConnection $databaseConnection = null;
+
     private ?ICacheStore $cacheStore = null;
 
     protected int $ownerUserId = 0;
 
     /**
-     * Подключается или пропускает тест.
+     * Готовит MySQL: схема один раз, данные на каждый тест.
      *
      * @return void
      */
@@ -121,9 +123,29 @@ trait GameMysqlFixture
             self::markTestSkipped($exception->getErrorCode() . ': MySQL is not available for Game tests');
         }
 
-        $this->dropGameTables();
+        $databaseConnection = $this->databaseConnection;
+        self::assertInstanceOf(IlluminateDatabaseConnection::class, $databaseConnection);
+        MysqlSchemaRegistry::ensure(
+            $databaseConnection,
+            'game',
+            [
+                'user',
+                'chat',
+                'keyword',
+                'mechanic',
+                'rule',
+                'rule_space',
+                'character',
+                'game',
+                'game_battle_participant',
+            ],
+            function (): void {
+                $this->installGameSchema();
+            },
+        );
+        // ID мира входит в ключ кэша правил, поэтому rule_space сбрасывается всегда.
+        MysqlTableCleaner::truncateAll($databaseConnection, ['rule_space']);
         $this->flushRuleSliceCache();
-        $this->installGameSchemas();
         $this->ownerUserId = $this->gameUserAccounts()->addFromInput([
             'login' => 'owner',
             'name' => 'Owner',
@@ -141,43 +163,7 @@ trait GameMysqlFixture
             return;
         }
 
-        $gateway = $this->smartTableGateway;
-        $this->deleteIfExists($gateway->open(GameDeliveryTable::class));
-        $this->deleteIfExists($gateway->open(GameCheckTable::class));
-        $this->deleteIfExists($gateway->open(GameActionTargetTable::class));
-        $this->deleteIfExists($gateway->open(GameActionTable::class));
-        $this->deleteIfExists($gateway->open(GameCommandTable::class));
-        $this->deleteIfExists($gateway->open(GameBattleParticipantTable::class));
-        $this->deleteIfExists($gateway->open(GameBattleTable::class));
-        $this->deleteIfExists($gateway->open(GameProcessTable::class));
-        $this->deleteIfExists($gateway->open(GameSessionCharacterTable::class));
-        $this->deleteIfExists($gateway->open(GameSessionTable::class));
-        $this->deleteIfExists($gateway->open(GameNpcTable::class));
-        $this->deleteIfExists($gateway->open(GameCharacterTable::class));
-        $this->deleteIfExists($gateway->open(GameJoinRequestTable::class));
-        $this->deleteIfExists($gateway->open(GameInvitationTable::class));
-        $this->deleteIfExists($gateway->open(GameEconomyOperationTable::class));
-        $this->deleteIfExists($gateway->open(GameShopPositionTable::class));
-        $this->deleteIfExists($gateway->open(GameChronicleEntryTable::class));
-        $this->deleteIfExists($gateway->open(GameMemberTable::class));
-        $this->deleteIfExists($gateway->open(GameTable::class));
-        $this->deleteIfExists($gateway->open(CharacterViewerTable::class));
-        $this->deleteIfExists($gateway->open(CharacterTable::class));
-        $this->deleteIfExists($gateway->open(RuleSpaceCatalogItemTable::class));
-        $this->deleteIfExists($gateway->open(RuleSpaceRevisionCatalogTable::class));
-        $this->deleteIfExists($gateway->open(RuleSpaceCatalogSectionTable::class));
-        $this->deleteIfExists($gateway->open(RuleSpaceMetaTable::class));
-        $this->deleteIfExists($gateway->open(RuleRevisionItemTable::class));
-        $this->deleteIfExists($gateway->open(RuleRevisionTable::class));
-        $this->deleteIfExists($gateway->open(RuleVersionTable::class));
-        $this->deleteIfExists($gateway->open(RuleSpaceTable::class));
-        $this->deleteIfExists($gateway->open(RuleTable::class));
-        $this->deleteIfExists($gateway->open(MechanicTable::class));
-        $this->deleteIfExists($gateway->open(KeywordTable::class));
-        $this->deleteIfExists($gateway->open(ChatMessageTable::class));
-        $this->deleteIfExists($gateway->open(ChatMemberTable::class));
-        $this->deleteIfExists($gateway->open(ChatTable::class));
-        UserMysqlTables::drop($gateway);
+        GameMysqlTables::drop($this->smartTableGateway);
     }
 
     /**
@@ -303,12 +289,24 @@ trait GameMysqlFixture
         }
 
         $databaseConnection->ping();
+        $this->databaseConnection = $databaseConnection;
         $cacheStore = $locator->get(ICacheContainer::class)->get(ICacheStore::class);
         self::assertInstanceOf(ICacheStore::class, $cacheStore);
         $this->cacheStore = $cacheStore;
         $userAccounts = $locator->get(IUserContainer::class)->get(IUserAccounts::class);
         self::assertInstanceOf(IUserAccounts::class, $userAccounts);
         $this->userAccounts = $userAccounts;
+    }
+
+    /**
+     * Ставит схему Game один раз.
+     *
+     * @return void
+     */
+    private function installGameSchema(): void
+    {
+        $this->dropGameTables();
+        $this->installGameSchemas();
     }
 
     /**
@@ -409,20 +407,6 @@ trait GameMysqlFixture
         }
 
         $this->cacheStore->deleteKeys($cacheKeys);
-    }
-
-    /**
-     * deleteTable если есть.
-     *
-     * @param IOpenedTable $openedTable Карта.
-     *
-     * @return void
-     */
-    private function deleteIfExists(IOpenedTable $openedTable): void
-    {
-        if ($openedTable->schema()->exists()) {
-            $openedTable->schema()->deleteTable();
-        }
     }
 
     /**

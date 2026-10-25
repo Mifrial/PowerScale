@@ -28,16 +28,6 @@ final class GameCommandFoldMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Догон wide пишет outbox как strike. Check в outbox не попадает.
      *
      * @return void

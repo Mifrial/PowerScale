@@ -38,16 +38,6 @@ final class GameCharacterSectionMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Запись секций не трогает лист, snapshot и NPC.
      *
      * @return void

@@ -7,7 +7,10 @@ namespace Mifrial\Roleplay\Game\Tests;
 use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
+use Mifrial\Core\Kernel\Service\ApplicationFactory;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
+use Mifrial\Core\SmartTable\Exception\Database\DatabaseException;
+use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Messages\Chat\Dto\MessageRecord;
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
@@ -56,13 +59,21 @@ final class GameWideStrikeMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
+     * Сносит схему Game после последнего класса suite.
      *
      * @return void
      */
-    protected function tearDown(): void
+    public static function tearDownAfterClass(): void
     {
-        $this->dropGameTables();
+        try {
+            $application = (new ApplicationFactory())->boot(dirname(__DIR__, 4));
+            $smartTableContainer = $application->getLocator()->get(ISmartTableContainer::class);
+            $gateway = $smartTableContainer->get(ISmartTableGateway::class);
+            self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+            GameMysqlTables::drop($gateway);
+        } catch (DatabaseException $exception) {
+            // MySQL недоступен — Game-тесты уже пропущены.
+        }
     }
 
     /**

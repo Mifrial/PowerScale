@@ -57,16 +57,6 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Атака пишет выбор, защита закрывает удар и пишет лист с версией.
      *
      * @return void

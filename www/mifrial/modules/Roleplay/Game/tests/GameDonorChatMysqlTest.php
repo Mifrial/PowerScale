@@ -39,11 +39,6 @@ final class GameDonorChatMysqlTest extends TestCase
         $this->requestContext = $requestContext;
     }
 
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
     public function testGameChatsAndCharacterReturn(): void
     {
         $spaceId = $this->addWorldWithRevision('razrabotka')->getId();

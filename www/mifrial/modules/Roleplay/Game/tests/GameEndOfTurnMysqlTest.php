@@ -53,16 +53,6 @@ final class GameEndOfTurnMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * endTurn вне боя отказывает, лист не меняется.
      *
      * @return void

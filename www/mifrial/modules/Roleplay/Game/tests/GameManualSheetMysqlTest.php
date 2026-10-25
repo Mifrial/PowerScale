@@ -38,16 +38,6 @@ final class GameManualSheetMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Задаёт current, пишет чат и delivery, replay без второго эффекта.
      *
      * @return void

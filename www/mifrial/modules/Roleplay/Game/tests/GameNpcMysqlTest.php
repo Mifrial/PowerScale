@@ -35,16 +35,6 @@ final class GameNpcMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Создание, CAS, видимость и чужая ревизия.
      *
      * @return void

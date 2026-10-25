@@ -30,16 +30,6 @@ final class GameChronicleMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Нормализация и порядок по смещению.
      *
      * @return void

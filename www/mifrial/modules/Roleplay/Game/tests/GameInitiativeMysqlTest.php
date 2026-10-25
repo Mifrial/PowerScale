@@ -43,16 +43,6 @@ final class GameInitiativeMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Нет карточки или их две — порядок не пишется.
      *
      * @return void

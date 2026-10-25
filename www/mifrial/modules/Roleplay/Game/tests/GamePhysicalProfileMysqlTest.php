@@ -49,16 +49,6 @@ final class GamePhysicalProfileMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Throw списывает выбранный item 1→0 и оставляет строку.
      *
      * @return void

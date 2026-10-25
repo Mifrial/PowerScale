@@ -43,16 +43,6 @@ final class GameProcessMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * open и resolve не пишут лист.
      *
      * @return void

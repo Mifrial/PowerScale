@@ -30,16 +30,6 @@ final class GameAdmissionMysqlTest extends TestCase
     }
 
     /**
-     * Снимает таблицы.
-     *
-     * @return void
-     */
-    protected function tearDown(): void
-    {
-        $this->dropGameTables();
-    }
-
-    /**
      * Фильтр карточки и список.
      *
      * @return void
