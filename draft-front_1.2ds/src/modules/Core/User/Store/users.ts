@@ -16,6 +16,7 @@ export const useUserStore = defineStore('users', () => {
   const users = ref<User[]>([]);
   const total = ref(0);
   const loading = ref(false);
+  const pendingUsers = new Map<number, Promise<void>>();
 
   const username = computed(() => {
     if (guestActor.value) return 'Гость';
@@ -76,16 +77,36 @@ export const useUserStore = defineStore('users', () => {
   }
 
   async function ensureUsers(ids: number[]): Promise<void> {
-    const missing = ids.filter((id) => !users.value.some((u) => u.id === id));
-    if (!missing.length) return;
-    try {
-      const fetched = await getUsersByIds(missing);
-      for (const u of fetched) {
-        if (!users.value.some((x) => x.id === u.id)) users.value.push(u);
-      }
-    } catch {
-      // Best-effort прогрев каталога: профили догрузятся при следующем обращении (плейсхолдер аватара/имени).
+    const uniqueIds = [...new Set(ids)];
+    const absentIds = uniqueIds.filter((id) => !users.value.some((user) => user.id === id));
+    const waiting = absentIds
+      .map((id) => pendingUsers.get(id))
+      .filter((promise): promise is Promise<void> => promise !== undefined);
+    const missing = absentIds.filter((id) => !pendingUsers.has(id));
+
+    let request: Promise<void> | null = null;
+    if (missing.length > 0) {
+      request = (async () => {
+        try {
+          const fetched = await getUsersByIds(missing);
+          for (const user of fetched) {
+            if (!users.value.some((existing) => existing.id === user.id)) users.value.push(user);
+          }
+        } catch {
+          // Best-effort прогрев каталога: профили догрузятся при следующем обращении (плейсхолдер аватара/имени).
+        }
+      })();
+
+      for (const id of missing) pendingUsers.set(id, request);
+
+      void request.finally(() => {
+        for (const id of missing) {
+          if (pendingUsers.get(id) === request) pendingUsers.delete(id);
+        }
+      });
     }
+
+    await Promise.all([...waiting, ...(request === null ? [] : [request])]);
   }
 
   async function createUser(data: CreateUserData, signal?: AbortSignal): Promise<User> {

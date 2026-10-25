@@ -11,17 +11,31 @@ export const useKeywordStore = defineStore('keywords', () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  async function fetchTags(signal?: AbortSignal) {
+  let pendingFetch: Promise<void> | null = null;
+
+  async function fetchTags(_signal?: AbortSignal): Promise<void> {
+    if (pendingFetch !== null) return pendingFetch;
+
     loading.value = true;
     error.value = null;
-    try {
-      keywords.value = await getKeywordApi().getKeywords(signal);
-    } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return;
-      error.value = 'Не удалось загрузить признаки';
-    } finally {
-      loading.value = false;
-    }
+
+    // Каталог общий: сигнал одного потребителя не должен отменять загрузку для остальных.
+    const request = (async () => {
+      try {
+        keywords.value = await getKeywordApi().getKeywords();
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        error.value = 'Не удалось загрузить признаки';
+      } finally {
+        loading.value = false;
+      }
+    })();
+
+    pendingFetch = request.finally(() => {
+      pendingFetch = null;
+    });
+
+    return pendingFetch;
   }
 
   async function fetchTag(id: number, signal?: AbortSignal): Promise<Keyword> {

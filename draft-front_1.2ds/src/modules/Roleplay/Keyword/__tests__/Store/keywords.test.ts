@@ -5,11 +5,24 @@ import { registerKeywordApi } from '@/modules/Roleplay/Keyword/init';
 import { mockKeywordApi } from '@/modules/Roleplay/Keyword/Mock/mockKeywordApi';
 import { useKeywordStore } from '@/modules/Roleplay/Keyword/Store/keywords';
 import type { IKeywordApi } from '@/modules/Roleplay/Keyword/Interface/IKeywordApi';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
+import { keywords as mockKeywords } from '@/modules/Roleplay/Keyword/Mock/mockKeywords';
 
 beforeEach(() => {
   setActivePinia(createPinia());
   resetRegisteredApis();
 });
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  let reject: (reason?: unknown) => void = () => undefined;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return { promise, resolve, reject };
+}
 
 function failingApi(getKeywords: () => Promise<never>): IKeywordApi {
   return {
@@ -19,6 +32,33 @@ function failingApi(getKeywords: () => Promise<never>): IKeywordApi {
 }
 
 describe('keywords store', () => {
+  it('coalesces concurrent fetchTags calls into one request', async () => {
+    const gate = deferred<Keyword[]>();
+    let calls = 0;
+    registerKeywordApi({
+      ...mockKeywordApi,
+      getKeywords: () => {
+        calls += 1;
+
+        return gate.promise;
+      },
+    });
+    const store = useKeywordStore();
+
+    const first = store.fetchTags();
+    const second = store.fetchTags();
+
+    expect(calls).toBe(1);
+    expect(store.loading).toBe(true);
+
+    gate.resolve(mockKeywords.map((keyword) => ({ ...keyword })));
+
+    await Promise.all([first, second]);
+
+    expect(store.keywords).toHaveLength(mockKeywords.length);
+    expect(store.loading).toBe(false);
+  });
+
   it('fetchTags loads keywords and leaves error empty', async () => {
     registerKeywordApi(mockKeywordApi);
     const store = useKeywordStore();
