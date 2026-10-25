@@ -72,7 +72,7 @@
 - [План Chat 3: SSE sync](chat-plan-03.md) — `/api/chat/sync`; кадр как HTTP; не action.
 - [План Chat 4: Vue real](chat-plan-04.md) — `Engine.openSse`; unix; не `chat.sync` action.
 - [План Chat 5: visibility](chat-plan-05.md) — аудитория `all`/`users`; unread/preview через `aggregate`; не `forRole`.
-- [План Chat 6: создать host](chat-plan-06.md) — `addPrivate` / `addGroup` HTTP+UI; inbox только `private`/`group`.
+- [План Chat 6: создать host](chat-plan-06.md) — `addPrivate` / `addGroup` HTTP+UI; inbox/SSE — все чаты членства, без allowlist по `type`.
 - [План Cache 1: драйвер](cache-plan-01.md) — `Core/Cache`, `ICacheStore`; TTL ≤ 30 суток; ST и Versioning — политики.
 - [Нарезка Versioning](versioning-roadmap.md) — `Versioning/Space`: кластер; хвост часов в Rule 1.
 - [План Versioning 1: кластер и фасад](versioning-plan-01.md) — сделано; `vt_note`; TTL среза 30 суток.

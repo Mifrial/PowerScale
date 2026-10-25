@@ -115,6 +115,8 @@ Wide attack requires at least one target and a defender key for every target. Ea
 
 `ActionEffect` is a partial runtime contract for resource changes, states, damage and process transitions. Effects may be immediate or remain for a defined turn/session lifetime. State aggregation follows the rule (`sum`, `max`, `independent`); DOT consumes turns and, when it applies an authoritative effect, updates actual Character/NPC state. Only process/turn markers remain in Game state.
 
+Потеря сознания может возникать не только из `check-exhaustion.outcomes`: дробящий урон вправе напрямую записать `unconscious` через mechanic payload (`blunt_unconscious`) при своих порогах. Это разрешённый второй producer; прямые записи состояний из типов урона/механик не отменяют исходы проверки и фиксируются как явные исключения.
+
 ### Movement
 
 Movement is resolved through `ISpatialResolver` and typed horizontal/vertical directions. A movement operation must validate direction, distance, current speed and action-point cost before mutating Game session state. When a current `GameScene` exists, path, collision and portal crossing follow [`battleground-system.md`](battleground-system.md); that domain is not implemented yet.

@@ -1,8 +1,8 @@
 # План Chat 6 — создать host private/group
 
-**Статус:** сделано, 2026-09-05. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). HTTP — [`chat-plan-02.md`](chat-plan-02.md) (create там **не** входило). Vue real — [`chat-plan-04.md`](chat-plan-04.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
+**Статус:** сделано, 2026-09-05; inbox/SSE обновлены 2026-10-25. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). HTTP — [`chat-plan-02.md`](chat-plan-02.md) (create там **не** входило). Vue real — [`chat-plan-04.md`](chat-plan-04.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
 
-Цель: актор сам заводит **обычный** (`private`) и **групповой** (`group`) чат с UI и HTTP. Список мессенджера — только эти два типа. Чаты игры / обсуждения игры / обсуждения персонажа **не** создаются здесь и **не** попадают в этот inbox: их заводят доноры сами, другим типом, когда будут.
+Цель: актор сам заводит **обычный** (`private`) и **групповой** (`group`) чат с UI и HTTP. Список мессенджера — все чаты, где пользователь член; этот план создаёт только `private`/`group`, а чаты игры / обсуждения игры / обсуждения персонажа заводят доноры своим типом.
 
 `IChats::addPrivate` / `addGroup` уже есть. **11-й метод фасада не заводить.** HTTP зовёт фасад, как send. Сосед (будущий Game) тоже зовёт фасад, не HTTP create.
 
@@ -10,30 +10,26 @@
 
 | Термин | Смысл |
 |---|---|
-| Host-чат | `type` `private` или `group`. Единственные строки inbox `/messenger` и SSE `/api/chat/sync`. |
-| Донорский чат | Будущие `game` / `game_discussion` / `character_discussion` (имена донора). Не этот UI, не этот список. |
+| Host-чат | `type` `private` или `group`, создаётся этим планом. В inbox `/messenger` и SSE `/api/chat/sync` попадает наравне с донорскими, если пользователь — член. |
+| Донорский чат | `game` / `game_discussion` / `character_discussion` (имена донора). Не этот UI и не этот create; в inbox/SSE виден по членству. |
 | Пара | Двое людей; `addPrivate` идемпотентен (тот же id). |
 
 ## Решения
 
-### 1. Inbox — только host
+### 1. Inbox — все чаты членства
 
-Сейчас в таблице только `private`/`group`, но `assembleInbox` / SSE берут **все** id членства. Когда появится другой `type`, он всплывёт в мессенджере.
+`assembleInbox` и SSE берут **все** id членства, без allowlist по `type`. Chat остаётся agnostic: он не импортирует Game/Character и не знает, что означает донорский `type`.
 
-Один allowlist литералов `private` / `group` (не enum ST, не колонка `host`). Общий предикат в модуле Chat (крошечный тип или метод assembler), **не** копипаст в трёх местах.
+`assembleChatsByIds` по-прежнему не фильтрует `type`: тот же метод собирает JSON и host-, и донорского чата. Фильтра «нет game_id» нет.
 
-**Не** зашивать отсев в `assembleChatsByIds`: тот же метод отдаст JSON host-чата после create и позже может собрать донорский чат для **другого** UI. Inbox режет в `assembleInbox`. SSE режет **свой** набор id.
+SSE:
 
-SSE (важно, иначе сообщения донорского чата утекут в `messages` кадра):
-
-- `knownChatIds` только host. На `openStream`: `getChatIdsOfUser` + **один** `getByIds` членства (как цена коннекта, не каждый тик).
-- Тик: полный список id членства; **новые** id — `getByIds` только их; host → кандидат `newChats`, иначе игнор (не в known).
-- `getUpdatedSince` — только host-id, не все членства.
+- На `openStream`: `getChatIdsOfUser` + **один** `getByIds` членства (цена коннекта, не каждый тик).
+- Тик: полный список id членства; **новые** id — `getByIds` только их; новый донорский чат — кандидат `newChats`.
+- `getUpdatedSince` — по всем чатам членства.
 - `IChats::getChatIdsOfUser` не сужать.
 
-`ChatRecord::fromNormalized` принимает любой string `type` — unit отсева с `'game'` без DDL.
-
-Не фильтр «нет game_id».
+`ChatRecord::fromNormalized` принимает любой string `type` — unit с `'game'` без DDL.
 
 ### 2. HTTP create — два action
 
@@ -74,7 +70,7 @@ UI мессенджера: создать private (другой user **id** че
 
 ## Todo
 
-- [x] **filter** — `assembleInbox` + SSE (known/host `getUpdatedSince` / new id) только `private`/`group`; не фильтр внутри `assembleChatsByIds`. Unit assembler: Record с `type` не host не в inbox. Mysql host-членство есть в getChats.
+- [x] **filter** — `assembleInbox` + SSE (known `getUpdatedSince` / new id) отдают все чаты членства без фильтра по `type`; фильтра внутри `assembleChatsByIds` нет. Unit assembler: донорский тип в inbox, если пользователь член. Mysql host-членство есть в getChats.
 - [x] **http** — два action; mysql: private пара/повтор тот же id; group имя; self INVALID; нет user NOT_FOUND; JSON Chat. Не раздувать `ChatMysqlTest`.
 - [x] **vue** — ChatApi + стор upsert/`openChat`; диалог; mock; format/lint/vue-tsc/test затронутого.
 - [x] **gates** — phpunit `chat`; cs/quality Chat. Не phpunit User. Не `cs-fix` чужое дерево.

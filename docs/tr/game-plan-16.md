@@ -1,6 +1,6 @@
 # План Game 16 — чаты донора
 
-**Статус:** чаты донора в PHP сделаны, 2026-10-04. `BACKEND_OPEN`. Suite `game` по `GameDonorChatMysqlTest` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G16. Канон — [`game-system.md`](game-system.md): Game Chat — общий чат стола; return оставляет membership и пишет причину; отмена process при return в этот шаг не входит. Хост — [`chat-roadmap.md`](chat-roadmap.md) шаг 7 и [`chat-plan-07.md`](chat-plan-07.md): `IChatTypeRegistry` и `IChats::addTyped` уже есть; inbox и `/api/chat/sync` только `private` и `group`. Границы — [`architecture.md`](architecture.md): Game → Chat как плагин; Character не импортирует Game; Chat не импортирует Roleplay. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** чаты донора в PHP сделаны, 2026-10-04; allowlist inbox/SSE снят 2026-10-25. `BACKEND_OPEN`. Suite `game` по `GameDonorChatMysqlTest` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G16. Канон — [`game-system.md`](game-system.md): Game Chat — общий чат стола; return оставляет membership и пишет причину; отмена process при return в этот шаг не входит. Хост — [`chat-roadmap.md`](chat-roadmap.md) шаг 7 и [`chat-plan-07.md`](chat-plan-07.md): `IChatTypeRegistry` и `IChats::addTyped` уже есть; inbox и `/api/chat/sync` показывают все чаты членства. Границы — [`architecture.md`](architecture.md): Game → Chat как плагин; Character не импортирует Game; Chat не импортирует Roleplay. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: один заход. Game регистрирует строки `game`, `game_discussion` и `character_discussion` и создаёт чаты через `IChats`. На игре появляются чат стола и чат обсуждения; ответы, где уже есть `gameChatId` и `discussionChatId`, начинают отдавать эти id. Чат строки персонажа создаёт Game. Return пишет в него сообщение и `returnMessageId`. Состав членов меняют переходы участника и строки персонажа. Inbox мессенджера и `/api/chat/sync` эти чаты не показывают.
 
@@ -25,7 +25,7 @@
 - `IChats::addTyped` вставляет `type` и `name` без `pair_key`. Тип должен быть уже в реестре: `ChatTypeRegistry::isRegistered` уже есть, новый метод реестра не заводится. Создатель всегда член.
 - `Chats::send` тип не проверяет. Автор обязан быть членом. `IChats::send` возвращает id сообщения.
 - `Chats::assertGroupChat` пускает только `type === 'group'`. `addMember` и `removeMember` донорский чат сейчас отвергают. Без точки ниже Game не меняет состав после `addTyped`. HTTP этих двух методов не вызывает.
-- Inbox и `ChatSseService` фильтр `ChatHostTypes` не расширяют. `getChatIdsOfUser` не сужается.
+- Inbox и `ChatSseService` показывают все чаты членства; allowlist `ChatHostTypes` снят 2026-10-25. `getChatIdsOfUser` не сужается.
 - `GameViewAssembler` уже кладёт `gameChatId` и `discussionChatId` как `null`. Этот шаг подставляет колонки. Новых полей карточки нет.
 - `returnToOwner` уже пишет причину и поднимает `membershipRevision`. Сообщение и `returnMessageId` добавляются сюда. Reject по-прежнему удаляет только `submitted`. Leave по-прежнему ставит `left`. Оба сообщение в чат стола не пишут.
 - Character модуль Game не импортирует. Чат персонажа создаёт Game, не Character.
@@ -106,7 +106,7 @@ game.get). Тип чата game_discussion. Член chat_member сейчас
 - `GameViewAssembler`. `gameChatId` и `discussionChatId` из записи. Пустая колонка остаётся `null`. `GameCharacterViewAssembler::detail` добавляет `returnMessageId`. Этот метод кормит и `game.getCharacter`, и список. `GameHttpMysqlTest` сейчас ждёт `null` на create; ожидание становится числом id.
 - `GameTable`, `GameCharacterTable`, `GameModuleSetup`, `GameMysqlFixture`. Четыре целых поля. Карты Chat не меняются.
 - `GamePortFactory::create` и `GamePortFactory::createMemberships`. Собирают один и тот же вид `GameDonorChats` из `IChatContainer`: реестр и `IChats`. Второй реестр не конструировать. Шлюз — тот же `smartTableGateway`, что уже у репозиториев этих фабрик.
-- `Chats::assertGroupChat`. Пускает `group` и строку, для которой уже существующий `IChatTypeRegistry::isRegistered` истинен. `private` и незарегистрированная строка по-прежнему `ChatInvalidException`. Иначе `addMember` / `removeMember` не меняют состав донорского чата. HTTP create этих методов не вызывает. `addTyped`, `send`, `ChatHostTypes`, inbox и SSE не меняются. Сам реестр не меняется.
+- `Chats::assertGroupChat`. Пускает `group` и строку, для которой уже существующий `IChatTypeRegistry::isRegistered` истинен. `private` и незарегистрированная строка по-прежнему `ChatInvalidException`. Иначе `addMember` / `removeMember` не меняют состав донорского чата. HTTP create этих методов не вызывает. `addTyped`, `send` и сам реестр не меняются; `ChatHostTypes` больше не фильтрует inbox/SSE — там все членства (2026-10-25).
 
 `GameCharacterHttp::returnToOwner` передаёт id актора в `returnToOwner` и отдаёт тело сборщика. Отдельное поле ответа сверх `returnMessageId` не появляется.
 
@@ -166,7 +166,7 @@ Mysql строки. `submit` пишет `discussion_chat_id`. В чате сид
 
 Mysql return. Успешный return пишет сообщение в чат строки и `returnMessageId` этого сообщения. Носитель `game.edit_all`, которого в чате строки не было, после return оказывается членом, и сообщение записано от его id. Повторный return с новой revision заменяет id и не стирает первое сообщение. Строка с пустым `discussion_chat_id` сохраняет причину, оставляет `returnMessageId` пустым и строку `chat_message` не добавляет. `reject` и `leave` число сообщений стола не меняют.
 
-Mysql inbox. Актор — член этих чатов. `chat.getChats` их id не содержит. Кадр `/api/chat/sync` не кладёт их в `chats` / `newChats` и не кладёт сообщение return в `messages`.
+Mysql inbox. Актор — член этих чатов. `chat.getChats` содержит их id. Кадр `/api/chat/sync` кладёт их в `chats` / `newChats` и кладёт сообщение return в `messages`.
 
 ## Todo
 

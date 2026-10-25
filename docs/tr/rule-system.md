@@ -185,6 +185,8 @@ State описывает хранение, объединение повторо
 
 `CheckSpec` содержит `parent_check_code`, optional `characteristic_code`, `allow_characteristic_override`, `default_efficiency`, `difficulty_input`, `allowed_modes` (`solo | joint | both`) и `attached_rule_codes`. Если `attached_rule_codes` задан явно, он не наследуется автоматически от родителя.
 
+`CheckSpec.outcomes` — упорядоченный список исходов `{rating | max_rating, state_rule_code}`. Первый совпавший по рейтингу исход применяется; `state_rule_code: null` означает «чисто». Коды состояний живут в данных проверки, а не в PHP/TS; ревизии без `outcomes` используют fallback по флагам `decline_*`.
+
 `ProcessSpec` содержит `steps`, `start_step_code`, `exit_step_codes`, `transition`, optional `failure` и `completion_effects`. Transition может быть chain/free/custom; завершение и failure должны быть различимы в runtime.
 
 ### Description и validation

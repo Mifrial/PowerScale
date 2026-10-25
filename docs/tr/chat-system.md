@@ -22,7 +22,7 @@ attachments: ChatAttachment[]
 
 Attachment может быть доменным opaque payload, который обрабатывается зарегистрированным renderer/processor. Inline-чипы используют отдельный renderer context с подписями токенов и ключами среза, без импорта внутренних DTO донора.
 
-`IChatApi` предоставляет `getChats`, `addPrivate`, `addGroup`, `getMessages`, `getTotalMessageCount`, `sendMessage(chatId, content, attachments)`, `updateMessageVisibility`, `sendSystemMessage`, `markChatRead` и `sync(since)`. Inbox `getChats` — только `private`/`group`. Доменные команды не добавляют поля в базовый `ChatMessage`: результат передаётся через `ChatAttachment`.
+`IChatApi` предоставляет `getChats`, `addPrivate`, `addGroup`, `getMessages`, `getTotalMessageCount`, `sendMessage(chatId, content, attachments)`, `updateMessageVisibility`, `sendSystemMessage`, `markChatRead` и `sync(since)`. Inbox `getChats` и SSE `/api/chat/sync` показывают все чаты, где пользователь состоит членом, независимо от `type`; Chat при этом не знает о Game/Character. `private`/`group` остаются host-типами для create. Доменные команды не добавляют поля в базовый `ChatMessage`: результат передаётся через `ChatAttachment`.
 
 ## Загрузка и отображение
 

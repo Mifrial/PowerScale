@@ -42,15 +42,15 @@ Kernel `action.php`, cookie, актор, CSRF. SmartTable Basic, setup, `powersc
 
 ## 6. Создать host private/group
 
-Подробно: [`chat-plan-06.md`](chat-plan-06.md). **Сделано:** HTTP `chat.addPrivate` / `chat.addGroup` + UI мессенджера. Inbox и SSE — только `private`/`group`. Донорский чат — не этот список и не этот create.
+Подробно: [`chat-plan-06.md`](chat-plan-06.md). **Сделано:** HTTP `chat.addPrivate` / `chat.addGroup` + UI мессенджера. Inbox и SSE — все чаты членства, без фильтра по `type`. Донорский чат — не этот create.
 
 ## 7. Непрозрачный тип донора
 
-Подробно: [`chat-plan-07.md`](chat-plan-07.md). **Сделано:** порт `IChatTypeRegistry` и `IChats::addTyped`. Inbox и SSE по-прежнему только `private`/`group`. Чат игры этим шагом не создаётся.
+Подробно: [`chat-plan-07.md`](chat-plan-07.md). **Сделано:** порт `IChatTypeRegistry` и `IChats::addTyped`. Inbox и SSE показывают все чаты членства. Чат игры этим шагом не создаётся.
 
 Chat не импортирует Game, Character и Rule. Колонки `game_id` нет и в этом шаге не появляется. Имена вроде `game`, `game_discussion`, `character_discussion` — строки донора, не каталог модуля Chat и не знание хоста о чужой таблице.
 
-Хост принимает регистрацию типа: непрозрачная строка и контракт плагина. Донор создаёт чат этого типа через фасад `IChats`, не через `chat.addPrivate` и `chat.addGroup`. Inbox мессенджера и `/api/chat/sync` по-прежнему только `private` и `group`: чужой тип туда не всплывает.
+Хост принимает регистрацию типа: непрозрачная строка и контракт плагина. Донор создаёт чат этого типа через фасад `IChats`, не через `chat.addPrivate` и `chat.addGroup`. Inbox мессенджера и `/api/chat/sync` показывают все чаты членства; `type` не является allowlist.
 
 Этот шаг не создаёт чат игры, не пишет `returnMessageId` и не открывает вкладку Discussion. Донор делает это своим следующим шагом, когда хост уже принимает тип. Battleground и его SSE сюда не входят.
 

@@ -1,8 +1,8 @@
 # План Chat 7 — непрозрачный тип донора
 
-**Статус:** сделано, 2026-10-04. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Inbox/SSE host — [`chat-plan-06.md`](chat-plan-06.md). Хост плагинов — [`chat-system.md`](chat-system.md). Рёбра — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** сделано, 2026-10-04; inbox/SSE обновлены 2026-10-25. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Inbox/SSE — [`chat-plan-06.md`](chat-plan-06.md). Хост плагинов — [`chat-system.md`](chat-system.md). Рёбра — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
-Цель: хост принимает регистрацию непрозрачной строки типа и создание чата этого типа через `IChats`. Не через `chat.addPrivate` и `chat.addGroup`. Inbox `/messenger` и кадр `/api/chat/sync` по-прежнему только `private` и `group`.
+Цель: хост принимает регистрацию непрозрачной строки типа и создание чата этого типа через `IChats`. Не через `chat.addPrivate` и `chat.addGroup`. Inbox `/messenger` и кадр `/api/chat/sync` показывают все чаты членства; `type` не является фильтром.
 
 Чат игры этим заходом не создаётся. `returnMessageId` не пишется. Вкладка Discussion не открывается. Это следующий шаг донора, когда хост уже принимает тип.
 
@@ -10,7 +10,7 @@
 
 | Термин | Смысл |
 |---|---|
-| Host-тип | Литералы `private` и `group`. Allowlist `ChatHostTypes`. Единственные строки inbox и SSE. |
+| Host-тип | Литералы `private` и `group`, зарезервированные для host create. Inbox и SSE фильтруют не по типу, а по членству. |
 | Донорский тип | Строка, которую зарегистрировал сосед. Хост не знает, чья она и какой таблице принадлежит. |
 | Реестр | Память процесса: набор зарегистрированных строк. Не колонка, не enum SmartTable, не каталог имён в модуле Chat. |
 
@@ -29,7 +29,7 @@
 - Таблицы реестра нет. Строка живёт до конца процесса. Этот шаг сам донора не вызывает: тест берёт порт из `IChatContainer` и регистрирует фикстуру перед `addTyped`. Позже донор делает тот же `get` из своего кода.
 - Реестр не хранит icon, roles, renderer, command. Это контракты Vue и поздние шаги (`sendSystemMessage`, thread, Files, macros).
 
-`ChatHostTypes::isHost` не заменяется реестром. Inbox не становится «все зарегистрированные».
+`ChatHostTypes::isHost` не заменяется реестром и больше не используется как allowlist inbox/SSE. Inbox показывает членство, а не «все зарегистрированные типы».
 
 ### 2. Создание через фасад
 
@@ -57,7 +57,7 @@
 | `IChats`, `Chats`, `ChatPortFactory::create` | Новый `addTyped`. Фабрика передаёт в `Chats` реестр из порта контейнера. |
 | `Chats::assertGroupChat` | Сейчас отсекает только `type === 'private'`, значит чужой тип проходит в `addMember` / `removeMember` как группа. Предикат — ровно `group`. Иначе созданный донорский чат меняет состав чужим API. |
 
-`ChatHostTypes`, `assembleInbox`, набор id в `ChatSseService` не расширять. `getChatIdsOfUser` не сужать. `assembleChatsByIds` по-прежнему не фильтрует type.
+`ChatHostTypes` не использовать как allowlist. `assembleInbox` и набор id в `ChatSseService` берут все членства. `getChatIdsOfUser` не сужать. `assembleChatsByIds` по-прежнему не фильтрует type.
 
 ### 4. HTTP
 
@@ -67,10 +67,10 @@
 
 ### 5. Inbox и SSE
 
-Чужой тип не всплывает. Проверка захода — mysql: зарегистрировать фикстурную строку, `addTyped`, актор — член.
+Донорский чат виден по членству. Проверка захода — mysql: зарегистрировать фикстурную строку, `addTyped`, актор — член.
 
-- `chat.getChats` не содержит этот id;
-- поток `/api/chat/sync` не кладёт его в `chats` / `newChats` и не кладёт его сообщения в `messages`.
+- `chat.getChats` содержит этот id;
+- поток `/api/chat/sync` кладёт его в `chats` / `newChats` и его сообщения в `messages`.
 
 Фильтр «нет game_id» не вводить.
 

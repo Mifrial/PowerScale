@@ -252,9 +252,12 @@ frontend-расхождение, которое нельзя переносит�
 
 ### Оглушение, потеря сознания и воля
 
-- Frontend-модель knockout и проверки истощения существует частично.
-- PHP producer состояния и автоматическая серверная проверка Воли —
-  `FRONTEND + BACKEND_MISSING + E2E_MISSING`.
+- Frontend-модель knockout и проверки истощения — `FRONTEND`.
+- PHP producer состояния и проверка Воли — `BACKEND`
+  (`GameStrikeConsequences`, `GameTurnTicks`); полный E2E — `E2E_MISSING`.
+- Дробящий урон может напрямую вызвать потерю сознания через
+  `blunt_unconscious`; это разрешённый второй producer, не отменяющий
+  `check-exhaustion.outcomes`.
 - Порядок «сначала записать истощение/рану/оглушение, затем проверить Волю и
   увечье» — канон требует закрепить backend-сценарием.
 

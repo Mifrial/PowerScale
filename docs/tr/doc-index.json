@@ -2094,7 +2094,7 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 20249,
+            "bytes": 20289,
             "lines": 164,
             "modules": [],
             "linksCount": 122,
@@ -3030,15 +3030,15 @@
             "kind": "plan",
             "state": "СДЕЛАНО",
             "stateSource": "prose",
-            "statusRaw": "сделано, 2026-09-05. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). HTTP — [`chat-plan-02.md`](chat-plan-02.md) (create там **не** входило). Vue real — [`chat-plan-04.md`](chat-plan-04.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.",
+            "statusRaw": "сделано, 2026-09-05; inbox/SSE обновлены 2026-10-25. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). HTTP — [`chat-plan-02.md`](chat-plan-02.md) (create там **не** входило). Vue real — [`chat-plan-04.md`](chat-plan-04.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.",
             "layers": [
                 "PHP",
                 "VUE"
             ],
             "basis": null,
             "date": "2026-09-05",
-            "bytes": 7976,
-            "lines": 99,
+            "bytes": 7649,
+            "lines": 95,
             "modules": [
                 "Messages/Chat"
             ],
@@ -3058,13 +3058,13 @@
             "kind": "plan",
             "state": "СДЕЛАНО",
             "stateSource": "prose",
-            "statusRaw": "сделано, 2026-10-04. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Inbox/SSE host — [`chat-plan-06.md`](chat-plan-06.md). Хост плагинов — [`chat-system.md`](chat-system.md). Рёбра — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).",
+            "statusRaw": "сделано, 2026-10-04; inbox/SSE обновлены 2026-10-25. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Inbox/SSE — [`chat-plan-06.md`](chat-plan-06.md). Хост плагинов — [`chat-system.md`](chat-system.md). Рёбра — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).",
             "layers": [
                 "PHP"
             ],
             "basis": null,
             "date": "2026-10-04",
-            "bytes": 10776,
+            "bytes": 11063,
             "lines": 116,
             "modules": [
                 "Messages/Chat"
@@ -3089,7 +3089,7 @@
             ],
             "basis": null,
             "date": "2026-10-04",
-            "bytes": 6000,
+            "bytes": 5994,
             "lines": 70,
             "modules": [
                 "Messages/Chat"
@@ -3127,7 +3127,7 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 12033,
+            "bytes": 12278,
             "lines": 126,
             "modules": [
                 "Messages/Chat"
@@ -3403,8 +3403,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-07",
-            "bytes": 25501,
-            "lines": 471,
+            "bytes": 25722,
+            "lines": 474,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -3830,13 +3830,13 @@
             "kind": "plan",
             "state": "ОТМЕНЁН",
             "stateSource": "prose",
-            "statusRaw": "чаты донора в PHP сделаны, 2026-10-04. `BACKEND_OPEN`. Suite `game` по `GameDonorChatMysqlTest` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G16. Канон — [`game-system.md`](game-system.md): Game Chat — общий чат стола; return оставляет membership и пишет причину; отмена process при return в этот шаг не входит. Хост — [`chat-roadmap.md`](chat-roadmap.md) шаг 7 и [`chat-plan-07.md`](chat-plan-07.md): `IChatTypeRegistry` и `IChats::addTyped` уже есть; inbox и `/api/chat/sync` только `private` и `group`. Границы — [`architecture.md`](architecture.md): Game → Chat как плагин; Character не импортирует Game; Chat не импортирует Roleplay. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).",
+            "statusRaw": "чаты донора в PHP сделаны, 2026-10-04; allowlist inbox/SSE снят 2026-10-25. `BACKEND_OPEN`. Suite `game` по `GameDonorChatMysqlTest` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G16. Канон — [`game-system.md`](game-system.md): Game Chat — общий чат стола; return оставляет membership и пишет причину; отмена process при return в этот шаг не входит. Хост — [`chat-roadmap.md`](chat-roadmap.md) шаг 7 и [`chat-plan-07.md`](chat-plan-07.md): `IChatTypeRegistry` и `IChats::addTyped` уже есть; inbox и `/api/chat/sync` показывают все чаты членства. Границы — [`architecture.md`](architecture.md): Game → Chat как плагин; Character не импортирует Game; Chat не импортирует Roleplay. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).",
             "layers": [
                 "PHP"
             ],
             "basis": null,
             "date": "2026-10-04",
-            "bytes": 27623,
+            "bytes": 27778,
             "lines": 205,
             "modules": [
                 "Roleplay/Game"
@@ -4385,7 +4385,7 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-05",
-            "bytes": 52075,
+            "bytes": 52118,
             "lines": 492,
             "modules": [
                 "Roleplay/Game"
@@ -4448,8 +4448,8 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 26827,
-            "lines": 242,
+            "bytes": 27369,
+            "lines": 244,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -6577,8 +6577,8 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 24937,
-            "lines": 239,
+            "bytes": 25392,
+            "lines": 241,
             "modules": [
                 "Roleplay/Rule"
             ],
