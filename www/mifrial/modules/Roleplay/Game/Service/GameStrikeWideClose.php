@@ -206,7 +206,7 @@ final class GameStrikeWideClose
             $attackerKind,
             $attackerId,
             $this->targets->pendingAfter(),
-            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode)],
+            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode, true)],
             $targetKeys,
         );
 

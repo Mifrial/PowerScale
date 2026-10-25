@@ -40,6 +40,7 @@ import {
   findRuleByRef,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
+import { ATTACK_ACTION_COST_FLOOR } from '@/modules/Roleplay/Game/Constant/Combat/ATTACK_ACTION_COST_FLOOR';
 import { AttackProfileOption } from '@/modules/Roleplay/Character/init';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
@@ -281,9 +282,10 @@ const finalCost = computed(() => {
   });
 
   const raw = baseCost.value + resolution.actionCostDelta;
-  const floor = asActionAbilitySpec(selectedSourceRule.value)?.min_total_action_cost;
+  const cardFloor = asActionAbilitySpec(selectedSourceRule.value)?.min_total_action_cost ?? 0;
+  const floor = Math.max(ATTACK_ACTION_COST_FLOOR, cardFloor);
 
-  return floor == null ? raw : Math.max(floor, raw);
+  return Math.max(floor, raw);
 });
 const actionPoints = computed(() => {
   if (!actorOverview.value) return 0;

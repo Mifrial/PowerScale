@@ -349,7 +349,7 @@ final class GameStrikeSingleClose
             $attackerKind,
             $attackerId,
             $pending,
-            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode)],
+            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode, true)],
             [$targetKey],
         );
         if ($reactionRuleCode !== null) {

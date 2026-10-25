@@ -1,0 +1,1 @@
+export const ATTACK_ACTION_COST_FLOOR = 2;

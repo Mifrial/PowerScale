@@ -457,10 +457,12 @@ final class GameActionPerform
             false,
         );
 
+        $amounts = (new GameActionFloor())->amounts($slice, $actionRuleCode, $declared['amounts'], false);
+
         return [
             'pending' => $declared['pending'],
-            'spends' => [...$split['kept'], ...$this->spendsOf($declared['amounts'])],
-            'amounts' => $declared['amounts'],
+            'spends' => [...$split['kept'], ...$this->spendsOf($amounts)],
+            'amounts' => $amounts,
         ];
     }
 

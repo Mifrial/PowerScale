@@ -90,7 +90,12 @@ final class GameStrikeSpend
             $battle->getPendingActionEffects(),
             $spends,
         );
-        $spends = $adjusted['spends'];
+        $spends = (new GameActionFloor())->apply(
+            $slice,
+            $choice['actionRuleCode'],
+            $adjusted['spends'],
+            true,
+        );
         $debt = new GameActionDebt();
         $actorKey = $debt->key($kind, $id);
         $debt->assertFree($battle->getActionDebt(), $actorKey);
@@ -202,10 +207,11 @@ final class GameStrikeSpend
      *
      * @param CharacterRuleSlice $slice Срез.
      * @param string $ruleCode Карточка.
+     * @param bool $strike Удар ли это.
      *
      * @return int Стоимость.
      */
-    public function getActionAp(CharacterRuleSlice $slice, string $ruleCode): int
+    public function getActionAp(CharacterRuleSlice $slice, string $ruleCode, bool $strike = false): int
     {
         if ($ruleCode === '') {
             return 0;
@@ -235,7 +241,7 @@ final class GameStrikeSpend
             }
         }
 
-        return $sum;
+        return $strike ? max($sum, (new GameActionFloor())->floorOf($slice, $ruleCode, true)) : $sum;
     }
 
     /**
