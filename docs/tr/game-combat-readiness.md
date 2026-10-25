@@ -93,8 +93,14 @@ Authoritative-источники:
 
 - `1 → 1` — `BACKEND`.
 - `1 → N` — `BACKEND`.
-- `N → 1` — `OPEN`.
+- `N → 1` — `BACKEND`: «Сдвоенный удар» (один бросок, N пакетов одного
+  оружия) и «Обоерукая атака» (свой бросок и реакция на каждый удар разным
+  оружием).
 - `N → N` — `OPEN`.
+- Публичный вход действий — `game.runAction` с фазой `declare`/`respond` и
+  видом `action`/`strike`/`wound`; отдельные `declareStrike`, `resolveStrike`,
+  `declareWideStrike`, `resolveWideStrike`, `declareAction`, `woundAction`
+  удалены.
 - Идемпотентность команд и повтор без повторной записи — `BACKEND`.
 - Конфликт версии боя и листа — `BACKEND`.
 - Персонаж и NPC как цели — `BACKEND`.

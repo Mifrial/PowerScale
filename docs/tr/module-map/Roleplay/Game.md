@@ -31,16 +31,11 @@
 - `Mifrial\Roleplay\Game\Action\DeclareGameCheckAction`
 - `Mifrial\Roleplay\Game\Action\ProposeGameCheckAction`
 - `Mifrial\Roleplay\Game\Action\AnswerGameCheckAction`
-- `Mifrial\Roleplay\Game\Action\GameWoundAction`
 - `Mifrial\Roleplay\Game\Action\GameManualSheetAction`
 - `Mifrial\Roleplay\Game\Action\EndGameTurnAction`
 - `Mifrial\Roleplay\Game\Action\ContinueGameAction`
 - `Mifrial\Roleplay\Game\Action\AbortGameAction`
-- `Mifrial\Roleplay\Game\Action\DeclareGameActionAction`
-- `Mifrial\Roleplay\Game\Action\DeclareGameStrikeAction`
-- `Mifrial\Roleplay\Game\Action\ResolveGameStrikeAction`
-- `Mifrial\Roleplay\Game\Action\DeclareGameWideStrikeAction`
-- `Mifrial\Roleplay\Game\Action\ResolveGameWideStrikeAction`
+- `Mifrial\Roleplay\Game\Action\RunGameActionAction`
 - `Mifrial\Roleplay\Game\Action\StartGameBattleAction`
 - `Mifrial\Roleplay\Game\Action\SetGameBattleRosterAction`
 - `Mifrial\Roleplay\Game\Action\EndGameBattleAction`
@@ -142,16 +137,11 @@
 | `game.declareCheck` | `DeclareGameCheckAction` | да |
 | `game.proposeCheck` | `ProposeGameCheckAction` | да |
 | `game.answerCheck` | `AnswerGameCheckAction` | да |
-| `game.woundAction` | `GameWoundAction` | да |
 | `game.manualSheet` | `GameManualSheetAction` | да |
 | `game.endTurn` | `EndGameTurnAction` | да |
 | `game.continueAction` | `ContinueGameAction` | да |
 | `game.abortAction` | `AbortGameAction` | да |
-| `game.declareAction` | `DeclareGameActionAction` | да |
-| `game.declareStrike` | `DeclareGameStrikeAction` | да |
-| `game.resolveStrike` | `ResolveGameStrikeAction` | да |
-| `game.declareWideStrike` | `DeclareGameWideStrikeAction` | да |
-| `game.resolveWideStrike` | `ResolveGameWideStrikeAction` | да |
+| `game.runAction` | `RunGameActionAction` | да |
 | `game.applyEconomy` | `ApplyGameEconomyAction` | да |
 | `game.getShop` | `GetGameShopAction` | да |
 | `game.replaceShop` | `ReplaceGameShopAction` | да |

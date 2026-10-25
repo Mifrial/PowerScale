@@ -1514,16 +1514,11 @@
                 "Mifrial\\Roleplay\\Game\\Action\\DeclareGameCheckAction",
                 "Mifrial\\Roleplay\\Game\\Action\\ProposeGameCheckAction",
                 "Mifrial\\Roleplay\\Game\\Action\\AnswerGameCheckAction",
-                "Mifrial\\Roleplay\\Game\\Action\\GameWoundAction",
                 "Mifrial\\Roleplay\\Game\\Action\\GameManualSheetAction",
                 "Mifrial\\Roleplay\\Game\\Action\\EndGameTurnAction",
                 "Mifrial\\Roleplay\\Game\\Action\\ContinueGameAction",
                 "Mifrial\\Roleplay\\Game\\Action\\AbortGameAction",
-                "Mifrial\\Roleplay\\Game\\Action\\DeclareGameActionAction",
-                "Mifrial\\Roleplay\\Game\\Action\\DeclareGameStrikeAction",
-                "Mifrial\\Roleplay\\Game\\Action\\ResolveGameStrikeAction",
-                "Mifrial\\Roleplay\\Game\\Action\\DeclareGameWideStrikeAction",
-                "Mifrial\\Roleplay\\Game\\Action\\ResolveGameWideStrikeAction",
+                "Mifrial\\Roleplay\\Game\\Action\\RunGameActionAction",
                 "Mifrial\\Roleplay\\Game\\Action\\StartGameBattleAction",
                 "Mifrial\\Roleplay\\Game\\Action\\SetGameBattleRosterAction",
                 "Mifrial\\Roleplay\\Game\\Action\\EndGameBattleAction",
@@ -1819,11 +1814,6 @@
                     "csrf": true
                 },
                 {
-                    "action": "game.woundAction",
-                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GameWoundAction",
-                    "csrf": true
-                },
-                {
                     "action": "game.manualSheet",
                     "handler": "Mifrial\\Roleplay\\Game\\Action\\GameManualSheetAction",
                     "csrf": true
@@ -1844,28 +1834,8 @@
                     "csrf": true
                 },
                 {
-                    "action": "game.declareAction",
-                    "handler": "Mifrial\\Roleplay\\Game\\Action\\DeclareGameActionAction",
-                    "csrf": true
-                },
-                {
-                    "action": "game.declareStrike",
-                    "handler": "Mifrial\\Roleplay\\Game\\Action\\DeclareGameStrikeAction",
-                    "csrf": true
-                },
-                {
-                    "action": "game.resolveStrike",
-                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ResolveGameStrikeAction",
-                    "csrf": true
-                },
-                {
-                    "action": "game.declareWideStrike",
-                    "handler": "Mifrial\\Roleplay\\Game\\Action\\DeclareGameWideStrikeAction",
-                    "csrf": true
-                },
-                {
-                    "action": "game.resolveWideStrike",
-                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ResolveGameWideStrikeAction",
+                    "action": "game.runAction",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\RunGameActionAction",
                     "csrf": true
                 },
                 {

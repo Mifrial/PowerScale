@@ -180,6 +180,8 @@ final class GameStrikeSingleClose
         $advantages = [];
         if ($packets > 1) {
             $advantages[] = new RollAdvantage('multi_attack', -$packets);
+        } elseif ($sequential) {
+            $advantages[] = new RollAdvantage('multi_attack', -1);
         }
 
         $prepared = (new GamePreparedDefense())->modifier(

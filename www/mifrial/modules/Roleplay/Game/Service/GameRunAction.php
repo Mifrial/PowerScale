@@ -257,6 +257,22 @@ final class GameRunAction
             $game->getRulesRevision(),
             $parsed['code'],
         );
+        if (!$wideCard && count($targetKeys) === 1) {
+            $base = $this->rules->actionBaseOf(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $parsed['code'],
+            );
+            $cardCount = $base?->getStrikeCount();
+            $minWeapons = $base?->getMinWeapons();
+            if (
+                (is_int($cardCount) && $cardCount > count($strikes))
+                || (is_int($minWeapons) && $minWeapons > count($strikes))
+            ) {
+                throw new GameInvalidException('Game strike count is invalid');
+            }
+        }
+
         if (!$wideCard && count($strikes) > 1 && count($targetKeys) === 1) {
             $result = $this->strikes->declareMultiStrike(
                 $gameId,
@@ -464,7 +480,7 @@ final class GameRunAction
             ],
         );
 
-        return $this->respondedSingle($open, $result, $defense);
+        return $this->respondedSingle($open, $result);
     }
 
     /**
@@ -618,11 +634,10 @@ final class GameRunAction
      *
      * @param array<string, mixed> $open Открытая строка.
      * @param array<string, mixed> $result Итог домена.
-     * @param array<string, mixed> $defense Защита.
      *
      * @return array<string, mixed> Итог.
      */
-    private function respondedSingle(array $open, array $result, array $defense): array
+    private function respondedSingle(array $open, array $result): array
     {
         $strikeId = is_int($open['id'] ?? null) ? $open['id'] : 0;
         $rows = $strikeId > 0 ? $this->repository->getStrikes($strikeId) : [];
