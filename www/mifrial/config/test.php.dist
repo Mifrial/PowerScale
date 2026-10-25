@@ -6,7 +6,7 @@ return [
     'debug' => true,
     'db' => [
         'host' => '127.0.0.1',
-        'port' => 3306,
+        'port' => (int) (getenv('MIFRIAL_TEST_DB_PORT') ?: 3307),
         'database' => 'powerscale_test',
         'username' => 'powerscale',
         'password' => 'changeme',

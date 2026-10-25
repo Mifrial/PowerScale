@@ -28,7 +28,10 @@
     "docs-check": "@php tools/doc-index/generate.php --check",
     "docs:show": "@php tools/doc-index/show.php",
     "maps": ["@docs-map", "@map"],
-    "maps-check": ["@docs-check", "@map-check"]
+    "maps-check": ["@docs-check", "@map-check"],
+    "test:unit": "@php vendor/bin/phpunit --no-coverage --filter '/^(?!.*Mysql)/'",
+    "test:db": "@php vendor/bin/phpunit --no-coverage -c phpunit-db.xml.dist",
+    "test:module": "@php vendor/bin/phpunit --no-coverage --testsuite"
   },
   "autoload": {
     "psr-4": {

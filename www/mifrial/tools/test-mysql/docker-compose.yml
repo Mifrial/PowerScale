@@ -1,0 +1,30 @@
+services:
+  mysql-test:
+    image: ${MIFRIAL_TEST_MYSQL_IMAGE:-mysql:8.0}
+    container_name: powerscale-mysql-test
+    command:
+      - --innodb-flush-log-at-trx-commit=0
+      - --skip-log-bin
+      - --sync-binlog=0
+      - --innodb-doublewrite=0
+      - --innodb-buffer-pool-size=512M
+      - --innodb-stats-persistent=0
+      - --performance-schema=0
+      - --skip-name-resolve
+      - --mysqlx=0
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "127.0.0.1:3307:3306"
+    tmpfs:
+      - /var/lib/mysql:mode=1777
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MIFRIAL_TEST_DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MIFRIAL_TEST_DB_NAME:-powerscale_test}
+      MYSQL_USER: ${MIFRIAL_TEST_DB_USER:?set MIFRIAL_TEST_DB_USER}
+      MYSQL_PASSWORD: ${MIFRIAL_TEST_DB_PASSWORD:?set MIFRIAL_TEST_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
