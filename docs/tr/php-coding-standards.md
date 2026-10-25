@@ -171,14 +171,29 @@ PHPDoc:
 composer install
 ```
 
-Обычный запуск:
+Обычный запуск (итерация):
 
 ```bash
 composer cs-fix
 composer cs-check
 composer quality
-vendor/bin/phpunit
+composer test:unit
 ```
+
+Полосы тестов:
+
+- `composer test:unit` — быстрая полоса без MySQL
+- `composer test:db` — MySQL-полоса
+- `composer test:module <name>` — один модуль (`game`, `kernel`, ...).
+- `vendor/bin/phpunit` — полный набор
+
+Полный набор запускается на границе задачи/сессии (явное «готово»), а не
+после каждого коммита. Единый прогон бэкенда и фронтенда —
+`bash tools/test-full.sh` из корня репозитория.
+
+Тестовая БД — отдельный контейнер на `127.0.0.1:3307`:
+`www/mifrial/tools/test-mysql/up.sh` (остановка — `down.sh`). Dev-БД
+`powerscale` не затрагивается.
 
 `composer cs-check` и `composer quality` перед запуском проверяют наличие
 проектных PHPCS и PHP CS Fixer, а также стандарта `SlevomatCodingStandard`.
