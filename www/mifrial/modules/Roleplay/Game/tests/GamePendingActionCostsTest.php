@@ -165,11 +165,12 @@ final class GamePendingActionCostsTest extends TestCase
 
         $attacker = $costs->checkAdvantages($pending, 'character', 1, 'check-hit', 'attacker');
         self::assertCount(2, $attacker);
-        self::assertSame('circumstances', $attacker[0]->getSourceCode());
+        self::assertNull($attacker[0]->getSourceCode());
+        self::assertNull($attacker[1]->getSourceCode());
 
         $defender = $costs->checkAdvantages($pending, 'character', 1, 'check-hit', 'defender');
         self::assertCount(1, $defender);
-        self::assertSame('circumstances', $defender[0]->getSourceCode());
+        self::assertNull($defender[0]->getSourceCode());
     }
 
     /**

@@ -1041,7 +1041,7 @@ final class GameStrikeRules
 
             $source = $effect->getSourceCode();
             $rows[] = new RollAdvantage(
-                is_string($source) && $source !== '' ? $source : 'circumstances',
+                is_string($source) && $source !== '' ? $source : null,
                 $effect->getDelta(),
             );
         }

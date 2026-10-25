@@ -27,8 +27,6 @@ use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
  */
 final class GamePendingActionCosts
 {
-    private const DEFAULT_SOURCE = 'circumstances';
-
     /**
      * Сдвигает целые траты удара и возвращает новую карту. Пол 2 не ставит.
      *
@@ -525,7 +523,7 @@ final class GamePendingActionCosts
         $source = $effect['source_code'] ?? null;
 
         return new RollAdvantage(
-            is_string($source) && $source !== '' ? $source : self::DEFAULT_SOURCE,
+            is_string($source) && $source !== '' ? $source : null,
             $delta,
         );
     }
