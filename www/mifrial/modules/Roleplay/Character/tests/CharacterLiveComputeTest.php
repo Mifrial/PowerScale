@@ -295,6 +295,119 @@ final class CharacterLiveComputeTest extends TestCase
     }
 
     /**
+     * Строгие признаки и владение режут уровень; скорость и магия — нет.
+     *
+     * @return void
+     */
+    public function testRequirementFactsCutLevelsOnlyForModelledTraits(): void
+    {
+        $slice = $this->slice([
+            $this->rule('human', 'race', [
+                'cost_os' => 0,
+                'characteristics' => [],
+                'abilities' => [],
+            ], ['human']),
+            $this->item('dagger', [
+                'category' => 'weapon',
+                'proficiency_family_code' => 'dagger',
+                'weapon' => ['weapon_profiles' => [[
+                    'type' => 'strike',
+                    'accuracy' => ['base' => 3, 'size' => 0],
+                ]]],
+            ], ['blade']),
+            $this->ability('axe', ['type' => 'trait'], ['combat']),
+            $this->ability('mastery', ['type' => 'trait', 'domain_ref' => 'weapon-family']),
+            $this->ability('human-only', [
+                'type' => 'trait',
+                'requirements' => [[
+                    'level' => 1,
+                    'requirements' => [['type' => 'has_keyword', 'keyword_code' => 'human']],
+                ]],
+            ], ['combat']),
+            $this->ability('combat-only', [
+                'type' => 'trait',
+                'requirements' => [[
+                    'level' => 1,
+                    'requirements' => [[
+                        'type' => 'has_ability_keyword',
+                        'keyword_code' => 'combat',
+                        'min_count' => 1,
+                        'exclude_keyword_codes' => [],
+                    ]],
+                ]],
+            ]),
+            $this->ability('ranged-only', [
+                'type' => 'trait',
+                'requirements' => [[
+                    'level' => 1,
+                    'requirements' => [[
+                        'type' => 'has_ability_keyword',
+                        'keyword_code' => 'ranged',
+                        'min_count' => 1,
+                        'exclude_keyword_codes' => [],
+                    ]],
+                ]],
+            ]),
+            $this->ability('blade-master', [
+                'type' => 'trait',
+                'requirements' => [[
+                    'level' => 1,
+                    'requirements' => [['type' => 'min_weapon_mastery', 'keyword_code' => 'blade', 'min_level' => 2]],
+                ]],
+            ]),
+            $this->ability('blade-master-3', [
+                'type' => 'trait',
+                'requirements' => [[
+                    'level' => 1,
+                    'requirements' => [['type' => 'min_weapon_mastery', 'keyword_code' => 'blade', 'min_level' => 3]],
+                ]],
+            ]),
+            $this->ability('fast', [
+                'type' => 'trait',
+                'requirements' => [[
+                    'level' => 1,
+                    'requirements' => [[
+                        'type' => 'current_speed',
+                        'axis' => 'horizontal',
+                        'direction' => 'front',
+                        'min_steps_per_action_point' => 2,
+                    ]],
+                ]],
+            ]),
+            $this->ability('mage', [
+                'type' => 'trait',
+                'requirements' => [[
+                    'level' => 1,
+                    'requirements' => [['type' => 'has_magic_path', 'path_code' => 'psionic']],
+                ]],
+            ]),
+        ]);
+        $character = Character::fromDocument($slice, [
+            'raceCode' => 'human',
+            'abilities' => [
+                ['ruleCode' => 'axe', 'level' => 1],
+                ['ruleCode' => 'mastery', 'level' => 2, 'domainCode' => 'dagger'],
+                ['ruleCode' => 'human-only', 'level' => 1],
+                ['ruleCode' => 'combat-only', 'level' => 1],
+                ['ruleCode' => 'ranged-only', 'level' => 1],
+                ['ruleCode' => 'blade-master', 'level' => 1],
+                ['ruleCode' => 'blade-master-3', 'level' => 1],
+                ['ruleCode' => 'fast', 'level' => 1],
+                ['ruleCode' => 'mage', 'level' => 1],
+            ],
+        ], [], $this->sheets());
+        $levels = $character->getSheet()['abilityLevels'];
+
+        self::assertSame(1, $levels['human-only']);
+        self::assertSame(1, $levels['combat-only']);
+        self::assertSame(0, $levels['ranged-only']);
+        self::assertSame(1, $levels['blade-master']);
+        self::assertSame(0, $levels['blade-master-3']);
+        self::assertSame(1, $levels['fast']);
+        self::assertSame(1, $levels['mage']);
+    }
+
+    /**
      * @param CharacterRuleSlice $slice Срез.
      *
      * @return CharacterActualMutations Порт.
@@ -394,38 +507,40 @@ final class CharacterLiveComputeTest extends TestCase
      *
      * @return CharacterResolvedRule Способность.
      */
-    private function ability(string $code, array $spec): CharacterResolvedRule
+    private function ability(string $code, array $spec, array $keywords = []): CharacterResolvedRule
     {
-        return $this->rule($code, 'ability', $spec);
+        return $this->rule($code, 'ability', $spec, $keywords);
     }
 
     /**
      * @param string $code Код.
      * @param array<string, mixed> $spec Spec.
+     * @param array<int, string> $keywords Признаки.
      *
      * @return CharacterResolvedRule Предмет.
      */
-    private function item(string $code, array $spec): CharacterResolvedRule
+    private function item(string $code, array $spec, array $keywords = []): CharacterResolvedRule
     {
         return $this->rule($code, 'item', array_merge([
             'category' => 'equipment',
             'innate' => false,
             'special_rule_codes' => [],
-        ], $spec));
+        ], $spec), $keywords);
     }
 
     /**
      * @param string $code Код.
      * @param string $type Тип.
      * @param array<string, mixed> $spec Документ.
+     * @param array<int, string> $keywords Признаки.
      *
      * @return CharacterResolvedRule Правило.
      */
-    private function rule(string $code, string $type, array $spec): CharacterResolvedRule
+    private function rule(string $code, string $type, array $spec, array $keywords = []): CharacterResolvedRule
     {
         return new CharacterResolvedRule(
             new RuleVersionRecord(1, 1, $code, true, $type, 'Name', '', $spec, [], [], 'needs_work', '', DateTime::now()),
-            [],
+            $keywords,
         );
     }
 
