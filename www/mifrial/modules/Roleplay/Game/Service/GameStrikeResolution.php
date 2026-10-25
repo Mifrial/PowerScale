@@ -79,6 +79,11 @@ final class GameStrikeResolution
 
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $advantages = $this->rules->actionCheckAdvantages($slice, $actionRuleCode, $hitCode);
+        array_push($advantages, ...$this->rules->passiveCheckAdvantages(
+            $slice,
+            $this->abilityLevels($game, $kind, $attackerId),
+            $hitCode,
+        ));
         array_push($advantages, ...(new GamePendingActionCosts())->checkAdvantages(
             $pending,
             $kind,
@@ -647,6 +652,28 @@ final class GameStrikeResolution
         }
 
         return $choices;
+    }
+
+    /**
+     * Уровни способностей актора.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $kind Вид актора.
+     * @param int $actorId Идентификатор.
+     *
+     * @return array<string, int> Уровни.
+     *
+     * @throws GameInvalidException Если лист битый.
+     * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если листа нет.
+     */
+    private function abilityLevels(GameRecord $game, string $kind, int $actorId): array
+    {
+        $sheet = $kind === 'character'
+            ? $this->rules->characterSnapshot($actorId)['sheet']
+            : $this->sheets->getNpcSheet($game->getId(), $actorId);
+        $levels = $sheet['abilityLevels'] ?? null;
+
+        return is_array($levels) ? $levels : [];
     }
 
     /**

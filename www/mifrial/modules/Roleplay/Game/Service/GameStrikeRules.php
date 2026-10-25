@@ -251,6 +251,48 @@ final class GameStrikeRules
     }
 
     /**
+     * Модификаторы проверки с пассивных карточек.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, int> $levels Уровни способностей актора.
+     * @param string $checkCode Код проверки.
+     *
+     * @return array<int, RollAdvantage> Записи.
+     */
+    public function passiveCheckAdvantages(CharacterRuleSlice $slice, array $levels, string $checkCode): array
+    {
+        $rows = [];
+        foreach ($slice->getLiveRules() as $rule) {
+            $level = $levels[$rule->getCode()] ?? 0;
+            if (!is_int($level) || $level < 1) {
+                continue;
+            }
+
+            $spec = $rule->getSpec();
+            if (!$spec instanceof AbilityPlainSpec) {
+                continue;
+            }
+
+            foreach ($spec->getBase()->getActionEffects() as $effect) {
+                if (
+                    !$effect instanceof CurrentActionCheckModifierEffect
+                    || !in_array($checkCode, $effect->getCheckCodes(), true)
+                ) {
+                    continue;
+                }
+
+                $source = $effect->getSourceCode();
+                $rows[] = new RollAdvantage(
+                    is_string($source) && $source !== '' ? $source : null,
+                    $effect->getDelta(),
+                );
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
      * Общие поля карточки действия.
      *
      * @param int $spaceId Мир.
