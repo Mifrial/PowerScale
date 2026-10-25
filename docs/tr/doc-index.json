@@ -255,8 +255,8 @@
                 "ОТМЕНЁН": 1
             },
             "layer": {
+                "PHP": 8,
                 "VUE": 10,
-                "PHP": 7,
                 "МОК": 1
             }
         },
@@ -6033,12 +6033,14 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "prose",
-            "statusRaw": "`IN_PROGRESS`, 2026-09-17. Срезы A–H в коде: слоты, Удвоенная мощь, Яростный рывок.",
-            "layers": [],
+            "statusRaw": "`IN_PROGRESS`, 2026-10-25. Срезы A–H в коде: слоты, Удвоенная мощь, Яростный рывок; Силовой удар посажен в PHP Game.",
+            "layers": [
+                "PHP"
+            ],
             "basis": null,
-            "date": "2026-09-17",
-            "bytes": 18120,
-            "lines": 224,
+            "date": "2026-10-25",
+            "bytes": 19016,
+            "lines": 225,
             "modules": [
                 "Roleplay/Rule"
             ],

@@ -54,7 +54,7 @@
 | [spell-review-01.md](../../spell-review-01.md) | канон | `~ПЛАН~` | 2026-09-07 |
 | [spell-roadmap.md](../../spell-roadmap.md) | план | `~ПЛАН~` | 2026-09-07 |
 | [rule-content-plan-07-languages.md](../../rule-content-plan-07-languages.md) | план | `~В РАБОТЕ~` | 2026-09-15 |
-| [rule-content-plan-10-melee-power.md](../../rule-content-plan-10-melee-power.md) | план | `~В РАБОТЕ~` | 2026-09-17 |
+| [rule-content-plan-10-melee-power.md](../../rule-content-plan-10-melee-power.md) | план | `~В РАБОТЕ~` | 2026-10-25 |
 | [rule-content-roadmap.md](../../rule-content-roadmap.md) | план | `~В РАБОТЕ~` | 2026-09-16 |
 | [rule-plan-05.md](../../rule-plan-05.md) | план | `~В РАБОТЕ~` | 2026-10-05 |
 | [spell-inventory-01.md](../../spell-inventory-01.md) | канон | `~В РАБОТЕ~` | 2026-09-07 |
