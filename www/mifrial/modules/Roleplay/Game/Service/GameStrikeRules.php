@@ -53,6 +53,8 @@ final class GameStrikeRules
 
     private readonly GameActionResourceResolver $resourceResolver;
 
+    private readonly GameStrikeSuccessModifier $successModifier;
+
     /**
      * @var array<string, CharacterRuleSlice>
      */
@@ -94,6 +96,7 @@ final class GameStrikeRules
         $this->amounts = new GameStrikeAmounts();
         $this->splits = new GameStrikeSplits();
         $this->resourceResolver = new GameActionResourceResolver();
+        $this->successModifier = new GameStrikeSuccessModifier();
     }
 
     /**
@@ -1080,6 +1083,37 @@ final class GameStrikeRules
         }
 
         return $delta;
+    }
+
+    /**
+     * Сдвиг характеристики урона от рейтинга успеха карточки действия.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка.
+     * @param string $profileType Тип профиля strike, throw или shoot.
+     * @param int $hitNumber Номер попадания.
+     * @param int $success Рейтинг успеха.
+     *
+     * @return int Сдвиг.
+     */
+    public function successRatingCharacteristicModifier(
+        CharacterRuleSlice $slice,
+        string $actionRuleCode,
+        string $profileType,
+        int $hitNumber,
+        int $success,
+    ): int {
+        $base = $this->actionBase($slice, $actionRuleCode);
+        if ($base === null) {
+            return 0;
+        }
+
+        return $this->successModifier->fromEffects(
+            $base->getActionEffects(),
+            $profileType,
+            $hitNumber,
+            $success,
+        );
     }
 
     /**

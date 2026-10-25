@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
-use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
@@ -226,18 +225,23 @@ final class GameStrikeSingleClose
         }
 
         $autoFail = $this->rules->isHitAutoFail($attackerRoll['roll']);
-        $damage = $autoFail ? $this->amounts->zero() : $this->resolution->damageOf($game, $open);
+        $success = $autoFail
+            ? 0
+            : $lastStrike->boostSuccess(
+                $slice,
+                $actionRuleCode,
+                $this->resolution->successOf($attackerRoll, $defenderRoll, $choice['reaction']),
+                $previousSr,
+            );
+        $damage = $autoFail ? $this->amounts->zero() : $this->resolution->damageOf($game, $open, $success);
         $result = $this->closeResult(
             $battle,
             $strikeId,
             $expectedBattleVersion,
             $attackerRoll,
             $defenderRoll,
-            $choice['reaction'],
-            $autoFail ? $this->amounts->zero() : $damage,
-            $slice,
-            $actionRuleCode,
-            $previousSr,
+            $success,
+            $damage,
         );
         $durabilityShave = $result['success'] === 0
             ? 0
@@ -449,11 +453,8 @@ final class GameStrikeSingleClose
      * @param int $expectedBattleVersion Версия.
      * @param array<string, mixed> $attackerRoll Бросок атаки.
      * @param array<string, mixed>|null $defenderRoll Бросок защиты.
-     * @param string $reaction Реакция.
+     * @param int $success Готовый успех попадания.
      * @param DimensionalNumber $damage Урон.
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $actionRuleCode Карточка удара.
-     * @param int $previousSr Успех прошлого удара по цели.
      *
      * @return array<string, mixed> Итог.
      */
@@ -463,14 +464,9 @@ final class GameStrikeSingleClose
         int $expectedBattleVersion,
         array $attackerRoll,
         ?array $defenderRoll,
-        string $reaction,
+        int $success,
         DimensionalNumber $damage,
-        CharacterRuleSlice $slice,
-        string $actionRuleCode,
-        int $previousSr,
     ): array {
-        $success = $this->resolution->successOf($attackerRoll, $defenderRoll, $reaction);
-        $success = (new GameLastStrikeSnapshot())->boostSuccess($slice, $actionRuleCode, $success, $previousSr);
         $effectiveDamage = $success === 0 ? $this->amounts->zero() : $damage;
 
         $result = [

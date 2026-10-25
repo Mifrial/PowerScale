@@ -1199,6 +1199,40 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Бонус Силы от рейтинга успеха добавляется к урону и упирается в потолок.
+     *
+     * @return void
+     */
+    public function testSuccessRatingCharacteristicModifierRaisesActionDamage(): void
+    {
+        $plain = $this->resolveActionDamage([]);
+        $boosted = $this->resolveActionDamage([$this->successRatingEffect()]);
+        self::assertSame(8, $plain['success']);
+        self::assertSame(8, $boosted['success']);
+        self::assertSame($this->pair(4), $plain['damage']);
+        self::assertSame($this->pair(4, 1), $boosted['damage']);
+    }
+
+    /**
+     * Бонус от РУ складывается со сдвигом характеристики карточки.
+     *
+     * @return void
+     */
+    public function testSuccessRatingBonusStacksWithActionCharacteristicModifier(): void
+    {
+        $stacked = $this->resolveActionDamage([
+            $this->successRatingEffect(),
+            [
+                'type' => 'current_action_attack_characteristic_modifier',
+                'delta' => 2,
+                'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                'damage_type_codes' => [],
+            ],
+        ]);
+        self::assertSame($this->pair(3, 2), $stacked['damage']);
+    }
+
+    /**
      * Single penetration использует live profile, выбранный instance и modifier.
      *
      * @return void
@@ -2463,6 +2497,7 @@ final class GameStrikeMysqlTest extends TestCase
         array $extraCards = [],
         ?string $dodgeSoak = null,
         array $extraRules = [],
+        bool $withActionDamage = false,
     ): RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -2476,7 +2511,8 @@ final class GameStrikeMysqlTest extends TestCase
             . ($cardEffects === [] ? '' : '-fx' . substr(md5((string) json_encode($cardEffects)), 0, 6))
             . ($extraCards === [] ? '' : '-ex' . substr(md5((string) json_encode($extraCards)), 0, 6))
             . ($dodgeSoak === null ? '' : '-ds' . substr(md5($dodgeSoak), 0, 6))
-            . ($extraRules === [] ? '' : '-er' . substr(md5((string) json_encode($extraRules)), 0, 6)),
+            . ($extraRules === [] ? '' : '-er' . substr(md5((string) json_encode($extraRules)), 0, 6))
+            . ($withActionDamage ? '-ad' : ''),
         );
         $check = [
             'allow_characteristic_override' => false,
@@ -2558,7 +2594,17 @@ final class GameStrikeMysqlTest extends TestCase
                                 'characteristic' => 'strength',
                                 'modifier' => [],
                             ],
-                        ] : []),
+                        ] : ($withActionDamage ? [
+                            'damage' => [
+                                'damage_type_code' => 'cut',
+                                'formula' => [
+                                    'type' => 'actionCharacteristic',
+                                    'action' => 'swing',
+                                    'characteristic' => 'strength',
+                                    'modifier' => [],
+                                ],
+                            ],
+                        ] : [])),
                     ]],
                 ],
                 'block_profile' => [
@@ -2955,6 +3001,39 @@ final class GameStrikeMysqlTest extends TestCase
             'orPointsLimit' => null,
             'moneyLimit' => null,
         ]));
+    }
+
+    /**
+     * Закрытие удара с формулой урона от характеристики действия.
+     *
+     * @param array<int, array<string, mixed>> $cardEffects Эффекты карточки.
+     * @param string $reaction Реакция защиты.
+     *
+     * @return array<string, mixed> data закрытия.
+     */
+    private function resolveActionDamage(array $cardEffects, string $reaction = 'ignore'): array
+    {
+        $world = $this->worldWithWeapon(withActionDamage: true, cardEffects: $cardEffects);
+
+        return $this->resolveDefense($world->getId(), [], 'sword', true, $reaction);
+    }
+
+    /**
+     * Эффект бонуса к характеристике урона от РУ.
+     *
+     * @param int $floorDiv Делитель.
+     * @param int $cap Потолок.
+     *
+     * @return array<string, mixed> Эффект.
+     */
+    private function successRatingEffect(int $floorDiv = 2, int $cap = 3): array
+    {
+        return [
+            'type' => 'current_action_attack_characteristic_from_success_rating',
+            'floor_div' => $floorDiv,
+            'cap' => $cap,
+            'scope' => ['components' => ['strike'], 'hit_count' => 1],
+        ];
     }
 
     /**

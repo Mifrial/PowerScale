@@ -1400,6 +1400,73 @@ final class GameWideStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Широкая атака не применяет бонус к характеристике урона от РУ.
+     *
+     * @return void
+     */
+    public function testWideStrikeIgnoresSuccessRatingDamageBonus(): void
+    {
+        $world = $this->worldWithWeapon();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Hero', [], [[
+            'id' => 1,
+            'ruleCode' => 'pike',
+            'equipped' => true,
+        ]]);
+        $firstId = $this->admit($world->getId(), $gameId, 'First');
+        $secondId = $this->admit($world->getId(), $gameId, 'Second');
+        $firstVersion = $this->characterFacade()->get($firstId)->getActualVersion();
+        $secondVersion = $this->characterFacade()->get($secondId)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-rating-bonus',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+            ],
+        ]);
+        $opened = $this->dispatch('game.declareWideStrike', $this->declareBody(
+            $gameId,
+            $battle['data']['battleId'],
+            's-rating-bonus',
+            1,
+            [
+                'attacker' => ['type' => 'character', 'id' => $attackerId],
+                'targets' => [
+                    ['type' => 'character', 'id' => $firstId],
+                    ['type' => 'character', 'id' => $secondId],
+                ],
+                'actionRuleCode' => 'swingfx',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'pike',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+            ],
+        ));
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.resolveWideStrike', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'd-rating-bonus',
+            'expectedVersion' => 2,
+            'defense' => $this->defenses([
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+            ], [
+                ['reaction' => 'ignore', 'expectedSheetVersion' => $firstVersion],
+                ['reaction' => 'ignore', 'expectedSheetVersion' => $secondVersion],
+            ]),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(8, $closed['data']['targetResults'][0]['success']);
+        self::assertSame($this->pair(6), $closed['data']['targetResults'][0]['damage']);
+        self::assertSame($this->pair(6), $closed['data']['targetResults'][1]['damage']);
+    }
+
+    /**
      * Две цели несут разное сопротивление. Мёртвый код брони не закрывает удар.
      *
      * @return void
@@ -1933,6 +2000,18 @@ final class GameWideStrikeMysqlTest extends TestCase
             RuleCommitEntry::put('swing1', new RuleVersionBody('ability', 'Swing one', '', [
                 'type' => 'action',
                 'action_components' => [],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('swingfx', new RuleVersionBody('ability', 'Swing fx', '', [
+                'type' => 'action',
+                'action_components' => [],
+                'attack_mode' => 'wide',
+                'max_targets' => 4,
+                'action_effects' => [[
+                    'type' => 'current_action_attack_characteristic_from_success_rating',
+                    'floor_div' => 2,
+                    'cap' => 3,
+                    'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                ]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('widebroken', new RuleVersionBody('ability', 'Wide broken', '', [
                 'type' => 'action',
