@@ -160,6 +160,58 @@ final class FormulaEvaluationTest extends TestCase
     }
 
     /**
+     * Copy-on-write overlay профиля не меняет базовый контекст листа.
+     *
+     * @return void
+     */
+    public function testActionCharacteristicOverlayKeepsBaseContext(): void
+    {
+        $base = $this->context(['strength' => new CharacteristicNumber(5, 0)]);
+        $overlay = $base->withActionCharacteristic(
+            'shoot',
+            'strength',
+            new CharacteristicNumber(3, 1),
+        );
+        $node = new ActionCharacteristicNode('shoot', 'strength', null, []);
+
+        $this->assertPair($node, $base, 5, 0, 5);
+        $this->assertPair($node, $overlay, 3, 1, 6);
+    }
+
+    /**
+     * Массовый overlay профиля перекрывает старую базу, но не теряет чужие.
+     *
+     * @return void
+     */
+    public function testActionCharacteristicsOverlayMergesByProfile(): void
+    {
+        $base = $this->context(
+            ['strength' => new CharacteristicNumber(5, 0)],
+            [],
+            ['shoot' => ['strength' => new CharacteristicNumber(4, 0)]],
+        );
+        $context = $base->withActionCharacteristics([
+            'shoot' => ['strength' => new CharacteristicNumber(3, 2)],
+            'throw' => ['strength' => new CharacteristicNumber(5, -1)],
+        ]);
+
+        $this->assertPair(
+            new ActionCharacteristicNode('shoot', 'strength', null, []),
+            $context,
+            3,
+            2,
+            12,
+        );
+        $this->assertPair(
+            new ActionCharacteristicNode('throw', 'strength', null, []),
+            $context,
+            5,
+            -1,
+            2,
+        );
+    }
+
+    /**
      * Делитель 0 и отсутствующий параметр — отказ.
      *
      * @return void

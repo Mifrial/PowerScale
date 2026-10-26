@@ -1222,6 +1222,80 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * База профиля перекрывает характеристику листа и получает пункты карточки.
+     *
+     * @return void
+     */
+    public function testProfileActionCharacteristicBeatsCharacterAndCardModifier(): void
+    {
+        $world = $this->worldWithWeapon(
+            withActionDamage: true,
+            cardEffects: [[
+                'type' => 'current_action_attack_characteristic_modifier',
+                'delta' => 2,
+                'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                'damage_type_codes' => [],
+            ]],
+            profileOverrides: [
+                'damage' => [
+                    'damage_type_code' => 'cut',
+                    'formula' => [
+                        'type' => 'actionCharacteristic',
+                        'action' => 'strike',
+                        'characteristic' => 'strength',
+                        'modifier' => [],
+                    ],
+                ],
+                'action_characteristics' => [[
+                    'characteristic' => 'strength',
+                    'value' => ['type' => 'dimensional', 'base' => 3, 'size' => 2],
+                ]],
+            ],
+        );
+
+        $closed = $this->resolveDefense($world->getId(), [], 'sword');
+
+        self::assertSame($this->pair(5, 2), $closed['damage']);
+    }
+
+    /**
+     * База профиля видна в пробитии, а не только в уроне.
+     *
+     * @return void
+     */
+    public function testProfileActionCharacteristicFeedsPenetration(): void
+    {
+        $world = $this->worldWithWeapon(
+            withPenetration: true,
+            profileOverrides: [
+                'penetration' => [
+                    'type' => 'actionCharacteristic',
+                    'action' => 'strike',
+                    'characteristic' => 'strength',
+                    'modifier' => [],
+                ],
+                'action_characteristics' => [[
+                    'characteristic' => 'strength',
+                    'value' => ['type' => 'dimensional', 'base' => 3, 'size' => 0],
+                ]],
+            ],
+        );
+
+        $closed = $this->resolveDefense(
+            $world->getId(),
+            [],
+            'sword',
+            true,
+            'ignore',
+            false,
+            [['id' => 1, 'ruleCode' => 'plate', 'equipped' => true]],
+        );
+
+        self::assertSame($this->pair(6), $closed['damage']);
+        self::assertSame($this->pair(2), $closed['resistance']);
+    }
+
+    /**
      * Карточка не у атакующего и без automatic-зоны — отказ.
      *
      * @return void
@@ -3038,6 +3112,7 @@ final class GameStrikeMysqlTest extends TestCase
      * @param bool $withPenetration Живая формула penetration.
      * @param int|null $hitEfficiency Явная эффективность hit-check.
      * @param bool $withBlockResource Дорогая block-реакция focus.
+     * @param array<string, mixed> $profileOverrides Поля профиля поверх фикстуры.
      *
      * @return RuleSpaceRecord Мир.
      */
@@ -3054,6 +3129,7 @@ final class GameStrikeMysqlTest extends TestCase
         ?string $dodgeSoak = null,
         array $extraRules = [],
         bool $withActionDamage = false,
+        array $profileOverrides = [],
     ): RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -3162,6 +3238,7 @@ final class GameStrikeMysqlTest extends TestCase
                                 ],
                             ],
                         ] : [])),
+                        ...$profileOverrides,
                     ]],
                 ],
                 'block_profile' => [

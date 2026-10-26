@@ -99,6 +99,53 @@ final class FormulaContext
     }
 
     /**
+     * Копия контекста с базой характеристики действия.
+     *
+     * @param string $action Действие.
+     * @param string $code Код характеристики.
+     * @param DimensionalNumber $value База.
+     *
+     * @return self Контекст.
+     */
+    public function withActionCharacteristic(string $action, string $code, DimensionalNumber $value): self
+    {
+        $actionCharacteristics = $this->actionCharacteristics;
+        $actionCharacteristics[$action][$code] = $value;
+
+        return new self(
+            $this->characteristics,
+            $this->abilityLevels,
+            $this->parameters,
+            $actionCharacteristics,
+            $this->actionCharacteristicModifier,
+        );
+    }
+
+    /**
+     * Копия контекста с базами характеристик действий. Базы аргумента важнее
+     * уже заданных.
+     *
+     * @param array<string, array<string, DimensionalNumber>> $actionCharacteristics Базы.
+     *
+     * @return self Контекст.
+     */
+    public function withActionCharacteristics(array $actionCharacteristics): self
+    {
+        $merged = $this->actionCharacteristics;
+        foreach ($actionCharacteristics as $action => $values) {
+            $merged[$action] = $values + ($merged[$action] ?? []);
+        }
+
+        return new self(
+            $this->characteristics,
+            $this->abilityLevels,
+            $this->parameters,
+            $merged,
+            $this->actionCharacteristicModifier,
+        );
+    }
+
+    /**
      * Сдвиг характеристики действия в этом контексте.
      *
      * @return int Пункты.

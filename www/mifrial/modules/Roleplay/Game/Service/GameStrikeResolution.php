@@ -287,14 +287,22 @@ final class GameStrikeResolution
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $open Открытый удар.
+     * @param int|null $success Рейтинг успеха или null, если бонус от РУ не применяется.
+     * @param int $hitNumber Номер попадания с единицы.
+     * @param int $strengthDrop Штраф силы броска в размерах.
      *
      * @return DimensionalNumber Проникновение.
      *
      * @throws GameInvalidException Если строка или формула битые.
      * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если атакующий отсутствует.
      */
-    public function penetrationOf(GameRecord $game, array $open): DimensionalNumber
-    {
+    public function penetrationOf(
+        GameRecord $game,
+        array $open,
+        ?int $success = null,
+        int $hitNumber = 1,
+        int $strengthDrop = 0,
+    ): DimensionalNumber {
         $kind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
         $itemRuleCode = $open['item_rule_code'] ?? null;
@@ -312,6 +320,24 @@ final class GameStrikeResolution
             throw new GameInvalidException('Game strike row is invalid');
         }
 
+        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $characteristicModifier = $this->rules->actionCharacteristicModifier(
+            $slice,
+            $actionRuleCode,
+            $profileType,
+            $hitNumber,
+        );
+        if ($success !== null) {
+            $characteristicModifier += $this->rules->successRatingCharacteristicModifier(
+                $slice,
+                $actionRuleCode,
+                $profileType,
+                $hitNumber,
+                $success,
+            );
+        }
+
         return $this->rules->evaluatePenetration(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -324,6 +350,8 @@ final class GameStrikeResolution
             $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
+            $characteristicModifier,
+            $strengthDrop,
         );
     }
 
@@ -455,6 +483,7 @@ final class GameStrikeResolution
      * @param array<string, mixed> $open Строка удара.
      * @param int|null $success Рейтинг успеха или null, если бонус от РУ не применяется.
      * @param int $hitNumber Номер попадания с единицы.
+     * @param int $strengthDrop Штраф силы броска в размерах.
      *
      * @return DimensionalNumber Пара.
      *
@@ -466,6 +495,7 @@ final class GameStrikeResolution
         array $open,
         ?int $success = null,
         int $hitNumber = 1,
+        int $strengthDrop = 0,
     ): DimensionalNumber {
         $kind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
@@ -515,6 +545,7 @@ final class GameStrikeResolution
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
             $characteristicModifier,
+            $strengthDrop,
         );
     }
 

@@ -291,7 +291,7 @@ final class GameStrikeSingleClose
                 $targetOpen,
                 $this->resolution->resistanceChoice($choice, $result['defenderRoll'] ?? null),
                 $result['success'],
-                $this->resolution->penetrationOf($game, $open),
+                $this->resolution->penetrationOf($game, $open, $success),
                 $durabilityShave,
             );
         $soak = $this->resolution->soakOf($game, $targetOpen, $choice['reaction'], $result['success'], $pending);

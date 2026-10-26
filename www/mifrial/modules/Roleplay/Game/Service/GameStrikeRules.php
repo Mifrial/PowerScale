@@ -589,6 +589,7 @@ final class GameStrikeRules
      * @param array<string, mixed>|null $npcChoices Снимок choices NPC или null.
      * @param int|null $sheetVersion Версия листа NPC.
      * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
+     * @param int $strengthDrop Штраф силы броска в размерах.
      *
      * @return DimensionalNumber Пара формулы.
      *
@@ -608,6 +609,7 @@ final class GameStrikeRules
         ?array $npcChoices,
         ?int $sheetVersion = null,
         ?int $actionCharacteristicModifier = null,
+        int $strengthDrop = 0,
     ): DimensionalNumber {
         if ($attackerKind !== 'character' && $attackerKind !== 'npc') {
             throw new GameInvalidException('Game strike attacker is invalid');
@@ -635,9 +637,12 @@ final class GameStrikeRules
                 $documents['choices'],
                 $documents['key'],
             );
-            if ($actionCharacteristicModifier !== null && $actionCharacteristicModifier !== 0) {
-                $context = $context->withActionCharacteristicModifier($actionCharacteristicModifier);
-            }
+            $context = $this->profileContext(
+                $profile,
+                $context,
+                $actionCharacteristicModifier ?? 0,
+                $strengthDrop,
+            );
 
             return $this->formulaEvaluations->evaluateDimensional(
                 $profile->getDamage()->getFormula(),
@@ -664,6 +669,8 @@ final class GameStrikeRules
      * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
      * @param array<string, mixed>|null $npcChoices Снимок choices NPC.
      * @param int|null $sheetVersion Версия листа NPC.
+     * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
+     * @param int $strengthDrop Штраф силы броска в размерах.
      *
      * @return DimensionalNumber Размерное проникновение.
      *
@@ -682,6 +689,8 @@ final class GameStrikeRules
         ?array $npcSheet,
         ?array $npcChoices,
         ?int $sheetVersion = null,
+        ?int $actionCharacteristicModifier = null,
+        int $strengthDrop = 0,
     ): DimensionalNumber {
         $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
         $item = $this->selectedItem(
@@ -704,6 +713,12 @@ final class GameStrikeRules
                 $documents['sheet'],
                 $documents['choices'],
                 $documents['key'],
+            );
+            $context = $this->profileContext(
+                $profile,
+                $context,
+                $actionCharacteristicModifier ?? 0,
+                $strengthDrop,
             );
 
             return $this->formulaEvaluations->evaluateDimensional(
@@ -2370,6 +2385,54 @@ final class GameStrikeRules
         }
 
         return $npcSheet;
+    }
+
+    /**
+     * Контекст формулы профиля: базы профиля поверх листа, затем сдвиг карточки.
+     *
+     * @param WeaponProfile $profile Профиль.
+     * @param FormulaContext $context Базовый контекст листа.
+     * @param int $actionCharacteristicModifier Сдвиг карточки в пунктах.
+     * @param int $strengthDrop Штраф силы броска в размерах.
+     *
+     * @return FormulaContext Контекст профиля.
+     *
+     * @throws RuleInvalidException Если база профиля или сила не найдены.
+     */
+    private function profileContext(
+        WeaponProfile $profile,
+        FormulaContext $context,
+        int $actionCharacteristicModifier,
+        int $strengthDrop,
+    ): FormulaContext {
+        $bases = [];
+        foreach ($profile->getActionCharacteristics() as $base) {
+            $value = $this->formulaEvaluations->evaluateDimensional($base->getValue(), $context);
+            $bases[$base->getCharacteristic()] = new CharacteristicNumber($value->getBase(), $value->getSize());
+        }
+
+        if ($profile->getType() === 'throw' && $strengthDrop > 0) {
+            $strength = $bases['strength'] ?? $context->findCharacteristic('strength');
+            if (!$strength instanceof DimensionalNumber) {
+                throw new RuleInvalidException('Нет силы броска');
+            }
+
+            if (!$strength instanceof CharacteristicNumber) {
+                $strength = new CharacteristicNumber($strength->getBase(), $strength->getSize());
+            }
+
+            $bases['strength'] = $strength->modify(-CharacteristicNumber::BASE_STEP * $strengthDrop);
+        }
+
+        if ($bases !== []) {
+            $context = $context->withActionCharacteristics([$profile->getType() => $bases]);
+        }
+
+        if ($actionCharacteristicModifier !== 0) {
+            $context = $context->withActionCharacteristicModifier($actionCharacteristicModifier);
+        }
+
+        return $context;
     }
 
     /**
