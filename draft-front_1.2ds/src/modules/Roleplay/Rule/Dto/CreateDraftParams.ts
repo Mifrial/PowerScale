@@ -20,4 +20,6 @@ export interface CreateDraftParams {
   catalogSortOrder?: number;
   contentStatus?: string;
   contentNote?: string;
+  /** Флаг активности на момент загрузки; без него неактивное правило «оживает» в черновике. */
+  active?: boolean;
 }

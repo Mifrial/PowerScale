@@ -19,5 +19,6 @@ export function ruleToForm(rule: Rule): RuleFormState {
     catalogSortOrder: rule.catalogSortOrder ?? 100,
     contentStatus: rule.contentStatus ?? 'needs_work',
     contentNote: rule.contentNote ?? '',
+    active: rule.active,
   };
 }

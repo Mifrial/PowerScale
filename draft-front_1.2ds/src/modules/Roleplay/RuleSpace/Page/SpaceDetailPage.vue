@@ -7,6 +7,7 @@ import { useSectionCatalogStore } from '@/modules/Roleplay/RuleSpace/Store/secti
 import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useSpaceContext } from '@/modules/Roleplay/RuleSpace/Composables/useSpaceContext';
+import { useSpaceDraftDiff } from '@/modules/Roleplay/RuleSpace/Composables/useSpaceDraftDiff';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import PublishDialog from '@/modules/Roleplay/RuleSpace/Component/PublishDialog.vue';
 import RevisionImportDialog from '@/modules/Roleplay/RuleSpace/Component/RevisionImportDialog.vue';
@@ -33,6 +34,9 @@ const context = useSpaceContext();
 const exporting = ref(false);
 
 const space = computed(() => context.value.space);
+const { draftDiff, addedRuleCodes, changedRuleCodes, hasRuleChanges } = useSpaceDraftDiff(
+  () => space.value?.id ?? null,
+);
 const showPublishDialog = ref(false);
 const showImportDialog = ref(false);
 const showDiscardDialog = ref(false);
@@ -57,10 +61,14 @@ const hasLocalDraft = computed(() => {
   const spaceId = space.value?.id ?? 0;
   if (!spaceId) return false;
 
-  return drafts.hasDraft(spaceId) || sectionCatalog.isDirty(spaceId, revisionStore.activeRevision?.sections ?? []);
+  return hasRuleChanges.value || sectionCatalog.isDirty(spaceId, revisionStore.activeRevision?.sections ?? []);
 });
 
-const draftRuleCodes = computed(() => new Set(drafts.getDraftRules(space.value?.id ?? 0).map((r) => r.code)));
+const discardIsNew = computed(() => {
+  const code = ruleToDiscard.value?.code;
+
+  return !!code && draftDiff.value.added.some((rule) => rule.code === code);
+});
 
 function formatPublished(unix: number): string {
   const d = new Date(unix * 1000);
@@ -76,7 +84,7 @@ const revisionsList = computed(() => {
     label: `v${m.revision}: ${formatPublished(m.publishedAt)}`,
     value: m.revision,
   }));
-  if (hasLocalDraft.value) {
+  if (hasLocalDraft.value || isDraftContext.value) {
     items.push({ label: 'Черновик', value: -1 });
   }
 
@@ -291,7 +299,9 @@ function discardRule() {
         :space-code="space.code"
         :ctx="ctx"
         :is-draft-context="isDraftContext"
-        :draft-rule-codes="draftRuleCodes"
+        :sections="revisionStore.effectiveSections"
+        :added-rule-codes="addedRuleCodes"
+        :changed-rule-codes="changedRuleCodes"
         @discard="showDiscardRuleDialog"
       />
 
@@ -316,18 +326,28 @@ function discardRule() {
       <!-- Discard rule dialog -->
       <v-dialog v-model="showDiscardDialog" max-width="500">
         <v-card>
-          <v-card-title>Откатить изменения</v-card-title>
+          <v-card-title>{{ discardIsNew ? 'Убрать новое правило' : 'Откатить изменения' }}</v-card-title>
           <v-card-text>
             <div class="text-body-2 mb-4">
-              Вы уверены, что хотите откатить изменения в правиле "{{ ruleToDiscard?.name }}"?
+              {{
+                discardIsNew
+                  ? `Убрать правило "${ruleToDiscard?.name}" из черновика?`
+                  : `Вы уверены, что хотите откатить изменения в правиле "${ruleToDiscard?.name}"?`
+              }}
             </div>
             <div class="text-body-2 text-medium-emphasis">
-              Правило вернётся к состоянию из последней опубликованной версии.
+              {{
+                discardIsNew
+                  ? 'Новое правило не попадёт в публикацию.'
+                  : 'Правило вернётся к состоянию из последней опубликованной версии.'
+              }}
             </div>
           </v-card-text>
           <v-card-actions>
             <v-btn variant="text" @click="showDiscardDialog = false">Отмена</v-btn>
-            <v-btn color="error" variant="tonal" @click="discardRule"> Откатить </v-btn>
+            <v-btn color="error" variant="tonal" @click="discardRule">
+              {{ discardIsNew ? 'Убрать' : 'Откатить' }}
+            </v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>

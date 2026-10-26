@@ -119,3 +119,25 @@ describe('PublishService.prepare', () => {
     ]);
   });
 });
+
+describe('PublishService.prepareFromDiff', () => {
+  it('собирает summary из готового diff без повторной классификации', () => {
+    const effective = [rule('r1', 'Одно'), rule('r2', 'Новое')];
+    const summary = publishService.prepareFromDiff(
+      {
+        added: [rule('r2', 'Новое')],
+        changed: [rule('r1', 'Одно', { description: 'Изменено' })],
+        removed: [rule('r3', 'Удалено')],
+      },
+      effective,
+      [],
+      true,
+    );
+
+    expect(summary.added.map((entry) => entry.code)).toEqual(['r2']);
+    expect(summary.changed.map((entry) => entry.code)).toEqual(['r1']);
+    expect(summary.removed.map((entry) => entry.code)).toEqual(['r3']);
+    expect(summary.catalogDirty).toBe(true);
+    expect(summary.problems).toEqual([]);
+  });
+});

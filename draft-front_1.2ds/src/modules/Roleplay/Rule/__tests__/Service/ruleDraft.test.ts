@@ -102,4 +102,9 @@ describe('RuleDraftService.createDraft', () => {
     expect(ruleDraftService.createDraft(baseParams()).contentNote).toBe('');
     expect(ruleDraftService.createDraft(baseParams({ contentNote: 'ждёт удар' })).contentNote).toBe('ждёт удар');
   });
+
+  it('прокидывает active, иначе оставляет undefined', () => {
+    expect(ruleDraftService.createDraft(baseParams({ active: false })).active).toBe(false);
+    expect(ruleDraftService.createDraft(baseParams()).active).toBeUndefined();
+  });
 });

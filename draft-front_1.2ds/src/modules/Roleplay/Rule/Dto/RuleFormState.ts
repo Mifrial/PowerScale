@@ -15,4 +15,5 @@ export interface RuleFormState {
   catalogSortOrder: number;
   contentStatus: string;
   contentNote: string;
+  active?: boolean;
 }

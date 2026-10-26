@@ -39,6 +39,7 @@ provide(spaceContextKey, context);
 const ruleHost = computed<IRuleHostContext>(() => ({
   spaceId: spaceStore.currentSpace?.id ?? null,
   effectiveRules: revisionStore.effectiveRules,
+  publishedRules: revisionStore.activeRevision?.rules ?? [],
   sections: revisionStore.effectiveSections,
 }));
 provide(ruleHostContextKey, ruleHost);

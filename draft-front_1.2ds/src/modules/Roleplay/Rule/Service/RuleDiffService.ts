@@ -30,6 +30,8 @@ export class RuleDiffService {
   }
 
   private static payloadView(rule: Rule): Record<string, unknown> {
+    const catalogSection = rule.catalogSection ?? null;
+
     return {
       code: rule.code,
       type: rule.type,
@@ -44,8 +46,9 @@ export class RuleDiffService {
       active: rule.active !== false,
       contentStatus: rule.contentStatus ?? 'needs_work',
       contentNote: rule.contentNote ?? '',
-      catalogSection: rule.catalogSection ?? null,
-      catalogSortOrder: rule.catalogSortOrder,
+      catalogSection,
+      // Бэкенд отдаёт порядок только при наличии placement; форма подставляет 100.
+      catalogSortOrder: catalogSection === null ? null : (rule.catalogSortOrder ?? 100),
     };
   }
 

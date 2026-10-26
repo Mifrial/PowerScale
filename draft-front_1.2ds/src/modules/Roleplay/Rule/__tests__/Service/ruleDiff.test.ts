@@ -83,6 +83,18 @@ describe('classifyDraftDiff', () => {
     expect(ruleDiffService.samePayload(rule('r1', 'Одно'), rule('r1', 'Одно', { catalogSection: null }))).toBe(true);
   });
 
+  it('omit catalogSortOrder без секции равен дефолтному порядку черновика', () => {
+    const published = rule('r1', 'Одно');
+    const draft = rule('r1', 'Одно', { catalogSection: null, catalogSortOrder: 100 });
+    expect(ruleDiffService.samePayload(published, draft)).toBe(true);
+  });
+
+  it('при наличии секции смена catalogSortOrder остаётся changed', () => {
+    const published = rule('r1', 'Одно', { catalogSection: 'a', catalogSortOrder: 100 });
+    const draft = rule('r1', 'Одно', { catalogSection: 'a', catalogSortOrder: 200 });
+    expect(ruleDiffService.samePayload(published, draft)).toBe(false);
+  });
+
   it('смена contentStatus — changed', () => {
     const published = rule('r1', 'Одно', { contentStatus: 'needs_work' });
     const draft = rule('r1', 'Одно', { contentStatus: 'ready' });

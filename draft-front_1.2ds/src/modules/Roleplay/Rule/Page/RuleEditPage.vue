@@ -5,7 +5,7 @@ import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules';
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useRuleHostContext } from '@/modules/Roleplay/Rule/init';
+import { ruleDiffService, useRuleHostContext } from '@/modules/Roleplay/Rule/init';
 import SimpleRuleEditor from '@/modules/Roleplay/Rule/Component/Editors/SimpleRuleEditor.vue';
 import CharacteristicEditor from '@/modules/Roleplay/Rule/Component/Editors/CharacteristicEditor.vue';
 import ResourceEditor from '@/modules/Roleplay/Rule/Component/Editors/ResourceEditor.vue';
@@ -71,6 +71,7 @@ const catalogSection = ref<string | null>(null);
 const catalogSortOrder = ref(100);
 const contentStatus = ref('needs_work');
 const contentNote = ref('');
+const active = ref<boolean | undefined>(undefined);
 const saving = ref(false);
 const loading = ref(true);
 const error = ref<string | null>(null);
@@ -115,6 +116,7 @@ function applyForm(form: RuleFormState) {
   catalogSortOrder.value = form.catalogSortOrder;
   contentStatus.value = form.contentStatus;
   contentNote.value = form.contentNote;
+  active.value = form.active;
 }
 
 async function resolveRoute(): Promise<void> {
@@ -160,6 +162,7 @@ async function resolveRoute(): Promise<void> {
       catalogSortOrder.value = 100;
       contentStatus.value = 'needs_work';
       contentNote.value = '';
+      active.value = true;
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -243,18 +246,26 @@ async function save() {
       catalogSortOrder: catalogSortOrder.value,
       contentStatus: contentStatus.value,
       contentNote: contentNote.value,
+      active: active.value,
     });
-    const rest = ruleHost.value.effectiveRules.filter((entry) => entry.code !== rule.code);
-    const blocking = ruleValidationService.blockingMessagesForRule(
-      ruleValidationService.validateCatalog([...rest, rule], keywords.value),
-      rule.code,
-    );
-    if (blocking[0]) {
-      saveError.value = blocking[0];
+    const canDropNoOp = !isRevisionContext.value;
+    const base = ruleHost.value.publishedRules.find((entry) => entry.code === rule.code);
+    const wasRemoved = draftStore.getRemovedCodes(spaceId.value).includes(rule.code);
+    if (canDropNoOp && base && !wasRemoved && ruleDiffService.samePayload(rule, base)) {
+      draftStore.removeRule(spaceId.value, rule.code);
+    } else {
+      const rest = ruleHost.value.effectiveRules.filter((entry) => entry.code !== rule.code);
+      const blocking = ruleValidationService.blockingMessagesForRule(
+        ruleValidationService.validateCatalog([...rest, rule], keywords.value),
+        rule.code,
+      );
+      if (blocking[0]) {
+        saveError.value = blocking[0];
 
-      return;
+        return;
+      }
+      draftStore.saveRule(spaceId.value, rule);
     }
-    draftStore.saveRule(spaceId.value, rule);
     router.push(`/space/${code.value}/draft/rules/${encodeURIComponent(rule.code)}`);
   } catch {
     saveError.value = 'Не удалось сохранить черновик';

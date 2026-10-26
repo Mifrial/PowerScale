@@ -4,6 +4,8 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 export interface IRuleHostContext {
   spaceId: number | null;
   effectiveRules: Rule[];
+  /** Правила активной ревизии — база для проверки no-op и публикации. */
+  publishedRules: Rule[];
   sections?: {
     code: string;
     name: string;

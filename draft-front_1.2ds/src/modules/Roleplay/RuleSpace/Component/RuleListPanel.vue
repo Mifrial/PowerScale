@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 import { RULE_LIST_FILTER_FIELDS } from '@/modules/Roleplay/RuleSpace/Constant/RULE_LIST_FILTER_FIELDS';
 import { ruleContentStatusService } from '@/modules/Roleplay/Rule/init';
 import { useFilteredRows } from '@/modules/Core/UI/Composables/useFilteredRows';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
+import TreeSelectFilter from '@/modules/Core/UI/Component/FilterBar/handlers/TreeSelectFilter.vue';
 import VirtualList from '@/modules/Core/UI/Component/VirtualList.vue';
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
+import { abilitySectionTreeService } from '@/modules/Roleplay/RuleSpace/Service/Instance/abilitySectionTreeService';
+import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
+import type { FilterOptionValue } from '@/modules/Core/UI/Dto/Filter/Values/FilterOptionValue';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
 
 const props = withDefaults(
   defineProps<{
@@ -16,7 +20,9 @@ const props = withDefaults(
     spaceCode: string;
     ctx: string | undefined;
     isDraftContext: boolean;
-    draftRuleCodes: Set<string>;
+    sections: AbilitySection[];
+    addedRuleCodes: Set<string>;
+    changedRuleCodes: Set<string>;
     /** Высота скролл-области списка правил. */
     height?: string | number;
   }>(),
@@ -29,7 +35,8 @@ const emit = defineEmits<{
   discard: [rule: Rule];
 }>();
 
-const activeTab = ref<string>('all');
+const showOnlyChanged = ref(false);
+const sectionCode = ref<FilterOptionValue | null>(null);
 
 const filterRows = computed(() =>
   props.rules.map((rule) => ({
@@ -44,19 +51,70 @@ const { appliedFilters, filteredRows, onFilterChange } = useFilteredRows({
   searchFields: ['name', 'description'],
 });
 
-const tabs = computed<RuleType[]>(() => Object.keys(RULE_TYPE_LABELS) as RuleType[]);
+const sectionTreeOptions = computed(() => abilitySectionTreeService.flatten(props.sections));
 
-const filteredRules = computed(() => {
-  const tab = activeTab.value;
-  if (tab === 'all') {
-    return filteredRows.value;
-  }
+const sectionFilterField = computed<FilterField>(() => ({
+  key: 'catalogSection',
+  label: 'Раздел',
+  type: 'tree-select',
+  treeOptions: sectionTreeOptions.value.map((section) => ({
+    label: section.name,
+    value: section.code,
+    path: section.path,
+    depth: section.depth,
+    parentValue: section.parentCode,
+  })),
+}));
 
-  return filteredRows.value.filter((rule) => rule.type === tab);
+const sectionCodes = computed<Set<string> | null>(() => {
+  const selected = sectionCode.value;
+  if (selected === null || selected === undefined || selected === '') return null;
+
+  return new Set(abilitySectionTreeService.descendantCodes(String(selected), props.sections));
 });
 
-/** Сброс скролла наверх при смене вкладки/поиска. */
-const resetKey = computed(() => `${activeTab.value}|${JSON.stringify(appliedFilters.value)}`);
+const affectedRuleCodes = computed(() => new Set([...props.addedRuleCodes, ...props.changedRuleCodes]));
+
+const filteredRules = computed(() => {
+  let rows = filteredRows.value;
+  const codes = sectionCodes.value;
+  if (codes) {
+    rows = rows.filter((rule) => rule.catalogSection != null && codes.has(rule.catalogSection));
+  }
+  if (showOnlyChanged.value) {
+    rows = rows.filter((rule) => affectedRuleCodes.value.has(rule.code));
+  }
+
+  return rows;
+});
+
+/** Сброс скролла наверх при смене фильтров. */
+const resetKey = computed(
+  () => `${JSON.stringify(appliedFilters.value)}|${String(sectionCode.value ?? '')}|${showOnlyChanged.value}`,
+);
+
+watch(
+  () => props.isDraftContext,
+  (isDraft) => {
+    if (!isDraft) showOnlyChanged.value = false;
+  },
+);
+
+watch(affectedRuleCodes, (codes) => {
+  if (codes.size === 0) showOnlyChanged.value = false;
+});
+
+watch(
+  () => props.spaceCode,
+  () => {
+    showOnlyChanged.value = false;
+    sectionCode.value = null;
+  },
+);
+
+function onSectionFilterChange(value: FilterOptionValue | null | undefined): void {
+  sectionCode.value = value ?? null;
+}
 
 function statusFrameClass(rule: Rule): string {
   return ruleContentStatusService.frameModifier(rule.contentStatus);
@@ -69,15 +127,14 @@ function ruleLink(code: string): string {
 function ruleKey(rule: Rule): string {
   return rule.code;
 }
+
+function discardTitle(rule: Rule): string {
+  return props.addedRuleCodes.has(rule.code) ? 'Убрать из черновика' : 'Откатить изменения';
+}
 </script>
 
 <template>
   <div>
-    <v-tabs v-model="activeTab" class="mb-2" density="compact">
-      <v-tab value="all">Все</v-tab>
-      <v-tab v-for="tab in tabs" :key="tab" :value="tab">{{ RULE_TYPE_LABELS[tab] }}</v-tab>
-    </v-tabs>
-
     <FilterBar
       :fields="RULE_LIST_FILTER_FIELDS"
       :model-value="appliedFilters"
@@ -86,6 +143,27 @@ function ruleKey(rule: Rule): string {
       class="mb-2"
       @update:model-value="onFilterChange"
     />
+
+    <div class="rule-list-panel__quick-filter d-flex align-center mb-3">
+      <TreeSelectFilter
+        :field="sectionFilterField"
+        :model-value="sectionCode"
+        eager
+        class="rule-list-panel__section-filter"
+        @update:model-value="onSectionFilterChange"
+      />
+      <v-chip
+        v-if="isDraftContext"
+        size="small"
+        variant="tonal"
+        class="rule-list-panel__changed-chip"
+        :color="showOnlyChanged ? 'primary' : undefined"
+        :disabled="affectedRuleCodes.size === 0"
+        @click="showOnlyChanged = !showOnlyChanged"
+      >
+        Изменённое
+      </v-chip>
+    </div>
 
     <VirtualList
       :items="filteredRules"
@@ -99,7 +177,16 @@ function ruleKey(rule: Rule): string {
         <v-list-item :to="ruleLink(item.code)" class="rule-list-panel__item" :class="statusFrameClass(item)">
           <v-list-item-title>
             {{ item.name }}
-            <v-chip v-if="draftRuleCodes.has(item.code)" size="x-small" color="warning" variant="tonal" class="ml-2">
+            <v-chip v-if="addedRuleCodes.has(item.code)" size="x-small" color="success" variant="tonal" class="ml-2">
+              Новое
+            </v-chip>
+            <v-chip
+              v-else-if="changedRuleCodes.has(item.code)"
+              size="x-small"
+              color="warning"
+              variant="tonal"
+              class="ml-2"
+            >
               Изменено
             </v-chip>
           </v-list-item-title>
@@ -112,11 +199,12 @@ function ruleKey(rule: Rule): string {
                 {{ RULE_TYPE_LABELS[item.type] }}
               </v-chip>
               <v-btn
-                v-if="isDraftContext && draftRuleCodes.has(item.code)"
+                v-if="isDraftContext && affectedRuleCodes.has(item.code)"
                 icon
                 size="x-small"
                 color="error"
                 variant="text"
+                :title="discardTitle(item)"
                 @click.prevent="emit('discard', item)"
               >
                 <v-icon size="small">mdi-undo</v-icon>
@@ -130,6 +218,19 @@ function ruleKey(rule: Rule): string {
 </template>
 
 <style scoped>
+.rule-list-panel__quick-filter {
+  gap: 10px;
+}
+
+.rule-list-panel__section-filter {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rule-list-panel__changed-chip {
+  margin-left: auto;
+}
+
 .rule-list-panel__description {
   overflow: hidden;
   text-overflow: ellipsis;

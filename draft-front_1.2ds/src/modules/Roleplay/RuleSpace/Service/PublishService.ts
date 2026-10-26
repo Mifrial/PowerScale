@@ -1,4 +1,5 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { PublishDiff } from '@/modules/Roleplay/Rule/Dto/PublishDiff';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { PublishSummary } from '@/modules/Roleplay/RuleSpace/Dto/PublishSummary';
 import type { ProblemEntry } from '@/modules/Roleplay/Rule/Dto/ProblemEntry';
@@ -22,6 +23,12 @@ export class PublishService {
     catalogDirty = false,
   ): PublishSummary {
     const diff = this.ruleDiff.classifyDraftDiff(published, draftRules, removedCodes);
+
+    return this.prepareFromDiff(diff, effective, keywords, catalogDirty);
+  }
+
+  /** Собирает сводку по уже вычисленному диффу — единому для списка и диалога публикации. */
+  prepareFromDiff(diff: PublishDiff, effective: Rule[], keywords: Keyword[], catalogDirty = false): PublishSummary {
     const catalog = this.ruleValidation.validateCatalog(effective, keywords);
 
     return {
@@ -60,7 +67,7 @@ export class PublishService {
       const ruleName = 'ruleName' in row && typeof row.ruleName === 'string' ? row.ruleName : '';
       const messages =
         'messages' in row && Array.isArray(row.messages)
-          ? row.messages.filter((message): message is string => typeof message === 'string')
+          ? row.messages.filter((message: unknown): message is string => typeof message === 'string')
           : [];
       if (ruleCode !== '' && messages.length > 0) {
         problems.push({ ruleCode, ruleName, messages });

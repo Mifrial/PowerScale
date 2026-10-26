@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import type { Space } from '@/modules/Roleplay/RuleSpace/Dto/Space';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/RuleSpace/Store/spaceRevision';
 import { useSectionCatalogStore } from '@/modules/Roleplay/RuleSpace/Store/sectionCatalog';
+import { useSpaceDraftDiff } from '@/modules/Roleplay/RuleSpace/Composables/useSpaceDraftDiff';
 import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
@@ -26,6 +27,7 @@ const emit = defineEmits<{
 const revisionStore = useSpaceRevisionStore();
 const sectionCatalog = useSectionCatalogStore();
 const drafts = useRuleDrafts();
+const { draftDiff } = useSpaceDraftDiff(() => props.space?.id ?? null);
 const { keywords, error: keywordsError, fetchTags } = useKeywords();
 const { signal } = useAbortable();
 
@@ -90,12 +92,10 @@ async function prepare() {
     if (keywordsError.value) return;
     const spaceId = space.id;
     const catalogDirty = sectionCatalog.isDirty(spaceId, revisionStore.activeRevision?.sections ?? []);
-    summary.value = publishService.prepare(
-      revisionStore.activeRevision?.rules ?? [],
-      drafts.getDraftRules(spaceId),
+    summary.value = publishService.prepareFromDiff(
+      draftDiff.value,
       revisionStore.effectiveRules,
       keywords.value,
-      drafts.getRemovedCodes(spaceId),
       catalogDirty,
     );
   } finally {
@@ -126,7 +126,7 @@ async function publishDraft() {
   publishError.value = null;
   publishConflict.value = false;
   try {
-    const rules = drafts.getDraftRules(space.id);
+    const rules = [...draftDiff.value.added, ...draftDiff.value.changed];
     const catalogDirty = sectionCatalog.isDirty(space.id, revisionStore.activeRevision?.sections ?? []);
     const sections = catalogDirty ? (sectionCatalog.getDraftSections(space.id) ?? []) : undefined;
     const result = await revisionStore.commitDraft(

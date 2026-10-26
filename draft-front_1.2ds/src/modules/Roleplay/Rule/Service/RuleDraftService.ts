@@ -19,6 +19,7 @@ export class RuleDraftService {
       catalogSortOrder: params.catalogSortOrder ?? 100,
       contentStatus: params.contentStatus ?? 'needs_work',
       contentNote: params.contentNote ?? '',
+      active: params.active,
       createdAt: Math.floor(Date.now() / 1000),
     };
   }
