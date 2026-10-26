@@ -48,12 +48,15 @@ export class AttackActionSourceService {
     });
   }
 
-  extraTargetHitAdvantage(targetCount: number): number {
-    return targetCount <= 1 ? 0 : 1 - targetCount;
+  extraTargetHitAdvantage(targetCount: number, rule: Rule | null | undefined): number {
+    const delta = asActionAbilitySpec(rule ?? null)?.wide_target_check_advantage ?? 0;
+    if (targetCount <= 1 || !delta) return 0;
+
+    return delta * (targetCount - 1);
   }
 
-  extraTargetHitModifiers(targetCount: number): AdvantageModifier[] {
-    const delta = this.extraTargetHitAdvantage(targetCount);
+  extraTargetHitModifiers(targetCount: number, rule: Rule | null | undefined): AdvantageModifier[] {
+    const delta = this.extraTargetHitAdvantage(targetCount, rule);
     if (!delta) return [];
 
     return [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: 'Обстоятельства', delta }];

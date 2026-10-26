@@ -29,6 +29,7 @@ const profile = (profileType: AttackOverview['profileType']): AttackOverview => 
 const rule = (
   keywordIds: number[],
   attackMode?: 'single' | 'wide',
+  wideAdvantage?: number,
 ): Omit<Rule, 'spec'> & { spec: Extract<NonNullable<Rule['spec']>, { type: 'action' }> } => ({
   id: null,
   code: 'attack',
@@ -48,6 +49,7 @@ const rule = (
     action_components: [],
     attack_mode: attackMode,
     max_targets: attackMode === 'wide' ? 3 : undefined,
+    wide_target_check_advantage: wideAdvantage,
   },
 });
 
@@ -145,12 +147,22 @@ describe('AttackActionSourceService', () => {
     expect(attackActionSourceService.validateTargetCount(rule([64, 71]), ['a', 'b'])).toContain('1');
   });
 
-  it('wide даёт помеху за каждую цель после первой', () => {
-    expect(attackActionSourceService.extraTargetHitAdvantage(1)).toBe(0);
-    expect(attackActionSourceService.extraTargetHitAdvantage(3)).toBe(-2);
-    expect(attackActionSourceService.extraTargetHitModifiers(3)).toEqual([
+  it('wide даёт помеху из спека за каждую цель после первой', () => {
+    const wide = rule([64, 71], 'wide', -1);
+
+    expect(attackActionSourceService.extraTargetHitAdvantage(1, wide)).toBe(0);
+    expect(attackActionSourceService.extraTargetHitAdvantage(2, wide)).toBe(-1);
+    expect(attackActionSourceService.extraTargetHitAdvantage(3, wide)).toBe(-2);
+    expect(attackActionSourceService.extraTargetHitModifiers(3, wide)).toEqual([
       { source_code: 'circumstances', source_label: 'Обстоятельства', delta: -2 },
     ]);
+  });
+
+  it('wide читает дельту карточки, а не жёсткое минус один', () => {
+    expect(attackActionSourceService.extraTargetHitAdvantage(3, rule([64, 71], 'wide', -2))).toBe(-4);
+    expect(attackActionSourceService.extraTargetHitAdvantage(3, rule([64, 71], 'wide'))).toBe(0);
+    expect(attackActionSourceService.extraTargetHitModifiers(3, rule([64, 71]))).toEqual([]);
+    expect(attackActionSourceService.extraTargetHitAdvantage(3, null)).toBe(0);
   });
 
   it('ключ оружия различает экземпляр и код правила без id', () => {

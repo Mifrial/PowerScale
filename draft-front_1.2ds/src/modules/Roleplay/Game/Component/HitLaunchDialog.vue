@@ -1507,7 +1507,7 @@ async function acceptWideAttack(
             ),
           )
           .concat(attackerSpent > 0 ? [concentrationTokenService.tokenAdvantage(attackerSpent)] : [])
-          .concat(attackActionSourceService.extraTargetHitModifiers(targetProposals.length)),
+          .concat(attackActionSourceService.extraTargetHitModifiers(targetProposals.length, actionRule)),
         defenderAdv: accepted.proposal.opponentAdv,
         defenderAdvantageModifiers: actionEffectService
           .checkAdvantageModifiers(pendingEffectsByEntity.value[target.targetKey] ?? [], hitCheckCode.value, 'defender')
@@ -3570,9 +3570,7 @@ function phpWideStrikeEnvelope(attack: {
         profileType: attack.profileType,
         profileIndex: attack.profileIndex,
         instanceIndex: attack.instanceIndex ?? 0,
-        ...(attack.ammunitionInventoryId !== undefined
-          ? { ammunitionInventoryId: attack.ammunitionInventoryId }
-          : {}),
+        ...(attack.ammunitionInventoryId !== undefined ? { ammunitionInventoryId: attack.ammunitionInventoryId } : {}),
         target,
       })),
     },
@@ -3918,11 +3916,7 @@ const damageTypeLabel = computed(() => {
 });
 
 const strikeUpgradePreviewTargets = computed(() => {
-  const keys = uniqueTargetKeys.value.length
-    ? uniqueTargetKeys.value
-    : opponentKey.value
-      ? [opponentKey.value]
-      : [];
+  const keys = uniqueTargetKeys.value.length ? uniqueTargetKeys.value : opponentKey.value ? [opponentKey.value] : [];
 
   return keys.map((key) => versionOf(key));
 });
