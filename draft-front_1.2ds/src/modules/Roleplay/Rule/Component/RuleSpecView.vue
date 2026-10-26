@@ -27,6 +27,10 @@ defineProps<{
   rules: Rule[];
   keywords: Keyword[];
 }>();
+
+const emit = defineEmits<{
+  'open-rule': [code: string];
+}>();
 </script>
 
 <template>
@@ -40,7 +44,7 @@ defineProps<{
   <CheckCard v-else-if="rule.type === 'check'" :rule="rule" :rules="rules" />
   <MagicPathCard v-else-if="rule.type === 'magic_path'" :rule="rule" :rules="rules" />
   <DamageTypeCard v-else-if="rule.type === 'damage_type'" :rule="rule" />
-  <ItemCard v-else-if="rule.type === 'item'" :rule="rule" :rules="rules" />
+  <ItemCard v-else-if="rule.type === 'item'" :rule="rule" :rules="rules" @open-rule="emit('open-rule', $event)" />
   <CharacteristicCard v-else-if="rule.type === 'characteristic'" :rule="rule" :rules="rules" />
   <ResourceCard v-else-if="rule.type === 'resource'" :rule="rule" :rules="rules" />
   <AgeCard v-else-if="rule.type === 'age'" :rule="rule" :rules="rules" />

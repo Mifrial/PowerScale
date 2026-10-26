@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ruleViewLabelService } from '@/modules/Roleplay/Rule/Service/Instance/ruleViewLabelService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
+import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
 
 const rules: Rule[] = [
   {
@@ -81,5 +82,88 @@ describe('RuleViewLabelService', () => {
     expect(ruleViewLabelService.modifierOp({ type: 'keyword', add: ['weapon'] }, rules, keywords)).toBe(
       'Признаки: + Оружие',
     );
+  });
+
+  it('размерные числа — канонической нотацией со стрелкой', () => {
+    expect(ruleViewLabelService.dimensional({ base: 3, size: -1 })).toBe('3↓');
+    expect(ruleViewLabelService.dimensional({ base: 5, size: 2 })).toBe('5↑²');
+    expect(ruleViewLabelService.dimensional({ base: 4, size: 0 })).toBe('4');
+  });
+
+  it('поля профиля оружия: тип урона в подписи, сила действия — человеческой фразой', () => {
+    const profile: WeaponProfile = {
+      type: 'strike',
+      distance: { type: 'dimensional', base: 1, size: -1 },
+      range: null,
+      damage: {
+        formula: {
+          type: 'actionCharacteristic',
+          action: 'strike',
+          characteristic: 'strength',
+          modifier: [{ delta: -3, source_code: null, source_label: null }],
+        },
+        damage_type_code: 'piercing',
+      },
+      penetration: {
+        type: 'actionCharacteristic',
+        action: 'strike',
+        characteristic: 'strength',
+        modifier: [{ delta: -3, source_code: null, source_label: null }],
+      },
+      accuracy: { base: 4, size: 0 },
+      dodge_benefit: -4,
+    };
+
+    const fields = ruleViewLabelService.weaponProfileFields(profile, rules);
+
+    expect(fields.map((field) => field.label)).toEqual([
+      'Колющий урон',
+      'Пробитие',
+      'Точность',
+      'Дистанция',
+      'Польза уклонения',
+    ]);
+    expect(fields).toContainEqual({ label: 'Колющий урон', value: 'Сила удара − 3' });
+    expect(fields).toContainEqual({ label: 'Пробитие', value: 'Сила удара − 3' });
+    expect(fields).toContainEqual({ label: 'Дистанция', value: '1↓' });
+    expect(fields).toContainEqual({ label: 'Точность', value: '4' });
+    expect(fields).toContainEqual({ label: 'Польза уклонения', value: '-4' });
+  });
+
+  it('дальность стрелкового профиля идёт в ячейке дистанции через слэш', () => {
+    const profile: WeaponProfile = {
+      type: 'shoot',
+      distance: { type: 'dimensional', base: 1, size: 0 },
+      range: { type: 'fixed', value: 10 },
+      damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'piercing' },
+      penetration: { type: 'fixed', value: 2 },
+      accuracy: { base: 3, size: 0 },
+      falloff: { base: 5, size: 0 },
+      dodge_benefit: -6,
+    };
+
+    const fields = ruleViewLabelService.weaponProfileFields(profile, rules);
+
+    expect(fields.map((field) => field.label)).toEqual([
+      'Колющий урон',
+      'Пробитие',
+      'Точность',
+      'Дистанция',
+      'Дальнобойность',
+      'Польза уклонения',
+    ]);
+    expect(fields).toContainEqual({ label: 'Дистанция', value: '1/10' });
+    expect(fields).toContainEqual({ label: 'Дальнобойность', value: '5' });
+  });
+
+  it('подписывает сопротивление в дательном падеже', () => {
+    expect(
+      ruleViewLabelService.resistanceLabel({
+        damage_type_code: 'fire',
+        value: { base: 2, size: 0 },
+        durability: 3,
+        source_code: null,
+      }),
+    ).toBe('Сопротивление огню: 2, надёжность 3');
   });
 });

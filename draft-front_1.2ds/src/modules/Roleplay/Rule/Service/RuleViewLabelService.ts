@@ -1,11 +1,15 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
-import type { BlockProfile } from '@/modules/Roleplay/Rule/Dto/Item/BlockProfile';
 import type { ItemModifierOp } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOp';
+import type { ResistanceSlot } from '@/modules/Roleplay/Rule/Dto/Item/ResistanceSlot';
 import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
+import { DAMAGE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/DamageType/DAMAGE_TYPE_LABELS';
+import { WEAPON_ACTION_GENITIVE } from '@/modules/Roleplay/Rule/Constant/Item/WEAPON_ACTION_GENITIVE';
 import { WEAPON_PROFILE_TYPES } from '@/modules/Roleplay/Rule/Constant/Item/WEAPON_PROFILE_TYPES';
 import { LIGHTING_LEVEL_LABELS } from '@/modules/Roleplay/Rule/Constant/Lighting/LIGHTING_LEVEL_LABELS';
 
@@ -19,7 +23,7 @@ export class RuleViewLabelService {
   }
 
   dimensional(value: DimensionalNumberValue): string {
-    return `${value.base}${value.size ? `×${value.size}` : ''}`;
+    return new DimensionalNumber(value).toString();
   }
 
   amount(value: unknown, rules: Rule[] = []): string {
@@ -65,48 +69,52 @@ export class RuleViewLabelService {
       return `разница размеров «${this.ruleName(rules, node.characteristic_code_from)}» − «${this.ruleName(rules, node.characteristic_code_to)}»`;
     }
     if (node.type === 'actionCharacteristic') {
-      const action = this.profileType(node.action).toLowerCase();
+      const characteristic = this.ruleName(rules, node.characteristic);
+      const action = WEAPON_ACTION_GENITIVE[node.action] ?? node.action;
       const delta = node.modifier.reduce((sum, entry) => sum + entry.delta, 0);
-      const extra = delta ? ` ${delta > 0 ? '+' : ''}${delta}` : '';
+      const extra = delta === 0 ? '' : ` ${delta > 0 ? '+' : '−'} ${Math.abs(delta)}`;
       const multiplier = node.multiplier && node.multiplier !== 1 ? ` ×${node.multiplier}` : '';
 
-      return `сила ${action} (${this.ruleName(rules, node.characteristic)}${extra}${multiplier})`;
+      return `${characteristic} ${action}${multiplier}${extra}`;
     }
 
     return '';
   }
 
-  blockProfile(block: BlockProfile, rules: Rule[]): string {
-    const resistances = block.resistances
-      .map((slot) => {
-        const name = slot.damage_type_code ? this.ruleName(rules, slot.damage_type_code) : 'любой';
+  damageTypeLabel(code: string | null, rules: Rule[]): string | null {
+    if (code === null) return null;
 
-        const reliability = slot.durability === null ? 'абсолютная' : String(slot.durability);
-
-        return `${name} ${this.dimensional(slot.value)} (надёжн. ${reliability})`;
-      })
-      .join(', ');
-    const extra = resistances ? `; сопротивления: ${resistances}` : '';
-
-    return `эффективность ${this.dimensional(block.efficiency)}, защита ${this.dimensional(block.defense)}${extra}`;
+    return DAMAGE_TYPE_LABELS[code] ?? this.ruleName(rules, code);
   }
 
-  weaponProfile(profile: WeaponProfile, rules: Rule[]): string {
-    const damageType = profile.damage.damage_type_code
-      ? this.ruleName(rules, profile.damage.damage_type_code)
-      : 'без типа';
-    const parts = [
-      this.profileType(profile.type),
-      `дистанция ${this.formula(profile.distance, rules)}`,
-      profile.range ? `дальность ${this.formula(profile.range, rules)}` : null,
-      `урон ${this.formula(profile.damage.formula, rules)} (${damageType})`,
-      `пробитие ${this.formula(profile.penetration, rules)}`,
-      `точность ${this.dimensional(profile.accuracy)}`,
-      profile.falloff ? `дальнобойность ${this.dimensional(profile.falloff)}` : null,
-      profile.dodge_benefit !== undefined ? `польза уклонения ${profile.dodge_benefit}` : null,
+  weaponProfileFields(profile: WeaponProfile, rules: Rule[]): { label: string; value: string }[] {
+    const distance = this.formula(profile.distance, rules);
+    const range = profile.range ? this.formula(profile.range, rules) : null;
+    const fields: { label: string; value: string }[] = [
+      {
+        label: this.damageTypeLabel(profile.damage.damage_type_code, rules) ?? 'Урон',
+        value: this.formula(profile.damage.formula, rules),
+      },
+      { label: 'Пробитие', value: this.formula(profile.penetration, rules) },
+      { label: 'Точность', value: this.dimensional(profile.accuracy) },
+      { label: 'Дистанция', value: range ? `${distance}/${range}` : distance },
     ];
+    if (profile.falloff) {
+      fields.push({ label: 'Дальнобойность', value: this.dimensional(profile.falloff) });
+    }
+    if (profile.dodge_benefit !== undefined) {
+      fields.push({ label: 'Польза уклонения', value: String(profile.dodge_benefit) });
+    }
 
-    return parts.filter((part): part is string => part != null).join(' · ');
+    return fields;
+  }
+
+  resistanceLabel(slot: ResistanceSlot): string {
+    const dative = slot.damage_type_code ? DAMAGE_TYPE_FORMS[slot.damage_type_code]?.dative : null;
+    const title = dative ? `Сопротивление ${dative}` : 'Сопротивление';
+    const reliability = slot.durability === null ? 'абсолютная' : String(slot.durability);
+
+    return `${title}: ${this.dimensional(slot.value)}, надёжность ${reliability}`;
   }
 
   grant(grant: Grant, rules: Rule[], keywords: Keyword[]): string {

@@ -130,7 +130,13 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolv
       </v-card-text>
     </v-card>
 
-    <RuleSpecView :rule="rule" :rules="ruleHost.effectiveRules" :keywords="keywords" class="mb-4" />
+    <RuleSpecView
+      :rule="rule"
+      :rules="ruleHost.effectiveRules"
+      :keywords="keywords"
+      class="mb-4"
+      @open-rule="openInlineRule"
+    />
     <RuleSlider v-model:open="inlineRuleOpen" :rule-code="inlineRuleId" :rules="ruleHost.effectiveRules" />
 
     <v-card v-if="mechanicRows.length" class="mb-4">

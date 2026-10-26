@@ -85,22 +85,13 @@ watch(
 
 <template>
   <SlidePanel v-model="open" width="640px">
-    <template #header>
-      <div class="d-flex align-center ga-2 w-100">
-        <v-btn icon variant="text" size="small" @click="open = false">
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
-        <span class="font-weight-bold text-body-1">Правило</span>
-      </div>
-    </template>
-
     <div v-if="ruleData" class="pa-6">
-      <div class="d-flex align-center mb-2 ga-2">
-        <h2 class="text-h6 font-weight-medium">{{ ruleData.name }}</h2>
-        <v-chip size="x-small" variant="tonal">{{ typeLabel }}</v-chip>
-      </div>
-      <div class="text-caption text-medium-emphasis mb-4">
-        <code>{{ ruleData.code }}</code>
+      <div class="rule-slider__title">
+        <div class="rule-slider__title-main">
+          <h2 class="text-h6 font-weight-medium">{{ ruleData.name }}</h2>
+          <v-chip size="x-small" variant="tonal">{{ typeLabel }}</v-chip>
+        </div>
+        <code class="rule-slider__code text-caption text-medium-emphasis">{{ ruleData.code }}</code>
       </div>
       <v-card variant="outlined" class="mb-4">
         <v-card-title class="text-body-2 font-weight-bold">Описание</v-card-title>
@@ -108,7 +99,7 @@ watch(
           <DescriptionHtml :html="ruleData.description" @open-rule="openInlineRule" />
         </v-card-text>
       </v-card>
-      <RuleSpecView :rule="ruleData" :rules="sliceRules" :keywords="resolvedKeywords" />
+      <RuleSpecView :rule="ruleData" :rules="sliceRules" :keywords="resolvedKeywords" @open-rule="openInlineRule" />
     </div>
     <v-alert v-else-if="error" type="error" class="ma-6">
       {{ error }}
@@ -124,6 +115,31 @@ watch(
 </template>
 
 <style scoped>
+.rule-slider__title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rule-slider__title-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rule-slider__title-main h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rule-slider__code {
+  flex-shrink: 0;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
 /* Переносы строк внутри описания правила (текст моков содержит \n). */
 .rule-slider__description {
   white-space: pre-line;

@@ -1,4 +1,5 @@
 import type { ItemSpecDraft } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpecDraft';
+import type { ItemHandsSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemHandsSpec';
 import type { WeaponBlock } from '@/modules/Roleplay/Rule/Dto/Item/WeaponBlock';
 import type { ArmorBlock } from '@/modules/Roleplay/Rule/Dto/Item/ArmorBlock';
 import type { ShieldBlock } from '@/modules/Roleplay/Rule/Dto/Item/ShieldBlock';
@@ -44,6 +45,32 @@ export class ItemSpecService {
     }
 
     return `${kilograms} кг`;
+  }
+
+  /** Подпись к «Занимает»: «1–2 руки», «1 руку, на действии 2»; null — предмет рук не занимает. */
+  formatOccupyHands(hands: ItemHandsSpec | null | undefined): string | null {
+    if (!hands || hands.max === 0) {
+      return null;
+    }
+    const { min, max, action } = hands;
+    const base =
+      min === max
+        ? `${min} ${this.handWord(min)}`
+        : min === 0
+          ? `до ${max} ${max === 1 ? 'руки' : 'рук'}`
+          : `${min}–${max} ${this.handWord(max)}`;
+    const actionLabel = action != null && action !== max ? `, на действии ${action}` : '';
+
+    return `${base}${actionLabel}`;
+  }
+
+  private handWord(count: number): string {
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (mod10 === 1 && mod100 !== 11) return 'руку';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'руки';
+
+    return 'рук';
   }
 
   ensureWeapon(spec: ItemSpecDraft): WeaponBlock {

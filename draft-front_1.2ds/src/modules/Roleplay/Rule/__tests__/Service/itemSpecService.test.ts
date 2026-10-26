@@ -39,4 +39,13 @@ describe('ItemSpecService', () => {
     expect(itemSpecService.weightToKilograms({ base: 7, size: -5 })).toBe(3.5);
     expect(itemSpecService.formatWeightKilograms({ base: 7, size: -5 })).toBe('3.5 кг');
   });
+
+  it('занятость рук: «1–2 руки», действие отдельно', () => {
+    expect(itemSpecService.formatOccupyHands({ min: 1, max: 2 })).toBe('1–2 руки');
+    expect(itemSpecService.formatOccupyHands({ min: 1, max: 1 })).toBe('1 руку');
+    expect(itemSpecService.formatOccupyHands({ min: 2, max: 2 })).toBe('2 руки');
+    expect(itemSpecService.formatOccupyHands({ min: 1, max: 1, action: 2 })).toBe('1 руку, на действии 2');
+    expect(itemSpecService.formatOccupyHands({ min: 0, max: 0 })).toBeNull();
+    expect(itemSpecService.formatOccupyHands(undefined)).toBeNull();
+  });
 });
