@@ -107,7 +107,17 @@ final class GameViewAssembler
         }
 
         $strikes = is_array($row['strikes'] ?? null) ? $row['strikes'] : [];
-        $target = is_array($strikes[0] ?? null) ? $strikes[0] : [];
+        $target = [];
+        foreach ($strikes as $strike) {
+            if (!is_array($strike)) {
+                continue;
+            }
+
+            $target = $strike;
+            if (($strike['reaction'] ?? null) === null) {
+                break;
+            }
+        }
 
         return [
             'attackerKind' => is_string($row['attacker_kind'] ?? null) ? $row['attacker_kind'] : '',

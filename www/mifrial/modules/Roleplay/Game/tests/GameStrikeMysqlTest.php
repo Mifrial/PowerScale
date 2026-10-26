@@ -2323,6 +2323,9 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertNull($first['data']['strikes'][1]['reaction']);
         self::assertArrayNotHasKey('roll', $first['data']['strikes'][1]);
         self::assertSame(3, $first['data']['version']);
+        $card = $this->dispatch('game.get', ['id' => $gameId]);
+        self::assertTrue($card['success'], json_encode($card));
+        self::assertSame('blade', $card['data']['battle']['openStrike']['itemRuleCode'] ?? null);
         $second = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
