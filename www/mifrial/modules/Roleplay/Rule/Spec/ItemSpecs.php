@@ -96,7 +96,7 @@ final class ItemSpecs
         }
 
         return new ShieldBlock(
-            DimensionalNumbers::optional($part, 'min_strength'),
+            DimensionalNumbers::optionalCharacteristic($part, 'min_strength'),
             DimensionalNumbers::optional($part, 'durability'),
             ItemWeapons::profiles($part, 'weapon_profiles'),
             self::limits($part),

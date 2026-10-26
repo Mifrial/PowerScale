@@ -4,6 +4,7 @@ import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/Dimensiona
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import FormulaInput from '@/modules/Roleplay/Rule/Component/FormulaInput.vue';
 import type { DimensionalFormula } from '@/modules/Roleplay/Rule/Dto/Ability/DimensionalFormula';
+import type { DistanceValue } from '@/modules/Roleplay/Rule/Dto/Item/DistanceValue';
 import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
 
 const props = defineProps<{
@@ -25,7 +26,12 @@ const strengthCode = computed(() => {
   return found ? found.code : '';
 });
 
-function isDefaultDistance(f: DimensionalFormula): boolean {
+const distanceTypes = [
+  { title: 'Ипари', value: 'ipari' },
+  { title: 'Шаги', value: 'step' },
+];
+
+function isDefaultFormula(f: DimensionalFormula): boolean {
   if (f.type === 'fixed' && f.value === 0) return true;
   if (f.type === 'characteristic' && (!f.characteristic_code || f.characteristic_code === '') && f.modifier === 0)
     return true;
@@ -33,6 +39,29 @@ function isDefaultDistance(f: DimensionalFormula): boolean {
     return true;
 
   return false;
+}
+
+function isDefaultDistance(value: DistanceValue): boolean {
+  return isDefaultFormula(value.value);
+}
+
+function distance(type: 'ipari' | 'step', formula: DimensionalFormula): DistanceValue {
+  return { type, value: formula };
+}
+
+function defaultFalloff(): DistanceValue {
+  return distance('ipari', { type: 'fixed', value: 5 });
+}
+
+function ensureFalloff(profile: WeaponProfile): void {
+  if (profile.type === 'strike') {
+    profile.falloff = null;
+
+    return;
+  }
+  if (!profile.falloff) {
+    profile.falloff = defaultFalloff();
+  }
 }
 
 function setDodgeBenefit(value: number | null): void {
@@ -59,37 +88,42 @@ watch(
   (newType) => {
     const profile = localProfile.value;
     if (newType === 'shoot') {
-      if (isDefaultDistance(profile.distance)) {
-        profile.distance = { type: 'fixed', value: 20 };
+      if (isDefaultDistance(profile.distance.min)) {
+        profile.distance.min = distance('ipari', { type: 'fixed', value: 0 });
       }
-      if (!profile.range || isDefaultDistance(profile.range)) {
-        profile.range = { type: 'fixed', value: 10 };
+      if (profile.distance.max === null || isDefaultDistance(profile.distance.max)) {
+        profile.distance.max = distance('ipari', { type: 'fixed', value: 10 });
       }
+      ensureFalloff(profile);
     } else if (newType === 'throw') {
-      if (isDefaultDistance(profile.distance)) {
-        profile.distance = {
+      if (isDefaultDistance(profile.distance.min)) {
+        profile.distance.min = distance('ipari', {
           type: 'actionCharacteristic',
           action: 'throw',
           characteristic: strengthCode.value,
           modifier: [{ delta: 0, source_code: null, source_label: null }],
-        };
+        });
       }
-      if (!profile.range || isDefaultDistance(profile.range)) {
-        profile.range = { type: 'fixed', value: 2 };
-      }
+      profile.distance.max = null;
+      ensureFalloff(profile);
     } else {
-      if (isDefaultDistance(profile.distance)) {
-        profile.distance = { type: 'fixed', value: 0 };
+      if (isDefaultDistance(profile.distance.min)) {
+        profile.distance.min = distance('ipari', { type: 'fixed', value: 0 });
       }
-      profile.range = null;
+      if (profile.distance.max === null || isDefaultDistance(profile.distance.max)) {
+        profile.distance.max = distance('ipari', { type: 'fixed', value: 0 });
+      }
+      profile.falloff = null;
     }
     const withAction = (formula: DimensionalFormula): DimensionalFormula =>
       formula.type === 'actionCharacteristic' && formula.action !== newType ? { ...formula, action: newType } : formula;
-    profile.distance = withAction(profile.distance);
-    if (profile.range) profile.range = withAction(profile.range);
+    profile.distance.min.value = withAction(profile.distance.min.value);
+    if (profile.distance.max) profile.distance.max.value = withAction(profile.distance.max.value);
+    if (profile.falloff) profile.falloff.value = withAction(profile.falloff.value);
     profile.damage.formula = withAction(profile.damage.formula);
     profile.penetration = withAction(profile.penetration);
   },
+  { immediate: true },
 );
 
 watch(
@@ -104,23 +138,66 @@ watch(
 <template>
   <div>
     <div class="mb-2">
-      <label class="text-caption text-medium-emphasis">Дистанция</label>
-      <FormulaInput
-        v-model="localProfile.distance"
-        :characteristics="characteristics"
-        :modes="['fixed', 'actionCharacteristic', 'dimensional']"
-        :action="localProfile.type"
-      />
+      <label class="text-caption text-medium-emphasis">Дистанция от</label>
+      <div class="d-flex gap-2">
+        <v-select
+          v-model="localProfile.distance.min.type"
+          :items="distanceTypes"
+          density="compact"
+          hide-details
+          style="max-width: 120px"
+        />
+        <div style="flex: 1 1 auto">
+          <FormulaInput
+            v-model="localProfile.distance.min.value"
+            :characteristics="characteristics"
+            :modes="['fixed', 'actionCharacteristic', 'dimensional']"
+            :action="localProfile.type"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div v-if="localProfile.type !== 'throw' && localProfile.distance.max" class="mb-2">
+      <label class="text-caption text-medium-emphasis">Дистанция до</label>
+      <div class="d-flex gap-2">
+        <v-select
+          v-model="localProfile.distance.max.type"
+          :items="distanceTypes"
+          density="compact"
+          hide-details
+          style="max-width: 120px"
+        />
+        <div style="flex: 1 1 auto">
+          <FormulaInput
+            v-model="localProfile.distance.max.value"
+            :characteristics="characteristics"
+            :modes="['fixed', 'actionCharacteristic', 'dimensional']"
+            :action="localProfile.type"
+          />
+        </div>
+      </div>
     </div>
 
     <div v-if="localProfile.type === 'throw' || localProfile.type === 'shoot'" class="mb-2">
       <label class="text-caption text-medium-emphasis">Дальнобойность</label>
-      <FormulaInput
-        v-model="localProfile.range"
-        :characteristics="characteristics"
-        :modes="['fixed', 'actionCharacteristic', 'dimensional']"
-        :action="localProfile.type"
-      />
+      <div v-if="localProfile.falloff" class="d-flex gap-2">
+        <v-select
+          v-model="localProfile.falloff.type"
+          :items="distanceTypes"
+          density="compact"
+          hide-details
+          style="max-width: 120px"
+        />
+        <div style="flex: 1 1 auto">
+          <FormulaInput
+            v-model="localProfile.falloff.value"
+            :characteristics="characteristics"
+            :modes="['fixed', 'actionCharacteristic', 'dimensional']"
+            :action="localProfile.type"
+          />
+        </div>
+      </div>
     </div>
 
     <v-card class="mt-2 pa-3" variant="outlined">

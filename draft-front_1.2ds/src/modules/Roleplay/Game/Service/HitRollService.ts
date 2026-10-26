@@ -198,7 +198,10 @@ export class HitRollService {
       input.attackerAdvantageModifiers ?? [],
       input.attackerKey,
     );
-    const distance = input.distanceIpari ?? 0;
+    const distance =
+      input.distance?.value.type === 'literal'
+        ? input.distance.value.value.base * 2 ** input.distance.value.value.size
+        : (input.distanceIpari ?? 0);
     const falloff = input.attack.falloff ?? DEFAULT_FALLOFF;
     const cover = input.cover ?? 0;
     if (input.reaction === 'ignore') {

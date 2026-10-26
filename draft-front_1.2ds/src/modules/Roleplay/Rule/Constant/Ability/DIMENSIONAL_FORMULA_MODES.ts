@@ -5,5 +5,6 @@ export const DIMENSIONAL_FORMULA_MODES: DimensionalFormula['type'][] = [
   'fixed',
   'characteristic',
   'dimensional',
+  'literal',
   'actionCharacteristic',
 ];

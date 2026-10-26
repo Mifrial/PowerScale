@@ -1227,12 +1227,12 @@ final class GameEndOfTurnMysqlTest extends TestCase
             RuleCommitEntry::put('sword', new RuleVersionBody('item', 'Sword', '', [
                 'category' => 'weapon',
                 'proficiency_family_code' => 'melee',
-                'weapon' => ['weapon_profiles' => [['type' => 'strike']]],
+                'weapon' => ['weapon_profiles' => [['type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]]]]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('dart', new RuleVersionBody('item', 'Dart', '', [
                 'category' => 'weapon',
                 'proficiency_family_code' => 'thrown',
-                'weapon' => ['weapon_profiles' => [['type' => 'throw']]],
+                'weapon' => ['weapon_profiles' => [['type' => 'throw', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => null], 'falloff' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 5]]]]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('crush', new RuleVersionBody('damage_type', 'Crush', '', [
                 'forms' => ['genitive' => 'crush', 'dative' => 'crush'],

@@ -7,6 +7,7 @@ export const FORMULA_TYPE_LABELS: Partial<Record<Formula['type'], string>> = {
   actionCharacteristic: 'От характеристики',
   ability_level: 'Уровень способности',
   dimensional: 'Размерное число',
+  literal: 'Точное значение',
   parameter: 'Параметр',
   parameter_floor_div: 'Параметр / N (целая часть)',
   to_scalar: 'База в среднем размере',

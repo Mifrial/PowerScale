@@ -168,7 +168,7 @@ final class GameDeliveryMysqlTest extends TestCase
                 'category' => 'weapon',
                 'proficiency_family_code' => 'melee',
                 'weapon' => ['weapon_profiles' => [[
-                    'type' => 'strike',
+                    'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                     'damage' => [
                         'damage_type_code' => 'cut',
                         'formula' => ['type' => 'fixed', 'value' => 1],

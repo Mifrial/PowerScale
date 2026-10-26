@@ -4,6 +4,7 @@ import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overvie
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
+import type { DistanceValue } from '@/modules/Roleplay/Rule/Dto/Item/DistanceValue';
 
 export interface HitRollInput {
   attackerLabel: string;
@@ -23,6 +24,8 @@ export interface HitRollInput {
   /** Временный штраф/бонус точности от текущего действия. */
   accuracyDelta?: number;
   distanceIpari?: number | null;
+  /** Точная дистанция; distanceIpari остаётся производным для старых путей. */
+  distance?: DistanceValue | null;
   cover?: number;
   flank?: boolean;
   turn?: boolean;

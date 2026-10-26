@@ -33,6 +33,8 @@ const abilityLevelModel = computed(() => (props.modelValue?.type === 'ability_le
 
 const dimensionalModel = computed(() => (props.modelValue?.type === 'dimensional' ? props.modelValue : null));
 
+const literalModel = computed(() => (props.modelValue?.type === 'literal' ? props.modelValue : null));
+
 const sizePositiveModel = computed(() =>
   props.modelValue?.type === 'characteristic_size_positive' ? props.modelValue : null,
 );
@@ -185,6 +187,18 @@ function updateDimensionalSize(val: string) {
   }
 }
 
+function updateLiteralBase(val: string) {
+  const current = props.modelValue;
+  if (current?.type !== 'literal') return;
+  emit('update:modelValue', { type: 'literal', value: { base: Number(val) || 0, size: current.value.size } });
+}
+
+function updateLiteralSize(val: string) {
+  const current = props.modelValue;
+  if (current?.type !== 'literal') return;
+  emit('update:modelValue', { type: 'literal', value: { base: current.value.base, size: Number(val) || 0 } });
+}
+
 function updateActionCharacteristicCode(characteristic: string | null) {
   const current = props.modelValue;
   if (current?.type !== 'actionCharacteristic') return;
@@ -243,6 +257,7 @@ function isDimensionalFormula(value: Formula): value is DimensionalFormula {
   return (
     value.type === 'fixed' ||
     value.type === 'dimensional' ||
+    value.type === 'literal' ||
     value.type === 'characteristic' ||
     value.type === 'actionCharacteristic'
   );
@@ -288,6 +303,27 @@ function updateSizeGap(side: 'characteristic_code_from' | 'characteristic_code_t
       hide-details
       style="flex: 1 1 auto"
     />
+
+    <template v-if="currentType === 'literal' && literalModel">
+      <v-text-field
+        :model-value="literalModel.value.base"
+        @update:model-value="updateLiteralBase"
+        label="База"
+        type="number"
+        density="compact"
+        hide-details
+        style="max-width: 90px"
+      />
+      <v-text-field
+        :model-value="literalModel.value.size"
+        @update:model-value="updateLiteralSize"
+        label="Размер"
+        type="number"
+        density="compact"
+        hide-details
+        style="max-width: 90px"
+      />
+    </template>
 
     <template v-if="currentType === 'characteristic'">
       <v-autocomplete

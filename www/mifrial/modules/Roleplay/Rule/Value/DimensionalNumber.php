@@ -126,6 +126,65 @@ class DimensionalNumber
     }
 
     /**
+     * Вычитает другое число к меньшему размеру. Только числа без шкалы.
+     *
+     * @param self $other Вычитаемое.
+     *
+     * @return static Разность.
+     *
+     * @throws RuleInvalidException Если у числа есть шкала базы.
+     */
+    public function subtract(self $other): static
+    {
+        if (
+            $this->baseMin !== null || $this->baseMax !== null
+            || $other->baseMin !== null || $other->baseMax !== null
+        ) {
+            throw new RuleInvalidException('Размерное число со шкалой нельзя вычитать');
+        }
+
+        $size = min($this->size, $other->size);
+
+        return $this->copyWithBaseSize(
+            $this->baseAt($size) - $other->baseAt($size),
+            $size,
+        );
+    }
+
+    /**
+     * Задаёт размер, сохраняя базу: значение читается в новой шкале.
+     *
+     * @param int $targetSize Целевой размер.
+     *
+     * @return static Копия с новым размером.
+     */
+    public function withSize(int $targetSize): static
+    {
+        return $this->copyWithBaseSize($this->base, $targetSize);
+    }
+
+    /**
+     * Умножает на другое размерное число: базы перемножаются, размеры складываются.
+     *
+     * @param self $other Второй множитель.
+     *
+     * @return static Произведение.
+     *
+     * @throws RuleInvalidException Если произведение не помещается в int.
+     */
+    public function multiply(self $other): static
+    {
+        if ($this->base !== 0 && abs($other->base) > intdiv(PHP_INT_MAX, abs($this->base))) {
+            throw new RuleInvalidException('Произведение размерных чисел не помещается в int');
+        }
+
+        return $this->copyWithBaseSize(
+            $this->base * $other->base,
+            $this->size + $other->size,
+        );
+    }
+
+    /**
      * Модифицирует базу по собственной шкале. Шаг размера — (max − min + 1).
      *
      * @param int $delta Пункты.

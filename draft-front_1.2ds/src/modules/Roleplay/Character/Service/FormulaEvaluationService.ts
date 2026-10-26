@@ -55,6 +55,8 @@ export class FormulaEvaluationService {
         return { base: formula.value, size: 0 };
       case 'dimensional':
         return { base: formula.base, size: formula.size };
+      case 'literal':
+        return formula.value;
       case 'characteristic': {
         const value = context.characteristicValues.get(formula.characteristic_code);
         if (!value) throw new Error(`Нет характеристики «${formula.characteristic_code}»`);

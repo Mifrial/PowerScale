@@ -120,6 +120,7 @@ export class ItemWeaponProfilesService {
     spec: ItemSpec | undefined,
     context: FormulaContext,
     resolveName: (code: string) => string | null,
+    movementStep: DimensionalNumberValue = { base: 1, size: 0 },
   ): WeaponProfileView[] {
     const profiles = this.attackProfilesOf(spec);
 
@@ -136,15 +137,36 @@ export class ItemWeaponProfilesService {
       const penetration = new DimensionalNumber(
         this.formula.evaluateDimensional(profile.penetration, profileContext),
       ).toString();
-      const distance = new DimensionalNumber(
-        this.formula.evaluateDimensional(profile.distance, profileContext),
-      ).toString();
-      const range =
-        profile.range === null
+      const minDistanceValue = weaponAttackRangeService.resolveDistanceValue(
+        profile.distance.min,
+        profileContext,
+        this.formula,
+        movementStep,
+      );
+      const maxDistanceValue =
+        profile.distance.max === null
           ? null
-          : new DimensionalNumber(this.formula.evaluateDimensional(profile.range, profileContext)).toString();
+          : weaponAttackRangeService.resolveDistanceValue(
+              profile.distance.max,
+              profileContext,
+              this.formula,
+              movementStep,
+            );
+      const minDistance = new DimensionalNumber(minDistanceValue).toString();
+      const maxDistance = maxDistanceValue === null ? null : new DimensionalNumber(maxDistanceValue).toString();
       const accuracy = new DimensionalNumber(profile.accuracy).toString();
       const type = this.damageTypeLabel(profile.damage.damage_type_code);
+      const falloff =
+        profile.falloff === undefined || profile.falloff === null
+          ? null
+          : new DimensionalNumber(
+              weaponAttackRangeService.resolveDistanceValue(
+                profile.falloff,
+                profileContext,
+                this.formula,
+                movementStep,
+              ),
+            ).toString();
 
       return {
         profileTypeLabel: WEAPON_PROFILE_LABELS[profile.type],
@@ -153,8 +175,12 @@ export class ItemWeaponProfilesService {
         penetrationLabel: `${penetration} пробития`,
         penetrationFormula: this.formulaOrNull(profile.penetration, resolveName),
         accuracyLabel: accuracy,
-        distanceLabel: range === null ? distance : `${distance}/${range}`,
-        falloffLabel: profile.falloff === undefined ? null : new DimensionalNumber(profile.falloff).toString(),
+        distanceLabel:
+          maxDistanceValue === null ||
+          new DimensionalNumber(maxDistanceValue).compare(new DimensionalNumber(minDistanceValue)) === 0
+            ? minDistance
+            : `${minDistance}/${maxDistance}`,
+        falloffLabel: falloff,
         dodgeBenefitLabel: profile.dodge_benefit === undefined ? null : String(profile.dodge_benefit),
       };
     });

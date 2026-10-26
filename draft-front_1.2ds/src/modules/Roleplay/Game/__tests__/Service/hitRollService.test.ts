@@ -312,7 +312,7 @@ describe('rollMeleeHit', () => {
       cover: 0,
       defense_result: 0,
       reaction: 'ignore',
-      range_size: 0,
+      range_size: 1,
       distance_ipari: 1,
     });
     const covered = hitRollService.rollMeleeHit(
@@ -330,7 +330,7 @@ describe('rollMeleeHit', () => {
       [checkSimple, checkHit],
       [],
     );
-    expect(covered.attacker.check?.difficulty).toEqual({ base: 3, size: -1 });
+    expect(covered.attacker.check?.difficulty).toEqual({ base: 5, size: -1 });
     expect(covered.attacker.check?.ranged_hit?.cover).toBe(2);
   });
 
@@ -368,7 +368,7 @@ describe('rollMeleeHit', () => {
       [],
     );
     expect(zeroDodge.defender?.totalSuccesses).toBe(0);
-    expect(zeroDodge.attacker.check?.difficulty).toEqual({ base: 3, size: -1 });
+    expect(zeroDodge.attacker.check?.difficulty).toEqual({ base: 5, size: -1 });
     const twoDodge = hitRollService.rollMeleeHit(
       {
         attackerLabel: 'А',
@@ -386,7 +386,7 @@ describe('rollMeleeHit', () => {
       [],
     );
     expect(twoDodge.defender?.totalSuccesses).toBe(2);
-    expect(twoDodge.attacker.check?.difficulty).toEqual({ base: 4, size: -1 });
+    expect(twoDodge.attacker.check?.difficulty).toEqual({ base: 9, size: -1 });
     expect(twoDodge.attacker.check?.ranged_hit).toMatchObject({
       cover: 2,
       defense_result: 2,
@@ -409,7 +409,7 @@ describe('rollMeleeHit', () => {
       [],
     );
     expect(block.defender?.totalSuccesses).toBe(2);
-    expect(block.attacker.check?.difficulty).toEqual({ base: 4, size: -1 });
+    expect(block.attacker.check?.difficulty).toEqual({ base: 9, size: -1 });
   });
 
   it('фланг: 2 помехи защитнику; поворот снимает', () => {

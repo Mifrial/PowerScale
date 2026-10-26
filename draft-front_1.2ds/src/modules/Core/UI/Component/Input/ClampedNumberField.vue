@@ -11,10 +11,13 @@ const props = withDefaults(
     minWidth?: string | number;
     /** Пустое поле → null наверх (лимит не задан), а не min/0. */
     nullable?: boolean;
+    /** Разрешить ручной ввод дробей (шаг задаётся через attrs step). */
+    allowDecimal?: boolean;
   }>(),
   {
     minWidth: '100px',
     nullable: false,
+    allowDecimal: false,
   },
 );
 
@@ -50,6 +53,7 @@ function onInput(v: unknown) {
 }
 
 function onKeydown(e: KeyboardEvent) {
+  if (props.allowDecimal) return;
   const current = props.modelValue ?? 0;
   if (e.key === 'ArrowUp') {
     emit('update:modelValue', clamp(current + 1));

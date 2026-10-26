@@ -43,6 +43,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { ISpatialResolver } from '@/modules/Roleplay/Game/Interface/ISpatialResolver';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { DistanceValue } from '@/modules/Roleplay/Rule/Dto/Item/DistanceValue';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
@@ -673,6 +674,25 @@ const phpProfileType = computed(
 const resolvedProfileType = computed(() => currentAttack.value?.profileType ?? phpProfileType.value);
 const isRanged = computed(() => resolvedProfileType.value === 'throw' || resolvedProfileType.value === 'shoot');
 
+function exactDistance(value: DimensionalNumberValue | null | undefined): number | null {
+  return value === null || value === undefined ? null : value.base * 2 ** value.size;
+}
+
+function defaultDistanceIpari(): number {
+  const exact = exactDistance(props.attack?.distanceMinValue);
+
+  return exact !== null && exact > 0 ? exact : Math.max(0.5, props.attack?.minDistance ?? 1);
+}
+
+const distanceRepresentable = computed(() => DimensionalNumber.fromDecimal(distanceIpari.value) !== null);
+
+const distanceProposal = computed<DistanceValue | null>(() => {
+  if (!isRanged.value) return null;
+  const value = DimensionalNumber.fromDecimal(distanceIpari.value);
+
+  return value === null ? null : { type: 'ipari', value: { type: 'literal', value: value.value } };
+});
+
 const canEditCover = computed(() => isCompose.value || myTurn.value);
 
 const resolvedAttack = computed(() => {
@@ -1096,7 +1116,7 @@ async function hydrate(): Promise<void> {
       agreedCover.value = Math.max(0, hit?.cover ?? 0);
       blockItemRuleCode.value = hit?.blockItemRuleCode ?? null;
       selectedActionRuleCode.value = hit?.actionRuleCode ?? fixedActionRuleCode.value ?? selectedActionRuleCode.value;
-      distanceIpari.value = hit?.distanceIpari ?? props.attack?.minDistance ?? 1;
+      distanceIpari.value = hit?.distanceIpari ?? defaultDistanceIpari();
       cover.value = Math.max(0, hit?.cover ?? 0);
       flank.value = hit?.flank ?? false;
       turn.value = hit?.turn ?? false;
@@ -1126,7 +1146,7 @@ async function hydrate(): Promise<void> {
       agreedOpponentAdv.value = 0;
       agreedCover.value = 0;
       blockItemRuleCode.value = null;
-      distanceIpari.value = Math.max(1, props.attack?.minDistance ?? 1);
+      distanceIpari.value = defaultDistanceIpari();
       cover.value = 0;
       flank.value = false;
       turn.value = false;
@@ -1241,6 +1261,7 @@ function hitProposal(attack: AttackOverview, nextReaction: HitDefenseReaction | 
       : resolvedSelectedAction.value?.name,
     actionOd: processStepCost.value ?? resolvedSelectedAction.value?.odCost,
     distanceIpari: isRanged.value ? distanceIpari.value : null,
+    distance: distanceProposal.value,
     cover: isRanged.value ? Math.max(0, cover.value) : undefined,
     reach: preview.reach,
     falloff: preview.falloff,
@@ -1263,6 +1284,8 @@ async function sendOffer(): Promise<CheckOffer> {
     if (!validation.valid) throw new Error(validation.message ?? 'Цели Широкого удара недоступны');
   }
   if (isRanged.value && !(distanceIpari.value > 0)) throw new Error('Укажите дистанцию в ипари');
+  if (isRanged.value && !distanceRepresentable.value)
+    throw new Error('Дистанция должна быть представима размерным числом');
   const attackerApCost = resolvedSelectedAction.value?.odCost || DEFAULT_ATTACK_AP;
   if (attackerApCost > remainingAp(initiator)) throw new Error('Недостаточно ОД для атаки');
   if (
@@ -3950,7 +3973,7 @@ const canSubmit = computed(() => {
     if (isPreparationAction.value) {
       return resolvedSelectedAction.value !== null && resolvedSelectedAction.value.odCost <= attackerAp.value;
     }
-    if (isRanged.value && !(distanceIpari.value > 0)) return false;
+    if (isRanged.value && (!(distanceIpari.value > 0) || !distanceRepresentable.value)) return false;
 
     return (
       opponentKey.value !== null &&
@@ -4109,9 +4132,11 @@ const canSubmit = computed(() => {
             <ClampedNumberField
               v-if="isRanged && !isPreparationAction"
               v-model="distanceIpari"
-              label="Дистанция, ипари"
-              :min="1"
+              label="Дистанция, ипари (можно 0.5)"
+              :min="0.5"
               :max="400"
+              :step="0.5"
+              allow-decimal
               density="compact"
               hide-details
               min-width="140px"

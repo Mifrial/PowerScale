@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Item;
 
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -14,7 +15,7 @@ final class WeaponBlock
     /**
      * Создаёт блок.
      *
-     * @param DimensionalNumber|null $minStrength Минимальная сила.
+     * @param CharacteristicNumber|null $minStrength Минимальная сила.
      * @param array<int, WeaponProfile> $weaponProfiles Профили атаки.
      * @param DimensionalNumber|null $durability Прочность.
      * @param int|null $minActionCost Минимум ОД.
@@ -23,7 +24,7 @@ final class WeaponBlock
      * @return void
      */
     public function __construct(
-        private readonly ?DimensionalNumber $minStrength,
+        private readonly ?CharacteristicNumber $minStrength,
         private readonly array $weaponProfiles,
         private readonly ?DimensionalNumber $durability,
         private readonly ?int $minActionCost,
@@ -34,9 +35,9 @@ final class WeaponBlock
     /**
      * Минимальная сила.
      *
-     * @return DimensionalNumber|null Число или null.
+     * @return CharacteristicNumber|null Число или null.
      */
-    public function getMinStrength(): ?DimensionalNumber
+    public function getMinStrength(): ?CharacteristicNumber
     {
         return $this->minStrength;
     }

@@ -71,6 +71,9 @@ describe('DimensionalNumber.multiply', () => {
   it('умножает базу, сохраняя размер', () => {
     expect(dn(4, 1).multiply(2).value).toEqual({ base: 8, size: 1 });
   });
+  it('размерное умножение перемножает базы и складывает размеры', () => {
+    expect(dn(3, 1).multiplyDimensional(dn(2, 1)).value).toEqual({ base: 6, size: 2 });
+  });
 });
 
 describe('DimensionalNumber.equalsStrict', () => {
@@ -127,16 +130,31 @@ describe('DimensionalNumber.toString', () => {
   });
 });
 
+describe('DimensionalNumber.fromDecimal', () => {
+  it('переводит 0.5 и 1.5 в размерные числа', () => {
+    expect(DimensionalNumber.fromDecimal(0.5)?.value).toEqual({ base: 1, size: -1 });
+    expect(DimensionalNumber.fromDecimal(1.5)?.value).toEqual({ base: 3, size: -1 });
+    expect(DimensionalNumber.fromDecimal(0.3)).toBeNull();
+  });
+});
+
 describe('DimensionalNumber.withSize', () => {
+  it('задаёт размер, сохраняя базу', () => {
+    expect(dn(5, 0).withSize(-1).value).toEqual({ base: 5, size: -1 });
+    expect(dn(2, 1).withSize(0).value).toEqual({ base: 2, size: 0 });
+  });
+});
+
+describe('DimensionalNumber.rebasedToSize', () => {
   it('вниз по размеру умножает базу на 2', () => {
-    expect(dn(5, 0).withSize(-1).value).toEqual({ base: 10, size: -1 });
+    expect(dn(5, 0).rebasedToSize(-1).value).toEqual({ base: 10, size: -1 });
   });
   it('вверх по размеру делит базу на 2 с округлением вниз', () => {
-    expect(dn(4, -2).withSize(-1).value).toEqual({ base: 2, size: -1 });
-    expect(dn(3, -2).withSize(-1).value).toEqual({ base: 1, size: -1 });
+    expect(dn(4, -2).rebasedToSize(-1).value).toEqual({ base: 2, size: -1 });
+    expect(dn(3, -2).rebasedToSize(-1).value).toEqual({ base: 1, size: -1 });
   });
   it('{0|-n} при подъёме размера остаётся нулём', () => {
-    expect(dn(0, -5).withSize(-1).value).toEqual({ base: 0, size: -1 });
+    expect(dn(0, -5).rebasedToSize(-1).value).toEqual({ base: 0, size: -1 });
   });
 });
 

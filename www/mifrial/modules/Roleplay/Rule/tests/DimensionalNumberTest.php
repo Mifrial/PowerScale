@@ -178,6 +178,81 @@ final class DimensionalNumberTest extends TestCase
     }
 
     /**
+     * Размер задаётся напрямую, база сохраняется.
+     *
+     * @return void
+     */
+    public function testWithSizeChangesOrdinaryNumber(): void
+    {
+        $down = (new DimensionalNumber(3, 0))->withSize(-1);
+        $up = (new DimensionalNumber(7, 1))->withSize(0);
+
+        self::assertSame(3, $down->getBase());
+        self::assertSame(-1, $down->getSize());
+        self::assertSame(7, $up->getBase());
+        self::assertSame(0, $up->getSize());
+    }
+
+    /**
+     * Размерное умножение перемножает базы и складывает размеры.
+     *
+     * @return void
+     */
+    public function testMultipliesDimensionalNumbers(): void
+    {
+        $product = (new DimensionalNumber(3, 1))->multiply(new DimensionalNumber(2, 1));
+
+        self::assertSame(6, $product->getBase());
+        self::assertSame(2, $product->getSize());
+    }
+
+    /**
+     * Разность приводится к меньшему размеру.
+     *
+     * @return void
+     */
+    public function testSubtractsDimensionalNumbers(): void
+    {
+        $difference = (new DimensionalNumber(7, 1))->subtract(new DimensionalNumber(3, 0));
+
+        self::assertSame(11, $difference->getBase());
+        self::assertSame(0, $difference->getSize());
+    }
+
+    /**
+     * У характеристик withSize запрещён: размер шага — 3 пункта, не двоичный.
+     *
+     * @return void
+     */
+    public function testCharacteristicWithSizeIsRejected(): void
+    {
+        $this->expectException(RuleInvalidException::class);
+
+        (new CharacteristicNumber(5, 0))->withSize(1);
+    }
+
+    /**
+     * Характеристики сравниваются по base + 3×size.
+     *
+     * @return void
+     */
+    public function testCharacteristicCompareUsesCharacteristicScale(): void
+    {
+        self::assertSame(
+            -1,
+            (new CharacteristicNumber(5, 0))->characteristicCompare(new CharacteristicNumber(3, 1)),
+        );
+        self::assertSame(
+            0,
+            (new CharacteristicNumber(3, 1))->characteristicCompare(new CharacteristicNumber(6, 0)),
+        );
+        self::assertSame(
+            1,
+            (new CharacteristicNumber(4, 0))->characteristicCompare(new CharacteristicNumber(3, 0)),
+        );
+    }
+
+    /**
      * Unbounded modification is invalid.
      *
      * @return void

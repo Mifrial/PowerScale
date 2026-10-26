@@ -40,8 +40,10 @@ const innateWeapon = (id: number | null, code: string, name: string, family: str
       weapon_profiles: [
         {
           type: 'strike',
-          distance: { type: 'dimensional', base: 0, size: 0 },
-          range: null,
+          distance: {
+            min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+            max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+          },
           damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'blunt' },
           penetration: { type: 'fixed', value: 0 },
           accuracy: dim(5),

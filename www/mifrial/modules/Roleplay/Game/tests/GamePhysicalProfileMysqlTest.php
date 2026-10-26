@@ -582,12 +582,12 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             RuleCommitEntry::put('sword', new RuleVersionBody('item', 'Sword', '', [
                 'category' => 'weapon',
                 'proficiency_family_code' => 'melee',
-                'weapon' => ['weapon_profiles' => [['type' => 'strike']]],
+                'weapon' => ['weapon_profiles' => [['type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]]]]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('dart', new RuleVersionBody('item', 'Dart', '', [
                 'category' => 'weapon',
                 'proficiency_family_code' => 'thrown',
-                'weapon' => ['weapon_profiles' => [['type' => 'throw']]],
+                'weapon' => ['weapon_profiles' => [['type' => 'throw', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => null], 'falloff' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 5]]]]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('bow', new RuleVersionBody('item', 'Bow', '', [
                 'category' => 'weapon',
@@ -597,13 +597,13 @@ final class GamePhysicalProfileMysqlTest extends TestCase
                         ['keyword_codes' => ['item', 'projectile', 'arrow']],
                         ['keyword_codes' => ['item', 'bolt']],
                     ],
-                    'weapon_profiles' => [['type' => 'shoot']],
+                    'weapon_profiles' => [['type' => 'shoot', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]], 'falloff' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 5]]]],
                 ],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('bow-empty', new RuleVersionBody('item', 'Empty bow', '', [
                 'category' => 'weapon',
                 'proficiency_family_code' => 'ranged',
-                'weapon' => ['weapon_profiles' => [['type' => 'shoot']]],
+                'weapon' => ['weapon_profiles' => [['type' => 'shoot', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]], 'falloff' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 5]]]]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('arrow', new RuleVersionBody('item', 'Arrow', '', [
                 'category' => 'item',

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Spec;
 
-use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ActionCharacteristicBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponDamage;
@@ -33,7 +32,7 @@ final class ItemWeapons
         }
 
         return new WeaponBlock(
-            DimensionalNumbers::optional($part, 'min_strength'),
+            DimensionalNumbers::optionalCharacteristic($part, 'min_strength'),
             self::profiles($part, 'weapon_profiles'),
             DimensionalNumbers::optional($part, 'durability'),
             SpecShape::optionalInt($part, 'min_action_cost'),
@@ -99,34 +98,39 @@ final class ItemWeapons
     {
         $row = SpecShape::requireMap($row, 'weapon_profiles');
 
+        $type = SpecShape::string($row, 'type');
+        if (!in_array($type, ['strike', 'throw', 'shoot'], true)) {
+            throw new RuleSpecShapeException('type');
+        }
+
+        $distance = DistanceValues::range($row);
+        $falloff = DistanceValues::optionalValue($row, 'falloff');
+        if ($type === 'throw' && $distance->getMax() !== null) {
+            throw new RuleSpecShapeException('distance.max');
+        }
+
+        if ($type !== 'throw' && $distance->getMax() === null) {
+            throw new RuleSpecShapeException('distance.max');
+        }
+
+        if ($type === 'strike' && $falloff !== null) {
+            throw new RuleSpecShapeException('falloff');
+        }
+
+        if ($type !== 'strike' && $falloff === null) {
+            throw new RuleSpecShapeException('falloff');
+        }
+
         return new WeaponProfile(
-            SpecShape::string($row, 'type'),
-            Formulas::dimensional($row, 'distance'),
-            self::formula($row, 'range'),
+            $type,
+            $distance,
             self::damage($row),
             Formulas::dimensional($row, 'penetration'),
             DimensionalNumbers::required($row, 'accuracy'),
             self::bases($row),
-            DimensionalNumbers::optional($row, 'falloff'),
+            $falloff,
             SpecShape::optionalInt($row, 'dodge_benefit'),
         );
-    }
-
-    /**
-     * Формула, если ключ есть.
-     *
-     * @param array<string, mixed> $row Строка.
-     * @param string $key Ключ.
-     *
-     * @return DimensionalFormula|null Узел или null.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    private static function formula(array $row, string $key): ?DimensionalFormula
-    {
-        $value = SpecShape::object($row, $key);
-
-        return $value === null ? null : Formulas::dimensionalNode($value);
     }
 
     /**

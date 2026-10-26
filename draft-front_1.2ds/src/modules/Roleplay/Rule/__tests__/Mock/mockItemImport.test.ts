@@ -45,14 +45,14 @@ describe('mockItemImport (S16, заход «Инвентарь»)', () => {
     }
   });
 
-  it('профили оружия: distance/range — Formula, damage — formula + тип, accuracy — размерное', () => {
+  it('профили оружия: distance min/max — DistanceValue, damage — formula + тип, accuracy — размерное', () => {
     const weapons = mockItemImport.filter((rule) => itemSpec(rule).weapon);
     expect(weapons.length).toBeGreaterThanOrEqual(30);
     for (const rule of weapons) {
       const weapon = itemSpec(rule).weapon;
       expect(weapon).toBeTruthy();
       for (const profile of weapon!.weapon_profiles) {
-        expect(profile.distance.type).toBeTruthy();
+        expect(profile.distance.min.type).toBeTruthy();
         expect(profile.damage.formula.type).toBeTruthy();
         expect(profile.accuracy).toHaveProperty('base');
         expect(typeof profile.dodge_benefit).toBe('number');
@@ -113,8 +113,8 @@ describe('mockItemImport (S16, заход «Инвентарь»)', () => {
         if (profile.damage.formula.type === 'actionCharacteristic') {
           expect(profile.damage.formula.action).toBe('shoot');
         }
-        if (profile.distance.type === 'actionCharacteristic') {
-          expect(profile.distance.action).toBe('shoot');
+        if (profile.distance.min.value.type === 'actionCharacteristic') {
+          expect(profile.distance.min.value.action).toBe('shoot');
         }
       }
     }

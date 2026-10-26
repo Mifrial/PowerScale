@@ -37,6 +37,10 @@ final class CharacterRequirementFactsTest extends TestCase
                 'proficiency_family_code' => 'sword',
                 'weapon' => ['weapon_profiles' => [[
                     'type' => 'strike',
+                    'distance' => [
+                        'min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]],
+                        'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]],
+                    ],
                     'accuracy' => ['base' => 3, 'size' => 0],
                 ]]],
             ], ['blade']),

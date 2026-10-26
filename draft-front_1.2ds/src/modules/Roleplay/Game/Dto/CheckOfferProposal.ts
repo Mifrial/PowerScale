@@ -5,6 +5,7 @@ import type { CheckOfferTargetProposal } from '@/modules/Roleplay/Game/Dto/Check
 import type { CheckOfferStrikeProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferStrikeProposal';
 import type { SpellCastOfferContext } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastOfferContext';
 import type { CoverInvite } from '@/modules/Roleplay/Game/Dto/CoverInvite';
+import type { DistanceValue } from '@/modules/Roleplay/Rule/Dto/Item/DistanceValue';
 
 export interface CheckOfferProposal {
   initiatorCharacteristic: string | null;
@@ -41,7 +42,11 @@ export interface CheckOfferProposal {
     actionName?: string;
     actionOd?: number;
     distanceIpari?: number | null;
+    /** Точная дистанция в ипари или шагах; distanceIpari — производное для старых путей. */
+    distance?: DistanceValue | null;
     cover?: number;
+    /** Точное размерное укрытие; cover — floor для старых путей. */
+    coverValue?: DimensionalNumberValue;
     reach?: number;
     falloff?: DimensionalNumberValue;
     flank?: boolean;

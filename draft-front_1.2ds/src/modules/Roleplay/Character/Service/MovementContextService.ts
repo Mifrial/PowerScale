@@ -5,10 +5,12 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { raceSpecService } from '@/modules/Roleplay/Rule/init';
 
+type MovementVersion = Pick<CharacterVersion, 'abilities' | 'raceRuleCode'>;
+
 export class MovementContextService {
   constructor(private readonly races = raceSpecService) {}
   resolveMovementStep(
-    version?: CharacterVersion,
+    version?: MovementVersion,
     rules?: Rule[],
     explicitStep?: DimensionalNumberValue,
   ): DimensionalNumberValue {

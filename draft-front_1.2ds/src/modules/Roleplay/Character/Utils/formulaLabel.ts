@@ -28,6 +28,8 @@ export function formulaLabel(
     }
     case 'dimensional':
       return `число ${new DimensionalNumber({ base: formula.base, size: formula.size }).toString()}`;
+    case 'literal':
+      return `число ${new DimensionalNumber(formula.value).toString()}`;
     case 'parameter':
       return `параметр «${formula.parameter_code}» × ${formula.per_unit}`;
     case 'parameter_floor_div':
@@ -55,5 +57,22 @@ export function formulaLabel(
 
       return formula.multiplier ? `${base} × ${formula.multiplier}` : base;
     }
+    case 'steps':
+      return `${formula.count} шагов`;
+    case 'current_movement_step':
+      return `шаг перемещения × ${formula.multiplier}`;
+    case 'size_gap_times_step': {
+      const from = resolveName(formula.characteristic_code_from) ?? formula.characteristic_code_from;
+      const to = resolveName(formula.characteristic_code_to) ?? formula.characteristic_code_to;
+
+      return `(${from} − ${to}) × ${formula.gap_multiplier} + ${formula.base_steps} шагов`;
+    }
+    case 'change_size': {
+      const sign = formula.size_delta > 0 ? '+' : '−';
+
+      return `${formulaLabel(formula.expression, resolveName, withActionSuffix)} ${sign}${Math.abs(formula.size_delta)} размера`;
+    }
+    case 'add':
+      return formula.expressions.map((entry) => formulaLabel(entry, resolveName, withActionSuffix)).join(' + ');
   }
 }

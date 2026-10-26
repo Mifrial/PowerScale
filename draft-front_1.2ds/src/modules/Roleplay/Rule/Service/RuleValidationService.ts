@@ -1070,22 +1070,34 @@ export class RuleValidationService {
           }
         }
         for (const profile of item.weapon?.weapon_profiles ?? []) {
+          if (!profile.distance || typeof profile.distance !== 'object' || !profile.distance.min) continue;
           this.walkFormula(profile.damage?.formula, 'characteristic', collect);
           if (profile.damage?.damage_type_code) {
             collect({ code: profile.damage.damage_type_code, type: 'damage_type' });
           }
           this.walkFormula(profile.penetration, 'characteristic', collect);
-          this.walkFormula(profile.distance, 'characteristic', collect);
-          this.walkFormula(profile.range, 'characteristic', collect);
+          this.walkFormula(profile.distance.min.value, 'characteristic', collect);
+          if (profile.distance.max) {
+            this.walkFormula(profile.distance.max.value, 'characteristic', collect);
+          }
+          if (profile.falloff) {
+            this.walkFormula(profile.falloff.value, 'characteristic', collect);
+          }
         }
         for (const profile of item.shield?.weapon_profiles ?? []) {
+          if (!profile.distance || typeof profile.distance !== 'object' || !profile.distance.min) continue;
           this.walkFormula(profile.damage?.formula, 'characteristic', collect);
           if (profile.damage?.damage_type_code) {
             collect({ code: profile.damage.damage_type_code, type: 'damage_type' });
           }
           this.walkFormula(profile.penetration, 'characteristic', collect);
-          this.walkFormula(profile.distance, 'characteristic', collect);
-          this.walkFormula(profile.range, 'characteristic', collect);
+          this.walkFormula(profile.distance.min.value, 'characteristic', collect);
+          if (profile.distance.max) {
+            this.walkFormula(profile.distance.max.value, 'characteristic', collect);
+          }
+          if (profile.falloff) {
+            this.walkFormula(profile.falloff.value, 'characteristic', collect);
+          }
         }
         for (const slot of item.armor?.defense_slots ?? []) {
           if (slot.source_code) {

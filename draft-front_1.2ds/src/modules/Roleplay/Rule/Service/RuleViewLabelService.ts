@@ -5,6 +5,7 @@ import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { ItemModifierOp } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOp';
 import type { ResistanceSlot } from '@/modules/Roleplay/Rule/Dto/Item/ResistanceSlot';
 import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
+import type { DistanceValue } from '@/modules/Roleplay/Rule/Dto/Item/DistanceValue';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
@@ -42,6 +43,12 @@ export class RuleViewLabelService {
     return WEAPON_PROFILE_TYPES.find((entry) => entry.value === type)?.label ?? type;
   }
 
+  distanceValue(value: DistanceValue, rules: Rule[]): string {
+    const formula = this.formula(value.value, rules);
+
+    return value.type === 'step' ? `${formula} шаг.` : formula;
+  }
+
   formula(node: Formula, rules: Rule[]): string {
     if (node.type === 'fixed') return String(node.value);
     if (node.type === 'characteristic') {
@@ -58,6 +65,7 @@ export class RuleViewLabelService {
       return `ур. ${name}${extra}${offset}`;
     }
     if (node.type === 'dimensional') return this.dimensional(node);
+    if (node.type === 'literal') return this.dimensional(node.value);
     if (node.type === 'parameter') return `${node.parameter_code} × ${node.per_unit}`;
     if (node.type === 'parameter_floor_div') return `⌊${node.parameter_code} / ${node.divisor}⌋`;
     if (node.type === 'to_scalar') return `база (${this.formula(node.value, rules)}) в среднем размере`;
@@ -88,8 +96,9 @@ export class RuleViewLabelService {
   }
 
   weaponProfileFields(profile: WeaponProfile, rules: Rule[]): { label: string; value: string }[] {
-    const distance = this.formula(profile.distance, rules);
-    const range = profile.range ? this.formula(profile.range, rules) : null;
+    const minDistance = this.distanceValue(profile.distance.min, rules);
+    const maxDistance = profile.distance.max ? this.distanceValue(profile.distance.max, rules) : null;
+    const distance = maxDistance === null || maxDistance === minDistance ? minDistance : `${minDistance}/${maxDistance}`;
     const fields: { label: string; value: string }[] = [
       {
         label: this.damageTypeLabel(profile.damage.damage_type_code, rules) ?? 'Урон',
@@ -97,10 +106,10 @@ export class RuleViewLabelService {
       },
       { label: 'Пробитие', value: this.formula(profile.penetration, rules) },
       { label: 'Точность', value: this.dimensional(profile.accuracy) },
-      { label: 'Дистанция', value: range ? `${distance}/${range}` : distance },
+      { label: 'Дистанция', value: distance },
     ];
     if (profile.falloff) {
-      fields.push({ label: 'Дальнобойность', value: this.dimensional(profile.falloff) });
+      fields.push({ label: 'Дальнобойность', value: this.distanceValue(profile.falloff, rules) });
     }
     if (profile.dodge_benefit !== undefined) {
       fields.push({ label: 'Польза уклонения', value: String(profile.dodge_benefit) });

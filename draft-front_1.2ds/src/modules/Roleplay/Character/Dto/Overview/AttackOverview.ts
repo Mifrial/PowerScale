@@ -9,10 +9,16 @@ export interface AttackOverview {
   profileIndex?: number;
   profileTypeLabel: string;
   distanceLabel: string;
-  /** Верх профиля (range, иначе distance), в ипари. */
+  /** Верх профиля (distance.max, иначе distance.min), в ипари; floor для старых потребителей. */
   reach: number;
-  /** Нижняя граница дистанции профиля, в ипари. */
+  /** Нижняя граница дистанции профиля, в ипари; floor для старых потребителей. */
   minDistance: number;
+  /** Точная нижняя граница дистанции профиля в ипари. */
+  distanceMinValue?: DimensionalNumberValue;
+  /** Точная верхняя граница дистанции профиля в ипари; null — без максимума (бросок). */
+  distanceMaxValue?: DimensionalNumberValue | null;
+  /** Точный верх профиля для проверки дистанции (max или min). */
+  reachValue?: DimensionalNumberValue;
   /** Дальнобойность (шаг полос и силы действия). */
   falloff: DimensionalNumberValue;
   accuracyLabel: string;

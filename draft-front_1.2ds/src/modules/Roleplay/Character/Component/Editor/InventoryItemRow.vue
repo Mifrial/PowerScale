@@ -26,6 +26,8 @@ const props = defineProps<{
   rules: Rule[];
   /** Значения характеристик по коду — для оценки профилей оружия. */
   characteristicValues: Map<string, DimensionalNumberValue>;
+  /** Шаг перемещения расы — для перевода дистанции в шагах в ипари. */
+  movementStep?: DimensionalNumberValue;
   /** Способности черновика — для уровня владения семьи. */
   abilities: CharacterAbility[];
   /** Количество в инвентаре (для степпера и кнопки экипировки). */
@@ -122,7 +124,12 @@ const profileContext = computed<FormulaContext>(() => ({
 
 /** Профили атак оружия (значения от текущих характеристик); считаются лениво — только у видимых строк. */
 const profiles = computed<WeaponProfileView[]>(() =>
-  itemWeaponProfilesService.weaponProfileViews(effectiveSpec.value, profileContext.value, resolveRuleName),
+  itemWeaponProfilesService.weaponProfileViews(
+    effectiveSpec.value,
+    profileContext.value,
+    resolveRuleName,
+    props.movementStep,
+  ),
 );
 
 /** Блок «Владение оружием» (семья + лестница + уровень); null — у предмета нет семьи. */

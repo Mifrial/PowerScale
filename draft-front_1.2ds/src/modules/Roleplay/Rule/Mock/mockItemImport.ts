@@ -29,8 +29,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -71,8 +73,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 2 }, damage_type_code: 'piercing' },
             penetration: {
               type: 'actionCharacteristic',
@@ -85,8 +89,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -133,8 +139,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -155,8 +163,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -177,8 +187,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -220,8 +232,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 5, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 5, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -263,8 +277,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'piercing' },
             penetration: {
               type: 'actionCharacteristic',
@@ -277,8 +293,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -294,8 +312,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'cutting' },
             penetration: {
               type: 'actionCharacteristic',
@@ -308,8 +328,7 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'throw',
-            distance: { type: 'dimensional', base: 2, size: 0 },
-            range: null,
+            distance: { min: { type: 'ipari', value: { type: 'dimensional', base: 2, size: 0 } }, max: null },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -326,7 +345,7 @@ export const mockItemImport: Rule[] = [
               modifier: [{ delta: -3, source_code: null, source_label: null }],
             },
             accuracy: { base: 3, size: 0 },
-            falloff: { base: 2, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 2, size: 0 } } },
             dodge_benefit: -6,
           },
         ],
@@ -357,8 +376,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 2 }, damage_type_code: 'piercing' },
             penetration: {
               type: 'actionCharacteristic',
@@ -371,8 +392,7 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'throw',
-            distance: { type: 'dimensional', base: 2, size: 0 },
-            range: null,
+            distance: { min: { type: 'ipari', value: { type: 'dimensional', base: 2, size: 0 } }, max: null },
             damage: { formula: { type: 'fixed', value: 2 }, damage_type_code: null },
             penetration: {
               type: 'actionCharacteristic',
@@ -381,7 +401,7 @@ export const mockItemImport: Rule[] = [
               modifier: [{ delta: -3, source_code: null, source_label: null }],
             },
             accuracy: { base: 2, size: 0 },
-            falloff: { base: 2, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 2, size: 0 } } },
             dodge_benefit: -4,
           },
         ],
@@ -412,8 +432,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'piercing' },
             penetration: {
               type: 'actionCharacteristic',
@@ -426,8 +448,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -443,8 +467,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'cutting' },
             penetration: {
               type: 'actionCharacteristic',
@@ -457,8 +483,7 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'throw',
-            distance: { type: 'dimensional', base: 2, size: 0 },
-            range: null,
+            distance: { min: { type: 'ipari', value: { type: 'dimensional', base: 2, size: 0 } }, max: null },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'piercing' },
             penetration: {
               type: 'actionCharacteristic',
@@ -467,7 +492,7 @@ export const mockItemImport: Rule[] = [
               modifier: [{ delta: -3, source_code: null, source_label: null }],
             },
             accuracy: { base: 3, size: 0 },
-            falloff: { base: 3, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 3, size: 0 } } },
             dodge_benefit: -6,
           },
         ],
@@ -498,8 +523,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -520,8 +547,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -567,8 +596,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -589,8 +620,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -637,8 +670,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -659,8 +694,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -708,8 +745,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -730,8 +769,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -779,8 +820,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -801,8 +844,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -849,8 +894,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: { formula: { type: 'fixed', value: 3 }, damage_type_code: 'cutting' },
             penetration: {
               type: 'actionCharacteristic',
@@ -889,8 +936,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 3, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 3, size: -1 } },
+            },
             damage: { formula: { type: 'fixed', value: 3 }, damage_type_code: 'cutting' },
             penetration: {
               type: 'actionCharacteristic',
@@ -929,8 +978,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -951,8 +1002,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -999,8 +1052,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1021,8 +1076,7 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'throw',
-            distance: { type: 'dimensional', base: 2, size: 0 },
-            range: null,
+            distance: { min: { type: 'ipari', value: { type: 'dimensional', base: 2, size: 0 } }, max: null },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1039,7 +1093,7 @@ export const mockItemImport: Rule[] = [
               modifier: [{ delta: -3, source_code: null, source_label: null }],
             },
             accuracy: { base: 1, size: 0 },
-            falloff: { base: 2, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 2, size: 0 } } },
             dodge_benefit: -4,
           },
         ],
@@ -1070,8 +1124,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1092,8 +1148,7 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'throw',
-            distance: { type: 'dimensional', base: 2, size: 0 },
-            range: null,
+            distance: { min: { type: 'ipari', value: { type: 'dimensional', base: 2, size: 0 } }, max: null },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1110,7 +1165,7 @@ export const mockItemImport: Rule[] = [
               modifier: [{ delta: -3, source_code: null, source_label: null }],
             },
             accuracy: { base: 1, size: 0 },
-            falloff: { base: 3, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 3, size: 0 } } },
             dodge_benefit: -3,
           },
         ],
@@ -1141,8 +1196,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1189,8 +1246,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 3, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 3, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1211,12 +1270,11 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'throw',
-            distance: { type: 'dimensional', base: 2, size: 0 },
-            range: null,
+            distance: { min: { type: 'ipari', value: { type: 'dimensional', base: 2, size: 0 } }, max: null },
             damage: { formula: { type: 'fixed', value: 3 }, damage_type_code: 'piercing' },
             penetration: { type: 'fixed', value: 4 },
             accuracy: { base: 2, size: 0 },
-            falloff: { base: 1, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 1, size: 0 } } },
             dodge_benefit: -4,
           },
         ],
@@ -1247,8 +1305,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1269,8 +1329,7 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'throw',
-            distance: { type: 'dimensional', base: 2, size: 0 },
-            range: null,
+            distance: { min: { type: 'ipari', value: { type: 'dimensional', base: 2, size: 0 } }, max: null },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1287,7 +1346,7 @@ export const mockItemImport: Rule[] = [
               modifier: [{ delta: -4, source_code: null, source_label: null }],
             },
             accuracy: { base: 2, size: 0 },
-            falloff: { base: 2, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 2, size: 0 } } },
             dodge_benefit: -6,
           },
         ],
@@ -1319,8 +1378,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1341,8 +1402,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 3, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 3, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1389,8 +1452,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1411,8 +1476,10 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1458,8 +1525,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1501,8 +1570,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 1, size: -1 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1544,13 +1615,15 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'shoot',
-            distance: { type: 'dimensional', base: 10, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 10, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 6 }, damage_type_code: 'piercing' },
             penetration: { type: 'fixed', value: 0 },
             accuracy: { base: 4, size: 0 },
             action_characteristics: [{ characteristic: 'strength', value: { type: 'dimensional', base: 3, size: 2 } }],
-            falloff: { base: 10, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 10, size: 0 } } },
             dodge_benefit: -4,
           },
         ],
@@ -1582,18 +1655,23 @@ export const mockItemImport: Rule[] = [
           {
             type: 'shoot',
             distance: {
-              type: 'actionCharacteristic',
-              action: 'shoot',
-              characteristic: 'strength',
-              modifier: [],
-              multiplier: 10,
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: {
+                type: 'ipari',
+                value: {
+                  type: 'actionCharacteristic',
+                  action: 'shoot',
+                  characteristic: 'strength',
+                  modifier: [],
+                  multiplier: 10,
+                },
+              },
             },
-            range: null,
             damage: { formula: { type: 'fixed', value: 3 }, damage_type_code: 'piercing' },
             penetration: { type: 'fixed', value: 0 },
             accuracy: { base: 3, size: 0 },
             action_characteristics: [{ characteristic: 'strength', value: { type: 'dimensional', base: 3, size: 0 } }],
-            falloff: { base: 10, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 10, size: 0 } } },
             dodge_benefit: -4,
           },
         ],
@@ -1625,8 +1703,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'blunt' },
             penetration: { type: 'fixed', value: 0 },
             accuracy: { base: 4, size: 0 },
@@ -1634,17 +1714,22 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'shoot',
-            distance: { type: 'dimensional', base: 1, size: 0 },
-            range: {
-              type: 'actionCharacteristic',
-              action: 'shoot',
-              characteristic: 'strength',
-              modifier: [{ delta: 0, source_code: null, source_label: null }],
+            distance: {
+              min: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+              max: {
+                type: 'ipari',
+                value: {
+                  type: 'actionCharacteristic',
+                  action: 'shoot',
+                  characteristic: 'strength',
+                  modifier: [{ delta: 0, source_code: null, source_label: null }],
+                },
+              },
             },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'piercing' },
             penetration: { type: 'fixed', value: 2 },
             accuracy: { base: 3, size: 0 },
-            falloff: { base: 5, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 5, size: 0 } } },
             dodge_benefit: -6,
           },
         ],
@@ -1676,8 +1761,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'blunt' },
             penetration: { type: 'fixed', value: 0 },
             accuracy: { base: 4, size: 0 },
@@ -1685,18 +1772,23 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'shoot',
-            distance: { type: 'dimensional', base: 1, size: 0 },
-            range: {
-              type: 'actionCharacteristic',
-              action: 'shoot',
-              characteristic: 'strength',
-              modifier: [],
-              multiplier: 2,
+            distance: {
+              min: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+              max: {
+                type: 'ipari',
+                value: {
+                  type: 'actionCharacteristic',
+                  action: 'shoot',
+                  characteristic: 'strength',
+                  modifier: [],
+                  multiplier: 2,
+                },
+              },
             },
             damage: { formula: { type: 'fixed', value: 2 }, damage_type_code: 'piercing' },
             penetration: { type: 'fixed', value: 4 },
             accuracy: { base: 3, size: 0 },
-            falloff: { base: 5, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 5, size: 0 } } },
             dodge_benefit: -4,
           },
         ],
@@ -1728,8 +1820,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'blunt' },
             penetration: { type: 'fixed', value: 0 },
             accuracy: { base: 4, size: 0 },
@@ -1737,18 +1831,23 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'shoot',
-            distance: { type: 'dimensional', base: 1, size: 0 },
-            range: {
-              type: 'actionCharacteristic',
-              action: 'shoot',
-              characteristic: 'strength',
-              modifier: [],
-              multiplier: 3,
+            distance: {
+              min: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+              max: {
+                type: 'ipari',
+                value: {
+                  type: 'actionCharacteristic',
+                  action: 'shoot',
+                  characteristic: 'strength',
+                  modifier: [],
+                  multiplier: 3,
+                },
+              },
             },
             damage: { formula: { type: 'fixed', value: 2 }, damage_type_code: 'piercing' },
             penetration: { type: 'fixed', value: 3 },
             accuracy: { base: 3, size: 0 },
-            falloff: { base: 5, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 5, size: 0 } } },
             dodge_benefit: -4,
           },
         ],
@@ -1780,8 +1879,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'blunt' },
             penetration: { type: 'fixed', value: 0 },
             accuracy: { base: 4, size: 0 },
@@ -1789,18 +1890,23 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'shoot',
-            distance: { type: 'dimensional', base: 1, size: 0 },
-            range: {
-              type: 'actionCharacteristic',
-              action: 'shoot',
-              characteristic: 'strength',
-              modifier: [],
-              multiplier: 5,
+            distance: {
+              min: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+              max: {
+                type: 'ipari',
+                value: {
+                  type: 'actionCharacteristic',
+                  action: 'shoot',
+                  characteristic: 'strength',
+                  modifier: [],
+                  multiplier: 5,
+                },
+              },
             },
             damage: { formula: { type: 'fixed', value: 2 }, damage_type_code: 'piercing' },
             penetration: { type: 'fixed', value: 3 },
             accuracy: { base: 3, size: 0 },
-            falloff: { base: 5, size: 0 },
+            falloff: { type: 'ipari', value: { type: 'literal', value: { base: 5, size: 0 } } },
             dodge_benefit: -4,
           },
         ],
@@ -1831,8 +1937,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1884,8 +1992,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -1937,8 +2047,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -3512,8 +3624,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',
@@ -3556,8 +3670,10 @@ export const mockItemImport: Rule[] = [
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: {
               formula: {
                 type: 'actionCharacteristic',

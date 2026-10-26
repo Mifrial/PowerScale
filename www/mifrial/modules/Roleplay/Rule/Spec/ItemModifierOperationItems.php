@@ -93,7 +93,7 @@ final class ItemModifierOperationItems
         }
 
         return new WeaponBlock(
-            self::characteristic($weapon->getMinStrength(), $collapsed['weapon.min_strength'] ?? null),
+            self::characteristicNumber($weapon->getMinStrength(), $collapsed['weapon.min_strength'] ?? null),
             self::profiles($weapon->getWeaponProfiles(), $actions, 'weapon'),
             self::characteristic($weapon->getDurability(), $collapsed['weapon.durability'] ?? null),
             $weapon->getMinActionCost(),
@@ -117,7 +117,7 @@ final class ItemModifierOperationItems
         }
 
         return new ShieldBlock(
-            self::characteristic($shield->getMinStrength(), $collapsed['shield.min_strength'] ?? null),
+            self::characteristicNumber($shield->getMinStrength(), $collapsed['shield.min_strength'] ?? null),
             self::characteristic($shield->getDurability(), $collapsed['shield.durability'] ?? null),
             self::profiles($shield->getWeaponProfiles(), $actions, 'shield'),
             self::limits($shield->getCharacteristicLimits(), $collapsed, 'shield'),
@@ -242,6 +242,27 @@ final class ItemModifierOperationItems
     }
 
     /**
+     * Минимальная сила как CharacteristicNumber.
+     *
+     * @param CharacteristicNumber|null $number Исходное.
+     * @param array{factor: float, delta: int, size: int}|null $change Итог или null.
+     *
+     * @return CharacteristicNumber|null Число или null.
+     */
+    private static function characteristicNumber(
+        ?CharacteristicNumber $number,
+        ?array $change,
+    ): ?CharacteristicNumber {
+        if ($number === null || $change === null) {
+            return $number;
+        }
+
+        $scaled = self::scaled($number, $change, true);
+
+        return new CharacteristicNumber($scaled->getBase(), $scaled->getSize());
+    }
+
+    /**
      * Множитель к базе, затем слагаемое.
      *
      * @param DimensionalNumber $number Число.
@@ -361,7 +382,6 @@ final class ItemModifierOperationItems
         return new WeaponProfile(
             $profile->getType(),
             $profile->getDistance(),
-            $profile->getRange(),
             $damage,
             $penetration,
             $profile->getAccuracy(),

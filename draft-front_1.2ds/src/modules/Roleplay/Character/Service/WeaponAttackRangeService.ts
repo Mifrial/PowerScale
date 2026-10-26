@@ -7,47 +7,65 @@ import { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/Constant/Weapon/DE
 import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import type { RangedHitDifficultyParts } from '@/modules/Roleplay/Character/Dto/RangedHitDifficultyParts';
+import type { DistanceValue } from '@/modules/Roleplay/Rule/Dto/Item/DistanceValue';
 
 const SIZE_STEP = CHARACTERISTIC_BASE_RANGE.max - CHARACTERISTIC_BASE_RANGE.min + 1;
 
 export class WeaponAttackRangeService {
   readonly defaultFalloff = DEFAULT_FALLOFF;
 
-  /** Полосы дальнобойности: не укладывается в falloff / falloff↑ / falloff↑↑… */
+  /** Полоса дальнобойности: 1 на пороге, 2 на falloff↑, 3 на falloff↑↑… */
   difficultySizeFromRange(distanceIpari: number, falloff: DimensionalNumberValue): number {
+    const distanceValue =
+      DimensionalNumber.fromDecimal(distanceIpari) ?? new DimensionalNumber({ base: distanceIpari, size: 0 });
     const base = falloff.base;
     const startSize = falloff.size;
     let extra = 0;
-    while (distanceIpari > new DimensionalNumber({ base, size: startSize + extra }).toNumber()) {
+    while (distanceValue.compare(new DimensionalNumber({ base, size: startSize + extra })) > 0) {
       extra += 1;
       if (extra > 24) break;
     }
 
-    return extra;
+    return extra + 1;
+  }
+
+  /** Переводит DistanceValue в ипари: step умножается на шаг расы. */
+  resolveDistanceValue(
+    value: DistanceValue,
+    context: Parameters<FormulaEvaluationService['evaluateDimensional']>[1],
+    formula: FormulaEvaluationService,
+    movementStep: DimensionalNumberValue = { base: 1, size: 0 },
+  ): DimensionalNumberValue {
+    const evaluated = formula.evaluateDimensional(value.value, context);
+    if (value.type === 'ipari') return evaluated;
+
+    return new DimensionalNumber(evaluated).multiplyDimensional(new DimensionalNumber(movementStep)).value;
   }
 
   /**
-   * Сложность попадания ДБ: [max(1, результат проверки) + укрытие]↓ + полосы дальнобойности.
+   * Сложность попадания ДБ: (успехи + ½ + укрытие), сдвинутые на полосы дальнобойности.
    * Игнор: checkResult = 0. Уклон и блок: checkResult = число успехов своей проверки.
    */
   rangedHitDifficultyParts(
-    cover: number,
-    checkResult: number,
+    cover: number | DimensionalNumberValue,
+    checkResult: number | DimensionalNumberValue,
     distanceIpari: number,
     falloff: DimensionalNumberValue,
   ): RangedHitDifficultyParts {
-    const coverSafe = Math.max(0, Math.floor(cover));
-    const resultSafe = Math.max(0, Math.floor(checkResult));
-    const floorResult = Math.max(1, resultSafe);
+    const coverValue = typeof cover === 'number' ? { base: Math.max(0, cover), size: 0 } : cover;
+    const resultValue = typeof checkResult === 'number' ? { base: Math.max(0, checkResult), size: 0 } : checkResult;
     const rangeSize = this.difficultySizeFromRange(distanceIpari, falloff);
+    const base = new DimensionalNumber(resultValue)
+      .add(new DimensionalNumber({ base: 1, size: -1 }))
+      .add(new DimensionalNumber(coverValue));
 
     return {
-      cover: coverSafe,
-      checkResult: resultSafe,
-      floorResult,
+      cover: new DimensionalNumber(coverValue).toNumber(),
+      checkResult: new DimensionalNumber(resultValue).toNumber(),
+      floorResult: new DimensionalNumber(resultValue).toNumber(),
       rangeSize,
       distanceIpari,
-      difficulty: { base: floorResult + coverSafe, size: -1 + rangeSize },
+      difficulty: base.withSize(base.value.size + rangeSize - 1).value,
     };
   }
 
@@ -61,10 +79,30 @@ export class WeaponAttackRangeService {
   }
 
   /** Полные шаги дальнобойности сверх reach: каждый −1 размер силы действия. */
-  actionStrengthSizePenalty(distanceIpari: number, reach: number, falloff: DimensionalNumberValue): number {
-    const step = Math.max(1, new DimensionalNumber(falloff).toNumber());
+  actionStrengthSizePenalty(
+    distance: number | DimensionalNumberValue,
+    reach: number | DimensionalNumberValue,
+    falloff: DimensionalNumberValue,
+  ): number {
+    const distanceValue =
+      typeof distance === 'number'
+        ? (DimensionalNumber.fromDecimal(distance) ?? new DimensionalNumber({ base: distance, size: 0 }))
+        : new DimensionalNumber(distance);
+    const reachValue =
+      typeof reach === 'number'
+        ? (DimensionalNumber.fromDecimal(reach) ?? new DimensionalNumber({ base: reach, size: 0 }))
+        : new DimensionalNumber(reach);
+    const step = new DimensionalNumber(falloff);
+    if (step.compare(new DimensionalNumber({ base: 0, size: 0 })) <= 0) return 0;
 
-    return Math.floor(Math.max(0, distanceIpari - reach) / step);
+    let penalty = 0;
+    let threshold = reachValue.add(step);
+    while (distanceValue.compare(threshold) >= 0 && penalty < 100) {
+      penalty += 1;
+      threshold = threshold.add(step);
+    }
+
+    return penalty;
   }
 
   profileFormulaContext(

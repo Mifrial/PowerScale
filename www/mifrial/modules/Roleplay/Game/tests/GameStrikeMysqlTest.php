@@ -1413,7 +1413,7 @@ final class GameStrikeMysqlTest extends TestCase
                         'special_rule_codes' => [],
                         'proficiency_family_code' => 'tagged',
                         'weapon' => ['weapon_profiles' => [[
-                            'type' => 'strike',
+                            'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                             'accuracy' => ['base' => 3, 'size' => 0],
                         ]]],
                     ],
@@ -1634,7 +1634,7 @@ final class GameStrikeMysqlTest extends TestCase
                     'category' => 'weapon',
                     'proficiency_family_code' => 'melee',
                     'weapon' => ['weapon_profiles' => [[
-                        'type' => 'strike',
+                        'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                         'accuracy' => ['base' => 3, 'size' => 0],
                         'damage' => [
                             'damage_type_code' => 'cut',
@@ -1885,7 +1885,7 @@ final class GameStrikeMysqlTest extends TestCase
                     'category' => 'weapon',
                     'proficiency_family_code' => 'melee',
                     'weapon' => ['weapon_profiles' => [[
-                        'type' => 'strike',
+                        'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                         'accuracy' => ['base' => 3, 'size' => 0],
                         'damage' => ['damage_type_code' => 'cutting'],
                     ]]],
@@ -1949,7 +1949,7 @@ final class GameStrikeMysqlTest extends TestCase
                     'category' => 'weapon',
                     'proficiency_family_code' => 'melee',
                     'weapon' => ['weapon_profiles' => [[
-                        'type' => 'strike',
+                        'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                         'accuracy' => ['base' => 3, 'size' => 0],
                         'damage' => ['damage_type_code' => 'crush'],
                     ]]],
@@ -2106,7 +2106,7 @@ final class GameStrikeMysqlTest extends TestCase
                     'category' => 'weapon',
                     'proficiency_family_code' => 'melee',
                     'weapon' => ['weapon_profiles' => [[
-                        'type' => 'strike',
+                        'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                         'accuracy' => ['base' => 3, 'size' => 0],
                         'damage' => ['damage_type_code' => 'cutting'],
                     ]]],
@@ -3138,7 +3138,7 @@ final class GameStrikeMysqlTest extends TestCase
                 'proficiency_family_code' => 'melee',
                 'weapon' => [
                     'weapon_profiles' => [[
-                        'type' => 'strike',
+                        'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                         'accuracy' => ['base' => $hitEfficiency === 0 ? 0 : 3, 'size' => 0],
                         ...($withPenetration ? [
                             'damage' => [
@@ -3187,7 +3187,7 @@ final class GameStrikeMysqlTest extends TestCase
                 'proficiency_family_code' => 'melee',
                 'weapon' => [
                     'weapon_profiles' => [[
-                        'type' => 'strike',
+                        'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                         'accuracy' => ['base' => 4, 'size' => 0],
                         'damage' => [
                             'formula' => [
@@ -3204,7 +3204,7 @@ final class GameStrikeMysqlTest extends TestCase
                 'proficiency_family_code' => 'melee',
                 'weapon' => [
                     'weapon_profiles' => [[
-                        'type' => 'strike',
+                        'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                         'accuracy' => ['base' => 3, 'size' => 0],
                         'damage' => ['damage_type_code' => 'cut'],
                     ]],
@@ -3378,7 +3378,7 @@ final class GameStrikeMysqlTest extends TestCase
                 'proficiency_family_code' => 'melee',
                 'weapon' => [
                     'weapon_profiles' => [[
-                        'type' => 'strike',
+                        'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                         'accuracy' => ['base' => 3, 'size' => 0],
                         'dodge_benefit' => -1,
                     ]],
@@ -3389,7 +3389,7 @@ final class GameStrikeMysqlTest extends TestCase
                 'proficiency_family_code' => 'melee',
                 'weapon' => [
                     'weapon_profiles' => [[
-                        'type' => 'strike',
+                        'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                         'accuracy' => ['base' => 3, 'size' => 0],
                         'dodge_benefit' => 0,
                     ]],

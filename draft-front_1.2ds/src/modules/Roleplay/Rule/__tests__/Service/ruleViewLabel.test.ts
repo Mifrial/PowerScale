@@ -93,8 +93,10 @@ describe('RuleViewLabelService', () => {
   it('поля профиля оружия: тип урона в подписи, сила действия — человеческой фразой', () => {
     const profile: WeaponProfile = {
       type: 'strike',
-      distance: { type: 'dimensional', base: 1, size: -1 },
-      range: null,
+      distance: {
+        min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+        max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: -1 } },
+      },
       damage: {
         formula: {
           type: 'actionCharacteristic',
@@ -125,7 +127,7 @@ describe('RuleViewLabelService', () => {
     ]);
     expect(fields).toContainEqual({ label: 'Колющий урон', value: 'Сила удара − 3' });
     expect(fields).toContainEqual({ label: 'Пробитие', value: 'Сила удара − 3' });
-    expect(fields).toContainEqual({ label: 'Дистанция', value: '1↓' });
+    expect(fields).toContainEqual({ label: 'Дистанция', value: '0/1↓' });
     expect(fields).toContainEqual({ label: 'Точность', value: '4' });
     expect(fields).toContainEqual({ label: 'Польза уклонения', value: '-4' });
   });
@@ -133,12 +135,14 @@ describe('RuleViewLabelService', () => {
   it('дальность стрелкового профиля идёт в ячейке дистанции через слэш', () => {
     const profile: WeaponProfile = {
       type: 'shoot',
-      distance: { type: 'dimensional', base: 1, size: 0 },
-      range: { type: 'fixed', value: 10 },
+      distance: {
+        min: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+        max: { type: 'ipari', value: { type: 'fixed', value: 10 } },
+      },
       damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'piercing' },
       penetration: { type: 'fixed', value: 2 },
       accuracy: { base: 3, size: 0 },
-      falloff: { base: 5, size: 0 },
+      falloff: { type: 'ipari', value: { type: 'literal', value: { base: 5, size: 0 } } },
       dodge_benefit: -6,
     };
 

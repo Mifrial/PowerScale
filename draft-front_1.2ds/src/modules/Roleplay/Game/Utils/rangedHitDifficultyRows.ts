@@ -12,23 +12,23 @@ function reactionLabel(reaction: HitDefenseReaction): string {
 
 function rangeLabel(detail: RangedHitDifficultyBreakdown): string {
   const distance = `${detail.distance_ipari} ипари`;
-  if (detail.range_size <= 0) return `без полос (${distance})`;
+  const extra = Math.max(0, detail.range_size - 1);
+  if (extra === 0) return `без полос (${distance})`;
 
-  return `+${detail.range_size} размер (${distance})`;
+  return `+${extra} размер (${distance})`;
 }
 
 /** Строки [i]: как сложилась сложность броска/выстрела. */
 export function rangedHitDifficultyDetailRows(
   detail: RangedHitDifficultyBreakdown,
 ): { label: string; value: string }[] {
-  const floor = Math.max(1, detail.defense_result);
-  const base = floor + detail.cover;
+  const base = detail.defense_result + 0.5 + detail.cover;
 
   return [
     { label: 'Реакция', value: reactionLabel(detail.reaction) },
     { label: 'Результат защиты', value: String(detail.defense_result) },
     { label: 'Укрытие', value: String(detail.cover) },
-    { label: 'База', value: `max(1, ${detail.defense_result}) + ${detail.cover} = ${base}` },
+    { label: 'База', value: `${detail.defense_result} + ½ + ${detail.cover} = ${base}` },
     { label: 'Дальность', value: rangeLabel(detail) },
   ];
 }

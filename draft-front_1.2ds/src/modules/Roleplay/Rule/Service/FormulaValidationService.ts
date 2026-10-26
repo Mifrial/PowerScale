@@ -18,7 +18,14 @@ const SCALAR_TYPES = new Set([
   'characteristic_size_gap',
 ]);
 
-const DIMENSIONAL_TYPES = new Set(['fixed', 'dimensional', 'characteristic', 'parameter', 'actionCharacteristic']);
+const DIMENSIONAL_TYPES = new Set([
+  'fixed',
+  'dimensional',
+  'literal',
+  'characteristic',
+  'parameter',
+  'actionCharacteristic',
+]);
 
 /**
  * Проверка Formula при сохранении правила: kind поля, делитель и kind параметра.
@@ -85,7 +92,26 @@ export class FormulaValidationService {
     if (!item) return;
     const profiles = [...(item.weapon?.weapon_profiles ?? []), ...(item.shield?.weapon_profiles ?? [])];
     for (const profile of profiles) {
-      for (const formula of [profile.distance, profile.range, profile.damage?.formula, profile.penetration]) {
+      const distance = (profile as { distance?: { min?: unknown; max?: unknown } }).distance;
+      if (!distance || typeof distance !== 'object' || !distance.min || typeof distance.min !== 'object') {
+        errors.push(this.error(rule, 'профиль без distance {min,max}: старый формат не поддерживается'));
+        continue;
+      }
+      if (profile.falloff !== undefined && profile.falloff !== null) {
+        const falloff = profile.falloff as { value?: unknown };
+        if (!falloff || typeof falloff !== 'object' || !('value' in falloff)) {
+          errors.push(this.error(rule, 'falloff должен быть DistanceValue {type,value}'));
+          continue;
+        }
+      }
+      const distanceFormulas = [
+        profile.distance.min.value,
+        profile.distance.max?.value,
+        profile.falloff?.value,
+        profile.damage?.formula,
+        profile.penetration,
+      ];
+      for (const formula of distanceFormulas) {
         if (!formula) continue;
         const problem = this.dimensionalProblem(formula);
         if (problem) errors.push(this.error(rule, problem));

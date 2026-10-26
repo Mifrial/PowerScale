@@ -12,6 +12,8 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Item\ArmorBlock;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\BlockProfile;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\CharacteristicLimit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\DefenseSlot;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\DistanceRange;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\DistanceValue;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ShieldBlock;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock;
@@ -19,6 +21,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponDamage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponProfile;
 use Mifrial\Roleplay\Rule\Spec\ItemModifierOperations;
 use Mifrial\Roleplay\Rule\Spec\ItemModifiers;
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use PHPUnit\Framework\TestCase;
 
@@ -339,7 +342,7 @@ final class ItemModifierOperationTest extends TestCase
             null,
             $weapon ? $this->weapon() : null,
             $armor ? new ArmorBlock(null, null, [], [new DefenseSlot(new DimensionalNumber(4, 0), 1, null)], []) : null,
-            $shield ? new ShieldBlock(new DimensionalNumber(3, 0), null, [], []) : null,
+            $shield ? new ShieldBlock(new CharacteristicNumber(3, 0), null, [], []) : null,
             $weapon || $shield ? $this->block() : null,
         );
     }
@@ -351,15 +354,17 @@ final class ItemModifierOperationTest extends TestCase
      */
     private function weapon(): WeaponBlock
     {
-        $distance = new FixedNode(0);
+        $distance = new DistanceRange(
+            new DistanceValue(DistanceValue::TYPE_IPARI, new FixedNode(0)),
+            new DistanceValue(DistanceValue::TYPE_IPARI, new FixedNode(0)),
+        );
 
         return new WeaponBlock(
-            new DimensionalNumber(3, 0),
+            new CharacteristicNumber(3, 0),
             [
                 new WeaponProfile(
                     'strike',
                     $distance,
-                    null,
                     new WeaponDamage(new ActionCharacteristicNode('strike', 'strength', null, []), null),
                     new ActionCharacteristicNode('strike', 'strength', null, []),
                     new DimensionalNumber(3, 0),
@@ -370,9 +375,8 @@ final class ItemModifierOperationTest extends TestCase
                 new WeaponProfile(
                     'shoot',
                     $distance,
-                    null,
                     new WeaponDamage(new FixedNode(1), null),
-                    $distance,
+                    new FixedNode(0),
                     new DimensionalNumber(3, 0),
                     [],
                     null,

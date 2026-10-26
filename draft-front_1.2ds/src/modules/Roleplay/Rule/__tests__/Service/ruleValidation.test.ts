@@ -28,6 +28,11 @@ describe('validateRuleReferences', () => {
         weapon: {
           weapon_profiles: [
             {
+              type: 'strike',
+              distance: {
+                min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+                max: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              },
               damage: {
                 formula: { type: 'characteristic', characteristic_code: 'strength', modifier: 0 },
                 damage_type_code: 'slashing',
@@ -48,6 +53,11 @@ describe('validateRuleReferences', () => {
         weapon: {
           weapon_profiles: [
             {
+              type: 'strike',
+              distance: {
+                min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+                max: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              },
               damage: {
                 formula: { type: 'characteristic', characteristic_code: 'strength', modifier: 0 },
                 damage_type_code: 'slashing',
@@ -70,6 +80,11 @@ describe('validateRuleReferences', () => {
         weapon: {
           weapon_profiles: [
             {
+              type: 'strike',
+              distance: {
+                min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+                max: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              },
               damage: { formula: { type: 'fixed', value: 2 }, damage_type_code: 'strength' },
               penetration: { type: 'fixed', value: 1 },
             },
@@ -1427,6 +1442,30 @@ describe('language parent cycle', () => {
 });
 
 describe('formula validation', () => {
+  it('отклоняет старый формат дистанции, а не падает на нём', () => {
+    const rules: Rule[] = [
+      baseRule(null, 'old-bow', 'item', {
+        weapon: {
+          weapon_profiles: [
+            {
+              type: 'shoot',
+              distance: { type: 'fixed', value: 0 },
+              falloff: { base: 5, size: 0 },
+              damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: null },
+              penetration: { type: 'fixed', value: 0 },
+              accuracy: { base: 3, size: 0 },
+            },
+          ],
+        },
+      }),
+    ];
+    const messages = ruleValidationService
+      .validateCatalog(rules, [])
+      .items.map((item) => item.message)
+      .join('\n');
+    expect(messages).toContain('distance {min,max}');
+  });
+
   it('отклоняет нулевой делитель и нескалярную формулу в скалярном поле', () => {
     const rules: Rule[] = [
       baseRule(null, 'training', 'ability', {
@@ -1501,10 +1540,14 @@ describe('formula validation', () => {
         weapon: {
           weapon_profiles: [
             {
-              distance: { type: 'parameter', parameter_code: 'x' },
-              range: null,
+              type: 'shoot',
+              distance: {
+                min: { type: 'ipari', value: { type: 'parameter', parameter_code: 'x' } },
+                max: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              },
               damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: null },
               penetration: { type: 'fixed', value: 0 },
+              accuracy: { base: 3, size: 0 },
             },
           ],
         },

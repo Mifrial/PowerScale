@@ -109,8 +109,10 @@ export class ItemSpecService {
   addWeaponProfile(weapon: WeaponBlock, strengthCode: string): void {
     weapon.weapon_profiles.push({
       type: 'strike',
-      distance: { type: 'fixed', value: 0 },
-      range: null,
+      distance: {
+        min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+        max: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+      },
       damage: {
         formula: {
           type: 'actionCharacteristic',

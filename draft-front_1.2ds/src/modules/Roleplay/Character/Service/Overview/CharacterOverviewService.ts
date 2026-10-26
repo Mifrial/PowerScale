@@ -54,6 +54,7 @@ import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/Service
 import { liveActionPointsLimitService } from '@/modules/Roleplay/Character/Service/Instance/liveActionPointsLimitService';
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 import { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/Instance/weaponAttackRangeService';
+import { movementContextService } from '@/modules/Roleplay/Character/Service/Instance/movementContextService';
 import { characterHandsService } from '@/modules/Roleplay/Character/Service/Instance/characterHandsService';
 import { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/Constant/Weapon/DEFAULT_FALLOFF';
 import { CHARACTERISTIC_STRENGTH_CODE } from '@/modules/Roleplay/Rule/Constant/Characteristic/CHARACTERISTIC_STRENGTH_CODE';
@@ -1283,6 +1284,7 @@ export class CharacterOverviewService {
     keywords: readonly Keyword[] = [],
   ): AttackOverview[] {
     const attacks: AttackOverview[] = [];
+    const movementStep = movementContextService.resolveMovementStep(version, rules);
 
     for (const item of version.inventory) {
       if (!item.equipped || item.ruleCode === null) continue;
@@ -1315,6 +1317,7 @@ export class CharacterOverviewService {
                 atDistance?.actionCharacteristicModifier ?? 0,
                 item.id,
                 copies > 1 ? instanceIndex : undefined,
+                movementStep,
               ),
             );
           } catch {
@@ -1339,6 +1342,7 @@ export class CharacterOverviewService {
     actionCharacteristicModifier = 0,
     inventoryItemId?: number,
     instanceIndex?: number,
+    movementStep: DimensionalNumberValue = { base: 1, size: 0 },
   ): AttackOverview {
     const zeroCtx = this.weaponAttackRange.profileFormulaContext(
       profile,
@@ -1347,16 +1351,27 @@ export class CharacterOverviewService {
       0,
       actionCharacteristicModifier,
     );
-    const minDistanceValue = this.formula.evaluateDimensional(profile.distance, zeroCtx);
-    const rangeValue = profile.range === null ? null : this.formula.evaluateDimensional(profile.range, zeroCtx);
+    const minDistanceValue = this.weaponAttackRange.resolveDistanceValue(
+      profile.distance.min,
+      zeroCtx,
+      this.formula,
+      movementStep,
+    );
+    const rangeValue =
+      profile.distance.max === null
+        ? null
+        : this.weaponAttackRange.resolveDistanceValue(profile.distance.max, zeroCtx, this.formula, movementStep);
     const minDistance = new DimensionalNumber(minDistanceValue).toNumber();
     const range = rangeValue === null ? null : new DimensionalNumber(rangeValue).toNumber();
     const reach = range ?? minDistance;
-    const falloff = profile.falloff ?? DEFAULT_FALLOFF;
+    const falloff =
+      profile.falloff === undefined || profile.falloff === null
+        ? DEFAULT_FALLOFF
+        : this.weaponAttackRange.resolveDistanceValue(profile.falloff, zeroCtx, this.formula, movementStep);
     const ranged = profile.type === 'throw' || profile.type === 'shoot';
     const penalty =
       ranged && distanceIpari != null
-        ? this.weaponAttackRange.actionStrengthSizePenalty(distanceIpari, reach, falloff)
+        ? this.weaponAttackRange.actionStrengthSizePenalty(distanceIpari, rangeValue ?? minDistanceValue, falloff)
         : 0;
     const evalCtx = penalty
       ? this.weaponAttackRange.profileFormulaContext(
@@ -1382,11 +1397,14 @@ export class CharacterOverviewService {
       profileIndex,
       profileTypeLabel: WEAPON_PROFILE_LABELS[profile.type],
       distanceLabel:
-        rangeValue === null
+        rangeValue === null || new DimensionalNumber(rangeValue).compare(new DimensionalNumber(minDistanceValue)) === 0
           ? new DimensionalNumber(minDistanceValue).toString()
           : `${new DimensionalNumber(minDistanceValue).toString()}/${new DimensionalNumber(rangeValue).toString()}`,
       minDistance,
       reach,
+      distanceMinValue: minDistanceValue,
+      distanceMaxValue: rangeValue,
+      reachValue: rangeValue ?? minDistanceValue,
       falloff,
       accuracyLabel: `${new DimensionalNumber(accuracy).toString()} точность`,
       accuracy,

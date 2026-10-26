@@ -42,7 +42,7 @@ describe('weaponProfileViews (панель предмета редактора)'
     expect(rubyashchiy?.penetrationLabel).toBe('5↓ пробития');
     expect(rubyashchiy?.penetrationFormula).toBe('Сила − 3');
     expect(rubyashchiy?.accuracyLabel).toBe('4');
-    expect(rubyashchiy?.distanceLabel).toBe('1↓');
+    expect(rubyashchiy?.distanceLabel).toBe('0/1↓');
     expect(rubyashchiy?.falloffLabel).toBeNull();
     expect(rubyashchiy?.dodgeBenefitLabel).toBe('-6');
 
@@ -63,7 +63,7 @@ describe('weaponProfileViews (панель предмета редактора)'
     expect(shoot?.penetrationLabel).toBe('0 пробития');
     expect(shoot?.penetrationFormula).toBeNull();
     expect(shoot?.accuracyLabel).toBe('3');
-    expect(shoot?.distanceLabel).toBe('30');
+    expect(shoot?.distanceLabel).toBe('0/30');
     expect(shoot?.falloffLabel).toBe('10');
   });
 

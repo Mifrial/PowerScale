@@ -24,6 +24,7 @@ import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModi
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import { itemModifierService } from '@/modules/Roleplay/Rule/init';
 import { characterHandsService } from '@/modules/Roleplay/Character/Service/Instance/characterHandsService';
+import { movementContextService } from '@/modules/Roleplay/Character/Service/Instance/movementContextService';
 
 const props = withDefaults(
   defineProps<{
@@ -46,6 +47,7 @@ const props = withDefaults(
 );
 
 const draftStore = useCharacterDraftStore();
+const movementStep = computed(() => movementContextService.resolveMovementStep(props.build, props.rules));
 
 const showWeaponSkills = ref(false);
 const weaponSkillsFamilyCode = ref<string | null>(null);
@@ -645,6 +647,7 @@ watch(showWeaponSkills, (val) => {
           :item="item"
           :rules="rules"
           :characteristic-values="characteristicValues"
+          :movement-step="movementStep"
           :abilities="build.abilities"
           :owned-qty="item.rowKind === 'owned' ? 1 : (ownedByRuleId.get(item.ruleCode) ?? 0)"
           :baseline-qty="

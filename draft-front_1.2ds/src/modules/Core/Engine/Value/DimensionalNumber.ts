@@ -26,6 +26,20 @@ export class DimensionalNumber {
   }
 
   /**
+   * Переводит десятичную дробь, представимую степенью двойки, в размерное число.
+   * 0.5 → {1|-1}, 1.5 → {3|-1}; произвольные дроби возвращают null.
+   */
+  static fromDecimal(value: number, maxDenominatorSize = 20): DimensionalNumber | null {
+    if (!Number.isFinite(value)) return null;
+    for (let size = 0; size >= -maxDenominatorSize; size -= 1) {
+      const base = value * 2 ** -size;
+      if (Number.isInteger(base)) return new DimensionalNumber({ base, size });
+    }
+
+    return null;
+  }
+
+  /**
    * Переводит значение в целое: floor(base × 2^size).
    */
   toNumber(): number {
@@ -60,10 +74,17 @@ export class DimensionalNumber {
   }
 
   /**
-   * Сменить размер без дробей: вниз — база ×2 за шаг, вверх — floor(база / 2).
-   * {4|-2} → size -1 = {2|-1}; {3|-2} → {1|-1}.
+   * Задаёт размер, сохраняя базу: значение читается в новой шкале.
    */
   withSize(targetSize: number): DimensionalNumber {
+    return new DimensionalNumber({ base: this.value.base, size: targetSize });
+  }
+
+  /**
+   * Переносит значение в другой размер без потери величины.
+   * {4|-2} → size -1 = {2|-1}; {3|-2} → {1|-1}.
+   */
+  rebasedToSize(targetSize: number): DimensionalNumber {
     const delta = targetSize - this.value.size;
     if (delta === 0) return this;
     if (delta < 0) {
@@ -87,7 +108,7 @@ export class DimensionalNumber {
   clampMinSize(minSize: number): DimensionalNumber {
     if (this.value.size >= minSize) return this;
 
-    return this.withSize(minSize);
+    return this.rebasedToSize(minSize);
   }
 
   /**
@@ -123,6 +144,16 @@ export class DimensionalNumber {
    */
   multiply(multiplier: number): DimensionalNumber {
     return new DimensionalNumber({ base: this.value.base * multiplier, size: this.value.size });
+  }
+
+  /**
+   * Умножает на другое размерное число: базы перемножаются, размеры складываются.
+   */
+  multiplyDimensional(other: DimensionalNumber): DimensionalNumber {
+    return new DimensionalNumber({
+      base: this.value.base * other.value.base,
+      size: this.value.size + other.value.size,
+    });
   }
 
   /**

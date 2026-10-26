@@ -49,6 +49,30 @@ final class DimensionalNumbers
     }
 
     /**
+     * Необязательное число шкалы характеристик. Нет ключа — null.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     * @param string $key Ключ.
+     *
+     * @return CharacteristicNumber|null Число или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    public static function optionalCharacteristic(array $document, string $key): ?CharacteristicNumber
+    {
+        $value = self::optional($document, $key);
+        if ($value === null) {
+            return null;
+        }
+
+        if ($value->getBase() < CharacteristicNumber::BASE_MIN || $value->getBase() > CharacteristicNumber::BASE_MAX) {
+            throw new RuleSpecShapeException($key . '.base');
+        }
+
+        return new CharacteristicNumber($value->getBase(), $value->getSize());
+    }
+
+    /**
      * Число шкалы характеристик. Нет ключа — нули.
      *
      * @param array<string|int, mixed> $document Документ.

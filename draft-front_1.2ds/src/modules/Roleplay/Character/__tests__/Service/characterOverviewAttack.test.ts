@@ -32,8 +32,10 @@ const rules: Rule[] = [
       weapon_profiles: [
         {
           type: 'strike',
-          distance: { type: 'dimensional', base: 1, size: 0 },
-          range: null,
+          distance: {
+            min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+            max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+          },
           damage: {
             formula: {
               type: 'actionCharacteristic',
@@ -101,7 +103,7 @@ describe('CharacterOverviewService: формулы атак', () => {
     expect(overview.attacks[0].damageFormula).toBe('Сила − 1 (для strike)');
     expect(overview.attacks[0].penetrationLabel).toBe('5↓ пробития');
     expect(overview.attacks[0].reach).toBe(1);
-    expect(overview.attacks[0].minDistance).toBe(1);
+    expect(overview.attacks[0].minDistance).toBe(0);
     expect(overview.attacks[0].falloff).toEqual({ base: 5, size: 0 });
     expect(overview.attacks[0].dodgeBenefit).toBe(-1);
   });
@@ -124,8 +126,10 @@ describe('CharacterOverviewService: формулы атак', () => {
             weapon_profiles: [
               {
                 type: 'strike',
-                distance: { type: 'dimensional', base: 1, size: 0 },
-                range: null,
+                distance: {
+                  min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+                  max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+                },
                 damage: {
                   formula: {
                     type: 'actionCharacteristic',
@@ -141,8 +145,10 @@ describe('CharacterOverviewService: формулы атак', () => {
               },
               {
                 type: 'strike',
-                distance: { type: 'dimensional', base: 1, size: 0 },
-                range: null,
+                distance: {
+                  min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+                  max: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
+                },
                 damage: {
                   formula: {
                     type: 'actionCharacteristic',
@@ -232,8 +238,10 @@ describe('CharacterOverviewService: формулы атак', () => {
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'blunt' },
             penetration: { type: 'fixed', value: 0 },
             accuracy: dim(5),
@@ -253,8 +261,10 @@ describe('CharacterOverviewService: формулы атак', () => {
         weapon_profiles: [
           {
             type: 'strike',
-            distance: { type: 'dimensional', base: 0, size: 0 },
-            range: null,
+            distance: {
+              min: { type: 'ipari', value: { type: 'fixed', value: 0 } },
+              max: { type: 'ipari', value: { type: 'dimensional', base: 0, size: 0 } },
+            },
             damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'piercing' },
             penetration: { type: 'fixed', value: 0 },
             accuracy: dim(4),
@@ -330,5 +340,56 @@ describe('CharacterOverviewService: потолки экипировки', () => 
     expect(
       unequipped.characteristics.find((item) => item.ruleCode === 'reaction')?.modifiers.some((item) => item.limit),
     ).toBe(false);
+  });
+});
+
+describe('CharacterOverviewService: шаг расы в дистанции', () => {
+  it('переводит дистанцию в шагах через шаг расы, а не через 1 ипари', () => {
+    const stepRules: Rule[] = [
+      base(null, 'race', 'race', 'Раса', {
+        parent_race_code: null,
+        abilities: [{ ability_code: 'long-step', automatic: true }],
+      }),
+      base(null, 'long-step', 'ability', 'Длинный шаг', {
+        type: 'trait',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        movement_step_size_delta: 1,
+      }),
+      base(null, 'spear', 'item', 'Копьё', {
+        category: 'equipment',
+        cost_gm: 1,
+        weight: null,
+        special_rule_codes: [],
+        weapon: {
+          min_strength: dim(3),
+          durability: dim(5),
+          weapon_profiles: [
+            {
+              type: 'throw',
+              distance: { min: { type: 'step', value: { type: 'fixed', value: 1 } }, max: null },
+              falloff: { type: 'step', value: { type: 'fixed', value: 2 } },
+              damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'piercing' },
+              penetration: { type: 'fixed', value: 0 },
+              accuracy: dim(3),
+            },
+          ],
+        },
+      }),
+    ];
+    const version = versionWith({
+      raceRuleCode: 'race',
+      abilities: [],
+      inventory: [{ id: 1, ruleCode: 'spear', quantity: 1, equipped: true }],
+    });
+
+    const overview = service.build(version, stepRules);
+
+    expect(overview.attacks).toHaveLength(1);
+    expect(overview.attacks[0].distanceMinValue).toEqual({ base: 1, size: 1 });
+    expect(overview.attacks[0].reach).toBe(2);
+    expect(overview.attacks[0].falloff).toEqual({ base: 2, size: 1 });
   });
 });

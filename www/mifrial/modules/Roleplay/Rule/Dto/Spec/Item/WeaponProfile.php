@@ -15,27 +15,25 @@ final class WeaponProfile
     /**
      * Создаёт профиль.
      *
-     * @param string $type strike, throw или shoot.
-     * @param DimensionalFormula $distance Дистанция.
-     * @param DimensionalFormula|null $range Дальность.
+     * @param string $type Strike, throw или shoot.
+     * @param DistanceRange $distance Диапазон дистанции.
      * @param WeaponDamage $damage Урон.
      * @param DimensionalFormula $penetration Пробитие.
      * @param DimensionalNumber $accuracy Точность.
      * @param array<int, ActionCharacteristicBase> $actionCharacteristics Базы действия.
-     * @param DimensionalNumber|null $falloff Падение силы.
+     * @param DistanceValue|null $falloff Дальнобойность.
      * @param int|null $dodgeBenefit Польза уклонения.
      *
      * @return void
      */
     public function __construct(
         private readonly string $type,
-        private readonly DimensionalFormula $distance,
-        private readonly ?DimensionalFormula $range,
+        private readonly DistanceRange $distance,
         private readonly WeaponDamage $damage,
         private readonly DimensionalFormula $penetration,
         private readonly DimensionalNumber $accuracy,
         private readonly array $actionCharacteristics,
-        private readonly ?DimensionalNumber $falloff,
+        private readonly ?DistanceValue $falloff,
         private readonly ?int $dodgeBenefit,
     ) {
     }
@@ -51,23 +49,13 @@ final class WeaponProfile
     }
 
     /**
-     * Дистанция.
+     * Диапазон дистанции.
      *
-     * @return DimensionalFormula Узел.
+     * @return DistanceRange Диапазон.
      */
-    public function getDistance(): DimensionalFormula
+    public function getDistance(): DistanceRange
     {
         return $this->distance;
-    }
-
-    /**
-     * Дальность.
-     *
-     * @return DimensionalFormula|null Узел или null.
-     */
-    public function getRange(): ?DimensionalFormula
-    {
-        return $this->range;
     }
 
     /**
@@ -111,11 +99,11 @@ final class WeaponProfile
     }
 
     /**
-     * Падение силы.
+     * Дальнобойность.
      *
-     * @return DimensionalNumber|null Число или null.
+     * @return DistanceValue|null Значение или null.
      */
-    public function getFalloff(): ?DimensionalNumber
+    public function getFalloff(): ?DistanceValue
     {
         return $this->falloff;
     }

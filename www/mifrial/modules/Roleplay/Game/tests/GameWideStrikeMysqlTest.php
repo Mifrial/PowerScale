@@ -2033,10 +2033,10 @@ final class GameWideStrikeMysqlTest extends TestCase
         $rollId = $this->plainRollId($mechanics);
         $reliabilityCutId = $this->reliabilityCutId($mechanics);
         $world = $this->addWorldWithRevision('razrabotka');
-        $swordProfile = ['type' => 'strike', 'accuracy' => ['base' => 3, 'size' => 0]];
+        $swordProfile = ['type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]], 'accuracy' => ['base' => 3, 'size' => 0]];
         if ($withPenetration) {
             $swordProfile = [
-                'type' => 'strike',
+                'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                 'accuracy' => ['base' => 3, 'size' => 0],
                 'damage' => [
                     'damage_type_code' => 'cut',
@@ -2183,7 +2183,7 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'proficiency_family_code' => 'melee',
                 'weapon' => [
                     'weapon_profiles' => [[
-                        'type' => 'strike',
+                        'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                         'accuracy' => ['base' => 3, 'size' => 0],
                         'damage' => [
                             'damage_type_code' => 'cut',
@@ -2197,7 +2197,7 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'proficiency_family_code' => 'melee',
                 'weapon' => [
                     'weapon_profiles' => [[
-                        'type' => 'strike',
+                        'type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
                         'accuracy' => ['base' => 3, 'size' => 0],
                         'damage' => ['damage_type_code' => 'cut'],
                     ]],
