@@ -164,8 +164,10 @@ Authoritative-источники:
 - `source_code` и source collapse для базового resistance path —
   `BACKEND`; semantic provenance блока и сквозное подтверждение ещё требуют
   отдельного гейта.
-- Специальные срезы надёжности для оружейных действий —
-  `BACKEND_MISSING`.
+- Специальные срезы надёжности для оружейных действий — `BACKEND`:
+  `GameStrikeRules::durabilityShave()` читает `current_action_durability_shave`,
+  учитывает `scope`, `damage_type_codes` и `short_extra_on_first_one`
+  (коммит `d87d961`, тесты `GameStrikeMysqlTest`, `GameStrikeLayersTest`).
 - Дальность, укрытие, falloff и особые правила `throw`/`shoot` —
   `FRONTEND + BACKEND_MISSING + E2E_MISSING`.
 
