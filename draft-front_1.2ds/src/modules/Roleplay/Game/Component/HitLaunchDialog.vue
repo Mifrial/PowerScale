@@ -428,9 +428,10 @@ const selectedTargetKeys = computed(() => {
 
   return resolvedAttackAction.value?.strikes.map((strike) => strike.targetKey) ?? [];
 });
-const hasFixedTargets = computed(() => selectedTargetKeys.value.length > 0);
-const isGroupAttack = computed(() => selectedTargetKeys.value.length > 1);
-const targetNamesLabel = computed(() => selectedTargetKeys.value.map((target) => nameOf(target)).join(', '));
+const uniqueTargetKeys = computed(() => [...new Set(selectedTargetKeys.value)]);
+const hasFixedTargets = computed(() => uniqueTargetKeys.value.length > 0);
+const isGroupAttack = computed(() => uniqueTargetKeys.value.length > 1);
+const targetNamesLabel = computed(() => uniqueTargetKeys.value.map((target) => nameOf(target)).join(', '));
 
 const speakerEntity = computed<CombatEntityKey | null>(() => {
   const key = props.activeSpeakerKey;
@@ -527,7 +528,7 @@ const coveringCandidates = computed(() =>
   coveringService.eligibleKeys(
     entityOptions.value.map((item) => item.value),
     resolvedAttackerKey.value,
-    [opponentKey.value, ...selectedTargetKeys.value].filter((key): key is CombatEntityKey => Boolean(key)),
+    [opponentKey.value, ...uniqueTargetKeys.value].filter((key): key is CombatEntityKey => Boolean(key)),
     (key) => versionOf(key)?.abilities,
     props.rules,
   ),
@@ -3578,6 +3579,23 @@ function phpWideStrikeEnvelope(attack: {
   };
 }
 
+function phpOpenStrikeFromMulti(attack: PhpMultiAttack, index: number): GamePhpOpenStrike | null {
+  const strike = attack.strikes[index];
+  if (!strike) return null;
+
+  return {
+    attackerKind: attack.attacker.type,
+    attackerId: attack.attacker.id,
+    defenderKind: strike.target.type,
+    defenderId: strike.target.id,
+    actionRuleCode: attack.actionRuleCode,
+    itemInventoryId: strike.itemInventoryId,
+    itemRuleCode: strike.itemRuleCode,
+    profileType: strike.profileType,
+    profileIndex: strike.profileIndex,
+  };
+}
+
 function applyPhpWideResponse(result: GamePhpRunActionResult): void {
   const current = gamePhpBattleContext.openWideStrike;
   if (result.closed === true) {
@@ -3617,7 +3635,7 @@ async function submitPhpStrike(): Promise<boolean> {
       });
       phpDeclared.value = true;
       phpDeclaredStrike.value = multi
-        ? null
+        ? phpOpenStrikeFromMulti(multi as PhpMultiAttack, 0)
         : phpStrikeFromAttack(attackBody.attack as PhpSingleAttack);
       phpPendingStrike.value = phpDeclaredStrike.value;
       phpOverride.value = false;
@@ -3701,19 +3719,22 @@ async function submitPhpStrike(): Promise<boolean> {
   });
   if (result.closed !== true) {
     const next = result.strikes?.find((row) => row.reaction === null);
-    phpPendingStrike.value = next
-      ? {
-          attackerKind: phpDeclaredStrike.value?.attackerKind ?? props.attackerKey?.split(':')[0] ?? 'character',
-          attackerId: Number(props.attackerKey?.split(':')[1] ?? 0),
-          defenderKind: next.target.type,
-          defenderId: next.target.id,
-          actionRuleCode: resolvedActionRuleCode.value ?? selectedActionRuleCode.value ?? '',
-          itemInventoryId: next.itemInventoryId,
-          itemRuleCode: next.itemRuleCode,
-          profileType: next.profileType,
-          profileIndex: next.profileIndex,
-        }
-      : phpPendingStrike.value;
+    if (next) {
+      const pending: GamePhpOpenStrike = {
+        attackerKind: phpDeclaredStrike.value?.attackerKind ?? props.attackerKey?.split(':')[0] ?? 'character',
+        attackerId: Number(props.attackerKey?.split(':')[1] ?? 0),
+        defenderKind: next.target.type,
+        defenderId: next.target.id,
+        actionRuleCode: resolvedActionRuleCode.value ?? selectedActionRuleCode.value ?? '',
+        itemInventoryId: next.itemInventoryId,
+        itemRuleCode: next.itemRuleCode,
+        profileType: next.profileType,
+        profileIndex: next.profileIndex,
+      };
+      phpDeclaredStrike.value = pending;
+      phpPendingStrike.value = pending;
+      gamePhpBattleContext.rememberOpenStrike(pending);
+    }
     reaction.value = null;
     blockItemRuleCode.value = null;
 
@@ -3897,8 +3918,8 @@ const damageTypeLabel = computed(() => {
 });
 
 const strikeUpgradePreviewTargets = computed(() => {
-  const keys = selectedTargetKeys.value.length
-    ? selectedTargetKeys.value
+  const keys = uniqueTargetKeys.value.length
+    ? uniqueTargetKeys.value
     : opponentKey.value
       ? [opponentKey.value]
       : [];
@@ -4044,7 +4065,7 @@ const canSubmit = computed(() => {
               ударов
             </template>
             <template v-else-if="isGroupAttack">
-              {{ selectedAction?.name ?? 'Групповая атака' }} · {{ targetProposals.length }} цели
+              {{ selectedAction?.name ?? 'Групповая атака' }} · {{ uniqueTargetKeys.length }} цели
             </template>
             <template v-else>
               {{ phpStrikeActionLabel ?? selectedAction?.name ?? 'Действие атаки' }}
