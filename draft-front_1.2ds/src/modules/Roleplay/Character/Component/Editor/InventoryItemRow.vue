@@ -88,11 +88,14 @@ const { openRule } = useRuleDetailSlider();
 const showPurchase = computed(() => props.showPurchase !== false && !props.item.spec?.innate);
 const allowEquip = computed(() => props.allowEquip !== false);
 const allowAbilityEdit = computed(() => props.allowAbilityEdit !== false);
+const isAmmunition = computed(() =>
+  props.keywordCodes.some((code) => code === 'arrow' || code === 'bolt' || code === 'bullet'),
+);
 const canEquip = computed(
   () =>
     allowEquip.value &&
     !props.item.spec?.innate &&
-    Boolean(props.item.spec?.weapon || props.item.spec?.armor || props.item.spec?.shield),
+    (isAmmunition.value || Boolean(props.item.spec?.weapon || props.item.spec?.armor || props.item.spec?.shield)),
 );
 
 const canCancel = computed(() => showPurchase.value && props.ownedQty > props.baselineQty);
