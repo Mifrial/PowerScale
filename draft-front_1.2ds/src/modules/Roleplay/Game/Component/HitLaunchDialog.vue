@@ -25,6 +25,7 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpStrikeConditions } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeConditions';
 import type { GamePhpOpenWideStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrike';
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
@@ -744,6 +745,26 @@ function defaultDistanceIpari(): number {
   return exact !== null && exact > 0 ? exact : Math.max(0.5, props.attack?.minDistance ?? 1);
 }
 
+function exactDistanceOfValue(value: DistanceValue | null | undefined): number | null {
+  const formula = value?.value;
+  if (!formula) return null;
+  if (formula.type === 'literal') return exactDistance(formula.value);
+  if (formula.type === 'fixed') return formula.value;
+  if (formula.type === 'dimensional') return exactDistance({ base: formula.base, size: formula.size });
+
+  return null;
+}
+
+function applyPhpConditions(conditions: GamePhpStrikeConditions | null | undefined): void {
+  if (!conditions) return;
+  const distance = exactDistanceOfValue(conditions.distance);
+  if (distance !== null) distanceIpari.value = distance;
+  const coverExact = exactDistance(conditions.cover);
+  if (coverExact !== null) cover.value = Math.max(0, coverExact);
+  if (typeof conditions.flank === 'boolean') flank.value = conditions.flank;
+  if (typeof conditions.turn === 'boolean') turn.value = conditions.turn;
+}
+
 const distanceDimensional = computed<DimensionalNumberValue | null>({
   get: () => DimensionalNumber.fromDecimal(distanceIpari.value)?.value ?? null,
   set: (value) => {
@@ -1249,6 +1270,7 @@ async function hydrate(): Promise<void> {
       if (props.resumePhpStrike && phpActionRuleCode) {
         selectedActionRuleCode.value = phpActionRuleCode;
       }
+      if (props.resumePhpStrike) applyPhpConditions(phpStrike.value?.conditions);
     }
     if (props.resumePhpStrike && (props.openWideStrike ?? gamePhpBattleContext.openWideStrike)) {
       phpWideProjection.value = props.openWideStrike ?? gamePhpBattleContext.openWideStrike;
@@ -3562,6 +3584,7 @@ function phpStrikeFromAttack(attack: {
   itemRuleCode: string;
   profileType: string;
   profileIndex: number;
+  conditions?: Record<string, unknown>;
 }): GamePhpOpenStrike {
   return {
     attackerKind: attack.attacker.type,
@@ -3573,6 +3596,7 @@ function phpStrikeFromAttack(attack: {
     itemRuleCode: attack.itemRuleCode,
     profileType: attack.profileType,
     profileIndex: attack.profileIndex,
+    ...(attack.conditions ? { conditions: attack.conditions as GamePhpStrikeConditions } : {}),
   };
 }
 
@@ -3725,6 +3749,7 @@ function phpOpenStrikeFromMulti(attack: PhpMultiAttack, index: number): GamePhpO
     itemRuleCode: strike.itemRuleCode,
     profileType: strike.profileType,
     profileIndex: strike.profileIndex,
+    ...(strike.conditions ? { conditions: strike.conditions as GamePhpStrikeConditions } : {}),
   };
 }
 
@@ -3862,6 +3887,7 @@ async function submitPhpStrike(): Promise<boolean> {
         itemRuleCode: next.itemRuleCode,
         profileType: next.profileType,
         profileIndex: next.profileIndex,
+        ...(next.conditions ? { conditions: next.conditions } : {}),
       };
       phpDeclaredStrike.value = pending;
       phpPendingStrike.value = pending;

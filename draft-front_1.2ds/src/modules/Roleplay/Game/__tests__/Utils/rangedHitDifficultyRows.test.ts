@@ -28,4 +28,26 @@ describe('rangedHitDifficultyDetailRows', () => {
       }).map((row) => row.value),
     ).toEqual(['уклон', '2', '2', '2 + ½ + 2 = 4.5', '+1 размер (6 ипари)']);
   });
+
+  it('показывает размерные укрытие, дистанцию и сложность', () => {
+    expect(
+      rangedHitDifficultyDetailRows({
+        cover: 0.5,
+        cover_value: { base: 1, size: -1 },
+        defense_result: 0,
+        reaction: 'ignore',
+        range_size: 3,
+        distance_ipari: 11,
+        distance_value: { base: 11, size: 0 },
+        difficulty: { base: 4, size: -1 },
+      }),
+    ).toEqual([
+      { label: 'Реакция', value: 'игнор' },
+      { label: 'Результат защиты', value: '0' },
+      { label: 'Укрытие', value: '1↓' },
+      { label: 'База', value: '0 + ½ + 1↓ = 1' },
+      { label: 'Дальность', value: '+2 размер (11 ипари)' },
+      { label: 'Сложность', value: '4↓' },
+    ]);
+  });
 });

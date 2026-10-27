@@ -1,3 +1,5 @@
+import type { GamePhpStrikeConditions } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeConditions';
+
 /** Открытый удар PHP из карточки боя. */
 export interface GamePhpOpenStrike {
   attackerKind: 'character' | 'npc' | string;
@@ -9,4 +11,5 @@ export interface GamePhpOpenStrike {
   itemRuleCode: string;
   profileType: string;
   profileIndex: number;
+  conditions?: GamePhpStrikeConditions;
 }

@@ -1,5 +1,7 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
+import type { RangedHitDifficultyBreakdown } from '@/modules/Roleplay/Game/Dto/DiceRollCheckOutcome';
+import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 
 /** Вложение type=roll из PHP-проверки удара/воли: {roll, difficulty, success, rating}. */
 export class PhpChatRollService {
@@ -32,6 +34,7 @@ export class PhpChatRollService {
     const dieFaces = typeof row.dieFaces === 'number' ? row.dieFaces : thrown.size || 6;
     const label = typeof row.label === 'string' ? row.label : undefined;
     const efficiency = this.pair(row.efficiency);
+    const rangedHit = this.rangedHitOf(row.ranged_hit);
 
     return {
       spec: {
@@ -56,8 +59,41 @@ export class PhpChatRollService {
         passed: row.success,
         rating: row.rating,
         ...(typeof row.min_success_size === 'number' ? { min_success_size: row.min_success_size } : {}),
+        ...(rangedHit ? { ranged_hit: rangedHit } : {}),
       },
     };
+  }
+
+  private rangedHitOf(value: unknown): RangedHitDifficultyBreakdown | null {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+    const row = value as Record<string, unknown>;
+    const reaction = row.reaction;
+    if (reaction !== 'dodge' && reaction !== 'block' && reaction !== 'ignore') return null;
+    if (
+      typeof row.cover !== 'number' ||
+      typeof row.defense_result !== 'number' ||
+      typeof row.range_size !== 'number' ||
+      typeof row.distance_ipari !== 'number'
+    ) {
+      return null;
+    }
+
+    return {
+      cover: row.cover,
+      defense_result: row.defense_result,
+      reaction: reaction as HitDefenseReaction,
+      range_size: row.range_size,
+      distance_ipari: row.distance_ipari,
+      ...this.optionalPair('cover_value', row.cover_value),
+      ...this.optionalPair('distance_value', row.distance_value),
+      ...this.optionalPair('difficulty', row.difficulty),
+    };
+  }
+
+  private optionalPair<K extends string>(key: K, value: unknown): Record<K, DimensionalNumberValue> | object {
+    const pair = this.pair(value);
+
+    return pair ? ({ [key]: pair } as Record<K, DimensionalNumberValue>) : {};
   }
 
   private hasSpec(payload: unknown): payload is DiceRollResult {

@@ -129,6 +129,7 @@ final class GameViewAssembler
             'itemRuleCode' => is_string($target['item_rule_code'] ?? null) ? $target['item_rule_code'] : '',
             'profileType' => is_string($target['profile_type'] ?? null) ? $target['profile_type'] : '',
             'profileIndex' => $this->intField($target, 'profile_index'),
+            'conditions' => GameStrikeTargetRow::conditions($target),
         ];
     }
 

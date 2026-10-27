@@ -4,10 +4,13 @@ import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefense
 /** Слагаемые сложности попадания ДБ для [i] броска. */
 export interface RangedHitDifficultyBreakdown {
   cover: number;
+  cover_value?: DimensionalNumberValue;
   defense_result: number;
   reaction: HitDefenseReaction;
   range_size: number;
   distance_ipari: number;
+  distance_value?: DimensionalNumberValue;
+  difficulty?: DimensionalNumberValue;
 }
 
 /** Исход слоя проверки на броске (чат: простая проверка vs 0). */

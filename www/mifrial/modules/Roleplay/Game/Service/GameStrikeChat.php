@@ -167,6 +167,57 @@ final class GameStrikeChat
     }
 
     /**
+     * Строка условий дальнего боя из пересчитанного броска.
+     *
+     * @param array<string, mixed> $roll Бросок атаки.
+     *
+     * @return string|null Текст или null.
+     */
+    public function getRangedConditionsText(array $roll): ?string
+    {
+        $detail = $roll['ranged_hit'] ?? null;
+        if (!is_array($detail)) {
+            return null;
+        }
+
+        $distance = $this->dimensionalText($detail['distance_value'] ?? null);
+        $cover = $this->dimensionalText($detail['cover_value'] ?? null);
+        $difficulty = $this->dimensionalText($detail['difficulty'] ?? null);
+        $rangeSize = is_int($detail['range_size'] ?? null) ? $detail['range_size'] : 1;
+        $range = $rangeSize <= 1
+            ? 'без полос'
+            : '+' . ($rangeSize - 1) . ' размера (полоса ' . $rangeSize . ')';
+
+        return 'Дистанция ' . $distance . ' ипари, укрытие ' . $cover . '; '
+            . $range . ', сложность ' . $difficulty . '.';
+    }
+
+    /**
+     * Размерное число для текста.
+     *
+     * @param mixed $value Пара base/size.
+     *
+     * @return string Текст.
+     */
+    private function dimensionalText(mixed $value): string
+    {
+        if (!is_array($value) || !is_int($value['base'] ?? null) || !is_int($value['size'] ?? null)) {
+            return '?';
+        }
+
+        $base = $value['base'];
+        $size = $value['size'];
+        if ($size === 0) {
+            return (string) $base;
+        }
+
+        $arrow = $size > 0 ? '↑' : '↓';
+        $power = abs($size);
+
+        return $base . $arrow . ($power > 1 ? (string) $power : '');
+    }
+
+    /**
      * Перечисление имён.
      *
      * @param array<int, string> $names Имена.

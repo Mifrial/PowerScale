@@ -29,7 +29,7 @@ import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinReques
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
-import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
+import type { GamePhpStrikeConditions } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeConditions';
 import type { Chronicle } from '@/modules/Roleplay/Game/Dto/Chronicle';
 import type { ChronicleEntry } from '@/modules/Roleplay/Game/Dto/ChronicleEntry';
 import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/CreateChronicleEntryData';
@@ -1368,6 +1368,10 @@ export class GameApi implements IGameApi {
     const defenderId = this.intField(row.defenderId);
     const itemInventoryId = this.intField(row.itemInventoryId);
     const profileIndex = this.intField(row.profileIndex);
+    const conditions =
+      row.conditions !== null && typeof row.conditions === 'object' && !Array.isArray(row.conditions)
+        ? (row.conditions as GamePhpStrikeConditions)
+        : undefined;
     if (typeof row.attackerKind !== 'string' || attackerId === null) return null;
     if (typeof row.defenderKind !== 'string' || defenderId === null) return null;
     if (typeof row.actionRuleCode !== 'string' || typeof row.itemRuleCode !== 'string') return null;
@@ -1383,6 +1387,7 @@ export class GameApi implements IGameApi {
       itemRuleCode: row.itemRuleCode,
       profileType: row.profileType,
       profileIndex,
+      ...(conditions ? { conditions } : {}),
     };
   }
 

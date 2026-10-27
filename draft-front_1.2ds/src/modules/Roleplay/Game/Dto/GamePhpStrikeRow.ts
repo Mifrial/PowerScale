@@ -1,4 +1,5 @@
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
+import type { GamePhpStrikeConditions } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeConditions';
 
 /** Строка удара в ответе game.runAction. */
 export interface GamePhpStrikeRow {
@@ -10,6 +11,7 @@ export interface GamePhpStrikeRow {
   instanceIndex: number;
   target: GamePhpParticipant;
   reaction: string | null;
+  conditions?: GamePhpStrikeConditions;
   roll?: unknown;
   defenseRoll?: unknown;
   success?: number | null;

@@ -127,9 +127,19 @@ final class GamePhysicalProfileMysqlTest extends TestCase
     {
         $prepared = $this->prepareShoot();
         $attack = $this->shootAttack($prepared['attackerId'], $prepared['defenderId'], 2);
-        $attack['conditions']['cover'] = ['base' => 100, 'size' => 0];
+        $attack['conditions']['distance'] = [
+            'type' => 'ipari',
+            'value' => ['type' => 'literal', 'value' => ['base' => 11, 'size' => 0]],
+        ];
+        $attack['conditions']['cover'] = ['base' => 1, 'size' => -1];
         $opened = $this->declareStrike($prepared, 'shoot-rerate', $attack);
         self::assertTrue($opened['success'], json_encode($opened));
+
+        $card = $this->dispatch('game.get', ['id' => $prepared['gameId']]);
+        $conditions = $card['data']['battle']['openStrike']['conditions'] ?? null;
+        self::assertIsArray($conditions);
+        self::assertSame(['base' => 1, 'size' => -1], $conditions['cover']);
+        self::assertSame('ipari', $conditions['distance']['type']);
 
         $closed = $this->dispatch('game.runAction', [
             'gameId' => $prepared['gameId'],
@@ -143,7 +153,10 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         ]);
 
         self::assertTrue($closed['success'], json_encode($closed));
-        self::assertSame(0, $closed['data']['success']);
+        self::assertIsInt($closed['data']['success']);
+        $roll = $closed['data']['strikes'][0]['roll'] ?? [];
+        self::assertSame(11, $roll['ranged_hit']['distance_value']['base'] ?? null);
+        self::assertSame(['base' => 1, 'size' => -1], $roll['ranged_hit']['cover_value'] ?? null);
         $this->assertInventoryQuantity($prepared['attackerId'], 2, 'arrow', 0);
     }
 
@@ -619,7 +632,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
                 'weapon' => [
                     'weapon_profiles' => [[
                         'type' => 'shoot',
-                        'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
+                        'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 20]]],
                         'falloff' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 5]],
                         'ammunition' => ['mode' => 'item', 'keyword_codes' => ['item', 'projectile', 'arrow']],
                     ]],
@@ -630,7 +643,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
                 'proficiency_family_code' => 'ranged',
                 'weapon' => ['weapon_profiles' => [[
                     'type' => 'shoot',
-                    'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
+                    'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 20]]],
                     'falloff' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 5]],
                     'ammunition' => ['mode' => 'item', 'keyword_codes' => ['item', 'projectile', 'arrow']],
                 ]]],

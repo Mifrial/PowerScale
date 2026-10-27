@@ -614,6 +614,7 @@ final class GameRunAction
                 'instanceIndex' => $strike['instanceIndex'],
                 'target' => $strike['target'],
                 'reaction' => null,
+                'conditions' => $strike['conditions'] ?? (new GameStrikeConditions())->defaults(),
             ];
             $pending[] = ['index' => $index, 'target' => $strike['target']];
         }
@@ -663,6 +664,7 @@ final class GameRunAction
                 'instanceIndex' => is_int($row['instance_index'] ?? null) ? $row['instance_index'] : 0,
                 'target' => $this->rowTarget($row),
                 'reaction' => $reaction,
+                'conditions' => GameStrikeTargetRow::conditions($row),
             ];
             if (!$sequential || $index === $resolvedIndex) {
                 $entry = array_merge($entry, [
@@ -746,6 +748,7 @@ final class GameRunAction
                 'instanceIndex' => is_int($row['instance_index'] ?? null) ? $row['instance_index'] : 0,
                 'target' => $target,
                 'reaction' => is_string($row['reaction'] ?? null) ? $row['reaction'] : null,
+                'conditions' => GameStrikeTargetRow::conditions($row),
             ];
             if (is_array($record)) {
                 $extra = [];

@@ -88,6 +88,15 @@ final class GameStrikeSingleChat
             ) . '!';
         }
 
+        if (($open['profile_type'] ?? null) === 'shoot' || ($open['profile_type'] ?? null) === 'throw') {
+            $conditionsText = $this->chat->getRangedConditionsText(
+                is_array($result['attackerRoll'] ?? null) ? $result['attackerRoll'] : [],
+            );
+            if ($conditionsText !== null) {
+                $narrative .= ' ' . $conditionsText;
+            }
+        }
+
         $exhaustion = $result['exhaustionDelta'] ?? 0;
         $wound = $result['wound'] ?? 0;
         $success = $result['success'] ?? 0;

@@ -362,6 +362,20 @@ final class GameStrikeResolution
             ->add(new DimensionalNumber((int) $cover['base'], (int) $cover['size']));
         $difficulty = $difficulty->withSize($difficulty->getSize() + $metrics['rangeSize'] - 1);
 
+        $attackerRoll['ranged_hit'] = [
+            'cover' => (float) ((int) $cover['base'] * (2 ** (int) $cover['size'])),
+            'cover_value' => ['base' => (int) $cover['base'], 'size' => (int) $cover['size']],
+            'defense_result' => $defense->toInteger(),
+            'reaction' => $reaction,
+            'range_size' => $metrics['rangeSize'],
+            'distance_ipari' => (float) ($metrics['distance']->getBase() * (2 ** $metrics['distance']->getSize())),
+            'distance_value' => [
+                'base' => $metrics['distance']->getBase(),
+                'size' => $metrics['distance']->getSize(),
+            ],
+            'difficulty' => ['base' => $difficulty->getBase(), 'size' => $difficulty->getSize()],
+        ];
+
         return $this->rules->rerateHit($attackerRoll, [
             'base' => $difficulty->getBase(),
             'size' => $difficulty->getSize(),
