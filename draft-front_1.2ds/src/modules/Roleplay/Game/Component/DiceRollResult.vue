@@ -38,6 +38,7 @@ const difficultyLabel = computed(() =>
     : null,
 );
 const title = computed(() => roll.value.spec.label || (check.value ? 'Простая проверка' : `Бросок ${props.index + 1}`));
+const checkLabel = computed(() => check.value?.check_name || check.value?.check_code || '');
 const actorSegment = computed((): Extract<InlineSegment, { kind: 'token' }> | null => {
   const key = roll.value.spec.actorKey;
   if (!key) return null;
@@ -170,9 +171,9 @@ function dieFaceClass(success: number): string {
               <span class="text-medium-emphasis">Эффективность</span>
               <span class="font-weight-medium">{{ rollService.formatEfficiencyLabel(roll.spec) }}</span>
             </div>
-            <div v-if="check" class="chat-roll-row">
+            <div v-if="check && checkLabel !== title" class="chat-roll-row">
               <span class="text-medium-emphasis">Проверка</span>
-              <span class="font-weight-medium">{{ check.check_name || check.check_code }}</span>
+              <span class="font-weight-medium">{{ checkLabel }}</span>
             </div>
             <template v-if="rangedHitDifficultyRows.length">
               <div class="text-medium-emphasis mt-2 mb-1">Сложность попадания</div>
