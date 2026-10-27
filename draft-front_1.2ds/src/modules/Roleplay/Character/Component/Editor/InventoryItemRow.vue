@@ -88,14 +88,18 @@ const { openRule } = useRuleDetailSlider();
 const showPurchase = computed(() => props.showPurchase !== false && !props.item.spec?.innate);
 const allowEquip = computed(() => props.allowEquip !== false);
 const allowAbilityEdit = computed(() => props.allowAbilityEdit !== false);
-const isAmmunition = computed(() =>
-  props.keywordCodes.some((code) => code === 'arrow' || code === 'bolt' || code === 'bullet'),
+const isProjectile = computed(
+  () =>
+    Boolean(effectiveSpec.value?.projectile) ||
+    props.keywordCodes.some(
+      (code) => code === 'projectile' || code === 'arrow' || code === 'bolt' || code === 'bullet',
+    ),
 );
 const canEquip = computed(
   () =>
     allowEquip.value &&
     !props.item.spec?.innate &&
-    (isAmmunition.value || Boolean(props.item.spec?.weapon || props.item.spec?.armor || props.item.spec?.shield)),
+    (isProjectile.value || Boolean(props.item.spec?.weapon || props.item.spec?.armor || props.item.spec?.shield)),
 );
 
 const canCancel = computed(() => showPurchase.value && props.ownedQty > props.baselineQty);
@@ -203,7 +207,10 @@ const open = computed({
         <LightChip>{{ item.subtitle }}</LightChip>
         <LightChip v-if="item.section" variant="outlined">{{ item.section }}</LightChip>
         <LightChip v-if="item.spec?.innate" color="secondary">врождённое</LightChip>
-        <LightChip v-if="equipped && mode === 'owned'" color="primary">экипировано</LightChip>
+        <LightChip v-if="mode === 'owned' && ownedQty > 1" variant="outlined">{{ ownedQty }} шт.</LightChip>
+        <LightChip v-if="equipped && mode === 'owned'" color="primary">
+          экипировано{{ ownedQty > 1 ? `: ${ownedQty}` : '' }}
+        </LightChip>
 
         <div class="item-row__spacer" />
 

@@ -25,4 +25,6 @@ export interface ItemSpecBase {
   occupy_hands?: ItemHandsSpec;
   /** Гранты надетого предмета (плоский список, без блоков уровня). */
   grants?: Grant[];
+  /** Предмет является снарядом (стрела, болт, пуля). */
+  projectile?: boolean;
 }

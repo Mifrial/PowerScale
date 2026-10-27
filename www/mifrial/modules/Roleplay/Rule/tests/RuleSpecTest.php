@@ -101,6 +101,24 @@ final class RuleSpecTest extends TestCase
     }
 
     /**
+     * Признак снаряда читается из spec предмета.
+     *
+     * @return void
+     */
+    public function testProjectileFlagIsParsed(): void
+    {
+        $record = $this->record('item', [
+            'category' => 'equipment',
+            'projectile' => true,
+        ]);
+        $spec = $record->getSpec();
+
+        self::assertFalse($record->isSpecBroken());
+        self::assertInstanceOf(ItemSpec::class, $spec);
+        self::assertTrue($spec->isProjectile());
+    }
+
+    /**
      * Оружие читает альтернативные наборы ключевых слов боеприпасов.
      *
      * @return void

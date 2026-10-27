@@ -51,6 +51,7 @@ final class ItemSpecs
             self::shield($document),
             self::blockProfile($document),
             AbilityGrants::flat($document),
+            SpecShape::bool($document, 'projectile'),
         );
     }
 

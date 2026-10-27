@@ -57,6 +57,7 @@ final class ItemModifierOperationItems
             self::shield($item->getShield(), $collapsed, $actions),
             self::block($item->getBlockProfile(), $collapsed['block'] ?? null),
             self::grants($item->getGrants(), $collapsed),
+            $item->isProjectile(),
         );
     }
 

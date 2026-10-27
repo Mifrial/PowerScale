@@ -45,6 +45,7 @@ function itemDraftFromSpec(value: RuleSpec | null): ItemSpecDraft {
     weight: itemSpecService.kilogramsToWeight(0.5),
     special_rule_codes: [],
     innate: false,
+    projectile: false,
   };
 }
 
@@ -267,6 +268,10 @@ const weightKilogramsLabel = computed(() => itemSpecService.formatWeightKilogram
                 hide-details
                 style="flex: 1 1 auto"
               />
+            </div>
+            <v-switch v-model="draft.projectile" label="Снаряд" color="primary" hide-details />
+            <div class="text-body-2 text-medium-emphasis mt-1 mb-2">
+              Снаряд — боеприпас для стрельбы (стрела, болт, пуля).
             </div>
             <ItemEquipmentEditor
               v-model:subtypes="subtypes"

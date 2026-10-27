@@ -206,6 +206,7 @@ function armorLimitLabel(limit: CharacteristicLimit): string {
         <div class="d-flex align-center mb-2">
           <div class="text-subtitle-2">Общее</div>
           <v-chip v-if="spec.innate" size="x-small" variant="tonal" class="ml-2">Врождённый предмет</v-chip>
+          <v-chip v-if="spec.projectile" size="x-small" variant="tonal" class="ml-2">Снаряд</v-chip>
         </div>
         <div class="item-stat-grid">
           <ItemStat v-if="categoryLabel" label="Категория" :value="categoryLabel" />

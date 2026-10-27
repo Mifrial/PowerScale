@@ -32,6 +32,7 @@ final class ItemSpec implements RuleSpec
      * @param ShieldBlock|null $shield Щит.
      * @param BlockProfile|null $blockProfile Профиль блока.
      * @param array<int, AbilityGrant> $grants Гранты надетого предмета.
+     * @param bool $projectile Признак снаряда.
      *
      * @return void
      */
@@ -52,6 +53,7 @@ final class ItemSpec implements RuleSpec
         private readonly ?ShieldBlock $shield,
         private readonly ?BlockProfile $blockProfile,
         private readonly array $grants = [],
+        private readonly bool $projectile = false,
     ) {
     }
 
@@ -223,5 +225,15 @@ final class ItemSpec implements RuleSpec
     public function getGrants(): array
     {
         return $this->grants;
+    }
+
+    /**
+     * Признак снаряда.
+     *
+     * @return bool true, если предмет является боеприпасом.
+     */
+    public function isProjectile(): bool
+    {
+        return $this->projectile;
     }
 }

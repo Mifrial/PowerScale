@@ -649,12 +649,12 @@ watch(showWeaponSkills, (val) => {
           :characteristic-values="characteristicValues"
           :movement-step="movementStep"
           :abilities="build.abilities"
-          :owned-qty="item.rowKind === 'owned' ? 1 : (ownedByRuleId.get(item.ruleCode) ?? 0)"
+          :owned-qty="
+            item.rowKind === 'owned' ? (ownedOf(item)?.quantity ?? 1) : (ownedByRuleId.get(item.ruleCode) ?? 0)
+          "
           :baseline-qty="
             item.rowKind === 'owned'
-              ? baseline?.inventory.some((entry) => entry.id === item.inventoryId)
-                ? 1
-                : 0
+              ? (baseline?.inventory.find((entry) => entry.id === item.inventoryId)?.quantity ?? 0)
               : (baselineByRuleId.get(item.ruleCode) ?? 0)
           "
           :equipped="item.rowKind === 'owned' ? (ownedOf(item)?.equipped ?? false) : false"
