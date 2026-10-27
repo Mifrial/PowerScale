@@ -567,6 +567,54 @@ final class RuleSpecTest extends TestCase
     }
 
     /**
+     * Уклонение читает шкалу характеристик и штраф от выстрела.
+     *
+     * @return void
+     */
+    public function testDodgeReadsCharacteristicEfficiencyAndShotPenalty(): void
+    {
+        $record = $this->record('ability', [
+            'type' => 'action',
+            'combat_action' => 'dodge',
+            'dodge_efficiency' => ['base' => 5, 'size' => -1],
+            'dodge_ranged_penalty' => [
+                'profile_type' => 'shoot',
+                'distance' => ['base' => 3, 'size' => 0],
+                'delta' => -2,
+            ],
+        ]);
+        $spec = $record->getSpec();
+
+        self::assertFalse($record->isSpecBroken());
+        self::assertInstanceOf(AbilityActionSpec::class, $spec);
+        $base = $spec->getBase();
+        self::assertSame(5, $base->getDodgeEfficiency()?->getBase());
+        self::assertSame(-1, $base->getDodgeEfficiency()?->getSize());
+        $penalty = $base->getDodgeRangedPenalty();
+        self::assertNotNull($penalty);
+        self::assertSame('shoot', $penalty->getProfileType());
+        self::assertSame(3, $penalty->getDistance()->getBase());
+        self::assertSame(-2, $penalty->getDelta());
+    }
+
+    /**
+     * Эффективность уклона вне шкалы характеристик ломает версию.
+     *
+     * @return void
+     */
+    public function testDodgeEfficiencyOutsideCharacteristicRangeBreaksSpec(): void
+    {
+        $record = $this->record('ability', [
+            'type' => 'action',
+            'combat_action' => 'dodge',
+            'dodge_efficiency' => ['base' => 2, 'size' => 0],
+        ]);
+
+        self::assertTrue($record->isSpecBroken());
+        self::assertNull($record->getSpec());
+    }
+
+    /**
      * Целая проверка.
      *
      * @param array<string, mixed> $spec Документ.

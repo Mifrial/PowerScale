@@ -24,6 +24,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityProcessSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DodgeRangedPenalty;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackAccuracyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackCharacteristicModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackDodgeSoakEffect;
@@ -1060,7 +1061,8 @@ final class GameStrikeRules
      * @param array<string, mixed> $attackerRoll Бросок атаки.
      * @param string|null $participantKey Ключ листа защитника.
      * @param array<int, RollAdvantage> $advantages Преимущества проверки.
-     * @param DimensionalNumber|null $shotDistance Дистанция выстрела, если уклонение от выстрела.
+     * @param DimensionalNumber|null $shotDistance Дистанция выстрела.
+     * @param string|null $profileType Тип профиля атаки: strike, throw или shoot.
      *
      * @return array<string, mixed> Итог.
      */
@@ -1074,6 +1076,7 @@ final class GameStrikeRules
         ?string $participantKey = null,
         array $advantages = [],
         ?DimensionalNumber $shotDistance = null,
+        ?string $profileType = null,
     ): array {
         $slice = $this->slice($spaceId, $rulesRevision);
         $mastery = $this->bestEquippedMastery($slice, $sheet, $choices, 'strike', $participantKey);
@@ -1081,18 +1084,22 @@ final class GameStrikeRules
             throw new GameInvalidException('Game strike dodge mastery is invalid');
         }
 
-        $masteryAdjustments = [];
+        $dodgeRule = $this->dodgeRule($slice);
+        $efficiency = $this->dodgeEfficiency($dodgeRule);
+        $efficiencyAdjustments = [];
+        $penalty = $this->dodgeRangedPenalty($dodgeRule);
         if (
-            $shotDistance instanceof DimensionalNumber
-            && $shotDistance->compare(new DimensionalNumber(3, 0)) >= 0
+            $penalty instanceof DodgeRangedPenalty
+            && $profileType !== null
+            && $penalty->getProfileType() === $profileType
+            && $shotDistance instanceof DimensionalNumber
+            && $shotDistance->compare($penalty->getDistance()) >= 0
         ) {
-            $mastery = $mastery instanceof CharacteristicNumber
-                ? $mastery->modify(-CharacteristicNumber::BASE_STEP)
-                : $mastery->withSize($mastery->getSize() - 1);
-            $masteryAdjustments[] = [
+            $efficiency = $efficiency->modify($penalty->getDelta());
+            $efficiencyAdjustments[] = [
                 'source_code' => 'distance',
-                'source_label' => 'Дистанция ≥3 ипари: мастерство на размер ниже',
-                'delta' => -1,
+                'source_label' => 'Штраф дистанции',
+                'delta' => $penalty->getDelta(),
             ];
         }
 
@@ -1104,12 +1111,12 @@ final class GameStrikeRules
             $ruleCode,
             $sheet,
             $mastery,
-            $this->dodgeEfficiency($this->dodgeRule($slice)),
+            $efficiency,
             $raw,
             $advantages,
         );
-        if ($masteryAdjustments !== []) {
-            $result['masteryAdjustments'] = $masteryAdjustments;
+        if ($efficiencyAdjustments !== []) {
+            $result['efficiencyAdjustments'] = $efficiencyAdjustments;
         }
 
         return $result;
@@ -1761,15 +1768,22 @@ final class GameStrikeRules
         throw new GameInvalidException('Game strike dodge efficiency is invalid');
     }
 
-    private function dodgeEfficiency(CharacterResolvedRule $rule): DimensionalNumber
+    private function dodgeEfficiency(CharacterResolvedRule $rule): CharacteristicNumber
     {
         $spec = $rule->getSpec();
         $efficiency = $spec instanceof AbilityActionSpec ? $spec->getBase()->getDodgeEfficiency() : null;
-        if (!$efficiency instanceof DimensionalNumber) {
+        if (!$efficiency instanceof CharacteristicNumber) {
             throw new GameInvalidException('Game strike dodge efficiency is invalid');
         }
 
         return $efficiency;
+    }
+
+    private function dodgeRangedPenalty(CharacterResolvedRule $rule): ?DodgeRangedPenalty
+    {
+        $spec = $rule->getSpec();
+
+        return $spec instanceof AbilityActionSpec ? $spec->getBase()->getDodgeRangedPenalty() : null;
     }
 
     private function combatCharacteristic(CharacterRuleSlice $slice, string $profileType): string

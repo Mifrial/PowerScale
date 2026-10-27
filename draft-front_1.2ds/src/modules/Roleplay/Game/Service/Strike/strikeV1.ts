@@ -9,6 +9,6 @@ export const strikeV1: StrikeProcedure = {
   code: STRIKE_PROCEDURE_MECHANIC_CODE,
   version: STRIKE_PROCEDURE_VERSION_1,
   ignoreDefense: { base: 0, size: -1 },
-  dodgeEfficiency: { base: 4, size: -1 },
+  dodgeEfficiency: { base: 5, size: -1 },
   minBlockEfficiency: { base: 4, size: -1 },
 };

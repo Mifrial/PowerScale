@@ -134,7 +134,7 @@ final class GameStrikeResolution
      * @param string|null $reactionRuleCode Карточка реакции.
      * @param CharacterRuleSlice $slice Срез.
      * @param array<int, RollAdvantage> $extraAdvantages Дополнительные помехи защиты.
-     * @param DimensionalNumber|null $shotDistance Дистанция выстрела для штрафа мастерства.
+     * @param DimensionalNumber|null $shotDistance Дистанция выстрела для штрафа эффективности.
      *
      * @return array<string, mixed> Roll.
      *
@@ -182,6 +182,7 @@ final class GameStrikeResolution
             $this->participantKey($game, $kind, $id),
             $advantages,
             $shotDistance,
+            $profileType,
         );
         $roll['actorKey'] = $kind . ':' . $id;
         $roll['label'] = 'Уклонение';

@@ -320,6 +320,13 @@ function grantLabel(grant: Grant): string {
           Эффективность уклонения:
           <strong>{{ DimensionalNumber.from(spec.dodge_efficiency).toString() }}</strong>
         </div>
+        <div v-if="spec?.dodge_ranged_penalty" class="mt-2">
+          Штраф уклонения от
+          {{ spec.dodge_ranged_penalty.profile_type === 'shoot' ? 'выстрела' : spec.dodge_ranged_penalty.profile_type }}
+          на дистанции от
+          <strong>{{ DimensionalNumber.from(spec.dodge_ranged_penalty.distance).toString() }}</strong>:
+          <strong>{{ spec.dodge_ranged_penalty.delta }}</strong> к эффективности
+        </div>
         <div v-if="spec?.dodge_soak" class="mt-2">
           Смягчение от характеристики:
           <strong>{{ spec.dodge_soak }}</strong>

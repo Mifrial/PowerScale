@@ -166,7 +166,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
     }
 
     /**
-     * Уклонение от выстрела: мастерство боя, штраф дистанции и формула сложности.
+     * Уклонение от выстрела: мастерство боя, штраф эффективности и формула сложности.
      *
      * @return void
      */
@@ -199,7 +199,10 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         $strike = $closed['data']['strikes'][0] ?? [];
         $defenderRoll = $strike['defenseRoll'] ?? [];
         self::assertSame('Уклонение', $defenderRoll['label'] ?? null);
-        self::assertSame('distance', $defenderRoll['masteryAdjustments'][0]['source_code'] ?? null);
+        self::assertSame('distance', $defenderRoll['efficiencyAdjustments'][0]['source_code'] ?? null);
+        self::assertSame(-2, $defenderRoll['efficiencyAdjustments'][0]['delta'] ?? null);
+        self::assertSame(['base' => 3, 'size' => -1], $defenderRoll['efficiency'] ?? null);
+        self::assertArrayNotHasKey('masteryAdjustments', $defenderRoll);
 
         $detail = $strike['roll']['ranged_hit'] ?? [];
         $base = (new DimensionalNumber(
@@ -221,6 +224,47 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             ['base' => $difficulty->getBase(), 'size' => $difficulty->getSize()],
             $detail['difficulty'] ?? null,
         );
+    }
+
+    /**
+     * Бросок не получает штраф эффективности уклонения, заданный для выстрела.
+     *
+     * @return void
+     */
+    public function testThrowDodgeKeepsBaseEfficiency(): void
+    {
+        $prepared = $this->prepareSingle([[
+            'id' => 1,
+            'ruleCode' => 'dart',
+            'equipped' => true,
+            'quantity' => 2,
+        ]], [
+            'resources' => [['ruleCode' => 'ap', 'current' => 3]],
+        ]);
+        $attack = $this->throwAttack($prepared['attackerId'], $prepared['defenderId']);
+        $attack['conditions']['distance'] = [
+            'type' => 'ipari',
+            'value' => ['type' => 'literal', 'value' => ['base' => 11, 'size' => 0]],
+        ];
+        $opened = $this->declareStrike($prepared, 'throw-dodge', $attack);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $prepared['gameId'],
+            'battleId' => $prepared['battleId'],
+            'idempotencyKey' => 'throw-dodge-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'dodge'],
+                $this->characterFacade()->get($prepared['defenderId'])->getActualVersion(),
+            ),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        $defenderRoll = $closed['data']['strikes'][0]['defenseRoll'] ?? [];
+        self::assertSame(['base' => 5, 'size' => -1], $defenderRoll['efficiency'] ?? null);
+        self::assertArrayNotHasKey('efficiencyAdjustments', $defenderRoll);
+        self::assertArrayNotHasKey('masteryAdjustments', $defenderRoll);
     }
 
     /**
@@ -676,7 +720,12 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             RuleCommitEntry::put('dodge', new RuleVersionBody('ability', 'Dodge', '', [
                 'type' => 'action',
                 'combat_action' => 'dodge',
-                'dodge_efficiency' => ['base' => 4, 'size' => -1],
+                'dodge_efficiency' => ['base' => 5, 'size' => -1],
+                'dodge_ranged_penalty' => [
+                    'profile_type' => 'shoot',
+                    'distance' => ['base' => 3, 'size' => 0],
+                    'delta' => -2,
+                ],
                 'action_components' => [[
                     'type' => 'resource',
                     'resource_code' => 'ap',

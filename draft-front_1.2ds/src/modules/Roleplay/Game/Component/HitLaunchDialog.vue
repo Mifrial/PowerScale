@@ -200,7 +200,7 @@ const attackerAdv = ref(0);
 const spendAttackerConcentration = ref(0);
 const spendDefenderConcentration = ref(0);
 const defenderAdv = ref(0);
-const defenseEfficiency = ref<DimensionalNumberValue>({ base: 4, size: -1 });
+const defenseEfficiency = ref<DimensionalNumberValue>({ base: 5, size: -1 });
 const blockItemRuleCode = ref<string | null>(null);
 const selectedActionRuleCode = ref<string | null>(null);
 const distanceIpari = ref(1);
@@ -1270,8 +1270,10 @@ async function hydrate(): Promise<void> {
       if (props.resumePhpStrike && phpActionRuleCode) {
         selectedActionRuleCode.value = phpActionRuleCode;
       }
-      if (props.resumePhpStrike) applyPhpConditions(phpStrike.value?.conditions);
     }
+    // Условия серверного удара главнее локальных значений из старой оферты:
+    // защитник должен видеть дистанцию и укрытие, которые заполнил атакующий.
+    if (props.resumePhpStrike) applyPhpConditions(phpStrike.value?.conditions);
     if (props.resumePhpStrike && (props.openWideStrike ?? gamePhpBattleContext.openWideStrike)) {
       phpWideProjection.value = props.openWideStrike ?? gamePhpBattleContext.openWideStrike;
       syncPhpWideTargets();
@@ -1344,6 +1346,35 @@ watch(
       phpOverride.value = false;
     }
   },
+);
+
+// Опубликовали новую ревизию, пока окно открыто: подтягиваем базу уклонения,
+// иначе превью считает штраф от старой эффективности до перезагрузки.
+watch(
+  () => props.rules,
+  () => {
+    if (!props.open || !props.resumePhpStrike || reaction.value !== 'dodge') return;
+    defenseEfficiency.value = { ...hitRollService.dodgeEfficiency(props.rules) };
+  },
+);
+
+// Серверный удар мог смениться, пока окно защиты уже открыто: условия
+// приходят в новом openStrike, а hydrate при keep не пересобирает окно.
+watch(
+  () => props.phpOpenStrike,
+  (strike) => {
+    if (!props.resumePhpStrike || !strike) return;
+    applyPhpConditions(strike.conditions);
+  },
+);
+
+watch(
+  () => props.phpOpenStrike?.conditions,
+  (conditions) => {
+    if (!props.resumePhpStrike || !conditions) return;
+    applyPhpConditions(conditions);
+  },
+  { deep: true },
 );
 
 function close(): void {

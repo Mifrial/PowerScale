@@ -1080,6 +1080,17 @@ async function loadRevision(
   rematerializeRuntimeSheets();
 }
 
+// Ревизия игры могла смениться на сервере (новая публикация контента).
+// Без перезагрузки страницы подтягиваем правила, чтобы окна боя видели
+// актуальные эффективности и прочие поля спек.
+watch(
+  () => props.detail?.game.rulesRevision,
+  async (next, prev) => {
+    if (next == null || prev == null || next === prev || !props.detail) return;
+    await loadRevision(props.detail.game.spaceId, next, gameId.value, loadSequence);
+  },
+);
+
 function rematerializeRuntimeSheets(): void {
   const rules = revisionRules.value;
   if (rules.length === 0) return;

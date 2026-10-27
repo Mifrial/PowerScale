@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { watch } from 'vue';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { AbilitySpecDraft } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecDraft';
 import type { NamedOption } from '@/modules/Roleplay/Rule/Dto/NamedOption';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
@@ -43,7 +44,7 @@ function clearKey(key: keyof AbilitySpecDraft): void {
 watch(
   () => props.modelValue.combat_action === 'dodge' && props.modelValue.dodge_efficiency == null,
   (missing) => {
-    if (missing) patch({ dodge_efficiency: { base: 4, size: -1 } });
+    if (missing) patch({ dodge_efficiency: { base: 5, size: -1 } });
   },
   { immediate: true },
 );
@@ -53,6 +54,7 @@ function setCombatAction(value: AbilitySpecDraft['combat_action'] | null): void 
   if (!value) {
     delete next.combat_action;
     delete next.dodge_efficiency;
+    delete next.dodge_ranged_penalty;
     delete next.dodge_soak;
     emit('update:modelValue', next);
 
@@ -60,12 +62,51 @@ function setCombatAction(value: AbilitySpecDraft['combat_action'] | null): void 
   }
   next.combat_action = value;
   if (value === 'dodge') {
-    next.dodge_efficiency = next.dodge_efficiency ?? { base: 4, size: -1 };
+    next.dodge_efficiency = next.dodge_efficiency ?? { base: 5, size: -1 };
   } else {
     delete next.dodge_efficiency;
+    delete next.dodge_ranged_penalty;
     delete next.dodge_soak;
   }
   emit('update:modelValue', next);
+}
+
+function setDodgeEfficiency(value: DimensionalNumberValue | null): void {
+  if (!value) {
+    clearKey('dodge_efficiency');
+
+    return;
+  }
+  patch({ dodge_efficiency: value });
+}
+
+function patchDodgeDistance(value: DimensionalNumberValue | null): void {
+  if (value) patchDodgePenalty({ distance: value });
+}
+
+function setDodgePenalty(enabled: boolean): void {
+  if (!enabled) {
+    const next = { ...props.modelValue };
+    delete next.dodge_ranged_penalty;
+    emit('update:modelValue', next);
+
+    return;
+  }
+  patch({
+    dodge_ranged_penalty: {
+      profile_type: 'shoot',
+      distance: { base: 3, size: 0 },
+      delta: -2,
+    },
+  });
+}
+
+function patchDodgePenalty(
+  partial: Partial<NonNullable<AbilitySpecDraft['dodge_ranged_penalty']>>,
+): void {
+  const current = props.modelValue.dodge_ranged_penalty;
+  if (!current) return;
+  patch({ dodge_ranged_penalty: { ...current, ...partial } });
 }
 </script>
 
@@ -84,8 +125,39 @@ function setCombatAction(value: AbilitySpecDraft['combat_action'] | null): void 
       v-if="modelValue.combat_action === 'dodge'"
       :model-value="modelValue.dodge_efficiency ?? null"
       label="Эффективность уклонения"
-      @update:model-value="patch({ dodge_efficiency: $event })"
+      @update:model-value="setDodgeEfficiency"
     />
+    <template v-if="modelValue.combat_action === 'dodge'">
+      <v-checkbox
+        :model-value="modelValue.dodge_ranged_penalty != null"
+        label="Штраф уклонения от выстрела"
+        density="compact"
+        hide-details
+        @update:model-value="setDodgePenalty($event === true)"
+      />
+      <template v-if="modelValue.dodge_ranged_penalty">
+        <div class="d-flex ga-2">
+          <DimensionalNumberInput
+            :model-value="modelValue.dodge_ranged_penalty.distance"
+            label="Порог дистанции"
+            class="flex-grow-1"
+            @update:model-value="patchDodgeDistance"
+          />
+          <ClampedNumberField
+            :model-value="modelValue.dodge_ranged_penalty.delta"
+            label="Дельта эффективности"
+            class="flex-grow-1"
+            density="compact"
+            hide-details
+            @update:model-value="patchDodgePenalty({ delta: Number($event) })"
+          />
+        </div>
+        <div class="text-caption text-medium-emphasis">
+          Профиль атаки:
+          {{ modelValue.dodge_ranged_penalty.profile_type === 'shoot' ? 'выстрел' : modelValue.dodge_ranged_penalty.profile_type }}
+        </div>
+      </template>
+    </template>
     <v-select
       v-if="modelValue.combat_action === 'dodge'"
       :model-value="modelValue.dodge_soak ?? null"

@@ -334,6 +334,80 @@ describe('rollMeleeHit', () => {
     expect(covered.attacker.check?.ranged_hit?.cover).toBe(2);
   });
 
+  it('штраф дистанции снижает эффективность уклона только от выстрела', () => {
+    const overview = {
+      combat: {
+        melee: { stat: { name: 'Общее', value: { base: 3, size: -1 } }, weapons: [] },
+        ranged: {
+          stat: { name: 'Общее', value: { base: 3, size: -1 } },
+          weapons: [{ name: 'Лук', shortName: 'Лук', value: { base: 3, size: -1 } }],
+        },
+      },
+    } as unknown as CharacterOverview;
+    const dodgeRule = {
+      ...checkSimple,
+      code: 'dodge',
+      type: 'ability',
+      name: 'Уклонение',
+      spec: {
+        type: 'action',
+        combat_action: 'dodge',
+        dodge_efficiency: { base: 5, size: -1 },
+        dodge_ranged_penalty: {
+          profile_type: 'shoot',
+          distance: { base: 3, size: 0 },
+          delta: -2,
+        },
+      },
+    } as unknown as Rule;
+    const shootAttack = {
+      itemName: 'Лук',
+      profileType: 'shoot' as const,
+      accuracy: { base: 3, size: 0 },
+      reach: 0,
+      falloff: { base: 5, size: 0 },
+    };
+    const shoot = hitRollService.rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack: shootAttack,
+        attackerOverview: overview,
+        defenderOverview: overview,
+        reaction: 'dodge',
+        distanceIpari: 3,
+        cover: 0,
+      },
+      rngFromDice([2, 2, 2, 5, 5, 5]),
+      [checkSimple, checkHit, dodgeRule],
+      [],
+    );
+    expect(shoot.defender?.spec.efficiency).toBe(3);
+    expect(shoot.defender?.spec.efficiencySize).toBe(-1);
+    expect(shoot.defender?.spec.efficiencyAdjustments).toEqual([
+      { source_code: 'distance', source_label: 'Штраф дистанции', delta: -2 },
+    ]);
+
+    const throwAttack = { ...shootAttack, profileType: 'throw' as const, itemName: 'Дротик' };
+    const thrown = hitRollService.rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack: throwAttack,
+        attackerOverview: overview,
+        defenderOverview: overview,
+        reaction: 'dodge',
+        distanceIpari: 3,
+        cover: 0,
+      },
+      rngFromDice([2, 2, 2, 5, 5, 5]),
+      [checkSimple, checkHit, dodgeRule],
+      [],
+    );
+    expect(thrown.defender?.spec.efficiency).toBe(5);
+    expect(thrown.defender?.spec.efficiencyAdjustments).toBeUndefined();
+  });
+
   it('ДБ уклон и блок: успехи в формулу, не joint', () => {
     const throwAttack = {
       itemName: 'Кинжал',

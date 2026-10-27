@@ -26,6 +26,7 @@ export const ABILITY_SHARED_SPEC_KEYS: readonly (keyof AbilitySpecDraft)[] = [
   'spell_touch',
   'combat_action',
   'dodge_efficiency',
+  'dodge_ranged_penalty',
   'dodge_soak',
   'peak_concentration',
   'will_focus',

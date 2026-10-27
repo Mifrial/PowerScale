@@ -150,7 +150,12 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         operations: [{ type: 'turn', maxDegrees: 180 }],
         parent_ability_code: null,
         combat_action: 'dodge',
-        dodge_efficiency: { base: 4, size: -1 },
+        dodge_efficiency: { base: 5, size: -1 },
+        dodge_ranged_penalty: {
+          profile_type: 'shoot',
+          distance: { base: 3, size: 0 },
+          delta: -2,
+        },
         dodge_soak: 'dexterity',
       },
       keywordIds: [14, 53],

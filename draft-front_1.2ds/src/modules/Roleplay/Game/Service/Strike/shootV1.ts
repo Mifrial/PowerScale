@@ -9,6 +9,6 @@ export const shootV1: StrikeProcedure = {
   code: SHOOT_PROCEDURE_MECHANIC_CODE,
   version: HIT_PROCEDURE_VERSION_1,
   ignoreDefense: { base: 1, size: -1 },
-  dodgeEfficiency: { base: 4, size: -1 },
+  dodgeEfficiency: { base: 5, size: -1 },
   minBlockEfficiency: { base: 4, size: -1 },
 };

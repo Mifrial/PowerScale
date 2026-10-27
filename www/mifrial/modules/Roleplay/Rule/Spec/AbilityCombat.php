@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CoverAlly;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DodgeRangedPenalty;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\AttackHit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\AutoHit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\HitResolution;
@@ -178,6 +179,31 @@ final class AbilityCombat
         }
 
         return new KnownAttackDefense(SpecShape::int($row, 'delta'), SpecShape::optionalString($row, 'source_code'));
+    }
+
+    /**
+     * Штраф к эффективности уклонения от дальней атаки.
+     *
+     * Сейчас правило описывает только выстрел: `profile_type = shoot`.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return DodgeRangedPenalty|null Штраф или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    public static function dodgePenalty(array $document): ?DodgeRangedPenalty
+    {
+        $row = SpecShape::object($document, 'dodge_ranged_penalty');
+        if ($row === null) {
+            return null;
+        }
+
+        return new DodgeRangedPenalty(
+            SpecShape::string($row, 'profile_type'),
+            DimensionalNumbers::required($row, 'distance'),
+            SpecShape::int($row, 'delta'),
+        );
     }
 
     /**

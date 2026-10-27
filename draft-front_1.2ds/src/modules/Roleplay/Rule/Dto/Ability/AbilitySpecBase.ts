@@ -67,6 +67,16 @@ export interface AbilitySpecBase {
   combat_action?: 'dodge' | 'block' | 'turn' | 'wait' | 'recover-stability' | 'simple-touch';
   /** Эффективность совместной проверки уклона. Только у combat_action dodge. */
   dodge_efficiency?: DimensionalNumberValue;
+  /**
+   * Штраф к эффективности уклонения от дальней атаки. Только у combat_action dodge.
+   * `profile_type` ссылается на профиль атаки; сейчас правило задаёт только `shoot`,
+   * поэтому на бросок (`throw`) штраф не действует.
+   */
+  dodge_ranged_penalty?: {
+    profile_type: 'strike' | 'throw' | 'shoot';
+    distance: DimensionalNumberValue;
+    delta: number;
+  };
   /** Код характеристики смягчения реакции. Только у combat_action dodge; нет поля — смягчения нет. */
   dodge_soak?: string | null;
   /** Включает трату нескольких жетонов. Пороги и «уровень + 1» остаются в сервисе. */

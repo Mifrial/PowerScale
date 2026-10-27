@@ -96,6 +96,14 @@ const masteryLines = computed(() =>
       delta: entry.delta,
     })),
 );
+const efficiencyLines = computed(() =>
+  (roll.value.spec.efficiencyAdjustments ?? [])
+    .filter((entry) => entry.delta !== 0)
+    .map((entry) => ({
+      label: entry.source_label || entry.source_code || 'без источника',
+      delta: entry.delta,
+    })),
+);
 const droppedNote = computed(() => {
   const n = roll.value.droppedRolls.length;
   if (!n) return null;
@@ -215,6 +223,13 @@ function dieFaceClass(success: number): string {
             <div v-if="masteryLines.length" class="mt-2">
               <div class="text-medium-emphasis mb-1">К мастерству</div>
               <div v-for="(line, i) in masteryLines" :key="`m-${line.label}-${i}`" class="chat-roll-row">
+                <span>{{ line.label }}</span>
+                <span :class="line.delta > 0 ? 'text-success' : 'text-error'">{{ signed(line.delta) }}</span>
+              </div>
+            </div>
+            <div v-if="efficiencyLines.length" class="mt-2">
+              <div class="text-medium-emphasis mb-1">К эффективности</div>
+              <div v-for="(line, i) in efficiencyLines" :key="`e-${line.label}-${i}`" class="chat-roll-row">
                 <span>{{ line.label }}</span>
                 <span :class="line.delta > 0 ? 'text-success' : 'text-error'">{{ signed(line.delta) }}</span>
               </div>

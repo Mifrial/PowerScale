@@ -6,7 +6,7 @@ namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\HitResolution;
-use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 
 /**
  * Общие поля способности, кроме ветки type.
@@ -54,7 +54,8 @@ final class AbilityBase
      * @param StrikeUpgrade|null $strikeUpgrade Улучшение удара.
      * @param AbilityAggregate|null $aggregate Агрегат уровня.
      * @param DerivedLevel|null $derivedLevel Производный уровень.
-     * @param DimensionalNumber|null $dodgeEfficiency Эффективность уклона.
+     * @param DodgeRangedPenalty|null $dodgeRangedPenalty Штраф уклонения от дальней атаки.
+     * @param CharacteristicNumber|null $dodgeEfficiency Эффективность уклона.
      * @param string|null $dodgeSoak Код характеристики смягчения.
      *
      * @return void
@@ -98,7 +99,8 @@ final class AbilityBase
         private readonly ?StrikeUpgrade $strikeUpgrade,
         private readonly ?AbilityAggregate $aggregate,
         private readonly ?DerivedLevel $derivedLevel,
-        private readonly ?DimensionalNumber $dodgeEfficiency = null,
+        private readonly ?DodgeRangedPenalty $dodgeRangedPenalty = null,
+        private readonly ?CharacteristicNumber $dodgeEfficiency = null,
         private readonly ?string $dodgeSoak = null,
     ) {
     }
@@ -274,11 +276,21 @@ final class AbilityBase
     }
 
     /**
+     * Штраф к эффективности уклонения от дальней атаки.
+     *
+     * @return DodgeRangedPenalty|null Штраф или null.
+     */
+    public function getDodgeRangedPenalty(): ?DodgeRangedPenalty
+    {
+        return $this->dodgeRangedPenalty;
+    }
+
+    /**
      * Эффективность уклона.
      *
-     * @return DimensionalNumber|null Число или null.
+     * @return CharacteristicNumber|null Число или null.
      */
-    public function getDodgeEfficiency(): ?DimensionalNumber
+    public function getDodgeEfficiency(): ?CharacteristicNumber
     {
         return $this->dodgeEfficiency;
     }

@@ -36,7 +36,8 @@ export class PhpChatRollService {
     const dieFaces = typeof row.dieFaces === 'number' ? row.dieFaces : thrown.size || 6;
     const label = typeof row.label === 'string' ? row.label : undefined;
     const actorKey = typeof row.actorKey === 'string' ? (row.actorKey as CombatEntityKey) : undefined;
-    const masteryAdjustments = this.masteryAdjustmentsOf(row.masteryAdjustments);
+    const masteryAdjustments = this.adjustmentsOf(row.masteryAdjustments);
+    const efficiencyAdjustments = this.adjustmentsOf(row.efficiencyAdjustments);
     const efficiency = this.pair(row.efficiency);
     const rangedHit = this.rangedHitOf(row.ranged_hit);
 
@@ -52,6 +53,7 @@ export class PhpChatRollService {
         ...(label ? { label } : {}),
         ...(actorKey ? { actorKey } : {}),
         ...(masteryAdjustments.length ? { masteryAdjustments } : {}),
+        ...(efficiencyAdjustments.length ? { efficiencyAdjustments } : {}),
       },
       rolls: faces,
       successes,
@@ -106,7 +108,7 @@ export class PhpChatRollService {
     return pair ? ({ [key]: pair } as Record<K, DimensionalNumberValue>) : {};
   }
 
-  private masteryAdjustmentsOf(value: unknown): AdvantageModifier[] {
+  private adjustmentsOf(value: unknown): AdvantageModifier[] {
     if (!Array.isArray(value)) return [];
 
     return value.flatMap((entry) => {

@@ -16,6 +16,13 @@ describe('PhpChatRollService', () => {
           delta: -1,
         },
       ],
+      efficiencyAdjustments: [
+        {
+          source_code: 'distance',
+          source_label: 'Штраф дистанции',
+          delta: -2,
+        },
+      ],
       faces: [6, 5, 2],
       adjustedRolls: [6, 5, 2],
       successes: [-1, 0, 1],
@@ -41,6 +48,13 @@ describe('PhpChatRollService', () => {
         source_code: 'distance',
         source_label: 'Дистанция ≥3 ипари: мастерство на размер ниже',
         delta: -1,
+      },
+    ]);
+    expect(result?.spec.efficiencyAdjustments).toEqual([
+      {
+        source_code: 'distance',
+        source_label: 'Штраф дистанции',
+        delta: -2,
       },
     ]);
     expect(result?.check?.ranged_hit).toEqual({

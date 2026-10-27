@@ -63,6 +63,48 @@ export class HitRollService {
     throw new Error('У правила уклонения нет эффективности');
   }
 
+  /**
+   * Штраф к эффективности уклонения от атаки указанного профиля.
+   * Сейчас контент задаёт только `shoot`, поэтому бросок штраф не получает.
+   */
+  dodgeRangedPenalty(
+    rules: Rule[],
+    profileType: string,
+  ): { distance: DimensionalNumberValue; delta: number } | null {
+    for (const rule of rules) {
+      if (rule.type !== 'ability') continue;
+      const spec = rule.spec as AbilitySpecBase | null | undefined;
+      if (spec?.combat_action !== 'dodge') continue;
+      const penalty = spec.dodge_ranged_penalty;
+      if (!penalty || penalty.profile_type !== profileType) continue;
+
+      return { distance: penalty.distance, delta: penalty.delta };
+    }
+
+    return null;
+  }
+
+  /** Применяет штраф дистанции к эффективности уклонения, если порог достигнут. */
+  private rangedDodgeEfficiency(
+    efficiency: DimensionalNumberValue,
+    reaction: HitDefenseReaction,
+    profileType: string,
+    distanceIpari: number,
+    rules: Rule[],
+  ): { efficiency: DimensionalNumberValue; adjustments: AdvantageModifier[] } {
+    if (reaction !== 'dodge') return { efficiency, adjustments: [] };
+    const penalty = this.dodgeRangedPenalty(rules, profileType);
+    if (!penalty) return { efficiency, adjustments: [] };
+    if (distanceIpari < new DimensionalNumber(penalty.distance).toNumber()) {
+      return { efficiency, adjustments: [] };
+    }
+
+    return {
+      efficiency: CharacteristicNumber.from(efficiency).modifyWith(penalty.delta).value,
+      adjustments: [{ source_code: 'distance', source_label: 'Штраф дистанции', delta: penalty.delta }],
+    };
+  }
+
   maxDimensional(a: DimensionalNumberValue, b: DimensionalNumberValue): DimensionalNumberValue {
     return new DimensionalNumber(a).compare(new DimensionalNumber(b)) >= 0 ? a : b;
   }
@@ -80,6 +122,7 @@ export class HitRollService {
     extraAdvantages: AdvantageModifier[] = [],
     actorKey?: CombatEntityKey,
     masteryAdjustments: AdvantageModifier[] = [],
+    efficiencyAdjustments: AdvantageModifier[] = [],
   ): DiceRollSpec {
     const defaults = rollPoolDefaults(rules);
     const named = checkRollService.namedCheckSpec(label, mastery, adv, rules, actorKey);
@@ -93,6 +136,9 @@ export class HitRollService {
       dieSize: mastery.size + efficiency.size,
       advantages: [...named.advantages, ...extraAdvantages],
       masteryAdjustments: masteryAdjustments.filter((entry) => entry.delta !== 0),
+      ...(efficiencyAdjustments.length
+        ? { efficiencyAdjustments: efficiencyAdjustments.filter((entry) => entry.delta !== 0) }
+        : {}),
     };
   }
 
@@ -238,7 +284,14 @@ export class HitRollService {
     }
     const defenseMastery = bestCombatMastery(input.defenderOverview, ranged);
     const chosen = input.defenseEfficiency ?? procedure.dodgeEfficiency;
-    const efficiency = input.reaction === 'block' ? this.maxDimensional(chosen, procedure.minBlockEfficiency) : chosen;
+    const prepared = input.reaction === 'block' ? this.maxDimensional(chosen, procedure.minBlockEfficiency) : chosen;
+    const { efficiency, adjustments: efficiencyAdjustments } = this.rangedDodgeEfficiency(
+      prepared,
+      input.reaction,
+      input.attack.profileType,
+      distance,
+      rules,
+    );
     const flankAdv =
       input.flank && !input.turn
         ? [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: FLANK_DEFENSE_LABEL, delta: -2 }]
@@ -251,6 +304,8 @@ export class HitRollService {
       rules,
       [...flankAdv, ...(input.defenderAdvantageModifiers ?? [])],
       input.defenderKey,
+      [],
+      efficiencyAdjustments,
     );
     if (ranged) {
       const attached = checkResolutionService.resolveCheckAttachedRuleCodes(this.hitCheckCode(rules), rules);
@@ -326,9 +381,20 @@ export class HitRollService {
 
     const procedure = resolveHitProcedure(input.attack.profileType, rules, mechanics);
     const ranged = input.attack.profileType === 'throw' || input.attack.profileType === 'shoot';
+    const distance =
+      input.distance?.value.type === 'literal'
+        ? input.distance.value.value.base * 2 ** input.distance.value.value.size
+        : (input.distanceIpari ?? 0);
     const defenseMastery = bestCombatMastery(input.defenderOverview, ranged);
     const chosen = input.defenseEfficiency ?? procedure.dodgeEfficiency;
-    const efficiency = input.reaction === 'block' ? this.maxDimensional(chosen, procedure.minBlockEfficiency) : chosen;
+    const prepared = input.reaction === 'block' ? this.maxDimensional(chosen, procedure.minBlockEfficiency) : chosen;
+    const { efficiency, adjustments: efficiencyAdjustments } = this.rangedDodgeEfficiency(
+      prepared,
+      input.reaction,
+      input.attack.profileType,
+      distance,
+      rules,
+    );
     const flankAdv =
       input.flank && !input.turn
         ? [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: FLANK_DEFENSE_LABEL, delta: -2 }]
@@ -341,6 +407,8 @@ export class HitRollService {
       rules,
       [...flankAdv, ...(input.defenderAdvantageModifiers ?? [])],
       input.defenderKey,
+      [],
+      efficiencyAdjustments,
     );
     const attached = checkResolutionService.resolveCheckAttachedRuleCodes(this.hitCheckCode(rules), rules);
     const defender = rollEngine.roll(defenseSpec, rng, rules, mechanics, attached, []);

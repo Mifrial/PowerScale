@@ -17,6 +17,8 @@ export interface DiceRollSpec {
   advantages: AdvantageModifier[];
   /** Сдвиги мастерства (`modifyWith`), не кубы помех. */
   masteryAdjustments?: AdvantageModifier[];
+  /** Сдвиги эффективности (`modifyWith`), не кубы помех. */
+  efficiencyAdjustments?: AdvantageModifier[];
   label?: string;
   /** Кто бросал: клик по имени в чате открывает карточку. */
   actorKey?: CombatEntityKey;

@@ -1735,6 +1735,7 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'instanceIndex',
                 'target',
                 'reaction',
+                'conditions',
                 'success',
                 'damage',
                 'resistance',
