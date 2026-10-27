@@ -275,6 +275,7 @@ final class GameStrikeSingleClose
         }
 
         if ($choice['reaction'] === 'dodge') {
+            $shotDistance = $profileType === 'shoot' ? $metrics['distance'] : null;
             $defenderRoll = $this->resolution->dodgeRollOf(
                 $game,
                 $targetOpen,
@@ -284,6 +285,7 @@ final class GameStrikeSingleClose
                 $reactionRuleCode,
                 $slice,
                 $flank === null ? [] : [$flank],
+                $shotDistance,
             );
             $attackerRoll = $profileType === 'shoot' || $profileType === 'throw'
                 ? $this->resolution->rerateRangedHit($game, $open, $conditions, $attackerRoll, $defenderRoll, 'dodge')

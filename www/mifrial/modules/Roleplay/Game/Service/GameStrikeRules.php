@@ -1060,6 +1060,7 @@ final class GameStrikeRules
      * @param array<string, mixed> $attackerRoll Бросок атаки.
      * @param string|null $participantKey Ключ листа защитника.
      * @param array<int, RollAdvantage> $advantages Преимущества проверки.
+     * @param DimensionalNumber|null $shotDistance Дистанция выстрела, если уклонение от выстрела.
      *
      * @return array<string, mixed> Итог.
      */
@@ -1072,6 +1073,7 @@ final class GameStrikeRules
         array $attackerRoll,
         ?string $participantKey = null,
         array $advantages = [],
+        ?DimensionalNumber $shotDistance = null,
     ): array {
         $slice = $this->slice($spaceId, $rulesRevision);
         $mastery = $this->bestEquippedMastery($slice, $sheet, $choices, 'strike', $participantKey);
@@ -1079,9 +1081,22 @@ final class GameStrikeRules
             throw new GameInvalidException('Game strike dodge mastery is invalid');
         }
 
+        $masteryAdjustments = [];
+        if (
+            $shotDistance instanceof DimensionalNumber
+            && $shotDistance->compare(new DimensionalNumber(3, 0)) >= 0
+        ) {
+            $mastery = $mastery->withSize($mastery->getSize() - 1);
+            $masteryAdjustments[] = [
+                'source_code' => 'distance',
+                'source_label' => 'Дистанция ≥3 ипари: мастерство на размер ниже',
+                'delta' => -1,
+            ];
+        }
+
         $raw = is_array($attackerRoll['raw'] ?? null) ? $attackerRoll['raw'] : $attackerRoll['roll'];
 
-        return $this->hitRoll->throwHitWithMastery(
+        $result = $this->hitRoll->throwHitWithMastery(
             $spaceId,
             $rulesRevision,
             $ruleCode,
@@ -1091,6 +1106,11 @@ final class GameStrikeRules
             $raw,
             $advantages,
         );
+        if ($masteryAdjustments !== []) {
+            $result['masteryAdjustments'] = $masteryAdjustments;
+        }
+
+        return $result;
     }
 
     /**

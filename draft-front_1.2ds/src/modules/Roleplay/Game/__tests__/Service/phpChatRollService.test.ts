@@ -9,6 +9,13 @@ describe('PhpChatRollService', () => {
       difficulty: { base: 3, size: 0 },
       roll: { base: 1, size: -1 },
       actorKey: 'npc:1',
+      masteryAdjustments: [
+        {
+          source_code: 'distance',
+          source_label: 'Дистанция ≥3 ипари: мастерство на размер ниже',
+          delta: -1,
+        },
+      ],
       faces: [6, 5, 2],
       adjustedRolls: [6, 5, 2],
       successes: [-1, 0, 1],
@@ -29,6 +36,13 @@ describe('PhpChatRollService', () => {
     });
 
     expect(result?.spec.actorKey).toBe('npc:1');
+    expect(result?.spec.masteryAdjustments).toEqual([
+      {
+        source_code: 'distance',
+        source_label: 'Дистанция ≥3 ипари: мастерство на размер ниже',
+        delta: -1,
+      },
+    ]);
     expect(result?.check?.ranged_hit).toEqual({
       cover: 0.5,
       cover_value: { base: 1, size: -1 },

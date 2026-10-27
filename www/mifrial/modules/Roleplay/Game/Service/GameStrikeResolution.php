@@ -134,6 +134,7 @@ final class GameStrikeResolution
      * @param string|null $reactionRuleCode Карточка реакции.
      * @param CharacterRuleSlice $slice Срез.
      * @param array<int, RollAdvantage> $extraAdvantages Дополнительные помехи защиты.
+     * @param DimensionalNumber|null $shotDistance Дистанция выстрела для штрафа мастерства.
      *
      * @return array<string, mixed> Roll.
      *
@@ -149,6 +150,7 @@ final class GameStrikeResolution
         ?string $reactionRuleCode,
         CharacterRuleSlice $slice,
         array $extraAdvantages = [],
+        ?DimensionalNumber $shotDistance = null,
     ): array {
         $kind = $open['defender_kind'] ?? null;
         $id = $open['defender_id'] ?? null;
@@ -179,6 +181,7 @@ final class GameStrikeResolution
             $attackerRoll,
             $this->participantKey($game, $kind, $id),
             $advantages,
+            $shotDistance,
         );
         $roll['actorKey'] = $kind . ':' . $id;
         $roll['label'] = 'Уклонение';
