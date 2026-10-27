@@ -44,6 +44,8 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { ISpatialResolver } from '@/modules/Roleplay/Game/Interface/ISpatialResolver';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { DistanceValue } from '@/modules/Roleplay/Rule/Dto/Item/DistanceValue';
+import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
+import type { WeaponAmmunition } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
@@ -656,6 +658,7 @@ function attackFromOffer(current: CheckOffer): AttackOverview | null {
     damage: hit.damage ?? props.attack?.damage ?? { base: 0, size: 0 },
     penetration: hit.penetration ?? props.attack?.penetration ?? { base: 0, size: 0 },
     dodgeBenefit: strikeProfile?.dodgeBenefit ?? props.attack?.dodgeBenefit,
+    ammunition: strikeProfile?.ammunition ?? props.attack?.ammunition,
     inventoryItemId: strikeProfile?.inventoryItemId ?? props.attack?.inventoryItemId,
     instanceIndex: strikeProfile?.instanceIndex ?? props.attack?.instanceIndex,
   };
@@ -665,13 +668,23 @@ const currentAttack = computed(() =>
   offer.value ? attackFromOffer(offer.value) : (resolvedAttackAction.value?.strikes[0]?.profile ?? props.attack),
 );
 
+function ammunitionOf(attack: AttackOverview | null): WeaponAmmunition | null {
+  if (attack?.ammunition) return attack.ammunition;
+  if (!attack) return null;
+  const spec = props.rules.find((rule) => rule.code === attack.itemRuleCode)?.spec as ItemSpec | undefined;
+  const profiles = spec?.weapon?.weapon_profiles ?? spec?.shield?.weapon_profiles ?? [];
+
+  return profiles[attack.profileIndex ?? 0]?.ammunition ?? null;
+}
+
 const ammunitionInventoryId = ref<number | null>(null);
 const ammunitionCandidates = computed(() => {
   const attack = currentAttack.value;
-  if (!attack || attack.profileType !== 'shoot' || attack.ammunition?.mode !== 'item') return [];
+  const ammunition = ammunitionOf(attack);
+  if (!attack || attack.profileType !== 'shoot' || ammunition?.mode !== 'item') return [];
   const version = versionOf(resolvedAttackerKey.value);
   if (!version) return [];
-  const ids = attack.ammunition.keyword_codes
+  const ids = ammunition.keyword_codes
     .map((code) => keywords.value.find((keyword) => keyword.code === code)?.id)
     .filter((id): id is number => id !== undefined);
 
@@ -698,6 +711,19 @@ watch(
   },
   { immediate: true },
 );
+
+function assertAmmunitionSelected(): void {
+  const attack = resolvedAttack.value;
+  const ammunition = ammunitionOf(attack);
+  if (attack?.profileType !== 'shoot' || ammunition?.mode !== 'item' || ammunitionInventoryId.value !== null) return;
+
+  throw new Error(
+    ammunitionCandidates.value.length === 0
+      ? 'Экипируйте подходящий боеприпас: стрелу, болт или пулю'
+      : 'Выберите боеприпас',
+  );
+}
+
 const phpProfileType = computed(
   () =>
     phpWideProjection.value?.profileType ??
@@ -3329,6 +3355,7 @@ function phpWeaponFields() {
   const attacker = props.attackerKey;
   if (!attack || !attacker) throw new Error('Нет атаки');
   if (attack.inventoryItemId == null) throw new Error('Нет экземпляра оружия');
+  assertAmmunitionSelected();
 
   const actionRuleCode = resolvedActionRuleCode.value ?? selectedActionRuleCode.value ?? '';
 
@@ -3361,6 +3388,7 @@ function phpBattleEnvelope() {
 async function phpStrikeAttack() {
   const defender = opponentKey.value;
   if (!defender) throw new Error('Нет атаки');
+  assertAmmunitionSelected();
   const action = resolvedAttackAction.value;
   const attacker = props.attackerKey;
   if (action && action.strikes.length > 1 && attacker) {
@@ -4228,6 +4256,12 @@ const canSubmit = computed(() => {
               class="flex-grow-1"
               :disabled="!canEditCover"
             />
+            <div
+              v-if="resolvedProfileType === 'shoot' && ammunitionCandidates.length === 0"
+              class="text-caption text-error flex-grow-1"
+            >
+              Нет экипированного боеприпаса
+            </div>
             <v-select
               v-if="resolvedProfileType === 'shoot' && ammunitionCandidates.length"
               v-model="ammunitionInventoryId"
