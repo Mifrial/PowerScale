@@ -20,6 +20,7 @@ use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionBody;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -162,6 +163,64 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         self::assertSame(3, $roll['ranged_hit']['range_size'] ?? null);
         self::assertSame(['base' => 2, 'size' => 1], $roll['ranged_hit']['difficulty'] ?? null);
         $this->assertInventoryQuantity($prepared['attackerId'], 2, 'arrow', 0);
+    }
+
+    /**
+     * Уклонение от выстрела: мастерство боя, штраф дистанции и формула сложности.
+     *
+     * @return void
+     */
+    public function testShootDodgeUsesCombatMasteryAndRangedDifficulty(): void
+    {
+        $prepared = $this->prepareShoot([], [
+            'resources' => [['ruleCode' => 'ap', 'current' => 3]],
+        ]);
+        $attack = $this->shootAttack($prepared['attackerId'], $prepared['defenderId'], 2);
+        $attack['conditions']['distance'] = [
+            'type' => 'ipari',
+            'value' => ['type' => 'literal', 'value' => ['base' => 11, 'size' => 0]],
+        ];
+        $attack['conditions']['cover'] = ['base' => 1, 'size' => -1];
+        $opened = $this->declareStrike($prepared, 'shoot-dodge', $attack);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $prepared['gameId'],
+            'battleId' => $prepared['battleId'],
+            'idempotencyKey' => 'shoot-dodge-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'dodge'],
+                $this->characterFacade()->get($prepared['defenderId'])->getActualVersion(),
+            ),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        $strike = $closed['data']['strikes'][0] ?? [];
+        $defenderRoll = $strike['defenseRoll'] ?? [];
+        self::assertSame('Уклонение', $defenderRoll['label'] ?? null);
+        self::assertSame('distance', $defenderRoll['masteryAdjustments'][0]['source_code'] ?? null);
+
+        $detail = $strike['roll']['ranged_hit'] ?? [];
+        $base = (new DimensionalNumber(
+            (int) ($detail['defense_value']['base'] ?? 0),
+            (int) ($detail['defense_value']['size'] ?? 0),
+        ))->add(new DimensionalNumber(
+            (int) ($detail['minimum_value']['base'] ?? 0),
+            (int) ($detail['minimum_value']['size'] ?? 0),
+        ))->add(new DimensionalNumber(
+            (int) ($detail['cover_value']['base'] ?? 0),
+            (int) ($detail['cover_value']['size'] ?? 0),
+        ));
+        self::assertSame(
+            ['base' => $base->getBase(), 'size' => $base->getSize()],
+            $detail['base_value'] ?? null,
+        );
+        $difficulty = $base->withSize($base->getSize() + (int) ($detail['range_size'] ?? 1) - 1);
+        self::assertSame(
+            ['base' => $difficulty->getBase(), 'size' => $difficulty->getSize()],
+            $detail['difficulty'] ?? null,
+        );
     }
 
     /**
@@ -614,6 +673,17 @@ final class GamePhysicalProfileMysqlTest extends TestCase
                 ]],
                 ...$actionFlags,
             ], [], [], 'needs_work')),
+            RuleCommitEntry::put('dodge', new RuleVersionBody('ability', 'Dodge', '', [
+                'type' => 'action',
+                'combat_action' => 'dodge',
+                'dodge_efficiency' => ['base' => 4, 'size' => -1],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'ap',
+                    'amount' => 1,
+                ]],
+                ...$actionFlags,
+            ], [], [], 'needs_work')),
             RuleCommitEntry::put('ap', new RuleVersionBody('resource', 'AP', '', [
                 'is_dimensional' => false,
                 'auto_add' => false,
@@ -977,10 +1047,11 @@ final class GamePhysicalProfileMysqlTest extends TestCase
      * Shoot 1→1 сценарий.
      *
      * @param array<int, mixed> $inventory Инвентарь атакующего.
+     * @param array<string, mixed> $defenderSheet Дополнение листа защитника.
      *
      * @return array{gameId: int, battleId: int, attackerId: int, defenderId: int} Сцена.
      */
-    private function prepareShoot(array $inventory = []): array
+    private function prepareShoot(array $inventory = [], array $defenderSheet = []): array
     {
         return $this->prepareSingle(
             $inventory === [] ? [[
@@ -994,6 +1065,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
                 'equipped' => true,
                 'quantity' => 1,
             ]] : $inventory,
+            $defenderSheet,
         );
     }
 
@@ -1001,17 +1073,18 @@ final class GamePhysicalProfileMysqlTest extends TestCase
      * Single бой персонаж против персонажа.
      *
      * @param array<int, mixed> $inventory Инвентарь атакующего.
+     * @param array<string, mixed> $defenderSheet Дополнение листа защитника.
      *
      * @return array{gameId: int, battleId: int, attackerId: int, defenderId: int} Сцена.
      */
-    private function prepareSingle(array $inventory): array
+    private function prepareSingle(array $inventory, array $defenderSheet = []): array
     {
         $world = $this->physicalWorld();
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
         $attackerId = $this->admit($world->getId(), $gameId, 'Hero-' . $gameId, [], [
             'resources' => [['ruleCode' => 'ap', 'current' => 3]],
         ], $inventory);
-        $defenderId = $this->admit($world->getId(), $gameId, 'Guard-' . $gameId);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Guard-' . $gameId, [], $defenderSheet);
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
         self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
         $battle = $this->startBattle($gameId, [

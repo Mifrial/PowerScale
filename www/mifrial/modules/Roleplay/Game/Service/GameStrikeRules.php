@@ -1086,7 +1086,9 @@ final class GameStrikeRules
             $shotDistance instanceof DimensionalNumber
             && $shotDistance->compare(new DimensionalNumber(3, 0)) >= 0
         ) {
-            $mastery = $mastery->withSize($mastery->getSize() - 1);
+            $mastery = $mastery instanceof CharacteristicNumber
+                ? $mastery->modify(-CharacteristicNumber::BASE_STEP)
+                : $mastery->withSize($mastery->getSize() - 1);
             $masteryAdjustments[] = [
                 'source_code' => 'distance',
                 'source_label' => 'Дистанция ≥3 ипари: мастерство на размер ниже',
