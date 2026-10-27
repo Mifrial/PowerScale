@@ -291,7 +291,7 @@ final class GameStrikeChat
 
         $token = $reactionCode !== null ? '[[rule:' . $reactionCode . ']]' : $reaction;
         $totalAp = $actionAp + ($turn ? $turnAp : 0);
-        $suffix = $turn ? ' с [[rule:turn]]' : '';
+        $suffix = $turn ? ' с [[rule:turn]] (+' . $turnAp . 'ОД)' : '';
 
         return $name . ' пытается совершить ' . $token . ' за ' . $totalAp . 'ОД' . $suffix;
     }

@@ -99,7 +99,7 @@ final class GameStrikeWideChat
             $reactionCode = $reaction === 'ignore'
                 ? null
                 : $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), $reaction);
-            $turn = ($item['choice']['turn'] ?? false) === true;
+            $turn = ($item['choice']['conditions']['turn'] ?? false) === true;
             $turnCode = $turn
                 ? $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), 'turn')
                 : null;

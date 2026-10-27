@@ -8,6 +8,8 @@ use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
+use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
@@ -380,6 +382,10 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         self::assertTrue($closed['success'], json_encode($closed));
         self::assertSame(1, $this->apCurrent($prepared['defenderId']));
         self::assertSame([], $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? null);
+        self::assertStringContainsString(
+            'за 2ОД с [[rule:turn]] (+1ОД)',
+            $this->attackChatContent($prepared['gameId']),
+        );
 
         $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
         $rows = $mysql->select(
@@ -428,6 +434,99 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         $advantages = $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [];
         self::assertSame('flank', $advantages[0]['source_code'] ?? null);
         self::assertSame(-2, $advantages[0]['delta'] ?? null);
+    }
+
+    /**
+     * Wide-защита с поворотом пишет его и доплату ОД в чат.
+     *
+     * @return void
+     */
+    public function testWideDodgeWithTurnMentionsTurnInChat(): void
+    {
+        $prepared = $this->prepareWide([[
+            'id' => 1,
+            'ruleCode' => 'sword',
+            'equipped' => true,
+            'quantity' => 1,
+        ]], [
+            'resources' => [['ruleCode' => 'ap', 'current' => 3]],
+        ]);
+        $firstId = $prepared['targetIds'][0];
+        $secondId = $prepared['targetIds'][1];
+        $attack = [
+            'attacker' => ['type' => 'character', 'id' => $prepared['attackerId']],
+            'targets' => $this->characterTargets($prepared['targetIds']),
+            'actionRuleCode' => 'wide-swing',
+            'itemInventoryId' => 1,
+            'itemRuleCode' => 'sword',
+            'profileType' => 'strike',
+            'profileIndex' => 0,
+            'conditions' => [
+                'distance' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]],
+                'cover' => ['base' => 0, 'size' => 0],
+                'flank' => true,
+            ],
+        ];
+        $opened = $this->declareWide($prepared, 'wide-turn-open', $attack);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $prepared['gameId'],
+            'battleId' => $prepared['battleId'],
+            'idempotencyKey' => 'wide-turn-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->wideDefenseEnvelope([
+                'defenses' => [
+                    [
+                        'target' => ['type' => 'character', 'id' => $firstId],
+                        'reaction' => 'dodge',
+                        'turn' => true,
+                        'expectedSheetVersion' => $this->characterFacade()->get($firstId)->getActualVersion(),
+                    ],
+                    [
+                        'target' => ['type' => 'character', 'id' => $secondId],
+                        'reaction' => 'dodge',
+                        'expectedSheetVersion' => $this->characterFacade()->get($secondId)->getActualVersion(),
+                    ],
+                ],
+            ]),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(1, $this->apCurrent($firstId));
+        $narrative = $this->attackChatContent($prepared['gameId']);
+        self::assertStringContainsString('за 2ОД с [[rule:turn]] (+1ОД)', $narrative);
+    }
+
+    /**
+     * Текст последнего нападения в чате.
+     *
+     * @param int $gameId Игра.
+     *
+     * @return string Текст.
+     */
+    private function attackChatContent(int $gameId): string
+    {
+        $chatId = $this->gameFacade()->get($gameId)->getGameChatId();
+        self::assertIsInt($chatId);
+        $chats = $this->gameApplication()->getLocator()->get(IChatContainer::class)->get(IChats::class);
+        self::assertInstanceOf(IChats::class, $chats);
+        $messages = array_reverse($chats->findMessagePage($chatId, $this->ownerUserId, 100, 0)->getItems());
+        $content = '';
+        foreach ($messages as $message) {
+            foreach ($message->getAttachments() as $attachment) {
+                $thread = $attachment['payload']['thread'] ?? null;
+                if (is_array($thread)
+                    && ($thread['kind'] ?? null) === 'attack'
+                    && str_contains($message->getContent(), 'наносит')
+                ) {
+                    $content = $message->getContent();
+                }
+            }
+        }
+        self::assertNotSame('', $content, 'Attack chat message was not found');
+
+        return $content;
     }
 
     /**
@@ -1392,18 +1491,19 @@ final class GamePhysicalProfileMysqlTest extends TestCase
      * Wide бой на две цели.
      *
      * @param array<int, mixed> $inventory Инвентарь атакующего.
+     * @param array<string, mixed> $defenderSheet Лист защитников.
      *
      * @return array{gameId: int, battleId: int, attackerId: int, targetIds: list<int>} Сцена.
      */
-    private function prepareWide(array $inventory): array
+    private function prepareWide(array $inventory, array $defenderSheet = []): array
     {
         $world = $this->physicalWorld();
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
         $attackerId = $this->admit($world->getId(), $gameId, 'Hero-' . $gameId, [], [
             'resources' => [['ruleCode' => 'ap', 'current' => 3]],
         ], $inventory);
-        $firstId = $this->admit($world->getId(), $gameId, 'One-' . $gameId);
-        $secondId = $this->admit($world->getId(), $gameId, 'Two-' . $gameId);
+        $firstId = $this->admit($world->getId(), $gameId, 'One-' . $gameId, [], $defenderSheet);
+        $secondId = $this->admit($world->getId(), $gameId, 'Two-' . $gameId, [], $defenderSheet);
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
         self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
         $battle = $this->startBattle($gameId, [
