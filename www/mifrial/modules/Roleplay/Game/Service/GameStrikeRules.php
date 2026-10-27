@@ -1087,18 +1087,25 @@ final class GameStrikeRules
     }
 
     /**
-     * Переоценивает атаку против сырого пула уклона.
+     * Переоценивает атаку против сырого пула уклона или готовой трудности.
      *
      * @param array<string, mixed> $attackerRoll Бросок атаки.
-     * @param array<string, mixed> $defenderRoll Бросок уклона.
+     * @param array<string, mixed> $defenderRoll Бросок уклона или готовый {base,size}.
      *
      * @return array<string, mixed> Бросок атаки.
      */
     public function rerateHit(array $attackerRoll, array $defenderRoll): array
     {
-        $clamped = is_array($defenderRoll['roll'] ?? null) ? $defenderRoll['roll'] : $defenderRoll['raw'];
+        $difficulty = $defenderRoll;
+        if (is_array($defenderRoll['roll'] ?? null) || is_array($defenderRoll['raw'] ?? null)) {
+            $difficulty = is_array($defenderRoll['roll'] ?? null) ? $defenderRoll['roll'] : $defenderRoll['raw'];
+        }
 
-        return $this->hitRoll->rerate($attackerRoll, $clamped);
+        if (!is_int($difficulty['base'] ?? null) || !is_int($difficulty['size'] ?? null)) {
+            throw new GameInvalidException('Game strike defense roll is invalid');
+        }
+
+        return $this->hitRoll->rerate($attackerRoll, $difficulty);
     }
 
     /**

@@ -119,6 +119,35 @@ final class GamePhysicalProfileMysqlTest extends TestCase
     }
 
     /**
+     * Shoot с ignore пересчитывает дальнюю трудность, а не падает на defense.
+     *
+     * @return void
+     */
+    public function testShootIgnoreReratesRangedDifficulty(): void
+    {
+        $prepared = $this->prepareShoot();
+        $attack = $this->shootAttack($prepared['attackerId'], $prepared['defenderId'], 2);
+        $attack['conditions']['cover'] = ['base' => 100, 'size' => 0];
+        $opened = $this->declareStrike($prepared, 'shoot-rerate', $attack);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $prepared['gameId'],
+            'battleId' => $prepared['battleId'],
+            'idempotencyKey' => 'shoot-rerate-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($prepared['defenderId'])->getActualVersion(),
+            ),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(0, $closed['data']['success']);
+        $this->assertInventoryQuantity($prepared['attackerId'], 2, 'arrow', 0);
+    }
+
+    /**
      * Один набор кодов: совместимый патрон тратится, чужой и неполный — отказ.
      *
      * @return void
@@ -626,6 +655,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('stamina', new RuleVersionBody('characteristic', 'Stamina', '', [
                 'damage_endurance' => true,
+                'automatic' => ['value' => ['base' => 4, 'size' => 0]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('hurt', new RuleVersionBody('state', 'Hurt', '', [
                 'value_type' => 'dimensional',
