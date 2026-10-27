@@ -73,6 +73,7 @@ import { gameStrikeDefenseService } from '@/modules/Roleplay/Game/Service/Instan
 import { gameWideDefenseService } from '@/modules/Roleplay/Game/Service/Instance/gameWideDefenseService';
 
 import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
+import { wideStrikeRows } from '@/modules/Roleplay/Game/Utils/wideStrikeRows';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 
@@ -182,6 +183,13 @@ const emit = defineEmits<{
   'php-answer-strike': [];
 }>();
 
+/** Черновые условия одной цели широкого удара. */
+interface WideTargetConditionsDraft {
+  distanceIpari: number;
+  cover: number;
+  flank: boolean;
+}
+
 const combatThread = useCombatChatThread(() => props.gameId);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 const askTokenSpend = inject(CONCENTRATION_TOKEN_ASK_INJECT_KEY, undefined);
@@ -214,6 +222,7 @@ const phpPendingStrike = ref<GamePhpOpenStrike | null>(null);
 const phpOverride = ref(false);
 const phpDebt = ref(false);
 const phpWideTargets = ref<CombatEntityKey[]>([]);
+const phpWideConditions = ref<Record<string, WideTargetConditionsDraft>>({});
 const phpWideProjection = ref<GamePhpOpenWideStrike | null>(null);
 const phpWideChoices = ref<
   {
@@ -741,8 +750,12 @@ function exactDistance(value: DimensionalNumberValue | null | undefined): number
 
 function defaultDistanceIpari(): number {
   const exact = exactDistance(props.attack?.distanceMinValue);
+  if (exact !== null && exact > 0) return exact;
+  // Удар по умолчанию бьёт с нулевой дистанции; полшага доступны только
+  // через карточку действия вроде «Выпада».
+  if (!isRanged.value) return 0;
 
-  return exact !== null && exact > 0 ? exact : Math.max(0.5, props.attack?.minDistance ?? 1);
+  return Math.max(0.5, props.attack?.minDistance ?? 1);
 }
 
 function exactDistanceOfValue(value: DistanceValue | null | undefined): number | null {
@@ -784,7 +797,6 @@ const coverDimensional = computed<DimensionalNumberValue | null>({
 });
 
 const distanceProposal = computed<DistanceValue | null>(() => {
-  if (!isRanged.value) return null;
   const value = distanceDimensional.value;
 
   return value === null ? null : { type: 'ipari', value: { type: 'literal', value } };
@@ -805,6 +817,55 @@ function phpConditions(): Record<string, unknown> {
   };
 }
 
+function defaultWideConditions(): WideTargetConditionsDraft {
+  return { distanceIpari: defaultDistanceIpari(), cover: 0, flank: false };
+}
+
+function wideConditionsDraft(key: CombatEntityKey): WideTargetConditionsDraft {
+  return phpWideConditions.value[key] ?? defaultWideConditions();
+}
+
+function syncWideConditions(keys: CombatEntityKey[]): void {
+  const next: Record<string, WideTargetConditionsDraft> = {};
+  for (const key of keys) {
+    next[key] = phpWideConditions.value[key] ?? defaultWideConditions();
+  }
+  phpWideConditions.value = next;
+}
+
+function wideDistanceDimensional(key: CombatEntityKey): DimensionalNumberValue | null {
+  return DimensionalNumber.fromDecimal(wideConditionsDraft(key).distanceIpari)?.value ?? null;
+}
+
+function setWideDistance(key: CombatEntityKey, value: DimensionalNumberValue | null): void {
+  const numeric = exactDistance(value);
+  if (numeric === null) return;
+  phpWideConditions.value = {
+    ...phpWideConditions.value,
+    [key]: { ...wideConditionsDraft(key), distanceIpari: numeric },
+  };
+}
+
+function setWideFlank(key: CombatEntityKey, value: boolean): void {
+  phpWideConditions.value = {
+    ...phpWideConditions.value,
+    [key]: { ...wideConditionsDraft(key), flank: value },
+  };
+}
+
+function wideConditionsPayload(key: CombatEntityKey): Record<string, unknown> {
+  const draft = wideConditionsDraft(key);
+  const distance = DimensionalNumber.fromDecimal(draft.distanceIpari)?.value ?? { base: 0, size: 0 };
+  const cover = DimensionalNumber.fromDecimal(Math.max(0, draft.cover))?.value ?? { base: 0, size: 0 };
+
+  return {
+    distance: { type: 'ipari', value: { type: 'literal', value: distance } },
+    cover,
+    flank: draft.flank,
+    turn: false,
+  };
+}
+
 const canEditCover = computed(() => isCompose.value || myTurn.value);
 
 const resolvedAttack = computed(() => {
@@ -819,7 +880,7 @@ const resolvedAttack = computed(() => {
       props.rules,
       attack.itemRuleCode,
       attack.profileType,
-      isRanged.value ? distanceIpari.value : 0,
+      distanceIpari.value,
       attack.profileIndex,
       currentActionCharacteristicModifier.value,
       attack.instanceIndex,
@@ -998,6 +1059,65 @@ const resolvedSelectedAction = computed(() => {
   return { ...action, odCost: (processStepCost.value ?? action.odCost) + resolution.actionCostDelta };
 });
 
+/** Бонус карточки действия к максимальной дистанции удара («Выпад»). */
+const attackReachBonus = computed(() => {
+  const actionRule = selectedAction.value ? findRuleByRef(props.rules, selectedAction.value.code) : null;
+  const attack = currentAttack.value;
+
+  return actionEffectService.currentAttackReach(
+    actionRule,
+    attack?.profileType ?? 'strike',
+    1,
+    movementContextService.resolveMovementStep(versionOf(resolvedAttackerKey.value) ?? undefined, props.rules),
+  );
+});
+
+/** Нижняя граница дистанции оружия в ипари. */
+const minAttackDistance = computed(
+  () => exactDistance(props.attack?.distanceMinValue) ?? props.attack?.minDistance ?? 0,
+);
+
+/** Верхняя граница дистанции: профиль плюс бонус действия; null — без ограничения. */
+const maxAttackDistance = computed<number | null>(() => {
+  const attack = currentAttack.value ?? props.attack;
+  if (!attack) return null;
+  if (props.attack?.distanceMaxValue === null) return null;
+  const exactMax = exactDistance(props.attack?.reachValue) ?? exactDistance(props.attack?.distanceMaxValue);
+  const base = exactMax ?? attack.reach;
+
+  return isRanged.value ? base : base + attackReachBonus.value;
+});
+
+/** Понятная причина, почему выбранная дистанция не подходит. */
+const distanceRangeMessage = computed<string | null>(() => {
+  if (isPreparationAction.value || !distanceRepresentable.value) return null;
+  const min = minAttackDistance.value;
+  const max = maxAttackDistance.value;
+  const value = distanceIpari.value;
+  const epsilon = 1e-9;
+  if (value + epsilon < min) return `Дистанция меньше минимума оружия (${min} ипари)`;
+  if (max !== null && value - epsilon > max) {
+    return isRanged.value
+      ? `Дистанция больше дальности оружия (${max} ипари)`
+      : `Дистанция больше досягаемости (${max} ипари): добавьте «Выпад» или уменьшите дистанцию`;
+  }
+
+  return null;
+});
+
+function assertWideConditions(keys: CombatEntityKey[]): void {
+  const max = maxAttackDistance.value;
+  for (const key of keys) {
+    const draft = wideConditionsDraft(key);
+    if (DimensionalNumber.fromDecimal(draft.distanceIpari) === null) {
+      throw new Error('Дистанция должна быть представима размерным числом');
+    }
+    if (max !== null && draft.distanceIpari - 1e-9 > max) {
+      throw new Error(`Дистанция до «${nameOf(key)}» больше досягаемости (${max} ипари)`);
+    }
+  }
+}
+
 function remainingAp(key: CombatEntityKey | null): number {
   const version = versionOf(key);
   if (!version) return 0;
@@ -1106,6 +1226,17 @@ watch(attackOptions, (options) => {
     currentAttack.value?.profileType === 'strike' ? SIMPLE_MELEE_ATTACK_CODE : SIMPLE_RANGED_ATTACK_CODE;
   selectedActionRuleCode.value = options.find((item) => item.code === preferredCode)?.code ?? options[0]?.code ?? null;
 });
+
+// Цели группового удара приходят из внешнего выбора: держим для каждой
+// свою дистанцию и фланг, не смешивая условия.
+watch(
+  () => [uniqueTargetKeys.value, isCompose.value, isGroupAttack.value] as const,
+  () => {
+    if (!isCompose.value || !isGroupAttack.value) return;
+    syncWideConditions(uniqueTargetKeys.value);
+  },
+  { immediate: true },
+);
 
 const blockProfiles = computed(() =>
   hitRollService.listBlockProfiles(
@@ -1306,6 +1437,7 @@ watch(
       phpDebt.value = false;
       phpWideProjection.value = null;
       phpWideTargets.value = [];
+      phpWideConditions.value = {};
       phpWideChoices.value = [];
 
       return;
@@ -1377,6 +1509,13 @@ watch(
   { deep: true },
 );
 
+// В широком ударе у каждой цели свои условия: при переходе к следующей
+// защите показываем её дистанцию и фланг.
+watch(opponentKey, (key) => {
+  if (!phpWideMode.value || !key) return;
+  applyPhpConditions(wideTargetConditionsOf(key));
+});
+
 function close(): void {
   emit('update:open', false);
 }
@@ -1404,7 +1543,7 @@ function hitProposal(attack: AttackOverview, nextReaction: HitDefenseReaction | 
       ? `${findRuleByRef(props.rules, effectiveProcessContext.value?.session.processRuleCode)?.name ?? 'Процесс'} · ${processStep.value?.name ?? ''}`
       : resolvedSelectedAction.value?.name,
     actionOd: processStepCost.value ?? resolvedSelectedAction.value?.odCost,
-    distanceIpari: isRanged.value ? distanceIpari.value : null,
+    distanceIpari: distanceIpari.value,
     distance: distanceProposal.value,
     cover: isRanged.value ? Math.max(0, cover.value) : undefined,
     reach: preview.reach,
@@ -1427,9 +1566,9 @@ async function sendOffer(): Promise<CheckOffer> {
     );
     if (!validation.valid) throw new Error(validation.message ?? 'Цели Широкого удара недоступны');
   }
+  if (!distanceRepresentable.value) throw new Error('Дистанция должна быть представима размерным числом');
   if (isRanged.value && !(distanceIpari.value > 0)) throw new Error('Укажите дистанцию в ипари');
-  if (isRanged.value && !distanceRepresentable.value)
-    throw new Error('Дистанция должна быть представима размерным числом');
+  if (!isGroupAttack.value && distanceRangeMessage.value) throw new Error(distanceRangeMessage.value);
   const attackerApCost = resolvedSelectedAction.value?.odCost || DEFAULT_ATTACK_AP;
   if (attackerApCost > remainingAp(initiator)) throw new Error('Недостаточно ОД для атаки');
   if (
@@ -2191,7 +2330,7 @@ async function acceptAndRoll(): Promise<void> {
         {
           spendAttackerAp: !spellPaid,
           skipDamageApply:
-            spellCastExecutionService.spellTouchOf(hit.actionRuleCode, props.rules)?.weapon_damage === false,
+            spellCastExecutionService.spellTouchOf(hit.actionRuleCode ?? null, props.rules)?.weapon_damage === false,
           skipActionMessage: spellPaid,
           contactOnly: spellPaid,
           deferConsequences: spellPaid,
@@ -2251,7 +2390,7 @@ async function acceptAndRoll(): Promise<void> {
         { attacker: touchAttacker, defender: rolled.defender },
         {
           weaponResult:
-            spellCastExecutionService.spellTouchOf(hit.actionRuleCode, props.rules)?.weapon_damage === false
+            spellCastExecutionService.spellTouchOf(hit.actionRuleCode ?? null, props.rules)?.weapon_damage === false
               ? null
               : weaponResult,
           weaponAttack: effectiveAttack,
@@ -3499,7 +3638,9 @@ async function phpDefense() {
 async function phpWideStrikeAttack() {
   const targets = phpTargetKeys();
   if (targets.length < 2) throw new Error('Для широкого удара нужны хотя бы две цели');
+  assertWideConditions(targets);
   phpWideTargets.value = targets;
+  syncWideConditions(targets);
 
   return {
     ...phpBattleEnvelope(),
@@ -3507,7 +3648,7 @@ async function phpWideStrikeAttack() {
       ...phpWeaponFields(),
       targets: targets.map((key) => ({
         ...gamePhpCommandService.participantOf(key),
-        conditions: phpConditions(),
+        conditions: wideConditionsPayload(key),
       })),
     },
   };
@@ -3524,6 +3665,14 @@ function phpBlockFor(key: CombatEntityKey) {
   if (!block) throw new Error('Выберите профиль блока');
 
   return { blockItemInventoryId: block.inventoryItemId, blockItemProfileIndex: block.profileIndex };
+}
+
+function wideTargetConditionsOf(key: CombatEntityKey): GamePhpStrikeConditions | null {
+  const wide = phpWideProjection.value;
+  if (!wide) return null;
+  const target = wide.targets.find((item) => gameWideDefenseService.targetKey(item) === key);
+
+  return target?.conditions ?? null;
 }
 
 function syncPhpWideTargets(): void {
@@ -3545,6 +3694,7 @@ function syncPhpWideTargets(): void {
     reaction.value = null;
     blockItemRuleCode.value = null;
   }
+  if (opponentKey.value) applyPhpConditions(wideTargetConditionsOf(opponentKey.value));
 }
 
 function takeOverPhpDefense(): void {
@@ -3752,16 +3902,14 @@ function phpWideStrikeEnvelope(attack: {
     code: attack.actionRuleCode,
     actor: attack.attacker,
     context: {
-      strikes: attack.targets.map((target) => ({
+      strikes: wideStrikeRows(attack.targets, {
         itemInventoryId: attack.itemInventoryId,
         itemRuleCode: attack.itemRuleCode,
         profileType: attack.profileType,
         profileIndex: attack.profileIndex,
-        instanceIndex: attack.instanceIndex ?? 0,
-        ...(attack.ammunitionInventoryId !== undefined ? { ammunitionInventoryId: attack.ammunitionInventoryId } : {}),
-        ...(target.conditions !== undefined ? { conditions: target.conditions } : {}),
-        target,
-      })),
+        instanceIndex: attack.instanceIndex,
+        ammunitionInventoryId: attack.ammunitionInventoryId,
+      }),
     },
   };
 }
@@ -4141,7 +4289,9 @@ const canSubmit = computed(() => {
     if (isPreparationAction.value) {
       return resolvedSelectedAction.value !== null && resolvedSelectedAction.value.odCost <= attackerAp.value;
     }
-    if (isRanged.value && (!(distanceIpari.value > 0) || !distanceRepresentable.value)) return false;
+    if (!distanceRepresentable.value) return false;
+    if (isRanged.value && !(distanceIpari.value > 0)) return false;
+    if (!isGroupAttack.value && distanceRangeMessage.value !== null) return false;
 
     return (
       opponentKey.value !== null &&
@@ -4298,7 +4448,7 @@ const canSubmit = computed(() => {
           </div>
           <div class="d-flex align-center ga-2 flex-wrap">
             <DimensionalNumberInput
-              v-if="isRanged && !isPreparationAction"
+              v-if="!isPreparationAction && (!isGroupAttack || !isCompose)"
               v-model="distanceDimensional"
               label="Дистанция"
               :min="0"
@@ -4333,7 +4483,7 @@ const canSubmit = computed(() => {
               :disabled="!isCompose"
             />
             <v-checkbox
-              v-if="!isPreparationAction"
+              v-if="!isPreparationAction && (!isGroupAttack || !isCompose)"
               v-model="flank"
               label="Фланг"
               density="compact"
@@ -4341,6 +4491,47 @@ const canSubmit = computed(() => {
               class="hit-check flex-grow-0"
               :disabled="!isCompose"
             />
+          </div>
+          <div
+            v-if="!isPreparationAction && !isGroupAttack && distanceRangeMessage"
+            class="text-caption text-error"
+          >
+            {{ distanceRangeMessage }}
+          </div>
+          <div
+            v-else-if="!isPreparationAction && !isGroupAttack && !isRanged"
+            class="text-caption text-medium-emphasis"
+          >
+            Досягаемость: {{ minAttackDistance }}–{{ maxAttackDistance ?? '∞' }} ипари<template
+              v-if="attackReachBonus > 0"
+            >
+              · действие +{{ attackReachBonus }}</template
+            >
+          </div>
+          <div v-if="isGroupAttack && isCompose && !isPreparationAction" class="mt-2">
+            <div class="text-caption text-medium-emphasis">Условия по целям</div>
+            <div
+              v-for="key in uniqueTargetKeys"
+              :key="key"
+              class="d-flex align-center ga-2 flex-wrap mt-1"
+            >
+              <span class="text-body-2 flex-grow-1">{{ nameOf(key) }}</span>
+              <DimensionalNumberInput
+                :model-value="wideDistanceDimensional(key)"
+                label="Дистанция"
+                :min="0"
+                class="flex-grow-1"
+                @update:model-value="setWideDistance(key, $event)"
+              />
+              <v-checkbox
+                :model-value="wideConditionsDraft(key).flank"
+                label="Фланг"
+                density="compact"
+                hide-details
+                class="hit-check flex-grow-0"
+                @update:model-value="setWideFlank(key, $event === true)"
+              />
+            </div>
           </div>
           <div v-if="hasFixedTargets" class="text-body-2">Цели: {{ targetNamesLabel }}</div>
           <div v-if="isGroupAttack" class="text-caption text-medium-emphasis">

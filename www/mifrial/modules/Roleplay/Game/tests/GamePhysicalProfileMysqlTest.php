@@ -166,6 +166,55 @@ final class GamePhysicalProfileMysqlTest extends TestCase
     }
 
     /**
+     * Блок против выстрела берёт щит и считает успехи как защиту.
+     *
+     * @return void
+     */
+    public function testShootBlockUsesShieldProfile(): void
+    {
+        $prepared = $this->prepareSingle([[
+            'id' => 1,
+            'ruleCode' => 'bow',
+            'equipped' => true,
+            'quantity' => 1,
+        ], [
+            'id' => 2,
+            'ruleCode' => 'arrow',
+            'equipped' => true,
+            'quantity' => 1,
+        ]], [
+            'resources' => [['ruleCode' => 'ap', 'current' => 3]],
+        ], [
+            ['id' => 1, 'ruleCode' => 'buckler', 'equipped' => true, 'quantity' => 1],
+        ]);
+        $attack = $this->shootAttack($prepared['attackerId'], $prepared['defenderId'], 2);
+        $attack['conditions']['distance'] = [
+            'type' => 'ipari',
+            'value' => ['type' => 'literal', 'value' => ['base' => 2, 'size' => 0]],
+        ];
+        $opened = $this->declareStrike($prepared, 'shoot-block', $attack);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $prepared['gameId'],
+            'battleId' => $prepared['battleId'],
+            'idempotencyKey' => 'shoot-block-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope([
+                'reaction' => 'block',
+                'blockItemInventoryId' => 1,
+                'blockItemProfileIndex' => 0,
+                'blockItemRuleCode' => 'buckler',
+            ], $this->characterFacade()->get($prepared['defenderId'])->getActualVersion()),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        $defenderRoll = $closed['data']['strikes'][0]['defenseRoll'] ?? [];
+        self::assertSame('Блок', $defenderRoll['label'] ?? null);
+        self::assertArrayHasKey('efficiency', $defenderRoll);
+    }
+
+    /**
      * Уклонение от выстрела: мастерство боя, штраф эффективности и формула сложности.
      *
      * @return void
@@ -265,6 +314,82 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         self::assertSame(['base' => 5, 'size' => -1], $defenderRoll['efficiency'] ?? null);
         self::assertArrayNotHasKey('efficiencyAdjustments', $defenderRoll);
         self::assertArrayNotHasKey('masteryAdjustments', $defenderRoll);
+    }
+
+    /**
+     * Полшага в ближнем бою открывает только карточка с бонусом досягаемости.
+     *
+     * @return void
+     */
+    public function testStrikeHalfStepNeedsLungeReachBonus(): void
+    {
+        $prepared = $this->prepareSingle([[
+            'id' => 1,
+            'ruleCode' => 'sword',
+            'equipped' => true,
+            'quantity' => 1,
+        ]]);
+
+        $without = $this->declareStrike(
+            $prepared,
+            'half-step-swing',
+            $this->strikeAttack($prepared, 'swing', ['base' => 1, 'size' => -1]),
+        );
+        self::assertFalse($without['success'], json_encode($without));
+
+        $with = $this->declareStrike(
+            $prepared,
+            'half-step-lunge',
+            $this->strikeAttack($prepared, 'lunge', ['base' => 1, 'size' => -1]),
+        );
+        self::assertTrue($with['success'], json_encode($with));
+    }
+
+    /**
+     * «Поворот» снимает фланг, стоит ОД и сохраняется в условиях удара.
+     *
+     * @return void
+     */
+    public function testDodgeWithTurnSpendsActionAndKeepsTurnInConditions(): void
+    {
+        $prepared = $this->prepareSingle([[
+            'id' => 1,
+            'ruleCode' => 'sword',
+            'equipped' => true,
+            'quantity' => 1,
+        ]], [
+            'resources' => [['ruleCode' => 'ap', 'current' => 3]],
+        ]);
+        $attack = $this->strikeAttack($prepared, 'swing', ['base' => 0, 'size' => 0]);
+        $attack['conditions']['flank'] = true;
+        self::assertSame(3, $this->apCurrent($prepared['defenderId']));
+        $opened = $this->declareStrike($prepared, 'turn-open', $attack);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $prepared['gameId'],
+            'battleId' => $prepared['battleId'],
+            'idempotencyKey' => 'turn-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'dodge', 'turn' => true],
+                $this->characterFacade()->get($prepared['defenderId'])->getActualVersion(),
+            ),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(1, $this->apCurrent($prepared['defenderId']));
+
+        $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
+        $rows = $mysql->select(
+            'select conditions from game_action_strike where target_id = ? and target_type = ?',
+            [$prepared['defenderId'], 'character'],
+        );
+        self::assertCount(1, $rows);
+        $conditions = json_decode((string) $rows[0]->conditions, true);
+        self::assertIsArray($conditions);
+        self::assertTrue($conditions['turn'] ?? null);
+        self::assertFalse($conditions['flank'] ?? null);
     }
 
     /**
@@ -701,6 +826,36 @@ final class GamePhysicalProfileMysqlTest extends TestCase
                 'action_components' => [],
                 ...$actionFlags,
             ], [], [], 'needs_work')),
+            RuleCommitEntry::put('lunge', new RuleVersionBody('ability', 'Lunge', '', [
+                'type' => 'action',
+                'action_components' => [],
+                'action_effects' => [[
+                    'type' => 'current_action_attack_reach',
+                    'step_fraction' => 0.5,
+                    'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                ]],
+                ...$actionFlags,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('turn', new RuleVersionBody('ability', 'Turn', '', [
+                'type' => 'action',
+                'combat_action' => 'turn',
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'ap',
+                    'amount' => 1,
+                ]],
+                ...$actionFlags,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('block', new RuleVersionBody('ability', 'Block', '', [
+                'type' => 'action',
+                'combat_action' => 'block',
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'ap',
+                    'amount' => 1,
+                ]],
+                ...$actionFlags,
+            ], [], [], 'needs_work')),
             RuleCommitEntry::put('wide-swing', new RuleVersionBody('ability', 'Wide swing', '', [
                 'type' => 'action',
                 'action_components' => [],
@@ -743,6 +898,16 @@ final class GamePhysicalProfileMysqlTest extends TestCase
                 'category' => 'weapon',
                 'proficiency_family_code' => 'melee',
                 'weapon' => ['weapon_profiles' => [['type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]]]]],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('buckler', new RuleVersionBody('item', 'Buckler', '', [
+                'category' => 'shield',
+                'proficiency_family_code' => 'melee',
+                'shield' => [],
+                'block_profile' => [
+                    'efficiency' => ['base' => 3, 'size' => 0],
+                    'defense' => ['base' => 1, 'size' => 0],
+                    'resistances' => [],
+                ],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('dart', new RuleVersionBody('item', 'Dart', '', [
                 'category' => 'weapon',
@@ -1123,17 +1288,18 @@ final class GamePhysicalProfileMysqlTest extends TestCase
      *
      * @param array<int, mixed> $inventory Инвентарь атакующего.
      * @param array<string, mixed> $defenderSheet Дополнение листа защитника.
+     * @param array<int, mixed>|null $defenderInventory Инвентарь защитника; null — меч по умолчанию.
      *
      * @return array{gameId: int, battleId: int, attackerId: int, defenderId: int} Сцена.
      */
-    private function prepareSingle(array $inventory, array $defenderSheet = []): array
+    private function prepareSingle(array $inventory, array $defenderSheet = [], ?array $defenderInventory = null): array
     {
         $world = $this->physicalWorld();
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
         $attackerId = $this->admit($world->getId(), $gameId, 'Hero-' . $gameId, [], [
             'resources' => [['ruleCode' => 'ap', 'current' => 3]],
         ], $inventory);
-        $defenderId = $this->admit($world->getId(), $gameId, 'Guard-' . $gameId, [], $defenderSheet);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Guard-' . $gameId, [], $defenderSheet, $defenderInventory ?? []);
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
         self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
         $battle = $this->startBattle($gameId, [
@@ -1370,6 +1536,36 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             'profileIndex' => 0,
             'ammunitionInventoryId' => $ammunitionInventoryId,
             'conditions' => $this->conditions(),
+        ];
+    }
+
+    /**
+     * Тело ближнего удара.
+     *
+     * @param array{gameId: int, battleId: int, attackerId: int, defenderId: int} $prepared Сцена.
+     * @param string $actionRuleCode Карточка действия.
+     * @param array{base: int, size: int} $distance Дистанция.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function strikeAttack(array $prepared, string $actionRuleCode, array $distance): array
+    {
+        return [
+            'attacker' => ['type' => 'character', 'id' => $prepared['attackerId']],
+            'defender' => ['type' => 'character', 'id' => $prepared['defenderId']],
+            'actionRuleCode' => $actionRuleCode,
+            'itemInventoryId' => 1,
+            'itemRuleCode' => 'sword',
+            'profileType' => 'strike',
+            'profileIndex' => 0,
+            'conditions' => [
+                'distance' => [
+                    'type' => 'ipari',
+                    'value' => ['type' => 'literal', 'value' => $distance],
+                ],
+                'cover' => ['base' => 0, 'size' => 0],
+                'flank' => false,
+            ],
         ];
     }
 

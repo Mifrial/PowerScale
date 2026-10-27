@@ -215,6 +215,7 @@ final class GameProjections implements IGameProjections
                 'type' => $kind,
                 'id' => $targetId,
                 'answered' => $answered,
+                'conditions' => GameStrikeTargetRow::conditions($targetRow),
             ];
             $canRead = $writer || $this->wideAccess->canAnswer(
                 $game,

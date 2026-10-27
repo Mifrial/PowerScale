@@ -77,6 +77,100 @@ final class GameWideStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Условия широкого удара хранятся и отдаются по каждой цели отдельно.
+     *
+     * @return void
+     */
+    public function testWideStrikeKeepsPerTargetConditions(): void
+    {
+        $world = $this->worldWithWeapon();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $characterId = $this->admit($world->getId(), $gameId, 'Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $first = $this->createNpc($gameId, 'Guard');
+        $second = $this->createNpc($gameId, 'Archer');
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-wide-conditions',
+            'participants' => [
+                ['type' => 'character', 'id' => $characterId],
+                ['type' => 'npc', 'id' => $first['npcId']],
+                ['type' => 'npc', 'id' => $second['npcId']],
+            ],
+        ]);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 's-wide-conditions',
+            'expectedVersion' => 1,
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'strike',
+                'code' => 'swing',
+                'actor' => ['type' => 'character', 'id' => $characterId],
+                'context' => [
+                    'strikes' => [
+                        [
+                            'itemInventoryId' => 1,
+                            'itemRuleCode' => 'sword',
+                            'profileType' => 'strike',
+                            'profileIndex' => 0,
+                            'target' => ['type' => 'npc', 'id' => $first['npcId']],
+                            'conditions' => [
+                                'distance' => [
+                                    'type' => 'ipari',
+                                    'value' => ['type' => 'literal', 'value' => ['base' => 0, 'size' => 0]],
+                                ],
+                                'cover' => ['base' => 0, 'size' => 0],
+                                'flank' => true,
+                            ],
+                        ],
+                        [
+                            'itemInventoryId' => 1,
+                            'itemRuleCode' => 'sword',
+                            'profileType' => 'strike',
+                            'profileIndex' => 0,
+                            'target' => ['type' => 'npc', 'id' => $second['npcId']],
+                            'conditions' => [
+                                'distance' => [
+                                    'type' => 'ipari',
+                                    'value' => ['type' => 'literal', 'value' => ['base' => 0, 'size' => 0]],
+                                ],
+                                'cover' => ['base' => 1, 'size' => -1],
+                                'flank' => false,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $view = $this->dispatch('game.getBattleSheets', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+        ]);
+        self::assertTrue($view['success'], json_encode($view));
+        $targets = $view['data']['openWideStrike']['targets'];
+        self::assertTrue($targets[0]['conditions']['flank']);
+        self::assertFalse($targets[1]['conditions']['flank']);
+        self::assertSame(['base' => 1, 'size' => -1], $targets[1]['conditions']['cover']);
+
+        $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
+        $rows = $mysql->select(
+            'select target_id, conditions from game_action_strike order by id',
+        );
+        self::assertCount(2, $rows);
+        $byTarget = [];
+        foreach ($rows as $row) {
+            $byTarget[(int) $row->target_id] = json_decode((string) $row->conditions, true);
+        }
+        self::assertTrue($byTarget[$first['npcId']]['flank']);
+        self::assertFalse($byTarget[$second['npcId']]['flank']);
+    }
+
+    /**
      * Две цели, пустые числа, отказ одной не затирает другую.
      *
      * @return void

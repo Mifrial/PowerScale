@@ -168,8 +168,18 @@ Authoritative-источники:
   `GameStrikeRules::durabilityShave()` читает `current_action_durability_shave`,
   учитывает `scope`, `damage_type_codes` и `short_extra_on_first_one`
   (коммит `d87d961`, тесты `GameStrikeMysqlTest`, `GameStrikeLayersTest`).
-- Дальность, укрытие, falloff и особые правила `throw`/`shoot` —
-  `FRONTEND + BACKEND_MISSING + E2E_MISSING`.
+- Дальность, укрытие, `falloff` и особые правила `throw`/`shoot` —
+  `BACKEND` в принятом срезе: размерная дистанция профиля `{min,max}`,
+  `falloff` как дальнобойность, условия цели `distance`/`cover`/`flank`/`turn`,
+  боеприпасы профиля (`none`/`self`/`item`), штраф уклонения от выстрела
+  `dodge_ranged_penalty` и накопление укрытия в сложности. Хранится в
+  `game_action_strike.conditions`; чат и окно защитника показывают разбор.
+  Frontend отправляет и отображает условия; E2E-сценарий поверх реального
+  HTTP по-прежнему не подтверждён. Доказательства: `GameStrikeConditions`,
+  `GameStrikeRules::distanceMetrics`/`rollDodge`, `GameProjections`,
+  `GamePhysicalProfileMysqlTest`, `GameWideStrikeMysqlTest`
+  (`testWideStrikeKeepsPerTargetConditions`), `GameStrikeConditionsTest`,
+  ревизия 15.
 
 Frontend `AttackDamageService` уже содержит более полную модель: defense и
 resistance layers, durability threshold, `pay_sr`, source collapse,

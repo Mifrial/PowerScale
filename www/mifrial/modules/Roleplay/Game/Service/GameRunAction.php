@@ -477,6 +477,7 @@ final class GameRunAction
                 'blockItemInventoryId' => $defense['blockItemInventoryId'],
                 'blockItemProfileIndex' => $defense['blockItemProfileIndex'],
                 'blockItemRuleCode' => $defense['blockItemRuleCode'],
+                'turn' => $defense['turn'],
             ],
         );
 

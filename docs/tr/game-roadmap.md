@@ -5,7 +5,11 @@
 implementation side-plans `game-plan-22`–`game-plan-27` закрывают части
 расчёта и базовой записи, но не меняют статус G22. `game-plan-28` закрыт для backend Game 28: projection, полный P1 и persistence/delivery acceptance подтверждены. `game-plan-29` принят для backend принятого scope физических
 профилей атаки (`APPROVED`). Cover, координаты и карта, authority
-дальности/falloff и Game 30–33 в статус Game 29 не входят. `game-plan-30`
+дальности/falloff и Game 30–33 в статус Game 29 не входят; при этом
+дальность, `falloff`, укрытие, условия цели и боеприпасы позже закрыты
+отдельным срезом (ревизия 15, `GamePhysicalProfileMysqlTest`,
+`GameWideStrikeMysqlTest`), это не меняет исторический статус плана 29.
+`game-plan-30`
 принят для backend принятого scope immediate consequences (`APPROVED`):
 injury, damage/exhaustion, state hooks, stun/shock/knockout и проверки
 Воли/увечья для игрока и NPC внутри close `1 → 1` и `1 → N`. `game-plan-31`
@@ -330,9 +334,10 @@ Return отменяет незакрытые process этой строки пе�
    `shoot` в границах уже закрытого Game 28: identity профиля и выбранного
    экземпляра, расход бросаемого предмета и боеприпаса, parity персонажа и
    NPC, single/wide, CAS, replay и rollback. Cover, координаты и карта,
-   authority дальности и falloff в принятый scope не входят и не становятся
-   боевым отказом или модификатором. Evidence: `GamePhysicalProfileMysqlTest`
-   13/768; Game 28 strike/wide 26/1608; полный suite ранее 794/11776 с одним
+   authority дальности и falloff на момент принятия Game 29 не входили;
+   позже они закрыты срезом дистанции/боеприпасов (ревизия 15), это не
+   расширяет исторический статус плана 29. Evidence: `GamePhysicalProfileMysqlTest`
+   19/1025; Game 28 strike/wide 83/4165; полный suite ранее 794/11776 с одним
    environment-only Redis skip. Это не project-wide approval и не перевод
    Game 30 в `IMPLEMENTED`.
 3. **`game-plan-30` — immediate consequences (`APPROVED`, backend

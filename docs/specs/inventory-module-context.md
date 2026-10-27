@@ -256,3 +256,17 @@
 | R28 | **Оружейные навыки (~90 из AI.html).** Оружейный навык: работает на оружие с тэгом keyword, требует `min_weapon_mastery` на любой предмет с этим тэгом. Новый тип требования `min_weapon_mastery { keyword_code, min_level }` + расширенный `RequirementEvaluator`. Каталог в отдельном файле `docs/rule/battle/weapon-skills.md` (отдельно от `catalog.md`, т.к. другая структура данных). | 2026-08-17 |
 | R30 | **Импорт оружейных навыков (~92 правила).** Создан `mockWeaponSkillsImport.ts` — парсер `weapon-skills.md` → 92 правила типа `ability`/`skill` с требованиями `min_weapon_mastery`. 15 новых keywords для тегов оружия (claws, hand-unarmed, foot-unarmed, tekko-kagi, longsword, curved-claws, short-blade, urumi, shield-medium, shield-any, horns, saber, flamberge, flexible-blade, halberd). Правила импортированы через spread в `mockDevelopmentImport` (ID rule-700…rule-791, без пересечений с mockItemImport и mockRules). | 2026-08-17 |
 | R29 | **Модификаторы предметов (2026-08-22).** Типы `item_modifier` + `item_modifier_type` (exclusive). Снаряжение — экземпляры qty 1 (моды на строке, экип по id); стекуемые — quantity. Оковка: `weapon`+`staff`. Тип «Материал». Эффективный спек — `applyStack` на лету (не копия в инвентаре); цена `add_gm_per_100g` от веса после ops шага. Таблица качества доспеха — не в этом заходе. | 2026-08-22 |
+
+## 15. Боеприпасы профиля (2026-10-27)
+
+Профиль `strike`/`throw`/`shoot` описывает боеприпас полем `ammunition`:
+
+- `mode: none` — боеприпас не расходуется;
+- `mode: self` — расходуется сам предмет (метание);
+- `mode: item` — расходуется отдельная строка инвентаря с признаками из `keyword_codes`.
+
+Общий признак `projectile` («Снаряд») плюс специфический (`arrow`, `bolt`,
+`bullet`). Боеприпас должен быть экипирован; количество уменьшается на 1,
+строка остаётся при нуле. Старый профиль `shoot` без `ammunition` — отказ,
+а не wildcard. Реализация: `WeaponProfile::getAmmunition`,
+`GameStrikeRules::resolveInventorySpend`, `GamePhysicalProfileMysqlTest`.
