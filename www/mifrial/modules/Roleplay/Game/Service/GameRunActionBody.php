@@ -220,7 +220,7 @@ final class GameRunActionBody
             'profileType',
             'target',
         ];
-        foreach (['ammunitionInventoryId', 'instanceIndex'] as $key) {
+        foreach (['ammunitionInventoryId', 'conditions', 'instanceIndex'] as $key) {
             if (array_key_exists($key, $row)) {
                 $allowed[] = $key;
             }
@@ -233,6 +233,10 @@ final class GameRunActionBody
         $profileIndex = $row['profileIndex'] ?? null;
         $ammunitionInventoryId = $row['ammunitionInventoryId'] ?? null;
         $instanceIndex = $row['instanceIndex'] ?? 0;
+        $conditions = (new GameStrikeConditions())->parse(
+            $row['conditions'] ?? null,
+            $profileType === 'shoot' || $profileType === 'throw',
+        );
         $target = $this->side($row['target'] ?? null);
         if (
             !is_int($itemInventoryId)
@@ -245,6 +249,10 @@ final class GameRunActionBody
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike row');
         }
 
+        if ($conditions['turn'] === true) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike row');
+        }
+
         return [
             'itemInventoryId' => $itemInventoryId,
             'itemRuleCode' => $itemRuleCode,
@@ -253,6 +261,7 @@ final class GameRunActionBody
             'instanceIndex' => $instanceIndex,
             'target' => $target,
             'ammunitionInventoryId' => $ammunitionInventoryId,
+            'conditions' => $conditions,
         ];
     }
 
@@ -313,6 +322,10 @@ final class GameRunActionBody
             $allowed[] = 'target';
         }
 
+        if (array_key_exists('turn', $row)) {
+            $allowed[] = 'turn';
+        }
+
         if (
             array_key_exists('blockItemInventoryId', $row)
             || array_key_exists('blockItemProfileIndex', $row)
@@ -332,12 +345,15 @@ final class GameRunActionBody
         $inventoryId = $row['blockItemInventoryId'] ?? null;
         $profileIndex = $row['blockItemProfileIndex'] ?? null;
         $ruleCode = $row['blockItemRuleCode'] ?? null;
+        $turn = $row['turn'] ?? false;
         $target = array_key_exists('target', $row) ? $this->side($row['target']) : null;
         $block = ($inventoryId === null || is_int($inventoryId))
             && ($profileIndex === null || is_int($profileIndex))
             && ($ruleCode === null || is_string($ruleCode));
         if (
             !is_string($reaction) || $reaction === ''
+            || !is_bool($turn)
+            || ($turn && $reaction === 'ignore')
             || !is_int($expected)
             || !$block
             || ($reaction === 'block' && (!is_int($inventoryId) || !is_int($profileIndex)))
@@ -352,6 +368,7 @@ final class GameRunActionBody
             'blockItemProfileIndex' => $profileIndex,
             'blockItemRuleCode' => $ruleCode,
             'expectedSheetVersion' => $expected,
+            'turn' => $turn,
         ];
     }
 

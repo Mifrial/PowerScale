@@ -54,13 +54,14 @@ final class GameWideStrikeBodyTest extends TestCase
     }
 
     /**
-     * Shoot wide transport сохраняет selected ammunition instance.
+     * Широкая стрельба запрещена.
      *
      * @return void
      */
-    public function testShootRequiresAndKeepsAmmunitionInventoryId(): void
+    public function testShootWideIsRejected(): void
     {
-        $choice = (new GameStrikeBody())->wideAttack([
+        $this->expectException(ActionException::class);
+        (new GameStrikeBody())->wideAttack([
             'attacker' => ['type' => 'character', 'id' => 1],
             'targets' => [
                 ['type' => 'npc', 'id' => 2],
@@ -73,8 +74,6 @@ final class GameWideStrikeBodyTest extends TestCase
             'profileIndex' => 0,
             'ammunitionInventoryId' => 8,
         ]);
-
-        self::assertSame(8, $choice['ammunitionInventoryId']);
     }
 
     /**

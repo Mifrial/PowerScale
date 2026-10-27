@@ -113,6 +113,7 @@ final class GameStrikeSingleClose
             'item_rule_code' => $row['item_rule_code'] ?? null,
             'profile_type' => $row['profile_type'] ?? null,
             'profile_index' => $row['profile_index'] ?? null,
+            'conditions' => GameStrikeTargetRow::conditions($row),
         ]);
         $packets = $sequential ? 1 : max(1, count($strikes));
         $target = $this->rows->defender($row);
@@ -126,6 +127,18 @@ final class GameStrikeSingleClose
         $lastStrike = new GameLastStrikeSnapshot();
         $this->choices->assertReaction($game, $target, $requestChoice);
         $choice = $this->authoritativeChoice($game, $target, $requestChoice);
+        $turn = ($choice['turn'] ?? false) === true;
+        $conditions = is_array($open['conditions'] ?? null)
+            ? $open['conditions']
+            : (new GameStrikeConditions())->defaults();
+        if ($turn && (($conditions['flank'] ?? false) !== true || $choice['reaction'] === 'ignore')) {
+            throw new GameInvalidException('Game strike turn is invalid');
+        }
+
+        if ($turn) {
+            $conditions = (new GameStrikeConditions())->withTurn($conditions, true);
+        }
+
         $targetOpen = $this->rows->targetOpen($open, $target);
         $this->sheets->assertDefenderSheet(
             $game,
@@ -136,14 +149,51 @@ final class GameStrikeSingleClose
         );
 
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $profileType = is_string($open['profile_type'] ?? null) ? $open['profile_type'] : '';
+        $profileIndex = is_int($open['profile_index'] ?? null) ? $open['profile_index'] : 0;
+        $itemInventoryId = is_int($open['item_inventory_id'] ?? null) ? $open['item_inventory_id'] : 0;
+        $itemRuleCode = is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '';
+        $modifier = $this->rules->actionCharacteristicModifier($slice, $actionRuleCode, $profileType, 1);
+        $npcSheet = $attackerKind === 'npc'
+            ? $this->sheets->getNpcSheet($game->getId(), $attackerId)
+            : null;
+        $npcChoices = $attackerKind === 'npc'
+            ? $this->sheets->getNpcChoices($game->getId(), $attackerId)
+            : null;
+        $npcVersion = $attackerKind === 'npc'
+            ? $this->sheets->getNpcVersion($game->getId(), $attackerId)
+            : null;
+        $metrics = $this->rules->distanceMetrics(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+            $itemInventoryId,
+            $attackerKind,
+            $attackerId,
+            $npcSheet,
+            $npcChoices,
+            $npcVersion,
+            $conditions,
+            $modifier,
+            $actionRuleCode,
+        );
         $hitCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
         $pending = $battle->getPendingActionEffects();
         $defenderPending = $pending;
         $reactionRuleCode = $choice['reaction'] === 'ignore'
             ? null
             : $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), $choice['reaction']);
+        $turnRuleCode = $turn
+            ? $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), 'turn')
+            : null;
+        if ($turn && $turnRuleCode === null) {
+            throw new GameInvalidException('Game strike turn action is missing');
+        }
+
         $defenderChoices = [];
-        if ($reactionRuleCode !== null || $choice['reaction'] === 'block') {
+        if ($reactionRuleCode !== null || $choice['reaction'] === 'block' || $turn) {
             $defenderChoices = $this->choices->targetChoices($game, $target);
         }
 
@@ -176,8 +226,24 @@ final class GameStrikeSingleClose
             }
         }
 
+        if ($turnRuleCode !== null) {
+            $turnSpends = $this->rules->resolveReactionResourceSpends(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                'turn',
+                null,
+                '',
+                $defenderChoices,
+                $this->sheets->getTargetSheet($game, $target),
+            );
+            $spends = array_merge($spends, $turnSpends);
+        }
+
         $previousSr = $lastStrike->previousSr($pending, $attackerKind, $attackerId, $targetKey);
         $advantages = [];
+        $flank = ($conditions['flank'] ?? false) === true && !$turn
+            ? new RollAdvantage('flank', -2)
+            : null;
         if ($packets > 1) {
             $advantages[] = new RollAdvantage('multi_attack', -$packets);
         } elseif ($sequential) {
@@ -217,8 +283,11 @@ final class GameStrikeSingleClose
                 $defenderPending,
                 $reactionRuleCode,
                 $slice,
+                $flank === null ? [] : [$flank],
             );
-            $attackerRoll = $this->rules->rerateHit($attackerRoll, $defenderRoll);
+            $attackerRoll = $profileType === 'shoot' || $profileType === 'throw'
+                ? $this->resolution->rerateRangedHit($game, $open, $conditions, $attackerRoll, $defenderRoll, 'dodge')
+                : $this->rules->rerateHit($attackerRoll, $defenderRoll);
         }
 
         if ($choice['reaction'] === 'block') {
@@ -231,6 +300,28 @@ final class GameStrikeSingleClose
                 $defenderPending,
                 $reactionRuleCode,
                 $slice,
+                $flank === null ? [] : [$flank],
+            );
+            if ($profileType === 'shoot' || $profileType === 'throw') {
+                $attackerRoll = $this->resolution->rerateRangedHit(
+                    $game,
+                    $open,
+                    $conditions,
+                    $attackerRoll,
+                    $defenderRoll,
+                    'block',
+                );
+            }
+        }
+
+        if ($choice['reaction'] === 'ignore' && ($profileType === 'shoot' || $profileType === 'throw')) {
+            $attackerRoll = $this->resolution->rerateRangedHit(
+                $game,
+                $open,
+                $conditions,
+                $attackerRoll,
+                null,
+                'ignore',
             );
         }
 
@@ -259,10 +350,14 @@ final class GameStrikeSingleClose
             : $lastStrike->boostSuccess(
                 $slice,
                 $actionRuleCode,
-                $this->resolution->successOf($attackerRoll, $defenderRoll, $choice['reaction']),
+                $profileType === 'shoot' || $profileType === 'throw'
+                    ? $this->resolution->successOfRanged($attackerRoll)
+                    : $this->resolution->successOf($attackerRoll, $defenderRoll, $choice['reaction']),
                 $previousSr,
             );
-        $damage = $autoFail ? $this->amounts->zero() : $this->resolution->damageOf($game, $open, $success);
+        $damage = $autoFail
+            ? $this->amounts->zero()
+            : $this->resolution->damageOf($game, $open, $success, 1, $metrics['drop']);
         $result = $this->closeResult(
             $battle,
             $strikeId,
@@ -291,7 +386,7 @@ final class GameStrikeSingleClose
                 $targetOpen,
                 $this->resolution->resistanceChoice($choice, $result['defenderRoll'] ?? null),
                 $result['success'],
-                $this->resolution->penetrationOf($game, $open, $success),
+                $this->resolution->penetrationOf($game, $open, $success, 1, $metrics['drop']),
                 $durabilityShave,
             );
         $soak = $this->resolution->soakOf($game, $targetOpen, $choice['reaction'], $result['success'], $pending);
@@ -309,7 +404,7 @@ final class GameStrikeSingleClose
         for ($packet = 1; $packet <= $packets; ++$packet) {
             $packetDamage = $autoFail
                 ? $this->amounts->zero()
-                : $this->resolution->damageOf($game, $open, $success, $packet);
+                : $this->resolution->damageOf($game, $open, $success, $packet, $metrics['drop']);
             $packetDamages[] = $packetDamage;
             $packetInjuries[] = $this->amounts->injury(
                 $result['success'] === 0 ? $this->amounts->zero() : $packetDamage,
@@ -401,6 +496,7 @@ final class GameStrikeSingleClose
             'block_item_inventory_id' => $choice['blockItemInventoryId'],
             'block_item_profile_index' => $choice['blockItemProfileIndex'],
             'block_item_rule_code' => $choice['blockItemRuleCode'],
+            'conditions' => $conditions,
         ];
         if ($sequential) {
             $this->actions->answerStrike(is_int($row['id'] ?? null) ? $row['id'] : 0, $answer);

@@ -22,7 +22,8 @@ final class WeaponProfile
      * @param DimensionalNumber $accuracy Точность.
      * @param array<int, ActionCharacteristicBase> $actionCharacteristics Базы действия.
      * @param DistanceValue|null $falloff Дальнобойность.
-     * @param int|null $dodgeBenefit Польза уклонения.
+      * @param int|null $dodgeBenefit Польза уклонения.
+      * @param WeaponAmmunition|null $ammunition Боеприпасы профиля.
      *
      * @return void
      */
@@ -35,6 +36,7 @@ final class WeaponProfile
         private readonly array $actionCharacteristics,
         private readonly ?DistanceValue $falloff,
         private readonly ?int $dodgeBenefit,
+        private readonly ?WeaponAmmunition $ammunition = null,
     ) {
     }
 
@@ -116,5 +118,15 @@ final class WeaponProfile
     public function getDodgeBenefit(): ?int
     {
         return $this->dodgeBenefit;
+    }
+
+    /**
+     * Боеприпасы профиля.
+     *
+     * @return WeaponAmmunition|null Описание или null.
+     */
+    public function getAmmunition(): ?WeaponAmmunition
+    {
+        return $this->ammunition;
     }
 }

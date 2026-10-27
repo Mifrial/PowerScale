@@ -664,6 +664,40 @@ function attackFromOffer(current: CheckOffer): AttackOverview | null {
 const currentAttack = computed(() =>
   offer.value ? attackFromOffer(offer.value) : (resolvedAttackAction.value?.strikes[0]?.profile ?? props.attack),
 );
+
+const ammunitionInventoryId = ref<number | null>(null);
+const ammunitionCandidates = computed(() => {
+  const attack = currentAttack.value;
+  if (!attack || attack.profileType !== 'shoot' || attack.ammunition?.mode !== 'item') return [];
+  const version = versionOf(resolvedAttackerKey.value);
+  if (!version) return [];
+  const ids = attack.ammunition.keyword_codes
+    .map((code) => keywords.value.find((keyword) => keyword.code === code)?.id)
+    .filter((id): id is number => id !== undefined);
+
+  return version.inventory
+    .filter((item) => {
+      if (!item.equipped || item.ruleCode === null || item.quantity < 1) return false;
+      const rule = props.rules.find((entry) => entry.code === item.ruleCode);
+      const itemKeywordIds = rule?.keywordIds ?? [];
+
+      return ids.every((id) => itemKeywordIds.includes(id));
+    })
+    .map((item) => ({
+      ...item,
+      title: props.rules.find((rule) => rule.code === item.ruleCode)?.name ?? item.ruleCode ?? 'Патрон',
+    }));
+});
+
+watch(
+  ammunitionCandidates,
+  (items) => {
+    if (!items.some((item) => item.id === ammunitionInventoryId.value)) {
+      ammunitionInventoryId.value = items[0]?.id ?? null;
+    }
+  },
+  { immediate: true },
+);
 const phpProfileType = computed(
   () =>
     phpWideProjection.value?.profileType ??
@@ -692,6 +726,20 @@ const distanceProposal = computed<DistanceValue | null>(() => {
 
   return value === null ? null : { type: 'ipari', value: { type: 'literal', value: value.value } };
 });
+
+function phpConditions(): Record<string, unknown> {
+  const distance = distanceProposal.value ?? {
+    type: 'ipari',
+    value: { type: 'fixed', value: 0 },
+  };
+
+  return {
+    distance,
+    cover: { base: Math.max(0, Math.trunc(cover.value)), size: 0 },
+    flank: flank.value,
+    turn: false,
+  };
+}
 
 const canEditCover = computed(() => isCompose.value || myTurn.value);
 
@@ -3275,7 +3323,9 @@ function phpWeaponFields() {
     profileType: attack.profileType,
     profileIndex: attack.profileIndex ?? 0,
     instanceIndex: attack.instanceIndex ?? 0,
-    ...(attack.profileType === 'shoot' ? { ammunitionInventoryId: attack.inventoryItemId } : {}),
+    ...(attack.profileType === 'shoot' && ammunitionInventoryId.value !== null
+      ? { ammunitionInventoryId: ammunitionInventoryId.value }
+      : {}),
   };
 }
 
@@ -3309,6 +3359,8 @@ async function phpStrikeAttack() {
           profileType: strike.profile.profileType,
           profileIndex: strike.profile.profileIndex ?? 0,
           instanceIndex: strike.profile.instanceIndex ?? 0,
+          ...(ammunitionInventoryId.value !== null ? { ammunitionInventoryId: ammunitionInventoryId.value } : {}),
+          conditions: phpConditions(),
           target: gamePhpCommandService.participantOf(strike.targetKey),
         })),
       },
@@ -3320,6 +3372,7 @@ async function phpStrikeAttack() {
     attack: {
       ...phpWeaponFields(),
       defender: gamePhpCommandService.participantOf(defender),
+      conditions: phpConditions(),
       chosenAmounts: {},
     },
   };
@@ -3339,6 +3392,7 @@ async function phpDefense() {
     expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[defender] ?? 1,
     defense: {
       reaction: reaction.value,
+      turn: turn.value,
       ...(block ? { blockItemInventoryId: block.inventoryItemId, blockItemProfileIndex: block.profileIndex } : {}),
     },
   };
@@ -3353,7 +3407,10 @@ async function phpWideStrikeAttack() {
     ...phpBattleEnvelope(),
     attack: {
       ...phpWeaponFields(),
-      targets: targets.map((key) => gamePhpCommandService.participantOf(key)),
+      targets: targets.map((key) => ({
+        ...gamePhpCommandService.participantOf(key),
+        conditions: phpConditions(),
+      })),
     },
   };
 }
@@ -3484,6 +3541,7 @@ type PhpSingleAttack = {
   profileIndex: number;
   instanceIndex?: number;
   ammunitionInventoryId?: number;
+  conditions?: Record<string, unknown>;
   chosenAmounts?: Record<string, unknown>;
 };
 
@@ -3497,6 +3555,8 @@ type PhpMultiAttack = {
     profileType: string;
     profileIndex: number;
     instanceIndex?: number;
+    ammunitionInventoryId?: number;
+    conditions?: Record<string, unknown>;
     target: GamePhpParticipant;
   }[];
 };
@@ -3508,6 +3568,7 @@ function phpStrikeRow(row: {
   profileIndex: number;
   instanceIndex?: number;
   ammunitionInventoryId?: number;
+  conditions?: Record<string, unknown>;
   target: GamePhpParticipant;
 }) {
   return {
@@ -3517,6 +3578,7 @@ function phpStrikeRow(row: {
     profileIndex: row.profileIndex,
     instanceIndex: row.instanceIndex ?? 0,
     ...(row.ammunitionInventoryId !== undefined ? { ammunitionInventoryId: row.ammunitionInventoryId } : {}),
+    ...(row.conditions !== undefined ? { conditions: row.conditions } : {}),
     target: row.target,
   };
 }
@@ -3531,6 +3593,7 @@ function phpSingleStrikeEnvelope(attack: {
   profileIndex: number;
   instanceIndex?: number;
   ammunitionInventoryId?: number;
+  conditions?: Record<string, unknown>;
   chosenAmounts?: Record<string, unknown>;
 }) {
   return {
@@ -3555,6 +3618,8 @@ function phpMultiStrikeEnvelope(attack: {
     profileType: string;
     profileIndex: number;
     instanceIndex?: number;
+    ammunitionInventoryId?: number;
+    conditions?: Record<string, unknown>;
     target: GamePhpParticipant;
   }[];
 }) {
@@ -3572,7 +3637,7 @@ function phpMultiStrikeEnvelope(attack: {
 
 function phpWideStrikeEnvelope(attack: {
   attacker: GamePhpParticipant;
-  targets: GamePhpParticipant[];
+  targets: (GamePhpParticipant & { conditions?: Record<string, unknown> })[];
   actionRuleCode: string;
   itemInventoryId: number;
   itemRuleCode: string;
@@ -3594,6 +3659,7 @@ function phpWideStrikeEnvelope(attack: {
         profileIndex: attack.profileIndex,
         instanceIndex: attack.instanceIndex ?? 0,
         ...(attack.ammunitionInventoryId !== undefined ? { ammunitionInventoryId: attack.ammunitionInventoryId } : {}),
+        ...(target.conditions !== undefined ? { conditions: target.conditions } : {}),
         target,
       })),
     },
@@ -4154,6 +4220,19 @@ const canSubmit = computed(() => {
               min-width="110px"
               class="flex-grow-1"
               :disabled="!canEditCover"
+            />
+            <v-select
+              v-if="resolvedProfileType === 'shoot' && ammunitionCandidates.length"
+              v-model="ammunitionInventoryId"
+              :items="ammunitionCandidates"
+              item-title="title"
+              item-value="id"
+              label="Патрон"
+              density="compact"
+              hide-details
+              min-width="150px"
+              class="flex-grow-1"
+              :disabled="!isCompose"
             />
             <v-checkbox
               v-if="!isPreparationAction"

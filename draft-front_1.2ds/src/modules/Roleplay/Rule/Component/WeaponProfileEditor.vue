@@ -64,6 +64,26 @@ function ensureFalloff(profile: WeaponProfile): void {
   }
 }
 
+function ensureAmmunition(profile: WeaponProfile): void {
+  const mode = profile.type === 'shoot' ? 'item' : profile.type === 'throw' ? 'self' : 'none';
+  const codes = profile.ammunition?.keyword_codes ?? (mode === 'item' ? ['arrow'] : []);
+  profile.ammunition = { mode, keyword_codes: mode === 'item' ? codes : [] };
+}
+
+function ammoCodes(): string {
+  return localProfile.value.ammunition?.keyword_codes.join(', ') ?? '';
+}
+
+function setAmmoCodes(value: string): void {
+  localProfile.value.ammunition = {
+    mode: 'item',
+    keyword_codes: value
+      .split(',')
+      .map((code) => code.trim())
+      .filter((code) => code !== ''),
+  };
+}
+
 function setDodgeBenefit(value: number | null): void {
   if (value === null) {
     delete localProfile.value.dodge_benefit;
@@ -87,6 +107,7 @@ watch(
   () => props.modelValue.type,
   (newType) => {
     const profile = localProfile.value;
+    ensureAmmunition(profile);
     if (newType === 'shoot') {
       if (isDefaultDistance(profile.distance.min)) {
         profile.distance.min = distance('ipari', { type: 'fixed', value: 0 });
@@ -198,6 +219,16 @@ watch(
           />
         </div>
       </div>
+    </div>
+
+    <div v-if="localProfile.type === 'shoot'" class="mb-2">
+      <v-text-field
+        :model-value="ammoCodes()"
+        label="Коды патронов через запятую"
+        density="compact"
+        hide-details
+        @update:model-value="setAmmoCodes"
+      />
     </div>
 
     <v-card class="mt-2 pa-3" variant="outlined">

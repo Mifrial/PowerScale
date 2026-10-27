@@ -25,6 +25,7 @@ final class GameStrikeBody
      *     profileType: string,
      *     profileIndex: int,
      *     ammunitionInventoryId?: int,
+     *     conditions: array<string, mixed>,
      *     chosenAmounts: array<string, mixed>
      * } Выбор.
      *
@@ -41,6 +42,10 @@ final class GameStrikeBody
             'profileIndex',
             'profileType',
         ];
+        if (array_key_exists('conditions', $attack)) {
+            $allowed[] = 'conditions';
+        }
+
         if (array_key_exists('chosenAmounts', $attack)) {
             $allowed[] = 'chosenAmounts';
         }
@@ -64,6 +69,14 @@ final class GameStrikeBody
         $ammunitionInventoryId = $attack['ammunitionInventoryId'] ?? null;
         $instanceIndex = $attack['instanceIndex'] ?? 0;
         $chosenAmounts = $attack['chosenAmounts'] ?? [];
+        $conditions = (new GameStrikeConditions())->parse(
+            $attack['conditions'] ?? null,
+            $profileType === 'shoot' || $profileType === 'throw',
+        );
+        if ($conditions['turn'] === true) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: attack conditions');
+        }
+
         $codes = is_string($actionRuleCode) && is_string($itemRuleCode);
         if (
             !is_int($itemInventoryId)
@@ -90,6 +103,7 @@ final class GameStrikeBody
             'profileIndex' => $profileIndex,
             ...($profileType === 'shoot' ? ['ammunitionInventoryId' => $ammunitionInventoryId] : []),
             'instanceIndex' => $instanceIndex,
+            'conditions' => $conditions,
             'chosenAmounts' => $chosenAmounts,
         ];
     }
@@ -122,13 +136,20 @@ final class GameStrikeBody
             $allowed = ['blockItemRuleCode', 'reaction'];
         }
 
+        if (array_key_exists('turn', $defense)) {
+            $allowed[] = 'turn';
+        }
+
         $this->assertKeys($defense, $allowed);
         $reaction = $defense['reaction'] ?? null;
         $blockItemInventoryId = $defense['blockItemInventoryId'] ?? null;
         $blockItemProfileIndex = $defense['blockItemProfileIndex'] ?? null;
         $blockItemRuleCode = $defense['blockItemRuleCode'] ?? null;
+        $turn = $defense['turn'] ?? false;
         if (
             !is_string($reaction)
+            || !is_bool($turn)
+            || ($turn && $reaction === 'ignore')
             || ($blockItemInventoryId !== null && !is_int($blockItemInventoryId))
             || ($blockItemProfileIndex !== null && !is_int($blockItemProfileIndex))
             || ($blockItemRuleCode !== null && !is_string($blockItemRuleCode))
@@ -143,6 +164,7 @@ final class GameStrikeBody
             'blockItemInventoryId' => $blockItemInventoryId,
             'blockItemProfileIndex' => $blockItemProfileIndex,
             'blockItemRuleCode' => $blockItemRuleCode,
+            'turn' => $turn,
         ];
     }
 
@@ -179,8 +201,14 @@ final class GameStrikeBody
         }
 
         $this->assertKeys($attack, $allowed, 'wide strike');
-        $targets = $this->targets($attack['targets'] ?? null);
         $profileType = $attack['profileType'] ?? null;
+        if (is_string($profileType) && ($profileType === 'shoot' || $profileType === 'throw')) {
+            throw new ActionException('GAME_INVALID', 'Wide ranged strike is invalid');
+        }
+
+        $targetRows = $this->targets($attack['targets'] ?? null);
+        $targets = $targetRows['targets'];
+        $conditions = $targetRows['conditions'];
         $profileIndex = $attack['profileIndex'] ?? null;
         $actionRuleCode = $attack['actionRuleCode'] ?? null;
         $itemInventoryId = $attack['itemInventoryId'] ?? null;
@@ -194,12 +222,11 @@ final class GameStrikeBody
             || !is_int($instanceIndex)
             || $instanceIndex < 0
             || !is_string($profileType)
+            || !in_array($profileType, ['strike'], true)
             || !is_int($profileIndex)
             || !$codes
             || !is_array($chosenAmounts)
-            || ($profileType === 'shoot'
-                ? !is_int($ammunitionInventoryId)
-                : $ammunitionInventoryId !== null)
+            || $ammunitionInventoryId !== null
         ) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: attack');
         }
@@ -207,12 +234,12 @@ final class GameStrikeBody
         return [
             'attacker' => $this->side($attack['attacker'] ?? null),
             'targets' => $targets,
+            'conditions' => $conditions,
             'actionRuleCode' => $actionRuleCode,
             'itemInventoryId' => $itemInventoryId,
             'itemRuleCode' => $itemRuleCode,
             'profileType' => $profileType,
             'profileIndex' => $profileIndex,
-            ...($profileType === 'shoot' ? ['ammunitionInventoryId' => $ammunitionInventoryId] : []),
             'instanceIndex' => $instanceIndex,
             'chosenAmounts' => $chosenAmounts,
         ];
@@ -285,6 +312,10 @@ final class GameStrikeBody
             $allowed = ['blockItemRuleCode', 'expectedSheetVersion', 'reaction', 'target'];
         }
 
+        if (array_key_exists('turn', $row)) {
+            $allowed[] = 'turn';
+        }
+
         $this->assertKeys($row, $allowed, 'wide strike');
         $target = $this->side($row['target'] ?? null);
         $reaction = $row['reaction'] ?? null;
@@ -292,11 +323,14 @@ final class GameStrikeBody
         $blockItemProfileIndex = $row['blockItemProfileIndex'] ?? null;
         $blockItemRuleCode = $row['blockItemRuleCode'] ?? null;
         $expectedSheetVersion = $row['expectedSheetVersion'] ?? null;
+        $turn = $row['turn'] ?? false;
         $block = ($blockItemInventoryId === null || is_int($blockItemInventoryId))
             && ($blockItemProfileIndex === null || is_int($blockItemProfileIndex))
             && ($blockItemRuleCode === null || is_string($blockItemRuleCode));
         if (
             !is_string($reaction)
+            || !is_bool($turn)
+            || ($turn && $reaction === 'ignore')
             || !is_int($expectedSheetVersion)
             || !$block
             || ($reaction === 'block'
@@ -315,15 +349,17 @@ final class GameStrikeBody
             'blockItemProfileIndex' => $blockItemProfileIndex,
             'blockItemRuleCode' => $blockItemRuleCode,
             'expectedSheetVersion' => $expectedSheetVersion,
+            'turn' => $turn,
         ];
     }
 
     /**
-     * Не меньше одной разной цели.
+     * Не меньше одной разной цели и их условия.
      *
      * @param mixed $targets Список.
      *
-     * @return list<array{type: string, id: int}> Цели.
+     * @return array{targets: list<array{type: string, id: int}>, conditions: array<string, array<string, mixed>>}
+     *         Цели и условия по ключу.
      *
      * @throws ActionException INVALID_PARAMS.
      */
@@ -334,16 +370,49 @@ final class GameStrikeBody
         }
 
         $sides = [];
+        $conditions = [];
         foreach ($targets as $target) {
-            $side = $this->side($target);
-            if (in_array($side, $sides, true)) {
+            $side = $this->targetSide($target);
+            $key = $side['type'] . ':' . $side['id'];
+            if (isset($conditions[$key])) {
                 throw new ActionException('INVALID_PARAMS', 'Invalid parameter: targets');
             }
 
-            $sides[] = $side;
+            $sides[] = ['type' => $side['type'], 'id' => $side['id']];
+            $conditions[$key] = $side['conditions'];
         }
 
-        return $sides;
+        return ['targets' => $sides, 'conditions' => $conditions];
+    }
+
+    /**
+     * Цель с необязательными условиями.
+     *
+     * @param mixed $target Объект.
+     *
+     * @return array{type: string, id: int, conditions: array<string, mixed>} Цель.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function targetSide(mixed $target): array
+    {
+        if (!is_array($target)) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: target');
+        }
+
+        $allowed = ['id', 'type'];
+        if (array_key_exists('conditions', $target)) {
+            $allowed[] = 'conditions';
+        }
+
+        $this->assertKeys($target, $allowed, 'target');
+        $side = $this->side(['type' => $target['type'] ?? null, 'id' => $target['id'] ?? null]);
+
+        return [
+            'type' => $side['type'],
+            'id' => $side['id'],
+            'conditions' => (new GameStrikeConditions())->parse($target['conditions'] ?? null),
+        ];
     }
 
     /**

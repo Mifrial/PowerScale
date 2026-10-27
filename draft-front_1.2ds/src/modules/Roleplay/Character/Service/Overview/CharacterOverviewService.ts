@@ -1417,6 +1417,7 @@ export class CharacterOverviewService {
       damage: damageValue,
       penetration: penetrationValue,
       dodgeBenefit: profile.dodge_benefit,
+      ammunition: profile.ammunition,
       inventoryItemId,
       instanceIndex,
     };

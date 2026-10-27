@@ -515,6 +515,9 @@ trait GameMysqlFixture
                 ...(array_key_exists('instanceIndex', $attack)
                     ? ['instanceIndex' => $attack['instanceIndex']]
                     : []),
+                ...(array_key_exists('conditions', $attack)
+                    ? ['conditions' => $attack['conditions']]
+                    : []),
             ]],
         ];
         if (array_key_exists('chosenAmounts', $attack)) {
@@ -552,6 +555,9 @@ trait GameMysqlFixture
                     : []),
                 ...(array_key_exists('instanceIndex', $attack)
                     ? ['instanceIndex' => $attack['instanceIndex']]
+                    : []),
+                ...(array_key_exists('conditions', $attack)
+                    ? ['conditions' => $attack['conditions']]
                     : []),
             ];
         }

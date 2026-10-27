@@ -63,6 +63,59 @@ final class GameStrikeOpen
         string $lane,
         string $subject,
     ): array {
+        $attacker = $choice['attacker'] ?? null;
+        $attackerKind = is_array($attacker) ? ($attacker['type'] ?? null) : null;
+        $attackerId = is_array($attacker) ? ($attacker['id'] ?? null) : null;
+        if (!is_string($attackerKind) || !is_int($attackerId)) {
+            throw new GameInvalidException('Game strike attacker is invalid');
+        }
+
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $npcSheet = $attackerKind === 'npc' && is_array($snapshot['sheet']['sheet'] ?? null)
+            ? $snapshot['sheet']['sheet']
+            : null;
+        $npcChoices = $attackerKind === 'npc' && is_array($snapshot['sheet']['choices'] ?? null)
+            ? $snapshot['sheet']['choices']
+            : null;
+        foreach ($targets as $target) {
+            $profileType = $target['profile_type'] ?? null;
+            $profileIndex = $target['profile_index'] ?? null;
+            $itemInventoryId = $target['item_inventory_id'] ?? null;
+            $itemRuleCode = $target['item_rule_code'] ?? null;
+            if (
+                !is_string($profileType)
+                || !is_int($profileIndex)
+                || !is_int($itemInventoryId)
+                || !is_string($itemRuleCode)
+            ) {
+                throw new GameInvalidException('Game strike row is invalid');
+            }
+
+            $this->rules->assertConditions(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+                $itemInventoryId,
+                $attackerKind,
+                $attackerId,
+                $npcSheet,
+                $npcChoices,
+                is_int($snapshot['actualVersion'] ?? null) ? $snapshot['actualVersion'] : null,
+                is_array($target['conditions'] ?? null)
+                    ? $target['conditions']
+                    : (new GameStrikeConditions())->defaults(),
+                $this->rules->actionCharacteristicModifier(
+                    $slice,
+                    is_string($action['action_rule_code'] ?? null) ? $action['action_rule_code'] : '',
+                    $profileType,
+                    1,
+                ),
+                is_string($action['action_rule_code'] ?? null) ? $action['action_rule_code'] : '',
+            );
+        }
+
         $hold = $this->spend->spendAttacker($game, $choice, $battle, $snapshot, $lane, $subject);
         if ($hold['debtHold'] !== null) {
             $saved = $this->battles->replaceTracked(
@@ -355,6 +408,7 @@ final class GameStrikeOpen
                 'profile_index' => $strike['profileIndex'],
                 'target_type' => $strike['target']['type'],
                 'target_id' => $strike['target']['id'],
+                'conditions' => $strike['conditions'] ?? (new GameStrikeConditions())->defaults(),
                 'reaction' => null,
                 'block_item_inventory_id' => null,
                 'block_item_profile_index' => null,
@@ -378,6 +432,8 @@ final class GameStrikeOpen
         $instanceIndex = is_int($choice['instanceIndex'] ?? null) ? $choice['instanceIndex'] : 0;
         $rows = [];
         foreach ($targets as $target) {
+            $key = $target['type'] . ':' . $target['id'];
+            $conditions = $choice['conditions'][$key] ?? $choice['conditions'] ?? null;
             $rows[] = [
                 'instance_index' => $instanceIndex,
                 'item_inventory_id' => $choice['itemInventoryId'],
@@ -386,6 +442,9 @@ final class GameStrikeOpen
                 'profile_index' => $choice['profileIndex'],
                 'target_type' => $target['type'],
                 'target_id' => $target['id'],
+                'conditions' => is_array($conditions)
+                    ? $conditions
+                    : (new GameStrikeConditions())->defaults(),
                 'reaction' => null,
                 'block_item_inventory_id' => null,
                 'block_item_profile_index' => null,

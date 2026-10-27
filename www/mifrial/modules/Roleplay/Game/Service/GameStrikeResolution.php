@@ -130,6 +130,7 @@ final class GameStrikeResolution
      * @param array<string, mixed> $pending Карта ожидания.
      * @param string|null $reactionRuleCode Карточка реакции.
      * @param CharacterRuleSlice $slice Срез.
+     * @param array<int, RollAdvantage> $extraAdvantages Дополнительные помехи защиты.
      *
      * @return array<string, mixed> Roll.
      *
@@ -144,6 +145,7 @@ final class GameStrikeResolution
         array $pending,
         ?string $reactionRuleCode,
         CharacterRuleSlice $slice,
+        array $extraAdvantages = [],
     ): array {
         $kind = $open['defender_kind'] ?? null;
         $id = $open['defender_id'] ?? null;
@@ -162,6 +164,8 @@ final class GameStrikeResolution
         if ($reactionRuleCode !== null) {
             array_push($advantages, ...$this->rules->actionCheckAdvantages($slice, $reactionRuleCode, $hitCode));
         }
+
+        array_push($advantages, ...$extraAdvantages);
 
         return $this->rules->rollDodge(
             $game->getSpaceId(),
@@ -187,6 +191,7 @@ final class GameStrikeResolution
      * @param array<string, mixed> $pending Карта ожидания.
      * @param string|null $reactionRuleCode Карточка реакции.
      * @param CharacterRuleSlice $slice Срез.
+     * @param array<int, RollAdvantage> $extraAdvantages Дополнительные помехи защиты.
      *
      * @return array<string, mixed> Roll.
      *
@@ -202,6 +207,7 @@ final class GameStrikeResolution
         array $pending,
         ?string $reactionRuleCode,
         CharacterRuleSlice $slice,
+        array $extraAdvantages = [],
     ): array {
         $kind = $open['defender_kind'] ?? null;
         $id = $open['defender_id'] ?? null;
@@ -221,6 +227,8 @@ final class GameStrikeResolution
         if ($reactionRuleCode !== null) {
             array_push($advantages, ...$this->rules->actionCheckAdvantages($slice, $reactionRuleCode, $hitCode));
         }
+
+        array_push($advantages, ...$extraAdvantages);
 
         return $this->rules->rollBlock(
             $game->getSpaceId(),
@@ -260,6 +268,104 @@ final class GameStrikeResolution
         return $reaction === 'dodge'
             ? (($autoFail || $defenderWon) ? 0 : max(0, $rating))
             : ($autoFail || $rating <= 0 ? 0 : ($defenderWon ? 1 : $rating));
+    }
+
+    /**
+     * Успех дальнего боя после размерной совместной проверки.
+     *
+     * @param array<string, mixed> $attackerRoll Бросок атаки.
+     *
+     * @return int Успех.
+     *
+     * @throws GameInvalidException Если рейтинг битый.
+     */
+    public function successOfRanged(array $attackerRoll): int
+    {
+        $rating = $attackerRoll['rating'] ?? null;
+        if (!is_int($rating)) {
+            throw new GameInvalidException('Game strike attacker roll is invalid');
+        }
+
+        return $this->rules->isHitAutoFail($attackerRoll['roll']) ? 0 : max(0, $rating);
+    }
+
+    /**
+     * Пересчитывает атаку дальнего боя против успехов защиты, укрытия и полосы.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $open Открытый удар.
+     * @param array<string, mixed> $conditions Условия цели.
+     * @param array<string, mixed> $attackerRoll Бросок атаки.
+     * @param array<string, mixed>|null $defenderRoll Бросок защиты.
+     * @param string $reaction Реакция.
+     *
+     * @return array<string, mixed> Пересчитанный бросок.
+     *
+     * @throws GameInvalidException Если строка или профиль битые.
+     */
+    public function rerateRangedHit(
+        GameRecord $game,
+        array $open,
+        array $conditions,
+        array $attackerRoll,
+        ?array $defenderRoll,
+        string $reaction,
+    ): array {
+        $kind = $open['attacker_kind'] ?? null;
+        $attackerId = $open['attacker_id'] ?? null;
+        $itemRuleCode = $open['item_rule_code'] ?? null;
+        $profileType = $open['profile_type'] ?? null;
+        $profileIndex = $open['profile_index'] ?? null;
+        $inventoryId = $open['item_inventory_id'] ?? null;
+        if (
+            !is_string($kind)
+            || !is_int($attackerId)
+            || !is_string($itemRuleCode)
+            || !is_string($profileType)
+            || !is_int($profileIndex)
+            || !is_int($inventoryId)
+        ) {
+            throw new GameInvalidException('Game strike row is invalid');
+        }
+
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
+        $metrics = $this->rules->distanceMetrics(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+            $inventoryId,
+            $kind,
+            $attackerId,
+            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
+            $conditions,
+            $this->rules->actionCharacteristicModifier($slice, $actionRuleCode, $profileType, 1),
+        );
+
+        $defense = $defenderRoll !== null
+            ? new DimensionalNumber(
+                (int) ($defenderRoll['roll']['base'] ?? 0),
+                (int) ($defenderRoll['roll']['size'] ?? 0),
+            )
+            : new DimensionalNumber(0, -1);
+        if ($profileType === 'shoot' && $reaction === 'dodge') {
+            $defense = $defense->withSize($defense->getSize() - 1);
+        }
+
+        $cover = $conditions['cover'] ?? ['base' => 0, 'size' => 0];
+        $difficulty = $defense
+            ->add(new DimensionalNumber(1, -1))
+            ->add(new DimensionalNumber((int) $cover['base'], (int) $cover['size']));
+        $difficulty = $difficulty->withSize($difficulty->getSize() + $metrics['rangeSize'] - 1);
+
+        return $this->rules->rerateHit($attackerRoll, [
+            'base' => $difficulty->getBase(),
+            'size' => $difficulty->getSize(),
+        ]);
     }
 
     /**

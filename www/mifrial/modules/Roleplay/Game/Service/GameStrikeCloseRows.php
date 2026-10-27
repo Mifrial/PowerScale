@@ -226,6 +226,7 @@ final class GameStrikeCloseRows
             'blockItemProfileIndex' => $profileIndex,
             'blockItemRuleCode' => $ruleCode,
             'expectedSheetVersion' => $expectedSheetVersion,
+            'conditions' => GameStrikeTargetRow::conditions($row),
         ];
     }
 

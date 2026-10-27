@@ -111,6 +111,28 @@ final class GameStrikeSheets
     }
 
     /**
+     * Выборы NPC этой игры.
+     *
+     * @param int $gameId Игра.
+     * @param int $npcId NPC.
+     *
+     * @return array<string, mixed> Выборы.
+     *
+     * @throws GameInvalidException Если снимка нет.
+     * @throws GameNotFoundException Если строки нет.
+     */
+    public function getNpcChoices(int $gameId, int $npcId): array
+    {
+        $npc = $this->npcs->getById($npcId);
+        $choices = $npc->getGameId() === $gameId ? ($npc->getVersion()['choices'] ?? null) : null;
+        if (!is_array($choices)) {
+            throw new GameInvalidException('Game strike npc choices are missing');
+        }
+
+        return $choices;
+    }
+
+    /**
      * Снимок листа персонажа.
      *
      * @param int $characterId Персонаж.

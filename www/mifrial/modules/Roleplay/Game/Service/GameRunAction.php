@@ -502,6 +502,7 @@ final class GameRunAction
             'profileType' => $strike['profileType'],
             'profileIndex' => $strike['profileIndex'],
             'instanceIndex' => $strike['instanceIndex'],
+            'conditions' => $strike['conditions'],
             'chosenAmounts' => $parsed['context']['chosenAmounts'],
         ];
         if ($strike['ammunitionInventoryId'] !== null) {
@@ -531,6 +532,7 @@ final class GameRunAction
             'profileType' => $first['profileType'],
             'profileIndex' => $first['profileIndex'],
             'instanceIndex' => $first['instanceIndex'],
+            'conditions' => $first['conditions'],
             'chosenAmounts' => $parsed['context']['chosenAmounts'],
             'strikes' => $strikes,
         ];
@@ -566,7 +568,11 @@ final class GameRunAction
                 throw new GameInvalidException('Game wide strike item is invalid');
             }
 
-            $targets[] = $strike['target'];
+            $targets[] = [
+                'type' => $strike['target']['type'],
+                'id' => $strike['target']['id'],
+                'conditions' => $strike['conditions'],
+            ];
         }
 
         $attack = [

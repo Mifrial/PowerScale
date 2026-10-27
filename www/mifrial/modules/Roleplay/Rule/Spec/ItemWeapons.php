@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ActionCharacteristicBase;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponAmmunition;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponDamage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponProfile;
@@ -130,7 +131,47 @@ final class ItemWeapons
             self::bases($row),
             $falloff,
             SpecShape::optionalInt($row, 'dodge_benefit'),
+            self::ammunition($row, $type),
         );
+    }
+
+    /**
+     * Боеприпасы профиля.
+     *
+     * @param array<string, mixed> $row Строка.
+     * @param string $type Вид профиля.
+     *
+     * @return WeaponAmmunition Описание.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function ammunition(array $row, string $type): WeaponAmmunition
+    {
+        $document = SpecShape::object($row, 'ammunition');
+        if ($document === null) {
+            if ($type === 'shoot') {
+                throw new RuleSpecShapeException('ammunition');
+            }
+
+            return new WeaponAmmunition($type === 'throw' ? 'self' : 'none', []);
+        }
+
+        $mode = SpecShape::string($document, 'mode');
+        $codes = SpecShape::stringList($document, 'keyword_codes');
+        if (!in_array($mode, ['none', 'self', 'item'], true)) {
+            throw new RuleSpecShapeException('ammunition.mode');
+        }
+
+        $expected = $type === 'strike' ? 'none' : ($type === 'throw' ? 'self' : 'item');
+        if ($mode !== $expected) {
+            throw new RuleSpecShapeException('ammunition.mode');
+        }
+
+        if (($mode === 'item') !== ($codes !== [])) {
+            throw new RuleSpecShapeException('ammunition.keyword_codes');
+        }
+
+        return new WeaponAmmunition($mode, $codes);
     }
 
     /**

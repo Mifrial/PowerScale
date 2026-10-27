@@ -388,6 +388,7 @@ final class ItemModifierOperationItems
             $profile->getActionCharacteristics(),
             $profile->getFalloff(),
             $profile->getDodgeBenefit(),
+            $profile->getAmmunition(),
         );
     }
 

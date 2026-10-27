@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Race;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Spec расы: родитель, цена ОС, характеристики и способности.
@@ -18,6 +19,7 @@ final class RaceSpec implements RuleSpec
      * @param int $costOs Цена ОС.
      * @param array<int, RaceCharacteristic> $characteristics Характеристики.
      * @param array<int, RaceAbilityRef> $abilities Способности.
+     * @param DimensionalNumber|null $movementStep Шаг расы.
      *
      * @return void
      */
@@ -26,6 +28,7 @@ final class RaceSpec implements RuleSpec
         private readonly int $costOs,
         private readonly array $characteristics,
         private readonly array $abilities,
+        private readonly ?DimensionalNumber $movementStep = null,
     ) {
     }
 
@@ -77,5 +80,15 @@ final class RaceSpec implements RuleSpec
     public function getAbilities(): array
     {
         return $this->abilities;
+    }
+
+    /**
+     * Шаг расы. Нет поля — 1 ипари.
+     *
+     * @return DimensionalNumber Шаг.
+     */
+    public function getMovementStep(): DimensionalNumber
+    {
+        return $this->movementStep ?? new DimensionalNumber(1, 0);
     }
 }

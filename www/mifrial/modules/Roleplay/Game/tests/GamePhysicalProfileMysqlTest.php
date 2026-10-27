@@ -119,31 +119,12 @@ final class GamePhysicalProfileMysqlTest extends TestCase
     }
 
     /**
-     * ammunition_requirements: OR между наборами, AND внутри набора.
+     * Один набор кодов: совместимый патрон тратится, чужой и неполный — отказ.
      *
      * @return void
      */
-    public function testAmmunitionRequirementsMatchOrSetsAndRequireAllCodes(): void
+    public function testAmmunitionRequiresOneMatchingEquippedStack(): void
     {
-        $bolt = $this->prepareShoot([[
-            'id' => 1,
-            'ruleCode' => 'bow',
-            'equipped' => true,
-            'quantity' => 1,
-        ], [
-            'id' => 2,
-            'ruleCode' => 'bolt',
-            'equipped' => false,
-            'quantity' => 1,
-        ]]);
-        $boltOpened = $this->declareStrike($bolt, 'or-bolt', $this->shootAttack(
-            $bolt['attackerId'],
-            $bolt['defenderId'],
-            2,
-        ));
-        self::assertTrue($boltOpened['success'], json_encode($boltOpened));
-        $this->assertInventoryQuantity($bolt['attackerId'], 2, 'bolt', 0);
-
         $fire = $this->prepareShoot([[
             'id' => 1,
             'ruleCode' => 'bow',
@@ -152,16 +133,35 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         ], [
             'id' => 2,
             'ruleCode' => 'fire-arrow',
-            'equipped' => false,
+            'equipped' => true,
             'quantity' => 1,
         ]]);
-        $fireOpened = $this->declareStrike($fire, 'or-fire', $this->shootAttack(
+        $fireOpened = $this->declareStrike($fire, 'ammo-fire', $this->shootAttack(
             $fire['attackerId'],
             $fire['defenderId'],
             2,
         ));
         self::assertTrue($fireOpened['success'], json_encode($fireOpened));
         $this->assertInventoryQuantity($fire['attackerId'], 2, 'fire-arrow', 0);
+
+        $bolt = $this->prepareShoot([[
+            'id' => 1,
+            'ruleCode' => 'bow',
+            'equipped' => true,
+            'quantity' => 1,
+        ], [
+            'id' => 2,
+            'ruleCode' => 'bolt',
+            'equipped' => true,
+            'quantity' => 1,
+        ]]);
+        $rejected = $this->declareStrike($bolt, 'ammo-bolt', $this->shootAttack(
+            $bolt['attackerId'],
+            $bolt['defenderId'],
+            2,
+        ));
+        self::assertSame('GAME_INVALID', $rejected['error']['code'] ?? null, json_encode($rejected));
+        $this->assertInventoryQuantity($bolt['attackerId'], 2, 'bolt', 1);
 
         $partial = $this->prepareShoot([[
             'id' => 1,
@@ -171,17 +171,16 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         ], [
             'id' => 2,
             'ruleCode' => 'partial-arrow',
-            'equipped' => false,
+            'equipped' => true,
             'quantity' => 1,
         ]]);
-        $rejected = $this->declareStrike($partial, 'and-fail', $this->shootAttack(
+        $partialRejected = $this->declareStrike($partial, 'ammo-partial', $this->shootAttack(
             $partial['attackerId'],
             $partial['defenderId'],
             2,
         ));
-        self::assertSame('GAME_INVALID', $rejected['error']['code'] ?? null, json_encode($rejected));
+        self::assertSame('GAME_INVALID', $partialRejected['error']['code'] ?? null, json_encode($partialRejected));
         $this->assertInventoryQuantity($partial['attackerId'], 2, 'partial-arrow', 1);
-        self::assertSame(3, $this->apCurrent($partial['attackerId']));
     }
 
     /**
@@ -211,9 +210,9 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         $this->assertInventoryQuantity($incompatible['attackerId'], 2, 'stone', 1);
         self::assertSame(3, $this->apCurrent($incompatible['attackerId']));
 
-        $empty = $this->prepareShoot([[
+        $unequipped = $this->prepareShoot([[
             'id' => 1,
-            'ruleCode' => 'bow-empty',
+            'ruleCode' => 'bow',
             'equipped' => true,
             'quantity' => 1,
         ], [
@@ -222,19 +221,14 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             'equipped' => false,
             'quantity' => 1,
         ]]);
-        $missing = $this->declareStrike($empty, 'empty-req', [
-            'attacker' => ['type' => 'character', 'id' => $empty['attackerId']],
-            'defender' => ['type' => 'character', 'id' => $empty['defenderId']],
-            'actionRuleCode' => 'swing',
-            'itemInventoryId' => 1,
-            'itemRuleCode' => 'bow-empty',
-            'profileType' => 'shoot',
-            'profileIndex' => 0,
-            'ammunitionInventoryId' => 2,
-        ]);
-        self::assertSame('GAME_INVALID', $missing['error']['code'] ?? null, json_encode($missing));
-        $this->assertInventoryQuantity($empty['attackerId'], 2, 'arrow', 1);
-        self::assertSame(3, $this->apCurrent($empty['attackerId']));
+        $unequippedResult = $this->declareStrike($unequipped, 'unequipped-ammo', $this->shootAttack(
+            $unequipped['attackerId'],
+            $unequipped['defenderId'],
+            2,
+        ));
+        self::assertSame('GAME_INVALID', $unequippedResult['error']['code'] ?? null, json_encode($unequippedResult));
+        $this->assertInventoryQuantity($unequipped['attackerId'], 2, 'arrow', 1);
+        self::assertSame(3, $this->apCurrent($unequipped['attackerId']));
     }
 
     /**
@@ -267,6 +261,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             'itemRuleCode' => 'dart',
             'profileType' => 'throw',
             'profileIndex' => 0,
+            'conditions' => $this->conditions(),
         ]);
         self::assertSame('GAME_INVALID', $missingRejected['error']['code'] ?? null, json_encode($missingRejected));
         $this->assertInventoryQuantity($missing['attackerId'], 1, 'dart', 1);
@@ -324,38 +319,38 @@ final class GamePhysicalProfileMysqlTest extends TestCase
     }
 
     /**
-     * Wide throw списывает один item на всю атаку 1→N.
+     * Wide throw запрещён и не тратит предмет.
      *
      * @return void
      */
     public function testWideThrowConsumesOneItemForAllTargets(): void
     {
         $prepared = $this->prepareWideThrow();
-        $opened = $this->declareWide($prepared, 'wide-throw', $this->wideThrowAttack(
+        $rejected = $this->declareWide($prepared, 'wide-throw', $this->wideThrowAttack(
             $prepared['attackerId'],
             $prepared['targetIds'],
         ));
-        self::assertTrue($opened['success'], json_encode($opened));
-        $this->assertInventoryQuantity($prepared['attackerId'], 1, 'dart', 0);
+        self::assertSame('GAME_INVALID', $rejected['error']['code'] ?? null, json_encode($rejected));
+        $this->assertInventoryQuantity($prepared['attackerId'], 1, 'dart', 1);
         self::assertSame(3, $this->apCurrent($prepared['attackerId']));
     }
 
     /**
-     * Wide shoot списывает один боеприпас на всю атаку 1→N.
+     * Wide shoot запрещён и не тратит боеприпас.
      *
      * @return void
      */
     public function testWideShootConsumesOneAmmunitionForAllTargets(): void
     {
         $prepared = $this->prepareWideShoot();
-        $opened = $this->declareWide($prepared, 'wide-shoot', $this->wideShootAttack(
+        $rejected = $this->declareWide($prepared, 'wide-shoot', $this->wideShootAttack(
             $prepared['attackerId'],
             $prepared['targetIds'],
             2,
         ));
-        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertSame('GAME_INVALID', $rejected['error']['code'] ?? null, json_encode($rejected));
         $this->assertInventoryQuantity($prepared['attackerId'], 1, 'bow', 1);
-        $this->assertInventoryQuantity($prepared['attackerId'], 2, 'arrow', 0);
+        $this->assertInventoryQuantity($prepared['attackerId'], 2, 'arrow', 1);
         self::assertSame(3, $this->apCurrent($prepared['attackerId']));
     }
 
@@ -415,12 +410,12 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         ], [
             'id' => 2,
             'ruleCode' => 'arrow',
-            'equipped' => false,
+            'equipped' => true,
             'quantity' => 1,
         ], [
             'id' => 3,
             'ruleCode' => 'fire-arrow',
-            'equipped' => false,
+            'equipped' => true,
             'quantity' => 1,
         ]]);
         $opened = $this->declareStrike($prepared, 'conflict-ammo', $this->shootAttack(
@@ -593,17 +588,23 @@ final class GamePhysicalProfileMysqlTest extends TestCase
                 'category' => 'weapon',
                 'proficiency_family_code' => 'ranged',
                 'weapon' => [
-                    'ammunition_requirements' => [
-                        ['keyword_codes' => ['item', 'projectile', 'arrow']],
-                        ['keyword_codes' => ['item', 'bolt']],
-                    ],
-                    'weapon_profiles' => [['type' => 'shoot', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]], 'falloff' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 5]]]],
+                    'weapon_profiles' => [[
+                        'type' => 'shoot',
+                        'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
+                        'falloff' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 5]],
+                        'ammunition' => ['mode' => 'item', 'keyword_codes' => ['item', 'projectile', 'arrow']],
+                    ]],
                 ],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('bow-empty', new RuleVersionBody('item', 'Empty bow', '', [
                 'category' => 'weapon',
                 'proficiency_family_code' => 'ranged',
-                'weapon' => ['weapon_profiles' => [['type' => 'shoot', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]], 'falloff' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 5]]]]],
+                'weapon' => ['weapon_profiles' => [[
+                    'type' => 'shoot',
+                    'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]],
+                    'falloff' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 5]],
+                    'ammunition' => ['mode' => 'item', 'keyword_codes' => ['item', 'projectile', 'arrow']],
+                ]]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('arrow', new RuleVersionBody('item', 'Arrow', '', [
                 'category' => 'item',
@@ -943,7 +944,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             ], [
                 'id' => 2,
                 'ruleCode' => 'arrow',
-                'equipped' => false,
+                'equipped' => true,
                 'quantity' => 1,
             ]] : $inventory,
         );
@@ -1009,7 +1010,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         ], [
             'id' => 2,
             'ruleCode' => 'arrow',
-            'equipped' => false,
+            'equipped' => true,
             'quantity' => 1,
         ]]);
     }
@@ -1175,6 +1176,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             'itemRuleCode' => 'dart',
             'profileType' => 'throw',
             'profileIndex' => 0,
+            'conditions' => $this->conditions(),
         ];
     }
 
@@ -1198,6 +1200,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             'profileType' => 'shoot',
             'profileIndex' => 0,
             'ammunitionInventoryId' => $ammunitionInventoryId,
+            'conditions' => $this->conditions(),
         ];
     }
 
@@ -1219,6 +1222,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             'itemRuleCode' => 'dart',
             'profileType' => 'throw',
             'profileIndex' => 0,
+            'conditions' => $this->conditions(),
         ];
     }
 
@@ -1242,6 +1246,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
             'profileType' => 'shoot',
             'profileIndex' => 0,
             'ammunitionInventoryId' => $ammunitionInventoryId,
+            'conditions' => $this->conditions(),
         ];
     }
 
@@ -1260,6 +1265,20 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         }
 
         return $targets;
+    }
+
+    /**
+     * Условия дальнего боя для тестов: дистанция 0, без укрытия.
+     *
+     * @return array<string, mixed> Условия.
+     */
+    private function conditions(): array
+    {
+        return [
+            'distance' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]],
+            'cover' => ['base' => 0, 'size' => 0],
+            'flank' => false,
+        ];
     }
 
     /**

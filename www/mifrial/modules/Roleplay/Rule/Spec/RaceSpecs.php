@@ -34,6 +34,7 @@ final class RaceSpecs
             SpecShape::int($document, 'cost_os'),
             self::characteristics($document),
             self::abilities($document),
+            DimensionalNumbers::optional($document, 'movement_step'),
         );
     }
 

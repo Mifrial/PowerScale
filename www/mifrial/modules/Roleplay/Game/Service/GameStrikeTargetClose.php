@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameEconomyConflictException;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -105,7 +106,7 @@ final class GameStrikeTargetClose
             return GameStrikeTargetRow::row($target, $refusalCode, null, null, null);
         }
 
-        $reaction = $this->reactionOf($game, $target, $choice);
+        $reaction = $this->reactionOf($game, $target, $choice, GameStrikeTargetRow::conditions($row));
         if ($reaction['insufficient']) {
             $zero = $this->amounts->view($this->amounts->zero());
 
@@ -132,6 +133,7 @@ final class GameStrikeTargetClose
             $reactionRuleCode,
             $slice,
             $hitCode,
+            GameStrikeTargetRow::conditions($row),
         );
         $slice ??= $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $success = $lastStrike->boostSuccess(
@@ -223,11 +225,12 @@ final class GameStrikeTargetClose
      * @param GameRecord $game Игра.
      * @param array{type: string, id: int} $target Цель.
      * @param array<string, mixed> $choice Защита.
+     * @param array<string, mixed> $conditions Условия цели.
      *
      * @return array{spends: array<int, ResourceSpend>, pending: array<string, mixed>,
      *               slice: CharacterRuleSlice|null, reactionRuleCode: string|null, insufficient: bool}
      */
-    private function reactionOf(GameRecord $game, array $target, array $choice): array
+    private function reactionOf(GameRecord $game, array $target, array $choice, array $conditions): array
     {
         $pending = $this->pendingAfter;
         $spends = $this->spend->getReactionSpends(
@@ -261,6 +264,34 @@ final class GameStrikeTargetClose
             }
         }
 
+        if (($conditions['turn'] ?? false) === true) {
+            if ($slice === null) {
+                throw new GameInvalidException('Game wide strike turn is invalid');
+            }
+
+            $turnCode = $this->rules->reactionRuleCode(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                'turn',
+            );
+            if ($turnCode === null) {
+                throw new GameInvalidException('Game wide strike turn action is missing');
+            }
+
+            $spends = array_merge(
+                $spends,
+                $this->rules->resolveReactionResourceSpends(
+                    $game->getSpaceId(),
+                    $game->getRulesRevision(),
+                    'turn',
+                    null,
+                    '',
+                    $this->choices->targetChoices($game, $target),
+                    $this->sheets->getTargetSheet($game, $target),
+                ),
+            );
+        }
+
         $insufficient = $spends !== [] && !$this->rules->hasSufficientResources(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -289,6 +320,7 @@ final class GameStrikeTargetClose
      * @param string|null $reactionRuleCode Карточка реакции.
      * @param CharacterRuleSlice|null $slice Срез.
      * @param string $hitCode Код проверки.
+     * @param array<string, mixed> $conditions Условия цели.
      *
      * @return array{defenderRoll: array<string, mixed>|null, autoFail: bool, success: int}
      */
@@ -302,10 +334,14 @@ final class GameStrikeTargetClose
         ?string $reactionRuleCode,
         ?CharacterRuleSlice $slice,
         string $hitCode,
+        array $conditions,
     ): array {
         $targetOpen = GameStrikeTargetRow::targetOpen($open, $target);
         $defenderRoll = null;
         $ratedRoll = $attackerRoll;
+        $flank = ($conditions['flank'] ?? false) === true && ($conditions['turn'] ?? false) !== true
+            ? [new RollAdvantage('flank', -2)]
+            : [];
         if ($choice['reaction'] === 'dodge') {
             $defenderRoll = $this->resolution->dodgeRollOf(
                 $game,
@@ -315,6 +351,7 @@ final class GameStrikeTargetClose
                 $pending,
                 $reactionRuleCode,
                 $slice ?? $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+                $flank,
             );
             $ratedRoll = $this->rules->rerateHit($attackerRoll, $defenderRoll);
         }
@@ -329,6 +366,7 @@ final class GameStrikeTargetClose
                 $pending,
                 $reactionRuleCode,
                 $slice ?? $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+                $flank,
             );
         }
 

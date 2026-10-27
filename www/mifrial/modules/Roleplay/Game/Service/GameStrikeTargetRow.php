@@ -46,6 +46,20 @@ final class GameStrikeTargetRow
     }
 
     /**
+     * Условия строки. Нет JSON — дефолты.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return array<string, mixed> Условия.
+     *
+     * @throws GameInvalidException Если JSON битый.
+     */
+    public static function conditions(array $row): array
+    {
+        return (new GameStrikeConditions())->decode($row['conditions'] ?? null);
+    }
+
+    /**
      * Запись цели.
      *
      * @param array{type: string, id: int} $target Цель.

@@ -3,6 +3,12 @@ import type { DistanceRange, DistanceValue } from '@/modules/Roleplay/Rule/Dto/I
 import type { DimensionalFormula } from '@/modules/Roleplay/Rule/Dto/Ability/DimensionalFormula';
 import type { ActionCharacteristicValue } from '@/modules/Roleplay/Rule/Dto/Item/ActionCharacteristicValue';
 
+/** Боеприпасы профиля: ничего, сам предмет или отдельный патрон. */
+export interface WeaponAmmunition {
+  mode: 'none' | 'self' | 'item';
+  keyword_codes: string[];
+}
+
 export interface WeaponProfile {
   type: 'strike' | 'throw' | 'shoot';
   distance: DistanceRange;
@@ -15,4 +21,6 @@ export interface WeaponProfile {
   falloff?: DistanceValue | null;
   /** Польза уклонения: S = Ловкость.modify(dodge_benefit). Нет поля — fallback −3. */
   dodge_benefit?: number;
+  /** Боеприпасы профиля. */
+  ammunition?: WeaponAmmunition;
 }

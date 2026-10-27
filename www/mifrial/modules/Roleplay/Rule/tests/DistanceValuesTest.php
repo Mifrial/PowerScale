@@ -226,12 +226,19 @@ final class DistanceValuesTest extends TestCase
      */
     private function weapon(array $profile): array
     {
+        $profile = array_merge([
+            'type' => 'shoot',
+            'accuracy' => ['base' => 3, 'size' => 0],
+        ], $profile);
+        if (!isset($profile['ammunition'])) {
+            $profile['ammunition'] = $profile['type'] === 'shoot'
+                ? ['mode' => 'item', 'keyword_codes' => ['arrow']]
+                : ['mode' => $profile['type'] === 'throw' ? 'self' : 'none', 'keyword_codes' => []];
+        }
+
         return [
             'weapon' => [
-                'weapon_profiles' => [array_merge([
-                    'type' => 'shoot',
-                    'accuracy' => ['base' => 3, 'size' => 0],
-                ], $profile)],
+                'weapon_profiles' => [$profile],
             ],
         ];
     }

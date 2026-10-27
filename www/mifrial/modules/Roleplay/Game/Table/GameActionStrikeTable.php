@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Game\Table;
 use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\IntField;
+use Mifrial\Core\SmartTable\Field\JsonField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
@@ -47,6 +48,7 @@ final class GameActionStrikeTable extends SmartTableDefinition
             new StringField('item_rule_code', FieldSettings::fromOptions(['required' => true]), 255),
             new StringField('profile_type', FieldSettings::fromOptions(['required' => true]), 32),
             new IntField('profile_index', FieldSettings::fromOptions(['required' => true]), 0, null),
+            new JsonField('conditions', FieldSettings::fromOptions([])),
             new StringField('target_type', FieldSettings::fromOptions(['required' => true]), 32),
             new IntField('target_id', FieldSettings::fromOptions(['required' => true]), 1, null),
             new StringField('reaction', FieldSettings::fromOptions([]), 32),

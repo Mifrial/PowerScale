@@ -104,18 +104,30 @@ final class GameStrikeWideClose
                 throw new GameInvalidException('Game wide strike target row is invalid');
             }
 
+            $conditions = GameStrikeTargetRow::conditions($rows[$index]);
+            $turn = ($choice['turn'] ?? false) === true;
+            if ($turn && (($conditions['flank'] ?? false) !== true || $choice['reaction'] === 'ignore')) {
+                throw new GameInvalidException('Game wide strike turn is invalid');
+            }
+
+            if ($turn) {
+                $conditions = (new GameStrikeConditions())->withTurn($conditions, true);
+            }
+
             $this->actions->answerStrike($targetId, [
                 'reaction' => $choice['reaction'],
                 'block_item_inventory_id' => $choice['blockItemInventoryId'],
                 'block_item_profile_index' => $choice['blockItemProfileIndex'],
                 'block_item_rule_code' => $choice['blockItemRuleCode'],
                 'expected_sheet_version' => $choice['expectedSheetVersion'],
+                'conditions' => $conditions,
             ]);
             $rows[$index]['reaction'] = $choice['reaction'];
             $rows[$index]['block_item_inventory_id'] = $choice['blockItemInventoryId'];
             $rows[$index]['block_item_profile_index'] = $choice['blockItemProfileIndex'];
             $rows[$index]['block_item_rule_code'] = $choice['blockItemRuleCode'];
             $rows[$index]['expected_sheet_version'] = $choice['expectedSheetVersion'];
+            $rows[$index]['conditions'] = $conditions;
         }
 
         $pendingTargets = $this->rows->pendingTargets($rows);

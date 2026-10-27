@@ -89,6 +89,9 @@ final class GameStrikeBodyTest extends TestCase
             'profileType' => 'shoot',
             'profileIndex' => 0,
             'ammunitionInventoryId' => 8,
+            'conditions' => [
+                'distance' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 1]],
+            ],
         ]);
 
         self::assertSame(8, $choice['ammunitionInventoryId']);

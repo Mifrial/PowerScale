@@ -129,6 +129,7 @@ export class ItemSpecService {
         modifier: [{ delta: 0, source_code: null, source_label: null }],
       },
       accuracy: { base: 3, size: 0 },
+      ammunition: { mode: 'none', keyword_codes: [] },
     });
   }
 
