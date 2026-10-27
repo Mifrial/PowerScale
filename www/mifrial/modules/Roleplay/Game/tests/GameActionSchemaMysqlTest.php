@@ -8,6 +8,7 @@ use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Setup\AlignGameActionColumnsStep;
+use Mifrial\Roleplay\Game\Setup\AlignGameActionStrikeColumnsStep;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
 use PHPUnit\Framework\TestCase;
 
@@ -79,6 +80,25 @@ final class GameActionSchemaMysqlTest extends TestCase
             ['strike', 1, $sessionId, 'npc', 1, 'swing', 1],
         );
         self::assertSame(1, (int) $mysql->select('SELECT COUNT(*) AS c FROM game_action')[0]->c);
+    }
+
+    /**
+     * Шаг возвращает conditions в старую game_action_strike.
+     *
+     * @return void
+     */
+    public function testAlignAddsConditionsToStrikeTable(): void
+    {
+        $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
+        $mysql->statement('ALTER TABLE game_action_strike DROP COLUMN conditions');
+
+        (new AlignGameActionStrikeColumnsStep($this->smartTableGateway()))->run();
+
+        $columns = array_map(
+            static fn (object $row): string => (string) $row->Field,
+            $mysql->select('SHOW COLUMNS FROM game_action_strike'),
+        );
+        self::assertContains('conditions', $columns);
     }
 
     /**
