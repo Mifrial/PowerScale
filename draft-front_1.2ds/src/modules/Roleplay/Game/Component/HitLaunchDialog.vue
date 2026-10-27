@@ -229,6 +229,7 @@ const phpWideChoices = ref<
     reaction: HitDefenseReaction;
     blockItemInventoryId?: number;
     blockItemProfileIndex?: number;
+    turn?: boolean;
   }[]
 >([]);
 const coveringAdv = ref(0);
@@ -1167,18 +1168,23 @@ const reactionCostLimit = computed(
     resolvedSelectedAction.value?.odCost ??
     DEFAULT_ATTACK_AP,
 );
+const availableDefenseAp = computed(() => Math.max(0, defenderAp.value - reservedDefenseOd.value));
+const availableDefenseOd = computed(() => Math.min(availableDefenseAp.value, reactionCostLimit.value));
+const turnOdCost = computed(() => turnAbility.value?.odCost ?? 0);
 
-const dodgeAffordable = computed(() => {
-  const extra = flank.value && turn.value ? turnAbility.value.odCost : 0;
-  const available = Math.min(Math.max(0, defenderAp.value - reservedDefenseOd.value), reactionCostLimit.value);
+const dodgeAffordable = computed(() => (dodgeAction.value?.odCost ?? 1) <= availableDefenseOd.value);
+const blockAffordable = computed(() => (blockAction.value?.odCost ?? 2) <= availableDefenseOd.value);
+// Поворот — сопутствующее движение к уже выбранной реакции: он не входит
+// в предел стоимости реакции, но требует своих ОД и не дороже реакции.
+const turnAffordable = computed(() => {
+  if (!flank.value || turnOdCost.value <= 0) return false;
+  if (reaction.value === null || reaction.value === 'ignore') return false;
+  const reactionOd = defenseOdCost(reaction.value, false, props.rules);
 
-  return (dodgeAction.value?.odCost ?? 1) + extra <= available;
+  return turnOdCost.value <= reactionOd && reactionOd + turnOdCost.value <= availableDefenseAp.value;
 });
-const blockAffordable = computed(() => {
-  const extra = flank.value && turn.value ? turnAbility.value.odCost : 0;
-  const available = Math.min(Math.max(0, defenderAp.value - reservedDefenseOd.value), reactionCostLimit.value);
-
-  return (blockAction.value?.odCost ?? 2) + extra <= available;
+watch(turnAffordable, (affordable) => {
+  if (!affordable) turn.value = false;
 });
 const defenderCommitted = computed(() => {
   const key = opponentKey.value;
@@ -3629,7 +3635,7 @@ async function phpDefense() {
     expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[defender] ?? 1,
     defense: {
       reaction: reaction.value,
-      turn: turn.value,
+      turn: Boolean(flank.value && turn.value && reaction.value !== 'ignore'),
       ...(block ? { blockItemInventoryId: block.inventoryItemId, blockItemProfileIndex: block.profileIndex } : {}),
     },
   };
@@ -3693,6 +3699,7 @@ function syncPhpWideTargets(): void {
     opponentKey.value = first ?? null;
     reaction.value = null;
     blockItemRuleCode.value = null;
+    turn.value = false;
   }
   if (opponentKey.value) applyPhpConditions(wideTargetConditionsOf(opponentKey.value));
 }
@@ -3723,6 +3730,7 @@ async function phpWideDefense() {
         return {
           target: { type: targetType, id: target.id },
           reaction: choice.reaction,
+          ...(choice.turn === true ? { turn: true } : {}),
           expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
           ...(choice.reaction === 'block'
             ? {
@@ -3745,6 +3753,7 @@ function rememberPhpWideChoice(): boolean {
   const next = [...phpWideChoices.value];
   next[index] = {
     reaction: chosen,
+    ...(chosen !== 'ignore' && turn.value && flank.value ? { turn: true } : {}),
     ...(chosen === 'block' ? phpBlockFor(current) : {}),
   };
   phpWideChoices.value = next;
@@ -3753,6 +3762,7 @@ function rememberPhpWideChoice(): boolean {
   opponentKey.value = following;
   reaction.value = null;
   blockItemRuleCode.value = null;
+  turn.value = false;
 
   return false;
 }
@@ -4653,10 +4663,11 @@ const canSubmit = computed(() => {
             <v-checkbox
               v-if="flank && reaction !== 'ignore'"
               v-model="turn"
-              :label="`Поворот · ${turnAbility.odCost} ОД`"
+              :label="`Поворот · ${turnAbility.odCost} ОД — снять фланг`"
               density="compact"
               hide-details
               class="hit-check"
+              :disabled="!turnAffordable"
             />
             <v-select
               v-if="reaction === 'block'"

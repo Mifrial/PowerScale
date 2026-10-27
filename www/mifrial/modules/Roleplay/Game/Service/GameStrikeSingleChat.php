@@ -80,11 +80,17 @@ final class GameStrikeSingleChat
             $narrative .= ' Тот не реагирует.';
         } else {
             $reactionCode = $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), $reaction);
+            $turn = (GameStrikeTargetRow::conditions($open)['turn'] ?? false) === true;
+            $turnCode = $turn
+                ? $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), 'turn')
+                : null;
             $narrative .= ' ' . $this->chat->getReactionBit(
                 'Тот',
                 $reaction,
                 $reactionCode,
                 $this->spend->getActionAp($slice, $reactionCode ?? ''),
+                $turn,
+                $this->spend->getActionAp($slice, $turnCode ?? ''),
             ) . '!';
         }
 

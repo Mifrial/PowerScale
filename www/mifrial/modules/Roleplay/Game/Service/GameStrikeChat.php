@@ -272,18 +272,28 @@ final class GameStrikeChat
      * @param string $reaction Реакция.
      * @param string|null $reactionCode Код карточки.
      * @param int $actionAp Стоимость.
+     * @param bool $turn Поворот вместе с реакцией.
+     * @param int $turnAp Стоимость поворота.
      *
      * @return string Текст.
      */
-    public function getReactionBit(string $name, string $reaction, ?string $reactionCode, int $actionAp): string
-    {
+    public function getReactionBit(
+        string $name,
+        string $reaction,
+        ?string $reactionCode,
+        int $actionAp,
+        bool $turn = false,
+        int $turnAp = 0,
+    ): string {
         if ($reaction === 'ignore') {
             return $name . ' не реагирует';
         }
 
         $token = $reactionCode !== null ? '[[rule:' . $reactionCode . ']]' : $reaction;
+        $totalAp = $actionAp + ($turn ? $turnAp : 0);
+        $suffix = $turn ? ' с [[rule:turn]]' : '';
 
-        return $name . ' пытается совершить ' . $token . ' за ' . $actionAp . 'ОД';
+        return $name . ' пытается совершить ' . $token . ' за ' . $totalAp . 'ОД' . $suffix;
     }
 
     /**

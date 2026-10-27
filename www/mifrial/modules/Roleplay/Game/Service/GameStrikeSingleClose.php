@@ -469,6 +469,7 @@ final class GameStrikeSingleClose
                     ),
                     $spends,
                 ));
+        $targetOpen['conditions'] = $conditions;
         $this->chat->post(
             $game,
             $battle,

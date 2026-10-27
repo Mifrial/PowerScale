@@ -379,6 +379,7 @@ final class GamePhysicalProfileMysqlTest extends TestCase
 
         self::assertTrue($closed['success'], json_encode($closed));
         self::assertSame(1, $this->apCurrent($prepared['defenderId']));
+        self::assertSame([], $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? null);
 
         $mysql = PenetrationMutationCasProbe::connect($this->gameApplication());
         $rows = $mysql->select(
@@ -390,6 +391,43 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         self::assertIsArray($conditions);
         self::assertTrue($conditions['turn'] ?? null);
         self::assertFalse($conditions['flank'] ?? null);
+    }
+
+    /**
+     * Фланговая помеха приходит в карточку броска с источником.
+     *
+     * @return void
+     */
+    public function testFlankDodgeShowsAdvantageSource(): void
+    {
+        $prepared = $this->prepareSingle([[
+            'id' => 1,
+            'ruleCode' => 'sword',
+            'equipped' => true,
+            'quantity' => 1,
+        ]], [
+            'resources' => [['ruleCode' => 'ap', 'current' => 3]],
+        ]);
+        $attack = $this->strikeAttack($prepared, 'swing', ['base' => 0, 'size' => 0]);
+        $attack['conditions']['flank'] = true;
+        $opened = $this->declareStrike($prepared, 'flank-open', $attack);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $prepared['gameId'],
+            'battleId' => $prepared['battleId'],
+            'idempotencyKey' => 'flank-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'dodge'],
+                $this->characterFacade()->get($prepared['defenderId'])->getActualVersion(),
+            ),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        $advantages = $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [];
+        self::assertSame('flank', $advantages[0]['source_code'] ?? null);
+        self::assertSame(-2, $advantages[0]['delta'] ?? null);
     }
 
     /**

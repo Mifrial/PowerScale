@@ -468,6 +468,13 @@ final class GameCheckRoll
             'successes' => $rolled->getSuccesses(),
             'droppedRolls' => $rolled->getDroppedRolls(),
             'dieFaces' => $rolled->getSpec()->getDieFaces(),
+            'advantages' => array_map(
+                static fn (RollAdvantage $advantage): array => [
+                    'source_code' => $advantage->getSourceCode(),
+                    'delta' => $advantage->getDelta(),
+                ],
+                $rolled->getSpec()->getAdvantages(),
+            ),
             'min_success_size' => $minimum?->getSize(),
         ];
     }

@@ -4,6 +4,7 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import type { RangedHitDifficultyBreakdown } from '@/modules/Roleplay/Game/Dto/DiceRollCheckOutcome';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
+import { FLANK_DEFENSE_LABEL } from '@/modules/Roleplay/Game/Constant/Combat/FLANK_DEFENSE_LABEL';
 
 /** Вложение type=roll из PHP-проверки удара/воли: {roll, difficulty, success, rating}. */
 export class PhpChatRollService {
@@ -38,6 +39,11 @@ export class PhpChatRollService {
     const actorKey = typeof row.actorKey === 'string' ? (row.actorKey as CombatEntityKey) : undefined;
     const masteryAdjustments = this.adjustmentsOf(row.masteryAdjustments);
     const efficiencyAdjustments = this.adjustmentsOf(row.efficiencyAdjustments);
+    const advantages = this.adjustmentsOf(row.advantages).map((entry) =>
+      entry.source_code === 'flank' && !entry.source_label
+        ? { ...entry, source_label: FLANK_DEFENSE_LABEL }
+        : entry,
+    );
     const efficiency = this.pair(row.efficiency);
     const rangedHit = this.rangedHitOf(row.ranged_hit);
 
@@ -47,7 +53,7 @@ export class PhpChatRollService {
         dieFaces,
         efficiency: efficiency?.base ?? 0,
         ...(efficiency ? { efficiencySize: efficiency.size } : {}),
-        advantages: [],
+        advantages,
         dieSize: thrown.size,
         ...(typeof row.poolSize === 'number' ? { poolSize: row.poolSize } : {}),
         ...(label ? { label } : {}),
