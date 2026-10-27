@@ -288,6 +288,7 @@ final class GameBattleInitiatives
                 'droppedRolls',
                 'dieFaces',
                 'efficiency',
+                'advantages',
                 'min_success_size',
                 'label',
             ];
