@@ -996,7 +996,13 @@ async function toggleEquipped(item: InventoryItemOverview): Promise<void> {
   if (!model.value || !model.value.canEdit) return;
   error.value = null;
   try {
-    await getGameApi().setCombatItemEquipped(props.gameId, model.value.entityKey, item.id, !item.equipped);
+    await gameManualSheetClient.apply(
+      getGameApi(),
+      props.gameId,
+      model.value.entityKey,
+      'setEquipped',
+      gameManualSheetClient.equippedDetails(item.id, !item.equipped),
+    );
     notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить экипировку';
@@ -1007,7 +1013,13 @@ async function setOccupyHands(itemId: number, occupyHands: number): Promise<void
   if (!model.value || !model.value.canEdit) return;
   error.value = null;
   try {
-    await getGameApi().setCombatItemOccupyHands(props.gameId, model.value.entityKey, itemId, occupyHands);
+    await gameManualSheetClient.apply(
+      getGameApi(),
+      props.gameId,
+      model.value.entityKey,
+      'setOccupyHands',
+      gameManualSheetClient.occupyHandsDetails(itemId, occupyHands),
+    );
     notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить занятость рук';

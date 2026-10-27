@@ -34,4 +34,37 @@ describe('gameManualSheetClient', () => {
       value: 4,
     });
   });
+
+  it('шлёт setEquipped и setOccupyHands по id строки', async () => {
+    gamePhpBattleContext.clear();
+    gamePhpBattleContext.rememberSheet('npc:5', 3);
+    const manualSheet = vi.fn(async () => ({ actualVersion: 4 }));
+    const api = { manualSheet } as unknown as IGameApi;
+
+    await gameManualSheetClient.apply(api, 2, 'npc:5', 'setEquipped', gameManualSheetClient.equippedDetails(7, true));
+    await gameManualSheetClient.apply(
+      api,
+      2,
+      'npc:5',
+      'setOccupyHands',
+      gameManualSheetClient.occupyHandsDetails(7, 2),
+    );
+
+    expect(manualSheet).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        operation: 'setEquipped',
+        details: { inventoryId: 7, equipped: true },
+        expectedSheetVersion: 3,
+      }),
+    );
+    expect(manualSheet).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        operation: 'setOccupyHands',
+        details: { inventoryId: 7, occupyHands: 2 },
+        expectedSheetVersion: 4,
+      }),
+    );
+  });
 });

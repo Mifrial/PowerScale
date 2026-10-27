@@ -32,6 +32,8 @@ final class GameManualSheetOperations
             'addState' => [$this->putState($details, $slice)],
             'patchState' => [$this->patchState($details, $slice)],
             'removeState' => [$this->removeState($details)],
+            'setEquipped' => [$this->equipped($details)],
+            'setOccupyHands' => [$this->occupyHands($details)],
             default => throw new GameInvalidException('Game manual sheet action is invalid'),
         };
     }
@@ -67,7 +69,21 @@ final class GameManualSheetOperations
                 }
             }
 
-            return $this->about($subjectName, 'Задаёт ' . $this->ruleName($slice, $code) . ': ' . $this->label($before) . ' → ' . $this->label($after) . '.');
+            return $this->about(
+                $subjectName,
+                'Задаёт ' . $this->ruleName($slice, $code) . ': '
+                . $this->label($before) . ' → ' . $this->label($after) . '.',
+            );
+        }
+
+        if ($operation === 'setEquipped') {
+            $equipped = ($details['equipped'] ?? false) === true;
+
+            return $this->about($subjectName, $equipped ? 'Экипирует предмет.' : 'Снимает предмет.');
+        }
+
+        if ($operation === 'setOccupyHands') {
+            return $this->about($subjectName, 'Меняет занятость рук предмета.');
         }
 
         $code = is_string($details['stateRuleCode'] ?? null)
@@ -125,6 +141,54 @@ final class GameManualSheetOperations
             'kind' => 'setResourceCurrent',
             'resourceCode' => $code,
             'current' => $this->nativeCurrent($details['current'], $spec),
+        ];
+    }
+
+    /**
+     * Операция setEquipped.
+     *
+     * @param array<string, mixed> $details Поля.
+     *
+     * @return array<string, mixed> Операция.
+     *
+     * @throws GameInvalidException Если форма.
+     */
+    private function equipped(array $details): array
+    {
+        $inventoryId = $details['inventoryId'] ?? null;
+        $equipped = $details['equipped'] ?? null;
+        if (!is_int($inventoryId) || $inventoryId < 1 || !is_bool($equipped)) {
+            throw new GameInvalidException('Game manual sheet action is invalid');
+        }
+
+        return [
+            'kind' => 'setInventoryEquipped',
+            'inventoryId' => $inventoryId,
+            'equipped' => $equipped,
+        ];
+    }
+
+    /**
+     * Операция setOccupyHands.
+     *
+     * @param array<string, mixed> $details Поля.
+     *
+     * @return array<string, mixed> Операция.
+     *
+     * @throws GameInvalidException Если форма.
+     */
+    private function occupyHands(array $details): array
+    {
+        $inventoryId = $details['inventoryId'] ?? null;
+        $occupyHands = $details['occupyHands'] ?? null;
+        if (!is_int($inventoryId) || $inventoryId < 1 || !is_int($occupyHands) || $occupyHands < 0) {
+            throw new GameInvalidException('Game manual sheet action is invalid');
+        }
+
+        return [
+            'kind' => 'setInventoryOccupyHands',
+            'inventoryId' => $inventoryId,
+            'occupyHands' => $occupyHands,
         ];
     }
 

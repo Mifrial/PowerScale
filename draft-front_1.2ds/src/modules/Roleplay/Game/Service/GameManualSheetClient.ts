@@ -66,4 +66,12 @@ export class GameManualSheetClient {
 
     return { stateRuleCode: state.stateRuleCode, id: state.id };
   }
+
+  equippedDetails(inventoryId: number, equipped: boolean): Record<string, unknown> {
+    return { inventoryId, equipped };
+  }
+
+  occupyHandsDetails(inventoryId: number, occupyHands: number): Record<string, unknown> {
+    return { inventoryId, occupyHands };
+  }
 }

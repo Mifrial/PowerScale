@@ -92,6 +92,37 @@ final class GameManualSheetMysqlTest extends TestCase
     }
 
     /**
+     * setEquipped и setOccupyHands правят строку инвентаря.
+     *
+     * @return void
+     */
+    public function testSetInventoryEquippedAndOccupyHands(): void
+    {
+        $scene = $this->scene();
+        $equipped = $this->dispatch('game.manualSheet', [
+            'gameId' => $scene['gameId'],
+            'idempotencyKey' => 'equip-1',
+            'operation' => 'setEquipped',
+            'target' => ['kind' => 'character', 'id' => $scene['hero']],
+            'expectedSheetVersion' => $scene['sheetVersion'],
+            'details' => ['inventoryId' => 1, 'equipped' => true],
+        ]);
+        self::assertTrue($equipped['success'], json_encode($equipped));
+        self::assertTrue($this->characterFacade()->get($scene['hero'])->getChoices()['inventory'][0]['equipped']);
+
+        $occupied = $this->dispatch('game.manualSheet', [
+            'gameId' => $scene['gameId'],
+            'idempotencyKey' => 'hands-1',
+            'operation' => 'setOccupyHands',
+            'target' => ['kind' => 'character', 'id' => $scene['hero']],
+            'expectedSheetVersion' => $equipped['data']['actualVersion'],
+            'details' => ['inventoryId' => 1, 'occupyHands' => 2],
+        ]);
+        self::assertTrue($occupied['success'], json_encode($occupied));
+        self::assertSame(2, $this->characterFacade()->get($scene['hero'])->getChoices()['inventory'][0]['occupyHands']);
+    }
+
+    /**
      * Игрок не правит NPC.
      *
      * @return void
@@ -140,6 +171,11 @@ final class GameManualSheetMysqlTest extends TestCase
             RuleCommitEntry::put('mark', new RuleVersionBody('state', 'Mark', '', [
                 'value_type' => 'flag',
                 'aggregation' => 'independent',
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('sword', new RuleVersionBody('item', 'Sword', '', [
+                'category' => 'equipment',
+                'cost_gm' => 1,
+                'weight' => ['base' => 1, 'size' => 0],
             ], [], [], 'needs_work')),
         ]);
         $gameId = $this->gameFacade()->add(NewGame::fromNormalized([
@@ -206,7 +242,7 @@ final class GameManualSheetMysqlTest extends TestCase
                 'name' => 'Hero',
                 'raceCode' => 'human',
                 'abilities' => [],
-                'inventory' => [],
+                'inventory' => [['id' => 1, 'ruleCode' => 'sword', 'quantity' => 1, 'equipped' => false]],
                 'characteristicPurchases' => [['characteristicCode' => 'strength', 'cost' => 2]],
                 'customRules' => [],
                 'money' => 0,

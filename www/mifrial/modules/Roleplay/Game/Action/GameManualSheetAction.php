@@ -9,7 +9,7 @@ use Mifrial\Roleplay\Game\Dto\Action\GameManualSheetInput;
 use Mifrial\Roleplay\Game\Service\GameManualSheetHttp;
 
 /**
- * Ручная правка ресурса или состояния.
+ * Ручная правка ресурса, состояния или инвентаря.
  */
 final class GameManualSheetAction implements IActionHandler
 {

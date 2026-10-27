@@ -255,6 +255,14 @@ final class CharacterActualMutations implements ICharacterActualMutations
             return $this->applyDecrement($choices, $operation);
         }
 
+        if ($kind === 'setInventoryEquipped') {
+            return $this->applyInventoryEquipped($choices, $operation);
+        }
+
+        if ($kind === 'setInventoryOccupyHands') {
+            return $this->applyInventoryOccupyHands($choices, $operation);
+        }
+
         if ($kind === 'setMoney') {
             return $this->applyMoney($choices, $operation);
         }
@@ -757,6 +765,96 @@ final class CharacterActualMutations implements ICharacterActualMutations
         $choices['inventory'] = $inventory;
 
         return $choices;
+    }
+
+    /**
+     * Меняет equipped строки инвентаря по id.
+     *
+     * @param array<string, mixed> $choices Документ.
+     * @param mixed $operation Объект.
+     *
+     * @return array<string, mixed> Документ.
+     *
+     * @throws CharacterInvalidException Если форма чужая или строки нет.
+     */
+    private function applyInventoryEquipped(array $choices, mixed $operation): array
+    {
+        $keys = is_array($operation) ? array_keys($operation) : [];
+        sort($keys);
+        if ($keys !== ['equipped', 'inventoryId', 'kind']) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        $inventoryId = $operation['inventoryId'];
+        $equipped = $operation['equipped'];
+        if (!is_int($inventoryId) || $inventoryId < 1 || !is_bool($equipped)) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        $inventory = $this->inventoryOf($choices);
+        $index = $this->inventoryIndexById($inventory, $inventoryId);
+        $inventory[$index]['equipped'] = $equipped;
+        $choices['inventory'] = $inventory;
+
+        return $choices;
+    }
+
+    /**
+     * Меняет occupyHands строки инвентаря по id.
+     *
+     * @param array<string, mixed> $choices Документ.
+     * @param mixed $operation Объект.
+     *
+     * @return array<string, mixed> Документ.
+     *
+     * @throws CharacterInvalidException Если форма чужая или строки нет.
+     */
+    private function applyInventoryOccupyHands(array $choices, mixed $operation): array
+    {
+        $keys = is_array($operation) ? array_keys($operation) : [];
+        sort($keys);
+        if ($keys !== ['inventoryId', 'kind', 'occupyHands']) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        $inventoryId = $operation['inventoryId'];
+        $occupyHands = $operation['occupyHands'];
+        if (!is_int($inventoryId) || $inventoryId < 1 || !is_int($occupyHands) || $occupyHands < 0) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        $inventory = $this->inventoryOf($choices);
+        $index = $this->inventoryIndexById($inventory, $inventoryId);
+        $inventory[$index]['occupyHands'] = $occupyHands;
+        $choices['inventory'] = $inventory;
+
+        return $choices;
+    }
+
+    /**
+     * Индекс строки инвентаря по id.
+     *
+     * @param array<int, mixed> $inventory Строки.
+     * @param int $inventoryId Id.
+     *
+     * @return int Индекс.
+     *
+     * @throws CharacterInvalidException Если строки нет или их несколько.
+     */
+    private function inventoryIndexById(array $inventory, int $inventoryId): int
+    {
+        $found = [];
+        foreach ($inventory as $index => $row) {
+            if (is_array($row) && ($row['id'] ?? null) === $inventoryId) {
+                $found[] = $index;
+            }
+        }
+
+        if (count($found) !== 1) {
+            throw new CharacterInvalidException('Character inventory item is unavailable');
+        }
+
+        return $found[0];
     }
 
     /**

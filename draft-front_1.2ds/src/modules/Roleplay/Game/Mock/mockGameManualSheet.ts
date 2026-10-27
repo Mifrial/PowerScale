@@ -1,5 +1,6 @@
 import type { GameManualSheetRequest } from '@/modules/Roleplay/Game/Dto/GameManualSheetRequest';
 import type { GameManualSheetResult } from '@/modules/Roleplay/Game/Dto/GameManualSheetResult';
+import type { GameAuthoritativeCommandResult } from '@/modules/Roleplay/Game/Dto/GameAuthoritativeCommandResult';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -10,6 +11,8 @@ import {
   combatKey,
   removeCombatState,
   replaceCombatState,
+  setCombatItemEquipped,
+  setCombatItemOccupyHands,
   setCombatResource,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import { gameCharacterMemberships } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
@@ -58,6 +61,10 @@ function currentOf(details: Record<string, unknown>): DimensionalNumberValue {
   return { base: 0, size: 0 };
 }
 
+function actualVersionOf(result: GameAuthoritativeCommandResult): number {
+  return result.affectedEntities[0]?.actualVersion ?? 0;
+}
+
 /** Ручная правка мока: actual и строка чата. */
 export async function manualSheet(body: GameManualSheetRequest, _signal?: AbortSignal): Promise<GameManualSheetResult> {
   const key = entityKeyOf(body.target);
@@ -68,7 +75,7 @@ export async function manualSheet(body: GameManualSheetRequest, _signal?: AbortS
     const result = await setCombatResource(body.gameId, key, code, currentOf(body.details));
     await say(body.gameId, `Задаёт ${code}.`);
 
-    return { actualVersion: result.actualVersion };
+    return { actualVersion: actualVersionOf(result) };
   }
   if (body.operation === 'addState') {
     const state = {
@@ -83,7 +90,25 @@ export async function manualSheet(body: GameManualSheetRequest, _signal?: AbortS
     const result = await addCombatState(body.gameId, key, state);
     await say(body.gameId, `Добавляет состояние «${state.stateRuleCode}».`);
 
-    return { actualVersion: result.actualVersion };
+    return { actualVersion: actualVersionOf(result) };
+  }
+  if (body.operation === 'setEquipped') {
+    const inventoryId = body.details.inventoryId;
+    const equipped = body.details.equipped;
+    if (typeof inventoryId !== 'number' || typeof equipped !== 'boolean') throw new Error('Нет предмета');
+    const result = await setCombatItemEquipped(body.gameId, key, inventoryId, equipped);
+    await say(body.gameId, equipped ? 'Экипирует предмет.' : 'Снимает предмет.');
+
+    return { actualVersion: actualVersionOf(result) };
+  }
+  if (body.operation === 'setOccupyHands') {
+    const inventoryId = body.details.inventoryId;
+    const occupyHands = body.details.occupyHands;
+    if (typeof inventoryId !== 'number' || typeof occupyHands !== 'number') throw new Error('Нет предмета');
+    const result = await setCombatItemOccupyHands(body.gameId, key, inventoryId, occupyHands);
+    await say(body.gameId, 'Меняет занятость рук предмета.');
+
+    return { actualVersion: actualVersionOf(result) };
   }
   const id = body.details.id;
   if (typeof id !== 'number') throw new Error('Нет id состояния');
@@ -93,7 +118,7 @@ export async function manualSheet(body: GameManualSheetRequest, _signal?: AbortS
     const result = await removeCombatState(body.gameId, key, index);
     await say(body.gameId, 'Снимает состояние.');
 
-    return { actualVersion: result.actualVersion };
+    return { actualVersion: actualVersionOf(result) };
   }
   const prev = before.states[index];
   const patched: CharacterStateValue = {
@@ -104,5 +129,5 @@ export async function manualSheet(body: GameManualSheetRequest, _signal?: AbortS
   const result = await replaceCombatState(body.gameId, key, index, patched);
   await say(body.gameId, 'Меняет состояние.');
 
-  return { actualVersion: result.actualVersion };
+  return { actualVersion: actualVersionOf(result) };
 }

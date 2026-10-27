@@ -271,6 +271,26 @@ final class CharacterActualMutationMysqlTest extends TestCase
     }
 
     /**
+     * setInventoryEquipped и setInventoryOccupyHands пишут строку по id.
+     *
+     * @return void
+     */
+    public function testInventoryEquippedAndOccupyHands(): void
+    {
+        $characterId = $this->addHero();
+        $inventoryId = $this->characters()->get($characterId)->getChoices()['inventory'][0]['id'];
+        $record = $this->port()->apply($characterId, 1, [
+            ['kind' => 'setInventoryEquipped', 'inventoryId' => $inventoryId, 'equipped' => true],
+            ['kind' => 'setInventoryOccupyHands', 'inventoryId' => $inventoryId, 'occupyHands' => 2],
+        ]);
+
+        self::assertSame(2, $record->getActualVersion());
+        self::assertTrue($record->getChoices()['inventory'][0]['equipped']);
+        self::assertSame(2, $record->getChoices()['inventory'][0]['occupyHands']);
+        self::assertFalse($record->getChoices()['inventory'][1]['equipped']);
+    }
+
+    /**
      * Старая версия не пишет лист.
      *
      * @return void
@@ -557,8 +577,8 @@ final class CharacterActualMutationMysqlTest extends TestCase
                 'raceCode' => '',
                 'abilities' => [],
                 'inventory' => [
-                    ['ruleCode' => 'sword', 'quantity' => 1, 'equipped' => false, 'note' => 'keep'],
-                    ['ruleCode' => 'rope', 'quantity' => 1, 'equipped' => false],
+                    ['id' => 1, 'ruleCode' => 'sword', 'quantity' => 1, 'equipped' => false, 'note' => 'keep'],
+                    ['id' => 2, 'ruleCode' => 'rope', 'quantity' => 1, 'equipped' => false],
                 ],
                 'characteristicPurchases' => [],
                 'customRules' => [],

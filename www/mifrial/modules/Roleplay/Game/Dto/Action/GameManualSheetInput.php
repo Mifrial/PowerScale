@@ -16,7 +16,7 @@ final class GameManualSheetInput implements IActionInput
      *
      * @param int $gameId Игра.
      * @param string $idempotencyKey Ключ повтора.
-     * @param string $operation Код: setResource, addState, patchState или removeState.
+     * @param string $operation Код: setResource, addState, patchState, removeState, setEquipped или setOccupyHands.
      * @param array $target Чей лист.
      * @param int $expectedSheetVersion Версия листа цели.
      * @param array $details Поля операции.
