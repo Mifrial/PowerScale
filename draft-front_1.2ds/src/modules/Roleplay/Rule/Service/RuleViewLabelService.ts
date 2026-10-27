@@ -98,7 +98,8 @@ export class RuleViewLabelService {
   weaponProfileFields(profile: WeaponProfile, rules: Rule[]): { label: string; value: string }[] {
     const minDistance = this.distanceValue(profile.distance.min, rules);
     const maxDistance = profile.distance.max ? this.distanceValue(profile.distance.max, rules) : null;
-    const distance = maxDistance === null || maxDistance === minDistance ? minDistance : `${minDistance}/${maxDistance}`;
+    const distance =
+      maxDistance === null || maxDistance === minDistance ? minDistance : `${minDistance} - ${maxDistance}`;
     const fields: { label: string; value: string }[] = [
       {
         label: this.damageTypeLabel(profile.damage.damage_type_code, rules) ?? 'Урон',

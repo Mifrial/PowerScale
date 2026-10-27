@@ -718,13 +718,29 @@ function defaultDistanceIpari(): number {
   return exact !== null && exact > 0 ? exact : Math.max(0.5, props.attack?.minDistance ?? 1);
 }
 
-const distanceRepresentable = computed(() => DimensionalNumber.fromDecimal(distanceIpari.value) !== null);
+const distanceDimensional = computed<DimensionalNumberValue | null>({
+  get: () => DimensionalNumber.fromDecimal(distanceIpari.value)?.value ?? null,
+  set: (value) => {
+    const numeric = exactDistance(value);
+    if (numeric !== null) distanceIpari.value = numeric;
+  },
+});
+
+const distanceRepresentable = computed(() => distanceDimensional.value !== null);
+
+const coverDimensional = computed<DimensionalNumberValue | null>({
+  get: () => DimensionalNumber.fromDecimal(Math.max(0, cover.value))?.value ?? { base: 0, size: 0 },
+  set: (value) => {
+    const numeric = exactDistance(value);
+    cover.value = numeric === null ? 0 : Math.max(0, numeric);
+  },
+});
 
 const distanceProposal = computed<DistanceValue | null>(() => {
   if (!isRanged.value) return null;
-  const value = DimensionalNumber.fromDecimal(distanceIpari.value);
+  const value = distanceDimensional.value;
 
-  return value === null ? null : { type: 'ipari', value: { type: 'literal', value: value.value } };
+  return value === null ? null : { type: 'ipari', value: { type: 'literal', value } };
 });
 
 function phpConditions(): Record<string, unknown> {
@@ -732,10 +748,11 @@ function phpConditions(): Record<string, unknown> {
     type: 'ipari',
     value: { type: 'fixed', value: 0 },
   };
+  const coverValue = coverDimensional.value ?? { base: 0, size: 0 };
 
   return {
     distance,
-    cover: { base: Math.max(0, Math.trunc(cover.value)), size: 0 },
+    cover: { base: coverValue.base, size: coverValue.size },
     flank: flank.value,
     turn: false,
   };
@@ -4195,29 +4212,19 @@ const canSubmit = computed(() => {
             {{ defenderHitAdvantageSummary }}
           </div>
           <div class="d-flex align-center ga-2 flex-wrap">
-            <ClampedNumberField
+            <DimensionalNumberInput
               v-if="isRanged && !isPreparationAction"
-              v-model="distanceIpari"
-              label="Дистанция, ипари (можно 0.5)"
-              :min="0.5"
-              :max="400"
-              :step="0.5"
-              allow-decimal
-              density="compact"
-              hide-details
-              min-width="140px"
+              v-model="distanceDimensional"
+              label="Дистанция"
+              :min="0"
               class="flex-grow-1"
               :disabled="!isCompose"
             />
-            <ClampedNumberField
+            <DimensionalNumberInput
               v-if="isRanged && !isPreparationAction"
-              v-model="cover"
+              v-model="coverDimensional"
               label="Укрытие"
               :min="0"
-              :max="20"
-              density="compact"
-              hide-details
-              min-width="110px"
               class="flex-grow-1"
               :disabled="!canEditCover"
             />

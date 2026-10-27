@@ -11,11 +11,13 @@ const props = withDefaults(
     label?: string;
     min?: number;
     max?: number;
+    disabled?: boolean;
   }>(),
   {
     label: undefined,
     min: 0,
     max: undefined,
+    disabled: false,
   },
 );
 
@@ -67,6 +69,7 @@ function updateSize(val: number | null) {
         label="База"
         :min="min"
         :max="max"
+        :disabled="disabled"
         density="compact"
         hide-details
         style="flex: 1 1 auto"
@@ -76,6 +79,7 @@ function updateSize(val: number | null) {
         @update:model-value="updateSize"
         label="Размер"
         :min="-20"
+        :disabled="disabled"
         reverse
         density="compact"
         hide-details

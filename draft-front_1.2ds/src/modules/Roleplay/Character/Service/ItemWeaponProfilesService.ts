@@ -179,7 +179,7 @@ export class ItemWeaponProfilesService {
           maxDistanceValue === null ||
           new DimensionalNumber(maxDistanceValue).compare(new DimensionalNumber(minDistanceValue)) === 0
             ? minDistance
-            : `${minDistance}/${maxDistance}`,
+            : `${minDistance} - ${maxDistance}`,
         falloffLabel: falloff,
         dodgeBenefitLabel: profile.dodge_benefit === undefined ? null : String(profile.dodge_benefit),
       };

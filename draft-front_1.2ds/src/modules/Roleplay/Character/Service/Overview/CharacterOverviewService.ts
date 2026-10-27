@@ -1399,7 +1399,7 @@ export class CharacterOverviewService {
       distanceLabel:
         rangeValue === null || new DimensionalNumber(rangeValue).compare(new DimensionalNumber(minDistanceValue)) === 0
           ? new DimensionalNumber(minDistanceValue).toString()
-          : `${new DimensionalNumber(minDistanceValue).toString()}/${new DimensionalNumber(rangeValue).toString()}`,
+          : `${new DimensionalNumber(minDistanceValue).toString()} - ${new DimensionalNumber(rangeValue).toString()}`,
       minDistance,
       reach,
       distanceMinValue: minDistanceValue,

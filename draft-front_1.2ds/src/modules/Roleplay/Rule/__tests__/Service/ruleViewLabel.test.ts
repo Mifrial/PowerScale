@@ -127,12 +127,12 @@ describe('RuleViewLabelService', () => {
     ]);
     expect(fields).toContainEqual({ label: 'Колющий урон', value: 'Сила удара − 3' });
     expect(fields).toContainEqual({ label: 'Пробитие', value: 'Сила удара − 3' });
-    expect(fields).toContainEqual({ label: 'Дистанция', value: '0/1↓' });
+    expect(fields).toContainEqual({ label: 'Дистанция', value: '0 - 1↓' });
     expect(fields).toContainEqual({ label: 'Точность', value: '4' });
     expect(fields).toContainEqual({ label: 'Польза уклонения', value: '-4' });
   });
 
-  it('дальность стрелкового профиля идёт в ячейке дистанции через слэш', () => {
+  it('дальность стрелкового профиля идёт в ячейке дистанции через дефис', () => {
     const profile: WeaponProfile = {
       type: 'shoot',
       distance: {
@@ -156,7 +156,7 @@ describe('RuleViewLabelService', () => {
       'Дальнобойность',
       'Польза уклонения',
     ]);
-    expect(fields).toContainEqual({ label: 'Дистанция', value: '1/10' });
+    expect(fields).toContainEqual({ label: 'Дистанция', value: '1 - 10' });
     expect(fields).toContainEqual({ label: 'Дальнобойность', value: '5' });
   });
 
