@@ -847,6 +847,12 @@ final class GameEndOfTurnMysqlTest extends TestCase
             'itemRuleCode' => 'dart',
             'profileType' => 'throw',
             'profileIndex' => 0,
+            'conditions' => [
+                'distance' => [
+                    'type' => 'ipari',
+                    'value' => ['type' => 'fixed', 'value' => 0],
+                ],
+            ],
         ];
     }
 
