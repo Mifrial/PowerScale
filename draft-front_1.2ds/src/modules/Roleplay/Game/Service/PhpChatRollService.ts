@@ -1,4 +1,5 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import type { RangedHitDifficultyBreakdown } from '@/modules/Roleplay/Game/Dto/DiceRollCheckOutcome';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
@@ -33,6 +34,7 @@ export class PhpChatRollService {
       : [];
     const dieFaces = typeof row.dieFaces === 'number' ? row.dieFaces : thrown.size || 6;
     const label = typeof row.label === 'string' ? row.label : undefined;
+    const actorKey = typeof row.actorKey === 'string' ? (row.actorKey as CombatEntityKey) : undefined;
     const efficiency = this.pair(row.efficiency);
     const rangedHit = this.rangedHitOf(row.ranged_hit);
 
@@ -46,6 +48,7 @@ export class PhpChatRollService {
         dieSize: thrown.size,
         ...(typeof row.poolSize === 'number' ? { poolSize: row.poolSize } : {}),
         ...(label ? { label } : {}),
+        ...(actorKey ? { actorKey } : {}),
       },
       rolls: faces,
       successes,
@@ -85,7 +88,11 @@ export class PhpChatRollService {
       range_size: row.range_size,
       distance_ipari: row.distance_ipari,
       ...this.optionalPair('cover_value', row.cover_value),
+      ...this.optionalPair('defense_value', row.defense_value),
+      ...this.optionalPair('minimum_value', row.minimum_value),
+      ...this.optionalPair('base_value', row.base_value),
       ...this.optionalPair('distance_value', row.distance_value),
+      ...this.optionalPair('falloff_value', row.falloff_value),
       ...this.optionalPair('difficulty', row.difficulty),
     };
   }

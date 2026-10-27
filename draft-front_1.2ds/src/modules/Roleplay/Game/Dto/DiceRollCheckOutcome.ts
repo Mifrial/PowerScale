@@ -6,8 +6,12 @@ export interface RangedHitDifficultyBreakdown {
   cover: number;
   cover_value?: DimensionalNumberValue;
   defense_result: number;
+  defense_value?: DimensionalNumberValue;
+  minimum_value?: DimensionalNumberValue;
+  base_value?: DimensionalNumberValue;
   reaction: HitDefenseReaction;
   range_size: number;
+  falloff_value?: DimensionalNumberValue | null;
   distance_ipari: number;
   distance_value?: DimensionalNumberValue;
   difficulty?: DimensionalNumberValue;

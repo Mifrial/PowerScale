@@ -174,14 +174,21 @@ function dieFaceClass(success: number): string {
               <span class="text-medium-emphasis">Проверка</span>
               <span class="font-weight-medium">{{ check.check_name || check.check_code }}</span>
             </div>
-            <div v-if="difficultyLabel != null" class="chat-roll-row">
-              <span class="text-medium-emphasis">Сложность</span>
-              <span class="font-weight-medium">{{ difficultyLabel }}</span>
-            </div>
             <template v-if="rangedHitDifficultyRows.length">
+              <div class="text-medium-emphasis mt-2 mb-1">Сложность попадания</div>
               <div v-for="row in rangedHitDifficultyRows" :key="row.label" class="chat-roll-row">
                 <span class="text-medium-emphasis">{{ row.label }}</span>
                 <span class="font-weight-medium">{{ row.value }}</span>
+              </div>
+              <div v-if="difficultyLabel != null" class="chat-roll-row">
+                <span class="text-medium-emphasis">Сложность</span>
+                <span class="font-weight-medium">{{ difficultyLabel }}</span>
+              </div>
+            </template>
+            <template v-else>
+              <div v-if="difficultyLabel != null" class="chat-roll-row">
+                <span class="text-medium-emphasis">Сложность</span>
+                <span class="font-weight-medium">{{ difficultyLabel }}</span>
               </div>
             </template>
             <template v-if="injuryDifficultyRows.length">

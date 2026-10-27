@@ -181,15 +181,45 @@ final class GameStrikeChat
         }
 
         $distance = $this->dimensionalText($detail['distance_value'] ?? null);
+        $falloff = $this->dimensionalText($detail['falloff_value'] ?? null);
         $cover = $this->dimensionalText($detail['cover_value'] ?? null);
+        $defense = $this->dimensionalText($detail['defense_value'] ?? null);
         $difficulty = $this->dimensionalText($detail['difficulty'] ?? null);
         $rangeSize = is_int($detail['range_size'] ?? null) ? $detail['range_size'] : 1;
-        $range = $rangeSize <= 1
-            ? 'без полос'
-            : '+' . ($rangeSize - 1) . ' размера (полоса ' . $rangeSize . ')';
+        $extra = max(0, $rangeSize - 1);
+        $falloffText = $falloff === '?' ? 'без дальнобойности' : 'дальнобойность ' . $falloff;
+        $range = $extra === 0
+            ? $falloffText . ', без штрафа'
+            : $falloffText . ', +' . $extra . ' ' . $this->sizeWord($extra);
 
-        return 'Дистанция ' . $distance . ' ипари, укрытие ' . $cover . '; '
-            . $range . ', сложность ' . $difficulty . '.';
+        return 'Дистанция ' . $distance . ' ипари (' . $range . '), укрытие ' . $cover
+            . ', защита ' . $defense . ' → сложность ' . $difficulty . '.';
+    }
+
+    /**
+     * Слово «размер» в нужном числе.
+     *
+     * @param int $count Количество.
+     *
+     * @return string Слово.
+     */
+    private function sizeWord(int $count): string
+    {
+        $mod100 = $count % 100;
+        $mod10 = $count % 10;
+        if ($mod100 >= 11 && $mod100 <= 14) {
+            return 'размеров';
+        }
+
+        if ($mod10 === 1) {
+            return 'размер';
+        }
+
+        if ($mod10 >= 2 && $mod10 <= 4) {
+            return 'размера';
+        }
+
+        return 'размеров';
     }
 
     /**

@@ -100,7 +100,7 @@ final class GameStrikeResolution
             $targetKeys,
         );
 
-        return $this->rules->rollHit(
+        $roll = $this->rules->rollHit(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $hitCode,
@@ -118,6 +118,9 @@ final class GameStrikeResolution
             $tail['accuracy'],
             $tail['adjustment'],
         );
+        $roll['actorKey'] = $kind . ':' . $attackerId;
+
+        return $roll;
     }
 
     /**
@@ -167,17 +170,20 @@ final class GameStrikeResolution
 
         array_push($advantages, ...$extraAdvantages);
 
-        return $this->rules->rollDodge(
+        $roll = $this->rules->rollDodge(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $hitCode,
             $this->sheets->getDefenderSheet($game, $open),
             $this->defenderChoices($game, $kind, $id),
-            $profileType,
             $attackerRoll,
             $this->participantKey($game, $kind, $id),
             $advantages,
         );
+        $roll['actorKey'] = $kind . ':' . $id;
+        $roll['label'] = 'Уклонение';
+
+        return $roll;
     }
 
     /**
@@ -230,7 +236,7 @@ final class GameStrikeResolution
 
         array_push($advantages, ...$extraAdvantages);
 
-        return $this->rules->rollBlock(
+        $roll = $this->rules->rollBlock(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $hitCode,
@@ -242,6 +248,10 @@ final class GameStrikeResolution
             $this->participantKey($game, $kind, $id),
             $advantages,
         );
+        $roll['actorKey'] = $kind . ':' . $id;
+        $roll['label'] = 'Блок';
+
+        return $roll;
     }
 
     /**
@@ -351,29 +361,30 @@ final class GameStrikeResolution
                 (int) ($defenderRoll['roll']['base'] ?? 0),
                 (int) ($defenderRoll['roll']['size'] ?? 0),
             )
-            : new DimensionalNumber(0, -1);
-        if ($profileType === 'shoot' && $reaction === 'dodge') {
-            $defense = $defense->withSize($defense->getSize() - 1);
-        }
+            : new DimensionalNumber(0, 0);
+        $defense = $this->raiseToMinSize($defense, -1);
 
-        $cover = $conditions['cover'] ?? ['base' => 0, 'size' => 0];
-        $difficulty = $defense
-            ->add(new DimensionalNumber(1, -1))
-            ->add(new DimensionalNumber((int) $cover['base'], (int) $cover['size']));
-        $difficulty = $difficulty->withSize($difficulty->getSize() + $metrics['rangeSize'] - 1);
+        $coverValue = $conditions['cover'] ?? ['base' => 0, 'size' => 0];
+        $cover = new DimensionalNumber((int) $coverValue['base'], (int) $coverValue['size']);
+        $minimum = new DimensionalNumber(1, -1);
+        $base = $defense->add($minimum)->add($cover);
+        $difficulty = $base->withSize($base->getSize() + $metrics['rangeSize'] - 1);
 
         $attackerRoll['ranged_hit'] = [
-            'cover' => (float) ((int) $cover['base'] * (2 ** (int) $cover['size'])),
-            'cover_value' => ['base' => (int) $cover['base'], 'size' => (int) $cover['size']],
-            'defense_result' => $defense->toInteger(),
             'reaction' => $reaction,
+            'defense_value' => $this->pairOf($defense),
+            'defense_result' => $this->exactOf($defense),
+            'minimum_value' => $this->pairOf($minimum),
+            'cover' => $this->exactOf($cover),
+            'cover_value' => $this->pairOf($cover),
+            'base_value' => $this->pairOf($base),
             'range_size' => $metrics['rangeSize'],
-            'distance_ipari' => (float) ($metrics['distance']->getBase() * (2 ** $metrics['distance']->getSize())),
-            'distance_value' => [
-                'base' => $metrics['distance']->getBase(),
-                'size' => $metrics['distance']->getSize(),
-            ],
-            'difficulty' => ['base' => $difficulty->getBase(), 'size' => $difficulty->getSize()],
+            'falloff_value' => $metrics['falloff'] instanceof DimensionalNumber
+                ? $this->pairOf($metrics['falloff'])
+                : null,
+            'distance_ipari' => $this->exactOf($metrics['distance']),
+            'distance_value' => $this->pairOf($metrics['distance']),
+            'difficulty' => $this->pairOf($difficulty),
         ];
 
         return $this->rules->rerateHit($attackerRoll, [
@@ -830,6 +841,50 @@ final class GameStrikeResolution
         $levels = $sheet['abilityLevels'] ?? null;
 
         return is_array($levels) ? $levels : [];
+    }
+
+    /**
+     * Пара base/size для payload броска.
+     *
+     * @param DimensionalNumber $value Значение.
+     *
+     * @return array{base: int, size: int} Пара.
+     */
+    private function pairOf(DimensionalNumber $value): array
+    {
+        return ['base' => $value->getBase(), 'size' => $value->getSize()];
+    }
+
+    /**
+     * Точное значение размерного числа.
+     *
+     * @param DimensionalNumber $value Значение.
+     *
+     * @return float Число.
+     */
+    private function exactOf(DimensionalNumber $value): float
+    {
+        return (float) ($value->getBase() * (2 ** $value->getSize()));
+    }
+
+    /**
+     * Поднимает размер к нижней границе проверки, сохраняя значение.
+     *
+     * @param DimensionalNumber $value Значение.
+     * @param int $minSize Нижняя граница размера.
+     *
+     * @return DimensionalNumber Значение в размере не мельче границы.
+     */
+    private function raiseToMinSize(DimensionalNumber $value, int $minSize): DimensionalNumber
+    {
+        $base = $value->getBase();
+        $size = $value->getSize();
+        while ($size < $minSize) {
+            $base = intdiv($base, 2);
+            ++$size;
+        }
+
+        return new DimensionalNumber($base, $size);
     }
 
     /**

@@ -157,6 +157,10 @@ final class GamePhysicalProfileMysqlTest extends TestCase
         $roll = $closed['data']['strikes'][0]['roll'] ?? [];
         self::assertSame(11, $roll['ranged_hit']['distance_value']['base'] ?? null);
         self::assertSame(['base' => 1, 'size' => -1], $roll['ranged_hit']['cover_value'] ?? null);
+        self::assertSame(['base' => 0, 'size' => 0], $roll['ranged_hit']['defense_value'] ?? null);
+        self::assertSame(['base' => 2, 'size' => -1], $roll['ranged_hit']['base_value'] ?? null);
+        self::assertSame(3, $roll['ranged_hit']['range_size'] ?? null);
+        self::assertSame(['base' => 2, 'size' => 1], $roll['ranged_hit']['difficulty'] ?? null);
         $this->assertInventoryQuantity($prepared['attackerId'], 2, 'arrow', 0);
     }
 

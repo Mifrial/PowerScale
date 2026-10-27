@@ -28,13 +28,15 @@ final class GameStrikeChatTest extends TestCase
         );
 
         self::assertSame(
-            'Дистанция 11 ипари, укрытие 1↓; +2 размера (полоса 3), сложность 4↓.',
+            'Дистанция 11 ипари (дальнобойность 10, +1 размер), укрытие 1↓, защита 1↓ → сложность 3.',
             $chat->getRangedConditionsText([
                 'ranged_hit' => [
                     'distance_value' => ['base' => 11, 'size' => 0],
+                    'falloff_value' => ['base' => 10, 'size' => 0],
                     'cover_value' => ['base' => 1, 'size' => -1],
-                    'difficulty' => ['base' => 4, 'size' => -1],
-                    'range_size' => 3,
+                    'defense_value' => ['base' => 1, 'size' => -1],
+                    'difficulty' => ['base' => 3, 'size' => 0],
+                    'range_size' => 2,
                 ],
             ]),
         );

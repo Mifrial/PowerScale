@@ -1023,15 +1023,6 @@ final class GameStrikeRules
         );
     }
 
-    /**
-     * Бросок уклона: мастерство ближнего боя против сырого пула атаки.
-     *
-     * @param array<string, mixed> $sheet Лист защитника.
-     * @param array<string, mixed> $choices Выборы защитника.
-     * @param array<string, mixed> $attackerRoll Бросок атаки.
-     *
-     * @return array<string, mixed> Итог.
-     */
     public function isUnconscious(int $spaceId, int $rulesRevision, array $sheet): bool
     {
         $slice = $this->slice($spaceId, $rulesRevision);
@@ -1055,19 +1046,35 @@ final class GameStrikeRules
         return false;
     }
 
+    /**
+     * Бросок уклона: мастерство боя против сырого пула атаки.
+     *
+     * Уклонение всегда использует мастерство боя, а не мастерство оружия,
+     * которым совершён выстрел или бросок.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $ruleCode Код hit-check.
+     * @param array<string, mixed> $sheet Лист защитника.
+     * @param array<string, mixed> $choices Выборы защитника.
+     * @param array<string, mixed> $attackerRoll Бросок атаки.
+     * @param string|null $participantKey Ключ листа защитника.
+     * @param array<int, RollAdvantage> $advantages Преимущества проверки.
+     *
+     * @return array<string, mixed> Итог.
+     */
     public function rollDodge(
         int $spaceId,
         int $rulesRevision,
         string $ruleCode,
         array $sheet,
         array $choices,
-        string $profileType,
         array $attackerRoll,
         ?string $participantKey = null,
         array $advantages = [],
     ): array {
         $slice = $this->slice($spaceId, $rulesRevision);
-        $mastery = $this->bestEquippedMastery($slice, $sheet, $choices, $profileType, $participantKey);
+        $mastery = $this->bestEquippedMastery($slice, $sheet, $choices, 'strike', $participantKey);
         if (!$mastery instanceof DimensionalNumber || $mastery->getBase() <= 0) {
             throw new GameInvalidException('Game strike dodge mastery is invalid');
         }
@@ -2422,7 +2429,7 @@ final class GameStrikeRules
      * @param string $actionRuleCode Карточка действия.
      *
      * @return array{distance: DimensionalNumber, min: DimensionalNumber, max: DimensionalNumber|null,
-     *               rangeSize: int, drop: int} Метрики.
+     *               falloff: DimensionalNumber|null, rangeSize: int, drop: int} Метрики.
      *
      * @throws GameInvalidException Если дистанция вне диапазона или не долетает.
      */
@@ -2488,6 +2495,7 @@ final class GameStrikeRules
             }
 
             $falloff = $profile->getFalloff();
+            $falloffNumber = null;
             $rangeSize = 1;
             if ($falloff !== null) {
                 $falloffNumber = $this->resolveDistanceValue($falloff, $context, $movementStep);
@@ -2502,8 +2510,7 @@ final class GameStrikeRules
             }
 
             $drop = 0;
-            if ($profileType === 'throw' && $falloff !== null) {
-                $falloffNumber = $this->resolveDistanceValue($falloff, $context, $movementStep);
+            if ($profileType === 'throw' && $falloffNumber !== null) {
                 $drop = $distance->subtract($min)->divide($falloffNumber)->getQuotient();
                 $strength = $context->findActionCharacteristic('throw', 'strength')
                     ?? $context->findCharacteristic('strength');
@@ -2527,6 +2534,7 @@ final class GameStrikeRules
                 'distance' => $distance,
                 'min' => $min,
                 'max' => $max,
+                'falloff' => $falloffNumber,
                 'rangeSize' => $rangeSize,
                 'drop' => $drop,
             ];
