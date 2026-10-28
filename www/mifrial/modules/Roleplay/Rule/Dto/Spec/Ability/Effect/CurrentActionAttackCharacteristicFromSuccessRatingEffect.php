@@ -17,6 +17,7 @@ final class CurrentActionAttackCharacteristicFromSuccessRatingEffect implements 
      * @param int $floorDiv Делитель.
      * @param int $cap Потолок.
      * @param AttackScope $scope Область.
+     * @param ?string $sourceCode Источник.
      *
      * @return void
      */
@@ -24,6 +25,7 @@ final class CurrentActionAttackCharacteristicFromSuccessRatingEffect implements 
         private readonly int $floorDiv,
         private readonly int $cap,
         private readonly AttackScope $scope,
+        private readonly ?string $sourceCode = null,
     ) {
     }
 
@@ -65,5 +67,15 @@ final class CurrentActionAttackCharacteristicFromSuccessRatingEffect implements 
     public function getScope(): AttackScope
     {
         return $this->scope;
+    }
+
+    /**
+     * Источник.
+     *
+     * @return ?string Значение.
+     */
+    public function getSourceCode(): ?string
+    {
+        return $this->sourceCode;
     }
 }

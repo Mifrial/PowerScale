@@ -27,12 +27,16 @@ export type ActionEffect =
       min_occupy_hands?: number;
       /** Типы урона профиля; нет или пусто — любой. */
       damage_type_codes?: string[];
+      /** Источник; нет — отдельный уникальный. */
+      source_code?: string;
     }
   | {
       type: 'current_action_attack_characteristic_from_success_rating';
       floor_div: number;
       cap: number;
       scope: AttackScope;
+      /** Источник; нет — отдельный уникальный. */
+      source_code?: string;
     }
   | {
       type: 'current_action_check_modifier';

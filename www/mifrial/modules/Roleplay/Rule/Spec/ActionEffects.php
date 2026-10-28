@@ -123,11 +123,13 @@ final class ActionEffects
                 $scope,
                 SpecShape::optionalInt($row, 'min_occupy_hands'),
                 SpecShape::stringList($row, 'damage_type_codes'),
+                SpecShape::optionalString($row, 'source_code'),
             ),
             'current_action_attack_characteristic_from_success_rating' => new CurrentActionAttackCharacteristicFromSuccessRatingEffect(
                 SpecShape::int($row, 'floor_div'),
                 SpecShape::int($row, 'cap'),
                 $scope,
+                SpecShape::optionalString($row, 'source_code'),
             ),
             'current_action_attack_dodge_soak' => new CurrentActionAttackDodgeSoakEffect(
                 SpecShape::int($row, 'size_delta'),

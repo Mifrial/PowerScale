@@ -1208,6 +1208,34 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Один источник оставляет сильнейший бонус, включая бонус от РУ.
+     *
+     * @return void
+     */
+    public function testSameSourceCharacteristicModifiersCollapse(): void
+    {
+        $static = [
+            'type' => 'current_action_attack_characteristic_modifier',
+            'delta' => 2,
+            'scope' => ['components' => ['strike'], 'hit_count' => 1],
+            'source_code' => 'action',
+        ];
+        $stronger = [
+            'type' => 'current_action_attack_characteristic_modifier',
+            'delta' => 3,
+            'scope' => ['components' => ['strike'], 'hit_count' => 1],
+            'source_code' => 'action',
+        ];
+        $rating = $this->successRatingEffect() + ['source_code' => 'action'];
+
+        $collapsed = $this->resolveActionDamage([$static, $stronger]);
+        $withRating = $this->resolveActionDamage([$static, $stronger, $rating]);
+
+        self::assertSame($this->pair(4, 1), $collapsed['damage']);
+        self::assertSame($this->pair(4, 1), $withRating['damage']);
+    }
+
+    /**
      * Бонус Силы от рейтинга успеха добавляется к урону и упирается в потолок.
      *
      * @return void

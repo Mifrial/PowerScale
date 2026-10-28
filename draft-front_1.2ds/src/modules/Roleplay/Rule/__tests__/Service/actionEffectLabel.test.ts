@@ -31,6 +31,28 @@ describe('ActionEffectLabelService', () => {
     ).toBe('+1 к силе текущего удара, если оружие в 2+ руках (рубящего урона, дробящего урона) (Удвоенная мощь)');
     expect(
       actionEffectLabelService.describe({
+        type: 'current_action_attack_characteristic_from_success_rating',
+        floor_div: 2,
+        cap: 3,
+        scope: { components: ['strike'], hit_count: 1 },
+        source_code: 'action',
+      }),
+    ).toBe('+⌊РУ/2⌋ к силе удара, вплоть до +3 (действие)');
+    expect(
+      actionEffectLabelService.describe(
+        {
+          type: 'current_action_attack_characteristic_modifier',
+          delta: 3,
+          scope: { components: ['strike'], hit_count: 1 },
+          min_occupy_hands: 2,
+          damage_type_codes: ['slashing', 'blunt'],
+          source_code: 'action',
+        },
+        'Удвоенная мощь',
+      ),
+    ).toBe('+3 к силе текущего удара, если оружие в 2+ руках (рубящего урона, дробящего урона) (действие)');
+    expect(
+      actionEffectLabelService.describe({
         type: 'current_action_attack_dodge_soak',
         size_delta: -3,
         ignore_at_sr: 3,

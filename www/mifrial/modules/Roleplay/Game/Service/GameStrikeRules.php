@@ -1300,9 +1300,82 @@ final class GameStrikeRules
         array $attackContext = [],
         array $abilityLevels = [],
     ): int {
+        return $this->netSourceDeltas(
+            $this->actionCharacteristicDeltas($slice, $actionRuleCode, $profileType, $hitNumber, $attackContext, $abilityLevels),
+        );
+    }
+
+    /**
+     * Сдвиг характеристики атаки с бонусом от рейтинга успеха.
+     *
+     * Складывает по правилу source: от одного источника остаются сильнейший
+     * бонус и сильнейший штраф, разные источники суммируются.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка.
+     * @param string $profileType Тип профиля strike, throw или shoot.
+     * @param int $hitNumber Номер попадания.
+     * @param array{damageTypeCode?: string|null, occupyHands?: int} $attackContext
+     *        Контекст профиля: тип урона и занятые оружием руки.
+     * @param array<string, int> $abilityLevels Уровни способностей актора.
+     * @param int|null $success Рейтинг успеха или null.
+     *
+     * @return int Сдвиг.
+     */
+    public function attackCharacteristicModifier(
+        CharacterRuleSlice $slice,
+        string $actionRuleCode,
+        string $profileType,
+        int $hitNumber,
+        array $attackContext = [],
+        array $abilityLevels = [],
+        ?int $success = null,
+    ): int {
+        $entries = $this->actionCharacteristicDeltas(
+            $slice,
+            $actionRuleCode,
+            $profileType,
+            $hitNumber,
+            $attackContext,
+            $abilityLevels,
+        );
+        if ($success !== null) {
+            $base = $this->actionBase($slice, $actionRuleCode);
+            if ($base !== null) {
+                array_push(
+                    $entries,
+                    ...$this->successModifier->entriesFrom($base->getActionEffects(), $profileType, $hitNumber, $success),
+                );
+            }
+        }
+
+        return $this->netSourceDeltas($entries);
+    }
+
+    /**
+     * Вклады «силы удара» карточки и её детей с источниками.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка.
+     * @param string $profileType Тип профиля strike, throw или shoot.
+     * @param int $hitNumber Номер попадания.
+     * @param array{damageTypeCode?: string|null, occupyHands?: int} $attackContext
+     *        Контекст профиля: тип урона и занятые оружием руки.
+     * @param array<string, int> $abilityLevels Уровни способностей актора.
+     *
+     * @return list<array{source: string|null, delta: int}> Вклады.
+     */
+    private function actionCharacteristicDeltas(
+        CharacterRuleSlice $slice,
+        string $actionRuleCode,
+        string $profileType,
+        int $hitNumber,
+        array $attackContext = [],
+        array $abilityLevels = [],
+    ): array {
         $base = $this->actionBase($slice, $actionRuleCode);
         if ($base === null) {
-            return 0;
+            return [];
         }
 
         $damageType = $attackContext['damageTypeCode'] ?? null;
@@ -1310,7 +1383,7 @@ final class GameStrikeRules
         $occupyHands = $attackContext['occupyHands'] ?? 0;
         $occupyHands = is_int($occupyHands) ? $occupyHands : 0;
 
-        $delta = 0;
+        $entries = [];
         foreach ($this->actionEffectBases($slice, $actionRuleCode, $base, $abilityLevels) as $current) {
             foreach ($current->getActionEffects() as $effect) {
                 if (!$effect instanceof CurrentActionAttackCharacteristicModifierEffect) {
@@ -1331,11 +1404,48 @@ final class GameStrikeRules
                     continue;
                 }
 
-                $delta += $effect->getDelta();
+                $entries[] = ['source' => $effect->getSourceCode(), 'delta' => $effect->getDelta()];
             }
         }
 
-        return $delta;
+        return $entries;
+    }
+
+    /**
+     * Нетто вкладов: один источник — сильнейший плюс и сильнейший минус.
+     *
+     * @param list<array{source: string|null, delta: int}> $entries Вклады.
+     *
+     * @return int Сумма.
+     */
+    private function netSourceDeltas(array $entries): int
+    {
+        $groups = [];
+        foreach ($entries as $index => $entry) {
+            if ($entry['delta'] === 0) {
+                continue;
+            }
+
+            $key = $entry['source'] ?? "\0" . $index;
+            $groups[$key][] = $entry['delta'];
+        }
+
+        $net = 0;
+        foreach ($groups as $deltas) {
+            $bonus = 0;
+            $penalty = 0;
+            foreach ($deltas as $delta) {
+                if ($delta > 0) {
+                    $bonus = max($bonus, $delta);
+                } else {
+                    $penalty = min($penalty, $delta);
+                }
+            }
+
+            $net += $bonus + $penalty;
+        }
+
+        return $net;
     }
 
     /**
@@ -1540,11 +1650,8 @@ final class GameStrikeRules
             return 0;
         }
 
-        return $this->successModifier->fromEffects(
-            $base->getActionEffects(),
-            $profileType,
-            $hitNumber,
-            $success,
+        return $this->netSourceDeltas(
+            $this->successModifier->entriesFrom($base->getActionEffects(), $profileType, $hitNumber, $success),
         );
     }
 

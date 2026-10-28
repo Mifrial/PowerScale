@@ -1,12 +1,22 @@
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
+import { ADVANTAGE_SOURCE_ACTION, ADVANTAGE_SOURCE_TRAINING } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 
 export class ActionEffectLabelService {
   describe(effect: ActionEffect, sourceLabel?: string): string {
     const body = this.body(effect);
-    const source = sourceLabel ?? this.defaultSource(effect);
+    const code = 'source_code' in effect ? effect.source_code : undefined;
+    const source = code ? this.sourceLabel(code) : (sourceLabel ?? this.defaultSource(effect));
 
     return source ? `${body} (${source})` : body;
+  }
+
+  private sourceLabel(code: string): string {
+    if (code === ADVANTAGE_SOURCE_ACTION) return 'действие';
+    if (code === 'multi_attack') return 'множественная атака';
+    if (code === ADVANTAGE_SOURCE_TRAINING) return 'тренировки';
+
+    return code;
   }
 
   private body(effect: ActionEffect): string {
@@ -32,7 +42,7 @@ export class ActionEffectLabelService {
       return `${effect.delta > 0 ? '+' : ''}${effect.delta} к силе текущего ${hitCount}${hands}${types}`;
     }
     if (effect.type === 'current_action_attack_characteristic_from_success_rating') {
-      return `+⌊РУ/${effect.floor_div}⌋ к силе удара от действия, вплоть до +${effect.cap}`;
+      return `+⌊РУ/${effect.floor_div}⌋ к силе удара, вплоть до +${effect.cap}`;
     }
     if (effect.type === 'current_action_check_modifier') {
       return `${this.deltaLabel(effect.delta)} к текущим ${effect.check_codes.map((code) => this.checkLabel(code)).join(', ')}`;

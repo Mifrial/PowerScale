@@ -183,6 +183,39 @@ final class GameStrikeRulesTest extends TestCase
     }
 
     /**
+     * Один источник оставляет сильнейший плюс; разные источники суммируются.
+     *
+     * @return void
+     */
+    public function testCharacteristicModifierCollapsesSameSource(): void
+    {
+        $slice = $this->sourceSlice();
+        $rules = $this->rulesFor($slice);
+        $context = ['damageTypeCode' => 'slashing', 'occupyHands' => 2];
+
+        self::assertSame(
+            3,
+            $rules->actionCharacteristicModifier($slice, 'source-card', 'strike', 1, $context),
+        );
+        self::assertSame(
+            4,
+            $rules->actionCharacteristicModifier($slice, 'source-card', 'strike', 1, $context, ['double-power' => 1]),
+        );
+        self::assertSame(
+            4,
+            $rules->attackCharacteristicModifier(
+                $slice,
+                'source-card',
+                'strike',
+                1,
+                $context,
+                ['double-power' => 1],
+                8,
+            ),
+        );
+    }
+
+    /**
      * Эффект купленного дочернего навыка подмешивается и проходит фильтр.
      *
      * @return void
@@ -313,6 +346,119 @@ final class GameStrikeRulesTest extends TestCase
                 '',
                 DateTime::now(),
             ),
+            [],
+        );
+    }
+
+    /**
+     * Срез с источниками у модификаторов характеристики удара.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function sourceSlice(): CharacterRuleSlice
+    {
+        $card = new RuleVersionRecord(
+            11,
+            11,
+            'source-card',
+            true,
+            'ability',
+            'Удар с источниками',
+            '',
+            [
+                'type' => 'action',
+                'action_effects' => [
+                    [
+                        'type' => 'current_action_attack_characteristic_modifier',
+                        'delta' => 2,
+                        'scope' => ['components' => ['strike'], 'hit_count' => 'all'],
+                        'source_code' => 'action',
+                    ],
+                    [
+                        'type' => 'current_action_attack_characteristic_modifier',
+                        'delta' => 1,
+                        'scope' => ['components' => ['strike'], 'hit_count' => 'all'],
+                        'source_code' => 'other',
+                    ],
+                    [
+                        'type' => 'current_action_attack_characteristic_from_success_rating',
+                        'floor_div' => 2,
+                        'cap' => 3,
+                        'scope' => ['components' => ['strike'], 'hit_count' => 'all'],
+                        'source_code' => 'action',
+                    ],
+                ],
+            ],
+            [],
+            [],
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+        $item = new RuleVersionRecord(
+            12,
+            12,
+            'sword',
+            true,
+            'item',
+            'Sword',
+            '',
+            [
+                'category' => 'weapon',
+                'occupy_hands' => ['min' => 1, 'max' => 2],
+                'weapon' => [
+                    'weapon_profiles' => [[
+                        'type' => 'strike',
+                        'distance' => [
+                            'min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]],
+                            'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 1]],
+                        ],
+                        'damage' => ['damage_type_code' => 'slashing'],
+                    ]],
+                ],
+            ],
+            [],
+            [],
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+        $child = new RuleVersionRecord(
+            13,
+            13,
+            'double-power',
+            true,
+            'ability',
+            'Double power',
+            '',
+            [
+                'type' => 'skill',
+                'parent_ability_code' => 'source-card',
+                'action_effects' => [[
+                    'type' => 'current_action_attack_characteristic_modifier',
+                    'delta' => 3,
+                    'scope' => ['components' => ['strike'], 'hit_count' => 'all'],
+                    'min_occupy_hands' => 2,
+                    'damage_type_codes' => ['slashing'],
+                    'source_code' => 'action',
+                ]],
+            ],
+            [],
+            [],
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+
+        return new CharacterRuleSlice(
+            1,
+            1,
+            'world',
+            [
+                new CharacterResolvedRule($card, []),
+                new CharacterResolvedRule($item, []),
+                new CharacterResolvedRule($child, []),
+            ],
             [],
         );
     }

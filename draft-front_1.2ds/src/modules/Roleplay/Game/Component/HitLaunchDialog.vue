@@ -3264,29 +3264,29 @@ async function applyClickAttack(
   } = {},
 ): Promise<ReturnType<typeof attackDamageService.applyAttackDamage>> {
   const actionRule = findRuleByRef(props.rules, hit.actionRuleCode);
-  const ratingBonus = actionEffectService.successRatingAttackCharacteristicModifier(actionRule, sr, hit.profileType);
   const attackerVersion = versionOf(accepted.initiator);
   const defenderKey = options.damageTargetKey ?? accepted.opponent;
-  const resolvedAttack =
-    ratingBonus && attackerVersion
-      ? (characterOverviewService.attackAtDistance(
+  const resolvedAttack = attackerVersion
+    ? (characterOverviewService.attackAtDistance(
+        attackerVersion,
+        props.rules,
+        attack.itemRuleCode,
+        attack.profileType,
+        hit.distanceIpari ?? 0,
+        attack.profileIndex,
+        actionEffectService.currentAttackActionCharacteristicModifierForActor(
+          actionRule,
+          hit.profileType,
           attackerVersion,
+          attack,
           props.rules,
-          attack.itemRuleCode,
-          attack.profileType,
-          hit.distanceIpari ?? 0,
-          attack.profileIndex,
-          actionEffectService.currentAttackActionCharacteristicModifierForActor(
-            actionRule,
-            hit.profileType,
-            attackerVersion,
-            attack,
-            props.rules,
-          ) + ratingBonus,
-          attack.instanceIndex,
-          keywords.value,
-        ) ?? attack)
-      : attack;
+          1,
+          sr,
+        ),
+        attack.instanceIndex,
+        keywords.value,
+      ) ?? attack)
+    : attack;
   const hooks = damageTypeHooksService.resolveDamageTypeHooks(
     resolvedAttack.damageTypeCode,
     props.rules,

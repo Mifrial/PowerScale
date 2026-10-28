@@ -5,7 +5,7 @@ import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
-import { actionEffectLabelService, checkResolutionService } from '@/modules/Roleplay/Rule/init';
+import { actionEffectLabelService, aggregateSourceDeltasService, checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import {
   ADVANTAGE_SOURCE_ACTION,
   ADVANTAGE_SOURCE_CIRCUMSTANCES,
@@ -161,6 +161,22 @@ export class ActionEffectService {
       extraEffects?: ActionEffect[];
     },
   ): number {
+    return aggregateSourceDeltasService.netSourceDelta(
+      this.currentAttackActionCharacteristicEntries(rule, component, hitNumber, context),
+    );
+  }
+
+  /** Вклады «силы удара» с источниками; нет источника — отдельная запись. */
+  private currentAttackActionCharacteristicEntries(
+    rule: Rule | null | undefined,
+    component: 'strike' | 'throw' | 'shoot',
+    hitNumber: number,
+    context?: {
+      occupyHands?: number;
+      damageTypeCode?: string | null;
+      extraEffects?: ActionEffect[];
+    },
+  ): { source_code: string | null; delta: number }[] {
     return [...this.effectsOf(rule), ...(context?.extraEffects ?? [])]
       .filter(
         (effect): effect is Extract<ActionEffect, { type: 'current_action_attack_characteristic_modifier' }> =>
@@ -169,7 +185,7 @@ export class ActionEffectService {
           this.scopeIncludesHit(effect.scope, hitNumber) &&
           this.matchesAttackContext(effect, context),
       )
-      .reduce((total, effect) => total + effect.delta, 0);
+      .map((effect) => ({ source_code: effect.source_code ?? null, delta: effect.delta }));
   }
 
   childActionEffects(
@@ -264,6 +280,7 @@ export class ActionEffectService {
       | undefined,
     rules: Rule[],
     hitNumber = 1,
+    successRating?: number,
   ): number {
     const occupyHands =
       actor && attack
@@ -275,8 +292,7 @@ export class ActionEffectService {
             rules,
           )
         : 0;
-
-    return this.currentAttackActionCharacteristicModifier(actionRule, component, hitNumber, {
+    const entries = this.currentAttackActionCharacteristicEntries(actionRule, component, hitNumber, {
       occupyHands,
       damageTypeCode: attack?.damageTypeCode ?? null,
       extraEffects: this.childActionEffects(
@@ -285,6 +301,11 @@ export class ActionEffectService {
         rules,
       ),
     });
+    if (successRating !== undefined) {
+      entries.push(...this.successRatingCharacteristicEntries(actionRule, successRating, component, hitNumber));
+    }
+
+    return aggregateSourceDeltasService.netSourceDelta(entries);
   }
 
   successRatingAttackCharacteristicModifier(
@@ -293,6 +314,18 @@ export class ActionEffectService {
     component: 'strike' | 'throw' | 'shoot',
     hitNumber = 1,
   ): number {
+    return aggregateSourceDeltasService.netSourceDelta(
+      this.successRatingCharacteristicEntries(rule, successRating, component, hitNumber),
+    );
+  }
+
+  /** Вклады бонуса от РУ с источниками. */
+  private successRatingCharacteristicEntries(
+    rule: Rule | null | undefined,
+    successRating: number,
+    component: 'strike' | 'throw' | 'shoot',
+    hitNumber = 1,
+  ): { source_code: string | null; delta: number }[] {
     return this.effectsOf(rule)
       .filter(
         (
@@ -302,11 +335,11 @@ export class ActionEffectService {
           effect.scope.components.includes(component) &&
           this.scopeIncludesHit(effect.scope, hitNumber),
       )
-      .reduce((total, effect) => {
+      .map((effect) => {
         const step = effect.floor_div > 0 ? Math.floor(Math.max(0, successRating) / effect.floor_div) : 0;
 
-        return total + Math.min(effect.cap, step);
-      }, 0);
+        return { source_code: effect.source_code ?? null, delta: Math.min(effect.cap, step) };
+      });
   }
 
   currentActionCheckModifier(rule: Rule | null | undefined, checkCode: string): number {

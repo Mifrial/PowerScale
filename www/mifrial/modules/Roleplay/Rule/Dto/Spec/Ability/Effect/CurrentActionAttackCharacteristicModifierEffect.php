@@ -18,6 +18,7 @@ final class CurrentActionAttackCharacteristicModifierEffect implements ActionEff
      * @param AttackScope $scope Область.
      * @param ?int $minOccupyHands Минимум рук.
      * @param array $damageTypeCodes Типы урона.
+     * @param ?string $sourceCode Источник.
      *
      * @return void
      */
@@ -26,6 +27,7 @@ final class CurrentActionAttackCharacteristicModifierEffect implements ActionEff
         private readonly AttackScope $scope,
         private readonly ?int $minOccupyHands,
         private readonly array $damageTypeCodes,
+        private readonly ?string $sourceCode = null,
     ) {
     }
 
@@ -77,5 +79,15 @@ final class CurrentActionAttackCharacteristicModifierEffect implements ActionEff
     public function getDamageTypeCodes(): array
     {
         return $this->damageTypeCodes;
+    }
+
+    /**
+     * Источник.
+     *
+     * @return ?string Значение.
+     */
+    public function getSourceCode(): ?string
+    {
+        return $this->sourceCode;
     }
 }

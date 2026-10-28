@@ -167,6 +167,177 @@ describe('ActionEffectService', () => {
     );
   });
 
+  it('один источник оставляет сильнейший плюс, разные источники суммируются', () => {
+    const parent = {
+      id: null,
+      code: 'parent-sweep',
+      type: 'ability',
+      name: 'Размах',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanics: [],
+      createdAt: 1767225600,
+      spec: {
+        type: 'action',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        action_components: [],
+        action_effects: [
+          {
+            type: 'current_action_attack_characteristic_modifier',
+            delta: 2,
+            scope: { components: ['strike'], hit_count: 1 },
+            source_code: 'action',
+          },
+        ],
+      },
+    } as Rule;
+    const child = {
+      id: null,
+      code: 'child-power',
+      type: 'ability',
+      name: 'Мощь',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanics: [],
+      createdAt: 1767225600,
+      spec: {
+        type: 'skill',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: 'parent-sweep',
+        action_effects: [
+          {
+            type: 'current_action_attack_characteristic_modifier',
+            delta: 3,
+            scope: { components: ['strike'], hit_count: 1 },
+            min_occupy_hands: 2,
+            damage_type_codes: ['slashing', 'blunt'],
+            source_code: 'action',
+          },
+          {
+            type: 'current_action_attack_characteristic_modifier',
+            delta: 1,
+            scope: { components: ['strike'], hit_count: 1 },
+            source_code: 'other',
+          },
+        ],
+      },
+    } as Rule;
+    const extra = actionEffectService.childActionEffects('parent-sweep', ['child-power'], [parent, child]);
+    const staff = {
+      id: null,
+      code: 'staff',
+      type: 'item',
+      name: 'staff',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanics: [],
+      createdAt: 1767225600,
+      spec: {
+        category: 'equipment',
+        cost_gm: 1,
+        weight: null,
+        special_rule_codes: [],
+        occupy_hands: { min: 1, max: 2 },
+        weapon: {
+          min_strength: null,
+          weapon_profiles: [
+            { type: 'strike', damage: { damage_type_code: 'slashing' } },
+          ],
+        },
+        block_profile: {
+          efficiency: { base: 4, size: 0 },
+          defense: { base: 1, size: 0 },
+          resistances: [],
+        },
+      },
+    } as unknown as Rule;
+
+    expect(
+      actionEffectService.currentAttackActionCharacteristicModifier(parent, 'strike', 1, {
+        occupyHands: 2,
+        damageTypeCode: 'slashing',
+        extraEffects: extra,
+      }),
+    ).toBe(4);
+    expect(
+      actionEffectService.describeForLaunch(
+        parent,
+        {
+          abilities: [{ ruleCode: 'child-power', level: 1 }],
+          inventory: [{ id: 1, ruleCode: 'staff', quantity: 1, equipped: true, occupyHands: 2 }],
+        },
+        { itemRuleCode: 'staff', profileType: 'strike', damageTypeCode: 'slashing' },
+        [parent, child, staff],
+      ),
+    ).toEqual([
+      '+2 к силе текущего удара (действие)',
+      '+3 к силе текущего удара, если оружие в 2+ руках (рубящего урона, дробящего урона) (действие)',
+      '+1 к силе текущего удара (other)',
+      '+2 к силе удара (удержание)',
+    ]);
+  });
+
+  it('бонус от РУ схлопывается с действием одного источника', () => {
+    const rule = {
+      id: null,
+      code: 'power-card',
+      type: 'ability',
+      name: 'Силовой',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanics: [],
+      createdAt: 1767225600,
+      spec: {
+        type: 'action',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        action_components: [],
+        action_effects: [
+          {
+            type: 'current_action_attack_characteristic_modifier',
+            delta: 2,
+            scope: { components: ['strike'], hit_count: 1 },
+            source_code: 'action',
+          },
+          {
+            type: 'current_action_attack_characteristic_from_success_rating',
+            floor_div: 2,
+            cap: 3,
+            scope: { components: ['strike'], hit_count: 1 },
+            source_code: 'action',
+          },
+        ],
+      },
+    } as Rule;
+    const actor = { inventory: [], abilities: [] };
+    const attack = { itemRuleCode: 'sword', profileType: 'strike' as const, damageTypeCode: 'slashing' };
+
+    expect(actionEffectService.currentAttackActionCharacteristicModifier(rule, 'strike')).toBe(2);
+    expect(actionEffectService.successRatingAttackCharacteristicModifier(rule, 8, 'strike')).toBe(3);
+    expect(
+      actionEffectService.currentAttackActionCharacteristicModifierForActor(
+        rule,
+        'strike',
+        actor,
+        attack,
+        [rule],
+        1,
+        8,
+      ),
+    ).toBe(3);
+  });
+
   it('applies next-action cost and consumes the effect on an attack', () => {
     const pending: PendingActionEffect[] = [
       {

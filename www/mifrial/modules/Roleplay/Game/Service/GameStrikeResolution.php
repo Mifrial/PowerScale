@@ -481,23 +481,15 @@ final class GameStrikeResolution
             $this->participantChoices($game, $kind, $attackerId),
             $inventoryId,
         );
-        $characteristicModifier = $this->rules->actionCharacteristicModifier(
+        $characteristicModifier = $this->rules->attackCharacteristicModifier(
             $slice,
             $actionRuleCode,
             $profileType,
             $hitNumber,
             $attackContext,
             $this->abilityLevels($game, $kind, $attackerId),
+            $success,
         );
-        if ($success !== null) {
-            $characteristicModifier += $this->rules->successRatingCharacteristicModifier(
-                $slice,
-                $actionRuleCode,
-                $profileType,
-                $hitNumber,
-                $success,
-            );
-        }
 
         return $this->rules->evaluatePenetration(
             $game->getSpaceId(),
@@ -687,23 +679,15 @@ final class GameStrikeResolution
             $this->participantChoices($game, $kind, $attackerId),
             $itemInventoryId,
         );
-        $characteristicModifier = $this->rules->actionCharacteristicModifier(
+        $characteristicModifier = $this->rules->attackCharacteristicModifier(
             $slice,
             $actionRuleCode,
             $profileType,
             $hitNumber,
             $attackContext,
             $this->abilityLevels($game, $kind, $attackerId),
+            $success,
         );
-        if ($success !== null) {
-            $characteristicModifier += $this->rules->successRatingCharacteristicModifier(
-                $slice,
-                $actionRuleCode,
-                $profileType,
-                $hitNumber,
-                $success,
-            );
-        }
 
         return $this->rules->evaluateDamage(
             $game->getSpaceId(),
