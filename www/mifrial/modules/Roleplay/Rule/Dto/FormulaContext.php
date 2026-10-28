@@ -99,6 +99,28 @@ final class FormulaContext
     }
 
     /**
+     * Копия контекста с заменённой характеристикой.
+     *
+     * @param string $code Код характеристики.
+     * @param DimensionalNumber $value Значение.
+     *
+     * @return self Контекст.
+     */
+    public function withCharacteristic(string $code, DimensionalNumber $value): self
+    {
+        $characteristics = $this->characteristics;
+        $characteristics[$code] = $value;
+
+        return new self(
+            $characteristics,
+            $this->abilityLevels,
+            $this->parameters,
+            $this->actionCharacteristics,
+            $this->actionCharacteristicModifier,
+        );
+    }
+
+    /**
      * Копия контекста с базой характеристики действия.
      *
      * @param string $action Действие.

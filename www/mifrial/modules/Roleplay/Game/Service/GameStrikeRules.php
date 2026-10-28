@@ -598,6 +598,7 @@ final class GameStrikeRules
      * @param int|null $sheetVersion Версия листа NPC.
      * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
      * @param int $strengthDrop Штраф силы броска в размерах.
+     * @param int $gripBonus Бонус удержания к Силе удара.
      *
      * @return DimensionalNumber Пара формулы.
      *
@@ -618,6 +619,7 @@ final class GameStrikeRules
         ?int $sheetVersion = null,
         ?int $actionCharacteristicModifier = null,
         int $strengthDrop = 0,
+        int $gripBonus = 0,
     ): DimensionalNumber {
         if ($attackerKind !== 'character' && $attackerKind !== 'npc') {
             throw new GameInvalidException('Game strike attacker is invalid');
@@ -650,6 +652,7 @@ final class GameStrikeRules
                 $context,
                 $actionCharacteristicModifier ?? 0,
                 $strengthDrop,
+                $gripBonus,
             );
 
             return $this->formulaEvaluations->evaluateDimensional(
@@ -679,6 +682,7 @@ final class GameStrikeRules
      * @param int|null $sheetVersion Версия листа NPC.
      * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
      * @param int $strengthDrop Штраф силы броска в размерах.
+     * @param int $gripBonus Бонус удержания к Силе.
      *
      * @return DimensionalNumber Размерное проникновение.
      *
@@ -699,6 +703,7 @@ final class GameStrikeRules
         ?int $sheetVersion = null,
         ?int $actionCharacteristicModifier = null,
         int $strengthDrop = 0,
+        int $gripBonus = 0,
     ): DimensionalNumber {
         $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
         $item = $this->selectedItem(
@@ -727,6 +732,7 @@ final class GameStrikeRules
                 $context,
                 $actionCharacteristicModifier ?? 0,
                 $strengthDrop,
+                $gripBonus,
             );
 
             return $this->formulaEvaluations->evaluateDimensional(
@@ -1459,6 +1465,25 @@ final class GameStrikeRules
             ->getExtraHands();
 
         return $rest + (is_int($extra) && $extra > 0 ? $extra : 0);
+    }
+
+    /**
+     * Бонус к Силе удара за удержание оружия.
+     *
+     * 2–3 руки дают +2, 4 и больше — +3; одна рука без бонуса.
+     * Совпадает с фронтом (`CharacterHandsService::gripBonus`).
+     *
+     * @param int $occupyHands Занятые руки действия.
+     *
+     * @return int Бонус.
+     */
+    public function gripBonus(int $occupyHands): int
+    {
+        if ($occupyHands >= 4) {
+            return 3;
+        }
+
+        return $occupyHands >= 2 ? 2 : 0;
     }
 
     /**
@@ -2974,11 +2999,22 @@ final class GameStrikeRules
         FormulaContext $context,
         int $actionCharacteristicModifier,
         int $strengthDrop,
+        int $gripBonus = 0,
     ): FormulaContext {
         $bases = [];
         foreach ($profile->getActionCharacteristics() as $base) {
             $value = $this->formulaEvaluations->evaluateDimensional($base->getValue(), $context);
             $bases[$base->getCharacteristic()] = new CharacteristicNumber($value->getBase(), $value->getSize());
+        }
+
+        if ($gripBonus !== 0 && !isset($bases['strength'])) {
+            $strength = $context->findCharacteristic('strength');
+            if ($strength instanceof DimensionalNumber) {
+                $context = $context->withCharacteristic(
+                    'strength',
+                    (new CharacteristicNumber($strength->getBase(), $strength->getSize()))->modify($gripBonus),
+                );
+            }
         }
 
         if ($profile->getType() === 'throw' && $strengthDrop > 0) {

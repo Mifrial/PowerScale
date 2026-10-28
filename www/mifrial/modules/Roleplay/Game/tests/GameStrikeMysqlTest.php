@@ -1188,6 +1188,26 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Удержание двумя руками даёт +2 к Силе урона поверх карточки.
+     *
+     * @return void
+     */
+    public function testGripBonusAddsStrengthToActionDamage(): void
+    {
+        $oneHand = $this->worldWithWeapon(withActionDamage: true);
+        $twoHands = $this->worldWithWeapon(
+            withActionDamage: true,
+            occupyHands: ['min' => 2, 'max' => 2],
+        );
+
+        $plain = $this->resolveDefense($oneHand->getId(), [], 'sword');
+        $gripped = $this->resolveDefense($twoHands->getId(), [], 'sword');
+
+        self::assertSame($this->pair(4), $plain['damage']);
+        self::assertSame($this->pair(3, 1), $gripped['damage']);
+    }
+
+    /**
      * Бонус Силы от рейтинга успеха добавляется к урону и упирается в потолок.
      *
      * @return void
@@ -3130,6 +3150,7 @@ final class GameStrikeMysqlTest extends TestCase
         array $extraRules = [],
         bool $withActionDamage = false,
         array $profileOverrides = [],
+        ?array $occupyHands = null,
     ): RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -3144,7 +3165,8 @@ final class GameStrikeMysqlTest extends TestCase
             . ($extraCards === [] ? '' : '-ex' . substr(md5((string) json_encode($extraCards)), 0, 6))
             . ($dodgeSoak === null ? '' : '-ds' . substr(md5($dodgeSoak), 0, 6))
             . ($extraRules === [] ? '' : '-er' . substr(md5((string) json_encode($extraRules)), 0, 6))
-            . ($withActionDamage ? '-ad' : ''),
+            . ($withActionDamage ? '-ad' : '')
+            . ($occupyHands === null ? '' : '-h' . substr(md5((string) json_encode($occupyHands)), 0, 6)),
         );
         $check = [
             'allow_characteristic_override' => false,
@@ -3246,6 +3268,7 @@ final class GameStrikeMysqlTest extends TestCase
                     'defense' => ['base' => 1, 'size' => 0],
                     'resistances' => [],
                 ],
+                ...($occupyHands === null ? [] : ['occupy_hands' => $occupyHands]),
             ], [], [], 'needs_work')),
             ...($withPenetration ? [
                 RuleCommitEntry::put('penetrator', new RuleVersionBody('item_modifier', 'Penetrator', '', [

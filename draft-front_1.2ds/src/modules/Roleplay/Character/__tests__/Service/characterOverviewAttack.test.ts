@@ -200,6 +200,45 @@ describe('CharacterOverviewService: формулы атак', () => {
     expect(overview.attacks[0].damageLabel).toBe('3↑ рубящего урона');
   });
 
+  it('модификатор действия складывается с удержанием и формулой оружия', () => {
+    const halfSword: Rule = {
+      ...rules[1]!,
+      code: 'polutornyy-mech',
+      name: 'Полуторный меч',
+      spec: {
+        ...(rules[1]!.spec as object),
+        occupy_hands: { min: 1, max: 2 },
+        weapon: {
+          ...((rules[1]!.spec as { weapon: object }).weapon),
+          weapon_profiles: [
+            {
+              ...(((rules[1]!.spec as { weapon: { weapon_profiles: object[] } }).weapon.weapon_profiles[0]) as object),
+              damage: {
+                formula: {
+                  type: 'actionCharacteristic',
+                  action: 'strike',
+                  characteristic: 'strength',
+                  modifier: [{ delta: -2, source_code: null, source_label: null }],
+                },
+                damage_type_code: 'slashing',
+              },
+            },
+          ],
+        },
+      },
+    } as Rule;
+    const version = versionWith({
+      characteristics: [{ ruleCode: 'strength', base: dim(3, 2), modifiers: [] }],
+      inventory: [{ id: 8, ruleCode: 'polutornyy-mech', quantity: 1, equipped: true, occupyHands: 2 }],
+    });
+
+    const base = service.build(version, [rules[0]!, halfSword]);
+    const preview = service.attackAtDistance(version, [rules[0]!, halfSword], 'polutornyy-mech', 'strike', 0, 0, 3);
+
+    expect(base.attacks[0].damageLabel).toBe('3↑² рубящего урона');
+    expect(preview?.damageLabel).toBe('3↑³ рубящего урона');
+  });
+
   it('без модификаторов база равна итогу (регрессия: не падает)', () => {
     const version = versionWith({
       characteristics: [{ ruleCode: 'strength', base: dim(5), modifiers: [] }],

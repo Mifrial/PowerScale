@@ -166,6 +166,23 @@ final class GameStrikeRulesTest extends TestCase
     }
 
     /**
+     * Бонус удержания: 2–3 руки +2, 4+ +3, иначе ноль.
+     *
+     * @return void
+     */
+    public function testGripBonusFollowsHands(): void
+    {
+        $rules = $this->rulesFor($this->filterSlice());
+
+        self::assertSame(0, $rules->gripBonus(0));
+        self::assertSame(0, $rules->gripBonus(1));
+        self::assertSame(2, $rules->gripBonus(2));
+        self::assertSame(2, $rules->gripBonus(3));
+        self::assertSame(3, $rules->gripBonus(4));
+        self::assertSame(3, $rules->gripBonus(6));
+    }
+
+    /**
      * Эффект купленного дочернего навыка подмешивается и проходит фильтр.
      *
      * @return void

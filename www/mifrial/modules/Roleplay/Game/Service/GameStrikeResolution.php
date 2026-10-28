@@ -472,20 +472,21 @@ final class GameStrikeResolution
 
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $attackContext = $this->rules->attackFilterContext(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+            $this->participantChoices($game, $kind, $attackerId),
+            $inventoryId,
+        );
         $characteristicModifier = $this->rules->actionCharacteristicModifier(
             $slice,
             $actionRuleCode,
             $profileType,
             $hitNumber,
-            $this->rules->attackFilterContext(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $itemRuleCode,
-                $profileType,
-                $profileIndex,
-                $this->participantChoices($game, $kind, $attackerId),
-                $inventoryId,
-            ),
+            $attackContext,
             $this->abilityLevels($game, $kind, $attackerId),
         );
         if ($success !== null) {
@@ -512,6 +513,7 @@ final class GameStrikeResolution
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
             $characteristicModifier,
             $strengthDrop,
+            $this->rules->gripBonus($attackContext['occupyHands']),
         );
     }
 
@@ -676,20 +678,21 @@ final class GameStrikeResolution
 
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $attackContext = $this->rules->attackFilterContext(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+            $this->participantChoices($game, $kind, $attackerId),
+            $itemInventoryId,
+        );
         $characteristicModifier = $this->rules->actionCharacteristicModifier(
             $slice,
             $actionRuleCode,
             $profileType,
             $hitNumber,
-            $this->rules->attackFilterContext(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $itemRuleCode,
-                $profileType,
-                $profileIndex,
-                $this->participantChoices($game, $kind, $attackerId),
-                $itemInventoryId,
-            ),
+            $attackContext,
             $this->abilityLevels($game, $kind, $attackerId),
         );
         if ($success !== null) {
@@ -716,6 +719,7 @@ final class GameStrikeResolution
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
             $characteristicModifier,
             $strengthDrop,
+            $this->rules->gripBonus($attackContext['occupyHands']),
         );
     }
 
