@@ -1301,7 +1301,14 @@ final class GameStrikeRules
         array $abilityLevels = [],
     ): int {
         return $this->netSourceDeltas(
-            $this->actionCharacteristicDeltas($slice, $actionRuleCode, $profileType, $hitNumber, $attackContext, $abilityLevels),
+            $this->actionCharacteristicDeltas(
+                $slice,
+                $actionRuleCode,
+                $profileType,
+                $hitNumber,
+                $attackContext,
+                $abilityLevels,
+            ),
         );
     }
 
@@ -1344,7 +1351,12 @@ final class GameStrikeRules
             if ($base !== null) {
                 array_push(
                     $entries,
-                    ...$this->successModifier->entriesFrom($base->getActionEffects(), $profileType, $hitNumber, $success),
+                    ...$this->successModifier->entriesFrom(
+                        $base->getActionEffects(),
+                        $profileType,
+                        $hitNumber,
+                        $success,
+                    ),
                 );
             }
         }
