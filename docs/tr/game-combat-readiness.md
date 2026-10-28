@@ -445,11 +445,16 @@ actual Character/NPC после mutation, stale-version конфликт в бр
 Гейты P1–P4 закрыты, кроме `pay_sr_vs_reliability` и восстановления SSE.
 Дальше — бэклог атак вне гейтов:
 
-1. Требования оружия: `min_strength` и `min_action_cost` — парсятся в
-   `Rule/Spec/ItemWeapons`, Game их не проверяет.
+1. Требования оружия: `min_action_cost` применяется как нижний пол
+   стоимости удара (`GameActionFloor` + `GameStrikeRules::weaponMinActionCost`,
+   объединение через `max` с `min_total_action_cost` и `MIN_STRIKE_AP`).
+   `min_strength` Game по-прежнему не отклоняет атаку generically — работает
+   только `throw` reach; контентные свойства проверяются по карточкам.
 2. Фильтр характеристического модификатора: `min_occupy_hands` и
-   `damage_type_codes` — парсятся в `Rule/Spec/ActionEffects`, Game не
-   применяет.
+   `damage_type_codes` применяются в
+   `GameStrikeRules::actionCharacteristicModifier` через необязательный
+   `$attackContext` (`attackFilterContext`, `occupyHands`); контекст прокинут
+   в open, close и resolution.
 3. `actionCharacteristics` профиля — есть на `WeaponProfile`, в
    `FormulaContext` боя не попадает.
 4. `max_success_rating` типа урона — в чате `srCap => null`.

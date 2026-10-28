@@ -218,7 +218,18 @@ final class GameStrikeWideClose
             $attackerKind,
             $attackerId,
             $this->targets->pendingAfter(),
-            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode, true)],
+            [
+                'action-points' => $this->spend->getActionAp(
+                    $slice,
+                    $actionRuleCode,
+                    true,
+                    $this->rules->weaponMinActionCost(
+                        $game->getSpaceId(),
+                        $game->getRulesRevision(),
+                        is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '',
+                    ),
+                ),
+            ],
             $targetKeys,
         );
 

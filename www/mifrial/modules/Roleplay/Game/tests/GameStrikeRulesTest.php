@@ -66,6 +66,84 @@ final class GameStrikeRulesTest extends TestCase
     }
 
     /**
+     * Модификатор отсекается по типу урона и занятым рукам.
+     *
+     * @return void
+     */
+    public function testCharacteristicModifierFiltersByHandsAndDamageType(): void
+    {
+        $slice = $this->filterSlice();
+        $rules = $this->rulesFor($slice);
+
+        self::assertSame(
+            9,
+            $rules->actionCharacteristicModifier(
+                $slice,
+                'strike-card',
+                'strike',
+                1,
+                ['damageTypeCode' => 'slashing', 'occupyHands' => 2],
+            ),
+        );
+        self::assertSame(
+            6,
+            $rules->actionCharacteristicModifier(
+                $slice,
+                'strike-card',
+                'strike',
+                1,
+                ['damageTypeCode' => 'slashing', 'occupyHands' => 1],
+            ),
+        );
+        self::assertSame(
+            5,
+            $rules->actionCharacteristicModifier(
+                $slice,
+                'strike-card',
+                'strike',
+                1,
+                ['damageTypeCode' => 'blunt', 'occupyHands' => 2],
+            ),
+        );
+        self::assertSame(
+            2,
+            $rules->actionCharacteristicModifier($slice, 'strike-card', 'strike', 1),
+        );
+        self::assertSame(
+            0,
+            $rules->actionCharacteristicModifier($slice, 'strike-card', 'throw', 1),
+        );
+    }
+
+    /**
+     * Контекст берёт тип урона профиля и руки выбранной строки инвентаря.
+     *
+     * @return void
+     */
+    public function testAttackFilterContextReadsProfileAndInventoryHands(): void
+    {
+        $slice = $this->filterSlice();
+        $rules = $this->rulesFor($slice);
+        $choices = ['inventory' => [['id' => 7, 'ruleCode' => 'sword', 'equipped' => true, 'occupyHands' => 2]]];
+
+        $context = $rules->attackFilterContext(1, 1, 'sword', 'strike', 0, $choices, 7);
+        self::assertSame('slashing', $context['damageTypeCode']);
+        self::assertSame(2, $context['occupyHands']);
+
+        $default = $rules->attackFilterContext(
+            1,
+            1,
+            'sword',
+            'strike',
+            0,
+            ['inventory' => [['id' => 7, 'ruleCode' => 'sword', 'equipped' => true]]],
+            7,
+        );
+        self::assertSame(1, $default['occupyHands']);
+        self::assertSame(3, $rules->weaponMinActionCost(1, 1, 'sword'));
+    }
+
+    /**
      * Собирает правила с одной карточкой действия.
      *
      * @param int|null $wideAdvantage Дельта помехи.
@@ -74,7 +152,18 @@ final class GameStrikeRulesTest extends TestCase
      */
     private function rules(?int $wideAdvantage): GameStrikeRules
     {
-        $slice = new CharacterRuleSlice(1, 1, 'world', [$this->card($wideAdvantage)], []);
+        return $this->rulesFor(new CharacterRuleSlice(1, 1, 'world', [$this->card($wideAdvantage)], []));
+    }
+
+    /**
+     * Собирает правила поверх готового среза.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     *
+     * @return GameStrikeRules Правила.
+     */
+    private function rulesFor(CharacterRuleSlice $slice): GameStrikeRules
+    {
         $slices = $this->createMock(ICharacterRuleSlices::class);
         $slices->method('get')->willReturn($slice);
         $characters = $this->createMock(ICharacters::class);
@@ -138,6 +227,88 @@ final class GameStrikeRulesTest extends TestCase
                 '',
                 DateTime::now(),
             ),
+            [],
+        );
+    }
+
+    /**
+     * Срез с карточкой-фильтром, предметом и профилем урона.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function filterSlice(): CharacterRuleSlice
+    {
+        $card = new RuleVersionRecord(
+            1,
+            1,
+            'strike-card',
+            true,
+            'ability',
+            'Удар',
+            '',
+            [
+                'type' => 'action',
+                'action_effects' => [
+                    [
+                        'type' => 'current_action_attack_characteristic_modifier',
+                        'delta' => 2,
+                        'scope' => ['components' => ['strike'], 'hit_count' => 'all'],
+                    ],
+                    [
+                        'type' => 'current_action_attack_characteristic_modifier',
+                        'delta' => 3,
+                        'scope' => ['components' => ['strike'], 'hit_count' => 'all'],
+                        'min_occupy_hands' => 2,
+                    ],
+                    [
+                        'type' => 'current_action_attack_characteristic_modifier',
+                        'delta' => 4,
+                        'scope' => ['components' => ['strike'], 'hit_count' => 'all'],
+                        'damage_type_codes' => ['slashing'],
+                    ],
+                ],
+            ],
+            [],
+            [],
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+        $item = new RuleVersionRecord(
+            2,
+            2,
+            'sword',
+            true,
+            'item',
+            'Sword',
+            '',
+            [
+                'category' => 'weapon',
+                'occupy_hands' => ['min' => 1, 'max' => 2, 'action' => 2],
+                'weapon' => [
+                    'min_action_cost' => 3,
+                    'weapon_profiles' => [[
+                        'type' => 'strike',
+                        'distance' => [
+                            'min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]],
+                            'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 1]],
+                        ],
+                        'damage' => ['damage_type_code' => 'slashing'],
+                    ]],
+                ],
+            ],
+            [],
+            [],
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+
+        return new CharacterRuleSlice(
+            1,
+            1,
+            'world',
+            [new CharacterResolvedRule($card, []), new CharacterResolvedRule($item, [])],
             [],
         );
     }

@@ -77,6 +77,7 @@ final class GameStrikeOpen
         $npcChoices = $attackerKind === 'npc' && is_array($snapshot['sheet']['choices'] ?? null)
             ? $snapshot['sheet']['choices']
             : null;
+        $attackerChoices = is_array($snapshot['sheet']['choices'] ?? null) ? $snapshot['sheet']['choices'] : [];
         foreach ($targets as $target) {
             $profileType = $target['profile_type'] ?? null;
             $profileIndex = $target['profile_index'] ?? null;
@@ -111,6 +112,15 @@ final class GameStrikeOpen
                     is_string($action['action_rule_code'] ?? null) ? $action['action_rule_code'] : '',
                     $profileType,
                     1,
+                    $this->rules->attackFilterContext(
+                        $game->getSpaceId(),
+                        $game->getRulesRevision(),
+                        $itemRuleCode,
+                        $profileType,
+                        $profileIndex,
+                        $attackerChoices,
+                        $itemInventoryId,
+                    ),
                 ),
                 is_string($action['action_rule_code'] ?? null) ? $action['action_rule_code'] : '',
             );

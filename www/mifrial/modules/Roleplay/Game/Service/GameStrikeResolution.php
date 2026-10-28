@@ -177,7 +177,7 @@ final class GameStrikeResolution
             $game->getRulesRevision(),
             $hitCode,
             $this->sheets->getDefenderSheet($game, $open),
-            $this->defenderChoices($game, $kind, $id),
+            $this->participantChoices($game, $kind, $id),
             $attackerRoll,
             $this->participantKey($game, $kind, $id),
             $advantages,
@@ -245,7 +245,7 @@ final class GameStrikeResolution
             $game->getRulesRevision(),
             $hitCode,
             $this->sheets->getDefenderSheet($game, $open),
-            $this->defenderChoices($game, $kind, $id),
+            $this->participantChoices($game, $kind, $id),
             $inventoryId,
             $profileIndex,
             $attackerRoll,
@@ -357,7 +357,21 @@ final class GameStrikeResolution
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
             $conditions,
-            $this->rules->actionCharacteristicModifier($slice, $actionRuleCode, $profileType, 1),
+            $this->rules->actionCharacteristicModifier(
+                $slice,
+                $actionRuleCode,
+                $profileType,
+                1,
+                $this->rules->attackFilterContext(
+                    $game->getSpaceId(),
+                    $game->getRulesRevision(),
+                    $itemRuleCode,
+                    $profileType,
+                    $profileIndex,
+                    $this->participantChoices($game, $kind, $attackerId),
+                    $inventoryId,
+                ),
+            ),
         );
 
         $defense = $defenderRoll !== null
@@ -462,6 +476,15 @@ final class GameStrikeResolution
             $actionRuleCode,
             $profileType,
             $hitNumber,
+            $this->rules->attackFilterContext(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+                $this->participantChoices($game, $kind, $attackerId),
+                $inventoryId,
+            ),
         );
         if ($success !== null) {
             $characteristicModifier += $this->rules->successRatingCharacteristicModifier(
@@ -656,6 +679,15 @@ final class GameStrikeResolution
             $actionRuleCode,
             $profileType,
             $hitNumber,
+            $this->rules->attackFilterContext(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+                $this->participantChoices($game, $kind, $attackerId),
+                $itemInventoryId,
+            ),
         );
         if ($success !== null) {
             $characteristicModifier += $this->rules->successRatingCharacteristicModifier(
@@ -792,9 +824,9 @@ final class GameStrikeResolution
      * @return array<string, mixed> Choices.
      *
      * @throws GameInvalidException Если документ NPC битый.
-     * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если цели нет.
+     * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если участника нет.
      */
-    private function defenderChoices(GameRecord $game, string $kind, int $id): array
+    private function participantChoices(GameRecord $game, string $kind, int $id): array
     {
         if ($kind === 'character') {
             return $this->rules->characterSnapshot($id)['choices'];

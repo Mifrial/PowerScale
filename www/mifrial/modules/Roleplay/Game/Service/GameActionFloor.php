@@ -14,7 +14,9 @@ use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
  * Нижняя цена действия в ОД.
  *
  * Глобальный пол удара — константа с заделом на настройки ревизии, карточный
- * пол — `min_total_action_cost`. Пол поднимает только трату ОД.
+ * пол — `min_total_action_cost`, оружейный — `min_action_cost` блока оружия.
+ * Все полы объединяются через `max`, не через сумму. Пол поднимает только
+ * трату ОД.
  */
 final class GameActionFloor
 {
@@ -27,6 +29,7 @@ final class GameActionFloor
      * @param string $actionRuleCode Карточка.
      * @param array<int, ResourceSpend> $spends Траты.
      * @param bool $strike Удар ли это.
+     * @param int $itemMinActionCost Пол оружия или 0.
      *
      * @return array<int, ResourceSpend> Траты.
      */
@@ -35,8 +38,9 @@ final class GameActionFloor
         string $actionRuleCode,
         array $spends,
         bool $strike,
+        int $itemMinActionCost = 0,
     ): array {
-        $floor = $this->floorOf($slice, $actionRuleCode, $strike);
+        $floor = $this->floorOf($slice, $actionRuleCode, $strike, $itemMinActionCost);
         $turnCode = $this->turnResourceCode($slice);
         if ($floor < 1 || $turnCode === null) {
             return $spends;
@@ -69,6 +73,7 @@ final class GameActionFloor
      * @param string $actionRuleCode Карточка.
      * @param array<string, int> $amounts Цены по ресурсам.
      * @param bool $strike Удар ли это.
+     * @param int $itemMinActionCost Пол оружия или 0.
      *
      * @return array<string, int> Цены.
      */
@@ -77,8 +82,9 @@ final class GameActionFloor
         string $actionRuleCode,
         array $amounts,
         bool $strike,
+        int $itemMinActionCost = 0,
     ): array {
-        $floor = $this->floorOf($slice, $actionRuleCode, $strike);
+        $floor = $this->floorOf($slice, $actionRuleCode, $strike, $itemMinActionCost);
         $turnCode = $this->turnResourceCode($slice);
         if ($floor < 1 || $turnCode === null) {
             return $amounts;
@@ -92,19 +98,24 @@ final class GameActionFloor
     }
 
     /**
-     * Пол карточки и удара.
+     * Пол карточки, удара и оружия.
      *
      * @param CharacterRuleSlice $slice Срез правил.
      * @param string $actionRuleCode Карточка.
      * @param bool $strike Удар ли это.
+     * @param int $itemMinActionCost Пол оружия или 0.
      *
      * @return int Пол.
      */
-    public function floorOf(CharacterRuleSlice $slice, string $actionRuleCode, bool $strike): int
-    {
+    public function floorOf(
+        CharacterRuleSlice $slice,
+        string $actionRuleCode,
+        bool $strike,
+        int $itemMinActionCost = 0,
+    ): int {
         $spec = $actionRuleCode === '' ? null : $slice->findLive($actionRuleCode)?->getSpec();
         $card = $spec instanceof AbilityActionSpec ? $spec->getBase()->getMinTotalActionCost() : null;
-        $floor = is_int($card) ? $card : 0;
+        $floor = max(is_int($card) ? $card : 0, max(0, $itemMinActionCost));
 
         return $strike ? max($floor, self::MIN_STRIKE_AP) : $floor;
     }

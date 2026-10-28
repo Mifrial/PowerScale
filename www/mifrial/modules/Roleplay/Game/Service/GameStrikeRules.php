@@ -1277,6 +1277,8 @@ final class GameStrikeRules
      * @param string $actionRuleCode Карточка.
      * @param string $profileType Тип профиля strike, throw или shoot.
      * @param int $hitNumber Номер попадания.
+     * @param array{damageTypeCode?: string|null, occupyHands?: int} $attackContext
+     *        Контекст профиля: тип урона и занятые оружием руки.
      *
      * @return int Сдвиг.
      */
@@ -1285,11 +1287,17 @@ final class GameStrikeRules
         string $actionRuleCode,
         string $profileType,
         int $hitNumber,
+        array $attackContext = [],
     ): int {
         $base = $this->actionBase($slice, $actionRuleCode);
         if ($base === null) {
             return 0;
         }
+
+        $damageType = $attackContext['damageTypeCode'] ?? null;
+        $damageType = is_string($damageType) && $damageType !== '' ? $damageType : null;
+        $occupyHands = $attackContext['occupyHands'] ?? 0;
+        $occupyHands = is_int($occupyHands) ? $occupyHands : 0;
 
         $delta = 0;
         foreach ($base->getActionEffects() as $effect) {
@@ -1301,10 +1309,154 @@ final class GameStrikeRules
                 continue;
             }
 
+            $types = $effect->getDamageTypeCodes();
+            if ($types !== [] && ($damageType === null || !in_array($damageType, $types, true))) {
+                continue;
+            }
+
+            $minHands = $effect->getMinOccupyHands();
+            if ($minHands !== null && $occupyHands < $minHands) {
+                continue;
+            }
+
             $delta += $effect->getDelta();
         }
 
         return $delta;
+    }
+
+    /**
+     * Контекст фильтра характеристического модификатора атаки.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $itemRuleCode Предмет.
+     * @param string $profileType Тип профиля strike, throw или shoot.
+     * @param int $profileIndex Смещение профиля.
+     * @param array<string, mixed> $choices Authoritative choices.
+     * @param int $itemInventoryId Строка инвентаря.
+     *
+     * @return array{damageTypeCode: string|null, occupyHands: int} Контекст.
+     *
+     * @throws GameInvalidException Если профиль, предмет или строка битые.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function attackFilterContext(
+        int $spaceId,
+        int $rulesRevision,
+        string $itemRuleCode,
+        string $profileType,
+        int $profileIndex,
+        array $choices,
+        int $itemInventoryId,
+    ): array {
+        return [
+            'damageTypeCode' => $this->damageTypeCode(
+                $spaceId,
+                $rulesRevision,
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+            ),
+            'occupyHands' => $this->occupyHands(
+                $spaceId,
+                $rulesRevision,
+                $choices,
+                $itemInventoryId,
+                $itemRuleCode,
+                $profileType,
+            ),
+        ];
+    }
+
+    /**
+     * Сколько рук занимает оружие в этой атаке.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param array<string, mixed> $choices Authoritative choices.
+     * @param int $itemInventoryId Строка инвентаря.
+     * @param string $itemRuleCode Предмет.
+     * @param string $profileType Тип профиля strike, throw или shoot.
+     *
+     * @return int Число рук.
+     *
+     * @throws GameInvalidException Если предмет или строка битые.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function occupyHands(
+        int $spaceId,
+        int $rulesRevision,
+        array $choices,
+        int $itemInventoryId,
+        string $itemRuleCode,
+        string $profileType,
+    ): int {
+        $hands = $this->item($spaceId, $rulesRevision, $itemRuleCode)->getOccupyHands();
+        if ($hands === null) {
+            return 0;
+        }
+
+        $row = $this->inventoryRow($choices, $itemInventoryId, $itemRuleCode);
+        $value = $row['occupyHands'] ?? $hands->getMin();
+        $value = is_int($value) ? $value : $hands->getMin();
+        $rest = max($hands->getMin(), min($hands->getMax(), $value));
+
+        return $profileType === 'shoot' ? max($rest, $hands->getAction() ?? $rest) : $rest;
+    }
+
+    /**
+     * Минимальная цена удара оружием из его блока.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $itemRuleCode Предмет.
+     *
+     * @return int Пол или 0.
+     *
+     * @throws GameInvalidException Если предмет битый.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function weaponMinActionCost(int $spaceId, int $rulesRevision, string $itemRuleCode): int
+    {
+        if ($itemRuleCode === '') {
+            return 0;
+        }
+
+        $value = $this->item($spaceId, $rulesRevision, $itemRuleCode)->getWeapon()?->getMinActionCost();
+
+        return is_int($value) && $value > 0 ? $value : 0;
+    }
+
+    /**
+     * Строка инвентаря выбранного предмета.
+     *
+     * @param array<string, mixed> $choices Authoritative choices.
+     * @param int $itemInventoryId Строка инвентаря.
+     * @param string $itemRuleCode Предмет.
+     *
+     * @return array<string, mixed> Строка.
+     *
+     * @throws GameInvalidException Если строки нет.
+     */
+    private function inventoryRow(array $choices, int $itemInventoryId, string $itemRuleCode): array
+    {
+        $inventory = $choices['inventory'] ?? null;
+        if (!is_array($inventory)) {
+            throw new GameInvalidException('Game strike inventory is invalid');
+        }
+
+        foreach ($inventory as $row) {
+            if (
+                is_array($row)
+                && ($row['id'] ?? null) === $itemInventoryId
+                && ($row['ruleCode'] ?? null) === $itemRuleCode
+            ) {
+                return $row;
+            }
+        }
+
+        throw new GameInvalidException('Game strike inventory item is invalid');
     }
 
     /**

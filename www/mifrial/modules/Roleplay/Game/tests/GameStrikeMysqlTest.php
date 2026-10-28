@@ -220,6 +220,68 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Пол `min_action_cost` оружия поднимает объявленную трату удара.
+     *
+     * @return void
+     */
+    public function testWeaponMinActionCostRaisesStrikeSpend(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1, false, null, false, true, [], [], null, [
+            'heavy' => [
+                'type' => 'item',
+                'name' => 'Heavy',
+                'spec' => [
+                    'category' => 'weapon',
+                    'proficiency_family_code' => 'melee',
+                    'weapon' => [
+                        'min_action_cost' => 5,
+                        'weapon_profiles' => [[
+                            'type' => 'strike',
+                            'distance' => [
+                                'min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]],
+                                'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]],
+                            ],
+                            'accuracy' => ['base' => 3, 'size' => 0],
+                        ]],
+                    ],
+                ],
+            ],
+        ]);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit(
+            $world->getId(),
+            $gameId,
+            'Heavy',
+            [],
+            ['resources' => [['ruleCode' => 'action-points', 'current' => 10]]],
+            [['ruleCode' => 'heavy', 'equipped' => true]],
+        );
+        $defenderId = $this->admit($world->getId(), $gameId, 'Dodger');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-heavy',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-heavy-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId, 'swing', 'heavy')),
+        ]);
+
+        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertSame(5, $this->actionPointsOf($attackerId));
+    }
+
+    /**
      * Ремап карточки подменяет грани до правила 6 и 1.
      *
      * Мир задаёт одну грань (dieFaces 1), поэтому результат детерминирован.

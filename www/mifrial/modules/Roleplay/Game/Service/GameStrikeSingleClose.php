@@ -153,7 +153,21 @@ final class GameStrikeSingleClose
         $profileIndex = is_int($open['profile_index'] ?? null) ? $open['profile_index'] : 0;
         $itemInventoryId = is_int($open['item_inventory_id'] ?? null) ? $open['item_inventory_id'] : 0;
         $itemRuleCode = is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '';
-        $modifier = $this->rules->actionCharacteristicModifier($slice, $actionRuleCode, $profileType, 1);
+        $modifier = $this->rules->actionCharacteristicModifier(
+            $slice,
+            $actionRuleCode,
+            $profileType,
+            1,
+            $this->rules->attackFilterContext(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+                $this->choices->attackerChoices($game, $open),
+                $itemInventoryId,
+            ),
+        );
         $npcSheet = $attackerKind === 'npc'
             ? $this->sheets->getNpcSheet($game->getId(), $attackerId)
             : null;
@@ -543,7 +557,18 @@ final class GameStrikeSingleClose
             $attackerKind,
             $attackerId,
             $pending,
-            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode, true)],
+            [
+                'action-points' => $this->spend->getActionAp(
+                    $slice,
+                    $actionRuleCode,
+                    true,
+                    $this->rules->weaponMinActionCost(
+                        $game->getSpaceId(),
+                        $game->getRulesRevision(),
+                        is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '',
+                    ),
+                ),
+            ],
             [$targetKey],
         );
         if ($reactionRuleCode !== null) {
