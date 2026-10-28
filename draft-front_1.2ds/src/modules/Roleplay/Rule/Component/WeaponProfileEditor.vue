@@ -93,6 +93,15 @@ function setDodgeBenefit(value: number | null): void {
   localProfile.value.dodge_benefit = value;
 }
 
+function setExtraHands(value: number | null): void {
+  if (value === null || value <= 0) {
+    delete localProfile.value.extra_hands;
+
+    return;
+  }
+  localProfile.value.extra_hands = value;
+}
+
 watch(
   () => props.modelValue,
   (value) => {
@@ -274,6 +283,15 @@ watch(
       :model-value="localProfile.dodge_benefit ?? null"
       nullable
       @update:model-value="setDodgeBenefit"
+    />
+
+    <ClampedNumberField
+      class="mt-2"
+      label="Доп. руки в действии"
+      :model-value="localProfile.extra_hands ?? null"
+      :min="0"
+      nullable
+      @update:model-value="setExtraHands"
     />
 
     <v-btn color="error" variant="text" @click="emit('remove')" class="mt-2">

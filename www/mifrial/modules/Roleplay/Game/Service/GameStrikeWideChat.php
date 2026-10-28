@@ -142,12 +142,7 @@ final class GameStrikeWideChat
             $rolls[] = $card;
         }
 
-        $actionAp = $this->spend->getActionAp(
-            $slice,
-            $actionCode,
-            true,
-            $this->rules->weaponMinActionCost($game->getSpaceId(), $game->getRulesRevision(), $itemRuleCode),
-        );
+        $actionAp = $this->spend->getActionAp($slice, $actionCode, true);
         $this->consequences->postLines($game, $actorUserId, $threadId, [
             $attacker . ' совершает действие ' . $action . ' за ' . $actionAp . 'ОД.',
             $narrative,

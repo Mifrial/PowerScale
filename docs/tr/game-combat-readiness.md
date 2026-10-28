@@ -445,23 +445,28 @@ actual Character/NPC после mutation, stale-version конфликт в бр
 Гейты P1–P4 закрыты, кроме `pay_sr_vs_reliability` и восстановления SSE.
 Дальше — бэклог атак вне гейтов:
 
-1. Требования оружия: `min_action_cost` применяется как нижний пол
-   стоимости удара (`GameActionFloor` + `GameStrikeRules::weaponMinActionCost`,
-   объединение через `max` с `min_total_action_cost` и `MIN_STRIKE_AP`).
-   `min_strength` Game по-прежнему не отклоняет атаку generically — работает
-   только `throw` reach; контентные свойства проверяются по карточкам.
+1. Требования оружия: статический `weapon.min_action_cost` в контенте и
+   редакторе не задан, поэтому пол удара берётся из `min_total_action_cost`
+   карточки, `MIN_STRIKE_AP` и модификаторов предмета (`MinActionCostOp` →
+   `GameActionResourceResolver::minimums`). `min_strength` Game по-прежнему не
+   отклоняет атаку generically — работает только `throw` reach; контентные
+   свойства проверяются по карточкам.
 2. Фильтр характеристического модификатора: `min_occupy_hands` и
    `damage_type_codes` применяются в
    `GameStrikeRules::actionCharacteristicModifier` через необязательный
-   `$attackContext` (`attackFilterContext`, `occupyHands`); контекст прокинут
-   в open, close и resolution.
+   `$attackContext` (`attackFilterContext`, `occupyHands`); учитываются эффекты
+   самой карточки и купленных дочерних навыков (`parent_ability_code`,
+   уровень ≥ 1). Контекст и уровни прокинуты в open, close и resolution.
 3. `actionCharacteristics` профиля — есть на `WeaponProfile`, в
    `FormulaContext` боя не попадает.
 4. `max_success_rating` типа урона — в чате `srCap => null`.
 5. Backend-authority `current_action_attack_reach` («Выпад») — сейчас только
    фронт.
 6. `push` («Толчок», «Толкающий удар») — кода нет, нужен дизайн.
-7. Модель рук — `GameWoundActions::handCount()` возвращает 2 как заглушку.
+7. Модель рук — удержание задаётся `occupy_hands` (`min`/`max`) предмета,
+   дополнительная рука действия — `weapon_profiles[].extra_hands`; итог =
+   удержание + `extra_hands`. `GameWoundActions::handCount()` по-прежнему
+   возвращает 2 как заглушку.
 8. Контент `ammunition_requirements` для `shoot`; профили атаки щитом.
 
 Экономика, battleground, `N → 1`, `N → N` и полный каталог магии не входят в

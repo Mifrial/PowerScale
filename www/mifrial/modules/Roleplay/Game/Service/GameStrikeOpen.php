@@ -78,6 +78,8 @@ final class GameStrikeOpen
             ? $snapshot['sheet']['choices']
             : null;
         $attackerChoices = is_array($snapshot['sheet']['choices'] ?? null) ? $snapshot['sheet']['choices'] : [];
+        $attackerSheet = is_array($snapshot['sheet']['sheet'] ?? null) ? $snapshot['sheet']['sheet'] : [];
+        $abilityLevels = is_array($attackerSheet['abilityLevels'] ?? null) ? $attackerSheet['abilityLevels'] : [];
         foreach ($targets as $target) {
             $profileType = $target['profile_type'] ?? null;
             $profileIndex = $target['profile_index'] ?? null;
@@ -121,6 +123,7 @@ final class GameStrikeOpen
                         $attackerChoices,
                         $itemInventoryId,
                     ),
+                    $abilityLevels,
                 ),
                 is_string($action['action_rule_code'] ?? null) ? $action['action_rule_code'] : '',
             );

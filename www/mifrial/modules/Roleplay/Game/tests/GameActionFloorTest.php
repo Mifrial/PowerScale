@@ -14,23 +14,23 @@ use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Проверяет пол стоимости действия: карточка, удар и оружие.
+ * Проверяет пол стоимости действия: карточка и глобальный пол удара.
  */
 final class GameActionFloorTest extends TestCase
 {
     /**
-     * Пол оружия объединяется с карточкой через max, а не суммой.
+     * Карточный пол поднимает цену, но не опускает её.
      *
      * @return void
      */
-    public function testFloorMergesCardAndWeaponByMax(): void
+    public function testCardFloorRaisesWithoutLowering(): void
     {
         $floor = new GameActionFloor();
         $slice = $this->slice(3);
 
-        self::assertSame(5, $floor->floorOf($slice, 'swing', true, 5));
-        self::assertSame(3, $floor->floorOf($slice, 'swing', true, 2));
-        self::assertSame(3, $floor->floorOf($slice, 'swing', false, 0));
+        self::assertSame(3, $floor->floorOf($slice, 'swing', true));
+        self::assertSame(3, $floor->floorOf($slice, 'swing', false));
+        self::assertSame(0, $floor->floorOf($this->slice(null), 'swing', false));
     }
 
     /**
@@ -43,33 +43,33 @@ final class GameActionFloorTest extends TestCase
         $floor = new GameActionFloor();
         $slice = $this->slice(null);
 
-        self::assertSame(2, $floor->floorOf($slice, 'swing', true, 0));
-        self::assertSame(4, $floor->floorOf($slice, 'swing', true, 4));
-        self::assertSame(0, $floor->floorOf($slice, 'swing', false, 0));
+        self::assertSame(2, $floor->floorOf($slice, 'swing', true));
+        self::assertSame(2, $floor->floorOf($this->slice(1), 'swing', true));
+        self::assertSame(0, $floor->floorOf($slice, 'swing', false));
     }
 
     /**
-     * Пол оружия поднимает трату ОД, но не суммируется с ней.
+     * Пол поднимает трату ОД, но не суммируется с ней.
      *
      * @return void
      */
-    public function testApplyRaisesTurnSpendToWeaponFloor(): void
+    public function testApplyRaisesTurnSpendToCardFloor(): void
     {
         $floor = new GameActionFloor();
         $slice = $this->slice(3);
         $spends = [new ResourceSpend('ap', new ScalarResourceValue(1))];
 
-        $raised = $floor->apply($slice, 'swing', $spends, true, 5);
+        $raised = $floor->apply($slice, 'swing', $spends, true);
         self::assertCount(1, $raised);
         self::assertSame('ap', $raised[0]->getResourceCode());
-        self::assertSame(5, $raised[0]->getAmount()->toNative());
+        self::assertSame(3, $raised[0]->getAmount()->toNative());
 
-        $kept = $floor->apply($slice, 'swing', $spends, true, 0);
-        self::assertSame(3, $kept[0]->getAmount()->toNative());
+        $kept = $floor->apply($slice, 'swing', [new ResourceSpend('ap', new ScalarResourceValue(4))], true);
+        self::assertSame(4, $kept[0]->getAmount()->toNative());
     }
 
     /**
-     * Пол оружия поднимает карту цен без добавления второго ресурса.
+     * Пол поднимает карту цен без добавления второго ресурса.
      *
      * @return void
      */
@@ -78,8 +78,8 @@ final class GameActionFloorTest extends TestCase
         $floor = new GameActionFloor();
         $slice = $this->slice(3);
 
-        $amounts = $floor->amounts($slice, 'swing', ['ap' => 1, 'other' => 4], false, 5);
-        self::assertSame(5, $amounts['ap']);
+        $amounts = $floor->amounts($slice, 'swing', ['ap' => 1, 'other' => 4], false);
+        self::assertSame(3, $amounts['ap']);
         self::assertSame(4, $amounts['other']);
     }
 

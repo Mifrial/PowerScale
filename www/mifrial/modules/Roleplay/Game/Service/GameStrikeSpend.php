@@ -42,7 +42,8 @@ final class GameStrikeSpend
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $choice Выбор атаки.
      * @param GameBattleRecord $battle Бой.
-     * @param array<string, mixed> $snapshot Снимок атакующего: actualVersion и sheet.
+     * @param array{actualVersion: int, sheet: array{choices: array<string, mixed>, sheet: array<string, mixed>}} $snapshot
+     *        Снимок атакующего.
      * @param string $lane Полоса долга.
      * @param string $subject Подлежащее сообщений об ошибке.
      *
@@ -94,11 +95,6 @@ final class GameStrikeSpend
             $choice['actionRuleCode'],
             $adjusted['spends'],
             true,
-            $this->rules->weaponMinActionCost(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $choice['itemRuleCode'],
-            ),
         );
         $debt = new GameActionDebt();
         $actorKey = $debt->key($kind, $id);
@@ -212,16 +208,11 @@ final class GameStrikeSpend
      * @param CharacterRuleSlice $slice Срез.
      * @param string $ruleCode Карточка.
      * @param bool $strike Удар ли это.
-     * @param int $itemMinActionCost Пол оружия или 0.
      *
      * @return int Стоимость.
      */
-    public function getActionAp(
-        CharacterRuleSlice $slice,
-        string $ruleCode,
-        bool $strike = false,
-        int $itemMinActionCost = 0,
-    ): int {
+    public function getActionAp(CharacterRuleSlice $slice, string $ruleCode, bool $strike = false): int
+    {
         if ($ruleCode === '') {
             return 0;
         }
@@ -250,9 +241,7 @@ final class GameStrikeSpend
             }
         }
 
-        return $strike
-            ? max($sum, (new GameActionFloor())->floorOf($slice, $ruleCode, true, $itemMinActionCost))
-            : $sum;
+        return $strike ? max($sum, (new GameActionFloor())->floorOf($slice, $ruleCode, true)) : $sum;
     }
 
     /**

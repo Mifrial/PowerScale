@@ -60,16 +60,7 @@ final class GameStrikeSingleChat
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actionCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $action = $actionCode !== '' ? '[[rule:' . $actionCode . ']]' : 'действие';
-        $actionAp = $this->spend->getActionAp(
-            $slice,
-            $actionCode,
-            true,
-            $this->rules->weaponMinActionCost(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '',
-            ),
-        );
+        $actionAp = $this->spend->getActionAp($slice, $actionCode, true);
         $weapon = is_string($open['item_rule_code'] ?? null) ? '[[rule:' . $open['item_rule_code'] . ']]' : 'оружием';
         $kind = match ($open['profile_type'] ?? 'strike') {
             'throw' => 'бросок',

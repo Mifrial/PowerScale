@@ -35,6 +35,7 @@ export class ActionEffectService {
       | {
           itemRuleCode: string;
           profileType: 'strike' | 'throw' | 'shoot';
+          profileIndex?: number;
           damageTypeCode: string | null;
         }
       | null
@@ -44,7 +45,13 @@ export class ActionEffectService {
   ): string[] {
     const occupyHands =
       actor && attack
-        ? characterHandsService.occupyHandsForAttack(actor.inventory, attack.itemRuleCode, attack.profileType, rules)
+        ? characterHandsService.occupyHandsForAttack(
+            actor.inventory,
+            attack.itemRuleCode,
+            attack.profileType,
+            attack.profileIndex ?? 0,
+            rules,
+          )
         : 0;
     const context = { occupyHands, damageTypeCode: attack?.damageTypeCode ?? null };
     const lines: string[] = [];
@@ -96,6 +103,7 @@ export class ActionEffectService {
       | {
           itemRuleCode: string;
           profileType: 'strike' | 'throw' | 'shoot';
+          profileIndex?: number;
           damageTypeCode: string | null;
         }
       | null
@@ -249,6 +257,7 @@ export class ActionEffectService {
       | {
           itemRuleCode: string;
           profileType: 'strike' | 'throw' | 'shoot';
+          profileIndex?: number;
           damageTypeCode: string | null;
         }
       | null
@@ -258,7 +267,13 @@ export class ActionEffectService {
   ): number {
     const occupyHands =
       actor && attack
-        ? characterHandsService.occupyHandsForAttack(actor.inventory, attack.itemRuleCode, attack.profileType, rules)
+        ? characterHandsService.occupyHandsForAttack(
+            actor.inventory,
+            attack.itemRuleCode,
+            attack.profileType,
+            attack.profileIndex ?? 0,
+            rules,
+          )
         : 0;
 
     return this.currentAttackActionCharacteristicModifier(actionRule, component, hitNumber, {

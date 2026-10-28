@@ -1696,7 +1696,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
-      occupy_hands: { min: 1, max: 2, action: 2 },
+      occupy_hands: { min: 1, max: 1 },
       weapon: {
         min_strength: { base: 4, size: 1 },
         durability: { base: 5, size: 1 },
@@ -1714,6 +1714,7 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'shoot',
+            extra_hands: 1,
             distance: {
               min: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
               max: {
@@ -1754,7 +1755,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
-      occupy_hands: { min: 1, max: 2, action: 2 },
+      occupy_hands: { min: 1, max: 1 },
       weapon: {
         min_strength: { base: 3, size: 2 },
         durability: { base: 5, size: 1 },
@@ -1772,6 +1773,7 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'shoot',
+            extra_hands: 1,
             distance: {
               min: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
               max: {
@@ -1813,7 +1815,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
-      occupy_hands: { min: 1, max: 2, action: 2 },
+      occupy_hands: { min: 1, max: 1 },
       weapon: {
         min_strength: { base: 5, size: 1 },
         durability: { base: 5, size: 1 },
@@ -1831,6 +1833,7 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'shoot',
+            extra_hands: 1,
             distance: {
               min: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
               max: {
@@ -1872,7 +1875,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 2, size: -5 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
-      occupy_hands: { min: 1, max: 2, action: 2 },
+      occupy_hands: { min: 1, max: 1 },
       weapon: {
         min_strength: { base: 4, size: 1 },
         durability: { base: 5, size: 1 },
@@ -1890,6 +1893,7 @@ export const mockItemImport: Rule[] = [
           },
           {
             type: 'shoot',
+            extra_hands: 1,
             distance: {
               min: { type: 'ipari', value: { type: 'dimensional', base: 1, size: 0 } },
               max: {

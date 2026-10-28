@@ -23,4 +23,6 @@ export interface WeaponProfile {
   dodge_benefit?: number;
   /** Боеприпасы профиля. */
   ammunition?: WeaponAmmunition;
+  /** Дополнительно рук на это действие (лук: удержание 1 + натяжение 1). Нет — 0. */
+  extra_hands?: number;
 }

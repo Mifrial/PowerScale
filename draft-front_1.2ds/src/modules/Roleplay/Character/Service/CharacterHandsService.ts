@@ -24,13 +24,9 @@ export class CharacterHandsService {
     if (spec.occupy_hands) {
       const min = Math.max(0, Math.floor(spec.occupy_hands.min));
       const max = Math.max(min, Math.floor(spec.occupy_hands.max));
-      const action =
-        spec.occupy_hands.action === undefined || spec.occupy_hands.action === null
-          ? undefined
-          : Math.max(min, Math.floor(spec.occupy_hands.action));
       if (min === 0 && max === 0) return null;
 
-      return action === undefined ? { min, max } : { min, max, action };
+      return { min, max };
     }
     if (spec.weapon || spec.shield) return { min: 1, max: 1 };
 
@@ -40,12 +36,8 @@ export class CharacterHandsService {
   occupyHandsLabel(spec: ItemSpec | undefined): string | null {
     const occupy = this.occupyHandsSpec(spec);
     if (!occupy) return null;
-    const range = occupy.min === occupy.max ? String(occupy.min) : `${occupy.min}–${occupy.max}`;
-    if (occupy.action !== undefined && occupy.action !== occupy.min) {
-      return `${range}, действие ${occupy.action}`;
-    }
 
-    return range;
+    return occupy.min === occupy.max ? String(occupy.min) : `${occupy.min}–${occupy.max}`;
   }
 
   restOccupy(item: InventoryItem, spec: ItemSpec | undefined): number {
@@ -55,12 +47,11 @@ export class CharacterHandsService {
     return this.clampOccupy(item.occupyHands ?? occupy.min, occupy);
   }
 
-  actionOccupy(item: InventoryItem, spec: ItemSpec | undefined): number {
-    const occupy = this.occupyHandsSpec(spec);
-    if (!occupy) return 0;
+  /** Занятость действия: удержание плюс `extra_hands` профиля. */
+  actionOccupy(item: InventoryItem, spec: ItemSpec | undefined, extraHands = 0): number {
     const rest = this.restOccupy(item, spec);
 
-    return Math.max(rest, occupy.action ?? rest);
+    return rest + Math.max(0, Math.floor(extraHands));
   }
 
   gripBonus(hands: number): number {
@@ -140,13 +131,16 @@ export class CharacterHandsService {
     inventory: readonly InventoryItem[],
     itemRuleCode: string,
     profileType: 'strike' | 'throw' | 'shoot',
+    profileIndex: number,
     rules: Rule[],
   ): number {
     const item = inventory.find((entry) => entry.equipped && entry.ruleCode === itemRuleCode);
     if (!item) return 0;
     const spec = this.specOf(item, rules);
+    const profile = spec?.weapon?.weapon_profiles?.[profileIndex];
+    const extraHands = profile && profile.type === profileType ? (profile.extra_hands ?? 0) : 0;
 
-    return profileType === 'shoot' ? this.actionOccupy(item, spec) : this.restOccupy(item, spec);
+    return this.actionOccupy(item, spec, extraHands);
   }
 
   /** Сколько копий профиля показать. Врождённые руки — только свободные слоты. */

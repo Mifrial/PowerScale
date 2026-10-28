@@ -30,10 +30,18 @@ const emptyWeapon: ItemSpec['weapon'] = {
   weapon_profiles: [],
 };
 
+const bowWeapon = {
+  min_strength: null,
+  weapon_profiles: [
+    { type: 'strike' },
+    { type: 'shoot', extra_hands: 1 },
+  ],
+} as unknown as ItemSpec['weapon'];
+
 const rules: Rule[] = [
   itemRule('dagger', { weapon: emptyWeapon }),
   itemRule('staff', { occupy_hands: { min: 1, max: 2 }, weapon: emptyWeapon }),
-  itemRule('bow', { occupy_hands: { min: 1, max: 2, action: 2 }, weapon: emptyWeapon }),
+  itemRule('bow', { occupy_hands: { min: 1, max: 1 }, weapon: bowWeapon }),
   itemRule('great', { occupy_hands: { min: 2, max: 2 }, weapon: emptyWeapon }),
   itemRule('plate', { armor: { defense_slots: [], resistance_slots: [], characteristic_limits: [] } }),
 ];
@@ -50,7 +58,7 @@ describe('CharacterHandsService', () => {
   it('оружие без спеки слотов занимает 1, доспех — 0', () => {
     expect(service.occupyHandsSpec(rules[0]?.spec as ItemSpec)).toEqual({ min: 1, max: 1 });
     expect(service.occupyHandsSpec(rules[4]?.spec as ItemSpec)).toBeNull();
-    expect(service.occupyHandsLabel(rules[2]?.spec as ItemSpec)).toBe('1–2, действие 2');
+    expect(service.occupyHandsLabel(rules[2]?.spec as ItemSpec)).toBe('1');
   });
 
   it('бонус удержания: 1→0, 2 и 3→+2, 4→+3', () => {
@@ -60,17 +68,20 @@ describe('CharacterHandsService', () => {
     expect(service.gripBonus(4)).toBe(3);
   });
 
-  it('лук: покой 1, действие 2', () => {
+  it('лук: покой 1, выстрел требует ещё одну руку', () => {
     const item = row(1, 'bow', true);
     const spec = rules[2]?.spec as ItemSpec;
     expect(service.restOccupy(item, spec)).toBe(1);
-    expect(service.actionOccupy(item, spec)).toBe(2);
+    expect(service.actionOccupy(item, spec, 1)).toBe(2);
   });
 
-  it('occupyHandsForAttack берёт экипированный экземпляр', () => {
-    const inventory = [row(1, 'staff', true, 2)];
-    expect(service.occupyHandsForAttack(inventory, 'staff', 'strike', rules)).toBe(2);
-    expect(service.occupyHandsForAttack(inventory, 'staff', 'shoot', rules)).toBe(2);
+  it('occupyHandsForAttack берёт экипированный экземпляр и extra_hands профиля', () => {
+    const staff = [row(1, 'staff', true, 2)];
+    expect(service.occupyHandsForAttack(staff, 'staff', 'strike', 0, rules)).toBe(2);
+
+    const bow = [row(1, 'bow', true)];
+    expect(service.occupyHandsForAttack(bow, 'bow', 'strike', 0, rules)).toBe(1);
+    expect(service.occupyHandsForAttack(bow, 'bow', 'shoot', 1, rules)).toBe(2);
   });
 
   it('второй двуручник не экипируется при двух руках', () => {

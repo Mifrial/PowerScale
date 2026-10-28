@@ -1300,8 +1300,7 @@ export class CharacterOverviewService {
           (atDistance.profileIndex === undefined || atDistance.profileIndex === profileIndex)
             ? atDistance.distanceIpari
             : null;
-        const occupyHands =
-          profile.type === 'shoot' ? this.hands.actionOccupy(item, spec) : this.hands.restOccupy(item, spec);
+        const occupyHands = this.hands.actionOccupy(item, spec, profile.extra_hands ?? 0);
         const copies = this.hands.attackInstanceCount(item, profile.type, version.inventory, rules);
         for (let instanceIndex = 0; instanceIndex < copies; instanceIndex += 1) {
           try {

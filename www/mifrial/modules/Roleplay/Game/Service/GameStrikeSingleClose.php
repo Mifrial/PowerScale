@@ -167,6 +167,7 @@ final class GameStrikeSingleClose
                 $this->choices->attackerChoices($game, $open),
                 $itemInventoryId,
             ),
+            $this->abilityLevels($game, $attackerKind, $attackerId),
         );
         $npcSheet = $attackerKind === 'npc'
             ? $this->sheets->getNpcSheet($game->getId(), $attackerId)
@@ -557,18 +558,7 @@ final class GameStrikeSingleClose
             $attackerKind,
             $attackerId,
             $pending,
-            [
-                'action-points' => $this->spend->getActionAp(
-                    $slice,
-                    $actionRuleCode,
-                    true,
-                    $this->rules->weaponMinActionCost(
-                        $game->getSpaceId(),
-                        $game->getRulesRevision(),
-                        is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '',
-                    ),
-                ),
-            ],
+            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode, true)],
             [$targetKey],
         );
         if ($reactionRuleCode !== null) {
@@ -729,5 +719,27 @@ final class GameStrikeSingleClose
         }
 
         return $result;
+    }
+
+    /**
+     * Уровни способностей атакующего.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $kind Вид актора.
+     * @param int $actorId Идентификатор.
+     *
+     * @return array<string, int> Уровни.
+     *
+     * @throws GameInvalidException Если лист битый.
+     * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если листа нет.
+     */
+    private function abilityLevels(GameRecord $game, string $kind, int $actorId): array
+    {
+        $sheet = $kind === 'character'
+            ? $this->rules->characterSnapshot($actorId)['sheet']
+            : $this->sheets->getNpcSheet($game->getId(), $actorId);
+        $levels = $sheet['abilityLevels'] ?? null;
+
+        return is_array($levels) ? $levels : [];
     }
 }

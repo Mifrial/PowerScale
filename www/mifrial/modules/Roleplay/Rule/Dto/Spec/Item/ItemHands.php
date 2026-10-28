@@ -14,14 +14,12 @@ final class ItemHands
      *
      * @param int $min Минимум покоя.
      * @param int $max Максимум покоя.
-     * @param int|null $action Занятость на действии.
      *
      * @return void
      */
     public function __construct(
         private readonly int $min,
         private readonly int $max,
-        private readonly ?int $action,
     ) {
     }
 
@@ -43,15 +41,5 @@ final class ItemHands
     public function getMax(): int
     {
         return $this->max;
-    }
-
-    /**
-     * Занятость на действии.
-     *
-     * @return int|null Число или null.
-     */
-    public function getAction(): ?int
-    {
-        return $this->action;
     }
 }

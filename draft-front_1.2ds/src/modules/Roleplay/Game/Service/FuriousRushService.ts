@@ -52,6 +52,7 @@ export class FuriousRushService {
     attack: {
       itemRuleCode: string;
       profileType: 'strike' | 'throw' | 'shoot';
+      profileIndex?: number;
       damageTypeCode: string | null;
     },
   ): DimensionalNumberValue {
@@ -65,6 +66,7 @@ export class FuriousRushService {
       version.inventory,
       attack.itemRuleCode,
       attack.profileType,
+      attack.profileIndex ?? 0,
       rules,
     );
     const grip = characterHandsService.gripBonus(occupy);
@@ -93,6 +95,7 @@ export class FuriousRushService {
     attack: {
       itemRuleCode: string;
       profileType: 'strike' | 'throw' | 'shoot';
+      profileIndex?: number;
       damageTypeCode: string | null;
     };
     selectedChildCodes: readonly string[];

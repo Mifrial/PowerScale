@@ -132,6 +132,7 @@ final class ItemWeapons
             $falloff,
             SpecShape::optionalInt($row, 'dodge_benefit'),
             self::ammunition($row, $type),
+            SpecShape::optionalInt($row, 'extra_hands'),
         );
     }
 

@@ -1273,12 +1273,16 @@ final class GameStrikeRules
     /**
      * Текущий сдвиг характеристики атаки карточки действия.
      *
+     * Учитывает эффекты самой карточки и её дочерних навыков
+     * (`parent_ability_code`) с уровнем ≥ 1.
+     *
      * @param CharacterRuleSlice $slice Срез.
      * @param string $actionRuleCode Карточка.
      * @param string $profileType Тип профиля strike, throw или shoot.
      * @param int $hitNumber Номер попадания.
      * @param array{damageTypeCode?: string|null, occupyHands?: int} $attackContext
      *        Контекст профиля: тип урона и занятые оружием руки.
+     * @param array<string, int> $abilityLevels Уровни способностей актора.
      *
      * @return int Сдвиг.
      */
@@ -1288,6 +1292,7 @@ final class GameStrikeRules
         string $profileType,
         int $hitNumber,
         array $attackContext = [],
+        array $abilityLevels = [],
     ): int {
         $base = $this->actionBase($slice, $actionRuleCode);
         if ($base === null) {
@@ -1300,29 +1305,70 @@ final class GameStrikeRules
         $occupyHands = is_int($occupyHands) ? $occupyHands : 0;
 
         $delta = 0;
-        foreach ($base->getActionEffects() as $effect) {
-            if (!$effect instanceof CurrentActionAttackCharacteristicModifierEffect) {
-                continue;
-            }
+        foreach ($this->actionEffectBases($slice, $actionRuleCode, $base, $abilityLevels) as $current) {
+            foreach ($current->getActionEffects() as $effect) {
+                if (!$effect instanceof CurrentActionAttackCharacteristicModifierEffect) {
+                    continue;
+                }
 
-            if (!$effect->getScope()->appliesTo($profileType, $hitNumber)) {
-                continue;
-            }
+                if (!$effect->getScope()->appliesTo($profileType, $hitNumber)) {
+                    continue;
+                }
 
-            $types = $effect->getDamageTypeCodes();
-            if ($types !== [] && ($damageType === null || !in_array($damageType, $types, true))) {
-                continue;
-            }
+                $types = $effect->getDamageTypeCodes();
+                if ($types !== [] && ($damageType === null || !in_array($damageType, $types, true))) {
+                    continue;
+                }
 
-            $minHands = $effect->getMinOccupyHands();
-            if ($minHands !== null && $occupyHands < $minHands) {
-                continue;
-            }
+                $minHands = $effect->getMinOccupyHands();
+                if ($minHands !== null && $occupyHands < $minHands) {
+                    continue;
+                }
 
-            $delta += $effect->getDelta();
+                $delta += $effect->getDelta();
+            }
         }
 
         return $delta;
+    }
+
+    /**
+     * Базы карточки действия и купленных дочерних навыков.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка.
+     * @param AbilityBase $base База карточки.
+     * @param array<string, int> $abilityLevels Уровни способностей.
+     *
+     * @return array<int, AbilityBase> Базы.
+     */
+    private function actionEffectBases(
+        CharacterRuleSlice $slice,
+        string $actionRuleCode,
+        AbilityBase $base,
+        array $abilityLevels,
+    ): array {
+        $bases = [$base];
+        foreach ($slice->getLiveRules() as $rule) {
+            $level = $abilityLevels[$rule->getCode()] ?? 0;
+            if (!is_int($level) || $level < 1) {
+                continue;
+            }
+
+            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
+            if (!$spec instanceof AbilityActionSpec && !$spec instanceof AbilityPlainSpec) {
+                continue;
+            }
+
+            $child = $spec->getBase();
+            if ($child->getParentAbilityCode() !== $actionRuleCode) {
+                continue;
+            }
+
+            $bases[] = $child;
+        }
+
+        return $bases;
     }
 
     /**
@@ -1365,6 +1411,7 @@ final class GameStrikeRules
                 $itemInventoryId,
                 $itemRuleCode,
                 $profileType,
+                $profileIndex,
             ),
         ];
     }
@@ -1372,16 +1419,21 @@ final class GameStrikeRules
     /**
      * Сколько рук занимает оружие в этой атаке.
      *
+     * Удержание — `occupy_hands` предмета (с учётом выбора строки инвентаря),
+     * плюс `extra_hands` профиля действия. По умолчанию действие занимает
+     * столько же рук, сколько удержание.
+     *
      * @param int $spaceId Мир.
      * @param int $rulesRevision Ревизия.
      * @param array<string, mixed> $choices Authoritative choices.
      * @param int $itemInventoryId Строка инвентаря.
      * @param string $itemRuleCode Предмет.
      * @param string $profileType Тип профиля strike, throw или shoot.
+     * @param int $profileIndex Смещение профиля.
      *
      * @return int Число рук.
      *
-     * @throws GameInvalidException Если предмет или строка битые.
+     * @throws GameInvalidException Если предмет, строка или профиль битые.
      * @throws GameNotFoundException Если ревизии нет.
      */
     public function occupyHands(
@@ -1391,6 +1443,7 @@ final class GameStrikeRules
         int $itemInventoryId,
         string $itemRuleCode,
         string $profileType,
+        int $profileIndex,
     ): int {
         $hands = $this->item($spaceId, $rulesRevision, $itemRuleCode)->getOccupyHands();
         if ($hands === null) {
@@ -1402,30 +1455,10 @@ final class GameStrikeRules
         $value = is_int($value) ? $value : $hands->getMin();
         $rest = max($hands->getMin(), min($hands->getMax(), $value));
 
-        return $profileType === 'shoot' ? max($rest, $hands->getAction() ?? $rest) : $rest;
-    }
+        $extra = $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex)
+            ->getExtraHands();
 
-    /**
-     * Минимальная цена удара оружием из его блока.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param string $itemRuleCode Предмет.
-     *
-     * @return int Пол или 0.
-     *
-     * @throws GameInvalidException Если предмет битый.
-     * @throws GameNotFoundException Если ревизии нет.
-     */
-    public function weaponMinActionCost(int $spaceId, int $rulesRevision, string $itemRuleCode): int
-    {
-        if ($itemRuleCode === '') {
-            return 0;
-        }
-
-        $value = $this->item($spaceId, $rulesRevision, $itemRuleCode)->getWeapon()?->getMinActionCost();
-
-        return is_int($value) && $value > 0 ? $value : 0;
+        return $rest + (is_int($extra) && $extra > 0 ? $extra : 0);
     }
 
     /**

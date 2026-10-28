@@ -338,7 +338,6 @@ final class ItemSpecs
         return new ItemHands(
             SpecShape::int($hands, 'min'),
             SpecShape::int($hands, 'max'),
-            SpecShape::optionalInt($hands, 'action'),
         );
     }
 

@@ -150,7 +150,7 @@ function updateShield(value: ShieldBlock) {
   draft.value.shield = value;
 }
 
-function patchOccupyHands(field: 'min' | 'max' | 'action', value: number) {
+function patchOccupyHands(field: 'min' | 'max', value: number) {
   itemSpecService.patchOccupyHands(draft.value, field, value);
 }
 
@@ -254,15 +254,6 @@ const weightKilogramsLabel = computed(() => itemSpecService.formatWeightKilogram
                 :model-value="draft.occupy_hands?.max ?? 0"
                 @update:model-value="(v) => patchOccupyHands('max', v ?? draft.occupy_hands?.max ?? 0)"
                 label="Руки max"
-                :min="0"
-                density="compact"
-                hide-details
-                style="flex: 1 1 auto"
-              />
-              <ClampedNumberField
-                :model-value="draft.occupy_hands?.action ?? 0"
-                @update:model-value="(v) => patchOccupyHands('action', v ?? draft.occupy_hands?.action ?? 0)"
-                label="Руки на действии"
                 :min="0"
                 density="compact"
                 hide-details

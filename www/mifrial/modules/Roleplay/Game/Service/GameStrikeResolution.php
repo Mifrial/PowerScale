@@ -371,6 +371,7 @@ final class GameStrikeResolution
                     $this->participantChoices($game, $kind, $attackerId),
                     $inventoryId,
                 ),
+                $this->abilityLevels($game, $kind, $attackerId),
             ),
         );
 
@@ -485,6 +486,7 @@ final class GameStrikeResolution
                 $this->participantChoices($game, $kind, $attackerId),
                 $inventoryId,
             ),
+            $this->abilityLevels($game, $kind, $attackerId),
         );
         if ($success !== null) {
             $characteristicModifier += $this->rules->successRatingCharacteristicModifier(
@@ -688,6 +690,7 @@ final class GameStrikeResolution
                 $this->participantChoices($game, $kind, $attackerId),
                 $itemInventoryId,
             ),
+            $this->abilityLevels($game, $kind, $attackerId),
         );
         if ($success !== null) {
             $characteristicModifier += $this->rules->successRatingCharacteristicModifier(

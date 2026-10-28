@@ -47,21 +47,18 @@ export class ItemSpecService {
     return `${kilograms} кг`;
   }
 
-  /** Подпись к «Занимает»: «1–2 руки», «1 руку, на действии 2»; null — предмет рук не занимает. */
+  /** Подпись к «Занимает»: «1–2 руки», «1 руку»; null — предмет рук не занимает. */
   formatOccupyHands(hands: ItemHandsSpec | null | undefined): string | null {
     if (!hands || hands.max === 0) {
       return null;
     }
-    const { min, max, action } = hands;
-    const base =
-      min === max
-        ? `${min} ${this.handWord(min)}`
-        : min === 0
-          ? `до ${max} ${max === 1 ? 'руки' : 'рук'}`
-          : `${min}–${max} ${this.handWord(max)}`;
-    const actionLabel = action != null && action !== max ? `, на действии ${action}` : '';
+    const { min, max } = hands;
 
-    return `${base}${actionLabel}`;
+    return min === max
+      ? `${min} ${this.handWord(min)}`
+      : min === 0
+        ? `до ${max} ${max === 1 ? 'руки' : 'рук'}`
+        : `${min}–${max} ${this.handWord(max)}`;
   }
 
   private handWord(count: number): string {
@@ -179,17 +176,16 @@ export class ItemSpecService {
     return { ...spec, cost_gm: null, weight: null };
   }
 
-  patchOccupyHands(spec: ItemSpecDraft, field: 'min' | 'max' | 'action', value: number): void {
+  patchOccupyHands(spec: ItemSpecDraft, field: 'min' | 'max', value: number): void {
     const current = spec.occupy_hands;
     const min = field === 'min' ? value : (current?.min ?? 0);
     const maxRaw = field === 'max' ? value : (current?.max ?? 0);
-    const actionRaw = field === 'action' ? value : (current?.action ?? 0);
     const max = Math.max(min, maxRaw);
-    if (min === 0 && max === 0 && actionRaw === 0) {
+    if (min === 0 && max === 0) {
       delete spec.occupy_hands;
 
       return;
     }
-    spec.occupy_hands = actionRaw > 0 ? { min, max, action: actionRaw } : { min, max };
+    spec.occupy_hands = { min, max };
   }
 }
