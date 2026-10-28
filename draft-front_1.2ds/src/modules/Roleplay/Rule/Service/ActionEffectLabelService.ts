@@ -1,6 +1,6 @@
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
-import { ADVANTAGE_SOURCE_ACTION, ADVANTAGE_SOURCE_TRAINING } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { ADVANTAGE_SOURCE_ACTION, ADVANTAGE_SOURCE_MULTI_ATTACK, ADVANTAGE_SOURCE_TRAINING } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 
 export class ActionEffectLabelService {
   describe(effect: ActionEffect, sourceLabel?: string): string {
@@ -13,7 +13,7 @@ export class ActionEffectLabelService {
 
   private sourceLabel(code: string): string {
     if (code === ADVANTAGE_SOURCE_ACTION) return 'действие';
-    if (code === 'multi_attack') return 'множественная атака';
+    if (code === ADVANTAGE_SOURCE_MULTI_ATTACK) return 'множественная атака';
     if (code === ADVANTAGE_SOURCE_TRAINING) return 'тренировки';
 
     return code;
