@@ -7,8 +7,8 @@ use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionBody;
-use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
-use Mifrial\Roleplay\Rule\Interface\Service\IRules;
+use Mifrial\Roleplay\RuleSpace\Interface\Container\IRuleSpaceContainer;
+use Mifrial\Roleplay\RuleSpace\Interface\Service\IRuleSpaces;
 use Mifrial\Roleplay\Rule\Spec\RuleSpecs;
 
 $options = getopt('', ['space::', 'from::', 'to::', 'game::', 'commit', 'help']);
@@ -25,13 +25,13 @@ $commit = isset($options['commit']);
 
 $app = require dirname(__DIR__) . '/init.php';
 $locator = $app->getLocator();
-$rules = $locator->get(IRuleContainer::class)->get(IRules::class);
-if (!$rules instanceof IRules) {
-    fwrite(STDERR, "Не удалось получить сервис правил\n");
+$spaces = $locator->get(IRuleSpaceContainer::class)->get(IRuleSpaces::class);
+if (!$spaces instanceof IRuleSpaces) {
+    fwrite(STDERR, "Не удалось получить сервис миров\n");
     exit(1);
 }
 
-$slice = $rules->getRevision($spaceId, $from);
+$slice = $spaces->getRevision($spaceId, $from);
 $entries = [];
 $stats = [
     'dodge' => [],
@@ -90,7 +90,7 @@ if (!$commit) {
     exit(0);
 }
 
-$revision = $rules->commit($spaceId, $entries, false, $from);
+$revision = $spaces->commit($spaceId, $entries, null, $from);
 fwrite(STDOUT, 'Опубликована ревизия ' . $revision->getRevision() . PHP_EOL);
 
 if ($gameId === null) {
