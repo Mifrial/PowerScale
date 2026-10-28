@@ -122,6 +122,42 @@ describe('CharacterHttpViewService.versionOf', () => {
     ]);
     expect(version.raceRuleCode).toBe('human');
   });
+
+  it('инвентарь сохраняет выбранную занятость рук и модификаторы', () => {
+    const version = characterHttpViewService.versionOf({
+      name: 'Тестовичок',
+      spaceCode: '',
+      rulesRevision: 17,
+      choices: {
+        name: 'Тестовичок',
+        inventory: [
+          {
+            id: 8,
+            ruleCode: 'polutornyy-mech',
+            quantity: 1,
+            equipped: true,
+            occupyHands: 2,
+            modifiers: ['stalnaya-okovka'],
+            custom: { name: 'Меч', description: 'Наследие' },
+          },
+        ],
+      },
+      sheet: {},
+    });
+
+    expect(version.inventory).toEqual([
+      {
+        id: 8,
+        ruleCode: 'polutornyy-mech',
+        quantity: 1,
+        equipped: true,
+        occupyHands: 2,
+        name: 'Меч',
+        description: 'Наследие',
+        modifierRuleCodes: ['stalnaya-okovka'],
+      },
+    ]);
+  });
 });
 
 describe('CharacterHttpViewService.materialize', () => {

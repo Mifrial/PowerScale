@@ -362,6 +362,7 @@ export class CharacterHttpViewService {
           ruleCode: this.nullableStringOf(record.ruleCode),
           quantity: this.intOf(record.quantity, 1),
           equipped: record.equipped === true,
+          occupyHands: typeof record.occupyHands === 'number' ? record.occupyHands : undefined,
           name: this.nullableStringOf(custom.name),
           description: this.nullableStringOf(custom.description),
           modifierRuleCodes: Array.isArray(record.modifiers)
