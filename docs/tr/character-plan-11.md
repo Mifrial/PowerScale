@@ -1,6 +1,6 @@
 # План Character 11 — остаток повреждений и дельта истощения
 
-**Статус:** PHP сделан. Канон — [`character-plan-10.md`](character-plan-10.md) (`putState`), [`character-system.md`](character-system.md) (повреждения и истощение — разные состояния), [`rule-system.md`](rule-system.md) («Экземпляр может отсутствовать»). Нарезка — [`character-roadmap.md`](character-roadmap.md): этот документ шаг туда не вписывает и C11 не закрывает. G22 не начинается. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ (2026-10-28). Kind `putDamageSplit` реализован в `CharacterActualStateRows` и `CharacterActualMutations`, покрыт `CharacterActualStateTest`; C11 закрыт, Game G22 разблокирован. Канон — [`character-plan-10.md`](character-plan-10.md) (`putState`), [`character-system.md`](character-system.md) (повреждения и истощение — разные состояния), [`rule-system.md`](rule-system.md) («Экземпляр может отсутствовать»). Нарезка — [`character-roadmap.md`](character-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Сверка кода до плана. `ICharacterActualMutations` принимает `setInventoryQuantity`, `putInventoryQuantity`, `setMoney` и `putState`. `CharacterActualStateRows::append` на `putState` дописывает новую строку в `sheet.states` и `StateSpec` читает только как `value_type` (`flag`, `number`, `dimensional`). Флаги `isDamageRemainder()` и `isDamageExhaustion()` порт не вызывает. Kind, который заменяет значение одной строки состояния и прибавляет целое к другой, в каталоге нет.
 

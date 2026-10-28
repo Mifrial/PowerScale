@@ -1,6 +1,6 @@
 # Готовность боевой модели Game
 
-**Статус:** контрольный срез, 2026-10-07.  
+**Статус:** контрольный срез, 2026-10-28.
 **Назначение:** сверять канон боевого процесса с frontend, backend PHP и
 сквозными тестами. Этот файл не заменяет `game-system.md`, `rule-system.md`,
 `character-system.md` и профильные планы.
@@ -71,8 +71,9 @@ Authoritative-источники:
 - Несколько независимых боёв в одной сессии — `BACKEND` на уровне контракта.
 - Процесс, предложения и очистка незавершённых процессов — `BACKEND`.
   Доказательство: G17 / `game-plan-17.md`.
-- Доставка уже принятой команды через outbox/SSE — `BACKEND`, но production
-  multi-user acceptance ещё не подтверждён как `E2E`.
+- Доставка уже принятой команды через outbox/SSE — `BACKEND`, production
+  multi-user acceptance подтверждён как `E2E` на двух аккаунтах
+  ([`game-plan-33.md`](game-plan-33.md), P4).
 - Battleground, координаты и `ISpatialResolver` — `OPEN`.
 
 ### Проверки и порядок хода
@@ -105,10 +106,11 @@ Authoritative-источники:
 - Конфликт версии боя и листа — `BACKEND`.
 - Персонаж и NPC как цели — `BACKEND`.
 
-Вход уже допускает `profileType` `strike`, `throw` и `shoot`, однако это не
-означает готовность всех видов атаки. Специальные правила броска и выстрела
-сейчас имеют frontend/domain-срез (`FRONTEND`), но authoritative PHP для них
-отсутствует (`BACKEND_MISSING`), а E2E нет (`E2E_MISSING`).
+Вход допускает `profileType` `strike`, `throw` и `shoot`. Специальные правила
+броска и выстрела — `BACKEND` в срезе дистанции/боеприпасов (ревизия 15):
+размерная дистанция, `falloff`, укрытие, условия цели, боеприпасы профиля и
+`dodge_ranged_penalty`; E2E — в P4 ([`game-plan-33.md`](game-plan-33.md)).
+Остаток — контент `ammunition_requirements` и профили атаки щитом.
 
 ## Расчёт атаки
 
@@ -153,14 +155,17 @@ Authoritative-источники:
 - Проекция числовых `defense_slots` брони и сопротивлений из Character/NPC —
   `BACKEND` для базового resistance path. По канону defense-слой входит в
   effective resistance, если тип урона не помечен `defense_ignored`.
-  Penetration и полная block-ветка остаются незакрыты.
-- Полноценный числовой эффект `block` —
-  `FRONTEND + BACKEND_MISSING + E2E_MISSING`.
+  Penetration вычитается из защиты (`GameStrikeAmounts::effectiveDefense`),
+  block-ветка считает успех (`GameStrikeResolution::successOf`).
+- Числовой эффект `block` — `BACKEND`: успех защитника режет успех атаки до 1
+  (`GameStrikeResolution::successOf`), E2E — в P4 ([`game-plan-33.md`](game-plan-33.md)).
 - `ResistanceSlot::durability` / nullable threshold — `BACKEND` в Rule и
   projection; фактическая production capability среза ещё не подтверждена.
 - Инфраструктура semantic reliability capability — `BACKEND`; живой handler и
   content, который её включает, — `BACKEND_MISSING`.
-- Penetration и `pay_sr` — `BACKEND_MISSING`.
+- `pay_sr_vs_reliability` — `BACKEND_MISSING`: handler в Mechanic
+  зарегистрирован (`PaySrVsReliabilityHandler`), но боевой путь Game его не
+  вызывает.
 - `source_code` и source collapse для базового resistance path —
   `BACKEND`; semantic provenance блока и сквозное подтверждение ещё требуют
   отдельного гейта.
@@ -174,8 +179,9 @@ Authoritative-источники:
   боеприпасы профиля (`none`/`self`/`item`), штраф уклонения от выстрела
   `dodge_ranged_penalty` и накопление укрытия в сложности. Хранится в
   `game_action_strike.conditions`; чат и окно защитника показывают разбор.
-  Frontend отправляет и отображает условия; E2E-сценарий поверх реального
-  HTTP по-прежнему не подтверждён. Доказательства: `GameStrikeConditions`,
+  Frontend отправляет и отображает условия; E2E поверх реального HTTP
+  подтверждён в P4 ([`game-plan-33.md`](game-plan-33.md)). Доказательства:
+  `GameStrikeConditions`,
   `GameStrikeRules::distanceMetrics`/`rollDodge`, `GameProjections`,
   `GamePhysicalProfileMysqlTest`, `GameWideStrikeMysqlTest`
   (`testWideStrikeKeepsPerTargetConditions`), `GameStrikeConditionsTest`,
@@ -332,19 +338,15 @@ Generic PHP process имеет только `open/resolved/cancelled` и сам 
 ## Frontend и сквозная готовность
 
 Frontend Game содержит страницы, боевые диалоги, расчётные сервисы, mock API
-и mock realtime. Это подтверждает наличие UI/domain-срезов, но не подключение
-к authoritative PHP.
+и mock realtime. Подключение к authoritative PHP идёт через единый вход
+`game.runAction` (фазы `declare`/`respond`, виды `action`/`strike`/`wound`),
+`game.endTurn`, `game.continueAction`, `game.abortAction`,
+`game.getBattleSheets` и SSE `/game/sync`. Отдельные `game.declareStrike`,
+`game.resolveStrike`, `game.declareWideStrike` и `game.resolveWideStrike`
+удалены.
 
-Текущий frontend использует action names `game.submitCombatCommand`,
-`game.mutateRuntimeEntity`, `game.addCombatState`,
-`game.replaceCombatState` и другие runtime actions. В authoritative PHP
-module config сейчас зарегистрированы `game.declareStrike`,
-`game.resolveStrike`, `game.declareWideStrike` и
-`game.resolveWideStrike`, но не этот frontend runtime command surface.
-Следовательно, разрыв — не только отсутствие E2E: текущий frontend combat
-command path не подключён к существующему PHP action surface.
-
-Для статуса `E2E` нужен сценарий:
+Сквозной сценарий подтверждён на двух аккаунтах
+([`game-plan-33.md`](game-plan-33.md), P4):
 
 ```text
 пользователь A
@@ -356,32 +358,34 @@ command path не подключён к существующему PHP action su
   → пользователь B видит новую версию
 ```
 
-Пока таким образом не подтверждены:
+Подтверждены: реальный frontend Game API поверх боевых действий, два
+независимых login/account, multi-user delivery результата атаки, перерисовка
+actual Character/NPC после mutation, stale-version конфликт в браузере и повтор
+команды из браузера. Переход membership в `changes_pending` после боевого
+изменения отдельно не проверялся.
 
-- реальный frontend Game API поверх всех combat actions;
-- два независимых login/account;
-- multi-user delivery результата атаки;
-- перерисовка actual Character/NPC после mutation;
-- stale-version конфликт в браузере;
-- повтор команды из браузера;
-- переход membership в `changes_pending` после боевого изменения.
+Остаток — восстановление SSE после обрыва: `GameChatTab.recoverRealtime()`
+идёт через `port.sync()`, который в real-режиме недоступен.
 
 ## Гейты полноценного физического боя
 
 ### Gate P1 — вычисление атаки
 
-Нужно закрыть:
+Закрыто:
 
 - defense slots;
 - resistance layers;
 - durability/reliability;
 - срез надёжности;
-- penetration и `pay_sr`;
+- penetration;
 - block effect;
-- отдельные правила `strike`, `throw`, `shoot`.
-- legality выбранного block item: экипирован ли предмет и допустим ли его
-  block profile для защитника;
+- отдельные правила `strike`, `throw`, `shoot` (срез дистанции/боеприпасов);
+- legality выбранного block item: `GameStrikeRules::assertBlockSelection`
+  проверяет строку инвентаря и профиль;
 - action-point spend и eligibility реакции.
+
+Остаётся `pay_sr_vs_reliability`: handler в Mechanic зарегистрирован, боевой
+путь Game его не вызывает (`BACKEND_MISSING`).
 
 ### Gate P2 — прямые последствия
 
@@ -421,7 +425,8 @@ command path не подключён к существующему PHP action su
 
 ### Gate P4 — реальная доставка
 
-Нужно подтвердить:
+Подтверждено на двух независимых cookie-профилях при `VITE_API_MODE=real`
+([`game-plan-33.md`](game-plan-33.md), 2026-10-28):
 
 - frontend над PHP API;
 - два пользователя;
@@ -432,24 +437,27 @@ command path не подключён к существующему PHP action su
 - replay/idempotency;
 - обновление листов после атаки.
 
-До прохождения P1–P4 физический бой не помечается `DONE`, даже если отдельные
-PHP suites зелёные.
+Остаток — восстановление SSE после обрыва: `GameChatTab.recoverRealtime()`
+идёт через `port.sync()`, который в real-режиме недоступен.
 
 ## Ближайший порядок работ
 
-1. Принять завершение `game-plan-27` как завершение implementation side-plan
-   записи базовых повреждений/истощения, но не как завершение G22 и
-   физического боя.
-2. Считать `game-plan-28` частично закрытым: projection и базовый resistance
-   path сделаны, но P1 продолжается.
-3. Отдельным продолжением P1 закрыть defender block check, автопровал,
-   успешный/проваленный block, penetration, eligibility/ОД и production
-   reliability capability.
-4. Отдельно закрыть специальные правила `throw`/`shoot`.
-5. Реализовать общий authoritative state-effect pipeline для P2.
-6. Реализовать раны и последствия конца хода в P3.
-7. Прогнать P4 на двух пользователях.
-8. Только после этого начинать backend runtime заклинаний.
+Гейты P1–P4 закрыты, кроме `pay_sr_vs_reliability` и восстановления SSE.
+Дальше — бэклог атак вне гейтов:
+
+1. Требования оружия: `min_strength` и `min_action_cost` — парсятся в
+   `Rule/Spec/ItemWeapons`, Game их не проверяет.
+2. Фильтр характеристического модификатора: `min_occupy_hands` и
+   `damage_type_codes` — парсятся в `Rule/Spec/ActionEffects`, Game не
+   применяет.
+3. `actionCharacteristics` профиля — есть на `WeaponProfile`, в
+   `FormulaContext` боя не попадает.
+4. `max_success_rating` типа урона — в чате `srCap => null`.
+5. Backend-authority `current_action_attack_reach` («Выпад») — сейчас только
+   фронт.
+6. `push` («Толчок», «Толкающий удар») — кода нет, нужен дизайн.
+7. Модель рук — `GameWoundActions::handCount()` возвращает 2 как заглушку.
+8. Контент `ammunition_requirements` для `shoot`; профили атаки щитом.
 
 Экономика, battleground, `N → 1`, `N → N` и полный каталог магии не входят в
 минимальный гейт P1–P4.
@@ -459,18 +467,15 @@ PHP suites зелёные.
 - `GameBattleOrder` сортирует по `roll.base`; это не пропуск размера, а
   зафиксированный порядок G21. Отдельного tie-break по `roll.size` текущий
   канон не требует.
-- `GameStrikeRules::assertBlock()` проверяет, что rule code является
-  weapon/shield, но не подтверждает экипировку предмета защитником и
-  допустимость block profile.
+- `GameStrikeRules::assertBlock()` проверяет только, что rule code является
+  weapon/shield; экипировку строки инвентаря и допустимость block profile
+  проверяет `assertBlockSelection`.
 - `putDamageSplit` пишет только обычные state rows `{stateRuleCode, value}`;
-  nested wound sidecar и произвольные state hooks PHP Character/Game не
-  закрыты.
+  sidecar раны и `heldBy` закрыты [`game-plan-31.md`](game-plan-31.md).
 - NPC mutation идёт через `applyToDocument()` и `replaceVersion()`, тогда как
   player mutation идёт через Character `apply()` с его validation path.
   Это требует отдельного invariant-теста для одинаковой приемки боевого
   эффекта.
-- `game-plan-27` выполнен как implementation side-plan вне roadmap; в
-  `game-roadmap.md` агрегирующий G22 всё ещё имеет статус `TODO`.
 
 ## Доказательства текущего среза
 

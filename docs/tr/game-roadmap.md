@@ -1,31 +1,31 @@
 # Нарезка Roleplay/Game
 
-**Статус:** план, 2026-10-05. Линия G1–G21 сделана. Следующий агрегирующий
-шаг Game — G22, он не начинается, пока C11 не назвал kind. Отдельные
-implementation side-plans `game-plan-22`–`game-plan-27` закрывают части
-расчёта и базовой записи, но не меняют статус G22. `game-plan-28` закрыт для backend Game 28: projection, полный P1 и persistence/delivery acceptance подтверждены. `game-plan-29` принят для backend принятого scope физических
+**Статус:** план, 2026-10-05 (сверено с кодом 2026-10-28). Линия G1–G22
+сделана: G22 закрыт через Character C11 (`putDamageSplit`), запись исхода
+идёт в лист. Отдельные implementation side-plans `game-plan-22`–`game-plan-27`
+закрывают части расчёта и базовой записи. `game-plan-28` закрыт для backend
+Game 28: projection, полный P1 и persistence/delivery acceptance
+подтверждены. `game-plan-29` принят для backend принятого scope физических
 профилей атаки (`APPROVED`). Cover, координаты и карта, authority
 дальности/falloff и Game 30–33 в статус Game 29 не входят; при этом
 дальность, `falloff`, укрытие, условия цели и боеприпасы позже закрыты
 отдельным срезом (ревизия 15, `GamePhysicalProfileMysqlTest`,
 `GameWideStrikeMysqlTest`), это не меняет исторический статус плана 29.
-`game-plan-30`
-принят для backend принятого scope immediate consequences (`APPROVED`):
-injury, damage/exhaustion, state hooks, stun/shock/knockout и проверки
-Воли/увечья для игрока и NPC внутри close `1 → 1` и `1 → N`. `game-plan-31`
-принят для backend принятого scope ран (`APPROVED`): уникальность `id`
-строки состояния, sidecar, `heldBy`, `game.woundAction`, `next_action_cost`,
-`pending_action_effects` и снятие зажима на `leave`. Вне статуса Game 31:
-DOT, tick и прибавка `clotting`, frontend E2E, C11 и G22, константа
-`WOUND_STATE_CODE` в PHP. `game-plan-32` принят для backend принятого
-scope конца хода (`APPROVED`): `endTurn`, clotting, кровь, DOT, refill F1,
-курсор, долг ОД (`declareStrike` / wide), continue/abort, leave/roster
-strip, replay/CAS. Вне этого статуса: магия, сцена, `N → N`, сутки,
-frontend E2E, C11 и G22, `WOUND_STATE_CODE`, `blood_clotting` в `runEvent`.
-Game 33 остаётся следующим отдельным этапом со статусом `TODO` и не
-переведён в `IMPLEMENTED`. Frontend → PHP → delivery E2E и
-deployment/live verification не подтверждены и в эти статусы не входят.
-Это не project-wide approval. Канон — `[game-system.md](game-system.md)`.
+`game-plan-30` принят для backend принятого scope immediate consequences
+(`APPROVED`): injury, damage/exhaustion, state hooks, stun/shock/knockout и
+проверки Воли/увечья для игрока и NPC внутри close `1 → 1` и `1 → N`.
+`game-plan-31` принят для backend принятого scope ран (`APPROVED`):
+уникальность `id` строки состояния, sidecar, `heldBy`, `game.woundAction`,
+`next_action_cost`, `pending_action_effects` и снятие зажима на `leave`.
+`game-plan-32` принят для backend принятого scope конца хода (`APPROVED`):
+`endTurn`, clotting, кровь, DOT, refill F1, курсор, долг ОД (`declareStrike` /
+wide), continue/abort, leave/roster strip, replay/CAS. `game-plan-33` —
+frontend → PHP E2E — выполнен на двух аккаунтах (P4 подтверждён
+пользователем 2026-10-28). `game-plan-36` и `game-plan-37` закрыты: владелец
+персонажа в ударе `1 → 1` и общая модель действий с ответами владельцев целей
+`1 → N`. Остаток боевого контура — не новые шаги G, а пункты бэклога атак:
+`push`, требования оружия, фильтр модификатора, `max_success_rating`, профили
+щита. Это не project-wide approval. Канон — `[game-system.md](game-system.md)`.
 Границы — `[architecture.md](architecture.md)`, `[cross-domain.md](cross-domain.md)`.
 Стык листа — `[character-system.md](character-system.md)`, `[character-roadmap.md](character-roadmap.md)`
 (C8, C9). Порядок стыка, не замена канона Game —
@@ -300,7 +300,7 @@ Return отменяет незакрытые process этой строки пе�
 
 Зависимость: G13, G19, шаг 14 Rule и Character C10. Исполнитель формулы — `IFormulaEvaluations`. Контекст листа — `ICharacterFormulaContexts`.
 
-Общий расчёт одного удара для `1 → 1` и `1 → N`. Вход — уже проверенные решения G13 и G19 и `WeaponProfile`. Сервер считает успех и урон. Проверка G18 и `CheckSpec` этот расчёт не заменяют. Готовые числа во входе не принимаются. Список операций в этом шаге пуст: лист не меняется. Запись числа в лист — G22, после того как Character C11 назовёт kind. Инициатива, DOT, каст и сцена не входят.
+Общий расчёт одного удара для `1 → 1` и `1 → N`. Вход — уже проверенные решения G13 и G19 и `WeaponProfile`. Сервер считает успех и урон. Проверка G18 и `CheckSpec` этот расчёт не заменяют. Готовые числа во входе не принимаются. Список операций в этом шаге пуст: лист не меняется. Запись числа в лист — G22; Character C11 назвал kind `putDamageSplit`, запись сделана. Инициатива, DOT, каст и сцена не входят.
 
 ### G21. Инициатива — `DONE` (`BACKEND_OPEN`)
 
@@ -310,11 +310,11 @@ Return отменяет незакрытые process этой строки пе�
 
 Порядок хода одного боя. Game в срезе ревизии игры находит единственную живую проверку с признаком инициативы и считает её тем же путём, что G18. Строка кода правила в Game не зашивается. Порядок хранит бой, не лист и не таблица сессии. `endBattle` порядок снимает и сессию не останавливает. Запись урона в лист — не этот шаг.
 
-### G22. Запись исхода — `TODO`
+### G22. Запись исхода — `DONE`
 
-Зависимость: G20 и Character C11. Пока C11 не назвал kind патча, план этого шага не пишется.
+Зависимость: G20 и Character C11 — закрыты. Kind — `putDamageSplit` ([`character-plan-11.md`](character-plan-11.md)).
 
-Уже посчитанные успех и урон G20 пишутся в лист тем kind, который назвал C11. Game поле листа не выбирает и новый kind не заводит. Список операций перестаёт быть пустым. Персонаж — порт G10, NPC — `npc.version` существующей строки. DOT, каст и хендлеры ран Mechanic не входят.
+Уже посчитанные успех и урон G20 пишутся в лист этим kind. Game поле листа не выбирает и новый kind не заводит. Персонаж — порт G10, NPC — `npc.version` существующей строки. DOT, каст и хендлеры ран Mechanic не входят. Доказательства: `GameStrikeSplits`, `GameStrikeRules`, `GameTurnTicks`, `GameStrikeConsequences`, `GameStrikeMysqlTest`.
 
 ## Очередь implementation-планов после G27
 
@@ -370,25 +370,34 @@ Return отменяет незакрытые process этой строки пе�
    focused MySQL не assert’ит `delivery.source` и увечье DOT; эти пути
    закрыты чтением кода. Полный suite в verification не запускался. В
    documentation-only сессии PHPUnit и frontend не запускались. Это не
-   project-wide approval и не перевод Game 33 в `IMPLEMENTED`.
-6. `game-plan-33` **— frontend → PHP E2E (**`TODO`**).** Два аккаунта,
-  `1 → 1`/`1 → N`, реакции защиты, stale versions, replay/idempotency,
-  actual/NPC updates, delivery/SSE и обновление второго клиента.
+   project-wide approval. Game 33 закрыт отдельно — [`game-plan-33.md`](game-plan-33.md).
+6. **`game-plan-33` — frontend → PHP E2E (`DONE`).** Канон —
+  [`game-plan-33.md`](game-plan-33.md). Два аккаунта, `1 → 1`/`1 → N`,
+  реакции защиты, stale versions, replay/idempotency, actual/NPC updates,
+  delivery/SSE и обновление второго клиента. P4 подтверждён пользователем
+  2026-10-28.
 7. **`game-plan-34` — ручная правка листа в сессии (`IMPLEMENTED`).**
   Канон — `[game-plan-34.md](game-plan-34.md)`. HTTP `game.manualSheet`,
   actual Character/NPC, чат, ACL цели. Слот 33 не занимает.
 8. **`game-plan-35` — один журнал команд (`IMPLEMENTED`).**
   Канон — `[game-plan-35.md](game-plan-35.md)`. Таблица `game_command`,
   data-шаг CLI. HTTP не сливаются. Delivery-source wide остаётся `strike`.
+9. **`game-plan-36` — владелец персонажа в ударе `1 → 1` (`DONE`).**
+  Канон — [`game-plan-36-strike-owner-actions.md`](game-plan-36-strike-owner-actions.md).
+  Права по действующему персонажу, ожидание и «Взять на себя», конкурентный
+  тест «писатель + владелец защитника».
+10. **`game-plan-37` — общая модель действий и ответы владельцев целей
+  (`DONE`).** Канон — [`game-plan-37-wide-strike-owner-actions.md`](game-plan-37-wide-strike-owner-actions.md).
+  `game_action` / `game_action_target`, накопление ответов по целям,
+  атомарное разрешение последним ответом.
 
 Зависимости: `game-plan-29` принят после полного P1 из 28 и только для
 backend принятого scope. `game-plan-30` принят после 28–29 и только для
 backend принятого scope immediate consequences. `game-plan-31` принят
 после 28–30 и только для backend принятого scope ран. `game-plan-32`
 принят после 28–31 и только для backend принятого scope конца хода.
-Game 33 остаётся следующим отдельным этапом со статусом `TODO`, не
-`IMPLEMENTED`; 33 ждёт 28–32 и не повышает статус backend до E2E
-автоматически. Rule не собирает
+Game 33 выполнен после 28–32 на двух аккаунтах и подтвердил E2E; 36 и 37
+закрыли владельцев персонажа и общую модель действий. Rule не собирает
 слои цели, Character не исполняет боевые последствия, Game не создаёт
 второй лист.
 
@@ -406,13 +415,13 @@ G10 порт мутации actual
 G16 чаты донора
 G17 process → G18 проверка → G19 широкий удар → G20 исход удара
 G21 инициатива
-G22 запись исхода — после Character C11
+G22 запись исхода — сделано (Character C11)
 
 implementation side-plans после G27:
-28 → 29 → 30 → 31 → 32 → 33
+28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37
 ```
 
-G6, G7, G8 и G9 друг от друга не зависят. G11 не начинается без G6 и G10. G12 не начинается без G5, G6 и G10. G13 без G12 не считается боем. Список NPC в G14 не ждёт боя. G15 без G14 не проектируется. G16 не ждёт G6–G15: ему нужны строка игры, участник и строка персонажа, и уже сделанный шаг 7 Chat. G17 не ждёт G16. G18 без G17 не считается проверкой. G19 без G13 и G18 не считается широким ударом. G20 без G13 и G19 не считается исходом удара и не начинается без исполнителя `DimensionalFormula`. G21 не начинается без признака инициативы на `CheckSpec` и не зашивает код правила. G22 не начинается, пока C11 не назвал kind.
+G6, G7, G8 и G9 друг от друга не зависят. G11 не начинается без G6 и G10. G12 не начинается без G5, G6 и G10. G13 без G12 не считается боем. Список NPC в G14 не ждёт боя. G15 без G14 не проектируется. G16 не ждёт G6–G15: ему нужны строка игры, участник и строка персонажа, и уже сделанный шаг 7 Chat. G17 не ждёт G16. G18 без G17 не считается проверкой. G19 без G13 и G18 не считается широким ударом. G20 без G13 и G19 не считается исходом удара и не начинается без исполнителя `DimensionalFormula`. G21 не начинается без признака инициативы на `CheckSpec` и не зашивает код правила. G22 закрыт через C11 (`putDamageSplit`).
 
 Нельзя закрыть:
 
@@ -473,9 +482,9 @@ G6, G7, G8 и G9 друг от друга не зависят. G11 не начи
 
 ## HTTP и таблицы
 
-Сделано G1–G20: строка игры, участники, строка персонажа, сессия, NPC, секции видимости, вступление, летопись, порт мутации actual, экономика, бой, удар `1 → 1`, проекции чтения, доставка уже принятого итога, чаты донора, `returnMessageId`, строка process, проверка, широкий удар и расчёт успеха с уроном без записи листа.
+Сделано G1–G22: строка игры, участники, строка персонажа, сессия, NPC, секции видимости, вступление, летопись, порт мутации actual, экономика, бой, удар `1 → 1`, проекции чтения, доставка уже принятого итога, чаты донора, `returnMessageId`, строка process, проверка, широкий удар, расчёт успеха с уроном, инициатива и запись исхода через Character C11.
 
-Личные заметки игры (`personalNotes`) остаются вне нарезки. Инициатива — G21. Запись исхода — G22 и не начинается без Character C11. Сцена, каст, DOT и decay в G1–G22 не входят.
+Личные заметки игры (`personalNotes`) остаются вне нарезки. Инициатива — G21. Запись исхода — G22, закрыта через Character C11. Сцена, каст, DOT и decay в G1–G22 не входят.
 
 Legacy SQL в `[data-model.md](data-model.md)` (`games`, `game_members`, `game_rule_sets`, старый `game_characters`) — не физическая схема этого каркаса. Целевое membership там же помечено `implementation OPEN`. Колонки выбираются в плане шага.
 

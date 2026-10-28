@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 313,
-        "plans": 194,
+        "documents": 314,
+        "plans": 195,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 216,
+            "tr": 217,
             "tz": 2
         },
         "byZoneState": {
@@ -72,7 +72,7 @@
                 "нет": 23,
                 "СДЕЛАНО": 110,
                 "ОТЛОЖЕН": 2,
-                "ПЛАН": 31,
+                "ПЛАН": 32,
                 "ЧАСТИЧНО": 27,
                 "В РАБОТЕ": 12,
                 "ОТМЕНЁН": 4,
@@ -87,7 +87,7 @@
             "СНИМОК": 64,
             "нет": 55,
             "СДЕЛАНО": 111,
-            "ПЛАН": 34,
+            "ПЛАН": 35,
             "ОТЛОЖЕН": 6,
             "ЧАСТИЧНО": 27,
             "В РАБОТЕ": 12,
@@ -204,19 +204,19 @@
             }
         },
         "Roleplay/Game": {
-            "docs": 42,
+            "docs": 43,
             "state": {
                 "СНИМОК": 3,
                 "нет": 1,
                 "ЧАСТИЧНО": 3,
                 "СДЕЛАНО": 26,
                 "ОТМЕНЁН": 3,
-                "ПЛАН": 6
+                "ПЛАН": 7
             },
             "layer": {
-                "PHP": 35,
+                "PHP": 36,
                 "МОК": 1,
-                "VUE": 3
+                "VUE": 4
             }
         },
         "Roleplay/Keyword": {
@@ -1207,7 +1207,9 @@
             "modules": [],
             "linksCount": 6,
             "brokenLinks": [],
-            "backlinks": []
+            "backlinks": [
+                "docs/tr/game-plan-33.md"
+            ]
         },
         {
             "path": "docs/review/plan-p1-conditional-cas-implementation-2026-10-08.md",
@@ -2751,14 +2753,14 @@
             "zone": "tr",
             "kind": "plan",
             "state": "СДЕЛАНО",
-            "stateSource": "prose",
-            "statusRaw": "PHP сделан. Канон — [`character-plan-10.md`](character-plan-10.md) (`putState`), [`character-system.md`](character-system.md) (повреждения и истощение — разные состояния), [`rule-system.md`](rule-system.md) («Экземпляр может отсутствовать»). Нарезка — [`character-roadmap.md`](character-roadmap.md): этот документ шаг туда не вписывает и C11 не закрывает. G22 не начинается. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~ (2026-10-28). Kind `putDamageSplit` реализован в `CharacterActualStateRows` и `CharacterActualMutations`, покрыт `CharacterActualStateTest`; C11 закрыт, Game G22 разблокирован. Канон — [`character-plan-10.md`](character-plan-10.md) (`putState`), [`character-system.md`](character-system.md) (повреждения и истощение — разные состояния), [`rule-system.md`](rule-system.md) («Экземпляр может отсутствовать»). Нарезка — [`character-roadmap.md`](character-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).",
             "layers": [
                 "PHP"
             ],
             "basis": null,
-            "date": null,
-            "bytes": 11343,
+            "date": "2026-10-28",
+            "bytes": 11427,
             "lines": 36,
             "modules": [
                 "Roleplay/Character"
@@ -2766,8 +2768,10 @@
             "linksCount": 5,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/character-roadmap.md",
                 "docs/tr/game-combat-readiness.md",
-                "docs/tr/game-plan-27.md"
+                "docs/tr/game-plan-27.md",
+                "docs/tr/game-roadmap.md"
             ]
         },
         {
@@ -2811,12 +2815,12 @@
             ],
             "basis": null,
             "date": "2026-10-05",
-            "bytes": 13084,
-            "lines": 163,
+            "bytes": 13250,
+            "lines": 161,
             "modules": [
                 "Roleplay/Character"
             ],
-            "linksCount": 17,
+            "linksCount": 18,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/plan-game-plan-30-immediate-consequences-2026-10-11.md",
@@ -3399,16 +3403,16 @@
             "kind": "canon",
             "state": null,
             "stateSource": "none",
-            "statusRaw": "контрольный срез, 2026-10-07.",
+            "statusRaw": "контрольный срез, 2026-10-28.",
             "layers": [],
             "basis": null,
-            "date": "2026-10-07",
-            "bytes": 27462,
-            "lines": 492,
+            "date": "2026-10-28",
+            "bytes": 28190,
+            "lines": 497,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 15,
+            "linksCount": 17,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/plan-game-plan-32-end-of-turn-2026-10-12.md",
@@ -4243,6 +4247,7 @@
             "backlinks": [
                 "docs/review/plan-game-plan-31-wounds-2026-10-11.md",
                 "docs/review/plan-game-plan-32-end-of-turn-2026-10-12.md",
+                "docs/tr/game-combat-readiness.md",
                 "docs/tr/game-plan-32.md",
                 "docs/tr/game-roadmap.md"
             ]
@@ -4270,6 +4275,32 @@
             "backlinks": [
                 "docs/review/plan-game-plan-32-end-of-turn-2026-10-12.md",
                 "docs/review/plan-game-plan-33-e2e-2026-10-12.md",
+                "docs/tr/game-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/game-plan-33.md",
+            "title": "План Game 33 — frontend → PHP E2E (gate P4)",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~ (2026-10-28; P4 подтверждён, восстановление SSE — отдельный остаток)",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-10-28",
+            "bytes": 2209,
+            "lines": 51,
+            "modules": [
+                "Roleplay/Game"
+            ],
+            "linksCount": 1,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/game-combat-readiness.md",
                 "docs/tr/game-roadmap.md"
             ]
         },
@@ -4343,7 +4374,8 @@
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-13.md",
-                "docs/tr/game-plan-37-wide-strike-owner-actions.md"
+                "docs/tr/game-plan-37-wide-strike-owner-actions.md",
+                "docs/tr/game-roadmap.md"
             ]
         },
         {
@@ -4371,6 +4403,7 @@
                 "docs/tr/game-plan-13.md",
                 "docs/tr/game-plan-19.md",
                 "docs/tr/game-plan-36-strike-owner-actions.md",
+                "docs/tr/game-roadmap.md",
                 "docs/tr/game-system.md"
             ]
         },
@@ -4379,18 +4412,18 @@
             "title": "Нарезка Roleplay/Game",
             "zone": "tr",
             "kind": "plan",
-            "state": "СДЕЛАНО",
+            "state": "ПЛАН",
             "stateSource": "prose",
-            "statusRaw": "план, 2026-10-05. Линия G1–G21 сделана. Следующий агрегирующий",
+            "statusRaw": "план, 2026-10-05 (сверено с кодом 2026-10-28). Линия G1–G22",
             "layers": [],
             "basis": null,
             "date": "2026-10-05",
-            "bytes": 52570,
-            "lines": 497,
+            "bytes": 53613,
+            "lines": 506,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 38,
+            "linksCount": 42,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/plan-game-plan-29-physical-profiles-2026-10-11.md",
@@ -6039,7 +6072,7 @@
             ],
             "basis": null,
             "date": "2026-10-25",
-            "bytes": 19016,
+            "bytes": 18966,
             "lines": 225,
             "modules": [
                 "Roleplay/Rule"

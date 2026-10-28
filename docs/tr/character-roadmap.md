@@ -119,13 +119,11 @@ Battleground и `ISpatialResolver` в этот хвост не входят.
 
 Тот же разбор принимает документ листа, не только id персонажа. Game сможет отдать им JSON версии NPC, не заводя в Character чтение `npc`. Character Game не импортирует. HTTP нет. Удар, проверка и урон не считаются.
 
-### C11. Патч исхода удара — `TODO`
+### C11. Патч исхода удара — `DONE`
 
-Зависимость: порт мутации G10, уже лежащий в Character. Не C9 и не шаг Mechanic.
+План: [`character-plan-11.md`](character-plan-11.md). Kind назван — `putDamageSplit`: остаток повреждения пишется в единственное состояние `isDamageRemainder()`, частное прибавляется к единственному `isDamageExhaustion()`. Реализовано в `CharacterActualStateRows` и `CharacterActualMutations`, покрыто `CharacterActualStateTest`. Это разблокировало Game G22.
 
-Порт `ICharacterActualMutations` получает kind, которым удар записывает уже посчитанное число. Какое поле листа меняется, выбирает план этого шага. Game поле не выбирает и kind не заводит. Хендлеры `injury_efficiency`, `exhaustion_wound` и `state_write` в реестр Mechanic не ставятся. DOT и каст не входят.
-
-Пока этот kind не назван, Game G22 не начинается.
+Зависимость: порт мутации G10, уже лежащий в Character. Не C9 и не шаг Mechanic. Game поле не выбирает и kind не заводит. Хендлеры `injury_efficiency`, `exhaustion_wound` и `state_write` в реестр Mechanic не ставятся. DOT и каст не входят.
 
 ### C12. Проекция боевых слоёв — `DONE` (`BACKEND_OPEN`)
 
