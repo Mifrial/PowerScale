@@ -1,6 +1,13 @@
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
-import { ADVANTAGE_SOURCE_ACTION, ADVANTAGE_SOURCE_MULTI_ATTACK, ADVANTAGE_SOURCE_TRAINING } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import {
+  ADVANTAGE_SOURCE_ACTION,
+  ADVANTAGE_SOURCE_MULTI_ATTACK,
+  ADVANTAGE_SOURCE_TRAINING,
+} from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+
+type ModifierTrigger = Extract<ActionEffect, { type: 'action_modifier' }>['trigger'];
+type ModifierOutcome = Extract<ActionEffect, { type: 'action_modifier' }>['effects'][number];
 
 export class ActionEffectLabelService {
   describe(effect: ActionEffect, sourceLabel?: string): string {
@@ -109,11 +116,14 @@ export class ActionEffectLabelService {
         ? `накладывает состояние «${effect.state_code}» (${effect.amount})`
         : `накладывает состояние «${effect.state_code}»`;
     }
-    if (effect.type === 'optional_after_strike_check') {
-      const skip = effect.skip_parent_pending ? ', без помехи действия' : '';
-      const internal = effect.self_damage.internal ? 'внутреннего ' : '';
+    if (effect.type === 'action_modifier') {
+      const check = effect.check
+        ? `проверка ${this.checkName(effect.check.code)} против ${effect.check.difficulty}: успех — `
+        : '';
 
-      return `после удара проверка ${this.checkName(effect.check_code)} против ${effect.difficulty}: успех — ${internal}${this.damageTypeLabel(effect.self_damage.damage_type_code)} [сила удара]${effect.self_damage.size_delta < 0 ? '↓' : ''}${skip}`;
+      return `${this.modifierTriggerLabel(effect.trigger)} ${check}${effect.effects
+        .map((outcome) => this.modifierOutcomeLabel(outcome))
+        .join(', ')}`;
     }
     if (effect.type === 'next_spell_cast_difficulty') {
       const delta = effect.delta > 0 ? `+${effect.delta}` : `${effect.delta}`;
@@ -127,7 +137,7 @@ export class ActionEffectLabelService {
   private defaultSource(effect: ActionEffect): string | null {
     if (effect.type === 'apply_state') return null;
     if (effect.type === 'last_strike_snapshot' || effect.type === 'prepared_defense_counter') return null;
-    if (effect.type === 'optional_after_strike_check') return 'опция';
+    if (effect.type === 'action_modifier') return 'модификатор';
     if (effect.type === 'next_spell_cast_difficulty' && effect.source_code === 'training') return 'тренировки';
     if (effect.type === 'current_action_check_modifier' && effect.source_code === 'action') {
       return 'действие';
@@ -146,6 +156,19 @@ export class ActionEffectLabelService {
     }
 
     return 'действие';
+  }
+
+  private modifierTriggerLabel(trigger: ModifierTrigger): string {
+    return { after_strike: 'после удара' }[trigger] ?? trigger;
+  }
+
+  private modifierOutcomeLabel(outcome: ModifierOutcome): string {
+    if (outcome.type === 'skip_after_action') return 'без помехи действия';
+
+    const internal = outcome.ignore_defense ? 'внутреннего ' : '';
+    const arrow = outcome.size_delta < 0 ? '↓' : outcome.size_delta > 0 ? '↑' : '';
+
+    return `${internal}${this.damageTypeLabel(outcome.damage_type_code)} [сила удара]${arrow}`;
   }
 
   private damageTypeLabel(code: string): string {

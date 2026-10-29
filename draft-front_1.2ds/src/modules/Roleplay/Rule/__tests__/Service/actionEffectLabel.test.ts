@@ -85,11 +85,14 @@ describe('ActionEffectLabelService', () => {
     ).toContain('точности первого удара следующей атаки по той же цели');
     expect(
       actionEffectLabelService.describe({
-        type: 'optional_after_strike_check',
-        check_code: 'check-willpower',
-        difficulty: 3,
-        skip_parent_pending: true,
-        self_damage: { size_delta: -1, damage_type_code: 'blunt', internal: true },
+        type: 'action_modifier',
+        trigger: 'after_strike',
+        scope: { components: ['strike'], hit_count: 1 },
+        check: { code: 'check-willpower', difficulty: 3 },
+        effects: [
+          { type: 'self_damage', size_delta: -1, damage_type_code: 'blunt', ignore_defense: true },
+          { type: 'skip_after_action' },
+        ],
       }),
     ).toContain('после удара проверка Волю против 3');
     expect(

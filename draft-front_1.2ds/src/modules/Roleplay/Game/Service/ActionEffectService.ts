@@ -73,7 +73,7 @@ export class ActionEffectService {
       .map((ability) => ability.ruleCode);
     for (const child of this.childAbilityRules(actionRule?.code, ownedCodes, rules)) {
       for (const effect of this.effectsOf(child)) {
-        if (effect.type === 'optional_after_strike_check') {
+        if (effect.type === 'action_modifier') {
           if (selectedChildCodes.includes(child.code)) pushEffect(effect, child.name);
           continue;
         }
@@ -250,15 +250,15 @@ export class ActionEffectService {
     return this.sourceNet(current, effect.source_code) < 0;
   }
 
-  optionalAfterStrikeOptions(
+  actionModifierOptions(
     parentCode: string | null | undefined,
     ownedAbilityCodes: readonly string[],
     rules: Rule[],
-  ): { rule: Rule; effect: Extract<ActionEffect, { type: 'optional_after_strike_check' }> }[] {
-    const options: { rule: Rule; effect: Extract<ActionEffect, { type: 'optional_after_strike_check' }> }[] = [];
+  ): { rule: Rule; effect: Extract<ActionEffect, { type: 'action_modifier' }> }[] {
+    const options: { rule: Rule; effect: Extract<ActionEffect, { type: 'action_modifier' }> }[] = [];
     for (const rule of this.childAbilityRules(parentCode, ownedAbilityCodes, rules)) {
       for (const effect of this.effectsOf(rule)) {
-        if (effect.type === 'optional_after_strike_check') options.push({ rule, effect });
+        if (effect.type === 'action_modifier') options.push({ rule, effect });
       }
     }
 

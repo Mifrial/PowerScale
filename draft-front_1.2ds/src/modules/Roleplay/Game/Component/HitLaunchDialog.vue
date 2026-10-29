@@ -119,7 +119,7 @@ import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/ac
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
 import { defenseCounterService } from '@/modules/Roleplay/Game/Service/Instance/defenseCounterService';
 import { durabilityShaveService } from '@/modules/Roleplay/Game/Service/Instance/durabilityShaveService';
-import { furiousRushService } from '@/modules/Roleplay/Game/Service/Instance/furiousRushService';
+import { actionModifierService } from '@/modules/Roleplay/Game/Service/Instance/actionModifierService';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
@@ -1983,7 +1983,7 @@ async function acceptWideAttack(
       await applyAttackConsequences(consequence.accepted, consequence.attack, consequence.result);
     }
 
-    const skipParentPending = await applyAfterStrikeOption(accepted.initiator, actionRule, attack);
+    const skipParentPending = await applyActionModifiers(accepted.initiator, actionRule, attack);
     const actionCost =
       resolvedAttackAction.value?.totalOdCost ?? resolvedSelectedAction.value?.odCost ?? DEFAULT_ATTACK_AP;
     const processRule = processContext ? findRuleByRef(props.rules, processContext.session.processRuleCode) : null;
@@ -2289,18 +2289,18 @@ async function acceptAndRoll(): Promise<void> {
   const spellPaid = Boolean(accepted.proposal.spellCast);
   const spellThread = spellPaid && props.chatId !== null;
   let skipParentPending = false;
-  let rushApplied = false;
+  let modifiersApplied = false;
   const strikeHits: { targetKey: string; attackSr: number; reaction?: string; damaged?: boolean }[] = [];
   let spellPendingEffects: PendingActionEffect[] | null = null;
-  const applyRush = async () => {
-    if (rushApplied) return;
-    rushApplied = true;
-    skipParentPending = await applyAfterStrikeOption(accepted.initiator, actionRule, effectiveAttack);
+  const applyModifiers = async () => {
+    if (modifiersApplied) return;
+    modifiersApplied = true;
+    skipParentPending = await applyActionModifiers(accepted.initiator, actionRule, effectiveAttack);
   };
   try {
     if (pushProfileService.isPushAction(actionRule)) {
       await resolvePushAccepted(accepted, hit, effectiveAttack, rolled);
-      await applyRush();
+      await applyModifiers();
     } else {
       if (!rolled) throw new Error('Нет броска попадания');
       if (spellThread) {
@@ -2341,7 +2341,7 @@ async function acceptAndRoll(): Promise<void> {
           contactOnly: spellPaid,
           deferConsequences: spellPaid,
           manageThread: !spellPaid,
-          beforeEndThread: applyRush,
+          beforeEndThread: applyModifiers,
           damageTargetKey: coverDamageKey,
           coveredRoll,
         },
@@ -2405,11 +2405,11 @@ async function acceptAndRoll(): Promise<void> {
     }
   } finally {
     if (spellThread) {
-      await applyRush();
+      await applyModifiers();
       combatThread.endAttack();
     }
   }
-  if (!rushApplied) await applyRush();
+  if (!modifiersApplied) await applyModifiers();
   const finalAttackCost =
     resolvedAttackAction.value?.totalOdCost ??
     (rawAction?.odCost ?? hit.actionOd ?? DEFAULT_ATTACK_AP) + pendingResolution.actionCostDelta;
@@ -3016,15 +3016,15 @@ async function finishSpellAfterHit(
   return nextPending;
 }
 
-async function applyAfterStrikeOption(
+async function applyActionModifiers(
   initiator: CombatEntityKey,
   actionRule: Rule | null | undefined,
   attack: AttackOverview | null,
 ): Promise<boolean> {
   const version = versionOf(initiator);
-  const selected = resolvedAttackAction.value?.optionalChildAbilityCodes ?? [];
+  const selected = resolvedAttackAction.value?.actionModifierCodes ?? [];
   if (!version || !attack || selected.length === 0) return false;
-  const result = await furiousRushService.apply({
+  const result = await actionModifierService.apply({
     gameId: props.gameId,
     actorKey: initiator,
     version,
@@ -3431,7 +3431,7 @@ async function applyClickAttack(
             attackerVersion,
             resolvedAttack,
             props.rules,
-            resolvedAttackAction.value?.optionalChildAbilityCodes ?? [],
+            resolvedAttackAction.value?.actionModifierCodes ?? [],
           )}`,
           [],
           props.chatId,
@@ -3617,8 +3617,8 @@ async function phpStrikeAttack() {
       defender: gamePhpCommandService.participantOf(defender),
       conditions: phpConditions(),
       chosenAmounts: {},
-      ...(resolvedAttackAction.value?.optionalChildAbilityCodes?.length
-        ? { afterStrikeOptions: [...resolvedAttackAction.value.optionalChildAbilityCodes] }
+      ...(resolvedAttackAction.value?.actionModifierCodes?.length
+        ? { modifiers: [...resolvedAttackAction.value.actionModifierCodes] }
         : {}),
     },
   };
@@ -3806,7 +3806,7 @@ type PhpSingleAttack = {
   ammunitionInventoryId?: number;
   conditions?: Record<string, unknown>;
   chosenAmounts?: Record<string, unknown>;
-  afterStrikeOptions?: string[];
+  modifiers?: string[];
 };
 
 type PhpMultiAttack = {
@@ -3833,7 +3833,7 @@ function phpStrikeRow(row: {
   instanceIndex?: number;
   ammunitionInventoryId?: number;
   conditions?: Record<string, unknown>;
-  afterStrikeOptions?: string[];
+  modifiers?: string[];
   target: GamePhpParticipant;
 }) {
   return {
@@ -3844,7 +3844,7 @@ function phpStrikeRow(row: {
     instanceIndex: row.instanceIndex ?? 0,
     ...(row.ammunitionInventoryId !== undefined ? { ammunitionInventoryId: row.ammunitionInventoryId } : {}),
     ...(row.conditions !== undefined ? { conditions: row.conditions } : {}),
-    ...(row.afterStrikeOptions?.length ? { afterStrikeOptions: [...row.afterStrikeOptions] } : {}),
+    ...(row.modifiers?.length ? { modifiers: [...row.modifiers] } : {}),
     target: row.target,
   };
 }
@@ -3861,7 +3861,7 @@ function phpSingleStrikeEnvelope(attack: {
   ammunitionInventoryId?: number;
   conditions?: Record<string, unknown>;
   chosenAmounts?: Record<string, unknown>;
-  afterStrikeOptions?: string[];
+  modifiers?: string[];
 }) {
   return {
     phase: 'declare' as const,
@@ -4509,10 +4509,7 @@ const canSubmit = computed(() => {
               :disabled="!isCompose"
             />
           </div>
-          <div
-            v-if="!isPreparationAction && !isGroupAttack && distanceRangeMessage"
-            class="text-caption text-error"
-          >
+          <div v-if="!isPreparationAction && !isGroupAttack && distanceRangeMessage" class="text-caption text-error">
             {{ distanceRangeMessage }}
           </div>
           <div
@@ -4527,11 +4524,7 @@ const canSubmit = computed(() => {
           </div>
           <div v-if="isGroupAttack && isCompose && !isPreparationAction" class="mt-2">
             <div class="text-caption text-medium-emphasis">Условия по целям</div>
-            <div
-              v-for="key in uniqueTargetKeys"
-              :key="key"
-              class="d-flex align-center ga-2 flex-wrap mt-1"
-            >
+            <div v-for="key in uniqueTargetKeys" :key="key" class="d-flex align-center ga-2 flex-wrap mt-1">
               <span class="text-body-2 flex-grow-1">{{ nameOf(key) }}</span>
               <DimensionalNumberInput
                 :model-value="wideDistanceDimensional(key)"

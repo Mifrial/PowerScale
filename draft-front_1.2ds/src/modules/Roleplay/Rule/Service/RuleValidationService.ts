@@ -351,27 +351,39 @@ export class RuleValidationService {
             });
           }
         }
-        if (effect.type === 'optional_after_strike_check') {
-          if (!effect.check_code) {
+        if (effect.type === 'action_modifier') {
+          if (effect.scope.components.length === 0) {
             errors.push({
               ruleName: rule.name,
               ruleCode: rule.code,
-              message: 'опция после удара должна указывать проверку',
+              message: 'модификатор действия должен указывать компонент атаки',
             });
           }
-          if (!Number.isInteger(effect.difficulty) || effect.difficulty < 1) {
+          if (
+            effect.check &&
+            (!effect.check.code || !Number.isInteger(effect.check.difficulty) || effect.check.difficulty < 1)
+          ) {
             errors.push({
               ruleName: rule.name,
               ruleCode: rule.code,
-              message: 'сложность опции после удара должна быть целым ≥ 1',
+              message: 'проверка модификатора действия должна указывать код и сложность ≥ 1',
             });
           }
-          if (!effect.self_damage.damage_type_code) {
+          if (effect.effects.length === 0) {
             errors.push({
               ruleName: rule.name,
               ruleCode: rule.code,
-              message: 'опция после удара должна указывать тип урона себе',
+              message: 'модификатор действия должен указывать последствия',
             });
+          }
+          for (const outcome of effect.effects) {
+            if (outcome.type === 'self_damage' && !outcome.damage_type_code) {
+              errors.push({
+                ruleName: rule.name,
+                ruleCode: rule.code,
+                message: 'урон себе в модификаторе действия должен указывать тип урона',
+              });
+            }
           }
         }
         if (
@@ -1191,9 +1203,13 @@ export class RuleValidationService {
           if (effect.type === 'apply_state' && effect.state_code) {
             collect({ code: effect.state_code, type: 'state' });
           }
-          if (effect.type === 'optional_after_strike_check') {
-            collect({ code: effect.check_code, type: 'check' });
-            collect({ code: effect.self_damage.damage_type_code, type: 'damage_type' });
+          if (effect.type === 'action_modifier') {
+            if (effect.check?.code) collect({ code: effect.check.code, type: 'check' });
+            for (const outcome of effect.effects) {
+              if (outcome.type === 'self_damage') {
+                collect({ code: outcome.damage_type_code, type: 'damage_type' });
+              }
+            }
           }
         }
         if ('process' in ability) {

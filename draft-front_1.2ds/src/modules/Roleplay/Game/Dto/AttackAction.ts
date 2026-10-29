@@ -12,5 +12,5 @@ export interface AttackAction {
   totalOdCost: number;
   /** Живой процесс Комбо закрывается этой атакой, не шагом Завершения. */
   comboClose?: ProcessActionContext;
-  optionalChildAbilityCodes?: string[];
+  actionModifierCodes?: string[];
 }

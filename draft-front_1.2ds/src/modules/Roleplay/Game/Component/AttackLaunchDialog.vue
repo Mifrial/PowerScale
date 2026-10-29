@@ -26,9 +26,10 @@ import {
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
-import { furiousRushService } from '@/modules/Roleplay/Game/Service/Instance/furiousRushService';
+import { actionModifierService } from '@/modules/Roleplay/Game/Service/Instance/actionModifierService';
 import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
-import type { GameActionOption } from '@/modules/Roleplay/Game/Dto/GameActionOption';
+import type { GameActionModifier } from '@/modules/Roleplay/Game/Dto/GameActionModifier';
+import ActionModifierList from '@/modules/Roleplay/Game/Component/ActionModifierList.vue';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
 import { pushProfileService } from '@/modules/Roleplay/Game/Service/Instance/pushProfileService';
@@ -82,7 +83,7 @@ const loadPhase = ref<'loading' | 'error' | 'incomplete' | 'ready'>('loading');
 const loadError = ref<string | null>(null);
 let loadGeneration = 0;
 let loadAbort: AbortController | null = null;
-const selectedOptionalChildCodes = ref<string[]>([]);
+const selectedActionModifierCodes = ref<string[]>([]);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 const attackFavorites = useAttackFavorites();
 
@@ -148,7 +149,7 @@ const launchEffectLines = computed(() => {
     actorVersion.value,
     slots.value[0]?.profile ?? null,
     props.rules,
-    selectedOptionalChildCodes.value,
+    selectedActionModifierCodes.value,
   );
   const paired = attackActionSourceService.sameWeaponCheckModifiers(selectedSourceRule.value, slots.value.length);
   if (paired[0]) {
@@ -157,42 +158,46 @@ const launchEffectLines = computed(() => {
 
   return lines;
 });
-const serverActionOptions = ref<GameActionOption[]>([]);
-const actionOptionsError = ref(false);
-const afterStrikeOptions = computed<GameActionOption[]>(() => {
+const serverActionModifiers = ref<GameActionModifier[]>([]);
+const actionModifiersError = ref(false);
+const actionModifiers = computed<GameActionModifier[]>(() => {
   const code = selectedSourceRule.value?.code;
   if (!code) return [];
   if (gamePhpMode.isEnabled()) {
-    return serverActionOptions.value.filter((option) => option.actionCode === code);
+    return serverActionModifiers.value.filter((modifier) => modifier.actionCode === code);
   }
   if (!actorVersion.value) return [];
 
-  return furiousRushService
-    .optionsOf(code, actorVersion.value.abilities, props.rules)
-    .map((option) => ({ actionCode: code, code: option.rule.code, name: option.rule.name, summary: '' }));
+  return actionModifierService.optionsOf(code, actorVersion.value.abilities, props.rules).map((option) => ({
+    actionCode: code,
+    actionName: selectedSourceRule.value?.name ?? code,
+    code: option.rule.code,
+    name: option.rule.name,
+    summary: '',
+  }));
 });
 
-async function loadActionOptions(): Promise<void> {
+async function loadActionModifiers(): Promise<void> {
   const key = actorKey.value;
   if (!gamePhpMode.isEnabled() || !key) {
-    serverActionOptions.value = [];
-    actionOptionsError.value = false;
+    serverActionModifiers.value = [];
+    actionModifiersError.value = false;
 
     return;
   }
   try {
-    serverActionOptions.value = await getGameApi().getActionOptions(props.gameId, key);
-    actionOptionsError.value = false;
+    serverActionModifiers.value = await getGameApi().getActionModifiers(props.gameId, key);
+    actionModifiersError.value = false;
   } catch {
-    serverActionOptions.value = [];
-    actionOptionsError.value = true;
+    serverActionModifiers.value = [];
+    actionModifiersError.value = true;
   }
 }
 
 watch(
   () => [props.gameId, actorKey.value, props.open] as const,
   ([, key, open]) => {
-    if (open && key) void loadActionOptions();
+    if (open && key) void loadActionModifiers();
   },
   { immediate: true },
 );
@@ -775,8 +780,8 @@ async function submit(): Promise<void> {
     reactionMode: isSequentialStrikes.value ? 'sequential' : isSameWeaponStrikes.value ? 'paired' : 'simultaneous',
     totalOdCost: finalCost.value,
     ...(comboClose ? { comboClose } : {}),
-    ...(selectedOptionalChildCodes.value.length
-      ? { optionalChildAbilityCodes: [...selectedOptionalChildCodes.value] }
+    ...(selectedActionModifierCodes.value.length
+      ? { actionModifierCodes: [...selectedActionModifierCodes.value] }
       : {}),
   });
   emit('update:open', false);
@@ -805,7 +810,7 @@ watch(sources, (items) => {
 });
 watch(selectedSource, (source) => {
   processStepCode.value = source?.process?.start_step_code ?? source?.process?.steps[0]?.code ?? null;
-  selectedOptionalChildCodes.value = [];
+  selectedActionModifierCodes.value = [];
   resetSlots(defaultProfile());
 });
 watch(
@@ -1021,28 +1026,14 @@ watch(followUpTargetKeys, (allowed) => {
             + Экземпляр
           </v-btn>
 
-          <div v-if="afterStrikeOptions.length" class="mt-2">
-            <div class="text-caption text-medium-emphasis">После удара</div>
-            <template v-for="option in afterStrikeOptions" :key="option.code">
-              <v-checkbox
-                :model-value="selectedOptionalChildCodes.includes(option.code)"
-                :label="option.name"
-                density="compact"
-                hide-details
-                @update:model-value="
-                  (on) =>
-                    (selectedOptionalChildCodes = on
-                      ? [...selectedOptionalChildCodes, option.code]
-                      : selectedOptionalChildCodes.filter((code) => code !== option.code))
-                "
-              />
-              <div v-if="option.summary" class="text-caption text-medium-emphasis ms-8">
-                {{ option.summary }}
-              </div>
-            </template>
-          </div>
-          <v-alert v-if="actionOptionsError" type="warning" variant="tonal" density="compact" class="mt-2">
-            Опции после удара недоступны — атака пройдёт без них.
+          <ActionModifierList
+            v-model="selectedActionModifierCodes"
+            :options="actionModifiers"
+            :disabled="busy"
+            class="mt-2"
+          />
+          <v-alert v-if="actionModifiersError" type="warning" variant="tonal" density="compact" class="mt-2">
+            Модификаторы действия недоступны — атака пройдёт без них.
           </v-alert>
           <div v-if="launchEffectLines.length" class="text-body-2 text-medium-emphasis mt-2">
             <div v-for="(line, index) in launchEffectLines" :key="index">

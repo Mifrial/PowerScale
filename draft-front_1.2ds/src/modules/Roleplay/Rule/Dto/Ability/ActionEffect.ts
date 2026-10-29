@@ -7,6 +7,18 @@ type AttackScope = {
   hit_count: number | 'all';
 };
 
+type ModifierOutcomeEffect =
+  | {
+      type: 'self_damage';
+      size_delta: number;
+      damage_type_code: string;
+      /** Игнорировать защиту и сопротивление. */
+      ignore_defense: boolean;
+    }
+  | {
+      type: 'skip_after_action';
+    };
+
 export type ActionEffect =
   | {
       type: 'current_action_attack_accuracy';
@@ -137,16 +149,13 @@ export type ActionEffect =
       amount?: DimensionalNumberValue | number;
     }
   | {
-      /** Опция после удара: проверка, себе урон, снять pending родителя. */
-      type: 'optional_after_strike_check';
-      check_code: string;
-      difficulty: number;
-      skip_parent_pending: boolean;
-      self_damage: {
-        size_delta: number;
-        damage_type_code: string;
-        internal: boolean;
-      };
+      /** Модификатор действия: момент, область, проверка и последствия. */
+      type: 'action_modifier';
+      trigger: 'after_strike';
+      scope: AttackScope;
+      /** Нет проверки — последствия применяются сразу. */
+      check?: { code: string; difficulty: number };
+      effects: ModifierOutcomeEffect[];
     }
   | {
       type: 'next_spell_cast_difficulty';

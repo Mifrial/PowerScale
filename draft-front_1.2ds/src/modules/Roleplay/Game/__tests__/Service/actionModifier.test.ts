@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { FuriousRushService } from '@/modules/Roleplay/Game/Service/FuriousRushService';
+import { ActionModifierService } from '@/modules/Roleplay/Game/Service/ActionModifierService';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import { mockGameApi } from '@/modules/Roleplay/Game/Mock/mockGameApi';
 
-const service = new FuriousRushService(() => mockGameApi as IGameApi);
+const service = new ActionModifierService(() => mockGameApi as IGameApi);
 
 const parent = {
   id: null,
@@ -54,17 +54,20 @@ const child = {
     parent_ability_code: 'parent-sweep',
     action_effects: [
       {
-        type: 'optional_after_strike_check',
-        check_code: 'check-willpower',
-        difficulty: 3,
-        skip_parent_pending: true,
-        self_damage: { size_delta: -1, damage_type_code: 'blunt', internal: true },
+        type: 'action_modifier',
+        trigger: 'after_strike',
+        scope: { components: ['strike'], hit_count: 1 },
+        check: { code: 'check-willpower', difficulty: 3 },
+        effects: [
+          { type: 'self_damage', size_delta: -1, damage_type_code: 'blunt', ignore_defense: true },
+          { type: 'skip_after_action' },
+        ],
       },
     ],
   },
 } as Rule;
 
-describe('FuriousRushService', () => {
+describe('ActionModifierService', () => {
   it('находит опцию у взятого ребёнка родителя', () => {
     expect(service.optionsOf('parent-sweep', [{ ruleCode: 'child-rush', level: 1 }], [parent, child])).toHaveLength(1);
     expect(service.optionsOf('parent-sweep', [], [parent, child])).toHaveLength(0);
@@ -128,7 +131,8 @@ describe('FuriousRushService', () => {
     expect(sent).toHaveLength(2);
     expect(sent[0]?.content).toBe('');
     expect(sent[0]?.attachments).toHaveLength(1);
-    expect(sent[1]?.content).toContain('проходит проверку на Рывок');
+    expect(sent[1]?.content).toContain('Рывок');
+    expect(sent[1]?.content).toMatch(/успех|провал/);
     expect(sent[1]?.attachments).toEqual([]);
   });
 });

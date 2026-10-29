@@ -29,7 +29,7 @@ import type { Chronicle } from '@/modules/Roleplay/Game/Dto/Chronicle';
 import type { ChronicleEntry } from '@/modules/Roleplay/Game/Dto/ChronicleEntry';
 import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/CreateChronicleEntryData';
 import type { UpdateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/UpdateChronicleEntryData';
-import type { GameActionOption } from '@/modules/Roleplay/Game/Dto/GameActionOption';
+import type { GameActionModifier } from '@/modules/Roleplay/Game/Dto/GameActionModifier';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
@@ -173,7 +173,7 @@ export interface IGameApi {
   saveInitiative(gameId: number, data: GameInitiative, signal?: AbortSignal): Promise<GameInitiative>;
   rollInitiative(body: GameInitiativeRollRequest, signal?: AbortSignal): Promise<GameInitiativeRollResult>;
   getCombatOverlays(gameId: number, signal?: AbortSignal): Promise<GameCombatOverlay[]>;
-  getActionOptions(gameId: number, actorKey: CombatEntityKey, signal?: AbortSignal): Promise<GameActionOption[]>;
+  getActionModifiers(gameId: number, actorKey: CombatEntityKey, signal?: AbortSignal): Promise<GameActionModifier[]>;
   getPendingActionEffects(
     gameId: number,
     signal?: AbortSignal,

@@ -119,8 +119,8 @@ export const mockGameApi: IGameApi = {
     throw new Error('rollInitiative is a PHP command');
   },
   getCombatOverlays: mockCombatOverlays.fetchCombatOverlays,
-  // В мок-режиме список опций собирает сам диалог из правил; контракт поведения — PHP.
-  getActionOptions: async () => [],
+  // В мок-режиме список модификаторов собирает сам диалог из правил; контракт поведения — PHP.
+  getActionModifiers: async () => [],
   getPendingActionEffects: mockPendingActionEffects.fetchPendingActionEffects,
   setCombatActionEffects: mockPendingActionEffects.setPendingActionEffects,
   getProcessSessions: mockProcessSessions.fetchProcessSessions,
