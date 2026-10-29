@@ -737,29 +737,12 @@ final class GameStrikeResolution
             throw new GameInvalidException('Game strike row is invalid');
         }
 
-        $npcSnapshot = $kind === 'npc' ? $this->sheets->getNpcSnapshot($game->getId(), $defenderId) : null;
-        $sheet = $npcSnapshot !== null
-            ? $npcSnapshot['sheet']['sheet']
-            : $this->rules->characterSnapshot($defenderId)['sheet'];
-        $npcChoices = $npcSnapshot !== null ? $npcSnapshot['sheet']['choices'] : null;
-        $sheetVersion = $npcSnapshot['actualVersion'] ?? null;
-        $split = $this->rules->splitInjury(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
+        return $this->sheetEffects(
+            $game,
             $kind,
             $defenderId,
-            $kind === 'npc' ? $sheet : null,
-            $injury,
-            is_array($npcChoices) ? $npcChoices : null,
-            is_int($sheetVersion) ? $sheetVersion : null,
-        );
-
-        return $this->consequences->effects(
-            $game,
-            $sheet,
             $injury,
             $success,
-            $split,
             $this->rules->damageTypeCode(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
@@ -767,17 +750,106 @@ final class GameStrikeResolution
                 $profileType,
                 $profileIndex,
             ),
+        );
+    }
+
+    /**
+     * Урон по самому атакующему: тот же обработчик, другой тип урона и РУ.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $kind Вид участника: character или npc.
+     * @param int $id Идентификатор.
+     * @param DimensionalNumber $injury Повреждение.
+     * @param string $damageTypeCode Тип урона.
+     * @param int $success РУ.
+     *
+     * @return array{operations: list<array<string, mixed>>, consequence: array<string, mixed>, actualVersion: int}
+     *     Операции, последствия и версия листа.
+     *
+     * @throws GameInvalidException Если вид, стойкость или лист битые.
+     * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если листа нет.
+     */
+    public function selfDamage(
+        GameRecord $game,
+        string $kind,
+        int $id,
+        DimensionalNumber $injury,
+        string $damageTypeCode,
+        int $success = 1,
+    ): array {
+        return $this->sheetEffects($game, $kind, $id, $injury, $success, $damageTypeCode);
+    }
+
+    /**
+     * Операции листа участника и версия, с которой их писать.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $kind Вид участника: character или npc.
+     * @param int $id Идентификатор.
+     * @param DimensionalNumber $injury Повреждение.
+     * @param int $success РУ.
+     * @param string|null $damageTypeCode Тип урона.
+     *
+     * @return array{operations: list<array<string, mixed>>, consequence: array<string, mixed>, actualVersion: int}
+     *     Операции, последствия и версия.
+     *
+     * @throws GameInvalidException Если вид, стойкость или лист битые.
+     * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если листа нет.
+     */
+    private function sheetEffects(
+        GameRecord $game,
+        string $kind,
+        int $id,
+        DimensionalNumber $injury,
+        int $success,
+        ?string $damageTypeCode,
+    ): array {
+        if ($kind !== 'character' && $kind !== 'npc') {
+            throw new GameInvalidException('Game strike participant is invalid');
+        }
+
+        $snapshot = $this->sheets->snapshot($game, $kind, $id);
+        $sheet = $snapshot['sheet']['sheet'] ?? null;
+        $choices = $snapshot['sheet']['choices'] ?? null;
+        $version = $snapshot['actualVersion'] ?? null;
+        if (!is_array($sheet) || !is_array($choices) || !is_int($version)) {
+            throw new GameInvalidException('Game strike sheet is invalid');
+        }
+
+        $split = $this->rules->splitInjury(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $kind,
+            $id,
+            $kind === 'npc' ? $sheet : null,
+            $injury,
+            $kind === 'npc' ? $choices : null,
+            $kind === 'npc' ? $version : null,
+        );
+        $effects = $this->consequences->effects(
+            $game,
+            $sheet,
+            $injury,
+            $success,
+            $split,
+            $damageTypeCode,
             true,
             $this->rules->enduranceOf(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $kind,
-                $defenderId,
+                $id,
                 $kind === 'npc' ? $sheet : null,
-                is_array($npcChoices) ? $npcChoices : null,
-                is_int($sheetVersion) ? $sheetVersion : null,
+                $kind === 'npc' ? $choices : null,
+                $kind === 'npc' ? $version : null,
             ),
         );
+
+        return [
+            'operations' => $effects['operations'],
+            'consequence' => $effects['consequence'],
+            'actualVersion' => $version,
+        ];
     }
 
     /**

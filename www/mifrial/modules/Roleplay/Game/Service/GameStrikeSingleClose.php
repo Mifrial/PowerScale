@@ -34,6 +34,7 @@ final class GameStrikeSingleClose
      * @param GameStrikeTargetClose $targets Расчёт цели.
      * @param GameStrikeTargetChoices $choices Choices целей.
      * @param GameStrikeSingleChat $chat Чат.
+     * @param GameFuriousRush $rush Опции после удара.
      *
      * @return void
      */
@@ -50,6 +51,7 @@ final class GameStrikeSingleClose
         private readonly GameStrikeTargetClose $targets,
         private readonly GameStrikeTargetChoices $choices,
         private readonly GameStrikeSingleChat $chat,
+        private readonly GameFuriousRush $rush,
     ) {
     }
 
@@ -153,20 +155,22 @@ final class GameStrikeSingleClose
         $profileIndex = is_int($open['profile_index'] ?? null) ? $open['profile_index'] : 0;
         $itemInventoryId = is_int($open['item_inventory_id'] ?? null) ? $open['item_inventory_id'] : 0;
         $itemRuleCode = is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '';
+        $attackerChoices = $this->choices->attackerChoices($game, $open);
+        $attackContext = $this->rules->attackFilterContext(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+            $attackerChoices,
+            $itemInventoryId,
+        );
         $modifier = $this->rules->actionCharacteristicModifier(
             $slice,
             $actionRuleCode,
             $profileType,
             1,
-            $this->rules->attackFilterContext(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $itemRuleCode,
-                $profileType,
-                $profileIndex,
-                $this->choices->attackerChoices($game, $open),
-                $itemInventoryId,
-            ),
+            $attackContext,
             $this->abilityLevels($game, $attackerKind, $attackerId),
         );
         $npcSheet = $attackerKind === 'npc'
@@ -551,15 +555,35 @@ final class GameStrikeSingleClose
             $this->actions->close($strikeId);
         }
 
+        $skipAfterAction = false;
+        $afterStrikeCodes = $this->afterStrikeCodes($row);
+        if ($afterStrikeCodes !== []) {
+            $result['afterStrike'] = $this->rush->perform(
+                $game,
+                $battle,
+                $open,
+                $strikeId,
+                $actionRuleCode,
+                $attackerKind,
+                $attackerId,
+                $afterStrikeCodes,
+                $modifier,
+                $this->rules->gripBonus($attackContext['occupyHands']),
+                $actorUserId,
+            );
+            $skipAfterAction = ($result['afterStrike']['skipped'] ?? false) === true;
+        }
+
         $pending = (new GamePendingActionCosts())->complete(
             $slice,
-            $this->choices->attackerChoices($game, $open),
+            $attackerChoices,
             $actionRuleCode,
             $attackerKind,
             $attackerId,
             $pending,
             ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode, true)],
             [$targetKey],
+            $skipAfterAction,
         );
         if ($reactionRuleCode !== null) {
             $pending = (new GamePendingActionCosts())->complete(
@@ -735,11 +759,34 @@ final class GameStrikeSingleClose
      */
     private function abilityLevels(GameRecord $game, string $kind, int $actorId): array
     {
-        $sheet = $kind === 'character'
-            ? $this->rules->characterSnapshot($actorId)['sheet']
-            : $this->sheets->getNpcSheet($game->getId(), $actorId);
-        $levels = $sheet['abilityLevels'] ?? null;
+        return $this->sheets->abilityLevels($game, $kind, $actorId);
+    }
 
-        return is_array($levels) ? $levels : [];
+    /**
+     * Объявленные опции после удара из строки.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     *
+     * @return list<string> Коды.
+     */
+    private function afterStrikeCodes(array $row): array
+    {
+        $raw = $row['after_strike_options'] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $codes = [];
+        foreach ($raw as $code) {
+            if (is_string($code) && $code !== '') {
+                $codes[] = $code;
+            }
+        }
+
+        return $codes;
     }
 }

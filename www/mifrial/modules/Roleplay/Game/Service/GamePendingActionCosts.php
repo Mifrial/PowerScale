@@ -149,6 +149,7 @@ final class GamePendingActionCosts
      * @param array<string, mixed> $pending Карта боя.
      * @param array<string, int> $spentAmounts Фактическая трата по ресурсам.
      * @param array<int, string> $targetKeys Цели завершённой атаки.
+     * @param bool $skipAfterAction Не дописывать помеху после действия.
      *
      * @return array<string, mixed> Новая карта.
      */
@@ -161,13 +162,17 @@ final class GamePendingActionCosts
         array $pending,
         array $spentAmounts,
         array $targetKeys = [],
+        bool $skipAfterAction = false,
     ): array {
         $key = $actorKind . ':' . $actorId;
         $waiting = is_array($pending[$key] ?? null) ? $pending[$key] : [];
         $kept = $this->withoutAttackTails($this->reduceAfterAction($waiting, $spentAmounts));
 
         array_push($kept, ...$this->attackTailOf($slice, $actionRuleCode, $targetKeys));
-        array_push($kept, ...$this->afterActionOf($slice, $actionRuleCode));
+        if (!$skipAfterAction) {
+            array_push($kept, ...$this->afterActionOf($slice, $actionRuleCode));
+        }
+
         array_push($kept, ...$this->queued($slice, $choices, $actionRuleCode));
         array_push($kept, ...$this->attackCostOf($slice, $actionRuleCode));
         array_push($kept, ...$this->dodgeSoakTailOf($slice, $actionRuleCode));

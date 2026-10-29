@@ -396,6 +396,7 @@ final class GameStrikes implements IGameStrikes
             $choice['attacker']['id'],
             $choice['actionRuleCode'],
         );
+        $this->assertAfterStrikeOptions($game, $choice);
         $this->rules->resolveInventorySpend(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -563,6 +564,56 @@ final class GameStrikes implements IGameStrikes
             'strike',
             '1-1',
             'Game strike',
+        );
+    }
+
+    /**
+     * Опции после удара объявлены и принадлежат атакующему.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $choice Выбор удара.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если опция чужая или пришла на серию.
+     */
+    private function assertAfterStrikeOptions(GameRecord $game, array $choice): void
+    {
+        $codes = $choice['afterStrikeOptions'] ?? [];
+        if (!is_array($codes) || $codes === []) {
+            return;
+        }
+
+        if (is_array($choice['strikes'] ?? null) && $choice['strikes'] !== []) {
+            throw new GameInvalidException('Game strike after-strike option is not supported');
+        }
+
+        $attacker = $choice['attacker'] ?? null;
+        $actionRuleCode = $choice['actionRuleCode'] ?? null;
+        if (
+            !is_array($attacker)
+            || (($attacker['type'] ?? null) !== 'character' && ($attacker['type'] ?? null) !== 'npc')
+            || !is_int($attacker['id'] ?? null)
+            || !is_string($actionRuleCode)
+            || !array_is_list($codes)
+        ) {
+            throw new GameInvalidException('Game strike after-strike option is invalid');
+        }
+
+        $listed = [];
+        foreach ($codes as $code) {
+            if (!is_string($code) || $code === '') {
+                throw new GameInvalidException('Game strike after-strike option is invalid');
+            }
+
+            $listed[] = $code;
+        }
+
+        (new GameStrikeOptions())->assertAvailable(
+            $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+            $actionRuleCode,
+            $this->sheets->abilityLevels($game, $attacker['type'], $attacker['id']),
+            $listed,
         );
     }
 

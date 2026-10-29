@@ -24,6 +24,7 @@ use Mifrial\Roleplay\Game\Action\EndGameBattleAction;
 use Mifrial\Roleplay\Game\Action\EndGameTurnAction;
 use Mifrial\Roleplay\Game\Action\GameManualSheetAction;
 use Mifrial\Roleplay\Game\Action\GetGameAction;
+use Mifrial\Roleplay\Game\Action\GetGameActionOptionsAction;
 use Mifrial\Roleplay\Game\Action\GetGameBattleSheetsAction;
 use Mifrial\Roleplay\Game\Action\GetGameCharacterAction;
 use Mifrial\Roleplay\Game\Action\GetGameCharacterListAction;
@@ -142,6 +143,11 @@ return [
         },
         GetGameBattleSheetsAction::class => static function (IServiceLocator $serviceLocator): GetGameBattleSheetsAction {
             return new GetGameBattleSheetsAction((new GameProjectionPortFactory())->createHttp($serviceLocator));
+        },
+        GetGameActionOptionsAction::class => static function (IServiceLocator $serviceLocator): GetGameActionOptionsAction {
+            return new GetGameActionOptionsAction(
+                (new GameStrikePortFactory())->createActionOptionsHttp($serviceLocator),
+            );
         },
         DeclareGameCheckAction::class => static function (IServiceLocator $serviceLocator): DeclareGameCheckAction {
             return new DeclareGameCheckAction((new GameCheckPortFactory())->createHttp($serviceLocator));
@@ -416,6 +422,10 @@ return [
         ],
         'game.getSheets' => [
             'handler' => GetGameSheetsAction::class,
+            'csrf' => true,
+        ],
+        'game.getActionOptions' => [
+            'handler' => GetGameActionOptionsAction::class,
             'csrf' => true,
         ],
         'game.getBattleSheets' => [

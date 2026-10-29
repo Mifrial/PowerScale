@@ -1208,6 +1208,258 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Яростный рывок бьёт по атакующему и снимает помеху родителя только на успехе.
+     *
+     * @return void
+     */
+    public function testFuriousRushSkipsParentPendingAndWritesAttackerSheet(): void
+    {
+        $setup = $this->rushBattle(3);
+        $opened = $this->declareRush($setup);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $beforeClose = $this->characterFacade()->get($setup['attackerId'])->getActualVersion();
+        $closed = $this->closeRush($setup, $opened);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(['rush'], $closed['data']['afterStrike']['codes'] ?? null);
+        self::assertTrue($closed['data']['afterStrike']['success'] ?? null, json_encode($closed));
+        self::assertTrue($closed['data']['afterStrike']['skipped'] ?? null, json_encode($closed));
+        self::assertSame($beforeClose + 1, $this->characterFacade()->get($setup['attackerId'])->getActualVersion());
+        self::assertNotContains(
+            'after_action_until_resource_spent_check_modifier',
+            $this->pendingTypes($setup['battleId'], 'character:' . $setup['attackerId']),
+        );
+    }
+
+    /**
+     * Провал проверки рывка оставляет помеху родителя и не пишет лист.
+     *
+     * @return void
+     */
+    public function testFuriousRushFailureKeepsParentPending(): void
+    {
+        $setup = $this->rushBattle(99);
+        $opened = $this->declareRush($setup);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $beforeClose = $this->characterFacade()->get($setup['attackerId'])->getActualVersion();
+        $closed = $this->closeRush($setup, $opened);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertFalse($closed['data']['afterStrike']['success'] ?? null);
+        self::assertFalse($closed['data']['afterStrike']['skipped'] ?? null);
+        self::assertArrayNotHasKey('injury', $closed['data']['afterStrike'] ?? []);
+        self::assertSame($beforeClose, $this->characterFacade()->get($setup['attackerId'])->getActualVersion());
+        self::assertContains(
+            'after_action_until_resource_spent_check_modifier',
+            $this->pendingTypes($setup['battleId'], 'character:' . $setup['attackerId']),
+        );
+    }
+
+    /**
+     * Список опций отдаёт сервер и только для купленной способности.
+     *
+     * @return void
+     */
+    public function testActionOptionsAreServerComputed(): void
+    {
+        $setup = $this->rushBattle(3);
+        $own = $this->dispatch('game.getActionOptions', [
+            'gameId' => $setup['gameId'],
+            'actorType' => 'character',
+            'actorId' => $setup['attackerId'],
+        ]);
+        self::assertTrue($own['success'], json_encode($own));
+        self::assertSame('swing', $own['data']['afterStrikeOptions'][0]['actionCode'] ?? null);
+        self::assertSame('rush', $own['data']['afterStrikeOptions'][0]['code'] ?? null);
+        self::assertStringContainsString('Willpower', $own['data']['afterStrikeOptions'][0]['summary'] ?? '');
+        $foreign = $this->dispatch('game.getActionOptions', [
+            'gameId' => $setup['gameId'],
+            'actorType' => 'character',
+            'actorId' => $setup['defenderId'],
+        ]);
+        self::assertTrue($foreign['success'], json_encode($foreign));
+        self::assertSame([], $foreign['data']['afterStrikeOptions']);
+    }
+
+    /**
+     * Мир и бой с объявленной опцией рывка.
+     *
+     * @param int $difficulty Сложность проверки.
+     *
+     * @return array{gameId: int, battleId: int, attackerId: int, defenderId: int, actual: int} Стенд.
+     */
+    private function rushBattle(int $difficulty): array
+    {
+        $world = $this->worldWithWeapon(
+            withActionDamage: true,
+            cardEffects: [[
+                'type' => 'after_action_until_resource_spent_check_modifier',
+                'resource_code' => 'action-points',
+                'amount' => 2,
+                'check_codes' => ['hit'],
+                'delta' => -2,
+                'source_code' => 'action',
+            ]],
+            extraCards: [
+                'rush' => [
+                    'type' => 'skill',
+                    'parent' => 'swing',
+                    'effects' => [[
+                        'type' => 'optional_after_strike_check',
+                        'check_code' => 'willpower-check',
+                        'difficulty' => $difficulty,
+                        'self_damage' => [
+                            'size_delta' => -1,
+                            'damage_type_code' => 'cut',
+                            'internal' => true,
+                        ],
+                        'skip_parent_pending' => true,
+                    ]],
+                ],
+            ],
+            extraRules: [
+                'willpower-check' => [
+                    'type' => 'check',
+                    'name' => 'Willpower',
+                    'roll' => true,
+                    'spec' => [
+                        'allow_characteristic_override' => false,
+                        'allowed_modes' => 'both',
+                        'ordinary_root' => false,
+                        'concentration_token' => false,
+                        'willpower' => true,
+                        'unstable_check' => false,
+                        'hit_check' => false,
+                        'initiative' => false,
+                        'characteristic_code' => 'will',
+                        'difficulty_input' => ['kind' => 'none', 'state_code' => ''],
+                    ],
+                ],
+            ],
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit(
+            $world->getId(),
+            $gameId,
+            'Rusher',
+            [['characteristicCode' => 'will', 'value' => ['base' => 3, 'size' => 0]]],
+            [],
+            [],
+            null,
+            null,
+            [['ruleCode' => 'rush', 'level' => 1]],
+        );
+        $defenderId = $this->admit($world->getId(), $gameId, 'Guard');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-rush',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+
+        return [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'attackerId' => $attackerId,
+            'defenderId' => $defenderId,
+            'actual' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+        ];
+    }
+
+    /**
+     * Объявляет удар с опцией рывка.
+     *
+     * @param array{gameId: int, battleId: int, attackerId: int, defenderId: int, actual: int} $setup Стенд.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    private function declareRush(array $setup): array
+    {
+        return $this->dispatch('game.runAction', [
+            'gameId' => $setup['gameId'],
+            'battleId' => $setup['battleId'],
+            'idempotencyKey' => 's-rush',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($setup['attackerId'], $setup['defenderId'])
+                    + ['afterStrikeOptions' => ['rush']],
+            ),
+        ]);
+    }
+
+    /**
+     * Закрывает удар с опцией рывка.
+     *
+     * @param array{gameId: int, battleId: int, attackerId: int, defenderId: int, actual: int} $setup Стенд.
+     * @param array<string, mixed> $opened Объявление.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    private function closeRush(array $setup, array $opened): array
+    {
+        return $this->dispatch('game.runAction', [
+            'gameId' => $setup['gameId'],
+            'battleId' => $setup['battleId'],
+            'idempotencyKey' => 'd-rush',
+            'expectedVersion' => $opened['data']['version'] ?? 1,
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($setup['defenderId'])->getActualVersion(),
+            ),
+        ]);
+    }
+
+    /**
+     * Опция, которой у персонажа нет, отвергается уже на объявлении.
+     *
+     * @return void
+     */
+    public function testStrikeRejectsForeignAfterStrikeOptionAtDeclare(): void
+    {
+        $world = $this->worldWithWeapon(extraCards: [
+            'rush' => [
+                'type' => 'skill',
+                'parent' => 'swing',
+                'effects' => [[
+                    'type' => 'optional_after_strike_check',
+                    'check_code' => 'will-check',
+                    'difficulty' => 3,
+                    'self_damage' => ['size_delta' => -1, 'damage_type_code' => 'cut', 'internal' => true],
+                    'skip_parent_pending' => true,
+                ]],
+            ],
+        ]);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Plain');
+        $defenderId = $this->admit($world->getId(), $gameId, 'Guard');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-reject',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 's-reject',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId) + ['afterStrikeOptions' => ['rush']],
+            ),
+        ]);
+        self::assertSame('GAME_INVALID', $opened['error']['code']);
+        self::assertSame(0, $this->countActions('strike'));
+    }
+
+    /**
      * Один источник оставляет сильнейший бонус, включая бонус от РУ.
      *
      * @return void
@@ -3577,32 +3829,45 @@ final class GameStrikeMysqlTest extends TestCase
             $combatAction = null;
             $zones = ['or' => ['kind' => 'automatic']];
             $requirements = [];
+            $type = 'action';
+            $parent = null;
             if (is_array($definition) && array_key_exists('effects', $definition)) {
                 $effects = is_array($definition['effects']) ? $definition['effects'] : [];
                 $components = is_array($definition['components'] ?? null) ? $definition['components'] : [];
                 $combatAction = is_string($definition['combat_action'] ?? null) ? $definition['combat_action'] : null;
                 $zones = is_array($definition['zones'] ?? null) ? $definition['zones'] : $zones;
                 $requirements = is_array($definition['requirements'] ?? null) ? $definition['requirements'] : [];
+                $type = is_string($definition['type'] ?? null) ? $definition['type'] : 'action';
+                $parent = is_string($definition['parent'] ?? null) ? $definition['parent'] : null;
             }
 
             $entries[] = RuleCommitEntry::put($code, new RuleVersionBody('ability', ucfirst($code), '', [
-                'type' => 'action',
+                'type' => $type,
                 'zones' => $zones,
                 ...($combatAction === null ? [] : ['combat_action' => $combatAction]),
-                'action_components' => $components,
+                ...($type === 'action' ? ['action_components' => $components] : []),
                 ...($requirements === [] ? [] : ['requirements' => $requirements]),
+                ...($parent === null ? [] : ['parent_ability_code' => $parent]),
                 ...($effects === [] ? [] : ['action_effects' => $effects]),
             ], [], [], 'needs_work'));
         }
 
         foreach ($extraRules as $code => $definition) {
+            $mechanics = is_array($definition['mechanics'] ?? null) ? $definition['mechanics'] : [];
+            if (($definition['roll'] ?? false) === true) {
+                $mechanics = [[
+                    'mechanic_id' => $rollId,
+                    'mechanic_payload' => ['type' => 'roll', 'data' => ['diceCount' => 1, 'dieFaces' => 1]],
+                ]];
+            }
+
             $entries[] = RuleCommitEntry::put($code, new RuleVersionBody(
                 is_string($definition['type'] ?? null) ? $definition['type'] : 'simple',
                 is_string($definition['name'] ?? null) ? $definition['name'] : ucfirst($code),
                 '',
                 is_array($definition['spec'] ?? null) ? $definition['spec'] : [],
                 is_array($definition['keywordIds'] ?? null) ? $definition['keywordIds'] : [],
-                [],
+                $mechanics,
                 'needs_work',
             ));
         }

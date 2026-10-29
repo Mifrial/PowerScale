@@ -518,6 +518,9 @@ trait GameMysqlFixture
                 ...(array_key_exists('conditions', $attack)
                     ? ['conditions' => $attack['conditions']]
                     : []),
+                ...(array_key_exists('afterStrikeOptions', $attack)
+                    ? ['afterStrikeOptions' => $attack['afterStrikeOptions']]
+                    : []),
             ]],
         ];
         if (array_key_exists('chosenAmounts', $attack)) {

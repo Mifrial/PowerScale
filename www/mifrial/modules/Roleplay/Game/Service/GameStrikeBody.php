@@ -58,6 +58,10 @@ final class GameStrikeBody
             $allowed[] = 'instanceIndex';
         }
 
+        if (array_key_exists('afterStrikeOptions', $attack)) {
+            $allowed[] = 'afterStrikeOptions';
+        }
+
         $this->assertKeys($attack, $allowed);
         $attacker = $this->side($attack['attacker'] ?? null);
         $defender = $this->side($attack['defender'] ?? null);
@@ -105,7 +109,39 @@ final class GameStrikeBody
             'instanceIndex' => $instanceIndex,
             'conditions' => $conditions,
             'chosenAmounts' => $chosenAmounts,
+            'afterStrikeOptions' => $this->afterStrikeOptions($attack['afterStrikeOptions'] ?? null),
         ];
+    }
+
+    /**
+     * Коды опций после удара.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return list<string> Коды.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function afterStrikeOptions(mixed $value): array
+    {
+        if ($value === null) {
+            return [];
+        }
+
+        if (!is_array($value) || !array_is_list($value)) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: attack options');
+        }
+
+        $codes = [];
+        foreach ($value as $code) {
+            if (!is_string($code) || $code === '' || in_array($code, $codes, true)) {
+                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: attack options');
+            }
+
+            $codes[] = $code;
+        }
+
+        return $codes;
     }
 
     /**

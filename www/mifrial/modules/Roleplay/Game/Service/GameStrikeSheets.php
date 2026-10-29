@@ -185,6 +185,50 @@ final class GameStrikeSheets
     }
 
     /**
+     * Снимок листа участника без различия вида.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $kind Вид участника: character или npc.
+     * @param int $id Идентификатор.
+     *
+     * @return array<string, mixed> Снимок.
+     *
+     * @throws GameInvalidException Если вид чужой.
+     * @throws GameNotFoundException Если строки нет.
+     */
+    public function snapshot(GameRecord $game, string $kind, int $id): array
+    {
+        if ($kind === 'character') {
+            return $this->getCharacterSnapshot($id);
+        }
+
+        if ($kind !== 'npc') {
+            throw new GameInvalidException('Game strike participant is invalid');
+        }
+
+        return $this->getNpcSnapshot($game->getId(), $id);
+    }
+
+    /**
+     * Уровни способностей участника.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $kind Вид участника: character или npc.
+     * @param int $id Идентификатор.
+     *
+     * @return array<string, int> Уровни.
+     *
+     * @throws GameInvalidException Если вид чужой.
+     * @throws GameNotFoundException Если строки нет.
+     */
+    public function abilityLevels(GameRecord $game, string $kind, int $id): array
+    {
+        $levels = $this->snapshot($game, $kind, $id)['sheet']['sheet']['abilityLevels'] ?? null;
+
+        return is_array($levels) ? $levels : [];
+    }
+
+    /**
      * Версия листа NPC одиночного удара.
      *
      * @param int $gameId Игра.

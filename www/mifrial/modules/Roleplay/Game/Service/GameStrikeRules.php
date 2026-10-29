@@ -621,49 +621,186 @@ final class GameStrikeRules
         int $strengthDrop = 0,
         int $gripBonus = 0,
     ): DimensionalNumber {
-        if ($attackerKind !== 'character' && $attackerKind !== 'npc') {
-            throw new GameInvalidException('Game strike attacker is invalid');
-        }
-
         try {
-            $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
-            $item = $this->selectedItem(
+            $built = $this->damageContext(
                 $spaceId,
                 $rulesRevision,
-                $documents['choices'],
-                $itemInventoryId,
                 $itemRuleCode,
-            );
-            $weapon = $item->getWeapon();
-            $profiles = $weapon?->getWeaponProfiles() ?? [];
-            $profile = $profiles[$profileIndex] ?? null;
-            if (!$profile instanceof WeaponProfile || $profile->getType() !== $profileType) {
-                throw new GameInvalidException('Game strike damage profile is invalid');
-            }
-
-            $context = $this->formulaContext(
-                $this->slice($spaceId, $rulesRevision),
-                $documents['sheet'],
-                $documents['choices'],
-                $documents['key'],
-            );
-            $context = $this->profileContext(
-                $profile,
-                $context,
-                $actionCharacteristicModifier ?? 0,
+                $profileType,
+                $profileIndex,
+                $itemInventoryId,
+                $attackerKind,
+                $attackerId,
+                $npcSheet,
+                $npcChoices,
+                $sheetVersion,
+                $actionCharacteristicModifier,
                 $strengthDrop,
                 $gripBonus,
             );
 
             return $this->formulaEvaluations->evaluateDimensional(
-                $profile->getDamage()->getFormula(),
-                $context,
+                $built['profile']->getDamage()->getFormula(),
+                $built['context'],
             );
         } catch (GameInvalidException $exception) {
             throw $exception;
         } catch (RuleInvalidException | CharacterInvalidException | CharacterNotFoundException $exception) {
             throw new GameInvalidException('Game strike damage is invalid', $exception);
         }
+    }
+
+    /**
+     * Сила удара выбранного профиля: база профиля или характеристика, затем сдвиг карточки.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия игры.
+     * @param string $itemRuleCode Предмет.
+     * @param string $profileType Вид профиля.
+     * @param int $profileIndex Смещение.
+     * @param int $itemInventoryId Строка инвентаря.
+     * @param string $attackerKind Character или npc.
+     * @param int $attackerId Атакующий.
+     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC или null.
+     * @param array<string, mixed>|null $npcChoices Снимок choices NPC или null.
+     * @param int|null $sheetVersion Версия листа NPC.
+     * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
+     * @param int $strengthDrop Штраф силы броска в размерах.
+     * @param int $gripBonus Бонус удержания к Силе удара.
+     *
+     * @return DimensionalNumber Пара характеристики.
+     *
+     * @throws GameInvalidException Если профиль, лист или сила битые.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function strikeStrength(
+        int $spaceId,
+        int $rulesRevision,
+        string $itemRuleCode,
+        string $profileType,
+        int $profileIndex,
+        int $itemInventoryId,
+        string $attackerKind,
+        int $attackerId,
+        ?array $npcSheet,
+        ?array $npcChoices,
+        ?int $sheetVersion = null,
+        ?int $actionCharacteristicModifier = null,
+        int $strengthDrop = 0,
+        int $gripBonus = 0,
+    ): DimensionalNumber {
+        try {
+            $built = $this->damageContext(
+                $spaceId,
+                $rulesRevision,
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+                $itemInventoryId,
+                $attackerKind,
+                $attackerId,
+                $npcSheet,
+                $npcChoices,
+                $sheetVersion,
+                $actionCharacteristicModifier,
+                $strengthDrop,
+                $gripBonus,
+            );
+            $strength = $built['context']->findActionCharacteristic($profileType, 'strength')
+                ?? $built['context']->findCharacteristic('strength');
+            if (!$strength instanceof DimensionalNumber) {
+                throw new GameInvalidException('Game strike strength is invalid');
+            }
+
+            $number = $strength instanceof CharacteristicNumber
+                ? $strength
+                : new CharacteristicNumber($strength->getBase(), $strength->getSize());
+            $delta = $built['context']->getActionCharacteristicModifier();
+
+            return $delta === 0 ? $number : $number->modify($delta);
+        } catch (GameInvalidException $exception) {
+            throw $exception;
+        } catch (RuleInvalidException | CharacterInvalidException | CharacterNotFoundException $exception) {
+            throw new GameInvalidException('Game strike strength is invalid', $exception);
+        }
+    }
+
+    /**
+     * Профиль удара и контекст формулы для него.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия игры.
+     * @param string $itemRuleCode Предмет.
+     * @param string $profileType Вид профиля.
+     * @param int $profileIndex Смещение.
+     * @param int $itemInventoryId Строка инвентаря.
+     * @param string $attackerKind Character или npc.
+     * @param int $attackerId Атакующий.
+     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC или null.
+     * @param array<string, mixed>|null $npcChoices Снимок choices NPC или null.
+     * @param int|null $sheetVersion Версия листа NPC.
+     * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
+     * @param int $strengthDrop Штраф силы броска в размерах.
+     * @param int $gripBonus Бонус удержания к Силе удара.
+     *
+     * @return array{profile: WeaponProfile, context: FormulaContext} Профиль и контекст.
+     *
+     * @throws GameInvalidException Если вид, профиль или лист битые.
+     * @throws RuleInvalidException Если база профиля или сила не найдены.
+     * @throws CharacterInvalidException Если снимок битый.
+     * @throws CharacterNotFoundException Если персонажа нет.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    private function damageContext(
+        int $spaceId,
+        int $rulesRevision,
+        string $itemRuleCode,
+        string $profileType,
+        int $profileIndex,
+        int $itemInventoryId,
+        string $attackerKind,
+        int $attackerId,
+        ?array $npcSheet,
+        ?array $npcChoices,
+        ?int $sheetVersion,
+        ?int $actionCharacteristicModifier,
+        int $strengthDrop,
+        int $gripBonus,
+    ): array {
+        if ($attackerKind !== 'character' && $attackerKind !== 'npc') {
+            throw new GameInvalidException('Game strike attacker is invalid');
+        }
+
+        $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
+        $item = $this->selectedItem(
+            $spaceId,
+            $rulesRevision,
+            $documents['choices'],
+            $itemInventoryId,
+            $itemRuleCode,
+        );
+        $weapon = $item->getWeapon();
+        $profiles = $weapon?->getWeaponProfiles() ?? [];
+        $profile = $profiles[$profileIndex] ?? null;
+        if (!$profile instanceof WeaponProfile || $profile->getType() !== $profileType) {
+            throw new GameInvalidException('Game strike damage profile is invalid');
+        }
+
+        $context = $this->formulaContext(
+            $this->slice($spaceId, $rulesRevision),
+            $documents['sheet'],
+            $documents['choices'],
+            $documents['key'],
+        );
+        $context = $this->profileContext(
+            $profile,
+            $context,
+            $actionCharacteristicModifier ?? 0,
+            $strengthDrop,
+            $gripBonus,
+        );
+
+        return ['profile' => $profile, 'context' => $context];
     }
 
     /**

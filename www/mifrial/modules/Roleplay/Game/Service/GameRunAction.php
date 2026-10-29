@@ -505,6 +505,7 @@ final class GameRunAction
             'instanceIndex' => $strike['instanceIndex'],
             'conditions' => $strike['conditions'],
             'chosenAmounts' => $parsed['context']['chosenAmounts'],
+            'afterStrikeOptions' => $strike['afterStrikeOptions'] ?? [],
         ];
         if ($strike['ammunitionInventoryId'] !== null) {
             $attack['ammunitionInventoryId'] = $strike['ammunitionInventoryId'];
@@ -523,6 +524,7 @@ final class GameRunAction
      */
     private function multiAttack(array $parsed, array $strikes): array
     {
+        $this->assertNoAfterStrikeOptions($strikes);
         $first = $strikes[0];
         $attack = [
             'attacker' => $parsed['actor'],
@@ -556,6 +558,7 @@ final class GameRunAction
      */
     private function wideAttack(array $parsed, array $strikes): array
     {
+        $this->assertNoAfterStrikeOptions($strikes);
         $first = $strikes[0];
         $targets = [];
         foreach ($strikes as $strike) {
@@ -591,6 +594,24 @@ final class GameRunAction
         }
 
         return $attack;
+    }
+
+    /**
+     * Опции после удара объявляются только одиночным ударом.
+     *
+     * @param list<array<string, mixed>> $strikes Строки.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если опция пришла на серию или широкий удар.
+     */
+    private function assertNoAfterStrikeOptions(array $strikes): void
+    {
+        foreach ($strikes as $strike) {
+            if (($strike['afterStrikeOptions'] ?? []) !== []) {
+                throw new GameInvalidException('Game strike after-strike option is not supported');
+            }
+        }
     }
 
     /**

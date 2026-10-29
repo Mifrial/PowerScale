@@ -220,7 +220,7 @@ final class GameRunActionBody
             'profileType',
             'target',
         ];
-        foreach (['ammunitionInventoryId', 'conditions', 'instanceIndex'] as $key) {
+        foreach (['afterStrikeOptions', 'ammunitionInventoryId', 'conditions', 'instanceIndex'] as $key) {
             if (array_key_exists($key, $row)) {
                 $allowed[] = $key;
             }
@@ -262,7 +262,39 @@ final class GameRunActionBody
             'target' => $target,
             'ammunitionInventoryId' => $ammunitionInventoryId,
             'conditions' => $conditions,
+            'afterStrikeOptions' => $this->afterStrikeOptions($row['afterStrikeOptions'] ?? null),
         ];
+    }
+
+    /**
+     * Коды опций после удара.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return list<string> Коды.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function afterStrikeOptions(mixed $value): array
+    {
+        if ($value === null) {
+            return [];
+        }
+
+        if (!is_array($value) || !array_is_list($value)) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike options');
+        }
+
+        $codes = [];
+        foreach ($value as $code) {
+            if (!is_string($code) || $code === '' || in_array($code, $codes, true)) {
+                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike options');
+            }
+
+            $codes[] = $code;
+        }
+
+        return $codes;
     }
 
     /**

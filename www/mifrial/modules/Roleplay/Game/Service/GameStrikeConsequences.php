@@ -216,6 +216,33 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Добровольная проверка способности с уже посчитанной трудностью.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $sheet Лист.
+     * @param string $checkCode Проверка.
+     * @param int $difficulty Сложность.
+     *
+     * @return array<string, mixed> Бросок.
+     *
+     * @throws GameInvalidException Если карточка проверки битая.
+     */
+    public function optionalCheck(GameRecord $game, array $sheet, string $checkCode, int $difficulty): array
+    {
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $roll = $this->checks->throwWithDifficulty(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $checkCode,
+            $sheet,
+            ['base' => $difficulty, 'size' => 0],
+        );
+        $roll['label'] = $slice->findLive($checkCode)?->getName() ?? $checkCode;
+
+        return $roll;
+    }
+
+    /**
      * Код единственной карточки с флагом.
      */
     public function singleState(GameRecord $game, string $flag): string

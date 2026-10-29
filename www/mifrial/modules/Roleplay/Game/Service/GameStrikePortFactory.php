@@ -158,6 +158,43 @@ final class GameStrikePortFactory
     }
 
     /**
+     * HTTP опций действий участника.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameActionOptionsHttp Сценарий.
+     *
+     * @throws KernelException Если нет шлюза.
+     */
+    public function createActionOptionsHttp(IServiceLocator $serviceLocator): GameActionOptionsHttp
+    {
+        $gateway = $this->smartTableGateway($serviceLocator);
+        $rules = $this->strikeRules($serviceLocator);
+
+        return new GameActionOptionsHttp(
+            $this->userAccess($serviceLocator),
+            $this->games($serviceLocator),
+            new GameCardAccess(
+                new GameRepository($gateway),
+                new GameMemberRepository($gateway),
+                new GameInvitationRepository($gateway),
+            ),
+            $rules,
+            new GameStrikeSheets(
+                $rules,
+                new GameNpcRepository($gateway),
+                new GameCharacterRepository($gateway),
+                new GameMemberRepository($gateway),
+                new ConflictSheetProjection(
+                    new CharacterSectionMask(),
+                    new GameCharacterProjectionMask(),
+                    new GameNpcVisibility(),
+                ),
+            ),
+        );
+    }
+
+    /**
      * Доменная команда карточки действия.
      *
      * @param IServiceLocator $serviceLocator Каталог.
