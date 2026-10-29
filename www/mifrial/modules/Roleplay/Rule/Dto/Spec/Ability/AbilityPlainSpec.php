@@ -7,7 +7,7 @@ namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability;
 /**
  * Способность trait, feature или skill.
  */
-final class AbilityPlainSpec implements AbilitySpec
+final class AbilityPlainSpec implements AbilityWithBase
 {
     /**
      * Создаёт spec.

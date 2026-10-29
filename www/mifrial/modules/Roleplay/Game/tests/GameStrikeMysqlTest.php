@@ -1212,18 +1212,18 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return void
      */
-    public function testFuriousRushSkipsParentPendingAndWritesAttackerSheet(): void
+    public function testModifierRunsAndSkipsParentPending(): void
     {
-        $setup = $this->rushBattle(3);
-        $opened = $this->declareRush($setup);
+        $setup = $this->modifierBattle(3);
+        $opened = $this->declareModifier($setup);
         self::assertTrue($opened['success'], json_encode($opened));
         $beforeClose = $this->characterFacade()->get($setup['attackerId'])->getActualVersion();
-        $closed = $this->closeRush($setup, $opened);
+        $closed = $this->closeModifier($setup, $opened);
 
         self::assertTrue($closed['success'], json_encode($closed));
-        self::assertSame(['rush'], $closed['data']['afterStrike']['codes'] ?? null);
-        self::assertTrue($closed['data']['afterStrike']['success'] ?? null, json_encode($closed));
-        self::assertTrue($closed['data']['afterStrike']['skipped'] ?? null, json_encode($closed));
+        self::assertSame(['rush'], $closed['data']['modifiers']['codes'] ?? null);
+        self::assertTrue($closed['data']['modifiers']['success'] ?? null, json_encode($closed));
+        self::assertTrue($closed['data']['modifiers']['skipped'] ?? null, json_encode($closed));
         self::assertSame($beforeClose + 1, $this->characterFacade()->get($setup['attackerId'])->getActualVersion());
         self::assertNotContains(
             'after_action_until_resource_spent_check_modifier',
@@ -1236,18 +1236,18 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return void
      */
-    public function testFuriousRushFailureKeepsParentPending(): void
+    public function testModifierFailureKeepsParentPending(): void
     {
-        $setup = $this->rushBattle(99);
-        $opened = $this->declareRush($setup);
+        $setup = $this->modifierBattle(99);
+        $opened = $this->declareModifier($setup);
         self::assertTrue($opened['success'], json_encode($opened));
         $beforeClose = $this->characterFacade()->get($setup['attackerId'])->getActualVersion();
-        $closed = $this->closeRush($setup, $opened);
+        $closed = $this->closeModifier($setup, $opened);
 
         self::assertTrue($closed['success'], json_encode($closed));
-        self::assertFalse($closed['data']['afterStrike']['success'] ?? null);
-        self::assertFalse($closed['data']['afterStrike']['skipped'] ?? null);
-        self::assertArrayNotHasKey('injury', $closed['data']['afterStrike'] ?? []);
+        self::assertFalse($closed['data']['modifiers']['success'] ?? null);
+        self::assertFalse($closed['data']['modifiers']['skipped'] ?? null);
+        self::assertArrayNotHasKey('injury', $closed['data']['modifiers'] ?? []);
         self::assertSame($beforeClose, $this->characterFacade()->get($setup['attackerId'])->getActualVersion());
         self::assertContains(
             'after_action_until_resource_spent_check_modifier',
@@ -1262,23 +1262,23 @@ final class GameStrikeMysqlTest extends TestCase
      */
     public function testActionOptionsAreServerComputed(): void
     {
-        $setup = $this->rushBattle(3);
+        $setup = $this->modifierBattle(3);
         $own = $this->dispatch('game.getActionOptions', [
             'gameId' => $setup['gameId'],
             'actorType' => 'character',
             'actorId' => $setup['attackerId'],
         ]);
         self::assertTrue($own['success'], json_encode($own));
-        self::assertSame('swing', $own['data']['afterStrikeOptions'][0]['actionCode'] ?? null);
-        self::assertSame('rush', $own['data']['afterStrikeOptions'][0]['code'] ?? null);
-        self::assertStringContainsString('Willpower', $own['data']['afterStrikeOptions'][0]['summary'] ?? '');
+        self::assertSame('swing', $own['data']['modifiers'][0]['actionCode'] ?? null);
+        self::assertSame('rush', $own['data']['modifiers'][0]['code'] ?? null);
+        self::assertStringContainsString('Willpower', $own['data']['modifiers'][0]['summary'] ?? '');
         $foreign = $this->dispatch('game.getActionOptions', [
             'gameId' => $setup['gameId'],
             'actorType' => 'character',
             'actorId' => $setup['defenderId'],
         ]);
         self::assertTrue($foreign['success'], json_encode($foreign));
-        self::assertSame([], $foreign['data']['afterStrikeOptions']);
+        self::assertSame([], $foreign['data']['modifiers']);
     }
 
     /**
@@ -1288,7 +1288,7 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return array{gameId: int, battleId: int, attackerId: int, defenderId: int, actual: int} Стенд.
      */
-    private function rushBattle(int $difficulty): array
+    private function modifierBattle(int $difficulty): array
     {
         $world = $this->worldWithWeapon(
             withActionDamage: true,
@@ -1305,15 +1305,19 @@ final class GameStrikeMysqlTest extends TestCase
                     'type' => 'skill',
                     'parent' => 'swing',
                     'effects' => [[
-                        'type' => 'optional_after_strike_check',
-                        'check_code' => 'willpower-check',
-                        'difficulty' => $difficulty,
-                        'self_damage' => [
-                            'size_delta' => -1,
-                            'damage_type_code' => 'cut',
-                            'internal' => true,
+                        'type' => 'action_modifier',
+                        'trigger' => 'after_strike',
+                        'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                        'check' => ['code' => 'willpower-check', 'difficulty' => $difficulty],
+                        'effects' => [
+                            [
+                                'type' => 'self_damage',
+                                'size_delta' => -1,
+                                'damage_type_code' => 'cut',
+                                'ignore_defense' => true,
+                            ],
+                            ['type' => 'skip_after_action'],
                         ],
-                        'skip_parent_pending' => true,
                     ]],
                 ],
             ],
@@ -1377,7 +1381,7 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return array<string, mixed> Итог.
      */
-    private function declareRush(array $setup): array
+    private function declareModifier(array $setup): array
     {
         return $this->dispatch('game.runAction', [
             'gameId' => $setup['gameId'],
@@ -1386,7 +1390,7 @@ final class GameStrikeMysqlTest extends TestCase
             'expectedVersion' => 1,
             'action' => $this->strikeEnvelope(
                 $this->characterAttack($setup['attackerId'], $setup['defenderId'])
-                    + ['afterStrikeOptions' => ['rush']],
+                    + ['modifiers' => ['rush']],
             ),
         ]);
     }
@@ -1399,7 +1403,7 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return array<string, mixed> Итог.
      */
-    private function closeRush(array $setup, array $opened): array
+    private function closeModifier(array $setup, array $opened): array
     {
         return $this->dispatch('game.runAction', [
             'gameId' => $setup['gameId'],
@@ -1418,18 +1422,26 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return void
      */
-    public function testStrikeRejectsForeignAfterStrikeOptionAtDeclare(): void
+    public function testStrikeRejectsForeignModifierAtDeclare(): void
     {
         $world = $this->worldWithWeapon(extraCards: [
             'rush' => [
                 'type' => 'skill',
                 'parent' => 'swing',
                 'effects' => [[
-                    'type' => 'optional_after_strike_check',
-                    'check_code' => 'will-check',
-                    'difficulty' => 3,
-                    'self_damage' => ['size_delta' => -1, 'damage_type_code' => 'cut', 'internal' => true],
-                    'skip_parent_pending' => true,
+                    'type' => 'action_modifier',
+                    'trigger' => 'after_strike',
+                    'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                    'check' => ['code' => 'will-check', 'difficulty' => 3],
+                    'effects' => [
+                        [
+                            'type' => 'self_damage',
+                            'size_delta' => -1,
+                            'damage_type_code' => 'cut',
+                            'ignore_defense' => true,
+                        ],
+                        ['type' => 'skip_after_action'],
+                    ],
                 ]],
             ],
         ]);
@@ -1452,7 +1464,7 @@ final class GameStrikeMysqlTest extends TestCase
             'idempotencyKey' => 's-reject',
             'expectedVersion' => 1,
             'action' => $this->strikeEnvelope(
-                $this->characterAttack($attackerId, $defenderId) + ['afterStrikeOptions' => ['rush']],
+                $this->characterAttack($attackerId, $defenderId) + ['modifiers' => ['rush']],
             ),
         ]);
         self::assertSame('GAME_INVALID', $opened['error']['code']);

@@ -34,7 +34,7 @@ final class GameStrikeSingleClose
      * @param GameStrikeTargetClose $targets Расчёт цели.
      * @param GameStrikeTargetChoices $choices Choices целей.
      * @param GameStrikeSingleChat $chat Чат.
-     * @param GameFuriousRush $rush Опции после удара.
+     * @param GameActionModifierRunner $modifiers Модификаторы действия.
      *
      * @return void
      */
@@ -51,7 +51,7 @@ final class GameStrikeSingleClose
         private readonly GameStrikeTargetClose $targets,
         private readonly GameStrikeTargetChoices $choices,
         private readonly GameStrikeSingleChat $chat,
-        private readonly GameFuriousRush $rush,
+        private readonly GameActionModifierRunner $modifiers,
     ) {
     }
 
@@ -556,9 +556,9 @@ final class GameStrikeSingleClose
         }
 
         $skipAfterAction = false;
-        $afterStrikeCodes = $this->afterStrikeCodes($row);
-        if ($afterStrikeCodes !== []) {
-            $result['afterStrike'] = $this->rush->perform(
+        $modifierCodes = $this->modifierCodes($row);
+        if ($modifierCodes !== []) {
+            $result['modifiers'] = $this->modifiers->perform(
                 $game,
                 $battle,
                 $open,
@@ -566,12 +566,12 @@ final class GameStrikeSingleClose
                 $actionRuleCode,
                 $attackerKind,
                 $attackerId,
-                $afterStrikeCodes,
+                $modifierCodes,
                 $modifier,
                 $this->rules->gripBonus($attackContext['occupyHands']),
                 $actorUserId,
             );
-            $skipAfterAction = ($result['afterStrike']['skipped'] ?? false) === true;
+            $skipAfterAction = ($result['modifiers']['skipped'] ?? false) === true;
         }
 
         $pending = (new GamePendingActionCosts())->complete(
@@ -763,15 +763,15 @@ final class GameStrikeSingleClose
     }
 
     /**
-     * Объявленные опции после удара из строки.
+     * Объявленные модификаторы действия из строки.
      *
      * @param array<string, mixed> $row Строка удара.
      *
      * @return list<string> Коды.
      */
-    private function afterStrikeCodes(array $row): array
+    private function modifierCodes(array $row): array
     {
-        $raw = $row['after_strike_options'] ?? null;
+        $raw = $row['action_modifiers'] ?? null;
         if (is_string($raw)) {
             $raw = json_decode($raw, true);
         }

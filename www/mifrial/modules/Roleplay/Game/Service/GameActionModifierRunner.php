@@ -4,20 +4,24 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\OptionalAfterStrikeCheckEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionModifierEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\SelfDamageOutcomeEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\SkipAfterActionOutcomeEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ModifierTrigger;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
- * Опция после удара: проверка, урон по себе и снятие помехи родителя.
+ * Исполнение модификаторов действия по их данным: момент, проверка, последствия.
  */
-final class GameFuriousRush
+final class GameActionModifierRunner
 {
     /**
-     * Создаёт расчёт опции.
+     * Создаёт исполнитель.
      *
      * @param GameStrikeRules $rules Правила.
      * @param GameStrikeSheets $sheets Листы.
@@ -26,7 +30,8 @@ final class GameFuriousRush
      * @param GameStrikeConsequences $consequences Бросок и чат.
      * @param GameStrikeChat $chat Подписи участников.
      * @param GameStrikeAmounts $amounts Пары и нули.
-     * @param GameStrikeOptions $options Опции карточки.
+     * @param GameActionModifiers $modifiers Модификаторы карточки.
+     * @param GameActionModifierPresenter $presenter Подписи.
      *
      * @return void
      */
@@ -38,12 +43,13 @@ final class GameFuriousRush
         private readonly GameStrikeConsequences $consequences,
         private readonly GameStrikeChat $chat,
         private readonly GameStrikeAmounts $amounts,
-        private readonly GameStrikeOptions $options,
+        private readonly GameActionModifiers $modifiers,
+        private readonly GameActionModifierPresenter $presenter,
     ) {
     }
 
     /**
-     * Выполняет объявленные опции после удара.
+     * Выполняет объявленные модификаторы.
      *
      * @param GameRecord $game Игра.
      * @param GameBattleRecord $battle Бой.
@@ -57,9 +63,9 @@ final class GameFuriousRush
      * @param int $gripBonus Бонус удержания.
      * @param int $actorUserId Актор чата.
      *
-     * @return array<string, mixed> Итог опций: коды, бросок, успех, урон, пропуск помехи.
+     * @return array<string, mixed> Итог: коды, бросок, успех, урон, пропуск помехи.
      *
-     * @throws GameInvalidException Если код, лист или запись битые.
+     * @throws GameInvalidException Если код, момент, лист или запись битые.
      */
     public function perform(
         GameRecord $game,
@@ -84,36 +90,107 @@ final class GameFuriousRush
 
         $result = ['codes' => [], 'roll' => null, 'success' => false, 'skipped' => false];
         foreach ($codes as $code) {
-            $option = $this->options->find($slice, $actionRuleCode, $levels, $code);
-            $effect = $option['effect'];
+            $modifier = $this->modifiers->find($slice, $actionRuleCode, $levels, $code);
+            $effect = $modifier['effect'];
+            if (!ModifierTrigger::supports($effect->getTrigger())) {
+                throw new GameInvalidException('Game action modifier trigger is invalid');
+            }
+
             $sheet = $this->sheets->snapshot($game, $attackerKind, $attackerId)['sheet']['sheet'] ?? null;
             if (!is_array($sheet)) {
                 throw new GameInvalidException('Game strike sheet is invalid');
             }
 
-            $roll = $this->consequences->optionalCheck(
-                $game,
-                $sheet,
-                $effect->getCheckCode(),
-                $effect->getDifficulty(),
-            );
-            $success = ($roll['success'] ?? false) === true;
+            $roll = $this->rollOf($game, $sheet, $effect);
+            $success = $roll === null || ($roll['success'] ?? false) === true;
+            if ($roll !== null) {
+                $this->consequences->postRolls($game, $actorUserId, $threadId, [$roll], $speaker, $parentId);
+            }
 
-            $this->consequences->postRolls($game, $actorUserId, $threadId, [$roll], $speaker, $parentId);
             $this->consequences->postLines(
                 $game,
                 $actorUserId,
                 $threadId,
-                [$this->outcomeLine($attackerName, $option['name'], $effect, $success)],
+                [$this->outcomeLine($slice, $attackerName, $modifier['name'], $effect, $roll !== null, $success)],
                 $speaker,
                 $parentId,
             );
 
-            $result['codes'][] = $option['code'];
+            $result['codes'][] = $modifier['code'];
             $result['roll'] = $roll;
             $result['success'] = $success;
             if (!$success) {
                 continue;
+            }
+
+            $this->apply(
+                $game,
+                $open,
+                $attackerKind,
+                $attackerId,
+                $effect,
+                $actionCharacteristicModifier,
+                $gripBonus,
+                $result,
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * Бросок модификатора, если проверка задана.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $sheet Лист.
+     * @param ActionModifierEffect $effect Модификатор.
+     *
+     * @return array<string, mixed>|null Бросок или null.
+     */
+    private function rollOf(GameRecord $game, array $sheet, ActionModifierEffect $effect): ?array
+    {
+        $check = $effect->getCheck();
+        if ($check === null) {
+            return null;
+        }
+
+        return $this->consequences->optionalCheck($game, $sheet, $check->getCode(), $check->getDifficulty());
+    }
+
+    /**
+     * Применяет последствия к листу атакующего.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $open Открытая строка удара.
+     * @param string $attackerKind Вид участника.
+     * @param int $attackerId Атакующий.
+     * @param ActionModifierEffect $effect Модификатор.
+     * @param int $actionCharacteristicModifier Сдвиг характеристики действия.
+     * @param int $gripBonus Бонус удержания.
+     * @param array<string, mixed> $result Итог.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если строка или лист битые.
+     */
+    private function apply(
+        GameRecord $game,
+        array $open,
+        string $attackerKind,
+        int $attackerId,
+        ActionModifierEffect $effect,
+        int $actionCharacteristicModifier,
+        int $gripBonus,
+        array &$result,
+    ): void {
+        foreach ($effect->getEffects() as $outcome) {
+            if ($outcome instanceof SkipAfterActionOutcomeEffect) {
+                $result['skipped'] = true;
+                continue;
+            }
+
+            if (!$outcome instanceof SelfDamageOutcomeEffect) {
+                throw new GameInvalidException('Game action modifier outcome is invalid');
             }
 
             $injury = $this->injuryOf(
@@ -121,7 +198,7 @@ final class GameFuriousRush
                 $open,
                 $attackerKind,
                 $attackerId,
-                $effect,
+                $outcome,
                 $actionCharacteristicModifier,
                 $gripBonus,
             );
@@ -130,7 +207,7 @@ final class GameFuriousRush
                 $attackerKind,
                 $attackerId,
                 $injury,
-                $effect->getSelfDamage()->getDamageTypeCode(),
+                $outcome->getDamageTypeCode(),
             );
             $result['sheetVersion'] = $this->sheetWrites->write(
                 $game,
@@ -141,20 +218,17 @@ final class GameFuriousRush
             );
             $result['injury'] = $this->amounts->view($injury);
             $result['consequence'] = $prepared['consequence'];
-            $result['skipped'] = $result['skipped'] || $effect->isSkipParentPending();
         }
-
-        return $result;
     }
 
     /**
-     * Урон по себе: сила удара, сдвинутая на размер эффекта.
+     * Урон по себе: сила удара, сдвинутая на размер.
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $open Открытая строка удара.
-     * @param string $attackerKind character или npc.
+     * @param string $attackerKind Вид участника: character или npc.
      * @param int $attackerId Атакующий.
-     * @param OptionalAfterStrikeCheckEffect $effect Эффект.
+     * @param SelfDamageOutcomeEffect $effect Последствие.
      * @param int $actionCharacteristicModifier Сдвиг характеристики действия.
      * @param int $gripBonus Бонус удержания.
      *
@@ -167,7 +241,7 @@ final class GameFuriousRush
         array $open,
         string $attackerKind,
         int $attackerId,
-        OptionalAfterStrikeCheckEffect $effect,
+        SelfDamageOutcomeEffect $effect,
         int $actionCharacteristicModifier,
         int $gripBonus,
     ): DimensionalNumber {
@@ -204,7 +278,7 @@ final class GameFuriousRush
         $number = $strength instanceof CharacteristicNumber
             ? $strength
             : new CharacteristicNumber($strength->getBase(), $strength->getSize());
-        $shift = $effect->getSelfDamage()->getSizeDelta();
+        $shift = $effect->getSizeDelta();
 
         return $shift === 0 ? $number : $number->modify($shift * CharacteristicNumber::BASE_STEP);
     }
@@ -212,28 +286,35 @@ final class GameFuriousRush
     /**
      * Строка исхода в чат.
      *
+     * @param CharacterRuleSlice $slice Срез.
      * @param string $attackerName Имя атакующего.
-     * @param string $optionName Название опции.
-     * @param OptionalAfterStrikeCheckEffect $effect Эффект.
-     * @param bool $success Успех проверки.
+     * @param string $modifierName Название модификатора.
+     * @param ActionModifierEffect $effect Модификатор.
+     * @param bool $checked Была ли проверка.
+     * @param bool $success Успех.
      *
      * @return string Текст.
      */
     private function outcomeLine(
+        CharacterRuleSlice $slice,
         string $attackerName,
-        string $optionName,
-        OptionalAfterStrikeCheckEffect $effect,
+        string $modifierName,
+        ActionModifierEffect $effect,
+        bool $checked,
         bool $success,
     ): string {
         if (!$success) {
-            return sprintf('%s: %s — провал, проверка не пройдена.', $attackerName, $optionName);
+            return sprintf('%s: %s — провал, проверка не пройдена.', $attackerName, $modifierName);
         }
 
+        $effects = $this->presenter->effects($slice, $effect->getEffects());
+
         return sprintf(
-            '%s: %s — успех, урон по себе%s.',
+            '%s: %s — %s%s.',
             $attackerName,
-            $optionName,
-            $effect->isSkipParentPending() ? ', помеха действия снята' : '',
+            $modifierName,
+            $checked ? 'успех: ' : '',
+            $effects,
         );
     }
 }

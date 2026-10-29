@@ -8,44 +8,48 @@ use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
-use Mifrial\Roleplay\Game\Service\GameStrikeOptions;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\OptionalAfterStrikeCheckEffect;
+use Mifrial\Roleplay\Game\Service\GameActionModifierPresenter;
+use Mifrial\Roleplay\Game\Service\GameActionModifiers;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionModifierEffect;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Опции после удара берутся из купленных детей карточки, а не из клиента.
+ * Модификаторы действия берутся из купленных детей карточки, а не из клиента.
  */
-final class GameStrikeOptionsTest extends TestCase
+final class GameActionModifiersTest extends TestCase
 {
     /**
-     * Купленный ребёнок карточки даёт опцию с серверной подписью.
+     * Купленный ребёнок карточки даёт модификатор с серверной подписью.
      *
      * @return void
      */
     public function testAvailableListsOnlyOwnedChildrenOfCard(): void
     {
-        $options = new GameStrikeOptions();
-        $rows = $options->available($this->slice(), ['rush' => 1]);
+        $slice = $this->slice();
+        $rows = (new GameActionModifiers())->available($slice, ['rush' => 1]);
 
         self::assertCount(1, $rows);
         self::assertSame('card', $rows[0]['actionCode']);
         self::assertSame('rush', $rows[0]['code']);
         self::assertSame('Яростный рывок', $rows[0]['name']);
-        self::assertStringContainsString('Проверка на Силу воли против 3', $rows[0]['summary']);
-        self::assertStringContainsString('внутренний дробящий урон по себе', $rows[0]['summary']);
-        self::assertStringContainsString('помеха действия снимается', $rows[0]['summary']);
+        self::assertInstanceOf(ActionModifierEffect::class, $rows[0]['effect']);
+
+        $summary = (new GameActionModifierPresenter())->summary($slice, $rows[0]['effect']);
+        self::assertStringContainsString('Проверка на Силу воли против 3', $summary);
+        self::assertStringContainsString('внутренний дробящий урон по себе ([сила удара]↓1)', $summary);
+        self::assertStringContainsString('помеха действия снимается', $summary);
     }
 
     /**
-     * Некулепленный ребёнок опцией не становится.
+     * Некулепленный ребёнок модификатором не становится.
      *
      * @return void
      */
     public function testAvailableSkipsUnownedChild(): void
     {
-        self::assertSame([], (new GameStrikeOptions())->available($this->slice(), ['rush' => 0]));
-        self::assertSame([], (new GameStrikeOptions())->available($this->slice(), []));
+        self::assertSame([], (new GameActionModifiers())->available($this->slice(), ['rush' => 0]));
+        self::assertSame([], (new GameActionModifiers())->available($this->slice(), []));
     }
 
     /**
@@ -55,13 +59,28 @@ final class GameStrikeOptionsTest extends TestCase
      */
     public function testFindRejectsForeignCard(): void
     {
-        $options = new GameStrikeOptions();
-        $found = $options->find($this->slice(), 'card', ['rush' => 1], 'rush');
+        $modifiers = new GameActionModifiers();
+        $found = $modifiers->find($this->slice(), 'card', ['rush' => 1], 'rush');
         self::assertSame('rush', $found['code']);
-        self::assertInstanceOf(OptionalAfterStrikeCheckEffect::class, $found['effect']);
+        self::assertInstanceOf(ActionModifierEffect::class, $found['effect']);
 
         $this->expectException(GameInvalidException::class);
-        $options->find($this->slice(), 'other-card', ['rush' => 1], 'rush');
+        $modifiers->find($this->slice(), 'other-card', ['rush' => 1], 'rush');
+    }
+
+    /**
+     * Модификатор применяется только к своей области.
+     *
+     * @return void
+     */
+    public function testScopeDecidesApplicability(): void
+    {
+        $rows = (new GameActionModifiers())->available($this->slice(), ['rush' => 1]);
+        $effect = $rows[0]['effect'];
+        self::assertInstanceOf(ActionModifierEffect::class, $effect);
+        self::assertTrue($effect->appliesTo('strike', 1));
+        self::assertFalse($effect->appliesTo('shoot', 1));
+        self::assertFalse($effect->appliesTo('strike', 2));
     }
 
     /**
@@ -81,15 +100,19 @@ final class GameStrikeOptionsTest extends TestCase
                 'zones' => ['or' => ['kind' => 'automatic']],
                 'parent_ability_code' => 'card',
                 'action_effects' => [[
-                    'type' => 'optional_after_strike_check',
-                    'check_code' => 'will-check',
-                    'difficulty' => 3,
-                    'self_damage' => [
-                        'size_delta' => -1,
-                        'damage_type_code' => 'blunt',
-                        'internal' => true,
+                    'type' => 'action_modifier',
+                    'trigger' => 'after_strike',
+                    'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                    'check' => ['code' => 'will-check', 'difficulty' => 3],
+                    'effects' => [
+                        [
+                            'type' => 'self_damage',
+                            'size_delta' => -1,
+                            'damage_type_code' => 'blunt',
+                            'ignore_defense' => true,
+                        ],
+                        ['type' => 'skip_after_action'],
                     ],
-                    'skip_parent_pending' => true,
                 ]],
             ]),
             $this->rule('will-check', 'check', 'Проверка на Силу воли', [

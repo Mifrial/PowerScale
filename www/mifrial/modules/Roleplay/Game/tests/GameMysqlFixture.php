@@ -44,8 +44,8 @@ use Mifrial\Roleplay\Game\Schema\GameDeliverySchema;
 use Mifrial\Roleplay\Game\Schema\GameEconomySchema;
 use Mifrial\Roleplay\Game\Schema\GameProcessSchema;
 use Mifrial\Roleplay\Game\Schema\GameSchema;
-use Mifrial\Roleplay\Game\Table\GameActionTable;
 use Mifrial\Roleplay\Game\Table\GameActionStrikeTable;
+use Mifrial\Roleplay\Game\Table\GameActionTable;
 use Mifrial\Roleplay\Game\Table\GameBattleParticipantTable;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
 use Mifrial\Roleplay\Game\Table\GameCharacterTable;
@@ -518,8 +518,8 @@ trait GameMysqlFixture
                 ...(array_key_exists('conditions', $attack)
                     ? ['conditions' => $attack['conditions']]
                     : []),
-                ...(array_key_exists('afterStrikeOptions', $attack)
-                    ? ['afterStrikeOptions' => $attack['afterStrikeOptions']]
+                ...(array_key_exists('modifiers', $attack)
+                    ? ['modifiers' => $attack['modifiers']]
                     : []),
             ]],
         ];

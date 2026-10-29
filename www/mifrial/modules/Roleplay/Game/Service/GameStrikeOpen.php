@@ -458,8 +458,8 @@ final class GameStrikeOpen
                 'conditions' => is_array($conditions)
                     ? $conditions
                     : (new GameStrikeConditions())->defaults(),
-                'after_strike_options' => is_array($choice['afterStrikeOptions'] ?? null)
-                    ? array_values($choice['afterStrikeOptions'])
+                'action_modifiers' => is_array($choice['modifiers'] ?? null)
+                    ? array_values($choice['modifiers'])
                     : [],
                 'reaction' => null,
                 'block_item_inventory_id' => null,

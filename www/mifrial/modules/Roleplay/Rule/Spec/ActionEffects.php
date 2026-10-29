@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AttackScope;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\AfterActionUntilResourceSpentCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ApplyStateEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\AttackSrFromPreviousEffect;
@@ -19,17 +20,20 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionDurabilityShaveEf
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionRollFaceRemapEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionRollScoreAdjustEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\LastStrikeSnapshotEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ModifierCheck;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ModifierOutcomeEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackAccuracyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackCostEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackDodgeSoakFromReactionEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackScoreAdjustEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextSpellCastDifficultyEffect;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\OptionalAfterStrikeCheckEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\PreparedDefenseCounterEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\RequirePreviousAttackEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\RequirePreviousStrikeEffect;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\SelfDamage;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\SelfDamageOutcomeEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\SkipAfterActionOutcomeEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\StrikeSnapshotHit;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ModifierTrigger;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -244,34 +248,87 @@ final class ActionEffects
                 SpecShape::string($row, 'reaction'),
             ),
             'apply_state' => new ApplyStateEffect(SpecShape::string($row, 'state_code'), self::amount($row)),
-            'optional_after_strike_check' => self::afterStrike($row),
+            'action_modifier' => self::modifier($row),
             default => throw new RuleSpecShapeException($key),
         };
     }
 
     /**
-     * Проверка после удара.
+     * Модификатор действия: момент, область, проверка и эффекты.
      *
      * @param array<string, mixed> $row Строка.
      *
-     * @return OptionalAfterStrikeCheckEffect Эффект.
+     * @return ActionModifierEffect Эффект.
+     *
+     * @throws RuleSpecShapeException Если форма, момент или последствия чужие.
+     */
+    private static function modifier(array $row): ActionModifierEffect
+    {
+        $trigger = SpecShape::string($row, 'trigger');
+        if (!ModifierTrigger::supports($trigger)) {
+            throw new RuleSpecShapeException('trigger');
+        }
+
+        return new ActionModifierEffect(
+            $trigger,
+            self::scope($row),
+            self::modifierCheck($row),
+            self::modifierEffects($row),
+        );
+    }
+
+    /**
+     * Необязательная проверка модификатора.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return ModifierCheck|null Проверка или null.
      *
      * @throws RuleSpecShapeException Если форма чужая.
      */
-    private static function afterStrike(array $row): OptionalAfterStrikeCheckEffect
+    private static function modifierCheck(array $row): ?ModifierCheck
     {
-        $damage = SpecShape::object($row, 'self_damage') ?? [];
+        $check = SpecShape::object($row, 'check');
+        if ($check === null) {
+            return null;
+        }
 
-        return new OptionalAfterStrikeCheckEffect(
-            SpecShape::string($row, 'check_code'),
-            SpecShape::int($row, 'difficulty'),
-            SpecShape::bool($row, 'skip_parent_pending'),
-            new SelfDamage(
-                SpecShape::int($damage, 'size_delta'),
-                SpecShape::string($damage, 'damage_type_code'),
-                SpecShape::bool($damage, 'internal'),
-            ),
+        return new ModifierCheck(
+            SpecShape::string($check, 'code'),
+            SpecShape::int($check, 'difficulty'),
         );
+    }
+
+    /**
+     * Последствия модификатора при успехе.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return array<int, ModifierOutcomeEffect> Последствия.
+     *
+     * @throws RuleSpecShapeException Если список пуст или форма чужая.
+     */
+    private static function modifierEffects(array $row): array
+    {
+        $effects = [];
+        foreach (SpecShape::list($row, 'effects') as $effect) {
+            $effect = SpecShape::requireMap($effect, 'effects');
+            $effects[] = match (SpecShape::string($effect, 'type')) {
+                'self_damage' => new SelfDamageOutcomeEffect(
+                    SpecShape::int($effect, 'size_delta'),
+                    SpecShape::string($effect, 'damage_type_code'),
+                    SpecShape::bool($effect, 'ignore_defense'),
+                ),
+                'skip_after_action' => new SkipAfterActionOutcomeEffect(),
+                default => throw new RuleSpecShapeException('effects'),
+            };
+        }
+
+        if ($effects === []) {
+            throw new RuleSpecShapeException('effects');
+        }
+
+        return $effects;
     }
 
     /**

@@ -220,7 +220,7 @@ final class GameRunActionBody
             'profileType',
             'target',
         ];
-        foreach (['afterStrikeOptions', 'ammunitionInventoryId', 'conditions', 'instanceIndex'] as $key) {
+        foreach (['modifiers', 'ammunitionInventoryId', 'conditions', 'instanceIndex'] as $key) {
             if (array_key_exists($key, $row)) {
                 $allowed[] = $key;
             }
@@ -262,12 +262,12 @@ final class GameRunActionBody
             'target' => $target,
             'ammunitionInventoryId' => $ammunitionInventoryId,
             'conditions' => $conditions,
-            'afterStrikeOptions' => $this->afterStrikeOptions($row['afterStrikeOptions'] ?? null),
+            'modifiers' => $this->modifiers($row['modifiers'] ?? null),
         ];
     }
 
     /**
-     * Коды опций после удара.
+     * Коды модификаторов действия.
      *
      * @param mixed $value Значение.
      *
@@ -275,20 +275,20 @@ final class GameRunActionBody
      *
      * @throws ActionException INVALID_PARAMS.
      */
-    private function afterStrikeOptions(mixed $value): array
+    private function modifiers(mixed $value): array
     {
         if ($value === null) {
             return [];
         }
 
         if (!is_array($value) || !array_is_list($value)) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike options');
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action modifiers');
         }
 
         $codes = [];
         foreach ($value as $code) {
             if (!is_string($code) || $code === '' || in_array($code, $codes, true)) {
-                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike options');
+                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action modifiers');
             }
 
             $codes[] = $code;

@@ -97,7 +97,7 @@ final class GameStrikeClose
             $this->targets,
             $choices,
             $this->singleChat,
-            new GameFuriousRush(
+            new GameActionModifierRunner(
                 $this->rules,
                 $this->sheets,
                 $this->sheetWrites,
@@ -105,7 +105,8 @@ final class GameStrikeClose
                 $this->consequences,
                 $this->chat,
                 $this->amounts,
-                new GameStrikeOptions(),
+                new GameActionModifiers(),
+                new GameActionModifierPresenter(),
             ),
         );
         $this->wide = new GameStrikeWideClose(

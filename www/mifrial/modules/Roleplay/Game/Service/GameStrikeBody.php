@@ -58,8 +58,8 @@ final class GameStrikeBody
             $allowed[] = 'instanceIndex';
         }
 
-        if (array_key_exists('afterStrikeOptions', $attack)) {
-            $allowed[] = 'afterStrikeOptions';
+        if (array_key_exists('modifiers', $attack)) {
+            $allowed[] = 'modifiers';
         }
 
         $this->assertKeys($attack, $allowed);
@@ -109,12 +109,12 @@ final class GameStrikeBody
             'instanceIndex' => $instanceIndex,
             'conditions' => $conditions,
             'chosenAmounts' => $chosenAmounts,
-            'afterStrikeOptions' => $this->afterStrikeOptions($attack['afterStrikeOptions'] ?? null),
+            'modifiers' => $this->modifiers($attack['modifiers'] ?? null),
         ];
     }
 
     /**
-     * Коды опций после удара.
+     * Коды модификаторов действия.
      *
      * @param mixed $value Значение.
      *
@@ -122,20 +122,20 @@ final class GameStrikeBody
      *
      * @throws ActionException INVALID_PARAMS.
      */
-    private function afterStrikeOptions(mixed $value): array
+    private function modifiers(mixed $value): array
     {
         if ($value === null) {
             return [];
         }
 
         if (!is_array($value) || !array_is_list($value)) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: attack options');
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action modifiers');
         }
 
         $codes = [];
         foreach ($value as $code) {
             if (!is_string($code) || $code === '' || in_array($code, $codes, true)) {
-                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: attack options');
+                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action modifiers');
             }
 
             $codes[] = $code;

@@ -10,7 +10,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\ProcessOperation;
 /**
  * Способность-заклинание.
  */
-final class AbilitySpellSpec implements AbilitySpec
+final class AbilitySpellSpec implements AbilityWithBase
 {
     /**
      * Создаёт spec.

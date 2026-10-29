@@ -6,36 +6,31 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\OptionalAfterStrikeCheckEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionModifierEffect;
 
 /**
- * Опции после удара: что персонаж реально может объявить вместе с карточкой.
+ * Модификаторы действия: что персонаж реально может объявить вместе с карточкой.
  */
-final class GameStrikeOptions
+final class GameActionModifiers
 {
     /**
-     * Все опции, купленные актором, по карточкам-родителям.
+     * Все модификаторы, купленные актором, по карточкам-родителям.
      *
      * @param CharacterRuleSlice $slice Срез правил игры.
      * @param array<string, int> $abilityLevels Уровни способностей актора.
      *
-     * @return list<array{actionCode: string, code: string, name: string, summary: string}> Опции.
+     * @return list<array{
+     *     actionCode: string,
+     *     actionName: string,
+     *     code: string,
+     *     name: string,
+     *     effect: ActionModifierEffect,
+     * }>
      */
     public function available(CharacterRuleSlice $slice, array $abilityLevels): array
     {
-        $rows = [];
-        foreach ($this->resolved($slice, $abilityLevels) as $row) {
-            $rows[] = [
-                'actionCode' => $row['actionCode'],
-                'code' => $row['code'],
-                'name' => $row['name'],
-                'summary' => $this->summary($slice, $row['effect']),
-            ];
-        }
-
-        return $rows;
+        return $this->resolved($slice, $abilityLevels);
     }
 
     /**
@@ -62,14 +57,14 @@ final class GameStrikeOptions
     }
 
     /**
-     * Опция карточки по коду.
+     * Модификатор карточки по коду.
      *
      * @param CharacterRuleSlice $slice Срез правил игры.
      * @param string $actionRuleCode Карточка действия.
      * @param array<string, int> $abilityLevels Уровни способностей актора.
-     * @param string $code Код опции.
+     * @param string $code Код модификатора.
      *
-     * @return array{code: string, name: string, effect: OptionalAfterStrikeCheckEffect} Опция.
+     * @return array{code: string, name: string, effect: ActionModifierEffect} Модификатор.
      *
      * @throws GameInvalidException Если код чужой карточке или не куплен.
      */
@@ -89,16 +84,22 @@ final class GameStrikeOptions
             }
         }
 
-        throw new GameInvalidException('Game strike after-strike option is invalid');
+        throw new GameInvalidException('Game action modifier is invalid');
     }
 
     /**
-     * Купленные дети с эффектом после удара.
+     * Купленные дети с модификатором действия.
      *
      * @param CharacterRuleSlice $slice Срез правил игры.
      * @param array<string, int> $abilityLevels Уровни способностей актора.
      *
-     * @return list<array{actionCode: string, code: string, name: string, effect: OptionalAfterStrikeCheckEffect}>
+     * @return list<array{
+     *     actionCode: string,
+     *     actionName: string,
+     *     code: string,
+     *     name: string,
+     *     effect: ActionModifierEffect,
+     * }>
      */
     private function resolved(CharacterRuleSlice $slice, array $abilityLevels): array
     {
@@ -110,7 +111,7 @@ final class GameStrikeOptions
             }
 
             $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if (!$spec instanceof AbilityActionSpec && !$spec instanceof AbilityPlainSpec) {
+            if (!$spec instanceof AbilityWithBase) {
                 continue;
             }
 
@@ -121,12 +122,13 @@ final class GameStrikeOptions
             }
 
             foreach ($base->getActionEffects() as $effect) {
-                if (!$effect instanceof OptionalAfterStrikeCheckEffect) {
+                if (!$effect instanceof ActionModifierEffect) {
                     continue;
                 }
 
                 $rows[] = [
                     'actionCode' => $parent,
+                    'actionName' => $slice->findLive($parent)?->getName() ?? $parent,
                     'code' => $rule->getCode(),
                     'name' => $rule->getName(),
                     'effect' => $effect,
@@ -135,36 +137,5 @@ final class GameStrikeOptions
         }
 
         return $rows;
-    }
-
-    /**
-     * Человеческая подпись опции.
-     *
-     * @param CharacterRuleSlice $slice Срез правил игры.
-     * @param OptionalAfterStrikeCheckEffect $effect Эффект.
-     *
-     * @return string Текст.
-     */
-    private function summary(CharacterRuleSlice $slice, OptionalAfterStrikeCheckEffect $effect): string
-    {
-        $check = $slice->findLive($effect->getCheckCode())?->getName() ?? $effect->getCheckCode();
-        $damage = $slice->findLive($effect->getSelfDamage()->getDamageTypeCode())?->getName()
-            ?? $effect->getSelfDamage()->getDamageTypeCode();
-        $internal = $effect->getSelfDamage()->isInternal() ? 'внутренний ' : '';
-        $skip = $effect->isSkipParentPending() ? ', помеха действия снимается' : '';
-        $delta = $effect->getSelfDamage()->getSizeDelta();
-        $shift = $delta === 0
-            ? ''
-            : sprintf(' ([сила удара]%s%d)', $delta < 0 ? '↓' : '↑', abs($delta));
-
-        return sprintf(
-            '%s против %d: успех — %s%s урон по себе%s%s.',
-            $check,
-            $effect->getDifficulty(),
-            $internal,
-            mb_strtolower($damage),
-            $shift,
-            $skip,
-        );
     }
 }

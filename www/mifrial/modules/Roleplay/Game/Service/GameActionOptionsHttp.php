@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\Action\GetGameActionOptionsInput;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 
@@ -35,11 +36,11 @@ final class GameActionOptionsHttp
     }
 
     /**
-     * Опции после удара для участника.
+     * Модификаторы действия для участника.
      *
      * @param GetGameActionOptionsInput $input JSON.
      *
-     * @return array{afterStrikeOptions: list<array<string, mixed>>} Опции.
+     * @return array{modifiers: list<array<string, mixed>>} Модификаторы.
      *
      * @throws ActionException AUTH_REQUIRED, AUTH_DENIED или INVALID_PARAMS.
      */
@@ -58,6 +59,31 @@ final class GameActionOptionsHttp
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $levels = $this->sheets->abilityLevels($game, $input->actorType, $input->actorId);
 
-        return ['afterStrikeOptions' => (new GameStrikeOptions())->available($slice, $levels)];
+        return ['modifiers' => $this->present($slice, (new GameActionModifiers())->available($slice, $levels))];
+    }
+
+    /**
+     * Строки для UI с серверной подписью.
+     *
+     * @param CharacterRuleSlice $slice Срез правил игры.
+     * @param array<int, array<string, mixed>> $rows Модификаторы.
+     *
+     * @return list<array<string, mixed>> Строки.
+     */
+    private function present(CharacterRuleSlice $slice, array $rows): array
+    {
+        $presenter = new GameActionModifierPresenter();
+        $result = [];
+        foreach ($rows as $row) {
+            $result[] = [
+                'actionCode' => $row['actionCode'] ?? null,
+                'actionName' => $row['actionName'] ?? null,
+                'code' => $row['code'] ?? null,
+                'name' => $row['name'] ?? null,
+                'summary' => $presenter->summary($slice, $row['effect']),
+            ];
+        }
+
+        return $result;
     }
 }

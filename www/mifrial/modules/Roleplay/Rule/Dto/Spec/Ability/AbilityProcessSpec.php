@@ -7,7 +7,7 @@ namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability;
 /**
  * Способность-процесс.
  */
-final class AbilityProcessSpec implements AbilitySpec
+final class AbilityProcessSpec implements AbilityWithBase
 {
     /**
      * Создаёт spec.

@@ -6,9 +6,9 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
+use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameStrikes;
 use Mifrial\Roleplay\Game\Interface\Service\IGameWideStrikes;
-use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 
@@ -505,7 +505,7 @@ final class GameRunAction
             'instanceIndex' => $strike['instanceIndex'],
             'conditions' => $strike['conditions'],
             'chosenAmounts' => $parsed['context']['chosenAmounts'],
-            'afterStrikeOptions' => $strike['afterStrikeOptions'] ?? [],
+            'modifiers' => $strike['modifiers'] ?? [],
         ];
         if ($strike['ammunitionInventoryId'] !== null) {
             $attack['ammunitionInventoryId'] = $strike['ammunitionInventoryId'];
@@ -524,7 +524,7 @@ final class GameRunAction
      */
     private function multiAttack(array $parsed, array $strikes): array
     {
-        $this->assertNoAfterStrikeOptions($strikes);
+        $this->assertNoModifiers($strikes);
         $first = $strikes[0];
         $attack = [
             'attacker' => $parsed['actor'],
@@ -558,7 +558,7 @@ final class GameRunAction
      */
     private function wideAttack(array $parsed, array $strikes): array
     {
-        $this->assertNoAfterStrikeOptions($strikes);
+        $this->assertNoModifiers($strikes);
         $first = $strikes[0];
         $targets = [];
         foreach ($strikes as $strike) {
@@ -597,19 +597,19 @@ final class GameRunAction
     }
 
     /**
-     * Опции после удара объявляются только одиночным ударом.
+     * Модификаторы действия исполняются только одиночным ударом.
      *
      * @param list<array<string, mixed>> $strikes Строки.
      *
      * @return void
      *
-     * @throws GameInvalidException Если опция пришла на серию или широкий удар.
+     * @throws GameInvalidException Если модификатор пришёл на серию или широкий удар.
      */
-    private function assertNoAfterStrikeOptions(array $strikes): void
+    private function assertNoModifiers(array $strikes): void
     {
         foreach ($strikes as $strike) {
-            if (($strike['afterStrikeOptions'] ?? []) !== []) {
-                throw new GameInvalidException('Game strike after-strike option is not supported');
+            if (($strike['modifiers'] ?? []) !== []) {
+                throw new GameInvalidException('Game action modifier is not supported for multi-strike');
             }
         }
     }

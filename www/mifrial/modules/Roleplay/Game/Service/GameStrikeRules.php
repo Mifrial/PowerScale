@@ -32,9 +32,9 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackReachEffect
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionDurabilityShaveEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\DistanceValue;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\DistanceValue;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponProfile;
 use Mifrial\Roleplay\Rule\Dto\Spec\Race\RaceSpec;

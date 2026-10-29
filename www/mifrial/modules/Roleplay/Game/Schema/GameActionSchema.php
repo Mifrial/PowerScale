@@ -6,8 +6,8 @@ namespace Mifrial\Roleplay\Game\Schema;
 
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
-use Mifrial\Roleplay\Game\Table\GameActionTable;
 use Mifrial\Roleplay\Game\Table\GameActionStrikeTable;
+use Mifrial\Roleplay\Game\Table\GameActionTable;
 
 /**
  * Карта общего действия и его ударов.

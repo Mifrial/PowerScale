@@ -5,24 +5,34 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect;
 
 /**
- * Урон себе после удара.
+ * Урон по самому действующему: сила удара со сдвигом размера.
  */
-final class SelfDamage
+final class SelfDamageOutcomeEffect implements ModifierOutcomeEffect
 {
     /**
-     * Создаёт значение.
+     * Создаёт последствие.
      *
-     * @param int $sizeDelta Сдвиг размера.
+     * @param int $sizeDelta Сдвиг размера силы удара.
      * @param string $damageTypeCode Тип урона.
-     * @param bool $internal Внутренний урон.
+     * @param bool $ignoreDefense Игнорировать защиту и сопротивление.
      *
      * @return void
      */
     public function __construct(
         private readonly int $sizeDelta,
         private readonly string $damageTypeCode,
-        private readonly bool $internal,
+        private readonly bool $ignoreDefense,
     ) {
+    }
+
+    /**
+     * Дискриминатор.
+     *
+     * @return string Код.
+     */
+    public function getType(): string
+    {
+        return 'self_damage';
     }
 
     /**
@@ -46,12 +56,12 @@ final class SelfDamage
     }
 
     /**
-     * Внутренний урон.
+     * Игнорировать защиту.
      *
      * @return bool Значение.
      */
-    public function isInternal(): bool
+    public function isIgnoreDefense(): bool
     {
-        return $this->internal;
+        return $this->ignoreDefense;
     }
 }

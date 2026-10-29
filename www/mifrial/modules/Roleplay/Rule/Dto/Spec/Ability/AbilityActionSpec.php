@@ -10,7 +10,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\ProcessOperation;
 /**
  * Способность-действие.
  */
-final class AbilityActionSpec implements AbilitySpec
+final class AbilityActionSpec implements AbilityWithBase
 {
     /**
      * Создаёт spec.

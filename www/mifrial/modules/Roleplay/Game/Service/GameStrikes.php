@@ -396,7 +396,7 @@ final class GameStrikes implements IGameStrikes
             $choice['attacker']['id'],
             $choice['actionRuleCode'],
         );
-        $this->assertAfterStrikeOptions($game, $choice);
+        $this->assertModifiers($game, $choice);
         $this->rules->resolveInventorySpend(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -568,53 +568,58 @@ final class GameStrikes implements IGameStrikes
     }
 
     /**
-     * Опции после удара объявлены и принадлежат атакующему.
+     * Модификаторы действия объявлены, принадлежат атакующему и применимы к удару.
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $choice Выбор удара.
      *
      * @return void
      *
-     * @throws GameInvalidException Если опция чужая или пришла на серию.
+     * @throws GameInvalidException Если код чужой, объявлен не одиночным ударом или вне области.
      */
-    private function assertAfterStrikeOptions(GameRecord $game, array $choice): void
+    private function assertModifiers(GameRecord $game, array $choice): void
     {
-        $codes = $choice['afterStrikeOptions'] ?? [];
+        $codes = $choice['modifiers'] ?? [];
         if (!is_array($codes) || $codes === []) {
             return;
         }
 
         if (is_array($choice['strikes'] ?? null) && $choice['strikes'] !== []) {
-            throw new GameInvalidException('Game strike after-strike option is not supported');
+            throw new GameInvalidException('Game action modifier is not supported for multi-strike');
         }
 
         $attacker = $choice['attacker'] ?? null;
         $actionRuleCode = $choice['actionRuleCode'] ?? null;
+        $profileType = $choice['profileType'] ?? null;
         if (
             !is_array($attacker)
             || (($attacker['type'] ?? null) !== 'character' && ($attacker['type'] ?? null) !== 'npc')
             || !is_int($attacker['id'] ?? null)
             || !is_string($actionRuleCode)
+            || !is_string($profileType)
             || !array_is_list($codes)
         ) {
-            throw new GameInvalidException('Game strike after-strike option is invalid');
+            throw new GameInvalidException('Game action modifier is invalid');
         }
 
         $listed = [];
         foreach ($codes as $code) {
             if (!is_string($code) || $code === '') {
-                throw new GameInvalidException('Game strike after-strike option is invalid');
+                throw new GameInvalidException('Game action modifier is invalid');
             }
 
             $listed[] = $code;
         }
 
-        (new GameStrikeOptions())->assertAvailable(
-            $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
-            $actionRuleCode,
-            $this->sheets->abilityLevels($game, $attacker['type'], $attacker['id']),
-            $listed,
-        );
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $modifiers = new GameActionModifiers();
+        $levels = $this->sheets->abilityLevels($game, $attacker['type'], $attacker['id']);
+        foreach ($listed as $code) {
+            $modifier = $modifiers->find($slice, $actionRuleCode, $levels, $code);
+            if (!$modifier['effect']->appliesTo($profileType, 1)) {
+                throw new GameInvalidException('Game action modifier scope is invalid');
+            }
+        }
     }
 
     /**
