@@ -3403,12 +3403,12 @@
             "kind": "canon",
             "state": null,
             "stateSource": "none",
-            "statusRaw": "контрольный срез, 2026-10-28.",
+            "statusRaw": "контрольный срез, 2026-10-29.",
             "layers": [],
             "basis": null,
-            "date": "2026-10-28",
-            "bytes": 29236,
-            "lines": 507,
+            "date": "2026-10-29",
+            "bytes": 29704,
+            "lines": 509,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -6072,8 +6072,8 @@
             ],
             "basis": null,
             "date": "2026-10-25",
-            "bytes": 19726,
-            "lines": 227,
+            "bytes": 23497,
+            "lines": 258,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -6097,7 +6097,7 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-20",
-            "bytes": 28361,
+            "bytes": 28389,
             "lines": 272,
             "modules": [
                 "Roleplay/Rule"

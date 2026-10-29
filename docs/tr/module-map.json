@@ -1511,6 +1511,7 @@
                 "Mifrial\\Roleplay\\Game\\Action\\GetGameRosterAction",
                 "Mifrial\\Roleplay\\Game\\Action\\GetGameSheetsAction",
                 "Mifrial\\Roleplay\\Game\\Action\\GetGameBattleSheetsAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameActionOptionsAction",
                 "Mifrial\\Roleplay\\Game\\Action\\DeclareGameCheckAction",
                 "Mifrial\\Roleplay\\Game\\Action\\ProposeGameCheckAction",
                 "Mifrial\\Roleplay\\Game\\Action\\AnswerGameCheckAction",
@@ -1686,6 +1687,11 @@
                 {
                     "action": "game.getSheets",
                     "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameSheetsAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getActionOptions",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameActionOptionsAction",
                     "csrf": true
                 },
                 {
@@ -2263,7 +2269,7 @@
                     "title": "Готовность боевой модели Game",
                     "kind": "canon",
                     "state": null,
-                    "date": "2026-10-28",
+                    "date": "2026-10-29",
                     "hasStatus": true
                 }
             ]

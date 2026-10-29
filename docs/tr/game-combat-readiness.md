@@ -1,6 +1,6 @@
 # Готовность боевой модели Game
 
-**Статус:** контрольный срез, 2026-10-28.
+**Статус:** контрольный срез, 2026-10-29.
 **Назначение:** сверять канон боевого процесса с frontend, backend PHP и
 сквозными тестами. Этот файл не заменяет `game-system.md`, `rule-system.md`,
 `character-system.md` и профильные планы.
@@ -457,17 +457,19 @@ actual Character/NPC после mutation, stale-version конфликт в бр
    `$attackContext` (`attackFilterContext`, `occupyHands`); учитываются эффекты
    самой карточки и купленных дочерних навыков (`parent_ability_code`,
    уровень ≥ 1). Контекст и уровни прокинуты в open, close и resolution.
-3. `actionCharacteristics` профиля — есть на `WeaponProfile`, в
-   `FormulaContext` боя не попадает.
-4. `max_success_rating` типа урона — в чате `srCap => null`.
-5. Backend-authority `current_action_attack_reach` («Выпад») — сейчас только
-   фронт.
-6. `push` («Толчок», «Толкающий удар») — кода нет, нужен дизайн.
-7. Модель рук — удержание задаётся `occupy_hands` (`min`/`max`) предмета,
+3. `max_success_rating` типа урона — в чате `srCap => null`.
+4. `push` («Толчок», «Толкающий удар») — кода нет, нужен дизайн.
+5. Модель рук — удержание задаётся `occupy_hands` (`min`/`max`) предмета,
    дополнительная рука действия — `weapon_profiles[].extra_hands`; итог =
    удержание + `extra_hands`. `GameWoundActions::handCount()` по-прежнему
    возвращает 2 как заглушку.
-8. Контент `ammunition_requirements` для `shoot`; профили атаки щитом.
+6. Контент `ammunition_requirements` для `shoot`; профили атаки щитом.
+7. Опции после удара: список считает сервер (`game.getActionOptions`),
+   выбор объявляется вместе с ударом и хранится на строке
+   (`after_strike_options`); при закрытии `GameFuriousRush` бросает проверку,
+   наносит урон по себе и снимает помеху родителя. Не поддержаны серия и
+   широкий удар; флага «защита источника защищает от внутреннего урона» в
+   спеке и редакторе ещё нет, поэтому внутренний урон игнорирует все слои.
 
 Экономика, battleground, `N → 1`, `N → N` и полный каталог магии не входят в
 минимальный гейт P1–P4.

@@ -28,6 +28,7 @@
 - `Mifrial\Roleplay\Game\Action\GetGameRosterAction`
 - `Mifrial\Roleplay\Game\Action\GetGameSheetsAction`
 - `Mifrial\Roleplay\Game\Action\GetGameBattleSheetsAction`
+- `Mifrial\Roleplay\Game\Action\GetGameActionOptionsAction`
 - `Mifrial\Roleplay\Game\Action\DeclareGameCheckAction`
 - `Mifrial\Roleplay\Game\Action\ProposeGameCheckAction`
 - `Mifrial\Roleplay\Game\Action\AnswerGameCheckAction`
@@ -112,6 +113,7 @@
 | `game.getNpc` | `GetGameNpcAction` | да |
 | `game.getRoster` | `GetGameRosterAction` | да |
 | `game.getSheets` | `GetGameSheetsAction` | да |
+| `game.getActionOptions` | `GetGameActionOptionsAction` | да |
 | `game.getBattleSheets` | `GetGameBattleSheetsAction` | да |
 | `game.updateNpc` | `UpdateGameNpcAction` | да |
 | `game.translateNpc` | `TranslateGameNpcAction` | да |
@@ -216,5 +218,5 @@
 | [game-plan-36-strike-owner-actions.md](../../game-plan-36-strike-owner-actions.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-37-wide-strike-owner-actions.md](../../game-plan-37-wide-strike-owner-actions.md) | план | `~СДЕЛАНО~` | — |
 | [game-system.md](../../game-system.md) | канон | `~СДЕЛАНО~` | 2026-08-30 |
-| [game-combat-readiness.md](../../game-combat-readiness.md) | канон | ? | 2026-10-28 |
+| [game-combat-readiness.md](../../game-combat-readiness.md) | канон | ? | 2026-10-29 |
 
