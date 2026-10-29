@@ -64,6 +64,23 @@ final class GameStrikeAmounts
     }
 
     /**
+     * Рейтинг, который реально множит повреждение: полный, но не выше потолка типа урона.
+     *
+     * @param int $success Полный рейтинг попадания.
+     * @param int|null $cap Потолок типа урона или null.
+     *
+     * @return int Рейтинг.
+     */
+    public function appliedSr(int $success, ?int $cap): int
+    {
+        if ($cap === null) {
+            return $success;
+        }
+
+        return min($success, max(0, $cap));
+    }
+
+    /**
      * Вычитает penetration из защиты и не допускает отрицательной защиты.
      *
      * @param DimensionalNumber $defense Сумма защиты.

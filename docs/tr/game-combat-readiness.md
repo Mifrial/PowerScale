@@ -457,7 +457,11 @@ actual Character/NPC после mutation, stale-version конфликт в бр
    `$attackContext` (`attackFilterContext`, `occupyHands`); учитываются эффекты
    самой карточки и купленных дочерних навыков (`parent_ability_code`,
    уровень ≥ 1). Контекст и уровни прокинуты в open, close и resolution.
-3. `max_success_rating` типа урона — в чате `srCap => null`.
+3. `max_success_rating` типа урона применяется как `min(РУ, потолок)` в множителе
+   повреждения (`GameStrikeAmounts::appliedSr`) — в одиночном ударе
+   (`GameStrikeSingleClose`) и у каждой цели (`GameStrikeTargetClose`); чат
+   получает `appliedSr` и `srCap`. Сопротивление, проникновение, пробитие
+   прочности и эффекты «от РУ» по-прежнему считают полное РУ.
 4. `push` («Толчок», «Толкающий удар») — кода нет, нужен дизайн.
 5. Модель рук — удержание задаётся `occupy_hands` (`min`/`max`) предмета,
    дополнительная рука действия — `weapon_profiles[].extra_hands`; итог =

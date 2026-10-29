@@ -32,6 +32,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackReachEffect
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionDurabilityShaveEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\DamageTypeSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\DistanceValue;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
@@ -2220,6 +2221,33 @@ final class GameStrikeRules
             ->getDamageTypeCode();
 
         return is_string($code) && $code !== '' ? $code : null;
+    }
+
+    /**
+     * Потолок рейтинга попадания типа урона или null.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string|null $damageTypeCode Тип урона.
+     *
+     * @return int|null Потолок или null.
+     *
+     * @throws GameInvalidException Если тип урона битый.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function successRatingCap(int $spaceId, int $rulesRevision, ?string $damageTypeCode): ?int
+    {
+        if ($damageTypeCode === null || $damageTypeCode === '') {
+            return null;
+        }
+
+        $rule = $this->slice($spaceId, $rulesRevision)->findLive($damageTypeCode);
+        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
+        if (!$spec instanceof DamageTypeSpec) {
+            throw new GameInvalidException('Game strike damage type is invalid');
+        }
+
+        return $spec->getMaxSuccessRating();
     }
 
     private function dodgeRule(CharacterRuleSlice $slice): CharacterResolvedRule

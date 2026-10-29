@@ -12,6 +12,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
+use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Service\GameCheckRoll;
 use Mifrial\Roleplay\Game\Service\GameStrikeAmounts;
 use Mifrial\Roleplay\Game\Service\GameStrikeLayers;
@@ -260,6 +261,83 @@ final class GameStrikeRulesTest extends TestCase
                 ['double-power' => 1],
             ),
         );
+    }
+
+    /**
+     * Потолок РУ берётся из спека типа урона.
+     *
+     * @return void
+     */
+    public function testSuccessRatingCapComesFromDamageType(): void
+    {
+        $rules = $this->rulesFor($this->capSlice(3));
+
+        self::assertSame(3, $rules->successRatingCap(1, 1, 'electricity'));
+        self::assertNull($rules->successRatingCap(1, 1, 'cut'));
+        self::assertNull($rules->successRatingCap(1, 1, null));
+    }
+
+    /**
+     * Чужой тип урона не пропускается молча.
+     *
+     * @return void
+     */
+    public function testSuccessRatingCapRejectsUnknownDamageType(): void
+    {
+        $this->expectException(GameInvalidException::class);
+        $this->rulesFor($this->capSlice(3))->successRatingCap(1, 1, 'missing');
+    }
+
+    /**
+     * Срез с типами урона: с потолком и без.
+     *
+     * @param int $cap Потолок электричества.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function capSlice(int $cap): CharacterRuleSlice
+    {
+        return new CharacterRuleSlice(1, 1, 'world', [
+            new CharacterResolvedRule(new RuleVersionRecord(
+                1,
+                1,
+                'electricity',
+                true,
+                'damage_type',
+                'Электричество',
+                '',
+                [
+                    'forms' => ['genitive' => 'электрического урона', 'dative' => 'электрическому урону'],
+                    'defense_ignored' => false,
+                    'modifies_spell_difficulty' => false,
+                    'max_success_rating' => $cap,
+                ],
+                [],
+                [],
+                'needs_work',
+                '',
+                DateTime::now(),
+            ), []),
+            new CharacterResolvedRule(new RuleVersionRecord(
+                2,
+                2,
+                'cut',
+                true,
+                'damage_type',
+                'Режущий',
+                '',
+                [
+                    'forms' => ['genitive' => 'режущего урона', 'dative' => 'режущему урону'],
+                    'defense_ignored' => false,
+                    'modifies_spell_difficulty' => false,
+                ],
+                [],
+                [],
+                'needs_work',
+                '',
+                DateTime::now(),
+            ), []),
+        ], []);
     }
 
     /**

@@ -165,6 +165,8 @@ final class GameStrikeTargetClose
             $this->amounts->view($outcome['injury']),
             $defense['defenderRoll'],
         );
+        $record['appliedSr'] = $outcome['appliedSr'];
+        $record['srCap'] = $outcome['srCap'];
         if ($outcome['durabilityShave'] > 0) {
             $record['durabilityShave'] = $outcome['durabilityShave'];
         }
@@ -392,7 +394,8 @@ final class GameStrikeTargetClose
      * @param array<string, mixed> $attackerRoll Бросок атаки.
      *
      * @return array{effectiveDamage: DimensionalNumber, resistance: DimensionalNumber,
-     *               soak: DimensionalNumber|null, durabilityShave: int, injury: DimensionalNumber}
+     *               soak: DimensionalNumber|null, durabilityShave: int, injury: DimensionalNumber,
+     *               appliedSr: int, srCap: int|null}
      */
     private function damageOf(
         GameRecord $game,
@@ -432,13 +435,24 @@ final class GameStrikeTargetClose
                 $durabilityShave,
             );
         $soak = $this->resolution->soakOf($game, $targetOpen, $choice['reaction'], $success, $pending);
+        $damageTypeCode = $this->rules->damageTypeCode(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '',
+            is_string($open['profile_type'] ?? null) ? $open['profile_type'] : '',
+            is_int($open['profile_index'] ?? null) ? $open['profile_index'] : 0,
+        );
+        $srCap = $this->rules->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
+        $appliedSr = $this->amounts->appliedSr($success, $srCap);
 
         return [
             'effectiveDamage' => $effectiveDamage,
             'resistance' => $resistance,
             'soak' => $soak,
             'durabilityShave' => $durabilityShave,
-            'injury' => $this->amounts->injury($effectiveDamage, $resistance, $success, $soak),
+            'injury' => $this->amounts->injury($effectiveDamage, $resistance, $appliedSr, $soak),
+            'appliedSr' => $appliedSr,
+            'srCap' => $srCap,
         ];
     }
 

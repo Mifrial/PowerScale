@@ -24,7 +24,7 @@ frontend → PHP E2E — выполнен на двух аккаунтах (P4 �
 пользователем 2026-10-28). `game-plan-36` и `game-plan-37` закрыты: владелец
 персонажа в ударе `1 → 1` и общая модель действий с ответами владельцев целей
 `1 → N`. Остаток боевого контура — не новые шаги G, а пункты бэклога атак:
-`push`, требования оружия, фильтр модификатора, `max_success_rating`, профили
+`push`, требования оружия, фильтр модификатора, профили
 щита. Это не project-wide approval. Канон — `[game-system.md](game-system.md)`.
 Границы — `[architecture.md](architecture.md)`, `[cross-domain.md](cross-domain.md)`.
 Стык листа — `[character-system.md](character-system.md)`, `[character-roadmap.md](character-roadmap.md)`

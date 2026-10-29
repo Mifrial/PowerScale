@@ -1188,6 +1188,86 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Потолок РУ типа урона режет повреждение, но не рейтинг попадания.
+     *
+     * @return void
+     */
+    public function testDamageTypeSuccessRatingCapLimitsInjury(): void
+    {
+        $world = $this->worldWithWeapon(
+            profileOverrides: [
+                'damage' => [
+                    'damage_type_code' => 'capped',
+                    'formula' => ['type' => 'fixed', 'value' => 4],
+                ],
+            ],
+            extraRules: [
+                'capped' => [
+                    'type' => 'damage_type',
+                    'name' => 'Capped',
+                    'spec' => [
+                        'forms' => ['genitive' => 'capped', 'dative' => 'capped'],
+                        'defense_ignored' => false,
+                        'modifies_spell_difficulty' => false,
+                        'max_success_rating' => 2,
+                    ],
+                ],
+            ],
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $characterId = $this->admit($world->getId(), $gameId, 'Hero', [[
+            'characteristicCode' => 'strength',
+            'cost' => 2,
+            'value' => ['base' => 4, 'size' => 0],
+        ]], [], [['ruleCode' => 'sword', 'equipped' => true]]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $npc = $this->endureNpc($gameId, $this->dispatch('game.createNpc', [
+            'gameId' => $gameId,
+            'name' => 'Guard',
+            'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
+        ]));
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b1',
+            'participants' => [
+                ['type' => 'character', 'id' => $characterId],
+                ['type' => 'npc', 'id' => $npc['data']['npcId']],
+            ],
+        ]);
+        self::assertTrue($this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 's1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->attack($characterId, $npc['data']['npcId'])),
+        ])['success']);
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'd1',
+            'expectedVersion' => 2,
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $npc['data']['actualVersion'],
+            ),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(8, $closed['data']['success']);
+        self::assertSame($this->pair(4), $closed['data']['damage']);
+        self::assertSame($this->pair(0), $closed['data']['resistance']);
+        self::assertSame(2, $closed['data']['appliedSr']);
+        self::assertSame(2, $closed['data']['srCap']);
+        self::assertSame($this->pair(8), $closed['data']['injury']);
+
+        $calc = $this->attachmentsOfType($this->chatMessages($gameId), 'attack-calc');
+        self::assertSame('8', $calc[0]['attackSrLabel'] ?? null);
+        self::assertSame(2, $calc[0]['appliedSr'] ?? null);
+        self::assertSame(2, $calc[0]['srCap'] ?? null);
+    }
+
+    /**
      * Удержание двумя руками даёт +2 к Силе урона поверх карточки.
      *
      * @return void
@@ -1919,7 +1999,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($this->pair(1), $closed['data']['resistance']);
         self::assertSame($this->pair(36, -1), $closed['data']['injury']);
         self::assertSame(
-            ['battleId', 'strikeId', 'version', 'success', 'damage', 'resistance', 'sheetVersion', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim', 'closed', 'kind', 'phase', 'strikes', 'pendingStrikes'],
+            ['battleId', 'strikeId', 'version', 'success', 'damage', 'resistance', 'sheetVersion', 'appliedSr', 'srCap', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim', 'closed', 'kind', 'phase', 'strikes', 'pendingStrikes'],
             array_keys($closed['data']),
         );
         self::assertSame($defenderVersion + 1, $this->characterFacade()->get($defenderId)->getActualVersion());

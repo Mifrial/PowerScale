@@ -329,13 +329,70 @@ final class GameWideStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Потолок РУ типа урона режет повреждение каждой цели широкого удара.
+     *
+     * @return void
+     */
+    public function testWideStrikeCapsInjuryByDamageType(): void
+    {
+        $world = $this->worldWithWeapon(damageTypeCap: 2);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $characterId = $this->admit($world->getId(), $gameId, 'Hero', [], [
+            ['ruleCode' => 'pike', 'equipped' => true],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $npc = $this->createNpc($gameId, 'Guard');
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-cap',
+            'participants' => [
+                ['type' => 'character', 'id' => $characterId],
+                ['type' => 'npc', 'id' => $npc['npcId']],
+            ],
+        ]);
+        $attack = $this->attack($characterId, [$npc['npcId']]);
+        $attack['itemRuleCode'] = 'pike';
+        $opened = $this->dispatch('game.runAction', $this->declareBody(
+            $gameId,
+            $battle['data']['battleId'],
+            's-cap',
+            1,
+            $attack,
+        ));
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'd-cap',
+            'expectedVersion' => 2,
+            'action' => $this->wideDefenseEnvelope($this->defenses(
+                [['type' => 'npc', 'id' => $npc['npcId']]],
+                [['reaction' => 'ignore', 'expectedSheetVersion' => $npc['actualVersion']]],
+            )),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        $strike = $closed['data']['strikes'][0];
+        self::assertGreaterThan(2, $strike['success']);
+        self::assertSame(2, $strike['srCap']);
+        self::assertSame(2, $strike['appliedSr']);
+        self::assertSame($this->pair(12), $strike['injury']);
+
+        $calc = $this->attachmentsOfType($this->chatMessages($gameId), 'attack-calc');
+        self::assertSame(2, $calc[0]['srCap'] ?? null);
+        self::assertSame(2, $calc[0]['appliedSr'] ?? null);
+        self::assertSame((string) $strike['success'], $calc[0]['attackSrLabel'] ?? null);
+    }
+
+    /**
      * Чат широкого удара: порядок, вложения и ключи доставки.
      *
      * @return void
      */
     public function testWideStrikeChatFormIsStable(): void
     {
-        $world = $this->worldWithWeapon(1, true, 1);
+        $world = $this->worldWithWeapon(1);
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
         $attackerId = $this->admit($world->getId(), $gameId, 'Hero', [], [[
             'id' => 1,
@@ -1417,7 +1474,7 @@ final class GameWideStrikeMysqlTest extends TestCase
      */
     public function testTargetsKeepOwnInjury(): void
     {
-        $world = $this->worldWithWeapon(1, true, 1);
+        $world = $this->worldWithWeapon(1);
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
         $attackerId = $this->admit($world->getId(), $gameId, 'Hero', [], [[
             'id' => 1,
@@ -1641,7 +1698,7 @@ final class GameWideStrikeMysqlTest extends TestCase
      */
     public function testTargetsKeepOwnResistance(): void
     {
-        $world = $this->worldWithWeapon(1, true, 1);
+        $world = $this->worldWithWeapon(1);
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
         $attackerId = $this->admit($world->getId(), $gameId, 'Hero', [], [[
             'id' => 1,
@@ -1838,6 +1895,8 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'code',
                 'defenseRoll',
                 'S',
+                'appliedSr',
+                'srCap',
                 'wound',
                 'exhaustionDelta',
                 'damageRemainder',
@@ -2120,14 +2179,16 @@ final class GameWideStrikeMysqlTest extends TestCase
      *
      * @return RuleSpaceRecord Мир.
      */
-    private function worldWithWeapon(bool|int $penetrationMode = false, mixed ...$legacyArguments): RuleSpaceRecord
+    private function worldWithWeapon(bool|int $penetrationMode = false, ?int $damageTypeCap = null): RuleSpaceRecord
     {
         $withPenetration = $penetrationMode === true;
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
         $rollId = $this->plainRollId($mechanics);
         $reliabilityCutId = $this->reliabilityCutId($mechanics);
-        $world = $this->addWorldWithRevision('razrabotka');
+        $world = $this->addWorldWithRevision(
+            'razrabotka' . ($damageTypeCap === null ? '' : '-cap' . $damageTypeCap),
+        );
         $swordProfile = ['type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]], 'accuracy' => ['base' => 3, 'size' => 0]];
         if ($withPenetration) {
             $swordProfile = [
@@ -2302,6 +2363,7 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'forms' => ['genitive' => 'cut', 'dative' => 'cut'],
                 'defense_ignored' => false,
                 'modifies_spell_difficulty' => false,
+                ...($damageTypeCap === null ? [] : ['max_success_rating' => $damageTypeCap]),
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('piercing', new RuleVersionBody('damage_type', 'Piercing', '', [
                 'forms' => ['genitive' => 'piercing', 'dative' => 'piercing'],

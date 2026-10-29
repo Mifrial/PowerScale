@@ -376,6 +376,15 @@ final class GameStrikeSingleClose
                     : $this->resolution->successOf($attackerRoll, $defenderRoll, $choice['reaction']),
                 $previousSr,
             );
+        $damageTypeCode = $this->rules->damageTypeCode(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+        );
+        $srCap = $this->rules->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
+        $appliedSr = $this->amounts->appliedSr($success, $srCap);
         $damage = $autoFail
             ? $this->amounts->zero()
             : $this->resolution->damageOf($game, $open, $success, 1, $metrics['drop']);
@@ -388,6 +397,8 @@ final class GameStrikeSingleClose
             $success,
             $damage,
         );
+        $result['appliedSr'] = $appliedSr;
+        $result['srCap'] = $srCap;
         $durabilityShave = $result['success'] === 0
             ? 0
             : $this->rules->durabilityShave(
@@ -430,7 +441,7 @@ final class GameStrikeSingleClose
             $packetInjuries[] = $this->amounts->injury(
                 $result['success'] === 0 ? $this->amounts->zero() : $packetDamage,
                 $resistance,
-                $result['success'],
+                $appliedSr,
                 $soak,
             );
         }

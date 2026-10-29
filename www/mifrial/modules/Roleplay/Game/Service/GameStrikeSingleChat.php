@@ -145,8 +145,8 @@ final class GameStrikeSingleChat
                     : ['base' => 0, 'size' => 0],
                 'defenseIgnored' => false,
                 'attackSrLabel' => (string) $success,
-                'appliedSr' => $success,
-                'srCap' => null,
+                'appliedSr' => is_int($result['appliedSr'] ?? null) ? $result['appliedSr'] : $success,
+                'srCap' => is_int($result['srCap'] ?? null) ? $result['srCap'] : null,
                 'heading' => null,
                 'stun' => null,
                 'shock' => null,
@@ -209,8 +209,10 @@ final class GameStrikeSingleChat
                     : ['base' => 0, 'size' => 0],
                 'defenseIgnored' => false,
                 'attackSrLabel' => '',
-                'appliedSr' => is_int($result['success'] ?? null) ? $result['success'] : 0,
-                'srCap' => null,
+                'appliedSr' => is_int($result['appliedSr'] ?? null)
+                    ? $result['appliedSr']
+                    : (is_int($result['success'] ?? null) ? $result['success'] : 0),
+                'srCap' => is_int($result['srCap'] ?? null) ? $result['srCap'] : null,
                 'heading' => null,
                 'stun' => null,
                 'shock' => null,
