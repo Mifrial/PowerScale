@@ -27,6 +27,8 @@ import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { furiousRushService } from '@/modules/Roleplay/Game/Service/Instance/furiousRushService';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import type { GameActionOption } from '@/modules/Roleplay/Game/Dto/GameActionOption';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
 import { pushProfileService } from '@/modules/Roleplay/Game/Service/Instance/pushProfileService';
@@ -155,10 +157,44 @@ const launchEffectLines = computed(() => {
 
   return lines;
 });
-const afterStrikeOptions = computed(() =>
-  actorVersion.value
-    ? furiousRushService.optionsOf(selectedSourceRule.value?.code, actorVersion.value.abilities, props.rules)
-    : [],
+const serverActionOptions = ref<GameActionOption[]>([]);
+const actionOptionsError = ref(false);
+const afterStrikeOptions = computed<GameActionOption[]>(() => {
+  const code = selectedSourceRule.value?.code;
+  if (!code) return [];
+  if (gamePhpMode.isEnabled()) {
+    return serverActionOptions.value.filter((option) => option.actionCode === code);
+  }
+  if (!actorVersion.value) return [];
+
+  return furiousRushService
+    .optionsOf(code, actorVersion.value.abilities, props.rules)
+    .map((option) => ({ actionCode: code, code: option.rule.code, name: option.rule.name, summary: '' }));
+});
+
+async function loadActionOptions(): Promise<void> {
+  const key = actorKey.value;
+  if (!gamePhpMode.isEnabled() || !key) {
+    serverActionOptions.value = [];
+    actionOptionsError.value = false;
+
+    return;
+  }
+  try {
+    serverActionOptions.value = await getGameApi().getActionOptions(props.gameId, key);
+    actionOptionsError.value = false;
+  } catch {
+    serverActionOptions.value = [];
+    actionOptionsError.value = true;
+  }
+}
+
+watch(
+  () => [props.gameId, actorKey.value, props.open] as const,
+  ([, key, open]) => {
+    if (open && key) void loadActionOptions();
+  },
+  { immediate: true },
 );
 const activeComboSpec = computed(() => {
   const session = activeProcess.value;
@@ -985,21 +1021,29 @@ watch(followUpTargetKeys, (allowed) => {
             + Экземпляр
           </v-btn>
 
-          <v-checkbox
-            v-for="option in afterStrikeOptions"
-            :key="option.rule.code"
-            :model-value="selectedOptionalChildCodes.includes(option.rule.code)"
-            :label="option.rule.name"
-            density="compact"
-            hide-details
-            class="mt-1"
-            @update:model-value="
-              (on) =>
-                (selectedOptionalChildCodes = on
-                  ? [...selectedOptionalChildCodes, option.rule.code]
-                  : selectedOptionalChildCodes.filter((code) => code !== option.rule.code))
-            "
-          />
+          <div v-if="afterStrikeOptions.length" class="mt-2">
+            <div class="text-caption text-medium-emphasis">После удара</div>
+            <template v-for="option in afterStrikeOptions" :key="option.code">
+              <v-checkbox
+                :model-value="selectedOptionalChildCodes.includes(option.code)"
+                :label="option.name"
+                density="compact"
+                hide-details
+                @update:model-value="
+                  (on) =>
+                    (selectedOptionalChildCodes = on
+                      ? [...selectedOptionalChildCodes, option.code]
+                      : selectedOptionalChildCodes.filter((code) => code !== option.code))
+                "
+              />
+              <div v-if="option.summary" class="text-caption text-medium-emphasis ms-8">
+                {{ option.summary }}
+              </div>
+            </template>
+          </div>
+          <v-alert v-if="actionOptionsError" type="warning" variant="tonal" density="compact" class="mt-2">
+            Опции после удара недоступны — атака пройдёт без них.
+          </v-alert>
           <div v-if="launchEffectLines.length" class="text-body-2 text-medium-emphasis mt-2">
             <div v-for="(line, index) in launchEffectLines" :key="index">
               {{ line }}

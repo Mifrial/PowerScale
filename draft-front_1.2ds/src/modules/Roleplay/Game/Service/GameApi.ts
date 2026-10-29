@@ -34,6 +34,7 @@ import type { Chronicle } from '@/modules/Roleplay/Game/Dto/Chronicle';
 import type { ChronicleEntry } from '@/modules/Roleplay/Game/Dto/ChronicleEntry';
 import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/CreateChronicleEntryData';
 import type { UpdateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/UpdateChronicleEntryData';
+import type { GameActionOption } from '@/modules/Roleplay/Game/Dto/GameActionOption';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
@@ -731,6 +732,36 @@ export class GameApi implements IGameApi {
 
   async getCombatOverlays(_gameId: number, _signal?: AbortSignal): Promise<GameCombatOverlay[]> {
     return [];
+  }
+
+  async getActionOptions(
+    gameId: number,
+    actorKey: CombatEntityKey,
+    signal?: AbortSignal,
+  ): Promise<GameActionOption[]> {
+    const [actorType, rawId] = actorKey.split(':');
+    const actorId = Number(rawId);
+    if ((actorType !== 'character' && actorType !== 'npc') || !Number.isInteger(actorId) || actorId <= 0) {
+      throw new GameApiError('GAME_INVALID_PARAMS', 'Game action options actor is invalid');
+    }
+
+    const data = await this.requireData<{ afterStrikeOptions?: unknown }>(
+      'game.getActionOptions',
+      { gameId, actorType, actorId },
+      signal,
+    );
+    const rows = Array.isArray(data.afterStrikeOptions) ? data.afterStrikeOptions : [];
+
+    return rows.map((row) => {
+      const record = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+
+      return {
+        actionCode: typeof record.actionCode === 'string' ? record.actionCode : '',
+        code: typeof record.code === 'string' ? record.code : '',
+        name: typeof record.name === 'string' ? record.name : '',
+        summary: typeof record.summary === 'string' ? record.summary : '',
+      };
+    }).filter((row) => row.code !== '' && row.actionCode !== '');
   }
 
   async getPendingActionEffects(

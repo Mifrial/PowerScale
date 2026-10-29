@@ -3617,6 +3617,9 @@ async function phpStrikeAttack() {
       defender: gamePhpCommandService.participantOf(defender),
       conditions: phpConditions(),
       chosenAmounts: {},
+      ...(resolvedAttackAction.value?.optionalChildAbilityCodes?.length
+        ? { afterStrikeOptions: [...resolvedAttackAction.value.optionalChildAbilityCodes] }
+        : {}),
     },
   };
 }
@@ -3803,6 +3806,7 @@ type PhpSingleAttack = {
   ammunitionInventoryId?: number;
   conditions?: Record<string, unknown>;
   chosenAmounts?: Record<string, unknown>;
+  afterStrikeOptions?: string[];
 };
 
 type PhpMultiAttack = {
@@ -3829,6 +3833,7 @@ function phpStrikeRow(row: {
   instanceIndex?: number;
   ammunitionInventoryId?: number;
   conditions?: Record<string, unknown>;
+  afterStrikeOptions?: string[];
   target: GamePhpParticipant;
 }) {
   return {
@@ -3839,6 +3844,7 @@ function phpStrikeRow(row: {
     instanceIndex: row.instanceIndex ?? 0,
     ...(row.ammunitionInventoryId !== undefined ? { ammunitionInventoryId: row.ammunitionInventoryId } : {}),
     ...(row.conditions !== undefined ? { conditions: row.conditions } : {}),
+    ...(row.afterStrikeOptions?.length ? { afterStrikeOptions: [...row.afterStrikeOptions] } : {}),
     target: row.target,
   };
 }
@@ -3855,6 +3861,7 @@ function phpSingleStrikeEnvelope(attack: {
   ammunitionInventoryId?: number;
   conditions?: Record<string, unknown>;
   chosenAmounts?: Record<string, unknown>;
+  afterStrikeOptions?: string[];
 }) {
   return {
     phase: 'declare' as const,
