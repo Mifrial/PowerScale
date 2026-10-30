@@ -63,6 +63,9 @@ function nameByCode(code: string): string {
         <div v-if="spec.check_code" class="text-body-2 mt-1">
           Проверка: <strong>{{ nameByCode(spec.check_code) }}</strong>
         </div>
+        <div v-if="spec.increase_check_code" class="text-body-2 mt-1">
+          Проверка прироста: <strong>{{ nameByCode(spec.increase_check_code) }}</strong>
+        </div>
         <div v-if="spec.action_codes?.length" class="text-body-2 mt-1">
           Действия с попапа:
           <strong>{{ spec.action_codes.map(nameByCode).join(', ') }}</strong>

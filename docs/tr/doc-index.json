@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 315,
-        "plans": 196,
+        "documents": 316,
+        "plans": 197,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 218,
+            "tr": 219,
             "tz": 2
         },
         "byZoneState": {
@@ -70,7 +70,7 @@
             },
             "tr": {
                 "нет": 23,
-                "СДЕЛАНО": 111,
+                "СДЕЛАНО": 112,
                 "ОТЛОЖЕН": 2,
                 "ПЛАН": 32,
                 "ЧАСТИЧНО": 27,
@@ -86,7 +86,7 @@
         "byState": {
             "СНИМОК": 64,
             "нет": 55,
-            "СДЕЛАНО": 112,
+            "СДЕЛАНО": 113,
             "ПЛАН": 35,
             "ОТЛОЖЕН": 6,
             "ЧАСТИЧНО": 27,
@@ -204,19 +204,19 @@
             }
         },
         "Roleplay/Game": {
-            "docs": 44,
+            "docs": 45,
             "state": {
                 "СНИМОК": 3,
                 "нет": 1,
                 "ЧАСТИЧНО": 3,
-                "СДЕЛАНО": 27,
+                "СДЕЛАНО": 28,
                 "ОТМЕНЁН": 3,
                 "ПЛАН": 7
             },
             "layer": {
-                "PHP": 37,
+                "PHP": 38,
                 "МОК": 1,
-                "VUE": 5
+                "VUE": 6
             }
         },
         "Roleplay/Keyword": {
@@ -3407,12 +3407,12 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-29",
-            "bytes": 31059,
-            "lines": 522,
+            "bytes": 31793,
+            "lines": 529,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 18,
+            "linksCount": 19,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/plan-game-plan-32-end-of-turn-2026-10-12.md",
@@ -4421,15 +4421,41 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 5680,
+            "bytes": 5689,
             "lines": 82,
+            "modules": [
+                "Roleplay/Game"
+            ],
+            "linksCount": 1,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/game-combat-readiness.md"
+            ]
+        },
+        {
+            "path": "docs/tr/game-plan-39-state-increase-check.md",
+            "title": "План 39 — проверка прироста состояния",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": null,
+            "bytes": 6847,
+            "lines": 100,
             "modules": [
                 "Roleplay/Game"
             ],
             "linksCount": 0,
             "brokenLinks": [],
             "backlinks": [
-                "docs/tr/game-combat-readiness.md"
+                "docs/tr/game-combat-readiness.md",
+                "docs/tr/game-plan-38-action-states.md"
             ]
         },
         {
@@ -6097,8 +6123,8 @@
             ],
             "basis": null,
             "date": "2026-10-25",
-            "bytes": 25457,
-            "lines": 269,
+            "bytes": 26070,
+            "lines": 270,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -6637,8 +6663,8 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 26766,
-            "lines": 249,
+            "bytes": 28711,
+            "lines": 253,
             "modules": [
                 "Roleplay/Rule"
             ],

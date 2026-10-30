@@ -244,6 +244,7 @@ final class RootSpecs
             SpecShape::string($document, 'aggregation'),
             SpecShape::stringList($document, 'action_codes'),
             SpecShape::optionalString($document, 'check_code'),
+            SpecShape::optionalString($document, 'increase_check_code'),
             SpecShape::bool($document, 'damage_remainder'),
             SpecShape::bool($document, 'damage_exhaustion'),
             SpecShape::bool($document, 'blood_loss'),

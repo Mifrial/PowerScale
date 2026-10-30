@@ -60,6 +60,7 @@ final class GameManualSheetActions
      * @param ICharacterActualMutations $mutations Порт листа.
      * @param IChats $chats Чат игры.
      * @param IEventManager $events Доставка.
+     * @param GameStateIncreaseChecks $reactions Проверки прироста состояний.
      *
      * @return void
      */
@@ -71,6 +72,7 @@ final class GameManualSheetActions
         ICharacterActualMutations $mutations,
         private readonly IChats $chats,
         IEventManager $events,
+        private readonly GameStateIncreaseChecks $reactions,
     ) {
         $this->commands = new GameCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
@@ -208,11 +210,33 @@ final class GameManualSheetActions
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $before = $this->document($game, $target['kind'], $target['id']);
         $effects = $this->operations->effects($operation, $details, $slice);
-        $version = $this->sheetWrites->write($game, $target['kind'], $target['id'], $expected, $effects);
+        $planned = ['operations' => $effects, 'rolls' => []];
+        if ($effects !== []) {
+            $preview = $this->sheetWrites->previewDocument($game, $before, $effects);
+            $planned = $this->reactions->plan(
+                $game,
+                $before['sheet'],
+                $preview['rulesRevision'],
+                $preview['states'],
+                $effects,
+            );
+        }
+
+        $version = $this->sheetWrites->write(
+            $game,
+            $target['kind'],
+            $target['id'],
+            $expected,
+            $planned['operations'],
+        );
         $subject = $target['kind'] === 'npc'
             ? $this->npcs->getById($target['id'])->getName()
             : (is_string($before['choices']['name'] ?? null) ? $before['choices']['name'] : '');
         $this->say($game, $actorUserId, $this->operations->chatText($operation, $details, $slice, $before['sheet'], $subject));
+        foreach ($planned['rolls'] as $entry) {
+            $this->sayRoll($game, $actorUserId, $subject, $entry);
+        }
+
         $battleIds = $this->battles->findIdsBySession($sessionId);
         $battleId = $battleIds === [] ? null : $battleIds[array_key_last($battleIds)];
 
@@ -308,7 +332,11 @@ final class GameManualSheetActions
      * @param string $kind Вид.
      * @param int $id Id.
      *
-     * @return array{choices: array<string, mixed>, sheet: array<string, mixed>} Документ.
+     * @return array{
+     *     rulesRevision: int,
+     *     choices: array<string, mixed>,
+     *     sheet: array<string, mixed>
+     * } Документ.
      *
      * @throws GameNotFoundException Если строки нет.
      * @throws GameInvalidException Если лист NPC битый.
@@ -318,7 +346,11 @@ final class GameManualSheetActions
         if ($kind === 'character') {
             $snapshot = $this->rules->characterSnapshot($id);
 
-            return ['choices' => $snapshot['choices'], 'sheet' => $snapshot['sheet']];
+            return [
+                'rulesRevision' => $snapshot['rulesRevision'],
+                'choices' => $snapshot['choices'],
+                'sheet' => $snapshot['sheet'],
+            ];
         }
 
         $npc = $this->npcs->getById($id);
@@ -329,11 +361,12 @@ final class GameManualSheetActions
         $version = $npc->getVersion();
         $choices = $version['choices'] ?? [];
         $sheet = $version['sheet'] ?? [];
-        if (!is_array($choices) || !is_array($sheet)) {
+        $revision = $version['rulesRevision'] ?? null;
+        if (!is_array($choices) || !is_array($sheet) || !is_int($revision)) {
             throw new GameInvalidException('Game npc sheet is invalid');
         }
 
-        return ['choices' => $choices, 'sheet' => $sheet];
+        return ['rulesRevision' => $revision, 'choices' => $choices, 'sheet' => $sheet];
     }
 
     /**
@@ -357,6 +390,36 @@ final class GameManualSheetActions
         $thread = $this->turnThread($game) ?? $this->sessionThread($game);
         $attachments = $thread === null ? [] : [['type' => 'chat_system', 'payload' => ['thread' => $thread]]];
         $this->chats->send($chatId, $actorUserId, $text, $attachments);
+    }
+
+    /**
+     * Сообщение проверки прироста состояния.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор.
+     * @param string $subject Имя цели.
+     * @param array{roll: array<string, mixed>, text: string} $entry Бросок и текст.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чата нет.
+     */
+    private function sayRoll(GameRecord $game, int $actorUserId, string $subject, array $entry): void
+    {
+        $chatId = $game->getGameChatId();
+        if ($chatId === null) {
+            throw new GameInvalidException('Game chat is missing');
+        }
+
+        $thread = $this->turnThread($game) ?? $this->sessionThread($game);
+        $attachments = [
+            ['type' => 'roll', 'payload' => $entry['roll']],
+        ];
+        if ($thread !== null) {
+            $attachments[] = ['type' => 'chat_system', 'payload' => ['thread' => $thread]];
+        }
+
+        $this->chats->send($chatId, $actorUserId, $subject . ' ' . $entry['text'], $attachments);
     }
 
     /**

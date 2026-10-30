@@ -198,6 +198,7 @@ final class GameActionDeclare
             $battle->getId(),
             $battle->getRound(),
             $battle->getActiveIndex(),
+            $applied['performed']['rolls'] ?? [],
         );
     }
 
@@ -225,6 +226,7 @@ final class GameActionDeclare
             'targetKey' => $followUp ? $input['targetKey'] : null,
             'reaction' => $applied['reaction'],
             'pendingActionEffects' => $applied['pending'],
+            'rolls' => $applied['performed']['rolls'] ?? [],
         ];
     }
 

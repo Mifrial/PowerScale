@@ -2084,7 +2084,12 @@ final class GameStrikeRules
      *
      * @param int $characterId Персонаж.
      *
-     * @return array{actualVersion: int, choices: array<string, mixed>, sheet: array<string, mixed>} Снимок.
+     * @return array{
+     *     actualVersion: int,
+     *     rulesRevision: int,
+     *     choices: array<string, mixed>,
+     *     sheet: array<string, mixed>
+     * } Снимок.
      *
      * @throws GameNotFoundException Если персонажа нет.
      */
@@ -2098,6 +2103,7 @@ final class GameStrikeRules
 
         return [
             'actualVersion' => $record->getActualVersion(),
+            'rulesRevision' => $record->getRulesRevision(),
             'choices' => $record->getChoices(),
             'sheet' => $this->liveSheet($record),
         ];

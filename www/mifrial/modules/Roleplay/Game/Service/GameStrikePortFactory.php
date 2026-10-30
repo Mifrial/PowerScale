@@ -233,6 +233,7 @@ final class GameStrikePortFactory
             new GameActionCards(),
             new GamePendingActionCosts(),
             $this->cardAvailability($serviceLocator, $gateway, $rules),
+            $this->createStateIncreaseChecks($serviceLocator),
         );
         $strikeChat = new GameStrikeChat($npcs, $rules);
         $sheets = new GameStrikeSheets(
@@ -305,6 +306,7 @@ final class GameStrikePortFactory
             $this->events($serviceLocator),
             new GameCombatNotices($chats),
             $this->cardAvailability($serviceLocator, $gateway, $rules),
+            $this->createStateIncreaseChecks($serviceLocator),
         ));
     }
 
@@ -633,6 +635,24 @@ final class GameStrikePortFactory
         }
 
         return $engine;
+    }
+
+    /**
+     * Проверки прироста состояний: кубик и связка из спеки.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameStateIncreaseChecks Исполнитель.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    public function createStateIncreaseChecks(IServiceLocator $serviceLocator): GameStateIncreaseChecks
+    {
+        return new GameStateIncreaseChecks(
+            $this->strikeRules($serviceLocator),
+            $this->checkRoll($serviceLocator),
+            new GameStateIncreaseRule(),
+        );
     }
 
     /**

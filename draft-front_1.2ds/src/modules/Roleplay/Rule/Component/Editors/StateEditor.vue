@@ -44,6 +44,7 @@ function stateFromSpec(value: RuleSpec | null): StateSpec {
     icon_code: existing.icon_code ?? null,
     action_codes: existing.action_codes ?? [],
     check_code: existing.check_code ?? null,
+    increase_check_code: existing.increase_check_code ?? null,
     damage_remainder: existing.damage_remainder === true,
     damage_exhaustion: existing.damage_exhaustion === true,
     blood_loss: existing.blood_loss === true,
@@ -114,6 +115,7 @@ const specToEmit = computed<StateSpec>(() => ({
   icon_code: innerSpec.value.icon_code,
   ...(innerSpec.value.action_codes?.length ? { action_codes: innerSpec.value.action_codes } : {}),
   ...(innerSpec.value.check_code ? { check_code: innerSpec.value.check_code } : {}),
+  ...(innerSpec.value.increase_check_code ? { increase_check_code: innerSpec.value.increase_check_code } : {}),
   ...(innerSpec.value.damage_remainder ? { damage_remainder: true } : {}),
   ...(innerSpec.value.damage_exhaustion ? { damage_exhaustion: true } : {}),
   ...(innerSpec.value.blood_loss ? { blood_loss: true } : {}),
@@ -307,6 +309,19 @@ function effectTitle(effect: StateEffect): string {
             class="mt-3"
             :items="checkOptions"
             label="Проверка"
+            hint="Проверка, которую бросает процедура этого состояния"
+            persistent-hint
+            density="compact"
+            clearable
+          />
+
+          <v-autocomplete
+            v-model="innerSpec.increase_check_code"
+            class="mt-3"
+            :items="checkOptions"
+            label="Проверка прироста"
+            hint="Бросается при получении и увеличении; сложность — значение состояния после прироста"
+            persistent-hint
             density="compact"
             clearable
           />

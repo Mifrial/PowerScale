@@ -18,6 +18,8 @@ use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceSpecRejectedException;
  */
 final class RuleRevisionSpecGuard
 {
+    private readonly RuleStateReferences $references;
+
     /**
      * Создаёт проверку.
      *
@@ -28,6 +30,7 @@ final class RuleRevisionSpecGuard
     public function __construct(
         private readonly IRules $rules,
     ) {
+        $this->references = new RuleStateReferences();
     }
 
     /**
@@ -45,12 +48,23 @@ final class RuleRevisionSpecGuard
     public function assertEntries(int $spaceId, array $entries, ?int $expectedRevision): void
     {
         $problems = [];
+        $composition = [];
         $keepIds = [];
         foreach ($entries as $entry) {
             $body = $entry->getBody();
             $code = $entry->getCode();
             if ($body instanceof RuleVersionBody && is_string($code)) {
-                $this->append($problems, $code, $body->getName(), RuleSpecs::read($body->getType(), $body->getSpec()));
+                $read = RuleSpecs::read($body->getType(), $body->getSpec());
+                $this->append($problems, $code, $body->getName(), $read);
+                if ($entry->isActive() && !$read->isBroken()) {
+                    $composition[] = [
+                        'code' => $code,
+                        'type' => $body->getType(),
+                        'name' => $body->getName(),
+                        'spec' => $body->getSpec(),
+                    ];
+                }
+
                 continue;
             }
 
@@ -61,12 +75,20 @@ final class RuleRevisionSpecGuard
         }
 
         foreach ($this->kept($spaceId, $keepIds, $expectedRevision) as $record) {
-            $this->append(
-                $problems,
-                $record->getCode(),
-                $record->getName(),
-                RuleSpecs::read($record->getType(), $record->getSpecSource()),
-            );
+            $read = RuleSpecs::read($record->getType(), $record->getSpecSource());
+            $this->append($problems, $record->getCode(), $record->getName(), $read);
+            if (!$read->isBroken()) {
+                $composition[] = [
+                    'code' => $record->getCode(),
+                    'type' => $record->getType(),
+                    'name' => $record->getName(),
+                    'spec' => $record->getSpecSource(),
+                ];
+            }
+        }
+
+        foreach ($this->references->problems($composition) as $problem) {
+            $problems[] = $problem;
         }
 
         if ($problems !== []) {
@@ -86,13 +108,22 @@ final class RuleRevisionSpecGuard
     public function assertRecords(array $records): void
     {
         $problems = [];
+        $composition = [];
         foreach ($records as $record) {
-            $this->append(
-                $problems,
-                $record->getCode(),
-                $record->getName(),
-                RuleSpecs::read($record->getType(), $record->getSpecSource()),
-            );
+            $read = RuleSpecs::read($record->getType(), $record->getSpecSource());
+            $this->append($problems, $record->getCode(), $record->getName(), $read);
+            if (!$read->isBroken()) {
+                $composition[] = [
+                    'code' => $record->getCode(),
+                    'type' => $record->getType(),
+                    'name' => $record->getName(),
+                    'spec' => $record->getSpecSource(),
+                ];
+            }
+        }
+
+        foreach ($this->references->problems($composition) as $problem) {
+            $problems[] = $problem;
         }
 
         if ($problems !== []) {

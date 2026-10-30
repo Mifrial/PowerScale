@@ -68,4 +68,30 @@ interface ICharacterActualMutations
         array $sheet,
         array $operations,
     ): array;
+
+    /**
+     * Что станет с листом, если применить операции. Строку не пишет.
+     *
+     * @param int $spaceId Мир листа.
+     * @param int $rulesRevision Ревизия листа.
+     * @param array $choices Сохранённые choices.
+     * @param array $sheet Сохранённый sheet.
+     * @param array $operations Список операций.
+     *
+     * @return array{
+     *     sheet: array,
+     *     rulesRevision: int,
+     *     states: array<string, array{before: int, after: int, check_code: string|null}>
+     * } Документ и отчёт по состояниям.
+     *
+     * @throws CharacterInvalidException Если операция или tombstone.
+     * @throws CharacterNotFoundException Если ревизии нет.
+     */
+    public function previewDocument(
+        int $spaceId,
+        int $rulesRevision,
+        array $choices,
+        array $sheet,
+        array $operations,
+    ): array;
 }

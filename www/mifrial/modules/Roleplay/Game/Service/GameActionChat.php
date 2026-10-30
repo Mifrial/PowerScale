@@ -41,6 +41,7 @@ final class GameActionChat
      * @param int $battleId Бой.
      * @param int $round Раунд.
      * @param int $activeIndex Индекс хода.
+     * @param list<array{roll: array<string, mixed>, text: string}> $rolls Проверки прироста состояний.
      *
      * @return void
      *
@@ -56,6 +57,7 @@ final class GameActionChat
         int $battleId,
         int $round,
         int $activeIndex,
+        array $rolls = [],
     ): void {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
@@ -71,6 +73,24 @@ final class GameActionChat
         ];
         try {
             $this->chats->send($chatId, $actorUserId, $text, $attachments, null);
+            foreach ($rolls as $entry) {
+                $roll = is_array($entry) ? ($entry['roll'] ?? null) : null;
+                if (!is_array($roll)) {
+                    continue;
+                }
+
+                $line = is_string($entry['text'] ?? null) ? $entry['text'] : '';
+                $this->chats->send(
+                    $chatId,
+                    $actorUserId,
+                    $token . ' ' . $line,
+                    [
+                        ['type' => 'roll', 'payload' => $roll],
+                        ...$attachments,
+                    ],
+                    null,
+                );
+            }
         } catch (ChatNotFoundException | ChatInvalidException $exception) {
             throw new GameInvalidException('Game chat member is invalid', $exception);
         }

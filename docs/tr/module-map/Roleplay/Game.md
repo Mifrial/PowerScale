@@ -218,6 +218,7 @@
 | [game-plan-36-strike-owner-actions.md](../../game-plan-36-strike-owner-actions.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-37-wide-strike-owner-actions.md](../../game-plan-37-wide-strike-owner-actions.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-38-action-states.md](../../game-plan-38-action-states.md) | план | `~СДЕЛАНО~` | — |
+| [game-plan-39-state-increase-check.md](../../game-plan-39-state-increase-check.md) | план | `~СДЕЛАНО~` | — |
 | [game-system.md](../../game-system.md) | канон | `~СДЕЛАНО~` | 2026-08-30 |
 | [game-combat-readiness.md](../../game-combat-readiness.md) | канон | ? | 2026-10-29 |
 

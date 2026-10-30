@@ -126,6 +126,46 @@ final class GameStrikeSheetWrites
     }
 
     /**
+     * Что станет с листом, если применить операции: строка не пишется.
+     *
+     * @param GameRecord $game Игра.
+     * @param array $document Документ листа с rulesRevision.
+     * @param list<array<string, mixed>> $operations Операции.
+     *
+     * @return array{
+     *     sheet: array,
+     *     rulesRevision: int,
+     *     states: array<string, array{before: int, after: int, check_code: string|null}>
+     * } Отчёт по документу.
+     *
+     * @throws GameInvalidException Если документ или операция битые.
+     * @throws GameNotFoundException Если ревизии листа нет.
+     */
+    public function previewDocument(GameRecord $game, array $document, array $operations): array
+    {
+        $revision = $document['rulesRevision'] ?? null;
+        $choices = $document['choices'] ?? null;
+        $sheet = $document['sheet'] ?? null;
+        if (!is_int($revision) || !is_array($choices) || !is_array($sheet)) {
+            throw new GameInvalidException('Game sheet document is invalid');
+        }
+
+        try {
+            return $this->mutations->previewDocument(
+                $game->getSpaceId(),
+                $revision,
+                $choices,
+                $sheet,
+                $operations,
+            );
+        } catch (CharacterInvalidException $exception) {
+            throw new GameInvalidException('Game sheet document is invalid', $exception);
+        } catch (CharacterNotFoundException $exception) {
+            throw new GameNotFoundException('Game sheet revision was not found', $exception);
+        }
+    }
+
+    /**
      * Переносит конфликт Character/Economy на combat boundary.
      *
      * @param CharacterConflictException|GameEconomyConflictException $exception Конфликт записи.

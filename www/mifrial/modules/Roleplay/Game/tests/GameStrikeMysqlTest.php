@@ -686,6 +686,127 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Прирост Неустойчивости бросает проверку; провал кладёт лежачее.
+     *
+     * @return void
+     */
+    public function testActionIncreaseCheckFallsAndSuppressesUnstable(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->increaseCheckRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $heroId = $this->admit($world->getId(), $gameId, 'Hero', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-increase',
+            'participants' => [['type' => 'character', 'id' => $heroId]],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        $first = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'u-1',
+            'expectedVersion' => 1,
+            'action' => $this->actionEnvelope([
+                'expectedSheetVersion' => $this->characterFacade()->get($heroId)->getActualVersion(),
+                'actor' => ['type' => 'character', 'id' => $heroId],
+                'actionRuleCode' => 'apply-unstable',
+                'followUpTargetKey' => null,
+            ]),
+        ]);
+        self::assertTrue($first['success'], json_encode($first));
+        self::assertCount(1, $first['data']['rolls'] ?? []);
+        $roll = $first['data']['rolls'][0]['roll'];
+        self::assertIsArray($roll);
+        self::assertLessThanOrEqual(0, $roll['rating'] ?? 1);
+        self::assertEquals([['stateRuleCode' => 'lying', 'id' => 1]], $this->statesOf($heroId));
+
+        $turn = $this->messagesByThreadKind($gameId, 'turn');
+        self::assertNotEmpty($this->attachmentsOfType($turn, 'roll'));
+
+        $second = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'u-2',
+            'expectedVersion' => $first['data']['version'],
+            'action' => $this->actionEnvelope([
+                'expectedSheetVersion' => $this->characterFacade()->get($heroId)->getActualVersion(),
+                'actor' => ['type' => 'character', 'id' => $heroId],
+                'actionRuleCode' => 'apply-unstable',
+                'followUpTargetKey' => null,
+            ]),
+        ]);
+        self::assertTrue($second['success'], json_encode($second));
+        self::assertSame([], $second['data']['rolls'] ?? []);
+        self::assertEquals([['stateRuleCode' => 'lying', 'id' => 1]], $this->statesOf($heroId));
+    }
+
+    /**
+     * Ручная правка ГМ идёт тем же правилом прироста.
+     *
+     * @return void
+     */
+    public function testManualIncreaseCheckFallsAndSuppressesUnstable(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->increaseCheckRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $heroId = $this->admit($world->getId(), $gameId, 'Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE, GamePermissionKeys::EDIT_ALL]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+
+        $added = $this->dispatch('game.manualSheet', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'm-1',
+            'operation' => 'addState',
+            'target' => ['kind' => 'character', 'id' => $heroId],
+            'expectedSheetVersion' => $this->characterFacade()->get($heroId)->getActualVersion(),
+            'details' => ['stateRuleCode' => 'unstable', 'value' => 2],
+        ]);
+        self::assertTrue($added['success'], json_encode($added));
+        self::assertEquals([['stateRuleCode' => 'lying', 'id' => 1]], $this->statesOf($heroId));
+        $session = $this->messagesByThreadKind($gameId, 'session');
+        self::assertNotEmpty($this->attachmentsOfType($session, 'roll'));
+
+        $again = $this->dispatch('game.manualSheet', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'm-2',
+            'operation' => 'addState',
+            'target' => ['kind' => 'character', 'id' => $heroId],
+            'expectedSheetVersion' => $added['data']['actualVersion'],
+            'details' => ['stateRuleCode' => 'unstable', 'value' => 2],
+        ]);
+        self::assertTrue($again['success'], json_encode($again));
+        self::assertEquals([['stateRuleCode' => 'lying', 'id' => 1]], $this->statesOf($heroId));
+    }
+
+    /**
+     * Правила мира с проверкой прироста Неустойчивости.
+     *
+     * @return array<string, array<string, mixed>> Правила мира.
+     */
+    private function increaseCheckRules(): array
+    {
+        $rules = $this->stateActionRules();
+        $rules['lying']['spec']['suppressed_state_codes'] = ['unstable'];
+        $rules['unstable']['spec']['increase_check_code'] = 'check-unstable';
+        $rules['check-unstable'] = [
+            'type' => 'check',
+            'name' => 'Increase check',
+            'spec' => [
+                'allowed_modes' => 'solo',
+                'difficulty_input' => ['kind' => 'from_state', 'state_code' => 'unstable'],
+                'outcomes' => [['max_rating' => 0, 'state_rule_code' => 'lying']],
+            ],
+        ];
+
+        return $rules;
+    }
+
+    /**
      * Состояния и действия сценария.
      *
      * @return array<string, array<string, mixed>> Правила мира.

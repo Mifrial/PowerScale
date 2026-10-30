@@ -58,6 +58,7 @@ final class GameManualSheetPortFactory
             $ports['mutations'],
             $ports['chats'],
             $ports['events'],
+            (new GameStrikePortFactory())->createStateIncreaseChecks($serviceLocator),
         ));
     }
 

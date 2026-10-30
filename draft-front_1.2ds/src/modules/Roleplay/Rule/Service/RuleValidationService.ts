@@ -1289,6 +1289,9 @@ export class RuleValidationService {
         if (state.check_code) {
           collect({ code: state.check_code, type: 'check' });
         }
+        if (state.increase_check_code) {
+          collect({ code: state.increase_check_code, type: 'check' });
+        }
         for (const effect of state.effects ?? []) {
           if (effect.type === 'characteristic_modify' && effect.characteristic_code) {
             collect({ code: effect.characteristic_code, type: 'characteristic' });
@@ -1353,6 +1356,11 @@ export class RuleValidationService {
         }
         if (check.difficulty_input.kind === 'from_state' && check.difficulty_input.state_code) {
           collect({ code: check.difficulty_input.state_code, type: 'state' });
+        }
+        for (const outcome of check.outcomes ?? []) {
+          if (outcome.state_rule_code) {
+            collect({ code: outcome.state_rule_code, type: 'state' });
+          }
         }
         break;
       }

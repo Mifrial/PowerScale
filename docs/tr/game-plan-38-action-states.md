@@ -72,10 +72,10 @@ putState(Y), у которого Y.suppressed_state_codes = [X, …]          �
 
 ## Остаток
 
-- Контент ревизии 21: `lying` (флаг, `−6` Ловкости, `action_codes: [stand-up]`,
-  `suppressed_state_codes: [unstable]`), `unstable` (`number`/`sum`, помеха на
-  попадание `−1` за единицу с `max_abs: 3`, `action_codes: [recover-stability]`),
-  действия `stand-up` (3 ОД) и `recover-stability` (2 ОД), проверка Ловкости на
-  прирост Неустойчивости.
+- Карточки `lying`, `unstable`, `stand-up` (3 ОД) и `recover-stability` (2 ОД)
+  уже были в ревизии 20; подавление и проверка прироста добавлены миграцией
+  `tools/rule-migrate-20.php` (ревизия 21) в
+  [`game-plan-39-state-increase-check.md`](game-plan-39-state-increase-check.md).
+- Проверка Ловкости на прирост Неустойчивости — там же.
 - Редактор `action_effects` и `operations` у способности — существующая дыра,
   общая с уже посаженным `action_modifier`.

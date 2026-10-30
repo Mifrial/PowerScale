@@ -54,6 +54,113 @@ final class RuleRevisionSpecGuardTest extends TestCase
     }
 
     /**
+     * Ссылка прироста на отсутствующую проверку не публикуется.
+     *
+     * @return void
+     */
+    public function testMissingIncreaseCheckRejects(): void
+    {
+        $guard = new RuleRevisionSpecGuard($this->createMock(IRules::class));
+        try {
+            $guard->assertEntries(1, [
+                RuleCommitEntry::put('unstable', new RuleVersionBody('state', 'Unstable', '', [
+                    'value_type' => 'number',
+                    'aggregation' => 'sum',
+                    'increase_check_code' => 'check-unstable',
+                ], [], [], 'needs_work')),
+            ], null);
+            self::fail('missing increase check must reject');
+        } catch (RuleSpaceSpecRejectedException $exception) {
+            self::assertSame('unstable', $exception->getErrorDetails()['problems'][0]['ruleCode']);
+            self::assertSame(
+                ['state.increase_check_code: проверка «check-unstable» не найдена'],
+                $exception->getErrorDetails()['problems'][0]['messages'],
+            );
+        }
+    }
+
+    /**
+     * Проверка прироста обязана брать сложность из этого состояния.
+     *
+     * @return void
+     */
+    public function testIncreaseCheckDifficultyRejects(): void
+    {
+        $guard = new RuleRevisionSpecGuard($this->createMock(IRules::class));
+        try {
+            $guard->assertEntries(1, [
+                RuleCommitEntry::put('unstable', new RuleVersionBody('state', 'Unstable', '', [
+                    'value_type' => 'number',
+                    'aggregation' => 'sum',
+                    'increase_check_code' => 'check-unstable',
+                ], [], [], 'needs_work')),
+                RuleCommitEntry::put('check-unstable', new RuleVersionBody('check', 'Check', '', [
+                    'difficulty_input' => ['kind' => 'ask'],
+                ], [], [], 'needs_work')),
+            ], null);
+            self::fail('foreign increase check difficulty must reject');
+        } catch (RuleSpaceSpecRejectedException $exception) {
+            self::assertSame('unstable', $exception->getErrorDetails()['problems'][0]['ruleCode']);
+            self::assertContains(
+                'state.increase_check_code: проверка «check-unstable» должна брать сложность из состояния «unstable»',
+                $exception->getErrorDetails()['problems'][0]['messages'],
+            );
+        }
+    }
+
+    /**
+     * Исход проверки на отсутствующее состояние не публикуется.
+     *
+     * @return void
+     */
+    public function testMissingOutcomeStateRejects(): void
+    {
+        $guard = new RuleRevisionSpecGuard($this->createMock(IRules::class));
+        try {
+            $guard->assertEntries(1, [
+                RuleCommitEntry::put('check-unstable', new RuleVersionBody('check', 'Check', '', [
+                    'difficulty_input' => ['kind' => 'ask'],
+                    'outcomes' => [['max_rating' => 0, 'state_rule_code' => 'missing']],
+                ], [], [], 'needs_work')),
+            ], null);
+            self::fail('missing outcome state must reject');
+        } catch (RuleSpaceSpecRejectedException $exception) {
+            self::assertSame('check-unstable', $exception->getErrorDetails()['problems'][0]['ruleCode']);
+            self::assertSame(
+                ['check.outcomes: состояние «missing» не найдено'],
+                $exception->getErrorDetails()['problems'][0]['messages'],
+            );
+        }
+    }
+
+    /**
+     * Связка прироста с живыми ссылками публикуется.
+     *
+     * @return void
+     */
+    public function testIncreaseCheckWithLiveReferencesPasses(): void
+    {
+        $guard = new RuleRevisionSpecGuard($this->createMock(IRules::class));
+        $guard->assertEntries(1, [
+            RuleCommitEntry::put('unstable', new RuleVersionBody('state', 'Unstable', '', [
+                'value_type' => 'number',
+                'aggregation' => 'sum',
+                'increase_check_code' => 'check-unstable',
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('lying', new RuleVersionBody('state', 'Lying', '', [
+                'value_type' => 'flag',
+                'aggregation' => 'max',
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('check-unstable', new RuleVersionBody('check', 'Check', '', [
+                'difficulty_input' => ['kind' => 'from_state', 'state_code' => 'unstable'],
+                'outcomes' => [['max_rating' => 0, 'state_rule_code' => 'lying']],
+            ], [], [], 'needs_work')),
+        ], null);
+
+        self::assertTrue(true);
+    }
+
+    /**
      * Броня со скалярным resistance_slots не публикуется.
      *
      * @return void

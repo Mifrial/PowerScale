@@ -411,6 +411,37 @@ describe('validateRuleReferences', () => {
     expect(errors[0]).toMatchObject({ refCode: 'missing', expectedType: 'state' });
   });
 
+  it('validates increase check link and outcome state refs', () => {
+    const live: Rule[] = [
+      baseRule(null, 'lying', 'state', { value_type: 'flag', aggregation: 'max' }),
+      baseRule(null, 'check-unstable', 'check', {
+        difficulty_input: { kind: 'from_state', state_code: 'unstable' },
+        outcomes: [{ max_rating: 0, state_rule_code: 'lying' }],
+      }),
+      baseRule(null, 'unstable', 'state', {
+        value_type: 'number',
+        aggregation: 'sum',
+        increase_check_code: 'check-unstable',
+      }),
+    ];
+    expect(ruleValidationService.validateRuleReferences(live, [])).toEqual([]);
+
+    const broken: Rule[] = [
+      baseRule(null, 'unstable', 'state', {
+        value_type: 'flag',
+        aggregation: 'max',
+        increase_check_code: 'missing',
+      }),
+      baseRule(null, 'check-unstable', 'check', {
+        difficulty_input: { kind: 'ask' },
+        outcomes: [{ max_rating: 0, state_rule_code: 'missing' }],
+      }),
+    ];
+    const errors = ruleValidationService.validateRuleReferences(broken, []);
+    expect(errors.some((error) => error.refCode === 'missing' && error.expectedType === 'check')).toBe(true);
+    expect(errors.some((error) => error.refCode === 'missing' && error.expectedType === 'state')).toBe(true);
+  });
+
   it('reports missing characteristic ref in a check-based decay', () => {
     const rules: Rule[] = [
       baseRule(null, 'poison', 'state', {

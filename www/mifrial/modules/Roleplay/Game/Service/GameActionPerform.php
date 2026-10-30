@@ -32,6 +32,7 @@ final class GameActionPerform
      * @param GameActionCards $cards Карточки действий.
      * @param GamePendingActionCosts $pendingCosts Карта ожидания.
      * @param GameCardAvailability $availability Принадлежность и требования карточки.
+     * @param GameStateIncreaseChecks $reactions Проверки прироста состояний.
      *
      * @return void
      */
@@ -42,6 +43,7 @@ final class GameActionPerform
         private readonly GameActionCards $cards,
         private readonly GamePendingActionCosts $pendingCosts,
         private readonly GameCardAvailability $availability,
+        private readonly GameStateIncreaseChecks $reactions,
     ) {
         $this->chosen = new GameActionChosenAmounts();
         $this->states = new GameActionStates();
@@ -127,7 +129,8 @@ final class GameActionPerform
      *     pending: array<string, mixed>,
      *     sheetVersion: int,
      *     spent: int,
-     *     amounts: array<string, int>
+     *     amounts: array<string, int>,
+     *     rolls: list<array{roll: array<string, mixed>, text: string}>
      * } Итог.
      *
      * @throws GameInvalidException Если карточка или ресурсы не подходят.
@@ -173,7 +176,12 @@ final class GameActionPerform
      * @param array<string, int> $chosenAmounts Выбранные суммы ресурсов.
      * @param Closure|null $projectConflict Проектор конфликта.
      *
-     * @return array{prepared: array<string, mixed>, priced: array<string, mixed>, sheetVersion: int} Итог.
+     * @return array{
+     *     prepared: array<string, mixed>,
+     *     priced: array<string, mixed>,
+     *     sheetVersion: int,
+     *     rolls: list<array{roll: array<string, mixed>, text: string}>
+     * } Итог.
      *
      * @throws GameInvalidException Если карточка или ресурсы не подходят.
      * @throws GameNotFoundException Если листа нет.
@@ -200,17 +208,37 @@ final class GameActionPerform
         );
         $priced = $this->priceFor($prepared, $actionRuleCode, $actorKind, $actorId, $pending);
         $this->assertResources($game, $prepared['document']['sheet'], $priced['spends']);
+        $operations = $prepared['operations'];
+        $rolls = [];
+        if ($operations !== []) {
+            $preview = $this->sheetWrites->previewDocument($game, $prepared['document'], $operations);
+            $planned = $this->reactions->plan(
+                $game,
+                $prepared['document']['sheet'],
+                $preview['rulesRevision'],
+                $preview['states'],
+                $operations,
+            );
+            $operations = $planned['operations'];
+            $rolls = $planned['rolls'];
+        }
+
         $sheetVersion = $this->writePrepared(
             $game,
             $actorKind,
             $actorId,
             $expectedSheetVersion,
             $priced,
-            $prepared['operations'],
+            $operations,
             $projectConflict,
         );
 
-        return ['prepared' => $prepared, 'priced' => $priced, 'sheetVersion' => $sheetVersion];
+        return [
+            'prepared' => $prepared,
+            'priced' => $priced,
+            'sheetVersion' => $sheetVersion,
+            'rolls' => $rolls,
+        ];
     }
 
     /**
@@ -258,7 +286,12 @@ final class GameActionPerform
      *
      * @return array{
      *     slice: CharacterRuleSlice,
-     *     document: array{actualVersion: int, choices: array<string, mixed>, sheet: array<string, mixed>},
+     *     document: array{
+     *         actualVersion: int,
+     *         rulesRevision: int,
+     *         choices: array<string, mixed>,
+     *         sheet: array<string, mixed>
+     *     },
      *     spends: array<int, ResourceSpend>,
      *     operations: list<array<string, mixed>>
      * } Подготовка.
@@ -303,7 +336,8 @@ final class GameActionPerform
      *     pending: array<string, mixed>,
      *     sheetVersion: int,
      *     spent: int,
-     *     amounts: array<string, int>
+     *     amounts: array<string, int>,
+     *     rolls: list<array{roll: array<string, mixed>, text: string}>
      * } Итог.
      */
     private function finish(
@@ -329,6 +363,7 @@ final class GameActionPerform
             'sheetVersion' => $executed['sheetVersion'],
             'spent' => $priced['amounts']['action-points'] ?? 0,
             'amounts' => $priced['amounts'],
+            'rolls' => $executed['rolls'] ?? [],
         ];
     }
 
@@ -528,7 +563,12 @@ final class GameActionPerform
      * @param string $actorKind Вид character или npc.
      * @param int $actorId Идентификатор актора.
      *
-     * @return array{actualVersion: int, choices: array<string, mixed>, sheet: array<string, mixed>} Документ.
+     * @return array{
+     *     actualVersion: int,
+     *     rulesRevision: int,
+     *     choices: array<string, mixed>,
+     *     sheet: array<string, mixed>
+     * } Документ.
      *
      * @throws GameInvalidException Если лист NPC битый.
      * @throws GameNotFoundException Если актора нет или он чужой.
@@ -540,6 +580,7 @@ final class GameActionPerform
 
             return [
                 'actualVersion' => $snapshot['actualVersion'],
+                'rulesRevision' => $snapshot['rulesRevision'],
                 'choices' => $snapshot['choices'],
                 'sheet' => $snapshot['sheet'],
             ];
@@ -553,12 +594,14 @@ final class GameActionPerform
         $version = $npc->getVersion();
         $choices = $version['choices'] ?? [];
         $sheet = $version['sheet'] ?? [];
-        if (!is_array($choices) || !is_array($sheet)) {
+        $revision = $version['rulesRevision'] ?? null;
+        if (!is_array($choices) || !is_array($sheet) || !is_int($revision)) {
             throw new GameInvalidException('Game action npc sheet is invalid');
         }
 
         return [
             'actualVersion' => $npc->getActualVersion(),
+            'rulesRevision' => $revision,
             'choices' => $choices,
             'sheet' => $sheet,
         ];

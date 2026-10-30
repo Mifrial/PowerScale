@@ -69,6 +69,7 @@ final class GameTurns
      * @param IEventManager $events Доставка.
      * @param GameCombatNotices $notices Заметки боя.
      * @param GameCardAvailability $availability Принадлежность и требования карточки.
+     * @param GameStateIncreaseChecks $reactions Проверки прироста состояний.
      */
     public function __construct(
         private readonly ISmartTableGateway $gateway,
@@ -82,6 +83,7 @@ final class GameTurns
         IEventManager $events,
         private readonly GameCombatNotices $notices,
         GameCardAvailability $availability,
+        GameStateIncreaseChecks $reactions,
     ) {
         $this->battles = new GameBattleRepository($this->gateway);
         $this->commands = new GameCommandRepository($this->gateway);
@@ -101,6 +103,7 @@ final class GameTurns
             $this->actionCards,
             new GamePendingActionCosts(),
             $availability,
+            $reactions,
         );
         $this->actionChat = new GameActionChat($chats, new GameStrikeChat($this->npcs, $rules));
     }
@@ -340,6 +343,7 @@ final class GameTurns
             $battle->getId(),
             $battle->getRound(),
             $battle->getActiveIndex(),
+            $performed['rolls'] ?? [],
         );
         $this->post($game, $built['rolls']);
 

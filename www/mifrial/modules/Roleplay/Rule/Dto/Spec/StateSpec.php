@@ -16,7 +16,8 @@ final class StateSpec implements RuleSpec
      * @param string $valueType Тип значения.
      * @param string $aggregation Агрегация.
      * @param array $actionCodes Коды действий.
-     * @param ?string $checkCode Проверка.
+     * @param ?string $checkCode Проверка, которую вызывает продюсер.
+     * @param ?string $increaseCheckCode Проверка прироста состояния.
      * @param bool $damageRemainder Остаток повреждений.
      * @param bool $damageExhaustion Истощение от повреждений.
      * @param bool $bloodLoss Кровопотеря.
@@ -40,6 +41,7 @@ final class StateSpec implements RuleSpec
         private readonly string $aggregation,
         private readonly array $actionCodes,
         private readonly ?string $checkCode,
+        private readonly ?string $increaseCheckCode,
         private readonly bool $damageRemainder,
         private readonly bool $damageExhaustion,
         private readonly bool $bloodLoss,
@@ -115,6 +117,19 @@ final class StateSpec implements RuleSpec
     public function getCheckCode(): ?string
     {
         return $this->checkCode;
+    }
+
+    /**
+     * Проверка при получении или увеличении состояния.
+     *
+     * Сложность берётся из значения этого состояния после прироста, исход
+     * задаётся карточкой проверки.
+     *
+     * @return ?string Значение.
+     */
+    public function getIncreaseCheckCode(): ?string
+    {
+        return $this->increaseCheckCode;
     }
 
     /**

@@ -127,6 +127,50 @@ final class CharacterActualStateTest extends TestCase
     }
 
     /**
+     * Предпросмотр отдаёт прирост состояния и ссылку на проверку.
+     *
+     * @return void
+     */
+    public function testPreviewReportsStateIncrease(): void
+    {
+        $preview = $this->mutations($this->slice([
+            $this->state('unstable', 'number', ['increase_check_code' => 'check-unstable']),
+        ]))->previewDocument(1, 1, ['money' => 1], [
+            'states' => [['stateRuleCode' => 'unstable', 'value' => 1, 'id' => 1]],
+        ], [
+            ['kind' => 'putState', 'stateRuleCode' => 'unstable', 'value' => 2],
+        ]);
+
+        self::assertSame(1, $preview['states']['unstable']['before']);
+        self::assertSame(3, $preview['states']['unstable']['after']);
+        self::assertSame('check-unstable', $preview['states']['unstable']['check_code']);
+        self::assertSame(1, $preview['rulesRevision']);
+    }
+
+    /**
+     * Подавленный прирост виден как отсутствие прироста.
+     *
+     * @return void
+     */
+    public function testPreviewKeepsSuppressedStateUnchanged(): void
+    {
+        $preview = $this->mutations($this->slice([
+            $this->state('unstable', 'number'),
+            $this->state('lying', 'flag', ['suppressed_state_codes' => ['unstable']]),
+        ]))->previewDocument(1, 1, ['money' => 1], [
+            'states' => [
+                ['stateRuleCode' => 'unstable', 'value' => 1, 'id' => 1],
+                ['stateRuleCode' => 'lying', 'id' => 2],
+            ],
+        ], [
+            ['kind' => 'putState', 'stateRuleCode' => 'unstable', 'value' => 2],
+        ]);
+
+        self::assertSame(1, $preview['states']['unstable']['before']);
+        self::assertSame(1, $preview['states']['unstable']['after']);
+    }
+
+    /**
      * Resource spend is applied in the same prepared document mutation.
      *
      * @return void

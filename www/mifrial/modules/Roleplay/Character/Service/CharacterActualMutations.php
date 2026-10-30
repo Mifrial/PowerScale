@@ -33,6 +33,7 @@ use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSheetDocument;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Service\FormulaEvaluations;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
@@ -172,6 +173,103 @@ final class CharacterActualMutations implements ICharacterActualMutations
             'choices' => $character->getChoices(),
             'sheet' => $character->getSheet(),
         ];
+    }
+
+    /**
+     * Что станет с листом, если применить операции. Строку не пишет.
+     *
+     * @param int $spaceId Мир листа.
+     * @param int $rulesRevision Ревизия листа.
+     * @param array $choices Сохранённые choices.
+     * @param array $sheet Сохранённый sheet.
+     * @param array $operations Список операций.
+     *
+     * @return array{
+     *     sheet: array,
+     *     rulesRevision: int,
+     *     states: array<string, array{before: int, after: int, check_code: string|null}>
+     * } Документ и отчёт по состояниям.
+     *
+     * @throws CharacterInvalidException Если операция или tombstone.
+     * @throws CharacterNotFoundException Если ревизии нет.
+     */
+    public function previewDocument(
+        int $spaceId,
+        int $rulesRevision,
+        array $choices,
+        array $sheet,
+        array $operations,
+    ): array {
+        $patched = $this->applyToDocument($spaceId, $rulesRevision, $choices, $sheet, $operations);
+        $slice = $this->ruleSlices->get($spaceId, $rulesRevision);
+
+        return [
+            'sheet' => $patched['sheet'],
+            'rulesRevision' => $rulesRevision,
+            'states' => $this->stateReport(
+                is_array($sheet['states'] ?? null) ? $sheet['states'] : [],
+                is_array($patched['sheet']['states'] ?? null) ? $patched['sheet']['states'] : [],
+                $slice,
+            ),
+        ];
+    }
+
+    /**
+     * Строки состояний до и после: прирост считает Character, а не вызывающий.
+     *
+     * @param array<int, mixed> $before Строки до.
+     * @param array<int, mixed> $after Строки после.
+     * @param CharacterRuleSlice $slice Срез.
+     *
+     * @return array<string, array{before: int, after: int, check_code: string|null}> Отчёт.
+     */
+    private function stateReport(array $before, array $after, CharacterRuleSlice $slice): array
+    {
+        $codes = [];
+        foreach ([$before, $after] as $rows) {
+            foreach ($rows as $row) {
+                $code = is_array($row) ? ($row['stateRuleCode'] ?? null) : null;
+                if (is_string($code) && $code !== '') {
+                    $codes[$code] = true;
+                }
+            }
+        }
+
+        $report = [];
+        foreach (array_keys($codes) as $code) {
+            $spec = $slice->findLive($code)?->getSpec();
+            $report[$code] = [
+                'before' => $this->stateTotal($before, $code),
+                'after' => $this->stateTotal($after, $code),
+                'check_code' => $spec instanceof StateSpec ? $spec->getIncreaseCheckCode() : null,
+            ];
+        }
+
+        return $report;
+    }
+
+    /**
+     * Сумма целых значений строк кода.
+     *
+     * @param array<int, mixed> $rows Строки.
+     * @param string $code Код состояния.
+     *
+     * @return int Сумма.
+     */
+    private function stateTotal(array $rows, string $code): int
+    {
+        $total = 0;
+        foreach ($rows as $row) {
+            if (!is_array($row) || ($row['stateRuleCode'] ?? null) !== $code) {
+                continue;
+            }
+
+            if (is_int($row['value'] ?? null)) {
+                $total += $row['value'];
+            }
+        }
+
+        return $total;
     }
 
     /**
