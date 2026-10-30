@@ -19,6 +19,32 @@ export class PushProfileService {
     return asActionAbilitySpec(rule)?.push ?? null;
   }
 
+  blockProfiles(rule: Rule | null | undefined): string {
+    return this.pushOf(rule)?.block_profiles ?? 'any';
+  }
+
+  canBlockPush(itemRuleCode: string, rules: Rule[], blockProfiles: string): boolean {
+    if (blockProfiles === 'any') return true;
+    const item = rules.find((candidate) => candidate.code === itemRuleCode && candidate.type === 'item');
+    if (!item?.spec || typeof item.spec !== 'object') return false;
+    const spec = item.spec as ItemSpec;
+    if (blockProfiles === 'hands_or_shield') return spec.innate === true || Boolean(spec.shield);
+    if (blockProfiles === 'shield_only') return Boolean(spec.shield);
+    if (blockProfiles === 'none') return false;
+    if (blockProfiles === 'slashing_or_blunt_strike') {
+      const profiles = [...(spec.weapon?.weapon_profiles ?? []), ...(spec.shield?.weapon_profiles ?? [])];
+
+      return profiles.some(
+        (profile) =>
+          profile.type === 'strike' &&
+          (profile.damage?.damage_type_code === SLASHING_DAMAGE_TYPE_CODE ||
+            profile.damage?.damage_type_code === BLUNT_DAMAGE_TYPE_CODE),
+      );
+    }
+
+    return false;
+  }
+
   compatibleProfiles(rule: Rule | null, attacks: AttackOverview[], rules: Rule[]): AttackOverview[] {
     const push = this.pushOf(rule);
     if (!push) return attacks;

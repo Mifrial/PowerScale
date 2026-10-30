@@ -289,6 +289,17 @@ export class RuleValidationService {
             message: 'профили толчка должны быть «hands_or_shield» или «slashing_or_blunt_strike»',
           });
         }
+        if (
+          push.block_profiles !== undefined &&
+          !['any', 'hands_or_shield', 'shield_only', 'none', 'slashing_or_blunt_strike'].includes(push.block_profiles)
+        ) {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message:
+              'профили блока толчка должны быть any, hands_or_shield, shield_only, none или slashing_or_blunt_strike',
+          });
+        }
         for (const divisor of Object.values(push.posture_rating_divisor_by_damage_type ?? {})) {
           if (!Number.isInteger(divisor) || divisor < 2) {
             errors.push({

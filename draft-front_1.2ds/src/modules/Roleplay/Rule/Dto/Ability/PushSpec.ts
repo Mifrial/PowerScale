@@ -3,5 +3,6 @@ export interface PushSpec {
   pool: 'strength' | 'weapon_damage';
   damage: 'crush_from_strength' | 'weapon_times_sr';
   profiles: 'hands_or_shield' | 'slashing_or_blunt_strike';
+  block_profiles?: 'any' | 'hands_or_shield' | 'shield_only' | 'none' | 'slashing_or_blunt_strike';
   posture_rating_divisor_by_damage_type?: Record<string, number>;
 }

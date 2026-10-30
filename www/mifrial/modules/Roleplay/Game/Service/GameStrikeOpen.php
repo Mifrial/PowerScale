@@ -71,6 +71,8 @@ final class GameStrikeOpen
         }
 
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $actionCode = is_string($action['action_rule_code'] ?? null) ? $action['action_rule_code'] : '';
+        $push = $this->rules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $actionCode);
         $npcSheet = $attackerKind === 'npc' && is_array($snapshot['sheet']['sheet'] ?? null)
             ? $snapshot['sheet']['sheet']
             : null;
@@ -94,39 +96,41 @@ final class GameStrikeOpen
                 throw new GameInvalidException('Game strike row is invalid');
             }
 
-            $this->rules->assertConditions(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $itemRuleCode,
-                $profileType,
-                $profileIndex,
-                $itemInventoryId,
-                $attackerKind,
-                $attackerId,
-                $npcSheet,
-                $npcChoices,
-                is_int($snapshot['actualVersion'] ?? null) ? $snapshot['actualVersion'] : null,
-                is_array($target['conditions'] ?? null)
-                    ? $target['conditions']
-                    : (new GameStrikeConditions())->defaults(),
-                $this->rules->actionCharacteristicModifier(
-                    $slice,
-                    is_string($action['action_rule_code'] ?? null) ? $action['action_rule_code'] : '',
+            if ($push === null) {
+                $this->rules->assertConditions(
+                    $game->getSpaceId(),
+                    $game->getRulesRevision(),
+                    $itemRuleCode,
                     $profileType,
-                    1,
-                    $this->rules->attackFilterContext(
-                        $game->getSpaceId(),
-                        $game->getRulesRevision(),
-                        $itemRuleCode,
+                    $profileIndex,
+                    $itemInventoryId,
+                    $attackerKind,
+                    $attackerId,
+                    $npcSheet,
+                    $npcChoices,
+                    is_int($snapshot['actualVersion'] ?? null) ? $snapshot['actualVersion'] : null,
+                    is_array($target['conditions'] ?? null)
+                        ? $target['conditions']
+                        : (new GameStrikeConditions())->defaults(),
+                    $this->rules->actionCharacteristicModifier(
+                        $slice,
+                        $actionCode,
                         $profileType,
-                        $profileIndex,
-                        $attackerChoices,
-                        $itemInventoryId,
+                        1,
+                        $this->rules->attackFilterContext(
+                            $game->getSpaceId(),
+                            $game->getRulesRevision(),
+                            $itemRuleCode,
+                            $profileType,
+                            $profileIndex,
+                            $attackerChoices,
+                            $itemInventoryId,
+                        ),
+                        $abilityLevels,
                     ),
-                    $abilityLevels,
-                ),
-                is_string($action['action_rule_code'] ?? null) ? $action['action_rule_code'] : '',
-            );
+                    $actionCode,
+                );
+            }
         }
 
         $hold = $this->spend->spendAttacker($game, $choice, $battle, $snapshot, $lane, $subject);
@@ -229,7 +233,11 @@ final class GameStrikeOpen
         $this->assertFollowUp($game, $battle, $choice);
         $snapshot = $this->snapshot($game, $choice);
         $attacker = $choice['attacker'];
-        $inventorySpend = $this->rules->resolveInventorySpend(
+        $inventorySpend = $this->rules->pushOf(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['actionRuleCode'],
+        ) !== null ? null : $this->rules->resolveInventorySpend(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['itemRuleCode'],

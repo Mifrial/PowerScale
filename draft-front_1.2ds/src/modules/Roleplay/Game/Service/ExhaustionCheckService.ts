@@ -119,7 +119,7 @@ export class ExhaustionCheckService {
   private checkCodeOf(rules: Rule[]): string | null {
     const rule = attackDamageService.exhaustionRule(rules);
     const spec = rule?.spec as StateSpec | undefined;
-    const code = spec?.check_code;
+    const code = spec?.increase_check_code ?? spec?.check_code;
 
     return code ? code : null;
   }

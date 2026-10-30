@@ -43,6 +43,8 @@ final class GameStrikeClose
      * @param GameStrikeConsequences $consequences Чат последствий.
      * @param GameStrikeAmounts $amounts Пары и нули.
      * @param GameReplayTransaction $replayTransaction Граница replay.
+     * @param GamePushRules $push Толчок.
+     * @param GameStateIncreaseChecks $stateChecks Проверки прироста.
      *
      * @return void
      */
@@ -60,6 +62,8 @@ final class GameStrikeClose
         private readonly GameStrikeConsequences $consequences,
         private readonly GameStrikeAmounts $amounts,
         private readonly GameReplayTransaction $replayTransaction,
+        private readonly GamePushRules $push,
+        private readonly GameStateIncreaseChecks $stateChecks,
     ) {
         $this->singleChat = new GameStrikeSingleChat(
             $this->chat,
@@ -108,6 +112,8 @@ final class GameStrikeClose
                 new GameActionModifiers(),
                 new GameActionModifierPresenter(),
             ),
+            $this->push,
+            $this->stateChecks,
         );
         $this->wide = new GameStrikeWideClose(
             $this->rules,

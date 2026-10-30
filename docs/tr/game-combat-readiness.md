@@ -235,13 +235,16 @@ penetration, action-point eligibility/spend и production reliability handler.
   при получении и не даёт набрать их, пока оно на листе. Исполняет
   `CharacterActualStateRows`, поэтому правило работает для всех продюсеров
   (действия, удары, проверки, тики), а не только для действий.
-- Проверка прироста состояния — `BACKEND` для действий и ручных правок ГМ:
-  `increase_check_code` в спеке состояния, сложность из значения после прироста,
-  исход из `outcomes` проверки. Character отвечает, применилось ли состояние;
-  Game бросает и дописывает исход в тот же пакет операций
-  ([`game-plan-39-state-increase-check.md`](game-plan-39-state-increase-check.md)).
-  Удары и тики ещё не подключены: там своя проверка истощения, унификация — вместе
-  с Толчком.
+- Проверка прироста состояния — `BACKEND` для действий, ручных правок ГМ и
+  ударов: `increase_check_code` в спеке состояния, сложность из значения после
+  прироста, исход из `outcomes` проверки. Character отвечает, применилось ли
+  состояние; `GameStateCheck` бросает, `GameStateDecline` двигает шкалу decline,
+  обычный исход кладётся в тот же пакет операций
+  ([`game-plan-39-state-increase-check.md`](game-plan-39-state-increase-check.md),
+  [`game-plan-40-push.md`](game-plan-40-push.md)).
+- Толчок `simple-push` — `BACKEND`: Сила против пола, руки/щит, совместная Сила
+  при блоке, урон от сырых успехов, Неустойчивость и проверка прироста, отброс
+  строкой в чат. `tolkayuschiy-udar` — `TODO`.
 - Автоматические state hooks у типов урона —
   `FRONTEND + BACKEND_MISSING + E2E_MISSING`.
 

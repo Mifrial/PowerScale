@@ -75,6 +75,7 @@ final class AbilityCombat
             SpecShape::string($push, 'damage'),
             SpecShape::string($push, 'profiles'),
             self::divisors($push),
+            SpecShape::optionalString($push, 'block_profiles') ?? 'any',
         );
     }
 

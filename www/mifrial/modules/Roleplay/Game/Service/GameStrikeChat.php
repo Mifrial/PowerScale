@@ -197,6 +197,18 @@ final class GameStrikeChat
     }
 
     /**
+     * Размерное число для текста.
+     *
+     * @param mixed $value Пара base/size.
+     *
+     * @return string Текст.
+     */
+    public function getDimensionalText(mixed $value): string
+    {
+        return $this->dimensionalText($value);
+    }
+
+    /**
      * Слово «размер» в нужном числе.
      *
      * @param int $count Количество.

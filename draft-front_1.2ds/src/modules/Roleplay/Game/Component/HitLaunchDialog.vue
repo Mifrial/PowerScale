@@ -129,6 +129,7 @@ import { asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatAction
 import { turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
 import { pushProfileService } from '@/modules/Roleplay/Game/Service/Instance/pushProfileService';
+import { HANDS_ITEM_CODE } from '@/modules/Roleplay/Game/Constant/Combat/HANDS_ITEM_CODE';
 import { pushResolutionService } from '@/modules/Roleplay/Game/Service/Instance/pushResolutionService';
 import { unstableApplyService } from '@/modules/Roleplay/Game/Service/Instance/unstableApplyService';
 import { spellCastExecutionService } from '@/modules/Roleplay/Game/Service/Instance/spellCastExecutionService';
@@ -1244,11 +1245,17 @@ watch(
   { immediate: true },
 );
 
+const pushBlockProfiles = computed(() => {
+  const code = fixedActionRuleCode.value ?? selectedAction.value?.code ?? selectedActionRuleCode.value ?? null;
+
+  return code ? pushProfileService.blockProfiles(findRuleByRef(props.rules, code)) : 'any';
+});
+
 const blockProfiles = computed(() =>
   hitRollService.listBlockProfiles(
     versionOf(opponentKey.value),
     props.rules,
-    { shieldsOnly: isRanged.value },
+    { shieldsOnly: isRanged.value, blockProfiles: pushBlockProfiles.value },
     keywords.value,
   ),
 );
@@ -1281,7 +1288,10 @@ function applyReactionDefaults(next: HitDefenseReaction | null): void {
     blockItemRuleCode.value = null;
   }
   if (next === 'block') {
-    const first = blockProfiles.value[0] ?? null;
+    const first =
+      pushBlockProfiles.value === 'hands_or_shield'
+        ? (blockProfiles.value.find((item) => item.itemRuleCode === HANDS_ITEM_CODE) ?? blockProfiles.value[0] ?? null)
+        : (blockProfiles.value[0] ?? null);
     blockItemRuleCode.value = first?.itemRuleCode ?? null;
     defenseEfficiency.value = first ? { ...first.efficiency } : { ...procedure.value.minBlockEfficiency };
   }

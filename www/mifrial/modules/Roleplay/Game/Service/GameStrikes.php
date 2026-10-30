@@ -79,6 +79,8 @@ final class GameStrikes implements IGameStrikes
      * @param IEventManager $events Сигнал доставки.
      * @param GameStrikeConsequences $consequences Проверки удара.
      * @param GameCardAvailability $availability Принадлежность и требования карточки.
+     * @param GamePushRules $push Толчок.
+     * @param GameStateIncreaseChecks $stateChecks Проверки прироста.
      *
      * @return void
      */
@@ -93,6 +95,8 @@ final class GameStrikes implements IGameStrikes
         IEventManager $events,
         private readonly GameStrikeConsequences $consequences,
         private readonly GameCardAvailability $availability,
+        private readonly GamePushRules $push,
+        private readonly GameStateIncreaseChecks $stateChecks,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->actions = new GameActionRepository($smartTableGateway);
@@ -145,6 +149,8 @@ final class GameStrikes implements IGameStrikes
             $consequences,
             $this->amounts,
             $this->replayTransaction,
+            $this->push,
+            $this->stateChecks,
         );
     }
 
@@ -397,20 +403,23 @@ final class GameStrikes implements IGameStrikes
             $choice['actionRuleCode'],
         );
         $this->assertModifiers($game, $choice);
-        $this->rules->resolveInventorySpend(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['itemRuleCode'],
-            $choice['profileType'],
-            $choice['profileIndex'],
-            $choice['itemInventoryId'],
-            $choice['ammunitionInventoryId'] ?? null,
-            $choice['attacker']['type'],
-            $choice['attacker']['id'],
-            $choice['attacker']['type'] === 'npc'
-                ? $this->npcChoices($game->getId(), $choice['attacker']['id'])
-                : null,
-        );
+        if ($this->rules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $choice['actionRuleCode']) === null) {
+            $this->rules->resolveInventorySpend(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $choice['itemRuleCode'],
+                $choice['profileType'],
+                $choice['profileIndex'],
+                $choice['itemInventoryId'],
+                $choice['ammunitionInventoryId'] ?? null,
+                $choice['attacker']['type'],
+                $choice['attacker']['id'],
+                $choice['attacker']['type'] === 'npc'
+                    ? $this->npcChoices($game->getId(), $choice['attacker']['id'])
+                    : null,
+            );
+        }
+
         $body = [
             'attack' => $choice,
             'battleId' => $battleId,

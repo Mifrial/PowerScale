@@ -64,6 +64,8 @@ final class GameWideStrikes implements IGameWideStrikes
      * @param IEventManager $events Доставка.
      * @param GameStrikeConsequences $consequences Проверки удара.
      * @param GameCardAvailability $availability Принадлежность и требования карточки.
+     * @param GamePushRules $push Толчок.
+     * @param GameStateIncreaseChecks $stateChecks Проверки прироста.
      *
      * @return void
      */
@@ -77,6 +79,8 @@ final class GameWideStrikes implements IGameWideStrikes
         IEventManager $events,
         private readonly GameStrikeConsequences $consequences,
         private readonly GameCardAvailability $availability,
+        private readonly GamePushRules $push,
+        private readonly GameStateIncreaseChecks $stateChecks,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->actions = new GameActionRepository($smartTableGateway);
@@ -117,6 +121,8 @@ final class GameWideStrikes implements IGameWideStrikes
             $consequences,
             $amounts,
             $this->replayTransaction,
+            $this->push,
+            $this->stateChecks,
         );
         $this->openService = new GameStrikeOpen(
             $this->battles,

@@ -835,6 +835,10 @@ final class GameStrikeMysqlTest extends TestCase
                     'suppressed_state_codes' => ['unstable'],
                 ],
             ],
+            'dexterity' => [
+                'type' => 'characteristic',
+                'spec' => ['automatic' => ['value' => ['base' => 20, 'size' => 0]]],
+            ],
             'unstable' => [
                 'type' => 'state',
                 'name' => 'Unstable',
@@ -936,6 +940,334 @@ final class GameStrikeMysqlTest extends TestCase
     private function statesOf(int $characterId): array
     {
         return $this->characterFacade()->get($characterId)->getSheet()['states'] ?? [];
+    }
+
+    /**
+     * Толчок руками: Сила против пола, урон, Неустойчивость и отброс.
+     *
+     * @return void
+     */
+    public function testPushIgnoreUsesStrengthAndAddsUnstable(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->pushRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Pusher', [
+            ['characteristicCode' => 'strength', 'value' => ['base' => 4, 'size' => 0]],
+        ], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [
+            ['ruleCode' => 'hands', 'equipped' => true],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Target', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [
+            ['ruleCode' => 'hands', 'equipped' => true],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-push',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'push-open',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId, 'simple-push', 'hands')),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'push-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(17, $this->actionPointsOf($attackerId));
+        $success = $closed['data']['success'] ?? 0;
+        self::assertGreaterThan(0, $success);
+        self::assertSame(1, $closed['data']['appliedSr'] ?? null);
+        $states = $this->statesOf($defenderId);
+        $unstable = array_values(array_filter(
+            $states,
+            static fn (mixed $row): bool => is_array($row) && ($row['stateRuleCode'] ?? null) === 'unstable',
+        ));
+        self::assertCount(1, $unstable);
+        self::assertSame($success, $unstable[0]['value']);
+    }
+
+    /**
+     * Блок толчка — совместная Сила руками, а не блок-профиль оружия.
+     *
+     * @return void
+     */
+    public function testPushBlockUsesJointStrengthAndHands(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->pushRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Pusher', [
+            ['characteristicCode' => 'strength', 'value' => ['base' => 4, 'size' => 0]],
+        ], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [
+            ['ruleCode' => 'hands', 'equipped' => true],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Target', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [
+            ['ruleCode' => 'hands', 'equipped' => true],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-push-block',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'push-block-open',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId, 'simple-push', 'hands')),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'push-block-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope([
+                'reaction' => 'block',
+                'blockItemInventoryId' => 1,
+                'blockItemProfileIndex' => 0,
+                'blockItemRuleCode' => 'hands',
+            ], $this->characterFacade()->get($defenderId)->getActualVersion()),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertNotNull($closed['data']['strikes'][0]['defenseRoll'] ?? null);
+        self::assertSame(18, $this->actionPointsOf($defenderId));
+    }
+
+    /**
+     * Толчок не принимает оружие без щита.
+     *
+     * @return void
+     */
+    public function testPushRejectsWeaponProfile(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->pushRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Pusher', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Target');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-push-weapon',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'push-weapon',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId, 'simple-push', 'sword')),
+        ]);
+        self::assertSame('GAME_INVALID', $opened['error']['code']);
+    }
+
+    /**
+     * Толчок щитом допустим.
+     *
+     * @return void
+     */
+    public function testPushAllowsShieldProfile(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->pushRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Pusher', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [
+            ['ruleCode' => 'push-shield', 'equipped' => true],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Target');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-push-shield',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'push-shield',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId, 'simple-push', 'push-shield')),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+    }
+
+    /**
+     * Мир с Толчком, Силой, весом и блоком руками.
+     *
+     * @return array<string, array<string, mixed>> Правила мира.
+     */
+    private function pushRules(): array
+    {
+        $profile = [
+            'type' => 'strike',
+            'distance' => [
+                'min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]],
+                'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]],
+            ],
+            'accuracy' => ['base' => 3, 'size' => 0],
+            'damage' => ['damage_type_code' => 'crush', 'formula' => ['type' => 'fixed', 'value' => 0]],
+        ];
+
+        return [
+            'action-points' => [
+                'type' => 'resource',
+                'spec' => [
+                    'is_dimensional' => false,
+                    'auto_add' => true,
+                    'check_token' => false,
+                    'turn_refill' => true,
+                    'limit' => ['base' => 20, 'adjustments' => []],
+                ],
+            ],
+            'weight' => [
+                'type' => 'characteristic',
+                'spec' => ['automatic' => ['value' => ['base' => 3, 'size' => 0]]],
+            ],
+            'check-strength' => [
+                'type' => 'check',
+                'roll' => true,
+                'spec' => [
+                    'allowed_modes' => 'both',
+                    'characteristic_code' => 'strength',
+                    'difficulty_input' => ['kind' => 'ask'],
+                ],
+            ],
+            'dexterity' => [
+                'type' => 'characteristic',
+                'spec' => ['automatic' => ['value' => ['base' => 20, 'size' => 0]]],
+            ],
+            'unstable' => [
+                'type' => 'state',
+                'spec' => [
+                    'value_type' => 'number',
+                    'aggregation' => 'sum',
+                    'unstable' => true,
+                    'increase_check_code' => 'check-unstable',
+                ],
+            ],
+            'lying' => [
+                'type' => 'state',
+                'spec' => [
+                    'value_type' => 'flag',
+                    'aggregation' => 'sum',
+                    'lying' => true,
+                    'suppressed_state_codes' => ['unstable'],
+                ],
+            ],
+            'check-unstable' => [
+                'type' => 'check',
+                'roll' => true,
+                'spec' => [
+                    'allowed_modes' => 'solo',
+                    'characteristic_code' => 'dexterity',
+                    'difficulty_input' => ['kind' => 'from_state', 'state_code' => 'unstable'],
+                    'outcomes' => [['max_rating' => 0, 'state_rule_code' => 'lying']],
+                ],
+            ],
+            'block' => [
+                'type' => 'ability',
+                'spec' => [
+                    'type' => 'action',
+                    'combat_action' => 'block',
+                    'action_components' => [[
+                        'type' => 'resource',
+                        'resource_code' => 'action-points',
+                        'amount' => 2,
+                    ]],
+                ],
+            ],
+            'hands' => [
+                'type' => 'item',
+                'spec' => [
+                    'innate' => true,
+                    'category' => 'weapon',
+                    'weapon' => ['weapon_profiles' => [$profile]],
+                    'block_profile' => [
+                        'efficiency' => ['base' => 5, 'size' => 0],
+                        'defense' => ['base' => 1, 'size' => 0],
+                        'resistances' => [],
+                    ],
+                ],
+            ],
+            'push-shield' => [
+                'type' => 'item',
+                'spec' => [
+                    'category' => 'shield',
+                    'shield' => ['weapon_profiles' => [$profile]],
+                    'block_profile' => [
+                        'efficiency' => ['base' => 3, 'size' => 0],
+                        'defense' => ['base' => 1, 'size' => 0],
+                        'resistances' => [],
+                    ],
+                ],
+            ],
+            'simple-push' => [
+                'type' => 'ability',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'action_components' => [[
+                        'type' => 'resource',
+                        'resource_code' => 'action-points',
+                        'amount' => 3,
+                    ]],
+                    'push' => [
+                        'pool' => 'strength',
+                        'damage' => 'crush_from_strength',
+                        'profiles' => 'hands_or_shield',
+                        'block_profiles' => 'hands_or_shield',
+                    ],
+                ],
+            ],
+        ];
     }
 
     /**

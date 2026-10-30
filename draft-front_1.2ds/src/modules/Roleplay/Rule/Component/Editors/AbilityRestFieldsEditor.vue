@@ -31,6 +31,50 @@ const attackModes = [
   { title: 'Широкая', value: 'wide' },
 ];
 
+const pushPools = [
+  { title: 'Сила', value: 'strength' },
+  { title: 'Урон оружия', value: 'weapon_damage' },
+];
+
+const pushDamages = [
+  { title: 'Дробящий от Силы', value: 'crush_from_strength' },
+  { title: 'Урон оружия × РУ', value: 'weapon_times_sr' },
+];
+
+const pushProfiles = [
+  { title: 'Руки или щит', value: 'hands_or_shield' },
+  { title: 'Рубящий или дробящий удар', value: 'slashing_or_blunt_strike' },
+];
+
+const pushBlockProfiles = [
+  { title: 'Любой блок', value: 'any' },
+  { title: 'Руки или щит', value: 'hands_or_shield' },
+  { title: 'Только щит', value: 'shield_only' },
+  { title: 'Без блока', value: 'none' },
+  { title: 'Рубящий или дробящий удар', value: 'slashing_or_blunt_strike' },
+];
+
+function defaultPush(): NonNullable<AbilitySpecDraft['push']> {
+  return {
+    pool: 'strength',
+    damage: 'crush_from_strength',
+    profiles: 'hands_or_shield',
+    block_profiles: 'hands_or_shield',
+  };
+}
+
+function setPush(enabled: boolean): void {
+  if (enabled) {
+    patch({ push: defaultPush() });
+  } else {
+    clearKey('push');
+  }
+}
+
+function patchPush(partial: Partial<NonNullable<AbilitySpecDraft['push']>>): void {
+  patch({ push: { ...(props.modelValue.push ?? defaultPush()), ...partial } });
+}
+
 function patch(partial: Partial<AbilitySpecDraft>): void {
   emit('update:modelValue', { ...props.modelValue, ...partial });
 }
@@ -101,9 +145,7 @@ function setDodgePenalty(enabled: boolean): void {
   });
 }
 
-function patchDodgePenalty(
-  partial: Partial<NonNullable<AbilitySpecDraft['dodge_ranged_penalty']>>,
-): void {
+function patchDodgePenalty(partial: Partial<NonNullable<AbilitySpecDraft['dodge_ranged_penalty']>>): void {
   const current = props.modelValue.dodge_ranged_penalty;
   if (!current) return;
   patch({ dodge_ranged_penalty: { ...current, ...partial } });
@@ -154,7 +196,11 @@ function patchDodgePenalty(
         </div>
         <div class="text-caption text-medium-emphasis">
           Профиль атаки:
-          {{ modelValue.dodge_ranged_penalty.profile_type === 'shoot' ? 'выстрел' : modelValue.dodge_ranged_penalty.profile_type }}
+          {{
+            modelValue.dodge_ranged_penalty.profile_type === 'shoot'
+              ? 'выстрел'
+              : modelValue.dodge_ranged_penalty.profile_type
+          }}
         </div>
       </template>
     </template>
@@ -338,6 +384,49 @@ function patchDodgePenalty(
           @update:model-value="$event === null ? clearKey('max_weapons') : patch({ max_weapons: $event })"
         />
       </div>
+      <template v-if="currentType === 'action'">
+        <v-checkbox
+          :model-value="modelValue.push != null"
+          label="Толчок"
+          density="compact"
+          hide-details
+          @update:model-value="setPush($event === true)"
+        />
+        <template v-if="modelValue.push">
+          <v-select
+            :model-value="modelValue.push.pool"
+            :items="pushPools"
+            label="Пул толчка"
+            density="compact"
+            hide-details
+            @update:model-value="patchPush({ pool: $event })"
+          />
+          <v-select
+            :model-value="modelValue.push.damage"
+            :items="pushDamages"
+            label="Урон толчка"
+            density="compact"
+            hide-details
+            @update:model-value="patchPush({ damage: $event })"
+          />
+          <v-select
+            :model-value="modelValue.push.profiles"
+            :items="pushProfiles"
+            label="Профили толчка"
+            density="compact"
+            hide-details
+            @update:model-value="patchPush({ profiles: $event })"
+          />
+          <v-select
+            :model-value="modelValue.push.block_profiles ?? 'any'"
+            :items="pushBlockProfiles"
+            label="Профили блока против толчка"
+            density="compact"
+            hide-details
+            @update:model-value="patchPush({ block_profiles: $event })"
+          />
+        </template>
+      </template>
     </template>
   </div>
 </template>

@@ -107,18 +107,21 @@ final class GameStrikeSpend
             $debtHold[$actorKey] = $planned['slot'];
         }
 
-        $inventorySpend = $planned['open'] ? $this->rules->resolveInventorySpend(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['itemRuleCode'],
-            $choice['profileType'],
-            $choice['profileIndex'],
-            $choice['itemInventoryId'],
-            $choice['ammunitionInventoryId'] ?? null,
-            $kind,
-            $id,
-            $kind === 'npc' ? $choices : null,
-        ) : null;
+        $inventorySpend = $planned['open']
+            && $this->rules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $choice['actionRuleCode']) === null
+            ? $this->rules->resolveInventorySpend(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $choice['itemRuleCode'],
+                $choice['profileType'],
+                $choice['profileIndex'],
+                $choice['itemInventoryId'],
+                $choice['ammunitionInventoryId'] ?? null,
+                $kind,
+                $id,
+                $kind === 'npc' ? $choices : null,
+            )
+            : null;
         if (
             $spends !== [] && !$this->rules->hasSufficientResources(
                 $game->getSpaceId(),

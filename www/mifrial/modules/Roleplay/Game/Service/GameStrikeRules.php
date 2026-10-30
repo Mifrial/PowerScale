@@ -31,7 +31,9 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackDodgeSoakEf
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackReachEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionDurabilityShaveEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\PushSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\DamageTypeSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\DistanceValue;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
@@ -248,7 +250,10 @@ final class GameStrikeRules
         int $instanceIndex = 0,
     ): void {
         $this->assertLive($spaceId, $rulesRevision, $actionRuleCode);
-        $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex);
+        if ($this->pushOf($spaceId, $rulesRevision, $actionRuleCode) === null) {
+            $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex);
+        }
+
         $choices = $attackerKind === 'character'
             ? $this->characterSnapshot($attackerId)['choices']
             : $npcChoices;
@@ -257,6 +262,94 @@ final class GameStrikeRules
         }
 
         $this->assertInventoryItem($choices, $itemInventoryId, $itemRuleCode, $spaceId, $rulesRevision, $instanceIndex);
+        $this->assertPushProfile($spaceId, $rulesRevision, $actionRuleCode, $itemRuleCode, $profileType, $profileIndex);
+    }
+
+    /**
+     * Толчок карточки действия или null.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $actionRuleCode Действие.
+     *
+     * @return PushSpec|null Толчок.
+     *
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function pushOf(int $spaceId, int $rulesRevision, string $actionRuleCode): ?PushSpec
+    {
+        return $this->actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode)?->getPush();
+    }
+
+    /**
+     * Профиль допустим для толчка.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $actionRuleCode Действие.
+     * @param string $itemRuleCode Предмет.
+     * @param string $profileType Профиль.
+     * @param int $profileIndex Индекс.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если профиль не подходит.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    private function assertPushProfile(
+        int $spaceId,
+        int $rulesRevision,
+        string $actionRuleCode,
+        string $itemRuleCode,
+        string $profileType,
+        int $profileIndex,
+    ): void {
+        $push = $this->pushOf($spaceId, $rulesRevision, $actionRuleCode);
+        if ($push === null) {
+            return;
+        }
+
+        if ($profileType !== 'strike') {
+            throw new GameInvalidException('Game push profile is invalid');
+        }
+
+        $item = $this->item($spaceId, $rulesRevision, $itemRuleCode);
+        if ($push->getProfiles() === 'hands_or_shield') {
+            if (!$item->isInnate() && $item->getShield() === null) {
+                throw new GameInvalidException('Game push profile is invalid');
+            }
+
+            return;
+        }
+
+        $profile = $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex);
+        if (!$this->pushProfileFits($push, $item, $profile)) {
+            throw new GameInvalidException('Game push profile is invalid');
+        }
+    }
+
+    /**
+     * Предмет годится для выбранного толчка.
+     *
+     * @param PushSpec $push Толчок.
+     * @param ItemSpec $item Предмет.
+     * @param WeaponProfile $profile Профиль.
+     *
+     * @return bool true, если годится.
+     */
+    private function pushProfileFits(PushSpec $push, ItemSpec $item, WeaponProfile $profile): bool
+    {
+        if ($push->getProfiles() === 'hands_or_shield') {
+            return $item->isInnate() || $item->getShield() !== null;
+        }
+
+        if ($push->getProfiles() === 'slashing_or_blunt_strike') {
+            $type = $profile->getDamage()->getDamageTypeCode();
+
+            return $type === 'slashing' || $type === 'blunt';
+        }
+
+        return false;
     }
 
     /**
@@ -1976,6 +2069,77 @@ final class GameStrikeRules
     }
 
     /**
+     * Предмет годится для блока против толчка.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $actionRuleCode Действие.
+     * @param string $blockItemRuleCode Предмет блока.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если предмет не подходит.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function assertPushBlock(
+        int $spaceId,
+        int $rulesRevision,
+        string $actionRuleCode,
+        string $blockItemRuleCode,
+    ): void {
+        $push = $this->pushOf($spaceId, $rulesRevision, $actionRuleCode);
+        if ($push === null) {
+            return;
+        }
+
+        $item = $this->item($spaceId, $rulesRevision, $blockItemRuleCode);
+        if ($this->pushBlockFits($push, $item)) {
+            return;
+        }
+
+        throw new GameInvalidException('Game push block item is invalid');
+    }
+
+    /**
+     * Предмет закрывает толчок по спеке.
+     *
+     * @param PushSpec $push Толчок.
+     * @param ItemSpec $item Предмет.
+     *
+     * @return bool true, если закрывает.
+     */
+    private function pushBlockFits(PushSpec $push, ItemSpec $item): bool
+    {
+        $profiles = $push->getBlockProfiles();
+        if ($profiles === 'any') {
+            return true;
+        }
+
+        if ($profiles === 'hands_or_shield') {
+            return $item->isInnate() || $item->getShield() !== null;
+        }
+
+        if ($profiles === 'shield_only') {
+            return $item->getShield() !== null;
+        }
+
+        if ($profiles === 'slashing_or_blunt_strike') {
+            $weaponProfiles = $item->getWeapon()?->getWeaponProfiles() ?? [];
+            $shieldProfiles = $item->getShield()?->getWeaponProfiles() ?? [];
+            foreach (array_merge($weaponProfiles, $shieldProfiles) as $profile) {
+                $type = $profile->getDamage()->getDamageTypeCode();
+                if ($profile->getType() === 'strike' && ($type === 'slashing' || $type === 'blunt')) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    /**
      * Проверяет выбранную строку и профиль блока.
      *
      * @param int $spaceId Мир.
@@ -2112,9 +2276,9 @@ final class GameStrikeRules
     /**
      * Ключ кэша листа участника.
      *
-     * @param string $kind character или npc.
+     * @param string $kind Character или npc.
      * @param int $id Идентификатор.
-     * @param int $version actualVersion строки.
+     * @param int $version ActualVersion строки.
      *
      * @return string Ключ.
      */
@@ -2125,6 +2289,10 @@ final class GameStrikeRules
 
     /**
      * Имя персонажа для токена чата.
+     *
+     * @param int $characterId Персонаж.
+     *
+     * @return string Имя.
      */
     public function characterName(int $characterId): string
     {
@@ -2174,6 +2342,19 @@ final class GameStrikeRules
 
     /**
      * Стойкость цели в том же контексте, что и деление урона.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $defenderKind Вид цели.
+     * @param int $defenderId Цель.
+     * @param array<string, mixed>|null $npcSheet Лист NPC.
+     * @param array<string, mixed>|null $npcChoices Выборы NPC.
+     * @param int|null $sheetVersion Версия листа.
+     *
+     * @return DimensionalNumber Стойкость.
+     *
+     * @throws GameInvalidException Если стойкость битая.
+     * @throws GameNotFoundException Если листа нет.
      */
     public function enduranceOf(
         int $spaceId,
@@ -2196,22 +2377,71 @@ final class GameStrikeRules
     }
 
     /**
-     * Профиль предмета.
+     * Характеристика листа по коду.
+     *
+     * @param array<string, mixed> $sheet Лист.
+     * @param string $code Код характеристики.
+     *
+     * @return DimensionalNumber Значение.
+     *
+     * @throws GameInvalidException Если характеристики нет.
+     */
+    public function characteristicOf(array $sheet, string $code): DimensionalNumber
+    {
+        try {
+            $value = $this->formulaContexts->build($sheet)->findCharacteristic($code);
+        } catch (CharacterInvalidException $exception) {
+            throw new GameInvalidException('Game strike characteristic is invalid', $exception);
+        }
+
+        if (!$value instanceof DimensionalNumber) {
+            throw new GameInvalidException('Game strike characteristic is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Единственная живая проверка характеристики с заданной сложностью.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $characteristic Код характеристики.
+     *
+     * @return string Код проверки.
+     *
+     * @throws GameInvalidException Если проверки нет или их несколько.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function checkByCharacteristic(int $spaceId, int $rulesRevision, string $characteristic): string
+    {
+        $matched = [];
+        foreach ($this->slice($spaceId, $rulesRevision)->getLiveRules() as $rule) {
+            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
+            if (
+                $spec instanceof CheckSpec
+                && $spec->getCharacteristicCode() === $characteristic
+                && $spec->getDifficulty()->getKind() === 'ask'
+            ) {
+                $matched[] = $rule->getCode();
+            }
+        }
+
+        if (count($matched) !== 1) {
+            throw new GameInvalidException('Game push check is invalid');
+        }
+
+        return $matched[0];
+    }
+
+    /**
+     * Код типа урона профиля или null.
      *
      * @param int $spaceId Мир.
      * @param int $rulesRevision Ревизия.
      * @param string $itemRuleCode Предмет.
-     * @param string $profileType Вид.
-     * @param int $profileIndex Смещение.
-     *
-     * @return WeaponProfile Профиль.
-     *
-     * @throws GameInvalidException Если профиля нет.
-     * @throws GameNotFoundException Если ревизии нет.
-     */
-
-    /**
-     * Код типа урона профиля или null.
+     * @param string $profileType Вид профиля.
+     * @param int $profileIndex Индекс профиля.
      *
      * @return string|null Код.
      */
@@ -2225,6 +2455,39 @@ final class GameStrikeRules
         $code = $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex)
             ->getDamage()
             ->getDamageTypeCode();
+
+        return is_string($code) && $code !== '' ? $code : null;
+    }
+
+    /**
+     * Тип урона профиля толчка, включая профили щита.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $itemRuleCode Предмет.
+     * @param int $profileIndex Индекс профиля.
+     *
+     * @return string|null Код типа урона.
+     *
+     * @throws GameInvalidException Если профиля нет.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function pushDamageTypeCode(
+        int $spaceId,
+        int $rulesRevision,
+        string $itemRuleCode,
+        int $profileIndex,
+    ): ?string {
+        $item = $this->item($spaceId, $rulesRevision, $itemRuleCode);
+        $profiles = $item->getWeapon()?->getWeaponProfiles()
+            ?? $item->getShield()?->getWeaponProfiles()
+            ?? [];
+        $profile = $profiles[$profileIndex] ?? null;
+        if (!$profile instanceof WeaponProfile) {
+            throw new GameInvalidException('Game push profile is invalid');
+        }
+
+        $code = $profile->getDamage()->getDamageTypeCode();
 
         return is_string($code) && $code !== '' ? $code : null;
     }
@@ -2324,6 +2587,20 @@ final class GameStrikeRules
         return $matched[0];
     }
 
+    /**
+     * Профиль предмета.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $itemRuleCode Предмет.
+     * @param string $profileType Вид.
+     * @param int $profileIndex Смещение.
+     *
+     * @return WeaponProfile Профиль.
+     *
+     * @throws GameInvalidException Если профиля нет.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
     private function profile(
         int $spaceId,
         int $rulesRevision,
@@ -2348,7 +2625,6 @@ final class GameStrikeRules
      * @param int $id Идентификатор.
      * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
      * @param array<string, mixed>|null $npcChoices Снимок choices NPC.
-     *
      * @param int|null $sheetVersion Версия листа NPC.
      *
      * @return array{sheet: array<string, mixed>, choices: array<string, mixed>, key: string|null} Документы.
@@ -2892,7 +3168,6 @@ final class GameStrikeRules
      * @param int $defenderId Цель.
      * @param array<string, mixed>|null $npcSheet Снимок sheet.
      * @param array<string, mixed>|null $npcChoices Документ choices.
-     *
      * @param int|null $sheetVersion Версия листа NPC.
      *
      * @return array{sheet: array<string, mixed>, choices: array<string, mixed>, key: string|null} Документы.
@@ -3097,6 +3372,7 @@ final class GameStrikeRules
      * @param int|null $sheetVersion Версия листа NPC.
      * @param array<string, mixed> $conditions Условия.
      * @param int $actionCharacteristicModifier Сдвиг характеристики карточки.
+     * @param string $actionRuleCode Карточка действия.
      *
      * @return void
      *
@@ -3466,6 +3742,7 @@ final class GameStrikeRules
 
         return $slice;
     }
+
     /**
      * Режет смягчение эффектами карточки удара.
      *
@@ -3657,5 +3934,4 @@ final class GameStrikeRules
 
         return max(0, $value->toInteger());
     }
-
 }

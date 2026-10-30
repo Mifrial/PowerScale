@@ -12,10 +12,11 @@ final class PushSpec
     /**
      * Создаёт толчок.
      *
-     * @param string $pool strength или weapon_damage.
+     * @param string $pool Код пула.
      * @param string $damage Вид урона.
      * @param string $profiles Допустимые профили.
      * @param array<string, int> $divisors Делитель по типу урона.
+     * @param string $blockProfiles Допустимые профили блока.
      *
      * @return void
      */
@@ -24,6 +25,7 @@ final class PushSpec
         private readonly string $damage,
         private readonly string $profiles,
         private readonly array $divisors,
+        private readonly string $blockProfiles = 'any',
     ) {
     }
 
@@ -65,5 +67,15 @@ final class PushSpec
     public function getDivisors(): array
     {
         return $this->divisors;
+    }
+
+    /**
+     * Профили, которыми можно блокировать толчок.
+     *
+     * @return string Код.
+     */
+    public function getBlockProfiles(): string
+    {
+        return $this->blockProfiles;
     }
 }

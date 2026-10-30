@@ -39,6 +39,8 @@ final class GameStrikeConsequences
     /**
      * @param GameStrikeRules $rules Срез удара.
      * @param GameCheckRoll $checks Бросок с заданной трудностью.
+     * @param GameStateCheck $stateCheck Проверка прироста состояния.
+     * @param GameStateDecline $decline Шкала decline.
      * @param ICharacterFormulaContexts $contexts Лист.
      * @param IMechanics $mechanics Каталог.
      * @param IMechanicEngine $engine Резолв хендлеров.
@@ -47,6 +49,8 @@ final class GameStrikeConsequences
     public function __construct(
         private readonly GameStrikeRules $rules,
         private readonly GameCheckRoll $checks,
+        private readonly GameStateCheck $stateCheck,
+        private readonly GameStateDecline $decline,
         private readonly ICharacterFormulaContexts $contexts,
         private readonly IMechanics $mechanics,
         private readonly IMechanicEngine $engine,
@@ -57,8 +61,14 @@ final class GameStrikeConsequences
     /**
      * Список операций цели и узкие исходы бросков.
      *
+     * @param GameRecord $game Игра.
      * @param array<string, mixed> $sheet Лист цели.
+     * @param DimensionalNumber $injury Повреждение.
+     * @param int $success РУ.
      * @param array{kind: string, remainder: array{base: int, size: int}, quotient: int} $split Деление обычного урона.
+     * @param string|null $damageTypeCode Тип урона.
+     * @param bool $knockout Нокаут.
+     * @param DimensionalNumber|null $endurance Стойкость.
      *
      * @return array{operations: list<array<string, mixed>>, consequence: array<string, mixed>}
      */
@@ -121,7 +131,7 @@ final class GameStrikeConsequences
             $will = $this->will($game, $slice, $sheet, $quotient);
             $consequence['will'] = $will['roll'];
             $consequence['willOutcome'] = $will['outcome'];
-            $declineOps = $this->declineSheetOps(
+            $declineOps = $this->decline->operations(
                 $sheet,
                 $slice,
                 $will['operation'],
@@ -134,7 +144,7 @@ final class GameStrikeConsequences
 
         if ($knockout && ($will['outcome'] ?? null) !== 'unconscious' && $this->blunt($hooks, $success, $injury, $slice, $sheet, $endurance)) {
             $code = $this->singleFlag($slice, 'unconscious');
-            $knockoutOps = $this->declineSheetOps(
+            $knockoutOps = $this->decline->operations(
                 $sheet,
                 $slice,
                 ['kind' => 'replaceDecline', 'stateRuleCode' => $code],
@@ -173,7 +183,9 @@ final class GameStrikeConsequences
     /**
      * Воля при изменении истощения. Рост без сознания — пустой итог; спад проверяется.
      *
+     * @param GameRecord $game Игра.
      * @param array<string, mixed> $sheet Лист.
+     * @param int $delta Изменение истощения.
      *
      * @return array{
      *     roll: array<string, mixed>|null,
@@ -191,7 +203,7 @@ final class GameStrikeConsequences
         }
 
         $will = $this->will($game, $slice, $sheet, $delta);
-        $will['operations'] = $this->declineSheetOps(
+        $will['operations'] = $this->decline->operations(
             $sheet,
             $slice,
             $will['operation'],
@@ -204,7 +216,9 @@ final class GameStrikeConsequences
     /**
      * Бросок увечья с уже посчитанной трудностью.
      *
+     * @param GameRecord $game Игра.
      * @param array<string, mixed> $sheet Лист.
+     * @param int $difficulty Трудность.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int}
      */
@@ -244,6 +258,11 @@ final class GameStrikeConsequences
 
     /**
      * Код единственной карточки с флагом.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $flag Флаг.
+     *
+     * @return string Код.
      */
     public function singleState(GameRecord $game, string $flag): string
     {
@@ -255,10 +274,19 @@ final class GameStrikeConsequences
     /**
      * Пишет цепочку в чат игры: действие, нарратив, бросок, итог, Воля, увечье.
      *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param string $threadId Нить.
+     * @param bool $announce Писать действие.
+     * @param string $action Действие.
+     * @param string $strike Нарратив.
      * @param array{base: int, size: int}|array<string, mixed> $hitRoll Бросок попадания.
+     * @param string $result Итог.
      * @param array<string, mixed> $calc Payload attack-calc.
      * @param array{roll: array<string, mixed>, text: string}|null $will Проверка истощения.
      * @param array{roll: array<string, mixed>, text: string, details: array<string, mixed>}|null $maim Увечье.
+     * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     * @param array<string, mixed>|null $defenseRoll Бросок защиты.
      * @param string|null $parentId Родительский ход.
      *
      * @return void
@@ -304,7 +332,10 @@ final class GameStrikeConsequences
     }
 
     /**
-     * @param list<string> $lines Тексты.
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param string $threadId Нить.
+     * @param array<int, string> $lines Тексты.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
      * @param string|null $parentId Родительский ход.
      */
@@ -322,6 +353,9 @@ final class GameStrikeConsequences
     }
 
     /**
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param string $threadId Нить.
      * @param list<array<string, mixed>> $rolls Броски одной строкой.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
      * @param string|null $parentId Родительский ход.
@@ -337,6 +371,10 @@ final class GameStrikeConsequences
     }
 
     /**
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param string $threadId Нить.
+     * @param string $result Итог.
      * @param array<string, mixed> $calc Payload attack-calc.
      * @param array{roll: array<string, mixed>, text: string}|null $will Проверка истощения.
      * @param array{roll: array<string, mixed>, text: string, details: array<string, mixed>}|null $maim Увечье.
@@ -643,35 +681,37 @@ final class GameStrikeConsequences
         $this->requireWillpower($slice);
         $exhaustion = $this->singleFlag($slice, 'exhaustion');
         $spec = $this->stateSpec($slice, $exhaustion);
-        $checkCode = $spec->getCheckCode();
+        $checkCode = $spec->getIncreaseCheckCode() ?? $spec->getCheckCode();
         if ($checkCode === null || $checkCode === '') {
             throw new GameInvalidException('Game strike will check is invalid');
         }
 
-        $check = $this->checkSpec($slice, $checkCode);
-        $difficulty = $check->getDifficulty();
-        if ($difficulty->getKind() !== 'from_state' || $difficulty->getStateCode() !== $exhaustion) {
-            throw new GameInvalidException('Game strike will check is invalid');
+        $check = $this->stateCheck->check($slice, $exhaustion, $checkCode);
+        $after = $this->storedExhaustion($sheet, $exhaustion) + $quotient;
+        $rolled = $this->stateCheck->roll($game, $sheet, $slice, $exhaustion, $checkCode, $after);
+        $roll = $rolled['roll'];
+        $outcome = $rolled['outcome'];
+        $next = null;
+        if ($outcome !== null) {
+            $outcomeSpec = $this->stateSpec($slice, $outcome);
+            $rank = $this->decline->rankInCheck($check, $outcome);
+            if ($outcomeSpec->getValueType() !== 'flag' || $rank === null) {
+                throw new GameInvalidException('Game strike will outcome is invalid');
+            }
+
+            $next = ['code' => $outcome, 'rank' => $rank];
+        } elseif ($check->getOutcomes() === []) {
+            $next = $this->legacyOutcomeCode($slice, $roll['rating']);
         }
 
-        $after = $this->storedExhaustion($sheet, $exhaustion) + $quotient;
-        $roll = $this->checks->throwWithDifficulty(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $checkCode,
-            $sheet,
-            ['base' => $after, 'size' => 0],
-        );
-        $roll['label'] = $slice->findLive($checkCode)?->getName() ?? 'Проверка истощения';
-        $next = $this->outcomeCode($slice, $check, $roll['rating']);
-        $current = $this->currentDecline($slice, $sheet, $check);
-        $operation = $this->declineOperation($quotient > 0, $current, $next);
+        $current = $this->decline->current($slice, $sheet, $check);
+        $operation = $this->decline->change($quotient > 0, $current, $next);
 
         return [
             'roll' => $roll,
             'operation' => $operation,
-            'outcome' => $this->outcomeKind($next),
-            'declineCodes' => $this->declineCodes($slice, $check),
+            'outcome' => $this->decline->kind($next),
+            'declineCodes' => $this->decline->codes($slice, $check),
         ];
     }
 
@@ -803,113 +843,6 @@ final class GameStrikeConsequences
     }
 
     /**
-     * @return array<string, mixed>|null Операция или null, если шкала не двигается.
-     */
-    private function declineOperation(bool $rose, ?int $current, ?array $next): ?array
-    {
-        $nextRank = $next['rank'] ?? 0;
-        $currentRank = $current ?? 0;
-        if ($rose && $nextRank <= $currentRank) {
-            return null;
-        }
-
-        if (!$rose && $nextRank >= $currentRank) {
-            return null;
-        }
-
-        if ($next === null) {
-            return ['kind' => 'replaceDecline'];
-        }
-
-        return ['kind' => 'replaceDecline', 'stateRuleCode' => $next['code']];
-    }
-
-    /**
-     * @param array<string, mixed> $sheet Лист.
-     * @param array<string, mixed>|null $operation replaceDecline или null.
-     * @param list<string> $declineCodes Коды исходов проверки.
-     *
-     * @return list<array<string, mixed>> removeState и putState.
-     */
-    private function declineSheetOps(
-        array $sheet,
-        CharacterRuleSlice $slice,
-        ?array $operation,
-        array $declineCodes = [],
-    ): array {
-        if ($operation === null) {
-            return [];
-        }
-
-        $ops = [];
-        $states = $sheet['states'] ?? [];
-        if (is_array($states)) {
-            foreach ($states as $row) {
-                if (!is_array($row) || !is_int($row['id'] ?? null)) {
-                    continue;
-                }
-
-                $code = $row['stateRuleCode'] ?? null;
-                if ($declineCodes !== []) {
-                    if (is_string($code) && in_array($code, $declineCodes, true)) {
-                        $ops[] = ['kind' => 'removeState', 'id' => $row['id']];
-                    }
-
-                    continue;
-                }
-
-                $spec = is_string($code) ? $this->optionalState($slice, $code) : null;
-                if ($spec !== null && $this->rank($spec) !== null) {
-                    $ops[] = ['kind' => 'removeState', 'id' => $row['id']];
-                }
-            }
-        }
-
-        $next = $operation['stateRuleCode'] ?? null;
-        if (is_string($next) && $next !== '') {
-            $ops[] = ['kind' => 'putState', 'stateRuleCode' => $next];
-        }
-
-        return $ops;
-    }
-
-    /**
-     * @return array{code: string, rank: int}|null
-     */
-    private function outcomeCode(CharacterRuleSlice $slice, CheckSpec $check, int $rating): ?array
-    {
-        $outcomes = $check->getOutcomes();
-        if ($outcomes === []) {
-            return $this->legacyOutcomeCode($slice, $rating);
-        }
-
-        $rank = 0;
-        foreach ($outcomes as $outcome) {
-            $code = $outcome->getStateRuleCode();
-            if ($code !== null) {
-                $rank++;
-            }
-
-            if (!$outcome->matches($rating)) {
-                continue;
-            }
-
-            if ($code === null) {
-                return null;
-            }
-
-            $spec = $this->stateSpec($slice, $code);
-            if ($spec->getValueType() !== 'flag') {
-                throw new GameInvalidException('Game strike will outcome is invalid');
-            }
-
-            return ['code' => $code, 'rank' => $rank];
-        }
-
-        return null;
-    }
-
-    /**
      * Старый исход по флагам decline_* для ревизий без outcomes.
      *
      * @return array{code: string, rank: int}|null
@@ -957,48 +890,6 @@ final class GameStrikeConsequences
         return ['code' => $matched, 'rank' => $rank];
     }
 
-    /**
-     * Коды состояний, которые снимает исход проверки.
-     *
-     * @return list<string> Коды.
-     */
-    private function declineCodes(CharacterRuleSlice $slice, CheckSpec $check): array
-    {
-        $codes = [];
-        foreach ($check->getOutcomes() as $outcome) {
-            $code = $outcome->getStateRuleCode();
-            if ($code !== null) {
-                $codes[] = $code;
-            }
-        }
-
-        if ($codes !== []) {
-            return array_values(array_unique($codes));
-        }
-
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if ($spec instanceof StateSpec && $this->rank($spec) !== null) {
-                $codes[] = $rule->getCode();
-            }
-        }
-
-        return $codes;
-    }
-
-    /**
-     * @param array{code: string, rank: int}|null $next Исход шкалы.
-     */
-    private function outcomeKind(?array $next): string
-    {
-        return match ($next['rank'] ?? null) {
-            1 => 'weakness',
-            2 => 'disabled',
-            3 => 'unconscious',
-            default => 'clear',
-        };
-    }
-
     private function rank(StateSpec $spec): ?int
     {
         $flags = [$spec->isDeclineWeakness(), $spec->isDeclineDisabled(), $spec->isDeclineUnconscious()];
@@ -1011,49 +902,6 @@ final class GameStrikeConsequences
         }
 
         return $spec->isDeclineDisabled() ? 2 : 3;
-    }
-
-    /**
-     * @param array<string, mixed> $sheet Лист.
-     */
-    private function currentDecline(CharacterRuleSlice $slice, array $sheet, CheckSpec $check): ?int
-    {
-        $outcomes = $check->getOutcomes();
-        if ($outcomes !== []) {
-            $severity = 0;
-            $byCode = [];
-            foreach ($outcomes as $outcome) {
-                $code = $outcome->getStateRuleCode();
-                if ($code === null) {
-                    continue;
-                }
-
-                $severity++;
-                $byCode[$code] = $severity;
-            }
-
-            $rank = null;
-            foreach ($this->stateRows($sheet) as $code) {
-                if (isset($byCode[$code])) {
-                    $rank = max($rank ?? 0, $byCode[$code]);
-                }
-            }
-
-            return $rank;
-        }
-
-        $rank = null;
-        foreach ($this->stateRows($sheet) as $code) {
-            $spec = $this->optionalState($slice, $code);
-            $rowRank = $spec === null ? null : $this->rank($spec);
-            if ($rowRank === null) {
-                continue;
-            }
-
-            $rank = max($rank ?? 0, $rowRank);
-        }
-
-        return $rank;
     }
 
     /**
@@ -1117,17 +965,6 @@ final class GameStrikeConsequences
         $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
 
         return $spec instanceof StateSpec ? $spec : null;
-    }
-
-    private function checkSpec(CharacterRuleSlice $slice, string $code): CheckSpec
-    {
-        $rule = $slice->findLive($code);
-        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        if (!$spec instanceof CheckSpec) {
-            throw new GameInvalidException('Game strike will check is invalid');
-        }
-
-        return $spec;
     }
 
     /**

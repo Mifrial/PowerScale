@@ -57,6 +57,7 @@ final class GameStrikeSingleChat
         $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
         $defender = $this->chat->getEntityToken($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
         $attacker = $this->chat->getEntityToken($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0);
+        $push = is_array($result['push'] ?? null) ? $result['push'] : null;
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actionCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $action = $actionCode !== '' ? '[[rule:' . $actionCode . ']]' : 'действие';
@@ -74,17 +75,16 @@ final class GameStrikeSingleChat
             $open['profile_index'] ?? null,
             $slice,
         );
-        $narrative = $attacker . ' наносит ' . $typeBit . ' ' . $kind
-            . ' оружием ' . $weapon . ' по ' . $defender . '.';
+        $reactionText = '';
         if ($reaction === 'ignore') {
-            $narrative .= ' Тот не реагирует.';
+            $reactionText = ' Тот не реагирует.';
         } else {
             $reactionCode = $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), $reaction);
             $turn = (GameStrikeTargetRow::conditions($open)['turn'] ?? false) === true;
             $turnCode = $turn
                 ? $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), 'turn')
                 : null;
-            $narrative .= ' ' . $this->chat->getReactionBit(
+            $reactionText = ' ' . $this->chat->getReactionBit(
                 'Тот',
                 $reaction,
                 $reactionCode,
@@ -92,6 +92,16 @@ final class GameStrikeSingleChat
                 $turn,
                 $this->spend->getActionAp($slice, $turnCode ?? ''),
             ) . '!';
+        }
+
+        $narrative = $push !== null
+            ? $attacker . ' толкает ' . $defender . '.'
+            : $attacker . ' наносит ' . $typeBit . ' ' . $kind
+                . ' оружием ' . $weapon . ' по ' . $defender . '.';
+        if ($push !== null && ($push['canceled'] ?? false) === true) {
+            $narrative .= ' Тот уклоняется — толчок сорван.';
+        } else {
+            $narrative .= $reactionText;
         }
 
         if (($open['profile_type'] ?? null) === 'shoot' || ($open['profile_type'] ?? null) === 'throw') {
@@ -106,9 +116,17 @@ final class GameStrikeSingleChat
         $exhaustion = $result['exhaustionDelta'] ?? 0;
         $wound = $result['wound'] ?? 0;
         $success = $result['success'] ?? 0;
-        $bits = [$exhaustion . ' истощения'];
+        $bits = $push !== null && $exhaustion === 0 ? [] : [$exhaustion . ' истощения'];
         if ($wound > 0) {
             $bits[] = $wound . ' рану';
+        }
+
+        if ($push !== null && is_int($push['unstable'] ?? null) && $push['unstable'] > 0) {
+            $bits[] = $push['unstable'] . ' Неустойчивости';
+        }
+
+        if ($bits === []) {
+            $bits[] = '0 истощения';
         }
 
         $will = isset($result['will']) ? [
@@ -128,10 +146,12 @@ final class GameStrikeSingleChat
             $attacker . ' совершает действие ' . $action . ' за ' . $actionAp . 'ОД.',
             $narrative,
             $result['attackerRoll'],
-            $success > 0
-                ? $attacker . ' попадает по ' . $defender . ' с ' . $success
-                    . ' РУ и наносит ' . implode(' и ', $bits) . '!'
-                : $attacker . ' промахивается по ' . $defender . '!',
+            $push !== null
+                ? $this->pushResultText($attacker, $defender, $success, $bits, $push)
+                : ($success > 0
+                    ? $attacker . ' попадает по ' . $defender . ' с ' . $success
+                        . ' РУ и наносит ' . implode(' и ', $bits) . '!'
+                    : $attacker . ' промахивается по ' . $defender . '!'),
             [
                 'raw' => $this->integerOf($result['injury'] ?? null),
                 'damage' => is_array($result['damage'] ?? null) ? $result['damage'] : ['base' => 0, 'size' => 0],
@@ -163,6 +183,77 @@ final class GameStrikeSingleChat
             is_array($result['defenderRoll'] ?? null) ? $result['defenderRoll'] : null,
             $parentId,
         );
+    }
+
+    /**
+     * Дополнительные проверки толчка: Сила и Неустойчивость.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
+     * @param array<string, mixed> $open Открытый удар.
+     * @param int $actorUserId Актор.
+     * @param int $strikeId Удар.
+     * @param list<array{roll: array<string, mixed>, text: string}> $checks Проверки.
+     *
+     * @return void
+     */
+    public function postChecks(
+        GameRecord $game,
+        GameBattleRecord $battle,
+        array $open,
+        int $actorUserId,
+        int $strikeId,
+        array $checks,
+    ): void {
+        $threadId = 'attack-' . $strikeId;
+        $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
+        $speaker = $this->chat->getSpeakerOf($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
+        foreach ($checks as $entry) {
+            if (!is_array($entry) || !is_array($entry['roll'] ?? null)) {
+                continue;
+            }
+
+            $this->consequences->postRolls($game, $actorUserId, $threadId, [$entry['roll']], $speaker, $parentId);
+            $text = is_string($entry['text'] ?? null) ? $entry['text'] : '';
+            if ($text !== '') {
+                $this->consequences->postLines($game, $actorUserId, $threadId, [$text], $speaker, $parentId);
+            }
+        }
+    }
+
+    /**
+     * Строка исхода толчка.
+     *
+     * @param string $attacker Толкающий.
+     * @param string $defender Цель.
+     * @param int $success РУ.
+     * @param list<string> $bits Что получила цель.
+     * @param array<string, mixed> $push Данные толчка.
+     *
+     * @return string Текст.
+     */
+    private function pushResultText(string $attacker, string $defender, int $success, array $bits, array $push): string
+    {
+        if ($success <= 0) {
+            return $attacker . ' не толкает ' . $defender . '.';
+        }
+
+        $text = $attacker . ' толкает ' . $defender . ' с ' . $success . ' РУ';
+        if ($bits !== []) {
+            $text .= ' и наносит ' . implode(' и ', $bits);
+        }
+
+        $text .= '!';
+        $knockback = $push['knockback'] ?? null;
+        if (
+            is_array($knockback)
+            && is_int($knockback['base'] ?? null)
+            && is_int($knockback['size'] ?? null)
+        ) {
+            $text .= ' Отбрасывает на ' . $this->chat->getDimensionalText($knockback) . ' ипари.';
+        }
+
+        return $text;
     }
 
     /**

@@ -82,7 +82,7 @@ final class RuleRevisionSpecGuard
                     'code' => $record->getCode(),
                     'type' => $record->getType(),
                     'name' => $record->getName(),
-                    'spec' => $record->getSpecSource(),
+                    'spec' => $record->getSpecDocument(),
                 ];
             }
         }
@@ -117,7 +117,7 @@ final class RuleRevisionSpecGuard
                     'code' => $record->getCode(),
                     'type' => $record->getType(),
                     'name' => $record->getName(),
-                    'spec' => $record->getSpecSource(),
+                    'spec' => $record->getSpecDocument(),
                 ];
             }
         }

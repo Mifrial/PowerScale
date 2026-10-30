@@ -88,6 +88,8 @@ final class GameStrikePortFactory
             $events,
             $this->consequences($serviceLocator, $rules),
             $this->cardAvailability($serviceLocator, $gateway, $rules),
+            new GamePushRules($rules, $this->checkRoll($serviceLocator)),
+            $this->createStateIncreaseChecks($serviceLocator),
         );
     }
 
@@ -125,6 +127,8 @@ final class GameStrikePortFactory
             $events,
             $this->consequences($serviceLocator, $rules),
             $this->cardAvailability($serviceLocator, $gateway, $rules),
+            new GamePushRules($rules, $this->checkRoll($serviceLocator)),
+            $this->createStateIncreaseChecks($serviceLocator),
         );
     }
 
@@ -537,6 +541,8 @@ final class GameStrikePortFactory
         return new GameStrikeConsequences(
             $rules,
             $this->checkRoll($serviceLocator),
+            new GameStateCheck($this->checkRoll($serviceLocator), new GameStateIncreaseRule()),
+            new GameStateDecline(),
             $this->formulaContexts($serviceLocator),
             $this->mechanics($serviceLocator),
             $this->engine($serviceLocator),
@@ -650,8 +656,8 @@ final class GameStrikePortFactory
     {
         return new GameStateIncreaseChecks(
             $this->strikeRules($serviceLocator),
-            $this->checkRoll($serviceLocator),
-            new GameStateIncreaseRule(),
+            new GameStateCheck($this->checkRoll($serviceLocator), new GameStateIncreaseRule()),
+            new GameStateDecline(),
         );
     }
 

@@ -24,6 +24,8 @@ import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageMod
 import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { bestCombatMastery } from '@/modules/Roleplay/Game/Utils/strikeCharacteristicMods';
 import { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/init';
+import { SLASHING_DAMAGE_TYPE_CODE } from '@/modules/Roleplay/Rule/Constant/DamageType/SLASHING_DAMAGE_TYPE_CODE';
+import { BLUNT_DAMAGE_TYPE_CODE } from '@/modules/Roleplay/Rule/Constant/DamageType/BLUNT_DAMAGE_TYPE_CODE';
 import { weaponAttackRangeService } from '@/modules/Roleplay/Character/init';
 import { withRangedHitBreakdown } from '@/modules/Roleplay/Game/Utils/rangedHitDifficultyRows';
 
@@ -67,10 +69,7 @@ export class HitRollService {
    * Штраф к эффективности уклонения от атаки указанного профиля.
    * Сейчас контент задаёт только `shoot`, поэтому бросок штраф не получает.
    */
-  dodgeRangedPenalty(
-    rules: Rule[],
-    profileType: string,
-  ): { distance: DimensionalNumberValue; delta: number } | null {
+  dodgeRangedPenalty(rules: Rule[], profileType: string): { distance: DimensionalNumberValue; delta: number } | null {
     for (const rule of rules) {
       if (rule.type !== 'ability') continue;
       const spec = rule.spec as AbilitySpecBase | null | undefined;
@@ -145,7 +144,7 @@ export class HitRollService {
   listBlockProfiles(
     version: CharacterVersion | null,
     rules: Rule[],
-    options: { shieldsOnly?: boolean } = {},
+    options: { shieldsOnly?: boolean; blockProfiles?: string } = {},
     keywords: readonly Keyword[] = [],
   ): HitBlockProfile[] {
     if (!version) return [];
@@ -163,6 +162,20 @@ export class HitRollService {
         modifiers,
         itemModifierService.keywordCodes(rule, keywords),
       ).spec;
+      const policy = options.blockProfiles ?? 'any';
+      if (policy === 'none') continue;
+      if (policy === 'hands_or_shield' && !stacked.innate && !stacked.shield) continue;
+      if (policy === 'shield_only' && !stacked.shield) continue;
+      if (policy === 'slashing_or_blunt_strike') {
+        const profiles = [...(stacked.weapon?.weapon_profiles ?? []), ...(stacked.shield?.weapon_profiles ?? [])];
+        const fits = profiles.some(
+          (profile) =>
+            profile.type === 'strike' &&
+            (profile.damage?.damage_type_code === SLASHING_DAMAGE_TYPE_CODE ||
+              profile.damage?.damage_type_code === BLUNT_DAMAGE_TYPE_CODE),
+        );
+        if (!fits) continue;
+      }
       const block = options.shieldsOnly && !stacked.shield ? undefined : stacked.block_profile;
       if (!block) continue;
       profiles.push({

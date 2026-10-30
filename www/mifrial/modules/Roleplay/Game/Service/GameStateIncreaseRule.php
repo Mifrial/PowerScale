@@ -38,7 +38,7 @@ final class GameStateIncreaseRule
             throw new GameInvalidException('Game state increase is invalid');
         }
 
-        if ($state->getIncreaseCheckCode() !== $checkCode) {
+        if ($state->getIncreaseCheckCode() !== $checkCode && $state->getCheckCode() !== $checkCode) {
             throw new GameInvalidException('Game state increase check is invalid');
         }
 
