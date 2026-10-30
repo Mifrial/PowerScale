@@ -2257,6 +2257,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/game-plan-38-action-states.md",
+                    "title": "План 38 — состояния из действия и подавление состояний",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/game-system.md",
                     "title": "Система игр",
                     "kind": "canon",

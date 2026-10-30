@@ -638,6 +638,186 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Действие пишет состояния: лечь, встать, снять неустойчивость.
+     *
+     * @return void
+     */
+    public function testActionWritesStatesAndSuppressesUnstable(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->stateActionRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $heroId = $this->admit($world->getId(), $gameId, 'Hero', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-states',
+            'participants' => [['type' => 'character', 'id' => $heroId]],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $version = 1;
+
+        $version = $this->runStateAction($gameId, $battleId, $version, 'u-1', $heroId, 'apply-unstable');
+        self::assertEquals([['stateRuleCode' => 'unstable', 'value' => 2, 'id' => 1]], $this->statesOf($heroId));
+        self::assertSame(19, $this->actionPointsOf($heroId));
+
+        $version = $this->runStateAction($gameId, $battleId, $version, 's-1', $heroId, 'stand-up');
+        self::assertEquals([['stateRuleCode' => 'lying', 'id' => 1]], $this->statesOf($heroId));
+        self::assertSame(16, $this->actionPointsOf($heroId));
+
+        $version = $this->runStateAction($gameId, $battleId, $version, 'u-2', $heroId, 'apply-unstable');
+        self::assertEquals([['stateRuleCode' => 'lying', 'id' => 1]], $this->statesOf($heroId));
+        self::assertSame(15, $this->actionPointsOf($heroId));
+
+        $version = $this->runStateAction($gameId, $battleId, $version, 'r-1', $heroId, 'recover-stability');
+        self::assertEquals([['stateRuleCode' => 'lying', 'id' => 1]], $this->statesOf($heroId));
+        self::assertSame(13, $this->actionPointsOf($heroId));
+
+        $version = $this->runStateAction($gameId, $battleId, $version, 's-2', $heroId, 'stand-up');
+        self::assertEquals([], $this->statesOf($heroId));
+        self::assertSame(10, $this->actionPointsOf($heroId));
+
+        $version = $this->runStateAction($gameId, $battleId, $version, 'u-3', $heroId, 'apply-unstable');
+        self::assertEquals([['stateRuleCode' => 'unstable', 'value' => 2, 'id' => 1]], $this->statesOf($heroId));
+        self::assertSame(9, $this->actionPointsOf($heroId));
+    }
+
+    /**
+     * Состояния и действия сценария.
+     *
+     * @return array<string, array<string, mixed>> Правила мира.
+     */
+    private function stateActionRules(): array
+    {
+        return [
+            'action-points' => [
+                'type' => 'resource',
+                'name' => 'Action points',
+                'spec' => [
+                    'is_dimensional' => false,
+                    'auto_add' => true,
+                    'check_token' => false,
+                    'turn_refill' => true,
+                    'limit' => ['base' => 20, 'adjustments' => []],
+                ],
+            ],
+            'lying' => [
+                'type' => 'state',
+                'name' => 'Lying',
+                'spec' => [
+                    'value_type' => 'flag',
+                    'aggregation' => 'sum',
+                    'lying' => true,
+                    'suppressed_state_codes' => ['unstable'],
+                ],
+            ],
+            'unstable' => [
+                'type' => 'state',
+                'name' => 'Unstable',
+                'spec' => ['value_type' => 'number', 'aggregation' => 'sum', 'unstable' => true],
+            ],
+            'stand-up' => [
+                'type' => 'ability',
+                'name' => 'Stand up',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'action_components' => [[
+                        'type' => 'resource',
+                        'resource_code' => 'action-points',
+                        'amount' => 3,
+                    ]],
+                    'operations' => [['type' => 'posture', 'posture' => 'standing_or_prone']],
+                ],
+            ],
+            'recover-stability' => [
+                'type' => 'ability',
+                'name' => 'Recover stability',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'combat_action' => 'recover-stability',
+                    'action_components' => [[
+                        'type' => 'resource',
+                        'resource_code' => 'action-points',
+                        'amount' => 2,
+                    ]],
+                ],
+            ],
+            'apply-unstable' => [
+                'type' => 'ability',
+                'name' => 'Apply unstable',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'action_components' => [[
+                        'type' => 'resource',
+                        'resource_code' => 'action-points',
+                        'amount' => 1,
+                    ]],
+                    'action_effects' => [[
+                        'type' => 'apply_state',
+                        'state_code' => 'unstable',
+                        'amount' => 2,
+                    ]],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Выполняет действие и возвращает версию боя из ответа.
+     *
+     * @param int $gameId Игра.
+     * @param int $battleId Бой.
+     * @param int $version Версия боя.
+     * @param string $key Ключ идемпотентности.
+     * @param int $heroId Персонаж.
+     * @param string $code Карточка.
+     *
+     * @return int Версия боя.
+     */
+    private function runStateAction(
+        int $gameId,
+        int $battleId,
+        int $version,
+        string $key,
+        int $heroId,
+        string $code,
+    ): int {
+        $response = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => $key,
+            'expectedVersion' => $version,
+            'action' => $this->actionEnvelope([
+                'expectedSheetVersion' => $this->characterFacade()->get($heroId)->getActualVersion(),
+                'actor' => ['type' => 'character', 'id' => $heroId],
+                'actionRuleCode' => $code,
+                'followUpTargetKey' => null,
+            ]),
+        ]);
+        self::assertTrue($response['success'], json_encode($response));
+
+        return $response['data']['version'];
+    }
+
+    /**
+     * Строки состояний персонажа.
+     *
+     * @param int $characterId Персонаж.
+     *
+     * @return array<int, mixed> Строки.
+     */
+    private function statesOf(int $characterId): array
+    {
+        return $this->characterFacade()->get($characterId)->getSheet()['states'] ?? [];
+    }
+
+    /**
      * Чат одиночного удара: порядок, вложения и ключи доставки.
      *
      * @return void

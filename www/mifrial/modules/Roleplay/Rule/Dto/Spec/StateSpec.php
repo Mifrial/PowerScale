@@ -29,6 +29,7 @@ final class StateSpec implements RuleSpec
      * @param bool $lying Лежачее положение.
      * @param bool $unstable Неустойчивость.
      * @param bool $magicDeviation Отклонение магии.
+     * @param array $suppressedStateCodes Коды подавляемых состояний.
      * @param array<int, \Mifrial\Roleplay\Rule\Dto\Spec\State\StateEffect> $effects Эффекты.
      *
      * @return void
@@ -51,6 +52,7 @@ final class StateSpec implements RuleSpec
         private readonly bool $lying,
         private readonly bool $unstable,
         private readonly bool $magicDeviation,
+        private readonly array $suppressedStateCodes,
         private readonly array $effects,
     ) {
     }
@@ -233,6 +235,16 @@ final class StateSpec implements RuleSpec
     public function isMagicDeviation(): bool
     {
         return $this->magicDeviation;
+    }
+
+    /**
+     * Коды состояний, которые это состояние снимает и не даёт получить.
+     *
+     * @return array Список кодов.
+     */
+    public function getSuppressedStateCodes(): array
+    {
+        return $this->suppressedStateCodes;
     }
 
     /**

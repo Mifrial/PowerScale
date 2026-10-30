@@ -59,6 +59,74 @@ final class CharacterActualStateTest extends TestCase
     }
 
     /**
+     * Активное состояние снимает подавляемые строки.
+     *
+     * @return void
+     */
+    public function testSuppressorRemovesSuppressedRows(): void
+    {
+        $patched = $this->mutations($this->slice([
+            $this->state('lying', 'flag', ['suppressed_state_codes' => ['unstable']]),
+            $this->state('unstable', 'number'),
+            $this->state('other', 'flag'),
+        ]))->applyToDocument(1, 1, ['money' => 1], [
+            'states' => [
+                ['stateRuleCode' => 'unstable', 'value' => 2, 'id' => 1],
+                ['stateRuleCode' => 'other', 'id' => 2],
+            ],
+        ], [['kind' => 'putState', 'stateRuleCode' => 'lying']]);
+
+        self::assertSame([
+            ['stateRuleCode' => 'other', 'id' => 2],
+            ['stateRuleCode' => 'lying', 'id' => 3],
+        ], $patched['sheet']['states']);
+    }
+
+    /**
+     * Пока подавитель активен, подавляемое состояние не пишется.
+     *
+     * @return void
+     */
+    public function testSuppressedStateIsNotWritten(): void
+    {
+        $sheet = [
+            'states' => [
+                ['stateRuleCode' => 'lying', 'id' => 1],
+            ],
+        ];
+        $patched = $this->mutations($this->slice([
+            $this->state('lying', 'flag', ['suppressed_state_codes' => ['unstable']]),
+            $this->state('unstable', 'number'),
+        ]))->applyToDocument(1, 1, ['money' => 1], $sheet, [
+            ['kind' => 'putState', 'stateRuleCode' => 'unstable', 'value' => 3],
+        ]);
+
+        self::assertSame($sheet['states'], $patched['sheet']['states']);
+    }
+
+    /**
+     * После снятия подавителя состояние снова пишется.
+     *
+     * @return void
+     */
+    public function testRemovedSuppressorAllowsStateAgain(): void
+    {
+        $patched = $this->mutations($this->slice([
+            $this->state('lying', 'flag', ['suppressed_state_codes' => ['unstable']]),
+            $this->state('unstable', 'number'),
+        ]))->applyToDocument(1, 1, ['money' => 1], [
+            'states' => [['stateRuleCode' => 'lying', 'id' => 1]],
+        ], [
+            ['kind' => 'removeState', 'id' => 1],
+            ['kind' => 'putState', 'stateRuleCode' => 'unstable', 'value' => 2],
+        ]);
+
+        self::assertSame([
+            ['stateRuleCode' => 'unstable', 'value' => 2, 'id' => 1],
+        ], $patched['sheet']['states']);
+    }
+
+    /**
      * Resource spend is applied in the same prepared document mutation.
      *
      * @return void
@@ -596,12 +664,6 @@ final class CharacterActualStateTest extends TestCase
     }
 
     /**
-     * @param string $code Код фикстуры.
-     * @param string $valueType value_type.
-     *
-     * @return CharacterResolvedRule Карточка state.
-     */
-    /**
      * @param array{base: int, size: int} $remainder Остаток.
      * @param int $quotient Частное.
      *
@@ -624,9 +686,16 @@ final class CharacterActualStateTest extends TestCase
         return $this->rule($code, 'state', ['value_type' => $valueType, $flag => true]);
     }
 
-    private function state(string $code, string $valueType): CharacterResolvedRule
+    /**
+     * @param string $code Код фикстуры.
+     * @param string $valueType value_type.
+     * @param array<string, mixed> $extra Дополнительные поля спеки.
+     *
+     * @return CharacterResolvedRule Карточка state.
+     */
+    private function state(string $code, string $valueType, array $extra = []): CharacterResolvedRule
     {
-        return $this->rule($code, 'state', ['value_type' => $valueType]);
+        return $this->rule($code, 'state', ['value_type' => $valueType, ...$extra]);
     }
 
     /**

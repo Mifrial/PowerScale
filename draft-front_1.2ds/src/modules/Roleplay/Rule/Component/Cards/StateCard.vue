@@ -67,6 +67,10 @@ function nameByCode(code: string): string {
           Действия с попапа:
           <strong>{{ spec.action_codes.map(nameByCode).join(', ') }}</strong>
         </div>
+        <div v-if="spec.suppressed_state_codes?.length" class="text-body-2 mt-1">
+          Подавляет:
+          <strong>{{ spec.suppressed_state_codes.map(nameByCode).join(', ') }}</strong>
+        </div>
       </v-card-text>
     </v-card>
 

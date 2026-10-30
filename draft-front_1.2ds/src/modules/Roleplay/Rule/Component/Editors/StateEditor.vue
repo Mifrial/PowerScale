@@ -56,6 +56,7 @@ function stateFromSpec(value: RuleSpec | null): StateSpec {
     lying: existing.lying === true,
     unstable: existing.unstable === true,
     magic_deviation: existing.magic_deviation === true,
+    suppressed_state_codes: existing.suppressed_state_codes ?? [],
     effects: existing.effects ?? [],
   };
 }
@@ -85,6 +86,11 @@ const aggregationOptions: { title: string; value: StateAggregation }[] = [
 ];
 const checkOptions = computed(() =>
   props.rules.filter((rule) => rule.type === 'check').map((rule) => ({ title: rule.name, value: rule.code })),
+);
+const stateOptions = computed(() =>
+  props.rules
+    .filter((rule) => rule.type === 'state' && rule.spaceId === props.spaceId && rule.code !== props.code)
+    .map((rule) => ({ title: rule.name, value: rule.code })),
 );
 const actionRuleOptions = computed(() =>
   props.rules
@@ -120,6 +126,9 @@ const specToEmit = computed<StateSpec>(() => ({
   ...(innerSpec.value.lying ? { lying: true } : {}),
   ...(innerSpec.value.unstable ? { unstable: true } : {}),
   ...(innerSpec.value.magic_deviation ? { magic_deviation: true } : {}),
+  ...(innerSpec.value.suppressed_state_codes?.length
+    ? { suppressed_state_codes: innerSpec.value.suppressed_state_codes }
+    : {}),
   effects: (innerSpec.value.effects ?? []).map(effectWithoutEmptyDamageType),
 }));
 
@@ -299,6 +308,20 @@ function effectTitle(effect: StateEffect): string {
             :items="checkOptions"
             label="Проверка"
             density="compact"
+            clearable
+          />
+
+          <v-autocomplete
+            v-model="innerSpec.suppressed_state_codes"
+            class="mt-3"
+            :items="stateOptions"
+            label="Подавляет состояния"
+            hint="Эти состояния снимаются при получении и не набираются, пока это состояние активно"
+            persistent-hint
+            density="compact"
+            multiple
+            chips
+            closable-chips
             clearable
           />
 

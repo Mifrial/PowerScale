@@ -256,6 +256,7 @@ final class RootSpecs
             SpecShape::bool($document, 'lying'),
             SpecShape::bool($document, 'unstable'),
             SpecShape::bool($document, 'magic_deviation'),
+            SpecShape::stringList($document, 'suppressed_state_codes'),
             StateEffects::list($document),
         );
     }

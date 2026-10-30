@@ -1283,6 +1283,9 @@ export class RuleValidationService {
         for (const code of state.action_codes ?? []) {
           collect({ code, type: 'ability' });
         }
+        for (const code of state.suppressed_state_codes ?? []) {
+          collect({ code, type: 'state' });
+        }
         if (state.check_code) {
           collect({ code: state.check_code, type: 'check' });
         }

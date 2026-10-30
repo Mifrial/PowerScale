@@ -21,6 +21,8 @@ final class GameActionPerform
 {
     private readonly GameActionChosenAmounts $chosen;
 
+    private readonly GameActionStates $states;
+
     /**
      * Создаёт сценарий.
      *
@@ -42,6 +44,7 @@ final class GameActionPerform
         private readonly GameCardAvailability $availability,
     ) {
         $this->chosen = new GameActionChosenAmounts();
+        $this->states = new GameActionStates();
     }
 
     /**
@@ -203,6 +206,7 @@ final class GameActionPerform
             $actorId,
             $expectedSheetVersion,
             $priced,
+            $prepared['operations'],
             $projectConflict,
         );
 
@@ -255,7 +259,8 @@ final class GameActionPerform
      * @return array{
      *     slice: CharacterRuleSlice,
      *     document: array{actualVersion: int, choices: array<string, mixed>, sheet: array<string, mixed>},
-     *     spends: array<int, ResourceSpend>
+     *     spends: array<int, ResourceSpend>,
+     *     operations: list<array<string, mixed>>
      * } Подготовка.
      *
      * @throws GameInvalidException Если карточка или ресурсы не подходят.
@@ -276,8 +281,14 @@ final class GameActionPerform
         $chosen = $this->chosen->resolve($slice, $spec, $document['sheet'], $allowZeroChosen);
         $chosen = array_replace($chosen, $chosenAmounts);
         $spends = $this->resolveSpends($game, $actionRuleCode, $document, $chosen, $allowZeroChosen);
+        $operations = $this->states->operations($slice, $document['sheet'], $spec);
 
-        return ['slice' => $slice, 'document' => $document, 'spends' => $spends];
+        return [
+            'slice' => $slice,
+            'document' => $document,
+            'spends' => $spends,
+            'operations' => $operations,
+        ];
     }
 
     /**
@@ -391,6 +402,7 @@ final class GameActionPerform
      * @param int $actorId Идентификатор актора.
      * @param int $expectedSheetVersion Версия листа.
      * @param array<string, mixed> $priced Цена.
+     * @param list<array<string, mixed>> $operations Операции листа.
      * @param Closure|null $projectConflict Проектор конфликта.
      *
      * @return int Новая версия.
@@ -405,6 +417,7 @@ final class GameActionPerform
         int $actorId,
         int $expectedSheetVersion,
         array $priced,
+        array $operations,
         ?Closure $projectConflict,
     ): int {
         return $this->sheetWrites->write(
@@ -412,7 +425,7 @@ final class GameActionPerform
             $actorKind,
             $actorId,
             $expectedSheetVersion,
-            [],
+            $operations,
             ['type' => $actorKind, 'id' => $actorId],
             $projectConflict,
             $priced['spends'],

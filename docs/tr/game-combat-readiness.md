@@ -226,8 +226,15 @@ penetration, action-point eligibility/spend и production reliability handler.
 
 - Повреждения как размерный остаток — `BACKEND`.
 - Истощение как целое частное — `BACKEND`.
-- Произвольная запись состояний через общий Character mutation port —
-  `BACKEND` как возможность Character, но не как боевой producer.
+- Произвольная запись состояний через общий Character mutation port и
+  producer из действия — `BACKEND`: `apply_state`, операция `posture`
+  («Лечь или встать») и `combat_action: recover-stability` исполняются общим
+  сценарием действия ([`game-plan-38-action-states.md`](game-plan-38-action-states.md)).
+- Подавление состояний — свойство спеки состояния
+  (`suppressed_state_codes`): активное состояние снимает перечисленные строки
+  при получении и не даёт набрать их, пока оно на листе. Исполняет
+  `CharacterActualStateRows`, поэтому правило работает для всех продюсеров
+  (действия, удары, проверки, тики), а не только для действий.
 - Автоматические state hooks у типов урона —
   `FRONTEND + BACKEND_MISSING + E2E_MISSING`.
 

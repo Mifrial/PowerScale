@@ -10,12 +10,14 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\AfterActionUntilResourceSpentCheckModifierEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ApplyStateEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackAccuracyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackCostEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackDodgeSoakFromReactionEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionAttackScoreAdjustEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\NextActionCostEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\RequirePreviousAttackEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\PostureOperation;
 
 /**
  * Поиск и проверка не-атакующих карточек действия.
@@ -82,7 +84,7 @@ final class GameActionCards
      * Проверяет, что общий серверный сценарий умеет применить карточку.
      *
      * Поддержка определяется составом спецификации, а не кодом карточки:
-     * только ресурсные компоненты, без операций и с известными эффектами.
+     * только ресурсные компоненты, операция posture и известные эффекты.
      *
      * @param CharacterRuleSlice $slice Срез правил.
      * @param string $actionRuleCode Карточка.
@@ -100,8 +102,10 @@ final class GameActionCards
             }
         }
 
-        if ($spec->getOperations() !== []) {
-            throw new GameInvalidException('Game action operations are not supported on the server');
+        foreach ($spec->getOperations() as $operation) {
+            if (!$operation instanceof PostureOperation) {
+                throw new GameInvalidException('Game action operation is not supported on the server');
+            }
         }
 
         foreach ($spec->getBase()->getActionEffects() as $effect) {
@@ -141,6 +145,7 @@ final class GameActionCards
     private function isServerEffect(ActionEffect $effect): bool
     {
         return $effect instanceof RequirePreviousAttackEffect
+            || $effect instanceof ApplyStateEffect
             || $effect instanceof NextActionAttackAccuracyEffect
             || $effect instanceof NextActionAttackScoreAdjustEffect
             || $effect instanceof NextActionAttackDodgeSoakFromReactionEffect

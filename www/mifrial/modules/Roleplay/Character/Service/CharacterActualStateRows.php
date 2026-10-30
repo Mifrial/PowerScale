@@ -214,8 +214,17 @@ final class CharacterActualStateRows
         $rows = $this->rowsOf($sheet);
         $spec = $this->specOf($slice, $code);
         $this->assertMaimKey($operation, $spec);
+        if ($this->isSuppressed($rows, $slice, $code)) {
+            return $sheet;
+        }
+
         if ($this->isDecline($spec)) {
             $rows = $this->withoutDecline($rows, $slice);
+        }
+
+        $suppressed = $spec->getSuppressedStateCodes();
+        if ($suppressed !== []) {
+            $rows = $this->withoutCodes($rows, $suppressed);
         }
 
         $row = $this->row($code, $operation, $spec);
@@ -252,6 +261,51 @@ final class CharacterActualStateRows
     private function isDecline(StateSpec $spec): bool
     {
         return $spec->isDeclineWeakness() || $spec->isDeclineDisabled() || $spec->isDeclineUnconscious();
+    }
+
+    /**
+     * Активное состояние уже подавляет это.
+     *
+     * @param array<int, mixed> $rows Строки листа.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $code Код кладёмого состояния.
+     *
+     * @return bool true, если состояние получить нельзя.
+     */
+    private function isSuppressed(array $rows, CharacterRuleSlice $slice, string $code): bool
+    {
+        foreach ($rows as $row) {
+            $active = is_array($row) ? ($row['stateRuleCode'] ?? null) : null;
+            $spec = is_string($active) ? $slice->findLive($active)?->getSpec() : null;
+            if ($spec instanceof StateSpec && in_array($code, $spec->getSuppressedStateCodes(), true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Убирает строки перечисленных кодов.
+     *
+     * @param array<int, mixed> $rows Строки.
+     * @param array $codes Коды.
+     *
+     * @return array<int, mixed> Строки.
+     */
+    private function withoutCodes(array $rows, array $codes): array
+    {
+        $kept = [];
+        foreach ($rows as $row) {
+            $code = is_array($row) ? ($row['stateRuleCode'] ?? null) : null;
+            if (is_string($code) && in_array($code, $codes, true)) {
+                continue;
+            }
+
+            $kept[] = $row;
+        }
+
+        return $kept;
     }
 
     /**

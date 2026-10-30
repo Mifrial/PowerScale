@@ -57,5 +57,10 @@ export interface StateSpec {
   unstable?: boolean;
   /** Отклонение на ядре после провала сотворения. Нет флага — не пишется и не затухает. */
   magic_deviation?: boolean;
+  /**
+   * Коды состояний, которые это состояние снимает при получении и не даёт получить,
+   * пока активно. Пусто — подавления нет.
+   */
+  suppressed_state_codes?: string[];
   effects?: StateEffect[];
 }

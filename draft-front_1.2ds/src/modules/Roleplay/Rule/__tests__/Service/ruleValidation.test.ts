@@ -388,6 +388,29 @@ describe('validateRuleReferences', () => {
     expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
   });
 
+  it('reports missing suppressed state ref and passes for a live one', () => {
+    const live: Rule[] = [
+      baseRule(null, 'unstable', 'state', { value_type: 'number', aggregation: 'sum' }),
+      baseRule(null, 'lying', 'state', {
+        value_type: 'flag',
+        aggregation: 'sum',
+        suppressed_state_codes: ['unstable'],
+      }),
+    ];
+    expect(ruleValidationService.validateRuleReferences(live, [])).toEqual([]);
+
+    const broken: Rule[] = [
+      baseRule(null, 'lying', 'state', {
+        value_type: 'flag',
+        aggregation: 'sum',
+        suppressed_state_codes: ['missing'],
+      }),
+    ];
+    const errors = ruleValidationService.validateRuleReferences(broken, []);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ refCode: 'missing', expectedType: 'state' });
+  });
+
   it('reports missing characteristic ref in a check-based decay', () => {
     const rules: Rule[] = [
       baseRule(null, 'poison', 'state', {
