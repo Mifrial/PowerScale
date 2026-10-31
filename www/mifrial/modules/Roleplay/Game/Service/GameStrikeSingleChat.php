@@ -41,6 +41,7 @@ final class GameStrikeSingleChat
      * @param int $strikeId Удар.
      * @param string $reaction Реакция.
      * @param array<string, mixed> $result Итог.
+     * @param array<string, mixed>|null $strengthRoll Проверка Силы до итога.
      *
      * @return void
      */
@@ -52,6 +53,7 @@ final class GameStrikeSingleChat
         int $strikeId,
         string $reaction,
         array $result,
+        ?array $strengthRoll = null,
     ): void {
         $threadId = 'attack-' . $strikeId;
         $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
@@ -113,19 +115,26 @@ final class GameStrikeSingleChat
             }
         }
 
-        $exhaustion = $result['exhaustionDelta'] ?? 0;
-        $wound = $result['wound'] ?? 0;
-        $success = $result['success'] ?? 0;
-        $bits = $push !== null && $exhaustion === 0 ? [] : [$exhaustion . ' истощения'];
+        $exhaustion = is_int($result['exhaustionDelta'] ?? null) ? $result['exhaustionDelta'] : 0;
+        $wound = is_int($result['wound'] ?? null) ? $result['wound'] : 0;
+        $success = is_int($result['success'] ?? null) ? $result['success'] : 0;
+        $unstable = $push !== null && is_int($push['unstable'] ?? null) ? $push['unstable'] : 0;
+        $unstableCode = $push !== null && is_string($push['unstableCode'] ?? null)
+            ? $push['unstableCode']
+            : null;
+        $unstableName = $unstableCode === null
+            ? null
+            : ($slice->findLive($unstableCode)?->getName() ?? $unstableCode);
+        $bits = [];
+        if ($push === null || $exhaustion > 0) {
+            $bits[] = $exhaustion . ' истощения';
+        }
+
         if ($wound > 0) {
             $bits[] = $wound . ' рану';
         }
 
-        if ($push !== null && is_int($push['unstable'] ?? null) && $push['unstable'] > 0) {
-            $bits[] = $push['unstable'] . ' Неустойчивости';
-        }
-
-        if ($bits === []) {
+        if ($push === null && $bits === []) {
             $bits[] = '0 истощения';
         }
 
@@ -138,6 +147,20 @@ final class GameStrikeSingleChat
             ),
         ] : null;
         $maim = isset($result['maim']) ? $this->chat->getMaimPayload($defender, $result['maim'], $typeBit) : null;
+        $beforeOutcome = null;
+        if ($strengthRoll !== null) {
+            $label = is_string($strengthRoll['label'] ?? null) && $strengthRoll['label'] !== ''
+                ? $strengthRoll['label']
+                : 'проверка';
+            $dodgeFailed = $reaction === 'dodge';
+            $prefix = $dodgeFailed ? $defender . ' не успевает уклониться — ' : '';
+            $adverb = $dodgeFailed ? 'беспрепятственно ' : '';
+            $beforeOutcome = [
+                'text' => $prefix . $attacker . ' ' . $adverb . 'совершает проверку «' . $label . '».',
+                'roll' => $strengthRoll,
+            ];
+        }
+
         $this->consequences->post(
             $game,
             $actorUserId,
@@ -147,7 +170,7 @@ final class GameStrikeSingleChat
             $narrative,
             $result['attackerRoll'],
             $push !== null
-                ? $this->pushResultText($attacker, $defender, $success, $bits, $push)
+                ? $this->pushResultText($attacker, $defender, $success, $bits, $unstable, $unstableName, $push)
                 : ($success > 0
                     ? $attacker . ' попадает по ' . $defender . ' с ' . $success
                         . ' РУ и наносит ' . implode(' и ', $bits) . '!'
@@ -182,18 +205,19 @@ final class GameStrikeSingleChat
             $this->chat->getSpeakerOf($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0),
             is_array($result['defenderRoll'] ?? null) ? $result['defenderRoll'] : null,
             $parentId,
+            $beforeOutcome,
         );
     }
 
     /**
-     * Дополнительные проверки толчка: Сила и Неустойчивость.
+     * Дополнительные проверки после итога: прирост состояний.
      *
      * @param GameRecord $game Игра.
      * @param GameBattleRecord $battle Бой.
      * @param array<string, mixed> $open Открытый удар.
      * @param int $actorUserId Актор.
      * @param int $strikeId Удар.
-     * @param list<array{roll: array<string, mixed>, text: string}> $checks Проверки.
+     * @param list<array{roll: array<string, mixed>, text: string, verdict: string|null}> $checks Проверки.
      *
      * @return void
      */
@@ -207,16 +231,33 @@ final class GameStrikeSingleChat
     ): void {
         $threadId = 'attack-' . $strikeId;
         $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
+        $defender = $this->chat->getEntityToken($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
         $speaker = $this->chat->getSpeakerOf($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
         foreach ($checks as $entry) {
             if (!is_array($entry) || !is_array($entry['roll'] ?? null)) {
                 continue;
             }
 
-            $this->consequences->postRolls($game, $actorUserId, $threadId, [$entry['roll']], $speaker, $parentId);
             $text = is_string($entry['text'] ?? null) ? $entry['text'] : '';
-            if ($text !== '') {
-                $this->consequences->postLines($game, $actorUserId, $threadId, [$text], $speaker, $parentId);
+            $this->consequences->postCheck(
+                $game,
+                $actorUserId,
+                $threadId,
+                $defender . ' ' . $text,
+                $entry['roll'],
+                $speaker,
+                $parentId,
+            );
+            $verdict = is_string($entry['verdict'] ?? null) ? $entry['verdict'] : '';
+            if ($verdict !== '') {
+                $this->consequences->postLines(
+                    $game,
+                    $actorUserId,
+                    $threadId,
+                    [$defender . ' ' . $verdict],
+                    $speaker,
+                    $parentId,
+                );
             }
         }
     }
@@ -227,30 +268,44 @@ final class GameStrikeSingleChat
      * @param string $attacker Толкающий.
      * @param string $defender Цель.
      * @param int $success РУ.
-     * @param list<string> $bits Что получила цель.
+     * @param list<string> $bits Урон и раны.
+     * @param int $unstable Неустойчивость.
+     * @param string|null $unstableName Имя состояния Неустойчивости.
      * @param array<string, mixed> $push Данные толчка.
      *
      * @return string Текст.
      */
-    private function pushResultText(string $attacker, string $defender, int $success, array $bits, array $push): string
-    {
+    private function pushResultText(
+        string $attacker,
+        string $defender,
+        int $success,
+        array $bits,
+        int $unstable,
+        ?string $unstableName,
+        array $push,
+    ): string {
         if ($success <= 0) {
             return $attacker . ' не толкает ' . $defender . '.';
         }
 
         $text = $attacker . ' толкает ' . $defender . ' с ' . $success . ' РУ';
-        if ($bits !== []) {
-            $text .= ' и наносит ' . implode(' и ', $bits);
-        }
-
-        $text .= '!';
         $knockback = $push['knockback'] ?? null;
         if (
             is_array($knockback)
             && is_int($knockback['base'] ?? null)
             && is_int($knockback['size'] ?? null)
         ) {
-            $text .= ' Отбрасывает на ' . $this->chat->getDimensionalText($knockback) . ' ипари.';
+            $text .= ' и отбрасывает на ' . $this->chat->getDimensionalText($knockback) . ' ипари';
+        }
+
+        $text .= '!';
+        if ($bits !== []) {
+            $text .= ' ' . $attacker . ' наносит ' . implode(' и ', $bits) . '.';
+        }
+
+        if ($unstable > 0) {
+            $name = $unstableName !== null && $unstableName !== '' ? $unstableName : 'состояние';
+            $text .= ' ' . $defender . ' получает ' . $name . ' ' . $unstable . '.';
         }
 
         return $text;

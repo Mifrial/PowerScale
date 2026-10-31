@@ -288,6 +288,7 @@ final class GameStrikeConsequences
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
      * @param array<string, mixed>|null $defenseRoll Бросок защиты.
      * @param string|null $parentId Родительский ход.
+     * @param array{text: string, roll: array<string, mixed>}|null $beforeOutcome Проверка до итога.
      *
      * @return void
      */
@@ -306,6 +307,7 @@ final class GameStrikeConsequences
         ?array $speaker = null,
         ?array $defenseRoll = null,
         ?string $parentId = null,
+        ?array $beforeOutcome = null,
     ): void {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
@@ -325,6 +327,10 @@ final class GameStrikeConsequences
             }
 
             $this->sendRolls($chatId, $actorUserId, $rolls, $thread, $speaker);
+            if ($beforeOutcome !== null) {
+                $this->sendCheck($chatId, $actorUserId, $beforeOutcome, $thread, $speaker);
+            }
+
             $this->sendOutcome($chatId, $actorUserId, $result, $calc, $will, $maim, $thread, $speaker);
         } catch (ChatNotFoundException $exception) {
             throw new GameInvalidException('Game chat member is invalid', $exception);
@@ -365,6 +371,40 @@ final class GameStrikeConsequences
         $chatId = $this->chatId($game);
         try {
             $this->sendRolls($chatId, $actorUserId, $rolls, $this->attackThread($threadId, $parentId), $speaker);
+        } catch (ChatNotFoundException $exception) {
+            throw new GameInvalidException('Game chat member is invalid', $exception);
+        }
+    }
+
+    /**
+     * Проверка с текстом в одном сообщении.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param string $threadId Нить.
+     * @param string $text Текст проверки.
+     * @param array<string, mixed> $roll Бросок.
+     * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     * @param string|null $parentId Родительский ход.
+     */
+    public function postCheck(
+        GameRecord $game,
+        int $actorUserId,
+        string $threadId,
+        string $text,
+        array $roll,
+        ?array $speaker = null,
+        ?string $parentId = null,
+    ): void {
+        $chatId = $this->chatId($game);
+        try {
+            $this->sendCheck(
+                $chatId,
+                $actorUserId,
+                ['text' => $text, 'roll' => $roll],
+                $this->attackThread($threadId, $parentId),
+                $speaker,
+            );
         } catch (ChatNotFoundException $exception) {
             throw new GameInvalidException('Game chat member is invalid', $exception);
         }
@@ -459,6 +499,21 @@ final class GameStrikeConsequences
         }
 
         $this->chats->send($chatId, $actorUserId, '', $this->withThread($attachments, $thread, $speaker), null);
+    }
+
+    /**
+     * Проверка с текстом в одном сообщении.
+     *
+     * @param array{text: string, roll: array<string, mixed>} $check Проверка.
+     * @param array{id: string, kind: string} $thread Нить.
+     * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     */
+    private function sendCheck(int $chatId, int $actorUserId, array $check, array $thread, ?array $speaker): void
+    {
+        $text = is_string($check['text'] ?? null) ? $check['text'] : '';
+        $roll = is_array($check['roll'] ?? null) ? $check['roll'] : null;
+        $attachments = $roll === null ? [] : [['type' => 'roll', 'payload' => $roll]];
+        $this->chats->send($chatId, $actorUserId, $text, $this->withThread($attachments, $thread, $speaker), null);
     }
 
     /**

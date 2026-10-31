@@ -54,6 +54,10 @@ exhaustion.increase_check_code = "check-exhaustion"
   Неустойчивости и проверка прироста, один пакет операций.
 - `GameStrikeSingleChat` — нарратив толчка, совместные броски, отброс и
   дополнительные проверки.
+- Чат толчка с уклонением идёт в порядке: действие → нарратив → бросок
+  попадания и уклона → «не успевает уклониться» и бросок Силы → итог толчка →
+  проверка Неустойчивости (текст и кубы одним сообщением) → исход проверки.
+  Текст «Сила (толчок)» не пишется, итог не опережает бросок Силы.
 - `GameStrikeOpen` / `GameStrikeSpend` / `GameStrikes` — Толчок не списывает
   боеприпас и не требует профиля оружия; щит допустим.
 - `PushSpec.block_profiles`, `RuleValidationService`, редактор действия,
@@ -80,6 +84,8 @@ exhaustion.increase_check_code = "check-exhaustion"
 - `GameStrikeMysqlTest::testPushAllowsShieldProfile` — щит допустим.
 - `GameCheckMysqlTest::testCharacteristicCheckUsesSheetValueWithoutPurchases` —
   проверка Силы берёт значение из `sheet.characteristics`, если закупок нет.
+- `GameStrikeMysqlTest::testPushDodgeChatOrder` — порядок сообщений толчка с
+  уклонением: Сила до итога, проверка Неустойчивости после, исход «падает!».
 - `GameCheckRollTest::testCheckUsesCharacteristicFromLiveSheet` — пул берётся из
   живого листа, снимок закупок не участвует.
 - `GameCheckRollTest::testCheckRejectsMissingCharacteristic` — нет

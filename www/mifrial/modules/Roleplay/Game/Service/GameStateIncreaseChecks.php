@@ -8,6 +8,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 
 /**
  * Проверки прироста состояний: бросок и применение исхода.
@@ -46,7 +47,7 @@ final class GameStateIncreaseChecks
      *
      * @return array{
      *     operations: list<array<string, mixed>>,
-     *     rolls: list<array{roll: array<string, mixed>, text: string}>
+     *     rolls: list<array{roll: array<string, mixed>, text: string, verdict: string|null}>
      * } Операции и броски.
      *
      * @throws GameInvalidException Если связка битая.
@@ -92,23 +93,53 @@ final class GameStateIncreaseChecks
 
             $rolled = $this->check->roll($game, $sheet, $slice, $code, $checkCode, $after);
             $outcome = $rolled['outcome'];
+            $applied = false;
             if ($outcome !== null) {
                 if ($decline) {
                     $rank = $this->decline->rankInCheck($check, $outcome);
                     $next = $rank === null ? null : ['code' => $outcome, 'rank' => $rank];
                     $operation = $this->decline->change(true, $current, $next);
+                    $applied = $operation !== null;
                     foreach ($this->decline->operations($sheet, $slice, $operation, $codes) as $row) {
                         $operations[] = $row;
                     }
                 } else {
                     $operations[] = ['kind' => 'putState', 'stateRuleCode' => $outcome];
+                    $applied = true;
                 }
             }
 
-            $rolls[] = ['roll' => $rolled['roll'], 'text' => $this->text($slice, $code, $rolled['roll'], $after)];
+            $rolls[] = [
+                'roll' => $rolled['roll'],
+                'text' => $this->text($slice, $code, $rolled['roll'], $after),
+                'verdict' => $applied && $outcome !== null ? $this->verdict($slice, $outcome) : null,
+            ];
         }
 
         return ['operations' => $operations, 'rolls' => $rolls];
+    }
+
+    /**
+     * Строка исхода состояния.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $code Код состояния.
+     *
+     * @return string Текст без имени цели.
+     */
+    private function verdict(CharacterRuleSlice $slice, string $code): string
+    {
+        $rule = $slice->findLive($code);
+        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
+        if (!$spec instanceof StateSpec) {
+            return 'получает состояние «' . ($rule?->getName() ?? $code) . '».';
+        }
+
+        if ($spec->isLying()) {
+            return 'падает!';
+        }
+
+        return 'получает состояние «' . ($rule?->getName() ?? $code) . '».';
     }
 
     /**

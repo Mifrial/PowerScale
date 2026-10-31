@@ -1140,11 +1140,109 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Чат толчка с уклонением: проверка Силы до итога, проверка Неустойчивости после.
+     *
+     * @return void
+     */
+    public function testPushDodgeChatOrder(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->pushRules(3));
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Pusher', [
+            ['characteristicCode' => 'strength', 'value' => ['base' => 4, 'size' => 0]],
+        ], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [
+            ['ruleCode' => 'hands', 'equipped' => true],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Target', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [
+            ['ruleCode' => 'hands', 'equipped' => true],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-push-chat',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'push-chat-open',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId, 'simple-push', 'hands')),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'push-chat-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'dodge'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        $messages = $this->chatMessages($gameId);
+        $contents = array_map(static fn (MessageRecord $message): string => $message->getContent(), $messages);
+        $transition = $this->messageIndexOf($contents, 'не успевает уклониться');
+        $result = $this->messageIndexOf($contents, 'получает Unstable');
+        $unstable = $this->messageIndexOf($contents, 'проходит проверку');
+        $verdict = $this->messageIndexOf($contents, 'падает!');
+
+        self::assertTrue(
+            $transition < $result && $result < $unstable && $unstable < $verdict,
+            json_encode($contents, JSON_UNESCAPED_UNICODE),
+        );
+        self::assertStringContainsString('совершает действие', $contents[0]);
+        self::assertStringContainsString('толкает', $contents[1]);
+        self::assertSame(['roll', 'roll'], array_column($this->contentAttachments($messages[2]), 'type'));
+        self::assertSame('roll', $this->contentAttachments($messages[$transition])[0]['type']);
+        self::assertSame('attack-calc', $this->contentAttachments($messages[$result])[0]['type']);
+        self::assertSame('roll', $this->contentAttachments($messages[$unstable])[0]['type']);
+        self::assertStringNotContainsString('Сила (толчок)', implode("\n", $contents));
+        self::assertStringContainsString('не успевает уклониться', $contents[$transition]);
+        self::assertStringContainsString('совершает проверку', $contents[$transition]);
+        self::assertStringContainsString('отбрасывает', $contents[$result]);
+        self::assertStringContainsString('Unstable', $contents[$result]);
+        self::assertStringContainsString('падает!', $contents[$verdict]);
+    }
+
+    /**
+     * Индекс сообщения с подстрокой.
+     *
+     * @param array<int, string> $contents Тексты.
+     * @param string $needle Подстрока.
+     *
+     * @return int Индекс.
+     */
+    private function messageIndexOf(array $contents, string $needle): int
+    {
+        foreach ($contents as $index => $content) {
+            if (str_contains($content, $needle)) {
+                return $index;
+            }
+        }
+
+        self::fail('Message with "' . $needle . '" was not found: ' . json_encode($contents, JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
      * Мир с Толчком, Силой, весом и блоком руками.
      *
      * @return array<string, array<string, mixed>> Правила мира.
      */
-    private function pushRules(): array
+    private function pushRules(int $dexterityBase = 20): array
     {
         $profile = [
             'type' => 'strike',
@@ -1182,7 +1280,7 @@ final class GameStrikeMysqlTest extends TestCase
             ],
             'dexterity' => [
                 'type' => 'characteristic',
-                'spec' => ['automatic' => ['value' => ['base' => 20, 'size' => 0]]],
+                'spec' => ['automatic' => ['value' => ['base' => $dexterityBase, 'size' => 0]]],
             ],
             'unstable' => [
                 'type' => 'state',
@@ -1229,6 +1327,7 @@ final class GameStrikeMysqlTest extends TestCase
                 'spec' => [
                     'innate' => true,
                     'category' => 'weapon',
+                    'proficiency_family_code' => 'melee',
                     'weapon' => ['weapon_profiles' => [$profile]],
                     'block_profile' => [
                         'efficiency' => ['base' => 5, 'size' => 0],

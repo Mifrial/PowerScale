@@ -314,6 +314,7 @@ final class GameStrikeSingleClose
         $defenderRoll = null;
         $pushInfo = null;
         $pushChecks = [];
+        $strengthRoll = null;
 
         if (!$isPush || $choice['reaction'] === 'dodge') {
             $attackerRoll = $this->resolution->rollOf(
@@ -419,7 +420,7 @@ final class GameStrikeSingleClose
                     'canceled' => false,
                 ];
                 if ($choice['reaction'] === 'dodge') {
-                    $pushChecks[] = ['roll' => $contest['attacker'], 'text' => 'Сила (толчок)'];
+                    $strengthRoll = $contest['attacker'];
                 } else {
                     $attackerRoll = $contest['attacker'];
                     $defenderRoll = $contest['defender'];
@@ -597,6 +598,7 @@ final class GameStrikeSingleClose
                     ? ['base' => $knockback->getBase(), 'size' => $knockback->getSize()]
                     : null,
                 'unstable' => $success,
+                'unstableCode' => $unstableCode,
                 'canceled' => false,
             ];
         } elseif ($isPush) {
@@ -661,6 +663,7 @@ final class GameStrikeSingleClose
             $strikeId,
             $choice['reaction'],
             $result,
+            $strengthRoll,
         );
         if ($pushChecks !== []) {
             $this->chat->postChecks($game, $battle, $targetOpen, $actorUserId, $strikeId, $pushChecks);
