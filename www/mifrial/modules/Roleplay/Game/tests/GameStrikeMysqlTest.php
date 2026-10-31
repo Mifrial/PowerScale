@@ -4926,6 +4926,11 @@ final class GameStrikeMysqlTest extends TestCase
             'purchase' => [['cost' => 2, 'value' => $hitEfficiency === 0
                 ? ['base' => 3, 'size' => -1]
                 : ['base' => 4, 'size' => 0]]],
+        ], [
+            'characteristic_code' => 'will',
+            'mode' => 'purchased',
+            'base' => ['base' => 3, 'size' => 0],
+            'purchase' => [['cost' => 2, 'value' => ['base' => 3, 'size' => 0]]],
         ]];
         if ($soakCards >= 1) {
             $rows[] = [

@@ -8,7 +8,9 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
@@ -31,7 +33,6 @@ use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\State\CheckAdvantageEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
-use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -48,6 +49,7 @@ final class GameCheckRoll
      * @param ICharacters $characters Персонажи.
      * @param IMechanics $mechanics Каталог.
      * @param IMechanicRolls $rolls Порт броска.
+     * @param ICharacterFormulaContexts $contexts Живые характеристики листа.
      * @param ICharacterSheets|null $sheets Пересчёт листа на чтении.
      *
      * @return void
@@ -57,6 +59,7 @@ final class GameCheckRoll
         private readonly ICharacters $characters,
         private readonly IMechanics $mechanics,
         private readonly IMechanicRolls $rolls,
+        private readonly ICharacterFormulaContexts $contexts,
         private readonly ?ICharacterSheets $sheets = null,
     ) {
         $this->normalizer = new DimensionalCheckNormalizer();
@@ -304,6 +307,7 @@ final class GameCheckRoll
      * @param string $ruleCode Код проверки.
      * @param array<string, mixed> $sheet Лист.
      * @param array{base: int, size: int} $difficulty Трудность.
+     * @param GameCheckThrowOverride|null $override Смена пула или null.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
      *
@@ -388,7 +392,6 @@ final class GameCheckRoll
     /**
      * Число кубов и граней. Null не подменяется.
      *
-     * @param CharacterRuleSlice $slice Срез.
      * @param string|null $characteristic Код или null.
      * @param array<string, mixed> $sheet Лист.
      * @param RollMechanicPayload $payload Дефолты.
@@ -398,12 +401,11 @@ final class GameCheckRoll
      * @throws GameInvalidException Если числа нет.
      */
     private function pool(
-        CharacterRuleSlice $slice,
         ?string $characteristic,
         array $sheet,
         RollMechanicPayload $payload,
     ): array {
-        $diceCount = $this->diceCount($slice, $characteristic, $sheet, $payload);
+        $diceCount = $this->diceCount($characteristic, $sheet, $payload);
         $dieFaces = $payload->getDieFaces();
         if ($diceCount === null || $dieFaces === null) {
             throw new GameInvalidException('Game check pool is invalid');
@@ -553,7 +555,7 @@ final class GameCheckRoll
         $this->assertFlow($check, $flow);
         $chain = $this->chain($slice, $check, $ruleCode, $forced !== null);
         $bindings = $this->bindings($slice);
-        $pool = $this->poolOf($slice, $chain['characteristic'], $sheet, $this->rollPayload($bindings), $override);
+        $pool = $this->poolOf($chain['characteristic'], $sheet, $this->rollPayload($bindings), $override);
         $difficulty = $forced ?? $this->difficulty($check, $asked);
         $efficiency = $this->efficiency($check);
         $rolled = $this->rolls->roll(
@@ -580,7 +582,6 @@ final class GameCheckRoll
     /**
      * Пул карточки или смены.
      *
-     * @param CharacterRuleSlice $slice Срез.
      * @param string|null $characteristic Код цепочки.
      * @param array<string, mixed> $sheet Лист.
      * @param RollMechanicPayload $payload Дефолты.
@@ -591,7 +592,6 @@ final class GameCheckRoll
      * @throws GameInvalidException Если числа нет.
      */
     private function poolOf(
-        CharacterRuleSlice $slice,
         ?string $characteristic,
         array $sheet,
         RollMechanicPayload $payload,
@@ -608,7 +608,7 @@ final class GameCheckRoll
 
         $code = $override?->characteristicCode ?? $characteristic;
 
-        return $this->pool($slice, $code, $sheet, $payload);
+        return $this->pool($code, $sheet, $payload);
     }
 
     /**
@@ -931,7 +931,7 @@ final class GameCheckRoll
     }
 
     /**
-     * Число кубов.
+     * Число кубов характеристики из живого листа.
      *
      * @param string|null $characteristic Код или null.
      * @param array<string, mixed> $sheet Лист.
@@ -939,10 +939,9 @@ final class GameCheckRoll
      *
      * @return int|null Число или null.
      *
-     * @throws GameInvalidException Если закупки нет.
+     * @throws GameInvalidException Если характеристики нет.
      */
     private function diceCount(
-        CharacterRuleSlice $slice,
         ?string $characteristic,
         array $sheet,
         RollMechanicPayload $payload,
@@ -951,167 +950,32 @@ final class GameCheckRoll
             return $payload->getDiceCount();
         }
 
-        return $this->resolvedBase($slice, $sheet, $characteristic, []);
+        return $this->characteristicBase($sheet, $characteristic);
     }
 
     /**
-     * Закупка или производная min/max.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $sheet Лист.
-     * @param string $code Код.
-     * @param array<string, true> $seen Уже разобранные коды.
-     *
-     * @return int База пула.
-     *
-     * @throws GameInvalidException Если значения нет.
-     */
-    private function resolvedBase(CharacterRuleSlice $slice, array $sheet, string $code, array $seen): int
-    {
-        $bought = $this->purchasedBase($sheet, $code);
-        if ($bought !== null) {
-            return $bought;
-        }
-
-        return $this->derivedBase($slice, $sheet, $code, $seen);
-    }
-
-    /**
-     * База закупки или null, если кода нет.
+     * База характеристики из живого листа.
      *
      * @param array<string, mixed> $sheet Лист.
-     * @param string $code Код.
-     *
-     * @return int|null База или null.
-     *
-     * @throws GameInvalidException Если строка есть, а value чужой.
-     */
-    private function purchasedBase(array $sheet, string $code): ?int
-    {
-        $rows = $sheet['characteristicPurchases'] ?? [];
-        if (!is_array($rows)) {
-            throw new GameInvalidException('Game check characteristic is invalid');
-        }
-
-        foreach ($rows as $row) {
-            if (!is_array($row) || ($row['characteristicCode'] ?? null) !== $code) {
-                continue;
-            }
-
-            $value = $row['value'] ?? null;
-            $base = is_array($value) ? ($value['base'] ?? null) : null;
-            if (!is_int($base)) {
-                throw new GameInvalidException('Game check characteristic is invalid');
-            }
-
-            return $base;
-        }
-
-        $characteristics = $sheet['characteristics'] ?? [];
-        if (is_array($characteristics)) {
-            foreach ($characteristics as $row) {
-                if (!is_array($row) || ($row['characteristicCode'] ?? null) !== $code) {
-                    continue;
-                }
-
-                $value = $row['value'] ?? null;
-                $base = is_array($value) ? ($value['base'] ?? null) : null;
-                if (is_int($base)) {
-                    return $base;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * База по formula или automatic.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $sheet Лист.
-     * @param string $code Код.
-     * @param array<string, true> $seen Уже разобранные коды.
+     * @param string $code Код характеристики.
      *
      * @return int База.
      *
-     * @throws GameInvalidException Если формулы нет или операнды чужие.
+     * @throws GameInvalidException Если характеристики нет или лист битый.
      */
-    private function derivedBase(CharacterRuleSlice $slice, array $sheet, string $code, array $seen): int
+    private function characteristicBase(array $sheet, string $code): int
     {
-        if (isset($seen[$code])) {
+        try {
+            $value = $this->contexts->build($sheet)->findCharacteristic($code);
+        } catch (CharacterInvalidException $exception) {
+            throw new GameInvalidException('Game check characteristic is invalid', $exception);
+        }
+
+        if (!$value instanceof DimensionalNumber) {
             throw new GameInvalidException('Game check characteristic is invalid');
         }
 
-        $seen[$code] = true;
-        $rule = $slice->findLive($code);
-        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        if (!$spec instanceof CharacteristicSpec) {
-            throw new GameInvalidException('Game check characteristic is invalid');
-        }
-
-        $parsed = $this->parsedDerived($spec->getFormula());
-        if ($parsed !== null) {
-            $left = $this->resolvedBase($slice, $sheet, $parsed['left'], $seen);
-            $right = $this->resolvedBase($slice, $sheet, $parsed['right'], $seen);
-            if ($parsed['operator'] === 'min') {
-                return min($left, $right);
-            }
-
-            return max($left, $right);
-        }
-
-        $automatic = $this->automaticBase($spec);
-        if ($automatic !== null) {
-            return $automatic;
-        }
-
-        throw new GameInvalidException('Game check characteristic is invalid');
-    }
-
-    /**
-     * База automatic-спеки без закупки.
-     *
-     * @param CharacteristicSpec $spec Карточка.
-     *
-     * @return int|null База или null.
-     */
-    private function automaticBase(CharacteristicSpec $spec): ?int
-    {
-        $automatic = $spec->getAutomatic();
-        if ($automatic === true) {
-            return CharacteristicNumber::BASE_MIN;
-        }
-
-        if ($automatic instanceof CharacteristicNumber) {
-            return $automatic->getBase();
-        }
-
-        return null;
-    }
-
-    /**
-     * Формула min(a, b) или max(a, b).
-     *
-     * @param string|null $formula Спека.
-     *
-     * @return array{operator: string, left: string, right: string}|null Разбор или null.
-     */
-    private function parsedDerived(?string $formula): ?array
-    {
-        if ($formula === null || $formula === '') {
-            return null;
-        }
-
-        if (preg_match('/^(min|max)\(\s*([^,]+)\s*,\s*([^)]+)\)$/i', trim($formula), $match) !== 1) {
-            return null;
-        }
-
-        return [
-            'operator' => strtolower($match[1]),
-            'left' => trim($match[2]),
-            'right' => trim($match[3]),
-        ];
+        return $value->getBase();
     }
 
     /**

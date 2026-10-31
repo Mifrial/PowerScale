@@ -2897,7 +2897,6 @@ final class GameStrikeRules
         }
 
         $characteristicCode = null;
-        $masterySpec = null;
         foreach ($slice->getLiveRules() as $rule) {
             $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
             if (
@@ -2909,42 +2908,20 @@ final class GameStrikeRules
                 }
 
                 $characteristicCode = $rule->getCode();
-                $masterySpec = $spec;
             }
         }
 
-        $derived = $this->formulaContext($slice, $sheet, $choices, $participantKey)->findCharacteristic((string) $characteristicCode);
-        $purchases = $sheet['characteristicPurchases'] ?? null;
-        $base = $derived instanceof DimensionalNumber
-            ? new CharacteristicNumber($derived->getBase(), $derived->getSize())
-            : null;
-        if ($base === null && is_array($purchases)) {
-            foreach ($purchases as $row) {
-                if (is_array($row) && ($row['characteristicCode'] ?? null) === $characteristicCode) {
-                    $value = $row['value'] ?? null;
-                    if (!is_array($value) || !is_int($value['base'] ?? null) || !is_int($value['size'] ?? null)) {
-                        throw new GameInvalidException('Game strike characteristic is invalid');
-                    }
-
-                    if ($base !== null) {
-                        throw new GameInvalidException('Game strike characteristic is ambiguous');
-                    }
-
-                    $base = new CharacteristicNumber($value['base'], $value['size']);
-                }
-            }
-        }
-
-        if ($base === null && $masterySpec !== null) {
-            $automatic = $masterySpec->getAutomatic();
-            if ($automatic instanceof CharacteristicNumber) {
-                $base = $automatic;
-            }
-        }
-
-        if ($characteristicCode === null || $base === null) {
+        if ($characteristicCode === null) {
             throw new GameInvalidException('Game strike characteristic is invalid');
         }
+
+        $derived = $this->formulaContext($slice, $sheet, $choices, $participantKey)
+            ->findCharacteristic($characteristicCode);
+        if (!$derived instanceof DimensionalNumber) {
+            throw new GameInvalidException('Game strike characteristic is invalid');
+        }
+
+        $base = new CharacteristicNumber($derived->getBase(), $derived->getSize());
 
         $computed = $this->computedSheet($slice, $sheet, $choices);
         $stored = $computed['weaponFamilyMastery'][$familyCode][$profileType] ?? null;

@@ -108,6 +108,29 @@ final class CharacterFormulaContextTest extends TestCase
     }
 
     /**
+     * Живые characteristics важнее снимка закупок.
+     *
+     * @return void
+     */
+    public function testLiveCharacteristicsWinOverPurchaseSnapshot(): void
+    {
+        $context = $this->contexts()->build([
+            'abilityLevels' => [],
+            'characteristics' => [
+                ['characteristicCode' => 'strength', 'value' => ['base' => 3, 'size' => 1]],
+            ],
+            'characteristicPurchases' => [
+                ['characteristicCode' => 'strength', 'value' => ['base' => 5, 'size' => 0]],
+            ],
+        ]);
+
+        $strength = $context->findCharacteristic('strength');
+        self::assertInstanceOf(CharacteristicNumber::class, $strength);
+        self::assertSame(3, $strength->getBase());
+        self::assertSame(1, $strength->getSize());
+    }
+
+    /**
      * Разбор без строки персонажа.
      *
      * @return CharacterFormulaContexts Порт.

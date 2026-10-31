@@ -15,6 +15,7 @@ use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
@@ -181,6 +182,7 @@ final class GameBattlePortFactory
             $this->port($serviceLocator, ICharacterContainer::class, ICharacters::class),
             $this->port($serviceLocator, IMechanicContainer::class, IMechanics::class),
             $this->port($serviceLocator, IMechanicContainer::class, IMechanicRolls::class),
+            $this->port($serviceLocator, ICharacterContainer::class, ICharacterFormulaContexts::class),
             $this->port($serviceLocator, ICharacterContainer::class, ICharacterSheets::class),
         );
     }

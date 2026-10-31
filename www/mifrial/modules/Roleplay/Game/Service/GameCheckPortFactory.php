@@ -12,6 +12,7 @@ use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
@@ -59,6 +60,7 @@ final class GameCheckPortFactory
                 $this->port($serviceLocator, ICharacterContainer::class, ICharacters::class, 'ICharacters'),
                 $this->port($serviceLocator, IMechanicContainer::class, IMechanics::class, 'IMechanics'),
                 $this->port($serviceLocator, IMechanicContainer::class, IMechanicRolls::class, 'IMechanicRolls'),
+                $this->port($serviceLocator, ICharacterContainer::class, ICharacterFormulaContexts::class, 'ICharacterFormulaContexts'),
                 $this->port($serviceLocator, ICharacterContainer::class, ICharacterSheets::class, 'ICharacterSheets'),
             ),
         );

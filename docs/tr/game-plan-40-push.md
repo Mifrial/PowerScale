@@ -64,6 +64,10 @@ exhaustion.increase_check_code = "check-exhaustion"
   `tolkayuschiy-udar.block_profiles = "slashing_or_blunt_strike"`.
 - `RuleRevisionSpecGuard` для keep-записей читает сырой документ спеки, поэтому
   ссылки проверок из прошлой ревизии не теряются.
+- `GameCheckRoll` читает характеристику только из живого листа через
+  `ICharacterFormulaContexts::build($sheet)->findCharacteristic()`; ручной
+  разбор `characteristicPurchases`, `formula` и `automatic` из Game удалён.
+  `GameStrikeRules::weaponFamilyBase()` переведён на тот же контекст.
 
 ## Тесты
 
@@ -76,6 +80,12 @@ exhaustion.increase_check_code = "check-exhaustion"
 - `GameStrikeMysqlTest::testPushAllowsShieldProfile` — щит допустим.
 - `GameCheckMysqlTest::testCharacteristicCheckUsesSheetValueWithoutPurchases` —
   проверка Силы берёт значение из `sheet.characteristics`, если закупок нет.
+- `GameCheckRollTest::testCheckUsesCharacteristicFromLiveSheet` — пул берётся из
+  живого листа, снимок закупок не участвует.
+- `GameCheckRollTest::testCheckRejectsMissingCharacteristic` — нет
+  характеристики в живом листе — `GAME_INVALID`.
+- `CharacterFormulaContextTest::testLiveCharacteristicsWinOverPurchaseSnapshot` —
+  `characteristics` важнее `characteristicPurchases`.
 - `composer test:unit`; Game MySQL; RuleSpace; Character; frontend
   `Roleplay/Rule` + `Roleplay/Game`; `vite build`; eslint; prettier.
 

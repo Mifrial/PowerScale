@@ -45,6 +45,8 @@ Backend-схема летописи, формат сохранения `event_ti
 
 `ActionEffect`, check payload, difficulty, success rating и текущие process/action DTO — рабочий частичный канон. Сложные расширения, reactions, interrupt, поддержание и исключения требуют отдельной реализации/проверки.
 
+Пул проверки по характеристике берётся из живого листа: `ICharacterFormulaContexts::build($sheet)->findCharacteristic($code)` читает `sheet.characteristics`, который считает Character. Game не разбирает `characteristicPurchases` и не вычисляет `formula`/`automatic` характеристик; нет значения — `GAME_INVALID`. Легаси-лист без `characteristics` читается Character-портом по `characteristicPurchases`.
+
 ## Движение и battleground
 
 Абстрактное движение представлено action/process-контуром и `ISpatialResolver`, включая разрешение движения и валидацию целей атаки без координат сцены (`DEC-026`).

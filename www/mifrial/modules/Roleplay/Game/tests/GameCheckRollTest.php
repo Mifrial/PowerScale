@@ -8,8 +8,10 @@ use Closure;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Service\GameCheckRoll;
 use Mifrial\Roleplay\Mechanic\Dto\CheckRating;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
@@ -20,7 +22,9 @@ use Mifrial\Roleplay\Mechanic\Dto\RollResult;
 use Mifrial\Roleplay\Mechanic\Dto\RollSpec;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
+use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use PHPUnit\Framework\TestCase;
 
@@ -41,6 +45,7 @@ final class GameCheckRollTest extends TestCase
             $this->createStub(ICharacters::class),
             $this->createStub(IMechanics::class),
             $this->createStub(IMechanicRolls::class),
+            $this->createStub(ICharacterFormulaContexts::class),
         );
 
         self::assertFalse($roll->isCombatAutoFail(['base' => 0, 'size' => 0]));
@@ -62,6 +67,7 @@ final class GameCheckRollTest extends TestCase
             $this->createStub(ICharacters::class),
             $this->createStub(IMechanics::class),
             $this->createStub(IMechanicRolls::class),
+            $this->createStub(ICharacterFormulaContexts::class),
         );
 
         $results = [
@@ -109,6 +115,7 @@ final class GameCheckRollTest extends TestCase
             $this->createStub(ICharacters::class),
             $mechanics,
             $rolls,
+            $this->createStub(ICharacterFormulaContexts::class),
         );
         $adjustment = new RollAdjustment([5 => 6, 2 => 1], 1, -1);
 
@@ -167,6 +174,7 @@ final class GameCheckRollTest extends TestCase
             $this->createStub(ICharacters::class),
             $mechanics,
             $rolls,
+            $this->createStub(ICharacterFormulaContexts::class),
         );
 
         $roll->throwHitWithMastery(
@@ -251,6 +259,7 @@ final class GameCheckRollTest extends TestCase
             $this->createStub(ICharacters::class),
             $mechanics,
             $rolls,
+            $this->createStub(ICharacterFormulaContexts::class),
         );
 
         $roll->throwHitWithMastery(
@@ -271,11 +280,11 @@ final class GameCheckRollTest extends TestCase
     }
 
     /**
-     * Производная характеристика берёт min баз закупок, не строку себя.
+     * Проверка берёт характеристику из живого листа, а не из снимка закупок.
      *
      * @return void
      */
-    public function testDerivedCheckUsesMinOfPurchasedBases(): void
+    public function testCheckUsesCharacteristicFromLiveSheet(): void
     {
         $captured = null;
         $slices = $this->createMock(ICharacterRuleSlices::class);
@@ -291,17 +300,29 @@ final class GameCheckRollTest extends TestCase
             },
         );
         $rolls->method('rate')->willReturn(new CheckRating(true, 1));
+        $contexts = $this->createMock(ICharacterFormulaContexts::class);
+        $contexts->expects(self::once())
+            ->method('build')
+            ->with(self::callback(
+                static fn (array $sheet): bool => ($sheet['characteristics'][0]['characteristicCode'] ?? null) === 'perception',
+            ))
+            ->willReturn(new FormulaContext([
+                'perception' => new CharacteristicNumber(2, 0),
+            ]));
         $roll = new GameCheckRoll(
             $slices,
             $this->createStub(ICharacters::class),
             $mechanics,
             $rolls,
+            $contexts,
         );
 
         $roll->throwCheck(1, 1, 'watch', 'solo', [
+            'characteristics' => [
+                ['characteristicCode' => 'perception', 'value' => ['base' => 2, 'size' => 0]],
+            ],
             'characteristicPurchases' => [
-                ['characteristicCode' => 'attention', 'value' => ['base' => 4, 'size' => 0]],
-                ['characteristicCode' => 'reaction', 'value' => ['base' => 2, 'size' => 0]],
+                ['characteristicCode' => 'perception', 'value' => ['base' => 5, 'size' => 0]],
             ],
         ], null);
 
@@ -310,37 +331,29 @@ final class GameCheckRollTest extends TestCase
     }
 
     /**
-     * Пустой лист: производная берёт automatic базы операндов.
+     * Нет характеристики в живом листе — проверка не бросается.
      *
      * @return void
      */
-    public function testDerivedCheckUsesAutomaticBasesWhenPurchasesEmpty(): void
+    public function testCheckRejectsMissingCharacteristic(): void
     {
-        $captured = null;
         $slices = $this->createMock(ICharacterRuleSlices::class);
         $slices->method('get')->willReturn($this->derivedCheckSlice());
         $mechanics = $this->createStub(IMechanics::class);
         $mechanics->method('getList')->willReturn([]);
-        $rolls = $this->createMock(IMechanicRolls::class);
-        $rolls->method('roll')->willReturnCallback(
-            function (RollSpec $spec) use (&$captured): RollResult {
-                $captured = $spec;
-
-                return new RollResult($spec, [], [], [], [], 0, null);
-            },
-        );
-        $rolls->method('rate')->willReturn(new CheckRating(true, 1));
+        $contexts = $this->createStub(ICharacterFormulaContexts::class);
+        $contexts->method('build')->willReturn(new FormulaContext());
         $roll = new GameCheckRoll(
             $slices,
             $this->createStub(ICharacters::class),
             $mechanics,
-            $rolls,
+            $this->createStub(IMechanicRolls::class),
+            $contexts,
         );
 
-        $roll->throwCheck(1, 1, 'watch', 'solo', ['characteristicPurchases' => []], null);
+        $this->expectException(GameInvalidException::class);
 
-        self::assertInstanceOf(RollSpec::class, $captured);
-        self::assertSame(3, $captured->getDiceCount());
+        $roll->throwCheck(1, 1, 'watch', 'solo', ['characteristics' => []], null);
     }
 
     /**

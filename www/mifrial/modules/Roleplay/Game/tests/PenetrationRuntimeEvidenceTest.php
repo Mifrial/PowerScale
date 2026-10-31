@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Game\Tests;
 
 use Closure;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
@@ -111,6 +112,7 @@ final class PenetrationRuntimeEvidenceTest extends TestCase
             $this->createStub(ICharacters::class),
             $this->createStub(IMechanics::class),
             $this->createStub(IMechanicRolls::class),
+            $this->createStub(ICharacterFormulaContexts::class),
         );
         $order[] = 'block-roll';
         $autoFail = $checkRoll->isCombatAutoFail(['base' => 0, 'size' => -1]);

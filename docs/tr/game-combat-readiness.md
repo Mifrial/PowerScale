@@ -121,6 +121,10 @@ Authoritative-источники:
 - Размерный `damage` — `BACKEND`.
 - Рейтинг попадания `success` — `BACKEND`.
   Это `CheckRating`, а не копия урона.
+- Пул проверки по характеристике берётся из живого `sheet.characteristics`
+  через `ICharacterFormulaContexts::build($sheet)`; Game не разбирает
+  `characteristicPurchases` и не считает `formula`/`automatic` характеристик —
+  `BACKEND`.
 - `damage` и `success` в `1 → N` общие для атаки, а защитные значения
   считаются отдельно для каждой цели — `BACKEND`.
 

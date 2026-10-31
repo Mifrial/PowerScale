@@ -371,6 +371,7 @@ final class GameStrikeRulesTest extends TestCase
             $characters,
             $mechanics,
             $this->createMock(IMechanicRolls::class),
+            $this->createMock(ICharacterFormulaContexts::class),
             $sheets,
         );
         $layers = new GameStrikeLayers(

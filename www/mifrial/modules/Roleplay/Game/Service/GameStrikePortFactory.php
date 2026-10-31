@@ -677,6 +677,7 @@ final class GameStrikePortFactory
             $this->characters($serviceLocator),
             $this->mechanics($serviceLocator),
             $this->rolls($serviceLocator),
+            $this->formulaContexts($serviceLocator),
             $this->characterSheets($serviceLocator),
         );
     }

@@ -8,6 +8,7 @@ use Closure;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Game\Service\GameCheckRoll;
@@ -61,6 +62,7 @@ final class GameEfficiencyPrecedenceTest extends TestCase
             $this->createStub(ICharacters::class),
             $mechanics,
             $rolls,
+            $this->createStub(ICharacterFormulaContexts::class),
         );
 
         $roll->throwHitWithMastery(
