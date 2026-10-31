@@ -1007,6 +1007,21 @@ final class GameCheckRoll
             return $base;
         }
 
+        $characteristics = $sheet['characteristics'] ?? [];
+        if (is_array($characteristics)) {
+            foreach ($characteristics as $row) {
+                if (!is_array($row) || ($row['characteristicCode'] ?? null) !== $code) {
+                    continue;
+                }
+
+                $value = $row['value'] ?? null;
+                $base = is_array($value) ? ($value['base'] ?? null) : null;
+                if (is_int($base)) {
+                    return $base;
+                }
+            }
+        }
+
         return null;
     }
 

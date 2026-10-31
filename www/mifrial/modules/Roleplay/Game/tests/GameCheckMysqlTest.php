@@ -131,6 +131,33 @@ final class GameCheckMysqlTest extends TestCase
     }
 
     /**
+     * Проверка характеристики берёт значение из листа, если закупок нет.
+     *
+     * @return void
+     */
+    public function testCharacteristicCheckUsesSheetValueWithoutPurchases(): void
+    {
+        $world = $this->worldWithCheck();
+        $gameId = $this->addGame($world->getId());
+        $characterId = $this->admit($world->getId(), $gameId, 'Hero');
+        $version = $this->characterFacade()->get($characterId)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE, GamePermissionKeys::EDIT_ALL]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $rolled = $this->dispatch('game.declareCheck', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'strength',
+            'expectedSheetVersion' => $version,
+            'check' => [
+                'participant' => ['type' => 'character', 'id' => $characterId],
+                'ruleCode' => 'strength-check',
+                'askedDifficulty' => ['base' => 0, 'size' => 0],
+            ],
+        ]);
+        self::assertTrue($rolled['success'], json_encode($rolled));
+        self::assertIsInt($rolled['data']['rating'] ?? null);
+    }
+
+    /**
      * Pairwise заполняет строку после согласия. Бой гасит только своё предложение.
      *
      * @return void
@@ -290,6 +317,11 @@ final class GameCheckMysqlTest extends TestCase
                 'mechanic_payload' => ['type' => 'roll', 'data' => ['diceCount' => 1, 'dieFaces' => 6, 'efficiency' => 3]],
             ]], 'needs_work')),
             RuleCommitEntry::put('notice', new RuleVersionBody('check', 'Notice', '', $check, [], [], 'needs_work')),
+            RuleCommitEntry::put('strength-check', new RuleVersionBody('check', 'Strength check', '', [
+                ...$check,
+                'characteristic_code' => 'strength',
+                'difficulty_input' => ['kind' => 'ask'],
+            ], [], [], 'needs_work')),
             RuleCommitEntry::put('sneak', new RuleVersionBody('check', 'Sneak', '', [
                 ...$check,
                 'allowed_modes' => 'joint',

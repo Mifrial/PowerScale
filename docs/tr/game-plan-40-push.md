@@ -74,6 +74,8 @@ exhaustion.increase_check_code = "check-exhaustion"
   Сила руками, 2 ОД, бросок защиты в итоге.
 - `GameStrikeMysqlTest::testPushRejectsWeaponProfile` — меч без щита отклонён.
 - `GameStrikeMysqlTest::testPushAllowsShieldProfile` — щит допустим.
+- `GameCheckMysqlTest::testCharacteristicCheckUsesSheetValueWithoutPurchases` —
+  проверка Силы берёт значение из `sheet.characteristics`, если закупок нет.
 - `composer test:unit`; Game MySQL; RuleSpace; Character; frontend
   `Roleplay/Rule` + `Roleplay/Game`; `vite build`; eslint; prettier.
 
