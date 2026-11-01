@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 318,
-        "plans": 199,
+        "documents": 319,
+        "plans": 200,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 221,
+            "tr": 222,
             "tz": 2
         },
         "byZoneState": {
@@ -74,7 +74,7 @@
                 "ОТЛОЖЕН": 2,
                 "ПЛАН": 32,
                 "ЧАСТИЧНО": 27,
-                "В РАБОТЕ": 12,
+                "В РАБОТЕ": 13,
                 "ОТМЕНЁН": 4,
                 "СНИМОК": 7
             },
@@ -90,7 +90,7 @@
             "ПЛАН": 35,
             "ОТЛОЖЕН": 6,
             "ЧАСТИЧНО": 27,
-            "В РАБОТЕ": 12,
+            "В РАБОТЕ": 13,
             "ОТМЕНЁН": 4
         }
     },
@@ -204,19 +204,20 @@
             }
         },
         "Roleplay/Game": {
-            "docs": 47,
+            "docs": 48,
             "state": {
                 "СНИМОК": 3,
                 "нет": 1,
                 "ЧАСТИЧНО": 3,
                 "СДЕЛАНО": 30,
                 "ОТМЕНЁН": 3,
-                "ПЛАН": 7
+                "ПЛАН": 7,
+                "В РАБОТЕ": 1
             },
             "layer": {
-                "PHP": 40,
-                "МОК": 2,
-                "VUE": 7
+                "PHP": 41,
+                "МОК": 3,
+                "VUE": 8
             }
         },
         "Roleplay/Keyword": {
@@ -3407,8 +3408,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-29",
-            "bytes": 33599,
-            "lines": 547,
+            "bytes": 33562,
+            "lines": 546,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -4473,12 +4474,12 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 11963,
-            "lines": 165,
+            "bytes": 12101,
+            "lines": 168,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 1,
+            "linksCount": 2,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-combat-readiness.md"
@@ -4497,8 +4498,34 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 6074,
-            "lines": 100,
+            "bytes": 6212,
+            "lines": 103,
+            "modules": [
+                "Roleplay/Game"
+            ],
+            "linksCount": 1,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/game-plan-40-push.md"
+            ]
+        },
+        {
+            "path": "docs/tr/game-plan-42-push-check.md",
+            "title": "План 42 — Толчок как проверка",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": null,
+            "bytes": 5366,
+            "lines": 101,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -4506,7 +4533,8 @@
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-combat-readiness.md",
-                "docs/tr/game-plan-40-push.md"
+                "docs/tr/game-plan-40-push.md",
+                "docs/tr/game-plan-41-tolkayuschiy-udar.md"
             ]
         },
         {
@@ -6174,8 +6202,8 @@
             ],
             "basis": null,
             "date": "2026-10-25",
-            "bytes": 28255,
-            "lines": 275,
+            "bytes": 29055,
+            "lines": 276,
             "modules": [
                 "Roleplay/Rule"
             ],

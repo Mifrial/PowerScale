@@ -12,11 +12,14 @@ final class PushSpec
     /**
      * Создаёт толчок.
      *
-     * @param string $pool Код пула.
-     * @param string $damage Вид урона.
+     * @param string $pool Код пула; пустая строка, если проверка задана кодом.
+     * @param string $damage Вид урона; пустая строка, если урон берётся из профиля.
      * @param string $profiles Допустимые профили.
      * @param array<string, int> $divisors Делитель по типу урона.
      * @param string $blockProfiles Допустимые профили блока.
+     * @param string $check Код проверки толчка.
+     * @param int $damageModifier Сдвиг урона профиля в пунктах.
+     * @param int $stabilityBonusCap Потолок бонуса Устойчивости на блоке.
      *
      * @return void
      */
@@ -26,6 +29,9 @@ final class PushSpec
         private readonly string $profiles,
         private readonly array $divisors,
         private readonly string $blockProfiles = 'any',
+        private readonly string $check = 'check-push',
+        private readonly int $damageModifier = -3,
+        private readonly int $stabilityBonusCap = 6,
     ) {
     }
 
@@ -77,5 +83,35 @@ final class PushSpec
     public function getBlockProfiles(): string
     {
         return $this->blockProfiles;
+    }
+
+    /**
+     * Код проверки толчка.
+     *
+     * @return string Код.
+     */
+    public function getCheck(): string
+    {
+        return $this->check;
+    }
+
+    /**
+     * Сдвиг урона профиля в пунктах.
+     *
+     * @return int Пункты.
+     */
+    public function getDamageModifier(): int
+    {
+        return $this->damageModifier;
+    }
+
+    /**
+     * Потолок бонуса Устойчивости на блоке.
+     *
+     * @return int Пункты.
+     */
+    public function getStabilityBonusCap(): int
+    {
+        return $this->stabilityBonusCap;
     }
 }

@@ -1011,22 +1011,19 @@ final class GameStrikeMysqlTest extends TestCase
             null,
         );
         self::assertSame($amounts->view($expectedInjury), $closed['data']['injury']);
-        self::assertSame($this->pair(4, -1), $damage);
+        self::assertSame($this->pair(4, -2), $damage);
         $calc = $this->attachmentsOfType($this->chatMessages($gameId), 'attack-calc')[0];
-        self::assertSame($this->pair(4, 0), $calc['pushRaw']);
-        self::assertSame($this->pair(4, -1), $calc['damage']);
-        $strengthRolls = array_values(array_filter(
-            $this->chatRolls($gameId),
-            static fn (array $roll): bool => ($roll['label'] ?? null) === 'Check-strength',
-        ));
-        self::assertSame($this->pair(3, -1), $strengthRolls[0]['difficulty']);
+        self::assertSame($this->pair(4, -2), $calc['damage']);
+        self::assertSame((string) $success, $calc['attackSrLabel']);
+        self::assertIsString($calc['pushSrLabel']);
+        self::assertIsArray($calc['stability']);
         $states = $this->statesOf($defenderId);
         $unstable = array_values(array_filter(
             $states,
             static fn (mixed $row): bool => is_array($row) && ($row['stateRuleCode'] ?? null) === 'unstable',
         ));
         self::assertCount(1, $unstable);
-        self::assertSame($success, $unstable[0]['value']);
+        self::assertSame($calc['unstable'], $unstable[0]['value']);
     }
 
     /**
@@ -1216,24 +1213,22 @@ final class GameStrikeMysqlTest extends TestCase
 
         $messages = $this->chatMessages($gameId);
         $contents = array_map(static fn (MessageRecord $message): string => $message->getContent(), $messages);
-        $transition = $this->messageIndexOf($contents, 'не успевает уклониться');
         $result = $this->messageIndexOf($contents, 'получает Unstable');
         $unstable = $this->messageIndexOf($contents, 'проходит проверку');
         $verdict = $this->messageIndexOf($contents, 'падает!');
 
         self::assertTrue(
-            $transition < $result && $result < $unstable && $unstable < $verdict,
+            $result < $unstable && $unstable < $verdict,
             json_encode($contents, JSON_UNESCAPED_UNICODE),
         );
         self::assertStringContainsString('совершает действие', $contents[0]);
         self::assertStringContainsString('толкает', $contents[1]);
         self::assertSame(['roll', 'roll'], array_column($this->contentAttachments($messages[2]), 'type'));
-        self::assertSame('roll', $this->contentAttachments($messages[$transition])[0]['type']);
         self::assertSame('attack-calc', $this->contentAttachments($messages[$result])[0]['type']);
         self::assertSame('roll', $this->contentAttachments($messages[$unstable])[0]['type']);
         $calc = $this->attachmentsOfType($messages, 'attack-calc')[0];
-        self::assertSame((string) $closed['data']['success'], $calc['pushSrLabel']);
-        self::assertNotSame($calc['pushSrLabel'], $calc['attackSrLabel']);
+        self::assertSame('5', $calc['pushSrLabel']);
+        self::assertSame((string) $closed['data']['success'], $calc['attackSrLabel']);
         $amounts = new GameStrikeAmounts();
         $soak = is_array($calc['dodgeSoak'] ?? null)
             ? new DimensionalNumber($calc['dodgeSoak']['base'], $calc['dodgeSoak']['size'])
@@ -1246,9 +1241,7 @@ final class GameStrikeMysqlTest extends TestCase
         );
         self::assertSame($amounts->view($expected), $calc['injury']);
         self::assertStringNotContainsString('Сила (толчок)', implode("\n", $contents));
-        self::assertStringContainsString('не успевает уклониться', $contents[$transition]);
-        self::assertStringContainsString('совершает проверку', $contents[$transition]);
-        self::assertStringContainsString('отбрасывает на 3 ипари', $contents[$result]);
+        self::assertStringContainsString('отбрасывает на 1 ипари', $contents[$result]);
         self::assertStringContainsString('Unstable', $contents[$result]);
         self::assertStringContainsString('падает!', $contents[$verdict]);
     }
@@ -1335,24 +1328,22 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertTrue($closed['success'], json_encode($closed));
 
         $success = $closed['data']['success'] ?? 0;
-        $posture = intdiv($success, 2);
+        $unstable = $closed['data']['push']['unstable'] ?? 0;
         self::assertGreaterThan(0, $success);
         self::assertSame(16, $this->actionPointsOf($attackerId));
         self::assertSame($this->pair(6), $closed['data']['damage']);
         self::assertSame($this->pair(5), $closed['data']['resistance']);
         self::assertSame($success, $closed['data']['appliedSr']);
         self::assertSame($this->pair($success), $closed['data']['injury']);
-        self::assertSame($posture, $closed['data']['push']['unstable']);
-        self::assertSame($this->pair(1), $closed['data']['push']['knockback']);
+        self::assertGreaterThan(0, $unstable);
+        self::assertSame(
+            $unstable >= 4 ? $this->pair(intdiv($unstable, 4)) : null,
+            $closed['data']['push']['knockback'],
+        );
 
         $messages = $this->chatMessages($gameId);
         $contents = array_map(static fn (MessageRecord $message): string => $message->getContent(), $messages);
-        self::assertStringContainsString('получает Unstable ' . $posture, implode("\n", $contents));
-        $labels = array_map(
-            static fn (array $payload): string => (string) ($payload['label'] ?? ''),
-            $this->attachmentsOfType($messages, 'roll'),
-        );
-        self::assertContains('Урон (толчок)', $labels);
+        self::assertStringContainsString('получает Unstable ' . $unstable, implode("\n", $contents));
     }
 
     /**
@@ -1433,7 +1424,7 @@ final class GameStrikeMysqlTest extends TestCase
             static fn (MessageRecord $message): string => $message->getContent(),
             $this->chatMessages($gameId),
         ));
-        self::assertStringContainsString('с 1 РУ', $contents);
+        self::assertStringContainsString('контакт 1 РУ', $contents);
         self::assertStringNotContainsString('не толкает', $contents);
     }
 
@@ -1454,7 +1445,15 @@ final class GameStrikeMysqlTest extends TestCase
                 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]],
             ],
             'accuracy' => ['base' => 3, 'size' => 0],
-            'damage' => ['damage_type_code' => 'crush', 'formula' => ['type' => 'fixed', 'value' => 0]],
+            'damage' => [
+                'damage_type_code' => 'crush',
+                'formula' => [
+                    'type' => 'actionCharacteristic',
+                    'action' => 'strike',
+                    'characteristic' => 'strength',
+                    'modifier' => [['delta' => -3, 'source_code' => null, 'source_label' => null]],
+                ],
+            ],
         ];
 
         return [
@@ -1479,6 +1478,15 @@ final class GameStrikeMysqlTest extends TestCase
                     'allowed_modes' => 'both',
                     'characteristic_code' => 'strength',
                     'difficulty_input' => ['kind' => 'ask'],
+                ],
+            ],
+            'check-push' => [
+                'type' => 'check',
+                'roll' => true,
+                'spec' => [
+                    'allowed_modes' => 'both',
+                    'difficulty_input' => ['kind' => 'ask'],
+                    'push_check' => true,
                 ],
             ],
             'dexterity' => [
@@ -1575,10 +1583,11 @@ final class GameStrikeMysqlTest extends TestCase
                         'amount' => 3,
                     ]],
                     'push' => [
-                        'pool' => 'strength',
-                        'damage' => 'crush_from_strength',
+                        'check' => 'check-push',
                         'profiles' => 'hands_or_shield',
                         'block_profiles' => 'hands_or_shield',
+                        'damage_modifier' => -3,
+                        'stability_bonus_cap' => 6,
                     ],
                 ],
             ],
@@ -1593,10 +1602,11 @@ final class GameStrikeMysqlTest extends TestCase
                         'amount' => 4,
                     ]],
                     'push' => [
-                        'pool' => 'weapon_damage',
-                        'damage' => 'weapon_times_sr',
+                        'check' => 'check-push',
                         'profiles' => 'slashing_or_blunt_strike',
                         'block_profiles' => 'slashing_or_blunt_strike',
+                        'damage_modifier' => -1,
+                        'stability_bonus_cap' => 6,
                         'posture_rating_divisor_by_damage_type' => ['slashing' => 2],
                     ],
                 ],
@@ -2966,7 +2976,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($this->pair(1), $closed['data']['resistance']);
         self::assertSame($this->pair(36, -1), $closed['data']['injury']);
         self::assertSame(
-            ['battleId', 'strikeId', 'version', 'success', 'damage', 'resistance', 'sheetVersion', 'appliedSr', 'hitSuccess', 'srCap', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim', 'closed', 'kind', 'phase', 'strikes', 'pendingStrikes'],
+            ['battleId', 'strikeId', 'version', 'success', 'damage', 'resistance', 'sheetVersion', 'appliedSr', 'srCap', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim', 'closed', 'kind', 'phase', 'strikes', 'pendingStrikes'],
             array_keys($closed['data']),
         );
         self::assertSame($defenderVersion + 1, $this->characterFacade()->get($defenderId)->getActualVersion());

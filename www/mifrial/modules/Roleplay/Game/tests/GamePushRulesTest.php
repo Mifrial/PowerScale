@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Tests;
 
 use Mifrial\Roleplay\Game\Service\GamePushRules;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\PushSpec;
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -12,19 +14,71 @@ use ReflectionClass;
 final class GamePushRulesTest extends TestCase
 {
     /**
-     * Урон толчка сдвигает сырые успехи на один размер, не нормализуя базу.
+     * Код проверки и сдвиг урона берутся из спеки.
      *
      * @return void
      */
-    public function testDamageShiftsSizeWithoutCharacteristicNormalization(): void
+    public function testCheckAndDamageModifierComeFromSpec(): void
     {
         $rules = (new ReflectionClass(GamePushRules::class))->newInstanceWithoutConstructor();
         self::assertInstanceOf(GamePushRules::class, $rules);
+        $push = new PushSpec('', '', 'hands_or_shield', [], 'hands_or_shield', 'check-push', -3, 6);
 
-        $damage = $rules->damage(new DimensionalNumber(2, 2));
+        self::assertSame('check-push', $rules->checkCode($push));
+        self::assertSame(-3, $rules->damageModifier($push));
+    }
 
-        self::assertSame(2, $damage->getBase());
-        self::assertSame(1, $damage->getSize());
+    /**
+     * Устойчивость: игнор — минимум, блок — Сила плюс-минус РУ, не ниже минимума.
+     *
+     * @return void
+     */
+    public function testStabilityUsesFloorAndBlockRating(): void
+    {
+        $rules = (new ReflectionClass(GamePushRules::class))->newInstanceWithoutConstructor();
+        self::assertInstanceOf(GamePushRules::class, $rules);
+        $push = new PushSpec('', '', 'hands_or_shield', [], 'hands_or_shield', 'check-push', -3, 6);
+        $floor = new CharacteristicNumber(3, -1);
+        $strength = new CharacteristicNumber(5, 0);
+
+        self::assertSame(
+            ['base' => 3, 'size' => -1],
+            $this->view($rules->stability($push, 'ignore', 5, $strength, $floor)),
+        );
+        self::assertSame(
+            ['base' => 4, 'size' => 0],
+            $this->view($rules->stability($push, 'block', 1, $strength, $floor)),
+        );
+        self::assertSame(
+            ['base' => 5, 'size' => 1],
+            $this->view($rules->stability($push, 'block', -3, $strength, $floor)),
+        );
+    }
+
+    /**
+     * Неустойчивость — разница Сил, урезанная делителем типа урона.
+     *
+     * @return void
+     */
+    public function testUnstableSubtractsStabilityAndDivides(): void
+    {
+        $rules = (new ReflectionClass(GamePushRules::class))->newInstanceWithoutConstructor();
+        self::assertInstanceOf(GamePushRules::class, $rules);
+        $push = new PushSpec(
+            '',
+            '',
+            'slashing_or_blunt_strike',
+            ['slashing' => 2],
+            'slashing_or_blunt_strike',
+            'check-push',
+            -1,
+            6,
+        );
+        $attacker = new CharacteristicNumber(5, 0);
+
+        self::assertSame(1, $rules->unstable($push, $attacker, new CharacteristicNumber(4, 0), null));
+        self::assertSame(5, $rules->unstable($push, $attacker, new CharacteristicNumber(3, -1), null));
+        self::assertSame(2, $rules->unstable($push, $attacker, new CharacteristicNumber(3, -1), 'slashing'));
     }
 
     /**

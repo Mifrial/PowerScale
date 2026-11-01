@@ -3,9 +3,10 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/init';
 import { checkSuccessRatingService } from '@/modules/Roleplay/Rule/init';
 
-/** Расчёт пола, урона и отброса толчка. */
+/** Устойчивость, Неустойчивость и отброс толчка. */
 export class PushMathService {
-  pushFloor(weight: DimensionalNumberValue): DimensionalNumberValue {
+  /** Минимальная Устойчивость: вес минус один размер. */
+  stabilityFloor(weight: DimensionalNumberValue): DimensionalNumberValue {
     return new DimensionalNumber(weight).modify(-3, CHARACTERISTIC_BASE_RANGE).value;
   }
 
@@ -15,22 +16,42 @@ export class PushMathService {
     return outcome.passed ? Math.max(0, outcome.rating) : 0;
   }
 
-  raiseDefenderSuccesses(rolled: DimensionalNumberValue, floor: DimensionalNumberValue): DimensionalNumberValue {
-    return new DimensionalNumber(rolled).compare(new DimensionalNumber(floor)) < 0 ? floor : rolled;
+  /** Устойчивость: игнор — минимум, блок — Сила плюс-минус РУ, не ниже минимума. */
+  stability(
+    reaction: string,
+    rating: number,
+    defenderStrength: DimensionalNumberValue,
+    floor: DimensionalNumberValue,
+    cap = 6,
+  ): DimensionalNumberValue {
+    if (reaction !== 'block') return floor;
+    const delta = rating > 0 ? -rating : Math.min(-rating, cap);
+    const value = new DimensionalNumber(defenderStrength).modify(delta, CHARACTERISTIC_BASE_RANGE).value;
+
+    return new DimensionalNumber(value).compare(new DimensionalNumber(floor)) < 0 ? floor : value;
   }
 
-  crushingDamage(attackerSuccesses: DimensionalNumberValue): DimensionalNumberValue {
-    return { base: attackerSuccesses.base, size: attackerSuccesses.size - 1 };
+  /** Неустойчивость: разница Сил, урезанная делителем типа урона. */
+  unstable(attackerStrength: DimensionalNumberValue, stability: DimensionalNumberValue, divisor = 1): number {
+    const difference = this.value(attackerStrength) - this.value(stability);
+    const unstable = Math.max(0, difference);
+
+    return divisor <= 1 ? unstable : Math.floor(unstable / divisor);
   }
 
-  knockbackIpari(successRating: number): DimensionalNumberValue {
-    return { base: Math.floor(successRating / 4), size: 0 };
+  /** Отброс в ипари: меньше четырёх — нет отброса. */
+  knockbackIpari(unstable: number): DimensionalNumberValue | null {
+    return unstable >= 4 ? { base: Math.floor(unstable / 4), size: 0 } : null;
   }
 
-  postureRating(successRating: number, divisor = 1): number {
-    if (successRating <= 0) return 0;
-    if (divisor <= 1) return successRating;
+  /** Урон профиля со сдвигом толчка. */
+  damageModifier(damage: DimensionalNumberValue, modifier: number): DimensionalNumberValue {
+    return new DimensionalNumber(damage).modify(modifier, CHARACTERISTIC_BASE_RANGE).value;
+  }
 
-    return Math.floor(successRating / divisor);
+  private value(value: DimensionalNumberValue): number {
+    const step = CHARACTERISTIC_BASE_RANGE.max - CHARACTERISTIC_BASE_RANGE.min + 1;
+
+    return value.base + step * value.size;
   }
 }

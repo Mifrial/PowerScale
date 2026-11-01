@@ -60,11 +60,7 @@ final class GameStrikeSingleChat
         $defender = $this->chat->getEntityToken($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
         $attacker = $this->chat->getEntityToken($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0);
         $push = is_array($result['push'] ?? null) ? $result['push'] : null;
-        $pushRaw = $push !== null
-            && ($push['weapon'] ?? false) === false
-            && is_array($push['raw'] ?? null)
-                ? $this->pairOf($push['raw'])
-                : null;
+        $pushRating = $push !== null && is_int($push['rating'] ?? null) ? $push['rating'] : null;
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actionCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $action = $actionCode !== '' ? '[[rule:' . $actionCode . ']]' : 'действие';
@@ -123,7 +119,6 @@ final class GameStrikeSingleChat
         $exhaustion = is_int($result['exhaustionDelta'] ?? null) ? $result['exhaustionDelta'] : 0;
         $wound = is_int($result['wound'] ?? null) ? $result['wound'] : 0;
         $success = is_int($result['success'] ?? null) ? $result['success'] : 0;
-        $hitSuccess = is_int($result['hitSuccess'] ?? null) ? $result['hitSuccess'] : $success;
         $unstable = $push !== null && is_int($push['unstable'] ?? null) ? $push['unstable'] : 0;
         $unstableCode = $push !== null && is_string($push['unstableCode'] ?? null)
             ? $push['unstableCode']
@@ -176,7 +171,17 @@ final class GameStrikeSingleChat
             $narrative,
             $result['attackerRoll'],
             $push !== null
-                ? $this->pushResultText($attacker, $defender, $success, $bits, $unstable, $unstableName, $push)
+                ? $this->pushResultText(
+                    $attacker,
+                    $defender,
+                    $reaction,
+                    $success,
+                    $pushRating ?? 0,
+                    $bits,
+                    $unstable,
+                    $unstableName,
+                    $push,
+                )
                 : ($success > 0
                     ? $attacker . ' попадает по ' . $defender . ' с ' . $success
                         . ' РУ и наносит ' . implode(' и ', $bits) . '!'
@@ -193,11 +198,13 @@ final class GameStrikeSingleChat
                     ? $result['endurance']
                     : ['base' => 0, 'size' => 0],
                 'defenseIgnored' => false,
-                'attackSrLabel' => (string) $hitSuccess,
-                'pushSrLabel' => $push === null ? null : (string) $success,
-                'appliedSr' => is_int($result['appliedSr'] ?? null) ? $result['appliedSr'] : $hitSuccess,
+                'attackSrLabel' => (string) $success,
+                'pushSrLabel' => $pushRating === null ? null : (string) $pushRating,
+                'appliedSr' => is_int($result['appliedSr'] ?? null) ? $result['appliedSr'] : $success,
                 'srCap' => is_int($result['srCap'] ?? null) ? $result['srCap'] : null,
-                'pushRaw' => $pushRaw,
+                'stability' => $push !== null && is_array($push['stability'] ?? null) ? $push['stability'] : null,
+                'unstable' => $push !== null && is_int($push['unstable'] ?? null) ? $push['unstable'] : null,
+                'knockback' => $push !== null && is_array($push['knockback'] ?? null) ? $push['knockback'] : null,
                 'heading' => null,
                 'stun' => null,
                 'shock' => null,
@@ -275,7 +282,9 @@ final class GameStrikeSingleChat
      *
      * @param string $attacker Толкающий.
      * @param string $defender Цель.
-     * @param int $success РУ.
+     * @param string $reaction Реакция.
+     * @param int $success Множитель урона.
+     * @param int $rating Знаковая маржа проверки.
      * @param list<string> $bits Урон и раны.
      * @param int $unstable Неустойчивость.
      * @param string|null $unstableName Имя состояния Неустойчивости.
@@ -286,17 +295,21 @@ final class GameStrikeSingleChat
     private function pushResultText(
         string $attacker,
         string $defender,
+        string $reaction,
         int $success,
+        int $rating,
         array $bits,
         int $unstable,
         ?string $unstableName,
         array $push,
     ): string {
-        if ($success <= 0) {
+        if (($push['canceled'] ?? false) === true) {
             return $attacker . ' не толкает ' . $defender . '.';
         }
 
-        $text = $attacker . ' толкает ' . $defender . ' с ' . $success . ' РУ';
+        $text = $reaction === 'block' && $rating <= 0
+            ? $defender . ' блокирует — контакт ' . $success . ' РУ'
+            : $attacker . ' толкает ' . $defender . ' с ' . $rating . ' РУ';
         $knockback = $push['knockback'] ?? null;
         if (
             is_array($knockback)

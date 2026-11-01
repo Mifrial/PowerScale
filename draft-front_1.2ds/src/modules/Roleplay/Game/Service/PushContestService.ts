@@ -7,12 +7,11 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 import { pushMathService } from '@/modules/Roleplay/Game/Service/Instance/pushMathService';
-import { CHECK_STRENGTH_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_STRENGTH_CODE';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 
-/** Совместная или соло проверка Силы для толчка. */
+/** Совместная или соло проверка Мастерства ближнего боя для толчка. */
 export class PushContestService {
   characteristicOf(
     overview: CharacterOverview | null,
@@ -33,6 +32,7 @@ export class PushContestService {
 
   resolve(input: {
     reaction: HitDefenseReaction;
+    checkCode?: string;
     attackerOverview: CharacterOverview | null;
     defenderOverview: CharacterOverview | null;
     attackerVersion: CharacterVersion | null | undefined;
@@ -41,7 +41,6 @@ export class PushContestService {
     defenderKey?: CombatEntityKey;
     attackerAdv?: number;
     defenderAdv?: number;
-    attackerPool?: DimensionalNumberValue;
     rng: DiceRng;
     rules: Rule[];
     mechanics: Mechanic[];
@@ -49,17 +48,16 @@ export class PushContestService {
     attacker: DiceRollResult;
     defender: DiceRollResult | null;
     successRating: number;
-    damage: DimensionalNumberValue;
-    knockbackIpari: DimensionalNumberValue;
   } {
-    const floor = pushMathService.pushFloor(
-      this.characteristicOf(input.defenderOverview, input.rules, 'weight', input.defenderVersion),
+    const checkCode = input.checkCode ?? 'check-push';
+    const attackerPool = this.characteristicOf(
+      input.attackerOverview,
+      input.rules,
+      'melee-combat',
+      input.attackerVersion,
     );
-    const attackerPool =
-      input.attackerPool ??
-      this.characteristicOf(input.attackerOverview, input.rules, 'strength', input.attackerVersion);
     const attackerSpec = checkRollService.namedCheckSpec(
-      input.attackerPool ? 'Урон (толчок)' : 'Сила (толчок)',
+      'Толчок',
       attackerPool,
       input.attackerAdv ?? 0,
       input.rules,
@@ -69,22 +67,19 @@ export class PushContestService {
       const joint = checkRollService.rollJointCheck(
         attackerSpec,
         checkRollService.namedCheckSpec(
-          'Сила (толчок, защита)',
-          this.characteristicOf(input.defenderOverview, input.rules, 'strength', input.defenderVersion),
+          'Толчок (защита)',
+          this.characteristicOf(input.defenderOverview, input.rules, 'melee-combat', input.defenderVersion),
           input.defenderAdv ?? 0,
           input.rules,
           input.defenderKey,
         ),
-        CHECK_STRENGTH_CODE,
+        checkCode,
         input.rng,
         input.rules,
         input.mechanics,
       );
-      const defenderSuccesses = pushMathService.raiseDefenderSuccesses(
-        checkRollService.successesOf(joint.right),
-        floor,
-      );
       const attackerSuccesses = checkRollService.successesOf(joint.left);
+      const defenderSuccesses = checkRollService.successesOf(joint.right);
       const rolledRating = pushMathService.successRating(attackerSuccesses, defenderSuccesses);
       const successRating = Math.max(rolledRating, 1);
       const leftCheck = joint.left.check;
@@ -95,7 +90,7 @@ export class PushContestService {
           check: leftCheck
             ? { ...leftCheck, rating: successRating, passed: successRating > 0 }
             : {
-                check_code: CHECK_STRENGTH_CODE,
+                check_code: checkCode,
                 difficulty: defenderSuccesses,
                 passed: successRating > 0,
                 rating: successRating,
@@ -103,41 +98,32 @@ export class PushContestService {
         },
         defender: joint.right,
         successRating,
-        damage: pushMathService.crushingDamage(attackerSuccesses),
-        knockbackIpari: pushMathService.knockbackIpari(successRating),
       };
     }
     const attacker = checkRollService.rollNamedCheck(
       attackerSpec,
-      CHECK_STRENGTH_CODE,
-      floor,
+      checkCode,
+      { base: 0, size: 0 },
       input.rng,
       input.rules,
       input.mechanics,
     );
-    const attackerSuccesses = checkRollService.successesOf(attacker);
-    const successRating = Math.max(
-      0,
-      attacker.check?.rating ?? pushMathService.successRating(attackerSuccesses, floor),
-    );
-    const strengthCheck = attacker.check;
+    const successRating = Math.max(0, attacker.check?.rating ?? 0);
 
     return {
       attacker: {
         ...attacker,
-        check: strengthCheck
-          ? { ...strengthCheck, rating: successRating, passed: successRating > 0 }
+        check: attacker.check
+          ? { ...attacker.check, rating: successRating, passed: successRating > 0 }
           : {
-              check_code: CHECK_STRENGTH_CODE,
-              difficulty: floor,
+              check_code: checkCode,
+              difficulty: { base: 0, size: 0 },
               passed: successRating > 0,
               rating: successRating,
             },
       },
       defender: null,
       successRating,
-      damage: pushMathService.crushingDamage(attackerSuccesses),
-      knockbackIpari: pushMathService.knockbackIpari(successRating),
     };
   }
 }

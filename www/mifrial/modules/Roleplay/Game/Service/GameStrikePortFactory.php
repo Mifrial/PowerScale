@@ -88,7 +88,7 @@ final class GameStrikePortFactory
             $events,
             $this->consequences($serviceLocator, $rules),
             $this->cardAvailability($serviceLocator, $gateway, $rules),
-            new GamePushRules($rules, $this->checkRoll($serviceLocator)),
+            new GamePushRules($rules),
             $this->createStateIncreaseChecks($serviceLocator),
         );
     }
@@ -127,7 +127,7 @@ final class GameStrikePortFactory
             $events,
             $this->consequences($serviceLocator, $rules),
             $this->cardAvailability($serviceLocator, $gateway, $rules),
-            new GamePushRules($rules, $this->checkRoll($serviceLocator)),
+            new GamePushRules($rules),
             $this->createStateIncreaseChecks($serviceLocator),
         );
     }

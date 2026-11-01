@@ -638,6 +638,7 @@ final class GameStrikeResolution
      * @param int|null $success Рейтинг успеха или null, если бонус от РУ не применяется.
      * @param int $hitNumber Номер попадания с единицы.
      * @param int $strengthDrop Штраф силы броска в размерах.
+     * @param int|null $extraCharacteristicModifier Дополнительный сдвиг формулы.
      *
      * @return DimensionalNumber Пара.
      *
@@ -650,6 +651,7 @@ final class GameStrikeResolution
         ?int $success = null,
         int $hitNumber = 1,
         int $strengthDrop = 0,
+        ?int $extraCharacteristicModifier = null,
     ): DimensionalNumber {
         $kind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
@@ -688,6 +690,9 @@ final class GameStrikeResolution
             $this->abilityLevels($game, $kind, $attackerId),
             $success,
         );
+        if ($extraCharacteristicModifier !== null) {
+            $characteristicModifier += $extraCharacteristicModifier;
+        }
 
         return $this->rules->evaluateDamage(
             $game->getSpaceId(),

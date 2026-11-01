@@ -2,35 +2,32 @@ import { describe, expect, it } from 'vitest';
 import { pushMathService } from '@/modules/Roleplay/Game/Service/Instance/pushMathService';
 
 describe('PushMathService', () => {
-  it('пол толчка — вес минус один размер', () => {
-    expect(pushMathService.pushFloor({ base: 3, size: 0 })).toEqual({ base: 3, size: -1 });
+  it('минимум Устойчивости — вес минус один размер', () => {
+    expect(pushMathService.stabilityFloor({ base: 3, size: 0 })).toEqual({ base: 3, size: -1 });
   });
 
-  it('блок поднимает успехи цели до пола', () => {
-    expect(pushMathService.raiseDefenderSuccesses({ base: 1, size: -2 }, { base: 3, size: -2 })).toEqual({
-      base: 3,
-      size: -2,
-    });
+  it('Устойчивость: игнор — минимум, блок — Сила плюс-минус РУ', () => {
+    const floor = { base: 3, size: -1 };
+    const strength = { base: 5, size: 0 };
+
+    expect(pushMathService.stability('ignore', 5, strength, floor)).toEqual(floor);
+    expect(pushMathService.stability('block', 1, strength, floor)).toEqual({ base: 4, size: 0 });
+    expect(pushMathService.stability('block', -3, strength, floor)).toEqual({ base: 5, size: 1 });
   });
 
-  it('урон — успехи Силы минус размер, отброс — РУ делить на четыре', () => {
-    expect(pushMathService.crushingDamage({ base: 4, size: 0 })).toEqual({ base: 4, size: -1 });
+  it('Неустойчивость — разница Сил с делителем типа урона', () => {
+    expect(pushMathService.unstable({ base: 5, size: 0 }, { base: 4, size: 0 })).toBe(1);
+    expect(pushMathService.unstable({ base: 5, size: 0 }, { base: 3, size: -1 })).toBe(5);
+    expect(pushMathService.unstable({ base: 5, size: 0 }, { base: 3, size: -1 }, 2)).toBe(2);
+  });
+
+  it('отброс — четверть Неустойчивости; меньше четырёх — нет отброса', () => {
+    expect(pushMathService.knockbackIpari(3)).toBeNull();
     expect(pushMathService.knockbackIpari(4)).toEqual({ base: 1, size: 0 });
     expect(pushMathService.knockbackIpari(13)).toEqual({ base: 3, size: 0 });
   });
 
-  it('НУЛЕВОЙ РУ не даёт эффекта', () => {
-    expect(pushMathService.successRating({ base: 2, size: 0 }, { base: 3, size: 0 })).toBe(0);
-  });
-
-  it('РУ считает размер, а не toNumber', () => {
-    expect(pushMathService.successRating({ base: 4, size: 0 }, { base: 3, size: -2 })).toBeGreaterThan(0);
-  });
-
-  it('делитель позы режет РУ отброса, не обнуляет при полном РУ', () => {
-    expect(pushMathService.postureRating(0, 2)).toBe(0);
-    expect(pushMathService.postureRating(1, 2)).toBe(0);
-    expect(pushMathService.postureRating(3, 2)).toBe(1);
-    expect(pushMathService.postureRating(3, 1)).toBe(3);
+  it('урон профиля сдвигается модификатором толчка', () => {
+    expect(pushMathService.damageModifier({ base: 4, size: -1 }, -3)).toEqual({ base: 4, size: -2 });
   });
 });

@@ -30,12 +30,16 @@ export interface AttackCalcPayload {
   endurance: DimensionalNumberValue;
   defenseIgnored: boolean;
   attackSrLabel: string;
-  /** РУ проверки на толчок, отдельно от РУ попадания. */
+  /** РУ проверки на толчок. */
   pushSrLabel?: string | null;
   appliedSr: number | null;
   srCap: number | null;
-  /** Сырые успехи проверки толчка до уменьшения на один размер. */
-  pushRaw?: DimensionalNumberValue | null;
+  /** Устойчивость защитника. */
+  stability?: DimensionalNumberValue | null;
+  /** Неустойчивость. */
+  unstable?: number | null;
+  /** Отброс в ипари. */
+  knockback?: DimensionalNumberValue | null;
   heading: string | null;
   stun: number | null;
   shock: number | null;

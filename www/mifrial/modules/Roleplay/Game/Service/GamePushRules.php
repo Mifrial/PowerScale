@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
-use Mifrial\Roleplay\Game\Dto\GameCheckThrowOverride;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\PushSpec;
@@ -13,29 +12,22 @@ use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
- * Исполнение Толчка: пол, контест пула, урон и отброс.
+ * Толчок: проверка, Устойчивость, Неустойчивость и отброс.
  *
- * Пул — Сила или урон оружия. Толкающий удар отличается только пулом и базой
- * урона, поэтому считается здесь же.
+ * Проверка и урон считаются общим боевым потоком удара; здесь только
+ * толчковая арифметика.
  */
 final class GamePushRules
 {
     /**
-     * Подпись проверки, когда пул — урон оружия.
-     */
-    private const WEAPON_POOL_LABEL = 'Урон (толчок)';
-
-    /**
      * Создаёт правила толчка.
      *
      * @param GameStrikeRules $rules Срез правил.
-     * @param GameCheckRoll $checks Бросок.
      *
      * @return void
      */
     public function __construct(
         private readonly GameStrikeRules $rules,
-        private readonly GameCheckRoll $checks,
     ) {
     }
 
@@ -53,36 +45,27 @@ final class GamePushRules
     }
 
     /**
-     * Проверяет, что этот срез умеет исполнять толчок.
+     * Код проверки толчка.
      *
      * @param PushSpec $push Толчок.
      *
-     * @return void
-     *
-     * @throws GameInvalidException Если вид толчка ещё не поддержан.
+     * @return string Код проверки.
      */
-    public function assertSupported(PushSpec $push): void
+    public function checkCode(PushSpec $push): string
     {
-        $supported = match ($push->getPool()) {
-            'strength' => $push->getDamage() === 'crush_from_strength',
-            'weapon_damage' => $push->getDamage() === 'weapon_times_sr',
-            default => false,
-        };
-        if (!$supported) {
-            throw new GameInvalidException('Game push damage is not supported');
-        }
+        return $push->getCheck();
     }
 
     /**
-     * Пул толчка — урон оружия.
+     * Сдвиг урона профиля в пунктах.
      *
      * @param PushSpec $push Толчок.
      *
-     * @return bool true, если пул — урон оружия.
+     * @return int Пункты.
      */
-    public function isWeaponDamagePool(PushSpec $push): bool
+    public function damageModifier(PushSpec $push): int
     {
-        return $push->getPool() === 'weapon_damage';
+        return $push->getDamageModifier();
     }
 
     /**
@@ -113,15 +96,15 @@ final class GamePushRules
     }
 
     /**
-     * Пол толчка: вес минус один размер.
+     * Минимальная Устойчивость: вес минус один размер.
      *
      * @param array<string, mixed> $sheet Лист цели.
      *
-     * @return DimensionalNumber Пол.
+     * @return DimensionalNumber Минимум.
      *
      * @throws GameInvalidException Если веса нет.
      */
-    public function floor(array $sheet): DimensionalNumber
+    public function stabilityFloor(array $sheet): DimensionalNumber
     {
         $weight = $this->rules->characteristicOf($sheet, 'weight');
 
@@ -129,245 +112,83 @@ final class GamePushRules
     }
 
     /**
-     * Урон толчка: сырые успехи минус один размер шкалы характеристик.
+     * Устойчивость защитника для толчка.
      *
-     * `modify(-3)` на шкале характеристик — это сдвиг на один размер. База
-     * успехов может быть вне 3..5, поэтому нормализацию характеристики не
-     * применяем: `{2|2}` → `{2|1}`, а не `{5|0}`.
-     *
-     * @param DimensionalNumber $successes Сырые успехи.
-     *
-     * @return DimensionalNumber Урон.
-     */
-    public function damage(DimensionalNumber $successes): DimensionalNumber
-    {
-        return $successes->withSize($successes->getSize() - 1);
-    }
-
-    /**
-     * Рейтинг позы: РУ, урезанный делителем типа урона.
+     * Игнор и провал уклона — минимум. Блок: провал — Сила минус РУ, успех —
+     * Сила плюс РУ (не выше потолка). Ниже минимума не опускается.
      *
      * @param PushSpec $push Толчок.
-     * @param string|null $damageTypeCode Тип урона профиля.
-     * @param int $success РУ контеста.
+     * @param string $reaction Реакция.
+     * @param int $rating Знаковая маржа проверки.
+     * @param DimensionalNumber $defenderStrength Сила защитника.
+     * @param DimensionalNumber $floor Минимальная Устойчивость.
      *
-     * @return int Рейтинг позы.
+     * @return DimensionalNumber Устойчивость.
      */
-    public function getPostureRating(PushSpec $push, ?string $damageTypeCode, int $success): int
-    {
-        if ($success <= 0) {
-            return 0;
+    public function stability(
+        PushSpec $push,
+        string $reaction,
+        int $rating,
+        DimensionalNumber $defenderStrength,
+        DimensionalNumber $floor,
+    ): DimensionalNumber {
+        $minimum = $this->characteristic($floor);
+        if ($reaction !== 'block') {
+            return $minimum;
         }
 
-        $divisor = $damageTypeCode === null ? 1 : ($push->getDivisors()[$damageTypeCode] ?? 1);
+        $delta = $rating > 0
+            ? -$rating
+            : min(-$rating, $push->getStabilityBonusCap());
+        $value = $this->characteristic($defenderStrength)->modify($delta);
 
-        return $divisor <= 1 ? $success : intdiv($success, $divisor);
+        return $value->characteristicCompare($minimum) < 0 ? $minimum : $value;
     }
 
     /**
-     * Отброс: рейтинг позы, делённый на четыре. Меньше четырёх — нет отброса.
+     * Неустойчивость: разница Сил, не ниже нуля, с делителем типа урона.
      *
-     * @param int $posture Рейтинг позы.
+     * @param PushSpec $push Толчок.
+     * @param DimensionalNumber $attackerStrength Сила атакующего.
+     * @param DimensionalNumber $stability Устойчивость защитника.
+     * @param string|null $damageTypeCode Тип урона.
+     *
+     * @return int Неустойчивость.
+     */
+    public function unstable(
+        PushSpec $push,
+        DimensionalNumber $attackerStrength,
+        DimensionalNumber $stability,
+        ?string $damageTypeCode,
+    ): int {
+        $difference = $this->value($this->characteristic($attackerStrength))
+            - $this->value($this->characteristic($stability));
+        $unstable = max(0, $difference);
+        $divisor = $damageTypeCode === null ? 1 : ($push->getDivisors()[$damageTypeCode] ?? 1);
+
+        return $divisor <= 1 ? $unstable : intdiv($unstable, $divisor);
+    }
+
+    /**
+     * Отброс: Неустойчивость, делённая на четыре. Меньше четырёх — нет отброса.
+     *
+     * @param int $unstable Неустойчивость.
      *
      * @return DimensionalNumber|null Отброс или null.
      */
-    public function knockback(int $posture): ?DimensionalNumber
+    public function knockback(int $unstable): ?DimensionalNumber
     {
-        if ($posture < 4) {
+        if ($unstable < 4) {
             return null;
         }
 
-        return new DimensionalNumber(intdiv($posture, 4), 0);
-    }
-
-    /**
-     * Поднимает успехи защиты до пола.
-     *
-     * @param DimensionalNumber $rolled Успехи защиты.
-     * @param DimensionalNumber $floor Пол.
-     *
-     * @return DimensionalNumber Не ниже пола.
-     */
-    public function raise(DimensionalNumber $rolled, DimensionalNumber $floor): DimensionalNumber
-    {
-        $value = new DimensionalNumber($rolled->getBase(), $rolled->getSize());
-
-        return $value->compare($floor) < 0 ? $floor : $rolled;
-    }
-
-    /**
-     * Контест толчка: соло против пола или совместная проверка с блоком.
-     *
-     * Успешный блок оставляет контакт: РУ 1. Защита блока при этом входит
-     * в сопротивление.
-     *
-     * @param GameRecord $game Игра.
-     * @param PushSpec $push Толчок.
-     * @param array<string, mixed> $attackerSheet Лист толкающего.
-     * @param array<string, mixed>|null $defenderSheet Лист цели при блоке.
-     * @param string $reaction Реакция.
-     * @param DimensionalNumber $floor Пол.
-     * @param DimensionalNumber|null $weaponDamage Урон оружия для пула weapon_damage.
-     * @param string|null $damageTypeCode Тип урона профиля.
-     *
-     * @return array{
-     *     attacker: array<string, mixed>,
-     *     defender: array<string, mixed>|null,
-     *     success: int,
-     *     posture: int,
-     *     damage: DimensionalNumber,
-     *     knockback: DimensionalNumber|null,
-     *     raw: DimensionalNumber
-     * } Итог.
-     *
-     * @throws GameInvalidException Если бросок или лист битые.
-     */
-    public function contest(
-        GameRecord $game,
-        PushSpec $push,
-        array $attackerSheet,
-        ?array $defenderSheet,
-        string $reaction,
-        DimensionalNumber $floor,
-        ?DimensionalNumber $weaponDamage = null,
-        ?string $damageTypeCode = null,
-    ): array {
-        $checkCode = $this->strengthCheck($game);
-        $attackerPool = $this->isWeaponDamagePool($push) ? $weaponDamage : null;
-        if ($this->isWeaponDamagePool($push) && $attackerPool === null) {
-            throw new GameInvalidException('Game push weapon damage is invalid');
-        }
-
-        if ($reaction === 'block') {
-            if ($defenderSheet === null) {
-                throw new GameInvalidException('Game push defender sheet is invalid');
-            }
-
-            $attacker = $this->throwPool($game, $checkCode, $attackerSheet, new DimensionalNumber(0, 0), $attackerPool);
-            $defender = $this->throwPool($game, $checkCode, $defenderSheet, new DimensionalNumber(0, 0));
-            $attackerRaw = $this->pair($attacker['roll']);
-            $defenderRaw = $this->pair($defender['roll']);
-            $raised = $this->raise($defenderRaw, $floor);
-            $defender = $this->checks->rerate($defender, $this->pairArray($attackerRaw));
-            $attacker = $this->checks->rerate($attacker, $this->pairArray($raised));
-            $rating = is_int($attacker['rating'] ?? null) ? $attacker['rating'] : 0;
-            $success = $rating > 0 ? $rating : 1;
-            $posture = $this->getPostureRating($push, $damageTypeCode, $success);
-
-            return [
-                'attacker' => $attacker,
-                'defender' => $defender,
-                'success' => $success,
-                'posture' => $posture,
-                'damage' => $attackerPool ?? $this->damage($attackerRaw),
-                'knockback' => $this->knockback($posture),
-                'raw' => $attackerRaw,
-            ];
-        }
-
-        $attacker = $this->throwPool($game, $checkCode, $attackerSheet, $floor, $attackerPool);
-        $attackerRaw = $this->pair($attacker['roll']);
-        $success = max(0, is_int($attacker['rating'] ?? null) ? $attacker['rating'] : 0);
-        $posture = $this->getPostureRating($push, $damageTypeCode, $success);
-
-        return [
-            'attacker' => $attacker,
-            'defender' => null,
-            'success' => $success,
-            'posture' => $posture,
-            'damage' => $attackerPool ?? $this->damage($attackerRaw),
-            'knockback' => $this->knockback($posture),
-            'raw' => $attackerRaw,
-        ];
-    }
-
-    /**
-     * Бросок пула против заданной сложности.
-     *
-     * @param GameRecord $game Игра.
-     * @param string $checkCode Проверка.
-     * @param array<string, mixed> $sheet Лист.
-     * @param DimensionalNumber $difficulty Сложность.
-     * @param DimensionalNumber|null $pool Пул урона оружия или null.
-     *
-     * @return array<string, mixed> Бросок.
-     */
-    private function throwPool(
-        GameRecord $game,
-        string $checkCode,
-        array $sheet,
-        DimensionalNumber $difficulty,
-        ?DimensionalNumber $pool = null,
-    ): array {
-        $override = $pool === null ? null : new GameCheckThrowOverride(
-            diceCount: max(1, $pool->getBase()),
-            size: $pool->getSize(),
-        );
-        $roll = $this->checks->throwWithDifficulty(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $checkCode,
-            $sheet,
-            $this->pairArray($difficulty),
-            $override,
-        );
-        if ($pool !== null) {
-            $roll['label'] = self::WEAPON_POOL_LABEL;
-        }
-
-        return $roll;
-    }
-
-    /**
-     * Код проверки Силы.
-     *
-     * @param GameRecord $game Игра.
-     *
-     * @return string Код.
-     */
-    private function strengthCheck(GameRecord $game): string
-    {
-        return $this->rules->checkByCharacteristic(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            'strength',
-        );
-    }
-
-    /**
-     * Размерное число по базе и размеру.
-     *
-     * @param array<string, mixed> $pair Пара.
-     *
-     * @return DimensionalNumber Число.
-     *
-     * @throws GameInvalidException Если пара битая.
-     */
-    private function pair(array $pair): DimensionalNumber
-    {
-        if (!is_int($pair['base'] ?? null) || !is_int($pair['size'] ?? null)) {
-            throw new GameInvalidException('Game push roll is invalid');
-        }
-
-        return new DimensionalNumber($pair['base'], $pair['size']);
-    }
-
-    /**
-     * Пара base/size.
-     *
-     * @param DimensionalNumber $value Число.
-     *
-     * @return array{base: int, size: int} Пара.
-     */
-    private function pairArray(DimensionalNumber $value): array
-    {
-        return ['base' => $value->getBase(), 'size' => $value->getSize()];
+        return new DimensionalNumber(intdiv($unstable, 4), 0);
     }
 
     /**
      * Приводит значение к шкале характеристик.
      *
-     * @param DimensionalNumber $value Число.
+     * @param DimensionalNumber $value Значение.
      *
      * @return CharacteristicNumber Число характеристик.
      */
@@ -376,5 +197,17 @@ final class GamePushRules
         return $value instanceof CharacteristicNumber
             ? $value
             : new CharacteristicNumber($value->getBase(), $value->getSize());
+    }
+
+    /**
+     * Значение характеристики: база плюс три на размер.
+     *
+     * @param CharacteristicNumber $value Число.
+     *
+     * @return int Пункты.
+     */
+    private function value(CharacteristicNumber $value): int
+    {
+        return $value->getBase() + CharacteristicNumber::BASE_STEP * $value->getSize();
     }
 }

@@ -183,6 +183,7 @@ final class RootSpecs
             SpecShape::bool($document, 'willpower'),
             SpecShape::bool($document, 'unstable_check'),
             SpecShape::bool($document, 'hit_check'),
+            SpecShape::bool($document, 'push_check'),
             SpecShape::bool($document, 'initiative'),
             self::attached($document),
             self::outcomes($document),

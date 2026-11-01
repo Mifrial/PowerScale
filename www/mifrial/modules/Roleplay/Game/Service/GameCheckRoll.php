@@ -777,7 +777,11 @@ final class GameCheckRoll
         $rule = $slice->findLive($ruleCode);
         $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
         $blocked = $spec instanceof CheckSpec ? $this->hitBlocked($spec) : true;
-        if (!$spec instanceof CheckSpec || !$spec->isHitCheck() || $blocked) {
+        if (
+            !$spec instanceof CheckSpec
+            || (!$spec->isHitCheck() && !$spec->isPushCheck())
+            || $blocked
+        ) {
             throw new GameInvalidException('Game hit check is invalid');
         }
 

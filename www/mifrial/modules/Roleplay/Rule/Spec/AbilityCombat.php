@@ -71,11 +71,14 @@ final class AbilityCombat
         }
 
         return new PushSpec(
-            SpecShape::string($push, 'pool'),
-            SpecShape::string($push, 'damage'),
+            SpecShape::optionalString($push, 'pool') ?? '',
+            SpecShape::optionalString($push, 'damage') ?? '',
             SpecShape::string($push, 'profiles'),
             self::divisors($push),
             SpecShape::optionalString($push, 'block_profiles') ?? 'any',
+            SpecShape::optionalString($push, 'check') ?? 'check-push',
+            SpecShape::optionalInt($push, 'damage_modifier') ?? -3,
+            SpecShape::optionalInt($push, 'stability_bonus_cap') ?? 6,
         );
     }
 

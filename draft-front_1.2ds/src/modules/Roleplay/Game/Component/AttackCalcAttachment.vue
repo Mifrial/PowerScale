@@ -12,7 +12,12 @@ const props = defineProps<{
 
 const calc = computed(() => props.attachment.payload);
 const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toString());
-const pushRawLabel = computed(() => (calc.value.pushRaw ? new DimensionalNumber(calc.value.pushRaw).toString() : null));
+const stabilityLabel = computed(() =>
+  calc.value.stability ? new DimensionalNumber(calc.value.stability).toString() : null,
+);
+const knockbackLabel = computed(() =>
+  calc.value.knockback ? new DimensionalNumber(calc.value.knockback).toString() : null,
+);
 const injuryLabel = computed(() =>
   calc.value.injury ? new DimensionalNumber(calc.value.injury).toString() : String(calc.value.raw),
 );
@@ -56,10 +61,6 @@ const remainingHpDamageLabel = computed(() => {
           <span class="text-medium-emphasis">Повреждения</span>
           <span class="font-weight-medium">{{ injuryLabel }}</span>
         </div>
-        <div v-if="pushRawLabel !== null" class="d-flex align-center justify-space-between py-1 text-body-2">
-          <span class="text-medium-emphasis">Сырые успехи</span>
-          <span class="font-weight-medium">{{ pushRawLabel }}</span>
-        </div>
         <div class="d-flex align-center justify-space-between py-1 text-body-2 ga-3">
           <span class="text-medium-emphasis">Урон</span>
           <span class="font-weight-medium">{{ damageLabel }} {{ calc.damageTypeName }}</span>
@@ -101,6 +102,18 @@ const remainingHpDamageLabel = computed(() => {
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">{{ calc.pushSrLabel != null ? 'РУ попадания' : 'РУ атаки' }}</span>
           <span class="font-weight-medium">{{ calc.attackSrLabel }}</span>
+        </div>
+        <div v-if="stabilityLabel !== null" class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Устойчивость</span>
+          <span class="font-weight-medium">{{ stabilityLabel }}</span>
+        </div>
+        <div v-if="calc.unstable != null" class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Неустойчивость</span>
+          <span class="font-weight-medium">{{ calc.unstable }}</span>
+        </div>
+        <div v-if="knockbackLabel !== null" class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Отброс</span>
+          <span class="font-weight-medium">{{ knockbackLabel }} ипари</span>
         </div>
         <div v-if="(calc.durabilityShave ?? 0) > 0" class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Срез надёжности</span>
