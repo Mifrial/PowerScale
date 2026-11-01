@@ -19,6 +19,7 @@ use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
+use Mifrial\Roleplay\Game\Service\GameStrikeAmounts;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
 use Mifrial\Roleplay\Game\Table\GameDeliveryTable;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
@@ -33,6 +34,7 @@ use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Mechanic\Service\MechanicPortFactory;
 use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionBody;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -998,7 +1000,17 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame(17, $this->actionPointsOf($attackerId));
         $success = $closed['data']['success'] ?? 0;
         self::assertGreaterThan(0, $success);
-        self::assertSame(1, $closed['data']['appliedSr'] ?? null);
+        self::assertSame($success, $closed['data']['appliedSr'] ?? null);
+        $amounts = new GameStrikeAmounts();
+        $damage = $closed['data']['damage'];
+        $resistance = $closed['data']['resistance'];
+        $expectedInjury = $amounts->injury(
+            new DimensionalNumber($damage['base'], $damage['size']),
+            new DimensionalNumber($resistance['base'], $resistance['size']),
+            $success,
+            null,
+        );
+        self::assertSame($amounts->view($expectedInjury), $closed['data']['injury']);
         $states = $this->statesOf($defenderId);
         $unstable = array_values(array_filter(
             $states,
@@ -1238,6 +1250,170 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Толкающий удар: пул урона оружия, урон профиля × РУ и половинная поза.
+     *
+     * @return void
+     */
+    public function testWeaponPushUsesWeaponDamageAndHalvesPosture(): void
+    {
+        $world = $this->worldWithWeapon(
+            extraRules: $this->pushRules(),
+            profileOverrides: [
+                'damage' => [
+                    'damage_type_code' => 'slashing',
+                    'formula' => ['type' => 'fixed', 'value' => 6],
+                ],
+            ],
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Slasher', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [
+            ['id' => 1, 'ruleCode' => 'sword', 'equipped' => true],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Target', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [
+            ['id' => 1, 'ruleCode' => 'slash-mail', 'equipped' => true],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'weapon-push-battle',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'weapon-push-open',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'tolkayuschiy-udar', 'sword'),
+            ),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'weapon-push-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        $success = $closed['data']['success'] ?? 0;
+        $posture = intdiv($success, 2);
+        self::assertGreaterThan(0, $success);
+        self::assertSame(16, $this->actionPointsOf($attackerId));
+        self::assertSame($this->pair(6), $closed['data']['damage']);
+        self::assertSame($this->pair(5), $closed['data']['resistance']);
+        self::assertSame($success, $closed['data']['appliedSr']);
+        self::assertSame($this->pair($success), $closed['data']['injury']);
+        self::assertSame($posture, $closed['data']['push']['unstable']);
+        self::assertSame($this->pair(7, -1), $closed['data']['push']['knockback']);
+
+        $messages = $this->chatMessages($gameId);
+        $contents = array_map(static fn (MessageRecord $message): string => $message->getContent(), $messages);
+        self::assertStringContainsString('получает Unstable ' . $posture, implode("\n", $contents));
+        $labels = array_map(
+            static fn (array $payload): string => (string) ($payload['label'] ?? ''),
+            $this->attachmentsOfType($messages, 'roll'),
+        );
+        self::assertContains('Урон (толчок)', $labels);
+    }
+
+    /**
+     * Успешный блок Толкающего удара: РУ 0, нет урона и Неустойчивости.
+     *
+     * @return void
+     */
+    public function testWeaponPushBlockCancelsDamage(): void
+    {
+        $world = $this->worldWithWeapon(
+            extraRules: $this->pushRules(),
+            profileOverrides: [
+                'damage' => [
+                    'damage_type_code' => 'slashing',
+                    'formula' => ['type' => 'fixed', 'value' => 1],
+                ],
+            ],
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Pusher', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [
+            ['id' => 1, 'ruleCode' => 'sword', 'equipped' => true],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Blocker', [
+            ['characteristicCode' => 'strength', 'value' => ['base' => 5, 'size' => 2]],
+        ], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [
+            ['id' => 1, 'ruleCode' => 'sword', 'equipped' => true],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'weapon-push-block-battle',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'weapon-push-block-open',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'tolkayuschiy-udar', 'sword'),
+            ),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'idempotencyKey' => 'weapon-push-block-close',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope([
+                'reaction' => 'block',
+                'blockItemInventoryId' => 1,
+                'blockItemProfileIndex' => 0,
+                'blockItemRuleCode' => 'sword',
+            ], $this->characterFacade()->get($defenderId)->getActualVersion()),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        self::assertSame(0, $closed['data']['success']);
+        self::assertSame(0, $closed['data']['appliedSr']);
+        self::assertSame($this->pair(0), $closed['data']['injury']);
+        self::assertSame(0, $closed['data']['push']['unstable']);
+        self::assertNull($closed['data']['push']['knockback']);
+        self::assertNotNull($closed['data']['strikes'][0]['defenseRoll'] ?? null);
+        self::assertSame(16, $this->actionPointsOf($attackerId));
+        self::assertSame(18, $this->actionPointsOf($defenderId));
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->chatMessages($gameId),
+        );
+        self::assertStringContainsString('не толкает', implode("\n", $contents));
+    }
+
+    /**
      * Мир с Толчком, Силой, весом и блоком руками.
      *
      * @return array<string, array<string, mixed>> Правила мира.
@@ -1348,6 +1524,19 @@ final class GameStrikeMysqlTest extends TestCase
                     ],
                 ],
             ],
+            'slash-mail' => [
+                'type' => 'item',
+                'spec' => [
+                    'category' => 'armor',
+                    'armor' => [
+                        'resistance_slots' => [[
+                            'damage_type_code' => 'slashing',
+                            'value' => ['base' => 5, 'size' => 0],
+                            'durability' => null,
+                        ]],
+                    ],
+                ],
+            ],
             'simple-push' => [
                 'type' => 'ability',
                 'spec' => [
@@ -1363,6 +1552,25 @@ final class GameStrikeMysqlTest extends TestCase
                         'damage' => 'crush_from_strength',
                         'profiles' => 'hands_or_shield',
                         'block_profiles' => 'hands_or_shield',
+                    ],
+                ],
+            ],
+            'tolkayuschiy-udar' => [
+                'type' => 'ability',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'action_components' => [[
+                        'type' => 'resource',
+                        'resource_code' => 'action-points',
+                        'amount' => 4,
+                    ]],
+                    'push' => [
+                        'pool' => 'weapon_damage',
+                        'damage' => 'weapon_times_sr',
+                        'profiles' => 'slashing_or_blunt_strike',
+                        'block_profiles' => 'slashing_or_blunt_strike',
+                        'posture_rating_divisor_by_damage_type' => ['slashing' => 2],
                     ],
                 ],
             ],

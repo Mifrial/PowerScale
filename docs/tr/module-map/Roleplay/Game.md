@@ -220,6 +220,7 @@
 | [game-plan-38-action-states.md](../../game-plan-38-action-states.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-39-state-increase-check.md](../../game-plan-39-state-increase-check.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-40-push.md](../../game-plan-40-push.md) | план | `~СДЕЛАНО~` | — |
+| [game-plan-41-tolkayuschiy-udar.md](../../game-plan-41-tolkayuschiy-udar.md) | план | `~СДЕЛАНО~` | — |
 | [game-system.md](../../game-system.md) | канон | `~СДЕЛАНО~` | 2026-08-30 |
 | [game-combat-readiness.md](../../game-combat-readiness.md) | канон | ? | 2026-10-29 |
 

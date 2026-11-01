@@ -390,13 +390,13 @@ final class GameCheckRoll
     }
 
     /**
-     * Число кубов и граней. Null не подменяется.
+     * Число кубов, граней и размер успехов. Null не подменяется.
      *
      * @param string|null $characteristic Код или null.
      * @param array<string, mixed> $sheet Лист.
      * @param RollMechanicPayload $payload Дефолты.
      *
-     * @return array{diceCount: int, dieFaces: int} Пул.
+     * @return array{diceCount: int, dieFaces: int, size: int} Пул.
      *
      * @throws GameInvalidException Если числа нет.
      */
@@ -405,13 +405,21 @@ final class GameCheckRoll
         array $sheet,
         RollMechanicPayload $payload,
     ): array {
-        $diceCount = $this->diceCount($characteristic, $sheet, $payload);
         $dieFaces = $payload->getDieFaces();
+        if ($characteristic === null) {
+            $diceCount = $payload->getDiceCount();
+            $size = 0;
+        } else {
+            $value = $this->characteristicValue($sheet, $characteristic);
+            $diceCount = $value->getBase();
+            $size = $value->getSize();
+        }
+
         if ($diceCount === null || $dieFaces === null) {
             throw new GameInvalidException('Game check pool is invalid');
         }
 
-        return ['diceCount' => $diceCount, 'dieFaces' => $dieFaces];
+        return ['diceCount' => $diceCount, 'dieFaces' => $dieFaces, 'size' => $size];
     }
 
     /**
@@ -563,7 +571,7 @@ final class GameCheckRoll
                 $pool['diceCount'],
                 $pool['dieFaces'],
                 $efficiency->getBase(),
-                $efficiency->getSize(),
+                $pool['size'],
                 $this->advantagesOf($override, $slice, $sheet, $chain['characteristic'], $check->isHitCheck()),
                 $this->hasExplicitEfficiency($check),
             ),
@@ -587,7 +595,7 @@ final class GameCheckRoll
      * @param RollMechanicPayload $payload Дефолты.
      * @param GameCheckThrowOverride|null $override Смена или null.
      *
-     * @return array{diceCount: int, dieFaces: int} Пул.
+     * @return array{diceCount: int, dieFaces: int, size: int} Пул.
      *
      * @throws GameInvalidException Если числа нет.
      */
@@ -603,7 +611,11 @@ final class GameCheckRoll
                 throw new GameInvalidException('Game check pool is invalid');
             }
 
-            return ['diceCount' => $override->diceCount, 'dieFaces' => $dieFaces];
+            return [
+                'diceCount' => $override->diceCount,
+                'dieFaces' => $dieFaces,
+                'size' => $override->size ?? 0,
+            ];
         }
 
         $code = $override?->characteristicCode ?? $characteristic;
@@ -931,39 +943,16 @@ final class GameCheckRoll
     }
 
     /**
-     * Число кубов характеристики из живого листа.
-     *
-     * @param string|null $characteristic Код или null.
-     * @param array<string, mixed> $sheet Лист.
-     * @param RollMechanicPayload $payload Дефолты броска.
-     *
-     * @return int|null Число или null.
-     *
-     * @throws GameInvalidException Если характеристики нет.
-     */
-    private function diceCount(
-        ?string $characteristic,
-        array $sheet,
-        RollMechanicPayload $payload,
-    ): ?int {
-        if ($characteristic === null) {
-            return $payload->getDiceCount();
-        }
-
-        return $this->characteristicBase($sheet, $characteristic);
-    }
-
-    /**
-     * База характеристики из живого листа.
+     * Значение характеристики из живого листа.
      *
      * @param array<string, mixed> $sheet Лист.
      * @param string $code Код характеристики.
      *
-     * @return int База.
+     * @return DimensionalNumber Значение.
      *
      * @throws GameInvalidException Если характеристики нет или лист битый.
      */
-    private function characteristicBase(array $sheet, string $code): int
+    private function characteristicValue(array $sheet, string $code): DimensionalNumber
     {
         try {
             $value = $this->contexts->build($sheet)->findCharacteristic($code);
@@ -975,7 +964,7 @@ final class GameCheckRoll
             throw new GameInvalidException('Game check characteristic is invalid');
         }
 
-        return $value->getBase();
+        return $value;
     }
 
     /**

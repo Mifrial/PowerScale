@@ -247,8 +247,11 @@ penetration, action-point eligibility/spend и production reliability handler.
   ([`game-plan-39-state-increase-check.md`](game-plan-39-state-increase-check.md),
   [`game-plan-40-push.md`](game-plan-40-push.md)).
 - Толчок `simple-push` — `BACKEND`: Сила против пола, руки/щит, совместная Сила
-  при блоке, урон от сырых успехов, Неустойчивость и проверка прироста, отброс
-  строкой в чат. `tolkayuschiy-udar` — `TODO`.
+  при блоке, урон от сырых успехов Силы с множителем РУ, Неустойчивость и
+  проверка прироста, отброс строкой в чат.
+- `tolkayuschiy-udar` — `BACKEND`: тот же Толчок за 4 ОД, пул и база урона —
+  урон профиля оружия, рубящий делитель позы
+  ([`game-plan-41-tolkayuschiy-udar.md`](game-plan-41-tolkayuschiy-udar.md)).
 - Автоматические state hooks у типов урона —
   `FRONTEND + BACKEND_MISSING + E2E_MISSING`.
 
@@ -483,7 +486,9 @@ actual Character/NPC после mutation, stale-version конфликт в бр
    (`GameStrikeSingleClose`) и у каждой цели (`GameStrikeTargetClose`); чат
    получает `appliedSr` и `srCap`. Сопротивление, проникновение, пробитие
    прочности и эффекты «от РУ» по-прежнему считают полное РУ.
-4. `push` («Толчок», «Толкающий удар») — кода нет, нужен дизайн.
+4. `push` («Толчок», «Толкающий удар») — `BACKEND`: общий контест, урон по
+   формуле `(база − сопротивление) × РУ − смягчение`; база — сырые успехи Силы
+   минус 3 или урон оружия; `posture` режет отброс и Неустойчивость.
 5. Модель рук — удержание задаётся `occupy_hands` (`min`/`max`) предмета,
    дополнительная рука действия — `weapon_profiles[].extra_hands`; итог =
    удержание + `extra_hands`. `GameWoundActions::handCount()` по-прежнему

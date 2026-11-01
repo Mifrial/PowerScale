@@ -391,7 +391,30 @@ final class GameStrikeSingleClose
             }
         }
 
+        $damageTypeCode = $isPush
+            ? $this->rules->pushDamageTypeCode(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $itemRuleCode,
+                $profileIndex,
+            )
+            : $this->rules->damageTypeCode(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+            );
+        $weaponPush = $pushSpec !== null && $this->push->isWeaponDamagePool($pushSpec);
+        $weaponDamage = $weaponPush
+            ? $this->resolution->damageOf($game, $open, null, 1, $metrics['drop'])
+            : null;
+
         if ($isPush) {
+            if ($pushSpec === null) {
+                throw new GameInvalidException('Game push is invalid');
+            }
+
             $attackerSheet = $this->sheets->getTargetSheet($game, ['type' => $attackerKind, 'id' => $attackerId]);
             $defenderSheet = $this->sheets->getTargetSheet($game, $target);
             $floor = $this->push->floor($defenderSheet);
@@ -408,13 +431,17 @@ final class GameStrikeSingleClose
                 $pushReaction = $choice['reaction'] === 'block' ? 'block' : 'ignore';
                 $contest = $this->push->contest(
                     $game,
+                    $pushSpec,
                     $attackerSheet,
                     $pushReaction === 'block' ? $defenderSheet : null,
                     $pushReaction,
                     $floor,
+                    $weaponDamage,
+                    $damageTypeCode,
                 );
                 $pushInfo = [
                     'success' => $contest['success'],
+                    'posture' => $contest['posture'],
                     'damage' => $contest['damage'],
                     'knockback' => $contest['knockback'],
                     'canceled' => false,
@@ -460,24 +487,8 @@ final class GameStrikeSingleClose
                         : $this->resolution->successOf($attackerRoll, $defenderRoll, $choice['reaction']),
                     $previousSr,
                 ));
-        $damageTypeCode = $isPush
-            ? $this->rules->pushDamageTypeCode(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $itemRuleCode,
-                $profileIndex,
-            )
-            : $this->rules->damageTypeCode(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $itemRuleCode,
-                $profileType,
-                $profileIndex,
-            );
         $srCap = $this->rules->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
-        $appliedSr = $isPush
-            ? ($success > 0 ? $this->amounts->appliedSr(1, $srCap) : 0)
-            : $this->amounts->appliedSr($success, $srCap);
+        $appliedSr = $this->amounts->appliedSr($success, $srCap);
         $damage = $isPush
             ? (is_array($pushInfo) ? ($pushInfo['damage'] ?? $this->amounts->zero()) : $this->amounts->zero())
             : ($autoFail ? $this->amounts->zero() : $this->resolution->damageOf($game, $open, $success, 1, $metrics['drop']));
@@ -492,7 +503,7 @@ final class GameStrikeSingleClose
         );
         $result['appliedSr'] = $appliedSr;
         $result['srCap'] = $srCap;
-        $durabilityShave = $isPush || $result['success'] === 0
+        $durabilityShave = ($isPush && !$weaponPush) || $result['success'] === 0
             ? 0
             : $this->rules->durabilityShave(
                 $game->getSpaceId(),
@@ -504,7 +515,7 @@ final class GameStrikeSingleClose
                 $attackerRoll,
                 $result['success'],
             );
-        $penetration = $isPush
+        $penetration = $isPush && !$weaponPush
             ? $this->amounts->zero()
             : $this->resolution->penetrationOf($game, $open, $success, 1, $metrics['drop']);
         $resistance = $result['success'] === 0
@@ -565,12 +576,13 @@ final class GameStrikeSingleClose
                 $this->amounts->sum($packetInjuries),
                 $result['success'],
             ));
-        if ($isPush && $success > 0 && is_array($prepared)) {
+        $posture = is_array($pushInfo) && is_int($pushInfo['posture'] ?? null) ? $pushInfo['posture'] : 0;
+        if ($isPush && $posture > 0 && is_array($prepared)) {
             $unstableCode = $this->push->unstableCode($game);
             $prepared['operations'][] = [
                 'kind' => 'putState',
                 'stateRuleCode' => $unstableCode,
-                'value' => $success,
+                'value' => $posture,
             ];
             $snapshot = $this->sheets->snapshot($game, $target['type'], $target['id']);
             $document = [
@@ -597,7 +609,7 @@ final class GameStrikeSingleClose
                 'knockback' => $knockback instanceof DimensionalNumber
                     ? ['base' => $knockback->getBase(), 'size' => $knockback->getSize()]
                     : null,
-                'unstable' => $success,
+                'unstable' => $posture,
                 'unstableCode' => $unstableCode,
                 'canceled' => false,
             ];

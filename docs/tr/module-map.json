@@ -2281,6 +2281,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/game-plan-41-tolkayuschiy-udar.md",
+                    "title": "План 41 — Толкающий удар",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/game-system.md",
                     "title": "Система игр",
                     "kind": "canon",

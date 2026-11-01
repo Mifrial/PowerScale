@@ -331,6 +331,50 @@ final class GameCheckRollTest extends TestCase
     }
 
     /**
+     * Размер пула характеристики становится размером успехов броска.
+     *
+     * @return void
+     */
+    public function testCheckUsesCharacteristicSizeForSuccessSize(): void
+    {
+        $captured = null;
+        $slices = $this->createMock(ICharacterRuleSlices::class);
+        $slices->method('get')->willReturn($this->derivedCheckSlice());
+        $mechanics = $this->createStub(IMechanics::class);
+        $mechanics->method('getList')->willReturn([]);
+        $rolls = $this->createMock(IMechanicRolls::class);
+        $rolls->method('roll')->willReturnCallback(
+            function (RollSpec $spec) use (&$captured): RollResult {
+                $captured = $spec;
+
+                return new RollResult($spec, [], [], [], [], 0, null);
+            },
+        );
+        $rolls->method('rate')->willReturn(new CheckRating(true, 1));
+        $contexts = $this->createMock(ICharacterFormulaContexts::class);
+        $contexts->method('build')->willReturn(new FormulaContext([
+            'perception' => new CharacteristicNumber(3, 2),
+        ]));
+        $roll = new GameCheckRoll(
+            $slices,
+            $this->createStub(ICharacters::class),
+            $mechanics,
+            $rolls,
+            $contexts,
+        );
+
+        $roll->throwCheck(1, 1, 'watch', 'solo', [
+            'characteristics' => [
+                ['characteristicCode' => 'perception', 'value' => ['base' => 3, 'size' => 2]],
+            ],
+        ], null);
+
+        self::assertInstanceOf(RollSpec::class, $captured);
+        self::assertSame(3, $captured->getDiceCount());
+        self::assertSame(2, $captured->getDieSize());
+    }
+
+    /**
      * Нет характеристики в живом листе — проверка не бросается.
      *
      * @return void
