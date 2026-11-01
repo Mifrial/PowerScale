@@ -1011,11 +1011,10 @@ final class GameStrikeMysqlTest extends TestCase
             null,
         );
         self::assertSame($amounts->view($expectedInjury), $closed['data']['injury']);
-        self::assertSame(1, $damage['base']);
+        self::assertSame($this->pair(4, -1), $damage);
         $calc = $this->attachmentsOfType($this->chatMessages($gameId), 'attack-calc')[0];
-        self::assertSame(4, $calc['pushRaw']);
-        self::assertSame(3, $calc['pushPenalty']);
-        self::assertSame(1, $calc['damage']['base']);
+        self::assertSame($this->pair(4, 0), $calc['pushRaw']);
+        self::assertSame($this->pair(4, -1), $calc['damage']);
         $strengthRolls = array_values(array_filter(
             $this->chatRolls($gameId),
             static fn (array $roll): bool => ($roll['label'] ?? null) === 'Check-strength',

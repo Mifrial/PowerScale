@@ -32,10 +32,8 @@ export interface AttackCalcPayload {
   attackSrLabel: string;
   appliedSr: number | null;
   srCap: number | null;
-  /** Целое значение сырых успехов проверки толчка до штрафа. */
-  pushRaw?: number | null;
-  /** Штраф базы урона толчка (сырые успехи − штраф). */
-  pushPenalty?: number | null;
+  /** Сырые успехи проверки толчка до уменьшения на один размер. */
+  pushRaw?: DimensionalNumberValue | null;
   heading: string | null;
   stun: number | null;
   shock: number | null;

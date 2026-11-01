@@ -129,7 +129,11 @@ final class GamePushRules
     }
 
     /**
-     * Урон толчка: целое значение сырых успехов минус три.
+     * Урон толчка: сырые успехи минус один размер шкалы характеристик.
+     *
+     * `modify(-3)` на шкале характеристик — это сдвиг на один размер. База
+     * успехов может быть вне 3..5, поэтому нормализацию характеристики не
+     * применяем: `{2|2}` → `{2|1}`, а не `{5|0}`.
      *
      * @param DimensionalNumber $successes Сырые успехи.
      *
@@ -137,7 +141,7 @@ final class GamePushRules
      */
     public function damage(DimensionalNumber $successes): DimensionalNumber
     {
-        return new DimensionalNumber(max(0, $successes->toInteger() - 3), 0);
+        return $successes->withSize($successes->getSize() - 1);
     }
 
     /**

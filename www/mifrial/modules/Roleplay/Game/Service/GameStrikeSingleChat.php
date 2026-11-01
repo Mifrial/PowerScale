@@ -63,7 +63,7 @@ final class GameStrikeSingleChat
         $pushRaw = $push !== null
             && ($push['weapon'] ?? false) === false
             && is_array($push['raw'] ?? null)
-                ? $this->integerOf($push['raw'])
+                ? $this->pairOf($push['raw'])
                 : null;
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actionCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
@@ -196,7 +196,6 @@ final class GameStrikeSingleChat
                 'appliedSr' => is_int($result['appliedSr'] ?? null) ? $result['appliedSr'] : $success,
                 'srCap' => is_int($result['srCap'] ?? null) ? $result['srCap'] : null,
                 'pushRaw' => $pushRaw,
-                'pushPenalty' => $pushRaw === null ? null : 3,
                 'heading' => null,
                 'stun' => null,
                 'shock' => null,
