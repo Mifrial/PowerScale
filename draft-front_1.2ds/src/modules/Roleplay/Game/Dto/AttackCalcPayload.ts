@@ -30,6 +30,8 @@ export interface AttackCalcPayload {
   endurance: DimensionalNumberValue;
   defenseIgnored: boolean;
   attackSrLabel: string;
+  /** РУ проверки на толчок, отдельно от РУ попадания. */
+  pushSrLabel?: string | null;
   appliedSr: number | null;
   srCap: number | null;
   /** Сырые успехи проверки толчка до уменьшения на один размер. */

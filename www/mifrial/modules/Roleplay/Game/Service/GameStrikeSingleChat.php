@@ -123,6 +123,7 @@ final class GameStrikeSingleChat
         $exhaustion = is_int($result['exhaustionDelta'] ?? null) ? $result['exhaustionDelta'] : 0;
         $wound = is_int($result['wound'] ?? null) ? $result['wound'] : 0;
         $success = is_int($result['success'] ?? null) ? $result['success'] : 0;
+        $hitSuccess = is_int($result['hitSuccess'] ?? null) ? $result['hitSuccess'] : $success;
         $unstable = $push !== null && is_int($push['unstable'] ?? null) ? $push['unstable'] : 0;
         $unstableCode = $push !== null && is_string($push['unstableCode'] ?? null)
             ? $push['unstableCode']
@@ -192,8 +193,9 @@ final class GameStrikeSingleChat
                     ? $result['endurance']
                     : ['base' => 0, 'size' => 0],
                 'defenseIgnored' => false,
-                'attackSrLabel' => (string) $success,
-                'appliedSr' => is_int($result['appliedSr'] ?? null) ? $result['appliedSr'] : $success,
+                'attackSrLabel' => (string) $hitSuccess,
+                'pushSrLabel' => $push === null ? null : (string) $success,
+                'appliedSr' => is_int($result['appliedSr'] ?? null) ? $result['appliedSr'] : $hitSuccess,
                 'srCap' => is_int($result['srCap'] ?? null) ? $result['srCap'] : null,
                 'pushRaw' => $pushRaw,
                 'heading' => null,

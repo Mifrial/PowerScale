@@ -488,8 +488,11 @@ final class GameStrikeSingleClose
                         : $this->resolution->successOf($attackerRoll, $defenderRoll, $choice['reaction']),
                     $previousSr,
                 ));
+        $hitSuccess = $isPush && $choice['reaction'] === 'dodge'
+            ? max(0, $this->resolution->successOf($attackerRoll, $defenderRoll, 'dodge'))
+            : $success;
         $srCap = $this->rules->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
-        $appliedSr = $this->amounts->appliedSr($success, $srCap);
+        $appliedSr = $this->amounts->appliedSr($hitSuccess, $srCap);
         $damage = $isPush
             ? (is_array($pushInfo) ? ($pushInfo['damage'] ?? $this->amounts->zero()) : $this->amounts->zero())
             : ($autoFail ? $this->amounts->zero() : $this->resolution->damageOf($game, $open, $success, 1, $metrics['drop']));
@@ -503,8 +506,9 @@ final class GameStrikeSingleClose
             $damage,
         );
         $result['appliedSr'] = $appliedSr;
+        $result['hitSuccess'] = $hitSuccess;
         $result['srCap'] = $srCap;
-        $durabilityShave = ($isPush && !$weaponPush) || $result['success'] === 0
+        $durabilityShave = ($isPush && !$weaponPush) || $hitSuccess === 0
             ? 0
             : $this->rules->durabilityShave(
                 $game->getSpaceId(),
@@ -514,22 +518,22 @@ final class GameStrikeSingleClose
                 is_string($open['profile_type'] ?? null) ? $open['profile_type'] : '',
                 is_int($open['profile_index'] ?? null) ? $open['profile_index'] : 0,
                 $attackerRoll,
-                $result['success'],
+                $hitSuccess,
             );
         $penetration = $isPush && !$weaponPush
             ? $this->amounts->zero()
-            : $this->resolution->penetrationOf($game, $open, $success, 1, $metrics['drop']);
-        $resistance = $result['success'] === 0
+            : $this->resolution->penetrationOf($game, $open, $hitSuccess, 1, $metrics['drop']);
+        $resistance = $hitSuccess === 0
             ? $this->amounts->zero()
             : $this->resolution->resistanceOf(
                 $game,
                 $targetOpen,
                 $this->resolution->resistanceChoice($choice, $result['defenderRoll'] ?? null),
-                $result['success'],
+                $hitSuccess,
                 $penetration,
                 $durabilityShave,
             );
-        $soak = $this->resolution->soakOf($game, $targetOpen, $choice['reaction'], $result['success'], $pending);
+        $soak = $this->resolution->soakOf($game, $targetOpen, $choice['reaction'], $hitSuccess, $pending);
         $result['resistance'] = $this->amounts->view($resistance);
         if ($soak !== null) {
             $result['S'] = $this->amounts->view($soak);
@@ -544,7 +548,7 @@ final class GameStrikeSingleClose
         if ($isPush) {
             $packetDamages[] = $damage;
             $packetInjuries[] = $this->amounts->injury(
-                $result['success'] === 0 ? $this->amounts->zero() : $damage,
+                $hitSuccess === 0 ? $this->amounts->zero() : $damage,
                 $resistance,
                 $appliedSr,
                 $soak,
@@ -556,7 +560,7 @@ final class GameStrikeSingleClose
                     : $this->resolution->damageOf($game, $open, $success, $packet, $metrics['drop']);
                 $packetDamages[] = $packetDamage;
                 $packetInjuries[] = $this->amounts->injury(
-                    $result['success'] === 0 ? $this->amounts->zero() : $packetDamage,
+                    $hitSuccess === 0 ? $this->amounts->zero() : $packetDamage,
                     $resistance,
                     $appliedSr,
                     $soak,
@@ -570,12 +574,12 @@ final class GameStrikeSingleClose
         $result['packetDamages'] = array_map($this->amounts->view(...), $packetDamages);
         $result['packetInjuries'] = array_map($this->amounts->view(...), $packetInjuries);
         $prepared = $isPush
-            ? ($success > 0 ? $this->resolution->prepareSheet($game, $targetOpen, $injury, $success) : null)
+            ? ($hitSuccess > 0 ? $this->resolution->prepareSheet($game, $targetOpen, $injury, $hitSuccess) : null)
             : ($autoFail ? null : $this->resolution->prepareSheet(
                 $game,
                 $targetOpen,
                 $this->amounts->sum($packetInjuries),
-                $result['success'],
+                $hitSuccess,
             ));
         $posture = is_array($pushInfo) && is_int($pushInfo['posture'] ?? null) ? $pushInfo['posture'] : 0;
         $pushRaw = is_array($pushInfo) && ($pushInfo['raw'] ?? null) instanceof DimensionalNumber

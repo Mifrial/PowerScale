@@ -1231,6 +1231,20 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame('roll', $this->contentAttachments($messages[$transition])[0]['type']);
         self::assertSame('attack-calc', $this->contentAttachments($messages[$result])[0]['type']);
         self::assertSame('roll', $this->contentAttachments($messages[$unstable])[0]['type']);
+        $calc = $this->attachmentsOfType($messages, 'attack-calc')[0];
+        self::assertSame((string) $closed['data']['success'], $calc['pushSrLabel']);
+        self::assertNotSame($calc['pushSrLabel'], $calc['attackSrLabel']);
+        $amounts = new GameStrikeAmounts();
+        $soak = is_array($calc['dodgeSoak'] ?? null)
+            ? new DimensionalNumber($calc['dodgeSoak']['base'], $calc['dodgeSoak']['size'])
+            : null;
+        $expected = $amounts->injury(
+            new DimensionalNumber($calc['damage']['base'], $calc['damage']['size']),
+            new DimensionalNumber($calc['resistance'], 0),
+            (int) $calc['attackSrLabel'],
+            $soak,
+        );
+        self::assertSame($amounts->view($expected), $calc['injury']);
         self::assertStringNotContainsString('Сила (толчок)', implode("\n", $contents));
         self::assertStringContainsString('не успевает уклониться', $contents[$transition]);
         self::assertStringContainsString('совершает проверку', $contents[$transition]);
@@ -2952,7 +2966,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($this->pair(1), $closed['data']['resistance']);
         self::assertSame($this->pair(36, -1), $closed['data']['injury']);
         self::assertSame(
-            ['battleId', 'strikeId', 'version', 'success', 'damage', 'resistance', 'sheetVersion', 'appliedSr', 'srCap', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim', 'closed', 'kind', 'phase', 'strikes', 'pendingStrikes'],
+            ['battleId', 'strikeId', 'version', 'success', 'damage', 'resistance', 'sheetVersion', 'appliedSr', 'hitSuccess', 'srCap', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim', 'closed', 'kind', 'phase', 'strikes', 'pendingStrikes'],
             array_keys($closed['data']),
         );
         self::assertSame($defenderVersion + 1, $this->characterFacade()->get($defenderId)->getActualVersion());
