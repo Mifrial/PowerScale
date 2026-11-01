@@ -165,7 +165,7 @@ final class GamePushRules
     }
 
     /**
-     * Отброс: рейтинг позы минус шесть. Неположительный — нет отброса.
+     * Отброс: рейтинг позы, делённый на четыре. Меньше четырёх — нет отброса.
      *
      * @param int $posture Рейтинг позы.
      *
@@ -173,9 +173,11 @@ final class GamePushRules
      */
     public function knockback(int $posture): ?DimensionalNumber
     {
-        $value = $posture - 6;
+        if ($posture < 4) {
+            return null;
+        }
 
-        return $value > 0 ? new DimensionalNumber($value, 0) : null;
+        return new DimensionalNumber(intdiv($posture, 4), 0);
     }
 
     /**
@@ -196,8 +198,8 @@ final class GamePushRules
     /**
      * Контест толчка: соло против пола или совместная проверка с блоком.
      *
-     * Успешный блок оставляет контакт: РУ 1, если у атакующего были успехи;
-     * защита блока при этом входит в сопротивление.
+     * Успешный блок оставляет контакт: РУ 1. Защита блока при этом входит
+     * в сопротивление.
      *
      * @param GameRecord $game Игра.
      * @param PushSpec $push Толчок.
@@ -249,7 +251,7 @@ final class GamePushRules
             $defender = $this->checks->rerate($defender, $this->pairArray($attackerRaw));
             $attacker = $this->checks->rerate($attacker, $this->pairArray($raised));
             $rating = is_int($attacker['rating'] ?? null) ? $attacker['rating'] : 0;
-            $success = $rating > 0 ? $rating : ($attackerRaw->getBase() > 0 ? 1 : 0);
+            $success = $rating > 0 ? $rating : 1;
             $posture = $this->getPostureRating($push, $damageTypeCode, $success);
 
             return [

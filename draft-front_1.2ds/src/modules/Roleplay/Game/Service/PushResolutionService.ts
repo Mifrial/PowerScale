@@ -82,7 +82,7 @@ export class PushResolutionService {
       attack,
       applySr: weaponTimesSr ? contest.successRating : contest.successRating > 0 ? 1 : 0,
       skipDamageApply: contest.successRating <= 0,
-      knockbackIpari: postureRating > 0 ? pushMathService.knockbackIpari(postureRating) : null,
+      knockbackIpari: postureRating >= 4 ? pushMathService.knockbackIpari(postureRating) : null,
       unstableAmount: postureRating > 0 && !lying ? postureRating : null,
       unstableSkippedBecauseLying: postureRating > 0 && lying,
     };

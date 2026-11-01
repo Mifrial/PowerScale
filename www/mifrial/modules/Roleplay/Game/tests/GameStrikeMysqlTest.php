@@ -1234,7 +1234,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertStringNotContainsString('Сила (толчок)', implode("\n", $contents));
         self::assertStringContainsString('не успевает уклониться', $contents[$transition]);
         self::assertStringContainsString('совершает проверку', $contents[$transition]);
-        self::assertStringContainsString('отбрасывает на 7 ипари', $contents[$result]);
+        self::assertStringContainsString('отбрасывает на 3 ипари', $contents[$result]);
         self::assertStringContainsString('Unstable', $contents[$result]);
         self::assertStringContainsString('падает!', $contents[$verdict]);
     }
@@ -1329,7 +1329,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($success, $closed['data']['appliedSr']);
         self::assertSame($this->pair($success), $closed['data']['injury']);
         self::assertSame($posture, $closed['data']['push']['unstable']);
-        self::assertNull($closed['data']['push']['knockback']);
+        self::assertSame($this->pair(1), $closed['data']['push']['knockback']);
 
         $messages = $this->chatMessages($gameId);
         $contents = array_map(static fn (MessageRecord $message): string => $message->getContent(), $messages);

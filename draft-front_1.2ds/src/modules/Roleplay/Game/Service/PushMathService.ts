@@ -6,7 +6,7 @@ import { checkSuccessRatingService } from '@/modules/Roleplay/Rule/init';
 /** Расчёт пола, урона и отброса толчка. */
 export class PushMathService {
   pushFloor(weight: DimensionalNumberValue): DimensionalNumberValue {
-    return new DimensionalNumber(weight).modify(-6, CHARACTERISTIC_BASE_RANGE).value;
+    return new DimensionalNumber(weight).modify(-3, CHARACTERISTIC_BASE_RANGE).value;
   }
 
   successRating(attackerSuccesses: DimensionalNumberValue, defenderSuccesses: DimensionalNumberValue): number {
@@ -20,12 +20,11 @@ export class PushMathService {
   }
 
   crushingDamage(attackerSuccesses: DimensionalNumberValue): DimensionalNumberValue {
-    return new DimensionalNumber(attackerSuccesses).modify(-3, CHARACTERISTIC_BASE_RANGE).value;
+    return { base: attackerSuccesses.base, size: attackerSuccesses.size - 1 };
   }
 
   knockbackIpari(successRating: number): DimensionalNumberValue {
-    return new DimensionalNumber({ base: Math.max(0, successRating), size: 0 }).modify(-6, CHARACTERISTIC_BASE_RANGE)
-      .value;
+    return { base: Math.floor(successRating / 4), size: 0 };
   }
 
   postureRating(successRating: number, divisor = 1): number {

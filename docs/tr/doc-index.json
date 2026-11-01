@@ -3407,8 +3407,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-29",
-            "bytes": 33317,
-            "lines": 544,
+            "bytes": 33394,
+            "lines": 545,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -4473,8 +4473,8 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 11223,
-            "lines": 154,
+            "bytes": 11690,
+            "lines": 160,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -4497,7 +4497,7 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 5949,
+            "bytes": 5918,
             "lines": 97,
             "modules": [
                 "Roleplay/Game"
@@ -6174,7 +6174,7 @@
             ],
             "basis": null,
             "date": "2026-10-25",
-            "bytes": 27718,
+            "bytes": 27808,
             "lines": 274,
             "modules": [
                 "Roleplay/Rule"

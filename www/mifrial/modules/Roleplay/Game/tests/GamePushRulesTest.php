@@ -26,4 +26,31 @@ final class GamePushRulesTest extends TestCase
         self::assertSame(2, $damage->getBase());
         self::assertSame(1, $damage->getSize());
     }
+
+    /**
+     * Отброс — четверть рейтинга позы; меньше четырёх — отброса нет.
+     *
+     * @return void
+     */
+    public function testKnockbackDividesPostureByFour(): void
+    {
+        $rules = (new ReflectionClass(GamePushRules::class))->newInstanceWithoutConstructor();
+        self::assertInstanceOf(GamePushRules::class, $rules);
+
+        self::assertNull($rules->knockback(3));
+        self::assertSame(['base' => 1, 'size' => 0], $this->view($rules->knockback(4)));
+        self::assertSame(['base' => 3, 'size' => 0], $this->view($rules->knockback(13)));
+    }
+
+    /**
+     * Пара отброса.
+     *
+     * @param DimensionalNumber|null $value Значение.
+     *
+     * @return array{base: int, size: int}|null Пара.
+     */
+    private function view(?DimensionalNumber $value): ?array
+    {
+        return $value === null ? null : ['base' => $value->getBase(), 'size' => $value->getSize()];
+    }
 }

@@ -85,7 +85,8 @@ export class PushContestService {
         floor,
       );
       const attackerSuccesses = checkRollService.successesOf(joint.left);
-      const successRating = pushMathService.successRating(attackerSuccesses, defenderSuccesses);
+      const rolledRating = pushMathService.successRating(attackerSuccesses, defenderSuccesses);
+      const successRating = Math.max(rolledRating, 1);
       const leftCheck = joint.left.check;
 
       return {

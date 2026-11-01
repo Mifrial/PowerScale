@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { pushMathService } from '@/modules/Roleplay/Game/Service/Instance/pushMathService';
 
 describe('PushMathService', () => {
-  it('пол толчка — вес минус два размера', () => {
-    expect(pushMathService.pushFloor({ base: 3, size: 0 })).toEqual({ base: 3, size: -2 });
+  it('пол толчка — вес минус один размер', () => {
+    expect(pushMathService.pushFloor({ base: 3, size: 0 })).toEqual({ base: 3, size: -1 });
   });
 
   it('блок поднимает успехи цели до пола', () => {
@@ -13,9 +13,10 @@ describe('PushMathService', () => {
     });
   });
 
-  it('урон — успехи Силы минус размер, отброс — РУ минус два размера', () => {
+  it('урон — успехи Силы минус размер, отброс — РУ делить на четыре', () => {
     expect(pushMathService.crushingDamage({ base: 4, size: 0 })).toEqual({ base: 4, size: -1 });
-    expect(pushMathService.knockbackIpari(4)).toEqual({ base: 4, size: -2 });
+    expect(pushMathService.knockbackIpari(4)).toEqual({ base: 1, size: 0 });
+    expect(pushMathService.knockbackIpari(13)).toEqual({ base: 3, size: 0 });
   });
 
   it('НУЛЕВОЙ РУ не даёт эффекта', () => {
