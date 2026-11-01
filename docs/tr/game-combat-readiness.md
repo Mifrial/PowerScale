@@ -248,7 +248,8 @@ penetration, action-point eligibility/spend и production reliability handler.
   [`game-plan-40-push.md`](game-plan-40-push.md)).
 - Толчок `simple-push` — `BACKEND`: Сила против пола, руки/щит, совместная Сила
   при блоке, урон от сырых успехов Силы с множителем РУ, Неустойчивость и
-  проверка прироста, отброс строкой в чат.
+  проверка прироста, отброс строкой в чат. Успешный блок оставляет контакт 1 РУ
+  и добавляет защиту блока в сопротивление.
 - `tolkayuschiy-udar` — `BACKEND`: тот же Толчок за 4 ОД, пул и база урона —
   урон профиля оружия, рубящий делитель позы
   ([`game-plan-41-tolkayuschiy-udar.md`](game-plan-41-tolkayuschiy-udar.md)).

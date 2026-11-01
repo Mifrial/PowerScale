@@ -1333,18 +1333,18 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
-     * Успешный блок Толкающего удара: РУ 0, нет урона и Неустойчивости.
+     * Успешный блок оставляет контакт 1 РУ и добавляет защиту блока.
      *
      * @return void
      */
-    public function testWeaponPushBlockCancelsDamage(): void
+    public function testWeaponPushBlockKeepsContactDamage(): void
     {
         $world = $this->worldWithWeapon(
             extraRules: $this->pushRules(),
             profileOverrides: [
                 'damage' => [
                     'damage_type_code' => 'slashing',
-                    'formula' => ['type' => 'fixed', 'value' => 1],
+                    'formula' => ['type' => 'fixed', 'value' => 2],
                 ],
             ],
         );
@@ -1354,9 +1354,7 @@ final class GameStrikeMysqlTest extends TestCase
         ], [
             ['id' => 1, 'ruleCode' => 'sword', 'equipped' => true],
         ]);
-        $defenderId = $this->admit($world->getId(), $gameId, 'Blocker', [
-            ['characteristicCode' => 'strength', 'value' => ['base' => 5, 'size' => 2]],
-        ], [
+        $defenderId = $this->admit($world->getId(), $gameId, 'Blocker', [], [
             'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
         ], [
             ['id' => 1, 'ruleCode' => 'sword', 'equipped' => true],
@@ -1398,19 +1396,22 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
 
-        self::assertSame(0, $closed['data']['success']);
-        self::assertSame(0, $closed['data']['appliedSr']);
-        self::assertSame($this->pair(0), $closed['data']['injury']);
+        self::assertSame(1, $closed['data']['success'], json_encode($closed['data'], JSON_UNESCAPED_UNICODE));
+        self::assertSame(1, $closed['data']['appliedSr']);
+        self::assertSame($this->pair(2), $closed['data']['damage']);
+        self::assertSame($this->pair(1), $closed['data']['resistance']);
+        self::assertSame($this->pair(1), $closed['data']['injury']);
         self::assertSame(0, $closed['data']['push']['unstable']);
         self::assertNull($closed['data']['push']['knockback']);
-        self::assertNotNull($closed['data']['strikes'][0]['defenseRoll'] ?? null);
+        self::assertTrue($closed['data']['strikes'][0]['defenseRoll']['success'] ?? false);
         self::assertSame(16, $this->actionPointsOf($attackerId));
         self::assertSame(18, $this->actionPointsOf($defenderId));
-        $contents = array_map(
+        $contents = implode("\n", array_map(
             static fn (MessageRecord $message): string => $message->getContent(),
             $this->chatMessages($gameId),
-        );
-        self::assertStringContainsString('не толкает', implode("\n", $contents));
+        ));
+        self::assertStringContainsString('с 1 РУ', $contents);
+        self::assertStringNotContainsString('не толкает', $contents);
     }
 
     /**

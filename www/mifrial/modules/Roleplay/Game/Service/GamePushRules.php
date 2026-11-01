@@ -199,6 +199,9 @@ final class GamePushRules
     /**
      * Контест толчка: соло против пола или совместная проверка с блоком.
      *
+     * Успешный блок оставляет контакт: РУ 1, если у атакующего были успехи;
+     * защита блока при этом входит в сопротивление.
+     *
      * @param GameRecord $game Игра.
      * @param PushSpec $push Толчок.
      * @param array<string, mixed> $attackerSheet Лист толкающего.
@@ -248,7 +251,8 @@ final class GamePushRules
             $raised = $this->raise($defenderRaw, $floor);
             $defender = $this->checks->rerate($defender, $this->pairArray($attackerRaw));
             $attacker = $this->checks->rerate($attacker, $this->pairArray($raised));
-            $success = max(0, is_int($attacker['rating'] ?? null) ? $attacker['rating'] : 0);
+            $rating = is_int($attacker['rating'] ?? null) ? $attacker['rating'] : 0;
+            $success = $rating > 0 ? $rating : ($attackerRaw->getBase() > 0 ? 1 : 0);
             $posture = $this->getPostureRating($push, $damageTypeCode, $success);
 
             return [

@@ -42,7 +42,8 @@ posture =
 
 - `ignore` — пул против пола `weight.modify(-6)`, без броска попадания.
 - `block` — совместная проверка: атакующий бросает свой пул, защитник — Силу;
-  успехи защитника поднимаются до пола.
+  успехи защитника поднимаются до пола. Успешный блок оставляет контакт 1 РУ,
+  если у атакующего были успехи; защита блока входит в сопротивление.
 - `dodge` — сначала `check-hit`; при промахе толчок сорван, иначе контест.
 - Сопротивление — слои защиты цели; при блоке входит защита щита; пробитие
   оружия уменьшает защиту. Смягчение уклона вычитается после умножения.
@@ -115,8 +116,8 @@ exhaustion.increase_check_code = "check-exhaustion"
   пола, урон, `appliedSr = РУ`, Неустойчивость, 3 ОД.
 - `GameStrikeMysqlTest::testWeaponPushUsesWeaponDamageAndHalvesPosture` — пул
   урона оружия, урон профиля × РУ, рубящий делитель позы, отброс и Неустойчивость.
-- `GameStrikeMysqlTest::testWeaponPushBlockCancelsDamage` — успешный блок:
-  РУ 0, нет урона, Неустойчивости и отброса.
+- `GameStrikeMysqlTest::testWeaponPushBlockKeepsContactDamage` — успешный блок:
+  контакт 1 РУ, защита блока в сопротивлении, урон проходит.
 - `GameStrikeMysqlTest::testPushBlockUsesJointStrengthAndHands` — совместная
   Сила руками, 2 ОД, бросок защиты в итоге.
 - `GameStrikeMysqlTest::testPushRejectsWeaponProfile` — меч без щита отклонён.
