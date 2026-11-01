@@ -444,6 +444,7 @@ final class GameStrikeSingleClose
                     'posture' => $contest['posture'],
                     'damage' => $contest['damage'],
                     'knockback' => $contest['knockback'],
+                    'raw' => $contest['raw'],
                     'canceled' => false,
                 ];
                 if ($choice['reaction'] === 'dodge') {
@@ -577,6 +578,12 @@ final class GameStrikeSingleClose
                 $result['success'],
             ));
         $posture = is_array($pushInfo) && is_int($pushInfo['posture'] ?? null) ? $pushInfo['posture'] : 0;
+        $pushRaw = is_array($pushInfo) && ($pushInfo['raw'] ?? null) instanceof DimensionalNumber
+            ? $pushInfo['raw']
+            : null;
+        $pushRawView = $pushRaw === null
+            ? null
+            : ['base' => $pushRaw->getBase(), 'size' => $pushRaw->getSize()];
         if ($isPush && $posture > 0 && is_array($prepared)) {
             $unstableCode = $this->push->unstableCode($game);
             $prepared['operations'][] = [
@@ -611,12 +618,16 @@ final class GameStrikeSingleClose
                     : null,
                 'unstable' => $posture,
                 'unstableCode' => $unstableCode,
+                'raw' => $pushRawView,
+                'weapon' => $weaponPush,
                 'canceled' => false,
             ];
         } elseif ($isPush) {
             $result['push'] = [
                 'knockback' => null,
                 'unstable' => 0,
+                'raw' => $pushRawView,
+                'weapon' => $weaponPush,
                 'canceled' => is_array($pushInfo) && ($pushInfo['canceled'] ?? false) === true,
             ];
         }

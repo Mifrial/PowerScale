@@ -60,6 +60,11 @@ final class GameStrikeSingleChat
         $defender = $this->chat->getEntityToken($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
         $attacker = $this->chat->getEntityToken($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0);
         $push = is_array($result['push'] ?? null) ? $result['push'] : null;
+        $pushRaw = $push !== null
+            && ($push['weapon'] ?? false) === false
+            && is_array($push['raw'] ?? null)
+                ? $this->integerOf($push['raw'])
+                : null;
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actionCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $action = $actionCode !== '' ? '[[rule:' . $actionCode . ']]' : 'действие';
@@ -190,6 +195,8 @@ final class GameStrikeSingleChat
                 'attackSrLabel' => (string) $success,
                 'appliedSr' => is_int($result['appliedSr'] ?? null) ? $result['appliedSr'] : $success,
                 'srCap' => is_int($result['srCap'] ?? null) ? $result['srCap'] : null,
+                'pushRaw' => $pushRaw,
+                'pushPenalty' => $pushRaw === null ? null : 3,
                 'heading' => null,
                 'stun' => null,
                 'shock' => null,

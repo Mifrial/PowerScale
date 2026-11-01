@@ -1011,6 +1011,16 @@ final class GameStrikeMysqlTest extends TestCase
             null,
         );
         self::assertSame($amounts->view($expectedInjury), $closed['data']['injury']);
+        self::assertSame(1, $damage['base']);
+        $calc = $this->attachmentsOfType($this->chatMessages($gameId), 'attack-calc')[0];
+        self::assertSame(4, $calc['pushRaw']);
+        self::assertSame(3, $calc['pushPenalty']);
+        self::assertSame(1, $calc['damage']['base']);
+        $strengthRolls = array_values(array_filter(
+            $this->chatRolls($gameId),
+            static fn (array $roll): bool => ($roll['label'] ?? null) === 'Check-strength',
+        ));
+        self::assertSame($this->pair(3, -1), $strengthRolls[0]['difficulty']);
         $states = $this->statesOf($defenderId);
         $unstable = array_values(array_filter(
             $states,
@@ -1158,7 +1168,7 @@ final class GameStrikeMysqlTest extends TestCase
      */
     public function testPushDodgeChatOrder(): void
     {
-        $world = $this->worldWithWeapon(extraRules: $this->pushRules(3));
+        $world = $this->worldWithWeapon(extraRules: $this->pushRules(3, -1));
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
         $attackerId = $this->admit($world->getId(), $gameId, 'Pusher', [
             ['characteristicCode' => 'strength', 'value' => ['base' => 4, 'size' => 0]],
@@ -1225,7 +1235,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertStringNotContainsString('Сила (толчок)', implode("\n", $contents));
         self::assertStringContainsString('не успевает уклониться', $contents[$transition]);
         self::assertStringContainsString('совершает проверку', $contents[$transition]);
-        self::assertStringContainsString('отбрасывает', $contents[$result]);
+        self::assertStringContainsString('отбрасывает на 7 ипари', $contents[$result]);
         self::assertStringContainsString('Unstable', $contents[$result]);
         self::assertStringContainsString('падает!', $contents[$verdict]);
     }
@@ -1320,7 +1330,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($success, $closed['data']['appliedSr']);
         self::assertSame($this->pair($success), $closed['data']['injury']);
         self::assertSame($posture, $closed['data']['push']['unstable']);
-        self::assertSame($this->pair(7, -1), $closed['data']['push']['knockback']);
+        self::assertNull($closed['data']['push']['knockback']);
 
         $messages = $this->chatMessages($gameId);
         $contents = array_map(static fn (MessageRecord $message): string => $message->getContent(), $messages);
@@ -1417,9 +1427,12 @@ final class GameStrikeMysqlTest extends TestCase
     /**
      * Мир с Толчком, Силой, весом и блоком руками.
      *
+     * @param int $dexterityBase Ловкость для проверки Неустойчивости.
+     * @param int $weightSize Размер веса цели.
+     *
      * @return array<string, array<string, mixed>> Правила мира.
      */
-    private function pushRules(int $dexterityBase = 20): array
+    private function pushRules(int $dexterityBase = 20, int $weightSize = 0): array
     {
         $profile = [
             'type' => 'strike',
@@ -1444,7 +1457,7 @@ final class GameStrikeMysqlTest extends TestCase
             ],
             'weight' => [
                 'type' => 'characteristic',
-                'spec' => ['automatic' => ['value' => ['base' => 3, 'size' => 0]]],
+                'spec' => ['automatic' => ['value' => ['base' => 3, 'size' => $weightSize]]],
             ],
             'check-strength' => [
                 'type' => 'check',

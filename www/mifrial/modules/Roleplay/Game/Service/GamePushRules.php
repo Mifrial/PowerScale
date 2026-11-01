@@ -113,7 +113,7 @@ final class GamePushRules
     }
 
     /**
-     * Пол толчка: вес минус два размера.
+     * Пол толчка: вес минус один размер.
      *
      * @param array<string, mixed> $sheet Лист цели.
      *
@@ -125,11 +125,11 @@ final class GamePushRules
     {
         $weight = $this->rules->characteristicOf($sheet, 'weight');
 
-        return $this->characteristic($weight)->modify(-6);
+        return $this->characteristic($weight)->modify(-3);
     }
 
     /**
-     * Урон толчка: сырые успехи Силы минус три.
+     * Урон толчка: целое значение сырых успехов минус три.
      *
      * @param DimensionalNumber $successes Сырые успехи.
      *
@@ -137,9 +137,7 @@ final class GamePushRules
      */
     public function damage(DimensionalNumber $successes): DimensionalNumber
     {
-        $value = $this->characteristic($successes)->modify(-3);
-
-        return $value->toInteger() < 0 ? new DimensionalNumber(0, 0) : $value;
+        return new DimensionalNumber(max(0, $successes->toInteger() - 3), 0);
     }
 
     /**
@@ -171,14 +169,9 @@ final class GamePushRules
      */
     public function knockback(int $posture): ?DimensionalNumber
     {
-        if ($posture <= 0) {
-            return null;
-        }
+        $value = $posture - 6;
 
-        $value = (new CharacteristicNumber($posture, 0))->modify(-6);
-        $positive = $value->getBase() + CharacteristicNumber::BASE_STEP * $value->getSize() > 0;
-
-        return $positive ? $value : null;
+        return $value > 0 ? new DimensionalNumber($value, 0) : null;
     }
 
     /**

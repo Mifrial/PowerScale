@@ -55,6 +55,12 @@ const remainingHpDamageLabel = computed(() => {
           <span class="text-medium-emphasis">Повреждения</span>
           <span class="font-weight-medium">{{ injuryLabel }}</span>
         </div>
+        <div v-if="calc.pushRaw != null" class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Сырые успехи</span>
+          <span class="font-weight-medium">
+            {{ calc.pushRaw }}<template v-if="calc.pushPenalty != null"> − {{ calc.pushPenalty }}</template>
+          </span>
+        </div>
         <div class="d-flex align-center justify-space-between py-1 text-body-2 ga-3">
           <span class="text-medium-emphasis">Урон</span>
           <span class="font-weight-medium">{{ damageLabel }} {{ calc.damageTypeName }}</span>
