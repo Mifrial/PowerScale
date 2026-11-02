@@ -118,6 +118,10 @@ const statusUpdating = ref(false);
 const statusError = ref<string | null>(null);
 const statusNotice = ref<string | null>(null);
 
+const processSessionsByEntity = ref<Record<CombatEntityKey, ProcessSession>>({});
+const processNotice = ref<ProcessNotice | null>(null);
+let processNoticeReady = false;
+
 const showStartGame = computed(
   () =>
     props.canEdit &&
@@ -1261,9 +1265,6 @@ const cardKey = ref<CombatEntityKey | null>(null);
 // оверлеи (Истощение) после правок в боевой карточке.
 const overlayRevision = ref(0);
 const battleRevision = ref(0);
-const processSessionsByEntity = ref<Record<CombatEntityKey, ProcessSession>>({});
-const processNotice = ref<ProcessNotice | null>(null);
-let processNoticeReady = false;
 
 function onOverlayChanged(): void {
   overlayRevision.value += 1;
