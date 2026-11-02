@@ -37,7 +37,6 @@ import {
   turnResourceCode,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
-import { comboProcessService } from '@/modules/Roleplay/Game/Service/Instance/comboProcessService';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
@@ -236,7 +235,7 @@ const processSteps = computed(() => {
       ? activeProcess.value
       : null;
 
-  return comboProcessService.visibleSteps(selectedAction.value.process, session);
+  return processSessionService.visibleSteps(selectedAction.value.process, session);
 });
 const processAttacks = computed(() => {
   const action = selectedAction.value;
@@ -548,7 +547,7 @@ async function submit(): Promise<void> {
         operationRequests,
         currentMovementStep: actorMovementStep.value,
       });
-      const resolvedSession = comboProcessService.resolveAfterStrike(
+      const resolvedSession = processSessionService.resolveStep(
         session,
         action.process,
         stepCode,

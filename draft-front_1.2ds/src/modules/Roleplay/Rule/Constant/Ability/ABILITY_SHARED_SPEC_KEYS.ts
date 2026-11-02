@@ -20,6 +20,7 @@ export const ABILITY_SHARED_SPEC_KEYS: readonly (keyof AbilitySpecDraft)[] = [
   'max_targets',
   'wide_target_check_advantage',
   'parent_ability_code',
+  'closes_parent_process',
   'spell_upgrade',
   'spell_saturation',
   'next_cast_difficulty',

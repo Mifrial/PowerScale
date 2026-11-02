@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { ProcessSessionStep } from '@/modules/Roleplay/Game/Dto/ProcessSessionStep';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { ProcessNoticeService } from '@/modules/Roleplay/Game/Service/ProcessNoticeService';
 
@@ -27,7 +28,11 @@ const rules = [
   },
 ] as unknown as Rule[];
 
-const session = (stepCode: string, status: ProcessSession['currentStepStatus']): ProcessSession => ({
+const session = (
+  stepCode: string,
+  status: ProcessSession['currentStepStatus'],
+  availableSteps: ProcessSessionStep[] = [],
+): ProcessSession => ({
   gameId: 1,
   entityKey: 'character:1',
   processRuleCode: 'series',
@@ -36,6 +41,7 @@ const session = (stepCode: string, status: ProcessSession['currentStepStatus']):
   status: 'active',
   startedAt: '',
   updatedAt: '',
+  availableSteps,
 });
 
 describe('ProcessNoticeService', () => {
@@ -43,7 +49,14 @@ describe('ProcessNoticeService', () => {
 
   it('сообщает о новом выполненном шаге и предлагает продолжить', () => {
     expect(
-      service.completedStep(session('part-1', 'pending'), session('part-1', 'completed'), 'character:1', rules),
+      service.completedStep(
+        session('part-1', 'pending'),
+        session('part-1', 'completed', [
+          { code: 'part-2', name: 'Вторая часть', description: '', actionPoints: 0, execution: 'strike' },
+        ]),
+        'character:1',
+        rules,
+      ),
     ).toEqual({
       text: 'Серия ударов: шаг «Первая часть» выполнен',
       entityKey: 'character:1',

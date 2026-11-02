@@ -47,10 +47,8 @@ export class CombatProcessListService {
     const name = rule?.name ?? session.processRuleCode;
     const stepLabel = step?.name ?? session.currentStepCode;
     const canAbort = spec ? processSessionService.canInterruptNormally(spec, session.currentStepCode) : false;
-    const canContinue =
-      session.currentStepStatus === 'completed' &&
-      spec !== null &&
-      processSessionService.availableSteps(spec, session.currentStepCode).length > 0;
+    const canContinue = session.currentStepStatus === 'completed' && (session.availableSteps?.length ?? 0) > 0;
+    const combo = session.counters?.combo;
 
     return {
       id: `process:${session.entityKey}`,
@@ -62,7 +60,7 @@ export class CombatProcessListService {
       details: [
         { label: 'Шаг', value: stepLabel },
         { label: 'Статус шага', value: session.currentStepStatus === 'pending' ? 'ожидает' : 'выполнен' },
-        ...(session.comboCount ? [{ label: 'Комбо', value: String(session.comboCount) }] : []),
+        ...(combo ? [{ label: 'Комбо', value: String(combo) }] : []),
       ],
       canAbort,
       abortLabel: 'Оборвать',

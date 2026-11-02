@@ -35,6 +35,10 @@ export class ProcessSessionSourceService {
       view.lastTargetType && typeof view.lastTargetId === 'number'
         ? (`${view.lastTargetType}:${view.lastTargetId}` as CombatEntityKey)
         : undefined;
+    const counters: Record<string, number> = {};
+    for (const [code, value] of Object.entries(view.counters ?? {})) {
+      if (typeof value === 'number') counters[code] = value;
+    }
 
     return {
       gameId,
@@ -45,6 +49,9 @@ export class ProcessSessionSourceService {
       status: 'active',
       startedAt: '',
       updatedAt: '',
+      counters,
+      availableSteps: view.availableSteps,
+      closing: view.closing ?? null,
       weaponUseCounts: view.weaponUseCounts,
       lastStrikeTargetKey,
     };

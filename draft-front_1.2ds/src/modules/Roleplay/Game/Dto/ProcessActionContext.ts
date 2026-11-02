@@ -5,6 +5,4 @@ export interface ProcessActionContext {
   session: ProcessSession;
   stepCode: string;
   operationRequests?: ActionOperationRequest[];
-  /** Закрытие Комбо чужой атакой (Раскрытие): пакет Завершения, процесс конец. */
-  comboClose?: boolean;
 }

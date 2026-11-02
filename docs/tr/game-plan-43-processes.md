@@ -166,7 +166,8 @@ ProcessFormula = { type: "fixed", value }
   прибавку. Отдельной размерности успеха в уроне нет: SR — это уже число
   успехов.
 - `closes_parent_process` — узел базовой части карточки-потомка (не только
-  `type: ability`: `raskrytie` — `type: skill`): `parent_ability_code`
+  атакующей: у `raskrytie` `spec.type = skill`, строка правила при этом
+  `ability`): `parent_ability_code`
   указывает на карточку процесса, кодов карточек в спеке процесса нет. Пока
   сессия процесса открыта, её может закрыть **обычное атакующее действие
   актора**, если у актора куплен потомок с `closes_parent_process` и выполнены
@@ -537,11 +538,10 @@ game.get / getRoster    краткая сводка для карточки и �
 - действующие эффекты (`after_action_until_resource_spent_check_modifier`,
   стоимость/точность следующей атаки) показываются в блоке эффектов запуска
   атаки вместе с эффектами самой карточки;
-- счётчики/комбо и движение по-прежнему на моке.
+- движение по-прежнему на моке.
 
 Осталось:
 
-- счётчики и комбо — срез 2;
 - движение — срез 3;
 - отрицательная проверка, что чат не содержит процессной меты (сейчас её нет);
 - полный `bash tools/test-full.sh` после ручной проверки.
@@ -554,9 +554,10 @@ game.get / getRoster    краткая сводка для карточки и �
   `process.close_with_other_attack` отклонён: кодов карточек в спеке процесса
   нет. Закрытие описывает узел `closes_parent_process` на карточке-потомке
   (`parent_ability_code` указывает на карточку процесса), а числа и порог
-  живут на карточке. Потомок не обязан быть `type: ability`: `raskrytie` —
-  `type: skill`, поэтому узел читается в общей базе, а поиск идёт по
-  `parent_ability_code`, без фильтра по типу карточки.
+  живут на карточке. Потомок не обязан быть атакующей карточкой: у
+  `raskrytie` `spec.type = skill` (строка правила — `ability`), поэтому узел
+  читается в общей базе, а поиск идёт по `parent_ability_code`, без фильтра по
+  `spec.type`.
 - `extra_successes` — прибавка к SR урона, а не к проверке попадания.
   Применяется после `boostSuccess`, только если попадание состоялось
   (`$baseSuccess > 0`); промах остаётся промахом, `attackerRoll['rating']` и
@@ -600,7 +601,8 @@ game.get / getRoster    краткая сводка для карточки и �
   процесс останется `open` с пустым списком шагов. В снимке мока у шагов нет
   `execution`; в ревизии 28 он проставляется явно, иначе новый контент
   нарушит собственное правило.
-- `raskrytie`: `type: skill` (потомок, а не атакующая карточка),
+- `raskrytie`: `spec.type: skill` (потомок, а не атакующая карточка; строка
+  правила — `ability`),
   `parent_ability_code: kombinatsiya-udarov`,
   `closes_parent_process: { requires_counters: combo ≥ 2, strike: { advantage:
   counter(combo, max 3), extra_successes: counter(combo, divisor 2, max 3) } }`.
@@ -708,6 +710,40 @@ game.get / getRoster    краткая сводка для карточки и �
 
 Не входит: движение (`run`/`sprint`, срез 3), широкий удар, толчок как
 закрытие, поддержание заклинаний, счётчики вне боя.
+
+## Состояние среза 2
+
+Сделано в PHP:
+
+- парсер v2: `counters`, `target_mode`, `strike`, `requires_counters`,
+  `counter_on_success|failure` с `delta`/`set`, `ProcessFormula`,
+  `closes_parent_process` в общей базе; умолчания ревизии 27 сохранены;
+- счётчики сессии: старт из карточки, пороги в `availableSteps` и `prepare`,
+  `counter_on_success|failure` в `complete`, `view` отдаёт `counters`;
+- пакет удара шага: `advantage` уходит источником `action`, `extra_successes`
+  прибавляются к SR урона после `boostSuccess` и только на попадании;
+  `target_mode: single` держит цель; `view` отдаёт готовые
+  `strike.advantage`/`extraSuccesses` для доступных шагов;
+- закрытие чужой атакой: поиск в `GameStrikeOpen::open` до списания ОД,
+  контекст `closing` без цены шага и повтора оружия, `closeByAttack` →
+  `resolved` с `completion_effects` и на попадании, и на промахе; `view`
+  отдаёт `closing` (код карточки и пакет).
+
+Сделано во фронтенде:
+
+- `game.getBattleSheets` переводит `counters`, `availableSteps`, `closing` в
+  `ProcessSession`; `ComboProcessService`, `COMBO_CLOSE_CAPS`,
+  `COMBO_STEP_CODES`, `comboCount` и `comboTargetKey` удалены;
+- `HitRollService` больше не добавляет доп. успехи к проверке попадания:
+  `withExtraSuccesses` и `HitRollInput.extraSuccessCount` удалены;
+- плитка и уведомления читают `counters.combo`, `availableSteps` и `closing`
+  с сервера; список источников атаки добавляет не-широкие атаки, когда сервер
+  разрешил закрытие;
+- редактор знает `closes_parent_process`, а `ProcessSpec`/`ProcessStep` —
+  поля v2, поэтому `prune` при сохранении их не вычищает.
+
+Осталось: публикация ревизии 28 в Rulespace и миграция персонажа (делает
+пользователь), ручная проверка и полный `bash tools/test-full.sh`.
 
 ## Тесты
 
@@ -844,9 +880,10 @@ game.get / getRoster    краткая сводка для карточки и �
 - `GameProcessFlow` не имеет доступа к листу, поэтому для `closing` и `view`
   уровни способностей нужно передать (их уже считает `GameStrikeOpen` /
   `GameProjections`) или вынести поиск закрытия в отдельный сервис.
-- `raskrytie` — `type: skill`, а мок фильтрует потомков по `type === 'ability'`
-  и потому сам не видит закрытие. Поиск в PHP идёт по `parent_ability_code` и
-  `closes_parent_process` в общей базе, без фильтра по типу.
+- `raskrytie` — `spec.type: skill`, а мок фильтровал потомков по
+  `spec.type === 'ability'` и потому сам не видел закрытие. Поиск в PHP идёт по
+  `parent_ability_code` и `closes_parent_process` в общей базе, без фильтра по
+  `spec.type`.
 - Закрытие без проверки цели, уровня и типа атаки легко применить к чужой
   цели, к способности 0-го уровня или к шагу процесса (двойной пакет). Нужны
   проверки в объявлении и тесты на каждую.

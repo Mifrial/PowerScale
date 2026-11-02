@@ -1,4 +1,5 @@
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
 import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
@@ -7,6 +8,7 @@ import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageMod
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { actionRefEquals } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 
 export class ProcessSessionService {
@@ -26,8 +28,64 @@ export class ProcessSessionService {
       status: 'active',
       startedAt: now,
       updatedAt: now,
-      comboCount: 0,
     };
+  }
+
+  /**
+   * Шаги, которые можно объявить прямо сейчас.
+   *
+   * Для открытой сессии берутся готовые шаги сервера (счётчики и переходы уже
+   * учтены); без сессии — только стартовый шаг карточки.
+   *
+   * @param spec Спека процесса.
+   * @param session Открытая сессия или null.
+   *
+   * @returns Шаги для диалога объявления.
+   */
+  /**
+   * Источники атаки при открытом процессе.
+   *
+   * Без закрытия доступна только карточка процесса; с закрытием — ещё обычные
+   * не-широкие атаки: сервер сам решит, закрывает ли атака процесс.
+   *
+   * @param available Все источники атаки.
+   * @param session Открытая сессия или null.
+   * @param rules Правила ревизии.
+   *
+   * @returns Отфильтрованные источники.
+   */
+  launchSources(
+    available: CombatActionOption[],
+    session: ProcessSession | null | undefined,
+    rules: Rule[],
+  ): CombatActionOption[] {
+    if (!session) return available;
+    const processSources = available.filter((source) => actionRefEquals(source, session.processRuleCode, rules));
+    if (!session.closing) return processSources;
+
+    return [
+      ...processSources,
+      ...available.filter(
+        (source) => !actionRefEquals(source, session.processRuleCode, rules) && source.attackMode !== 'wide',
+      ),
+    ];
+  }
+
+  visibleSteps(spec: ProcessSpec, session: ProcessSession | null | undefined): ProcessStep[] {
+    if (session?.availableSteps) {
+      return session.availableSteps.map((step) => ({
+        code: step.code,
+        name: step.name,
+        description: step.description,
+        costs: [{ resource_code: 'action-points', amount: step.actionPoints }],
+        interruption: { mode: 'normal' },
+        execution: { type: step.execution, action_code: step.actionCode ?? null },
+      }));
+    }
+
+    const startStepCode = spec.start_step_code ?? spec.steps[0]?.code;
+
+    return spec.steps.filter((step) => step.code === startStepCode);
   }
 
   availableSteps(spec: ProcessSpec, currentStepCode: string): ProcessStep[] {

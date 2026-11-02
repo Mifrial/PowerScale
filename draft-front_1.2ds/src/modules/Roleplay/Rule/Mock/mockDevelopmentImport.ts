@@ -4338,6 +4338,9 @@ const mockDevelopmentImportRaw: Rule[] = [
       parent_ability_code: null,
       process: {
         start_step_code: 'combo-start',
+        exit_step_codes: ['combo-finish'],
+        counters: [{ counter_code: 'combo', initial: 0 }],
+        target_mode: 'single',
         transition: {
           mode: 'custom',
           edges: [
@@ -4355,6 +4358,9 @@ const mockDevelopmentImportRaw: Rule[] = [
               'Совершите удар с одной помехой на попадание от действия. При попадании Комбо становится 1. При промахе процесс заканчивается.',
             interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 3 }],
+            execution: { type: 'strike' },
+            strike: { advantage: { type: 'fixed', value: -1 } },
+            counter_on_success: [{ counter_code: 'combo', delta: 1 }],
           },
           {
             code: 'combo-build',
@@ -4363,6 +4369,9 @@ const mockDevelopmentImportRaw: Rule[] = [
               'Совершите удар с числом помех на попадание от действия, равным текущему Комбо. При попадании Комбо увеличивается на 1. При промахе процесс заканчивается.',
             interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 2 }],
+            execution: { type: 'strike' },
+            strike: { advantage: { type: 'counter', counter_code: 'combo', factor: -1 } },
+            counter_on_success: [{ counter_code: 'combo', delta: 1 }],
           },
           {
             code: 'combo-finish',
@@ -4371,6 +4380,13 @@ const mockDevelopmentImportRaw: Rule[] = [
               'Доступно при Комбо не меньше 2. Удар получает +[Комбо] преимуществ от действия (потолок 3) и +⌊Комбо/2⌋ успехов размера броска (потолок 3) поверх правила 6 и 1. Процесс заканчивается.',
             interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 2 }],
+            execution: { type: 'strike' },
+            requires_counters: [{ counter_code: 'combo', min: 2 }],
+            strike: {
+              advantage: { type: 'counter', counter_code: 'combo', max_value: 3 },
+              extra_successes: { type: 'counter', counter_code: 'combo', divisor: 2, max_value: 3 },
+            },
+            counter_on_success: [{ counter_code: 'combo', set: 0 }],
           },
         ],
       },
@@ -4386,7 +4402,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Раскрытие',
     description:
-      'При Комбо не меньше 2 вместо Завершения комбо можно объявить другое своё атакующее действие по той же цели. На его первый удар садится пакет Завершения: преимущества и доп. успехи размера броска. Стоимость — ОД той атаки. Процесс заканчивается при попадании и при промахе.',
+      'При Комбо не меньше 2 вместо Завершения комбо можно объявить другое своё атакующее действие по той же цели. На всю атаку (все попадания мультиудара) садится пакет Завершения: преимущества и доп. успехи размера броска. Стоимость — ОД той атаки. Процесс заканчивается при попадании и при промахе. Собственные эффекты атаки не вычёркиваются, но пакет идёт с источником «действие»: одноимённая дельта группы не складывается.',
     catalogSection: 'abilities-acquired-melee-combat-speed',
     spaceId: 1,
     spec: {
@@ -4400,11 +4416,18 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [],
       grants: [],
       parent_ability_code: 'kombinatsiya-udarov',
+      closes_parent_process: {
+        requires_counters: [{ counter_code: 'combo', min: 2 }],
+        strike: {
+          advantage: { type: 'counter', counter_code: 'combo', max_value: 3 },
+          extra_successes: { type: 'counter', counter_code: 'combo', divisor: 2, max_value: 3 },
+        },
+      },
     },
     keywordIds: [13, 64],
     mechanics: [],
     createdAt: 1786269600,
-    contentNote: 'Game: закрытие Комбо чужой атакой с пакетом Завершения на первый удар.',
+    contentNote: 'Game: закрытие Комбо чужой атакой с пакетом Завершения на всю атаку.',
   },
   {
     id: 343,

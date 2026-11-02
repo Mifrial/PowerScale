@@ -3,7 +3,6 @@ import type { ProcessNotice } from '@/modules/Roleplay/Game/Dto/ProcessNotice';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
-import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
 
 /** Уведомления о ходе процесса: выполненные шаги и прерывание. */
 export class ProcessNoticeService {
@@ -32,7 +31,7 @@ export class ProcessNoticeService {
     const step = spec?.steps.find((entry) => entry.code === next.currentStepCode);
     const name = rule?.name ?? next.processRuleCode;
     const stepName = step?.name ?? next.currentStepCode;
-    const canContinue = spec !== null && processSessionService.availableSteps(spec, next.currentStepCode).length > 0;
+    const canContinue = (next.availableSteps?.length ?? 0) > 0;
 
     return {
       text: `${name}: шаг «${stepName}» выполнен`,

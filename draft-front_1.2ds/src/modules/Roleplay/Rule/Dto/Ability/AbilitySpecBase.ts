@@ -9,6 +9,7 @@ import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResol
 import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
 import type { StrikeUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeUpgrade';
 import type { PushSpec } from '@/modules/Roleplay/Rule/Dto/Ability/PushSpec';
+import type { ProcessCloseSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessCloseSpec';
 
 /** Общие поля способности (не типоспецифичные). */
 export interface AbilitySpecBase {
@@ -41,6 +42,8 @@ export interface AbilitySpecBase {
   /** Дельта помехи за каждую цель сверх первой; минус — помеха. */
   wide_target_check_advantage?: number;
   parent_ability_code: string | null;
+  /** Закрытие процесса-родителя обычной атакой; только при parent_ability_code. */
+  closes_parent_process?: ProcessCloseSpec | null;
   /** Модификатор каста (дельта ОД, преимущество сотворения, цепь). С родителем — на то заклинание; без — на выбранный каст. */
   spell_upgrade?: SpellUpgrade;
   /** Трата РУ успешного сотворения на шаги мощи. */

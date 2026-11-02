@@ -120,9 +120,8 @@ import { defenseCounterService } from '@/modules/Roleplay/Game/Service/Instance/
 import { durabilityShaveService } from '@/modules/Roleplay/Game/Service/Instance/durabilityShaveService';
 import { actionModifierService } from '@/modules/Roleplay/Game/Service/Instance/actionModifierService';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
-import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { ADVANTAGE_SOURCE_ACTION, ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
-import { comboProcessService } from '@/modules/Roleplay/Game/Service/Instance/comboProcessService';
 import { committedActionFlowService } from '@/modules/Roleplay/Game/Service/Instance/committedActionFlowService';
 import { asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
@@ -957,7 +956,7 @@ const attackerHitAdvantageSummary = computed(() => {
       versionOf(resolvedAttackerKey.value),
       resolvedAttackAction.value?.strikes.length ?? 1,
     ),
-    ...comboStrike.value.modifiers,
+    ...processStrikeModifiers.value,
     ...processWeaponModifiers.value,
     ...defensePrepModifiers(opponentKey.value, reaction.value),
     { source_code: ADVANTAGE_SOURCE_MANUAL, source_label: 'Игрок', delta: attackerAdv.value },
@@ -998,7 +997,6 @@ const effectiveProcessContext = computed(
   () =>
     props.processContext ??
     (resolvedAttackAction.value?.source.kind === 'process' ? resolvedAttackAction.value.source.process : null) ??
-    resolvedAttackAction.value?.comboClose ??
     null,
 );
 const processSpec = computed(() => {
@@ -1016,16 +1014,15 @@ const processStep = computed(() =>
 const processStepCost = computed(() =>
   processStep.value ? processSessionService.stepCost(processStep.value, turnResourceCode(props.rules)) : null,
 );
-const comboStrike = computed(() => {
+const processStrikeModifiers = computed<AdvantageModifier[]>(() => {
   const context = effectiveProcessContext.value;
-  if (!context || !processSpec.value) return { modifiers: [], extraSuccessCount: 0 };
+  const session = context?.session;
+  if (!context || !session) return [];
+  const step = session.availableSteps?.find((entry) => entry.code === context.stepCode);
+  const strikePackage = step?.strike ?? session.closing?.strike ?? null;
+  if (!strikePackage || strikePackage.advantage === 0) return [];
 
-  return comboProcessService.strikePackage(
-    context.session,
-    processSpec.value,
-    context.stepCode,
-    Boolean(context.comboClose),
-  );
+  return [{ source_code: ADVANTAGE_SOURCE_ACTION, source_label: 'Действие', delta: strikePackage.advantage }];
 });
 const processWeaponModifiers = computed(() => {
   const profile = resolvedAttackAction.value?.strikes[0]?.profile ?? currentAttack.value;
@@ -1772,14 +1769,6 @@ async function acceptWideAttack(
     if (targetProposals.some((target) => target.hit.profileType !== 'strike')) {
       throw new Error('Широкий удар доступен только для ближнего боя');
     }
-    if (effectiveProcessContext.value && processSpec.value) {
-      comboProcessService.prepareStrike(
-        effectiveProcessContext.value.session,
-        processSpec.value,
-        targetProposals.map((target) => target.targetKey),
-      );
-    }
-
     const attackStrikes = accepted.proposal.attackAction?.strikes ?? [];
     const pendingResolution = actionEffectService.resolveForNextAction(attackerPendingEffects.value, {
       isAttack: true,
@@ -1813,7 +1802,7 @@ async function acceptWideAttack(
             }),
           )
           .concat(actionCheckModifiers(actionRule, versionOf(accepted.initiator), attackStrikes.length))
-          .concat(comboStrike.value.modifiers)
+          .concat(processStrikeModifiers.value)
           .concat(
             processSessionService.repeatWeaponModifiers(
               effectiveProcessContext.value?.session,
@@ -1840,7 +1829,6 @@ async function acceptWideAttack(
         faceRemap: actionEffectService.currentRollFaceRemap(actionRule, profile.profileType, index + 1),
         flank: target.hit.flank,
         turn: target.hit.turn,
-        extraSuccessCount: index === 0 ? comboStrike.value.extraSuccessCount : 0,
         attack: {
           itemName: profile.itemName,
           profileType: profile.profileType,
@@ -1860,23 +1848,14 @@ async function acceptWideAttack(
     const rolled = hitRollService.rollMeleeWideHit(inputs, Math.random, props.rules, props.mechanics);
     const successful = rolled.targetResults.every((target) => (target.attacker.check?.rating ?? 0) > 0);
     const processContext = effectiveProcessContext.value;
-    const comboSession =
-      processContext && processSpec.value
-        ? comboProcessService.prepareStrike(
-            processContext.session,
-            processSpec.value,
-            targetProposals.map((target) => target.targetKey),
-          )
-        : (processContext?.session ?? null);
     const nextProcessSession = (() => {
       const resolved =
-        processContext && processSpec.value && comboSession
-          ? comboProcessService.resolveAfterStrike(
-              comboSession,
+        processContext && processSpec.value && processContext.session
+          ? processSessionService.resolveStep(
+              processContext.session,
               processSpec.value,
               processContext.stepCode,
               successful,
-              Boolean(processContext.comboClose),
             )
           : null;
       if (!resolved || !successful) return resolved;
@@ -2111,7 +2090,7 @@ async function acceptAndRoll(): Promise<void> {
         }),
       )
       .concat(actionCheckModifiers(actionRule, versionOf(accepted.initiator), attackStrikes.length))
-      .concat(comboStrike.value.modifiers)
+      .concat(processStrikeModifiers.value)
       .concat(attackerSpent > 0 ? [concentrationTokenService.tokenAdvantage(attackerSpent)] : [])
       .concat(defensePrepModifiers(accepted.opponent, hit.reaction)),
     defenderAdv: accepted.proposal.opponentAdv,
@@ -2135,18 +2114,6 @@ async function acceptAndRoll(): Promise<void> {
     turn: hit.turn,
   };
   const needsHitRoll = !pushProfileService.isPushAction(actionRule) || hit.reaction === 'dodge';
-  const comboSession =
-    needsHitRoll && effectiveProcessContext.value && processSpec.value
-      ? comboProcessService.prepareStrike(
-          effectiveProcessContext.value.session,
-          processSpec.value,
-          attackStrikes.length
-            ? attackStrikes.map((strike) => strike.targetKey)
-            : accepted.opponent
-              ? [accepted.opponent]
-              : [],
-        )
-      : null;
   const rollInputs = (attackStrikes.length > 0 ? attackStrikes : [{ profile: attack }]).map((strike, index) => {
     const slotHit = strikeSlots[index]?.hit;
 
@@ -2154,7 +2121,6 @@ async function acceptAndRoll(): Promise<void> {
       ...commonHitInput,
       reaction: slotHit?.reaction ?? hit.reaction ?? 'ignore',
       defenseEfficiency: slotHit?.defenseEfficiency ?? hit.defenseEfficiency,
-      extraSuccessCount: index === 0 ? comboStrike.value.extraSuccessCount : 0,
       attackerAdvantageModifiers: (commonHitInput.attackerAdvantageModifiers ?? []).concat(
         processSessionService.repeatWeaponModifiers(
           effectiveProcessContext.value?.session,
@@ -2259,13 +2225,12 @@ async function acceptAndRoll(): Promise<void> {
     : null;
   const nextProcessSession = (() => {
     const resolved =
-      effectiveProcessContext.value && processSpec.value && comboSession
-        ? comboProcessService.resolveAfterStrike(
-            comboSession,
+      effectiveProcessContext.value && processSpec.value && effectiveProcessContext.value.session
+        ? processSessionService.resolveStep(
+            effectiveProcessContext.value.session,
             processSpec.value,
             effectiveProcessContext.value.stepCode,
             rolledHits.attackers.every((attacker) => (attacker.check?.rating ?? 0) > 0),
-            Boolean(effectiveProcessContext.value.comboClose),
           )
         : null;
     if (!resolved) return resolved;

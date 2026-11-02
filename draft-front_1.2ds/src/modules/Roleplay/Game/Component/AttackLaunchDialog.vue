@@ -35,8 +35,6 @@ import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Insta
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
 import { pushProfileService } from '@/modules/Roleplay/Game/Service/Instance/pushProfileService';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
-import { comboProcessService } from '@/modules/Roleplay/Game/Service/Instance/comboProcessService';
-import { COMBO_STEP_CODES } from '@/modules/Roleplay/Game/Constant/Process/COMBO_STEP_CODES';
 import {
   asProcessAbilitySpec,
   asActionAbilitySpec,
@@ -131,11 +129,8 @@ const activeProcess = computed(() =>
 const activeCommitted = computed(() => (actorKey.value ? (committedSessions.value[actorKey.value] ?? null) : null));
 const sources = computed(() => {
   const available = attackActionSourceService.list(props.rules, actorOverview.value, keywords.value);
-  const session = activeProcess.value;
-  const processRule = session ? findRuleByRef(props.rules, session.processRuleCode) : null;
-  const spec = processRule ? asProcessAbilitySpec(processRule) : null;
 
-  return comboProcessService.listSources(available, session, spec, actorOverview.value, props.rules);
+  return processSessionService.launchSources(available, activeProcess.value, props.rules);
 });
 const selectedSource = computed<CombatActionOption | null>(
   () =>
@@ -203,21 +198,19 @@ watch(
   },
   { immediate: true },
 );
-const activeComboSpec = computed(() => {
+const processTargetMode = computed(() => {
   const session = activeProcess.value;
-  const processRule = session ? findRuleByRef(props.rules, session.processRuleCode) : null;
-  const liveSpec = processRule ? asProcessAbilitySpec(processRule) : null;
-  if (comboProcessService.isComboSpec(liveSpec)) return liveSpec;
-  if (comboProcessService.isComboSpec(selectedSource.value?.process ?? null)) {
-    return selectedSource.value?.process ?? null;
-  }
+  if (!session) return null;
+  const rule = findRuleByRef(props.rules, session.processRuleCode);
 
-  return null;
+  return rule ? (asProcessAbilitySpec(rule)?.target_mode ?? 'any') : null;
 });
-const comboLockedTarget = computed(() =>
-  activeComboSpec.value ? (activeProcess.value?.comboTargetKey ?? null) : null,
+const processLockedTarget = computed(() =>
+  processTargetMode.value === 'single' || activeProcess.value?.closing
+    ? (activeProcess.value?.lastStrikeTargetKey ?? null)
+    : null,
 );
-const isWideAttack = computed(() => selectedSource.value?.attackMode === 'wide' && !activeComboSpec.value);
+const isWideAttack = computed(() => selectedSource.value?.attackMode === 'wide');
 const isSequentialStrikes = computed(
   () => !isWideAttack.value && attackActionSourceService.isSequentialStrikes(selectedSourceRule.value),
 );
@@ -248,7 +241,7 @@ const processSteps = computed(() => {
       ? activeProcess.value
       : null;
 
-  return comboProcessService.visibleSteps(process, session);
+  return processSessionService.visibleSteps(process, session);
 });
 const selectedProcessStep = computed(
   () => processSteps.value.find((step) => step.code === processStepCode.value) ?? null,
@@ -436,7 +429,7 @@ function selectProfile(slotIndex: number, profile: AttackOverview): void {
 }
 
 function defaultSlotTarget(): CombatEntityKey | null {
-  if (comboLockedTarget.value) return comboLockedTarget.value;
+  if (processLockedTarget.value) return processLockedTarget.value;
   const allowed = followUpTargetKeys.value;
   if (allowed !== null) return (allowed[0] as CombatEntityKey | undefined) ?? null;
   const last = activeProcess.value?.lastStrikeTargetKey;
@@ -750,30 +743,11 @@ async function submit(): Promise<void> {
     activeProcess.value ??
     (source.process ? processSessionService.start(props.gameId, initiator, source.code, source.process) : null);
   if (source.isProcess && !processSession) throw new Error('Не удалось создать сессию процесса');
-  const processRule = activeProcess.value ? findRuleByRef(props.rules, activeProcess.value.processRuleCode) : null;
-  const comboSpec =
-    (processRule ? asProcessAbilitySpec(processRule) : null) ??
-    (comboProcessService.isComboSpec(source.process) ? source.process : null) ??
-    null;
-  const boundSession =
-    processSession && comboSpec
-      ? comboProcessService.prepareStrike(
-          processSession,
-          comboSpec,
-          attackStrikes.map((strike) => strike.targetKey),
-        )
-      : processSession;
   const processSource =
-    source.isProcess && boundSession && selectedStepCode
-      ? { kind: 'process' as const, process: { session: boundSession, stepCode: selectedStepCode } }
+    source.isProcess && processSession && selectedStepCode
+      ? { kind: 'process' as const, process: { session: processSession, stepCode: selectedStepCode } }
       : null;
   if (source.isProcess && !processSource) throw new Error('Не удалось определить шаг процесса');
-  const comboClose =
-    !source.isProcess &&
-    boundSession &&
-    comboProcessService.canCloseWithOtherAttack(boundSession, comboSpec, actorOverview.value, props.rules)
-      ? { session: boundSession, stepCode: COMBO_STEP_CODES.finish, comboClose: true }
-      : undefined;
 
   emit('launch-attack', {
     initiator,
@@ -782,7 +756,6 @@ async function submit(): Promise<void> {
     mode: isWideAttack.value ? 'wide' : 'single',
     reactionMode: isSequentialStrikes.value ? 'sequential' : isSameWeaponStrikes.value ? 'paired' : 'simultaneous',
     totalOdCost: finalCost.value,
-    ...(comboClose ? { comboClose } : {}),
     ...(selectedActionModifierCodes.value.length
       ? { actionModifierCodes: [...selectedActionModifierCodes.value] }
       : {}),
@@ -833,7 +806,7 @@ watch(selectedProcessStep, () => {
   slots.value = slots.value.map((slot, index) => ({ ...slot, profile: index === 0 ? profile : null }));
 });
 watch(
-  comboLockedTarget,
+  processLockedTarget,
   (targetKey) => {
     if (!targetKey) return;
     slots.value = slots.value.map((slot) => ({ ...slot, targetKey }));
@@ -1004,7 +977,7 @@ watch(followUpTargetKeys, (allowed) => {
               :initiative-keys="initiativeKeys"
               :exclude="wideTargetExclude(index)"
               :disabled="
-                busy || Boolean(comboLockedTarget) || (followUpTargetKeys !== null && followUpTargetKeys.length <= 1)
+                busy || Boolean(processLockedTarget) || (followUpTargetKeys !== null && followUpTargetKeys.length <= 1)
               "
             />
             <div v-else class="text-caption text-medium-emphasis">Та же цель, что у первого удара</div>

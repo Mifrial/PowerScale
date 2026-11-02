@@ -193,13 +193,9 @@ export class HitRollService {
   }
 
   rollHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
-    return this.withExtraSuccesses(
-      this.withScoreAdjust(
-        this.withFaceRemap(this.rollHitRaw(input, rng, rules, mechanics), input, rules),
-        input,
-        rules,
-      ),
-      input.extraSuccessCount ?? 0,
+    return this.withScoreAdjust(
+      this.withFaceRemap(this.rollHitRaw(input, rng, rules, mechanics), input, rules),
+      input,
       rules,
     );
   }
@@ -478,36 +474,6 @@ export class HitRollService {
   /** Совместимость со старыми тестами. */
   rollMeleeHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
     return this.rollHit(input, rng, rules, mechanics);
-  }
-
-  private withExtraSuccesses(rolled: HitCheckRoll, extraSuccessCount: number, rules: Rule[]): HitCheckRoll {
-    if (extraSuccessCount <= 0) return rolled;
-    const attackerRolled = {
-      ...rolled.attacker,
-      totalSuccesses: rolled.attacker.totalSuccesses + extraSuccessCount,
-    };
-    const defenderDifficulty = rolled.defender
-      ? checkRollService.successesOf(rolled.defender)
-      : rolled.attacker.check?.difficulty;
-    if (!defenderDifficulty) return { ...rolled, attacker: attackerRolled };
-    const attacker = checkRollService.withCheckOutcome(
-      attackerRolled,
-      this.hitCheckCode(rules),
-      defenderDifficulty,
-      attackerRolled.check?.check_name,
-      rules,
-    );
-    const defender = rolled.defender?.check
-      ? checkRollService.withCheckOutcome(
-          rolled.defender,
-          this.hitCheckCode(rules),
-          checkRollService.successesOf(attackerRolled),
-          rolled.defender.check.check_name,
-          rules,
-        )
-      : rolled.defender;
-
-    return { attacker, defender };
   }
 
   rollSimultaneousHits(
