@@ -213,9 +213,27 @@ async function stopSession(): Promise<void> {
     store.applyGameUpdate(updated);
     gameStateSnapshot.value = await getGameApi().getGameStateSnapshot(gameId.value);
   } catch (e) {
-    statusError.value = e instanceof Error ? e.message : 'Не удалось остановить сессию';
+    // Сессию могли снять в другой вкладке или до открытия карточки: перечитываем
+    // карточку, иначе кнопка остановки остаётся на уже остановленной сессии.
+    const refreshed = await refreshGameCard();
+    if (refreshed?.game.sessionRunning === false) {
+      statusNotice.value = 'Сессия уже остановлена.';
+    } else {
+      statusError.value = e instanceof Error ? e.message : 'Не удалось остановить сессию';
+    }
   } finally {
     statusUpdating.value = false;
+  }
+}
+
+async function refreshGameCard(): Promise<GameDetail | null> {
+  try {
+    const updated = await getGameApi().getGame(gameId.value);
+    store.applyGameUpdate(updated);
+
+    return updated;
+  } catch {
+    return null;
   }
 }
 
