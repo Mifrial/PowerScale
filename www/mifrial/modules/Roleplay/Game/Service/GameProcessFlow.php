@@ -78,6 +78,16 @@ final class GameProcessFlow
             if ($stepCode !== $spec->getStartStepCode()) {
                 throw new GameInvalidException('Game process step is invalid');
             }
+
+            $available = $this->rules->availableSteps(
+                $spec,
+                null,
+                null,
+                $this->rules->initialCounters($spec),
+            );
+            if (!in_array($stepCode, $available, true)) {
+                throw new GameInvalidException('Game process step is not available');
+            }
         } else {
             if ($open->getProcessRuleCode() !== $processRuleCode) {
                 throw new GameInvalidException('Game process is already open');
@@ -91,6 +101,7 @@ final class GameProcessFlow
                 $spec,
                 $open->getCurrentStepCode(),
                 $open->getStepStatus(),
+                $open->getCounters(),
             );
             if (!in_array($processStepCode, $available, true)) {
                 throw new GameInvalidException('Game process step is not available');
@@ -177,6 +188,11 @@ final class GameProcessFlow
             throw new GameInvalidException('Game process step is invalid');
         }
 
+        $spec = $context['spec'] ?? null;
+        if (!$spec instanceof ProcessSpec) {
+            throw new GameInvalidException('Game process is invalid');
+        }
+
         $row = $this->processes->add(
             $battle->getSessionId(),
             $battle->getId(),
@@ -186,7 +202,7 @@ final class GameProcessFlow
                 'process_rule_code' => $context['processRuleCode'],
                 'current_step_code' => $step->getCode(),
                 'step_status' => 'pending',
-                'counters' => [],
+                'counters' => $this->rules->initialCounters($spec),
                 'weapon_use_counts' => [],
             ],
         );
@@ -257,6 +273,11 @@ final class GameProcessFlow
             $counts = $row->getWeaponUseCounts();
             $counts[$weaponKey] = ($counts[$weaponKey] ?? 0) + 1;
             $fields['weapon_use_counts'] = $counts;
+        }
+
+        $counters = $this->rules->countersAfterStep($step, $row->getCounters(), $success, $spec->getFailure());
+        if ($counters !== $row->getCounters()) {
+            $fields['counters'] = $counters;
         }
 
         if ($target !== null) {
@@ -432,7 +453,12 @@ final class GameProcessFlow
 
         $slice = $this->strikeRules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->rules->spec($slice, $row->getProcessRuleCode());
-        $available = $this->rules->availableSteps($spec, $row->getCurrentStepCode(), $row->getStepStatus());
+        $available = $this->rules->availableSteps(
+            $spec,
+            $row->getCurrentStepCode(),
+            $row->getStepStatus(),
+            $row->getCounters(),
+        );
         $steps = [];
         foreach ($available as $code) {
             $step = $this->rules->step($spec, $code);

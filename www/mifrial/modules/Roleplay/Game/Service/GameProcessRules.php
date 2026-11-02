@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityProcessSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CounterThreshold;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StepCost;
@@ -69,15 +70,20 @@ final class GameProcessRules
      * @param ProcessSpec $spec Тело.
      * @param string|null $current Текущий шаг или null для старта.
      * @param string|null $status Статус текущего шага.
+     * @param array<string, mixed> $counters Счётчики сессии.
      *
      * @return array<int, string> Коды.
      *
      * @throws GameInvalidException Если текущий шаг чужой.
      */
-    public function availableSteps(ProcessSpec $spec, ?string $current, ?string $status): array
-    {
+    public function availableSteps(
+        ProcessSpec $spec,
+        ?string $current,
+        ?string $status,
+        array $counters = [],
+    ): array {
         if ($current === null || $current === '') {
-            return [$spec->getStartStepCode()];
+            return $this->filterByCounters($spec, [$spec->getStartStepCode()], $counters);
         }
 
         if ($status === 'pending') {
@@ -115,7 +121,85 @@ final class GameProcessRules
             }
         }
 
-        return array_values(array_unique($codes));
+        return $this->filterByCounters($spec, array_values(array_unique($codes)), $counters);
+    }
+
+    /**
+     * Стартовые счётчики сессии из спеки.
+     *
+     * @param ProcessSpec $spec Тело.
+     *
+     * @return array<string, int> Карта код → значение.
+     */
+    public function initialCounters(ProcessSpec $spec): array
+    {
+        $counters = [];
+        foreach ($spec->getCounters() as $counter) {
+            $counters[$counter->getCode()] = $counter->getInitial();
+        }
+
+        return $counters;
+    }
+
+    /**
+     * Счётчики после шага: успех — counter_on_success, провал с
+     * restart_from_first — counter_on_failure. Порядок списка сохраняется.
+     *
+     * @param ProcessStep $step Шаг.
+     * @param array<string, mixed> $counters Текущие счётчики.
+     * @param bool $success Успех шага.
+     * @param string|null $failure Режим провала процесса.
+     *
+     * @return array<string, mixed> Новые счётчики.
+     */
+    public function countersAfterStep(
+        ProcessStep $step,
+        array $counters,
+        bool $success,
+        ?string $failure,
+    ): array {
+        if ($success) {
+            $ops = $step->getCounterOnSuccess();
+        } elseif ($failure === 'restart_from_first') {
+            $ops = $step->getCounterOnFailure();
+        } else {
+            $ops = [];
+        }
+
+        foreach ($ops as $op) {
+            $code = $op->getCounterCode();
+            $current = $counters[$code] ?? 0;
+            $counters[$code] = $op->apply(is_int($current) ? $current : 0);
+        }
+
+        return $counters;
+    }
+
+    /**
+     * Отбрасывает шаги с невыполненным порогом.
+     *
+     * @param ProcessSpec $spec Тело.
+     * @param array<int, string> $codes Коды.
+     * @param array<string, mixed> $counters Счётчики.
+     *
+     * @return array<int, string> Доступные коды.
+     */
+    private function filterByCounters(ProcessSpec $spec, array $codes, array $counters): array
+    {
+        $steps = [];
+        foreach ($spec->getSteps() as $step) {
+            $steps[$step->getCode()] = $step;
+        }
+
+        $kept = [];
+        foreach ($codes as $code) {
+            $step = $steps[$code] ?? null;
+            if ($step === null || CounterThreshold::areMet($step->getRequiresCounters(), $counters)) {
+                $kept[] = $code;
+            }
+        }
+
+        return $kept;
     }
 
     /**

@@ -4732,6 +4732,178 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Мир с процессом, который ведёт счётчик Комбо.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function processCounterRules(): array
+    {
+        return array_merge($this->stateActionRules(), [
+            'combo-proc' => [
+                'type' => 'ability',
+                'name' => 'Combo',
+                'spec' => [
+                    'type' => 'process',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'process' => [
+                        'counters' => [['counter_code' => 'combo', 'initial' => 0]],
+                        'steps' => [
+                            [
+                                'code' => 'start',
+                                'name' => 'Start',
+                                'costs' => [['amount' => 1, 'resource_code' => 'action-points']],
+                                'description' => 'Start.',
+                                'counter_on_success' => [['counter_code' => 'combo', 'delta' => 1]],
+                            ],
+                            [
+                                'code' => 'build',
+                                'name' => 'Build',
+                                'costs' => [['amount' => 1, 'resource_code' => 'action-points']],
+                                'description' => 'Build.',
+                                'counter_on_success' => [['counter_code' => 'combo', 'delta' => 1]],
+                            ],
+                            [
+                                'code' => 'finish',
+                                'name' => 'Finish',
+                                'costs' => [['amount' => 1, 'resource_code' => 'action-points']],
+                                'description' => 'Finish.',
+                                'requires_counters' => [['counter_code' => 'combo', 'min' => 2]],
+                                'counter_on_success' => [['counter_code' => 'combo', 'set' => 0]],
+                            ],
+                        ],
+                        'start_step_code' => 'start',
+                        'failure' => 'end_action',
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Счётчик растёт на успехе шага, держит порог и сбрасывается set.
+     *
+     * @return void
+     */
+    public function testProcessCountersRiseHoldThresholdAndReset(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->processCounterRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Combo Hero', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ], abilities: [['ruleCode' => 'combo-proc', 'level' => 1]]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Combo Guard');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-combo',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $processes = new GameProcessRepository($gateway);
+
+        $started = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-combo-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'combo-proc')
+                + ['processRuleCode' => 'combo-proc'],
+            ),
+        ]);
+        self::assertTrue($started['success'], json_encode($started));
+        $row = $processes->findOpenForActor($battleId, 'character', $attackerId);
+        self::assertNotNull($row);
+        self::assertSame(['combo' => 0], $row->getCounters());
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-combo-def-1',
+            'expectedVersion' => $started['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $row = $processes->findOpenForActor($battleId, 'character', $attackerId);
+        self::assertNotNull($row);
+        self::assertSame(['combo' => 1], $row->getCounters());
+
+        $blocked = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-combo-finish',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'combo-proc')
+                + ['processRuleCode' => 'combo-proc', 'processStepCode' => 'finish'],
+            ),
+        ]);
+        self::assertFalse($blocked['success']);
+
+        $built = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-combo-2',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'combo-proc')
+                + ['processRuleCode' => 'combo-proc', 'processStepCode' => 'build'],
+            ),
+        ]);
+        self::assertTrue($built['success'], json_encode($built));
+        $closedSecond = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-combo-def-2',
+            'expectedVersion' => $built['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closedSecond['success'], json_encode($closedSecond));
+        $row = $processes->findOpenForActor($battleId, 'character', $attackerId);
+        self::assertNotNull($row);
+        self::assertSame(['combo' => 2], $row->getCounters());
+
+        $finish = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-combo-3',
+            'expectedVersion' => $closedSecond['data']['version'],
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'combo-proc')
+                + ['processRuleCode' => 'combo-proc', 'processStepCode' => 'finish'],
+            ),
+        ]);
+        self::assertTrue($finish['success'], json_encode($finish));
+        $closedFinish = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-combo-def-3',
+            'expectedVersion' => $finish['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closedFinish['success'], json_encode($closedFinish));
+        $row = $processes->findOpenForActor($battleId, 'character', $attackerId);
+        self::assertNotNull($row);
+        self::assertSame(['combo' => 0], $row->getCounters());
+        self::assertSame('completed', $row->getStepStatus());
+    }
+
+    /**
      * Обычное прерывание гасит сессию процесса.
      *
      * @return void
