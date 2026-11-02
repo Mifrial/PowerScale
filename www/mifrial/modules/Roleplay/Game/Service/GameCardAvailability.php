@@ -9,7 +9,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\Sheet\CharacterRequirementFacts;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Zone\AutomaticZone;
 use Mifrial\Roleplay\Rule\Service\AbilityRequirementCheck;
 
@@ -46,7 +46,7 @@ final class GameCardAvailability
      * @param int $actorId Идентификатор актора.
      * @param string $actionRuleCode Карточка действия.
      *
-     * @return AbilityActionSpec Спека карточки.
+     * @return AbilityWithBase Спека карточки.
      *
      * @throws GameInvalidException Если карточка недоступна или требования не выполнены.
      */
@@ -55,7 +55,7 @@ final class GameCardAvailability
         string $actorKind,
         int $actorId,
         string $actionRuleCode,
-    ): AbilityActionSpec {
+    ): AbilityWithBase {
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->specOf($slice, $actionRuleCode);
         $document = $this->document($game, $actorKind, $actorId, $slice);
@@ -75,15 +75,15 @@ final class GameCardAvailability
      * @param CharacterRuleSlice $slice Срез.
      * @param string $code Карточка.
      *
-     * @return AbilityActionSpec Спека.
+     * @return AbilityWithBase Спека.
      *
      * @throws GameInvalidException Если карточка не живая или не действие.
      */
-    private function specOf(CharacterRuleSlice $slice, string $code): AbilityActionSpec
+    private function specOf(CharacterRuleSlice $slice, string $code): AbilityWithBase
     {
         $rule = $slice->findLive($code);
         $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        if (!$spec instanceof AbilityActionSpec) {
+        if (!$spec instanceof AbilityWithBase) {
             throw new GameInvalidException('Game action card is not live');
         }
 
@@ -175,11 +175,11 @@ final class GameCardAvailability
     /**
      * Есть ли у карточки automatic-зона.
      *
-     * @param AbilityActionSpec $spec Спека.
+     * @param AbilityWithBase $spec Спека.
      *
      * @return bool true, если карточка доступна без уровня.
      */
-    private function isAutomatic(AbilityActionSpec $spec): bool
+    private function isAutomatic(AbilityWithBase $spec): bool
     {
         foreach ($spec->getBase()->getZones() as $zone) {
             if ($zone instanceof AutomaticZone) {
@@ -194,7 +194,7 @@ final class GameCardAvailability
      * Требования блоков до доступного уровня включительно.
      *
      * @param CharacterRuleSlice $slice Срез.
-     * @param AbilityActionSpec $spec Спека.
+     * @param AbilityWithBase $spec Спека.
      * @param array{choices: array<string, mixed>, sheet: array<string, mixed>} $document Документ.
      * @param int $level Уровень карточки.
      *
@@ -204,7 +204,7 @@ final class GameCardAvailability
      */
     private function assertRequirements(
         CharacterRuleSlice $slice,
-        AbilityActionSpec $spec,
+        AbilityWithBase $spec,
         array $document,
         int $level,
     ): void {

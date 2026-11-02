@@ -53,6 +53,7 @@ final class GameProjectionPortFactory
             new GameCharacterProjectionMask(),
             $this->ruleSlices($serviceLocator),
             $this->characterSheets($serviceLocator),
+            (new GameStrikePortFactory())->createProcessFlow($serviceLocator),
         );
     }
 

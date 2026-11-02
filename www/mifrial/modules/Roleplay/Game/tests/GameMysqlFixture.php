@@ -527,6 +527,14 @@ trait GameMysqlFixture
             $context['chosenAmounts'] = $attack['chosenAmounts'];
         }
 
+        if (array_key_exists('processRuleCode', $attack)) {
+            $context['processRuleCode'] = $attack['processRuleCode'];
+        }
+
+        if (array_key_exists('processStepCode', $attack)) {
+            $context['processStepCode'] = $attack['processStepCode'];
+        }
+
         return [
             'phase' => 'declare',
             'kind' => 'strike',
@@ -568,6 +576,14 @@ trait GameMysqlFixture
         $context = ['strikes' => $strikes];
         if (array_key_exists('chosenAmounts', $attack)) {
             $context['chosenAmounts'] = $attack['chosenAmounts'];
+        }
+
+        if (array_key_exists('processRuleCode', $attack)) {
+            $context['processRuleCode'] = $attack['processRuleCode'];
+        }
+
+        if (array_key_exists('processStepCode', $attack)) {
+            $context['processStepCode'] = $attack['processStepCode'];
         }
 
         return [
@@ -627,6 +643,14 @@ trait GameMysqlFixture
         ];
         if (array_key_exists('chosenAmounts', $body)) {
             $context['chosenAmounts'] = $body['chosenAmounts'];
+        }
+
+        if (array_key_exists('processRuleCode', $body)) {
+            $context['processRuleCode'] = $body['processRuleCode'];
+        }
+
+        if (array_key_exists('processStepCode', $body)) {
+            $context['processStepCode'] = $body['processStepCode'];
         }
 
         return [

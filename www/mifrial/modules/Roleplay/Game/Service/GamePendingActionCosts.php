@@ -186,6 +186,49 @@ final class GamePendingActionCosts
     }
 
     /**
+     * Добавляет готовые эффекты в ожидание актора.
+     *
+     * Срез 1 применяет только хвост проверки после действия; остальные
+     * эффекты завершения процесса подключит рантайм счётчиков.
+     *
+     * @param array<string, mixed> $pending Карта боя.
+     * @param string $actorKind Вид character или npc.
+     * @param int $actorId Id актора.
+     * @param array<int, \Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionEffect> $effects Эффекты.
+     * @param string $sourceCode Источник.
+     *
+     * @return array<string, mixed> Новая карта.
+     */
+    public function appendEffects(
+        array $pending,
+        string $actorKind,
+        int $actorId,
+        array $effects,
+        string $sourceCode,
+    ): array {
+        $key = $actorKind . ':' . $actorId;
+        $waiting = is_array($pending[$key] ?? null) ? $pending[$key] : [];
+        foreach ($effects as $effect) {
+            if (!$effect instanceof AfterActionUntilResourceSpentCheckModifierEffect) {
+                continue;
+            }
+
+            $waiting[] = [
+                'sourceRuleCode' => $sourceCode,
+                'effect' => $this->afterActionStored($effect),
+            ];
+        }
+
+        if ($waiting === []) {
+            unset($pending[$key]);
+        } else {
+            $pending[$key] = $waiting;
+        }
+
+        return $pending;
+    }
+
+    /**
      * Висящие проверки актора для одного броска.
      *
      * @param array<string, mixed> $pending Карта боя.
@@ -774,6 +817,7 @@ final class GamePendingActionCosts
 
         return $rows;
     }
+
     /**
      * Оставляет хвост смягчения только для атаки, уложившейся в потолок ОД.
      *
@@ -860,5 +904,4 @@ final class GamePendingActionCosts
 
         return is_int($fallback) ? $fallback : 0;
     }
-
 }

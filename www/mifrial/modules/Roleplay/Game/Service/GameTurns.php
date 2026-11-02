@@ -70,6 +70,9 @@ final class GameTurns
      * @param GameCombatNotices $notices Заметки боя.
      * @param GameCardAvailability $availability Принадлежность и требования карточки.
      * @param GameStateIncreaseChecks $reactions Проверки прироста состояний.
+     * @param GameActionDeclare $actionDeclare Сценарий карточки действия.
+     * @param GameProcessFlow $processes Сессия процесса.
+     * @param GameWoundActions $wounds Сценарий раны.
      */
     public function __construct(
         private readonly ISmartTableGateway $gateway,
@@ -84,6 +87,9 @@ final class GameTurns
         private readonly GameCombatNotices $notices,
         GameCardAvailability $availability,
         GameStateIncreaseChecks $reactions,
+        private readonly GameActionDeclare $actionDeclare,
+        private readonly GameProcessFlow $processes,
+        private readonly GameWoundActions $wounds,
     ) {
         $this->battles = new GameBattleRepository($this->gateway);
         $this->commands = new GameCommandRepository($this->gateway);
@@ -174,6 +180,123 @@ final class GameTurns
     }
 
     /**
+     * Прерывает процесс текущего.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Право.
+     * @param bool $viewAll Просмотр.
+     * @param array<string, mixed> $body Тело.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function abortProcess(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        array $body,
+    ): array {
+        $game = $this->games->get($gameId);
+        if (!$this->cardAccess->isVisible($game, $actorUserId, $viewAll)) {
+            throw new GameNotFoundException('Game was not found');
+        }
+
+        $sessionId = $this->sessions->findSessionId($gameId);
+        if ($sessionId === null) {
+            throw new GameInvalidException('Game battle was not found');
+        }
+
+        $execution = $this->replay->execute(
+            fn (): ?array => $this->commands->findByKey($gameId, 'abort_process', $this->key($body)),
+            fn (): int => $this->commands->reserve($gameId, $sessionId, 'abort_process', $this->key($body), $body),
+            function (int $reservationId, array $result): void {
+                $this->commands->complete($reservationId, $result);
+            },
+            fn (): array => $this->abortProcessWork($game, $sessionId, $actorUserId, $editAll, $body),
+            $body,
+        );
+
+        return $execution['result'];
+    }
+
+    /**
+     * Гасит сессию процесса текущего.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Право.
+     * @param array<string, mixed> $body Тело.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если удар, долг или процесс не позволяют.
+     * @throws GameNotFoundException Если боя нет.
+     * @throws GameBattleConflictException Если версия другая.
+     */
+    private function abortProcessWork(
+        GameRecord $game,
+        int $sessionId,
+        int $actorUserId,
+        bool $editAll,
+        array $body,
+    ): array {
+        $battleId = $body['battleId'] ?? null;
+        $expectedBattle = $body['expectedBattleVersion'] ?? null;
+        if (!is_int($battleId) || !is_int($expectedBattle)) {
+            throw new GameInvalidException('Game process field is invalid');
+        }
+
+        $battle = $this->battles->find($battleId);
+        if ($battle === null || $battle->getSessionId() !== $sessionId) {
+            throw new GameNotFoundException('Game battle was not found');
+        }
+
+        $current = $this->current($battle);
+        $this->assertActor($game, $actorUserId, $editAll, $current);
+        if ($this->strikesRepo->findOpenAny($battleId) !== null) {
+            throw new GameInvalidException('Game strike is open');
+        }
+
+        $debt = $battle->getActionDebt();
+        $slot = $debt[$current['type'] . ':' . $current['id']] ?? null;
+        if (is_array($slot) && is_int($slot['remaining'] ?? null) && $slot['remaining'] > 0) {
+            throw new GameInvalidException('Game action debt is open');
+        }
+
+        $mode = $body['mode'] ?? 'normal';
+        if ($mode !== 'normal' && $mode !== 'emergency') {
+            throw new GameInvalidException('Game process interruption is invalid');
+        }
+
+        $aborted = $this->processes->abort(
+            $game,
+            $battle,
+            $current,
+            $mode,
+            $battle->getPendingActionEffects(),
+        );
+        $saved = $this->battles->replaceTracked(
+            $battleId,
+            $expectedBattle,
+            $aborted['pending'],
+            null,
+            null,
+            null,
+        );
+
+        return [
+            'battleId' => $battleId,
+            'version' => $saved->getStateVersion(),
+            'processRuleCode' => $aborted['processRuleCode'],
+            'stepCode' => $aborted['stepCode'],
+            'pendingActionEffects' => $aborted['pending'],
+            'aborted' => true,
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $body Тело.
      *
      * @return array<string, mixed> Итог.
@@ -202,7 +325,7 @@ final class GameTurns
             function (int $reservationId, array $result): void {
                 $this->commands->complete($reservationId, $result);
             },
-            fn (): array => $this->work($game, $sessionId, $actorUserId, $editAll, $body, $command),
+            fn (): array => $this->work($game, $sessionId, $actorUserId, $editAll, $viewAll, $body, $command),
             $body,
         );
         if (!$execution['replay']) {
@@ -225,6 +348,7 @@ final class GameTurns
         int $sessionId,
         int $actorUserId,
         bool $editAll,
+        bool $viewAll,
         array $body,
         string $command,
     ): array {
@@ -264,7 +388,17 @@ final class GameTurns
             return $this->abortWork($battle, $expectedBattle, $current);
         }
 
-        return $this->continueWork($game, $sessionId, $battle, $expectedBattle, $expectedSheet, $current);
+        return $this->continueWork(
+            $game,
+            $sessionId,
+            $battle,
+            $expectedBattle,
+            $expectedSheet,
+            $current,
+            $actorUserId,
+            $editAll,
+            $viewAll,
+        );
     }
 
     /**
@@ -369,6 +503,9 @@ final class GameTurns
         int $expectedBattle,
         int $expectedSheet,
         array $current,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
     ): array {
         $debtMap = $battle->getActionDebt();
         $key = $current['type'] . ':' . $current['id'];
@@ -398,15 +535,47 @@ final class GameTurns
             );
         }
 
-        $attack = $paid['slot']['attack'] ?? null;
-        if ($paid['open'] && is_array($attack)) {
+        $debt = new GameActionDebt();
+        $kind = $debt->kindOf($paid['slot']);
+        $payload = $debt->payloadOf($paid['slot']);
+        if ($paid['open'] && $payload !== null) {
             try {
+                if ($kind === 'action') {
+                    $result = $this->actionDeclare->resume(
+                        $game->getId(),
+                        $actorUserId,
+                        $editAll,
+                        $viewAll,
+                        $payload,
+                        $expectedBattle,
+                        $sheetVersion,
+                    );
+                    unset($debtMap[$key]);
+                    $this->battles->replaceActionDebt($battle->getId(), $debtMap);
+
+                    return $result + ['sheetVersion' => $sheetVersion, 'opened' => true];
+                }
+
+                if ($kind === 'wound') {
+                    $result = $this->wounds->resume(
+                        $game,
+                        $actorUserId,
+                        $payload,
+                        $expectedBattle,
+                        $sheetVersion,
+                    );
+                    unset($debtMap[$key]);
+                    $this->battles->replaceActionDebt($battle->getId(), $debtMap);
+
+                    return $result + ['sheetVersion' => $sheetVersion, 'opened' => true];
+                }
+
                 $opened = $this->open->openPaidAction(
                     $game,
                     $sessionId,
                     $battle,
                     $expectedBattle,
-                    $attack,
+                    $payload,
                     $this->kindForLane($paid['slot']['lane'] ?? null),
                 );
             } catch (GameInvalidException $exception) {

@@ -13,6 +13,7 @@ use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
 
 /**
  * Общий серверный сценарий не-атакующего действия: стоимость, лист, ожидание.
@@ -113,6 +114,95 @@ final class GameActionPerform
     }
 
     /**
+     * Считает цену действия без записи листа.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $actorKind Вид character или npc.
+     * @param int $actorId Идентификатор актора.
+     * @param string $actionRuleCode Карточка.
+     * @param array<string, mixed> $pending Карта ожидания.
+     * @param bool $allowZeroChosen Разрешить chosen 0.
+     * @param array<string, int> $chosenAmounts Выбранные суммы.
+     * @param ProcessStep|null $step Шаг процесса.
+     *
+     * @return array{
+     *     slice: CharacterRuleSlice,
+     *     document: array<string, mixed>,
+     *     priced: array<string, mixed>,
+     *     spends: array<int, ResourceSpend>
+     * } Цена.
+     *
+     * @throws GameInvalidException Если карточка не подходит.
+     * @throws GameNotFoundException Если листа нет.
+     */
+    public function quote(
+        GameRecord $game,
+        string $actorKind,
+        int $actorId,
+        string $actionRuleCode,
+        array $pending,
+        bool $allowZeroChosen = false,
+        array $chosenAmounts = [],
+        ?ProcessStep $step = null,
+    ): array {
+        $prepared = $this->prepare(
+            $game,
+            $actorKind,
+            $actorId,
+            $actionRuleCode,
+            $allowZeroChosen,
+            $chosenAmounts,
+            $step,
+        );
+        $priced = $this->priceFor($prepared, $actionRuleCode, $actorKind, $actorId, $pending, $step);
+
+        return [
+            'slice' => $prepared['slice'],
+            'document' => $prepared['document'],
+            'priced' => $priced,
+            'spends' => $priced['spends'],
+        ];
+    }
+
+    /**
+     * Списывает только ресурсы без операций листа.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $actorKind Вид character или npc.
+     * @param int $actorId Идентификатор.
+     * @param int $expectedSheetVersion Версия листа.
+     * @param array<int, ResourceSpend> $spends Траты.
+     *
+     * @return int Новая версия.
+     *
+     * @throws GameBattleConflictException Если версия другой.
+     * @throws GameInvalidException Если трата отвергнута.
+     * @throws GameNotFoundException Если листа нет.
+     */
+    public function spend(
+        GameRecord $game,
+        string $actorKind,
+        int $actorId,
+        int $expectedSheetVersion,
+        array $spends,
+    ): int {
+        if ($spends === []) {
+            return $expectedSheetVersion;
+        }
+
+        return $this->sheetWrites->write(
+            $game,
+            $actorKind,
+            $actorId,
+            $expectedSheetVersion,
+            [],
+            null,
+            null,
+            $spends,
+        );
+    }
+
+    /**
      * Списывает стоимость, пишет лист и закрывает ожидание действия.
      *
      * @param GameRecord $game Игра.
@@ -124,6 +214,8 @@ final class GameActionPerform
      * @param bool $allowZeroChosen Разрешить chosen 0 (Ожидание).
      * @param array<string, int> $chosenAmounts Выбранные суммы ресурсов.
      * @param Closure|null $projectConflict Проектор конфликта листа.
+     * @param ProcessStep|null $step Шаг процесса.
+     * @param bool $paid Действие уже оплачено.
      *
      * @return array{
      *     pending: array<string, mixed>,
@@ -147,6 +239,8 @@ final class GameActionPerform
         bool $allowZeroChosen = false,
         array $chosenAmounts = [],
         ?Closure $projectConflict = null,
+        ?ProcessStep $step = null,
+        bool $paid = false,
     ): array {
         $executed = $this->execute(
             $game,
@@ -158,6 +252,8 @@ final class GameActionPerform
             $allowZeroChosen,
             $chosenAmounts,
             $projectConflict,
+            $step,
+            $paid,
         );
 
         return $this->finish($executed, $actionRuleCode, $actorKind, $actorId);
@@ -197,6 +293,8 @@ final class GameActionPerform
         bool $allowZeroChosen,
         array $chosenAmounts,
         ?Closure $projectConflict,
+        ?ProcessStep $step = null,
+        bool $paid = false,
     ): array {
         $prepared = $this->prepare(
             $game,
@@ -205,9 +303,13 @@ final class GameActionPerform
             $actionRuleCode,
             $allowZeroChosen,
             $chosenAmounts,
+            $step,
         );
-        $priced = $this->priceFor($prepared, $actionRuleCode, $actorKind, $actorId, $pending);
-        $this->assertResources($game, $prepared['document']['sheet'], $priced['spends']);
+        $priced = $this->priceFor($prepared, $actionRuleCode, $actorKind, $actorId, $pending, $step);
+        if (!$paid) {
+            $this->assertResources($game, $prepared['document']['sheet'], $priced['spends']);
+        }
+
         $operations = $prepared['operations'];
         $rolls = [];
         if ($operations !== []) {
@@ -228,9 +330,9 @@ final class GameActionPerform
             $actorKind,
             $actorId,
             $expectedSheetVersion,
-            $priced,
             $operations,
             $projectConflict,
+            $paid ? [] : $priced['spends'],
         );
 
         return [
@@ -262,6 +364,7 @@ final class GameActionPerform
         string $actorKind,
         int $actorId,
         array $pending,
+        ?ProcessStep $step = null,
     ): array {
         return $this->price(
             $prepared['spends'],
@@ -271,6 +374,7 @@ final class GameActionPerform
             $actorKind,
             $actorId,
             $pending,
+            $step !== null,
         );
     }
 
@@ -306,6 +410,7 @@ final class GameActionPerform
         string $actionRuleCode,
         bool $allowZeroChosen,
         array $chosenAmounts,
+        ?ProcessStep $step = null,
     ): array {
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->cards->assertServerPerformable($slice, $actionRuleCode);
@@ -314,6 +419,10 @@ final class GameActionPerform
         $chosen = $this->chosen->resolve($slice, $spec, $document['sheet'], $allowZeroChosen);
         $chosen = array_replace($chosen, $chosenAmounts);
         $spends = $this->resolveSpends($game, $actionRuleCode, $document, $chosen, $allowZeroChosen);
+        if ($step !== null) {
+            $spends = (new GameProcessRules())->replaceCosts($spends, $step);
+        }
+
         $operations = $this->states->operations($slice, $document['sheet'], $spec);
 
         return [
@@ -433,10 +542,9 @@ final class GameActionPerform
      * Пишет лист актора по цене действия.
      *
      * @param GameRecord $game Игра.
-     * @param string $actorKind character или npc.
+     * @param string $actorKind Вид character или npc.
      * @param int $actorId Идентификатор актора.
      * @param int $expectedSheetVersion Версия листа.
-     * @param array<string, mixed> $priced Цена.
      * @param list<array<string, mixed>> $operations Операции листа.
      * @param Closure|null $projectConflict Проектор конфликта.
      *
@@ -451,9 +559,9 @@ final class GameActionPerform
         string $actorKind,
         int $actorId,
         int $expectedSheetVersion,
-        array $priced,
         array $operations,
         ?Closure $projectConflict,
+        array $spends = [],
     ): int {
         return $this->sheetWrites->write(
             $game,
@@ -463,7 +571,7 @@ final class GameActionPerform
             $operations,
             ['type' => $actorKind, 'id' => $actorId],
             $projectConflict,
-            $priced['spends'],
+            $spends,
         );
     }
 
@@ -492,6 +600,7 @@ final class GameActionPerform
         string $actorKind,
         int $actorId,
         array $pending,
+        bool $step = false,
     ): array {
         $split = $this->splitSpends($spends);
         $declared = $this->pendingCosts->declare(
@@ -505,7 +614,9 @@ final class GameActionPerform
             false,
         );
 
-        $amounts = (new GameActionFloor())->amounts($slice, $actionRuleCode, $declared['amounts'], false);
+        $amounts = $step
+            ? $declared['amounts']
+            : (new GameActionFloor())->amounts($slice, $actionRuleCode, $declared['amounts'], false);
 
         return [
             'pending' => $declared['pending'],

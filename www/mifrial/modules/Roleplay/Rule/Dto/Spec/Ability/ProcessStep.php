@@ -19,9 +19,10 @@ final class ProcessStep
      * @param string $name Имя.
      * @param string $description Описание.
      * @param array<int, StepCost> $costs Цены.
-     * @param string $interruptionMode normal или emergency.
+     * @param string $interruptionMode Режим normal или emergency.
      * @param array<int, ActionEffect> $interruptionEffects Эффекты прерывания.
      * @param array<int, ProcessOperation> $operations Операции.
+     * @param ProcessExecution $execution Режим исполнения.
      *
      * @return void
      */
@@ -33,6 +34,7 @@ final class ProcessStep
         private readonly string $interruptionMode,
         private readonly array $interruptionEffects,
         private readonly array $operations,
+        private readonly ProcessExecution $execution,
     ) {
     }
 
@@ -104,5 +106,15 @@ final class ProcessStep
     public function getOperations(): array
     {
         return $this->operations;
+    }
+
+    /**
+     * Режим исполнения.
+     *
+     * @return ProcessExecution Режим.
+     */
+    public function getExecution(): ProcessExecution
+    {
+        return $this->execution;
     }
 }

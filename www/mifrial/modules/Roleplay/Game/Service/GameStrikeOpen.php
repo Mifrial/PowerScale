@@ -24,6 +24,7 @@ final class GameStrikeOpen
      * @param GameStrikeRules $rules Правила.
      * @param GameStrikeSheets $sheets Снимки листов.
      * @param GameStrikeSheetWrites $sheetWrites Запись листа.
+     * @param GameProcessFlow $processes Сессия процесса.
      *
      * @return void
      */
@@ -34,6 +35,7 @@ final class GameStrikeOpen
         private readonly GameStrikeRules $rules,
         private readonly GameStrikeSheets $sheets,
         private readonly GameStrikeSheetWrites $sheetWrites,
+        private readonly GameProcessFlow $processes,
     ) {
     }
 
@@ -70,8 +72,15 @@ final class GameStrikeOpen
             throw new GameInvalidException('Game strike attacker is invalid');
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $context = $this->processOf($game, $battle, $choice);
         $actionCode = is_string($action['action_rule_code'] ?? null) ? $action['action_rule_code'] : '';
+        if ($context !== null) {
+            $actionCode = $context['actionCode'];
+        }
+
+        $action['action_rule_code'] = $actionCode;
+
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $push = $this->rules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $actionCode);
         $npcSheet = $attackerKind === 'npc' && is_array($snapshot['sheet']['sheet'] ?? null)
             ? $snapshot['sheet']['sheet']
@@ -145,6 +154,13 @@ final class GameStrikeOpen
             );
 
             return ['debt' => true, 'strikeId' => 0, 'version' => $saved->getStateVersion()];
+        }
+
+        if ($context !== null) {
+            $processId = $this->processes->begin($battle, ['type' => $attackerKind, 'id' => $attackerId], $context);
+            $action['process_id'] = $processId;
+            $action['process_step_code'] = $context['processStepCode'];
+            $targets = $this->withProcessTargets($targets, $choice);
         }
 
         $strikeId = $this->actions->addWithStrikes($action, $targets);
@@ -231,6 +247,7 @@ final class GameStrikeOpen
         string $kind,
     ): array {
         $this->assertFollowUp($game, $battle, $choice);
+        $context = $this->processOf($game, $battle, $choice);
         $snapshot = $this->snapshot($game, $choice);
         $attacker = $choice['attacker'];
         $inventorySpend = $this->rules->pushOf(
@@ -274,6 +291,14 @@ final class GameStrikeOpen
         );
 
         $row = $this->action($battle, $sessionId, $choice, $kind);
+        if ($context !== null) {
+            $attackerKey = ['type' => $attacker['type'], 'id' => $attacker['id']];
+            $processId = $this->processes->begin($battle, $attackerKey, $context);
+            $row['action']['process_id'] = $processId;
+            $row['action']['process_step_code'] = $context['processStepCode'];
+            $row['strikes'] = $this->withProcessTargets($row['strikes'], $choice);
+        }
+
         $strikeId = $this->actions->addWithStrikes($row['action'], $row['strikes']);
 
         return [
@@ -358,6 +383,71 @@ final class GameStrikeOpen
         return $kind === 'character'
             ? $this->sheets->getCharacterSnapshot($id)
             : $this->sheets->getNpcSnapshot($game->getId(), $id);
+    }
+
+    /**
+     * Проверяет шаг процесса и подставляет его действие.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
+     * @param array<string, mixed> $choice Выбор удара.
+     *
+     * @return array<string, mixed>|null Контекст шага или null.
+     *
+     * @throws GameInvalidException Если шаг недоступен.
+     */
+    private function processOf(GameRecord $game, GameBattleRecord $battle, array &$choice): ?array
+    {
+        $code = $choice['processRuleCode'] ?? null;
+        if (!is_string($code) || $code === '') {
+            return null;
+        }
+
+        $attacker = $choice['attacker'] ?? null;
+        if (!is_array($attacker) || !is_string($attacker['type'] ?? null) || !is_int($attacker['id'] ?? null)) {
+            throw new GameInvalidException('Game strike attacker is invalid');
+        }
+
+        $context = $this->processes->prepare(
+            $game,
+            $battle,
+            ['type' => $attacker['type'], 'id' => $attacker['id']],
+            $code,
+            is_string($choice['processStepCode'] ?? null) ? $choice['processStepCode'] : null,
+            'strike',
+        );
+        if ($context === null) {
+            return null;
+        }
+
+        $choice['actionRuleCode'] = $context['actionCode'];
+        $choice['processContext'] = $context;
+        $choice['processStepCosts'] = $context['costs'];
+        $choice['repeatWeaponUses'] = $this->processes->priorWeaponUses(
+            $context['session'] ?? null,
+            $context['spec'],
+            $this->processes->weaponKey($choice),
+        );
+
+        return $context;
+    }
+
+    /**
+     * Проставляет повтор оружия в строки удара.
+     *
+     * @param list<array<string, mixed>> $targets Строки.
+     * @param array<string, mixed> $choice Выбор.
+     *
+     * @return list<array<string, mixed>> Строки.
+     */
+    private function withProcessTargets(array $targets, array $choice): array
+    {
+        $prior = is_int($choice['repeatWeaponUses'] ?? null) ? $choice['repeatWeaponUses'] : 0;
+        foreach ($targets as $index => $target) {
+            $targets[$index]['repeat_weapon_uses'] = $prior;
+        }
+
+        return $targets;
     }
 
     /**

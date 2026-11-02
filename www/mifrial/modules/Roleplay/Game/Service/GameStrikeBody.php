@@ -62,6 +62,14 @@ final class GameStrikeBody
             $allowed[] = 'modifiers';
         }
 
+        if (array_key_exists('processRuleCode', $attack)) {
+            $allowed[] = 'processRuleCode';
+        }
+
+        if (array_key_exists('processStepCode', $attack)) {
+            $allowed[] = 'processStepCode';
+        }
+
         $this->assertKeys($attack, $allowed);
         $attacker = $this->side($attack['attacker'] ?? null);
         $defender = $this->side($attack['defender'] ?? null);
@@ -73,6 +81,8 @@ final class GameStrikeBody
         $ammunitionInventoryId = $attack['ammunitionInventoryId'] ?? null;
         $instanceIndex = $attack['instanceIndex'] ?? 0;
         $chosenAmounts = $attack['chosenAmounts'] ?? [];
+        $processRuleCode = $attack['processRuleCode'] ?? null;
+        $processStepCode = $attack['processStepCode'] ?? null;
         $conditions = (new GameStrikeConditions())->parse(
             $attack['conditions'] ?? null,
             $profileType === 'shoot' || $profileType === 'throw',
@@ -90,6 +100,9 @@ final class GameStrikeBody
             || !is_int($profileIndex)
             || !$codes
             || !is_array($chosenAmounts)
+            || ($processRuleCode !== null && (!is_string($processRuleCode) || $processRuleCode === ''))
+            || ($processStepCode !== null && (!is_string($processStepCode) || $processStepCode === ''))
+            || ($processRuleCode === null && $processStepCode !== null)
             || ($profileType === 'shoot'
                 ? !is_int($ammunitionInventoryId)
                 : $ammunitionInventoryId !== null)
@@ -110,6 +123,8 @@ final class GameStrikeBody
             'conditions' => $conditions,
             'chosenAmounts' => $chosenAmounts,
             'modifiers' => $this->modifiers($attack['modifiers'] ?? null),
+            'processRuleCode' => $processRuleCode,
+            'processStepCode' => $processStepCode,
         ];
     }
 

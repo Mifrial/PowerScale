@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Character\Action\MigrateCharacterAction;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSessionParticipants;
 use Mifrial\Roleplay\Character\Service\CharacterPortFactory;
 use Mifrial\Roleplay\Game\Action\AbortGameAction;
+use Mifrial\Roleplay\Game\Action\AbortProcessGameAction;
 use Mifrial\Roleplay\Game\Action\AddGameMemberAction;
 use Mifrial\Roleplay\Game\Action\AnswerGameCheckAction;
 use Mifrial\Roleplay\Game\Action\ApplyGameEconomyAction;
@@ -169,6 +170,9 @@ return [
         },
         AbortGameAction::class => static function (IServiceLocator $serviceLocator): AbortGameAction {
             return new AbortGameAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
+        },
+        AbortProcessGameAction::class => static function (IServiceLocator $serviceLocator): AbortProcessGameAction {
+            return new AbortProcessGameAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
         },
         RunGameActionAction::class => static function (IServiceLocator $serviceLocator): RunGameActionAction {
             return new RunGameActionAction((new GameStrikePortFactory())->createRunActionHttp($serviceLocator));
@@ -542,6 +546,10 @@ return [
         ],
         'game.abortAction' => [
             'handler' => AbortGameAction::class,
+            'csrf' => true,
+        ],
+        'game.abortProcess' => [
+            'handler' => AbortProcessGameAction::class,
             'csrf' => true,
         ],
         'game.runAction' => [

@@ -2044,8 +2044,11 @@ final class GameStrikeRules
     private function actionBase(CharacterRuleSlice $slice, string $actionRuleCode): ?AbilityBase
     {
         $spec = $slice->findLive($actionRuleCode)?->getSpec();
+        if ($spec instanceof AbilityActionSpec || $spec instanceof AbilityProcessSpec) {
+            return $spec->getBase();
+        }
 
-        return $spec instanceof AbilityActionSpec ? $spec->getBase() : null;
+        return null;
     }
 
     /**

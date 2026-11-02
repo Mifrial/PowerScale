@@ -25,6 +25,7 @@ use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
 
 /**
  * HTTP-команда не-атакующего действия.
@@ -56,6 +57,8 @@ final class GameActionDeclare
      * @param GameActionChat $chat Сообщение чата.
      * @param GameStrikeSheets $sheets Проекция конфликта листа.
      * @param IEventManager $events События доставки.
+     * @param GameProcessFlow $processes Сессия процесса.
+     * @param GameStrikeRules $rules Срез.
      *
      * @return void
      */
@@ -68,6 +71,8 @@ final class GameActionDeclare
         private readonly GameActionChat $chat,
         private readonly GameStrikeSheets $sheets,
         IEventManager $events,
+        private readonly GameProcessFlow $processes,
+        private readonly GameStrikeRules $rules,
     ) {
         $this->battles = new GameBattleRepository($gateway);
         $this->actions = new GameActionRepository($gateway);
@@ -149,21 +154,45 @@ final class GameActionDeclare
         array $body,
     ): array {
         $input = $this->input($body);
-        $followUp = $this->perform->requiresFollowUp($game, $input['actionRuleCode']);
+        $process = null;
+        if ($input['processRuleCode'] !== null) {
+            $battle = $this->battleFor($game, $actorUserId, $editAll, $input, false);
+            $process = $this->processes->prepare(
+                $game,
+                $battle,
+                $input['actor'],
+                $input['processRuleCode'],
+                $input['processStepCode'],
+                'action',
+            );
+            if ($process === null) {
+                throw new GameInvalidException('Game process step is invalid');
+            }
+
+            $input['actionRuleCode'] = $process['actionCode'];
+            $input['processContext'] = $process;
+        }
+
+        $followUp = $process === null && $this->perform->requiresFollowUp($game, $input['actionRuleCode']);
         if ($followUp && $input['targetKey'] === null) {
             throw new GameInvalidException('Game action target is missing');
         }
 
-        $battle = $this->battleFor($game, $actorUserId, $editAll, $input, $followUp);
+        $battle = $process === null
+            ? $this->battleFor($game, $actorUserId, $editAll, $input, $followUp)
+            : $this->battleFor($game, $actorUserId, $editAll, $input, false);
         $applied = $this->apply(
             $game,
             $input,
-            $battle->getPendingActionEffects(),
+            $battle,
             $actorUserId,
             $viewAll,
             $followUp,
+            $process,
         );
-        $this->postChat($game, $actorUserId, $input, $applied, $battle);
+        if (($applied['debt'] ?? false) !== true) {
+            $this->postChat($game, $actorUserId, $input, $applied, $battle);
+        }
 
         return $this->result($battle, $input, $applied, $followUp);
     }
@@ -199,6 +228,7 @@ final class GameActionDeclare
             $battle->getRound(),
             $battle->getActiveIndex(),
             $applied['performed']['rolls'] ?? [],
+            is_array($input['processContext'] ?? null) ? $input['processContext'] : null,
         );
     }
 
@@ -218,6 +248,22 @@ final class GameActionDeclare
         array $applied,
         bool $followUp,
     ): array {
+        if (($applied['debt'] ?? false) === true) {
+            return [
+                'battleId' => $battle->getId(),
+                'version' => $applied['version'],
+                'spent' => $applied['performed']['spent'],
+                'sheetVersion' => $applied['performed']['sheetVersion'],
+                'targetKey' => null,
+                'reaction' => null,
+                'pendingActionEffects' => $applied['pending'],
+                'rolls' => [],
+                'opened' => false,
+                'debt' => true,
+                'remaining' => $applied['remaining'] ?? 0,
+            ];
+        }
+
         return [
             'battleId' => $battle->getId(),
             'version' => $applied['version'],
@@ -227,6 +273,7 @@ final class GameActionDeclare
             'reaction' => $applied['reaction'],
             'pendingActionEffects' => $applied['pending'],
             'rolls' => $applied['performed']['rolls'] ?? [],
+            'opened' => true,
         ];
     }
 
@@ -254,25 +301,123 @@ final class GameActionDeclare
     private function apply(
         GameRecord $game,
         array $input,
-        array $pending,
+        GameBattleRecord $battle,
         int $actorUserId,
         bool $viewAll,
         bool $followUp,
+        ?array $process,
+        bool $paid = false,
     ): array {
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $step = null;
+        if (is_array($process) && ($process['step'] ?? null) instanceof ProcessStep) {
+            $step = $process['step'];
+        }
+
+        if (!$paid) {
+            $debt = new GameActionDebt();
+            $debtKey = $debt->key($input['actor']['type'], $input['actor']['id']);
+            $debt->assertFree($battle->getActionDebt(), $debtKey);
+            $quote = $this->perform->quote(
+                $game,
+                $input['actor']['type'],
+                $input['actor']['id'],
+                $input['actionRuleCode'],
+                $battle->getPendingActionEffects(),
+                !$followUp,
+                $input['chosenAmounts'],
+                $step,
+            );
+            $planned = $debt->plan(
+                $slice,
+                $quote['document']['sheet'],
+                $quote['spends'],
+                $debt->refillCode($slice),
+                'action',
+                [
+                    'battleId' => $input['battleId'],
+                    'expectedVersion' => $input['expectedBattle'],
+                    'expectedSheetVersion' => $input['expectedSheet'],
+                    'actionRuleCode' => $input['actionRuleCode'],
+                    'followUpTargetKey' => $input['targetKey'],
+                    'chosenAmounts' => $input['chosenAmounts'],
+                    'actor' => $input['actor'],
+                    'processRuleCode' => $input['processRuleCode'],
+                    'processStepCode' => $input['processStepCode'],
+                ],
+            );
+            if (!$planned['open']) {
+                $sheetVersion = $this->perform->spend(
+                    $game,
+                    $input['actor']['type'],
+                    $input['actor']['id'],
+                    $input['expectedSheet'],
+                    $planned['spends'],
+                );
+                $debtMap = $battle->getActionDebt();
+                $debtMap[$debtKey] = $planned['slot'];
+                $saved = $this->battles->replaceTracked(
+                    $battle->getId(),
+                    $input['expectedBattle'],
+                    $quote['priced']['pending'],
+                    $debtMap,
+                    null,
+                    null,
+                );
+
+                return [
+                    'debt' => true,
+                    'pending' => $quote['priced']['pending'],
+                    'performed' => [
+                        'pending' => $quote['priced']['pending'],
+                        'sheetVersion' => $sheetVersion,
+                        'spent' => $this->spentOf($planned['spends']),
+                        'amounts' => $quote['priced']['amounts'],
+                        'rolls' => [],
+                    ],
+                    'version' => $saved->getStateVersion(),
+                    'reaction' => null,
+                    'remaining' => $planned['slot']['remaining'] ?? 0,
+                ];
+            }
+        }
+
         $reaction = $followUp
             ? $this->perform->followUpReaction(
                 $game,
                 $input['actionRuleCode'],
-                $pending,
+                $battle->getPendingActionEffects(),
                 $input['actor']['type'],
                 $input['actor']['id'],
                 (string) $input['targetKey'],
             )
             : null;
-        $performed = $this->performAction($game, $input, $pending, $actorUserId, $viewAll, !$followUp);
+        $performed = $this->performAction(
+            $game,
+            $input,
+            $battle->getPendingActionEffects(),
+            $actorUserId,
+            $viewAll,
+            !$followUp,
+            $step,
+            $paid,
+        );
+        if (is_array($process)) {
+            $processId = $this->processes->begin($battle, $input['actor'], $process);
+            $performed['pending'] = $this->processes->complete(
+                $game,
+                $input['actor'],
+                $processId,
+                $process['step']->getCode(),
+                true,
+                $performed['pending'],
+            );
+        }
+
         $stored = $this->store($input, $performed['pending'], $reaction);
 
         return [
+            'debt' => false,
             'pending' => $stored['pending'],
             'performed' => $performed,
             'version' => $stored['version'],
@@ -332,6 +477,8 @@ final class GameActionDeclare
         int $actorUserId,
         bool $viewAll,
         bool $allowZeroChosen,
+        ?ProcessStep $step = null,
+        bool $paid = false,
     ): array {
         return $this->perform->perform(
             $game,
@@ -348,7 +495,107 @@ final class GameActionDeclare
                 $actorUserId,
                 $viewAll,
             ),
+            $step,
+            $paid,
         );
+    }
+
+    /**
+     * Исполняет действие после доплаты долга.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Пользователь.
+     * @param bool $editAll Право править чужое.
+     * @param bool $viewAll Право видеть карточку.
+     * @param array<string, mixed> $body Сохранённое объявление.
+     * @param int $expectedBattle Версия боя.
+     * @param int $expectedSheet Версия листа после доплаты.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если действие отвергнуто.
+     * @throws GameNotFoundException Если игры или боя нет.
+     * @throws GameBattleConflictException Если версия чужая.
+     */
+    public function resume(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        array $body,
+        int $expectedBattle,
+        int $expectedSheet,
+    ): array {
+        $game = $this->games->get($gameId);
+        $this->access->assertVisible($game, $actorUserId, $viewAll);
+        $input = $this->input($body);
+        $input['expectedBattle'] = $expectedBattle;
+        $input['expectedSheet'] = $expectedSheet;
+        $process = null;
+        if ($input['processRuleCode'] !== null) {
+            $battle = $this->battleFor($game, $actorUserId, $editAll, $input, false);
+            $process = $this->processes->prepare(
+                $game,
+                $battle,
+                $input['actor'],
+                $input['processRuleCode'],
+                $input['processStepCode'],
+                'action',
+            );
+            if ($process === null) {
+                throw new GameInvalidException('Game process step is invalid');
+            }
+
+            $input['actionRuleCode'] = $process['actionCode'];
+            $input['processContext'] = $process;
+        }
+
+        $followUp = $process === null && $this->perform->requiresFollowUp($game, $input['actionRuleCode']);
+        $battle = $this->battleFor($game, $actorUserId, $editAll, $input, $followUp);
+        $applied = $this->apply(
+            $game,
+            $input,
+            $battle,
+            $actorUserId,
+            $viewAll,
+            $followUp,
+            $process,
+            true,
+        );
+        $this->postChat($game, $actorUserId, $input, $applied, $battle);
+
+        return array_merge(
+            $this->result($battle, $input, $applied, $followUp),
+            [
+                'kind' => 'action',
+                'phase' => 'declare',
+                'battleId' => $battle->getId(),
+            ],
+        );
+    }
+
+    /**
+     * Сумма ОД в тратах.
+     *
+     * @param array<int, \Mifrial\Roleplay\Character\Dto\ResourceSpend> $spends Траты.
+     *
+     * @return int Сумма.
+     */
+    private function spentOf(array $spends): int
+    {
+        $sum = 0;
+        foreach ($spends as $spend) {
+            if ($spend->getResourceCode() !== 'action-points') {
+                continue;
+            }
+
+            $native = $spend->getAmount()->toNative();
+            if (is_int($native)) {
+                $sum += $native;
+            }
+        }
+
+        return $sum;
     }
 
     /**
@@ -377,11 +624,19 @@ final class GameActionDeclare
         $targetKey = $body['followUpTargetKey'] ?? null;
         $chosenAmounts = $this->chosenAmounts($body['chosenAmounts'] ?? []);
         $actor = $this->pair($body['actor'] ?? null);
+        $processRuleCode = $body['processRuleCode'] ?? null;
+        $processStepCode = $body['processStepCode'] ?? null;
         if (!is_int($battleId) || !is_int($expectedBattle) || !is_int($expectedSheet)) {
             throw new GameInvalidException('Game action is invalid');
         }
 
-        if (!is_string($actionRuleCode) || ($targetKey !== null && !is_string($targetKey))) {
+        if (
+            !is_string($actionRuleCode)
+            || ($targetKey !== null && !is_string($targetKey))
+            || ($processRuleCode !== null && (!is_string($processRuleCode) || $processRuleCode === ''))
+            || ($processStepCode !== null && (!is_string($processStepCode) || $processStepCode === ''))
+            || ($processRuleCode === null && $processStepCode !== null)
+        ) {
             throw new GameInvalidException('Game action is invalid');
         }
 
@@ -393,6 +648,8 @@ final class GameActionDeclare
             'targetKey' => $targetKey,
             'chosenAmounts' => $chosenAmounts,
             'actor' => $actor,
+            'processRuleCode' => $processRuleCode,
+            'processStepCode' => $processStepCode,
         ];
     }
 

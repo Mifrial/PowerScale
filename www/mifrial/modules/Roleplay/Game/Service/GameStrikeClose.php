@@ -45,6 +45,7 @@ final class GameStrikeClose
      * @param GameReplayTransaction $replayTransaction Граница replay.
      * @param GamePushRules $push Толчок.
      * @param GameStateIncreaseChecks $stateChecks Проверки прироста.
+     * @param GameProcessFlow $processes Сессия процесса.
      *
      * @return void
      */
@@ -64,6 +65,7 @@ final class GameStrikeClose
         private readonly GameReplayTransaction $replayTransaction,
         private readonly GamePushRules $push,
         private readonly GameStateIncreaseChecks $stateChecks,
+        private readonly GameProcessFlow $processes,
     ) {
         $this->singleChat = new GameStrikeSingleChat(
             $this->chat,
@@ -114,6 +116,7 @@ final class GameStrikeClose
             ),
             $this->push,
             $this->stateChecks,
+            $this->processes,
         );
         $this->wide = new GameStrikeWideClose(
             $this->rules,

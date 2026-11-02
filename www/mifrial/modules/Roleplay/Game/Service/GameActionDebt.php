@@ -76,8 +76,9 @@ final class GameActionDebt
      * @param array<string, mixed> $sheet Лист.
      * @param array<int, ResourceSpend> $spends Траты.
      * @param string|null $refillCode Код пула конца хода.
-     * @param array<string, mixed> $attack Тело declare.
-     * @param string $lane Вид удара: один или много.
+     * @param string $kind Вид объявленного действия.
+     * @param array<string, mixed> $payload Объявление.
+     * @param string|null $lane Полоса удара.
      *
      * @return array{spends: array<int, ResourceSpend>, open: bool, slot: array<string, mixed>|null}
      */
@@ -86,8 +87,9 @@ final class GameActionDebt
         array $sheet,
         array $spends,
         ?string $refillCode,
-        array $attack,
-        string $lane,
+        string $kind,
+        array $payload,
+        ?string $lane = null,
     ): array {
         if ($refillCode === null) {
             return ['spends' => $spends, 'open' => true, 'slot' => null];
@@ -116,18 +118,55 @@ final class GameActionDebt
             $kept[] = new ResourceSpend($refillCode, new ScalarResourceValue($paid));
         }
 
+        $slot = [
+            'remaining' => $need - $paid,
+            'total' => $need,
+            'kind' => $kind,
+            'payload' => $payload,
+            'actionRuleCode' => is_string($payload['actionRuleCode'] ?? null) ? $payload['actionRuleCode'] : '',
+            'resourceCode' => $refillCode,
+        ];
+        if ($lane !== null) {
+            $slot['lane'] = $lane;
+        }
+
+        if ($kind === 'strike') {
+            $slot['attack'] = $payload;
+        }
+
         return [
             'spends' => $kept,
             'open' => false,
-            'slot' => [
-                'remaining' => $need - $paid,
-                'total' => $need,
-                'actionRuleCode' => $attack['actionRuleCode'] ?? '',
-                'lane' => $lane,
-                'attack' => $attack,
-                'resourceCode' => $refillCode,
-            ],
+            'slot' => $slot,
         ];
+    }
+
+    /**
+     * Вид слота с совместимостью старых слотов удара.
+     *
+     * @param array<string, mixed> $slot Слот.
+     *
+     * @return string strike, action или wound.
+     */
+    public function kindOf(array $slot): string
+    {
+        $kind = $slot['kind'] ?? null;
+
+        return is_string($kind) && $kind !== '' ? $kind : 'strike';
+    }
+
+    /**
+     * Объявление слота с совместимостью старых слотов удара.
+     *
+     * @param array<string, mixed> $slot Слот.
+     *
+     * @return array<string, mixed>|null Объявление или null.
+     */
+    public function payloadOf(array $slot): ?array
+    {
+        $payload = $slot['payload'] ?? $slot['attack'] ?? null;
+
+        return is_array($payload) ? $payload : null;
     }
 
     /**

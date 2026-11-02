@@ -14,6 +14,7 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -80,6 +81,15 @@ final class GameStrikeSpend
             $sheet,
             $choice['chosenAmounts'],
         );
+        $step = $choice['processContext']['step'] ?? null;
+        if (!$step instanceof ProcessStep) {
+            $step = null;
+        }
+
+        if ($step !== null) {
+            $spends = (new GameProcessRules())->replaceCosts($spends, $step);
+        }
+
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $adjusted = (new GamePendingActionCosts())->adjustSpends(
             $slice,
@@ -90,16 +100,18 @@ final class GameStrikeSpend
             $battle->getPendingActionEffects(),
             $spends,
         );
-        $spends = (new GameActionFloor())->apply(
-            $slice,
-            $choice['actionRuleCode'],
-            $adjusted['spends'],
-            true,
-        );
+        $spends = $step === null
+            ? (new GameActionFloor())->apply(
+                $slice,
+                $choice['actionRuleCode'],
+                $adjusted['spends'],
+                true,
+            )
+            : $adjusted['spends'];
         $debt = new GameActionDebt();
         $actorKey = $debt->key($kind, $id);
         $debt->assertFree($battle->getActionDebt(), $actorKey);
-        $planned = $debt->plan($slice, $sheet, $spends, $debt->refillCode($slice), $choice, $lane);
+        $planned = $debt->plan($slice, $sheet, $spends, $debt->refillCode($slice), 'strike', $choice, $lane);
         $spends = $planned['spends'];
         $debtHold = null;
         if (!$planned['open']) {

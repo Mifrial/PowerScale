@@ -45,14 +45,20 @@ final class GameProcessRepository
      * @param int|null $battleId Бой или null.
      * @param string $participantType Тип character или npc.
      * @param int $participantId Участник.
+     * @param array<string, mixed> $state Поля процесса.
      *
      * @return GameProcessRecord Строка.
      *
      * @throws GameInvalidException Если поле.
      * @throws GameNotFoundException Если строки нет после вставки.
      */
-    public function add(int $sessionId, ?int $battleId, string $participantType, int $participantId): GameProcessRecord
-    {
+    public function add(
+        int $sessionId,
+        ?int $battleId,
+        string $participantType,
+        int $participantId,
+        array $state = [],
+    ): GameProcessRecord {
         $fields = [
             'session_id' => $sessionId,
             'participant_type' => $participantType,
@@ -61,6 +67,21 @@ final class GameProcessRepository
         ];
         if ($battleId !== null) {
             $fields['battle_id'] = $battleId;
+        }
+
+        $stateFields = [
+            'process_rule_code',
+            'current_step_code',
+            'step_status',
+            'counters',
+            'weapon_use_counts',
+            'last_target_type',
+            'last_target_id',
+        ];
+        foreach ($stateFields as $name) {
+            if (array_key_exists($name, $state)) {
+                $fields[$name] = $state[$name];
+            }
         }
 
         try {
@@ -95,6 +116,54 @@ final class GameProcessRepository
         }
 
         return GameProcessRecord::fromNormalized($row);
+    }
+
+    /**
+     * Открытая строка процесса участника в бою.
+     *
+     * @param int $battleId Бой.
+     * @param string $participantType Тип character или npc.
+     * @param int $participantId Участник.
+     *
+     * @return GameProcessRecord|null Строка или null.
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    public function findOpenForActor(int $battleId, string $participantType, int $participantId): ?GameProcessRecord
+    {
+        $filter = new FilterGroup('AND', [
+            new FilterCondition('battle_id', '=', $battleId),
+            new FilterCondition('participant_type', '=', $participantType),
+            new FilterCondition('participant_id', '=', $participantId),
+            new FilterCondition('status', '=', 'open'),
+        ]);
+        $result = $this->processRecords->getList(new ListQuery(
+            $filter,
+            ['id' => 'ASC'],
+            1,
+            0,
+            false,
+            null,
+        ));
+        $row = $result->rows()[0] ?? null;
+
+        return is_array($row) ? GameProcessRecord::fromNormalized($row) : null;
+    }
+
+    /**
+     * Пишет поля процесса.
+     *
+     * @param int $processId Process.
+     * @param array<string, mixed> $fields Колонки.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если строки нет.
+     * @throws GameInvalidException Если поле.
+     */
+    public function updateState(int $processId, array $fields): void
+    {
+        $this->update($processId, $fields);
     }
 
     /**

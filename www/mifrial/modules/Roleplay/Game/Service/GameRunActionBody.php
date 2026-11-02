@@ -112,10 +112,19 @@ final class GameRunActionBody
             $allowed[] = 'chosenAmounts';
         }
 
+        if (array_key_exists('processRuleCode', $context)) {
+            $allowed[] = 'processRuleCode';
+        }
+
+        if (array_key_exists('processStepCode', $context)) {
+            $allowed[] = 'processStepCode';
+        }
+
         $this->assertKeys($context, $allowed, 'action context');
         $expected = $context['expectedSheetVersion'] ?? null;
         $followUp = $context['followUpTargetKey'] ?? null;
         $chosen = $context['chosenAmounts'] ?? [];
+        $process = $this->process($context);
         if (
             !is_int($expected)
             || ($followUp !== null && !is_string($followUp))
@@ -128,6 +137,8 @@ final class GameRunActionBody
             'expectedSheetVersion' => $expected,
             'followUpTargetKey' => $followUp,
             'chosenAmounts' => $chosen,
+            'processRuleCode' => $process['processRuleCode'],
+            'processStepCode' => $process['processStepCode'],
         ];
     }
 
@@ -183,9 +194,18 @@ final class GameRunActionBody
             $allowed[] = 'chosenAmounts';
         }
 
+        if (array_key_exists('processRuleCode', $context)) {
+            $allowed[] = 'processRuleCode';
+        }
+
+        if (array_key_exists('processStepCode', $context)) {
+            $allowed[] = 'processStepCode';
+        }
+
         $this->assertKeys($context, $allowed, 'strike context');
         $rows = $context['strikes'] ?? null;
         $chosen = $context['chosenAmounts'] ?? [];
+        $process = $this->process($context);
         if (!is_array($rows) || $rows === [] || !array_is_list($rows) || !is_array($chosen)) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike context');
         }
@@ -195,7 +215,36 @@ final class GameRunActionBody
             $strikes[] = $this->strikeRow($row);
         }
 
-        return ['strikes' => $strikes, 'chosenAmounts' => $chosen];
+        return [
+            'strikes' => $strikes,
+            'chosenAmounts' => $chosen,
+            'processRuleCode' => $process['processRuleCode'],
+            'processStepCode' => $process['processStepCode'],
+        ];
+    }
+
+    /**
+     * Контекст процесса.
+     *
+     * @param array<string, mixed> $context Контекст.
+     *
+     * @return array{processRuleCode: string|null, processStepCode: string|null} Пара.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function process(array $context): array
+    {
+        $code = $context['processRuleCode'] ?? null;
+        $step = $context['processStepCode'] ?? null;
+        if (
+            ($code !== null && (!is_string($code) || $code === ''))
+            || ($step !== null && (!is_string($step) || $step === ''))
+            || ($code === null && $step !== null)
+        ) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: process context');
+        }
+
+        return ['processRuleCode' => $code, 'processStepCode' => $step];
     }
 
     /**

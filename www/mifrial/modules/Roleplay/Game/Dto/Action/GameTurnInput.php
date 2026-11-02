@@ -17,6 +17,7 @@ final class GameTurnInput implements IActionInput
      * @param int $battleId Бой.
      * @param int $expectedBattleVersion Версия боя.
      * @param int $expectedSheetVersion Версия листа текущего.
+     * @param string|null $mode Режим прерывания процесса.
      */
     public function __construct(
         public readonly int $gameId,
@@ -24,6 +25,7 @@ final class GameTurnInput implements IActionInput
         public readonly int $battleId,
         public readonly int $expectedBattleVersion,
         public readonly int $expectedSheetVersion,
+        public readonly ?string $mode = null,
     ) {
     }
 
@@ -37,6 +39,7 @@ final class GameTurnInput implements IActionInput
             'battleId' => $this->battleId,
             'expectedBattleVersion' => $this->expectedBattleVersion,
             'expectedSheetVersion' => $this->expectedSheetVersion,
+            ...($this->mode === null ? [] : ['mode' => $this->mode]),
         ];
     }
 }

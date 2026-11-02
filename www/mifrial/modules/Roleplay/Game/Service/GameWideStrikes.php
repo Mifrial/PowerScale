@@ -66,6 +66,7 @@ final class GameWideStrikes implements IGameWideStrikes
      * @param GameCardAvailability $availability Принадлежность и требования карточки.
      * @param GamePushRules $push Толчок.
      * @param GameStateIncreaseChecks $stateChecks Проверки прироста.
+     * @param GameProcessFlow $processes Сессия процесса.
      *
      * @return void
      */
@@ -81,6 +82,7 @@ final class GameWideStrikes implements IGameWideStrikes
         private readonly GameCardAvailability $availability,
         private readonly GamePushRules $push,
         private readonly GameStateIncreaseChecks $stateChecks,
+        private readonly GameProcessFlow $processes,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->actions = new GameActionRepository($smartTableGateway);
@@ -123,6 +125,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $this->replayTransaction,
             $this->push,
             $this->stateChecks,
+            $this->processes,
         );
         $this->openService = new GameStrikeOpen(
             $this->battles,
@@ -131,6 +134,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $rules,
             $sheets,
             $sheetWrites,
+            $this->processes,
         );
         $this->deliverySignal = new GameDeliverySignal($events);
     }

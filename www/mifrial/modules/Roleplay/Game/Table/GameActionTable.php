@@ -47,6 +47,8 @@ final class GameActionTable extends SmartTableDefinition
             new IntField('attacker_id', FieldSettings::fromOptions(['required' => true]), 1, null),
             new StringField('action_rule_code', FieldSettings::fromOptions(['required' => true]), 255),
             new BoolField('open', FieldSettings::fromOptions(['required' => true])),
+            new IntField('process_id', FieldSettings::fromOptions([]), 1, null),
+            new StringField('process_step_code', FieldSettings::fromOptions([]), 64),
         ];
     }
 }

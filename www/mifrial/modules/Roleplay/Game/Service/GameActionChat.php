@@ -42,6 +42,7 @@ final class GameActionChat
      * @param int $round Раунд.
      * @param int $activeIndex Индекс хода.
      * @param list<array{roll: array<string, mixed>, text: string}> $rolls Проверки прироста состояний.
+     * @param array<string, mixed>|null $process Шаг процесса.
      *
      * @return void
      *
@@ -58,6 +59,7 @@ final class GameActionChat
         int $round,
         int $activeIndex,
         array $rolls = [],
+        ?array $process = null,
     ): void {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
@@ -65,7 +67,16 @@ final class GameActionChat
         }
 
         $token = $this->strikeChat->getEntityToken($actorKind, $actorId);
-        $text = $token . ' совершает действие [[rule:' . $actionRuleCode . ']] за ' . $spent . 'ОД.';
+        if (is_array($process)) {
+            $verb = $process['step']->getCode() === $process['spec']->getStartStepCode()
+                ? 'начинает'
+                : 'продолжает';
+            $text = $token . ' ' . $verb . ' процесс [[rule:' . $process['processRuleCode'] . ']], шаг «'
+                . $process['step']->getName() . '» — ' . $spent . 'ОД.';
+        } else {
+            $text = $token . ' совершает действие [[rule:' . $actionRuleCode . ']] за ' . $spent . 'ОД.';
+        }
+
         $thread = GameCombatThread::buildTurn($battleId, $round, $activeIndex);
         $attachments = [
             ['type' => 'chat_system', 'payload' => ['thread' => $thread]],

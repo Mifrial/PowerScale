@@ -81,6 +81,7 @@ final class GameStrikes implements IGameStrikes
      * @param GameCardAvailability $availability Принадлежность и требования карточки.
      * @param GamePushRules $push Толчок.
      * @param GameStateIncreaseChecks $stateChecks Проверки прироста.
+     * @param GameProcessFlow $processes Сессия процесса.
      *
      * @return void
      */
@@ -97,6 +98,7 @@ final class GameStrikes implements IGameStrikes
         private readonly GameCardAvailability $availability,
         private readonly GamePushRules $push,
         private readonly GameStateIncreaseChecks $stateChecks,
+        private readonly GameProcessFlow $processes,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->actions = new GameActionRepository($smartTableGateway);
@@ -127,6 +129,7 @@ final class GameStrikes implements IGameStrikes
             $rules,
             $this->sheets,
             $this->sheetWrites,
+            $this->processes,
         );
         $this->resolution = new GameStrikeResolution(
             $rules,
@@ -151,6 +154,7 @@ final class GameStrikes implements IGameStrikes
             $this->replayTransaction,
             $this->push,
             $this->stateChecks,
+            $this->processes,
         );
     }
 
@@ -367,6 +371,27 @@ final class GameStrikes implements IGameStrikes
         $this->access->assertRoster($battleId, $choice['attacker'], [$choice['defender']]);
         if ($this->actions->findOpenAny($battleId) !== null) {
             throw new GameInvalidException('Game strike is already open');
+        }
+
+        if (($choice['processRuleCode'] ?? null) !== null) {
+            $process = $this->processes->prepare(
+                $game,
+                $battle,
+                $choice['attacker'],
+                $choice['processRuleCode'],
+                is_string($choice['processStepCode'] ?? null) ? $choice['processStepCode'] : null,
+                'strike',
+            );
+            if ($process !== null) {
+                $choice['actionRuleCode'] = $process['actionCode'];
+                $choice['processContext'] = $process;
+                $choice['processStepCosts'] = $process['costs'];
+                $choice['repeatWeaponUses'] = $this->processes->priorWeaponUses(
+                    $process['session'] ?? null,
+                    $process['spec'],
+                    $this->processes->weaponKey($choice),
+                );
+            }
         }
 
         $npcChoices = $choice['attacker']['type'] === 'npc'

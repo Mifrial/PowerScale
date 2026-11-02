@@ -24,6 +24,8 @@ final class GameTurnHttp
     }
 
     /**
+     * @param GameTurnInput $input Вход.
+     *
      * @return array<string, mixed> Итог.
      *
      * @throws ActionException AUTH_REQUIRED.
@@ -34,6 +36,8 @@ final class GameTurnHttp
     }
 
     /**
+     * @param GameTurnInput $input Вход.
+     *
      * @return array<string, mixed> Итог.
      */
     public function continueAction(GameTurnInput $input): array
@@ -42,6 +46,8 @@ final class GameTurnHttp
     }
 
     /**
+     * @param GameTurnInput $input Вход.
+     *
      * @return array<string, mixed> Итог.
      */
     public function abort(GameTurnInput $input): array
@@ -50,6 +56,19 @@ final class GameTurnHttp
     }
 
     /**
+     * @param GameTurnInput $input Вход.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function abortProcess(GameTurnInput $input): array
+    {
+        return $this->call($input, 'abort_process');
+    }
+
+    /**
+     * @param GameTurnInput $input Вход.
+     * @param string $command Команда.
+     *
      * @return array<string, mixed> Итог.
      */
     private function call(GameTurnInput $input, string $command): array
@@ -63,6 +82,10 @@ final class GameTurnHttp
 
         if ($command === 'abort') {
             return $this->turns->abort($input->gameId, $actor->getUserId(), $editAll, $viewAll, $input->body());
+        }
+
+        if ($command === 'abort_process') {
+            return $this->turns->abortProcess($input->gameId, $actor->getUserId(), $editAll, $viewAll, $input->body());
         }
 
         return $this->turns->end($input->gameId, $actor->getUserId(), $editAll, $viewAll, $input->body());

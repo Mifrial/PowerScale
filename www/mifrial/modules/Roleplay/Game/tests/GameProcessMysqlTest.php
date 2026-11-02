@@ -70,7 +70,24 @@ final class GameProcessMysqlTest extends TestCase
         self::assertSame('resolved', $this->processes()->resolve($session['processId'])['status']);
         self::assertSame($sheet, $this->characterFacade()->get($characterId)->getSheet());
         self::assertSame($actual, $this->characterFacade()->get($characterId)->getActualVersion());
-        self::assertSame(['id', 'session_id', 'battle_id', 'participant_type', 'participant_id', 'status'], array_keys($this->rows()[0]));
+        self::assertSame(
+            [
+                'id',
+                'session_id',
+                'battle_id',
+                'participant_type',
+                'participant_id',
+                'status',
+                'process_rule_code',
+                'current_step_code',
+                'step_status',
+                'counters',
+                'weapon_use_counts',
+                'last_target_type',
+                'last_target_id',
+            ],
+            array_keys($this->rows()[0]),
+        );
         $missing = $this->processes();
         $this->expectException(GameNotFoundException::class);
         $missing->resolve(999999);

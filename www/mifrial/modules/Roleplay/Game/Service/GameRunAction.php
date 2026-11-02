@@ -163,6 +163,8 @@ final class GameRunAction
             'actionRuleCode' => $parsed['code'],
             'followUpTargetKey' => $context['followUpTargetKey'],
             'chosenAmounts' => $context['chosenAmounts'],
+            'processRuleCode' => $context['processRuleCode'],
+            'processStepCode' => $context['processStepCode'],
         ]);
 
         return array_merge($result, [
@@ -246,6 +248,10 @@ final class GameRunAction
     ): array {
         $context = $parsed['context'];
         $strikes = $context['strikes'];
+        if (($context['processRuleCode'] ?? null) !== null && count($strikes) !== 1) {
+            throw new GameInvalidException('Game process step is a single strike');
+        }
+
         $targetKeys = [];
         foreach ($strikes as $strike) {
             $targetKeys[$strike['target']['type'] . ':' . $strike['target']['id']] = true;
@@ -509,6 +515,11 @@ final class GameRunAction
         ];
         if ($strike['ammunitionInventoryId'] !== null) {
             $attack['ammunitionInventoryId'] = $strike['ammunitionInventoryId'];
+        }
+
+        if (($parsed['context']['processRuleCode'] ?? null) !== null) {
+            $attack['processRuleCode'] = $parsed['context']['processRuleCode'];
+            $attack['processStepCode'] = $parsed['context']['processStepCode'];
         }
 
         return $attack;

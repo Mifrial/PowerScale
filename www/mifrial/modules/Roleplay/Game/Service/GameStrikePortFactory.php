@@ -34,6 +34,7 @@ use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
+use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Repository\GameRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
@@ -90,6 +91,7 @@ final class GameStrikePortFactory
             $this->cardAvailability($serviceLocator, $gateway, $rules),
             new GamePushRules($rules),
             $this->createStateIncreaseChecks($serviceLocator),
+            $this->processFlow($serviceLocator, $gateway, $rules),
         );
     }
 
@@ -129,6 +131,7 @@ final class GameStrikePortFactory
             $this->cardAvailability($serviceLocator, $gateway, $rules),
             new GamePushRules($rules),
             $this->createStateIncreaseChecks($serviceLocator),
+            $this->processFlow($serviceLocator, $gateway, $rules),
         );
     }
 
@@ -261,6 +264,8 @@ final class GameStrikePortFactory
             new GameActionChat($chats, $strikeChat),
             $sheets,
             $events,
+            $this->processFlow($serviceLocator, $gateway, $rules),
+            $rules,
         );
     }
 
@@ -311,7 +316,51 @@ final class GameStrikePortFactory
             new GameCombatNotices($chats),
             $this->cardAvailability($serviceLocator, $gateway, $rules),
             $this->createStateIncreaseChecks($serviceLocator),
+            $this->createActionDomain($serviceLocator),
+            $this->processFlow($serviceLocator, $gateway, $rules),
+            (new GameWoundPortFactory())->createActions($serviceLocator),
         ));
+    }
+
+    /**
+     * Сессия процесса для проекций.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameProcessFlow Сценарий.
+     *
+     * @throws KernelException Если нет шлюза или порта.
+     */
+    public function createProcessFlow(IServiceLocator $serviceLocator): GameProcessFlow
+    {
+        $gateway = $this->smartTableGateway($serviceLocator);
+
+        return $this->processFlow($serviceLocator, $gateway, $this->strikeRules($serviceLocator));
+    }
+
+    /**
+     * Сессия процесса.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param ISmartTableGateway $gateway Шлюз.
+     * @param GameStrikeRules $rules Срез.
+     *
+     * @return GameProcessFlow Сценарий.
+     *
+     * @throws KernelException Если нет порта.
+     */
+    private function processFlow(
+        IServiceLocator $serviceLocator,
+        ISmartTableGateway $gateway,
+        GameStrikeRules $rules,
+    ): GameProcessFlow {
+        return new GameProcessFlow(
+            new GameProcessRepository($gateway),
+            new GameProcessRules(),
+            $rules,
+            $this->cardAvailability($serviceLocator, $gateway, $rules),
+            new GamePendingActionCosts(),
+        );
     }
 
     /**
@@ -385,6 +434,7 @@ final class GameStrikePortFactory
                 ),
             ),
             $sheetWrites,
+            $this->processFlow($serviceLocator, $gateway, $rules),
         );
     }
 

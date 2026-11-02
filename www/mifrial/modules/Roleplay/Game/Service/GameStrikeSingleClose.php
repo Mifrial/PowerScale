@@ -37,6 +37,7 @@ final class GameStrikeSingleClose
      * @param GameActionModifierRunner $modifiers Модификаторы действия.
      * @param GamePushRules $push Толчок.
      * @param GameStateIncreaseChecks $stateChecks Проверки прироста.
+     * @param GameProcessFlow $processes Сессия процесса.
      *
      * @return void
      */
@@ -56,6 +57,7 @@ final class GameStrikeSingleClose
         private readonly GameActionModifierRunner $modifiers,
         private readonly GamePushRules $push,
         private readonly GameStateIncreaseChecks $stateChecks,
+        private readonly GameProcessFlow $processes,
     ) {
     }
 
@@ -125,6 +127,7 @@ final class GameStrikeSingleClose
             'conditions' => GameStrikeTargetRow::conditions($row),
         ]);
         $packets = $sequential ? 1 : max(1, count($strikes));
+        $process = $this->processes->strike($game, $open);
         $target = $this->rows->defender($row);
         $targetKey = $this->rows->targetKey($target);
         $attackerKind = $open['attacker_kind'] ?? null;
@@ -283,6 +286,11 @@ final class GameStrikeSingleClose
 
         $previousSr = $lastStrike->previousSr($pending, $attackerKind, $attackerId, $targetKey);
         $advantages = [];
+        $repeatUses = is_array($process) && is_int($process['prior'] ?? null) ? $process['prior'] : 0;
+        if ($repeatUses > 0) {
+            $advantages[] = new RollAdvantage('circumstances', -$repeatUses);
+        }
+
         $flank = ($conditions['flank'] ?? false) === true && !$turn
             ? new RollAdvantage('flank', -2)
             : null;
@@ -638,6 +646,8 @@ final class GameStrikeSingleClose
             $choice['reaction'],
             $result,
             null,
+            is_array($process) && is_int($process['actionPoints'] ?? null) ? $process['actionPoints'] : null,
+            $process,
         );
         if ($pushChecks !== []) {
             $this->chat->postChecks($game, $battle, $targetOpen, $actorUserId, $strikeId, $pushChecks);
@@ -726,10 +736,29 @@ final class GameStrikeSingleClose
             $attackerKind,
             $attackerId,
             $pending,
-            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode, true)],
+            [
+                'action-points' => is_array($process) && is_int($process['actionPoints'] ?? null)
+                    ? $process['actionPoints']
+                    : $this->spend->getActionAp($slice, $actionRuleCode, true),
+            ],
             [$targetKey],
             $skipAfterAction,
         );
+        if (is_array($process)) {
+            $stepCode = $process['step']->getCode();
+            $hitSuccess = $isPush ? !$autoFail : (!$autoFail && $success > 0);
+            $pending = $this->processes->complete(
+                $game,
+                ['type' => $attackerKind, 'id' => $attackerId],
+                $process['row']->getId(),
+                $stepCode,
+                $hitSuccess,
+                $pending,
+                $process['weaponKey'],
+                $target,
+            );
+        }
+
         if ($reactionRuleCode !== null) {
             $pending = (new GamePendingActionCosts())->complete(
                 $slice,

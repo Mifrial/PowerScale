@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\MovementOperation;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\PostureOperation;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\ProcessOperation;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\TurnOperation;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessExecution;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StepCost;
@@ -37,10 +38,15 @@ final class ProcessSpecs
     public static function read(array $document): ProcessSpec
     {
         $process = SpecShape::object($document, 'process') ?? [];
+        $steps = self::steps($process);
+        $startStepCode = SpecShape::string($process, 'start_step_code');
+        if ($startStepCode === '') {
+            $startStepCode = $steps[0]->getCode() ?? '';
+        }
 
         return new ProcessSpec(
-            self::steps($process),
-            SpecShape::string($process, 'start_step_code'),
+            $steps,
+            $startStepCode,
             SpecShape::stringList($process, 'exit_step_codes'),
             self::transition($process),
             SpecShape::optionalString($process, 'failure'),
@@ -91,7 +97,41 @@ final class ProcessSpecs
             $interruption === null ? 'normal' : SpecShape::string($interruption, 'mode'),
             $interruption === null ? [] : ActionEffects::list($interruption, 'effects'),
             self::operations($row),
+            self::execution($row),
         );
+    }
+
+    /**
+     * Режим исполнения шага.
+     *
+     * Нет ключа execution: шаг с ключом operations (даже пустым) —
+     * операционный, без ключа — удар. Это совместимость ревизии 27.
+     *
+     * @param array<string, mixed> $row Шаг.
+     *
+     * @return ProcessExecution Режим.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function execution(array $row): ProcessExecution
+    {
+        $execution = SpecShape::object($row, 'execution');
+        if ($execution === null) {
+            return array_key_exists('operations', $row)
+                ? new ProcessExecution(ProcessExecution::TYPE_NONE)
+                : new ProcessExecution(ProcessExecution::TYPE_STRIKE);
+        }
+
+        $type = SpecShape::string($execution, 'type');
+        if (
+            $type !== ProcessExecution::TYPE_STRIKE
+            && $type !== ProcessExecution::TYPE_ACTION
+            && $type !== ProcessExecution::TYPE_NONE
+        ) {
+            throw new RuleSpecShapeException('execution');
+        }
+
+        return new ProcessExecution($type, SpecShape::optionalString($execution, 'action_code'));
     }
 
     /**

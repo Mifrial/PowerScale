@@ -200,7 +200,7 @@ final class GameWoundActions
      * @throws GameNotFoundException Если цели нет.
      * @throws GameBattleConflictException Если версия боя чужая.
      */
-    private function perform(GameRecord $game, int $actorUserId, array $body): array
+    private function perform(GameRecord $game, int $actorUserId, array $body, bool $paid = false): array
     {
         $operation = $body['operation'] ?? null;
         $actor = $this->pair($body['actor'] ?? null);
@@ -218,6 +218,53 @@ final class GameWoundActions
         $row = $this->rowOf($targetSheet['sheet'], $stateId);
         $patch = $this->patch($operation, $slice, $actorSheet, $row, $actor, $game);
         $priced = $this->priced($slice, $actorSheet['choices'], $actionRuleCode, $actor, $body);
+        $battle = $this->battleOf($body);
+        $debt = new GameActionDebt();
+        $debtKey = $debt->key($actor['kind'], $actor['id']);
+        if ($battle !== null && !$paid) {
+            $debt->assertFree($battle->getActionDebt(), $debtKey);
+            $planned = $debt->plan(
+                $slice,
+                $actorSheet['sheet'],
+                $priced['spends'],
+                $debt->refillCode($slice),
+                'wound',
+                $body,
+            );
+            if (!$planned['open']) {
+                $version = $this->sheetWrites->writeResources(
+                    $game,
+                    $actor['kind'],
+                    $actor['id'],
+                    $actorSheet['actualVersion'],
+                    $planned['spends'],
+                );
+                $debtMap = $battle->getActionDebt();
+                $debtMap[$debtKey] = $planned['slot'];
+                $expectedBattle = is_int($body['expectedBattleVersion'] ?? null)
+                    ? $body['expectedBattleVersion']
+                    : $battle->getStateVersion();
+                $saved = $this->battles->replaceTracked(
+                    $battle->getId(),
+                    $expectedBattle,
+                    $priced['pending'],
+                    $debtMap,
+                    null,
+                    null,
+                );
+
+                return [
+                    'operation' => $operation,
+                    'target' => $target,
+                    'stateId' => $stateId,
+                    'sheetVersion' => $version,
+                    'battleVersion' => $saved->getStateVersion(),
+                    'opened' => false,
+                    'debt' => true,
+                    'remaining' => $planned['slot']['remaining'] ?? 0,
+                ];
+            }
+        }
 
         if ($actor['kind'] === $target['kind'] && $actor['id'] === $target['id']) {
             $version = $this->sheetWrites->write(
@@ -228,7 +275,7 @@ final class GameWoundActions
                 [$patch],
                 null,
                 null,
-                $priced['spends'],
+                $paid ? [] : $priced['spends'],
             );
         } else {
             $this->sheetWrites->writeResources(
@@ -236,7 +283,7 @@ final class GameWoundActions
                 $actor['kind'],
                 $actor['id'],
                 $actorSheet['actualVersion'],
-                $priced['spends'],
+                $paid ? [] : $priced['spends'],
             );
             $version = $this->sheetWrites->write(
                 $game,
@@ -264,9 +311,38 @@ final class GameWoundActions
             'stateId' => $stateId,
             'sheetVersion' => $version,
             'battleVersion' => $battleVersion,
+            'opened' => true,
         ];
 
         return $result;
+    }
+
+    /**
+     * Исполняет рану после доплаты долга.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Пользователь.
+     * @param array<string, mixed> $body Сохранённое объявление.
+     * @param int $expectedBattle Версия боя.
+     * @param int $expectedSheet Версия листа после доплаты.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если команда отвергнута.
+     * @throws GameNotFoundException Если цели нет.
+     * @throws GameBattleConflictException Если версия боя чужая.
+     */
+    public function resume(
+        GameRecord $game,
+        int $actorUserId,
+        array $body,
+        int $expectedBattle,
+        int $expectedSheet,
+    ): array {
+        $body['expectedBattleVersion'] = $expectedBattle;
+        $body['expectedSheetVersion'] = $expectedSheet;
+
+        return $this->perform($game, $actorUserId, $body, true);
     }
 
     /**

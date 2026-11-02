@@ -55,6 +55,9 @@ final class GameProjections implements IGameProjections
      * @param ICharacters $characters Actual.
      * @param IGameMemberships $memberships Строки персонажа.
      * @param GameCharacterProjectionMask $characterMask Секции строки.
+     * @param ICharacterRuleSlices $ruleSlices Срез правил.
+     * @param ICharacterSheets $sheets Пересчёт листа.
+     * @param GameProcessFlow $processes Сессия процесса.
      *
      * @return void
      */
@@ -67,6 +70,7 @@ final class GameProjections implements IGameProjections
         private readonly GameCharacterProjectionMask $characterMask,
         private readonly ICharacterRuleSlices $ruleSlices,
         private readonly ICharacterSheets $sheets,
+        private readonly GameProcessFlow $processes,
     ) {
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->battles = new GameBattleRepository($smartTableGateway);
@@ -152,7 +156,40 @@ final class GameProjections implements IGameProjections
         return ['battleId' => $battleId]
             + $this->battleBriefs($gameId, $collected)
             + $collected
+            + $this->battleProcesses($game, $battleId)
             + ['openWideStrike' => $this->openWideStrike($game, $actorUserId, $viewAll, $editAll, $battleId)];
+    }
+
+    /**
+     * Сессии процессов и слоты долга участников боя.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $battleId Бой.
+     *
+     * @return array{processSessions: array<string, array<string, mixed>>, actionDebt: array<string, mixed>} Состояние.
+     */
+    private function battleProcesses(GameRecord $game, int $battleId): array
+    {
+        $battle = $this->battles->find($battleId);
+        if ($battle === null) {
+            return ['processSessions' => [], 'actionDebt' => []];
+        }
+
+        $sessions = [];
+        foreach ($this->battles->findParticipants($battleId) as $participant) {
+            $type = $participant['type'] ?? null;
+            $id = $participant['id'] ?? null;
+            if (!is_string($type) || !is_int($id)) {
+                continue;
+            }
+
+            $view = $this->processes->view($game, $battle, ['type' => $type, 'id' => $id]);
+            if ($view !== null) {
+                $sessions[$type . ':' . $id] = $view;
+            }
+        }
+
+        return ['processSessions' => $sessions, 'actionDebt' => $battle->getActionDebt()];
     }
 
     /**

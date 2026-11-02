@@ -44,6 +44,8 @@ final class GameStrikeSingleChat
      * @param string $reaction Реакция.
      * @param array<string, mixed> $result Итог.
      * @param array<string, mixed>|null $strengthRoll Проверка Силы до итога.
+     * @param int|null $stepAp Цена шага процесса.
+     * @param array<string, mixed>|null $process Шаг процесса.
      *
      * @return void
      */
@@ -56,6 +58,8 @@ final class GameStrikeSingleChat
         string $reaction,
         array $result,
         ?array $strengthRoll = null,
+        ?int $stepAp = null,
+        ?array $process = null,
     ): void {
         $threadId = 'attack-' . $strikeId;
         $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
@@ -66,7 +70,7 @@ final class GameStrikeSingleChat
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actionCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $action = $actionCode !== '' ? '[[rule:' . $actionCode . ']]' : 'действие';
-        $actionAp = $this->spend->getActionAp($slice, $actionCode, true);
+        $actionAp = $stepAp ?? $this->spend->getActionAp($slice, $actionCode, true);
         $weapon = is_string($open['item_rule_code'] ?? null) ? '[[rule:' . $open['item_rule_code'] . ']]' : 'оружием';
         $kind = match ($open['profile_type'] ?? 'strike') {
             'throw' => 'бросок',
@@ -108,6 +112,19 @@ final class GameStrikeSingleChat
             $narrative .= ' Тот уклоняется — толчок сорван.';
         } else {
             $narrative .= $reactionText;
+        }
+
+        if (is_array($process)) {
+            $processCode = $process['row']->getProcessRuleCode() ?? '';
+            $processName = $processCode === ''
+                ? $processCode
+                : ($slice->findLive($processCode)?->getName() ?? $processCode);
+            $stepName = $process['step']->getName();
+            $verb = $process['step']->getCode() === $process['spec']->getStartStepCode()
+                ? 'начинает'
+                : 'продолжает';
+            $narrative = $attacker . ' ' . $verb . ' процесс «' . $processName . '», шаг «'
+                . $stepName . '» — ' . $actionAp . ' ОД. ' . $narrative;
         }
 
         if (($open['profile_type'] ?? null) === 'shoot' || ($open['profile_type'] ?? null) === 'throw') {

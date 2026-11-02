@@ -18,6 +18,7 @@ use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
+use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
 use Mifrial\Roleplay\Game\Service\GameStrikeAmounts;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
@@ -4497,6 +4498,231 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return RuleSpaceRecord Мир.
      */
+    /**
+     * Мир с процессом-действием.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function processActionRules(): array
+    {
+        return array_merge($this->stateActionRules(), [
+            'act' => [
+                'type' => 'ability',
+                'name' => 'Act',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'action_components' => [
+                        ['type' => 'resource', 'resource_code' => 'action-points', 'amount' => 99],
+                    ],
+                ],
+            ],
+            'proc' => [
+                'type' => 'ability',
+                'name' => 'Proc',
+                'spec' => [
+                    'type' => 'process',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'process' => [
+                        'steps' => [[
+                            'code' => 'do',
+                            'name' => 'Do',
+                            'costs' => [['amount' => 2, 'resource_code' => 'action-points']],
+                            'execution' => ['type' => 'action', 'action_code' => 'act'],
+                            'description' => 'Act once.',
+                        ]],
+                        'start_step_code' => 'do',
+                        'exit_step_codes' => ['do'],
+                        'failure' => 'end_action',
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Шаг-действие берёт цену шага и завершает процесс.
+     *
+     * @return void
+     */
+    public function testProcessActionUsesStepCostAndResolves(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->processActionRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $characterId = $this->admit($world->getId(), $gameId, 'Action Hero', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 5]],
+        ], abilities: [
+            ['ruleCode' => 'act', 'level' => 1],
+            ['ruleCode' => 'proc', 'level' => 1],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-proc-action',
+            'participants' => [['type' => 'character', 'id' => $characterId]],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $sheetVersion = $this->characterFacade()->get($characterId)->getActualVersion();
+        $result = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-proc-action',
+            'expectedVersion' => 1,
+            'action' => $this->actionEnvelope([
+                'actor' => ['type' => 'character', 'id' => $characterId],
+                'actionRuleCode' => 'proc',
+                'expectedSheetVersion' => $sheetVersion,
+                'followUpTargetKey' => null,
+                'processRuleCode' => 'proc',
+            ]),
+        ]);
+        self::assertTrue($result['success'], json_encode($result));
+        self::assertSame(3, $this->actionPointsOf($characterId));
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $row = (new GameProcessRepository($gateway))->findOpenForActor($battleId, 'character', $characterId);
+        self::assertNull($row);
+    }
+
+    /**
+     * Мир с процессом серии ударов.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function processStrikeRules(): array
+    {
+        return array_merge($this->stateActionRules(), [
+            'series' => [
+                'type' => 'ability',
+                'name' => 'Series',
+                'spec' => [
+                    'type' => 'process',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'process' => [
+                        'steps' => [
+                            [
+                                'code' => 'part-1',
+                                'name' => 'Part 1',
+                                'costs' => [['amount' => 3, 'resource_code' => 'action-points']],
+                                'description' => 'First strike.',
+                            ],
+                            [
+                                'code' => 'part-2',
+                                'name' => 'Part 2',
+                                'costs' => [['amount' => 2, 'resource_code' => 'action-points']],
+                                'description' => 'Second strike.',
+                            ],
+                        ],
+                        'start_step_code' => 'part-1',
+                        'failure' => 'end_action',
+                        'transition' => [
+                            'mode' => 'custom',
+                            'edges' => [
+                                ['from' => 'part-1', 'to' => 'part-2'],
+                                ['from' => 'part-2', 'to' => 'part-2'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Шаг-удар пишет сессию процесса, цену шага и двигает шаг.
+     *
+     * @return void
+     */
+    public function testProcessStrikeUsesStepCostAndMovesSession(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->processStrikeRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Process Hero', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ], abilities: [['ruleCode' => 'series', 'level' => 1]]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Process Guard');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-process',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-process-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'series') + ['processRuleCode' => 'series'],
+            ),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertSame(7, $this->actionPointsOf($attackerId));
+
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $processes = new GameProcessRepository($gateway);
+        $row = $processes->findOpenForActor($battleId, 'character', $attackerId);
+        self::assertNotNull($row);
+        self::assertSame('series', $row->getProcessRuleCode());
+        self::assertSame('part-1', $row->getCurrentStepCode());
+        self::assertSame('pending', $row->getStepStatus());
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-process-def-1',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $row = $processes->findOpenForActor($battleId, 'character', $attackerId);
+        self::assertNotNull($row);
+        self::assertSame('part-1', $row->getCurrentStepCode());
+        self::assertSame('completed', $row->getStepStatus());
+
+        $second = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-process-2',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'series')
+                + ['processRuleCode' => 'series', 'processStepCode' => 'part-2'],
+            ),
+        ]);
+        self::assertTrue($second['success'], json_encode($second));
+        self::assertSame(5, $this->actionPointsOf($attackerId));
+        $row = $processes->findOpenForActor($battleId, 'character', $attackerId);
+        self::assertNotNull($row);
+        self::assertSame('part-1', $row->getCurrentStepCode());
+
+        $closedSecond = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-process-def-2',
+            'expectedVersion' => $second['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closedSecond['success'], json_encode($closedSecond));
+        $row = $processes->findOpenForActor($battleId, 'character', $attackerId);
+        self::assertNotNull($row);
+        self::assertSame('part-2', $row->getCurrentStepCode());
+        self::assertSame('completed', $row->getStepStatus());
+    }
+
     private function worldWithWeapon(
         int $hitCards = 1,
         bool $withPool = true,
