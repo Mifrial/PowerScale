@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 319,
-        "plans": 200,
+        "documents": 320,
+        "plans": 201,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 222,
+            "tr": 223,
             "tz": 2
         },
         "byZoneState": {
@@ -72,7 +72,7 @@
                 "нет": 23,
                 "СДЕЛАНО": 115,
                 "ОТЛОЖЕН": 2,
-                "ПЛАН": 32,
+                "ПЛАН": 33,
                 "ЧАСТИЧНО": 27,
                 "В РАБОТЕ": 12,
                 "ОТМЕНЁН": 4,
@@ -87,7 +87,7 @@
             "СНИМОК": 64,
             "нет": 55,
             "СДЕЛАНО": 116,
-            "ПЛАН": 35,
+            "ПЛАН": 36,
             "ОТЛОЖЕН": 6,
             "ЧАСТИЧНО": 27,
             "В РАБОТЕ": 12,
@@ -204,19 +204,19 @@
             }
         },
         "Roleplay/Game": {
-            "docs": 48,
+            "docs": 49,
             "state": {
                 "СНИМОК": 3,
                 "нет": 1,
                 "ЧАСТИЧНО": 3,
                 "СДЕЛАНО": 31,
                 "ОТМЕНЁН": 3,
-                "ПЛАН": 7
+                "ПЛАН": 8
             },
             "layer": {
-                "PHP": 41,
-                "МОК": 3,
-                "VUE": 8
+                "PHP": 42,
+                "МОК": 4,
+                "VUE": 9
             }
         },
         "Roleplay/Keyword": {
@@ -4537,6 +4537,32 @@
             ]
         },
         {
+            "path": "docs/tr/game-plan-43-processes.md",
+            "title": "План 43 — Процессы как тип действия",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "ПЛАН",
+            "stateSource": "token",
+            "statusRaw": "~ПЛАН~",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": null,
+            "bytes": 11058,
+            "lines": 173,
+            "modules": [
+                "Roleplay/Game"
+            ],
+            "linksCount": 0,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/game-roadmap.md"
+            ]
+        },
+        {
             "path": "docs/tr/game-roadmap.md",
             "title": "Нарезка Roleplay/Game",
             "zone": "tr",
@@ -4547,12 +4573,12 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-05",
-            "bytes": 54078,
-            "lines": 510,
+            "bytes": 54102,
+            "lines": 511,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 42,
+            "linksCount": 43,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/plan-game-plan-29-physical-profiles-2026-10-11.md",

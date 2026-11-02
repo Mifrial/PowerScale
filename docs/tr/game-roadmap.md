@@ -28,7 +28,8 @@ frontend → PHP E2E — выполнен на двух аккаунтах (P4 �
 и отброс. Остаток боевого контура — не новые шаги G, а пункты бэклога атак:
 требования оружия, фильтр модификатора, профили щита, `ammunition_requirements`
 и `action_modifier` для серии/широкого удара. Процессы как тип действия
-(`ProcessSpec`) — следующий отдельный срез, см. `game-combat-readiness.md`.
+(`ProcessSpec`) — следующий отдельный срез:
+[`game-plan-43-processes.md`](game-plan-43-processes.md).
 Это не project-wide approval. Канон — `[game-system.md](game-system.md)`.
 Границы — `[architecture.md](architecture.md)`, `[cross-domain.md](cross-domain.md)`.
 Стык листа — `[character-system.md](character-system.md)`, `[character-roadmap.md](character-roadmap.md)`

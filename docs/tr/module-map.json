@@ -2001,6 +2001,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/game-plan-43-processes.md",
+                    "title": "План 43 — Процессы как тип действия",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/game-roadmap.md",
                     "title": "Нарезка Roleplay/Game",
                     "kind": "plan",
