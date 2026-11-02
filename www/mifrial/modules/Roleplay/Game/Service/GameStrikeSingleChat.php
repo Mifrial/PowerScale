@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -78,6 +80,7 @@ final class GameStrikeSingleChat
             $open['profile_index'] ?? null,
             $slice,
         );
+        $pushImplement = $push !== null ? $this->pushImplementText($slice, $open) : null;
         $reactionText = '';
         if ($reaction === 'ignore') {
             $reactionText = ' Тот не реагирует.';
@@ -162,6 +165,28 @@ final class GameStrikeSingleChat
             ];
         }
 
+        $resultText = $push !== null
+            ? $this->pushResultText(
+                $attacker,
+                $defender,
+                $reaction,
+                $success,
+                $pushRating ?? 0,
+                $pushImplement ?? 'руками',
+                $bits,
+                $unstable,
+                $unstableName,
+                $push,
+            )
+            : ($success > 0
+                ? $attacker . ' попадает по ' . $defender . ' с ' . $success
+                    . ' РУ и наносит ' . implode(' и ', $bits) . '!'
+                : $attacker . ' промахивается по ' . $defender . '!');
+        if (($result['unconscious'] ?? false) === true && ($result['willOutcome'] ?? null) !== 'unconscious') {
+            $resultText .= ' Попадание ' . $this->damageTypeInstrumental($typeBit)
+                . ' уроном вызвало потерю сознания.';
+        }
+
         $this->consequences->post(
             $game,
             $actorUserId,
@@ -170,22 +195,7 @@ final class GameStrikeSingleChat
             $attacker . ' совершает действие ' . $action . ' за ' . $actionAp . 'ОД.',
             $narrative,
             $result['attackerRoll'],
-            $push !== null
-                ? $this->pushResultText(
-                    $attacker,
-                    $defender,
-                    $reaction,
-                    $success,
-                    $pushRating ?? 0,
-                    $bits,
-                    $unstable,
-                    $unstableName,
-                    $push,
-                )
-                : ($success > 0
-                    ? $attacker . ' попадает по ' . $defender . ' с ' . $success
-                        . ' РУ и наносит ' . implode(' и ', $bits) . '!'
-                    : $attacker . ' промахивается по ' . $defender . '!'),
+            $resultText,
             [
                 'raw' => $this->integerOf($result['injury'] ?? null),
                 'damage' => is_array($result['damage'] ?? null) ? $result['damage'] : ['base' => 0, 'size' => 0],
@@ -222,6 +232,28 @@ final class GameStrikeSingleChat
             $parentId,
             $beforeOutcome,
         );
+
+        $extraLines = [];
+        $knockback = $push['knockback'] ?? null;
+        if (
+            is_array($knockback)
+            && is_int($knockback['base'] ?? null)
+            && is_int($knockback['size'] ?? null)
+        ) {
+            $extraLines[] = $defender . ' отбрасывается на '
+                . $this->chat->getDimensionalText($knockback) . ' ипари.';
+        }
+
+        if ($extraLines !== []) {
+            $this->consequences->postLines(
+                $game,
+                $actorUserId,
+                $threadId,
+                $extraLines,
+                $this->chat->getSpeakerOf($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0),
+                $parentId,
+            );
+        }
     }
 
     /**
@@ -285,6 +317,7 @@ final class GameStrikeSingleChat
      * @param string $reaction Реакция.
      * @param int $success Множитель урона.
      * @param int $rating Знаковая маржа проверки.
+     * @param string $implement Чем толкают.
      * @param list<string> $bits Урон и раны.
      * @param int $unstable Неустойчивость.
      * @param string|null $unstableName Имя состояния Неустойчивости.
@@ -298,6 +331,7 @@ final class GameStrikeSingleChat
         string $reaction,
         int $success,
         int $rating,
+        string $implement,
         array $bits,
         int $unstable,
         ?string $unstableName,
@@ -308,8 +342,9 @@ final class GameStrikeSingleChat
         }
 
         $text = $reaction === 'block' && $rating <= 0
-            ? $defender . ' блокирует — контакт ' . $success . ' РУ'
-            : $attacker . ' толкает ' . $defender . ' с ' . $rating . ' РУ';
+            ? $attacker . ' толкает ' . $defender . ' ' . $implement
+                . '; ' . $defender . ' блокирует — контакт ' . $success . ' РУ'
+            : $attacker . ' толкает ' . $defender . ' ' . $implement . ' с ' . $rating . ' РУ';
         $knockback = $push['knockback'] ?? null;
         if (
             is_array($knockback)
@@ -428,5 +463,50 @@ final class GameStrikeSingleChat
         }
 
         return (new DimensionalNumber($pair['base'], $pair['size']))->toInteger();
+    }
+
+    /**
+     * Чем толкают: руками, щитом или оружием.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
+     * @param array<string, mixed> $open Открытый удар.
+     *
+     * @return string Подпись.
+     */
+    private function pushImplementText(CharacterRuleSlice $slice, array $open): string
+    {
+        $code = is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '';
+        $rule = $code === '' ? null : $slice->findLive($code);
+        $spec = $rule !== null && !$rule->isSpecBroken() ? $rule->getSpec() : null;
+        if ($spec instanceof ItemSpec) {
+            if ($spec->getShield() !== null) {
+                return 'щитом «' . $rule->getName() . '»';
+            }
+
+            if ($spec->isInnate()) {
+                return 'руками';
+            }
+        }
+
+        $name = $rule?->getName() ?? '';
+
+        return $name === '' ? 'руками' : 'оружием «' . $name . '»';
+    }
+
+    /**
+     * Творительный падеж названия типа урона.
+     *
+     * @param string $typeBit Название типа урона.
+     *
+     * @return string Творительный падеж.
+     */
+    private function damageTypeInstrumental(string $typeBit): string
+    {
+        return match ($typeBit) {
+            'дробящий' => 'дробящим',
+            'рубящий' => 'рубящим',
+            'колющий' => 'колющим',
+            default => $typeBit,
+        };
     }
 }

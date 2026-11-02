@@ -1024,6 +1024,14 @@ final class GameStrikeMysqlTest extends TestCase
         ));
         self::assertCount(1, $unstable);
         self::assertSame($calc['unstable'], $unstable[0]['value']);
+        $contents = implode("\n", array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->chatMessages($gameId),
+        ));
+        self::assertStringContainsString('руками', $contents);
+        if (is_array($calc['knockback'] ?? null)) {
+            self::assertStringContainsString('отбрасывается на', $contents);
+        }
     }
 
     /**
@@ -1344,6 +1352,10 @@ final class GameStrikeMysqlTest extends TestCase
         $messages = $this->chatMessages($gameId);
         $contents = array_map(static fn (MessageRecord $message): string => $message->getContent(), $messages);
         self::assertStringContainsString('получает Unstable ' . $unstable, implode("\n", $contents));
+        self::assertStringContainsString('оружием «Sword»', implode("\n", $contents));
+        if ($unstable >= 4) {
+            self::assertStringContainsString('отбрасывается на', implode("\n", $contents));
+        }
     }
 
     /**
