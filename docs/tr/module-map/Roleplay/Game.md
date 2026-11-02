@@ -186,7 +186,6 @@
 | [game-plan-34.md](../../game-plan-34.md) | план | `~ПЛАН~` | 2026-10-16 |
 | [game-plan-35.md](../../game-plan-35.md) | план | `~ПЛАН~` | 2026-10-16 |
 | [game-roadmap.md](../../game-roadmap.md) | план | `~ПЛАН~` | 2026-10-05 |
-| [game-plan-42-push-check.md](../../game-plan-42-push-check.md) | план | `~В РАБОТЕ~` | — |
 | [game-plan-01.md](../../game-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
 | [game-plan-13.md](../../game-plan-13.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
 | [game-plan-18.md](../../game-plan-18.md) | план | `~ЧАСТИЧНО~` | — |
@@ -222,6 +221,7 @@
 | [game-plan-39-state-increase-check.md](../../game-plan-39-state-increase-check.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-40-push.md](../../game-plan-40-push.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-41-tolkayuschiy-udar.md](../../game-plan-41-tolkayuschiy-udar.md) | план | `~СДЕЛАНО~` | — |
+| [game-plan-42-push-check.md](../../game-plan-42-push-check.md) | план | `~СДЕЛАНО~` | — |
 | [game-system.md](../../game-system.md) | канон | `~СДЕЛАНО~` | 2026-08-30 |
-| [game-combat-readiness.md](../../game-combat-readiness.md) | канон | ? | 2026-10-29 |
+| [game-combat-readiness.md](../../game-combat-readiness.md) | канон | ? | 2026-11-02 |
 
