@@ -286,6 +286,11 @@ final class GameStrikeSingleClose
 
         $previousSr = $lastStrike->previousSr($pending, $attackerKind, $attackerId, $targetKey);
         $advantages = [];
+        $strikePackage = $this->processes->strikePackage($process);
+        if ($strikePackage['advantage'] !== 0) {
+            $advantages[] = new RollAdvantage('action', $strikePackage['advantage']);
+        }
+
         $repeatUses = is_array($process) && is_int($process['prior'] ?? null) ? $process['prior'] : 0;
         if ($repeatUses > 0) {
             $advantages[] = new RollAdvantage('circumstances', -$repeatUses);
@@ -438,6 +443,10 @@ final class GameStrikeSingleClose
                         : $this->resolution->successOf($attackerRoll, $defenderRoll, $choice['reaction']),
                     $previousSr,
                 ));
+        if (!$isPush && is_int($success) && $success > 0 && $strikePackage['extraSuccesses'] > 0) {
+            $success += $strikePackage['extraSuccesses'];
+        }
+
         $srCap = $this->rules->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
         $pushCanceled = $isPush && ($autoFail || ($pushRating <= 0 && $choice['reaction'] !== 'block'));
         $damageSr = $isPush

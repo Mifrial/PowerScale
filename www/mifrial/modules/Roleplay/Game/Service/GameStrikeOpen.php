@@ -415,6 +415,7 @@ final class GameStrikeOpen
             $code,
             is_string($choice['processStepCode'] ?? null) ? $choice['processStepCode'] : null,
             'strike',
+            is_array($choice['defender'] ?? null) ? $choice['defender'] : null,
         );
         if ($context === null) {
             return null;

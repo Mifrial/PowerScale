@@ -4732,6 +4732,253 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Мир с процессом, чей шаг даёт пакет удара.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function processBonusRules(): array
+    {
+        return array_merge($this->stateActionRules(), [
+            'bonus' => [
+                'type' => 'ability',
+                'name' => 'Bonus',
+                'spec' => [
+                    'type' => 'process',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'process' => [
+                        'steps' => [[
+                            'code' => 'hit',
+                            'name' => 'Hit',
+                            'costs' => [['amount' => 1, 'resource_code' => 'action-points']],
+                            'description' => 'Hit with bonus.',
+                            'strike' => ['extra_successes' => ['type' => 'fixed', 'value' => 2]],
+                        ]],
+                        'start_step_code' => 'hit',
+                        'exit_step_codes' => ['hit'],
+                        'failure' => 'end_action',
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Шаг процесса с extra_successes поднимает SR урона.
+     *
+     * @return void
+     */
+    public function testProcessStrikeExtraSuccessesRaiseSr(): void
+    {
+        $closed = $this->resolveProcessBonusStrike();
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(10, $closed['data']['success']);
+        self::assertSame(10, $closed['data']['appliedSr']);
+        self::assertSame($this->pair(4), $closed['data']['damage']);
+        self::assertSame($this->pair(40), $closed['data']['injury']);
+    }
+
+    /**
+     * Потолок типа урона режет damageSr, но не рейтинг попадания.
+     *
+     * @return void
+     */
+    public function testProcessStrikeExtraSuccessesRespectDamageTypeCap(): void
+    {
+        $closed = $this->resolveProcessBonusStrike(
+            ['damage' => ['damage_type_code' => 'capped', 'formula' => ['type' => 'fixed', 'value' => 4]]],
+            [
+                'capped' => [
+                    'type' => 'damage_type',
+                    'name' => 'Capped',
+                    'spec' => [
+                        'forms' => ['genitive' => 'capped', 'dative' => 'capped'],
+                        'defense_ignored' => false,
+                        'modifies_spell_difficulty' => false,
+                        'max_success_rating' => 2,
+                    ],
+                ],
+            ],
+        );
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(10, $closed['data']['success']);
+        self::assertSame(2, $closed['data']['appliedSr']);
+        self::assertSame(2, $closed['data']['srCap']);
+        self::assertSame($this->pair(8), $closed['data']['injury']);
+    }
+
+    /**
+     * target_mode single держит цель первого удара.
+     *
+     * @return void
+     */
+    public function testProcessSingleTargetLocksTarget(): void
+    {
+        $rules = array_merge($this->stateActionRules(), [
+            'single-proc' => [
+                'type' => 'ability',
+                'name' => 'Single',
+                'spec' => [
+                    'type' => 'process',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'process' => [
+                        'target_mode' => 'single',
+                        'steps' => [
+                            [
+                                'code' => 'one',
+                                'name' => 'One',
+                                'costs' => [['amount' => 1, 'resource_code' => 'action-points']],
+                                'description' => 'One.',
+                            ],
+                            [
+                                'code' => 'two',
+                                'name' => 'Two',
+                                'costs' => [['amount' => 1, 'resource_code' => 'action-points']],
+                                'description' => 'Two.',
+                                'strike' => ['advantage' => ['type' => 'fixed', 'value' => 2]],
+                            ],
+                        ],
+                        'start_step_code' => 'one',
+                        'failure' => 'end_action',
+                    ],
+                ],
+            ],
+        ]);
+        $world = $this->worldWithWeapon(extraRules: $rules);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Lock Hero', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ], abilities: [['ruleCode' => 'single-proc', 'level' => 1]]);
+        $firstId = $this->admit($world->getId(), $gameId, 'Lock Guard');
+        $secondId = $this->admit($world->getId(), $gameId, 'Other Guard');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-lock',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-lock-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $firstId, 'single-proc')
+                + ['processRuleCode' => 'single-proc', 'processStepCode' => 'one'],
+            ),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-lock-def',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($firstId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        $sheets = $this->dispatch('game.getBattleSheets', ['gameId' => $gameId, 'battleId' => $battleId]);
+        self::assertTrue($sheets['success'], json_encode($sheets));
+        $view = $sheets['data']['processSessions']['character:' . $attackerId] ?? null;
+        self::assertIsArray($view);
+        self::assertSame('two', $view['availableSteps'][0]['code']);
+        self::assertSame(
+            ['advantage' => 2, 'extraSuccesses' => 0],
+            $view['availableSteps'][0]['strike'],
+        );
+
+        $switched = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-lock-2',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $secondId, 'single-proc')
+                + ['processRuleCode' => 'single-proc', 'processStepCode' => 'two'],
+            ),
+        ]);
+        self::assertFalse($switched['success']);
+
+        $sameTarget = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-lock-3',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $firstId, 'single-proc')
+                + ['processRuleCode' => 'single-proc', 'processStepCode' => 'two'],
+            ),
+        ]);
+        self::assertTrue($sameTarget['success'], json_encode($sameTarget));
+    }
+
+    /**
+     * Бьёт шагом процесса с extra_successes и закрывает защиту.
+     *
+     * @param array<string, mixed> $profileOverrides Профиль урона.
+     * @param array<string, mixed> $extraRules Правила типа урона.
+     *
+     * @return array<string, mixed> data закрытия.
+     */
+    private function resolveProcessBonusStrike(
+        array $profileOverrides = ['damage' => ['formula' => ['type' => 'fixed', 'value' => 4]]],
+        array $extraRules = [],
+    ): array {
+        $world = $this->worldWithWeapon(
+            extraRules: array_merge($this->processBonusRules(), $extraRules),
+            profileOverrides: $profileOverrides,
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Bonus Hero', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ], abilities: [['ruleCode' => 'bonus', 'level' => 1]]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Bonus Guard');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-bonus-' . $gameId,
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-bonus-' . $gameId,
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'bonus')
+                + ['processRuleCode' => 'bonus'],
+            ),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        return $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-bonus-def-' . $gameId,
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+    }
+
+    /**
      * Мир с процессом, который ведёт счётчик Комбо.
      *
      * @return array<string, array<string, mixed>> Правила.

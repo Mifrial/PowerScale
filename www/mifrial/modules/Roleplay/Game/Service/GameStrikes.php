@@ -381,6 +381,7 @@ final class GameStrikes implements IGameStrikes
                 $choice['processRuleCode'],
                 is_string($choice['processStepCode'] ?? null) ? $choice['processStepCode'] : null,
                 'strike',
+                is_array($choice['defender'] ?? null) ? $choice['defender'] : null,
             );
             if ($process !== null) {
                 $choice['actionRuleCode'] = $process['actionCode'];

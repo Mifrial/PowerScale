@@ -46,6 +46,7 @@ final class GameProcessFlow
      * @param string|null $processRuleCode Карточка процесса.
      * @param string|null $processStepCode Шаг.
      * @param string $kind Вид strike или action.
+     * @param array{type: string, id: int}|null $target Цель удара.
      *
      * @return array<string, mixed>|null Контекст или null без процесса.
      *
@@ -58,6 +59,7 @@ final class GameProcessFlow
         ?string $processRuleCode,
         ?string $processStepCode,
         string $kind,
+        ?array $target = null,
     ): ?array {
         if ($processRuleCode === null || $processRuleCode === '') {
             return null;
@@ -65,6 +67,10 @@ final class GameProcessFlow
 
         if ($kind !== 'strike' && $kind !== 'action') {
             throw new GameInvalidException('Game process step is invalid');
+        }
+
+        if ($target !== null && (!is_string($target['type'] ?? null) || !is_int($target['id'] ?? null))) {
+            throw new GameInvalidException('Game process target is invalid');
         }
 
         $slice = $this->strikeRules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
@@ -114,6 +120,17 @@ final class GameProcessFlow
         $execution = $step->getExecution();
         if ($execution->isNone()) {
             throw new GameInvalidException('Game process step has no action');
+        }
+
+        if (
+            $spec->isSingleTarget()
+            && $target !== null
+            && $open !== null
+            && $open->getLastTargetType() !== null
+            && $open->getLastTargetId() !== null
+            && ($open->getLastTargetType() !== $target['type'] || $open->getLastTargetId() !== $target['id'])
+        ) {
+            throw new GameInvalidException('Game process target is locked');
         }
 
         if ($kind === 'strike' && !$execution->isStrike()) {
@@ -434,6 +451,35 @@ final class GameProcessFlow
     }
 
     /**
+     * Вычисленный пакет удара шага процесса.
+     *
+     * @param array<string, mixed>|null $process Контекст шага.
+     *
+     * @return array{advantage: int, extraSuccesses: int} Пакет; нули без шага.
+     */
+    public function strikePackage(?array $process): array
+    {
+        $empty = ['advantage' => 0, 'extraSuccesses' => 0];
+        $step = is_array($process) ? ($process['step'] ?? null) : null;
+        $row = is_array($process) ? ($process['row'] ?? null) : null;
+        if (!$step instanceof ProcessStep || !$row instanceof GameProcessRecord) {
+            return $empty;
+        }
+
+        $strike = $step->getStrike();
+        if ($strike === null) {
+            return $empty;
+        }
+
+        $counters = $row->getCounters();
+
+        return [
+            'advantage' => $strike->advantageOf($counters),
+            'extraSuccesses' => $strike->extraSuccessesOf($counters),
+        ];
+    }
+
+    /**
      * Состояние процесса для панели боя.
      *
      * @param GameRecord $game Игра.
@@ -460,8 +506,10 @@ final class GameProcessFlow
             $row->getCounters(),
         );
         $steps = [];
+        $counters = $row->getCounters();
         foreach ($available as $code) {
             $step = $this->rules->step($spec, $code);
+            $strike = $step->getStrike();
             $steps[] = [
                 'code' => $step->getCode(),
                 'name' => $step->getName(),
@@ -469,6 +517,10 @@ final class GameProcessFlow
                 'actionPoints' => $this->rules->actionPoints($step),
                 'execution' => $step->getExecution()->getType(),
                 'actionCode' => $step->getExecution()->getActionCode(),
+                'strike' => $strike === null ? null : [
+                    'advantage' => $strike->advantageOf($counters),
+                    'extraSuccesses' => $strike->extraSuccessesOf($counters),
+                ],
             ];
         }
 
