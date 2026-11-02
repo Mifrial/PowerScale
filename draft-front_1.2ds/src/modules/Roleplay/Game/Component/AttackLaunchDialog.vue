@@ -14,7 +14,6 @@ import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession'
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
-import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
@@ -47,9 +46,7 @@ import {
 import { turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ATTACK_ACTION_COST_FLOOR } from '@/modules/Roleplay/Game/Constant/Combat/ATTACK_ACTION_COST_FLOOR';
 import { AttackProfileOption } from '@/modules/Roleplay/Character/init';
-import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
-import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 
 const props = defineProps<{
@@ -70,6 +67,7 @@ const emit = defineEmits<{
   'update:open': [value: boolean];
   'launch-attack': [attackAction: AttackAction];
   'overlay-changed': [];
+  'process-aborted': [payload: { entityKey: CombatEntityKey; name: string }];
 }>();
 
 const overlays = ref<GameCombatOverlay[]>([]);
@@ -86,7 +84,7 @@ const loadError = ref<string | null>(null);
 let loadGeneration = 0;
 let loadAbort: AbortController | null = null;
 const selectedActionModifierCodes = ref<string[]>([]);
-const sendChat = combatChatSendService.sendCombatChat(props.gameId);
+const pendingEffects = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
 const attackFavorites = useAttackFavorites();
 
 const actorKey = computed<CombatEntityKey | null>(() => {
@@ -157,6 +155,8 @@ const launchEffectLines = computed(() => {
   if (paired[0]) {
     lines.push(`${Math.abs(paired[0].delta)} помехи к текущим проверкам на попадание (множественная атака)`);
   }
+  const pending = actorKey.value ? (pendingEffects.value[actorKey.value] ?? []) : [];
+  lines.push(...actionEffectService.pendingLaunchLines(pending, props.rules));
 
   return lines;
 });
@@ -261,7 +261,6 @@ const compatibleProfiles = computed(() =>
     keywords.value,
   ),
 );
-const pendingEffects = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
 const actorSnapshot = computed(() =>
   lastStrikeService.snapshotOf(actorKey.value ? (pendingEffects.value[actorKey.value] ?? []) : []),
 );
@@ -340,19 +339,6 @@ function sourceTitle(source: CombatActionOption): string {
   if (source.isProcess) return `${source.name} · процесс`;
 
   return `${source.name} · ${source.odCost} ОД`;
-}
-
-function speakerFor(key: CombatEntityKey): ChatSpeaker {
-  if (key.startsWith('npc:')) {
-    const id = Number(key.slice(4));
-    const npc = props.npcs.find((item) => item.id === id);
-
-    return { kind: 'npc', npcId: id, npcName: npc?.name ?? 'НПС' };
-  }
-  const id = Number(key.slice(10));
-  const character = props.characters.find((item) => item.characterId === id);
-
-  return { kind: 'character', characterId: id, characterName: character?.characterName ?? 'Персонаж' };
 }
 
 function profileLabel(profile: AttackOverview | null): string {
@@ -681,14 +667,12 @@ async function stopProcess(): Promise<void> {
         expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
         mode: 'normal',
       });
-      emit('overlay-changed');
-      if (props.chatId !== null) {
-        await sendChat(`${processRule?.name ?? 'Процесс'} прекращён.`, [], props.chatId, speakerFor(key));
-      }
       const nextSessions = { ...processSessions.value };
       delete nextSessions[key];
       processSessions.value = nextSessions;
       sourceRuleCode.value = sources.value[0]?.code ?? null;
+      emit('overlay-changed');
+      emit('process-aborted', { entityKey: key, name: processRule?.name ?? 'Процесс' });
 
       return;
     }
@@ -699,12 +683,7 @@ async function stopProcess(): Promise<void> {
     pendingEffects.value = { ...pendingEffects.value, [key]: nextEffects };
     await getGameApi().setCombatActionEffects(props.gameId, key, nextEffects);
     emit('overlay-changed');
-    if (props.chatId !== null) {
-      const effectText = completionEffects.length
-        ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
-        : '';
-      await sendChat(`${processRule?.name ?? 'Процесс'} прекращён.${effectText}`, [], props.chatId, speakerFor(key));
-    }
+    emit('process-aborted', { entityKey: key, name: processRule?.name ?? 'Процесс' });
 
     const nextSessions = { ...processSessions.value };
     delete nextSessions[key];

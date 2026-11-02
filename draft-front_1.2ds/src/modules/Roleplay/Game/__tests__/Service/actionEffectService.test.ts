@@ -248,9 +248,7 @@ describe('ActionEffectService', () => {
         occupy_hands: { min: 1, max: 2 },
         weapon: {
           min_strength: null,
-          weapon_profiles: [
-            { type: 'strike', damage: { damage_type_code: 'slashing' } },
-          ],
+          weapon_profiles: [{ type: 'strike', damage: { damage_type_code: 'slashing' } }],
         },
         block_profile: {
           efficiency: { base: 4, size: 0 },
@@ -702,5 +700,48 @@ describe('ActionEffectService', () => {
       difficultyDelta: 0,
       remainingEffects: [],
     });
+  });
+
+  it('показывает действующую помеху процесса в эффектах запуска атаки', () => {
+    const rules = [
+      {
+        id: null,
+        code: 'check-hit',
+        type: 'check',
+        name: 'Попадание',
+        description: '',
+        spaceId: 1,
+        mechanics: [],
+        createdAt: 1767225600,
+        spec: { type: 'check', hit_check: true },
+      },
+      {
+        id: null,
+        code: 'series',
+        type: 'ability',
+        name: 'Серия ударов',
+        description: '',
+        spaceId: 1,
+        mechanics: [],
+        createdAt: 1767225600,
+        spec: { type: 'process', process: { steps: [] } },
+      },
+    ] as unknown as Rule[];
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleCode: 'series',
+        effect: {
+          type: 'after_action_until_resource_spent_check_modifier',
+          delta: -1,
+          amount: 1,
+          check_codes: ['check-hit'],
+          resource_code: 'action-points',
+        },
+      },
+    ];
+
+    expect(actionEffectService.pendingLaunchLines(pending, rules)).toEqual([
+      'Серия ударов: 1 помехи к проверкам на попадание до траты 1 ОД (обстоятельства)',
+    ]);
   });
 });

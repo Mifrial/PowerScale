@@ -81,7 +81,6 @@ import { DEFAULT_ATTACK_AP } from '@/modules/Roleplay/Game/Constant/Combat/DEFAU
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { dodgeSoakService } from '@/modules/Roleplay/Game/Service/Instance/dodgeSoakService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
-import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 
 import {
   buildAttackCalcPayload,
@@ -1276,12 +1275,6 @@ function speakerFor(key: CombatEntityKey | null): ChatSpeaker {
   return { kind: 'character', characterId: id, characterName: membership?.characterName ?? 'Персонаж' };
 }
 
-function processContinueToken(key: CombatEntityKey): string {
-  const [entityType, entityId] = key.split(':');
-
-  return entityType && entityId ? `[[process-continue:continue,${entityType},${entityId}]]` : '';
-}
-
 function applyReactionDefaults(next: HitDefenseReaction | null): void {
   if (next === 'dodge') {
     defenseEfficiency.value = { ...hitRollService.dodgeEfficiency(props.rules) };
@@ -2443,17 +2436,6 @@ async function acceptAndRoll(): Promise<void> {
   pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [accepted.initiator]: nextEffects };
   await getGameApi().setCombatActionEffects(props.gameId, accepted.initiator, nextEffects);
   emit('overlay-changed');
-  if (props.chatId !== null && effectiveProcessContext.value) {
-    const processName = processRule?.name ?? 'Процесс';
-    const effectText = processCompletionEffects.length
-      ? ` Эффект: ${processCompletionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
-      : '';
-    const processToken = processRule ? `[[rule:${processRule.code}]]` : processName;
-    const processMessage = nextProcessSession
-      ? `Процесс ${processToken} можно продолжить: ${processContinueToken(accepted.initiator)}.`
-      : `Процесс ${processToken} завершён.${effectText}`;
-    await sendChat(processMessage, [], props.chatId, speakerFor(accepted.initiator));
-  }
   offer.value = accepted;
 }
 

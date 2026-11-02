@@ -228,7 +228,6 @@ final class GameActionDeclare
             $battle->getRound(),
             $battle->getActiveIndex(),
             $applied['performed']['rolls'] ?? [],
-            is_array($input['processContext'] ?? null) ? $input['processContext'] : null,
         );
     }
 

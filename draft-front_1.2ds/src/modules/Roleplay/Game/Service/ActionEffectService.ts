@@ -5,7 +5,11 @@ import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
-import { actionEffectLabelService, aggregateSourceDeltasService, checkResolutionService } from '@/modules/Roleplay/Rule/init';
+import {
+  actionEffectLabelService,
+  aggregateSourceDeltasService,
+  checkResolutionService,
+} from '@/modules/Roleplay/Rule/init';
 import {
   ADVANTAGE_SOURCE_ACTION,
   ADVANTAGE_SOURCE_CIRCUMSTANCES,
@@ -115,6 +119,33 @@ export class ActionEffectService {
     if (lines.length === 0) return '';
 
     return `\nЭффекты: ${lines.join('; ')}`;
+  }
+
+  /**
+   * Подписи действующих эффектов, которые повлияют на следующую атаку.
+   *
+   * @param pendingEffects Действующие эффекты участника.
+   * @param rules Правила ревизии.
+   *
+   * @returns Строки для блока эффектов запуска атаки.
+   */
+  pendingLaunchLines(pendingEffects: PendingActionEffect[], rules: Rule[]): string[] {
+    const hitCheckCode = checkResolutionService.firstCheckCode(rules, 'hit_check');
+
+    return pendingEffects.flatMap((pending) => {
+      const effect = pending.effect;
+      const applicable =
+        effect.type === 'after_action_until_resource_spent_check_modifier'
+          ? hitCheckCode !== '' && effect.check_codes.includes(hitCheckCode)
+          : effect.type === 'next_action_attack_cost' ||
+            effect.type === 'next_action_attack_accuracy' ||
+            effect.type === 'next_action_attack_dodge_soak_from_reaction' ||
+            effect.type === 'next_action_attack_score_adjust';
+      if (!applicable) return [];
+      const source = rules.find((rule) => rule.code === pending.sourceRuleCode)?.name ?? 'Временный эффект';
+
+      return [`${source}: ${this.describe(effect)}`];
+    });
   }
 
   currentAttackAccuracy(rule: Rule | null | undefined, component: 'strike' | 'throw' | 'shoot'): number {

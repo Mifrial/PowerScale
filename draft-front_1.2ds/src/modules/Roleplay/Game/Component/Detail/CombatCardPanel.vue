@@ -50,7 +50,6 @@ import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/
 import { combatProcessListService } from '@/modules/Roleplay/Game/Service/Instance/combatProcessListService';
 import { committedActionFlowService } from '@/modules/Roleplay/Game/Service/Instance/committedActionFlowService';
 import { formatSustainDropMessage } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
-import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 import type { CombatStateDetailRow } from '@/modules/Roleplay/Game/Dto/CombatStateDetailRow';
 import type { CombatStateEditKind } from '@/modules/Roleplay/Game/Enum/CombatStateEditKind';
 import type { CombatStateLinkedAction } from '@/modules/Roleplay/Game/Dto/CombatStateLinkedAction';
@@ -119,6 +118,7 @@ const emit = defineEmits<{
   'overlay-changed': [];
   'launch-hit': [payload: { attackerKey: CombatEntityKey; attack: AttackOverview }];
   'continue-process': [entityKey: CombatEntityKey];
+  'process-aborted': [payload: { entityKey: CombatEntityKey; name: string }];
   'launch-injury': [];
   'launch-charge-cast': [payload: { casterKey: CombatEntityKey; sustainId: string }];
   'launch-action': [hint: ActionLaunchHint];
@@ -513,10 +513,11 @@ async function abortProcessRow(row: CombatProcessRow): Promise<void> {
     } else {
       await abortSustainedSpell(row.id);
     }
-    emit('overlay-changed');
-    await loadOverlays();
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Не удалось оборвать';
+  } finally {
+    emit('overlay-changed');
+    await loadOverlays();
   }
 }
 
@@ -544,9 +545,7 @@ async function abortProcessSession(): Promise<void> {
       expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
       mode: 'normal',
     });
-    if (props.chatId !== null) {
-      await sendChat(`${processRule.name} прекращён.`, [], props.chatId, speaker.value);
-    }
+    emit('process-aborted', { entityKey: key, name: processRule.name });
 
     return;
   }
@@ -555,11 +554,7 @@ async function abortProcessSession(): Promise<void> {
   const nextEffects = [...pendingEffects.value, ...completionEffects];
   pendingEffects.value = nextEffects;
   await getGameApi().setCombatActionEffects(props.gameId, key, nextEffects);
-  if (props.chatId === null) return;
-  const effectText = completionEffects.length
-    ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
-    : '';
-  await sendChat(`${processRule.name} прекращён.${effectText}`, [], props.chatId, speaker.value);
+  emit('process-aborted', { entityKey: key, name: processRule.name });
 }
 
 function continueProcess(): void {

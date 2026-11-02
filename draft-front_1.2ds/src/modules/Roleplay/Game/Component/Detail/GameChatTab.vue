@@ -58,6 +58,8 @@ import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/A
 import { characterOverviewService } from '@/modules/Roleplay/Character/init';
 import type { ProcessActionContext } from '@/modules/Roleplay/Game/Dto/ProcessActionContext';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { ProcessNotice } from '@/modules/Roleplay/Game/Dto/ProcessNotice';
+import { processNoticeService } from '@/modules/Roleplay/Game/Service/Instance/processNoticeService';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
@@ -414,6 +416,7 @@ async function warmStrikeUserNames(rows: GameCharacterMembership[]): Promise<voi
 
 async function load(): Promise<void> {
   const requestSequence = ++loadSequence;
+  processNoticeReady = false;
   const requestGameId = gameId.value;
   const requestSessionRunning = props.detail.game.sessionRunning;
   const requestSpaceId = props.detail.game.spaceId;
@@ -530,7 +533,10 @@ async function load(): Promise<void> {
       loadError.value = e instanceof Error ? e.message : 'Не удалось загрузить данные чата';
     }
   } finally {
-    if (requestSequence === loadSequence) loading.value = false;
+    if (requestSequence === loadSequence) {
+      loading.value = false;
+      processNoticeReady = true;
+    }
   }
 }
 
@@ -949,7 +955,33 @@ function applyBattleSheets(payload: GameBattleSheets): void {
   npcs.value = mergeBattleNpcSheets(npcs.value, nextRuntime, payload);
   if (payload.openWideStrike !== undefined) openWideStrike.value = payload.openWideStrike;
   if (payload.processSessions !== undefined) {
-    processSessionsByEntity.value = processSessionSourceService.fromBattleSheets(gameId.value, payload.processSessions);
+    const nextSessions = processSessionSourceService.fromBattleSheets(gameId.value, payload.processSessions);
+    notifyCompletedProcessStep(processSessionsByEntity.value, nextSessions);
+    processSessionsByEntity.value = nextSessions;
+  }
+}
+
+function notifyCompletedProcessStep(
+  previous: Record<CombatEntityKey, ProcessSession>,
+  next: Record<CombatEntityKey, ProcessSession>,
+): void {
+  if (!processNoticeReady) return;
+  const keys = new Set<CombatEntityKey>([
+    ...(Object.keys(previous) as CombatEntityKey[]),
+    ...(Object.keys(next) as CombatEntityKey[]),
+  ]);
+  for (const key of keys) {
+    if (
+      !combatCardModelService.combatCardCanEdit(key, props.canEdit, currentUser.value?.id ?? null, memberships.value)
+    ) {
+      continue;
+    }
+    const notice = processNoticeService.completedStep(previous[key], next[key], key, revisionRules.value);
+    if (notice) {
+      processNotice.value = notice;
+
+      return;
+    }
   }
 }
 
@@ -1230,10 +1262,12 @@ const cardKey = ref<CombatEntityKey | null>(null);
 const overlayRevision = ref(0);
 const battleRevision = ref(0);
 const processSessionsByEntity = ref<Record<CombatEntityKey, ProcessSession>>({});
+const processNotice = ref<ProcessNotice | null>(null);
+let processNoticeReady = false;
 
 function onOverlayChanged(): void {
+  overlayRevision.value += 1;
   if (!gamePhpMode.isEnabled()) {
-    overlayRevision.value += 1;
     invalidateRuntimeProjections();
     void refreshProcessSessions();
 
@@ -1241,6 +1275,21 @@ function onOverlayChanged(): void {
   }
   const keys = cardKey.value ? [cardKey.value] : realtimeEntityKeys();
   void loadPhpBattleSheetProjections(keys, gameId.value);
+}
+
+function onProcessAborted(payload: { entityKey: CombatEntityKey; name: string }): void {
+  const next = { ...processSessionsByEntity.value };
+  delete next[payload.entityKey];
+  processSessionsByEntity.value = next;
+  processNotice.value = processNoticeService.aborted(payload.name, payload.entityKey);
+  battleRevision.value += 1;
+  void refreshProcessSessions();
+}
+
+function continueNotifiedProcess(): void {
+  const key = processNotice.value?.entityKey;
+  processNotice.value = null;
+  if (key) void onOpenCard(`process:continue:${key}`);
 }
 
 async function onStrikeRefresh(): Promise<void> {
@@ -1542,6 +1591,7 @@ function onHitSettled(): void {
   ) {
     hitPhpBound.value = true;
   }
+  if (gamePhpMode.isEnabled()) onOverlayChanged();
   void refreshPendingOffers();
 }
 
@@ -1718,6 +1768,7 @@ onUnmounted(() => {
           @overlay-changed="onOverlayChanged"
           @participants="onInitiativeParticipants"
           @runtime-projections="onInitiativeRuntimeProjections"
+          @process-aborted="onProcessAborted"
         />
 
         <CombatQuickRolls
@@ -1787,6 +1838,7 @@ onUnmounted(() => {
       @launch-charge-cast="onLaunchChargeCast"
       @launch-action="onLaunchStateAction"
       @continue-process="onContinueProcess"
+      @process-aborted="onProcessAborted"
     />
 
     <CheckLaunchDialog
@@ -1826,6 +1878,7 @@ onUnmounted(() => {
       @update:open="onActionClosed"
       @settled="onOverlayChanged"
       @overlay-changed="onOverlayChanged"
+      @process-aborted="onProcessAborted"
     />
 
     <AttackLaunchDialog
@@ -1842,6 +1895,8 @@ onUnmounted(() => {
       :runtime-projections="runtimeByKey"
       @update:open="onAttackClosed"
       @launch-attack="onLaunchAttack"
+      @overlay-changed="onOverlayChanged"
+      @process-aborted="onProcessAborted"
     />
 
     <HitLaunchDialog
@@ -1916,6 +1971,20 @@ onUnmounted(() => {
       @confirm="confirmConcentrationAsk"
       @skip="skipConcentrationAsk"
     />
+    <v-snackbar
+      v-if="processNotice"
+      :model-value="true"
+      :timeout="6000"
+      location="top"
+      @update:model-value="processNotice = null"
+    >
+      {{ processNotice.text }}
+      <template #actions>
+        <v-btn v-if="processNotice.continueLabel" variant="text" @click="continueNotifiedProcess">
+          {{ processNotice.continueLabel }}
+        </v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 

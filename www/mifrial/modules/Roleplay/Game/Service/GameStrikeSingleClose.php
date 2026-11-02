@@ -647,7 +647,6 @@ final class GameStrikeSingleClose
             $result,
             null,
             is_array($process) && is_int($process['actionPoints'] ?? null) ? $process['actionPoints'] : null,
-            $process,
         );
         if ($pushChecks !== []) {
             $this->chat->postChecks($game, $battle, $targetOpen, $actorUserId, $strikeId, $pushChecks);

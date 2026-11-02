@@ -46,7 +46,6 @@ import {
   findRuleByRef,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
-import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 import SpellSustainDialog from '@/modules/Roleplay/Game/Component/SpellSustainDialog.vue';
 import CommittedActionContinueDialog from '@/modules/Roleplay/Game/Component/CommittedActionContinueDialog.vue';
 import { electrochargeService } from '@/modules/Roleplay/Game/Service/Instance/electrochargeService';
@@ -106,6 +105,7 @@ const emit = defineEmits<{
   'overlay-changed': [];
   participants: [keys: string[]];
   'runtime-projections': [projections: GameRuntimeEntityProjection[]];
+  'process-aborted': [payload: { entityKey: CombatEntityKey; name: string }];
 }>();
 
 const { currentUser } = useCurrentUser();
@@ -634,22 +634,28 @@ async function confirmWaitAndPass(): Promise<void> {
     }
     const completionEffects = processRule ? actionEffectService.effectsAfterProcess(processRule) : [];
     if (processSession) {
-      await getGameApi().setProcessSession(props.gameId, key, null);
-      pendingEffectsByEntity.value = {
-        ...pendingEffectsByEntity.value,
-        [key]: [...(pendingEffectsByEntity.value[key] ?? []), ...completionEffects],
-      };
-      if (props.chatId !== null) {
-        const effectText = completionEffects.length
-          ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
-          : '';
-        await sendChat(
-          `${processRule?.name ?? 'Процесс'} прерван.${effectText}`,
-          [],
-          props.chatId,
-          speakerFor(participant),
-        );
+      if (gamePhpMode.isEnabled()) {
+        const battleId = gamePhpBattleContext.battleId;
+        if (battleId === null) throw new Error('Бой ещё не известен');
+        await getGameApi().abortProcess({
+          gameId: props.gameId,
+          idempotencyKey: createRandomId(),
+          battleId,
+          expectedBattleVersion: gamePhpBattleContext.battleVersion,
+          expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
+          mode: 'normal',
+        });
+      } else {
+        await getGameApi().setProcessSession(props.gameId, key, null);
+        pendingEffectsByEntity.value = {
+          ...pendingEffectsByEntity.value,
+          [key]: [...(pendingEffectsByEntity.value[key] ?? []), ...completionEffects],
+        };
       }
+      emit('process-aborted', { entityKey: key, name: processRule?.name ?? 'Процесс' });
+      const nextProcesses = { ...processSessions.value };
+      delete nextProcesses[key];
+      processSessions.value = nextProcesses;
     }
     const committed = committedSessions.value[key];
     if (committed) {

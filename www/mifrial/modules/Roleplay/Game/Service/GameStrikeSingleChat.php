@@ -45,7 +45,6 @@ final class GameStrikeSingleChat
      * @param array<string, mixed> $result Итог.
      * @param array<string, mixed>|null $strengthRoll Проверка Силы до итога.
      * @param int|null $stepAp Цена шага процесса.
-     * @param array<string, mixed>|null $process Шаг процесса.
      *
      * @return void
      */
@@ -59,7 +58,6 @@ final class GameStrikeSingleChat
         array $result,
         ?array $strengthRoll = null,
         ?int $stepAp = null,
-        ?array $process = null,
     ): void {
         $threadId = 'attack-' . $strikeId;
         $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
@@ -112,19 +110,6 @@ final class GameStrikeSingleChat
             $narrative .= ' Тот уклоняется — толчок сорван.';
         } else {
             $narrative .= $reactionText;
-        }
-
-        if (is_array($process)) {
-            $processCode = $process['row']->getProcessRuleCode() ?? '';
-            $processName = $processCode === ''
-                ? $processCode
-                : ($slice->findLive($processCode)?->getName() ?? $processCode);
-            $stepName = $process['step']->getName();
-            $verb = $process['step']->getCode() === $process['spec']->getStartStepCode()
-                ? 'начинает'
-                : 'продолжает';
-            $narrative = $attacker . ' ' . $verb . ' процесс «' . $processName . '», шаг «'
-                . $stepName . '» — ' . $actionAp . ' ОД. ' . $narrative;
         }
 
         if (($open['profile_type'] ?? null) === 'shoot' || ($open['profile_type'] ?? null) === 'throw') {
