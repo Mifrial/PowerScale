@@ -1519,6 +1519,7 @@
                 "Mifrial\\Roleplay\\Game\\Action\\EndGameTurnAction",
                 "Mifrial\\Roleplay\\Game\\Action\\ContinueGameAction",
                 "Mifrial\\Roleplay\\Game\\Action\\AbortGameAction",
+                "Mifrial\\Roleplay\\Game\\Action\\AbortProcessGameAction",
                 "Mifrial\\Roleplay\\Game\\Action\\RunGameActionAction",
                 "Mifrial\\Roleplay\\Game\\Action\\StartGameBattleAction",
                 "Mifrial\\Roleplay\\Game\\Action\\SetGameBattleRosterAction",
@@ -1840,6 +1841,11 @@
                     "csrf": true
                 },
                 {
+                    "action": "game.abortProcess",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\AbortProcessGameAction",
+                    "csrf": true
+                },
+                {
                     "action": "game.runAction",
                     "handler": "Mifrial\\Roleplay\\Game\\Action\\RunGameActionAction",
                     "csrf": true
@@ -2001,14 +2007,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/game-plan-43-processes.md",
-                    "title": "План 43 — Процессы как оркестратор действий",
-                    "kind": "plan",
-                    "state": "ПЛАН",
-                    "date": null,
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/game-roadmap.md",
                     "title": "Нарезка Roleplay/Game",
                     "kind": "plan",
@@ -2035,6 +2033,14 @@
                 {
                     "path": "docs/tr/game-plan-18.md",
                     "title": "План Game 18 — проверка",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-43-processes.md",
+                    "title": "План 43 — Процессы как оркестратор действий",
                     "kind": "plan",
                     "state": "ЧАСТИЧНО",
                     "date": null,

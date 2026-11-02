@@ -36,6 +36,7 @@
 - `Mifrial\Roleplay\Game\Action\EndGameTurnAction`
 - `Mifrial\Roleplay\Game\Action\ContinueGameAction`
 - `Mifrial\Roleplay\Game\Action\AbortGameAction`
+- `Mifrial\Roleplay\Game\Action\AbortProcessGameAction`
 - `Mifrial\Roleplay\Game\Action\RunGameActionAction`
 - `Mifrial\Roleplay\Game\Action\StartGameBattleAction`
 - `Mifrial\Roleplay\Game\Action\SetGameBattleRosterAction`
@@ -143,6 +144,7 @@
 | `game.endTurn` | `EndGameTurnAction` | да |
 | `game.continueAction` | `ContinueGameAction` | да |
 | `game.abortAction` | `AbortGameAction` | да |
+| `game.abortProcess` | `AbortProcessGameAction` | да |
 | `game.runAction` | `RunGameActionAction` | да |
 | `game.applyEconomy` | `ApplyGameEconomyAction` | да |
 | `game.getShop` | `GetGameShopAction` | да |
@@ -185,11 +187,11 @@
 | [game-plan-32.md](../../game-plan-32.md) | план | `~ПЛАН~` | 2026-10-12 |
 | [game-plan-34.md](../../game-plan-34.md) | план | `~ПЛАН~` | 2026-10-16 |
 | [game-plan-35.md](../../game-plan-35.md) | план | `~ПЛАН~` | 2026-10-16 |
-| [game-plan-43-processes.md](../../game-plan-43-processes.md) | план | `~ПЛАН~` | — |
 | [game-roadmap.md](../../game-roadmap.md) | план | `~ПЛАН~` | 2026-10-05 |
 | [game-plan-01.md](../../game-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
 | [game-plan-13.md](../../game-plan-13.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
 | [game-plan-18.md](../../game-plan-18.md) | план | `~ЧАСТИЧНО~` | — |
+| [game-plan-43-processes.md](../../game-plan-43-processes.md) | план | `~ЧАСТИЧНО~` | — |
 | [game-plan-16.md](../../game-plan-16.md) | план | `~ОТМЕНЁН~` | 2026-10-04 |
 | [game-plan-17.md](../../game-plan-17.md) | план | `~ОТМЕНЁН~` | 2026-10-04 |
 | [game-plan-19.md](../../game-plan-19.md) | план | `~ОТМЕНЁН~` | — |
