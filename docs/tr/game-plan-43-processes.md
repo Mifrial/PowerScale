@@ -52,6 +52,10 @@
   действие, не являющееся реакцией.
 - Закрытие удара или действия внутри шага двигает сессию: счётчики, статус
   шага, следующий шаг, `failure`, `completion_effects`.
+- Процесс закрывается не только своим шагом: дочерняя способность с
+  `closes_parent_process` позволяет закрыть его обычным атакующим действием
+  актора при выполненном пороге счётчика. Это не второй движок: пакет — те же
+  `strike`-модификаторы, а числа и порог живут на карточке, не в процессе.
 - Клиент не присылает объект сессии. Он присылает выбор шага и объявление
   действия/удара, сервер возвращает новое состояние.
 
@@ -71,6 +75,9 @@ process.steps[].strike:
 process.steps[].requires_counters: [{ counter_code, min }]   // шаг недоступен ниже порога
 process.steps[].counter_on_success: [CounterOp]
 process.steps[].counter_on_failure: [CounterOp]
+ability.closes_parent_process:                                // узел дочерней карточки
+  requires_counters:   [{ counter_code, min }]
+  strike:              { advantage, extra_successes }
 
 CounterOp = { counter_code, delta } | { counter_code, set }
 Formula   = { type: "fixed", value }
@@ -80,8 +87,8 @@ Formula   = { type: "fixed", value }
 - Поля шага живут в `ProcessStep`, поля процесса — в `ProcessSpec`; это DTO,
   не массивы. Парсер — `ProcessSpecs`, рантайм не читает документ напрямую.
 - `execution` нужен уже срезу 1; `counters`, `target_mode`, `strike`,
-  `requires_counters`, `counter_on_*` — v2 среза 2. Парсер среза 2 читает их с
-  умолчаниями, рантайм среза 1 их не использует.
+  `requires_counters`, `counter_on_*`, `closes_parent_process` — v2 среза 2.
+  Парсер среза 2 читает их с умолчаниями, рантайм среза 1 их не использует.
 - `execution.type` — как исполняется действие шага, а не второй вид сущности:
   `strike` — атакующее действие с выбранным профилем оружия, `action` —
   неатакующая карточка `action_code`, `none` — шаг учёта без действия (движение
@@ -116,6 +123,19 @@ Formula   = { type: "fixed", value }
   счётчиков и спеки; клиент не присылает числа. `advantage` добавляется к
   преимуществам проверки попадания, `extra_successes` — к успехам размера
   броска; потолки задаются `min_value`/`max_value` формулы.
+- `extra_successes` не преимущество: попадание уже определено, промах остаётся
+  промахом, прибавляются только успехи для урона. Смешение с `advantage`
+  изменило бы правила комбо: бонус финиша перестал бы снижать шанс промаха.
+- `extra_successes` — новый примитив результата атаки: раньше ни одна карточка
+  не умела добавлять успехи. В сервере успех собирается в
+  `GameStrikeResolution::successOf` из `rating` и уходит в `damageOf`; точка
+  встраивания — число успехов урона, не `success`/`rating` проверки.
+- `closes_parent_process` — узел дочерней способности: `parent_ability_code`
+  указывает на карточку процесса, кодов карточек в спеке процесса нет. Пока
+  сессия процесса открыта, обычное атакующее действие актора с выполненными
+  `requires_counters` получает `strike`-пакет на первый удар, после разрешения
+  сессия закрывается и при попадании, и при промахе. Числа и пороги живут на
+  карточке, поэтому процесс о закрывающей способности не знает.
 - `target_mode: single` — цель фиксируется первым ударом процесса; смена цели
   отклоняется. `any` — цель выбирается каждым шагом. Отдельного режима `last`
   нет: подстановка прошлой цели — подсказка клиенту, а не ограничение.
@@ -376,18 +396,11 @@ game.get / getRoster    краткая сводка для карточки и �
    Контент не меняется; совместимость ревизии 27 — пустой `start_step_code` =
    первый шаг и `operations` по наличию ключа. Широкий удар как шаг отклоняется.
 2. **Комбо** — `ProcessSpec` v2 (`counters`, `target_mode`, `strike`,
-   `requires_counters`, `counter_on_*` с `delta`/`set`), парсер и
-   редактор, ревизия 28, рантайм счётчиков и одной цели, серверные
-   модификаторы удара, снятие жёстких констант `ComboProcessService`.
-   В ревизии 28 у `combo-finish` появляется `exit_step_codes: ["combo-finish"]`:
-   у шага нет исходящих рёбер, и без выхода процесс останется `open` с пустым
-   списком шагов. Отдельно типизировать «Раскрытие»: закрытие комбо другим
-   своим атакующим действием по той же цели. Сейчас это зашито в
-   `ComboProcessService` (`canCloseWithOtherAttack`, `COMBO_CLOSE_CAPS`), в
-   `ProcessSpec` поля нет. Черновик формы:
-   `process.close_with_other_attack: { min_counter, min_value, allow_wide }`
-   плюс проверка owned-способности с `parent_ability_code` процесса; точную
-   форму фиксируем в срезе 2 до реализации.
+   `requires_counters`, `counter_on_*` с `delta`/`set`), парсер и редактор,
+   ревизия 28, рантайм счётчиков и одной цели, серверные модификаторы удара,
+   закрытие процесса дочерней карточкой (`closes_parent_process`), снятие
+   `ComboProcessService`/`COMBO_CLOSE_CAPS`/`COMBO_STEP_CODES`. Полосы и
+   контент — в «План среза 2». Широкий удар как закрытие отклоняется.
 3. **Движение** — `run`/`sprint` после контракта движения; здесь только явный
    отказ на операции `movement`, чтобы карточки не запускались молча.
 
@@ -440,6 +453,76 @@ game.get / getRoster    краткая сводка для карточки и �
 - отрицательная проверка, что чат не содержит процессной меты (сейчас её нет);
 - полный `bash tools/test-full.sh` после ручной проверки.
 
+## План среза 2
+
+Решения, зафиксированные до кода:
+
+- Процесс не знает о закрывающей карточке. Черновой
+  `process.close_with_other_attack` отклонён: кодов карточек в спеке процесса
+  нет. Закрытие описывает узел `closes_parent_process` на дочерней способности
+  (`parent_ability_code` указывает на карточку процесса), а числа и порог
+  живут на карточке.
+- `extra_successes` — успехи того же размера, что бросок: прибавляются к числу
+  успехов для урона после того, как попадание определено. Промах остаётся
+  промахом; `success`/`rating` проверки не меняются.
+- Широкий удар отклоняется и как шаг процесса, и как закрытие: закрытие по
+  нескольким целям — отдельный путь, которого в срезе 2 нет.
+- Счётчики живут только в сессии; карточка и шаг читают их через `Formula`.
+
+Контент ревизии 28:
+
+- `kombinatsiya-udarov`: `counters: [{ code: "combo", initial: 0 }]`,
+  `target_mode: "single"`, `failure: end_action`, шаги:
+  `combo-start` — `advantage: fixed(-1)`, `counter_on_success: delta +1`;
+  `combo-build` — `advantage: counter(combo, factor -1)`,
+  `counter_on_success: delta +1`;
+  `combo-finish` — `requires_counters: combo ≥ 2`,
+  `advantage: counter(combo, factor 1, max 3)`,
+  `extra_successes: counter(combo, divisor 2, max 3)`,
+  `counter_on_success`/`counter_on_failure: set 0`;
+  `exit_step_codes: ["combo-finish"]`. У шага нет исходящих рёбер, и без выхода
+  процесс останется `open` с пустым списком шагов.
+- `raskrytie`: `parent_ability_code: kombinatsiya-udarov`,
+  `closes_parent_process: { requires_counters: combo ≥ 2, strike: { advantage:
+  counter(combo, max 3), extra_successes: counter(combo, divisor 2, max 3) } }`.
+  Потолки 3/3 из `COMBO_CLOSE_CAPS` переезжают в `max_value` формул.
+
+Полосы (каждая — отдельный коммит и самопроверка):
+
+1. **2a. Парсер v2, поведение не меняется.** DTO `Formula`, `CounterOp`,
+   `ProcessCounter`, `StrikeModifier`, `ProcessCloseSpec`; поля в
+   `ProcessSpec`, `ProcessStep`, `AbilityBase`; чтение в `ProcessSpecs` и
+   `AbilityBases`. Умолчания ревизии 27: нет узлов — поведения нет. Unit:
+   формы, `fixed`/`counter`, `delta`/`set`, потолки, отказ на чужой форме.
+2. **2b. Счётчики сессии.** Старт из `process.counters`, запись в
+   `game_process.counters`, `requires_counters` в
+   `GameProcessRules::availableSteps`, `counter_on_success|failure` в
+   `GameProcessFlow`, отдача счётчиков и готовых шагов в `game.getBattleSheets`
+   (`GameProjections`). Тесты: рост, `set` в 0, порог, сброс на провале,
+   отсутствие счётчика в листе персонажа.
+3. **2c. Модификаторы удара и одна цель.** `advantage` уходит в
+   `GameStrikeResolution::rollOf` как `RollAdvantage('action', delta)`;
+   `extra_successes` — в число успехов для урона в `successOf`/`damageOf`.
+   `target_mode: single` фиксирует цель сессии на первом ударе и отклоняет
+   смену. Тесты: помеха старта, помеха равна Комбо, потолки 3/3, промах
+   остаётся промахом.
+4. **2d. Закрытие чужой атакой.** `GameActionDeclare` читает открытую сессию
+   актора (`GameProcessRepository::findOpenForActor`) и для обычной атаки;
+   рантайм ищет дочернюю способность с `closes_parent_process`, проверяет
+   `requires_counters`, применяет `strike`-пакет к первому удару и закрывает
+   сессию после разрешения. Тесты: попадание и промах закрывают, без карточки
+   не закрывают, порог не достигнут — атака обычная, широкий удар отклоняется.
+5. **2e. Контент и фронт.** Публикация ревизии 28 в Rulespace, миграция
+   персонажа. Фронт: `ComboProcessService`, `COMBO_CLOSE_CAPS`,
+   `COMBO_STEP_CODES` и локальный счёт комбо удаляются; `ProcessSession`
+   получает счётчики из `game.getBattleSheets`
+   (`ProcessSessionSourceService`), доступные шаги и модификаторы — только с
+   сервера (`AttackLaunchDialog`, `HitLaunchDialog`). Ручная проверка, затем
+   полный `bash tools/test-full.sh`.
+
+Не входит: движение (`run`/`sprint`, срез 3), широкий удар, поддержание
+заклинаний, счётчики вне боя.
+
 ## Тесты
 
 - Unit: `ProcessRules` — переходы (`chain`/`free`/`custom`), `exit`,
@@ -447,6 +530,9 @@ game.get / getRoster    краткая сводка для карточки и �
   `ProcessSpec` v2 и умолчания старых ревизий (в том числе `execution` по
   умолчанию для `seriya`/`mnozhestvo`), пустой `start_step_code` = первый шаг,
   `operations: []` — операционный шаг, а не удар.
+- Unit: `Formula` — `fixed`, `counter` с `factor`/`divisor`, `min_value` и
+  `max_value`; `CounterOp` — `delta` и `set`; `closes_parent_process` без
+  `parent_ability_code` отвергается парсером.
 - Unit: цена шага не поднимается `MIN_STRIKE_AP`/`min_total_action_cost`, но
   `adjustSpends` её меняет.
 - Unit/Game: удар с кодом карточки процесса проходит проверку доступности;
@@ -468,6 +554,13 @@ game.get / getRoster    краткая сводка для карточки и �
   по-прежнему отвергается. Широкий удар как шаг процесса отвергается.
 - Game MySQL: запись шага процесса повышает `game_battle.state_version`;
   устаревшая версия боя даёт конфликт, а не второй шаг.
+- Game MySQL (срез 2): счётчик растёт на успехе шага и сбрасывается `set`;
+  `requires_counters` скрывает шаг ниже порога; `target_mode: single` держит
+  одну цель и отклоняет смену; `extra_successes` повышает урон, но не
+  переворачивает промах в попадание; `closes_parent_process` применяет пакет к
+  первому удару и закрывает сессию и на попадании, и на промахе; без такой
+  карточки обычная атака процесс не закрывает; широкий удар как закрытие
+  отвергается.
 - Frontend: `ProcessSessionSourceService` переводит серверные сессии в
   `ProcessSession`; `game.getBattleSheets` отдаёт сессию и долг; диалог атаки
   шлёт процессный контекст; «Продолжить»/«Оборвать» работают на реальном API;
@@ -528,3 +621,17 @@ game.get / getRoster    краткая сводка для карточки и �
   отказ.
 - `combo-finish` без исходящих рёбер и без `exit_step_codes` оставит процесс
   открытым; в ревизии 28 выход обязателен.
+- `extra_successes` легко спутать с преимуществом: если добавить их к броску,
+  промах начнёт попадать, а бонус комбо — снижать шанс промаха. Прибавлять
+  только к числу успехов урона, после определения попадания.
+- Закрытие идёт через общий путь обычного действия: `GameActionDeclare` сейчас
+  читает сессию процесса только при `processRuleCode`. Без lookup
+  `findOpenForActor` для обычной атаки карточка-закрывашка не сработает или
+  сработает на шаге. Это та же категория риска, что вынос долга в срезе 1.
+- Две дочерние карточки с `closes_parent_process` на одном процессе могут
+  сложить пакеты. Нужно правило: применяется первая подходящая по порогу, а не
+  сумма; иначе два разных усиления дадут стек, которого нет в правилах.
+- `closes_parent_process` на карточке без `parent_ability_code` — ошибка формы,
+  а не «закрывает всё»: парсер обязан её отвергать.
+- Широкий удар как закрытие отклоняется: иначе закрытие сработает после одной
+  цели из нескольких и сессия закроется раньше, чем разрешатся остальные.
