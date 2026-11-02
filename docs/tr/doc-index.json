@@ -4538,7 +4538,7 @@
         },
         {
             "path": "docs/tr/game-plan-43-processes.md",
-            "title": "План 43 — Процессы как тип действия",
+            "title": "План 43 — Процессы как оркестратор действий",
             "zone": "tr",
             "kind": "plan",
             "state": "ПЛАН",
@@ -4551,8 +4551,8 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 14954,
-            "lines": 215,
+            "bytes": 23683,
+            "lines": 304,
             "modules": [
                 "Roleplay/Game"
             ],

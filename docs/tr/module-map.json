@@ -2002,7 +2002,7 @@
                 },
                 {
                     "path": "docs/tr/game-plan-43-processes.md",
-                    "title": "План 43 — Процессы как тип действия",
+                    "title": "План 43 — Процессы как оркестратор действий",
                     "kind": "plan",
                     "state": "ПЛАН",
                     "date": null,
