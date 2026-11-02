@@ -91,6 +91,24 @@ final class GameStrikeOpen
         $attackerChoices = is_array($snapshot['sheet']['choices'] ?? null) ? $snapshot['sheet']['choices'] : [];
         $attackerSheet = is_array($snapshot['sheet']['sheet'] ?? null) ? $snapshot['sheet']['sheet'] : [];
         $abilityLevels = is_array($attackerSheet['abilityLevels'] ?? null) ? $attackerSheet['abilityLevels'] : [];
+        $defender = $choice['defender'] ?? null;
+        $closingProcessId = null;
+        if (
+            $context === null
+            && is_array($defender)
+            && is_string($defender['type'] ?? null)
+            && is_int($defender['id'] ?? null)
+        ) {
+            $closingProcessId = $this->processes->closingFor(
+                $game,
+                $battle,
+                ['type' => $attackerKind, 'id' => $attackerId],
+                ['type' => $defender['type'], 'id' => $defender['id']],
+                $actionCode,
+                $abilityLevels,
+            );
+        }
+
         foreach ($targets as $target) {
             $profileType = $target['profile_type'] ?? null;
             $profileIndex = $target['profile_index'] ?? null;
@@ -161,6 +179,9 @@ final class GameStrikeOpen
             $action['process_id'] = $processId;
             $action['process_step_code'] = $context['processStepCode'];
             $targets = $this->withProcessTargets($targets, $choice);
+        } elseif ($closingProcessId !== null) {
+            $action['process_id'] = $closingProcessId;
+            $action['process_step_code'] = '';
         }
 
         $strikeId = $this->actions->addWithStrikes($action, $targets);

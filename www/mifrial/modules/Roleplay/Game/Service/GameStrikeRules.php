@@ -24,6 +24,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityProcessSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DodgeRangedPenalty;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackAccuracyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackCharacteristicModifierEffect;
@@ -1505,6 +1506,60 @@ final class GameStrikeRules
         }
 
         return null;
+    }
+
+    /**
+     * Первая по коду живая карточка-потомок, закрывающая процесс.
+     *
+     * Потомок не обязан быть type ability: узел живёт в общей базе, поэтому
+     * подходит и skill. Тип карточки не фильтруется.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $processCode Карточка процесса.
+     * @param array<string, mixed> $counters Счётчики сессии.
+     * @param array<string, int> $abilityLevels Уровни способностей актора.
+     *
+     * @return AbilityWithBase|null Карточка или null.
+     */
+    public function closingAbility(
+        int $spaceId,
+        int $rulesRevision,
+        string $processCode,
+        array $counters,
+        array $abilityLevels,
+    ): ?AbilityWithBase {
+        $found = [];
+        foreach ($this->slice($spaceId, $rulesRevision)->getLiveRules() as $rule) {
+            $spec = $rule->getSpec();
+            if (!$spec instanceof AbilityWithBase) {
+                continue;
+            }
+
+            $base = $spec->getBase();
+            if ($base->getParentAbilityCode() !== $processCode) {
+                continue;
+            }
+
+            $close = $base->getClosesParentProcess();
+            if ($close === null || ($abilityLevels[$rule->getCode()] ?? 0) < 1) {
+                continue;
+            }
+
+            if (!$close->meets($counters)) {
+                continue;
+            }
+
+            $found[$rule->getCode()] = $spec;
+        }
+
+        if ($found === []) {
+            return null;
+        }
+
+        ksort($found, SORT_STRING);
+
+        return reset($found);
     }
 
     /**

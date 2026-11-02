@@ -317,6 +317,43 @@ final class GameProcessFlow
     }
 
     /**
+     * Закрывает сессию чужой атакой: resolved и эффекты завершения, без шага.
+     *
+     * @param GameRecord $game Игра.
+     * @param array{type: string, id: int} $actor Актор.
+     * @param int $processId Процесс.
+     * @param array<string, mixed> $pending Ожидание.
+     *
+     * @return array<string, mixed> Ожидание.
+     *
+     * @throws GameInvalidException Если строка или спека битые.
+     */
+    public function closeByAttack(GameRecord $game, array $actor, int $processId, array $pending): array
+    {
+        $row = $this->processes->getById($processId);
+        if ($row->getStatus() !== 'open' || $row->getProcessRuleCode() === null) {
+            return $pending;
+        }
+
+        $slice = $this->strikeRules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $spec = $this->rules->spec($slice, $row->getProcessRuleCode());
+        $this->processes->updateState($processId, ['status' => 'resolved']);
+
+        $effects = $spec->getCompletionEffects();
+        if ($effects !== []) {
+            $pending = $this->pendingCosts->appendEffects(
+                $pending,
+                $actor['type'],
+                $actor['id'],
+                $effects,
+                $row->getProcessRuleCode(),
+            );
+        }
+
+        return $pending;
+    }
+
+    /**
      * Прерывает открытый процесс.
      *
      * @param GameRecord $game Игра.
@@ -413,16 +450,16 @@ final class GameProcessFlow
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $open Строка действия.
+     * @param array<string, int> $abilityLevels Уровни способностей актора.
      *
      * @return array<string, mixed>|null Контекст или null.
      *
      * @throws GameInvalidException Если строка или спека битые.
      */
-    public function strike(GameRecord $game, array $open): ?array
+    public function strike(GameRecord $game, array $open, array $abilityLevels = []): ?array
     {
         $processId = $open['process_id'] ?? null;
-        $stepCode = $open['process_step_code'] ?? null;
-        if (!is_int($processId) || !is_string($stepCode) || $stepCode === '') {
+        if (!is_int($processId)) {
             return null;
         }
 
@@ -433,6 +470,29 @@ final class GameProcessFlow
 
         $slice = $this->strikeRules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->rules->spec($slice, $row->getProcessRuleCode());
+        $stepCode = is_string($open['process_step_code'] ?? null) ? $open['process_step_code'] : '';
+        if ($stepCode === '') {
+            $counters = $row->getCounters();
+            $closer = $this->strikeRules->closingAbility(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $row->getProcessRuleCode(),
+                $counters,
+                $abilityLevels,
+            );
+            $strike = $closer?->getBase()->getClosesParentProcess()?->getStrike();
+
+            return [
+                'row' => $row,
+                'spec' => $spec,
+                'closing' => true,
+                'strike' => [
+                    'advantage' => $strike === null ? 0 : $strike->advantageOf($counters),
+                    'extraSuccesses' => $strike === null ? 0 : $strike->extraSuccessesOf($counters),
+                ],
+            ];
+        }
+
         $step = $this->rules->step($spec, $stepCode);
         $weaponKey = $this->weaponKey([
             'itemInventoryId' => is_int($open['item_inventory_id'] ?? null) ? $open['item_inventory_id'] : 0,
@@ -451,6 +511,62 @@ final class GameProcessFlow
     }
 
     /**
+     * Открытая сессия актора, которую может закрыть эта атака.
+     *
+     * Нет сессии, другой цели, порога или уровня — null: атака обычная.
+     * Широкая атака и толчок под подходящим закрытием — отказ.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
+     * @param array{type: string, id: int} $actor Актор.
+     * @param array{type: string, id: int} $target Цель атаки.
+     * @param string $actionCode Карточка атаки.
+     * @param array<string, int> $abilityLevels Уровни способностей актора.
+     *
+     * @return int|null Id процесса или null.
+     *
+     * @throws GameInvalidException Если закрытие широкое или толчок.
+     */
+    public function closingFor(
+        GameRecord $game,
+        GameBattleRecord $battle,
+        array $actor,
+        array $target,
+        string $actionCode,
+        array $abilityLevels,
+    ): ?int {
+        $row = $this->processes->findOpenForActor($battle->getId(), $actor['type'], $actor['id']);
+        if ($row === null || $row->getProcessRuleCode() === null) {
+            return null;
+        }
+
+        if ($row->getLastTargetType() !== $target['type'] || $row->getLastTargetId() !== $target['id']) {
+            return null;
+        }
+
+        $closer = $this->strikeRules->closingAbility(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $row->getProcessRuleCode(),
+            $row->getCounters(),
+            $abilityLevels,
+        );
+        if ($closer === null) {
+            return null;
+        }
+
+        if ($this->strikeRules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $actionCode) !== null) {
+            throw new GameInvalidException('Game process closing push is not supported');
+        }
+
+        if ($this->strikeRules->isWideAttack($game->getSpaceId(), $game->getRulesRevision(), $actionCode)) {
+            throw new GameInvalidException('Game process closing wide strike is not supported');
+        }
+
+        return $row->getId();
+    }
+
+    /**
      * Вычисленный пакет удара шага процесса.
      *
      * @param array<string, mixed>|null $process Контекст шага.
@@ -460,6 +576,17 @@ final class GameProcessFlow
     public function strikePackage(?array $process): array
     {
         $empty = ['advantage' => 0, 'extraSuccesses' => 0];
+        if (is_array($process) && is_array($process['strike'] ?? null)) {
+            return [
+                'advantage' => is_int($process['strike']['advantage'] ?? null)
+                    ? $process['strike']['advantage']
+                    : 0,
+                'extraSuccesses' => is_int($process['strike']['extraSuccesses'] ?? null)
+                    ? $process['strike']['extraSuccesses']
+                    : 0,
+            ];
+        }
+
         $step = is_array($process) ? ($process['step'] ?? null) : null;
         $row = is_array($process) ? ($process['row'] ?? null) : null;
         if (!$step instanceof ProcessStep || !$row instanceof GameProcessRecord) {

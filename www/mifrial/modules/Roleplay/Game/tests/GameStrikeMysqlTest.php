@@ -4979,6 +4979,258 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Мир с процессом и карточкой-потомком, закрывающей его.
+     *
+     * @param int $initial Стартовое Комбо.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function processClosingRules(int $initial = 2): array
+    {
+        return array_merge($this->stateActionRules(), [
+            'closer-proc' => [
+                'type' => 'ability',
+                'name' => 'Closer Proc',
+                'spec' => [
+                    'type' => 'process',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'process' => [
+                        'counters' => [['counter_code' => 'combo', 'initial' => $initial]],
+                        'target_mode' => 'single',
+                        'steps' => [[
+                            'code' => 'start',
+                            'name' => 'Start',
+                            'costs' => [['amount' => 1, 'resource_code' => 'action-points']],
+                            'description' => 'Start.',
+                        ]],
+                        'start_step_code' => 'start',
+                        'failure' => 'end_action',
+                    ],
+                ],
+            ],
+            'otkrytie' => [
+                'type' => 'ability',
+                'name' => 'Opening',
+                'spec' => [
+                    'type' => 'skill',
+                    'parent_ability_code' => 'closer-proc',
+                    'closes_parent_process' => [
+                        'requires_counters' => [['counter_code' => 'combo', 'min' => 2]],
+                        'strike' => ['advantage' => ['type' => 'fixed', 'value' => 2]],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Обычная атака по прежней цели закрывает процесс потомком.
+     *
+     * @return void
+     */
+    public function testProcessClosingAttackResolvesSession(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->processClosingRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Close Hero', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ], abilities: [
+            ['ruleCode' => 'closer-proc', 'level' => 1],
+            ['ruleCode' => 'otkrytie', 'level' => 1],
+        ]);
+        $firstId = $this->admit($world->getId(), $gameId, 'Close Guard');
+        $secondId = $this->admit($world->getId(), $gameId, 'Other Guard');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-close',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $processes = new GameProcessRepository($gateway);
+
+        $started = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-close-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $firstId, 'swing')
+                + ['processRuleCode' => 'closer-proc'],
+            ),
+        ]);
+        self::assertTrue($started['success'], json_encode($started));
+        $closedStep = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-close-def-1',
+            'expectedVersion' => $started['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($firstId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closedStep['success'], json_encode($closedStep));
+        $row = $processes->findOpenForActor($battleId, 'character', $attackerId);
+        self::assertNotNull($row);
+        $processId = $row->getId();
+
+        $other = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-close-other',
+            'expectedVersion' => $closedStep['data']['version'],
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $secondId, 'swing')),
+        ]);
+        self::assertTrue($other['success'], json_encode($other));
+        $otherClosed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-close-other-def',
+            'expectedVersion' => $other['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($secondId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($otherClosed['success'], json_encode($otherClosed));
+        self::assertSame('open', $processes->getById($processId)->getStatus());
+
+        $closing = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-close-2',
+            'expectedVersion' => $otherClosed['data']['version'],
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $firstId, 'swing')),
+        ]);
+        self::assertTrue($closing['success'], json_encode($closing));
+        $closingClosed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-close-def-2',
+            'expectedVersion' => $closing['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($firstId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closingClosed['success'], json_encode($closingClosed));
+        self::assertSame('resolved', $processes->getById($processId)->getStatus());
+        self::assertNull($processes->findOpenForActor($battleId, 'character', $attackerId));
+    }
+
+    /**
+     * Закрытие требует выполненного порога счётчика.
+     *
+     * @return void
+     */
+    public function testProcessClosingNeedsThreshold(): void
+    {
+        self::assertSame('open', $this->resolveClosingAttempt(0, true)['status']);
+    }
+
+    /**
+     * Закрытие требует купленной карточки-потомка.
+     *
+     * @return void
+     */
+    public function testProcessClosingNeedsOwnedCard(): void
+    {
+        self::assertSame('open', $this->resolveClosingAttempt(2, false)['status']);
+    }
+
+    /**
+     * Открывает процесс и бьёт обычной атакой по прежней цели.
+     *
+     * @param int $initial Стартовое Комбо.
+     * @param bool $owned Куплен ли потомок.
+     *
+     * @return array{processId: int, status: string} Итог.
+     */
+    private function resolveClosingAttempt(int $initial, bool $owned): array
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->processClosingRules($initial));
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $abilities = [['ruleCode' => 'closer-proc', 'level' => 1]];
+        if ($owned) {
+            $abilities[] = ['ruleCode' => 'otkrytie', 'level' => 1];
+        }
+
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attempt Hero', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ], abilities: $abilities);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Attempt Guard');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-attempt-' . $gameId,
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $processes = new GameProcessRepository($gateway);
+        $started = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-attempt-' . $gameId,
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'swing')
+                + ['processRuleCode' => 'closer-proc'],
+            ),
+        ]);
+        self::assertTrue($started['success'], json_encode($started));
+        $closedStep = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-attempt-def-' . $gameId,
+            'expectedVersion' => $started['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closedStep['success'], json_encode($closedStep));
+        $row = $processes->findOpenForActor($battleId, 'character', $attackerId);
+        self::assertNotNull($row);
+        $processId = $row->getId();
+
+        $attack = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-attempt-2-' . $gameId,
+            'expectedVersion' => $closedStep['data']['version'],
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId, 'swing')),
+        ]);
+        self::assertTrue($attack['success'], json_encode($attack));
+        $closedAttack = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-attempt-2-def-' . $gameId,
+            'expectedVersion' => $attack['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closedAttack['success'], json_encode($closedAttack));
+
+        return ['processId' => $processId, 'status' => $processes->getById($processId)->getStatus()];
+    }
+
+    /**
      * Мир с процессом, который ведёт счётчик Комбо.
      *
      * @return array<string, array<string, mixed>> Правила.

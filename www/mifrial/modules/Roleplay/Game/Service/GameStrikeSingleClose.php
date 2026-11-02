@@ -127,7 +127,6 @@ final class GameStrikeSingleClose
             'conditions' => GameStrikeTargetRow::conditions($row),
         ]);
         $packets = $sequential ? 1 : max(1, count($strikes));
-        $process = $this->processes->strike($game, $open);
         $target = $this->rows->defender($row);
         $targetKey = $this->rows->targetKey($target);
         $attackerKind = $open['attacker_kind'] ?? null;
@@ -135,6 +134,12 @@ final class GameStrikeSingleClose
         if (!is_string($attackerKind) || !is_int($attackerId)) {
             throw new GameInvalidException('Game strike attacker is invalid');
         }
+
+        $process = $this->processes->strike(
+            $game,
+            $open,
+            $this->abilityLevels($game, $attackerKind, $attackerId),
+        );
 
         $lastStrike = new GameLastStrikeSnapshot();
         $this->choices->assertReaction($game, $target, $requestChoice);
@@ -753,18 +758,27 @@ final class GameStrikeSingleClose
             $skipAfterAction,
         );
         if (is_array($process)) {
-            $stepCode = $process['step']->getCode();
-            $hitSuccess = $isPush ? !$autoFail : (!$autoFail && $success > 0);
-            $pending = $this->processes->complete(
-                $game,
-                ['type' => $attackerKind, 'id' => $attackerId],
-                $process['row']->getId(),
-                $stepCode,
-                $hitSuccess,
-                $pending,
-                $process['weaponKey'],
-                $target,
-            );
+            if (($process['closing'] ?? false) === true) {
+                $pending = $this->processes->closeByAttack(
+                    $game,
+                    ['type' => $attackerKind, 'id' => $attackerId],
+                    $process['row']->getId(),
+                    $pending,
+                );
+            } else {
+                $stepCode = $process['step']->getCode();
+                $hitSuccess = $isPush ? !$autoFail : (!$autoFail && $success > 0);
+                $pending = $this->processes->complete(
+                    $game,
+                    ['type' => $attackerKind, 'id' => $attackerId],
+                    $process['row']->getId(),
+                    $stepCode,
+                    $hitSuccess,
+                    $pending,
+                    $process['weaponKey'],
+                    $target,
+                );
+            }
         }
 
         if ($reactionRuleCode !== null) {
