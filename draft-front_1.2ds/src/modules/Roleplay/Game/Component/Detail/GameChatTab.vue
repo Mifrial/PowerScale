@@ -1984,6 +1984,13 @@ onUnmounted(() => {
         <v-btn v-if="processNotice.continueLabel" variant="text" @click="continueNotifiedProcess">
           {{ processNotice.continueLabel }}
         </v-btn>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          aria-label="Закрыть уведомление"
+          @click="processNotice = null"
+        />
       </template>
     </v-snackbar>
   </div>
