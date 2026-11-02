@@ -15,4 +15,8 @@ export interface GamePhpTurnResult {
   refused?: string;
   /** Остаток ОД в долге, если удар ещё не открыт. */
   remaining?: number;
+  /** Прерванный процесс: карточка и шаг. */
+  processRuleCode?: string;
+  stepCode?: string;
+  aborted?: boolean;
 }

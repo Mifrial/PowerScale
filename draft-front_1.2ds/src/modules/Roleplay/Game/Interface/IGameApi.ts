@@ -55,11 +55,9 @@ import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/
 import type { GameCharacterModerationCommand } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationCommand';
 import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationResult';
 import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
-import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
 import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
 import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionRequest';
 import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
-import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
 import type { GameManualSheetRequest } from '@/modules/Roleplay/Game/Dto/GameManualSheetRequest';
 import type { GameManualSheetResult } from '@/modules/Roleplay/Game/Dto/GameManualSheetResult';
 import type { GameInitiativeRollRequest } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollRequest';
@@ -337,6 +335,17 @@ export interface IGameApi {
       battleId: number;
       expectedBattleVersion: number;
       expectedSheetVersion: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpTurnResult>;
+  abortProcess(
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      battleId: number;
+      expectedBattleVersion: number;
+      expectedSheetVersion: number;
+      mode: 'normal' | 'emergency';
     },
     signal?: AbortSignal,
   ): Promise<GamePhpTurnResult>;

@@ -339,7 +339,7 @@ Frontend blood-clotting сейчас заменяет состояния чер�
   `MOCK`.
 - Authoritative PHP «долг действия»: списать доступное ОД, ждать продолжения,
   продолжить или оборвать сессию —
-  `BACKEND` (общий слот для `action`/`strike`/`wound`), `FRONTEND + E2E_MISSING`.
+  `BACKEND` (общий слот для `action`/`strike`/`wound`), `FRONTEND`, `E2E_MISSING`.
 - Передача хода как отдельное полноценное боевое действие — требует проверки
   backend-контракта и пока не считается `E2E`.
 
@@ -349,10 +349,11 @@ PHP-рантайм процесса среза 1: шаг через `game.runAct
 
 Процесс как тип действия (`ProcessSpec`: шаги, стоимости, переходы, failure и
 interruption) — `BACKEND` для `seriya-udarov` и `mnozhestvo-udarov`; контент
-ревизии 27 не менялся. Фронт пока работает на моке
-`ProcessSessionService`/`ComboProcessService`, реальный API
-`game.getBattleSheets` отдаёт сессии процессов и слот долга. `run`/`sprint`
-дополнительно требуют контракта движения, который вне текущего боевого гейта.
+ревизии 27 не менялся. Фронт среза 1 читает сессии процесса из
+`game.getBattleSheets`, объявляет шаг контекстом `game.runAction` и обрывает
+через `game.abortProcess`; мок `ProcessSessionService`/`ComboProcessService`
+остаётся для счётчиков, комбо и движения. `run`/`sprint` дополнительно требуют
+контракта движения, который вне текущего боевого гейта.
 
 ## Магия
 

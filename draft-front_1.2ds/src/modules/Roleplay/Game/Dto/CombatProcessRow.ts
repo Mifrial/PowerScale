@@ -12,6 +12,8 @@ export interface CombatProcessRow {
   details: CombatStateDetailRow[];
   canAbort: boolean;
   abortLabel: string;
+  canContinue: boolean;
+  continueLabel: string;
   canChargeCast: boolean;
   chargeCastLabel: string;
 }

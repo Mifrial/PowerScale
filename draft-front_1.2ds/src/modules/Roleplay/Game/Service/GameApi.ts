@@ -69,6 +69,7 @@ import type { GameInitiativeRollResult } from '@/modules/Roleplay/Game/Dto/GameI
 import type { GameInitiativeOrderEntry } from '@/modules/Roleplay/Game/Dto/GameInitiativeOrderEntry';
 import { GameApiError } from '@/modules/Roleplay/Game/Service/GameApiError';
 import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { processSessionSourceService } from '@/modules/Roleplay/Game/Service/Instance/processSessionSourceService';
 import { gamePhpCardService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCardService';
 import { characterHttpSaveService, characterHttpViewService } from '@/modules/Roleplay/Character/init';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
@@ -783,8 +784,15 @@ export class GameApi implements IGameApi {
     this.throwPhpUnsupported();
   }
 
-  async getProcessSessions(_gameId: number, _signal?: AbortSignal): Promise<Record<CombatEntityKey, ProcessSession>> {
-    return {};
+  async getProcessSessions(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, ProcessSession>> {
+    if (gamePhpBattleContext.battleId === null) {
+      await this.getGame(gameId, signal);
+    }
+    const battleId = gamePhpBattleContext.battleId;
+    if (battleId === null) return {};
+    const sheets = await this.getBattleSheets({ gameId, battleId }, signal);
+
+    return processSessionSourceService.fromBattleSheets(gameId, sheets.processSessions);
   }
 
   async setProcessSession(
@@ -1140,6 +1148,20 @@ export class GameApi implements IGameApi {
     signal?: AbortSignal,
   ): Promise<GamePhpTurnResult> {
     return this.turnCommand('game.abortAction', body, signal);
+  }
+
+  async abortProcess(
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      battleId: number;
+      expectedBattleVersion: number;
+      expectedSheetVersion: number;
+      mode: 'normal' | 'emergency';
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpTurnResult> {
+    return this.turnCommand('game.abortProcess', body, signal);
   }
 
   private async turnCommand(

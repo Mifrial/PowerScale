@@ -519,6 +519,14 @@ async function submit(): Promise<void> {
       activeProcess.value ?? processSessionService.start(props.gameId, key, action.ruleCode, action.process);
     const step = action.process.steps.find((item) => item.code === stepCode);
     if (!step) throw new Error('Шаг процесса не найден');
+    if (gamePhpMode.isEnabled() && processSessionService.executionOf(step) === 'action') {
+      await applyDeclaredAction(processRule.value ?? actionRuleOf(action.ruleCode), {
+        processRuleCode: action.ruleCode,
+        processStepCode: stepCode,
+      });
+
+      return;
+    }
     if (step.operations?.length || isMovementProcess.value) {
       const version = versionOf(key);
       if (!version) throw new Error('Лист участника не найден');
@@ -805,7 +813,10 @@ async function applyWoundAction(code: string): Promise<void> {
   }
 }
 
-async function applyDeclaredAction(rule: Rule): Promise<void> {
+async function applyDeclaredAction(
+  rule: Rule,
+  process?: { processRuleCode: string; processStepCode: string },
+): Promise<void> {
   const key = actorKey.value;
   if (!key) throw new Error('Нет исполнителя');
   const needsTarget = actionEffectService.requiresPreviousAttack(rule);
@@ -831,6 +842,7 @@ async function applyDeclaredAction(rule: Rule): Promise<void> {
         expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
         followUpTargetKey: target,
         chosenAmounts,
+        ...(process ? { processRuleCode: process.processRuleCode, processStepCode: process.processStepCode } : {}),
       },
     },
   });

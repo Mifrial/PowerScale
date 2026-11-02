@@ -9,6 +9,7 @@ defineProps<{
 
 const emit = defineEmits<{
   abort: [];
+  continue: [];
   'charge-cast': [];
 }>();
 
@@ -16,6 +17,11 @@ const menuOpen = ref(false);
 
 function submitAbort(): void {
   emit('abort');
+  menuOpen.value = false;
+}
+
+function submitContinue(): void {
+  emit('continue');
   menuOpen.value = false;
 }
 
@@ -55,6 +61,17 @@ function submitChargeCast(): void {
           @click="submitChargeCast"
         >
           {{ row.chargeCastLabel }}
+        </v-btn>
+        <v-btn
+          v-if="canEdit && row.canContinue"
+          class="mt-3"
+          color="primary"
+          variant="tonal"
+          size="small"
+          block
+          @click="submitContinue"
+        >
+          {{ row.continueLabel }}
         </v-btn>
         <v-btn
           v-if="canEdit && row.canAbort"

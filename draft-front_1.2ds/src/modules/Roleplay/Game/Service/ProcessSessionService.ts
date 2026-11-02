@@ -94,6 +94,13 @@ export class ProcessSessionService {
       .reduce((total, cost) => total + (typeof cost.amount === 'number' ? cost.amount : cost.amount.base), 0);
   }
 
+  /** Режим шага с умолчанием старых ревизий: нет execution — operations значит none, иначе strike. */
+  executionOf(step: ProcessStep): 'strike' | 'action' | 'none' {
+    if (step.execution) return step.execution.type;
+
+    return 'operations' in step ? 'none' : 'strike';
+  }
+
   recordResolution(session: ProcessSession, resolution: ActionResolution): ProcessSession {
     return { ...session, lastResolution: structuredClone(resolution), updatedAt: new Date().toISOString() };
   }

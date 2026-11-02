@@ -118,6 +118,7 @@ const emit = defineEmits<{
   /** Оверлей боевых изменений мутировал (ресурс/состояние) — для обновления соседних блоков (школа инициативы). */
   'overlay-changed': [];
   'launch-hit': [payload: { attackerKey: CombatEntityKey; attack: AttackOverview }];
+  'continue-process': [entityKey: CombatEntityKey];
   'launch-injury': [];
   'launch-charge-cast': [payload: { casterKey: CombatEntityKey; sustainId: string }];
   'launch-action': [hint: ActionLaunchHint];
@@ -532,6 +533,23 @@ async function abortProcessSession(): Promise<void> {
   ) {
     throw new Error('Текущий процесс нельзя прервать обычным способом');
   }
+  if (gamePhpMode.isEnabled()) {
+    const battleId = gamePhpBattleContext.battleId;
+    if (battleId === null) throw new Error('Бой ещё не известен');
+    await getGameApi().abortProcess({
+      gameId: props.gameId,
+      idempotencyKey: createRandomId(),
+      battleId,
+      expectedBattleVersion: gamePhpBattleContext.battleVersion,
+      expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
+      mode: 'normal',
+    });
+    if (props.chatId !== null) {
+      await sendChat(`${processRule.name} прекращён.`, [], props.chatId, speaker.value);
+    }
+
+    return;
+  }
   await getGameApi().setProcessSession(props.gameId, key, null);
   const completionEffects = actionEffectService.effectsAfterProcess(processRule);
   const nextEffects = [...pendingEffects.value, ...completionEffects];
@@ -542,6 +560,11 @@ async function abortProcessSession(): Promise<void> {
     ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
     : '';
   await sendChat(`${processRule.name} прекращён.${effectText}`, [], props.chatId, speaker.value);
+}
+
+function continueProcess(): void {
+  if (!props.entityKey) return;
+  emit('continue-process', props.entityKey);
 }
 
 async function abortCommittedAction(): Promise<void> {
@@ -1326,6 +1349,7 @@ function onSheetToggleEquipped(itemId: number): void {
                     :row="row"
                     :can-edit="model.canEdit"
                     @abort="abortProcessRow(row)"
+                    @continue="continueProcess"
                     @charge-cast="launchChargeCast(row.id)"
                   />
                 </div>

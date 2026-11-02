@@ -216,7 +216,7 @@
             "layer": {
                 "PHP": 42,
                 "МОК": 4,
-                "VUE": 8
+                "VUE": 9
             }
         },
         "Roleplay/Keyword": {
@@ -3407,8 +3407,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-11-02",
-            "bytes": 34008,
-            "lines": 551,
+            "bytes": 34139,
+            "lines": 552,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -4546,12 +4546,13 @@
             "statusRaw": "~ЧАСТИЧНО~",
             "layers": [
                 "PHP",
+                "VUE",
                 "МОК"
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 42767,
-            "lines": 494,
+            "bytes": 43720,
+            "lines": 506,
             "modules": [
                 "Roleplay/Game"
             ],

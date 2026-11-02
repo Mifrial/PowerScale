@@ -12,4 +12,9 @@ export interface ProcessStep {
     effects?: ActionEffect[];
   };
   operations?: ActionOperation[];
+  /** Режим шага; нет ключа — шаг-удар, если нет ключа operations. */
+  execution?: {
+    type: 'strike' | 'action' | 'none';
+    action_code?: string | null;
+  };
 }

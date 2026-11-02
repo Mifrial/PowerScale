@@ -171,4 +171,7 @@ export const mockGameApi: IGameApi = {
   endTurn: async () => ({ version: 1 }),
   continueAction: async () => ({ version: 1 }),
   abortAction: async () => ({ version: 1 }),
+  abortProcess: async () => {
+    throw new Error('abortProcess is a PHP command');
+  },
 };

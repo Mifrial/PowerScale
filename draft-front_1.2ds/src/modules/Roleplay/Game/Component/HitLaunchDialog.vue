@@ -3630,6 +3630,12 @@ async function phpStrikeAttack() {
       ...(resolvedAttackAction.value?.actionModifierCodes?.length
         ? { modifiers: [...resolvedAttackAction.value.actionModifierCodes] }
         : {}),
+      ...(effectiveProcessContext.value
+        ? {
+            processRuleCode: effectiveProcessContext.value.session.processRuleCode,
+            processStepCode: effectiveProcessContext.value.stepCode,
+          }
+        : {}),
     },
   };
 }
@@ -3872,6 +3878,8 @@ function phpSingleStrikeEnvelope(attack: {
   conditions?: Record<string, unknown>;
   chosenAmounts?: Record<string, unknown>;
   modifiers?: string[];
+  processRuleCode?: string;
+  processStepCode?: string;
 }) {
   return {
     phase: 'declare' as const,
@@ -3881,6 +3889,9 @@ function phpSingleStrikeEnvelope(attack: {
     context: {
       strikes: [phpStrikeRow({ ...attack, target: attack.defender })],
       chosenAmounts: attack.chosenAmounts ?? {},
+      ...(attack.processRuleCode
+        ? { processRuleCode: attack.processRuleCode, processStepCode: attack.processStepCode }
+        : {}),
     },
   };
 }

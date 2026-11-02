@@ -58,7 +58,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Core/User](module-map/Core/User.md) | 11 | 0 | 0 | 0 | 9 | 1 | 8 | 1 | 0 |
 | [Messages/Chat](module-map/Messages/Chat.md) | 9 | 1 | 0 | 0 | 7 | 1 | 8 | 4 | 1 |
 | [Roleplay/Character](module-map/Roleplay/Character.md) | 17 | 2 | 0 | 2 | 10 | 2 | 13 | 2 | 0 |
-| [Roleplay/Game](module-map/Roleplay/Game.md) | 49 | 7 | 0 | 4 | 31 | 1 | 42 | 8 | 4 |
+| [Roleplay/Game](module-map/Roleplay/Game.md) | 49 | 7 | 0 | 4 | 31 | 1 | 42 | 9 | 4 |
 | [Roleplay/Keyword](module-map/Roleplay/Keyword.md) | 3 | 0 | 0 | 3 | 0 | 0 | 3 | 2 | 0 |
 | [Roleplay/Mechanic](module-map/Roleplay/Mechanic.md) | 9 | 1 | 1 | 3 | 3 | 0 | 6 | 4 | 0 |
 | [Roleplay/Rule](module-map/Roleplay/Rule.md) | 42 | 11 | 6 | 3 | 17 | 3 | 8 | 10 | 1 |

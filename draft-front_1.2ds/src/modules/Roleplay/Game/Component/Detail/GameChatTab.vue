@@ -50,6 +50,7 @@ import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance
 import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
 import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
 import { gameBattleSheetVersionService } from '@/modules/Roleplay/Game/Service/Instance/gameBattleSheetVersionService';
+import { processSessionSourceService } from '@/modules/Roleplay/Game/Service/Instance/processSessionSourceService';
 import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
 
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
@@ -947,6 +948,9 @@ function applyBattleSheets(payload: GameBattleSheets): void {
   runtimeByKey.value = nextRuntime;
   npcs.value = mergeBattleNpcSheets(npcs.value, nextRuntime, payload);
   if (payload.openWideStrike !== undefined) openWideStrike.value = payload.openWideStrike;
+  if (payload.processSessions !== undefined) {
+    processSessionsByEntity.value = processSessionSourceService.fromBattleSheets(gameId.value, payload.processSessions);
+  }
 }
 
 function applyRuntimeProjection(projection: GameRuntimeEntityProjection): void {
@@ -1290,6 +1294,10 @@ async function onOpenCard(entityKey: string): Promise<void> {
 function onCloseCard(): void {
   cardOpen.value = false;
   cardKey.value = null;
+}
+
+function onContinueProcess(entityKey: CombatEntityKey): void {
+  void onOpenCard(`process:continue:${entityKey}`);
 }
 
 // Действие у селектора «от лица кого»: открыть карточку выбранного участника (CD-5).
@@ -1778,6 +1786,7 @@ onUnmounted(() => {
       @launch-injury="onLaunchInjury"
       @launch-charge-cast="onLaunchChargeCast"
       @launch-action="onLaunchStateAction"
+      @continue-process="onContinueProcess"
     />
 
     <CheckLaunchDialog

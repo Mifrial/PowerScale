@@ -47,6 +47,10 @@ export class CombatProcessListService {
     const name = rule?.name ?? session.processRuleCode;
     const stepLabel = step?.name ?? session.currentStepCode;
     const canAbort = spec ? processSessionService.canInterruptNormally(spec, session.currentStepCode) : false;
+    const canContinue =
+      session.currentStepStatus === 'completed' &&
+      spec !== null &&
+      processSessionService.availableSteps(spec, session.currentStepCode).length > 0;
 
     return {
       id: `process:${session.entityKey}`,
@@ -62,6 +66,8 @@ export class CombatProcessListService {
       ],
       canAbort,
       abortLabel: 'Оборвать',
+      canContinue,
+      continueLabel: 'Продолжить',
       canChargeCast: false,
       chargeCastLabel: 'Сотворить',
     };
@@ -84,6 +90,8 @@ export class CombatProcessListService {
       ],
       canAbort: true,
       abortLabel: 'Сорвать',
+      canContinue: false,
+      continueLabel: 'Продолжить',
       canChargeCast: false,
       chargeCastLabel: 'Сотворить',
     };
@@ -124,6 +132,8 @@ export class CombatProcessListService {
       ],
       canAbort: true,
       abortLabel: 'Оборвать',
+      canContinue: false,
+      continueLabel: 'Продолжить',
       canChargeCast,
       chargeCastLabel: 'Сотворить',
     };

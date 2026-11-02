@@ -28,6 +28,8 @@ import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/at
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { actionModifierService } from '@/modules/Roleplay/Game/Service/Instance/actionModifierService';
 import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import type { GameActionModifier } from '@/modules/Roleplay/Game/Dto/GameActionModifier';
 import ActionModifierList from '@/modules/Roleplay/Game/Component/ActionModifierList.vue';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
@@ -668,6 +670,28 @@ async function stopProcess(): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
+    if (gamePhpMode.isEnabled()) {
+      const battleId = gamePhpBattleContext.battleId;
+      if (battleId === null) throw new Error('Бой ещё не известен');
+      await getGameApi().abortProcess({
+        gameId: props.gameId,
+        idempotencyKey: createRandomId(),
+        battleId,
+        expectedBattleVersion: gamePhpBattleContext.battleVersion,
+        expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
+        mode: 'normal',
+      });
+      emit('overlay-changed');
+      if (props.chatId !== null) {
+        await sendChat(`${processRule?.name ?? 'Процесс'} прекращён.`, [], props.chatId, speakerFor(key));
+      }
+      const nextSessions = { ...processSessions.value };
+      delete nextSessions[key];
+      processSessions.value = nextSessions;
+      sourceRuleCode.value = sources.value[0]?.code ?? null;
+
+      return;
+    }
     await getGameApi().setProcessSession(props.gameId, key, null);
     const completionEffects = interrupt.completionEffects;
     const currentEffects = pendingEffects.value[key] ?? [];
@@ -809,7 +833,8 @@ watch(sources, (items) => {
   if (!sourceRuleCode.value && items[0]) sourceRuleCode.value = items[0].code;
 });
 watch(selectedSource, (source) => {
-  processStepCode.value = source?.process?.start_step_code ?? source?.process?.steps[0]?.code ?? null;
+  processStepCode.value =
+    processSteps.value[0]?.code ?? source?.process?.start_step_code ?? source?.process?.steps[0]?.code ?? null;
   selectedActionModifierCodes.value = [];
   resetSlots(defaultProfile());
 });
