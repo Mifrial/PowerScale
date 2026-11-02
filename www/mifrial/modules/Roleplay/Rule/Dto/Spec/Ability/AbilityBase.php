@@ -57,6 +57,7 @@ final class AbilityBase
      * @param DodgeRangedPenalty|null $dodgeRangedPenalty Штраф уклонения от дальней атаки.
      * @param CharacteristicNumber|null $dodgeEfficiency Эффективность уклона.
      * @param string|null $dodgeSoak Код характеристики смягчения.
+     * @param ProcessCloseSpec|null $closesParentProcess Закрытие процесса-родителя.
      *
      * @return void
      */
@@ -102,6 +103,7 @@ final class AbilityBase
         private readonly ?DodgeRangedPenalty $dodgeRangedPenalty = null,
         private readonly ?CharacteristicNumber $dodgeEfficiency = null,
         private readonly ?string $dodgeSoak = null,
+        private readonly ?ProcessCloseSpec $closesParentProcess = null,
     ) {
     }
 
@@ -513,5 +515,15 @@ final class AbilityBase
     public function getDerivedLevel(): ?DerivedLevel
     {
         return $this->derivedLevel;
+    }
+
+    /**
+     * Закрытие процесса-родителя этой карточкой.
+     *
+     * @return ProcessCloseSpec|null Описание или null.
+     */
+    public function getClosesParentProcess(): ?ProcessCloseSpec
+    {
+        return $this->closesParentProcess;
     }
 }

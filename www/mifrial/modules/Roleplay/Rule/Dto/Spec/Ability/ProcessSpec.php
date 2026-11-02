@@ -11,6 +11,10 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\ProcessTransition;
  */
 final class ProcessSpec
 {
+    public const TARGET_ANY = 'any';
+
+    public const TARGET_SINGLE = 'single';
+
     /**
      * Создаёт тело.
      *
@@ -21,6 +25,8 @@ final class ProcessSpec
      * @param string|null $failure Провал.
      * @param array<int, \Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionEffect> $completionEffects Эффекты завершения.
      * @param bool $repeatWeaponCircumstance Помеха повтора.
+     * @param array<int, ProcessCounter> $counters Счётчики сессии.
+     * @param string $targetMode Режим цели: any или single.
      *
      * @return void
      */
@@ -32,6 +38,8 @@ final class ProcessSpec
         private readonly ?string $failure,
         private readonly array $completionEffects,
         private readonly bool $repeatWeaponCircumstance,
+        private readonly array $counters = [],
+        private readonly string $targetMode = self::TARGET_ANY,
     ) {
     }
 
@@ -113,5 +121,35 @@ final class ProcessSpec
     public function isRepeatWeaponCircumstance(): bool
     {
         return $this->repeatWeaponCircumstance;
+    }
+
+    /**
+     * Счётчики сессии.
+     *
+     * @return array<int, ProcessCounter> Объявленные счётчики.
+     */
+    public function getCounters(): array
+    {
+        return $this->counters;
+    }
+
+    /**
+     * Режим цели.
+     *
+     * @return string any или single.
+     */
+    public function getTargetMode(): string
+    {
+        return $this->targetMode;
+    }
+
+    /**
+     * Держит ли процесс одну цель.
+     *
+     * @return bool true для single.
+     */
+    public function isSingleTarget(): bool
+    {
+        return $this->targetMode === self::TARGET_SINGLE;
     }
 }

@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Rule\Spec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityAggregate;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DerivedLevel;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessCloseSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 
 /**
@@ -67,6 +68,34 @@ final class AbilityBases
             AbilityCombat::dodgePenalty($document),
             DimensionalNumbers::optionalCharacteristic($document, 'dodge_efficiency'),
             SpecShape::optionalString($document, 'dodge_soak'),
+            self::closesParentProcess($document),
+        );
+    }
+
+    /**
+     * Закрытие процесса-родителя. Нет ключа — null, без родителя — ошибка.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return ProcessCloseSpec|null Описание или null.
+     *
+     * @throws RuleSpecShapeException Если нет parent_ability_code или форма чужая.
+     */
+    private static function closesParentProcess(array $document): ?ProcessCloseSpec
+    {
+        $row = SpecShape::object($document, 'closes_parent_process');
+        if ($row === null) {
+            return null;
+        }
+
+        $parent = SpecShape::optionalString($document, 'parent_ability_code');
+        if ($parent === null || $parent === '') {
+            throw new RuleSpecShapeException('closes_parent_process');
+        }
+
+        return new ProcessCloseSpec(
+            ProcessSpecs::readThresholds($row, 'requires_counters'),
+            ProcessSpecs::readStrikeModifier($row, 'strike'),
         );
     }
 

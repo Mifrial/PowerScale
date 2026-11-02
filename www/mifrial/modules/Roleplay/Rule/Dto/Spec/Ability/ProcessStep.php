@@ -23,6 +23,10 @@ final class ProcessStep
      * @param array<int, ActionEffect> $interruptionEffects Эффекты прерывания.
      * @param array<int, ProcessOperation> $operations Операции.
      * @param ProcessExecution $execution Режим исполнения.
+     * @param StrikeModifier|null $strike Пакет удара шага.
+     * @param array<int, CounterThreshold> $requiresCounters Пороги шага.
+     * @param array<int, CounterOp> $counterOnSuccess Счётчики на успехе.
+     * @param array<int, CounterOp> $counterOnFailure Счётчики на провале.
      *
      * @return void
      */
@@ -35,6 +39,10 @@ final class ProcessStep
         private readonly array $interruptionEffects,
         private readonly array $operations,
         private readonly ProcessExecution $execution,
+        private readonly ?StrikeModifier $strike = null,
+        private readonly array $requiresCounters = [],
+        private readonly array $counterOnSuccess = [],
+        private readonly array $counterOnFailure = [],
     ) {
     }
 
@@ -116,5 +124,45 @@ final class ProcessStep
     public function getExecution(): ProcessExecution
     {
         return $this->execution;
+    }
+
+    /**
+     * Пакет удара шага.
+     *
+     * @return StrikeModifier|null Пакет или null.
+     */
+    public function getStrike(): ?StrikeModifier
+    {
+        return $this->strike;
+    }
+
+    /**
+     * Пороги счётчиков шага.
+     *
+     * @return array<int, CounterThreshold> Пороги.
+     */
+    public function getRequiresCounters(): array
+    {
+        return $this->requiresCounters;
+    }
+
+    /**
+     * Счётчики на успехе шага.
+     *
+     * @return array<int, CounterOp> Операции.
+     */
+    public function getCounterOnSuccess(): array
+    {
+        return $this->counterOnSuccess;
+    }
+
+    /**
+     * Счётчики на провале шага.
+     *
+     * @return array<int, CounterOp> Операции.
+     */
+    public function getCounterOnFailure(): array
+    {
+        return $this->counterOnFailure;
     }
 }
