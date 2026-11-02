@@ -24,6 +24,7 @@ use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
+use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
 /**
@@ -253,7 +254,7 @@ final class GameTurns
             throw new GameNotFoundException('Game battle was not found');
         }
 
-        $current = $this->current($battle);
+        $current = $this->currentOrProcessActor($battle);
         $this->assertActor($game, $actorUserId, $editAll, $current);
         if ($this->strikesRepo->findOpenAny($battleId) !== null) {
             throw new GameInvalidException('Game strike is open');
@@ -645,6 +646,31 @@ final class GameTurns
         }
 
         return ['type' => $entry['type'], 'id' => $entry['id']];
+    }
+
+    /**
+     * Актор прерывания процесса: курсор боя или единственная открытая сессия.
+     *
+     * @param GameBattleRecord $battle Бой.
+     *
+     * @return array{type: string, id: int} Актор.
+     *
+     * @throws GameInvalidException Если актора не определить.
+     */
+    private function currentOrProcessActor(GameBattleRecord $battle): array
+    {
+        $order = $battle->getTurnOrder() ?? [];
+        $entry = $order[$battle->getActiveIndex()] ?? null;
+        if (is_array($entry) && is_string($entry['type'] ?? null) && is_int($entry['id'] ?? null)) {
+            return ['type' => $entry['type'], 'id' => $entry['id']];
+        }
+
+        $rows = (new GameProcessRepository($this->gateway))->findOpenForBattle($battle->getId());
+        if (count($rows) !== 1) {
+            throw new GameInvalidException('Game process is missing');
+        }
+
+        return ['type' => $rows[0]->getParticipantType(), 'id' => $rows[0]->getParticipantId()];
     }
 
     /**

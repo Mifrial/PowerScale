@@ -4690,6 +4690,14 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame('part-1', $row->getCurrentStepCode());
         self::assertSame('completed', $row->getStepStatus());
 
+        $sheets = $this->dispatch('game.getBattleSheets', ['gameId' => $gameId, 'battleId' => $battleId]);
+        self::assertTrue($sheets['success'], json_encode($sheets));
+        $view = $sheets['data']['processSessions']['character:' . $attackerId] ?? null;
+        self::assertIsArray($view);
+        self::assertSame('series', $view['processRuleCode']);
+        self::assertSame('part-1', $view['currentStepCode']);
+        self::assertSame('completed', $view['stepStatus']);
+
         $second = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,
@@ -4721,6 +4729,71 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertNotNull($row);
         self::assertSame('part-2', $row->getCurrentStepCode());
         self::assertSame('completed', $row->getStepStatus());
+    }
+
+    /**
+     * Обычное прерывание гасит сессию процесса.
+     *
+     * @return void
+     */
+    public function testAbortProcessClosesSession(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->processStrikeRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Abort Hero', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ], abilities: [['ruleCode' => 'series', 'level' => 1]]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Abort Guard');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-process-abort',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-process-abort-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'series') + ['processRuleCode' => 'series'],
+            ),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-process-abort-def',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        $aborted = $this->dispatch('game.abortProcess', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 's-process-abort',
+            'battleId' => $battleId,
+            'expectedBattleVersion' => $closed['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+            'mode' => 'normal',
+        ]);
+        self::assertTrue($aborted['success'], json_encode($aborted));
+        self::assertTrue($aborted['data']['aborted']);
+        self::assertSame('series', $aborted['data']['processRuleCode']);
+        self::assertSame('part-1', $aborted['data']['stepCode']);
+
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $processes = new GameProcessRepository($gateway);
+        self::assertNull($processes->findOpenForActor($battleId, 'character', $attackerId));
     }
 
     private function worldWithWeapon(

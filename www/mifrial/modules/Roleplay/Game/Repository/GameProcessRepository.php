@@ -151,6 +151,40 @@ final class GameProcessRepository
     }
 
     /**
+     * Открытые строки процессов боя без привязки к актору.
+     *
+     * @param int $battleId Бой.
+     *
+     * @return array<int, GameProcessRecord> Строки.
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    public function findOpenForBattle(int $battleId): array
+    {
+        $filter = new FilterGroup('AND', [
+            new FilterCondition('battle_id', '=', $battleId),
+            new FilterCondition('status', '=', 'open'),
+        ]);
+        $result = $this->processRecords->getList(new ListQuery(
+            $filter,
+            ['id' => 'ASC'],
+            100,
+            0,
+            false,
+            null,
+        ));
+
+        $rows = [];
+        foreach ($result->rows() as $row) {
+            if (is_array($row)) {
+                $rows[] = GameProcessRecord::fromNormalized($row);
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
      * Пишет поля процесса.
      *
      * @param int $processId Process.
