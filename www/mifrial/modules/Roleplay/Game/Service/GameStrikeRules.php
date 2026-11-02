@@ -1520,7 +1520,7 @@ final class GameStrikeRules
      * @param array<string, mixed> $counters Счётчики сессии.
      * @param array<string, int> $abilityLevels Уровни способностей актора.
      *
-     * @return AbilityWithBase|null Карточка или null.
+     * @return array{code: string, spec: AbilityWithBase}|null Карточка или null.
      */
     public function closingAbility(
         int $spaceId,
@@ -1528,7 +1528,7 @@ final class GameStrikeRules
         string $processCode,
         array $counters,
         array $abilityLevels,
-    ): ?AbilityWithBase {
+    ): ?array {
         $found = [];
         foreach ($this->slice($spaceId, $rulesRevision)->getLiveRules() as $rule) {
             $spec = $rule->getSpec();
@@ -1558,8 +1558,9 @@ final class GameStrikeRules
         }
 
         ksort($found, SORT_STRING);
+        $code = array_key_first($found);
 
-        return reset($found);
+        return ['code' => (string) $code, 'spec' => $found[$code]];
     }
 
     /**

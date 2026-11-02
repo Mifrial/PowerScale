@@ -379,24 +379,35 @@ final class GameStrikePortFactory
         ISmartTableGateway $gateway,
         GameStrikeRules $rules,
     ): GameCardAvailability {
-        $npcs = new GameNpcRepository($gateway);
-
         return new GameCardAvailability(
             $rules,
-            new GameStrikeSheets(
-                $rules,
-                $npcs,
-                new GameCharacterRepository($gateway),
-                new GameMemberRepository($gateway),
-                new ConflictSheetProjection(
-                    new CharacterSectionMask(),
-                    new GameCharacterProjectionMask(),
-                    new GameNpcVisibility(),
-                ),
-            ),
+            $this->strikeSheets($gateway, $rules),
             $this->characterSheets($serviceLocator),
             new CharacterRequirementFacts(),
             new AbilityRequirementCheck(),
+        );
+    }
+
+    /**
+     * Снимки листов удара.
+     *
+     * @param ISmartTableGateway $gateway Шлюз.
+     * @param GameStrikeRules $rules Срез.
+     *
+     * @return GameStrikeSheets Снимки.
+     */
+    private function strikeSheets(ISmartTableGateway $gateway, GameStrikeRules $rules): GameStrikeSheets
+    {
+        return new GameStrikeSheets(
+            $rules,
+            new GameNpcRepository($gateway),
+            new GameCharacterRepository($gateway),
+            new GameMemberRepository($gateway),
+            new ConflictSheetProjection(
+                new CharacterSectionMask(),
+                new GameCharacterProjectionMask(),
+                new GameNpcVisibility(),
+            ),
         );
     }
 
@@ -598,6 +609,22 @@ final class GameStrikePortFactory
             $this->engine($serviceLocator),
             $chats,
         );
+    }
+
+    /**
+     * Снимки листов удара: уровни способностей и листы целей.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameStrikeSheets Снимки.
+     *
+     * @throws KernelException Если нет порта.
+     */
+    public function createSheets(IServiceLocator $serviceLocator): GameStrikeSheets
+    {
+        $gateway = $this->smartTableGateway($serviceLocator);
+
+        return $this->strikeSheets($gateway, $this->strikeRules($serviceLocator));
     }
 
     /**

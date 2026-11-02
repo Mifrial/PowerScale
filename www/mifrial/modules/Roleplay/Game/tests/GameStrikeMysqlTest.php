@@ -5082,6 +5082,13 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertNotNull($row);
         $processId = $row->getId();
 
+        $sheets = $this->dispatch('game.getBattleSheets', ['gameId' => $gameId, 'battleId' => $battleId]);
+        self::assertTrue($sheets['success'], json_encode($sheets));
+        $view = $sheets['data']['processSessions']['character:' . $attackerId] ?? null;
+        self::assertIsArray($view);
+        self::assertSame('otkrytie', $view['closing']['cardCode'] ?? null);
+        self::assertSame(['advantage' => 2, 'extraSuccesses' => 0], $view['closing']['strike'] ?? null);
+
         $other = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
             'battleId' => $battleId,

@@ -39,6 +39,7 @@ final class GameProjectionPortFactory
     public function create(IServiceLocator $serviceLocator): IGameProjections
     {
         $gateway = $this->smartTableGateway($serviceLocator);
+        $strikes = new GameStrikePortFactory();
 
         return new GameProjections(
             $gateway,
@@ -53,7 +54,8 @@ final class GameProjectionPortFactory
             new GameCharacterProjectionMask(),
             $this->ruleSlices($serviceLocator),
             $this->characterSheets($serviceLocator),
-            (new GameStrikePortFactory())->createProcessFlow($serviceLocator),
+            $strikes->createSheets($serviceLocator),
+            $strikes->createProcessFlow($serviceLocator),
         );
     }
 

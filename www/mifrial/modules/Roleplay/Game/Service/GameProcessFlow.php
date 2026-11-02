@@ -480,7 +480,9 @@ final class GameProcessFlow
                 $counters,
                 $abilityLevels,
             );
-            $strike = $closer?->getBase()->getClosesParentProcess()?->getStrike();
+            $strike = $closer === null
+                ? null
+                : $closer['spec']->getBase()->getClosesParentProcess()?->getStrike();
 
             return [
                 'row' => $row,
@@ -612,13 +614,18 @@ final class GameProcessFlow
      * @param GameRecord $game Игра.
      * @param GameBattleRecord $battle Бой.
      * @param array{type: string, id: int} $actor Актор.
+     * @param array<string, int> $abilityLevels Уровни способностей актора.
      *
      * @return array<string, mixed>|null Состояние или null.
      *
      * @throws GameInvalidException Если спека битая.
      */
-    public function view(GameRecord $game, GameBattleRecord $battle, array $actor): ?array
-    {
+    public function view(
+        GameRecord $game,
+        GameBattleRecord $battle,
+        array $actor,
+        array $abilityLevels = [],
+    ): ?array {
         $row = $this->processes->findOpenForActor($battle->getId(), $actor['type'], $actor['id']);
         if ($row === null || $row->getProcessRuleCode() === null) {
             return null;
@@ -662,6 +669,51 @@ final class GameProcessFlow
             'lastTargetType' => $row->getLastTargetType(),
             'lastTargetId' => $row->getLastTargetId(),
             'availableSteps' => $steps,
+            'closing' => $this->closingView($game, $row, $abilityLevels),
+        ];
+    }
+
+    /**
+     * Доступное закрытие процесса чужой атакой для панели боя.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameProcessRecord $row Строка процесса.
+     * @param array<string, int> $abilityLevels Уровни способностей актора.
+     *
+     * @return array{cardCode: string, strike: array{advantage: int, extraSuccesses: int}}|null Закрытие или null.
+     *
+     * @throws GameInvalidException Если спека битая.
+     */
+    private function closingView(GameRecord $game, GameProcessRecord $row, array $abilityLevels): ?array
+    {
+        if ($row->getProcessRuleCode() === null) {
+            return null;
+        }
+
+        if ($row->getLastTargetType() === null || $row->getLastTargetId() === null) {
+            return null;
+        }
+
+        $counters = $row->getCounters();
+        $closer = $this->strikeRules->closingAbility(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $row->getProcessRuleCode(),
+            $counters,
+            $abilityLevels,
+        );
+        if ($closer === null) {
+            return null;
+        }
+
+        $strike = $closer['spec']->getBase()->getClosesParentProcess()?->getStrike();
+
+        return [
+            'cardCode' => $closer['code'],
+            'strike' => [
+                'advantage' => $strike === null ? 0 : $strike->advantageOf($counters),
+                'extraSuccesses' => $strike === null ? 0 : $strike->extraSuccessesOf($counters),
+            ],
         ];
     }
 }

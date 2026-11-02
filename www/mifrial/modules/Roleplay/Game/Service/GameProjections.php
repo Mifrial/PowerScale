@@ -57,6 +57,7 @@ final class GameProjections implements IGameProjections
      * @param GameCharacterProjectionMask $characterMask Секции строки.
      * @param ICharacterRuleSlices $ruleSlices Срез правил.
      * @param ICharacterSheets $sheets Пересчёт листа.
+     * @param GameStrikeSheets $strikeSheets Снимки удара.
      * @param GameProcessFlow $processes Сессия процесса.
      *
      * @return void
@@ -70,6 +71,7 @@ final class GameProjections implements IGameProjections
         private readonly GameCharacterProjectionMask $characterMask,
         private readonly ICharacterRuleSlices $ruleSlices,
         private readonly ICharacterSheets $sheets,
+        private readonly GameStrikeSheets $strikeSheets,
         private readonly GameProcessFlow $processes,
     ) {
         $this->npcs = new GameNpcRepository($smartTableGateway);
@@ -183,7 +185,12 @@ final class GameProjections implements IGameProjections
                 continue;
             }
 
-            $view = $this->processes->view($game, $battle, ['type' => $type, 'id' => $id]);
+            $view = $this->processes->view(
+                $game,
+                $battle,
+                ['type' => $type, 'id' => $id],
+                $this->strikeSheets->abilityLevels($game, $type, $id),
+            );
             if ($view !== null) {
                 $sessions[$type . ':' . $id] = $view;
             }
