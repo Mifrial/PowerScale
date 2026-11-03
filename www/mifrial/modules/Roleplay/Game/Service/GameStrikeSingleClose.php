@@ -290,7 +290,8 @@ final class GameStrikeSingleClose
         }
 
         $previousSr = $lastStrike->previousSr($pending, $attackerKind, $attackerId, $targetKey);
-        $advantages = [];
+        $supports = $this->supportAdvantages($row);
+        $advantages = $supports['attacker'];
         $strikePackage = $this->processes->strikePackage($process);
         if ($strikePackage['advantage'] !== 0) {
             $advantages[] = new RollAdvantage('action', $strikePackage['advantage']);
@@ -344,6 +345,11 @@ final class GameStrikeSingleClose
             throw new GameInvalidException('Game strike defender is unconscious');
         }
 
+        $defenderAdvantages = $supports['defender'];
+        if ($flank !== null) {
+            $defenderAdvantages[] = $flank;
+        }
+
         if ($choice['reaction'] === 'dodge') {
             $shotDistance = $profileType === 'shoot' ? $metrics['distance'] : null;
             $defenderRoll = $this->resolution->dodgeRollOf(
@@ -354,7 +360,7 @@ final class GameStrikeSingleClose
                 $defenderPending,
                 $reactionRuleCode,
                 $slice,
-                $flank === null ? [] : [$flank],
+                $defenderAdvantages,
                 $shotDistance,
             );
             $attackerRoll = $profileType === 'shoot' || $profileType === 'throw'
@@ -372,7 +378,7 @@ final class GameStrikeSingleClose
                 $defenderPending,
                 $reactionRuleCode,
                 $slice,
-                $flank === null ? [] : [$flank],
+                $defenderAdvantages,
             );
             if ($isPush) {
                 $attackerRoll = $this->rules->rerateHit($attackerRoll, $defenderRoll);
@@ -964,6 +970,42 @@ final class GameStrikeSingleClose
     private function abilityLevels(GameRecord $game, string $kind, int $actorId): array
     {
         return $this->sheets->abilityLevels($game, $kind, $actorId);
+    }
+
+    /**
+     * Поддержки, записанные в строку удара.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     *
+     * @return array{attacker: list<RollAdvantage>, defender: list<RollAdvantage>} Преимущества.
+     */
+    private function supportAdvantages(array $row): array
+    {
+        $raw = $row['supporters'] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        $supports = ['attacker' => [], 'defender' => []];
+        if (!is_array($raw)) {
+            return $supports;
+        }
+
+        foreach ($raw as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $side = $entry['side'] ?? null;
+            $advantage = $entry['advantage'] ?? null;
+            if (($side !== 'attacker' && $side !== 'defender') || !is_int($advantage) || $advantage === 0) {
+                continue;
+            }
+
+            $supports[$side][] = new RollAdvantage(null, $advantage);
+        }
+
+        return $supports;
     }
 
     /**

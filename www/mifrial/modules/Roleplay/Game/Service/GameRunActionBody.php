@@ -13,7 +13,7 @@ final class GameRunActionBody
 {
     private const PHASES = ['declare', 'respond'];
 
-    private const KINDS = ['action', 'strike', 'wound'];
+    private const KINDS = ['action', 'strike', 'support', 'wound'];
 
     private const OPERATIONS = ['hold', 'release', 'bandage'];
 
@@ -91,6 +91,10 @@ final class GameRunActionBody
 
         if ($kind === 'wound') {
             return $this->woundContext($context);
+        }
+
+        if ($kind === 'support') {
+            return $this->supportContext($context);
         }
 
         return $phase === 'declare' ? $this->strikeContext($context) : $this->defenseContext($context);
@@ -176,6 +180,27 @@ final class GameRunActionBody
             'expectedSheetVersion' => $expected,
             'target' => $target,
         ];
+    }
+
+    /**
+     * Контекст реакции поддержки.
+     *
+     * @param array<string, mixed> $context Контекст.
+     *
+     * @return array<string, mixed> Контекст.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function supportContext(array $context): array
+    {
+        $this->assertKeys($context, ['expectedSheetVersion', 'side'], 'support context');
+        $expected = $context['expectedSheetVersion'] ?? null;
+        $side = $context['side'] ?? null;
+        if (!is_int($expected) || ($side !== 'attacker' && $side !== 'defender')) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: support context');
+        }
+
+        return ['expectedSheetVersion' => $expected, 'side' => $side];
     }
 
     /**

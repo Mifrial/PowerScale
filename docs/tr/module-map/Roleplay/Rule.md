@@ -50,12 +50,12 @@
 | [rule-content-plan-13-melee-quantity.md](../../rule-content-plan-13-melee-quantity.md) | план | `~ПЛАН~` | 2026-09-20 |
 | [rule-content-plan-14-future-ability-ideas.md](../../rule-content-plan-14-future-ability-ideas.md) | план | `~ПЛАН~` | — |
 | [rule-content-plan-15-melee-tactics-design.md](../../rule-content-plan-15-melee-tactics-design.md) | план | `~ПЛАН~` | 2026-09-20 |
-| [rule-content-plan-16-melee-tactics.md](../../rule-content-plan-16-melee-tactics.md) | план | `~ПЛАН~` | — |
 | [rule-roadmap.md](../../rule-roadmap.md) | план | `~ПЛАН~` | 2026-10-05 |
 | [spell-review-01.md](../../spell-review-01.md) | канон | `~ПЛАН~` | 2026-09-07 |
 | [spell-roadmap.md](../../spell-roadmap.md) | план | `~ПЛАН~` | 2026-09-07 |
 | [rule-content-plan-07-languages.md](../../rule-content-plan-07-languages.md) | план | `~В РАБОТЕ~` | 2026-09-15 |
 | [rule-content-plan-10-melee-power.md](../../rule-content-plan-10-melee-power.md) | план | `~В РАБОТЕ~` | 2026-10-25 |
+| [rule-content-plan-16-melee-tactics.md](../../rule-content-plan-16-melee-tactics.md) | план | `~В РАБОТЕ~` | — |
 | [rule-content-roadmap.md](../../rule-content-roadmap.md) | план | `~В РАБОТЕ~` | 2026-09-16 |
 | [rule-plan-05.md](../../rule-plan-05.md) | план | `~В РАБОТЕ~` | 2026-10-05 |
 | [spell-inventory-01.md](../../spell-inventory-01.md) | канон | `~В РАБОТЕ~` | 2026-09-07 |

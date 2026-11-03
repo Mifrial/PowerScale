@@ -117,6 +117,19 @@ final class GameRunAction
             );
         }
 
+        if ($parsed['kind'] === 'support') {
+            return $this->declareSupport(
+                $parsed,
+                $gameId,
+                $actorUserId,
+                $editAll,
+                $viewAll,
+                $battleId,
+                $idempotencyKey,
+                $expectedVersion,
+            );
+        }
+
         return $this->declareStrike(
             $parsed,
             $gameId,
@@ -169,6 +182,49 @@ final class GameRunAction
 
         return array_merge($result, [
             'kind' => 'action',
+            'phase' => 'declare',
+            'battleId' => $result['battleId'] ?? $battleId,
+            'version' => $result['version'] ?? $expectedVersion,
+        ]);
+    }
+
+    /**
+     * Реакция поддержки в открытом ударе.
+     *
+     * @param array<string, mixed> $parsed Разбор.
+     * @param int $gameId Игра.
+     * @param int $actorUserId Пользователь.
+     * @param bool $editAll Право.
+     * @param bool $viewAll Право.
+     * @param int $battleId Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedVersion Версия.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    private function declareSupport(
+        array $parsed,
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        int $battleId,
+        string $idempotencyKey,
+        int $expectedVersion,
+    ): array {
+        $context = $parsed['context'];
+        $result = $this->actions->support($gameId, $actorUserId, $editAll, $viewAll, [
+            'battleId' => $battleId,
+            'idempotencyKey' => $idempotencyKey,
+            'expectedVersion' => $expectedVersion,
+            'expectedSheetVersion' => $context['expectedSheetVersion'],
+            'actor' => $parsed['actor'],
+            'actionRuleCode' => $parsed['code'],
+            'side' => $context['side'],
+        ]);
+
+        return array_merge($result, [
+            'kind' => 'support',
             'phase' => 'declare',
             'battleId' => $result['battleId'] ?? $battleId,
             'version' => $result['version'] ?? $expectedVersion,

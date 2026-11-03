@@ -17,6 +17,7 @@ use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
@@ -4831,6 +4832,344 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame('GAME_INVALID', $opened['error']['code'] ?? null, json_encode($opened));
         self::assertSame(10, $this->actionPointsOf($attackerId));
         self::assertSame(0, $this->countActions('strike'));
+    }
+
+    /**
+     * Мир с карточками поддержки.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function supportRules(): array
+    {
+        $support = static fn (array $sides): array => [
+            'type' => 'action',
+            'zones' => ['or' => ['kind' => 'automatic']],
+            'action_components' => [[
+                'type' => 'resource',
+                'resource_code' => 'action-points',
+                'amount' => 2,
+            ]],
+            'support' => ['sides' => $sides, 'advantage' => 1],
+        ];
+
+        return array_merge($this->stateActionRules(), [
+            'support-any' => [
+                'type' => 'ability',
+                'name' => 'Support any',
+                'spec' => $support(['attacker', 'defender']),
+            ],
+            'support-attacker' => [
+                'type' => 'ability',
+                'name' => 'Support attacker',
+                'spec' => $support(['attacker']),
+            ],
+            'plain-action' => [
+                'type' => 'ability',
+                'name' => 'Plain action',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'action_components' => [[
+                        'type' => 'resource',
+                        'resource_code' => 'action-points',
+                        'amount' => 1,
+                    ]],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Поддержка третьей стороны даёт преимущество выбранной стороне.
+     *
+     * @return void
+     */
+    public function testSupportReactionAddsAdvantage(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->supportRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $supporterId = $this->admit($world->getId(), $gameId, 'Supporter', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-support',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+                ['type' => 'character', 'id' => $supporterId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-support',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $support = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'support-attacker',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'support',
+                'code' => 'support-any',
+                'actor' => ['type' => 'character', 'id' => $supporterId],
+                'context' => [
+                    'expectedSheetVersion' => $this->characterFacade()->get($supporterId)->getActualVersion(),
+                    'side' => 'attacker',
+                ],
+            ],
+        ]);
+        self::assertTrue($support['success'], json_encode($support));
+        self::assertSame(2, $support['data']['spent']);
+        self::assertSame(8, $this->actionPointsOf($supporterId));
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $openRow = (new GameActionRepository($gateway))->findOpenWithStrikes($battleId, 'strike');
+        self::assertSame('attacker', $openRow['strikes'][0]['supporters'][0]['side'] ?? null);
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-support',
+            'expectedVersion' => $support['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertContains(
+            ['source_code' => null, 'delta' => 1],
+            $closed['data']['strikes'][0]['roll']['advantages'] ?? [],
+        );
+    }
+
+    /**
+     * Поддержка защитника усиливает его бросок, а не атакующего.
+     *
+     * @return void
+     */
+    public function testSupportReactionForDefender(): void
+    {
+        $world = $this->worldWithWeapon(1, true, 1, false, null, false, false, [], [], null, $this->supportRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $supporterId = $this->admit($world->getId(), $gameId, 'Supporter', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-support-def',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+                ['type' => 'character', 'id' => $supporterId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-support-def',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $support = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'support-defender',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'support',
+                'code' => 'support-any',
+                'actor' => ['type' => 'character', 'id' => $supporterId],
+                'context' => [
+                    'expectedSheetVersion' => $this->characterFacade()->get($supporterId)->getActualVersion(),
+                    'side' => 'defender',
+                ],
+            ],
+        ]);
+        self::assertTrue($support['success'], json_encode($support));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-support-def',
+            'expectedVersion' => $support['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'dodge'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertContains(
+            ['source_code' => null, 'delta' => 1],
+            $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [],
+        );
+        self::assertNotContains(
+            ['source_code' => null, 'delta' => 1],
+            $closed['data']['strikes'][0]['roll']['advantages'] ?? [],
+        );
+    }
+
+    /**
+     * Поддержка отвергает чужую сторону, участников удара и не-карточку.
+     *
+     * @return void
+     */
+    public function testSupportReactionRejectsInvalidDeclaration(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->supportRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $supporterId = $this->admit($world->getId(), $gameId, 'Supporter', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-support-bad',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+                ['type' => 'character', 'id' => $supporterId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-support-bad',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $wrongSide = $this->supportEnvelope(
+            $gameId,
+            $battleId,
+            $supporterId,
+            'support-attacker',
+            'defender',
+            $opened['data']['version'],
+        );
+        $rejected = $this->dispatch('game.runAction', $wrongSide);
+        self::assertFalse($rejected['success'], json_encode($rejected));
+        self::assertSame('GAME_INVALID', $rejected['error']['code'] ?? null);
+
+        $self = $this->supportEnvelope(
+            $gameId,
+            $battleId,
+            $attackerId,
+            'support-any',
+            'attacker',
+            $opened['data']['version'],
+        );
+        $rejectedSelf = $this->dispatch('game.runAction', $self);
+        self::assertFalse($rejectedSelf['success'], json_encode($rejectedSelf));
+        self::assertSame('GAME_INVALID', $rejectedSelf['error']['code'] ?? null);
+
+        $plain = $this->supportEnvelope(
+            $gameId,
+            $battleId,
+            $supporterId,
+            'plain-action',
+            'attacker',
+            $opened['data']['version'],
+        );
+        $rejectedPlain = $this->dispatch('game.runAction', $plain);
+        self::assertFalse($rejectedPlain['success'], json_encode($rejectedPlain));
+        self::assertSame('GAME_INVALID', $rejectedPlain['error']['code'] ?? null);
+
+        $first = $this->dispatch('game.runAction', $this->supportEnvelope(
+            $gameId,
+            $battleId,
+            $supporterId,
+            'support-any',
+            'attacker',
+            $opened['data']['version'],
+        ));
+        self::assertTrue($first['success'], json_encode($first));
+        $again = $this->dispatch('game.runAction', $this->supportEnvelope(
+            $gameId,
+            $battleId,
+            $supporterId,
+            'support-any',
+            'attacker',
+            $first['data']['version'],
+        ));
+        self::assertFalse($again['success'], json_encode($again));
+        self::assertSame('GAME_INVALID', $again['error']['code'] ?? null);
+    }
+
+    /**
+     * Конверт реакции поддержки.
+     *
+     * @param int $gameId Игра.
+     * @param int $battleId Бой.
+     * @param int $supporterId Поддерживающий.
+     * @param string $code Карточка.
+     * @param string $side Сторона.
+     * @param int $expectedVersion Версия боя.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function supportEnvelope(
+        int $gameId,
+        int $battleId,
+        int $supporterId,
+        string $code,
+        string $side,
+        int $expectedVersion,
+    ): array {
+        return [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'support-' . $code . '-' . $side . '-' . $expectedVersion,
+            'expectedVersion' => $expectedVersion,
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'support',
+                'code' => $code,
+                'actor' => ['type' => 'character', 'id' => $supporterId],
+                'context' => [
+                    'expectedSheetVersion' => $this->characterFacade()->get($supporterId)->getActualVersion(),
+                    'side' => $side,
+                ],
+            ],
+        ];
     }
 
     /**

@@ -2729,14 +2729,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/rule-content-plan-16-melee-tactics.md",
-                    "title": "C2 — ветка ближнего боя «Тактика и реакции»",
-                    "kind": "plan",
-                    "state": "ПЛАН",
-                    "date": null,
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/rule-roadmap.md",
                     "title": "Нарезка Roleplay/Rule",
                     "kind": "plan",
@@ -2774,6 +2766,14 @@
                     "kind": "plan",
                     "state": "В РАБОТЕ",
                     "date": "2026-10-25",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-16-melee-tactics.md",
+                    "title": "C2 — ветка ближнего боя «Тактика и реакции»",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": null,
                     "hasStatus": true
                 },
                 {

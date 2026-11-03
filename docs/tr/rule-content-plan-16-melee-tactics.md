@@ -1,8 +1,8 @@
 # C2 — ветка ближнего боя «Тактика и реакции»
 
-**Статус:** ~ПЛАН~
+**Статус:** ~В РАБОТЕ~
 
-**Реализация:** нет; срезы S0–S5 ниже не начаты.
+**Реализация:** ~PHP~ (S0); ~VUE~ и контент карточек — S1+.
 
 **Опираться на:** ~PHP~ (`Game`, `Rule`), [`game-plan-43-processes.md`](game-plan-43-processes.md),
 [`rule-content-plan-15-melee-tactics-design.md`](rule-content-plan-15-melee-tactics-design.md).
@@ -188,6 +188,33 @@ battleground и позиции.
 Порядок обязателен: S0 даёт третью сторону, без него Поддержка станет
 второй копией Прикрытия. `kontrudar-2` и `udar-v-padenii` остаются
 отложенными до появления текста эффекта и карточки-источника.
+
+### Состояние S0
+
+Сделано в PHP:
+
+- узел спеки `support: { sides: ["attacker"|"defender", ...], advantage: N }`
+  (`SupportSpecs`); карточка без узла поддержкой не считается;
+- команда `game.runAction` с `kind: support`: актор — участник боя, но не
+  атакующий и не цель; заявка принимается только пока удар открыт и цель ещё
+  не ответила (`reaction === null`), после ответа — отказ;
+- цена карточки списывается как обычное действие (компоненты-ресурсы,
+  `GameActionPerform::quote`/`spend`); долг для реакции не оформляется, как и
+  у защитных реакций удара;
+- заявка хранится в `game_action_strike.supporters`, каждая запись —
+  `{actor, ruleCode, side, advantage}`;
+- `GameStrikeSingleClose` добавляет преимущества поддержки в бросок
+  атакующего или защиты (`RollAdvantage(null, N)`), поэтому поддержки разных
+  третьих лиц складываются;
+- поддержка работает только для одиночного удара (одна строка удара); wide,
+  multi и последовательные удары в S0 отклоняются.
+
+Не входит в S0: масштабирование от Мастерства боя (это S1), карточка
+`podderzhka-v-boyu`, `koordinatsiya`, фронт и окно заявки. Пока окно заявки —
+«до ответа цели»; отдельной фазы ожидания поддержек нет.
+
+Тесты: `GameStrikeMysqlTest::testSupportReactionAddsAdvantage`,
+`testSupportReactionForDefender`, `testSupportReactionRejectsInvalidDeclaration`.
 
 ## 7. Тесты
 
