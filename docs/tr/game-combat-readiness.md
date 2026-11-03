@@ -346,9 +346,11 @@ Frontend blood-clotting сейчас заменяет состояния чер�
 PHP-рантайм процесса: шаг через `game.runAction`, цена шага, переходы,
 `failure`, `completion_effects`, прерывание и повтор оружия — `BACKEND`;
 счётчики, `target_mode`, пакет удара и закрытие чужой атакой (срез 2,
-ревизия 29) — `BACKEND`, `FRONTEND`, `E2E_MISSING`. Движение (`run`/`sprint`,
-срез 3) — `OPEN`: батлграунда нет, по плану шаг объявляется в чат без
-эффектов.
+ревизия 29) — `BACKEND`, `FRONTEND`, `E2E_MISSING`. Описательный шаг
+(`execution: none`, срез 3): цена, переход, счётчики и строка в чате без
+исполнения — `BACKEND`, `FRONTEND`, `E2E_MISSING`. Движение как модель
+(дистанции, скорость, battleground) — `OPEN`; `run`/`sprint` пока только
+объявляются, `sprint` недоступен из-за `current_speed`.
 
 Процесс как тип действия (`ProcessSpec`: шаги, стоимости, переходы, failure и
 interruption) — `BACKEND` для `seriya-udarov` и `mnozhestvo-udarov`. Фронт

@@ -42,6 +42,7 @@ final class GameActionChat
      * @param int $round Раунд.
      * @param int $activeIndex Индекс хода.
      * @param list<array{roll: array<string, mixed>, text: string}> $rolls Проверки прироста состояний.
+     * @param string|null $stepName Имя описательного шага процесса или null.
      *
      * @return void
      *
@@ -58,6 +59,7 @@ final class GameActionChat
         int $round,
         int $activeIndex,
         array $rolls = [],
+        ?string $stepName = null,
     ): void {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
@@ -65,7 +67,9 @@ final class GameActionChat
         }
 
         $token = $this->strikeChat->getEntityToken($actorKind, $actorId);
-        $text = $token . ' совершает действие [[rule:' . $actionRuleCode . ']] за ' . $spent . 'ОД.';
+        $step = $stepName === null || $stepName === '' ? '' : ' (шаг «' . $stepName . '»)';
+        $text = $token . ' совершает действие [[rule:' . $actionRuleCode . ']]'
+            . $step . ' за ' . $spent . 'ОД.';
 
         $thread = GameCombatThread::buildTurn($battleId, $round, $activeIndex);
         $attachments = [

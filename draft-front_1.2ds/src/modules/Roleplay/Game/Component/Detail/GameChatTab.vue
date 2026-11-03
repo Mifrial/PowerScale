@@ -1324,6 +1324,16 @@ async function onOpenCard(entityKey: string): Promise<void> {
       )
     )
       return;
+    const nextStep = processSessionsByEntity.value[processEntityKey]?.availableSteps?.[0] ?? null;
+    if (gamePhpMode.isEnabled() && nextStep && nextStep.execution !== 'strike') {
+      if (speakerOptions.value.some((item) => item.key === processEntityKey)) {
+        activeSpeakerKey.value = processEntityKey;
+      }
+      actionLaunchHint.value = null;
+      actionOpen.value = true;
+
+      return;
+    }
     attackActorKey.value = processEntityKey;
     attackOpen.value = true;
 

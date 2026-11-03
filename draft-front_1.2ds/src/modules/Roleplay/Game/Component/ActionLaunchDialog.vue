@@ -259,7 +259,14 @@ const selectedProcessAttack = computed<AttackOverview | null>(
 const selectedProcessStep = computed(
   () => processSteps.value.find((step) => step.code === selectedProcessStepCode.value) ?? null,
 );
+const isDescriptiveStep = computed(() => {
+  const step = selectedProcessStep.value;
+
+  return step ? processSessionService.executionOf(step) === 'none' : false;
+});
+const isServerDescriptiveStep = computed(() => gamePhpMode.isEnabled() && isDescriptiveStep.value);
 const selectedMovementOperations = computed(() => {
+  if (isServerDescriptiveStep.value) return [];
   const operations = selectedAction.value?.isProcess
     ? selectedProcessStep.value?.operations
     : selectedAction.value?.operations;
@@ -421,7 +428,12 @@ async function hydrate(): Promise<void> {
     processSessionsByEntity.value = outcome.values.processes;
     committedSessionsByEntity.value = outcome.values.committed;
     if (nextSpeed) currentSpeed.value = nextSpeed;
-    selectedRuleId.value = props.launchHint?.actionCode ?? selectableActions.value[0]?.code ?? null;
+    const activeProcessCode = activeProcess.value?.processRuleCode ?? null;
+    const activeProcessAction = activeProcessCode
+      ? selectableActions.value.find((action) => actionRefEquals(action, activeProcessCode, props.rules))
+      : null;
+    selectedRuleId.value =
+      props.launchHint?.actionCode ?? activeProcessAction?.code ?? selectableActions.value[0]?.code ?? null;
     selectedProcessStepCode.value = null;
     selectedProcessAttackKey.value = null;
     loadPhase.value = !actorKey.value || !actorVersion.value ? 'incomplete' : 'ready';
@@ -513,12 +525,11 @@ async function submit(): Promise<void> {
     const stepCode = selectedProcessStepCode.value;
     const attack = selectedProcessAttack.value;
     if (!action.process || !stepCode) throw new Error('Выберите шаг процесса');
-    if (processStepApCost.value > actionPoints.value) throw new Error('Недостаточно ОД для шага процесса');
     const session =
       activeProcess.value ?? processSessionService.start(props.gameId, key, action.ruleCode, action.process);
     const step = action.process.steps.find((item) => item.code === stepCode);
     if (!step) throw new Error('Шаг процесса не найден');
-    if (gamePhpMode.isEnabled() && processSessionService.executionOf(step) === 'action') {
+    if (gamePhpMode.isEnabled() && ['action', 'none'].includes(processSessionService.executionOf(step))) {
       await applyDeclaredAction(processRule.value ?? actionRuleOf(action.ruleCode), {
         processRuleCode: action.ruleCode,
         processStepCode: stepCode,
@@ -526,6 +537,7 @@ async function submit(): Promise<void> {
 
       return;
     }
+    if (processStepApCost.value > actionPoints.value) throw new Error('Недостаточно ОД для шага процесса');
     if (step.operations?.length || isMovementProcess.value) {
       const version = versionOf(key);
       if (!version) throw new Error('Лист участника не найден');
@@ -1175,7 +1187,7 @@ watch(
               </template>
             </v-autocomplete>
             <v-autocomplete
-              v-if="!isMovementProcess"
+              v-if="!isMovementProcess && !isDescriptiveStep"
               v-model="selectedProcessAttackKey"
               :items="processAttacks"
               :item-title="(item) => `${item.itemName} · ${item.profileTypeLabel}`"

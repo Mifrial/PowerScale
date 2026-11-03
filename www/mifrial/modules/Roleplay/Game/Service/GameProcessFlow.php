@@ -118,7 +118,7 @@ final class GameProcessFlow
 
         $step = $this->rules->step($spec, $stepCode);
         $execution = $step->getExecution();
-        if ($execution->isNone()) {
+        if ($execution->isNone() && $kind === 'strike') {
             throw new GameInvalidException('Game process step has no action');
         }
 
@@ -137,18 +137,23 @@ final class GameProcessFlow
             throw new GameInvalidException('Game process step is not a strike');
         }
 
-        if ($kind === 'action' && !$execution->isAction()) {
+        if ($kind === 'action' && !$execution->isAction() && !$execution->isNone()) {
             throw new GameInvalidException('Game process step is not an action');
         }
 
         $actionCode = $execution->getActionCode();
-        if ($kind === 'action' && ($actionCode === null || $actionCode === '')) {
-            throw new GameInvalidException('Game process action is missing');
+        if ($execution->isNone()) {
+            $actionCode = null;
+        } elseif ($actionCode === null || $actionCode === '') {
+            if ($kind === 'action') {
+                throw new GameInvalidException('Game process action is missing');
+            }
+
+            $actionCode = $processRuleCode;
         }
 
-        $actionCode = $actionCode === null || $actionCode === '' ? $processRuleCode : $actionCode;
         $this->availability->assertAvailable($game, $actor['type'], $actor['id'], $processRuleCode);
-        if ($actionCode !== $processRuleCode) {
+        if ($actionCode !== null && $actionCode !== $processRuleCode) {
             $this->availability->assertAvailable($game, $actor['type'], $actor['id'], $actionCode);
         }
 

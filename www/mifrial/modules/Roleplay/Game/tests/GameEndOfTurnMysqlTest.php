@@ -16,6 +16,7 @@ use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
+use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
 use Mifrial\Roleplay\Game\Service\GameStrikeSheetWrites;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
@@ -640,6 +641,88 @@ final class GameEndOfTurnMysqlTest extends TestCase
     }
 
     /**
+     * Описательный шаг без ОД пишет слот, continue исполняет его после конца хода.
+     *
+     * @return void
+     */
+    public function testDescriptiveStepDebtPaysOnContinue(): void
+    {
+        $scene = $this->battlePair([], 1);
+        $gameId = $scene['gameId'];
+        $battleId = $scene['battleId'];
+        $heroKey = 'character:' . $scene['hero'];
+        $start = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'run-start',
+            'expectedVersion' => $this->battleRow($battleId)['state_version'],
+            'action' => $this->actionEnvelope([
+                'actor' => ['type' => 'character', 'id' => $scene['hero']],
+                'actionRuleCode' => 'run',
+                'expectedSheetVersion' => $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+                'followUpTargetKey' => null,
+                'processRuleCode' => 'run',
+            ]),
+        ]);
+        self::assertTrue($start['success'], json_encode($start));
+        self::assertSame(0, $this->apOf($scene['hero']));
+
+        $debt = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'run-continue',
+            'expectedVersion' => $start['data']['version'],
+            'action' => $this->actionEnvelope([
+                'actor' => ['type' => 'character', 'id' => $scene['hero']],
+                'actionRuleCode' => 'run',
+                'expectedSheetVersion' => $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+                'followUpTargetKey' => null,
+                'processRuleCode' => 'run',
+                'processStepCode' => 'run-continue',
+            ]),
+        ]);
+        self::assertTrue($debt['success'], json_encode($debt));
+        self::assertTrue($debt['data']['debt'] ?? false, json_encode($debt));
+        self::assertFalse($debt['data']['opened'] ?? true, json_encode($debt));
+        $slot = $this->battleRow($battleId)['action_debt'][$heroKey] ?? null;
+        self::assertIsArray($slot);
+        self::assertSame(1, $slot['remaining']);
+        self::assertSame('action', $slot['kind'] ?? null);
+
+        $passed = $this->endTurn(
+            $gameId,
+            $battleId,
+            'run-pass',
+            $debt['data']['version'],
+            $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+        );
+        self::assertTrue($passed['success'], json_encode($passed));
+        $back = $this->endTurn(
+            $gameId,
+            $battleId,
+            'run-back',
+            $passed['data']['version'],
+            $this->characterFacade()->get($scene['ally'])->getActualVersion(),
+        );
+        self::assertTrue($back['success'], json_encode($back));
+
+        $continued = $this->dispatch('game.continueAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'run-pay',
+            'expectedBattleVersion' => $back['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+        ]);
+        self::assertTrue($continued['success'], json_encode($continued));
+        self::assertTrue($continued['data']['opened'] ?? false, json_encode($continued));
+        self::assertSame(3, $this->apOf($scene['hero']));
+        self::assertArrayNotHasKey($heroKey, $this->battleRow($battleId)['action_debt']);
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        self::assertNull((new GameProcessRepository($gateway))->findOpenForActor($battleId, 'character', $scene['hero']));
+    }
+
+    /**
      * Выбывший теряет слот. Нет прежней пары — active_index 0.
      *
      * @return void
@@ -735,6 +818,28 @@ final class GameEndOfTurnMysqlTest extends TestCase
     }
 
     /**
+     * Текущее значение пула ОД.
+     *
+     * @param int $characterId Персонаж.
+     *
+     * @return int Значение.
+     */
+    private function apOf(int $characterId): int
+    {
+        $resources = $this->characterFacade()->get($characterId)->getSheet()['resources'] ?? [];
+        self::assertIsArray($resources);
+        foreach ($resources as $row) {
+            if (is_array($row) && ($row['ruleCode'] ?? null) === 'ap') {
+                self::assertIsInt($row['current'] ?? null);
+
+                return $row['current'];
+            }
+        }
+
+        self::fail('Action points are missing');
+    }
+
+    /**
      * @param array<int, array<string, mixed>> $operations Операции.
      *
      * @return int Версия листа.
@@ -753,11 +858,11 @@ final class GameEndOfTurnMysqlTest extends TestCase
      *
      * @return array{gameId: int, battleId: int, hero: int, ally: int}
      */
-    private function battlePair(array $inventory = []): array
+    private function battlePair(array $inventory = [], int $heroAp = 4): array
     {
         $world = $this->world();
         $gameId = $this->addGame($world->getId());
-        $hero = $this->admit($world->getId(), $gameId, 'Hero', $inventory);
+        $hero = $this->admit($world->getId(), $gameId, 'Hero', $inventory, $heroAp);
         $ally = $this->admit($world->getId(), $gameId, 'Ally');
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
         self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
@@ -1021,7 +1126,7 @@ final class GameEndOfTurnMysqlTest extends TestCase
     /**
      * @param array<int, mixed> $inventory Инвентарь.
      */
-    private function admit(int $spaceId, int $gameId, string $name, array $inventory = []): int
+    private function admit(int $spaceId, int $gameId, string $name, array $inventory = [], int $ap = 4): int
     {
         $characterId = $this->characterFacade()->add(NewCharacter::fromNormalized([
             'ownerUserId' => $this->ownerUserId,
@@ -1061,7 +1166,7 @@ final class GameEndOfTurnMysqlTest extends TestCase
             ],
             [
                 'abilityLevels' => [],
-                'resources' => [['ruleCode' => 'ap', 'current' => 4]],
+                'resources' => [['ruleCode' => 'ap', 'current' => $ap]],
                 'characteristicPurchases' => [
                     ['characteristicCode' => 'strength', 'value' => ['base' => 3, 'size' => 0]],
                     ['characteristicCode' => 'stamina', 'value' => ['base' => 4, 'size' => 0]],
@@ -1229,6 +1334,44 @@ final class GameEndOfTurnMysqlTest extends TestCase
                     'amount' => 5,
                 ]],
                 ...$flags,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('run', new RuleVersionBody('ability', 'Run', '', [
+                'type' => 'process',
+                'zones' => ['or' => ['kind' => 'automatic']],
+                'process' => [
+                    'steps' => [[
+                        'code' => 'run-start',
+                        'name' => 'Бег',
+                        'costs' => [['amount' => 1, 'resource_code' => 'ap']],
+                        'operations' => [[
+                            'type' => 'movement',
+                            'allowedDirections' => ['horizontal' => ['front'], 'vertical' => []],
+                            'distance' => ['horizontal' => [
+                                'min' => ['type' => 'current_movement_step', 'multiplier' => 1],
+                                'max' => [
+                                    'type' => 'size_gap_times_step',
+                                    'characteristic_code_from' => 'strength',
+                                    'characteristic_code_to' => 'weight',
+                                    'base_steps' => 2,
+                                    'gap_multiplier' => 1,
+                                ],
+                                'minInclusive' => true,
+                                'maxInclusive' => true,
+                            ]],
+                        ]],
+                        'description' => 'Часть бега.',
+                    ], [
+                        'code' => 'run-continue',
+                        'name' => 'Продолжение бега',
+                        'costs' => [['amount' => 1, 'resource_code' => 'ap']],
+                        'operations' => [],
+                        'description' => 'Следующая часть бега.',
+                    ]],
+                    'start_step_code' => 'run-start',
+                    'exit_step_codes' => ['run-continue'],
+                    'transition' => ['mode' => 'chain', 'direction' => 'forward', 'max_shift' => 1],
+                    'failure' => 'end_action',
+                ],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('sword', new RuleVersionBody('item', 'Sword', '', [
                 'category' => 'weapon',

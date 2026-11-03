@@ -29,9 +29,10 @@ frontend → PHP E2E — выполнен на двух аккаунтах (P4 �
 требования оружия, фильтр модификатора, профили щита, `ammunition_requirements`
 и `action_modifier` для серии/широкого удара. Процессы как тип действия
 (`ProcessSpec`) — [`game-plan-43-processes.md`](game-plan-43-processes.md).
-Срезы 1–2 реализованы в PHP и на фронте (ревизия 29, ручная проверка
-2026-11-03): шаги, долг ОД, `failure`, счётчики, комбо и закрытие чужой
-атакой; мок остался только под движение.
+Срезы 1–3 реализованы в PHP и на фронте (ревизии 29–30, ручная проверка
+среза 2 — 2026-11-03): шаги, долг ОД, `failure`, счётчики, комбо, закрытие
+чужой атакой и описательные шаги без исполнения. Мок движения остался
+только для режима без PHP; дистанции и battleground — `OPEN`.
 Это не project-wide approval. Канон — `[game-system.md](game-system.md)`.
 Границы — `[architecture.md](architecture.md)`, `[cross-domain.md](cross-domain.md)`.
 Стык листа — `[character-system.md](character-system.md)`, `[character-roadmap.md](character-roadmap.md)`

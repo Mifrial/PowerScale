@@ -165,6 +165,54 @@ final class GameActionPerform
     }
 
     /**
+     * Цена описательного шага процесса: лист актора и траты шага без карточки.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $actorKind Вид character или npc.
+     * @param int $actorId Идентификатор актора.
+     * @param ProcessStep $step Шаг процесса.
+     *
+     * @return array{
+     *     document: array{
+     *         actualVersion: int,
+     *         rulesRevision: int,
+     *         choices: array<string, mixed>,
+     *         sheet: array<string, mixed>
+     *     },
+     *     spends: array<int, ResourceSpend>
+     * } Цена шага.
+     *
+     * @throws GameNotFoundException Если листа нет.
+     */
+    public function quoteStep(
+        GameRecord $game,
+        string $actorKind,
+        int $actorId,
+        ProcessStep $step,
+    ): array {
+        $document = $this->document($game, $actorKind, $actorId);
+
+        return ['document' => $document, 'spends' => (new GameProcessRules())->costs($step)];
+    }
+
+    /**
+     * Проверяет достаточность ресурсов для готовых трат.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<int, ResourceSpend> $spends Траты.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если ресурсов не хватает.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function assertSpends(GameRecord $game, array $sheet, array $spends): void
+    {
+        $this->assertResources($game, $sheet, $spends);
+    }
+
+    /**
      * Списывает только ресурсы без операций листа.
      *
      * @param GameRecord $game Игра.

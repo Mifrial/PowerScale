@@ -217,17 +217,25 @@ final class GameActionDeclare
         array $applied,
         GameBattleRecord $battle,
     ): void {
+        $process = $input['processContext'] ?? null;
+        $step = is_array($process) ? ($process['step'] ?? null) : null;
+        $descriptive = $step instanceof ProcessStep && $step->getExecution()->isNone();
+        $ruleCode = $descriptive
+            ? (string) $process['processRuleCode']
+            : (string) $input['actionRuleCode'];
+
         $this->chat->post(
             $game,
             $actorUserId,
             $input['actor']['type'],
             $input['actor']['id'],
-            $input['actionRuleCode'],
+            $ruleCode,
             $applied['performed']['spent'],
             $battle->getId(),
             $battle->getRound(),
             $battle->getActiveIndex(),
             $applied['performed']['rolls'] ?? [],
+            $descriptive ? $step->getName() : null,
         );
     }
 
@@ -313,31 +321,52 @@ final class GameActionDeclare
             $step = $process['step'];
         }
 
+        $descriptive = $step !== null && $step->getExecution()->isNone();
+        $quoted = null;
+        $priced = null;
+        if ($descriptive) {
+            $quoted = $this->perform->quoteStep(
+                $game,
+                $input['actor']['type'],
+                $input['actor']['id'],
+                $step,
+            );
+            $priced = [
+                'pending' => $battle->getPendingActionEffects(),
+                'amounts' => $this->amountsOf($quoted['spends']),
+            ];
+        }
+
         if (!$paid) {
             $debt = new GameActionDebt();
             $debtKey = $debt->key($input['actor']['type'], $input['actor']['id']);
             $debt->assertFree($battle->getActionDebt(), $debtKey);
-            $quote = $this->perform->quote(
-                $game,
-                $input['actor']['type'],
-                $input['actor']['id'],
-                $input['actionRuleCode'],
-                $battle->getPendingActionEffects(),
-                !$followUp,
-                $input['chosenAmounts'],
-                $step,
-            );
+            if (!$descriptive) {
+                $quote = $this->perform->quote(
+                    $game,
+                    $input['actor']['type'],
+                    $input['actor']['id'],
+                    $input['actionRuleCode'],
+                    $battle->getPendingActionEffects(),
+                    !$followUp,
+                    $input['chosenAmounts'],
+                    $step,
+                );
+                $quoted = $quote;
+                $priced = $quote['priced'];
+            }
+
             $planned = $debt->plan(
                 $slice,
-                $quote['document']['sheet'],
-                $quote['spends'],
+                $quoted['document']['sheet'],
+                $quoted['spends'],
                 $debt->refillCode($slice),
                 'action',
                 [
                     'battleId' => $input['battleId'],
                     'expectedVersion' => $input['expectedBattle'],
                     'expectedSheetVersion' => $input['expectedSheet'],
-                    'actionRuleCode' => $input['actionRuleCode'],
+                    'actionRuleCode' => $input['actionRuleCode'] ?? $input['processRuleCode'] ?? '',
                     'followUpTargetKey' => $input['targetKey'],
                     'chosenAmounts' => $input['chosenAmounts'],
                     'actor' => $input['actor'],
@@ -358,7 +387,7 @@ final class GameActionDeclare
                 $saved = $this->battles->replaceTracked(
                     $battle->getId(),
                     $input['expectedBattle'],
-                    $quote['priced']['pending'],
+                    $priced['pending'],
                     $debtMap,
                     null,
                     null,
@@ -366,12 +395,12 @@ final class GameActionDeclare
 
                 return [
                     'debt' => true,
-                    'pending' => $quote['priced']['pending'],
+                    'pending' => $priced['pending'],
                     'performed' => [
-                        'pending' => $quote['priced']['pending'],
+                        'pending' => $priced['pending'],
                         'sheetVersion' => $sheetVersion,
                         'spent' => $this->spentOf($planned['spends']),
-                        'amounts' => $quote['priced']['amounts'],
+                        'amounts' => $priced['amounts'],
                         'rolls' => [],
                     ],
                     'version' => $saved->getStateVersion(),
@@ -379,6 +408,51 @@ final class GameActionDeclare
                     'remaining' => $planned['slot']['remaining'] ?? 0,
                 ];
             }
+        }
+
+        if ($descriptive) {
+            if (!is_array($process)) {
+                throw new GameInvalidException('Game process is invalid');
+            }
+
+            $spends = $paid ? $quoted['spends'] : $planned['spends'];
+            if ($paid) {
+                $sheetVersion = $input['expectedSheet'];
+            } else {
+                $this->perform->assertSpends($game, $quoted['document']['sheet'], $spends);
+                $sheetVersion = $this->perform->spend(
+                    $game,
+                    $input['actor']['type'],
+                    $input['actor']['id'],
+                    $input['expectedSheet'],
+                    $spends,
+                );
+            }
+
+            $processId = $this->processes->begin($battle, $input['actor'], $process);
+            $pending = $this->processes->complete(
+                $game,
+                $input['actor'],
+                $processId,
+                $step->getCode(),
+                true,
+                $battle->getPendingActionEffects(),
+            );
+            $stored = $this->store($input, $pending, null);
+
+            return [
+                'debt' => false,
+                'pending' => $stored['pending'],
+                'performed' => [
+                    'pending' => $stored['pending'],
+                    'sheetVersion' => $sheetVersion,
+                    'spent' => $this->spentOf($spends),
+                    'amounts' => $priced['amounts'],
+                    'rolls' => [],
+                ],
+                'version' => $stored['version'],
+                'reaction' => null,
+            ];
         }
 
         $reaction = $followUp
@@ -571,6 +645,29 @@ final class GameActionDeclare
                 'battleId' => $battle->getId(),
             ],
         );
+    }
+
+    /**
+     * Суммы трат по ресурсам.
+     *
+     * @param array<int, \Mifrial\Roleplay\Character\Dto\ResourceSpend> $spends Траты.
+     *
+     * @return array<string, int> Суммы.
+     */
+    private function amountsOf(array $spends): array
+    {
+        $amounts = [];
+        foreach ($spends as $spend) {
+            $native = $spend->getAmount()->toNative();
+            if (!is_int($native)) {
+                continue;
+            }
+
+            $code = $spend->getResourceCode();
+            $amounts[$code] = ($amounts[$code] ?? 0) + $native;
+        }
+
+        return $amounts;
     }
 
     /**

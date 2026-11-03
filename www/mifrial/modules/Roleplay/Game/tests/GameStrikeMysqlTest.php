@@ -4586,6 +4586,254 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Мир с процессом без исполнения (движение).
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function processDescriptiveRules(): array
+    {
+        return array_merge($this->stateActionRules(), [
+            'go' => [
+                'type' => 'ability',
+                'name' => 'Go',
+                'spec' => [
+                    'type' => 'process',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'process' => [
+                        'steps' => [[
+                            'code' => 'go-start',
+                            'name' => 'Бег',
+                            'costs' => [['amount' => 1, 'resource_code' => 'action-points']],
+                            'operations' => [[
+                                'type' => 'movement',
+                                'allowedDirections' => ['horizontal' => ['front'], 'vertical' => []],
+                                'distance' => ['horizontal' => [
+                                    'min' => ['type' => 'current_movement_step', 'multiplier' => 1],
+                                    'max' => [
+                                        'type' => 'size_gap_times_step',
+                                        'characteristic_code_from' => 'strength',
+                                        'characteristic_code_to' => 'weight',
+                                        'base_steps' => 2,
+                                        'gap_multiplier' => 1,
+                                    ],
+                                    'minInclusive' => true,
+                                    'maxInclusive' => true,
+                                ]],
+                            ]],
+                            'description' => 'Часть бега.',
+                        ], [
+                            'code' => 'go-continue',
+                            'name' => 'Продолжение бега',
+                            'costs' => [['amount' => 1, 'resource_code' => 'action-points']],
+                            'operations' => [],
+                            'description' => 'Следующая часть бега.',
+                        ]],
+                        'start_step_code' => 'go-start',
+                        'exit_step_codes' => ['go-continue'],
+                        'transition' => ['mode' => 'chain', 'direction' => 'forward', 'max_shift' => 1],
+                        'failure' => 'end_action',
+                    ],
+                ],
+            ],
+            'rest' => [
+                'type' => 'ability',
+                'name' => 'Rest',
+                'spec' => [
+                    'type' => 'process',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'process' => [
+                        'steps' => [[
+                            'code' => 'rest-only',
+                            'name' => 'Отдых',
+                            'costs' => [],
+                            'operations' => [],
+                            'description' => 'Шаг без цены.',
+                        ]],
+                        'start_step_code' => 'rest-only',
+                        'exit_step_codes' => ['rest-only'],
+                        'failure' => 'end_action',
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Описательный шаг списывает ОД, двигает процесс и пишет чат.
+     *
+     * @return void
+     */
+    public function testDescriptiveStepSpendsAndWritesChat(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->processDescriptiveRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $heroId = $this->admit($world->getId(), $gameId, 'Runner', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 5]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-descriptive',
+            'participants' => [['type' => 'character', 'id' => $heroId]],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $sheetVersion = $this->characterFacade()->get($heroId)->getActualVersion();
+        $result = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'go-start',
+            'expectedVersion' => 1,
+            'action' => $this->actionEnvelope([
+                'actor' => ['type' => 'character', 'id' => $heroId],
+                'actionRuleCode' => 'go',
+                'expectedSheetVersion' => $sheetVersion,
+                'followUpTargetKey' => null,
+                'processRuleCode' => 'go',
+            ]),
+        ]);
+        self::assertTrue($result['success'], json_encode($result));
+        self::assertSame(1, $result['data']['spent']);
+        self::assertSame(4, $this->actionPointsOf($heroId));
+        self::assertSame(0, $this->countActions('action'));
+
+        $replay = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'go-start',
+            'expectedVersion' => 1,
+            'action' => $this->actionEnvelope([
+                'actor' => ['type' => 'character', 'id' => $heroId],
+                'actionRuleCode' => 'go',
+                'expectedSheetVersion' => $sheetVersion,
+                'followUpTargetKey' => null,
+                'processRuleCode' => 'go',
+            ]),
+        ]);
+        self::assertTrue($replay['success'], json_encode($replay));
+        self::assertSame(4, $this->actionPointsOf($heroId));
+
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $row = (new GameProcessRepository($gateway))->findOpenForActor($battleId, 'character', $heroId);
+        self::assertNotNull($row);
+        self::assertSame('go-start', $row->getCurrentStepCode());
+        self::assertSame('completed', $row->getStepStatus());
+
+        $sheets = $this->dispatch('game.getBattleSheets', ['gameId' => $gameId, 'battleId' => $battleId]);
+        $view = $sheets['data']['processSessions']['character:' . $heroId] ?? null;
+        self::assertIsArray($view);
+        self::assertSame('go-start', $view['currentStepCode']);
+        self::assertSame('go-continue', $view['availableSteps'][0]['code'] ?? null);
+        self::assertSame('none', $view['availableSteps'][0]['execution'] ?? null);
+        self::assertNull($view['availableSteps'][0]['actionCode'] ?? null);
+
+        $messages = array_values(array_filter(
+            $this->messagesByThreadKind($gameId, 'turn'),
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'совершает действие'),
+        ));
+        self::assertCount(1, $messages);
+        self::assertStringContainsString('[[rule:go]]', $messages[0]->getContent());
+        self::assertStringContainsString('(шаг «Бег»)', $messages[0]->getContent());
+
+        $aborted = $this->dispatch('game.abortProcess', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'go-abort',
+            'battleId' => $battleId,
+            'expectedBattleVersion' => $result['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($heroId)->getActualVersion(),
+            'mode' => 'normal',
+        ]);
+        self::assertTrue($aborted['success'], json_encode($aborted));
+        self::assertTrue($aborted['data']['aborted']);
+        self::assertSame('go', $aborted['data']['processRuleCode']);
+        self::assertNull((new GameProcessRepository($gateway))->findOpenForActor($battleId, 'character', $heroId));
+    }
+
+    /**
+     * Описательный шаг с нулевой ценой не пишет лист и закрывает процесс.
+     *
+     * @return void
+     */
+    public function testDescriptiveStepWithoutCostKeepsSheet(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->processDescriptiveRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $heroId = $this->admit($world->getId(), $gameId, 'Rest Hero', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 5]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-rest',
+            'participants' => [['type' => 'character', 'id' => $heroId]],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $sheetVersion = $this->characterFacade()->get($heroId)->getActualVersion();
+        $result = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'rest-only',
+            'expectedVersion' => 1,
+            'action' => $this->actionEnvelope([
+                'actor' => ['type' => 'character', 'id' => $heroId],
+                'actionRuleCode' => 'rest',
+                'expectedSheetVersion' => $sheetVersion,
+                'followUpTargetKey' => null,
+                'processRuleCode' => 'rest',
+            ]),
+        ]);
+        self::assertTrue($result['success'], json_encode($result));
+        self::assertSame(0, $result['data']['spent']);
+        self::assertSame(5, $this->actionPointsOf($heroId));
+        self::assertSame($sheetVersion, $this->characterFacade()->get($heroId)->getActualVersion());
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        self::assertNull((new GameProcessRepository($gateway))->findOpenForActor($battleId, 'character', $heroId));
+    }
+
+    /**
+     * Шаг без исполнения нельзя объявить ударом.
+     *
+     * @return void
+     */
+    public function testDescriptiveStepRejectsStrike(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->processDescriptiveRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Not Striker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Guard');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-descriptive-strike',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'descriptive-strike',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId, 'go') + ['processRuleCode' => 'go'],
+            ),
+        ]);
+        self::assertFalse($opened['success'], json_encode($opened));
+        self::assertSame('GAME_INVALID', $opened['error']['code'] ?? null, json_encode($opened));
+        self::assertSame(10, $this->actionPointsOf($attackerId));
+        self::assertSame(0, $this->countActions('strike'));
+    }
+
+    /**
      * Мир с процессом серии ударов.
      *
      * @return array<string, array<string, mixed>> Правила.

@@ -98,6 +98,52 @@ describe('ProcessSessionService', () => {
     expect(processSessionService.availableSteps(spec, 'walk').map((step) => step.code)).toEqual(['run']);
   });
 
+  it('различает удар, действие и шаг без исполнения', () => {
+    expect(processSessionService.executionOf(movement.steps[0])).toBe('strike');
+    expect(
+      processSessionService.executionOf({
+        ...movement.steps[0],
+        execution: { type: 'action', action_code: 'act' },
+      }),
+    ).toBe('action');
+    expect(processSessionService.executionOf({ ...movement.steps[0], operations: [] })).toBe('none');
+    expect(
+      processSessionService.executionOf({
+        ...movement.steps[0],
+        operations: [
+          {
+            type: 'movement',
+            allowedDirections: { horizontal: ['front'], vertical: [] },
+            distance: {},
+          },
+        ],
+      }),
+    ).toBe('none');
+  });
+
+  it('берёт execution и actionCode из серверной сессии', () => {
+    const session = {
+      ...processSessionService.start(1, 'character:1', 'run', movement),
+      availableSteps: [
+        {
+          code: 'walk',
+          name: 'Бег',
+          description: 'Часть бега.',
+          actionPoints: 1,
+          execution: 'none' as const,
+          actionCode: null,
+          strike: null,
+        },
+      ],
+    };
+
+    const steps = processSessionService.visibleSteps(movement, session);
+
+    expect(steps).toHaveLength(1);
+    expect(steps[0].execution).toEqual({ type: 'none', action_code: null });
+    expect(processSessionService.executionOf(steps[0])).toBe('none');
+  });
+
   it('returns the resource cost of a step', () => {
     expect(processSessionService.stepCost(movement.steps[1], 'action-points')).toBe(2);
     expect(processSessionService.stepCost(movement.steps[1], 'qi')).toBe(0);
