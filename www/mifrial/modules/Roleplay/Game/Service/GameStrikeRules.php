@@ -2461,6 +2461,59 @@ final class GameStrikeRules
     }
 
     /**
+     * Мастерство надетого оружия в выбранном профиле.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<string, mixed> $choices Выборы листа.
+     * @param int $inventoryId Строка инвентаря.
+     * @param string $itemRuleCode Код предмета.
+     * @param string $profileType Профиль: strike, throw или shoot.
+     *
+     * @return DimensionalNumber Мастерство.
+     *
+     * @throws GameInvalidException Если предмет или профиль не подходят.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function weaponMasteryOf(
+        int $spaceId,
+        int $rulesRevision,
+        array $sheet,
+        array $choices,
+        int $inventoryId,
+        string $itemRuleCode,
+        string $profileType,
+    ): DimensionalNumber {
+        $this->assertInventoryItem($choices, $inventoryId, $itemRuleCode, $spaceId, $rulesRevision);
+        $item = $this->selectedItem($spaceId, $rulesRevision, $choices, $inventoryId, $itemRuleCode);
+        $weapon = $item->getWeapon();
+        $family = $item->getProficiencyFamilyCode();
+        if (!$weapon instanceof WeaponBlock || $family === null || $family === '') {
+            throw new GameInvalidException('Game strike support weapon is invalid');
+        }
+
+        $matches = false;
+        foreach ($weapon->getWeaponProfiles() as $profile) {
+            if ($profile->getType() === $profileType) {
+                $matches = true;
+            }
+        }
+
+        if (!$matches) {
+            throw new GameInvalidException('Game strike support weapon profile is invalid');
+        }
+
+        return $this->mastery(
+            $this->slice($spaceId, $rulesRevision),
+            $sheet,
+            $choices,
+            $family,
+            $profileType,
+        );
+    }
+
+    /**
      * Единственная живая проверка характеристики с заданной сложностью.
      *
      * @param int $spaceId Мир.
@@ -3101,7 +3154,7 @@ final class GameStrikeRules
      *
      * @param CharacterRuleSlice $slice Срез.
      * @param string $actionRuleCode Карточка.
-     * @param string $profileType strike, throw или shoot.
+     * @param string $profileType Профиль: strike, throw или shoot.
      *
      * @return int Сумма дельт.
      */

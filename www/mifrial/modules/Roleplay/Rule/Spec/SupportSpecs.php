@@ -20,6 +20,13 @@ final class SupportSpecs
     private const SIDES = ['attacker', 'defender'];
 
     /**
+     * Профили оружия.
+     *
+     * @var array<int, string>
+     */
+    private const PROFILES = ['strike', 'throw', 'shoot'];
+
+    /**
      * Читает узел support или null, если его нет.
      *
      * @param array<string|int, mixed> $document Документ способности.
@@ -54,6 +61,24 @@ final class SupportSpecs
             throw new RuleSpecShapeException('support.advantage');
         }
 
-        return new SupportModifier(array_keys($unique), $advantage);
+        $profile = SpecShape::optionalString($row, 'profile');
+        if ($profile !== null && !in_array($profile, self::PROFILES, true)) {
+            throw new RuleSpecShapeException('support.profile');
+        }
+
+        $minMastery = DimensionalNumbers::optional($row, 'min_mastery');
+
+        $source = SpecShape::optionalString($row, 'source');
+        if ($source !== null && trim($source) === '') {
+            throw new RuleSpecShapeException('support.source');
+        }
+
+        return new SupportModifier(
+            array_keys($unique),
+            $advantage,
+            $profile,
+            $minMastery,
+            $source ?? 'circumstances',
+        );
     }
 }

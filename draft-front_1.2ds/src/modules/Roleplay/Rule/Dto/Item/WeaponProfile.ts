@@ -1,3 +1,4 @@
+import type { WeaponProfileType } from '@/modules/Roleplay/Rule/Enum/Item/WeaponProfileType';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { DistanceRange, DistanceValue } from '@/modules/Roleplay/Rule/Dto/Item/DistanceValue';
 import type { DimensionalFormula } from '@/modules/Roleplay/Rule/Dto/Ability/DimensionalFormula';
@@ -10,7 +11,7 @@ export interface WeaponAmmunition {
 }
 
 export interface WeaponProfile {
-  type: 'strike' | 'throw' | 'shoot';
+  type: WeaponProfileType;
   distance: DistanceRange;
   damage: { formula: DimensionalFormula; damage_type_code: string | null };
   penetration: DimensionalFormula;

@@ -312,6 +312,15 @@ final class GameActionDeclare
             throw new GameInvalidException('Game strike support side is invalid');
         }
 
+        $attackProfile = $open['profile_type'] ?? null;
+        if ($support->getProfile() !== null && $attackProfile !== $support->getProfile()) {
+            throw new GameInvalidException('Game strike support profile is invalid');
+        }
+
+        if ($support->getProfile() !== null && $input['profileType'] !== $support->getProfile()) {
+            throw new GameInvalidException('Game strike support weapon profile is invalid');
+        }
+
         $quote = $this->perform->quote(
             $game,
             $input['actor']['type'],
@@ -322,6 +331,20 @@ final class GameActionDeclare
             [],
             null,
         );
+        $mastery = $this->rules->weaponMasteryOf(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $quote['document']['sheet'],
+            $quote['document']['choices'],
+            $input['itemInventoryId'],
+            $input['itemRuleCode'],
+            $input['profileType'],
+        );
+        $minMastery = $support->getMinMastery();
+        if ($minMastery !== null && $mastery->compare($minMastery) < 0) {
+            throw new GameInvalidException('Game strike support mastery is too low');
+        }
+
         $this->perform->assertSpends($game, $quote['document']['sheet'], $quote['spends']);
         $sheetVersion = $this->perform->spend(
             $game,
@@ -348,6 +371,12 @@ final class GameActionDeclare
             'ruleCode' => $input['actionRuleCode'],
             'side' => $input['side'],
             'advantage' => $support->getAdvantage(),
+            'source' => $support->getSource(),
+            'weapon' => [
+                'itemInventoryId' => $input['itemInventoryId'],
+                'itemRuleCode' => $input['itemRuleCode'],
+                'profileType' => $input['profileType'],
+            ],
         ];
         $this->actions->answerStrike($strikeId, ['supporters' => $supporters]);
         $saved = $this->battles->replaceTracked(
@@ -381,6 +410,9 @@ final class GameActionDeclare
      *     expectedSheet: int,
      *     actionRuleCode: string,
      *     side: string,
+     *     itemInventoryId: int,
+     *     itemRuleCode: string,
+     *     profileType: string,
      *     actor: array{type: string, id: int}
      * } Вход.
      *
@@ -393,6 +425,9 @@ final class GameActionDeclare
         $expectedSheet = $body['expectedSheetVersion'] ?? null;
         $actionRuleCode = $body['actionRuleCode'] ?? null;
         $side = $body['side'] ?? null;
+        $itemInventoryId = $body['itemInventoryId'] ?? null;
+        $itemRuleCode = $body['itemRuleCode'] ?? null;
+        $profileType = $body['profileType'] ?? null;
         if (
             !is_int($battleId)
             || !is_int($expectedBattle)
@@ -400,6 +435,11 @@ final class GameActionDeclare
             || !is_string($actionRuleCode)
             || $actionRuleCode === ''
             || ($side !== 'attacker' && $side !== 'defender')
+            || !is_int($itemInventoryId)
+            || $itemInventoryId < 1
+            || !is_string($itemRuleCode)
+            || $itemRuleCode === ''
+            || ($profileType !== 'strike' && $profileType !== 'throw' && $profileType !== 'shoot')
         ) {
             throw new GameInvalidException('Game strike support is invalid');
         }
@@ -410,6 +450,9 @@ final class GameActionDeclare
             'expectedSheet' => $expectedSheet,
             'actionRuleCode' => $actionRuleCode,
             'side' => $side,
+            'itemInventoryId' => $itemInventoryId,
+            'itemRuleCode' => $itemRuleCode,
+            'profileType' => $profileType,
             'actor' => $this->pair($body['actor'] ?? null),
         ];
     }

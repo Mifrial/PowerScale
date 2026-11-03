@@ -120,6 +120,7 @@ final class GameViewAssembler
         }
 
         return [
+            'strikeId' => $this->intField($target, 'id'),
             'attackerKind' => is_string($row['attacker_kind'] ?? null) ? $row['attacker_kind'] : '',
             'attackerId' => $this->intField($row, 'attacker_id'),
             'defenderKind' => is_string($target['target_type'] ?? null) ? $target['target_type'] : '',

@@ -221,6 +221,9 @@ final class GameRunAction
             'actor' => $parsed['actor'],
             'actionRuleCode' => $parsed['code'],
             'side' => $context['side'],
+            'itemInventoryId' => $context['itemInventoryId'],
+            'itemRuleCode' => $context['itemRuleCode'],
+            'profileType' => $context['profileType'],
         ]);
 
         return array_merge($result, [

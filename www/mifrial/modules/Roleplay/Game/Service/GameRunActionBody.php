@@ -193,14 +193,35 @@ final class GameRunActionBody
      */
     private function supportContext(array $context): array
     {
-        $this->assertKeys($context, ['expectedSheetVersion', 'side'], 'support context');
+        $this->assertKeys(
+            $context,
+            ['expectedSheetVersion', 'side', 'itemInventoryId', 'itemRuleCode', 'profileType'],
+            'support context',
+        );
         $expected = $context['expectedSheetVersion'] ?? null;
         $side = $context['side'] ?? null;
-        if (!is_int($expected) || ($side !== 'attacker' && $side !== 'defender')) {
+        $itemInventoryId = $context['itemInventoryId'] ?? null;
+        $itemRuleCode = $context['itemRuleCode'] ?? null;
+        $profileType = $context['profileType'] ?? null;
+        if (
+            !is_int($expected)
+            || ($side !== 'attacker' && $side !== 'defender')
+            || !is_int($itemInventoryId)
+            || $itemInventoryId < 1
+            || !is_string($itemRuleCode)
+            || $itemRuleCode === ''
+            || ($profileType !== 'strike' && $profileType !== 'throw' && $profileType !== 'shoot')
+        ) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: support context');
         }
 
-        return ['expectedSheetVersion' => $expected, 'side' => $side];
+        return [
+            'expectedSheetVersion' => $expected,
+            'side' => $side,
+            'itemInventoryId' => $itemInventoryId,
+            'itemRuleCode' => $itemRuleCode,
+            'profileType' => $profileType,
+        ];
     }
 
     /**

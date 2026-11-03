@@ -4841,16 +4841,18 @@ final class GameStrikeMysqlTest extends TestCase
      */
     private function supportRules(): array
     {
-        $support = static fn (array $sides): array => [
-            'type' => 'action',
-            'zones' => ['or' => ['kind' => 'automatic']],
-            'action_components' => [[
-                'type' => 'resource',
-                'resource_code' => 'action-points',
-                'amount' => 2,
-            ]],
-            'support' => ['sides' => $sides, 'advantage' => 1],
-        ];
+        $support = static function (array $sides, array $extra = []): array {
+            return array_merge([
+                'type' => 'action',
+                'zones' => ['or' => ['kind' => 'automatic']],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 2,
+                ]],
+                'support' => array_merge(['sides' => $sides, 'advantage' => 1], $extra),
+            ]);
+        };
 
         return array_merge($this->stateActionRules(), [
             'support-any' => [
@@ -4862,6 +4864,24 @@ final class GameStrikeMysqlTest extends TestCase
                 'type' => 'ability',
                 'name' => 'Support attacker',
                 'spec' => $support(['attacker']),
+            ],
+            'support-melee' => [
+                'type' => 'ability',
+                'name' => 'Support melee',
+                'spec' => $support(['attacker', 'defender'], [
+                    'advantage' => 2,
+                    'profile' => 'strike',
+                    'min_mastery' => ['base' => 4, 'size' => 0],
+                ]),
+            ],
+            'support-elite' => [
+                'type' => 'ability',
+                'name' => 'Support elite',
+                'spec' => $support(['attacker', 'defender'], [
+                    'advantage' => 2,
+                    'profile' => 'strike',
+                    'min_mastery' => ['base' => 5, 'size' => 0],
+                ]),
             ],
             'plain-action' => [
                 'type' => 'ability',
@@ -4932,6 +4952,9 @@ final class GameStrikeMysqlTest extends TestCase
                 'context' => [
                     'expectedSheetVersion' => $this->characterFacade()->get($supporterId)->getActualVersion(),
                     'side' => 'attacker',
+                    'itemInventoryId' => 1,
+                    'itemRuleCode' => 'sword',
+                    'profileType' => 'strike',
                 ],
             ],
         ]);
@@ -4955,7 +4978,7 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         self::assertContains(
-            ['source_code' => null, 'delta' => 1],
+            ['source_code' => 'circumstances', 'delta' => 1],
             $closed['data']['strikes'][0]['roll']['advantages'] ?? [],
         );
     }
@@ -5012,6 +5035,9 @@ final class GameStrikeMysqlTest extends TestCase
                 'context' => [
                     'expectedSheetVersion' => $this->characterFacade()->get($supporterId)->getActualVersion(),
                     'side' => 'defender',
+                    'itemInventoryId' => 1,
+                    'itemRuleCode' => 'sword',
+                    'profileType' => 'strike',
                 ],
             ],
         ]);
@@ -5029,11 +5055,11 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         self::assertContains(
-            ['source_code' => null, 'delta' => 1],
+            ['source_code' => 'circumstances', 'delta' => 1],
             $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [],
         );
         self::assertNotContains(
-            ['source_code' => null, 'delta' => 1],
+            ['source_code' => 'circumstances', 'delta' => 1],
             $closed['data']['strikes'][0]['roll']['advantages'] ?? [],
         );
     }
@@ -5135,6 +5161,136 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Минимум мастерства выбранного оружия берётся из спеки карточки.
+     *
+     * @return void
+     */
+    public function testSupportReactionRequiresMastery(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->supportRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $supporterId = $this->admit($world->getId(), $gameId, 'Supporter', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-support-mastery',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+                ['type' => 'character', 'id' => $supporterId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-support-mastery',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $elite = $this->dispatch('game.runAction', $this->supportEnvelope(
+            $gameId,
+            $battleId,
+            $supporterId,
+            'support-elite',
+            'attacker',
+            $opened['data']['version'],
+        ));
+        self::assertFalse($elite['success'], json_encode($elite));
+        self::assertSame('GAME_INVALID', $elite['error']['code'] ?? null);
+
+        $strong = $this->dispatch('game.runAction', $this->supportEnvelope(
+            $gameId,
+            $battleId,
+            $supporterId,
+            'support-melee',
+            'attacker',
+            $opened['data']['version'],
+        ));
+        self::assertTrue($strong['success'], json_encode($strong));
+        self::assertSame(2, $strong['data']['advantage']);
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-support-mastery',
+            'expectedVersion' => $strong['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertContains(
+            ['source_code' => 'circumstances', 'delta' => 2],
+            $closed['data']['strikes'][0]['roll']['advantages'] ?? [],
+        );
+    }
+
+    /**
+     * Профиль оружия поддержки должен совпадать с профилем удара.
+     *
+     * @return void
+     */
+    public function testSupportReactionRejectsWrongWeaponProfile(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->supportRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $supporterId = $this->admit($world->getId(), $gameId, 'Supporter', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-support-profile',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+                ['type' => 'character', 'id' => $supporterId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-support-profile',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $rejected = $this->dispatch('game.runAction', $this->supportEnvelope(
+            $gameId,
+            $battleId,
+            $supporterId,
+            'support-melee',
+            'attacker',
+            $opened['data']['version'],
+            'shoot',
+        ));
+        self::assertFalse($rejected['success'], json_encode($rejected));
+        self::assertSame('GAME_INVALID', $rejected['error']['code'] ?? null);
+    }
+
+    /**
      * Конверт реакции поддержки.
      *
      * @param int $gameId Игра.
@@ -5143,6 +5299,7 @@ final class GameStrikeMysqlTest extends TestCase
      * @param string $code Карточка.
      * @param string $side Сторона.
      * @param int $expectedVersion Версия боя.
+     * @param string $profileType Профиль оружия.
      *
      * @return array<string, mixed> Тело.
      */
@@ -5153,6 +5310,7 @@ final class GameStrikeMysqlTest extends TestCase
         string $code,
         string $side,
         int $expectedVersion,
+        string $profileType = 'strike',
     ): array {
         return [
             'gameId' => $gameId,
@@ -5167,6 +5325,9 @@ final class GameStrikeMysqlTest extends TestCase
                 'context' => [
                     'expectedSheetVersion' => $this->characterFacade()->get($supporterId)->getActualVersion(),
                     'side' => $side,
+                    'itemInventoryId' => 1,
+                    'itemRuleCode' => 'sword',
+                    'profileType' => $profileType,
                 ],
             ],
         ];

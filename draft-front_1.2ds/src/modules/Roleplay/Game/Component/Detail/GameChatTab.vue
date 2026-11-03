@@ -42,6 +42,7 @@ import type { SpellCastLaunchContext } from '@/modules/Roleplay/Game/Dto/Spell/S
 import type { ActionLaunchHint } from '@/modules/Roleplay/Game/Dto/ActionLaunchHint';
 import CheckLaunchDialog from '@/modules/Roleplay/Game/Component/CheckLaunchDialog.vue';
 import HitLaunchDialog from '@/modules/Roleplay/Game/Component/HitLaunchDialog.vue';
+import SupportLaunchDialog from '@/modules/Roleplay/Game/Component/SupportLaunchDialog.vue';
 import ActionLaunchDialog from '@/modules/Roleplay/Game/Component/ActionLaunchDialog.vue';
 import AttackLaunchDialog from '@/modules/Roleplay/Game/Component/AttackLaunchDialog.vue';
 import SpellCastDialog from '@/modules/Roleplay/Game/Component/SpellCastDialog.vue';
@@ -70,6 +71,9 @@ import { combatChatFoldService } from '@/modules/Roleplay/Game/Service/Instance/
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { ChatFoldChild } from '@/modules/Messages/Chat/Dto/ChatFoldChild';
+import type { SupportReactionOption } from '@/modules/Roleplay/Game/Dto/SupportReactionOption';
+import type { SupportSide } from '@/modules/Roleplay/Rule/Enum/Ability/SupportSide';
+import { supportReactionService } from '@/modules/Roleplay/Game/Service/Instance/supportReactionService';
 
 const props = defineProps<{
   /** Активна ли вкладка: чат монтируется только при открытии (D7 — освобождает глобальный чат при уходе). */
@@ -625,6 +629,89 @@ async function tryOpenPhpWideStrike(wide: GamePhpOpenWideStrike): Promise<void> 
   hitOpen.value = true;
 }
 
+function closeSupportOffer(): void {
+  supportOpen.value = false;
+  supportOptions.value = [];
+  supportStrike.value = null;
+  supportError.value = null;
+}
+
+function openSupportOffer(strike: GamePhpOpenStrike): void {
+  const strikeKey = supportReactionService.strikeKey(strike);
+  if (dismissedSupportKey.value === strikeKey) {
+    closeSupportOffer();
+
+    return;
+  }
+  const options = supportReactionService.options(
+    strike,
+    currentUser.value?.id ?? null,
+    memberships.value,
+    revisionRules.value,
+  );
+  if (options.length === 0) {
+    closeSupportOffer();
+
+    return;
+  }
+  if (supportOpen.value && supportStrike.value && supportReactionService.strikeKey(supportStrike.value) === strikeKey) {
+    supportOptions.value = options;
+
+    return;
+  }
+  supportStrike.value = strike;
+  supportOptions.value = options;
+  supportError.value = null;
+  supportOpen.value = true;
+}
+
+function onSupportClosed(value: boolean): void {
+  if (value) return;
+  if (supportStrike.value) dismissedSupportKey.value = supportReactionService.strikeKey(supportStrike.value);
+  closeSupportOffer();
+}
+
+async function onSupportSubmit(payload: {
+  option: SupportReactionOption;
+  side: SupportSide;
+  itemInventoryId: number;
+}): Promise<void> {
+  const strike = supportStrike.value;
+  const battleId = gamePhpBattleContext.battleId;
+  const actorKey = `character:${payload.option.membership.characterId}` as CombatEntityKey;
+  if (!strike || battleId === null) return;
+  const weapon =
+    payload.option.weapons.find((row) => row.itemInventoryId === payload.itemInventoryId) ?? payload.option.weapons[0];
+  if (!weapon) return;
+
+  supportBusy.value = true;
+  supportError.value = null;
+  try {
+    const expectedSheet =
+      runtimeByKey.value[actorKey]?.actualVersion ?? gamePhpBattleContext.sheetVersionByKey[actorKey] ?? 1;
+    await getGameApi().runAction(
+      supportReactionService.request(
+        gameId.value,
+        payload.option,
+        payload.side,
+        weapon,
+        battleId,
+        gamePhpBattleContext.battleVersion,
+        expectedSheet,
+        createRandomId(),
+      ),
+    );
+    dismissedSupportKey.value = supportReactionService.strikeKey(strike);
+    closeSupportOffer();
+    store.applyGameUpdate(await getGameApi().getGame(gameId.value));
+    battleRevision.value += 1;
+  } catch (cause) {
+    supportError.value = cause instanceof Error ? cause.message : 'Не удалось объявить поддержку';
+  } finally {
+    supportBusy.value = false;
+  }
+}
+
 async function tryOpenPhpStrike(force = false): Promise<void> {
   if (!gamePhpMode.isEnabled()) {
     return;
@@ -632,6 +719,7 @@ async function tryOpenPhpStrike(force = false): Promise<void> {
   const wide = gamePhpBattleContext.openWideStrike;
   if (wide) {
     phpOpenStrike.value = null;
+    closeSupportOffer();
     await tryOpenPhpWideStrike(wide);
 
     return;
@@ -640,6 +728,7 @@ async function tryOpenPhpStrike(force = false): Promise<void> {
   const isPhpDialog = hitOpen.value && hitPhpStrikeMode.value;
   if (!strike) {
     phpOpenStrike.value = null;
+    closeSupportOffer();
     if (isPhpDialog && hitPhpBound.value) onHitClosed(false, false);
 
     return;
@@ -649,6 +738,18 @@ async function tryOpenPhpStrike(force = false): Promise<void> {
   phpOpenStrike.value = strike;
   const attackerKey = `${strike.attackerKind}:${strike.attackerId}` as CombatEntityKey;
   const defenderKey = `${strike.defenderKind}:${strike.defenderId}` as CombatEntityKey;
+  const canDefend = gameStrikeDefenseService.shouldAutoOpen(
+    strike,
+    currentUser.value?.id ?? null,
+    memberships.value,
+    canWriteStrike.value,
+  );
+  if (!force && !canDefend) {
+    openSupportOffer(strike);
+
+    return;
+  }
+  closeSupportOffer();
   if (!force) {
     const action = gameStrikeDefenseService.windowAction(
       strike,
@@ -1408,6 +1509,13 @@ const hitResumePhpStrike = ref(false);
 const hitPhpStrikeMode = ref(false);
 const hitPhpDefenderKey = ref<CombatEntityKey | null>(null);
 const hitPhpBound = ref(false);
+/** Реакция третьей стороны: окно поддержки открытого удара. */
+const supportOpen = ref(false);
+const supportOptions = ref<SupportReactionOption[]>([]);
+const supportStrike = ref<GamePhpOpenStrike | null>(null);
+const supportBusy = ref(false);
+const supportError = ref<string | null>(null);
+const dismissedSupportKey = ref<string | null>(null);
 const processActionContext = ref<ProcessActionContext | null>(null);
 const attackAction = ref<AttackAction | null>(null);
 const pendingOffers = ref<CheckOffer[]>([]);
@@ -1940,6 +2048,14 @@ onUnmounted(() => {
       @overlay-changed="onOverlayChanged"
       @strike-refresh="onStrikeRefresh"
       @php-answer-strike="onAnswerPhpStrike"
+    />
+    <SupportLaunchDialog
+      :open="supportOpen"
+      :options="supportOptions"
+      :busy="supportBusy"
+      :error="supportError"
+      @update:open="onSupportClosed"
+      @submit="onSupportSubmit"
     />
     <InjuryLaunchDialog
       :open="injuryOpen"

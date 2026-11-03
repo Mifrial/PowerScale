@@ -998,11 +998,18 @@ final class GameStrikeSingleClose
 
             $side = $entry['side'] ?? null;
             $advantage = $entry['advantage'] ?? null;
-            if (($side !== 'attacker' && $side !== 'defender') || !is_int($advantage) || $advantage === 0) {
+            $source = $entry['source'] ?? null;
+            if (
+                ($side !== 'attacker' && $side !== 'defender')
+                || !is_int($advantage)
+                || $advantage === 0
+                || !is_string($source)
+                || $source === ''
+            ) {
                 continue;
             }
 
-            $supports[$side][] = new RollAdvantage(null, $advantage);
+            $supports[$side][] = new RollAdvantage($source, $advantage);
         }
 
         return $supports;

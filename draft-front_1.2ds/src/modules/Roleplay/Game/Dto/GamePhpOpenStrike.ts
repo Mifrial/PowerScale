@@ -2,6 +2,7 @@ import type { GamePhpStrikeConditions } from '@/modules/Roleplay/Game/Dto/GamePh
 
 /** Открытый удар PHP из карточки боя. */
 export interface GamePhpOpenStrike {
+  strikeId?: number;
   attackerKind: 'character' | 'npc' | string;
   attackerId: number;
   defenderKind: 'character' | 'npc' | string;

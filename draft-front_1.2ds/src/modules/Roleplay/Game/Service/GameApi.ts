@@ -1086,6 +1086,11 @@ export class GameApi implements IGameApi {
       if (actor) gamePhpBattleContext.rememberSheet(`${actor.type}:${actor.id}`, result.sheetVersion ?? 1);
     }
 
+    if (body.action.kind === 'support') {
+      const actor = body.action.actor;
+      if (actor) gamePhpBattleContext.rememberSheet(`${actor.type}:${actor.id}`, result.sheetVersion ?? 1);
+    }
+
     if (body.action.kind === 'strike' && body.action.phase === 'respond') {
       for (const row of result.strikes ?? []) {
         if (typeof row.sheetVersion === 'number') {
@@ -1420,6 +1425,7 @@ export class GameApi implements IGameApi {
   private openStrikeOf(value: unknown): GamePhpOpenStrike | null {
     if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
     const row = value as Record<string, unknown>;
+    const strikeId = this.intField(row.strikeId);
     const attackerId = this.intField(row.attackerId);
     const defenderId = this.intField(row.defenderId);
     const itemInventoryId = this.intField(row.itemInventoryId);
@@ -1434,6 +1440,7 @@ export class GameApi implements IGameApi {
     if (itemInventoryId === null || typeof row.profileType !== 'string' || profileIndex === null) return null;
 
     return {
+      ...(strikeId !== null && strikeId > 0 ? { strikeId } : {}),
       attackerKind: row.attackerKind,
       attackerId,
       defenderKind: row.defenderKind,

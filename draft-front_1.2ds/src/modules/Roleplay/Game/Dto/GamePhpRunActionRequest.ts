@@ -8,7 +8,7 @@ export interface GamePhpRunActionRequest {
   expectedVersion: number;
   action: {
     phase: 'declare' | 'respond';
-    kind: 'action' | 'strike' | 'wound';
+    kind: 'action' | 'strike' | 'support' | 'wound';
     code?: string;
     actor?: GamePhpParticipant;
     context: Record<string, unknown>;
