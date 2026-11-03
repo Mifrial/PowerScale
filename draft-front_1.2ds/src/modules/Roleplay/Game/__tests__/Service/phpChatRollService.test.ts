@@ -80,4 +80,19 @@ describe('PhpChatRollService', () => {
       difficulty: { base: 3, size: 0 },
     });
   });
+
+  it('переносит бонус процесса в карточку броска', () => {
+    const result = new PhpChatRollService().fromPhpCheck({
+      success: true,
+      rating: 12,
+      difficulty: { base: 0, size: -1 },
+      roll: { base: 5, size: 0 },
+      faces: [3, 3, 2, 1],
+      adjustedRolls: [3, 3, 2, 1],
+      successes: [1, 1, 1, 2],
+      process_bonus: { successes: 1, rating: 2 },
+    });
+
+    expect(result?.processBonus).toEqual({ successes: 1, rating: 2 });
+  });
 });

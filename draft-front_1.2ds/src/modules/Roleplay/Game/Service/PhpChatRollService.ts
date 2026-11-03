@@ -40,12 +40,11 @@ export class PhpChatRollService {
     const masteryAdjustments = this.adjustmentsOf(row.masteryAdjustments);
     const efficiencyAdjustments = this.adjustmentsOf(row.efficiencyAdjustments);
     const advantages = this.adjustmentsOf(row.advantages).map((entry) =>
-      entry.source_code === 'flank' && !entry.source_label
-        ? { ...entry, source_label: FLANK_DEFENSE_LABEL }
-        : entry,
+      entry.source_code === 'flank' && !entry.source_label ? { ...entry, source_label: FLANK_DEFENSE_LABEL } : entry,
     );
     const efficiency = this.pair(row.efficiency);
     const rangedHit = this.rangedHitOf(row.ranged_hit);
+    const processBonus = this.processBonusOf(row.process_bonus);
 
     return {
       spec: {
@@ -66,6 +65,7 @@ export class PhpChatRollService {
       adjustedRolls: adjusted,
       droppedRolls: dropped,
       totalSuccesses: thrown.base,
+      ...(processBonus ? { processBonus } : {}),
       check: {
         check_code: label ?? 'check',
         ...(label ? { check_name: label } : {}),
@@ -76,6 +76,21 @@ export class PhpChatRollService {
         ...(rangedHit ? { ranged_hit: rangedHit } : {}),
       },
     };
+  }
+
+  /**
+   * Бонус процесса из сырого броска PHP.
+   *
+   * @param value Сырое поле process_bonus.
+   *
+   * @returns Успехи и вклад в РУ или null.
+   */
+  private processBonusOf(value: unknown): { successes: number; rating: number } | null {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+    const row = value as Record<string, unknown>;
+    if (typeof row.successes !== 'number' || typeof row.rating !== 'number') return null;
+
+    return { successes: row.successes, rating: row.rating };
   }
 
   private rangedHitOf(value: unknown): RangedHitDifficultyBreakdown | null {

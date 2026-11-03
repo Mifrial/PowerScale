@@ -324,8 +324,8 @@ function grantLabel(grant: Grant): string {
           Штраф уклонения от
           {{ spec.dodge_ranged_penalty.profile_type === 'shoot' ? 'выстрела' : spec.dodge_ranged_penalty.profile_type }}
           на дистанции от
-          <strong>{{ DimensionalNumber.from(spec.dodge_ranged_penalty.distance).toString() }}</strong>:
-          <strong>{{ spec.dodge_ranged_penalty.delta }}</strong> к эффективности
+          <strong>{{ DimensionalNumber.from(spec.dodge_ranged_penalty.distance).toString() }}</strong
+          >: <strong>{{ spec.dodge_ranged_penalty.delta }}</strong> к эффективности
         </div>
         <div v-if="spec?.dodge_soak" class="mt-2">
           Смягчение от характеристики:
@@ -362,6 +362,7 @@ function grantLabel(grant: Grant): string {
           <v-list-item
             v-for="(step, index) in spec.process.steps"
             :key="step.code"
+            class="ability-card__step-item"
             :title="`${index + 1}. ${step.name}`"
           >
             <template #subtitle>
@@ -464,5 +465,12 @@ function grantLabel(grant: Grant): string {
 .ability-card__step-desc,
 .ability-card__step-cost {
   white-space: pre-line;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.ability-card__step-item :deep(.v-list-item-subtitle) {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 </style>

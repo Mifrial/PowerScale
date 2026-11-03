@@ -246,6 +246,39 @@ const processSteps = computed(() => {
 const selectedProcessStep = computed(
   () => processSteps.value.find((step) => step.code === processStepCode.value) ?? null,
 );
+const activeProcessSession = computed(() =>
+  activeProcess.value &&
+  selectedSource.value &&
+  actionRefEquals(selectedSource.value, activeProcess.value.processRuleCode, props.rules)
+    ? activeProcess.value
+    : null,
+);
+const selectedStepStrike = computed(() => {
+  const process = selectedSource.value?.process;
+  const step = selectedProcessStep.value;
+  if (!process || !step) return null;
+
+  return processSessionService.strikePreview(process, activeProcessSession.value, step.code);
+});
+const closingStrikePreview = computed(() => {
+  if (!selectedSource.value || selectedSource.value.isProcess || !activeProcess.value?.closing) return null;
+
+  return activeProcess.value.closing;
+});
+const selectedStepAdvantageLabel = computed(() => {
+  const value = selectedStepStrike.value?.advantage ?? 0;
+  if (value < 0) return `Помеха на попадание от действия: −${Math.abs(value)}`;
+  if (value > 0) return `Преимущество на попадание от действия: +${value}`;
+
+  return null;
+});
+const selectedStepBonusLabel = computed(() => {
+  const value = selectedStepStrike.value?.extraSuccesses ?? 0;
+  if (value <= 0) return null;
+  const word = value === 1 ? 'успех' : value >= 2 && value <= 4 ? 'успеха' : 'успехов';
+
+  return `К итогу попадания: +${value} ${word} того же размера, что бросок`;
+});
 const compatibleProfiles = computed(() =>
   attackActionSourceService.compatibleProfiles(
     selectedSourceRule.value,
@@ -888,12 +921,38 @@ watch(followUpTargetKeys, (allowed) => {
               <template #item="{ props: itemProps, item }">
                 <v-list-item
                   v-bind="itemProps"
+                  class="process-step-option"
                   :title="`${item.raw.name} · ${processSessionService.stepCost(item.raw, turnResourceCode(props.rules))} ОД`"
-                  :subtitle="item.raw.description"
-                />
+                >
+                  <template #subtitle>
+                    <div class="process-step-option__desc">{{ item.raw.description }}</div>
+                  </template>
+                </v-list-item>
               </template>
             </v-autocomplete>
+            <div v-if="selectedProcessStep" class="process-step-info">
+              <div class="text-body-2 process-step-info__text">{{ selectedProcessStep.description }}</div>
+              <div class="process-step-info__meta text-caption">
+                <span>Стоимость шага: {{ baseCost }} ОД</span>
+                <span v-if="selectedStepAdvantageLabel" class="text-error">{{ selectedStepAdvantageLabel }}</span>
+                <span v-if="selectedStepBonusLabel">{{ selectedStepBonusLabel }}</span>
+              </div>
+            </div>
           </template>
+
+          <div v-else-if="closingStrikePreview" class="process-step-info">
+            <div class="text-body-2 process-step-info__text">
+              Эта атака закроет процесс «{{ closingStrikePreview.cardCode }}», если цель та же.
+            </div>
+            <div class="process-step-info__meta text-caption">
+              <span v-if="closingStrikePreview.strike.advantage !== 0" class="text-success">
+                Преимущество на попадание: +{{ closingStrikePreview.strike.advantage }}
+              </span>
+              <span v-if="closingStrikePreview.strike.extraSuccesses > 0">
+                К итогу попадания: +{{ closingStrikePreview.strike.extraSuccesses }} успехов того же размера, что бросок
+              </span>
+            </div>
+          </div>
 
           <div v-for="(slot, index) in slots" :key="index" class="attack-slot mb-3">
             <div class="d-flex align-center ga-2 mb-1">
@@ -1039,5 +1098,29 @@ watch(followUpTargetKeys, (allowed) => {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 8px;
   padding: 8px;
+}
+.process-step-info {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 12px;
+}
+.process-step-info__text,
+.process-step-option__desc {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.process-step-info__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+}
+.process-step-info :deep(.v-list-item-subtitle),
+.process-step-option :deep(.v-list-item-subtitle) {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 </style>

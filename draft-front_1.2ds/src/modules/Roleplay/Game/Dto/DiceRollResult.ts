@@ -19,6 +19,8 @@ export interface DiceRollResult {
   priorAdjustedRolls?: number[];
   /** Слой проверки (чат: простая vs {0|0}). Нет — только бросок. */
   check?: DiceRollCheckOutcome;
+  /** Бонус процесса к итогу попадания: успехи размера броска и их вклад в РУ. */
+  processBonus?: { successes: number; rating: number };
   /** Исход проверки на увечье (сила = −РУ при провале). */
   injury?: InjuryOutcome;
 }

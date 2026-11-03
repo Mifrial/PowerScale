@@ -1016,13 +1016,17 @@ const processStepCost = computed(() =>
 );
 const processStrikeModifiers = computed<AdvantageModifier[]>(() => {
   const context = effectiveProcessContext.value;
-  const session = context?.session;
-  if (!context || !session) return [];
-  const step = session.availableSteps?.find((entry) => entry.code === context.stepCode);
-  const strikePackage = step?.strike ?? session.closing?.strike ?? null;
-  if (!strikePackage || strikePackage.advantage === 0) return [];
+  if (!context || !processSpec.value) return [];
+  const strikePackage = processSessionService.strikePreview(processSpec.value, context.session, context.stepCode);
+  if (strikePackage.advantage === 0) return [];
 
   return [{ source_code: ADVANTAGE_SOURCE_ACTION, source_label: 'Действие', delta: strikePackage.advantage }];
+});
+const processStrikeBonus = computed(() => {
+  const context = effectiveProcessContext.value;
+  if (!context || !processSpec.value) return 0;
+
+  return processSessionService.strikePreview(processSpec.value, context.session, context.stepCode).extraSuccesses;
 });
 const processWeaponModifiers = computed(() => {
   const profile = resolvedAttackAction.value?.strikes[0]?.profile ?? currentAttack.value;
@@ -4427,6 +4431,9 @@ const canSubmit = computed(() => {
           </div>
           <div v-if="!isPreparationAction" class="text-caption text-medium-emphasis mt-1">
             {{ attackerHitAdvantageSummary }}
+          </div>
+          <div v-if="processStrikeBonus > 0" class="text-caption text-success mt-1">
+            Доп. успехи процесса: +{{ processStrikeBonus }} (того же размера, что бросок, после правила 6 и 1)
           </div>
           <div v-if="!isPreparationAction && defenderHitAdvantageIsNonZero" class="text-caption text-medium-emphasis">
             {{ defenderHitAdvantageSummary }}

@@ -164,4 +164,56 @@ describe('ProcessSessionService', () => {
     if (allowed.allowed) expect(allowed.completionEffects).toEqual([]);
     expect(processSessionService.planNormalInterrupt(null, 'walk', rule).allowed).toBe(false);
   });
+
+  it('считает пакет шага по счётчикам и берёт серверные числа, когда они есть', () => {
+    const combo: ProcessSpec = {
+      start_step_code: 'start',
+      transition: { mode: 'custom', edges: [{ from: 'start', to: 'finish' }] },
+      counters: [{ counter_code: 'combo', initial: 0 }],
+      steps: [
+        {
+          code: 'start',
+          name: 'Старт',
+          description: '',
+          interruption: { mode: 'normal' },
+          costs: [{ resource_code: 'action-points', amount: 3 }],
+          strike: { advantage: { type: 'fixed', value: -1 } },
+        },
+        {
+          code: 'finish',
+          name: 'Финиш',
+          description: '',
+          interruption: { mode: 'normal' },
+          costs: [{ resource_code: 'action-points', amount: 2 }],
+          strike: {
+            advantage: { type: 'counter', counter_code: 'combo', max_value: 3 },
+            extra_successes: { type: 'counter', counter_code: 'combo', divisor: 2, max_value: 3 },
+          },
+        },
+      ],
+    };
+    const started = processSessionService.start(1, 'character:1', 'combo', combo);
+    expect(processSessionService.strikePreview(combo, started, 'start')).toEqual({ advantage: -1, extraSuccesses: 0 });
+
+    const three = { ...started, counters: { combo: 3 } };
+    expect(processSessionService.strikePreview(combo, three, 'finish')).toEqual({
+      advantage: 3,
+      extraSuccesses: 1,
+    });
+
+    const server = {
+      ...three,
+      availableSteps: [
+        {
+          code: 'finish',
+          name: 'Финиш',
+          description: '',
+          actionPoints: 2,
+          execution: 'strike' as const,
+          strike: { advantage: 1, extraSuccesses: 0 },
+        },
+      ],
+    };
+    expect(processSessionService.strikePreview(combo, server, 'finish')).toEqual({ advantage: 1, extraSuccesses: 0 });
+  });
 });

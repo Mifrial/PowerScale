@@ -1,8 +1,10 @@
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { ProcessStrikePackage } from '@/modules/Roleplay/Game/Dto/ProcessStrikePackage';
 import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
 import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
+import type { ProcessFormula } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessFormula';
 import type { ActionResolution } from '@/modules/Roleplay/Game/Dto/ActionResolution';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
@@ -28,6 +30,7 @@ export class ProcessSessionService {
       status: 'active',
       startedAt: now,
       updatedAt: now,
+      counters: this.initialCounters(spec),
     };
   }
 
@@ -86,6 +89,92 @@ export class ProcessSessionService {
     const startStepCode = spec.start_step_code ?? spec.steps[0]?.code;
 
     return spec.steps.filter((step) => step.code === startStepCode);
+  }
+
+  /**
+   * Пакет удара шага с готовыми числами.
+   *
+   * Для открытой сессии числа приходят с сервера; для стартового шага до
+   * первого удара формулы считаются по объявленным счётчикам. Это подсказка
+   * для диалога — окончательные числа всё равно считает сервер.
+   *
+   * @param spec Спека процесса.
+   * @param session Открытая сессия или null.
+   * @param stepCode Код шага.
+   *
+   * @returns Пакет удара; нули без пакета.
+   */
+  strikePreview(spec: ProcessSpec, session: ProcessSession | null | undefined, stepCode: string): ProcessStrikePackage {
+    const empty = { advantage: 0, extraSuccesses: 0 };
+    const serverStep = session?.availableSteps?.find((step) => step.code === stepCode);
+    if (serverStep) {
+      return serverStep.strike ?? empty;
+    }
+
+    const step = spec.steps.find((entry) => entry.code === stepCode);
+    const strike = step?.strike;
+    if (!strike) return empty;
+    const counters = session?.counters ?? this.initialCounters(spec);
+
+    return {
+      advantage: this.formulaValue(strike.advantage, counters),
+      extraSuccesses: this.formulaValue(strike.extra_successes, counters),
+    };
+  }
+
+  /**
+   * Стартовые счётчики карточки процесса.
+   *
+   * @param spec Спека процесса.
+   *
+   * @returns Карта код → значение.
+   */
+  initialCounters(spec: ProcessSpec): Record<string, number> {
+    const counters: Record<string, number> = {};
+    for (const counter of spec.counters ?? []) {
+      counters[counter.counter_code] = counter.initial ?? 0;
+    }
+
+    return counters;
+  }
+
+  /**
+   * Значение формулы процесса по счётчикам; неизвестный счётчик — 0.
+   *
+   * @param formula Формула.
+   * @param counters Счётчики сессии.
+   *
+   * @returns Число в границах формулы.
+   */
+  private formulaValue(formula: ProcessFormula | undefined, counters: Record<string, number>): number {
+    if (!formula) return 0;
+    if (formula.type === 'fixed') return this.clampFormula(formula.value, formula);
+
+    const counter = counters[formula.counter_code] ?? 0;
+    const divisor = Math.max(1, formula.divisor ?? 1);
+    const value = Math.floor((counter * (formula.factor ?? 1)) / divisor);
+
+    return this.clampFormula(value, formula);
+  }
+
+  /**
+   * Сначала нижняя граница, затем верхняя.
+   *
+   * @param value Значение.
+   * @param formula Формула с границами.
+   *
+   * @returns Значение в границах.
+   */
+  private clampFormula(value: number, formula: ProcessFormula): number {
+    let result = value;
+    if (formula.type === 'counter' && formula.min_value !== undefined) {
+      result = Math.max(formula.min_value, result);
+    }
+    if (formula.type === 'counter' && formula.max_value !== undefined) {
+      result = Math.min(formula.max_value, result);
+    }
+
+    return result;
   }
 
   availableSteps(spec: ProcessSpec, currentStepCode: string): ProcessStep[] {

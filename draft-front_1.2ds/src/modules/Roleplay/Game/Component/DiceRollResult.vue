@@ -37,6 +37,13 @@ const difficultyLabel = computed(() =>
     ? checkSuccessRatingService.formatPreparedMagnitude(check.value.difficulty, { minSize: checkMinSize.value })
     : null,
 );
+const processBonusLabel = computed(() => {
+  const bonus = roll.value.processBonus;
+  if (!bonus) return null;
+  const word = bonus.successes === 1 ? 'успех' : bonus.successes >= 2 && bonus.successes <= 4 ? 'успеха' : 'успехов';
+
+  return `+${bonus.successes} ${word} · +${bonus.rating} РУ`;
+});
 const title = computed(() => roll.value.spec.label || (check.value ? 'Простая проверка' : `Бросок ${props.index + 1}`));
 const checkLabel = computed(() => check.value?.check_name || check.value?.check_code || '');
 const actorSegment = computed((): Extract<InlineSegment, { kind: 'token' }> | null => {
@@ -215,6 +222,10 @@ function dieFaceClass(success: number): string {
             <div v-if="!isFaceSum" class="chat-roll-row">
               <span class="text-medium-emphasis">Успехи</span>
               <span class="font-weight-medium">{{ successesLabel }}</span>
+            </div>
+            <div v-if="processBonusLabel" class="chat-roll-row">
+              <span class="text-medium-emphasis">Бонус процесса</span>
+              <span class="font-weight-medium text-success">{{ processBonusLabel }}</span>
             </div>
             <div v-if="isFaceSum" class="chat-roll-row">
               <span class="text-medium-emphasis">Сумма граней</span>
