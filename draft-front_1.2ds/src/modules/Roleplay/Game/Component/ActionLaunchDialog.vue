@@ -529,7 +529,9 @@ async function submit(): Promise<void> {
       activeProcess.value ?? processSessionService.start(props.gameId, key, action.ruleCode, action.process);
     const step = action.process.steps.find((item) => item.code === stepCode);
     if (!step) throw new Error('Шаг процесса не найден');
-    if (gamePhpMode.isEnabled() && ['action', 'none'].includes(processSessionService.executionOf(step))) {
+    const execution = processSessionService.executionOf(step);
+    if (execution === 'none') throw new Error('Шаг без исполнения пока нельзя объявить');
+    if (gamePhpMode.isEnabled() && execution === 'action') {
       await applyDeclaredAction(processRule.value ?? actionRuleOf(action.ruleCode), {
         processRuleCode: action.ruleCode,
         processStepCode: stepCode,
