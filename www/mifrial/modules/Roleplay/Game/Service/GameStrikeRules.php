@@ -2578,6 +2578,34 @@ final class GameStrikeRules
         return $spec->getMaxSuccessRating();
     }
 
+    /**
+     * Рейтинг бонусных успехов процесса: успехи размера броска.
+     *
+     * Один успех размера броска стоит столько же РУ, сколько обычный успех
+     * этой проверки: при размере броска на единицу выше сложности — 2 РУ.
+     *
+     * @param array<string, mixed> $roll Бросок попадания.
+     * @param int $successes Число успехов.
+     *
+     * @return int Прибавка к РУ.
+     */
+    public function processBonusRating(array $roll, int $successes): int
+    {
+        if ($successes <= 0) {
+            return 0;
+        }
+
+        $rollSize = is_array($roll['roll'] ?? null) && is_int($roll['roll']['size'] ?? null)
+            ? $roll['roll']['size']
+            : 0;
+        $difficultySize = is_array($roll['difficulty'] ?? null) && is_int($roll['difficulty']['size'] ?? null)
+            ? $roll['difficulty']['size']
+            : $rollSize;
+        $factor = 2 ** max(0, $rollSize - $difficultySize);
+
+        return $successes * $factor;
+    }
+
     private function dodgeRule(CharacterRuleSlice $slice): CharacterResolvedRule
     {
         foreach ($slice->getLiveRules() as $rule) {

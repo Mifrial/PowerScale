@@ -4734,10 +4734,15 @@ final class GameStrikeMysqlTest extends TestCase
     /**
      * Мир с процессом, чей шаг даёт пакет удара.
      *
+     * @param array<string, mixed> $extraSuccesses Формула доп. успехов.
+     * @param array<int, array<string, mixed>> $counters Счётчики процесса.
+     *
      * @return array<string, array<string, mixed>> Правила.
      */
-    private function processBonusRules(): array
-    {
+    private function processBonusRules(
+        array $extraSuccesses = ['type' => 'fixed', 'value' => 2],
+        array $counters = [],
+    ): array {
         return array_merge($this->stateActionRules(), [
             'bonus' => [
                 'type' => 'ability',
@@ -4746,12 +4751,13 @@ final class GameStrikeMysqlTest extends TestCase
                     'type' => 'process',
                     'zones' => ['or' => ['kind' => 'automatic']],
                     'process' => [
+                        'counters' => $counters,
                         'steps' => [[
                             'code' => 'hit',
                             'name' => 'Hit',
                             'costs' => [['amount' => 1, 'resource_code' => 'action-points']],
                             'description' => 'Hit with bonus.',
-                            'strike' => ['extra_successes' => ['type' => 'fixed', 'value' => 2]],
+                            'strike' => ['extra_successes' => $extraSuccesses],
                         ]],
                         'start_step_code' => 'hit',
                         'exit_step_codes' => ['hit'],
@@ -4772,10 +4778,38 @@ final class GameStrikeMysqlTest extends TestCase
         $closed = $this->resolveProcessBonusStrike();
 
         self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(12, $closed['data']['success']);
+        self::assertSame(12, $closed['data']['appliedSr']);
+        self::assertSame($this->pair(4), $closed['data']['damage']);
+        self::assertSame($this->pair(48), $closed['data']['injury']);
+        self::assertSame(
+            ['successes' => 2, 'rating' => 4],
+            $closed['data']['strikes'][0]['roll']['process_bonus'] ?? null,
+        );
+    }
+
+    /**
+     * Один доп. успех процесса стоит два РУ при броске на размер выше сложности.
+     *
+     * @return void
+     */
+    public function testProcessStrikeBonusUsesRollSuccessSize(): void
+    {
+        $closed = $this->resolveProcessBonusStrike(
+            ['damage' => ['formula' => ['type' => 'fixed', 'value' => 4]]],
+            [],
+            ['type' => 'counter', 'counter_code' => 'combo', 'divisor' => 2, 'max_value' => 3],
+            [['counter_code' => 'combo', 'initial' => 3]],
+        );
+
+        self::assertTrue($closed['success'], json_encode($closed));
         self::assertSame(10, $closed['data']['success']);
         self::assertSame(10, $closed['data']['appliedSr']);
-        self::assertSame($this->pair(4), $closed['data']['damage']);
         self::assertSame($this->pair(40), $closed['data']['injury']);
+        self::assertSame(
+            ['successes' => 1, 'rating' => 2],
+            $closed['data']['strikes'][0]['roll']['process_bonus'] ?? null,
+        );
     }
 
     /**
@@ -4802,7 +4836,7 @@ final class GameStrikeMysqlTest extends TestCase
         );
 
         self::assertTrue($closed['success'], json_encode($closed));
-        self::assertSame(10, $closed['data']['success']);
+        self::assertSame(12, $closed['data']['success']);
         self::assertSame(2, $closed['data']['appliedSr']);
         self::assertSame(2, $closed['data']['srCap']);
         self::assertSame($this->pair(8), $closed['data']['injury']);
@@ -4927,15 +4961,19 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @param array<string, mixed> $profileOverrides Профиль урона.
      * @param array<string, mixed> $extraRules Правила типа урона.
+     * @param array<string, mixed> $extraSuccesses Формула доп. успехов.
+     * @param array<int, array<string, mixed>> $counters Счётчики процесса.
      *
      * @return array<string, mixed> data закрытия.
      */
     private function resolveProcessBonusStrike(
         array $profileOverrides = ['damage' => ['formula' => ['type' => 'fixed', 'value' => 4]]],
         array $extraRules = [],
+        array $extraSuccesses = ['type' => 'fixed', 'value' => 2],
+        array $counters = [],
     ): array {
         $world = $this->worldWithWeapon(
-            extraRules: array_merge($this->processBonusRules(), $extraRules),
+            extraRules: array_merge($this->processBonusRules($extraSuccesses, $counters), $extraRules),
             profileOverrides: $profileOverrides,
         );
         $gameId = $this->addGame($world->getId(), $this->worldRevision());

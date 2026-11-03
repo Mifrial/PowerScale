@@ -449,7 +449,15 @@ final class GameStrikeSingleClose
                     $previousSr,
                 ));
         if (!$isPush && is_int($success) && $success > 0 && $strikePackage['extraSuccesses'] > 0) {
-            $success += $strikePackage['extraSuccesses'];
+            $bonusSuccesses = $strikePackage['extraSuccesses'];
+            $bonusRating = $this->rules->processBonusRating($attackerRoll, $bonusSuccesses);
+            $success += $bonusRating;
+            $attackerRoll['rating'] = (is_int($attackerRoll['rating'] ?? null) ? $attackerRoll['rating'] : 0)
+                + $bonusRating;
+            $attackerRoll['process_bonus'] = [
+                'successes' => $bonusSuccesses,
+                'rating' => $bonusRating,
+            ];
         }
 
         $srCap = $this->rules->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
