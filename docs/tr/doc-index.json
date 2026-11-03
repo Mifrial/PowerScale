@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 320,
-        "plans": 201,
+        "documents": 321,
+        "plans": 202,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 223,
+            "tr": 224,
             "tz": 2
         },
         "byZoneState": {
@@ -72,7 +72,7 @@
                 "нет": 23,
                 "СДЕЛАНО": 115,
                 "ОТЛОЖЕН": 2,
-                "ПЛАН": 32,
+                "ПЛАН": 33,
                 "ЧАСТИЧНО": 28,
                 "В РАБОТЕ": 12,
                 "ОТМЕНЁН": 4,
@@ -87,7 +87,7 @@
             "СНИМОК": 64,
             "нет": 55,
             "СДЕЛАНО": 116,
-            "ПЛАН": 35,
+            "ПЛАН": 36,
             "ОТЛОЖЕН": 6,
             "ЧАСТИЧНО": 28,
             "В РАБОТЕ": 12,
@@ -244,12 +244,12 @@
             }
         },
         "Roleplay/Rule": {
-            "docs": 42,
+            "docs": 43,
             "state": {
                 "нет": 3,
                 "СДЕЛАНО": 17,
                 "ОТЛОЖЕН": 1,
-                "ПЛАН": 11,
+                "ПЛАН": 12,
                 "В РАБОТЕ": 6,
                 "ЧАСТИЧНО": 3,
                 "ОТМЕНЁН": 1
@@ -3407,8 +3407,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-11-02",
-            "bytes": 34139,
-            "lines": 552,
+            "bytes": 34231,
+            "lines": 554,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -4551,15 +4551,16 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 84402,
-            "lines": 923,
+            "bytes": 92139,
+            "lines": 1018,
             "modules": [
                 "Roleplay/Game"
             ],
             "linksCount": 0,
             "brokenLinks": [],
             "backlinks": [
-                "docs/tr/game-roadmap.md"
+                "docs/tr/game-roadmap.md",
+                "docs/tr/rule-content-plan-16-melee-tactics.md"
             ]
         },
         {
@@ -4573,8 +4574,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-05",
-            "bytes": 54246,
-            "lines": 512,
+            "bytes": 54355,
+            "lines": 513,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -6199,8 +6200,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-16",
-            "bytes": 15996,
-            "lines": 182,
+            "bytes": 16461,
+            "lines": 183,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -6360,6 +6361,30 @@
             "linksCount": 2,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/rule-content-plan-16-melee-tactics.md",
+                "docs/tr/rule-content-queue.md",
+                "docs/tr/rule-content-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/rule-content-plan-16-melee-tactics.md",
+            "title": "C2 — ветка ближнего боя «Тактика и реакции»",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "ПЛАН",
+            "stateSource": "token",
+            "statusRaw": "~ПЛАН~",
+            "layers": [],
+            "basis": "PHP",
+            "date": null,
+            "bytes": 19057,
+            "lines": 237,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 4,
+            "brokenLinks": [],
+            "backlinks": [
                 "docs/tr/rule-content-queue.md",
                 "docs/tr/rule-content-roadmap.md"
             ]
@@ -6375,12 +6400,12 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-16",
-            "bytes": 17671,
+            "bytes": 17950,
             "lines": 55,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 12,
+            "linksCount": 13,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/rule-content-plan-01-editorial.md",
@@ -6398,6 +6423,7 @@
                 "docs/tr/rule-content-plan-13-melee-quantity.md",
                 "docs/tr/rule-content-plan-14-future-ability-ideas.md",
                 "docs/tr/rule-content-plan-15-melee-tactics-design.md",
+                "docs/tr/rule-content-plan-16-melee-tactics.md",
                 "docs/tr/rule-content-roadmap.md"
             ]
         },
@@ -6414,12 +6440,12 @@
             ],
             "basis": null,
             "date": "2026-09-16",
-            "bytes": 8334,
+            "bytes": 8453,
             "lines": 73,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 13,
+            "linksCount": 14,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -6437,6 +6463,7 @@
                 "docs/tr/rule-content-plan-13-melee-quantity.md",
                 "docs/tr/rule-content-plan-14-future-ability-ideas.md",
                 "docs/tr/rule-content-plan-15-melee-tactics-design.md",
+                "docs/tr/rule-content-plan-16-melee-tactics.md",
                 "docs/tr/rule-content-queue.md",
                 "docs/tr/rule-roadmap.md",
                 "docs/tr/spell-roadmap.md"

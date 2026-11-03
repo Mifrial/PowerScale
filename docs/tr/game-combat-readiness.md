@@ -343,17 +343,19 @@ Frontend blood-clotting сейчас заменяет состояния чер�
 - Передача хода как отдельное полноценное боевое действие — требует проверки
   backend-контракта и пока не считается `E2E`.
 
-PHP-рантайм процесса среза 1: шаг через `game.runAction`, цена шага, переходы,
-`failure`, `completion_effects`, прерывание и повтор оружия — `BACKEND`.
-Счётчики/комбо и цели процесса — срез 2 `MISSING`; движение — срез 3 `MISSING`.
+PHP-рантайм процесса: шаг через `game.runAction`, цена шага, переходы,
+`failure`, `completion_effects`, прерывание и повтор оружия — `BACKEND`;
+счётчики, `target_mode`, пакет удара и закрытие чужой атакой (срез 2,
+ревизия 29) — `BACKEND`, `FRONTEND`, `E2E_MISSING`. Движение (`run`/`sprint`,
+срез 3) — `OPEN`: батлграунда нет, по плану шаг объявляется в чат без
+эффектов.
 
 Процесс как тип действия (`ProcessSpec`: шаги, стоимости, переходы, failure и
-interruption) — `BACKEND` для `seriya-udarov` и `mnozhestvo-udarov`; контент
-ревизии 27 не менялся. Фронт среза 1 читает сессии процесса из
-`game.getBattleSheets`, объявляет шаг контекстом `game.runAction` и обрывает
-через `game.abortProcess`; мок `ProcessSessionService`/`ComboProcessService`
-остаётся для счётчиков, комбо и движения. `run`/`sprint` дополнительно требуют
-контракта движения, который вне текущего боевого гейта.
+interruption) — `BACKEND` для `seriya-udarov` и `mnozhestvo-udarov`. Фронт
+читает сессии процесса из `game.getBattleSheets`, объявляет шаг контекстом
+`game.runAction` и обрывает через `game.abortProcess`; мок
+`ProcessSessionService` остался только под движение. `run`/`sprint`
+дополнительно требуют контракта движения, который вне текущего боевого гейта.
 
 ## Магия
 

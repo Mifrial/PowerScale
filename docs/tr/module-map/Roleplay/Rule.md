@@ -50,6 +50,7 @@
 | [rule-content-plan-13-melee-quantity.md](../../rule-content-plan-13-melee-quantity.md) | план | `~ПЛАН~` | 2026-09-20 |
 | [rule-content-plan-14-future-ability-ideas.md](../../rule-content-plan-14-future-ability-ideas.md) | план | `~ПЛАН~` | — |
 | [rule-content-plan-15-melee-tactics-design.md](../../rule-content-plan-15-melee-tactics-design.md) | план | `~ПЛАН~` | 2026-09-20 |
+| [rule-content-plan-16-melee-tactics.md](../../rule-content-plan-16-melee-tactics.md) | план | `~ПЛАН~` | — |
 | [rule-roadmap.md](../../rule-roadmap.md) | план | `~ПЛАН~` | 2026-10-05 |
 | [spell-review-01.md](../../spell-review-01.md) | канон | `~ПЛАН~` | 2026-09-07 |
 | [spell-roadmap.md](../../spell-roadmap.md) | план | `~ПЛАН~` | 2026-09-07 |
