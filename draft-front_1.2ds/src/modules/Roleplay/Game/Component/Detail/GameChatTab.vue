@@ -636,9 +636,26 @@ function closeSupportOffer(): void {
   supportError.value = null;
 }
 
-function openSupportOffer(strike: GamePhpOpenStrike): void {
+const supportCandidates = computed<SupportReactionOption[]>(() => {
+  void battleRevision.value;
+  const strike = phpOpenStrike.value ?? gamePhpBattleContext.openStrike;
+  if (!strike) return [];
+
+  return supportReactionService.options(
+    strike,
+    currentUser.value?.id ?? null,
+    memberships.value,
+    npcs.value,
+    revisionRules.value,
+    canWriteStrike.value,
+  );
+});
+
+const canSupportStrike = computed(() => supportCandidates.value.length > 0);
+
+function openSupportOffer(strike: GamePhpOpenStrike, manual = false): void {
   const strikeKey = supportReactionService.strikeKey(strike);
-  if (dismissedSupportKey.value === strikeKey) {
+  if (!manual && dismissedSupportKey.value === strikeKey) {
     closeSupportOffer();
 
     return;
@@ -647,7 +664,9 @@ function openSupportOffer(strike: GamePhpOpenStrike): void {
     strike,
     currentUser.value?.id ?? null,
     memberships.value,
+    npcs.value,
     revisionRules.value,
+    canWriteStrike.value,
   );
   if (options.length === 0) {
     closeSupportOffer();
@@ -665,6 +684,12 @@ function openSupportOffer(strike: GamePhpOpenStrike): void {
   supportOpen.value = true;
 }
 
+function openSupportFromMenu(): void {
+  const strike = phpOpenStrike.value ?? gamePhpBattleContext.openStrike;
+  if (!strike) return;
+  openSupportOffer(strike, true);
+}
+
 function onSupportClosed(value: boolean): void {
   if (value) return;
   if (supportStrike.value) dismissedSupportKey.value = supportReactionService.strikeKey(supportStrike.value);
@@ -678,7 +703,7 @@ async function onSupportSubmit(payload: {
 }): Promise<void> {
   const strike = supportStrike.value;
   const battleId = gamePhpBattleContext.battleId;
-  const actorKey = `character:${payload.option.membership.characterId}` as CombatEntityKey;
+  const actorKey = payload.option.actor.key;
   if (!strike || battleId === null) return;
   const weapon =
     payload.option.weapons.find((row) => row.itemInventoryId === payload.itemInventoryId) ?? payload.option.weapons[0];
@@ -1848,6 +1873,12 @@ onUnmounted(() => {
           <v-list-item prepend-icon="mdi-sword-cross" title="Атака" @click="openAttackLaunch" />
           <v-list-item prepend-icon="mdi-auto-fix" title="Заклинание" @click="openSpellLaunch" />
           <v-list-item prepend-icon="mdi-run-fast" title="Действие" @click="openActionLaunch" />
+          <v-list-item
+            v-if="canSupportStrike"
+            prepend-icon="mdi-account-multiple-plus"
+            title="Поддержать удар"
+            @click="openSupportFromMenu"
+          />
         </v-list>
       </v-menu>
     </v-btn-group>
@@ -2029,6 +2060,7 @@ onUnmounted(() => {
       :mechanics="mechanics"
       :can-edit="canEdit"
       :can-write-strike="canWriteStrike"
+      :can-support-strike="canSupportStrike"
       :current-user-id="currentUser?.id ?? null"
       :user-names="userNames"
       :active-speaker-key="activeSpeakerKey"
@@ -2048,6 +2080,7 @@ onUnmounted(() => {
       @overlay-changed="onOverlayChanged"
       @strike-refresh="onStrikeRefresh"
       @php-answer-strike="onAnswerPhpStrike"
+      @support-strike="openSupportFromMenu"
     />
     <SupportLaunchDialog
       :open="supportOpen"

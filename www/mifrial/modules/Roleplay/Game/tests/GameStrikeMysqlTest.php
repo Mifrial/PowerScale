@@ -5065,6 +5065,87 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Ведущий объявляет поддержку за НПС.
+     *
+     * @return void
+     */
+    public function testSupportReactionForNpc(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->supportRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $supporter = $this->endureNpcSupport($gameId, $this->dispatch('game.createNpc', [
+            'gameId' => $gameId,
+            'name' => 'Supporter',
+            'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
+        ]));
+        $npcId = $supporter['data']['npcId'];
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-support-npc',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+                ['type' => 'npc', 'id' => $npcId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-support-npc',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $support = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'support-npc',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'support',
+                'code' => 'support-melee',
+                'actor' => ['type' => 'npc', 'id' => $npcId],
+                'context' => [
+                    'expectedSheetVersion' => $supporter['data']['actualVersion'],
+                    'side' => 'defender',
+                    'itemInventoryId' => 1,
+                    'itemRuleCode' => 'sword',
+                    'profileType' => 'strike',
+                ],
+            ],
+        ]);
+        self::assertTrue($support['success'], json_encode($support));
+        self::assertSame(2, $support['data']['advantage']);
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-support-npc',
+            'expectedVersion' => $support['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'dodge'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertContains(
+            ['source_code' => 'circumstances', 'delta' => 2],
+            $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [],
+        );
+    }
+
+    /**
      * Поддержка отвергает чужую сторону, участников удара и не-карточку.
      *
      * @return void
@@ -7380,6 +7461,31 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return array<string, mixed> Тот же ответ с новой версией.
      */
+    private function endureNpcSupport(int $gameId, array $npc): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $npcId = $npc['data']['npcId'] ?? null;
+        self::assertIsInt($npcId);
+        $repo = new GameNpcRepository($gateway);
+        $record = $repo->getById($npcId);
+        self::assertSame($gameId, $record->getGameId());
+        $version = $record->getVersion();
+        $sheet = is_array($version['sheet'] ?? null) ? $version['sheet'] : [];
+        $sheet['characteristicPurchases'] = [];
+        $version['sheet'] = $sheet;
+        $choices = is_array($version['choices'] ?? null) ? $version['choices'] : [];
+        $choices['raceCode'] = 'human';
+        $choices['inventory'] = [['id' => 1, 'ruleCode' => 'sword', 'equipped' => true]];
+        $choices['abilities'] = [['ruleCode' => 'support-melee', 'level' => 1]];
+        $choices['characteristicPurchases'] = [['characteristicCode' => 'strength', 'cost' => 2]];
+        $version['choices'] = $choices;
+        $saved = $repo->replaceVersion($npcId, $version, $record->getActualVersion());
+        $npc['data']['actualVersion'] = $saved->getActualVersion();
+
+        return $npc;
+    }
+
     private function endureNpc(int $gameId, array $npc): array
     {
         $gateway = $this->smartTableGateway;

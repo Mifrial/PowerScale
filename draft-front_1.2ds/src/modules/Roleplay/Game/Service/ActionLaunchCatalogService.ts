@@ -14,6 +14,8 @@ import { woundActionLaunchService } from '@/modules/Roleplay/Game/Service/Instan
 import { characterOverviewService } from '@/modules/Roleplay/Character/init';
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
+import { KEYWORD_REACTION } from '@/modules/Roleplay/Keyword/Constant/KEYWORD_REACTION';
 
 /** Список действий диалога запуска: требования, владение и цена ОД. */
 export class ActionLaunchCatalogService {
@@ -22,16 +24,20 @@ export class ActionLaunchCatalogService {
     currentSpeed: CurrentSpeed;
     actorVersion: CharacterVersion | null;
     woundOverlay: GameCombatOverlay | null;
+    keywords: Keyword[];
   }): CombatActionOption[] {
     const overview = input.actorVersion ? characterOverviewService.build(input.actorVersion, input.rules) : null;
     const owned = new Set(overview?.abilities.map((ability) => ability.ruleCode) ?? []);
+    const reactionIds = new Set(
+      input.keywords.filter((keyword) => keyword.code === KEYWORD_REACTION).map((keyword) => keyword.id),
+    );
 
     return input.rules.flatMap((rule) => {
       const spec = asActionAbilitySpec(rule);
       const process = asProcessAbilitySpec(rule);
       const requirements =
         rule.spec && typeof rule.spec === 'object' && 'requirements' in rule.spec ? rule.spec.requirements : [];
-      // Keyword 71 и 53 — конкретные коды каталога. REV-FE-006, в spec adapter не выносятся.
+      // 71 — «Рука»: безоружные удары идут своим путём, не через каталог действий.
       if (rule.keywordIds?.includes(71)) return [];
       if (!spec && !process) return [];
       if (spec && !this.requirementsSatisfied(spec.requirements, input.currentSpeed)) return [];
@@ -54,7 +60,7 @@ export class ActionLaunchCatalogService {
         isVariableCost: spec ? actionUsesChosenCost(spec.action_components) : false,
         effects: spec ? actionEffectService.effectsOf(rule) : [],
         isAttack: false,
-        isReaction: rule.keywordIds?.includes(53) ?? false,
+        isReaction: rule.keywordIds?.some((keywordId) => reactionIds.has(keywordId)) ?? false,
         isProcess: process !== null,
         process: process ?? undefined,
         operations: spec?.operations,

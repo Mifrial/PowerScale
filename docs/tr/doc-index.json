@@ -3407,8 +3407,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-11-02",
-            "bytes": 35058,
-            "lines": 561,
+            "bytes": 35233,
+            "lines": 563,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -6380,8 +6380,8 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 23027,
-            "lines": 301,
+            "bytes": 23756,
+            "lines": 306,
             "modules": [
                 "Roleplay/Rule"
             ],

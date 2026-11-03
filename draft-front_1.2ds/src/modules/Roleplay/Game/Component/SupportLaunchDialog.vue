@@ -75,7 +75,7 @@ function submit(): void {
         <v-select
           v-if="options.length > 1"
           v-model="optionIndex"
-          :items="options.map((entry, index) => ({ title: entry.membership.characterName, value: index }))"
+          :items="options.map((entry, index) => ({ title: entry.actor.name, value: index }))"
           label="Кто поддерживает"
           density="compact"
           hide-details="auto"

@@ -153,6 +153,7 @@ const props = defineProps<{
   mechanics: Mechanic[];
   canEdit: boolean;
   canWriteStrike: boolean;
+  canSupportStrike?: boolean;
   currentUserId: number | null;
   userNames: Record<number, string>;
   activeSpeakerKey: string | null;
@@ -180,6 +181,7 @@ const emit = defineEmits<{
   'overlay-changed': [];
   'strike-refresh': [];
   'php-answer-strike': [];
+  'support-strike': [];
 }>();
 
 /** Черновые условия одной цели широкого удара. */
@@ -403,6 +405,10 @@ const phpPendingDefenseText = computed(() => {
 
 function answerPhpPendingStrike(): void {
   emit('php-answer-strike');
+}
+
+function requestSupport(): void {
+  emit('support-strike');
 }
 const isPhpAwaiting = computed(
   () =>
@@ -4364,6 +4370,16 @@ const canSubmit = computed(() => {
             <v-btn variant="text" size="small" class="mt-1 px-0" :disabled="busy" @click="answerPhpPendingStrike">
               {{ phpPendingDefenseIsOwner ? 'Ответить на удар' : 'Показать удар' }}
             </v-btn>
+            <v-btn
+              v-if="canSupportStrike"
+              variant="text"
+              size="small"
+              class="mt-1 px-0"
+              :disabled="busy"
+              @click="requestSupport"
+            >
+              Поддержать
+            </v-btn>
           </v-alert>
           <v-select
             v-if="isCompose && !attackAction"
@@ -4410,6 +4426,16 @@ const canSubmit = computed(() => {
               @click="takeOverPhpDefense"
             >
               Взять на себя
+            </v-btn>
+            <v-btn
+              v-if="canSupportStrike"
+              variant="text"
+              size="small"
+              class="mt-1 px-0"
+              :disabled="busy"
+              @click="requestSupport"
+            >
+              Поддержать
             </v-btn>
           </v-alert>
           <v-alert v-if="isDefenderStep" type="info" variant="tonal" density="compact" class="mt-2 mb-1">
@@ -4679,6 +4705,9 @@ const canSubmit = computed(() => {
         </template>
       </v-card-text>
       <v-card-actions class="py-2 px-4">
+        <v-btn v-if="canSupportStrike" variant="text" size="small" :disabled="busy" @click="requestSupport">
+          Поддержать
+        </v-btn>
         <v-spacer />
         <v-btn variant="text" size="small" :disabled="busy" @click="close">Закрыть</v-btn>
         <template v-if="phpDebt">

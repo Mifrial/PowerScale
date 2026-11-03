@@ -149,6 +149,7 @@ const actions = computed<CombatActionOption[]>(() =>
     currentSpeed: currentSpeed.value,
     actorVersion: actorVersion.value,
     woundOverlay: overlays.value.find((item) => item.entityKey === woundTargetKey.value) ?? null,
+    keywords: keywords.value,
   }),
 );
 

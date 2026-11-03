@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
+import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
@@ -119,6 +120,23 @@ function membership(overrides: Partial<GameCharacterMembership>): GameCharacterM
   };
 }
 
+function npc(id: number, name: string, sheet: CharacterVersion): GameNpc {
+  return {
+    id,
+    gameId: 1,
+    name,
+    shortDescription: null,
+    fullDescription: null,
+    tags: [],
+    version: sheet,
+    actualVersion: 1,
+    status: 'active',
+    proposedBy: null,
+    visibility: [],
+    updatedAt: '',
+  };
+}
+
 const STRIKE: GamePhpOpenStrike = {
   attackerKind: 'character',
   attackerId: 3,
@@ -135,7 +153,7 @@ const RULES = [ACTION_POINTS, SUPPORT, SWORD, BOW];
 
 describe('SupportReactionService', () => {
   it('третья сторона с карточкой и ближним оружием может поддержать', () => {
-    const options = supportReactionService.options(STRIKE, 10, [membership({})], RULES);
+    const options = supportReactionService.options(STRIKE, 10, [membership({})], [], RULES, false);
 
     expect(options).toHaveLength(1);
     expect(options[0].sides).toEqual(['attacker', 'defender']);
@@ -145,13 +163,13 @@ describe('SupportReactionService', () => {
   it('атакующий и защитник не кандидаты', () => {
     const rows = [membership({ characterId: 3 }), membership({ characterId: 5 })];
 
-    expect(supportReactionService.options(STRIKE, 10, rows, RULES)).toEqual([]);
+    expect(supportReactionService.options(STRIKE, 10, rows, [], RULES, false)).toEqual([]);
   });
 
   it('дальний удар не поддерживается ближним оружием', () => {
-    expect(supportReactionService.options({ ...STRIKE, profileType: 'shoot' }, 10, [membership({})], RULES)).toEqual(
-      [],
-    );
+    expect(
+      supportReactionService.options({ ...STRIKE, profileType: 'shoot' }, 10, [membership({})], [], RULES, false),
+    ).toEqual([]);
   });
 
   it('без подходящего оружия окно не предлагается', () => {
@@ -159,7 +177,21 @@ describe('SupportReactionService', () => {
       membership({ approvedCharacterVersion: version([{ id: 2, ruleCode: 'bow', quantity: 1, equipped: true }]) }),
     ];
 
-    expect(supportReactionService.options(STRIKE, 10, rows, RULES)).toEqual([]);
+    expect(supportReactionService.options(STRIKE, 10, rows, [], RULES, false)).toEqual([]);
+  });
+
+  it('ведущий может поддержать за НПС', () => {
+    const sheet = version([{ id: 1, ruleCode: 'sword', quantity: 1, equipped: true }]);
+    const options = supportReactionService.options(STRIKE, 10, [], [npc(8, 'Стражник', sheet)], RULES, true);
+
+    expect(options).toHaveLength(1);
+    expect(options[0].actor).toMatchObject({ key: 'npc:8', kind: 'npc', id: 8, name: 'Стражник' });
+  });
+
+  it('без права вести НПС не предлагается', () => {
+    const sheet = version([{ id: 1, ruleCode: 'sword', quantity: 1, equipped: true }]);
+
+    expect(supportReactionService.options(STRIKE, 10, [], [npc(8, 'Стражник', sheet)], RULES, false)).toEqual([]);
   });
 
   it('без купленной карточки окно не предлагается', () => {
@@ -167,12 +199,12 @@ describe('SupportReactionService', () => {
     sheet.abilities = [];
 
     expect(
-      supportReactionService.options(STRIKE, 10, [membership({ approvedCharacterVersion: sheet })], RULES),
+      supportReactionService.options(STRIKE, 10, [membership({ approvedCharacterVersion: sheet })], [], RULES, false),
     ).toEqual([]);
   });
 
   it('тело поддержки содержит сторону и выбранное оружие', () => {
-    const option = supportReactionService.options(STRIKE, 10, [membership({})], RULES)[0];
+    const option = supportReactionService.options(STRIKE, 10, [membership({})], [], RULES, false)[0];
     const request = supportReactionService.request(1, option, 'defender', option.weapons[0], 9, 4, 3, 'key');
 
     expect(request).toMatchObject({
