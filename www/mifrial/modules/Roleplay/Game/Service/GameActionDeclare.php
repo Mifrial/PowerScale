@@ -27,6 +27,7 @@ use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ReactionModifier;
 use Mifrial\Roleplay\Rule\Spec\SupportSpecs;
 
 /**
@@ -133,7 +134,7 @@ final class GameActionDeclare
     }
 
     /**
-     * Объявляет реакцию поддержки в открытом ударе.
+     * Объявляет реакцию в открытом ударе.
      *
      * @param int $gameId Игра.
      * @param int $actorUserId Пользователь.
@@ -145,10 +146,10 @@ final class GameActionDeclare
      *
      * @throws ActionException AUTH_DENIED.
      * @throws GameNotFoundException Если игры или боя нет.
-     * @throws GameInvalidException Если поддержка отвергнута.
+     * @throws GameInvalidException Если реакция отвергнута.
      * @throws GameBattleConflictException Если версия боя или листа чужая.
      */
-    public function support(
+    public function reaction(
         int $gameId,
         int $actorUserId,
         bool $editAll,
@@ -160,19 +161,19 @@ final class GameActionDeclare
         $key = $body['idempotencyKey'] ?? null;
         $sessionId = $this->sessions->findSessionId($gameId);
         if ($sessionId === null || !is_string($key) || $key === '') {
-            throw new GameInvalidException('Game strike support is invalid');
+            throw new GameInvalidException('Game strike reaction is invalid');
         }
 
         $execution = $this->replay->execute(
-            fn (): ?array => $this->commands->findByKey($gameId, 'support', $key),
-            fn (): int => $this->commands->reserve($gameId, $sessionId, 'support', $key, $body),
+            fn (): ?array => $this->commands->findByKey($gameId, 'reaction', $key),
+            fn (): int => $this->commands->reserve($gameId, $sessionId, 'reaction', $key, $body),
             function (int $reservationId, array $result): void {
                 $this->commands->complete($reservationId, $result);
             },
-            fn (): array => $this->doSupport($game, $actorUserId, $editAll, $body),
+            fn (): array => $this->doReaction($game, $actorUserId, $editAll, $body),
             $body,
         );
-        $this->announce($gameId, 'support', $key, $execution['replay']);
+        $this->announce($gameId, 'reaction', $key, $execution['replay']);
 
         return $execution['result'];
     }
@@ -245,7 +246,7 @@ final class GameActionDeclare
     }
 
     /**
-     * Проверяет открытый удар и записывает поддержку в его строку.
+     * Проверяет открытый удар и записывает реакцию в его строку.
      *
      * @param GameRecord $game Игра.
      * @param int $actorUserId Пользователь.
@@ -256,16 +257,16 @@ final class GameActionDeclare
      *
      * @throws ActionException AUTH_DENIED.
      * @throws GameNotFoundException Если боя нет.
-     * @throws GameInvalidException Если поддержка отвергнута.
+     * @throws GameInvalidException Если реакция отвергнута.
      * @throws GameBattleConflictException Если версия боя или листа чужая.
      */
-    private function doSupport(
+    private function doReaction(
         GameRecord $game,
         int $actorUserId,
         bool $editAll,
         array $body,
     ): array {
-        $input = $this->supportInput($body);
+        $input = $this->reactionInput($body);
         $this->access->assertAttacker($game, $actorUserId, $editAll, $input['actor']);
         $sessionId = $this->sessions->findSessionId($game->getId());
         $battle = $this->battleOf($sessionId, $input['battleId'], $input['expectedBattle']);
@@ -275,40 +276,51 @@ final class GameActionDeclare
         $strikes = is_array($open['strikes'] ?? null) ? $open['strikes'] : [];
         $row = count($strikes) === 1 && is_array($strikes[0]) ? $strikes[0] : null;
         if ($open === null || $row === null) {
-            throw new GameInvalidException('Game strike support is not available');
+            throw new GameInvalidException('Game strike reaction is not available');
         }
 
         if (($row['reaction'] ?? null) !== null) {
-            throw new GameInvalidException('Game strike support is already closed');
+            throw new GameInvalidException('Game strike reaction is already closed');
         }
 
         $strikeId = $row['id'] ?? null;
         $attacker = $this->strikeParticipant($open['attacker_kind'] ?? null, $open['attacker_id'] ?? null);
         $target = $this->strikeParticipant($row['target_type'] ?? null, $row['target_id'] ?? null);
         if (!is_int($strikeId) || $attacker === null || $target === null) {
-            throw new GameInvalidException('Game strike support is invalid');
-        }
-
-        if ($input['actor'] === $attacker || $input['actor'] === $target) {
-            throw new GameInvalidException('Game strike support actor is invalid');
+            throw new GameInvalidException('Game strike reaction is invalid');
         }
 
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $rule = $slice->findLive($input['actionRuleCode']);
         $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        $support = $rule === null || $rule->isSpecBroken()
-            ? null
-            : SupportSpecs::read($rule->getSpecDocument());
+        $reaction = $spec instanceof AbilityActionSpec ? $spec->getBase()->getReaction() : null;
         if (
-            $support === null
+            $reaction === null
             || !$spec instanceof AbilityActionSpec
             || $spec->getOperations() !== []
             || $spec->getBase()->getActionEffects() !== []
         ) {
-            throw new GameInvalidException('Game strike support card is invalid');
+            throw new GameInvalidException('Game strike reaction card is invalid');
         }
 
-        if (!in_array($input['side'], $support->getSides(), true)) {
+        $role = $input['actor'] === $attacker
+            ? 'attacker'
+            : ($input['actor'] === $target ? 'defender' : 'third_party');
+        if (
+            $reaction->getTrigger() !== ReactionModifier::TRIGGER_STRIKE
+            || $reaction->getWindow() !== ReactionModifier::WINDOW_BEFORE_DEFENSE
+            || !$reaction->allows($role)
+        ) {
+            throw new GameInvalidException('Game strike reaction actor is invalid');
+        }
+
+        $support = SupportSpecs::read($rule->getSpecDocument());
+        if ($support === null) {
+            throw new GameInvalidException('Game strike reaction has no executable effect');
+        }
+
+        $effect = $this->supportInput($input['context']);
+        if (!in_array($effect['side'], $support->getSides(), true)) {
             throw new GameInvalidException('Game strike support side is invalid');
         }
 
@@ -317,7 +329,7 @@ final class GameActionDeclare
             throw new GameInvalidException('Game strike support profile is invalid');
         }
 
-        if ($support->getProfile() !== null && $input['profileType'] !== $support->getProfile()) {
+        if ($support->getProfile() !== null && $effect['profileType'] !== $support->getProfile()) {
             throw new GameInvalidException('Game strike support weapon profile is invalid');
         }
 
@@ -336,9 +348,9 @@ final class GameActionDeclare
             $game->getRulesRevision(),
             $quote['document']['sheet'],
             $quote['document']['choices'],
-            $input['itemInventoryId'],
-            $input['itemRuleCode'],
-            $input['profileType'],
+            $effect['itemInventoryId'],
+            $effect['itemRuleCode'],
+            $effect['profileType'],
         );
         $minMastery = $support->getMinMastery();
         if ($minMastery !== null && $mastery->compare($minMastery) < 0) {
@@ -350,7 +362,7 @@ final class GameActionDeclare
             $game,
             $input['actor']['type'],
             $input['actor']['id'],
-            $input['expectedSheet'],
+            $input['context']['expectedSheetVersion'],
             $quote['spends'],
         );
 
@@ -369,13 +381,13 @@ final class GameActionDeclare
         $supporters[] = [
             'actor' => $input['actor'],
             'ruleCode' => $input['actionRuleCode'],
-            'side' => $input['side'],
+            'side' => $effect['side'],
             'advantage' => $support->getAdvantage(),
             'source' => $support->getSource(),
             'weapon' => [
-                'itemInventoryId' => $input['itemInventoryId'],
-                'itemRuleCode' => $input['itemRuleCode'],
-                'profileType' => $input['profileType'],
+                'itemInventoryId' => $effect['itemInventoryId'],
+                'itemRuleCode' => $effect['itemRuleCode'],
+                'profileType' => $effect['profileType'],
             ],
         ];
         $this->actions->answerStrike($strikeId, ['supporters' => $supporters]);
@@ -393,48 +405,71 @@ final class GameActionDeclare
             'version' => $saved->getStateVersion(),
             'sheetVersion' => $sheetVersion,
             'strikeId' => $strikeId,
-            'side' => $input['side'],
+            'side' => $effect['side'],
             'advantage' => $support->getAdvantage(),
             'spent' => $this->spentOf($quote['spends']),
         ];
     }
 
     /**
-     * Разбирает тело реакции поддержки.
+     * Разбирает тело реакции. Общая часть не знает, какой эффект исполняется.
      *
      * @param array<string, mixed> $body Тело.
      *
      * @return array{
      *     battleId: int,
      *     expectedBattle: int,
-     *     expectedSheet: int,
      *     actionRuleCode: string,
-     *     side: string,
-     *     itemInventoryId: int,
-     *     itemRuleCode: string,
-     *     profileType: string,
+     *     context: array<string, mixed>,
      *     actor: array{type: string, id: int}
      * } Вход.
      *
      * @throws GameInvalidException Если поле чужое.
      */
-    private function supportInput(array $body): array
+    private function reactionInput(array $body): array
     {
         $battleId = $body['battleId'] ?? null;
         $expectedBattle = $body['expectedVersion'] ?? null;
-        $expectedSheet = $body['expectedSheetVersion'] ?? null;
         $actionRuleCode = $body['actionRuleCode'] ?? null;
-        $side = $body['side'] ?? null;
-        $itemInventoryId = $body['itemInventoryId'] ?? null;
-        $itemRuleCode = $body['itemRuleCode'] ?? null;
-        $profileType = $body['profileType'] ?? null;
+        $context = $body['context'] ?? null;
         if (
             !is_int($battleId)
             || !is_int($expectedBattle)
-            || !is_int($expectedSheet)
             || !is_string($actionRuleCode)
             || $actionRuleCode === ''
-            || ($side !== 'attacker' && $side !== 'defender')
+            || !is_array($context)
+            || !is_int($context['expectedSheetVersion'] ?? null)
+        ) {
+            throw new GameInvalidException('Game strike reaction is invalid');
+        }
+
+        return [
+            'battleId' => $battleId,
+            'expectedBattle' => $expectedBattle,
+            'actionRuleCode' => $actionRuleCode,
+            'context' => $context,
+            'actor' => $this->pair($body['actor'] ?? null),
+        ];
+    }
+
+    /**
+     * Payload эффекта support: сторона и выбранное оружие.
+     *
+     * @param array<string, mixed> $context Контекст реакции.
+     *
+     * @return array{side: string, itemInventoryId: int, itemRuleCode: string, profileType: string} Вход.
+     *
+     * @throws GameInvalidException Если поле чужое.
+     */
+    private function supportInput(array $context): array
+    {
+        $support = is_array($context['support'] ?? null) ? $context['support'] : null;
+        $side = is_array($support) ? ($support['side'] ?? null) : null;
+        $itemInventoryId = is_array($support) ? ($support['itemInventoryId'] ?? null) : null;
+        $itemRuleCode = is_array($support) ? ($support['itemRuleCode'] ?? null) : null;
+        $profileType = is_array($support) ? ($support['profileType'] ?? null) : null;
+        if (
+            ($side !== 'attacker' && $side !== 'defender')
             || !is_int($itemInventoryId)
             || $itemInventoryId < 1
             || !is_string($itemRuleCode)
@@ -445,15 +480,10 @@ final class GameActionDeclare
         }
 
         return [
-            'battleId' => $battleId,
-            'expectedBattle' => $expectedBattle,
-            'expectedSheet' => $expectedSheet,
-            'actionRuleCode' => $actionRuleCode,
             'side' => $side,
             'itemInventoryId' => $itemInventoryId,
             'itemRuleCode' => $itemRuleCode,
             'profileType' => $profileType,
-            'actor' => $this->pair($body['actor'] ?? null),
         ];
     }
 
@@ -1222,7 +1252,7 @@ final class GameActionDeclare
      * Шлёт сигнал после первой записи.
      *
      * @param int $gameId Игра.
-     * @param string $kind Вид команды action или support.
+     * @param string $kind Вид команды action или reaction.
      * @param string $idempotencyKey Ключ.
      * @param bool $replay Повтор.
      *

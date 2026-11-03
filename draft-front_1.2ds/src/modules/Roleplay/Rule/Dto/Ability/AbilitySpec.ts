@@ -6,6 +6,7 @@ import type { GroupSpec } from '@/modules/Roleplay/Rule/Dto/Ability/GroupSpec';
 import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
 import type { ActionOperation } from '@/modules/Roleplay/Rule/Dto/Ability/ActionOperation';
 import type { SupportSpec } from '@/modules/Roleplay/Rule/Dto/Ability/SupportSpec';
+import type { ReactionSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ReactionSpec';
 
 /** Чистый слой — дискриминированный юнион, выдаётся на границе (эмит). */
 export type AbilitySpec =
@@ -18,6 +19,7 @@ export type AbilitySpec =
       attack_mode?: 'single' | 'wide';
       max_targets?: number;
       wide_target_check_advantage?: number;
+      reaction?: ReactionSpec;
       support?: SupportSpec;
     })
   | (AbilitySpecBase & { type: 'process'; process: ProcessSpec })

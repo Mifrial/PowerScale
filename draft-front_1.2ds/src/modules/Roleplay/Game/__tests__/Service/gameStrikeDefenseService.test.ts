@@ -73,16 +73,18 @@ describe('GameStrikeDefenseService', () => {
 
   it('подпись ожидания различает персонажа и НПС', () => {
     const rows = [membership()];
-    expect(gameStrikeDefenseService.waitingText(strike(), rows, { 10: 'Аня' })).toBe('Ожидаем реакцию Аня за Герой');
-    expect(gameStrikeDefenseService.waitingText(strike(), rows, {})).toBe('Ожидаем реакцию #10 за Герой');
+    expect(gameStrikeDefenseService.waitingText(strike(), rows, { 10: 'Аня' })).toBe(
+      'Ожидаем реакцию «Аня» за персонажа «Герой»',
+    );
+    expect(gameStrikeDefenseService.waitingText(strike(), rows, {})).toBe('Ожидаем реакцию «#10» за персонажа «Герой»');
     expect(
       gameStrikeDefenseService.waitingText(strike({ defenderKind: 'npc', defenderId: 9 }), rows, {}, { 9: 'Страж' }),
-    ).toBe('Ожидаем реакцию ведущего за Страж');
+    ).toBe('Ожидаем реакцию ведущего за НПС «Страж»');
   });
 
   it('без имени игрока остаётся #id', () => {
     expect(gameStrikeDefenseService.waitingText(strike(), [membership({ characterOwnerId: 12 })], {})).toBe(
-      'Ожидаем реакцию #12 за Герой',
+      'Ожидаем реакцию «#12» за персонажа «Герой»',
     );
   });
 

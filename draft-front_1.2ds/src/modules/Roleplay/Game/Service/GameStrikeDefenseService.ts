@@ -128,14 +128,14 @@ export class GameStrikeDefenseService {
     if (strike.defenderKind === 'npc') {
       const npcName = npcNames[strike.defenderId] || `НПС #${strike.defenderId}`;
 
-      return `Ожидаем реакцию ведущего за ${npcName}`;
+      return `Ожидаем реакцию ведущего за НПС «${npcName}»`;
     }
     const membership = this.defenderMembership(strike, memberships);
-    const characterName = membership?.characterName || `персонажа #${strike.defenderId}`;
+    const characterName = membership?.characterName || `#${strike.defenderId}`;
     const ownerId = membership?.characterOwnerId;
-    if (!ownerId) return `Ожидаем реакцию владельца за ${characterName}`;
+    if (!ownerId) return `Ожидаем реакцию владельца за персонажа «${characterName}»`;
     const ownerName = userNames[ownerId] || `#${ownerId}`;
 
-    return `Ожидаем реакцию ${ownerName} за ${characterName}`;
+    return `Ожидаем реакцию «${ownerName}» за персонажа «${characterName}»`;
   }
 }

@@ -117,8 +117,8 @@ final class GameRunAction
             );
         }
 
-        if ($parsed['kind'] === 'support') {
-            return $this->declareSupport(
+        if ($parsed['kind'] === 'reaction') {
+            return $this->declareReaction(
                 $parsed,
                 $gameId,
                 $actorUserId,
@@ -189,7 +189,7 @@ final class GameRunAction
     }
 
     /**
-     * Реакция поддержки в открытом ударе.
+     * Реакция в открытом ударе.
      *
      * @param array<string, mixed> $parsed Разбор.
      * @param int $gameId Игра.
@@ -202,7 +202,7 @@ final class GameRunAction
      *
      * @return array<string, mixed> Итог.
      */
-    private function declareSupport(
+    private function declareReaction(
         array $parsed,
         int $gameId,
         int $actorUserId,
@@ -212,22 +212,17 @@ final class GameRunAction
         string $idempotencyKey,
         int $expectedVersion,
     ): array {
-        $context = $parsed['context'];
-        $result = $this->actions->support($gameId, $actorUserId, $editAll, $viewAll, [
+        $result = $this->actions->reaction($gameId, $actorUserId, $editAll, $viewAll, [
             'battleId' => $battleId,
             'idempotencyKey' => $idempotencyKey,
             'expectedVersion' => $expectedVersion,
-            'expectedSheetVersion' => $context['expectedSheetVersion'],
             'actor' => $parsed['actor'],
             'actionRuleCode' => $parsed['code'],
-            'side' => $context['side'],
-            'itemInventoryId' => $context['itemInventoryId'],
-            'itemRuleCode' => $context['itemRuleCode'],
-            'profileType' => $context['profileType'],
+            'context' => $parsed['context'],
         ]);
 
         return array_merge($result, [
-            'kind' => 'support',
+            'kind' => 'reaction',
             'phase' => 'declare',
             'battleId' => $result['battleId'] ?? $battleId,
             'version' => $result['version'] ?? $expectedVersion,

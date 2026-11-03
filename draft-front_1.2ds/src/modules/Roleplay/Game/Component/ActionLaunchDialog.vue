@@ -149,7 +149,6 @@ const actions = computed<CombatActionOption[]>(() =>
     currentSpeed: currentSpeed.value,
     actorVersion: actorVersion.value,
     woundOverlay: overlays.value.find((item) => item.entityKey === woundTargetKey.value) ?? null,
-    keywords: keywords.value,
   }),
 );
 
@@ -511,6 +510,7 @@ async function submit(): Promise<void> {
   const key = actorKey.value;
   const action = selectedAction.value;
   if (!key || !action) throw new Error('Выберите действие');
+  if (action.isReaction) throw new Error('Реакция объявляется в окне боя, а не как обычное действие');
   const speaker = speakerFor(key);
   const operationRequests = operationRequestsOf();
   if (movementInputError.value) throw new Error(movementInputError.value);

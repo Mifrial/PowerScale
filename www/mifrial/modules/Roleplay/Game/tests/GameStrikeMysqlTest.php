@@ -4850,6 +4850,11 @@ final class GameStrikeMysqlTest extends TestCase
                     'resource_code' => 'action-points',
                     'amount' => 2,
                 ]],
+                'reaction' => [
+                    'trigger' => 'strike',
+                    'window' => 'before_defense',
+                    'performer' => 'third_party',
+                ],
                 'support' => array_merge(['sides' => $sides, 'advantage' => 1], $extra),
             ]);
         };
@@ -4946,15 +4951,17 @@ final class GameStrikeMysqlTest extends TestCase
             'expectedVersion' => $opened['data']['version'],
             'action' => [
                 'phase' => 'declare',
-                'kind' => 'support',
+                'kind' => 'reaction',
                 'code' => 'support-any',
                 'actor' => ['type' => 'character', 'id' => $supporterId],
                 'context' => [
                     'expectedSheetVersion' => $this->characterFacade()->get($supporterId)->getActualVersion(),
-                    'side' => 'attacker',
-                    'itemInventoryId' => 1,
-                    'itemRuleCode' => 'sword',
-                    'profileType' => 'strike',
+                    'support' => [
+                        'side' => 'attacker',
+                        'itemInventoryId' => 1,
+                        'itemRuleCode' => 'sword',
+                        'profileType' => 'strike',
+                    ],
                 ],
             ],
         ]);
@@ -5029,15 +5036,17 @@ final class GameStrikeMysqlTest extends TestCase
             'expectedVersion' => $opened['data']['version'],
             'action' => [
                 'phase' => 'declare',
-                'kind' => 'support',
+                'kind' => 'reaction',
                 'code' => 'support-any',
                 'actor' => ['type' => 'character', 'id' => $supporterId],
                 'context' => [
                     'expectedSheetVersion' => $this->characterFacade()->get($supporterId)->getActualVersion(),
-                    'side' => 'defender',
-                    'itemInventoryId' => 1,
-                    'itemRuleCode' => 'sword',
-                    'profileType' => 'strike',
+                    'support' => [
+                        'side' => 'defender',
+                        'itemInventoryId' => 1,
+                        'itemRuleCode' => 'sword',
+                        'profileType' => 'strike',
+                    ],
                 ],
             ],
         ]);
@@ -5113,15 +5122,17 @@ final class GameStrikeMysqlTest extends TestCase
             'expectedVersion' => $opened['data']['version'],
             'action' => [
                 'phase' => 'declare',
-                'kind' => 'support',
+                'kind' => 'reaction',
                 'code' => 'support-melee',
                 'actor' => ['type' => 'npc', 'id' => $npcId],
                 'context' => [
                     'expectedSheetVersion' => $supporter['data']['actualVersion'],
-                    'side' => 'defender',
-                    'itemInventoryId' => 1,
-                    'itemRuleCode' => 'sword',
-                    'profileType' => 'strike',
+                    'support' => [
+                        'side' => 'defender',
+                        'itemInventoryId' => 1,
+                        'itemRuleCode' => 'sword',
+                        'profileType' => 'strike',
+                    ],
                 ],
             ],
         ]);
@@ -5400,15 +5411,17 @@ final class GameStrikeMysqlTest extends TestCase
             'expectedVersion' => $expectedVersion,
             'action' => [
                 'phase' => 'declare',
-                'kind' => 'support',
+                'kind' => 'reaction',
                 'code' => $code,
                 'actor' => ['type' => 'character', 'id' => $supporterId],
                 'context' => [
                     'expectedSheetVersion' => $this->characterFacade()->get($supporterId)->getActualVersion(),
-                    'side' => $side,
-                    'itemInventoryId' => 1,
-                    'itemRuleCode' => 'sword',
-                    'profileType' => $profileType,
+                    'support' => [
+                        'side' => $side,
+                        'itemInventoryId' => 1,
+                        'itemRuleCode' => 'sword',
+                        'profileType' => $profileType,
+                    ],
                 ],
             ],
         ];

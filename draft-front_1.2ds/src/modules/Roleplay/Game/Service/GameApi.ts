@@ -1086,7 +1086,7 @@ export class GameApi implements IGameApi {
       if (actor) gamePhpBattleContext.rememberSheet(`${actor.type}:${actor.id}`, result.sheetVersion ?? 1);
     }
 
-    if (body.action.kind === 'support') {
+    if (body.action.kind === 'reaction') {
       const actor = body.action.actor;
       if (actor) gamePhpBattleContext.rememberSheet(`${actor.type}:${actor.id}`, result.sheetVersion ?? 1);
     }

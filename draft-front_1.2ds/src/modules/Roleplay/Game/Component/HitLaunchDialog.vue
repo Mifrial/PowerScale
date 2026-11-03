@@ -153,7 +153,8 @@ const props = defineProps<{
   mechanics: Mechanic[];
   canEdit: boolean;
   canWriteStrike: boolean;
-  canSupportStrike?: boolean;
+  hasReaction?: boolean;
+  reactionActionLabel?: string;
   currentUserId: number | null;
   userNames: Record<number, string>;
   activeSpeakerKey: string | null;
@@ -181,7 +182,7 @@ const emit = defineEmits<{
   'overlay-changed': [];
   'strike-refresh': [];
   'php-answer-strike': [];
-  'support-strike': [];
+  reaction: [];
 }>();
 
 /** Черновые условия одной цели широкого удара. */
@@ -407,8 +408,8 @@ function answerPhpPendingStrike(): void {
   emit('php-answer-strike');
 }
 
-function requestSupport(): void {
-  emit('support-strike');
+function requestReaction(): void {
+  emit('reaction');
 }
 const isPhpAwaiting = computed(
   () =>
@@ -4367,19 +4368,14 @@ const canSubmit = computed(() => {
             data-test="php-pending-defense"
           >
             <div>{{ phpPendingDefenseText }}</div>
-            <v-btn variant="text" size="small" class="mt-1 px-0" :disabled="busy" @click="answerPhpPendingStrike">
-              {{ phpPendingDefenseIsOwner ? 'Ответить на удар' : 'Показать удар' }}
-            </v-btn>
-            <v-btn
-              v-if="canSupportStrike"
-              variant="text"
-              size="small"
-              class="mt-1 px-0"
-              :disabled="busy"
-              @click="requestSupport"
-            >
-              Поддержать
-            </v-btn>
+            <div class="d-flex flex-wrap align-center ga-2 mt-1">
+              <v-btn variant="text" size="small" :disabled="busy" @click="answerPhpPendingStrike">
+                {{ phpPendingDefenseIsOwner ? 'Ответить на удар' : 'Показать удар' }}
+              </v-btn>
+              <v-btn v-if="hasReaction" variant="tonal" size="small" :disabled="busy" @click="requestReaction">
+                {{ reactionActionLabel ?? 'Доступные реакции' }}
+              </v-btn>
+            </div>
           </v-alert>
           <v-select
             v-if="isCompose && !attackAction"
@@ -4417,26 +4413,14 @@ const canSubmit = computed(() => {
           </div>
           <v-alert v-if="isPhpAwaiting" type="info" variant="tonal" density="compact" class="mt-2 mb-1">
             <div>{{ phpWaitingText }}</div>
-            <v-btn
-              v-if="canWriteStrike"
-              variant="text"
-              size="small"
-              class="mt-1 px-0"
-              :disabled="busy"
-              @click="takeOverPhpDefense"
-            >
-              Взять на себя
-            </v-btn>
-            <v-btn
-              v-if="canSupportStrike"
-              variant="text"
-              size="small"
-              class="mt-1 px-0"
-              :disabled="busy"
-              @click="requestSupport"
-            >
-              Поддержать
-            </v-btn>
+            <div class="d-flex flex-wrap align-center ga-2 mt-1">
+              <v-btn v-if="canWriteStrike" variant="text" size="small" :disabled="busy" @click="takeOverPhpDefense">
+                Взять на себя
+              </v-btn>
+              <v-btn v-if="hasReaction" variant="tonal" size="small" :disabled="busy" @click="requestReaction">
+                {{ reactionActionLabel ?? 'Доступные реакции' }}
+              </v-btn>
+            </div>
           </v-alert>
           <v-alert v-if="isDefenderStep" type="info" variant="tonal" density="compact" class="mt-2 mb-1">
             Вы отвечаете за защиту цели: <strong>{{ nameOf(opponentKey) }}</strong>
@@ -4705,8 +4689,8 @@ const canSubmit = computed(() => {
         </template>
       </v-card-text>
       <v-card-actions class="py-2 px-4">
-        <v-btn v-if="canSupportStrike" variant="text" size="small" :disabled="busy" @click="requestSupport">
-          Поддержать
+        <v-btn v-if="hasReaction" variant="tonal" size="small" :disabled="busy" @click="requestReaction">
+          {{ reactionActionLabel ?? 'Доступные реакции' }}
         </v-btn>
         <v-spacer />
         <v-btn variant="text" size="small" :disabled="busy" @click="close">Закрыть</v-btn>

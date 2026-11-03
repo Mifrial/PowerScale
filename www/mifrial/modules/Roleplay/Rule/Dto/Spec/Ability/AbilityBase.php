@@ -58,6 +58,7 @@ final class AbilityBase
      * @param CharacteristicNumber|null $dodgeEfficiency Эффективность уклона.
      * @param string|null $dodgeSoak Код характеристики смягчения.
      * @param ProcessCloseSpec|null $closesParentProcess Закрытие процесса-родителя.
+     * @param ReactionModifier|null $reaction Когда карточку можно объявить реакцией.
      *
      * @return void
      */
@@ -104,6 +105,7 @@ final class AbilityBase
         private readonly ?CharacteristicNumber $dodgeEfficiency = null,
         private readonly ?string $dodgeSoak = null,
         private readonly ?ProcessCloseSpec $closesParentProcess = null,
+        private readonly ?ReactionModifier $reaction = null,
     ) {
     }
 
@@ -525,5 +527,15 @@ final class AbilityBase
     public function getClosesParentProcess(): ?ProcessCloseSpec
     {
         return $this->closesParentProcess;
+    }
+
+    /**
+     * Когда карточка может быть объявлена реакцией.
+     *
+     * @return ReactionModifier|null Реакция или null.
+     */
+    public function getReaction(): ?ReactionModifier
+    {
+        return $this->reaction;
     }
 }

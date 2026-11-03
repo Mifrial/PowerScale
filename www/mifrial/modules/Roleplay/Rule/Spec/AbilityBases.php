@@ -69,6 +69,7 @@ final class AbilityBases
             DimensionalNumbers::optionalCharacteristic($document, 'dodge_efficiency'),
             SpecShape::optionalString($document, 'dodge_soak'),
             self::closesParentProcess($document),
+            ReactionSpecs::read($document),
         );
     }
 

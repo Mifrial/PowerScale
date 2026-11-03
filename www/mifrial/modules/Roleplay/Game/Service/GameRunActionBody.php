@@ -13,7 +13,7 @@ final class GameRunActionBody
 {
     private const PHASES = ['declare', 'respond'];
 
-    private const KINDS = ['action', 'strike', 'support', 'wound'];
+    private const KINDS = ['action', 'strike', 'reaction', 'wound'];
 
     private const OPERATIONS = ['hold', 'release', 'bandage'];
 
@@ -93,8 +93,8 @@ final class GameRunActionBody
             return $this->woundContext($context);
         }
 
-        if ($kind === 'support') {
-            return $this->supportContext($context);
+        if ($kind === 'reaction') {
+            return $this->reactionContext($context);
         }
 
         return $phase === 'declare' ? $this->strikeContext($context) : $this->defenseContext($context);
@@ -183,7 +183,8 @@ final class GameRunActionBody
     }
 
     /**
-     * Контекст реакции поддержки.
+     * Контекст реакции. Общая часть проверяется здесь, поля эффекта — тем,
+     * кто этот эффект исполняет: транспорт не знает конкретных карточек.
      *
      * @param array<string, mixed> $context Контекст.
      *
@@ -191,37 +192,14 @@ final class GameRunActionBody
      *
      * @throws ActionException INVALID_PARAMS.
      */
-    private function supportContext(array $context): array
+    private function reactionContext(array $context): array
     {
-        $this->assertKeys(
-            $context,
-            ['expectedSheetVersion', 'side', 'itemInventoryId', 'itemRuleCode', 'profileType'],
-            'support context',
-        );
         $expected = $context['expectedSheetVersion'] ?? null;
-        $side = $context['side'] ?? null;
-        $itemInventoryId = $context['itemInventoryId'] ?? null;
-        $itemRuleCode = $context['itemRuleCode'] ?? null;
-        $profileType = $context['profileType'] ?? null;
-        if (
-            !is_int($expected)
-            || ($side !== 'attacker' && $side !== 'defender')
-            || !is_int($itemInventoryId)
-            || $itemInventoryId < 1
-            || !is_string($itemRuleCode)
-            || $itemRuleCode === ''
-            || ($profileType !== 'strike' && $profileType !== 'throw' && $profileType !== 'shoot')
-        ) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: support context');
+        if (!is_int($expected)) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: reaction context');
         }
 
-        return [
-            'expectedSheetVersion' => $expected,
-            'side' => $side,
-            'itemInventoryId' => $itemInventoryId,
-            'itemRuleCode' => $itemRuleCode,
-            'profileType' => $profileType,
-        ];
+        return $context;
     }
 
     /**
