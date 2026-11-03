@@ -468,7 +468,10 @@ function grantLabel(grant: Grant): string {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+/* Vuetify режет подзаголовок одной строкой (`-webkit-line-clamp: 1`). */
 .ability-card__step-item :deep(.v-list-item-subtitle) {
+  display: block;
+  -webkit-line-clamp: none;
   white-space: normal;
   overflow: visible;
   text-overflow: clip;

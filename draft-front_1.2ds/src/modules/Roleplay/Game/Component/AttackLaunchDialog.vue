@@ -1117,8 +1117,10 @@ watch(followUpTargetKeys, (allowed) => {
   gap: 4px 12px;
   margin-top: 4px;
 }
-.process-step-info :deep(.v-list-item-subtitle),
+/* Vuetify режет подзаголовок одной строкой (`-webkit-line-clamp: 1`). */
 .process-step-option :deep(.v-list-item-subtitle) {
+  display: block;
+  -webkit-line-clamp: none;
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
