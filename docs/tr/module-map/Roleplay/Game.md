@@ -187,10 +187,10 @@
 | [game-plan-32.md](../../game-plan-32.md) | план | `~ПЛАН~` | 2026-10-12 |
 | [game-plan-34.md](../../game-plan-34.md) | план | `~ПЛАН~` | 2026-10-16 |
 | [game-plan-35.md](../../game-plan-35.md) | план | `~ПЛАН~` | 2026-10-16 |
+| [game-plan-44-checks-real.md](../../game-plan-44-checks-real.md) | план | `~ПЛАН~` | — |
 | [game-roadmap.md](../../game-roadmap.md) | план | `~ПЛАН~` | 2026-10-05 |
 | [game-plan-01.md](../../game-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
 | [game-plan-13.md](../../game-plan-13.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
-| [game-plan-18.md](../../game-plan-18.md) | план | `~ЧАСТИЧНО~` | — |
 | [game-plan-43-processes.md](../../game-plan-43-processes.md) | план | `~ЧАСТИЧНО~` | — |
 | [game-plan-16.md](../../game-plan-16.md) | план | `~ОТМЕНЁН~` | 2026-10-04 |
 | [game-plan-17.md](../../game-plan-17.md) | план | `~ОТМЕНЁН~` | 2026-10-04 |
@@ -208,6 +208,7 @@
 | [game-plan-12.md](../../game-plan-12.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
 | [game-plan-14.md](../../game-plan-14.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
 | [game-plan-15.md](../../game-plan-15.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
+| [game-plan-18.md](../../game-plan-18.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-20.md](../../game-plan-20.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-21.md](../../game-plan-21.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-22.md](../../game-plan-22.md) | план | `~СДЕЛАНО~` | — |

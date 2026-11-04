@@ -60,13 +60,13 @@
 | [rule-plan-05.md](../../rule-plan-05.md) | план | `~В РАБОТЕ~` | 2026-10-05 |
 | [spell-inventory-01.md](../../spell-inventory-01.md) | канон | `~В РАБОТЕ~` | 2026-09-07 |
 | [spell-plan-02-slice.md](../../spell-plan-02-slice.md) | план | `~В РАБОТЕ~` | 2026-09-07 |
+| [rule-content-plan-02-concentration.md](../../rule-content-plan-02-concentration.md) | план | `~ЧАСТИЧНО~` | 2026-09-13 |
 | [rule-plan-01.md](../../rule-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-09-05 |
 | [rule-plan-03.md](../../rule-plan-03.md) | план | `~ЧАСТИЧНО~` | 2026-10-05 |
 | [rule-plan-04.md](../../rule-plan-04.md) | план | `~ЧАСТИЧНО~` | 2026-10-05 |
 | [rule-plan-07.md](../../rule-plan-07.md) | план | `~ОТМЕНЁН~` | 2026-10-06 |
 | [rule-content-plan-03-senses.md](../../rule-content-plan-03-senses.md) | план | `~ОТЛОЖЕН~` | — |
 | [rule-content-plan-01-editorial.md](../../rule-content-plan-01-editorial.md) | план | `~СДЕЛАНО~` | — |
-| [rule-content-plan-02-concentration.md](../../rule-content-plan-02-concentration.md) | план | `~СДЕЛАНО~` | 2026-09-13 |
 | [rule-content-plan-05-knowledge-game.md](../../rule-content-plan-05-knowledge-game.md) | план | `~СДЕЛАНО~` | 2026-09-13 |
 | [rule-content-plan-06-wounds.md](../../rule-content-plan-06-wounds.md) | план | `~СДЕЛАНО~` | 2026-09-13 |
 | [rule-plan-02-init-surface.md](../../rule-plan-02-init-surface.md) | план | `~СДЕЛАНО~` | 2026-09-07 |

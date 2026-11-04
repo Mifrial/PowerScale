@@ -13,7 +13,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 
 `doc-index.json` — машинный источник для `show.php`; целиком его не читать.
 Карточки `module-map/` — факты из кода; здесь — заявленные статусы документов.
-Документов: 321, планов: 202.
+Документов: 322, планов: 203.
 
 ## Схема статусов
 
@@ -41,7 +41,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | `review` | 63 | 1 | 0 | 0 | 1 | 0 | 0 | 49 | 12 |
 | `rule` | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 6 |
 | `specs` | 22 | 2 | 0 | 0 | 0 | 4 | 0 | 5 | 11 |
-| `tr` | 224 | 32 | 13 | 28 | 115 | 2 | 4 | 7 | 23 |
+| `tr` | 225 | 33 | 13 | 28 | 115 | 2 | 4 | 7 | 23 |
 | `tz` | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 |
 
 ## Модуль × состояние × слой
@@ -58,10 +58,10 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Core/User](module-map/Core/User.md) | 11 | 0 | 0 | 0 | 9 | 1 | 8 | 1 | 0 |
 | [Messages/Chat](module-map/Messages/Chat.md) | 9 | 1 | 0 | 0 | 7 | 1 | 8 | 4 | 1 |
 | [Roleplay/Character](module-map/Roleplay/Character.md) | 17 | 2 | 0 | 2 | 10 | 2 | 13 | 2 | 0 |
-| [Roleplay/Game](module-map/Roleplay/Game.md) | 49 | 7 | 0 | 4 | 31 | 1 | 42 | 9 | 4 |
+| [Roleplay/Game](module-map/Roleplay/Game.md) | 50 | 8 | 0 | 3 | 32 | 1 | 43 | 10 | 4 |
 | [Roleplay/Keyword](module-map/Roleplay/Keyword.md) | 3 | 0 | 0 | 3 | 0 | 0 | 3 | 2 | 0 |
 | [Roleplay/Mechanic](module-map/Roleplay/Mechanic.md) | 9 | 1 | 1 | 3 | 3 | 0 | 6 | 4 | 0 |
-| [Roleplay/Rule](module-map/Roleplay/Rule.md) | 43 | 11 | 7 | 3 | 17 | 3 | 9 | 11 | 1 |
+| [Roleplay/Rule](module-map/Roleplay/Rule.md) | 43 | 11 | 7 | 4 | 16 | 3 | 9 | 12 | 2 |
 | [Roleplay/RuleSpace](module-map/Roleplay/RuleSpace.md) | 8 | 0 | 0 | 8 | 0 | 0 | 6 | 3 | 0 |
 | [Versioning/Space](module-map/Versioning/Space.md) | 2 | 0 | 0 | 0 | 2 | 0 | 2 | 0 | 0 |
 | — | 132 | 7 | 5 | 5 | 6 | 46 | 3 | 10 | 0 |
@@ -69,7 +69,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 ## Реализация: где есть PHP и где только мок
 
 - **Не опираться на реализацию** (`~НЕ ОСНОВА~`): нет.
-- **Только мок, PHP нет**: нет.
+- **Только мок, PHP нет**: [rule-content-plan-02-concentration.md](rule-content-plan-02-concentration.md).
 - **Есть PHP** — колонка `PHP` в таблице модулей ниже.
 
 ## Отложено до следующих релизов

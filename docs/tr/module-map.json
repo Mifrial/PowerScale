@@ -2007,6 +2007,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/game-plan-44-checks-real.md",
+                    "title": "План 44 — проверки в real-режиме",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/game-roadmap.md",
                     "title": "Нарезка Roleplay/Game",
                     "kind": "plan",
@@ -2028,14 +2036,6 @@
                     "kind": "plan",
                     "state": "ЧАСТИЧНО",
                     "date": "2026-10-04",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/game-plan-18.md",
-                    "title": "План Game 18 — проверка",
-                    "kind": "plan",
-                    "state": "ЧАСТИЧНО",
-                    "date": null,
                     "hasStatus": true
                 },
                 {
@@ -2172,6 +2172,14 @@
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-10-04",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-18.md",
+                    "title": "План Game 18 — проверка",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
                     "hasStatus": true
                 },
                 {
@@ -2809,6 +2817,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/rule-content-plan-02-concentration.md",
+                    "title": "C2 — план реализации концентрации",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-09-13",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/rule-plan-01.md",
                     "title": "План Rule 1 — кластер на часы",
                     "kind": "plan",
@@ -2854,14 +2870,6 @@
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": null,
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/rule-content-plan-02-concentration.md",
-                    "title": "C2 — план реализации концентрации",
-                    "kind": "plan",
-                    "state": "СДЕЛАНО",
-                    "date": "2026-09-13",
                     "hasStatus": true
                 },
                 {
