@@ -1800,6 +1800,10 @@ final class GameChecks implements IGameChecks
     private function checkThread(int $processId, ?int $battleId, int $sessionId): array
     {
         $battle = $battleId === null ? null : $this->battles->find($battleId);
+        if ($battle === null) {
+            $ids = $this->battles->findIdsBySession($sessionId);
+            $battle = $ids === [] ? null : $this->battles->find($ids[array_key_last($ids)]);
+        }
 
         return GameCombatThread::buildCheck($processId, $battle, $sessionId);
     }

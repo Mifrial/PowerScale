@@ -491,6 +491,53 @@ final class GameCheckMysqlTest extends TestCase
     }
 
     /**
+     * Проверка в бою попадает в тред текущего хода.
+     *
+     * @return void
+     */
+    public function testOfferThreadFollowsBattleTurn(): void
+    {
+        $world = $this->worldWithCheck();
+        $gameId = $this->addGame($world->getId());
+        $hero = $this->admit($world->getId(), $gameId, 'Hero');
+        $rival = $this->admit($world->getId(), $gameId, 'Rival');
+        $version = $this->characterFacade()->get($hero)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE, GamePermissionKeys::EDIT_ALL]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'battle-thread',
+            'participants' => [
+                ['type' => 'character', 'id' => $hero],
+                ['type' => 'character', 'id' => $rival],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $offer = $this->dispatch('game.proposeCheck', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'turn-thread',
+            'expectedSheetVersion' => $version,
+            'proposal' => [
+                'checkCode' => 'notice',
+                'initiator' => ['type' => 'character', 'id' => $hero],
+                'opponent' => ['type' => 'character', 'id' => $rival],
+            ],
+        ]);
+        self::assertTrue($offer['success'], json_encode($offer));
+        $thread = null;
+        foreach ($this->allMessages($gameId) as $message) {
+            if (str_contains($message->getContent(), 'Совместная проверка')) {
+                $thread = $this->threadOf($message);
+            }
+        }
+        self::assertIsArray($thread);
+        self::assertSame(
+            'b' . $battle['data']['battleId'] . '-r1-t0',
+            $thread['parentId'] ?? null,
+        );
+    }
+
+    /**
      * Соло-проверка тратит жетон концентрации и получает преимущество.
      *
      * @return void
@@ -1033,6 +1080,20 @@ final class GameCheckMysqlTest extends TestCase
      */
     private function threadIdOf(MessageRecord $message): ?string
     {
+        $id = $this->threadOf($message)['id'] ?? null;
+
+        return is_string($id) ? $id : null;
+    }
+
+    /**
+     * Вложение треда сообщения.
+     *
+     * @param MessageRecord $message Сообщение.
+     *
+     * @return array<string, mixed>|null Тред или null.
+     */
+    private function threadOf(MessageRecord $message): ?array
+    {
         foreach ($message->getAttachments() as $attachment) {
             if (($attachment['type'] ?? null) !== 'chat_system') {
                 continue;
@@ -1040,9 +1101,8 @@ final class GameCheckMysqlTest extends TestCase
 
             $payload = $attachment['payload'] ?? null;
             $thread = is_array($payload) ? ($payload['thread'] ?? null) : null;
-            $id = is_array($thread) ? ($thread['id'] ?? null) : null;
-            if (is_string($id)) {
-                return $id;
+            if (is_array($thread)) {
+                return $thread;
             }
         }
 
