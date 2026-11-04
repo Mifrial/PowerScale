@@ -319,7 +319,8 @@ private function avatarSpec(): ImageTransformSpec
 
 ## 9. Фронтенд
 
-- `User` DTO: `avatar: string | null`; `setUserAvatar` в API и моке;
+- `User` DTO: `avatar?: string | null` (как `deactivatedUntil`: сервер шлёт
+  всегда, тип опционален ради старых фикстур); `setUserAvatar` в API и моке;
   `store.updateUser` обновляет `currentUser`, чтобы шапка и профиль
   перерисовались без перезагрузки.
 - `useAvatarUpload` (`Core/User/Composables/`): проверка типа и размера
