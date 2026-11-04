@@ -514,4 +514,6 @@ NPC не получает `approvedCharacterVersion`, draft или moderation ba
 
 `dice_result` — legacy field; текущая модель сообщения использует `ChatAttachment[]`. `event_time`/`sort_order` — legacy storage; frontend использует `GameTime`. SSE, unread, visibility, notification generation и ownership constraints требуют backend-подтверждения (`OPEN`).
 
-Логические сущности battleground (`GameScene`, occupancy blob, openings) — [`battleground-system.md`](battleground-system.md). Таблиц сцены в legacy SQL нет. Candidate для подложек — существующий `files()`; этого недостаточно как схемы сцены (`OPEN`).
+Текущая схема ассетов — `Core/File`: таблица `file` (метаданные + `sha256` + `storage_path`), байты на диске; legacy-блок `files()` выше не переписывается (это legacy-требование). Ссылка на файл у потребителя — `FileReferenceField`; доступа к байтам по `id` нет, только по `public_id` с проверкой актора ([`file-plan-01.md`](file-plan-01.md)).
+
+Логические сущности battleground (`GameScene`, occupancy blob, openings) — [`battleground-system.md`](battleground-system.md). Таблиц сцены в legacy SQL нет. Подложка — файл `Core/File`; этого недостаточно как схемы сцены (`OPEN`).

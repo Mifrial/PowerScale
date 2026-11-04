@@ -7,10 +7,9 @@ namespace Mifrial\Core\Auth\Table;
 use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Field\DateTimeField;
 use Mifrial\Core\SmartTable\Field\IdField;
-use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
-use Mifrial\Core\User\Table\UserTable;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Карта сессии `auth_session`.
@@ -36,10 +35,9 @@ final class AuthSessionTable extends SmartTableDefinition
     {
         return [
             IdField::big(),
-            new ReferenceField(
+            new UserReferenceField(
                 'user_id',
                 FieldSettings::fromOptions(['required' => false]),
-                UserTable::class,
                 'cascade',
             ),
             new StringField('kind', FieldSettings::fromOptions(['required' => false]), 16),

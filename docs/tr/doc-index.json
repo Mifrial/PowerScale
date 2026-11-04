@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 322,
-        "plans": 203,
+        "documents": 323,
+        "plans": 204,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 225,
+            "tr": 226,
             "tz": 2
         },
         "byZoneState": {
@@ -70,7 +70,7 @@
             },
             "tr": {
                 "нет": 23,
-                "СДЕЛАНО": 115,
+                "СДЕЛАНО": 116,
                 "ОТЛОЖЕН": 2,
                 "ПЛАН": 32,
                 "ЧАСТИЧНО": 29,
@@ -86,7 +86,7 @@
         "byState": {
             "СНИМОК": 64,
             "нет": 55,
-            "СДЕЛАНО": 116,
+            "СДЕЛАНО": 117,
             "ПЛАН": 35,
             "ОТЛОЖЕН": 6,
             "ЧАСТИЧНО": 29,
@@ -113,6 +113,17 @@
             "layer": {
                 "PHP": 5,
                 "VUE": 2
+            }
+        },
+        "Core/File": {
+            "docs": 1,
+            "state": {
+                "СДЕЛАНО": 1
+            },
+            "layer": {
+                "PHP": 1,
+                "VUE": 1,
+                "МОК": 1
             }
         },
         "Core/Kernel": {
@@ -2184,10 +2195,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 30224,
-            "lines": 274,
+            "bytes": 30731,
+            "lines": 280,
             "modules": [],
-            "linksCount": 33,
+            "linksCount": 34,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -2212,6 +2223,7 @@
                 "docs/tr/core-ui-grid-plan-01-server-mode.md",
                 "docs/tr/core-ui-navigation-plan-01.md",
                 "docs/tr/decisions.md",
+                "docs/tr/file-plan-01.md",
                 "docs/tr/game-plan-01.md",
                 "docs/tr/game-plan-02.md",
                 "docs/tr/game-plan-03.md",
@@ -2437,7 +2449,7 @@
             ],
             "basis": null,
             "date": "2026-08-31",
-            "bytes": 16773,
+            "bytes": 16765,
             "lines": 172,
             "modules": [],
             "linksCount": 4,
@@ -2449,6 +2461,7 @@
                 "docs/tr/architecture.md",
                 "docs/tr/cross-domain.md",
                 "docs/tr/data-model.md",
+                "docs/tr/file-plan-01.md",
                 "docs/tr/game-roadmap.md",
                 "docs/tr/game-system.md",
                 "docs/tr/ui-system.md"
@@ -3193,7 +3206,8 @@
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
-                "docs/tr/decisions.md"
+                "docs/tr/decisions.md",
+                "docs/tr/file-plan-01.md"
             ]
         },
         {
@@ -3331,16 +3345,17 @@
             ],
             "basis": null,
             "date": null,
-            "bytes": 20634,
-            "lines": 518,
+            "bytes": 21104,
+            "lines": 520,
             "modules": [],
-            "linksCount": 7,
+            "linksCount": 8,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
                 "docs/tr/architecture.md",
                 "docs/tr/auth-plan-02-password-flow.md",
                 "docs/tr/battleground-system.md",
+                "docs/tr/file-plan-01.md",
                 "docs/tr/game-plan-02.md",
                 "docs/tr/game-plan-03.md",
                 "docs/tr/game-plan-08.md",
@@ -3395,6 +3410,33 @@
             "linksCount": 0,
             "brokenLinks": [],
             "backlinks": []
+        },
+        {
+            "path": "docs/tr/file-plan-01.md",
+            "title": "План File 1 — Core/File: хранение и отдача файлов",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": null,
+            "bytes": 41389,
+            "lines": 652,
+            "modules": [
+                "Core/File"
+            ],
+            "linksCount": 7,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/architecture.md",
+                "docs/tr/data-model.md"
+            ]
         },
         {
             "path": "docs/tr/game-combat-readiness.md",
@@ -4578,8 +4620,8 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 16323,
-            "lines": 246,
+            "bytes": 17024,
+            "lines": 251,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -5814,6 +5856,7 @@
                 "docs/tr/chat-roadmap.md",
                 "docs/tr/core-tails-roadmap.md",
                 "docs/tr/decisions.md",
+                "docs/tr/file-plan-01.md",
                 "docs/tr/game-plan-01.md",
                 "docs/tr/game-plan-02.md",
                 "docs/tr/game-plan-03.md",
@@ -7724,8 +7767,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-02",
-            "bytes": 18961,
-            "lines": 140,
+            "bytes": 19586,
+            "lines": 142,
             "modules": [
                 "Core/SmartTable"
             ],
@@ -7739,6 +7782,7 @@
                 "docs/tr/chat-plan-03.md",
                 "docs/tr/contract-status.md",
                 "docs/tr/decisions.md",
+                "docs/tr/file-plan-01.md",
                 "docs/tr/kernel-plan-01-setup.md",
                 "docs/tr/smarttable-plan-01-connection.md",
                 "docs/tr/smarttable-plan-02-fields.md",
@@ -8425,8 +8469,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-03",
-            "bytes": 6240,
-            "lines": 53,
+            "bytes": 6520,
+            "lines": 55,
             "modules": [
                 "Core/User"
             ],
@@ -8439,6 +8483,7 @@
                 "docs/tr/contract-status.md",
                 "docs/tr/data-model.md",
                 "docs/tr/decisions.md",
+                "docs/tr/file-plan-01.md",
                 "docs/tr/smarttable-plan-13-datetime-now.md",
                 "docs/tr/user-plan-01-account.md",
                 "docs/tr/user-plan-02-groups.md",

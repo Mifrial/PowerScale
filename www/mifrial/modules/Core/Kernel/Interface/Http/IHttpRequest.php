@@ -69,6 +69,13 @@ interface IHttpRequest
     public function getCookieMap(): array;
 
     /**
+     * Возвращает карту загруженных файлов.
+     *
+     * @return array<string, mixed> Поле => запись $_FILES.
+     */
+    public function getFileMap(): array;
+
+    /**
      * Декодирует JSON-тело запроса.
      *
      * @return mixed Декодированная полезная нагрузка или null для пустого тела.

@@ -12,6 +12,7 @@ use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Field\TextField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Запись летописи одной игры. Шапка хроники отдельно не хранится.
@@ -50,10 +51,9 @@ final class GameChronicleEntryTable extends SmartTableDefinition
                 0,
                 2147483647,
             ),
-            ReferenceField::forTable(
+            new UserReferenceField(
                 'created_by',
                 FieldSettings::fromOptions(['required' => true]),
-                'user',
             ),
             new DateTimeField('created_at', FieldSettings::fromOptions(['required' => true])),
             new DateTimeField('updated_at', FieldSettings::fromOptions(['required' => true])),

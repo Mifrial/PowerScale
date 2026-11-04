@@ -1,6 +1,7 @@
 **/.php-cs-fixer.cache
 www/mifrial/vendor/
 www/mifrial/var/cache/
+www/mifrial/var/file/
 www/mifrial/config/local.php
 www/mifrial/config/test.php
 www/mifrial/.phpunit.result.cache

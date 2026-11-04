@@ -126,3 +126,34 @@ describe('HttpClient.post', () => {
     await expect(createClient().post('/run')).rejects.toThrow(/пустое тело ответа/);
   });
 });
+
+describe('HttpClient.postForm', () => {
+  it('отправляет FormData без Content-Type и с CSRF-заголовком', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    mockResponse('{"success":true,"data":null}');
+    const form = new FormData();
+    form.append('file', new File(['x'], 'x.png', { type: 'image/png' }));
+
+    await createClient({ getCsrfToken: () => 'token-1' }).postForm('/file/upload', form);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/file/upload');
+    expect(init.method).toBe('POST');
+    expect(init.credentials).toBe('include');
+    expect(init.body).toBe(form);
+    expect(init.headers).toEqual({ Accept: 'application/json', 'X-CSRF-Token': 'token-1' });
+  });
+
+  it('на 400 AUTH_REQUIRED вызывает onUnauthorized', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    const onUnauthorized = vi.fn();
+    mockResponse(
+      '{"success":false,"data":null,"error":{"code":"AUTH_REQUIRED","message":"Authentication is required"}}',
+      400,
+    );
+
+    await createClient({ onUnauthorized }).postForm('/file/upload', new FormData());
+
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+});

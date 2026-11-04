@@ -2,6 +2,7 @@ import type { FieldDefinition } from '@/modules/Core/UI/Dto/Field/Definition';
 import type { FilterOptionValue } from '@/modules/Core/UI/Dto/Filter/Values/FilterOptionValue';
 
 export interface FilterField extends FieldDefinition {
+  modes?: ('equals' | 'from' | 'to' | 'interval')[];
   options?: { label: string; value: FilterOptionValue }[];
   treeOptions?: {
     label: string;

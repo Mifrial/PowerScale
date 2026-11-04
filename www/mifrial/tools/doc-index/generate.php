@@ -38,6 +38,7 @@ const MODULE_SLUGS = [
     'user' => 'Core/User',
     'auth' => 'Core/Auth',
     'logger' => 'Core/Logger',
+    'file' => 'Core/File',
     'kernel' => 'Core/Kernel',
     'agent' => 'Core/Agent',
     'mail' => 'Core/Mail',

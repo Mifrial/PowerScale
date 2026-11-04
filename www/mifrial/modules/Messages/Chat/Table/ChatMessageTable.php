@@ -14,6 +14,7 @@ use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Field\TextField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Core\SmartTable\Value\DateTimeNow;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Карта сообщения `chat_message`.
@@ -63,10 +64,9 @@ final class ChatMessageTable extends SmartTableDefinition
                 FieldSettings::fromOptions(['required' => true]),
                 ChatTable::class,
             ),
-            ReferenceField::forTable(
+            new UserReferenceField(
                 'user_id',
                 FieldSettings::fromOptions(['required' => true]),
-                'user',
             ),
             new TextField('content', FieldSettings::fromOptions(['required' => true])),
             new JsonField('attachments', FieldSettings::fromOptions(['required' => true, 'default' => []])),

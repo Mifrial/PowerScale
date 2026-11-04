@@ -5,6 +5,7 @@
   "license": "proprietary",
   "require": {
     "php": "^8.2",
+    "ext-fileinfo": "*",
     "ext-mbstring": "*",
     "illuminate/database": "^11.0"
   },
@@ -43,6 +44,7 @@
       "Mifrial\\Core\\Auth\\": "modules/Core/Auth/",
       "Mifrial\\Core\\Mail\\": "modules/Core/Mail/",
       "Mifrial\\Core\\Logger\\": "modules/Core/Logger/",
+      "Mifrial\\Core\\File\\": "modules/Core/File/",
       "Mifrial\\Core\\Cache\\": "modules/Core/Cache/",
       "Mifrial\\Messages\\Chat\\": "modules/Messages/Chat/",
       "Mifrial\\Versioning\\Space\\": "modules/Versioning/Space/",
@@ -62,6 +64,7 @@
       "/modules/Core/Auth/tests/",
       "/modules/Core/Mail/tests/",
       "/modules/Core/Logger/tests/",
+      "/modules/Core/File/tests/",
       "/modules/Core/Cache/tests/",
       "/modules/Messages/Chat/tests/",
       "/modules/Versioning/Space/tests/",
@@ -84,6 +87,7 @@
       "Mifrial\\Core\\Auth\\Tests\\": "modules/Core/Auth/tests/",
       "Mifrial\\Core\\Mail\\Tests\\": "modules/Core/Mail/tests/",
       "Mifrial\\Core\\Logger\\Tests\\": "modules/Core/Logger/tests/",
+      "Mifrial\\Core\\File\\Tests\\": "modules/Core/File/tests/",
       "Mifrial\\Core\\Cache\\Tests\\": "modules/Core/Cache/tests/",
       "Mifrial\\Messages\\Chat\\Tests\\": "modules/Messages/Chat/tests/",
       "Mifrial\\Versioning\\Space\\Tests\\": "modules/Versioning/Space/tests/",

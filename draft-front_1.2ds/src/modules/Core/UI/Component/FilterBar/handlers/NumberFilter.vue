@@ -23,7 +23,12 @@ const toValue = ref<number>(0);
 const min = computed(() => props.field.meta?.min ?? 0);
 const max = computed(() => props.field.meta?.max ?? 999999);
 
-const modeOptions = FILTER_RANGE_MODE_OPTIONS;
+const modeOptions = computed(() => {
+  const allowedModes = props.field.modes;
+  if (!allowedModes || allowedModes.length === 0) return FILTER_RANGE_MODE_OPTIONS;
+
+  return FILTER_RANGE_MODE_OPTIONS.filter((option) => allowedModes.includes(option.value));
+});
 
 const innerValue = computed(() => {
   if (mode.value === 'equals') return singleValue.value;
@@ -102,6 +107,7 @@ watch(
     <template v-if="mode === 'interval'">
       <div class="d-flex ga-2 align-center">
         <v-select
+          v-if="modeOptions.length > 1"
           v-model="mode"
           :items="modeOptions"
           variant="outlined"
@@ -137,7 +143,15 @@ watch(
       </div>
     </template>
     <div v-else class="d-flex align-center ga-2">
-      <v-select v-model="mode" :items="modeOptions" variant="outlined" density="compact" hide-details class="nf-mode" />
+      <v-select
+        v-if="modeOptions.length > 1"
+        v-model="mode"
+        :items="modeOptions"
+        variant="outlined"
+        density="compact"
+        hide-details
+        class="nf-mode"
+      />
       <ClampedNumberField
         :model-value="innerValue"
         :min="min"

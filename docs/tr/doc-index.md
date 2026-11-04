@@ -13,7 +13,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 
 `doc-index.json` — машинный источник для `show.php`; целиком его не читать.
 Карточки `module-map/` — факты из кода; здесь — заявленные статусы документов.
-Документов: 322, планов: 203.
+Документов: 323, планов: 204.
 
 ## Схема статусов
 
@@ -41,7 +41,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | `review` | 63 | 1 | 0 | 0 | 1 | 0 | 0 | 49 | 12 |
 | `rule` | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 6 |
 | `specs` | 22 | 2 | 0 | 0 | 0 | 4 | 0 | 5 | 11 |
-| `tr` | 225 | 32 | 13 | 29 | 115 | 2 | 4 | 7 | 23 |
+| `tr` | 226 | 32 | 13 | 29 | 116 | 2 | 4 | 7 | 23 |
 | `tz` | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 |
 
 ## Модуль × состояние × слой
@@ -50,6 +50,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 |---|---|---|---|---|---|---|---|---|---|
 | [Core/Agent](module-map/Core/Agent.md) | 1 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 0 |
 | [Core/Auth](module-map/Core/Auth.md) | 5 | 0 | 0 | 0 | 4 | 1 | 5 | 2 | 0 |
+| [Core/File](module-map/Core/File.md) | 1 | 0 | 0 | 0 | 1 | 0 | 1 | 1 | 1 |
 | [Core/Kernel](module-map/Core/Kernel.md) | 2 | 0 | 0 | 0 | 2 | 0 | 2 | 0 | 0 |
 | [Core/Logger](module-map/Core/Logger.md) | 5 | 0 | 0 | 0 | 5 | 0 | 2 | 2 | 0 |
 | [Core/Mail](module-map/Core/Mail.md) | 2 | 1 | 0 | 0 | 1 | 0 | 2 | 0 | 0 |

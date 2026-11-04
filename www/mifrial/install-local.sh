@@ -8,7 +8,41 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
-mysql -e "CREATE DATABASE IF NOT EXISTS powerscale CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+MYSQL_ADMIN_CMD="${MYSQL_ADMIN_CMD:-mysql}"
+
+app_mysql_available() {
+  [[ -f "${MIFRIAL}/config/local.php" ]] || return 1
+  local db_host db_port db_name db_user db_password
+  mapfile -t db_settings < <(php -r '
+    $config = require $argv[1];
+    $db = $config["db"] ?? [];
+    echo ($db["host"] ?? ""), "\n", ($db["port"] ?? ""), "\n", ($db["database"] ?? ""),
+      "\n", ($db["username"] ?? ""), "\n", ($db["password"] ?? ""), "\n";
+  ' "${MIFRIAL}/config/local.php" 2>/dev/null)
+  [[ ${#db_settings[@]} -eq 5 ]] || return 1
+  db_host="${db_settings[0]}"
+  db_port="${db_settings[1]}"
+  db_name="${db_settings[2]}"
+  db_user="${db_settings[3]}"
+  db_password="${db_settings[4]}"
+  [[ -n "${db_host}" && -n "${db_name}" && -n "${db_user}" ]] || return 1
+  mysql -h "${db_host}" -P "${db_port}" -u "${db_user}" -p"${db_password}" -e "USE \`${db_name}\`" >/dev/null 2>&1
+}
+
+bootstrap_mysql() {
+  if app_mysql_available; then
+    echo "MySQL: база уже доступна приложению — bootstrap пользователей пропущен."
+    return 0
+  fi
+
+  if ! ${MYSQL_ADMIN_CMD} -e "SELECT 1" >/dev/null 2>&1; then
+    echo "MySQL: нет доступа администратора (${MYSQL_ADMIN_CMD}); bootstrap пропущен." >&2
+    echo "  Если базы/пользователя ещё нет, задайте команду админа, например:" >&2
+    echo "  sudo MYSQL_ADMIN_CMD='mysql -uroot -p' $0" >&2
+    return 0
+  fi
+
+  ${MYSQL_ADMIN_CMD} -e "CREATE DATABASE IF NOT EXISTS powerscale CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS 'powerscale'@'localhost' IDENTIFIED BY 'changeme';
 CREATE USER IF NOT EXISTS 'powerscale'@'127.0.0.1' IDENTIFIED BY 'changeme';
 ALTER USER 'powerscale'@'localhost' IDENTIFIED BY 'changeme';
@@ -16,6 +50,9 @@ ALTER USER 'powerscale'@'127.0.0.1' IDENTIFIED BY 'changeme';
 GRANT ALL ON powerscale.* TO 'powerscale'@'localhost';
 GRANT ALL ON powerscale.* TO 'powerscale'@'127.0.0.1';
 FLUSH PRIVILEGES;"
+}
+
+bootstrap_mysql
 
 if ! grep -q 'powerscale.test.ru' /etc/hosts; then
   echo '127.0.0.1 powerscale.test.ru' >> /etc/hosts
@@ -37,6 +74,23 @@ EOF
 
 a2enmod rewrite
 a2ensite powerscale.test.ru
+
+for php_config_dir in /etc/php/*/apache2/conf.d; do
+  if [[ -d "${php_config_dir}" ]]; then
+    cat > "${php_config_dir}/99-powerscale-upload.ini" <<'EOF'
+upload_max_filesize=40M
+post_max_size=48M
+EOF
+  fi
+done
+
+# Пользователь Apache берётся из envvars: ps отдаёт master-процесс (root).
+APACHE_USER="$(bash -c 'source /etc/apache2/envvars 2>/dev/null; printf "%s" "${APACHE_RUN_USER:-www-data}"' 2>/dev/null)"
+APACHE_USER="${APACHE_USER:-www-data}"
+APACHE_GROUP="$(bash -c 'source /etc/apache2/envvars 2>/dev/null; printf "%s" "${APACHE_RUN_GROUP:-www-data}"' 2>/dev/null)"
+APACHE_GROUP="${APACHE_GROUP:-www-data}"
+install -d -o "${APACHE_USER}" -g "${APACHE_GROUP}" -m 0770 "${MIFRIAL}/var/file"
+
 systemctl reload apache2
 
 echo "hosts + Apache DocumentRoot=${SITE} + MySQL user powerscale@localhost и @127.0.0.1."

@@ -7,10 +7,9 @@ namespace Mifrial\Core\Auth\Table;
 use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Field\DateTimeField;
 use Mifrial\Core\SmartTable\Field\IdField;
-use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
-use Mifrial\Core\User\Table\UserTable;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Карта одноразового токена сброса пароля.
@@ -36,10 +35,9 @@ final class AuthPasswordResetTable extends SmartTableDefinition
     {
         return [
             IdField::big(),
-            new ReferenceField(
+            new UserReferenceField(
                 'user_id',
                 FieldSettings::fromOptions(['required' => true, 'indexed' => true]),
-                UserTable::class,
                 'cascade',
             ),
             new StringField('token_hash', FieldSettings::fromOptions(['required' => true, 'unique' => true])),

@@ -290,6 +290,70 @@
             "plans": []
         },
         {
+            "key": "Core/File",
+            "group": "Core",
+            "name": "File",
+            "path": "modules/Core/File",
+            "namespace": "Mifrial\\Core\\File",
+            "container": "Mifrial\\Core\\File\\Container\\FileContainer",
+            "locator": "Mifrial\\Core\\File\\Interface\\Container\\IFileContainer",
+            "setup": "Mifrial\\Core\\File\\Setup\\FileModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Core\\File\\Interface\\Service\\IFiles",
+                "Mifrial\\Core\\File\\Service\\FileHttpService",
+                "Mifrial\\Core\\File\\Action\\FindFilePageAction",
+                "Mifrial\\Core\\File\\Action\\GetFileAction"
+            ],
+            "routes": [
+                {
+                    "action": "file.findPage",
+                    "handler": "Mifrial\\Core\\File\\Action\\FindFilePageAction",
+                    "csrf": true
+                },
+                {
+                    "action": "file.get",
+                    "handler": "Mifrial\\Core\\File\\Action\\GetFileAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IFileContainer",
+                    "path": "Interface/Container/IFileContainer.php",
+                    "summary": "Публичный контейнер модуля File."
+                },
+                {
+                    "name": "IFileStorage",
+                    "path": "Interface/Service/IFileStorage.php",
+                    "summary": "Хранение байтов: диск за интерфейсом, чтобы сервисы тестировались без ФС."
+                },
+                {
+                    "name": "IFiles",
+                    "path": "Interface/Service/IFiles.php",
+                    "summary": "Публичный порт метаданных файла для соседей."
+                }
+            ],
+            "readme": true,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Core/User"
+            ],
+            "dependedOnBy": [],
+            "plans": [
+                {
+                    "path": "docs/tr/file-plan-01.md",
+                    "title": "План File 1 — Core/File: хранение и отдача файлов",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                }
+            ]
+        },
+        {
             "key": "Core/Kernel",
             "group": "Core",
             "name": "Kernel",
@@ -401,6 +465,7 @@
                 "Core/Auth",
                 "Core/Cache",
                 "Core/Event",
+                "Core/File",
                 "Core/Logger",
                 "Core/Mail",
                 "Core/SmartTable",
@@ -648,6 +713,7 @@
             "dependedOnBy": [
                 "Core/Agent",
                 "Core/Auth",
+                "Core/File",
                 "Core/Kernel",
                 "Core/Logger",
                 "Core/Mail",
@@ -961,6 +1027,7 @@
             ],
             "dependedOnBy": [
                 "Core/Auth",
+                "Core/File",
                 "Core/Logger",
                 "Messages/Chat",
                 "Roleplay/Character",

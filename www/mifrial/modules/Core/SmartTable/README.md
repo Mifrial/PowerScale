@@ -79,6 +79,12 @@ Reference и linkset — это **поля** внутри `defineFields()`, от
 `modules/Messages/Chat/Table/ChatTable.php`,
 `modules/Core/Auth/Table/AuthSessionTable.php`.
 
+Специализация поля — **наследованием**: `UserReferenceField` и
+`UserLinkSetField` (`Core/User/Field/`) фиксируют цель `UserTable`, не меняя
+`type()`. Новый `type` так не вводится, а `assertReferenceSettings` /
+`assertLinkSetSettings` наследник не обходит: `required`, `multiple`,
+`indexed` и `onDelete` проверяет базовый класс.
+
 ### 2. Открыть таблицу
 
 ```php

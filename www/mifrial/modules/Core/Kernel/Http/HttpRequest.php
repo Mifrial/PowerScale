@@ -17,8 +17,12 @@ final readonly class HttpRequest implements IHttpRequest
      *
      * @param string $method HTTP-метод запроса.
      * @param string $path Путь запроса.
-     * @param array{query: array<string, mixed>, post: array<string, mixed>, cookies: array<string, mixed>} $inputBags
-     *     Query, POST и cookie запроса.
+     * @param array{
+     *     query: array<string, mixed>,
+     *     post: array<string, mixed>,
+     *     cookies: array<string, mixed>,
+     *     files: array<string, mixed>
+     * } $inputBags Query, POST, cookie и files запроса.
      * @param array<string, string> $headers HTTP-заголовки.
      * @param string|null $rawBody Необработанное тело запроса.
      *
@@ -49,6 +53,7 @@ final readonly class HttpRequest implements IHttpRequest
                 'query' => is_array($_GET) ? $_GET : [],
                 'post' => is_array($_POST) ? $_POST : [],
                 'cookies' => is_array($_COOKIE) ? $_COOKIE : [],
+                'files' => is_array($_FILES) ? $_FILES : [],
             ],
             self::resolveHeaders(),
             $rawBody === false ? null : $rawBody,
@@ -142,6 +147,16 @@ final readonly class HttpRequest implements IHttpRequest
     }
 
     /**
+     * Возвращает карту загруженных файлов.
+     *
+     * @return array<string, mixed> Поле => запись $_FILES.
+     */
+    public function getFileMap(): array
+    {
+        return $this->inputBags['files'];
+    }
+
+    /**
      * Декодирует JSON-тело запроса.
      *
      * @return mixed Декодированная полезная нагрузка или null для пустого тела.
@@ -184,13 +199,20 @@ final readonly class HttpRequest implements IHttpRequest
     {
         $headers = [];
         foreach ($_SERVER as $serverName => $serverValue) {
-            if (
-                is_string($serverValue)
-                && (str_starts_with($serverName, 'HTTP_') || $serverName === 'CONTENT_TYPE')
-            ) {
-                $headerName = str_replace('_', '-', strtolower(preg_replace('/^HTTP_/', '', $serverName)));
-                $headers[$headerName] = $serverValue;
+            if (!is_string($serverValue)) {
+                continue;
             }
+
+            if (
+                !str_starts_with($serverName, 'HTTP_')
+                && $serverName !== 'CONTENT_TYPE'
+                && $serverName !== 'CONTENT_LENGTH'
+            ) {
+                continue;
+            }
+
+            $headerName = str_replace('_', '-', strtolower(preg_replace('/^HTTP_/', '', $serverName)));
+            $headers[$headerName] = $serverValue;
         }
 
         return $headers;

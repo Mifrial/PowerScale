@@ -59,7 +59,7 @@
 ## Зависимости
 
 - **Зависит от:** [Core/Kernel](Kernel.md), [Core/SmartTable](SmartTable.md)
-- **От него зависят:** [Core/Auth](Auth.md), [Core/Logger](Logger.md), [Messages/Chat](../Messages/Chat.md), [Roleplay/Character](../Roleplay/Character.md), [Roleplay/Game](../Roleplay/Game.md), [Roleplay/Keyword](../Roleplay/Keyword.md), [Roleplay/Mechanic](../Roleplay/Mechanic.md), [Roleplay/RuleSpace](../Roleplay/RuleSpace.md)
+- **От него зависят:** [Core/Auth](Auth.md), [Core/File](File.md), [Core/Logger](Logger.md), [Messages/Chat](../Messages/Chat.md), [Roleplay/Character](../Roleplay/Character.md), [Roleplay/Game](../Roleplay/Game.md), [Roleplay/Keyword](../Roleplay/Keyword.md), [Roleplay/Mechanic](../Roleplay/Mechanic.md), [Roleplay/RuleSpace](../Roleplay/RuleSpace.md)
 
 ## События
 

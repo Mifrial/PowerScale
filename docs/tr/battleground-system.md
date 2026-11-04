@@ -166,6 +166,6 @@ SSE: смена version, token, opening, current, knowledge — не 40k instanc
 
 - [`game-system.md`](game-system.md) — бой, абстрактное движение, overlay.
 - [`architecture.md`](architecture.md) — модуль `Roleplay/Game`, SSE `OPEN`.
-- [`data-model.md`](data-model.md) — candidate `files()` для assets; таблиц сцены нет.
+- [`data-model.md`](data-model.md) — `Core/File` для assets; таблиц сцены нет.
 - Дизайн: [`docs/specs/battlegroundLockedDecisions.md`](../specs/battlegroundLockedDecisions.md).
 - `DEC-026`, `DEC-069`.

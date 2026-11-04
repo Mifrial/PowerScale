@@ -13,6 +13,7 @@ use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Field\TextField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Строка персонажа в игре. Не участник и не лист Character.
@@ -58,10 +59,9 @@ final class GameCharacterTable extends SmartTableDefinition
                 FieldSettings::fromOptions(['required' => true, 'indexed' => true]),
                 'character',
             ),
-            ReferenceField::forTable(
+            new UserReferenceField(
                 'character_owner_id',
                 FieldSettings::fromOptions(['required' => true, 'indexed' => true]),
-                'user',
             ),
             new IntField('live_character_id', FieldSettings::fromOptions(['unique' => true])),
             new StringField('status', FieldSettings::fromOptions(['required' => true]), 32),

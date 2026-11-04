@@ -13,7 +13,7 @@ use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Field\TextField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Core\SmartTable\Value\DateTimeNow;
-use Mifrial\Core\User\Table\UserTable;
+use Mifrial\Core\User\Field\UserReferenceField;
 use Mifrial\Roleplay\Rule\Table\RuleSpaceTable;
 
 /**
@@ -47,10 +47,9 @@ final class RuleSpaceMetaTable extends SmartTableDefinition
             ),
             new StringField('code', FieldSettings::fromOptions(['required' => true, 'unique' => true])),
             new StringField('name', FieldSettings::fromOptions(['required' => true])),
-            new ReferenceField(
+            new UserReferenceField(
                 'owner_id',
                 FieldSettings::fromOptions(['required' => true]),
-                UserTable::class,
             ),
             new TextField('description', FieldSettings::fromOptions(['required' => true])),
             new StringField(

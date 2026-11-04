@@ -11,8 +11,11 @@ use ReflectionClass;
 
 /**
  * Множество связей на id другой таблицы; не hop.
+ *
+ * Наследник специализирует поле под конкретную цель (например,
+ * `UserLinkSetField`), не меняя `type()` и правила настроек.
  */
-final class LinkSetField extends IntField
+class LinkSetField extends IntField
 {
     /**
      * Создаёт поле linkset.

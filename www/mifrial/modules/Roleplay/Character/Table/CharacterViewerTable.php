@@ -9,6 +9,7 @@ use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\JsonField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Именные зрители листа `character_viewer`.
@@ -40,10 +41,9 @@ final class CharacterViewerTable extends SmartTableDefinition
                 CharacterTable::class,
                 'cascade',
             ),
-            ReferenceField::forTable(
+            new UserReferenceField(
                 'user_id',
                 FieldSettings::fromOptions(['required' => true]),
-                'user',
             ),
             new JsonField('fields', FieldSettings::fromOptions(['required' => true])),
         ];

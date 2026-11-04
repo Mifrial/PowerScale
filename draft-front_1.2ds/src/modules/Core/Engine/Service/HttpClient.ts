@@ -56,6 +56,38 @@ export class HttpClient {
   }
 
   /**
+   * Отправляет multipart/form-data и возвращает статус вместе с разобранным JSON.
+   *
+   * Content-Type не ставится: boundary добавляет браузер.
+   *
+   * @param path Путь относительно baseUrl.
+   * @param form Данные формы.
+   * @param signal Сигнал отмены.
+   */
+  async postForm<T>(path: string, form: FormData, signal?: AbortSignal): Promise<HttpResponse<T>> {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    const csrfToken = this.config.getCsrfToken?.();
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+
+    const res = await fetch(`${this.config.baseUrl}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: form,
+      signal,
+    });
+
+    const data = await this.parseJsonBody<T>(res);
+    if (this.shouldRedirectToLogin(res.status, data)) {
+      this.redirectToLogin();
+    }
+
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  /**
    * Открывает GET event-stream. Хендл сразу; отказы только onError, не throw.
    *
    * @param path Путь относительно baseUrl.

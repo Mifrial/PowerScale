@@ -9,6 +9,7 @@ import { registerAuthApi, registerAuthModule } from '@/modules/Core/Auth/init';
 import { registerUserApi, registerGroupApi } from '@/modules/Core/User/init';
 import { registerKeywordApi, registerKeywordModule } from '@/modules/Roleplay/Keyword/init';
 import { registerLoggerApi, registerLoggerModule } from '@/modules/Core/Logger/init';
+import { registerFileApi, registerFileModule } from '@/modules/Core/File/init';
 import { registerMechanicApi, registerMechanicModule } from '@/modules/Roleplay/Mechanic/init';
 import { registerTemplateApi } from '@/modules/Messages/Notifications/init';
 import { registerRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
@@ -44,6 +45,7 @@ async function registerApiLayer(): Promise<void> {
     const { mockGroupApi } = await import('@/modules/Core/User/Mock/mockGroupApi');
     const { mockKeywordApi } = await import('@/modules/Roleplay/Keyword/Mock/mockKeywordApi');
     const { mockLoggerApi } = await import('@/modules/Core/Logger/Mock/mockLoggerApi');
+    const { mockFileApi } = await import('@/modules/Core/File/Mock/mockFileApi');
     const { mockMechanicApi } = await import('@/modules/Roleplay/Mechanic/Mock/mockMechanicApi');
     const { mockTemplateApi } = await import('@/modules/Messages/Notifications/Mock/mockTemplateApi');
     const { mockRuleSpaceApi } = await import('@/modules/Roleplay/RuleSpace/Mock/mockRuleSpaceApi');
@@ -60,6 +62,7 @@ async function registerApiLayer(): Promise<void> {
     registerGroupApi(mockGroupApi);
     registerKeywordApi(mockKeywordApi);
     registerLoggerApi(mockLoggerApi);
+    registerFileApi(mockFileApi);
     registerMechanicApi(mockMechanicApi);
     registerTemplateApi(mockTemplateApi);
     registerRuleSpaceApi(mockRuleSpaceApi);
@@ -79,6 +82,7 @@ async function registerApiLayer(): Promise<void> {
     const { GroupApi } = await import('@/modules/Core/User/Service/GroupApi');
     const { KeywordApi } = await import('@/modules/Roleplay/Keyword/Service/KeywordApi');
     const { LoggerApi } = await import('@/modules/Core/Logger/Service/LoggerApi');
+    const { FileApi } = await import('@/modules/Core/File/Service/FileApi');
     const { MechanicApi } = await import('@/modules/Roleplay/Mechanic/Service/MechanicApi');
     const { NotificationTemplateApi } =
       await import('@/modules/Messages/Notifications/Service/NotificationTemplateApi');
@@ -103,6 +107,7 @@ async function registerApiLayer(): Promise<void> {
     registerGroupApi(new GroupApi(engine));
     registerKeywordApi(new KeywordApi(engine));
     registerLoggerApi(new LoggerApi(engine));
+    registerFileApi(new FileApi(engine));
     registerMechanicApi(new MechanicApi(engine));
     registerTemplateApi(new NotificationTemplateApi(engine));
     registerRuleSpaceApi(new RuleSpaceApi(engine));
@@ -128,6 +133,7 @@ async function bootstrap(): Promise<void> {
   registerChatModule();
   registerKeywordModule();
   registerLoggerModule();
+  registerFileModule();
   registerMechanicModule();
   await registerRuleModule();
   registerRuleSpaceModule();

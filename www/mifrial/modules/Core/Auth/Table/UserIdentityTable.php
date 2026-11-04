@@ -7,10 +7,9 @@ namespace Mifrial\Core\Auth\Table;
 use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Field\DateTimeField;
 use Mifrial\Core\SmartTable\Field\IdField;
-use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
-use Mifrial\Core\User\Table\UserTable;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Карта способа входа `user_identity`.
@@ -36,10 +35,9 @@ final class UserIdentityTable extends SmartTableDefinition
     {
         return [
             new IdField(),
-            new ReferenceField(
+            new UserReferenceField(
                 'user_id',
                 FieldSettings::fromOptions(['required' => true]),
-                UserTable::class,
             ),
             new StringField('kind', FieldSettings::fromOptions(['required' => true])),
             new StringField('identity_key', FieldSettings::fromOptions(['required' => true, 'unique' => true])),

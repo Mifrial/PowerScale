@@ -10,6 +10,7 @@ use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Приглашение в игру. Не заявка и не участник.
@@ -40,15 +41,13 @@ final class GameInvitationTable extends SmartTableDefinition
                 FieldSettings::fromOptions(['required' => true]),
                 GameTable::class,
             ),
-            ReferenceField::forTable(
+            new UserReferenceField(
                 'inviter_id',
                 FieldSettings::fromOptions(['required' => true]),
-                'user',
             ),
-            ReferenceField::forTable(
+            new UserReferenceField(
                 'invitee_id',
                 FieldSettings::fromOptions(['required' => true, 'indexed' => true]),
-                'user',
             ),
             new StringField('status', FieldSettings::fromOptions(['required' => true]), 32),
             new DateTimeField('created_at', FieldSettings::fromOptions(['required' => true])),

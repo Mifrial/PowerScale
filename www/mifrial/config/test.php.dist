@@ -18,6 +18,11 @@ return [
         'driver' => 'file',
         'path' => __DIR__ . '/../var/cache',
     ],
+    'files' => [
+        'path' => __DIR__ . '/../var/file',
+        'max_size' => 33554432,
+        'mime' => ['image/png', 'image/jpeg', 'image/webp'],
+    ],
     'auth' => [
         'operator_login' => 'admin',
         'operator_password' => 'changeme',

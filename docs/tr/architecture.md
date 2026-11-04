@@ -27,8 +27,11 @@ PHP дополнительно фиксирует KISS, SOLID, DRY и разде
 клиентского приложения, если фронтенд собирается как SPA. `mifrial/init.php`
 является чистым bootstrap приложения и не обрабатывает HTTP-запросы.
 API-запросы входят через `mifrial/API/action.php`; отдельный SSE-транспорт
-будет иметь собственный entrypoint рядом с ним. Внутренние файлы `mifrial`
-закрыты от прямого доступа Apache, кроме разрешённых API entrypoint’ов.
+имеет собственный entrypoint рядом с ним (`API/chat-sync.php`,
+`API/game-sync.php`). Не-JSON границы тоже отдельные: `API/file-upload.php`
+(`multipart/form-data`, ответ — обычный JSON-конверт) и `API/file-get.php`
+(байты, голые статусы). Внутренние файлы `mifrial` закрыты от прямого доступа
+Apache, кроме разрешённых API entrypoint’ов.
 
 Модули сервера двухуровневые: `Namespace/ModuleName`. PHP-неймспейс Kernel —
 `Mifrial\Core\Kernel`. `ModuleManager`: `includeModule` возвращает `false`, если модуля нет; `requireModule` бросает `ModuleManagerException`. Сразу грузится только `Core/*` через `requireModule`. Записи `config/modules.php` → `lazy`: слот локатора; `boot()` дополнительно читает их `module.config.php` (маршруты в `getRoutes()`), контейнер — при первом `get` или первом action модуля. `module.config.php` объявляет `container`, `locator`, `ports`, `routes` и `events`. Дубль кода action или кривой `handler` — исключение при загрузке модуля.
@@ -230,7 +233,9 @@ PHP-инфраструктура (не фронтовое дерево): **`Core
 **`Core/Logger`** — таблица `log`, адаптер `ILogger` (class-string в site
 config — [`logger-plan-03.md`](logger-plan-03.md); ключ `logger` в
 module.config плана 1 — хвост); просмотр HTTP+Vue —
-[`logger-plan-04-view.md`](logger-plan-04-view.md). **`Core/Cache`** —
+[`logger-plan-04-view.md`](logger-plan-04-view.md). **`Core/File`** — таблица
+`file`, байты на диске, `IFiles` для соседей, upload и отдача байтов
+entrypoint'ами [`file-plan-01.md`](file-plan-01.md). **`Core/Cache`** —
 `ICacheStore` (file/redis, TTL ≤ 30 суток); не теги списков ST.
 **`Messages/Chat`** (ленивый) — хост сообщений, HTTP actions + SSE
 `/api/chat/sync`; не Roleplay. **`Versioning/Space`** (ленивый) — кластер
@@ -240,7 +245,8 @@ identity/экземпляр/space/revision + состав; не Core, не Rule.
 (`IUserAccess`); Rule → Versioning + Keyword + Mechanic; RuleSpace → Rule +
 SmartTable + User (`IUserAccess`). Рёбра: Core/Event → нет зависимостей; Agent →
 SmartTable + `ILogger` (Kernel); Mail → SmartTable + Agent (`IAgents`) +
-`ILogger` (Kernel); Logger → SmartTable + User (`IUserAccess`); Cache никого;
+`ILogger` (Kernel); Logger → SmartTable + User (`IUserAccess`); File → SmartTable + User
+(`UserReferenceField`, `IUserAccess`); Cache никого;
 SmartTable → Cache; Auth → User и (Auth 3) Mail (`IMail`); Chat → SmartTable
 и User (публично); Versioning/Space → SmartTable + Cache; Keyword →
 SmartTable; Mechanic → SmartTable + User (`IUserAccess`); Rule → SmartTable +

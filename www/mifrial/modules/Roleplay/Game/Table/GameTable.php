@@ -8,12 +8,13 @@ use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Field\DateTimeField;
 use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\IntField;
-use Mifrial\Core\SmartTable\Field\LinkSetField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Field\TextField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Core\SmartTable\Value\DateTimeNow;
+use Mifrial\Core\User\Field\UserLinkSetField;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Карта строки игры `game`.
@@ -54,19 +55,17 @@ final class GameTable extends SmartTableDefinition
     {
         return [
             new IdField(),
-            ReferenceField::forTable(
+            new UserReferenceField(
                 'owner_id',
                 FieldSettings::fromOptions(['required' => true, 'indexed' => true]),
-                'user',
             ),
             new StringField('name', FieldSettings::fromOptions(['required' => true])),
             new StringField('status', FieldSettings::fromOptions(['required' => true, 'indexed' => true]), 32),
             new StringField('visibility', FieldSettings::fromOptions(['required' => true]), 32),
             new StringField('join_policy', FieldSettings::fromOptions(['required' => true]), 32),
-            LinkSetField::forTable(
+            new UserLinkSetField(
                 'whitelist',
                 FieldSettings::fromOptions(['default' => []]),
-                'user',
             ),
             ReferenceField::forTable(
                 'space_id',

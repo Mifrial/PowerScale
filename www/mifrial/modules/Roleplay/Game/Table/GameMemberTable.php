@@ -9,6 +9,7 @@ use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Карта участника `game_member`. Владелец сюда не пишется.
@@ -39,10 +40,9 @@ final class GameMemberTable extends SmartTableDefinition
                 FieldSettings::fromOptions(['required' => true]),
                 GameTable::class,
             ),
-            ReferenceField::forTable(
+            new UserReferenceField(
                 'user_id',
                 FieldSettings::fromOptions(['required' => true, 'indexed' => true]),
-                'user',
             ),
             new StringField('role', FieldSettings::fromOptions(['required' => true]), 32),
         ];

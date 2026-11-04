@@ -35,6 +35,19 @@ export class Engine {
   }
 
   /**
+   * Отправляет multipart/form-data как действие и возвращает конверт.
+   *
+   * @param path Путь относительно baseUrl.
+   * @param form Данные формы.
+   * @param signal Сигнал отмены запроса.
+   */
+  async postForm<T>(path: string, form: FormData, signal?: AbortSignal): Promise<ActionResponse<T>> {
+    const res = await this.http.postForm<ActionResponse<T>>(path, form, signal);
+
+    return res.data;
+  }
+
+  /**
    * Открывает SSE. Хендл сразу; отказы только в handlers.
    *
    * @param path Путь относительно baseUrl.

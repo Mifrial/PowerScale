@@ -15,6 +15,7 @@ use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Field\TextField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Core\SmartTable\Value\DateTimeNow;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Карта actual-строки персонажа `character`.
@@ -50,10 +51,9 @@ final class CharacterTable extends SmartTableDefinition
     {
         return [
             new IdField(),
-            ReferenceField::forTable(
+            new UserReferenceField(
                 'owner_id',
                 FieldSettings::fromOptions(['required' => true]),
-                'user',
             ),
             ReferenceField::forTable(
                 'space_id',

@@ -11,6 +11,7 @@ use Mifrial\Core\SmartTable\Field\IntField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Core\SmartTable\Value\DateTimeNow;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Карта членства `chat_member`.
@@ -41,10 +42,9 @@ final class ChatMemberTable extends SmartTableDefinition
                 FieldSettings::fromOptions(['required' => true]),
                 ChatTable::class,
             ),
-            ReferenceField::forTable(
+            new UserReferenceField(
                 'user_id',
                 FieldSettings::fromOptions(['required' => true]),
-                'user',
             ),
             new IntField('last_read_message_id', FieldSettings::fromOptions([]), null, null, true),
             new DateTimeField(

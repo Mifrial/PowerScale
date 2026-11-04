@@ -11,8 +11,11 @@ use ReflectionClass;
 
 /**
  * Ссылка на id другой (или этой) таблицы SmartTable.
+ *
+ * Наследник специализирует поле под конкретную цель (например,
+ * `UserReferenceField`), не меняя `type()` и правила настроек.
  */
-final class ReferenceField extends IntField
+class ReferenceField extends IntField
 {
     /**
      * Создаёт поле reference.

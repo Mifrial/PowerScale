@@ -8,6 +8,7 @@ use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Core\User\Field\UserReferenceField;
 
 /**
  * Карта членства `user_group_member`.
@@ -33,10 +34,9 @@ final class UserGroupMemberTable extends SmartTableDefinition
     {
         return [
             new IdField(),
-            new ReferenceField(
+            new UserReferenceField(
                 'user_id',
                 FieldSettings::fromOptions(['required' => true]),
-                UserTable::class,
             ),
             new ReferenceField(
                 'group_id',

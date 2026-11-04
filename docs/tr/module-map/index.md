@@ -14,6 +14,7 @@
 | Core | [Auth](Core/Auth.md) | `IAuthContainer` | 15 | 10 | Core/Kernel, Core/Mail, Core/SmartTable, Core/User | 5 |
 | Core | [Cache](Core/Cache.md) | `ICacheContainer` | 1 | 0 | Core/Kernel | 0 |
 | Core | [Event](Core/Event.md) | `IEventContainer` | 1 | 0 | Core/Kernel | 0 |
+| Core | [File](Core/File.md) | `IFileContainer` | 4 | 2 | Core/Kernel, Core/SmartTable, Core/User | 1 |
 | Core | [Kernel](Core/Kernel.md) | `IKernelContainer` | 1 | 1 | Core/SmartTable | 2 |
 | Core | [Logger](Core/Logger.md) | `ILoggerContainer` | 4 | 2 | Core/Kernel, Core/SmartTable, Core/User | 5 |
 | Core | [Mail](Core/Mail.md) | `IMailContainer` | 2 | 0 | Core/Agent, Core/Kernel, Core/SmartTable | 2 |

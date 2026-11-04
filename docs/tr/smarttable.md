@@ -63,6 +63,8 @@ SmartTable — единственная точка доступа модулей
 
 Автокаскад **mfv / чужих таблиц без объявления** по-прежнему запрещён. `cascade` только если поле его задало.
 
+Специализация поля под цель — **наследованием**, не новым `type`: `UserReferenceField` / `UserLinkSetField` (`Core/User/Field/`) фиксируют `UserTable`, `FileReferenceField` — `FileTable`. `type()` остаётся `reference` / `linkset`, DDL и JSON не меняются; `assertReferenceSettings` / `assertLinkSetSettings` наследник не переопределяет, поэтому правила `required`/`multiple`/`indexed`/`onDelete` те же. Цель-класс резолвится напрямую в `FieldPathWalker`, без словаря.
+
 Удаление **таблицы и поля** — в v1. Переименование физической таблицы/колонки — нет. Смена логического `NAME` SmartTable — опасно, не v1.
 
 ## getList
