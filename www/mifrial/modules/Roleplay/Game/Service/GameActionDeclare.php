@@ -399,6 +399,20 @@ final class GameActionDeclare
             null,
             null,
         );
+        $spent = $this->spentOf($quote['spends']);
+        $this->chat->postStrikeReaction(
+            $game,
+            $actorUserId,
+            $input['actor']['type'],
+            $input['actor']['id'],
+            $battle,
+            $strikeId,
+            $input['actionRuleCode'],
+            $effect['side'],
+            $effect['side'] === 'attacker' ? $attacker : $target,
+            $spent,
+            $support->getAdvantage(),
+        );
 
         return [
             'battleId' => $battle->getId(),
@@ -407,7 +421,7 @@ final class GameActionDeclare
             'strikeId' => $strikeId,
             'side' => $effect['side'],
             'advantage' => $support->getAdvantage(),
-            'spent' => $this->spentOf($quote['spends']),
+            'spent' => $spent,
         ];
     }
 

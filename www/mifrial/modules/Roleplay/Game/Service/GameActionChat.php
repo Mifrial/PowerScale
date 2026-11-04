@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Messages\Chat\Exception\ChatInvalidException;
 use Mifrial\Messages\Chat\Exception\ChatNotFoundException;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
+use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 
@@ -96,6 +97,61 @@ final class GameActionChat
                     null,
                 );
             }
+        } catch (ChatNotFoundException | ChatInvalidException $exception) {
+            throw new GameInvalidException('Game chat member is invalid', $exception);
+        }
+    }
+
+    /**
+     * Пишет объявление реакции в тред открытого удара.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор сообщения.
+     * @param string $actorKind Вид character или npc.
+     * @param int $actorId Идентификатор актора.
+     * @param GameBattleRecord $battle Бой.
+     * @param int $strikeId Удар.
+     * @param string $actionRuleCode Карточка реакции.
+     * @param string $side Сторона удара: attacker или defender.
+     * @param array{type: string, id: int} $sideActor Участник выбранной стороны.
+     * @param int $spent Потрачено ОД.
+     * @param int $advantage Преимущество.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чата нет или отправитель не участник.
+     */
+    public function postStrikeReaction(
+        GameRecord $game,
+        int $actorUserId,
+        string $actorKind,
+        int $actorId,
+        GameBattleRecord $battle,
+        int $strikeId,
+        string $actionRuleCode,
+        string $side,
+        array $sideActor,
+        int $spent,
+        int $advantage,
+    ): void {
+        $chatId = $game->getGameChatId();
+        if ($chatId === null) {
+            throw new GameInvalidException('Game chat is missing');
+        }
+
+        $threadId = 'attack-' . $strikeId;
+        $thread = GameCombatThread::buildAttack($battle, $threadId);
+        $actor = $this->strikeChat->getEntityToken($actorKind, $actorId);
+        $target = $this->strikeChat->getEntityToken($sideActor['type'], $sideActor['id']);
+        $sideText = $side === 'attacker' ? 'атакующего' : 'защищающегося';
+        $text = $actor . ' объявляет реакцию [[rule:' . $actionRuleCode . ']]: поддерживает '
+            . $sideText . ' ' . $target . ' за ' . $spent . ' ОД, +' . $advantage . ' преимущества.';
+        $attachments = [
+            ['type' => 'chat_system', 'payload' => ['thread' => $thread]],
+            ['type' => 'chat_speaker', 'payload' => $this->strikeChat->getSpeakerOf($actorKind, $actorId)],
+        ];
+        try {
+            $this->chats->send($chatId, $actorUserId, $text, $attachments, null);
         } catch (ChatNotFoundException | ChatInvalidException $exception) {
             throw new GameInvalidException('Game chat member is invalid', $exception);
         }

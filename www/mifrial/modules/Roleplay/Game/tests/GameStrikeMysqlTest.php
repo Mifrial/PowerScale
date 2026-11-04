@@ -4972,6 +4972,13 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertInstanceOf(ISmartTableGateway::class, $gateway);
         $openRow = (new GameActionRepository($gateway))->findOpenWithStrikes($battleId, 'strike');
         self::assertSame('attacker', $openRow['strikes'][0]['supporters'][0]['side'] ?? null);
+        $reactionMessages = array_values(array_filter(
+            $this->chatMessages($gameId),
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'объявляет реакцию'),
+        ));
+        self::assertCount(1, $reactionMessages);
+        $reactionThread = $this->threadOf($reactionMessages[0]);
+        self::assertSame('attack-' . $support['data']['strikeId'], $reactionThread['id'] ?? null);
 
         $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
