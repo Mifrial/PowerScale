@@ -43,9 +43,15 @@ HTTP `user.create` / `user.update`: поле `groups` — **id групп** (`in
 
 `UserRecord` / `GroupRecord` — геттеры смысла (`getLogin()`, `isBypass()`), не мешок ключей. `NewUser` / `UserPatch` / `NewGroup` / `GroupPatch` — присутствующие ключи (`fields()`). Сборка JSON User — `IUserViews`, не Record (`DEC-079`).
 
-Аватар **не** колонка плана 1 и **не** `int avatar_file_id`. Когда будет Files: поле `avatar`, тип SmartTable `file` / `picture` (картинка — ограничение на файле, не сырой id). Физика может быть INT FK; API — не int. Пока типа нет — колонки нет (`updateTable` потом добавит).
+Аватар — таблица `user_avatar` (`user_id` UNIQUE FK cascade, `file_id` без FK
+на `file`, `created_at`), не колонка `user`: `file.owner_id → user` и
+`user.avatar_file_id → file` дают цикл FK в установке. Поле JSON `avatar` —
+`public_id` файла-производной или `null`; ставит/снимает `user.setAvatar`
+(`filePublicId: string|null`), `user.update` аватара не принимает. Сервер
+строит производную 512×512 webp (`Core/Image`), исходник — обычная загрузка
+через `file.upload`. Канон — [`image-plan-01.md`](image-plan-01.md).
 
-HTTP админки учётки — [`user-plan-03-http.md`](user-plan-03-http.md) и [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md): страница `user.findPage` (`{ items, total }`), не dump `getList`. JSON User — `IUserViews`: `email` `string|null`, `bypass`, unix-даты, camelCase `deactivatedUntil` / `deactivateReason`, без `super_admin` / `avatar_file_id` / `initials`. Вход deactivate: `deactivatedUntil` как **`Y-m-d`**; в ответе — unix. Гость — сессия Auth без `user_id`, не строка User и не `id: 0`. `AUTH_REQUIRED` → HTTP 400; клиент редиректит на login по **коду**, CSRF 403 не вылогинивает.
+HTTP админки учётки — [`user-plan-03-http.md`](user-plan-03-http.md) и [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md): страница `user.findPage` (`{ items, total }`), не dump `getList`. JSON User — `IUserViews`: `email` `string|null`, `bypass`, unix-даты, camelCase `deactivatedUntil` / `deactivateReason`, `avatar` — `public_id` или `null`, без `super_admin` / `avatar_file_id` / `initials`. Вход deactivate: `deactivatedUntil` как **`Y-m-d`**; в ответе — unix. Гость — сессия Auth без `user_id`, не строка User и не `id: 0`. `AUTH_REQUIRED` → HTTP 400; клиент редиректит на login по **коду**, CSRF 403 не вылогинивает.
 
 HTTP групп — [`user-plan-04-groups-http.md`](user-plan-04-groups-http.md): `userGroup.findPage`, JSON `bypass` / `assignOnRegister` только на чтении; `GroupMember` без `initials`. Страница членов — [`user-plan-06-members-page.md`](user-plan-06-members-page.md).
 

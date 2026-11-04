@@ -68,7 +68,6 @@ users(
   first_name VARCHAR,
   last_name VARCHAR,
   nickname VARCHAR,
-  avatar_file_id → files.id NULL,
   super_admin BOOL DEFAULT false NOT NULL,
   active BOOL DEFAULT true NOT NULL,
   deactivated_until DATE NULL,
@@ -97,6 +96,10 @@ user_groups(
   protected BOOL DEFAULT false NOT NULL,
   PRIMARY KEY (user_id, group_id)
 )
+
+-- Текущая физика аватара — user_avatar, не колонка users:
+-- user_avatar(id, user_id UNIQUE → user, file_id INT без FK на file, created_at).
+-- file_id без FK: схема User не тянет схему File, строки file не удаляются.
 
 group_permissions(
   group_id → groups.id NOT NULL,

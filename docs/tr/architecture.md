@@ -234,8 +234,12 @@ PHP-инфраструктура (не фронтовое дерево): **`Core
 config — [`logger-plan-03.md`](logger-plan-03.md); ключ `logger` в
 module.config плана 1 — хвост); просмотр HTTP+Vue —
 [`logger-plan-04-view.md`](logger-plan-04-view.md). **`Core/File`** — таблица
-`file`, байты на диске, `IFiles` для соседей, upload и отдача байтов
-entrypoint'ами [`file-plan-01.md`](file-plan-01.md). **`Core/Cache`** —
+`file`, байты на диске, `IFiles` для соседей (чтение, архив, производные
+байты), upload и отдача байтов entrypoint'ами
+[`file-plan-01.md`](file-plan-01.md). **`Core/Image`** — порт
+`IImageTransform` поверх Intervention Image v4 (Imagick) без таблиц и HTTP:
+производные картинки для потребителей, [`image-plan-01.md`](image-plan-01.md).
+**`Core/Cache`** —
 `ICacheStore` (file/redis, TTL ≤ 30 суток); не теги списков ST.
 **`Messages/Chat`** (ленивый) — хост сообщений, HTTP actions + SSE
 `/api/chat/sync`; не Roleplay. **`Versioning/Space`** (ленивый) — кластер
@@ -246,7 +250,8 @@ identity/экземпляр/space/revision + состав; не Core, не Rule.
 SmartTable + User (`IUserAccess`). Рёбра: Core/Event → нет зависимостей; Agent →
 SmartTable + `ILogger` (Kernel); Mail → SmartTable + Agent (`IAgents`) +
 `ILogger` (Kernel); Logger → SmartTable + User (`IUserAccess`); File → SmartTable + User
-(`UserReferenceField`, `IUserAccess`); Cache никого;
+(`UserReferenceField`, `IUserAccess`); Image никого (только Kernel);
+User → File (`IFiles`) и Image (`IImageTransform`) для аватара; Cache никого;
 SmartTable → Cache; Auth → User и (Auth 3) Mail (`IMail`); Chat → SmartTable
 и User (публично); Versioning/Space → SmartTable + Cache; Keyword →
 SmartTable; Mechanic → SmartTable + User (`IUserAccess`); Rule → SmartTable +

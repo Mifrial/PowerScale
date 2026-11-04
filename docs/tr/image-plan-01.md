@@ -1,6 +1,6 @@
 # План Image 1 — Core/Image: производные изображения и аватар
 
-**Статус:** ~ПЛАН~
+**Статус:** ~СДЕЛАНО~
 
 **Реализация:** ~PHP~, ~VUE~
 
@@ -325,10 +325,15 @@ private function avatarSpec(): ImageTransformSpec
 - `useAvatarUpload` (`Core/User/Composables/`): проверка типа и размера
   (те же 2 МиБ, чтобы не гонять заведомо отвергаемый файл), `file.upload`,
   затем `user.setAvatar`. Canvas-downscale не нужен: сервер ресайзит.
-- `UserAvatarField.vue` (`Core/User/Components/`): превью через существующий
-  `FileImage`/`fileImageSource`, кнопки «загрузить» и «снять», состояния
-  загрузки и ошибки.
-- Места: страница профиля и `/users/:id/edit`, `UserProfileSlider`.
+- `UserAvatarField.vue` (`Core/User/Component/`): превью через существующий
+  `FileImage` (динамический импорт — публичная точка чужого модуля), кнопки
+  «загрузить» и «снять», состояния загрузки и ошибки. `FileImage` получил
+  режим `cover`, чтобы круглый аватар не растягивался.
+- Места: страница профиля, `/users/:id/edit` (только своя учётка: сервер
+  ставит аватар актору) и `UserProfileSlider`.
+- Валидация файла до загрузки переиспользует `validateFileSelection` из
+  `Core/File`: функция отдана публично через `Core/File/init.ts`, потому что
+  `Service/` чужого модуля импортировать нельзя.
 - Ошибки сервера показываются как есть (`FILE_DENIED`, `USER_INVALID`),
   клиент не подменяет их своей валидацией.
 

@@ -378,8 +378,25 @@ interface IFiles
 
     /** Архив владельцем; чужая строка — FILE_DENIED. */
     public function archive(string $publicId): void;
+
+    /** Байты своей активной строки во внешний файл; архивная или чужая — FILE_DENIED. */
+    public function copyOwnedTo(string $publicId, string $targetPath): FileRecord;
+
+    /** Готовые байты новой строкой от имени актора; исходник переносится в шард. */
+    public function storeDerived(string $sourcePublicId, string $sourcePath, string $originalName): FileRecord;
+
+    /** Проекция id → public_id живых строк; без актора, только для проекций. */
+    public function activePublicIds(array $fileIds): array;
 }
 ```
+
+`copyOwnedTo` + `storeDerived` + `activePublicIds` — стык с потребителем
+производных (аватар в `Core/User`, [`image-plan-01.md`](image-plan-01.md)).
+File не знает, что байты — картинка: преобразование делает сосед, File лишь
+отдаёт копию своей строки и принимает готовые байты новой строкой. Общий
+путь с multipart-загрузкой — `Service/FileIntake`. Чтение копии — потоковое
+(`IFileStorage::exportTo`), `storeDerived` переносит исходный временный файл
+в шард (move).
 
 Порт принимает `public_id`, а не внутренний `id`: §2 запрещает внутренний id
 во внешних входах и проекциях, а потребитель получает от клиента именно
@@ -619,7 +636,8 @@ getViewUrl(publicId: string): string;
 - Серверных превью и конвертации нет: модуль хранит и отдаёт исходные байты.
   `fileinfo`/`getimagesize` есть. Стенд работает на PHP 8.3 с `imagick`
   (`install-local.sh`), но File по-прежнему не меняет байты: уменьшенная
-  копия — шаг потребителя, не этот план.
+  копия — шаг потребителя (`Core/Image`, [`image-plan-01.md`](image-plan-01.md)),
+  не этот план.
 - `immutable` экономит трафик, но не память декодирования больших текстур —
   тайлинг остаётся задачей баттлмапа.
 - Приватный кеш браузера не разделён по cookie: файл, показанный одному
