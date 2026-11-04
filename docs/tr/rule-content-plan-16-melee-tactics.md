@@ -2,9 +2,8 @@
 
 **Статус:** ~В РАБОТЕ~
 
-**Реализация:** ~PHP~ и ~VUE~ (S0–S1); контент `podderzhka-v-boyu` —
-ревизия 33. Впереди S2a — real-проверки, S2b — концентрация в PHP,
-S2c — карточка Расчётливой атаки, затем S3–S5.
+**Реализация:** ~PHP~ и ~VUE~ (S0–S2c); контент `podderzhka-v-boyu` —
+ревизия 33, `raschetlivaya-ataka` — ревизия 34. Впереди S3–S5.
 
 **Опираться на:** ~PHP~ (`Game`, `Rule`), [`game-plan-43-processes.md`](game-plan-43-processes.md),
 [`game-plan-44-checks-real.md`](game-plan-44-checks-real.md),
@@ -291,6 +290,53 @@ battleground и позиции.
 `testSupportReactionRejectsWrongWeaponProfile`, `testSupportReactionForNpc`,
 `ReactionSpecsTest`, `SupportSpecsTest`, `strikeReactionService.test.ts`,
 `actionLaunchCatalogService.test.ts` (реакция по узлу `reaction`).
+
+### Состояние S2a
+
+Сделано в PHP и VUE:
+
+- соло-проверка в real: `game.declareCheck` отдаёт грани, успехи и
+  преимущества; `GameApi` не бросает кубики на клиенте;
+- двусторонняя оферта: `proposal`/`rolls` на `game_check`, команды
+  `proposeCheck`, `reviseCheck`, `cancelCheck`, `answerCheck`,
+  `getCheckOffers`; совместный бросок — у каждой стороны свой пул, сложность
+  другой стороны;
+- серверный чат проверки и ожидающие предложения через `game.getCheckOffers`;
+- право действовать за сторону: писатель игры или владелец персонажа; NPC —
+  только писатель.
+
+Тесты: `GameCheckMysqlTest` (соло, оферты, правка, отмена, бросок, чат).
+
+### Состояние S2b
+
+Сделано в PHP:
+
+- `GameConcentration`: ресурс-жетон, допустимость проверки по
+  `concentration_token` с наследованием по `parent_check_code`, флаг
+  характеристики, `will_focus`, `long_tension`;
+- максимум `1 + уровень peak_concentration`;
+- трата при объявлении соло-проверки, оферты и удара; преимущество с
+  источником ресурса;
+- цикл `used`/`blocked` в `concentration_cycle` на `game_battle`; refill в
+  конце своего хода через Character-операцию `refillCheckTokenResources`;
+- моковый `setCombatResource` в real-режиме не вызывается.
+
+Тесты: `GameCheckMysqlTest::testSoloConcentrationToken`,
+`GameStrikeMysqlTest::testConcentrationTokenAddsHitAdvantage`,
+`GameConcentrationCycleTest`.
+
+### Состояние S2c
+
+Сделано:
+
+- контент ревизии 34: у `raschetlivaya-ataka` узел `token_spend` с
+  `bonus: accuracy`, `min_mastery: 4|0`, `source`;
+- сервер проверяет карточку и мастерство оружия удара, при режиме `accuracy`
+  переводит жетоны в Точность вместо преимущества;
+- окно удара: опция жетона и переключатель «Точность (Расчётливая атака)»
+  при наличии карточки.
+
+Тесты: `GameStrikeMysqlTest::testConcentrationAccuracyCard`.
 
 ## 7. Тесты
 

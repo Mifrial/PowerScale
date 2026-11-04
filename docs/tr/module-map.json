@@ -1515,6 +1515,9 @@
                 "Mifrial\\Roleplay\\Game\\Action\\DeclareGameCheckAction",
                 "Mifrial\\Roleplay\\Game\\Action\\ProposeGameCheckAction",
                 "Mifrial\\Roleplay\\Game\\Action\\AnswerGameCheckAction",
+                "Mifrial\\Roleplay\\Game\\Action\\ReviseGameCheckAction",
+                "Mifrial\\Roleplay\\Game\\Action\\CancelGameCheckAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameCheckOffersAction",
                 "Mifrial\\Roleplay\\Game\\Action\\GameManualSheetAction",
                 "Mifrial\\Roleplay\\Game\\Action\\EndGameTurnAction",
                 "Mifrial\\Roleplay\\Game\\Action\\ContinueGameAction",
@@ -1821,6 +1824,21 @@
                     "csrf": true
                 },
                 {
+                    "action": "game.reviseCheck",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ReviseGameCheckAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.cancelCheck",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\CancelGameCheckAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getCheckOffers",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameCheckOffersAction",
+                    "csrf": false
+                },
+                {
                     "action": "game.manualSheet",
                     "handler": "Mifrial\\Roleplay\\Game\\Action\\GameManualSheetAction",
                     "csrf": true
@@ -2007,14 +2025,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/game-plan-44-checks-real.md",
-                    "title": "План 44 — проверки в real-режиме",
-                    "kind": "plan",
-                    "state": "ПЛАН",
-                    "date": null,
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/game-roadmap.md",
                     "title": "Нарезка Roleplay/Game",
                     "kind": "plan",
@@ -2041,6 +2051,14 @@
                 {
                     "path": "docs/tr/game-plan-43-processes.md",
                     "title": "План 43 — Процессы как оркестратор действий",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-44-checks-real.md",
+                    "title": "План 44 — проверки в real-режиме",
                     "kind": "plan",
                     "state": "ЧАСТИЧНО",
                     "date": null,

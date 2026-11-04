@@ -32,6 +32,9 @@
 - `Mifrial\Roleplay\Game\Action\DeclareGameCheckAction`
 - `Mifrial\Roleplay\Game\Action\ProposeGameCheckAction`
 - `Mifrial\Roleplay\Game\Action\AnswerGameCheckAction`
+- `Mifrial\Roleplay\Game\Action\ReviseGameCheckAction`
+- `Mifrial\Roleplay\Game\Action\CancelGameCheckAction`
+- `Mifrial\Roleplay\Game\Action\GetGameCheckOffersAction`
 - `Mifrial\Roleplay\Game\Action\GameManualSheetAction`
 - `Mifrial\Roleplay\Game\Action\EndGameTurnAction`
 - `Mifrial\Roleplay\Game\Action\ContinueGameAction`
@@ -140,6 +143,9 @@
 | `game.declareCheck` | `DeclareGameCheckAction` | да |
 | `game.proposeCheck` | `ProposeGameCheckAction` | да |
 | `game.answerCheck` | `AnswerGameCheckAction` | да |
+| `game.reviseCheck` | `ReviseGameCheckAction` | да |
+| `game.cancelCheck` | `CancelGameCheckAction` | да |
+| `game.getCheckOffers` | `GetGameCheckOffersAction` | нет |
 | `game.manualSheet` | `GameManualSheetAction` | да |
 | `game.endTurn` | `EndGameTurnAction` | да |
 | `game.continueAction` | `ContinueGameAction` | да |
@@ -187,11 +193,11 @@
 | [game-plan-32.md](../../game-plan-32.md) | план | `~ПЛАН~` | 2026-10-12 |
 | [game-plan-34.md](../../game-plan-34.md) | план | `~ПЛАН~` | 2026-10-16 |
 | [game-plan-35.md](../../game-plan-35.md) | план | `~ПЛАН~` | 2026-10-16 |
-| [game-plan-44-checks-real.md](../../game-plan-44-checks-real.md) | план | `~ПЛАН~` | — |
 | [game-roadmap.md](../../game-roadmap.md) | план | `~ПЛАН~` | 2026-10-05 |
 | [game-plan-01.md](../../game-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
 | [game-plan-13.md](../../game-plan-13.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
 | [game-plan-43-processes.md](../../game-plan-43-processes.md) | план | `~ЧАСТИЧНО~` | — |
+| [game-plan-44-checks-real.md](../../game-plan-44-checks-real.md) | план | `~ЧАСТИЧНО~` | — |
 | [game-plan-16.md](../../game-plan-16.md) | план | `~ОТМЕНЁН~` | 2026-10-04 |
 | [game-plan-17.md](../../game-plan-17.md) | план | `~ОТМЕНЁН~` | 2026-10-04 |
 | [game-plan-19.md](../../game-plan-19.md) | план | `~ОТМЕНЁН~` | — |
