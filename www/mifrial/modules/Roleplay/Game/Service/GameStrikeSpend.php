@@ -113,6 +113,15 @@ final class GameStrikeSpend
         $debt->assertFree($battle->getActionDebt(), $actorKey);
         $planned = $debt->plan($slice, $sheet, $spends, $debt->refillCode($slice), 'strike', $choice, $lane);
         $spends = $planned['spends'];
+        $token = $this->tokenSpend($game, $choice, $sheet, $choices, $slice, $kind, $id, $battle);
+        if ($token !== null && !$planned['open']) {
+            throw new GameInvalidException($subject . ' concentration requires an open strike');
+        }
+
+        if ($token !== null) {
+            $spends[] = new ResourceSpend($token['resource'], new ScalarResourceValue($token['amount']));
+        }
+
         $debtHold = null;
         if (!$planned['open']) {
             $debtHold = $battle->getActionDebt();
@@ -159,7 +168,138 @@ final class GameStrikeSpend
             );
         }
 
-        return ['pending' => $adjusted['pending'], 'debtHold' => $debtHold];
+        $cycle = $token === null
+            ? null
+            : (new GameConcentrationCycle())->markUsed($battle->getConcentrationCycle(), $actorKey);
+
+        return [
+            'pending' => $adjusted['pending'],
+            'debtHold' => $debtHold,
+            'cycle' => $cycle,
+            'tokenSpend' => $token,
+        ];
+    }
+
+    /**
+     * Жетоны концентрации на удар.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $choice Выбор.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<string, mixed> $choices Выборы листа.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $kind Вид.
+     * @param int $id Идентификатор.
+     * @param GameBattleRecord $battle Бой.
+     *
+     * @return array{resource: string, amount: int, source: string, mode: string}|null Трата.
+     *
+     * @throws GameInvalidException Если жетон недоступен.
+     */
+    private function tokenSpend(
+        GameRecord $game,
+        array $choice,
+        array $sheet,
+        array $choices,
+        CharacterRuleSlice $slice,
+        string $kind,
+        int $id,
+        GameBattleRecord $battle,
+    ): ?array {
+        $raw = $choice['tokenSpend'] ?? null;
+        $amount = is_array($raw) ? ($raw['amount'] ?? 0) : $raw;
+        if (!is_int($amount) || $amount < 1) {
+            return null;
+        }
+
+        $concentration = new GameConcentration();
+        $resource = $concentration->resourceCode($slice, $sheet);
+        if ($resource === null) {
+            throw new GameInvalidException('Game concentration resource is missing');
+        }
+
+        $checkCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
+        $levels = is_array($sheet['abilityLevels'] ?? null) ? $sheet['abilityLevels'] : [];
+        if (!$concentration->allows($slice, $checkCode, null, $levels)) {
+            throw new GameInvalidException('Game concentration is not allowed');
+        }
+
+        $concentration->assertAmount($slice, $sheet, $levels, $resource, $amount);
+        $mode = is_array($raw) && is_string($raw['mode'] ?? null) ? $raw['mode'] : 'advantage';
+        $card = $mode === 'accuracy'
+            ? $this->accuracyCard($game, $choice, $sheet, $choices, $slice, $checkCode)
+            : null;
+        if ($mode === 'accuracy' && $card === null) {
+            throw new GameInvalidException('Game concentration accuracy card is missing');
+        }
+
+        $actorKey = $kind . ':' . $id;
+        if (!(new GameConcentrationCycle())->canSpend($battle->getConcentrationCycle(), $actorKey)) {
+            throw new GameInvalidException('Game concentration is blocked');
+        }
+
+        return [
+            'resource' => $resource,
+            'amount' => $amount,
+            'source' => is_array($card) && is_string($card['source'] ?? null) ? $card['source'] : $resource,
+            'mode' => $mode,
+        ];
+    }
+
+    /**
+     * Карточка с точностью жетона и проверка мастерства оружия.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $choice Выбор.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<string, mixed> $choices Выборы листа.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $checkCode Карточка проверки.
+     *
+     * @return array<string, mixed>|null Узел token_spend.
+     *
+     * @throws GameInvalidException Если мастерство ниже требования.
+     */
+    private function accuracyCard(
+        GameRecord $game,
+        array $choice,
+        array $sheet,
+        array $choices,
+        CharacterRuleSlice $slice,
+        string $checkCode,
+    ): ?array {
+        foreach ($slice->getLiveRules() as $rule) {
+            $document = $rule->getSpecDocument();
+            $node = $document['token_spend'] ?? null;
+            if (!is_array($node) || ($node['check'] ?? null) !== $checkCode) {
+                continue;
+            }
+
+            $bonus = is_array($node['bonus'] ?? null) ? $node['bonus'] : null;
+            if ($bonus === null || ($bonus['target'] ?? null) !== 'accuracy') {
+                continue;
+            }
+
+            $minimum = is_array($node['min_mastery'] ?? null) ? $node['min_mastery'] : null;
+            if ($minimum !== null) {
+                $mastery = $this->rules->weaponMasteryOf(
+                    $game->getSpaceId(),
+                    $game->getRulesRevision(),
+                    $sheet,
+                    $choices,
+                    is_int($choice['itemInventoryId'] ?? null) ? $choice['itemInventoryId'] : 0,
+                    is_string($choice['itemRuleCode'] ?? null) ? $choice['itemRuleCode'] : '',
+                    is_string($choice['profileType'] ?? null) ? $choice['profileType'] : '',
+                );
+                if ($mastery->compare(new DimensionalNumber($minimum['base'] ?? 0, $minimum['size'] ?? 0)) < 0) {
+                    throw new GameInvalidException('Game concentration accuracy mastery is insufficient');
+                }
+            }
+
+            return $node;
+        }
+
+        return null;
     }
 
     /**

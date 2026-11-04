@@ -291,6 +291,21 @@ final class GameCheckRoll
     }
 
     /**
+     * Срез правил игры.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     *
+     * @return CharacterRuleSlice Срез.
+     *
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function slice(int $spaceId, int $rulesRevision): CharacterRuleSlice
+    {
+        return $this->slices->get($spaceId, $rulesRevision);
+    }
+
+    /**
      * Код единственной живой проверки попадания.
      *
      * @param int $spaceId Мир.
@@ -749,7 +764,7 @@ final class GameCheckRoll
     ): array {
         $rows = [];
         if ($override !== null && $override->advantage !== null && $override->advantage !== 0) {
-            $rows[] = new RollAdvantage('roll', $override->advantage);
+            $rows[] = new RollAdvantage($override->source ?? 'roll', $override->advantage);
         }
 
         if ($slice !== null && is_array($sheet)) {
@@ -948,11 +963,7 @@ final class GameCheckRoll
      */
     private function isLaterStep(CheckSpec $spec): bool
     {
-        if ($spec->isHitCheck() || $spec->isConcentrationToken()) {
-            return true;
-        }
-
-        if ($spec->isWillpower() || $spec->isUnstableCheck()) {
+        if ($spec->isHitCheck() || $spec->isUnstableCheck()) {
             return true;
         }
 

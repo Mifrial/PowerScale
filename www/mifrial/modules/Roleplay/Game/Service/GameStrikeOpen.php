@@ -72,6 +72,10 @@ final class GameStrikeOpen
             throw new GameInvalidException('Game strike attacker is invalid');
         }
 
+        if (($choice['tokenSpend'] ?? null) !== null && count($targets) > 1) {
+            throw new GameInvalidException('Game concentration supports a single strike');
+        }
+
         $context = $this->processOf($game, $battle, $choice);
         $actionCode = is_string($action['action_rule_code'] ?? null) ? $action['action_rule_code'] : '';
         if ($context !== null) {
@@ -161,6 +165,7 @@ final class GameStrikeOpen
         }
 
         $hold = $this->spend->spendAttacker($game, $choice, $battle, $snapshot, $lane, $subject);
+        $choice['tokenSpendInfo'] = $hold['tokenSpend'];
         if ($hold['debtHold'] !== null) {
             $saved = $this->battles->replaceTracked(
                 $battle->getId(),
@@ -169,6 +174,7 @@ final class GameStrikeOpen
                 $hold['debtHold'],
                 null,
                 null,
+                $hold['cycle'],
             );
 
             return ['debt' => true, 'strikeId' => 0, 'version' => $saved->getStateVersion()];
@@ -216,6 +222,7 @@ final class GameStrikeOpen
     ): array {
         $this->assertFollowUp($game, $battle, $choice);
         $snapshot = $this->snapshot($game, $choice);
+        $choice['tokenSpendInfo'] = $this->tokenInfo($game, $choice, $snapshot);
         $row = $this->action($battle, $sessionId, $choice, $kind);
         $opened = $this->open(
             $game,
@@ -309,8 +316,10 @@ final class GameStrikeOpen
             $debt,
             null,
             null,
+            $hold['cycle'],
         );
 
+        $choice['tokenSpendInfo'] = $this->tokenInfo($game, $choice, $snapshot);
         $row = $this->action($battle, $sessionId, $choice, $kind);
         if ($context !== null) {
             $attackerKey = ['type' => $attacker['type'], 'id' => $attacker['id']];
@@ -473,6 +482,39 @@ final class GameStrikeOpen
     }
 
     /**
+     * Данные жетона для строки удара.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $choice Выбор.
+     * @param array<string, mixed> $snapshot Снимок атакующего.
+     *
+     * @return array<string, mixed> Данные.
+     */
+    private function tokenInfo(GameRecord $game, array $choice, array $snapshot): array
+    {
+        $raw = $choice['tokenSpend'] ?? null;
+        if ($raw === null) {
+            return [];
+        }
+
+        $amount = is_array($raw) ? ($raw['amount'] ?? 0) : $raw;
+        if (!is_int($amount) || $amount < 1) {
+            return [];
+        }
+
+        $sheet = is_array($snapshot['sheet']['sheet'] ?? null) ? $snapshot['sheet']['sheet'] : [];
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $resource = (new GameConcentration())->resourceCode($slice, $sheet) ?? '';
+
+        return [
+            'resource' => $resource,
+            'amount' => $amount,
+            'source' => is_array($raw) && is_string($raw['source'] ?? null) ? $raw['source'] : $resource,
+            'mode' => is_array($raw) && is_string($raw['mode'] ?? null) ? $raw['mode'] : 'advantage',
+        ];
+    }
+
+    /**
      * Строка действия и цели.
      *
      * @param GameBattleRecord $battle Бой.
@@ -580,6 +622,9 @@ final class GameStrikeOpen
                     : (new GameStrikeConditions())->defaults(),
                 'action_modifiers' => is_array($choice['modifiers'] ?? null)
                     ? array_values($choice['modifiers'])
+                    : [],
+                'token_spend' => is_array($choice['tokenSpendInfo'] ?? null)
+                    ? $choice['tokenSpendInfo']
                     : [],
                 'reaction' => null,
                 'block_item_inventory_id' => null,

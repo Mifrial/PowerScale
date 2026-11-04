@@ -45,6 +45,7 @@ final class GameStrikeResolution
      * @param CharacterRuleSlice $slice Срез.
      * @param list<array<string, mixed>> $extraAdvantages Дополнительные преимущества (широкий удар).
      * @param array<int, string> $targetKeys Цели атаки для хвостов прошлого действия.
+     * @param int $extraAccuracy Дополнительная Точность.
      *
      * @return array<string, mixed> Roll.
      *
@@ -59,6 +60,7 @@ final class GameStrikeResolution
         CharacterRuleSlice $slice,
         array $extraAdvantages = [],
         array $targetKeys = [],
+        int $extraAccuracy = 0,
     ): array {
         $kind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
@@ -115,7 +117,7 @@ final class GameStrikeResolution
             $actionRuleCode,
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
             $advantages,
-            $tail['accuracy'],
+            $tail['accuracy'] + $extraAccuracy,
             $tail['adjustment'],
         );
         $roll['actorKey'] = $kind . ':' . $attackerId;

@@ -566,6 +566,7 @@ final class GameRunAction
             'conditions' => $strike['conditions'],
             'chosenAmounts' => $parsed['context']['chosenAmounts'],
             'modifiers' => $strike['modifiers'] ?? [],
+            'tokenSpend' => $parsed['context']['tokenSpend'] ?? null,
         ];
         if ($strike['ammunitionInventoryId'] !== null) {
             $attack['ammunitionInventoryId'] = $strike['ammunitionInventoryId'];
@@ -603,6 +604,7 @@ final class GameRunAction
             'conditions' => $first['conditions'],
             'chosenAmounts' => $parsed['context']['chosenAmounts'],
             'strikes' => $strikes,
+            'tokenSpend' => $parsed['context']['tokenSpend'] ?? null,
         ];
         if ($first['ammunitionInventoryId'] !== null) {
             $attack['ammunitionInventoryId'] = $first['ammunitionInventoryId'];
@@ -653,6 +655,7 @@ final class GameRunAction
             'profileType' => $first['profileType'],
             'profileIndex' => $first['profileIndex'],
             'chosenAmounts' => $parsed['context']['chosenAmounts'],
+            'tokenSpend' => $parsed['context']['tokenSpend'] ?? null,
         ];
         if ($first['ammunitionInventoryId'] !== null) {
             $attack['ammunitionInventoryId'] = $first['ammunitionInventoryId'];

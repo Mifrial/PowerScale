@@ -299,6 +299,193 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Жетон концентрации даёт преимущество на попадание и списывается.
+     *
+     * @return void
+     */
+    public function testConcentrationTokenAddsHitAdvantage(): void
+    {
+        $world = $this->worldWithWeapon(
+            hitConcentration: true,
+            extraRules: [
+                'concentration' => [
+                    'type' => 'resource',
+                    'name' => 'Concentration',
+                    'spec' => [
+                        'is_dimensional' => false,
+                        'auto_add' => false,
+                        'check_token' => true,
+                        'limit' => ['base' => 2, 'adjustments' => []],
+                    ],
+                ],
+                'peak' => [
+                    'type' => 'ability',
+                    'name' => 'Peak',
+                    'spec' => [
+                        'type' => 'skill',
+                        'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+                        'grants' => [],
+                        'peak_concentration' => true,
+                        'will_focus' => false,
+                        'long_tension' => false,
+                    ],
+                ],
+            ],
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Concentrated', sheet: [
+            'abilityLevels' => ['peak' => 1],
+            'resources' => [['ruleCode' => 'concentration', 'current' => 2]],
+        ], abilities: [['ruleCode' => 'peak', 'level' => 1]]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Target');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-concentration',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $envelope = $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId));
+        $envelope['context']['tokenSpend'] = ['amount' => 1, 'mode' => 'advantage'];
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-concentration',
+            'expectedVersion' => 1,
+            'action' => $envelope,
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-concentration',
+            'expectedVersion' => $declared['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $advantages = $closed['data']['strikes'][0]['roll']['advantages'] ?? [];
+        self::assertContains(['source_code' => 'concentration', 'delta' => 1], $advantages);
+        $resources = $this->characterFacade()->get($attackerId)->getSheet()['resources'] ?? [];
+        $current = null;
+        foreach ($resources as $row) {
+            if (is_array($row) && ($row['ruleCode'] ?? null) === 'concentration') {
+                $current = $row['current'] ?? null;
+            }
+        }
+        self::assertSame(1, $current);
+    }
+
+    /**
+     * Расчётливая атака переводит жетон в Точность.
+     *
+     * @return void
+     */
+    public function testConcentrationAccuracyCard(): void
+    {
+        $world = $this->worldWithWeapon(
+            hitConcentration: true,
+            extraRules: [
+                'concentration' => [
+                    'type' => 'resource',
+                    'name' => 'Concentration',
+                    'spec' => [
+                        'is_dimensional' => false,
+                        'auto_add' => false,
+                        'check_token' => true,
+                        'limit' => ['base' => 2, 'adjustments' => []],
+                    ],
+                ],
+                'peak' => [
+                    'type' => 'ability',
+                    'name' => 'Peak',
+                    'spec' => [
+                        'type' => 'skill',
+                        'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+                        'grants' => [],
+                        'peak_concentration' => true,
+                        'will_focus' => false,
+                        'long_tension' => false,
+                    ],
+                ],
+                'raschetlivaya' => [
+                    'type' => 'ability',
+                    'name' => 'Calculated',
+                    'spec' => [
+                        'type' => 'skill',
+                        'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+                        'grants' => [],
+                        'token_spend' => [
+                            'resource_code' => 'concentration',
+                            'check' => 'hit',
+                            'bonus' => ['target' => 'accuracy', 'amount' => 1],
+                            'min_mastery' => ['base' => 4, 'size' => 0],
+                            'source' => 'kontsentratsiya',
+                        ],
+                    ],
+                ],
+            ],
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Calculated', sheet: [
+            'abilityLevels' => ['peak' => 1, 'raschetlivaya' => 1],
+            'resources' => [['ruleCode' => 'concentration', 'current' => 2]],
+        ], abilities: [
+            ['ruleCode' => 'peak', 'level' => 1],
+            ['ruleCode' => 'raschetlivaya', 'level' => 1],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Target');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-accuracy',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $envelope = $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId));
+        $envelope['context']['tokenSpend'] = ['amount' => 1, 'mode' => 'accuracy'];
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-accuracy',
+            'expectedVersion' => 1,
+            'action' => $envelope,
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-accuracy',
+            'expectedVersion' => $declared['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $advantages = $closed['data']['strikes'][0]['roll']['advantages'] ?? [];
+        self::assertNotContains(['source_code' => 'concentration', 'delta' => 1], $advantages);
+        $resources = $this->characterFacade()->get($attackerId)->getSheet()['resources'] ?? [];
+        $current = null;
+        foreach ($resources as $row) {
+            if (is_array($row) && ($row['ruleCode'] ?? null) === 'concentration') {
+                $current = $row['current'] ?? null;
+            }
+        }
+        self::assertSame(1, $current);
+    }
+
+    /**
      * Добивание требует повреждения прошлого удара и той же цели.
      *
      * @return void
@@ -4231,7 +4418,7 @@ final class GameStrikeMysqlTest extends TestCase
             'idempotencyKey' => 'single-cas-close',
             'expectedVersion' => 2,
             'action' => $this->strikeDefenseEnvelope(['reaction' => 'dodge'], $defenderVersion),
-        ]);
+            ]);
         } finally {
             $probe->disarm();
         }
@@ -4318,7 +4505,7 @@ final class GameStrikeMysqlTest extends TestCase
                     'blockItemProfileIndex' => 0,
                     'blockItemRuleCode' => 'sword',
                 ], $defenderVersion),
-        ]);
+            ]);
         } finally {
             $probe->disarm();
         }
@@ -4411,7 +4598,7 @@ final class GameStrikeMysqlTest extends TestCase
                     'blockItemProfileIndex' => 0,
                     'blockItemRuleCode' => 'sword',
                 ], $defenderVersion),
-        ]);
+            ]);
         } finally {
             $probe->disarm();
         }
@@ -6383,6 +6570,7 @@ final class GameStrikeMysqlTest extends TestCase
         bool $withActionDamage = false,
         array $profileOverrides = [],
         ?array $occupyHands = null,
+        bool $hitConcentration = false,
     ): RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -6408,6 +6596,7 @@ final class GameStrikeMysqlTest extends TestCase
             'willpower' => false,
             'unstable_check' => false,
             'hit_check' => true,
+            'concentration_token' => $hitConcentration,
             'initiative' => false,
             'difficulty_input' => ['kind' => 'none', 'state_code' => ''],
         ];
@@ -7102,7 +7291,7 @@ final class GameStrikeMysqlTest extends TestCase
             'idempotencyKey' => 'd-resist',
             'expectedVersion' => 2,
             'action' => $this->strikeDefenseEnvelope(['reaction' => $reaction], $defenderVersion),
-        ]);
+            ]);
             self::assertEquals($closed['data'], $again['data']);
         }
 
@@ -7720,7 +7909,7 @@ final class GameStrikeMysqlTest extends TestCase
             'idempotencyKey' => 's-tail-' . $index,
             'expectedVersion' => $version,
             'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
-        ]);
+            ]);
             self::assertTrue($opened['success'], json_encode($opened));
             $closed = $this->dispatch('game.runAction', [
             'gameId' => $gameId,
@@ -7728,7 +7917,7 @@ final class GameStrikeMysqlTest extends TestCase
             'idempotencyKey' => 'd-tail-' . $index,
             'expectedVersion' => $opened['data']['version'],
             'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $this->characterFacade()->get($defenderId)->getActualVersion()),
-        ]);
+            ]);
             self::assertTrue($closed['success'], json_encode($closed));
             $version = $closed['data']['version'];
             if ($index === 1) {

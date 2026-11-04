@@ -10,6 +10,8 @@ namespace Mifrial\Roleplay\Game\Service;
 use JsonException;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Roleplay\Character\Dto\ResourceSpend;
+use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
@@ -30,6 +32,7 @@ use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
+use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
 
 /**
  * Соло и pairwise. Бросок считает порт, лист — только непустой список операций.
@@ -54,6 +57,8 @@ final class GameChecks implements IGameChecks
 
     private readonly GameStrikeAccess $access;
 
+    private readonly GameStrikeSheetWrites $sheetWrites;
+
     /**
      * Создаёт сценарий.
      *
@@ -64,6 +69,8 @@ final class GameChecks implements IGameChecks
      * @param ICharacterActualMutations $mutations Порт листа.
      * @param GameCheckRoll $roll Расчёт.
      * @param GameCheckChat $chat Сообщения проверок.
+     * @param GameConcentration $concentration Жетоны.
+     * @param GameConcentrationCycle $concentrationCycle Цикл жетонов.
      *
      * @return void
      */
@@ -75,6 +82,8 @@ final class GameChecks implements IGameChecks
         private readonly ICharacterActualMutations $mutations,
         private readonly GameCheckRoll $roll,
         private readonly GameCheckChat $chat,
+        private readonly GameConcentration $concentration,
+        private readonly GameConcentrationCycle $concentrationCycle,
     ) {
         $this->sessions = new GameSessionRepository($smartTableGateway);
         $this->commands = new GameCommandRepository($smartTableGateway);
@@ -93,6 +102,7 @@ final class GameChecks implements IGameChecks
             $this->battles,
             $cardAccess,
         );
+        $this->sheetWrites = new GameStrikeSheetWrites($mutations, $this->npcs);
     }
 
     /**
@@ -582,7 +592,7 @@ final class GameChecks implements IGameChecks
         array $body,
     ): array {
         $game = $this->games->get($gameId);
-        if (!$this->cardAccess->isVisible($game, $actorUserId, $viewAll)) {
+        if (!$this->cardAccess->isVisible($game, $_actorUserId, $viewAll)) {
             throw new GameNotFoundException('Game was not found');
         }
 
@@ -638,6 +648,104 @@ final class GameChecks implements IGameChecks
     }
 
     /**
+     * Трата жетонов и отметка цикла.
+     *
+     * @param GameRecord $game Игра.
+     * @param array{type: string, id: int} $participant Участник.
+     * @param array<string, mixed> $sheet Лист.
+     * @param int $version Версия листа.
+     * @param int|null $battleId Бой или null.
+     * @param string $checkCode Карточка проверки.
+     * @param int $amount Сколько жетонов.
+     * @param string|null $characteristic Характеристика стороны или null.
+     *
+     * @return array{version: int, battleVersion: int|null, resource: string|null, amount: int} Итог.
+     *
+     * @throws GameInvalidException Если жетон недоступен.
+     */
+    private function spendConcentration(
+        GameRecord $game,
+        array $participant,
+        array $sheet,
+        int $version,
+        ?int $battleId,
+        string $checkCode,
+        int $amount,
+        ?string $characteristic = null,
+    ): array {
+        if ($amount < 1) {
+            return ['version' => $version, 'battleVersion' => null, 'resource' => null, 'amount' => 0];
+        }
+
+        $slice = $this->roll->slice($game->getSpaceId(), $game->getRulesRevision());
+        $resource = $this->concentration->resourceCode($slice, $sheet);
+        if ($resource === null) {
+            throw new GameInvalidException('Game concentration resource is missing');
+        }
+
+        $levels = is_array($sheet['abilityLevels'] ?? null) ? $sheet['abilityLevels'] : [];
+        $characteristic ??= $this->characteristicOf($slice, $checkCode);
+        if (!$this->concentration->allows($slice, $checkCode, $characteristic, $levels)) {
+            throw new GameInvalidException('Game concentration is not allowed');
+        }
+
+        $this->concentration->assertAmount($slice, $sheet, $levels, $resource, $amount);
+        $battle = $battleId === null ? null : $this->battles->find($battleId);
+        $actorKey = $participant['type'] . ':' . $participant['id'];
+        if (
+            $battle !== null
+            && !$this->concentrationCycle->canSpend($battle->getConcentrationCycle(), $actorKey)
+        ) {
+            throw new GameInvalidException('Game concentration is blocked');
+        }
+
+        $written = $this->sheetWrites->writeResources(
+            $game,
+            $participant['type'],
+            $participant['id'],
+            $version,
+            [new ResourceSpend($resource, new ScalarResourceValue($amount))],
+        );
+        if ($battle === null) {
+            return ['version' => $written, 'battleVersion' => null, 'resource' => $resource, 'amount' => $amount];
+        }
+
+        $cycle = $this->concentrationCycle->markUsed($battle->getConcentrationCycle(), $actorKey);
+        $saved = $this->battles->replaceTracked(
+            $battle->getId(),
+            $battle->getStateVersion(),
+            null,
+            null,
+            null,
+            null,
+            $cycle,
+        );
+
+        return [
+            'version' => $written,
+            'battleVersion' => $saved->getStateVersion(),
+            'resource' => $resource,
+            'amount' => $amount,
+        ];
+    }
+
+    /**
+     * Характеристика проверки.
+     *
+     * @param \Mifrial\Roleplay\Character\Dto\CharacterRuleSlice $slice Срез.
+     * @param string $checkCode Карточка.
+     *
+     * @return string|null Код.
+     */
+    private function characteristicOf(\Mifrial\Roleplay\Character\Dto\CharacterRuleSlice $slice, string $checkCode): ?string
+    {
+        $rule = $slice->findLive($checkCode);
+        $spec = $rule?->getSpec();
+
+        return $spec instanceof CheckSpec ? $spec->getCharacteristicCode() : null;
+    }
+
+    /**
      * Пишет соло внутри уже открытой транзакции.
      *
      * @param GameRecord $game Игра.
@@ -660,11 +768,37 @@ final class GameChecks implements IGameChecks
         int $actorUserId,
     ): array {
         $opened = $this->processes->open($game->getId(), $battleId, $choice['participant']['type'], $choice['participant']['id']);
-        $thrown = $this->roll->throwCheck($game->getSpaceId(), $game->getRulesRevision(), $choice['ruleCode'], 'solo', $sheet, $choice['asked']);
+        $spent = $this->spendConcentration(
+            $game,
+            $choice['participant'],
+            $sheet,
+            $expectedSheetVersion,
+            $battleId,
+            $choice['ruleCode'],
+            is_int($choice['concentration'] ?? null) ? $choice['concentration'] : 0,
+        );
+        $override = $spent['amount'] > 0
+            ? new GameCheckThrowOverride(null, null, $spent['amount'], null, null, $spent['resource'])
+            : null;
+        $thrown = $this->roll->throwCheck(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['ruleCode'],
+            'solo',
+            $sheet,
+            $choice['asked'],
+            $override,
+        );
         $thrown['actorKey'] = $choice['participant']['type'] . ':' . $choice['participant']['id'];
-        $sheetVersion = $this->writeSheet($game, $choice['participant']['type'], $choice['participant']['id'], $expectedSheetVersion);
+        $written = $this->writeSheet($game, $choice['participant']['type'], $choice['participant']['id'], $spent['version']);
+        $sheetVersion = $spent['resource'] === null
+            ? $written
+            : ($written ?? $spent['version']);
         $this->processes->resolve($opened['processId']);
         $result = $this->view($opened['processId'], 'resolved', $thrown, $sheetVersion);
+        if ($spent['battleVersion'] !== null) {
+            $result['battleVersion'] = $spent['battleVersion'];
+        }
         $this->checks->add($this->row($opened, 'solo', $choice, 'accepted', $thrown));
         $this->commands->add($game->getId(), $opened['sessionId'], 'check', $idempotencyKey, [
             'battleId' => $battleId,
@@ -842,14 +976,44 @@ final class GameChecks implements IGameChecks
             return $this->view($processId, 'cancelled', null, null);
         }
 
+        $initiatorSpent = $this->spendConcentration(
+            $game,
+            $proposal['initiator'],
+            $initiatorSheet,
+            $versions['initiator'],
+            $open['battleId'],
+            $open['ruleCode'],
+            is_int($proposal['initiator']['spendConcentration'] ?? null)
+                ? $proposal['initiator']['spendConcentration']
+                : 0,
+            is_string($proposal['initiator']['characteristic'] ?? null)
+                ? $proposal['initiator']['characteristic']
+                : null,
+        );
+        $opponentSpent = $this->spendConcentration(
+            $game,
+            $proposal['opponent'],
+            $opponentSheet,
+            $versions['opponent'],
+            $open['battleId'],
+            $open['ruleCode'],
+            is_int($proposal['opponent']['spendConcentration'] ?? null)
+                ? $proposal['opponent']['spendConcentration']
+                : 0,
+            is_string($proposal['opponent']['characteristic'] ?? null)
+                ? $proposal['opponent']['characteristic']
+                : null,
+        );
+        $versions['initiator'] = $initiatorSpent['version'];
+        $versions['opponent'] = $opponentSpent['version'];
         $rolls = $this->roll->throwJointCheck(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $open['ruleCode'],
             $initiatorSheet,
-            $this->throwOverride($proposal['initiator']),
+            $this->throwOverride($proposal['initiator'], $initiatorSpent['amount'], $initiatorSpent['resource']),
             $opponentSheet,
-            $this->throwOverride($proposal['opponent']),
+            $this->throwOverride($proposal['opponent'], $opponentSpent['amount'], $opponentSpent['resource']),
         );
         $rolls['initiator']['actorKey'] = $proposal['initiator']['type'] . ':' . $proposal['initiator']['id'];
         $rolls['opponent']['actorKey'] = $proposal['opponent']['type'] . ':' . $proposal['opponent']['id'];
@@ -876,23 +1040,32 @@ final class GameChecks implements IGameChecks
      *
      * @return GameCheckThrowOverride Смена.
      */
-    private function throwOverride(array $block): GameCheckThrowOverride
-    {
+    private function throwOverride(
+        array $block,
+        int $tokenAdvantage = 0,
+        ?string $tokenSource = null,
+    ): GameCheckThrowOverride {
+        $advantage = (is_int($block['advantage'] ?? null) ? $block['advantage'] : 0) + $tokenAdvantage;
+        $source = $tokenAdvantage > 0 ? $tokenSource : null;
         $free = is_array($block['free'] ?? null) ? $block['free'] : null;
         if ($free !== null) {
             return new GameCheckThrowOverride(
                 null,
                 $free['diceCount'],
-                is_int($block['advantage'] ?? null) ? $block['advantage'] : 0,
+                $advantage,
                 $free['dieSize'],
                 $free['efficiency'],
+                $source,
             );
         }
 
         return new GameCheckThrowOverride(
             is_string($block['characteristic'] ?? null) ? $block['characteristic'] : null,
             null,
-            is_int($block['advantage'] ?? null) ? $block['advantage'] : 0,
+            $advantage,
+            null,
+            null,
+            $source,
         );
     }
 
@@ -1117,7 +1290,7 @@ final class GameChecks implements IGameChecks
      * @param int $gameId Игра.
      * @param int $processId Process.
      *
-     * @return array{sessionId: int, participantType: string, participantId: int, ruleCode: string, asked: array{base: int, size: int}|null, targetType: string|null, targetId: int|null, proposal: array<string, mixed>|null, rolls: array<string, mixed>|null, mode: string, offer: string} Пара.
+     * @return array{sessionId: int, battleId: int|null, participantType: string, participantId: int, ruleCode: string, asked: array{base: int, size: int}|null, targetType: string|null, targetId: int|null, proposal: array<string, mixed>|null, rolls: array<string, mixed>|null, mode: string, offer: string} Пара.
      *
      * @throws GameNotFoundException Если process чужой.
      * @throws GameInvalidException Если статус не open.
@@ -1141,6 +1314,7 @@ final class GameChecks implements IGameChecks
 
         return [
             'sessionId' => $sessionId,
+            'battleId' => $row->getBattleId(),
             'participantType' => $row->getParticipantType(),
             'participantId' => $row->getParticipantId(),
             'ruleCode' => $check['ruleCode'],
@@ -1205,6 +1379,9 @@ final class GameChecks implements IGameChecks
             'asked' => $this->asked($body['askedDifficulty'] ?? null),
             'target' => $withTarget ? $this->party($body['opponent'] ?? $body['target'] ?? null) : null,
             'proposal' => $withTarget ? $this->proposalBlocks($body) : null,
+            'concentration' => $withTarget
+                ? 0
+                : $this->concentrationAmount($body['concentration'] ?? $body['spendConcentration'] ?? 0),
         ];
     }
 

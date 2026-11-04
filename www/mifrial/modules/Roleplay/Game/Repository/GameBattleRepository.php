@@ -205,6 +205,7 @@ final class GameBattleRepository
      * @param array<string, mixed>|null $debt Карта долга или null.
      * @param int|null $activeIndex Курсор или null.
      * @param int|null $round Раунд или null.
+     * @param array<string, mixed>|null $cycle Цикл концентрации или null.
      *
      * @return GameBattleRecord Строка.
      *
@@ -219,6 +220,7 @@ final class GameBattleRepository
         ?array $debt,
         ?int $activeIndex,
         ?int $round,
+        ?array $cycle = null,
     ): GameBattleRecord {
         $current = $this->require($battleId);
         if ($current->getStateVersion() !== $expectedVersion) {
@@ -240,6 +242,10 @@ final class GameBattleRepository
 
         if ($round !== null) {
             $fields['round'] = $round;
+        }
+
+        if ($cycle !== null) {
+            $fields['concentration_cycle'] = $cycle;
         }
 
         try {
@@ -310,6 +316,10 @@ final class GameBattleRepository
 
         if ($round !== null) {
             $fields['round'] = $round;
+        }
+
+        if ($cycle !== null) {
+            $fields['concentration_cycle'] = $cycle;
         }
 
         try {

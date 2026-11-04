@@ -22,6 +22,7 @@ final class GameBattleRecord
      * @param int $activeIndex Индекс текущего в turn_order.
      * @param int $round Номер раунда. 0 — курсор ещё не поставлен.
      * @param array<string, mixed> $actionDebt Карта долга ОД.
+     * @param array<string, mixed> $concentrationCycle Карта цикла концентрации.
      *
      * @return void
      */
@@ -34,6 +35,7 @@ final class GameBattleRecord
         private readonly int $activeIndex = 0,
         private readonly int $round = 0,
         private readonly array $actionDebt = [],
+        private readonly array $concentrationCycle = [],
     ) {
     }
 
@@ -56,14 +58,15 @@ final class GameBattleRecord
         $activeIndex = $fields['active_index'] ?? 0;
         $round = $fields['round'] ?? 0;
         $debt = $fields['action_debt'] ?? [];
+        $cycle = $fields['concentration_cycle'] ?? [];
         if (
             !is_int($id) || !is_int($sessionId) || !is_int($stateVersion) || !is_array($pending)
-            || !is_int($activeIndex) || !is_int($round) || !is_array($debt)
+            || !is_int($activeIndex) || !is_int($round) || !is_array($debt) || !is_array($cycle)
         ) {
             throw new GameInvalidException('Game battle row is invalid');
         }
 
-        return new self($id, $sessionId, $stateVersion, $turnOrder, $pending, $activeIndex, $round, $debt);
+        return new self($id, $sessionId, $stateVersion, $turnOrder, $pending, $activeIndex, $round, $debt, $cycle);
     }
 
     /**
@@ -114,6 +117,16 @@ final class GameBattleRecord
     public function getPendingActionEffects(): array
     {
         return $this->pendingActionEffects;
+    }
+
+    /**
+     * Карта цикла концентрации. Ключ — character:id или npc:id.
+     *
+     * @return array<string, mixed> Объект.
+     */
+    public function getConcentrationCycle(): array
+    {
+        return $this->concentrationCycle;
     }
 
     /**

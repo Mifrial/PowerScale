@@ -648,11 +648,14 @@ async function runSoloReal(): Promise<void> {
     participant: { type: 'character' | 'npc'; id: number };
     ruleCode: string;
     askedDifficulty?: DimensionalNumberValue;
+    concentration?: number;
   } = {
     participant: { type: party.kind, id: party.id },
     ruleCode: checkCode.value,
   };
   if (askDifficulty.value) check.askedDifficulty = soloDifficulty();
+  const spend = concentrationTokenService.parseSpendAmount(spendConcentration.value);
+  if (spend > 0) check.concentration = spend;
   await getGameApi().declareCheck({
     gameId: props.gameId,
     battleId: gamePhpBattleContext.battleId,

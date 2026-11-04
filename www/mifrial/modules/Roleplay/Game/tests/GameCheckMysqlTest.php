@@ -402,11 +402,64 @@ final class GameCheckMysqlTest extends TestCase
     }
 
     /**
+     * Соло-проверка тратит жетон концентрации и получает преимущество.
+     *
+     * @return void
+     */
+    public function testSoloConcentrationToken(): void
+    {
+        $world = $this->worldWithCheck(true);
+        $gameId = $this->addGame($world->getId());
+        $characterId = $this->admit($world->getId(), $gameId, 'Hero', [
+            'abilityLevels' => ['peak' => 1],
+            'resources' => [['ruleCode' => 'concentration', 'current' => 2]],
+        ], [['ruleCode' => 'peak', 'level' => 1]]);
+        $version = $this->characterFacade()->get($characterId)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE, GamePermissionKeys::EDIT_ALL]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $check = $this->dispatch('game.declareCheck', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'concentration',
+            'expectedSheetVersion' => $version,
+            'check' => [
+                'participant' => ['type' => 'character', 'id' => $characterId],
+                'ruleCode' => 'notice',
+                'concentration' => 1,
+            ],
+        ]);
+        self::assertTrue($check['success'], json_encode($check));
+        self::assertContains(
+            ['source_code' => 'concentration', 'delta' => 1],
+            $check['data']['advantages'] ?? [],
+        );
+        $resources = $this->characterFacade()->get($characterId)->getSheet()['resources'] ?? [];
+        $current = null;
+        foreach ($resources as $row) {
+            if (is_array($row) && ($row['ruleCode'] ?? null) === 'concentration') {
+                $current = $row['current'] ?? null;
+            }
+        }
+        self::assertSame(1, $current);
+        $tooMany = $this->dispatch('game.declareCheck', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'concentration-too-many',
+            'expectedSheetVersion' => $this->characterFacade()->get($characterId)->getActualVersion(),
+            'check' => [
+                'participant' => ['type' => 'character', 'id' => $characterId],
+                'ruleCode' => 'notice',
+                'concentration' => 2,
+            ],
+        ]);
+        self::assertFalse($tooMany['success']);
+        self::assertSame('GAME_INVALID', $tooMany['error']['code']);
+    }
+
+    /**
      * Мир с проверкой и правилом броска.
      *
      * @return \Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord Мир.
      */
-    private function worldWithCheck(): \Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord
+    private function worldWithCheck(bool $concentration = false): \Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord
     {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -417,7 +470,7 @@ final class GameCheckMysqlTest extends TestCase
             'allowed_modes' => 'both',
             'ordinary_root' => true,
             'default_efficiency' => 0,
-            'concentration_token' => false,
+            'concentration_token' => $concentration,
             'willpower' => false,
             'unstable_check' => false,
             'hit_check' => false,
@@ -437,6 +490,22 @@ final class GameCheckMysqlTest extends TestCase
                 'mechanic_payload' => ['type' => 'roll', 'data' => ['diceCount' => 1, 'dieFaces' => 6, 'efficiency' => 3]],
             ]], 'needs_work')),
             RuleCommitEntry::put('notice', new RuleVersionBody('check', 'Notice', '', $check, [], [], 'needs_work')),
+            ...($concentration ? [
+                RuleCommitEntry::put('concentration', new RuleVersionBody('resource', 'Concentration', '', [
+                    'is_dimensional' => false,
+                    'auto_add' => false,
+                    'check_token' => true,
+                    'limit' => ['base' => 2, 'adjustments' => []],
+                ], [], [], 'needs_work')),
+                RuleCommitEntry::put('peak', new RuleVersionBody('ability', 'Peak', '', [
+                    'type' => 'skill',
+                    'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+                    'grants' => [],
+                    'peak_concentration' => true,
+                    'will_focus' => false,
+                    'long_tension' => false,
+                ], [], [], 'needs_work')),
+            ] : []),
             RuleCommitEntry::put('strength-check', new RuleVersionBody('check', 'Strength check', '', [
                 ...$check,
                 'characteristic_code' => 'strength',
@@ -469,10 +538,18 @@ final class GameCheckMysqlTest extends TestCase
      *
      * @return int Персонаж.
      */
-    private function admit(int $spaceId, int $gameId, string $name): int
+    private function admit(int $spaceId, int $gameId, string $name, array $sheet = [], array $abilities = []): int
     {
         $characterId = $this->addCharacter($spaceId, $name);
-        $this->characterFacade()->replaceMigrated($characterId, $name, true, $this->storedChoices($name), [], 2, 1);
+        $this->characterFacade()->replaceMigrated(
+            $characterId,
+            $name,
+            true,
+            $this->storedChoices($name, $abilities),
+            $sheet,
+            2,
+            1,
+        );
         $this->membershipFacade()->submit($gameId, $characterId, $this->ownerUserId);
         $this->membershipFacade()->approve($gameId, $characterId, 2, 1);
 
@@ -533,12 +610,12 @@ final class GameCheckMysqlTest extends TestCase
      *
      * @return array<string, mixed> choices.
      */
-    private function storedChoices(string $name): array
+    private function storedChoices(string $name, array $abilities = []): array
     {
         return [
             'name' => $name,
             'raceCode' => 'human',
-            'abilities' => [],
+            'abilities' => $abilities,
             'inventory' => [],
             'characteristicPurchases' => [['characteristicCode' => 'strength', 'cost' => 2]],
             'customRules' => [],
@@ -660,14 +737,16 @@ final class GameCheckMysqlTest extends TestCase
     {
         $gateway = $this->smartTableGateway;
         self::assertInstanceOf(ISmartTableGateway::class, $gateway);
-        foreach ($gateway->open(GameCheckTable::class)->records()->getList(new ListQuery(
-            null,
-            ['id' => 'ASC'],
-            ListQuery::MAX_LIMIT,
-            0,
-            false,
-            null,
-        ))->rows() as $row) {
+        foreach (
+            $gateway->open(GameCheckTable::class)->records()->getList(new ListQuery(
+                null,
+                ['id' => 'ASC'],
+                ListQuery::MAX_LIMIT,
+                0,
+                false,
+                null,
+            ))->rows() as $row
+        ) {
             if (is_array($row) && ($row['process_id'] ?? null) === $processId) {
                 return $row[$field] ?? null;
             }

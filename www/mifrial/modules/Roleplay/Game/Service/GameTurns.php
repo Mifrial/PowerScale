@@ -444,6 +444,16 @@ final class GameTurns
         $pending = $performed['pending'];
         $snapshot = $this->snapshot($current);
         $built = $this->ticks->build($game, $slice, $snapshot['sheet']);
+        $cycle = $battle->getConcentrationCycle();
+        $actorKey = $current['type'] . ':' . $current['id'];
+        $concentration = new GameConcentration();
+        if ($concentration->resourceCode($slice, is_array($snapshot['sheet'] ?? null) ? $snapshot['sheet'] : []) !== null) {
+            $ended = (new GameConcentrationCycle())->endTurn($cycle, $actorKey);
+            $cycle = $ended['cycle'];
+            if ($ended['refill']) {
+                $built['operations'][] = ['kind' => 'refillCheckTokenResources'];
+            }
+        }
         $sheetVersion = $performed['sheetVersion'];
         if ($built['operations'] !== []) {
             try {
@@ -460,6 +470,12 @@ final class GameTurns
         }
 
         $cursor = $this->advanced($battle);
+        $order = $battle->getTurnOrder() ?? [];
+        $next = is_array($order[$cursor['index']] ?? null) ? $order[$cursor['index']] : null;
+        if (is_array($next) && is_string($next['type'] ?? null) && is_int($next['id'] ?? null)) {
+            $cycle = (new GameConcentrationCycle())->beginTurn($cycle, $next['type'] . ':' . $next['id']);
+        }
+
         $saved = $this->battles->replaceTracked(
             $battle->getId(),
             $expectedBattle,
@@ -467,6 +483,7 @@ final class GameTurns
             null,
             $cursor['index'],
             $cursor['round'],
+            $cycle,
         );
         $this->actionChat->post(
             $game,

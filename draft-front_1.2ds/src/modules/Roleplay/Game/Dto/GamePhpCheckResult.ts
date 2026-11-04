@@ -10,6 +10,7 @@ export interface GamePhpCheckResult {
   success: boolean | null;
   rating: number | null;
   sheetVersion: number | null;
+  battleVersion?: number;
   label?: string;
   actorKey?: string;
   faces?: number[];

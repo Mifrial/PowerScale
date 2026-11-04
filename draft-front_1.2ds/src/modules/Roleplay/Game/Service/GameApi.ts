@@ -1024,11 +1024,15 @@ export class GameApi implements IGameApi {
         participant: { type: 'character' | 'npc'; id: number };
         ruleCode: string;
         askedDifficulty?: { base: number; size: number };
+        concentration?: number;
       };
     },
     signal?: AbortSignal,
   ): Promise<GamePhpCheckResult> {
     const result = await this.requireData<GamePhpCheckResult>('game.declareCheck', body, signal);
+    if (typeof result.battleVersion === 'number') {
+      gamePhpBattleContext.rememberBattle(gamePhpBattleContext.battleId ?? body.battleId ?? 0, result.battleVersion);
+    }
     if (typeof result.sheetVersion === 'number' && result.sheetVersion > 0) {
       gamePhpBattleContext.rememberSheet(
         `${body.check.participant.type}:${body.check.participant.id}`,
@@ -1088,11 +1092,7 @@ export class GameApi implements IGameApi {
     return this.checkOfferOf(row, id);
   }
 
-  async getPendingCheckOffers(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    signal?: AbortSignal,
-  ): Promise<CheckOffer[]> {
+  async getPendingCheckOffers(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer[]> {
     return this.getCheckOffersForEntity(gameId, entityKey, signal);
   }
 
@@ -1113,21 +1113,18 @@ export class GameApi implements IGameApi {
     entity: { type: 'character' | 'npc'; id: number } | null,
     signal?: AbortSignal,
   ): Promise<CheckOffer[]> {
-    const rows = await this.requireData<Record<string, unknown>[]>(
-      'game.getCheckOffers',
-      { gameId, entity },
-      signal,
-    );
+    const rows = await this.requireData<Record<string, unknown>[]>('game.getCheckOffers', { gameId, entity }, signal);
 
     return (Array.isArray(rows) ? rows : []).map((row) => this.checkOfferOf(row, gameId));
   }
 
   private checkOfferOf(row: Record<string, unknown>, gameId: number): CheckOffer {
-    const status = row.status === 'resolved' || row.status === 'accepted'
-      ? 'accepted'
-      : row.status === 'cancelled' || row.status === 'declined'
-        ? 'cancelled'
-        : 'pending';
+    const status =
+      row.status === 'resolved' || row.status === 'accepted'
+        ? 'accepted'
+        : row.status === 'cancelled' || row.status === 'declined'
+          ? 'cancelled'
+          : 'pending';
 
     return {
       id: Number(row.processId ?? row.id ?? 0),

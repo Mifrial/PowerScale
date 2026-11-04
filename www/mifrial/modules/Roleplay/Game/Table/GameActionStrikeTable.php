@@ -51,6 +51,7 @@ final class GameActionStrikeTable extends SmartTableDefinition
             new JsonField('conditions', FieldSettings::fromOptions([])),
             new JsonField('action_modifiers', FieldSettings::fromOptions([])),
             new JsonField('supporters', FieldSettings::fromOptions([])),
+            new JsonField('token_spend', FieldSettings::fromOptions([])),
             new StringField('target_type', FieldSettings::fromOptions(['required' => true]), 32),
             new IntField('target_id', FieldSettings::fromOptions(['required' => true]), 1, null),
             new StringField('reaction', FieldSettings::fromOptions([]), 32),

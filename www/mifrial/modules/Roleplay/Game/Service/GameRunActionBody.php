@@ -147,6 +147,56 @@ final class GameRunActionBody
     }
 
     /**
+     * Трата жетонов концентрации или null.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return int|array{amount: int, source?: string, mode?: string}|null Трата.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function tokenSpend(mixed $value): int|array|null
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_int($value)) {
+            if ($value < 0) {
+                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
+            }
+
+            return $value;
+        }
+
+        if (!is_array($value)) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
+        }
+
+        $amount = $value['amount'] ?? null;
+        if (!is_int($amount) || $amount < 0) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
+        }
+
+        $spend = ['amount' => $amount];
+        if (array_key_exists('source', $value)) {
+            if (!is_string($value['source']) || $value['source'] === '') {
+                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
+            }
+            $spend['source'] = $value['source'];
+        }
+
+        if (array_key_exists('mode', $value)) {
+            if (!in_array($value['mode'], ['advantage', 'accuracy'], true)) {
+                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
+            }
+            $spend['mode'] = $value['mode'];
+        }
+
+        return $spend;
+    }
+
+    /**
      * Контекст раны.
      *
      * @param array<string, mixed> $context Контекст.
@@ -226,9 +276,14 @@ final class GameRunActionBody
             $allowed[] = 'processStepCode';
         }
 
+        if (array_key_exists('tokenSpend', $context)) {
+            $allowed[] = 'tokenSpend';
+        }
+
         $this->assertKeys($context, $allowed, 'strike context');
         $rows = $context['strikes'] ?? null;
         $chosen = $context['chosenAmounts'] ?? [];
+        $token = $this->tokenSpend($context['tokenSpend'] ?? null);
         $process = $this->process($context);
         if (!is_array($rows) || $rows === [] || !array_is_list($rows) || !is_array($chosen)) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike context');
@@ -242,6 +297,7 @@ final class GameRunActionBody
         return [
             'strikes' => $strikes,
             'chosenAmounts' => $chosen,
+            'tokenSpend' => $token,
             'processRuleCode' => $process['processRuleCode'],
             'processStepCode' => $process['processStepCode'],
         ];

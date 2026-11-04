@@ -162,6 +162,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
         $sheet = $this->resourceSpends($sheet, $slice, $operations);
         $sheet = $this->resourceCurrents($sheet, $slice, $operations);
         $sheet = $this->refillTurnResources($sheet, $slice, $operations);
+        $sheet = $this->refillCheckTokenResources($sheet, $slice, $operations);
         $sheet = $this->stateRows->append(
             $this->moneyOnSheet($sheet, $operations, $choices),
             $operations,
@@ -395,6 +396,10 @@ final class CharacterActualMutations implements ICharacterActualMutations
             return $choices;
         }
 
+        if ($kind === 'refillCheckTokenResources') {
+            return $choices;
+        }
+
         throw new CharacterInvalidException('Character patch operation is invalid');
     }
 
@@ -582,6 +587,54 @@ final class CharacterActualMutations implements ICharacterActualMutations
         ) {
             throw new CharacterInvalidException('Character patch operation is invalid');
         }
+    }
+
+    /**
+     * Восстанавливает current ресурсов-жетонов проверки до лимита.
+     *
+     * @param array<string, mixed> $sheet Sheet.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<int, mixed> $operations Операции.
+     *
+     * @return array<string, mixed> Sheet.
+     *
+     * @throws CharacterInvalidException Если ресурсы битые.
+     */
+    private function refillCheckTokenResources(array $sheet, CharacterRuleSlice $slice, array $operations): array
+    {
+        $refill = false;
+        foreach ($operations as $operation) {
+            if (is_array($operation) && ($operation['kind'] ?? null) === 'refillCheckTokenResources') {
+                $refill = true;
+            }
+        }
+
+        if (!$refill) {
+            return $sheet;
+        }
+
+        $rows = $sheet['resources'] ?? null;
+        if (!is_array($rows)) {
+            throw new CharacterInvalidException('Character resources are missing');
+        }
+
+        $arithmetic = new CharacterResourceArithmetic();
+        $next = [];
+        foreach ($this->resourceStorage->parseRows($rows, $slice) as $row) {
+            $rule = $slice->findLive($row->getRuleCode());
+            $spec = $rule instanceof CharacterResolvedRule && !$rule->isSpecBroken() ? $rule->getSpec() : null;
+            if (!$spec instanceof ResourceSpec || !$spec->isCheckToken()) {
+                $next[] = $row;
+                continue;
+            }
+
+            $base = $row->getBase() ?? $arithmetic->getBase($spec, []);
+            $bonuses = $this->withLimitAdjustments($spec, $row->getBonuses(), $sheet);
+            $refilled = $arithmetic->value($arithmetic->effective($base, $bonuses));
+            $next[] = new ResourceRow($row->getRuleCode(), $refilled, $base, $row->getBonuses());
+        }
+
+        return [...$sheet, 'resources' => $this->resourceStorage->serializeRows($next)];
     }
 
     /**

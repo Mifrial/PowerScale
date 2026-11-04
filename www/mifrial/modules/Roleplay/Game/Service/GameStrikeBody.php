@@ -70,6 +70,10 @@ final class GameStrikeBody
             $allowed[] = 'processStepCode';
         }
 
+        if (array_key_exists('tokenSpend', $attack)) {
+            $allowed[] = 'tokenSpend';
+        }
+
         $this->assertKeys($attack, $allowed);
         $attacker = $this->side($attack['attacker'] ?? null);
         $defender = $this->side($attack['defender'] ?? null);
@@ -123,6 +127,7 @@ final class GameStrikeBody
             'conditions' => $conditions,
             'chosenAmounts' => $chosenAmounts,
             'modifiers' => $this->modifiers($attack['modifiers'] ?? null),
+            'tokenSpend' => $attack['tokenSpend'] ?? null,
             'processRuleCode' => $processRuleCode,
             'processStepCode' => $processStepCode,
         ];

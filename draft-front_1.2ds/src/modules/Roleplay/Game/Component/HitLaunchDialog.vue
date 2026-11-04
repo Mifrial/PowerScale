@@ -175,6 +175,25 @@ const props = defineProps<{
 
 const hitCheckCode = computed(() => checkResolutionService.firstCheckCode(props.rules, 'hit_check'));
 
+const accuracyTokenAvailable = computed(() => {
+  const version = versionOf(resolvedAttackerKey.value);
+  if (!version) return false;
+
+  return props.rules.some((rule) => {
+    const spec = rule.spec as Record<string, unknown> | undefined;
+    const node = spec?.token_spend;
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return false;
+    const row = node as Record<string, unknown>;
+    const bonus = row.bonus as Record<string, unknown> | undefined;
+
+    return (
+      row.check === hitCheckCode.value &&
+      bonus?.target === 'accuracy' &&
+      version.abilities.some((ability) => ability.ruleCode === rule.code)
+    );
+  });
+});
+
 const emit = defineEmits<{
   'update:open': [value: boolean];
   settled: [];
@@ -208,6 +227,7 @@ const opponentKey = ref<CombatEntityKey | null>(null);
 const reaction = ref<HitDefenseReaction | null>(null);
 const attackerAdv = ref(0);
 const spendAttackerConcentration = ref(0);
+const useAccuracyToken = ref(false);
 const spendDefenderConcentration = ref(0);
 const defenderAdv = ref(0);
 const defenseEfficiency = ref<DimensionalNumberValue>({ base: 5, size: -1 });
@@ -3838,6 +3858,8 @@ function phpSingleStrikeEnvelope(attack: {
   modifiers?: string[];
   processRuleCode?: string;
   processStepCode?: string;
+  tokenSpend?: number;
+  tokenMode?: 'advantage' | 'accuracy';
 }) {
   return {
     phase: 'declare' as const,
@@ -3847,6 +3869,9 @@ function phpSingleStrikeEnvelope(attack: {
     context: {
       strikes: [phpStrikeRow({ ...attack, target: attack.defender })],
       chosenAmounts: attack.chosenAmounts ?? {},
+      ...(attack.tokenSpend && attack.tokenSpend > 0
+        ? { tokenSpend: { amount: attack.tokenSpend, mode: attack.tokenMode ?? 'advantage' } }
+        : {}),
       ...(attack.processRuleCode
         ? { processRuleCode: attack.processRuleCode, processStepCode: attack.processStepCode }
         : {}),
@@ -3963,7 +3988,11 @@ async function submitPhpStrike(): Promise<boolean> {
         expectedVersion: attackBody.expectedVersion,
         action: multi
           ? phpMultiStrikeEnvelope(multi as PhpMultiAttack)
-          : phpSingleStrikeEnvelope(attackBody.attack as PhpSingleAttack),
+          : phpSingleStrikeEnvelope({
+              ...(attackBody.attack as PhpSingleAttack),
+              tokenSpend: spendAttackerConcentration.value,
+              tokenMode: useAccuracyToken.value ? 'accuracy' : 'advantage',
+            }),
       });
       phpDeclared.value = true;
       phpDeclaredStrike.value = multi
@@ -4560,12 +4589,19 @@ const canSubmit = computed(() => {
             hide-details
           />
           <ConcentrationTokenOption
-            v-if="isCompose && !isPreparationAction && !gamePhpMode.isEnabled()"
+            v-if="isCompose && !isPreparationAction"
             v-model="spendAttackerConcentration"
             :version="versionOf(resolvedAttackerKey)"
             :overlay="overlays.find((item) => item.entityKey === resolvedAttackerKey) ?? null"
             :rules="rules"
             :check-code="hitCheckCode"
+          />
+          <v-checkbox
+            v-if="isCompose && !isPreparationAction && accuracyTokenAvailable && spendAttackerConcentration > 0"
+            v-model="useAccuracyToken"
+            label="Точность (Расчётливая атака)"
+            density="compact"
+            hide-details
           />
           <div v-if="offer && myTurn && !isCoveringStep" class="d-flex ga-2">
             <ClampedNumberField

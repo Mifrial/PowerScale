@@ -292,6 +292,12 @@ final class GameStrikeSingleClose
         $previousSr = $lastStrike->previousSr($pending, $attackerKind, $attackerId, $targetKey);
         $supports = $this->supportAdvantages($row);
         $advantages = $supports['attacker'];
+        $token = $this->tokenAdvantage($row);
+        if ($token !== null) {
+            $advantages[] = $token;
+        }
+
+        $tokenAccuracy = $this->tokenAccuracy($row);
         $strikePackage = $this->processes->strikePackage($process);
         if ($strikePackage['advantage'] !== 0) {
             $advantages[] = new RollAdvantage('action', $strikePackage['advantage']);
@@ -333,6 +339,7 @@ final class GameStrikeSingleClose
             $slice,
             $advantages,
             [$targetKey],
+            $tokenAccuracy,
         );
         if (
             $choice['reaction'] !== 'ignore'
@@ -1012,6 +1019,54 @@ final class GameStrikeSingleClose
         }
 
         return $supports;
+    }
+
+    /**
+     * Преимущество от жетонов концентрации.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     *
+     * @return RollAdvantage|null Преимущество.
+     */
+    private function tokenAdvantage(array $row): ?RollAdvantage
+    {
+        $raw = $row['token_spend'] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if (!is_array($raw) || ($raw['mode'] ?? null) !== 'advantage') {
+            return null;
+        }
+
+        $amount = $raw['amount'] ?? null;
+        $source = $raw['source'] ?? null;
+        if (!is_int($amount) || $amount < 1 || !is_string($source) || $source === '') {
+            return null;
+        }
+
+        return new RollAdvantage($source, $amount);
+    }
+
+    /**
+     * Точность от жетонов карточки Расчётливой атаки.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     *
+     * @return int Точность.
+     */
+    private function tokenAccuracy(array $row): int
+    {
+        $raw = $row['token_spend'] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if (!is_array($raw) || ($raw['mode'] ?? null) !== 'accuracy') {
+            return 0;
+        }
+
+        return is_int($raw['amount'] ?? null) && $raw['amount'] > 0 ? $raw['amount'] : 0;
     }
 
     /**

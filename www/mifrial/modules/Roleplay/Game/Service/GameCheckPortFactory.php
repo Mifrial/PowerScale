@@ -72,6 +72,8 @@ final class GameCheckPortFactory
                 $characters,
                 new GameNpcRepository($gateway),
             ),
+            new GameConcentration(),
+            new GameConcentrationCycle(),
         );
     }
 

@@ -294,6 +294,7 @@ export interface IGameApi {
         participant: { type: 'character' | 'npc'; id: number };
         ruleCode: string;
         askedDifficulty?: { base: number; size: number };
+        concentration?: number;
       };
     },
     signal?: AbortSignal,
