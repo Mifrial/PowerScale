@@ -400,13 +400,14 @@ final class GameActionDeclare
             null,
         );
         $spent = $this->spentOf($quote['spends']);
+        $chatStrikeId = is_int($open['id'] ?? null) ? $open['id'] : $strikeId;
         $this->chat->postStrikeReaction(
             $game,
             $actorUserId,
             $input['actor']['type'],
             $input['actor']['id'],
             $battle,
-            $strikeId,
+            $chatStrikeId,
             $input['actionRuleCode'],
             $effect['side'],
             $effect['side'] === 'attacker' ? $attacker : $target,

@@ -44,7 +44,6 @@ final class GameStrikeSingleChat
      * @param string $reaction Реакция.
      * @param array<string, mixed> $result Итог.
      * @param array<string, mixed>|null $strengthRoll Проверка Силы до итога.
-     * @param int|null $stepAp Цена шага процесса.
      *
      * @return void
      */
@@ -57,7 +56,6 @@ final class GameStrikeSingleChat
         string $reaction,
         array $result,
         ?array $strengthRoll = null,
-        ?int $stepAp = null,
     ): void {
         $threadId = 'attack-' . $strikeId;
         $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
@@ -67,8 +65,6 @@ final class GameStrikeSingleChat
         $pushRating = $push !== null && is_int($push['rating'] ?? null) ? $push['rating'] : null;
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actionCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
-        $action = $actionCode !== '' ? '[[rule:' . $actionCode . ']]' : 'действие';
-        $actionAp = $stepAp ?? $this->spend->getActionAp($slice, $actionCode, true);
         $weapon = is_string($open['item_rule_code'] ?? null) ? '[[rule:' . $open['item_rule_code'] . ']]' : 'оружием';
         $kind = match ($open['profile_type'] ?? 'strike') {
             'throw' => 'бросок',
@@ -194,7 +190,7 @@ final class GameStrikeSingleChat
             $actorUserId,
             $threadId,
             true,
-            $attacker . ' совершает действие ' . $action . ' за ' . $actionAp . 'ОД.',
+            '',
             $narrative,
             $result['attackerRoll'],
             $resultText,

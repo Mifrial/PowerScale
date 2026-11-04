@@ -199,6 +199,7 @@ final class GameStrikes implements IGameStrikes
             $idempotencyKey,
             $expectedBattleVersion,
             $choice,
+            $actorUserId,
         );
     }
 
@@ -242,6 +243,7 @@ final class GameStrikes implements IGameStrikes
             $idempotencyKey,
             $expectedBattleVersion,
             $choice,
+            $actorUserId,
         );
     }
 
@@ -366,6 +368,7 @@ final class GameStrikes implements IGameStrikes
         string $idempotencyKey,
         int $expectedBattleVersion,
         array $choice,
+        int $actorUserId,
     ): array {
         $battle = $this->battleOf($sessionId, $battleId, $expectedBattleVersion);
         $this->access->assertRoster($battleId, $choice['attacker'], [$choice['defender']]);
@@ -470,6 +473,7 @@ final class GameStrikes implements IGameStrikes
                 $battle,
                 $expectedBattleVersion,
                 $choice,
+                $actorUserId,
             ),
             $body,
         );
@@ -589,8 +593,9 @@ final class GameStrikes implements IGameStrikes
         GameBattleRecord $battle,
         int $expectedBattleVersion,
         array $choice,
+        int $actorUserId,
     ): array {
-        return $this->open->openAction(
+        $result = $this->open->openAction(
             $game,
             $sessionId,
             $battle,
@@ -599,6 +604,62 @@ final class GameStrikes implements IGameStrikes
             'strike',
             '1-1',
             'Game strike',
+        );
+        $this->postOpenAnnouncement($game, $battle, $choice, $result, $actorUserId);
+
+        return $result;
+    }
+
+    /**
+     * Пишет объявление удара в его тред до реакций.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
+     * @param array<string, mixed> $choice Выбор удара.
+     * @param array<string, mixed> $result Итог открытия.
+     * @param int $actorUserId Автор сообщения.
+     *
+     * @return void
+     */
+    private function postOpenAnnouncement(
+        GameRecord $game,
+        GameBattleRecord $battle,
+        array $choice,
+        array $result,
+        int $actorUserId,
+    ): void {
+        $strikeId = $result['strikeId'] ?? null;
+        $attacker = $choice['attacker'] ?? null;
+        $actionCode = $choice['actionRuleCode'] ?? null;
+        if (
+            !is_int($strikeId)
+            || !is_array($attacker)
+            || !is_string($attacker['type'] ?? null)
+            || !is_int($attacker['id'] ?? null)
+            || !is_string($actionCode)
+            || $actionCode === ''
+        ) {
+            return;
+        }
+
+        $threadId = 'attack-' . $strikeId;
+        $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $contextCosts = is_array($choice['processContext']['costs'] ?? null)
+            ? $choice['processContext']['costs']
+            : null;
+        $actionAp = $contextCosts === null
+            ? $this->spend->getActionAp($slice, $actionCode, true)
+            : ($this->spend->getSpendAmounts($contextCosts)['action-points'] ?? 0);
+        $line = $this->chat->getEntityToken($attacker['type'], $attacker['id'])
+            . ' совершает действие [[rule:' . $actionCode . ']] за ' . $actionAp . 'ОД.';
+        $this->consequences->postLines(
+            $game,
+            $actorUserId,
+            $threadId,
+            [$line],
+            $this->chat->getSpeakerOf($attacker['type'], $attacker['id']),
+            $parentId,
         );
     }
 

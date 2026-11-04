@@ -317,8 +317,13 @@ final class GameStrikeConsequences
         $thread = $this->attackThread($threadId, $parentId);
         try {
             if ($announce) {
-                $this->sendText($chatId, $actorUserId, $action, $thread, $speaker);
-                $this->sendText($chatId, $actorUserId, $strike, $thread, $speaker);
+                if ($action !== '') {
+                    $this->sendText($chatId, $actorUserId, $action, $thread, $speaker);
+                }
+
+                if ($strike !== '') {
+                    $this->sendText($chatId, $actorUserId, $strike, $thread, $speaker);
+                }
             }
 
             $rolls = [$hitRoll];
