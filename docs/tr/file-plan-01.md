@@ -289,7 +289,7 @@ RewriteRule ^api/file/([a-f0-9]{32})$ mifrial/API/file-get.php?publicId=$1 [L,QS
 а HTTP-граница остаётся в одном месте.
 
 Лимиты PHP: сейчас `upload_max_filesize=2M`, `post_max_size=8M` (Apache
-mod_php 8.2). `www/mifrial/install-local.sh` идемпотентно пишет
+mod_php 8.3). `www/mifrial/install-local.sh` идемпотентно пишет
 `/etc/php/*/apache2/conf.d/99-powerscale-upload.ini`
 (`upload_max_filesize=40M`, `post_max_size=48M`) и делает reload; версия PHP
 не хардкодится. Чтение потоковое (`hash_file`, `getimagesize`, `rename`/
@@ -617,9 +617,9 @@ getViewUrl(publicId: string): string;
   подложка не пройдёт, а клиентская проверка покажет «ok». Сервер возвращает
   `FILE_TOO_LARGE` / `FILE_UPLOAD_BROKEN`, фронт показывает это.
 - Серверных превью и конвертации нет: модуль хранит и отдаёт исходные байты.
-  `fileinfo`/`getimagesize` есть; `gd` включён в PHP 8.2 (Apache и CLI 8.2),
-  но в CLI 8.3 по умолчанию отсутствует, а `imagick` нет. Если потребителю
-  понадобится уменьшенная копия, это его шаг, не этот план.
+  `fileinfo`/`getimagesize` есть. Стенд работает на PHP 8.3 с `imagick`
+  (`install-local.sh`), но File по-прежнему не меняет байты: уменьшенная
+  копия — шаг потребителя, не этот план.
 - `immutable` экономит трафик, но не память декодирования больших текстур —
   тайлинг остаётся задачей баттлмапа.
 - Приватный кеш браузера не разделён по cookie: файл, показанный одному

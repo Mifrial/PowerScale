@@ -7,8 +7,8 @@
 
 `init.php` — только bootstrap приложения. HTTP-action — [`API/action.php`](API/action.php);
 живой sync чата — [`API/chat-sync.php`](API/chat-sync.php) (`GET /api/chat/sync`, cookie, без CSRF).
-Apache: оба PHP в allowlist `.htaccess`; на `/api/chat/sync` выключен gzip. `Timeout` vhost
-не оставлять дефолтные 60 с — иначе поток оборвётся, несмотря на `: ping`.
+На `/api/chat/sync` выключен gzip. `Timeout` vhost не оставлять дефолтные 60 с — иначе
+поток оборвётся, несмотря на `: ping`.
 
 `VITE_API_MODE=real` включает боевой `auth.login` (нужны `php bin/setup.php` и ключ `auth` в `local.php`).
 
@@ -19,6 +19,10 @@ sudo bash ensure-mysql-test-db.sh
 ```
 
 В `config/test.php` тот же пользователь и пароль, что в `local.php`, другое имя базы.
+
+Рантайм: PHP 8.3 из sury (`libapache2-mod-php8.3`) с расширениями `imagick`, `curl`,
+`pdo_mysql`, `mbstring`, `fileinfo`. Ставит `install-local.sh`; Apache и CLI должны
+совпадать по версии и сборке.
 
 ```bash
 cp config/local.php.dist config/local.php
