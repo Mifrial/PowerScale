@@ -151,6 +151,31 @@ final class FakeFileStorage implements IFileStorage
     }
 
     /**
+     * Копирует шард во внешний файл.
+     *
+     * @param string $storagePath Путь.
+     * @param string $targetPath Назначение.
+     *
+     * @return void
+     */
+    public function exportTo(string $storagePath, string $targetPath): void
+    {
+        $this->files[$targetPath] = $this->requireContent($storagePath);
+    }
+
+    /**
+     * Байты по любому известному пути: шарду или экспортированной копии.
+     *
+     * @param string $path Путь.
+     *
+     * @return string|null Байты или null.
+     */
+    public function contentAtAnyPath(string $path): ?string
+    {
+        return $this->files[$path] ?? null;
+    }
+
+    /**
      * Байты источника или ошибка.
      *
      * @param string $sourcePath Путь.

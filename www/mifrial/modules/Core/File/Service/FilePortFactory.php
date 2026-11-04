@@ -32,7 +32,18 @@ final class FilePortFactory
      */
     public function create(IServiceLocator $serviceLocator): IFiles
     {
-        return new FileReadService($this->userAccess($serviceLocator), $this->fileRepository($serviceLocator));
+        $fileRepository = $this->fileRepository($serviceLocator);
+        $userAccess = $this->userAccess($serviceLocator);
+        $fileSettings = $this->fileSettings($serviceLocator);
+        $fileStorage = (new FileStorageFactory())->create($fileSettings);
+
+        return new FilesService(
+            new FileReadService($userAccess, $fileRepository),
+            $fileRepository,
+            $fileStorage,
+            new FileIntake($fileRepository, $fileStorage, $fileSettings),
+            $userAccess,
+        );
     }
 
     /**
@@ -87,9 +98,11 @@ final class FilePortFactory
 
         return new FileUploadService(
             $this->userAccess($serviceLocator),
-            $this->fileRepository($serviceLocator),
-            (new FileStorageFactory())->create($fileSettings),
-            $fileSettings,
+            new FileIntake(
+                $this->fileRepository($serviceLocator),
+                (new FileStorageFactory())->create($fileSettings),
+                $fileSettings,
+            ),
             new FileViewAssembler(),
         );
     }

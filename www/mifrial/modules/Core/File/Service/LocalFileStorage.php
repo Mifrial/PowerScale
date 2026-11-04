@@ -16,6 +16,8 @@ final class LocalFileStorage implements IFileStorage
 
     private const FILE_MODE = 0640;
 
+    private const EXPORT_CHUNK_SIZE = 1048576;
+
     private readonly string $rootPath;
 
     /**
@@ -191,6 +193,35 @@ final class LocalFileStorage implements IFileStorage
                 }
 
                 yield $chunk;
+            }
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    /**
+     * Копирует байты шарда во внешний файл.
+     *
+     * @param string $storagePath Относительный путь.
+     * @param string $targetPath Абсолютный путь назначения.
+     *
+     * @return void
+     *
+     * @throws FileStorageException Если чтение или запись не удались.
+     */
+    public function exportTo(string $storagePath, string $targetPath): void
+    {
+        $handle = $this->withoutWarnings(static fn (): mixed => fopen($targetPath, 'wb'));
+        if ($handle === false) {
+            throw new FileStorageException('Cannot open an export target');
+        }
+
+        try {
+            foreach ($this->chunks($storagePath, self::EXPORT_CHUNK_SIZE) as $chunk) {
+                $written = $this->withoutWarnings(static fn (): mixed => fwrite($handle, $chunk));
+                if ($written === false) {
+                    throw new FileStorageException('Cannot write an exported file');
+                }
             }
         } finally {
             fclose($handle);

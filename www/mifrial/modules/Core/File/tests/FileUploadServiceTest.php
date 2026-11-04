@@ -12,6 +12,7 @@ use Mifrial\Core\File\Exception\FileMimeInvalidException;
 use Mifrial\Core\File\Exception\FileTooLargeException;
 use Mifrial\Core\File\Exception\FileUploadBrokenException;
 use Mifrial\Core\File\Repository\FileRepository;
+use Mifrial\Core\File\Service\FileIntake;
 use Mifrial\Core\File\Service\FileUploadService;
 use Mifrial\Core\File\Service\FileViewAssembler;
 use Mifrial\Core\File\Tests\Fixture\FakeFileStorage;
@@ -184,15 +185,15 @@ final class FileUploadServiceTest extends TestCase
      */
     private function service(FakeFileStorage $storage, int $maxSize, array $mime): FileUploadService
     {
+        $settings = FileSettings::fromSection([
+            'path' => sys_get_temp_dir(),
+            'max_size' => $maxSize,
+            'mime' => $mime,
+        ], sys_get_temp_dir());
+
         return new FileUploadService(
             new FakeUserAccess(new RequestActor(1, [], false)),
-            new FileRepository(new UnusedOpenedRecords()),
-            $storage,
-            FileSettings::fromSection([
-                'path' => sys_get_temp_dir(),
-                'max_size' => $maxSize,
-                'mime' => $mime,
-            ], sys_get_temp_dir()),
+            new FileIntake(new FileRepository(new UnusedOpenedRecords()), $storage, $settings),
             new FileViewAssembler(),
         );
     }

@@ -158,6 +158,45 @@ final class FileByteServiceTest extends TestCase
             {
                 throw new LogicException('archive must not be used');
             }
+
+            /**
+             * Не используется.
+             *
+             * @param string $publicId Внешний id.
+             * @param string $targetPath Назначение.
+             *
+             * @return FileRecord Не возвращается.
+             */
+            public function copyOwnedTo(string $publicId, string $targetPath): FileRecord
+            {
+                throw new LogicException('copyOwnedTo must not be used');
+            }
+
+            /**
+             * Не используется.
+             *
+             * @param string $sourcePublicId Внешний id.
+             * @param string $sourcePath Байты.
+             * @param string $originalName Имя.
+             *
+             * @return FileRecord Не возвращается.
+             */
+            public function storeDerived(string $sourcePublicId, string $sourcePath, string $originalName): FileRecord
+            {
+                throw new LogicException('storeDerived must not be used');
+            }
+
+            /**
+             * Не используется.
+             *
+             * @param array<int, int> $fileIds Id.
+             *
+             * @return array<int, string> Не возвращается.
+             */
+            public function activePublicIds(array $fileIds): array
+            {
+                throw new LogicException('activePublicIds must not be used');
+            }
         };
     }
 
@@ -216,6 +255,45 @@ final class FileByteServiceTest extends TestCase
             public function archive(string $publicId): void
             {
                 throw new LogicException('archive must not be used');
+            }
+
+            /**
+             * Не используется.
+             *
+             * @param string $publicId Внешний id.
+             * @param string $targetPath Назначение.
+             *
+             * @return FileRecord Не возвращается.
+             */
+            public function copyOwnedTo(string $publicId, string $targetPath): FileRecord
+            {
+                throw new LogicException('copyOwnedTo must not be used');
+            }
+
+            /**
+             * Не используется.
+             *
+             * @param string $sourcePublicId Внешний id.
+             * @param string $sourcePath Байты.
+             * @param string $originalName Имя.
+             *
+             * @return FileRecord Не возвращается.
+             */
+            public function storeDerived(string $sourcePublicId, string $sourcePath, string $originalName): FileRecord
+            {
+                throw new LogicException('storeDerived must not be used');
+            }
+
+            /**
+             * Не используется.
+             *
+             * @param array<int, int> $fileIds Id.
+             *
+             * @return array<int, string> Не возвращается.
+             */
+            public function activePublicIds(array $fileIds): array
+            {
+                throw new LogicException('activePublicIds must not be used');
             }
         };
     }

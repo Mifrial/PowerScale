@@ -74,4 +74,14 @@ interface IFileStorage
      * @return iterable<string> Порции байт.
      */
     public function chunks(string $storagePath, int $chunkSize): iterable;
+
+    /**
+     * Копирует байты шарда во внешний файл.
+     *
+     * @param string $storagePath Относительный путь.
+     * @param string $targetPath Абсолютный путь назначения.
+     *
+     * @return void
+     */
+    public function exportTo(string $storagePath, string $targetPath): void;
 }

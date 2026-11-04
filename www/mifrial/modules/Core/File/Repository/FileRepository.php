@@ -116,6 +116,25 @@ final class FileRepository
     }
 
     /**
+     * Проекция id → public_id для живых строк.
+     *
+     * @param array<int, int> $fileIds Внутренние id.
+     *
+     * @return array<int, string> Найденные пары; архивных и отсутствующих нет.
+     *
+     * @throws FileInvalidException Если запрос ST недопустим.
+     */
+    public function activePublicIds(array $fileIds): array
+    {
+        $ids = $this->positiveIds($fileIds);
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->publicIdMap($ids);
+    }
+
+    /**
      * Страница файлов: created_at desc, id desc, COUNT фильтра.
      *
      * @param FilePageQuery $pageQuery Запрос.
@@ -226,5 +245,56 @@ final class FileRepository
         } catch (MapInvalidException $exception) {
             throw new FileInvalidException('File list query is invalid', $exception);
         }
+    }
+
+    /**
+     * Оставляет положительные id без повторов.
+     *
+     * @param array<int, int> $fileIds Идентификаторы.
+     *
+     * @return array<int, int> id → id.
+     */
+    private function positiveIds(array $fileIds): array
+    {
+        $ids = [];
+        foreach ($fileIds as $fileId) {
+            if ($fileId > 0) {
+                $ids[$fileId] = $fileId;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Читает public_id живых строк по id.
+     *
+     * @param array<int, int> $ids Идентификаторы.
+     *
+     * @return array<int, string> id → public_id.
+     *
+     * @throws FileInvalidException Если запрос недопустим.
+     */
+    private function publicIdMap(array $ids): array
+    {
+        $listResult = $this->readList(ListQuery::fromOptions([
+            'filter' => [
+                'LOGIC' => 'AND',
+                ['=id' => array_values($ids)],
+                ['=is_archived' => false],
+            ],
+            'limit' => count($ids),
+        ]));
+
+        $publicIds = [];
+        foreach ($listResult->rows() as $row) {
+            $fileId = $row['id'] ?? null;
+            $publicId = $row['public_id'] ?? null;
+            if (is_int($fileId) && is_string($publicId)) {
+                $publicIds[$fileId] = $publicId;
+            }
+        }
+
+        return $publicIds;
     }
 }

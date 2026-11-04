@@ -7,7 +7,6 @@ namespace Mifrial\Core\File\Service;
 use Mifrial\Core\File\Dto\FileRecord;
 use Mifrial\Core\File\Exception\FileDeniedException;
 use Mifrial\Core\File\Exception\FileNotFoundException;
-use Mifrial\Core\File\Interface\Service\IFiles;
 use Mifrial\Core\File\Repository\FileRepository;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
@@ -15,7 +14,7 @@ use Mifrial\Core\User\Interface\Service\IUserAccess;
 /**
  * Чтение и архив файла от имени текущего актора.
  */
-final class FileReadService implements IFiles
+final class FileReadService
 {
     /**
      * Создаёт сервис.

@@ -212,13 +212,17 @@ public function activePublicIds(array $fileIds): array;
 
 - `copyOwnedTo` требует актора и владельца строки; архивная строка —
   `FILE_DENIED`. Копирование потоковое через `IFileStorage::chunks()`; в
-  `IFileStorage` добавляется `copyTo(string $storagePath, string $targetPath)`,
+  `IFileStorage` добавляется `exportTo(string $storagePath, string $targetPath)`,
   чтобы `LocalFileStorage` не гонял байты через память.
 - `storeDerived` повторяет путь загрузки без multipart: mime/hash/размеры
   читаются с диска, проверяются `files.mime` и `files.max_size`, генерируется
   `public_id`, байты кладутся в шард, вставляется строка с владельцем-актором.
   Исходная строка нужна для проверки владения и для имени по умолчанию (если
-  `$originalName` пуст).
+  `$originalName` пуст). Исходный файл **переносится** в шард (move), а не
+  копируется: вызывающий передаёт одноразовый временный файл.
+- Общий код upload и derive вынесен в `FileIntake` (`insert(ownerId,
+  sourcePath, originalName): FileRecord`): проверки размера/mime/размеров,
+  дедупликация `public_id`, шард, строка и уборка байтов при сбое вставки.
 - `activePublicIds` — только проекция: возвращает `[id => public_id]` для
   существующих неархивных строк. Прав не проверяет и актора не требует;
   вызывать можно только с id, полученными из уже авторизованных строк
@@ -322,9 +326,9 @@ private function avatarSpec(): ImageTransformSpec
 
 - **I1 — модуль Image.** Каркас, контракт, адаптер, `composer`-зависимости,
   suite `image`, тесты адаптера.
-- **I2 — File.** `IFileStorage::copyTo`, `IFiles::{copyOwnedTo, storeDerived,
-  activePublicIds}`, реализация в `FileReadService`/`FileRepository`, тесты
-  (unit + MySQL).
+- **I2 — File.** `IFileStorage::exportTo`, `IFiles::{copyOwnedTo, storeDerived,
+  activePublicIds}`, `FileIntake` (общий путь upload/derive),
+  `FileRepository::activePublicIds`, тесты (unit + MySQL).
 - **I3 — User/аватар.** `UserAvatarTable`, `UserAvatarRepository`,
   `UserAvatarService`, `SetUserAvatarInput/Action`, маршрут, `avatar` в
   `UserViewAssembler`, `UserSchema`, MySQL-тест.

@@ -95,6 +95,33 @@ final class LocalFileStorageTest extends TestCase
     }
 
     /**
+     * exportTo копирует байты шарда во внешний файл.
+     *
+     * @return void
+     */
+    public function testExportToTarget(): void
+    {
+        $storage = new LocalFileStorage($this->rootPath);
+        $sha256 = $storage->hash($this->sourcePath);
+        $expected = (string) file_get_contents($this->sourcePath);
+        $storagePath = $storage->storagePath(str_repeat('d', 32), $sha256);
+        $storage->store($this->sourcePath, $storagePath);
+        $target = sys_get_temp_dir() . '/opencode-export-' . bin2hex(random_bytes(4));
+
+        try {
+            $storage->exportTo($storagePath, $target);
+            self::assertSame($expected, (string) file_get_contents($target));
+        } finally {
+            if (is_file($target)) {
+                unlink($target);
+            }
+        }
+
+        $this->expectException(FileStorageException::class);
+        $storage->exportTo($storagePath . '-absent', $target);
+    }
+
+    /**
      * Путь вне корня запрещён.
      *
      * @return void

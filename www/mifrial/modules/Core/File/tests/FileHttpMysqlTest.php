@@ -14,9 +14,12 @@ use Mifrial\Core\File\Interface\Service\IFiles;
 use Mifrial\Core\File\Repository\FileRepository;
 use Mifrial\Core\File\Schema\FileSchema;
 use Mifrial\Core\File\Service\FileByteService;
+use Mifrial\Core\File\Service\FileIntake;
+use Mifrial\Core\File\Service\FileReadService;
 use Mifrial\Core\File\Service\FileStorageFactory;
 use Mifrial\Core\File\Service\FileUploadService;
 use Mifrial\Core\File\Service\FileViewAssembler;
+use Mifrial\Core\File\Service\FilesService;
 use Mifrial\Core\File\Table\FileTable;
 use Mifrial\Core\File\Tests\Fixture\ByteCapture;
 use Mifrial\Core\File\Tests\Fixture\FakeFileStorage;
@@ -209,6 +212,83 @@ final class FileHttpMysqlTest extends TestCase
     }
 
     /**
+     * Производные байты: копия наружу, новая строка, проекция id → public_id.
+     *
+     * @return void
+     */
+    public function testDerivedCopiesAndProjection(): void
+    {
+        $alice = $this->addUser('alice');
+        $bob = $this->addUser('bob');
+        $this->setActor($alice);
+        $section = ['path' => $this->storageRoot, 'max_size' => 1000, 'mime' => ['image/png']];
+        $png = (string) base64_decode(self::PNG_BASE64, true);
+        $sourceView = $this->uploadService($section)->upload($this->incoming($png, 'cover.png'));
+        $sourcePublicId = (string) $sourceView['publicId'];
+        $files = $this->filesService($section);
+
+        $copyPath = $this->temporaryPath('opencode-derive-');
+        $sourceRecord = $files->copyOwnedTo($sourcePublicId, $copyPath);
+        self::assertSame($sourcePublicId, $sourceRecord->getPublicId());
+        self::assertSame($png, (string) file_get_contents($copyPath));
+
+        $derived = $files->storeDerived($sourcePublicId, $copyPath, 'avatar.webp');
+        self::assertNotSame($sourceRecord->getId(), $derived->getId());
+        self::assertSame($alice, $derived->getOwnerId());
+        self::assertSame('avatar.webp', $derived->getOriginalName());
+        self::assertSame('image/png', $derived->getMime());
+        self::assertFalse($derived->isArchived());
+        self::assertFileDoesNotExist($copyPath);
+
+        $secondCopy = $this->temporaryPath('opencode-derive-');
+        file_put_contents($secondCopy, $png);
+        $second = $files->storeDerived($sourcePublicId, $secondCopy, '');
+        self::assertSame('cover.png', $second->getOriginalName());
+
+        self::assertSame([
+            $sourceRecord->getId() => $sourceRecord->getPublicId(),
+            $derived->getId() => $derived->getPublicId(),
+            $second->getId() => $second->getPublicId(),
+        ], $files->activePublicIds([
+            $sourceRecord->getId(),
+            $derived->getId(),
+            $second->getId(),
+            999999,
+        ]));
+
+        $files->archive($derived->getPublicId());
+        self::assertSame([
+            $sourceRecord->getId() => $sourceRecord->getPublicId(),
+            $second->getId() => $second->getPublicId(),
+        ], $files->activePublicIds([$sourceRecord->getId(), $derived->getId(), $second->getId()]));
+
+        $this->setActor($bob);
+        $foreignCopy = $this->temporaryPath('opencode-derive-');
+        try {
+            $files->copyOwnedTo($sourcePublicId, $foreignCopy);
+            self::fail('foreign copy must be denied');
+        } catch (FileDeniedException $exception) {
+            self::assertSame('FILE_DENIED', $exception->getErrorCode());
+        }
+
+        try {
+            $files->storeDerived($sourcePublicId, $foreignCopy, 'avatar.webp');
+            self::fail('foreign derive must be denied');
+        } catch (FileDeniedException $exception) {
+            self::assertSame('FILE_DENIED', $exception->getErrorCode());
+        }
+
+        $this->setActor($alice);
+        $files->archive($sourcePublicId);
+        try {
+            $files->copyOwnedTo($sourcePublicId, $foreignCopy);
+            self::fail('archived copy must be denied');
+        } catch (FileDeniedException $exception) {
+            self::assertSame('FILE_DENIED', $exception->getErrorCode());
+        }
+    }
+
+    /**
      * Подключение MySQL и портов.
      *
      * @return void
@@ -297,11 +377,51 @@ final class FileHttpMysqlTest extends TestCase
 
         return new FileUploadService(
             $this->userAccess(),
-            new FileRepository($this->smartTableGateway()->open(FileTable::class)->records()),
-            (new FileStorageFactory())->create($settings),
-            $settings,
+            new FileIntake(
+                new FileRepository($this->smartTableGateway()->open(FileTable::class)->records()),
+                (new FileStorageFactory())->create($settings),
+                $settings,
+            ),
             new FileViewAssembler(),
         );
+    }
+
+    /**
+     * Порт файлов на временном корне теста.
+     *
+     * @param array<string, mixed> $section Срез files.
+     *
+     * @return IFiles Порт.
+     */
+    private function filesService(array $section): IFiles
+    {
+        $settings = FileSettings::fromSection($section, $this->storageRoot);
+        $repository = new FileRepository($this->smartTableGateway()->open(FileTable::class)->records());
+        $storage = (new FileStorageFactory())->create($settings);
+        $userAccess = $this->userAccess();
+
+        return new FilesService(
+            new FileReadService($userAccess, $repository),
+            $repository,
+            $storage,
+            new FileIntake($repository, $storage, $settings),
+            $userAccess,
+        );
+    }
+
+    /**
+     * Создаёт временный файл и запоминает его для уборки.
+     *
+     * @param string $prefix Префикс.
+     *
+     * @return string Абсолютный путь.
+     */
+    private function temporaryPath(string $prefix): string
+    {
+        $temporaryPath = (string) tempnam(sys_get_temp_dir(), $prefix);
+        $this->temporaryFiles[] = $temporaryPath;
+
+        return $temporaryPath;
     }
 
     /**
