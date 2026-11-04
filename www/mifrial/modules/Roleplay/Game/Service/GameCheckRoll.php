@@ -129,7 +129,7 @@ final class GameCheckRoll
      * @param int $rulesRevision Ревизия.
      * @param string $ruleCode Код.
      * @param string $flow Поток solo или joint.
-     * @param array{base: int, size: int}|null $asked Трудность ask.
+     * @param array{base: int, size: int}|null $asked Трудность ask; в joint не нужна: сложность — успехи другой стороны.
      *
      * @return void
      *
@@ -141,11 +141,12 @@ final class GameCheckRoll
         $slice = $this->slices->get($spaceId, $rulesRevision);
         $check = $this->checkOf($slice, $ruleCode);
         $this->assertFlow($check, $flow);
-        if ($check->getDifficulty()->getKind() === 'ask' && $asked === null) {
+        $kind = $check->getDifficulty()->getKind();
+        if ($flow === 'solo' && $kind === 'ask' && $asked === null) {
             throw new GameInvalidException('Game check difficulty is invalid');
         }
 
-        if ($check->getDifficulty()->getKind() !== 'ask' && $check->getDifficulty()->getKind() !== 'none') {
+        if ($kind !== 'ask' && $kind !== 'none') {
             throw new GameInvalidException('Game check difficulty is invalid');
         }
     }

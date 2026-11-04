@@ -117,7 +117,10 @@ initiatorSpendConcentration, opponentSpendConcentration
 ### 3.4 Совместный бросок
 
 Обе стороны бросают свои пулы. Сложность каждой стороны — успехи другой
-стороны, как в `CheckRollService.rollJointCheck` мока. Сервер считает
+стороны, как в `CheckRollService.rollJointCheck` мока. Трудность `ask` в
+совместной проверке не запрашивается и не требуется: она не участвует в
+броске. Соло-проверка с `difficulty_input.kind = ask` без `askedDifficulty`
+по-прежнему отклоняется. Сервер считает
 `roll`, `difficulty`, `success`, `rating` для каждой стороны и складывает в
 JSON `rolls`:
 

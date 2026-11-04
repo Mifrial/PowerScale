@@ -177,6 +177,50 @@ final class GameCheckMysqlTest extends TestCase
     }
 
     /**
+     * Joint-проверка не требует difficulty ask: сложность — успехи другой стороны.
+     *
+     * @return void
+     */
+    public function testJointOfferDoesNotRequireAskedDifficulty(): void
+    {
+        $world = $this->worldWithCheck();
+        $gameId = $this->addGame($world->getId());
+        $hero = $this->admit($world->getId(), $gameId, 'Hero');
+        $rival = $this->admit($world->getId(), $gameId, 'Rival');
+        $heroVersion = $this->characterFacade()->get($hero)->getActualVersion();
+        $rivalVersion = $this->characterFacade()->get($rival)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE, GamePermissionKeys::EDIT_ALL]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+
+        $offer = $this->dispatch('game.proposeCheck', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'joint-ask',
+            'expectedSheetVersion' => $heroVersion,
+            'proposal' => [
+                'checkCode' => 'strength-check',
+                'initiator' => ['type' => 'character', 'id' => $hero],
+                'opponent' => ['type' => 'character', 'id' => $rival],
+            ],
+        ]);
+        self::assertTrue($offer['success'], json_encode($offer));
+        self::assertSame('pending', $offer['data']['status']);
+        $accepted = $this->dispatch('game.answerCheck', [
+            'gameId' => $gameId,
+            'processId' => $offer['data']['processId'],
+            'idempotencyKey' => 'joint-ask-accept',
+            'expectedSheetVersion' => $rivalVersion,
+            'answer' => [
+                'decision' => 'accept',
+                'actor' => ['type' => 'character', 'id' => $rival],
+            ],
+        ]);
+        self::assertTrue($accepted['success'], json_encode($accepted));
+        self::assertSame('resolved', $accepted['data']['status']);
+        self::assertArrayHasKey('initiator', $accepted['data']['rolls']);
+        self::assertArrayHasKey('opponent', $accepted['data']['rolls']);
+    }
+
+    /**
      * Pairwise заполняет строку после согласия. Бой гасит только своё предложение.
      *
      * @return void
