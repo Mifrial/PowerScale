@@ -15,6 +15,7 @@ use Mifrial\Roleplay\Game\Action\AddGameMemberAction;
 use Mifrial\Roleplay\Game\Action\AnswerGameCheckAction;
 use Mifrial\Roleplay\Game\Action\ApplyGameEconomyAction;
 use Mifrial\Roleplay\Game\Action\ApproveGameCharacterAction;
+use Mifrial\Roleplay\Game\Action\CancelGameCheckAction;
 use Mifrial\Roleplay\Game\Action\ContinueGameAction;
 use Mifrial\Roleplay\Game\Action\CreateGameAction;
 use Mifrial\Roleplay\Game\Action\CreateGameChronicleEntryAction;
@@ -29,6 +30,7 @@ use Mifrial\Roleplay\Game\Action\GetGameActionOptionsAction;
 use Mifrial\Roleplay\Game\Action\GetGameBattleSheetsAction;
 use Mifrial\Roleplay\Game\Action\GetGameCharacterAction;
 use Mifrial\Roleplay\Game\Action\GetGameCharacterListAction;
+use Mifrial\Roleplay\Game\Action\GetGameCheckOffersAction;
 use Mifrial\Roleplay\Game\Action\GetGameChronicleAction;
 use Mifrial\Roleplay\Game\Action\GetGameChronicleEntriesAction;
 use Mifrial\Roleplay\Game\Action\GetGameInvitationsAction;
@@ -52,6 +54,7 @@ use Mifrial\Roleplay\Game\Action\RequestGameJoinAction;
 use Mifrial\Roleplay\Game\Action\RespondGameInvitationAction;
 use Mifrial\Roleplay\Game\Action\RespondGameJoinRequestAction;
 use Mifrial\Roleplay\Game\Action\ReturnGameCharacterAction;
+use Mifrial\Roleplay\Game\Action\ReviseGameCheckAction;
 use Mifrial\Roleplay\Game\Action\RollGameInitiativeAction;
 use Mifrial\Roleplay\Game\Action\RunGameActionAction;
 use Mifrial\Roleplay\Game\Action\SetGameBattleRosterAction;
@@ -158,6 +161,15 @@ return [
         },
         AnswerGameCheckAction::class => static function (IServiceLocator $serviceLocator): AnswerGameCheckAction {
             return new AnswerGameCheckAction((new GameCheckPortFactory())->createHttp($serviceLocator));
+        },
+        ReviseGameCheckAction::class => static function (IServiceLocator $serviceLocator): ReviseGameCheckAction {
+            return new ReviseGameCheckAction((new GameCheckPortFactory())->createHttp($serviceLocator));
+        },
+        CancelGameCheckAction::class => static function (IServiceLocator $serviceLocator): CancelGameCheckAction {
+            return new CancelGameCheckAction((new GameCheckPortFactory())->createHttp($serviceLocator));
+        },
+        GetGameCheckOffersAction::class => static function (IServiceLocator $serviceLocator): GetGameCheckOffersAction {
+            return new GetGameCheckOffersAction((new GameCheckPortFactory())->createHttp($serviceLocator));
         },
         GameManualSheetAction::class => static function (IServiceLocator $serviceLocator): GameManualSheetAction {
             return new GameManualSheetAction((new GameManualSheetPortFactory())->createHttp($serviceLocator));
@@ -531,6 +543,18 @@ return [
         'game.answerCheck' => [
             'handler' => AnswerGameCheckAction::class,
             'csrf' => true,
+        ],
+        'game.reviseCheck' => [
+            'handler' => ReviseGameCheckAction::class,
+            'csrf' => true,
+        ],
+        'game.cancelCheck' => [
+            'handler' => CancelGameCheckAction::class,
+            'csrf' => true,
+        ],
+        'game.getCheckOffers' => [
+            'handler' => GetGameCheckOffersAction::class,
+            'csrf' => false,
         ],
         'game.manualSheet' => [
             'handler' => GameManualSheetAction::class,

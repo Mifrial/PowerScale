@@ -14,6 +14,7 @@ use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
+use Mifrial\Roleplay\Game\Dto\GameCheckThrowOverride;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -22,6 +23,7 @@ use Mifrial\Roleplay\Game\Interface\Service\IGameChecks;
 use Mifrial\Roleplay\Game\Interface\Service\IGameProcesses;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
+use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameCheckRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
@@ -50,6 +52,8 @@ final class GameChecks implements IGameChecks
 
     private readonly GameProcessRepository $processRows;
 
+    private readonly GameStrikeAccess $access;
+
     /**
      * Создаёт сценарий.
      *
@@ -59,6 +63,7 @@ final class GameChecks implements IGameChecks
      * @param IGameProcesses $processes Process.
      * @param ICharacterActualMutations $mutations Порт листа.
      * @param GameCheckRoll $roll Расчёт.
+     * @param GameCheckChat $chat Сообщения проверок.
      *
      * @return void
      */
@@ -69,6 +74,7 @@ final class GameChecks implements IGameChecks
         private readonly IGameProcesses $processes,
         private readonly ICharacterActualMutations $mutations,
         private readonly GameCheckRoll $roll,
+        private readonly GameCheckChat $chat,
     ) {
         $this->sessions = new GameSessionRepository($smartTableGateway);
         $this->commands = new GameCommandRepository($smartTableGateway);
@@ -81,6 +87,12 @@ final class GameChecks implements IGameChecks
             new GameBattleRepository($smartTableGateway),
         );
         $this->processRows = new GameProcessRepository($smartTableGateway);
+        $this->access = new GameStrikeAccess(
+            $this->members,
+            new GameCharacterRepository($smartTableGateway),
+            $this->battles,
+            $cardAccess,
+        );
     }
 
     /**
@@ -117,10 +129,11 @@ final class GameChecks implements IGameChecks
             return $ready['replay'];
         }
 
+        $this->assertSide($ready['game'], $actorUserId, $editAll, $choice['participant']);
         $this->roll->assertRule($ready['game']->getSpaceId(), $ready['game']->getRulesRevision(), $choice['ruleCode'], 'solo', $choice['asked']);
         $sheet = $this->sheet($ready['game']->getId(), $choice['participant']['type'], $choice['participant']['id'], $expectedSheetVersion);
 
-        return $this->commitSolo($ready['game'], $battleId, $idempotencyKey, $expectedSheetVersion, $choice, $sheet);
+        return $this->commitSolo($ready['game'], $battleId, $idempotencyKey, $expectedSheetVersion, $choice, $sheet, $actorUserId);
     }
 
     /**
@@ -157,11 +170,12 @@ final class GameChecks implements IGameChecks
             return $ready['replay'];
         }
 
+        $this->assertSide($ready['game'], $actorUserId, $editAll, $choice['participant']);
         $this->roll->assertRule($ready['game']->getSpaceId(), $ready['game']->getRulesRevision(), $choice['ruleCode'], 'joint', $choice['asked']);
         $this->assertTarget($ready['game']->getId(), $battleId, $choice['participant'], $choice['target']);
         $this->sheet($ready['game']->getId(), $choice['participant']['type'], $choice['participant']['id'], $expectedSheetVersion);
 
-        return $this->commitProposal($ready['game'], $battleId, $idempotencyKey, $expectedSheetVersion, $choice);
+        return $this->commitProposal($ready['game'], $battleId, $idempotencyKey, $expectedSheetVersion, $choice, $actorUserId);
     }
 
     /**
@@ -199,9 +213,347 @@ final class GameChecks implements IGameChecks
         }
 
         $open = $this->stored($ready['game']->getId(), $processId);
-        $sheet = $this->sheet($ready['game']->getId(), $open['participantType'], $open['participantId'], $expectedSheetVersion);
+        $proposal = is_array($open['proposal']) ? $open['proposal'] : null;
+        if ($proposal === null || $open['mode'] !== 'pairwise') {
+            throw new GameInvalidException('Game check proposal is invalid');
+        }
 
-        return $this->commitAnswer($ready['game'], $processId, $idempotencyKey, $expectedSheetVersion, $decision, $open, $sheet);
+        $side = $this->answerSide($ready['game'], $actorUserId, $editAll, $proposal, $answer);
+        if (($proposal['waitingOn'] ?? null) !== $side) {
+            throw new GameInvalidException('Game check is not waiting for this side');
+        }
+
+        $versions = $this->answerVersions($proposal, $side, $expectedSheetVersion);
+        $initiatorSheet = $this->sheet(
+            $ready['game']->getId(),
+            $proposal['initiator']['type'],
+            $proposal['initiator']['id'],
+            $versions['initiator'],
+        );
+        $opponentSheet = $this->sheet(
+            $ready['game']->getId(),
+            $proposal['opponent']['type'],
+            $proposal['opponent']['id'],
+            $versions['opponent'],
+        );
+
+        return $this->commitAnswer(
+            $ready['game'],
+            $processId,
+            $idempotencyKey,
+            $expectedSheetVersion,
+            $decision,
+            $open,
+            $initiatorSheet,
+            $opponentSheet,
+            $versions,
+            $side,
+            $actorUserId,
+        );
+    }
+
+    /**
+     * Сторона, которая отвечает на предложение.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ.
+     * @param array<string, mixed> $proposal Предложение.
+     * @param array $answer Ответ.
+     *
+     * @return string initiator или opponent.
+     *
+     * @throws GameInvalidException Если сторона чужая.
+     */
+    private function answerSide(
+        GameRecord $game,
+        int $actorUserId,
+        bool $editAll,
+        array $proposal,
+        array $answer,
+    ): string {
+        $actor = $answer['actor'] ?? null;
+        if (is_array($actor)) {
+            $party = $this->party($actor);
+            if ($this->sameParty($party, $proposal['initiator']) || $this->sameParty($party, $proposal['opponent'])) {
+                $side = $this->sameParty($party, $proposal['initiator']) ? 'initiator' : 'opponent';
+                $this->assertSide($game, $actorUserId, $editAll, $party);
+
+                return $side;
+            }
+
+            throw new GameInvalidException('Game check actor is invalid');
+        }
+
+        $waiting = $proposal['waitingOn'] ?? null;
+        if ($waiting === 'initiator') {
+            $this->assertSide($game, $actorUserId, $editAll, $proposal['initiator']);
+
+            return 'initiator';
+        }
+
+        if ($waiting === 'opponent') {
+            $this->assertSide($game, $actorUserId, $editAll, $proposal['opponent']);
+
+            return 'opponent';
+        }
+
+        throw new GameInvalidException('Game check waiting side is invalid');
+    }
+
+    /**
+     * Версии листов обеих сторон для принятия.
+     *
+     * @param array<string, mixed> $proposal Предложение.
+     * @param string $side Отвечающая сторона.
+     * @param int $expectedSheetVersion Версия отвечающей стороны.
+     *
+     * @return array{initiator: int, opponent: int} Версии.
+     *
+     * @throws GameInvalidException Если версия второй стороны неизвестна.
+     */
+    private function answerVersions(array $proposal, string $side, int $expectedSheetVersion): array
+    {
+        $initiator = $side === 'initiator'
+            ? $expectedSheetVersion
+            : ($proposal['initiatorSheetVersion'] ?? null);
+        $opponent = $side === 'opponent'
+            ? $expectedSheetVersion
+            : ($proposal['opponentSheetVersion'] ?? null);
+        if (!is_int($initiator) || !is_int($opponent)) {
+            throw new GameInvalidException('Game check sheet version is unknown');
+        }
+
+        return ['initiator' => $initiator, 'opponent' => $opponent];
+    }
+
+    /**
+     * Правит блок своей стороны в предложении.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ.
+     * @param bool $viewAll Ключ.
+     * @param int $processId Process.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedSheetVersion Версия листа.
+     * @param array $proposal Предложение.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function reviseCheck(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        int $processId,
+        string $idempotencyKey,
+        int $expectedSheetVersion,
+        array $proposal,
+    ): array {
+        $ready = $this->ready($gameId, $actorUserId, $editAll, $viewAll, $idempotencyKey, [
+            'processId' => $processId,
+            'proposal' => $proposal,
+            'expectedSheetVersion' => $expectedSheetVersion,
+        ]);
+        if ($ready['replay'] !== null) {
+            return $ready['replay'];
+        }
+
+        $open = $this->stored($ready['game']->getId(), $processId);
+        $stored = is_array($open['proposal']) ? $open['proposal'] : null;
+        if ($stored === null) {
+            throw new GameInvalidException('Game check proposal is invalid');
+        }
+
+        $actor = $this->party($proposal['actor'] ?? null);
+        $side = $this->sideOf($stored, $actor);
+        $this->assertSide($ready['game'], $actorUserId, $editAll, $actor);
+        $this->sheet($ready['game']->getId(), $actor['type'], $actor['id'], $expectedSheetVersion);
+
+        $flat = is_array($proposal['proposal'] ?? null) ? $proposal['proposal'] : $proposal;
+        $blocks = $this->proposalBlocks($flat);
+        $stored[$side] = array_merge($stored[$side], $blocks[$side]);
+        $stored['waitingOn'] = $side === 'initiator' ? 'opponent' : 'initiator';
+        $stored['revision'] = (int) ($stored['revision'] ?? 0) + 1;
+        $stored[$side . 'SheetVersion'] = $expectedSheetVersion;
+        $this->checks->storeProposal($processId, $stored);
+
+        return [
+            'processId' => $processId,
+            'status' => 'pending',
+            'ruleCode' => $open['ruleCode'],
+            'proposal' => $this->flatProposal($stored),
+            'waitingOn' => $stored['waitingOn'],
+            'initiator' => $stored['initiator']['type'] . ':' . $stored['initiator']['id'],
+            'opponent' => $stored['opponent']['type'] . ':' . $stored['opponent']['id'],
+        ];
+    }
+
+    /**
+     * Отменяет предложение.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ.
+     * @param bool $viewAll Ключ.
+     * @param int $processId Process.
+     * @param string $idempotencyKey Ключ.
+     * @param array $proposal Тело.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function cancelCheck(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        int $processId,
+        string $idempotencyKey,
+        array $proposal,
+    ): array {
+        $ready = $this->ready($gameId, $actorUserId, $editAll, $viewAll, $idempotencyKey, [
+            'processId' => $processId,
+            'cancel' => true,
+        ]);
+        if ($ready['replay'] !== null) {
+            return $ready['replay'];
+        }
+
+        $open = $this->stored($ready['game']->getId(), $processId);
+        $stored = is_array($open['proposal']) ? $open['proposal'] : null;
+        if ($stored === null) {
+            throw new GameInvalidException('Game check proposal is invalid');
+        }
+
+        $actor = $this->party($proposal['actor'] ?? null);
+        $side = $this->sideOf($stored, $actor);
+        $this->assertSide($ready['game'], $actorUserId, $editAll, $actor);
+        $this->processes->cancel($processId);
+        $this->checks->storeOutcome($processId, 'cancelled', null);
+        $this->chat->postCancelled($ready['game'], $actorUserId, $actor, $open['ruleCode']);
+
+        return ['processId' => $processId, 'status' => 'cancelled'];
+    }
+
+    /**
+     * Ожидающие предложения игры или участника.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $viewAll Ключ.
+     * @param array{type: string, id: int}|null $entity Участник или null.
+     *
+     * @return array<int, array<string, mixed>> Предложения.
+     */
+    public function checkOffers(int $gameId, int $actorUserId, bool $viewAll, ?array $entity = null): array
+    {
+        $game = $this->games->get($gameId);
+        if (!$this->cardAccess->isVisible($game, $actorUserId, $viewAll)) {
+            throw new GameNotFoundException('Game was not found');
+        }
+
+        $sessionId = $this->sessions->findSessionId($gameId);
+        if ($sessionId === null) {
+            return [];
+        }
+
+        $party = $entity === null ? null : $this->party($entity);
+        $offers = [];
+        foreach ($this->checks->findPending($sessionId) as $row) {
+            $proposal = is_array($row['proposal'] ?? null) ? $row['proposal'] : null;
+            $initiator = is_array($proposal['initiator'] ?? null) ? $proposal['initiator'] : null;
+            $opponent = is_array($proposal['opponent'] ?? null) ? $proposal['opponent'] : null;
+            if ($proposal === null || $initiator === null || $opponent === null) {
+                continue;
+            }
+
+            if (
+                $party !== null
+                && !$this->sameParty($party, $initiator)
+                && !$this->sameParty($party, $opponent)
+            ) {
+                continue;
+            }
+
+            $offers[] = $this->offerView($gameId, $row, $proposal);
+        }
+
+        return $offers;
+    }
+
+    /**
+     * Предложение в форме CheckOffer.
+     *
+     * @param int $gameId Игра.
+     * @param array<string, mixed> $row Строка.
+     * @param array<string, mixed> $proposal Предложение.
+     *
+     * @return array<string, mixed> Предложение.
+     */
+    private function offerView(int $gameId, array $row, array $proposal): array
+    {
+        $initiator = $proposal['initiator'];
+        $opponent = $proposal['opponent'];
+
+        return [
+            'id' => $row['processId'],
+            'gameId' => $gameId,
+            'checkCode' => $row['ruleCode'],
+            'initiator' => $initiator['type'] . ':' . $initiator['id'],
+            'opponent' => $opponent['type'] . ':' . $opponent['id'],
+            'proposal' => $this->flatProposal($proposal),
+            'waitingOn' => $proposal['waitingOn'] ?? 'opponent',
+            'status' => 'pending',
+            'updatedAt' => '',
+        ];
+    }
+
+    /**
+     * Плоская форма предложения для фронта.
+     *
+     * @param array<string, mixed> $proposal Предложение.
+     *
+     * @return array<string, mixed> Плоская форма.
+     */
+    private function flatProposal(array $proposal): array
+    {
+        $initiator = is_array($proposal['initiator'] ?? null) ? $proposal['initiator'] : [];
+        $opponent = is_array($proposal['opponent'] ?? null) ? $proposal['opponent'] : [];
+
+        return [
+            'initiatorCharacteristic' => $initiator['characteristic'] ?? null,
+            'opponentCharacteristic' => $opponent['characteristic'] ?? null,
+            'initiatorAdv' => $initiator['advantage'] ?? 0,
+            'opponentAdv' => $opponent['advantage'] ?? 0,
+            'initiatorFree' => $initiator['free'] ?? null,
+            'opponentFree' => $opponent['free'] ?? null,
+            'initiatorSpendConcentration' => $initiator['spendConcentration'] ?? 0,
+            'opponentSpendConcentration' => $opponent['spendConcentration'] ?? 0,
+        ];
+    }
+
+    /**
+     * Сторона участника в предложении.
+     *
+     * @param array<string, mixed> $proposal Предложение.
+     * @param array{type: string, id: int} $party Участник.
+     *
+     * @return string initiator или opponent.
+     *
+     * @throws GameInvalidException Если участника нет в предложении.
+     */
+    private function sideOf(array $proposal, array $party): string
+    {
+        if ($this->sameParty($party, $proposal['initiator'])) {
+            return 'initiator';
+        }
+
+        if ($this->sameParty($party, $proposal['opponent'])) {
+            return 'opponent';
+        }
+
+        throw new GameInvalidException('Game check actor is invalid');
     }
 
     /**
@@ -223,8 +575,8 @@ final class GameChecks implements IGameChecks
      */
     private function ready(
         int $gameId,
-        int $actorUserId,
-        bool $editAll,
+        int $_actorUserId,
+        bool $_editAll,
         bool $viewAll,
         string $idempotencyKey,
         array $body,
@@ -243,8 +595,6 @@ final class GameChecks implements IGameChecks
             throw new GameInvalidException('Game check is invalid');
         }
 
-        $this->assertWriter($game, $actorUserId, $editAll);
-
         return ['game' => $game, 'replay' => null];
     }
 
@@ -257,6 +607,7 @@ final class GameChecks implements IGameChecks
      * @param int $expectedSheetVersion Версия.
      * @param array $choice Решение.
      * @param array<string, mixed> $sheet Лист.
+     * @param int $actorUserId Автор сообщения.
      *
      * @return array<string, mixed> Итог.
      */
@@ -267,6 +618,7 @@ final class GameChecks implements IGameChecks
         int $expectedSheetVersion,
         array $choice,
         array $sheet,
+        int $actorUserId,
     ): array {
         $result = $this->view(0, 'resolved', null, null);
         $this->smartTableGateway->transaction(function () use (
@@ -276,9 +628,10 @@ final class GameChecks implements IGameChecks
             $expectedSheetVersion,
             $choice,
             $sheet,
+            $actorUserId,
             &$result,
         ): void {
-            $result = $this->applySolo($game, $battleId, $idempotencyKey, $expectedSheetVersion, $choice, $sheet);
+            $result = $this->applySolo($game, $battleId, $idempotencyKey, $expectedSheetVersion, $choice, $sheet, $actorUserId);
         });
 
         return $result;
@@ -293,6 +646,7 @@ final class GameChecks implements IGameChecks
      * @param int $expectedSheetVersion Версия.
      * @param array $choice Решение.
      * @param array<string, mixed> $sheet Лист.
+     * @param int $actorUserId Автор сообщения.
      *
      * @return array<string, mixed> Итог.
      */
@@ -303,9 +657,11 @@ final class GameChecks implements IGameChecks
         int $expectedSheetVersion,
         array $choice,
         array $sheet,
+        int $actorUserId,
     ): array {
         $opened = $this->processes->open($game->getId(), $battleId, $choice['participant']['type'], $choice['participant']['id']);
         $thrown = $this->roll->throwCheck($game->getSpaceId(), $game->getRulesRevision(), $choice['ruleCode'], 'solo', $sheet, $choice['asked']);
+        $thrown['actorKey'] = $choice['participant']['type'] . ':' . $choice['participant']['id'];
         $sheetVersion = $this->writeSheet($game, $choice['participant']['type'], $choice['participant']['id'], $expectedSheetVersion);
         $this->processes->resolve($opened['processId']);
         $result = $this->view($opened['processId'], 'resolved', $thrown, $sheetVersion);
@@ -315,6 +671,7 @@ final class GameChecks implements IGameChecks
             'check' => $choice,
             'expectedSheetVersion' => $expectedSheetVersion,
         ], $result);
+        $this->chat->postSolo($game, $actorUserId, $choice['participant'], $choice['ruleCode'], $thrown);
 
         return $result;
     }
@@ -327,6 +684,7 @@ final class GameChecks implements IGameChecks
      * @param string $idempotencyKey Ключ.
      * @param int $expectedSheetVersion Версия.
      * @param array $choice Решение.
+     * @param int $actorUserId Автор сообщения.
      *
      * @return array<string, mixed> Итог.
      */
@@ -336,24 +694,43 @@ final class GameChecks implements IGameChecks
         string $idempotencyKey,
         int $expectedSheetVersion,
         array $choice,
+        int $actorUserId,
     ): array {
-        $result = $this->view(0, 'open', null, null);
+        $result = $this->view(0, 'pending', null, null);
         $this->smartTableGateway->transaction(function () use (
             $game,
             $battleId,
             $idempotencyKey,
             $expectedSheetVersion,
             $choice,
+            $actorUserId,
             &$result,
         ): void {
             $opened = $this->processes->open($game->getId(), $battleId, $choice['participant']['type'], $choice['participant']['id']);
-            $result = $this->view($opened['processId'], 'open', null, null);
+            $proposal = is_array($choice['proposal'] ?? null) ? $choice['proposal'] : [];
+            $proposal['initiator']['type'] = $choice['participant']['type'];
+            $proposal['initiator']['id'] = $choice['participant']['id'];
+            $proposal['opponent']['type'] = $choice['target']['type'];
+            $proposal['opponent']['id'] = $choice['target']['id'];
+            $proposal['waitingOn'] = 'opponent';
+            $proposal['revision'] = 0;
+            $proposal['initiatorSheetVersion'] = $expectedSheetVersion;
+            $proposal['opponentSheetVersion'] = null;
+            $choice['proposal'] = $proposal;
+            $result = $this->view($opened['processId'], 'pending', null, null);
+            $result['ruleCode'] = $choice['ruleCode'];
+            $result['target'] = $choice['target'];
+            $result['proposal'] = $this->flatProposal($proposal);
+            $result['waitingOn'] = 'opponent';
+            $result['initiator'] = $choice['participant']['type'] . ':' . $choice['participant']['id'];
+            $result['opponent'] = $choice['target']['type'] . ':' . $choice['target']['id'];
             $this->checks->add($this->row($opened, 'pairwise', $choice, 'pending', null));
             $this->commands->add($game->getId(), $opened['sessionId'], 'check', $idempotencyKey, [
                 'battleId' => $battleId,
                 'proposal' => $choice,
                 'expectedSheetVersion' => $expectedSheetVersion,
             ], $result);
+            $this->chat->postProposal($game, $actorUserId, $choice['participant'], $choice['target'], $choice['ruleCode']);
         });
 
         return $result;
@@ -365,10 +742,14 @@ final class GameChecks implements IGameChecks
      * @param GameRecord $game Игра.
      * @param int $processId Process.
      * @param string $idempotencyKey Ключ.
-     * @param int $expectedSheetVersion Версия.
+     * @param int $expectedSheetVersion Версия отвечающей стороны.
      * @param string $decision accept или decline.
      * @param array $open Сохранённое предложение.
-     * @param array<string, mixed> $sheet Лист.
+     * @param array<string, mixed> $initiatorSheet Лист инициатора.
+     * @param array<string, mixed> $opponentSheet Лист цели.
+     * @param array{initiator: int, opponent: int} $versions Версии сторон.
+     * @param string $side Отвечающая сторона.
+     * @param int $actorUserId Автор сообщения.
      *
      * @return array<string, mixed> Итог.
      */
@@ -379,7 +760,11 @@ final class GameChecks implements IGameChecks
         int $expectedSheetVersion,
         string $decision,
         array $open,
-        array $sheet,
+        array $initiatorSheet,
+        array $opponentSheet,
+        array $versions,
+        string $side,
+        int $actorUserId,
     ): array {
         $result = $this->view($processId, 'cancelled', null, null);
         $this->smartTableGateway->transaction(function () use (
@@ -389,13 +774,28 @@ final class GameChecks implements IGameChecks
             $expectedSheetVersion,
             $decision,
             $open,
-            $sheet,
+            $initiatorSheet,
+            $opponentSheet,
+            $versions,
+            $side,
+            $actorUserId,
             &$result,
         ): void {
-            $result = $this->applyAnswer($game, $processId, $decision, $open, $sheet, $expectedSheetVersion);
+            $result = $this->applyAnswer(
+                $game,
+                $processId,
+                $decision,
+                $open,
+                $initiatorSheet,
+                $opponentSheet,
+                $versions,
+                $side,
+                $actorUserId,
+            );
             $this->commands->add($game->getId(), $open['sessionId'], 'check', $idempotencyKey, [
                 'processId' => $processId,
                 'answer' => $decision,
+                'side' => $side,
                 'expectedSheetVersion' => $expectedSheetVersion,
             ], $result);
         });
@@ -410,8 +810,11 @@ final class GameChecks implements IGameChecks
      * @param int $processId Process.
      * @param string $decision accept или decline.
      * @param array $open Сохранённое предложение.
-     * @param array<string, mixed> $sheet Лист.
-     * @param int $expectedSheetVersion Версия.
+     * @param array<string, mixed> $initiatorSheet Лист инициатора.
+     * @param array<string, mixed> $opponentSheet Лист цели.
+     * @param array{initiator: int, opponent: int} $versions Версии сторон.
+     * @param string $side Отвечающая сторона.
+     * @param int $actorUserId Автор сообщения.
      *
      * @return array<string, mixed> Итог.
      */
@@ -420,22 +823,77 @@ final class GameChecks implements IGameChecks
         int $processId,
         string $decision,
         array $open,
-        array $sheet,
-        int $expectedSheetVersion,
+        array $initiatorSheet,
+        array $opponentSheet,
+        array $versions,
+        string $side,
+        int $actorUserId,
     ): array {
+        $proposal = is_array($open['proposal']) ? $open['proposal'] : null;
+        if ($proposal === null) {
+            throw new GameInvalidException('Game check proposal is invalid');
+        }
+
         if ($decision !== 'accept') {
             $this->processes->cancel($processId);
             $this->checks->storeOutcome($processId, 'declined', null);
+            $this->chat->postDeclined($game, $actorUserId, $proposal[$side], $open['ruleCode']);
 
             return $this->view($processId, 'cancelled', null, null);
         }
 
-        $thrown = $this->roll->throwCheck($game->getSpaceId(), $game->getRulesRevision(), $open['ruleCode'], 'joint', $sheet, $open['asked']);
-        $sheetVersion = $this->writeSheet($game, $open['participantType'], $open['participantId'], $expectedSheetVersion);
+        $rolls = $this->roll->throwJointCheck(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $open['ruleCode'],
+            $initiatorSheet,
+            $this->throwOverride($proposal['initiator']),
+            $opponentSheet,
+            $this->throwOverride($proposal['opponent']),
+        );
+        $rolls['initiator']['actorKey'] = $proposal['initiator']['type'] . ':' . $proposal['initiator']['id'];
+        $rolls['opponent']['actorKey'] = $proposal['opponent']['type'] . ':' . $proposal['opponent']['id'];
+        $this->writeSheet($game, $proposal['initiator']['type'], $proposal['initiator']['id'], $versions['initiator']);
+        $this->writeSheet($game, $proposal['opponent']['type'], $proposal['opponent']['id'], $versions['opponent']);
         $this->processes->resolve($processId);
-        $this->checks->storeOutcome($processId, 'accepted', $thrown);
+        $this->checks->storeOutcome($processId, 'accepted', $rolls['initiator']);
+        $this->checks->storeRolls($processId, $rolls);
+        $result = $this->view($processId, 'resolved', $rolls['initiator'], $versions['initiator']);
+        $result['rolls'] = $rolls;
+        $result['proposal'] = $this->flatProposal($proposal);
+        $result['status'] = 'resolved';
+        $result['initiator'] = $proposal['initiator']['type'] . ':' . $proposal['initiator']['id'];
+        $result['opponent'] = $proposal['opponent']['type'] . ':' . $proposal['opponent']['id'];
+        $this->chat->postResolution($game, $actorUserId, $proposal, $open['ruleCode'], $rolls);
 
-        return $this->view($processId, 'resolved', $thrown, $sheetVersion);
+        return $result;
+    }
+
+    /**
+     * Смена пула из блока предложения.
+     *
+     * @param array<string, mixed> $block Блок стороны.
+     *
+     * @return GameCheckThrowOverride Смена.
+     */
+    private function throwOverride(array $block): GameCheckThrowOverride
+    {
+        $free = is_array($block['free'] ?? null) ? $block['free'] : null;
+        if ($free !== null) {
+            return new GameCheckThrowOverride(
+                null,
+                $free['diceCount'],
+                is_int($block['advantage'] ?? null) ? $block['advantage'] : 0,
+                $free['dieSize'],
+                $free['efficiency'],
+            );
+        }
+
+        return new GameCheckThrowOverride(
+            is_string($block['characteristic'] ?? null) ? $block['characteristic'] : null,
+            null,
+            is_int($block['advantage'] ?? null) ? $block['advantage'] : 0,
+        );
     }
 
     /**
@@ -659,7 +1117,7 @@ final class GameChecks implements IGameChecks
      * @param int $gameId Игра.
      * @param int $processId Process.
      *
-     * @return array{sessionId: int, participantType: string, participantId: int, ruleCode: string, asked: array{base: int, size: int}|null} Пара.
+     * @return array{sessionId: int, participantType: string, participantId: int, ruleCode: string, asked: array{base: int, size: int}|null, targetType: string|null, targetId: int|null, proposal: array<string, mixed>|null, rolls: array<string, mixed>|null, mode: string, offer: string} Пара.
      *
      * @throws GameNotFoundException Если process чужой.
      * @throws GameInvalidException Если статус не open.
@@ -687,35 +1145,34 @@ final class GameChecks implements IGameChecks
             'participantId' => $row->getParticipantId(),
             'ruleCode' => $check['ruleCode'],
             'asked' => $check['asked'],
+            'targetType' => $check['targetType'],
+            'targetId' => $check['targetId'],
+            'proposal' => $check['proposal'] ?? null,
+            'rolls' => $check['rolls'] ?? null,
+            'mode' => $check['mode'] ?? 'solo',
+            'offer' => $check['offer'] ?? 'accepted',
         ];
     }
 
     /**
-     * Право писать.
+     * Право действовать за сторону: писатель или владелец активного персонажа.
      *
      * @param GameRecord $game Игра.
      * @param int $actorUserId Актор.
      * @param bool $editAll Ключ.
+     * @param array{type: string, id: int} $side Сторона.
      *
      * @return void
      *
      * @throws ActionException AUTH_DENIED.
      */
-    private function assertWriter(GameRecord $game, int $actorUserId, bool $editAll): void
+    private function assertSide(GameRecord $game, int $actorUserId, bool $editAll, array $side): void
     {
-        if ($game->getOwnerId() === $actorUserId || $editAll) {
+        if ($this->access->canAnswer($game, $actorUserId, $editAll, $side)) {
             return;
         }
 
-        try {
-            $gm = $this->members->getByPair($game->getId(), $actorUserId)->getRole() === 'gm';
-        } catch (GameNotFoundException) {
-            $gm = false;
-        }
-
-        if (!$gm) {
-            throw new ActionException('AUTH_DENIED', 'Permission denied');
-        }
+        throw new ActionException('AUTH_DENIED', 'Permission denied');
     }
 
     /**
@@ -724,7 +1181,7 @@ final class GameChecks implements IGameChecks
      * @param array $body Тело.
      * @param bool $withTarget Нужна цель.
      *
-     * @return array{participant: array{type: string, id: int}, ruleCode: string, asked: array{base: int, size: int}|null, target: array{type: string, id: int}|null} Выбор.
+     * @return array{participant: array{type: string, id: int}, ruleCode: string, asked: array{base: int, size: int}|null, target: array{type: string, id: int}|null, proposal: array<string, mixed>|null} Выбор.
      *
      * @throws GameInvalidException Если поле чужое.
      */
@@ -736,8 +1193,8 @@ final class GameChecks implements IGameChecks
             }
         }
 
-        $participant = $this->party($body['participant'] ?? null);
-        $ruleCode = $body['ruleCode'] ?? null;
+        $participant = $this->party($body['initiator'] ?? $body['participant'] ?? null);
+        $ruleCode = $body['ruleCode'] ?? $body['checkCode'] ?? null;
         if (!is_string($ruleCode) || $ruleCode === '') {
             throw new GameInvalidException('Game check rule is invalid');
         }
@@ -746,8 +1203,124 @@ final class GameChecks implements IGameChecks
             'participant' => $participant,
             'ruleCode' => $ruleCode,
             'asked' => $this->asked($body['askedDifficulty'] ?? null),
-            'target' => $withTarget ? $this->party($body['target'] ?? null) : null,
+            'target' => $withTarget ? $this->party($body['opponent'] ?? $body['target'] ?? null) : null,
+            'proposal' => $withTarget ? $this->proposalBlocks($body) : null,
         ];
+    }
+
+    /**
+     * Блоки предложения: характеристики, преимущества, свободные пулы, жетоны.
+     *
+     * @param array $body Тело.
+     *
+     * @return array{initiator: array<string, mixed>, opponent: array<string, mixed>} Блоки.
+     *
+     * @throws GameInvalidException Если поле чужое.
+     */
+    private function proposalBlocks(array $body): array
+    {
+        return [
+            'initiator' => [
+                'characteristic' => $this->optionalString($body['initiatorCharacteristic'] ?? null),
+                'advantage' => $this->optionalInt($body['initiatorAdv'] ?? 0, 'Game check advantage is invalid'),
+                'free' => $this->freePool($body['initiatorFree'] ?? null),
+                'spendConcentration' => $this->concentrationAmount($body['initiatorSpendConcentration'] ?? 0),
+            ],
+            'opponent' => [
+                'characteristic' => $this->optionalString($body['opponentCharacteristic'] ?? null),
+                'advantage' => $this->optionalInt($body['opponentAdv'] ?? 0, 'Game check advantage is invalid'),
+                'free' => $this->freePool($body['opponentFree'] ?? null),
+                'spendConcentration' => $this->concentrationAmount($body['opponentSpendConcentration'] ?? 0),
+            ],
+        ];
+    }
+
+    /**
+     * Количество жетонов не меньше нуля.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return int Количество.
+     *
+     * @throws GameInvalidException Если число отрицательное.
+     */
+    private function concentrationAmount(mixed $value): int
+    {
+        if (!is_int($value) || $value < 0) {
+            throw new GameInvalidException('Game check concentration is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Строка или null.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return string|null Строка.
+     *
+     * @throws GameInvalidException Если не строка и не null.
+     */
+    private function optionalString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_string($value) || $value === '') {
+            throw new GameInvalidException('Game check characteristic is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Целое или значение по умолчанию.
+     *
+     * @param mixed $value Значение.
+     * @param string $error Текст ошибки.
+     *
+     * @return int Целое.
+     *
+     * @throws GameInvalidException Если не целое.
+     */
+    private function optionalInt(mixed $value, string $error): int
+    {
+        if (!is_int($value)) {
+            throw new GameInvalidException($error);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Свободный пул или null.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return array{diceCount: int, dieSize: int, efficiency: int}|null Пул.
+     *
+     * @throws GameInvalidException Если поле чужое.
+     */
+    private function freePool(mixed $value): ?array
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_array($value)) {
+            throw new GameInvalidException('Game check free pool is invalid');
+        }
+
+        $diceCount = $value['diceCount'] ?? null;
+        $dieSize = $value['dieSize'] ?? null;
+        $efficiency = $value['efficiency'] ?? null;
+        if (!is_int($diceCount) || $diceCount < 1 || !is_int($dieSize) || !is_int($efficiency)) {
+            throw new GameInvalidException('Game check free pool is invalid');
+        }
+
+        return ['diceCount' => $diceCount, 'dieSize' => $dieSize, 'efficiency' => $efficiency];
     }
 
     /**
@@ -821,7 +1394,7 @@ final class GameChecks implements IGameChecks
      */
     private function view(int $processId, string $status, ?array $thrown, ?int $sheetVersion): array
     {
-        return [
+        $result = [
             'processId' => $processId,
             'status' => $status,
             'difficulty' => $thrown['difficulty'] ?? null,
@@ -830,6 +1403,29 @@ final class GameChecks implements IGameChecks
             'rating' => $thrown['rating'] ?? null,
             'sheetVersion' => $sheetVersion,
         ];
+        $keys = [
+            'label',
+            'actorKey',
+            'faces',
+            'adjustedRolls',
+            'successes',
+            'droppedRolls',
+            'dieFaces',
+            'advantages',
+            'min_success_size',
+            'masteryAdjustments',
+            'efficiencyAdjustments',
+            'efficiency',
+            'poolSize',
+            'process_bonus',
+        ];
+        foreach ($keys as $key) {
+            if (is_array($thrown) && array_key_exists($key, $thrown)) {
+                $result[$key] = $thrown[$key];
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -857,6 +1453,10 @@ final class GameChecks implements IGameChecks
         if ($choice['target'] !== null) {
             $fields['target_type'] = $choice['target']['type'];
             $fields['target_id'] = $choice['target']['id'];
+        }
+
+        if (is_array($choice['proposal'] ?? null)) {
+            $fields['proposal'] = $choice['proposal'];
         }
 
         if ($thrown !== null) {

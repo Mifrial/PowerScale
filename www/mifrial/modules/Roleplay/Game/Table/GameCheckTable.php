@@ -8,6 +8,7 @@ use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Field\BoolField;
 use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\IntField;
+use Mifrial\Core\SmartTable\Field\JsonField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
@@ -55,6 +56,8 @@ final class GameCheckTable extends SmartTableDefinition
             new IntField('success_size', FieldSettings::fromOptions([]), null, null),
             new BoolField('passed', FieldSettings::fromOptions([])),
             new IntField('rating', FieldSettings::fromOptions([]), null, null),
+            new JsonField('proposal', FieldSettings::fromOptions([])),
+            new JsonField('rolls', FieldSettings::fromOptions([])),
         ];
     }
 }

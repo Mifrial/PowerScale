@@ -20,5 +20,7 @@ export interface CheckOffer {
   /** Кандидаты Прикрытия, пока waitingOn === 'covering'. */
   waitingOnCoverers?: CombatEntityKey[];
   status: 'pending' | 'accepted' | 'cancelled';
+  /** Совместный бросок сервера после accept; в моке отсутствует. */
+  rolls?: Record<string, unknown>;
   updatedAt: string;
 }

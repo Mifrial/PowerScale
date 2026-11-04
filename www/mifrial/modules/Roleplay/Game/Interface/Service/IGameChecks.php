@@ -75,6 +75,78 @@ interface IGameChecks
     ): array;
 
     /**
+     * Правит блок своей стороны.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ game.edit_all.
+     * @param bool $viewAll Ключ game.view_all.
+     * @param int $processId Process.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedSheetVersion Версия листа.
+     * @param array $proposal Предложение.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws ActionException AUTH_DENIED.
+     * @throws GameNotFoundException Если process чужой.
+     * @throws GameInvalidException Если статус не open.
+     * @throws GameBattleConflictException Если версия или чужой ключ.
+     */
+    public function reviseCheck(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        int $processId,
+        string $idempotencyKey,
+        int $expectedSheetVersion,
+        array $proposal,
+    ): array;
+
+    /**
+     * Отменяет предложение.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ game.edit_all.
+     * @param bool $viewAll Ключ game.view_all.
+     * @param int $processId Process.
+     * @param string $idempotencyKey Ключ.
+     * @param array $proposal Тело с actor.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws ActionException AUTH_DENIED.
+     * @throws GameNotFoundException Если process чужой.
+     * @throws GameInvalidException Если статус не open.
+     * @throws GameBattleConflictException Если версия или чужой ключ.
+     */
+    public function cancelCheck(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        int $processId,
+        string $idempotencyKey,
+        array $proposal,
+    ): array;
+
+    /**
+     * Ожидающие предложения.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $viewAll Ключ game.view_all.
+     * @param array{type: string, id: int}|null $entity Участник или null.
+     *
+     * @return array<int, array<string, mixed>> Предложения.
+     *
+     * @throws GameNotFoundException Если карточка скрыта.
+     */
+    public function checkOffers(int $gameId, int $actorUserId, bool $viewAll, ?array $entity = null): array;
+
+    /**
      * Принимает или отклоняет предложение.
      *
      * @param int $gameId Игра.

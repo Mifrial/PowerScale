@@ -56,6 +56,7 @@ import type { GameCharacterModerationCommand } from '@/modules/Roleplay/Game/Dto
 import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationResult';
 import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
 import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
+import type { GamePhpCheckResult } from '@/modules/Roleplay/Game/Dto/GamePhpCheckResult';
 import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionRequest';
 import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
 import type { GameManualSheetRequest } from '@/modules/Roleplay/Game/Dto/GameManualSheetRequest';
@@ -283,19 +284,40 @@ export interface IGameApi {
   deleteChronicleEntry(entryId: number, signal?: AbortSignal): Promise<void>;
   updatePersonalNotes(gameId: number, notes: string, signal?: AbortSignal): Promise<GameDetail>;
   createCheckOffer(gameId: number, data: CreateCheckOfferData, signal?: AbortSignal): Promise<CheckOffer>;
+  declareCheck(
+    body: {
+      gameId: number;
+      battleId?: number | null;
+      idempotencyKey: string;
+      expectedSheetVersion: number;
+      check: {
+        participant: { type: 'character' | 'npc'; id: number };
+        ruleCode: string;
+        askedDifficulty?: { base: number; size: number };
+      };
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpCheckResult>;
   reviseCheckOffer(
     offerId: number,
     actorKey: CombatEntityKey,
     proposal: CheckOfferProposal,
+    gameId?: number,
     signal?: AbortSignal,
   ): Promise<CheckOffer>;
   acceptCheckOffer(
     offerId: number,
     actorKey: CombatEntityKey,
     proposal?: CheckOfferProposal,
+    gameId?: number,
     signal?: AbortSignal,
   ): Promise<CheckOffer>;
-  cancelCheckOffer(offerId: number, actorKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer>;
+  cancelCheckOffer(
+    offerId: number,
+    actorKey: CombatEntityKey,
+    gameId?: number,
+    signal?: AbortSignal,
+  ): Promise<CheckOffer>;
   getPendingCheckOffers(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer[]>;
   getCheckOffersForEntity(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer[]>;
   getCheckOffersForGame(gameId: number, signal?: AbortSignal): Promise<CheckOffer[]>;

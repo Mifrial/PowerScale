@@ -62,6 +62,7 @@ import type { GameCharacterModerationCommand } from '@/modules/Roleplay/Game/Dto
 import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationResult';
 import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
 import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
+import type { GamePhpCheckResult } from '@/modules/Roleplay/Game/Dto/GamePhpCheckResult';
 import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
 import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionRequest';
 import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
@@ -997,50 +998,177 @@ export class GameApi implements IGameApi {
     this.throwPhpUnsupported();
   }
 
-  async createCheckOffer(_gameId: number, _data: CreateCheckOfferData, _signal?: AbortSignal): Promise<CheckOffer> {
-    this.throwPhpUnsupported();
+  async createCheckOffer(gameId: number, data: CreateCheckOfferData): Promise<CheckOffer> {
+    const initiator = this.checkPartyOf(data.initiator);
+    const opponent = this.checkPartyOf(data.opponent);
+    const row = await this.requireData<Record<string, unknown>>('game.proposeCheck', {
+      gameId,
+      idempotencyKey: createRandomId(),
+      expectedSheetVersion: await this.checkSheetVersion(gameId, data.initiator),
+      checkCode: data.checkCode,
+      initiator,
+      opponent,
+      ...data.proposal,
+    });
+
+    return this.checkOfferOf(row, gameId);
+  }
+
+  async declareCheck(
+    body: {
+      gameId: number;
+      battleId?: number | null;
+      idempotencyKey: string;
+      expectedSheetVersion: number;
+      check: {
+        participant: { type: 'character' | 'npc'; id: number };
+        ruleCode: string;
+        askedDifficulty?: { base: number; size: number };
+      };
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpCheckResult> {
+    const result = await this.requireData<GamePhpCheckResult>('game.declareCheck', body, signal);
+    if (typeof result.sheetVersion === 'number' && result.sheetVersion > 0) {
+      gamePhpBattleContext.rememberSheet(
+        `${body.check.participant.type}:${body.check.participant.id}`,
+        result.sheetVersion,
+      );
+    }
+
+    return result;
   }
 
   async reviseCheckOffer(
-    _offerId: number,
-    _actorKey: CombatEntityKey,
-    _proposal: CheckOfferProposal,
-    _signal?: AbortSignal,
+    offerId: number,
+    actorKey: CombatEntityKey,
+    proposal: CheckOfferProposal,
+    gameId?: number,
   ): Promise<CheckOffer> {
-    this.throwPhpUnsupported();
+    const id = this.checkGameId(gameId);
+    const row = await this.requireData<Record<string, unknown>>('game.reviseCheck', {
+      gameId: id,
+      processId: offerId,
+      idempotencyKey: createRandomId(),
+      expectedSheetVersion: await this.checkSheetVersion(id, actorKey),
+      actor: this.checkPartyOf(actorKey),
+      proposal,
+    });
+
+    return this.checkOfferOf(row, id);
   }
 
   async acceptCheckOffer(
-    _offerId: number,
-    _actorKey: CombatEntityKey,
+    offerId: number,
+    actorKey: CombatEntityKey,
     _proposal?: CheckOfferProposal,
-    _signal?: AbortSignal,
+    gameId?: number,
   ): Promise<CheckOffer> {
-    this.throwPhpUnsupported();
+    const id = this.checkGameId(gameId);
+    const row = await this.requireData<Record<string, unknown>>('game.answerCheck', {
+      gameId: id,
+      processId: offerId,
+      idempotencyKey: createRandomId(),
+      expectedSheetVersion: await this.checkSheetVersion(id, actorKey),
+      answer: { decision: 'accept', actor: this.checkPartyOf(actorKey) },
+    });
+
+    return this.checkOfferOf(row, id);
   }
 
-  async cancelCheckOffer(_offerId: number, _actorKey: CombatEntityKey, _signal?: AbortSignal): Promise<CheckOffer> {
-    this.throwPhpUnsupported();
+  async cancelCheckOffer(offerId: number, actorKey: CombatEntityKey, gameId?: number): Promise<CheckOffer> {
+    const id = this.checkGameId(gameId);
+    const row = await this.requireData<Record<string, unknown>>('game.cancelCheck', {
+      gameId: id,
+      processId: offerId,
+      idempotencyKey: createRandomId(),
+      proposal: { actor: this.checkPartyOf(actorKey) },
+    });
+
+    return this.checkOfferOf(row, id);
   }
 
   async getPendingCheckOffers(
-    _gameId: number,
-    _entityKey: CombatEntityKey,
-    _signal?: AbortSignal,
+    gameId: number,
+    entityKey: CombatEntityKey,
+    signal?: AbortSignal,
   ): Promise<CheckOffer[]> {
-    return [];
+    return this.getCheckOffersForEntity(gameId, entityKey, signal);
   }
 
   async getCheckOffersForEntity(
-    _gameId: number,
-    _entityKey: CombatEntityKey,
-    _signal?: AbortSignal,
+    gameId: number,
+    entityKey: CombatEntityKey,
+    signal?: AbortSignal,
   ): Promise<CheckOffer[]> {
-    return [];
+    return this.checkOffersOf(gameId, this.checkPartyOf(entityKey), signal);
   }
 
-  async getCheckOffersForGame(_gameId: number, _signal?: AbortSignal): Promise<CheckOffer[]> {
-    return [];
+  async getCheckOffersForGame(gameId: number, signal?: AbortSignal): Promise<CheckOffer[]> {
+    return this.checkOffersOf(gameId, null, signal);
+  }
+
+  private async checkOffersOf(
+    gameId: number,
+    entity: { type: 'character' | 'npc'; id: number } | null,
+    signal?: AbortSignal,
+  ): Promise<CheckOffer[]> {
+    const rows = await this.requireData<Record<string, unknown>[]>(
+      'game.getCheckOffers',
+      { gameId, entity },
+      signal,
+    );
+
+    return (Array.isArray(rows) ? rows : []).map((row) => this.checkOfferOf(row, gameId));
+  }
+
+  private checkOfferOf(row: Record<string, unknown>, gameId: number): CheckOffer {
+    const status = row.status === 'resolved' || row.status === 'accepted'
+      ? 'accepted'
+      : row.status === 'cancelled' || row.status === 'declined'
+        ? 'cancelled'
+        : 'pending';
+
+    return {
+      id: Number(row.processId ?? row.id ?? 0),
+      gameId,
+      checkCode: typeof row.ruleCode === 'string' ? row.ruleCode : String(row.checkCode ?? ''),
+      initiator: String(row.initiator ?? '') as CombatEntityKey,
+      opponent: String(row.opponent ?? '') as CombatEntityKey,
+      proposal: (row.proposal ?? {}) as CheckOfferProposal,
+      waitingOn: row.waitingOn === 'initiator' ? 'initiator' : 'opponent',
+      status,
+      ...(row.rolls !== undefined ? { rolls: row.rolls as Record<string, unknown> } : {}),
+      updatedAt: '',
+    };
+  }
+
+  private checkGameId(gameId?: number): number {
+    if (typeof gameId === 'number' && gameId > 0) return gameId;
+
+    throw new GameApiError('GAME_INVALID_PARAMS', 'Game check game is unknown');
+  }
+
+  private checkPartyOf(key: CombatEntityKey): { type: 'character' | 'npc'; id: number } {
+    const [kind, rawId] = key.split(':');
+    const id = Number(rawId);
+    if ((kind !== 'character' && kind !== 'npc') || !Number.isInteger(id) || id <= 0) {
+      throw new GameApiError('GAME_INVALID_PARAMS', 'Game check actor is invalid');
+    }
+
+    return { type: kind, id };
+  }
+
+  private async checkSheetVersion(gameId: number, key: CombatEntityKey): Promise<number> {
+    const known = gamePhpBattleContext.sheetVersionByKey[key];
+    if (typeof known === 'number' && known > 0) return known;
+    const party = this.checkPartyOf(key);
+    const sheets = await this.getSheets({ gameId, keys: [party] });
+    const sheet = sheets.sheets.find((row) => row.type === party.type && row.id === party.id);
+    if (!sheet) throw new GameApiError('GAME_INVALID', 'Версия листа неизвестна');
+    gamePhpBattleContext.rememberSheet(key, sheet.actualVersion);
+
+    return sheet.actualVersion;
   }
 
   async getCharacterList(query: { gameId: number }, signal?: AbortSignal): Promise<GameCharacterMembership[]> {

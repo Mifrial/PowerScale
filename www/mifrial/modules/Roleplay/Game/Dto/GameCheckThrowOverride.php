@@ -16,6 +16,7 @@ final class GameCheckThrowOverride
      * @param int|null $diceCount Число кубов свободного пула или null.
      * @param int|null $advantage Дельта преимущества или null.
      * @param int|null $size Размер успехов свободного пула или null.
+     * @param int|null $efficiency Эффективность свободного пула или null.
      *
      * @return void
      */
@@ -24,6 +25,7 @@ final class GameCheckThrowOverride
         public readonly ?int $diceCount = null,
         public readonly ?int $advantage = null,
         public readonly ?int $size = null,
+        public readonly ?int $efficiency = null,
     ) {
     }
 }

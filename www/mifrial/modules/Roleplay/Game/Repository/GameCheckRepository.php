@@ -43,7 +43,7 @@ final class GameCheckRepository
      *
      * @param int $processId Process.
      *
-     * @return array{ruleCode: string, asked: array{base: int, size: int}|null}|null Пара.
+     * @return array{ruleCode: string, mode: string, offer: string, asked: array{base: int, size: int}|null, targetType: string|null, targetId: int|null, proposal: array<string, mixed>|null, rolls: array<string, mixed>|null}|null Пара.
      *
      * @throws GameInvalidException Если строка битая.
      */
@@ -74,7 +74,71 @@ final class GameCheckRepository
             $asked = ['base' => $row['asked_base'], 'size' => $row['asked_size']];
         }
 
-        return ['ruleCode' => $row['rule_code'], 'asked' => $asked];
+        return [
+            'ruleCode' => $row['rule_code'],
+            'mode' => is_string($row['mode'] ?? null) ? $row['mode'] : 'solo',
+            'offer' => is_string($row['offer'] ?? null) ? $row['offer'] : 'accepted',
+            'asked' => $asked,
+            'targetType' => is_string($row['target_type'] ?? null) ? $row['target_type'] : null,
+            'targetId' => is_int($row['target_id'] ?? null) ? $row['target_id'] : null,
+            'proposal' => is_array($row['proposal'] ?? null) ? $row['proposal'] : null,
+            'rolls' => is_array($row['rolls'] ?? null) ? $row['rolls'] : null,
+        ];
+    }
+
+    /**
+     * Ожидающие предложения сессии или участника.
+     *
+     * @param int $sessionId Сессия.
+     * @param array{type: string, id: int}|null $entity Участник или null.
+     *
+     * @return array<int, array<string, mixed>> Строки.
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    public function findPending(int $sessionId, ?array $entity = null): array
+    {
+        $conditions = [
+            new FilterCondition('session_id', '=', $sessionId),
+            new FilterCondition('offer', '=', 'pending'),
+            new FilterCondition('mode', '=', 'pairwise'),
+        ];
+        if ($entity !== null) {
+            $conditions[] = new FilterCondition('target_type', '=', $entity['type']);
+            $conditions[] = new FilterCondition('target_id', '=', $entity['id']);
+        }
+
+        $result = $this->checkRecords->getList(new ListQuery(
+            new FilterGroup('AND', $conditions),
+            ['id' => 'ASC'],
+            ListQuery::MAX_LIMIT,
+            0,
+            false,
+            null,
+        ));
+
+        $rows = [];
+        foreach ($result->rows() as $row) {
+            if (!is_array($row) || !is_int($row['process_id'] ?? null)) {
+                throw new GameInvalidException('Game check row is invalid');
+            }
+
+            $asked = null;
+            if (is_int($row['asked_base'] ?? null) && is_int($row['asked_size'] ?? null)) {
+                $asked = ['base' => $row['asked_base'], 'size' => $row['asked_size']];
+            }
+
+            $rows[] = [
+                'processId' => $row['process_id'],
+                'ruleCode' => is_string($row['rule_code'] ?? null) ? $row['rule_code'] : '',
+                'asked' => $asked,
+                'targetType' => is_string($row['target_type'] ?? null) ? $row['target_type'] : null,
+                'targetId' => is_int($row['target_id'] ?? null) ? $row['target_id'] : null,
+                'proposal' => is_array($row['proposal'] ?? null) ? $row['proposal'] : null,
+            ];
+        }
+
+        return $rows;
     }
 
     /**
@@ -107,7 +171,7 @@ final class GameCheckRepository
      * Пишет итог уже лежащей строки.
      *
      * @param int $processId Process.
-     * @param string $offer pending, accepted или declined.
+     * @param string $offer Статус pending, accepted, declined или cancelled.
      * @param array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int}|null $thrown Итог или null.
      *
      * @return void
@@ -128,6 +192,32 @@ final class GameCheckRepository
         }
 
         $this->updateByProcess($processId, $fields);
+    }
+
+    /**
+     * Пишет предложение.
+     *
+     * @param int $processId Process.
+     * @param array<string, mixed> $proposal Предложение.
+     *
+     * @return void
+     */
+    public function storeProposal(int $processId, array $proposal): void
+    {
+        $this->updateByProcess($processId, ['proposal' => $proposal]);
+    }
+
+    /**
+     * Пишет совместные броски.
+     *
+     * @param int $processId Process.
+     * @param array<string, mixed> $rolls Броски.
+     *
+     * @return void
+     */
+    public function storeRolls(int $processId, array $rolls): void
+    {
+        $this->updateByProcess($processId, ['rolls' => $rolls]);
     }
 
     /**

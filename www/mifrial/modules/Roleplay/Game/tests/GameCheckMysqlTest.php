@@ -9,6 +9,9 @@ use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Messages\Chat\Dto\MessageRecord;
+use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
+use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
@@ -67,6 +70,22 @@ final class GameCheckMysqlTest extends TestCase
         self::assertSame(['base' => 0, 'size' => 0], $solo['data']['difficulty']);
         self::assertSame(0, $solo['data']['rating']);
         self::assertNull($solo['data']['sheetVersion']);
+        self::assertSame('character:' . $characterId, $solo['data']['actorKey']);
+        self::assertArrayHasKey('faces', $solo['data']);
+        self::assertArrayHasKey('advantages', $solo['data']);
+        $messages = $this->allMessages($gameId);
+        self::assertCount(1, array_filter(
+            $messages,
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'совершает проверку'),
+        ));
+        self::assertCount(1, array_filter(
+            $messages,
+            static fn (MessageRecord $message): bool => $message->getAttachments() !== []
+                && array_filter(
+                    $message->getAttachments(),
+                    static fn (array $attachment): bool => ($attachment['type'] ?? null) === 'roll',
+                ) !== [],
+        ));
         self::assertSame($version, $this->characterFacade()->get($characterId)->getActualVersion());
         $again = $this->dispatch('game.declareCheck', [
             'gameId' => $gameId,
@@ -182,7 +201,7 @@ final class GameCheckMysqlTest extends TestCase
             ],
         ]);
         self::assertTrue($offer['success'], json_encode($offer));
-        self::assertSame('open', $offer['data']['status']);
+        self::assertSame('pending', $offer['data']['status']);
         self::assertNull($offer['data']['roll']);
         self::assertSame('pending', $this->checkOffer($offer['data']['processId']));
         $accepted = $this->dispatch('game.answerCheck', [
@@ -279,6 +298,107 @@ final class GameCheckMysqlTest extends TestCase
         self::assertSame(1, $this->countAll(GameSessionTable::class));
         self::assertSame('cancelled', $this->processStatusOf($fight['data']['processId']));
         self::assertSame('resolved', $this->processStatus());
+    }
+
+    /**
+     * Двустороннее предложение: правка, отмена и совместный бросок.
+     *
+     * @return void
+     */
+    public function testJointOfferReviseCancelAndRoll(): void
+    {
+        $world = $this->worldWithCheck();
+        $gameId = $this->addGame($world->getId());
+        $hero = $this->admit($world->getId(), $gameId, 'Hero');
+        $rival = $this->admit($world->getId(), $gameId, 'Rival');
+        $heroVersion = $this->characterFacade()->get($hero)->getActualVersion();
+        $rivalVersion = $this->characterFacade()->get($rival)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE, GamePermissionKeys::EDIT_ALL]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+
+        $offer = $this->dispatch('game.proposeCheck', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'joint-offer',
+            'expectedSheetVersion' => $heroVersion,
+            'proposal' => [
+                'checkCode' => 'sneak',
+                'initiator' => ['type' => 'character', 'id' => $hero],
+                'opponent' => ['type' => 'character', 'id' => $rival],
+                'initiatorFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+                'opponentFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+            ],
+        ]);
+        self::assertTrue($offer['success'], json_encode($offer));
+        self::assertSame('pending', $offer['data']['status']);
+        self::assertSame('opponent', $offer['data']['waitingOn']);
+        $processId = $offer['data']['processId'];
+        $all = $this->dispatch('game.getCheckOffers', ['gameId' => $gameId]);
+        self::assertTrue($all['success'], json_encode($all));
+        self::assertCount(1, $all['data']);
+        $offers = $this->dispatch('game.getCheckOffers', [
+            'gameId' => $gameId,
+            'entity' => ['type' => 'character', 'id' => $rival],
+        ]);
+        self::assertTrue($offers['success'], json_encode($offers));
+        self::assertCount(1, $offers['data']);
+        self::assertSame($processId, $offers['data'][0]['id']);
+
+        $revised = $this->dispatch('game.reviseCheck', [
+            'gameId' => $gameId,
+            'processId' => $processId,
+            'idempotencyKey' => 'joint-revise',
+            'expectedSheetVersion' => $rivalVersion,
+            'actor' => ['type' => 'character', 'id' => $rival],
+            'proposal' => [
+                'opponentCharacteristic' => null,
+                'opponentAdv' => 1,
+                'opponentFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+            ],
+        ]);
+        self::assertTrue($revised['success'], json_encode($revised));
+        self::assertSame('initiator', $revised['data']['waitingOn']);
+        self::assertSame(1, $revised['data']['proposal']['opponentAdv']);
+
+        $cancelled = $this->dispatch('game.cancelCheck', [
+            'gameId' => $gameId,
+            'processId' => $processId,
+            'idempotencyKey' => 'joint-cancel',
+            'proposal' => ['actor' => ['type' => 'character', 'id' => $hero]],
+        ]);
+        self::assertTrue($cancelled['success'], json_encode($cancelled));
+        self::assertSame('cancelled', $cancelled['data']['status']);
+        self::assertCount(0, $this->dispatch('game.getCheckOffers', ['gameId' => $gameId])['data']);
+
+        $second = $this->dispatch('game.proposeCheck', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'joint-second',
+            'expectedSheetVersion' => $heroVersion,
+            'proposal' => [
+                'checkCode' => 'sneak',
+                'initiator' => ['type' => 'character', 'id' => $hero],
+                'opponent' => ['type' => 'character', 'id' => $rival],
+                'initiatorFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+                'opponentFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+            ],
+        ]);
+        self::assertTrue($second['success'], json_encode($second));
+        $accepted = $this->dispatch('game.answerCheck', [
+            'gameId' => $gameId,
+            'processId' => $second['data']['processId'],
+            'idempotencyKey' => 'joint-accept',
+            'expectedSheetVersion' => $rivalVersion,
+            'answer' => [
+                'decision' => 'accept',
+                'actor' => ['type' => 'character', 'id' => $rival],
+            ],
+        ]);
+        self::assertTrue($accepted['success'], json_encode($accepted));
+        self::assertSame('resolved', $accepted['data']['status']);
+        self::assertArrayHasKey('initiator', $accepted['data']['rolls']);
+        self::assertArrayHasKey('opponent', $accepted['data']['rolls']);
+        self::assertArrayHasKey('faces', $accepted['data']['rolls']['initiator']);
+        self::assertArrayHasKey('faces', $accepted['data']['rolls']['opponent']);
+        self::assertCount(0, $this->dispatch('game.getCheckOffers', ['gameId' => $gameId])['data']);
     }
 
     /**
@@ -569,5 +689,33 @@ final class GameCheckMysqlTest extends TestCase
         self::assertIsString($offer);
 
         return $offer;
+    }
+
+    /**
+     * Чат игры.
+     *
+     * @return IChats Сервис.
+     */
+    private function chats(): IChats
+    {
+        $chats = $this->gameApplication()->getLocator()->get(IChatContainer::class)->get(IChats::class);
+        self::assertInstanceOf(IChats::class, $chats);
+
+        return $chats;
+    }
+
+    /**
+     * Все сообщения игрового чата в хронологическом порядке.
+     *
+     * @param int $gameId Игра.
+     *
+     * @return array<int, MessageRecord> Сообщения.
+     */
+    private function allMessages(int $gameId): array
+    {
+        $chatId = $this->gameFacade()->get($gameId)->getGameChatId();
+        self::assertIsInt($chatId);
+
+        return array_reverse($this->chats()->findMessagePage($chatId, $this->ownerUserId, 100, 0)->getItems());
     }
 }

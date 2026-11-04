@@ -181,6 +181,116 @@ final class GameCheckRoll
     }
 
     /**
+     * Двусторонняя проверка: у каждой стороны свой пул, сложность — успехи другой.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $ruleCode Код проверки.
+     * @param array<string, mixed> $initiatorSheet Лист инициатора.
+     * @param GameCheckThrowOverride|null $initiatorOverride Смена инициатора.
+     * @param array<string, mixed> $opponentSheet Лист цели.
+     * @param GameCheckThrowOverride|null $opponentOverride Смена цели.
+     *
+     * @return array{initiator: array<string, mixed>, opponent: array<string, mixed>} Итоги.
+     *
+     * @throws GameInvalidException Если карточка, режим или пул чужие.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function throwJointCheck(
+        int $spaceId,
+        int $rulesRevision,
+        string $ruleCode,
+        array $initiatorSheet,
+        ?GameCheckThrowOverride $initiatorOverride,
+        array $opponentSheet,
+        ?GameCheckThrowOverride $opponentOverride,
+    ): array {
+        $slice = $this->slices->get($spaceId, $rulesRevision);
+        $check = $this->checkOf($slice, $ruleCode);
+        $this->assertFlow($check, 'joint');
+        $chain = $this->chain($slice, $check, $ruleCode, false);
+        $bindings = $this->bindings($slice);
+        $payload = $this->rollPayload($bindings);
+        $efficiency = $this->efficiency($check);
+        $initiator = $this->rolledSide(
+            $slice,
+            $check,
+            $chain,
+            $bindings,
+            $payload,
+            $efficiency,
+            $initiatorSheet,
+            $initiatorOverride,
+        );
+        $opponent = $this->rolledSide(
+            $slice,
+            $check,
+            $chain,
+            $bindings,
+            $payload,
+            $efficiency,
+            $opponentSheet,
+            $opponentOverride,
+        );
+        $label = $slice->findLive($ruleCode)?->getName() ?? '';
+
+        return [
+            'initiator' => $this->scored(
+                ['base' => $opponent->getTotalSuccesses(), 'size' => $opponent->getSpec()->getDieSize()],
+                $initiator,
+            ) + ['label' => $label],
+            'opponent' => $this->scored(
+                ['base' => $initiator->getTotalSuccesses(), 'size' => $initiator->getSpec()->getDieSize()],
+                $opponent,
+            ) + ['label' => $label],
+        ];
+    }
+
+    /**
+     * Бросок одной стороны совместной проверки.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CheckSpec $check Карточка.
+     * @param array{characteristic: string|null, attached: array<int, string>} $chain Цепочка.
+     * @param array<int, MechanicBinding> $bindings Механики.
+     * @param RollMechanicPayload $payload Пул по умолчанию.
+     * @param DimensionalNumber $efficiency Эффективность.
+     * @param array<string, mixed> $sheet Лист.
+     * @param GameCheckThrowOverride|null $override Смена пула.
+     *
+     * @return RollResult Бросок.
+     *
+     * @throws GameInvalidException Если пул чужой.
+     */
+    private function rolledSide(
+        CharacterRuleSlice $slice,
+        CheckSpec $check,
+        array $chain,
+        array $bindings,
+        RollMechanicPayload $payload,
+        DimensionalNumber $efficiency,
+        array $sheet,
+        ?GameCheckThrowOverride $override,
+    ): RollResult {
+        $pool = $this->poolOf($chain['characteristic'], $sheet, $payload, $override);
+
+        return $this->rolls->roll(
+            new RollSpec(
+                $pool['diceCount'],
+                $pool['dieFaces'],
+                $override?->efficiency ?? $efficiency->getBase(),
+                $pool['size'],
+                $this->advantagesOf($override, $slice, $sheet, $chain['characteristic'], $check->isHitCheck()),
+                $override?->efficiency !== null || $this->hasExplicitEfficiency($check),
+            ),
+            static fn (): float => mt_rand(0, mt_getrandmax() - 1) / mt_getrandmax(),
+            $bindings,
+            $this->mechanics->getList(),
+            new ResolveActiveOptions(null, $chain['attached']),
+        );
+    }
+
+    /**
      * Код единственной живой проверки попадания.
      *
      * @param int $spaceId Мир.
@@ -570,10 +680,10 @@ final class GameCheckRoll
             new RollSpec(
                 $pool['diceCount'],
                 $pool['dieFaces'],
-                $efficiency->getBase(),
+                $override?->efficiency ?? $efficiency->getBase(),
                 $pool['size'],
                 $this->advantagesOf($override, $slice, $sheet, $chain['characteristic'], $check->isHitCheck()),
-                $this->hasExplicitEfficiency($check),
+                $override?->efficiency !== null || $this->hasExplicitEfficiency($check),
             ),
             static fn (): float => mt_rand(0, mt_getrandmax() - 1) / mt_getrandmax(),
             $bindings,

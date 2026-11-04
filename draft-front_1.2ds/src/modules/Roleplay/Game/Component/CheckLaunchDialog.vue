@@ -38,6 +38,10 @@ import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Insta
 import { knowledgeCheckLaunchService } from '@/modules/Roleplay/Game/Service/Instance/knowledgeCheckLaunchService';
 import KnowledgeCheckLaunchFields from '@/modules/Roleplay/Game/Component/KnowledgeCheckLaunchFields.vue';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { gamePhpCommandService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCommandService';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { checkLaunchService } from '@/modules/Roleplay/Rule/init';
@@ -318,7 +322,7 @@ function proposal(): CheckOfferProposal {
           efficiency: opponentFreeEfficiency.value,
         }
       : null,
-    initiatorSpendConcentration: spendConcentration.value,
+    initiatorSpendConcentration: gamePhpMode.isEnabled() ? 0 : spendConcentration.value,
   };
 }
 
@@ -624,8 +628,48 @@ async function applyConcentrationSpend(
   return spent;
 }
 
+async function sheetVersionOf(key: CombatEntityKey): Promise<number> {
+  const known = gamePhpBattleContext.sheetVersionByKey[key];
+  if (typeof known === 'number' && known > 0) return known;
+  const party = gamePhpCommandService.woundPartyOf(key);
+  const sheets = await getGameApi().getSheets({ gameId: props.gameId, keys: [{ type: party.kind, id: party.id }] });
+  const sheet = sheets.sheets.find((row) => row.type === party.kind && row.id === party.id);
+  if (!sheet) throw new Error('Версия листа неизвестна');
+  gamePhpBattleContext.rememberSheet(key, sheet.actualVersion);
+
+  return sheet.actualVersion;
+}
+
+async function runSoloReal(): Promise<void> {
+  const key = initiatorKey.value;
+  if (!key) throw new Error('Выберите, кто бросает');
+  const party = gamePhpCommandService.woundPartyOf(key);
+  const check: {
+    participant: { type: 'character' | 'npc'; id: number };
+    ruleCode: string;
+    askedDifficulty?: DimensionalNumberValue;
+  } = {
+    participant: { type: party.kind, id: party.id },
+    ruleCode: checkCode.value,
+  };
+  if (askDifficulty.value) check.askedDifficulty = soloDifficulty();
+  await getGameApi().declareCheck({
+    gameId: props.gameId,
+    battleId: gamePhpBattleContext.battleId,
+    idempotencyKey: createRandomId(),
+    expectedSheetVersion: await sheetVersionOf(key),
+    check,
+  });
+  spendConcentration.value = 0;
+}
+
 async function runSolo(): Promise<void> {
   if (!initiatorKey.value) throw new Error('Выберите, кто бросает');
+  if (gamePhpMode.isEnabled()) {
+    await runSoloReal();
+
+    return;
+  }
   const spent = await applyConcentrationSpend(
     initiatorKey.value,
     initiatorUseFree.value ? null : initiatorCharacteristic.value,
@@ -686,14 +730,19 @@ async function sendOffer(): Promise<void> {
 async function revise(): Promise<void> {
   const current = offer.value;
   if (!current || !speakerEntity.value) throw new Error('Нет оферты');
-  offer.value = await getGameApi().reviseCheckOffer(current.id, speakerEntity.value, proposal());
+  offer.value = await getGameApi().reviseCheckOffer(current.id, speakerEntity.value, proposal(), props.gameId);
 }
 
 async function accept(): Promise<void> {
   const current = offer.value;
   if (!current) throw new Error('Нет оферты');
   const actor = speakerEntity.value ?? current.opponent;
-  const accepted = await getGameApi().acceptCheckOffer(current.id, actor);
+  const accepted = await getGameApi().acceptCheckOffer(current.id, actor, undefined, props.gameId);
+  if (gamePhpMode.isEnabled()) {
+    offer.value = accepted;
+
+    return;
+  }
   const initiatorSpent = await applyConcentrationSpend(
     accepted.initiator,
     accepted.proposal.initiatorCharacteristic,
@@ -740,7 +789,7 @@ async function cancel(): Promise<void> {
   const current = offer.value;
   if (!current) return;
   const actor = speakerEntity.value ?? current.initiator;
-  await getGameApi().cancelCheckOffer(current.id, actor);
+  await getGameApi().cancelCheckOffer(current.id, actor, props.gameId);
 }
 
 async function submit(): Promise<void> {
@@ -948,6 +997,7 @@ const statusHint = computed(() => {
             />
           </div>
           <ConcentrationTokenOption
+            v-if="!gamePhpMode.isEnabled()"
             v-model="spendConcentration"
             :version="modelOf(initiatorKey)?.effectiveVersion ?? null"
             :overlay="overlayOf(initiatorKey)"

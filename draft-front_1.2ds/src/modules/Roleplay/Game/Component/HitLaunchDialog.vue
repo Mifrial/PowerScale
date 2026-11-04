@@ -4560,7 +4560,7 @@ const canSubmit = computed(() => {
             hide-details
           />
           <ConcentrationTokenOption
-            v-if="isCompose && !isPreparationAction"
+            v-if="isCompose && !isPreparationAction && !gamePhpMode.isEnabled()"
             v-model="spendAttackerConcentration"
             :version="versionOf(resolvedAttackerKey)"
             :overlay="overlays.find((item) => item.entityKey === resolvedAttackerKey) ?? null"

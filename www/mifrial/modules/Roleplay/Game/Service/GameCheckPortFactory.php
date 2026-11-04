@@ -10,6 +10,8 @@ use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
+use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
+use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
@@ -22,6 +24,7 @@ use Mifrial\Roleplay\Game\Interface\Service\IGameProcesses;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
+use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameRepository;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
@@ -44,6 +47,7 @@ final class GameCheckPortFactory
     public function create(IServiceLocator $serviceLocator): IGameChecks
     {
         $gateway = $this->gateway($serviceLocator);
+        $characters = $this->port($serviceLocator, ICharacterContainer::class, ICharacters::class, 'ICharacters');
 
         return new GameChecks(
             $gateway,
@@ -57,11 +61,16 @@ final class GameCheckPortFactory
             $this->port($serviceLocator, ICharacterContainer::class, ICharacterActualMutations::class, 'ICharacterActualMutations'),
             new GameCheckRoll(
                 $this->port($serviceLocator, ICharacterContainer::class, ICharacterRuleSlices::class, 'ICharacterRuleSlices'),
-                $this->port($serviceLocator, ICharacterContainer::class, ICharacters::class, 'ICharacters'),
+                $characters,
                 $this->port($serviceLocator, IMechanicContainer::class, IMechanics::class, 'IMechanics'),
                 $this->port($serviceLocator, IMechanicContainer::class, IMechanicRolls::class, 'IMechanicRolls'),
                 $this->port($serviceLocator, ICharacterContainer::class, ICharacterFormulaContexts::class, 'ICharacterFormulaContexts'),
                 $this->port($serviceLocator, ICharacterContainer::class, ICharacterSheets::class, 'ICharacterSheets'),
+            ),
+            new GameCheckChat(
+                $this->chats($serviceLocator),
+                $characters,
+                new GameNpcRepository($gateway),
             ),
         );
     }
@@ -121,6 +130,25 @@ final class GameCheckPortFactory
         }
 
         return $games;
+    }
+
+    /**
+     * Чат игры.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return IChats Сервис чата.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function chats(IServiceLocator $serviceLocator): IChats
+    {
+        $chats = $serviceLocator->get(IChatContainer::class)->get(IChats::class);
+        if (!$chats instanceof IChats) {
+            throw new KernelException('PORT_TYPE', 'Game check requires IChats');
+        }
+
+        return $chats;
     }
 
     /**
