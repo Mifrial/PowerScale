@@ -1,0 +1,21 @@
+parameters:
+    level: 5
+
+    paths:
+        - modules
+
+    # Кэш анализа; каталог уже в .gitignore (www/mifrial/var/cache/).
+    tmpDir: var/cache/phpstan
+
+    # Тесты вне гейта: симметрично phpcs.xml.dist и phpcs-quality.xml.dist.
+    excludePaths:
+        - modules/*/tests/*
+        - modules/*/*/tests/*
+
+    # Повторный вызов того же метода с теми же аргументами считается новым
+    # вызовом. Иначе PHPStan переносит сужение типа с первой проверки на второй
+    # вызов (например, findPending() !== null, затем повторный findPending()).
+    rememberPossiblyImpureFunctionValues: false
+
+    parallel:
+        maximumNumberOfProcesses: 4

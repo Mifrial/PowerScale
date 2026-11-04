@@ -9,6 +9,7 @@ declare(strict_types=1);
 $projectRoot = dirname(__DIR__, 2);
 $phpcsPath = $projectRoot . '/vendor/bin/phpcs';
 $phpCsFixerPath = $projectRoot . '/vendor/bin/php-cs-fixer';
+$phpstanPath = $projectRoot . '/vendor/bin/phpstan';
 
 $fail = static function (string $message): never {
     fwrite(STDERR, $message . PHP_EOL);
@@ -19,7 +20,7 @@ if (PHP_VERSION_ID < 80200 || PHP_VERSION_ID >= 90000) {
     $fail('PHP version ^8.2 is required.');
 }
 
-foreach ([$phpcsPath, $phpCsFixerPath] as $toolPath) {
+foreach ([$phpcsPath, $phpCsFixerPath, $phpstanPath] as $toolPath) {
     if (!is_file($toolPath) || !is_executable($toolPath)) {
         $fail(
             'Project PHP tools are not installed. '

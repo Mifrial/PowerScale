@@ -14,6 +14,7 @@
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.95",
+    "phpstan/phpstan": "^2.3",
     "phpunit/phpunit": "^10.5",
     "slevomat/coding-standard": "^8.31",
     "squizlabs/php_codesniffer": "^4.0"
@@ -23,6 +24,7 @@
     "cs-check": "@php tools/phpcs/preflight.php && php-cs-fixer fix --dry-run --diff && phpcs",
     "cs-fix": "php-cs-fixer fix && phpcbf",
     "quality": "@php tools/phpcs/preflight.php && phpcs --standard=phpcs-quality.xml.dist",
+    "stan": "@php tools/phpcs/preflight.php && phpstan analyse --no-progress",
     "map": "@php tools/module-map/generate.php",
     "map-check": "@php tools/module-map/generate.php --check",
     "docs-map": "@php tools/doc-index/generate.php",

@@ -7,6 +7,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="${TEST_RUN_OUT:-/tmp/opencode/test-runs}"
 mkdir -p "$OUT"
 
+echo "== static =="
+cd "$ROOT/www/mifrial"
+/usr/bin/time -f 'static WALL %e s' php vendor/bin/phpstan analyse --no-progress \
+  --error-format=raw --memory-limit=1G > "$OUT/static.log" 2>&1
+static=$?
+
 echo "== backend =="
 cd "$ROOT/www/mifrial"
 /usr/bin/time -f 'backend WALL %e s' php vendor/bin/phpunit --no-coverage \
@@ -20,12 +26,14 @@ cd "$ROOT/draft-front_1.2ds"
   --outputFile.junit="$OUT/frontend-junit.xml" > "$OUT/frontend.log" 2>&1
 frontend=$?
 
+echo "--- static"
+tail -n 5 "$OUT/static.log" || true
 echo "--- backend"
 tail -n 3 "$OUT/backend.log" || true
 echo "--- frontend"
 grep -E 'Test Files|Tests  ' "$OUT/frontend.log" | tail -2 || true
-echo "backend=$backend frontend=$frontend (logs: $OUT)"
+echo "static=$static backend=$backend frontend=$frontend (logs: $OUT)"
 
-if [ "$backend" -ne 0 ] || [ "$frontend" -ne 0 ]; then
+if [ "$static" -ne 0 ] || [ "$backend" -ne 0 ] || [ "$frontend" -ne 0 ]; then
   exit 1
 fi
