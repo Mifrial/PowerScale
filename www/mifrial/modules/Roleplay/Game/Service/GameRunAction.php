@@ -317,6 +317,10 @@ final class GameRunAction
             $game->getRulesRevision(),
             $parsed['code'],
         );
+        if (($context['tokenSpend'] ?? null) !== null && ($wideCard || count($targetKeys) > 1)) {
+            throw new GameInvalidException('Game concentration supports a single strike');
+        }
+
         if (!$wideCard && count($targetKeys) === 1) {
             $base = $this->rules->actionBaseOf(
                 $game->getSpaceId(),
@@ -655,7 +659,6 @@ final class GameRunAction
             'profileType' => $first['profileType'],
             'profileIndex' => $first['profileIndex'],
             'chosenAmounts' => $parsed['context']['chosenAmounts'],
-            'tokenSpend' => $parsed['context']['tokenSpend'] ?? null,
         ];
         if ($first['ammunitionInventoryId'] !== null) {
             $attack['ammunitionInventoryId'] = $first['ammunitionInventoryId'];
