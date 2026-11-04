@@ -171,7 +171,7 @@ type AbilityCost =
 
 `MagicPathSpec` содержит `check_code`, `study_cost` и `includes_path_codes` (одностороннее покрытие чужого пути: шаман включает псионика). `has_ability` в контексте домена пути засчитывает экземпляр на самом пути или на включённом. `spell_upgrade` на skill: `action_point_delta`, optional `check_advantage` (только если модификатор выбран при касте, не грант `check_advantage`), optional `chain`. Без `parent_ability_code` это модификатор любого каста пути (`domain_ref: 'magic-path'`).
 
-`permanent` у grant по умолчанию true: эффект действует на последующих уровнях; false ограничивает эффект уровнем получения. `source_code` у модификаторов ссылается на правило типа `source`.
+`permanent` у grant указывается явно у каждого гранта: true — эффект действует на последующих уровнях; false — только на уровне получения. Полагаться на отсутствие поля нельзя: контент обязан задавать `permanent` однозначно. `source_code` у модификаторов ссылается на правило типа `source`.
 
 `Formula` дополнительно поддерживает `parameter`, `parameter_floor_div`, `characteristic_size`, `characteristic_size_gap` и `actionCharacteristic`. Последний строит силу strike/throw/shoot из характеристики действия и массива action modifiers; он не является прямым уроном оружия.
 
