@@ -12,5 +12,6 @@ export interface User {
   bypass: boolean;
   deactivatedUntil?: number | null;
   deactivateReason?: string | null;
+  avatar?: string | null;
   permissions: string[];
 }

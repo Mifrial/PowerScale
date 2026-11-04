@@ -139,6 +139,16 @@ export const useUserStore = defineStore('users', () => {
     }
   }
 
+  async function setAvatar(filePublicId: string | null, signal?: AbortSignal): Promise<User> {
+    const user = await getUserApi().setAvatar(filePublicId, signal);
+    const idx = users.value.findIndex((u) => u.id === user.id);
+    if (idx !== -1) users.value[idx] = user;
+    if (currentUser.value?.id === user.id) currentUser.value = user;
+    if (profileUser.value?.id === user.id) profileUser.value = user;
+
+    return user;
+  }
+
   return {
     currentUser,
     profileUser,
@@ -160,5 +170,6 @@ export const useUserStore = defineStore('users', () => {
     createUser,
     updateUser,
     deactivateUser,
+    setAvatar,
   };
 });

@@ -5,7 +5,7 @@ import { useUserStore } from '@/modules/Core/User/Store/users';
 import { isAdmin, useCurrentUser } from '@/modules/Core/User/init';
 import type { User } from '@/modules/Core/User/Dto/User';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
-import { initials as userInitials } from '@/modules/Core/User/Utils/initials';
+import UserAvatarField from '@/modules/Core/User/Component/UserAvatarField.vue';
 import { displayName as userDisplayName } from '@/modules/Core/User/Utils/displayName';
 import { formatUnix } from '@/modules/Core/User/Utils/formatUnix';
 
@@ -22,12 +22,6 @@ const userData = ref<User | null>(null);
 const loadError = ref('');
 
 const canViewSensitive = computed(() => props.userId === viewerId.value || isAdmin(currentUser.value));
-
-const initials = computed(() => {
-  if (!userData.value) return '??';
-
-  return userInitials(userData.value.name, userData.value.surname);
-});
 
 const displayName = computed(() => {
   if (!userData.value) return '';
@@ -92,9 +86,7 @@ watch(
 
     <div v-if="userData" class="pa-6">
       <div class="text-center mb-6">
-        <v-avatar color="primary" size="80" class="mb-3">
-          <span class="text-h4 font-weight-medium text-white">{{ initials }}</span>
-        </v-avatar>
+        <UserAvatarField :user="userData" :size="80" class="mb-3" />
         <div class="text-h6 font-weight-medium">{{ displayName }}</div>
         <div class="text-caption text-medium-emphasis">@{{ userData.login }}</div>
       </div>

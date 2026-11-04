@@ -6,7 +6,7 @@ import { resolvePermissions } from '@/modules/Core/User/Mock/resolvePermissions'
 import { DEFAULT_PASSWORD_POLICY } from '@/modules/Core/Auth/Constant/defaultPasswordPolicy';
 import { abortableDelay } from '@/modules/Core/Engine/Mock/abortableDelay';
 
-type MockUser = Omit<User, 'permissions'> & { password: string };
+type MockUser = Omit<User, 'permissions' | 'avatar'> & { password: string };
 
 // Осознанное разделение: mockAuth содержит только тестовые учётные данные для авторизации.
 // Полные данные пользователей хранятся в Core/User/Mock/mockUsers.ts.
@@ -56,13 +56,13 @@ const mockUsers: MockUser[] = [
   },
 ];
 
-type SafeUser = Omit<MockUser, 'password'> & { permissions: string[] };
+type SafeUser = Omit<MockUser, 'password'> & { permissions: string[]; avatar: string | null };
 
 // Возвращает пользователя без пароля + permissions, мёрженные из групп (как отдал бы реальный бэк).
 function toSafeUser(user: MockUser): SafeUser {
   const { password: _, ...safeUser } = user;
 
-  return { ...safeUser, permissions: resolvePermissions(user.groups) };
+  return { ...safeUser, avatar: null, permissions: resolvePermissions(user.groups) };
 }
 
 // Мок «серверной сессии»: id вошедшего пользователя живёт в sessionStorage,

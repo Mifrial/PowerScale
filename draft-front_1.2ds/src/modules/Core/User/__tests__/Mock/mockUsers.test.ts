@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { mockDeactivateUser, mockFindPage, mockGetUser } from '@/modules/Core/User/Mock/mockUsers';
+import { mockDeactivateUser, mockFindPage, mockGetUser, mockSetUserAvatar } from '@/modules/Core/User/Mock/mockUsers';
+
+describe('mockSetUserAvatar', () => {
+  it('ставит и снимает аватар текущего пользователя мока', async () => {
+    const publicId = 'a'.repeat(32);
+    const withAvatar = await mockSetUserAvatar(publicId);
+    expect(withAvatar.avatar).toBe(publicId);
+    expect((await mockGetUser(1)).avatar).toBe(publicId);
+
+    const cleared = await mockSetUserAvatar(null);
+    expect(cleared.avatar).toBeNull();
+    expect((await mockGetUser(1)).avatar).toBeNull();
+  });
+});
 
 describe('mockDeactivateUser', () => {
   it('сохраняет причину и дату на пользователе', async () => {

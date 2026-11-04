@@ -11,7 +11,7 @@ import ProfileInfoCard from '@/modules/Core/User/Component/ProfileInfoCard.vue';
 import ProfileAuthCard from '@/modules/Core/User/Component/ProfileAuthCard.vue';
 import ProfileGroupsCard from '@/modules/Core/User/Component/ProfileGroupsCard.vue';
 import DeactivateUserDialog from '@/modules/Core/User/Component/DeactivateUserDialog.vue';
-import { initials as userInitials } from '@/modules/Core/User/Utils/initials';
+import UserAvatarField from '@/modules/Core/User/Component/UserAvatarField.vue';
 import { displayName as userDisplayName } from '@/modules/Core/User/Utils/displayName';
 
 const profileSections = getProfileSections();
@@ -29,12 +29,6 @@ const editing = ref(false);
 const saving = ref(false);
 const snackbar = ref({ show: false, text: '', color: '' });
 const editForm = ref({ name: '', surname: '', nickname: '', email: '' });
-
-const initials = computed(() => {
-  if (!user.value) return '??';
-
-  return userInitials(user.value.name, user.value.surname);
-});
 
 const displayName = computed(() => {
   if (!user.value) return '';
@@ -59,6 +53,12 @@ function startEdit() {
 
 function cancelEdit() {
   editing.value = false;
+}
+
+function onAvatarUpdated(updated: User): void {
+  user.value = updated;
+  store.setProfileUser(updated);
+  snackbar.value = { show: true, text: 'Аватар обновлён', color: 'success' };
 }
 
 async function save() {
@@ -148,9 +148,7 @@ onMounted(loadUser);
 
       <div class="d-flex ga-6">
         <div class="profile-side text-center">
-          <v-avatar color="primary" size="120" class="mb-2">
-            <span class="text-h3 font-weight-medium text-white">{{ initials }}</span>
-          </v-avatar>
+          <UserAvatarField :user="user" :can-edit="isOwnProfile" class="mb-3" @updated="onAvatarUpdated" />
           <div class="text-h6 font-weight-medium text-center">{{ displayName }}</div>
           <div class="text-caption text-medium-emphasis text-center">@{{ user.login }}</div>
         </div>

@@ -121,4 +121,23 @@ describe('users store', () => {
 
     expect(calls).toBe(0);
   });
+
+  it('updates currentUser and the cached list after setAvatar', async () => {
+    registerUserApi(mockUserApi);
+    const store = useUserStore();
+    store.setCurrent(mockUsers[0]);
+    store.users.push(mockUsers[0]);
+    const publicId = 'a'.repeat(32);
+
+    const updated = await store.setAvatar(publicId);
+
+    expect(updated.avatar).toBe(publicId);
+    expect(store.currentUser?.avatar).toBe(publicId);
+    expect(store.users[0].avatar).toBe(publicId);
+
+    const cleared = await store.setAvatar(null);
+
+    expect(cleared.avatar).toBeNull();
+    expect(store.currentUser?.avatar).toBeNull();
+  });
 });

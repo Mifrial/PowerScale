@@ -48,4 +48,11 @@ export class UserApi implements IUserApi {
   async deactivateUser(id: number, reason?: string, deactivatedUntil?: string, signal?: AbortSignal): Promise<void> {
     await this.engine.runAction('user.deactivate', { id, reason, deactivatedUntil }, signal);
   }
+
+  async setAvatar(filePublicId: string | null, signal?: AbortSignal): Promise<User> {
+    const res = await this.engine.runAction<User>('user.setAvatar', { filePublicId }, signal);
+    if (!res.data) throw new Error('Failed to set avatar');
+
+    return res.data;
+  }
 }

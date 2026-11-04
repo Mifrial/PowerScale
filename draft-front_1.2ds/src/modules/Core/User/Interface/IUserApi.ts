@@ -10,5 +10,6 @@ export interface IUserApi {
   getUsersByIds(ids: number[], signal?: AbortSignal): Promise<User[]>;
   createUser(data: CreateUserData, signal?: AbortSignal): Promise<User>;
   updateUser(id: number, data: UpdateUserData, signal?: AbortSignal): Promise<User>;
+  setAvatar(filePublicId: string | null, signal?: AbortSignal): Promise<User>;
   deactivateUser(id: number, reason?: string, deactivatedUntil?: string, signal?: AbortSignal): Promise<void>;
 }

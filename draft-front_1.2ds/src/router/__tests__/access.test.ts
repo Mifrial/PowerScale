@@ -32,6 +32,7 @@ const user = (id: number, permissions: string[], hasBypass = false): User => ({
   name: `U${id}`,
   login: `u${id}`,
   email: `u${id}@t`,
+  avatar: null,
   groups: [],
   registered: 0,
   active: true,

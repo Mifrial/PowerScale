@@ -16,6 +16,7 @@ const user = (permissions: string[], hasBypass = false): User => ({
   name: 'U',
   login: 'u',
   email: 'u@t',
+  avatar: null,
   groups: [],
   registered: 0,
   active: true,

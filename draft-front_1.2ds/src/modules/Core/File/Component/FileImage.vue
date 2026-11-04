@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import type { CSSProperties } from 'vue';
 import { fileImageSource } from '@/modules/Core/File/Service/FileImageSource';
 
 const props = withDefaults(
@@ -9,8 +10,9 @@ const props = withDefaults(
     archived?: boolean;
     width?: string | number;
     height?: string | number;
+    cover?: boolean;
   }>(),
-  { alt: 'Файл', archived: false, width: undefined, height: undefined },
+  { alt: 'Файл', archived: false, width: undefined, height: undefined, cover: false },
 );
 
 const loading = ref(true);
@@ -22,9 +24,10 @@ const src = computed(() => {
   return fileImageSource(props.publicId, props.archived);
 });
 
-const imageStyle = computed(() => ({
+const imageStyle = computed<CSSProperties>(() => ({
   width: typeof props.width === 'number' ? `${props.width}px` : props.width,
   height: typeof props.height === 'number' ? `${props.height}px` : props.height,
+  objectFit: props.cover ? 'cover' : undefined,
 }));
 
 watch(

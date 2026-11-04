@@ -11,7 +11,7 @@ function utc(year: number, month: number, day: number, hour = 0, minute = 0): nu
   return Math.floor(Date.UTC(year, month - 1, day, hour, minute) / 1000);
 }
 
-const catalog: Omit<User, 'permissions'>[] = [
+const catalog: Omit<User, 'permissions' | 'avatar'>[] = [
   {
     id: 1,
     name: 'Иван',
@@ -139,6 +139,7 @@ const catalog: Omit<User, 'permissions'>[] = [
 
 export const users: User[] = catalog.map((user) => ({
   ...user,
+  avatar: null,
   permissions: resolvePermissions(user.groups),
 }));
 
@@ -192,6 +193,7 @@ export async function mockCreateUser(data: CreateUserData, signal?: AbortSignal)
     registered: Math.floor(Date.now() / 1000),
     active: true,
     bypass: false,
+    avatar: null,
     permissions: resolvePermissions(data.groups),
     surname: data.surname,
     nickname: data.nickname,
@@ -222,4 +224,16 @@ export async function mockDeactivateUser(
   u.active = false;
   u.deactivateReason = reason ?? null;
   u.deactivatedUntil = deactivatedUntil ? Math.floor(Date.parse(`${deactivatedUntil}T00:00:00Z`) / 1000) : null;
+}
+
+/** Актор мока: сервер ставит аватар текущему пользователю, мок повторяет это для id 1. */
+const mockActorId = 1;
+
+export async function mockSetUserAvatar(filePublicId: string | null, signal?: AbortSignal): Promise<User> {
+  await abortableDelay(150, signal);
+  const u = users.find((x) => x.id === mockActorId);
+  if (!u) throw new Error('User not found');
+  u.avatar = filePublicId;
+
+  return toHttpUser(u);
 }

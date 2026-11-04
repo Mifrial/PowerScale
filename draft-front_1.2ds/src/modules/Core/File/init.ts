@@ -11,6 +11,9 @@ export function registerFileApi(api: IFileApi): void {
   serviceLocator.set('Core.File.Service.FileApi', api);
 }
 
+export { validateFileSelection } from '@/modules/Core/File/Service/ValidateFileSelection';
+export type { FileSelectionLimits } from '@/modules/Core/File/Service/ValidateFileSelection';
+
 export function getFileApi(): IFileApi {
   return serviceLocator.get('Core.File.Service.FileApi');
 }
