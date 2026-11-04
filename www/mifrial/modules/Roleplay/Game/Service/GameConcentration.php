@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceStorage;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
@@ -98,8 +99,8 @@ final class GameConcentration
     {
         $peak = 0;
         foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->getSpec();
-            if (!$spec instanceof AbilityBase || !$spec->isPeakConcentration()) {
+            $base = $this->abilityBaseOf($rule->getSpec());
+            if ($base === null || !$base->isPeakConcentration()) {
                 continue;
             }
 
@@ -154,11 +155,8 @@ final class GameConcentration
         }
 
         $charSpec = $characteristic === null ? null : $this->specOf($slice, $characteristic);
-        if ($charSpec instanceof CharacteristicSpec && $charSpec->isConcentrationToken()) {
-            return true;
-        }
 
-        return false;
+        return $charSpec instanceof CharacteristicSpec && $charSpec->isConcentrationToken();
     }
 
     /**
@@ -234,19 +232,32 @@ final class GameConcentration
     private function hasFlag(CharacterRuleSlice $slice, string $flag): bool
     {
         foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->getSpec();
-            if (!$spec instanceof AbilityBase) {
+            $base = $this->abilityBaseOf($rule->getSpec());
+            if ($base === null) {
                 continue;
             }
 
-            if ($flag === 'willFocus' && $spec->isWillFocus()) {
+            if ($flag === 'willFocus' && $base->isWillFocus()) {
                 return true;
             }
-            if ($flag === 'longTension' && $spec->isLongTension()) {
+
+            if ($flag === 'longTension' && $base->isLongTension()) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Общие поля способности, если спека их несёт.
+     *
+     * @param mixed $spec Спека правила.
+     *
+     * @return AbilityBase|null База или null.
+     */
+    private function abilityBaseOf(mixed $spec): ?AbilityBase
+    {
+        return $spec instanceof AbilityWithBase ? $spec->getBase() : null;
     }
 }

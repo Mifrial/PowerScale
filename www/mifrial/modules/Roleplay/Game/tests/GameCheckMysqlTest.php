@@ -507,6 +507,40 @@ final class GameCheckMysqlTest extends TestCase
     }
 
     /**
+     * Предельная концентрация 1 поднимает максимум траты до двух жетонов.
+     *
+     * @return void
+     */
+    public function testPeakConcentrationAllowsTwoTokens(): void
+    {
+        $world = $this->worldWithCheck(true);
+        $gameId = $this->addGame($world->getId());
+        $characterId = $this->admit($world->getId(), $gameId, 'Hero', [
+            'abilityLevels' => ['peak' => 1],
+            'resources' => [['ruleCode' => 'concentration', 'current' => 3]],
+        ], [['ruleCode' => 'peak', 'level' => 1]]);
+        $version = $this->characterFacade()->get($characterId)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE, GamePermissionKeys::EDIT_ALL]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $check = $this->dispatch('game.declareCheck', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'peak-concentration',
+            'expectedSheetVersion' => $version,
+            'check' => [
+                'participant' => ['type' => 'character', 'id' => $characterId],
+                'ruleCode' => 'notice',
+                'concentration' => 2,
+            ],
+        ]);
+        self::assertTrue($check['success'], json_encode($check));
+        self::assertContains(
+            ['source_code' => 'concentration', 'delta' => 2],
+            $check['data']['advantages'] ?? [],
+        );
+        self::assertSame(1, $this->resourceCurrent($characterId, 'concentration'));
+    }
+
+    /**
      * Совместная проверка тратит жетон своей стороны.
      *
      * @return void

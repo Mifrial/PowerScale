@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
-import { computed, onUnmounted, provide, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue';
 import { displayName, useCurrentUser, useUserCatalog } from '@/modules/Core/User/init';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { useChatStore } from '@/modules/Messages/Chat/init';
@@ -1620,7 +1620,19 @@ function pendingToResume(): CheckOffer | undefined {
   return mine.find((offer) => isHitOffer(offer)) ?? mine[0];
 }
 
+let pendingBusy = false;
+
 async function refreshPendingOffers(): Promise<void> {
+  if (pendingBusy) return;
+  pendingBusy = true;
+  try {
+    await refreshPendingOffersNow();
+  } finally {
+    pendingBusy = false;
+  }
+}
+
+async function refreshPendingOffersNow(): Promise<void> {
   const key = speakerEntityKey.value;
   const asGm = props.canEdit;
   if (!props.active || (key === null && !asGm)) {
@@ -1823,6 +1835,13 @@ async function onLaunchChargeCast(payload: { casterKey: CombatEntityKey; sustain
   spellOpen.value = true;
 }
 
+const PENDING_OFFERS_POLL_MS = 5000;
+
+function pollPendingOffers(): void {
+  if (document.visibilityState !== 'visible') return;
+  void refreshPendingOffers();
+}
+
 watch(
   () => [props.active, activeSpeakerKey.value, gameId.value] as const,
   ([active]) => {
@@ -1831,13 +1850,18 @@ watch(
       pendingPoll = null;
     }
     if (!active) return;
-    void refreshPendingOffers();
-    pendingPoll = setInterval(() => void refreshPendingOffers(), 2000);
+    pollPendingOffers();
+    pendingPoll = setInterval(pollPendingOffers, PENDING_OFFERS_POLL_MS);
   },
   { immediate: true },
 );
 
+onMounted(() => {
+  document.addEventListener('visibilitychange', pollPendingOffers);
+});
+
 onUnmounted(() => {
+  document.removeEventListener('visibilitychange', pollPendingOffers);
   disconnectRealtime();
   if (pendingPoll) clearInterval(pendingPoll);
 });

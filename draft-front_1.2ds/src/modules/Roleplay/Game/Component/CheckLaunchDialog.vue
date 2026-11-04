@@ -240,11 +240,19 @@ const knowledgeHintText = computed(() => {
   return `уровень ${hint.level} · нехватка ${hint.shortage} · сложность ${raised}${defense}`;
 });
 
+function actingKey(current: CheckOffer): CombatEntityKey | null {
+  if (speakerEntity.value !== null) return speakerEntity.value;
+  if (!props.canEdit) return null;
+
+  return current.waitingOn === 'opponent' ? current.opponent : current.initiator;
+}
+
 function actorRole(current: CheckOffer): 'initiator' | 'opponent' | null {
   if (speakerEntity.value === current.initiator) return 'initiator';
   if (speakerEntity.value === current.opponent) return 'opponent';
+  if (!props.canEdit) return null;
 
-  return props.canEdit ? 'initiator' : null;
+  return current.waitingOn === 'opponent' ? 'opponent' : 'initiator';
 }
 
 function overlayOf(key: CombatEntityKey | null): GameCombatOverlay | null {
@@ -765,14 +773,15 @@ async function sendOffer(): Promise<void> {
 
 async function revise(): Promise<void> {
   const current = offer.value;
-  if (!current || !speakerEntity.value) throw new Error('Нет оферты');
-  offer.value = await getGameApi().reviseCheckOffer(current.id, speakerEntity.value, proposal(), props.gameId);
+  const actor = current ? actingKey(current) : null;
+  if (!current || !actor) throw new Error('Нет оферты');
+  offer.value = await getGameApi().reviseCheckOffer(current.id, actor, proposal(), props.gameId);
 }
 
 async function accept(): Promise<void> {
   const current = offer.value;
   if (!current) throw new Error('Нет оферты');
-  const actor = speakerEntity.value ?? current.opponent;
+  const actor = actingKey(current) ?? current.opponent;
   const accepted = await getGameApi().acceptCheckOffer(current.id, actor, proposal(), props.gameId);
   if (gamePhpMode.isEnabled()) {
     offer.value = accepted;

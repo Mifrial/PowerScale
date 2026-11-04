@@ -42,7 +42,9 @@ Character: грант `kontsentratsiya`, `check_token`, `current` в листе.
 - трата жетона при объявлении соло-проверки, двусторонней проверки и удара;
 - допустимость проверки по спеке: `concentration_token` у Check и
   Characteristic с наследованием по `parent_check_code` (`GameConcentration`);
-- максимум траты `1 + уровень peak_concentration`;
+- максимум траты `1 + уровень peak_concentration`; флаги способностей
+  читаются из общих полей спеки (`AbilityWithBase::getBase()`), иначе
+  грант «Предельной концентрации» не поднимал потолок;
 - Сосредоточение воли (`will_focus`) и Длительное напряжение (`long_tension`);
 - условный refill в конце своего хода: `used`/`blocked` в JSON-поле
   `concentration_cycle` на `game_battle`, операция Character
