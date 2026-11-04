@@ -246,6 +246,7 @@ final class GameDelivery implements IGameDelivery
             && $source !== 'action'
             && $source !== 'manual_sheet'
             && $source !== 'battle'
+            && $source !== 'check'
         ) {
             return null;
         }

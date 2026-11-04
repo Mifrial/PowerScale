@@ -607,6 +607,7 @@ final class GameCheckRoll
             'advantages' => array_map(
                 static fn (RollAdvantage $advantage): array => [
                     'source_code' => $advantage->getSourceCode(),
+                    'source_label' => $advantage->getSourceLabel(),
                     'delta' => $advantage->getDelta(),
                 ],
                 $rolled->getSpec()->getAdvantages(),
@@ -765,7 +766,9 @@ final class GameCheckRoll
     ): array {
         $rows = [];
         if ($override !== null && $override->advantage !== null && $override->advantage !== 0) {
-            $rows[] = new RollAdvantage($override->source ?? 'roll', $override->advantage);
+            $source = $override->source ?? 'roll';
+            $label = $slice?->findLive($source)?->getName();
+            $rows[] = new RollAdvantage($source, $override->advantage, $label);
         }
 
         if ($slice !== null && is_array($sheet)) {

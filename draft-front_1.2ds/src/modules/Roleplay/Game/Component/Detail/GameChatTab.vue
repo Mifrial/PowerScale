@@ -874,6 +874,13 @@ function sheetsCoverRealtime(event: GameRealtimeEvent): boolean {
 async function applyRealtimeEvent(event: GameRealtimeEvent): Promise<boolean> {
   if (event.gameId !== gameId.value || event.cursor <= realtimeCursor) return true;
   if (event.source === 'check') {
+    const battleId = Number(event.battleId ?? gamePhpBattleContext.battleId);
+    if (Number.isInteger(battleId) && battleId > 0) {
+      gamePhpBattleContext.rememberBattle(battleId, gamePhpBattleContext.battleVersion);
+      applyBattleSheets(await getGameApi().getBattleSheets({ gameId: event.gameId, battleId }));
+      store.applyGameUpdate(await getGameApi().getGame(event.gameId));
+      battleRevision.value += 1;
+    }
     if (chatId.value !== null) {
       await chatStore.refreshLatest(chatId.value);
     }

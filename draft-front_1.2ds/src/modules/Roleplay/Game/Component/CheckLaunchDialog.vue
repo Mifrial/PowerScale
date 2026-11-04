@@ -868,10 +868,23 @@ async function submit(): Promise<void> {
       close();
     }
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Не удалось запустить проверку';
+    error.value = launchErrorMessage(e);
   } finally {
     busy.value = false;
   }
+}
+
+function launchErrorMessage(e: unknown): string {
+  const message = e instanceof Error ? e.message : '';
+
+  return (
+    {
+      'Game concentration amount is invalid': 'Недостаточно жетонов концентрации для такой траты',
+      'Game concentration is blocked': 'Жетоны концентрации уже тратились в этом цикле',
+      'Game concentration is not allowed': 'Эта проверка не может тратить жетоны концентрации',
+    }[message] ??
+    (message || 'Не удалось запустить проверку')
+  );
 }
 
 async function submitRevise(): Promise<void> {

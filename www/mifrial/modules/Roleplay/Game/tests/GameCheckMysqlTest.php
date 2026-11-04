@@ -565,7 +565,7 @@ final class GameCheckMysqlTest extends TestCase
         ]);
         self::assertTrue($check['success'], json_encode($check));
         self::assertContains(
-            ['source_code' => 'concentration', 'delta' => 1],
+            ['source_code' => 'concentration', 'source_label' => 'Concentration', 'delta' => 1],
             $check['data']['advantages'] ?? [],
         );
         $resources = $this->characterFacade()->get($characterId)->getSheet()['resources'] ?? [];
@@ -618,7 +618,7 @@ final class GameCheckMysqlTest extends TestCase
         ]);
         self::assertTrue($check['success'], json_encode($check));
         self::assertContains(
-            ['source_code' => 'concentration', 'delta' => 2],
+            ['source_code' => 'concentration', 'source_label' => 'Concentration', 'delta' => 2],
             $check['data']['advantages'] ?? [],
         );
         self::assertSame(1, $this->resourceCurrent($characterId, 'concentration'));
@@ -672,11 +672,85 @@ final class GameCheckMysqlTest extends TestCase
         ]);
         self::assertTrue($accepted['success'], json_encode($accepted));
         self::assertContains(
-            ['source_code' => 'concentration', 'delta' => 1],
+            ['source_code' => 'concentration', 'source_label' => 'Concentration', 'delta' => 1],
             $accepted['data']['rolls']['initiator']['advantages'] ?? [],
         );
         self::assertSame(1, $this->resourceCurrent($hero, 'concentration'));
         self::assertSame(2, $this->resourceCurrent($rival, 'concentration'));
+    }
+
+    /**
+     * Недопустимая трата жетонов отклоняется при объявлении, а не у соперника.
+     *
+     * @return void
+     */
+    public function testProposalRejectsInvalidConcentration(): void
+    {
+        $world = $this->worldWithCheck(true);
+        $gameId = $this->addGame($world->getId());
+        $hero = $this->admit($world->getId(), $gameId, 'Hero', [
+            'abilityLevels' => ['peak' => 1],
+            'resources' => [['ruleCode' => 'concentration', 'current' => 3]],
+        ], [['ruleCode' => 'peak', 'level' => 1]]);
+        $rival = $this->admit($world->getId(), $gameId, 'Rival', [
+            'resources' => [['ruleCode' => 'concentration', 'current' => 3]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE, GamePermissionKeys::EDIT_ALL]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'concentration-battle',
+            'participants' => [
+                ['type' => 'character', 'id' => $hero],
+                ['type' => 'character', 'id' => $rival],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        $offer = $this->dispatch('game.proposeCheck', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'concentration-first',
+            'expectedSheetVersion' => $this->characterFacade()->get($hero)->getActualVersion(),
+            'proposal' => [
+                'checkCode' => 'notice',
+                'initiator' => ['type' => 'character', 'id' => $hero],
+                'opponent' => ['type' => 'character', 'id' => $rival],
+                'initiatorFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+                'opponentFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+                'initiatorSpendConcentration' => 2,
+            ],
+        ]);
+        self::assertTrue($offer['success'], json_encode($offer));
+        $accepted = $this->dispatch('game.answerCheck', [
+            'gameId' => $gameId,
+            'processId' => $offer['data']['processId'],
+            'idempotencyKey' => 'concentration-first-accept',
+            'expectedSheetVersion' => $this->characterFacade()->get($rival)->getActualVersion(),
+            'answer' => [
+                'decision' => 'accept',
+                'actor' => ['type' => 'character', 'id' => $rival],
+            ],
+        ]);
+        self::assertTrue($accepted['success'], json_encode($accepted));
+        self::assertSame(1, $this->resourceCurrent($hero, 'concentration'));
+
+        $second = $this->dispatch('game.proposeCheck', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'concentration-second',
+            'expectedSheetVersion' => $this->characterFacade()->get($hero)->getActualVersion(),
+            'proposal' => [
+                'checkCode' => 'notice',
+                'initiator' => ['type' => 'character', 'id' => $hero],
+                'opponent' => ['type' => 'character', 'id' => $rival],
+                'initiatorFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+                'opponentFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+                'initiatorSpendConcentration' => 2,
+            ],
+        ]);
+        self::assertFalse($second['success'], json_encode($second));
+        self::assertSame('GAME_INVALID', $second['error']['code']);
+        self::assertSame('Game concentration amount is invalid', $second['error']['message']);
+        self::assertSame(1, $this->resourceCurrent($hero, 'concentration'));
     }
 
     /**
