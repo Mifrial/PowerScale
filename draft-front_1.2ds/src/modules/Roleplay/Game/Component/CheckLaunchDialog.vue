@@ -80,6 +80,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:open': [value: boolean];
   settled: [];
+  'offer-bound': [offerId: number | null];
 }>();
 
 const { keywords, fetchTags } = useKeywords();
@@ -241,18 +242,22 @@ const knowledgeHintText = computed(() => {
 });
 
 function actingKey(current: CheckOffer): CombatEntityKey | null {
+  if (props.canEdit) {
+    return current.waitingOn === 'opponent' ? current.opponent : current.initiator;
+  }
   if (speakerEntity.value !== null) return speakerEntity.value;
-  if (!props.canEdit) return null;
 
-  return current.waitingOn === 'opponent' ? current.opponent : current.initiator;
+  return null;
 }
 
 function actorRole(current: CheckOffer): 'initiator' | 'opponent' | null {
+  if (props.canEdit) {
+    return current.waitingOn === 'opponent' ? 'opponent' : 'initiator';
+  }
   if (speakerEntity.value === current.initiator) return 'initiator';
   if (speakerEntity.value === current.opponent) return 'opponent';
-  if (!props.canEdit) return null;
 
-  return current.waitingOn === 'opponent' ? 'opponent' : 'initiator';
+  return null;
 }
 
 function overlayOf(key: CombatEntityKey | null): GameCombatOverlay | null {
@@ -426,6 +431,7 @@ async function hydrateNew(generation: number): Promise<void> {
 
 async function hydrateOffer(current: CheckOffer, generation?: number): Promise<void> {
   offer.value = current;
+  emit('offer-bound', current.id);
   error.value = null;
   checkCode.value = current.checkCode;
   launchKind.value = 'pairwise';
@@ -769,6 +775,7 @@ async function sendOffer(): Promise<void> {
     opponent: opponentKey.value,
     proposal: proposal(),
   });
+  emit('offer-bound', offer.value.id);
 }
 
 async function revise(): Promise<void> {
@@ -776,6 +783,7 @@ async function revise(): Promise<void> {
   const actor = current ? actingKey(current) : null;
   if (!current || !actor) throw new Error('Нет оферты');
   offer.value = await getGameApi().reviseCheckOffer(current.id, actor, proposal(), props.gameId);
+  emit('offer-bound', offer.value.id);
 }
 
 async function accept(): Promise<void> {

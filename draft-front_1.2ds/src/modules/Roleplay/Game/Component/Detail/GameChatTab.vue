@@ -1561,6 +1561,8 @@ const processActionContext = ref<ProcessActionContext | null>(null);
 const attackAction = ref<AttackAction | null>(null);
 const pendingOffers = ref<CheckOffer[]>([]);
 const dismissedOfferIds = ref<Set<number>>(new Set());
+/** Оферта, привязанная к открытому окну проверки: закрываем, когда она перестала быть pending. */
+const boundCheckOfferId = ref<number | null>(null);
 let pendingPoll: ReturnType<typeof setInterval> | null = null;
 
 const speakerEntityKey = computed<CombatEntityKey | null>(() => {
@@ -1640,13 +1642,16 @@ async function refreshPendingOffersNow(): Promise<void> {
 
     return;
   }
+  let loaded = false;
   try {
     pendingOffers.value = asGm
       ? await getGameApi().getCheckOffersForGame(gameId.value)
       : await getGameApi().getCheckOffersForEntity(gameId.value, key as CombatEntityKey);
+    loaded = true;
   } catch {
     pendingOffers.value = [];
   }
+  if (loaded) closeResolvedDialogs();
   if (revisionRules.value.length === 0) return;
   const actionable = pendingOffers.value.filter((offer) => isActionableOffer(offer, key, asGm));
   const first =
@@ -1665,6 +1670,25 @@ async function refreshPendingOffersNow(): Promise<void> {
       checkOpen.value = true;
     }
   }
+}
+
+function closeResolvedDialogs(): void {
+  const ids = new Set(pendingOffers.value.map((offer) => offer.id));
+  if (checkOpen.value && boundCheckOfferId.value !== null && !ids.has(boundCheckOfferId.value)) {
+    boundCheckOfferId.value = null;
+    resumeOffer.value = null;
+    checkOpen.value = false;
+  }
+  if (hitOpen.value && hitResumeOffer.value && !ids.has(hitResumeOffer.value.id)) {
+    hitResumeOffer.value = null;
+    hitAttack.value = null;
+    hitAttackerKey.value = null;
+    hitOpen.value = false;
+  }
+}
+
+function onCheckOfferBound(offerId: number | null): void {
+  boundCheckOfferId.value = offerId;
 }
 
 function reopenOffer(offer: CheckOffer): void {
@@ -1696,6 +1720,7 @@ async function openCheckLaunch(): Promise<void> {
 
 function openNewCheck(): void {
   resumeOffer.value = null;
+  boundCheckOfferId.value = null;
   checkOpen.value = true;
 }
 
@@ -1722,6 +1747,7 @@ function onCheckClosed(open: boolean): void {
   if (open) return;
   if (resumeOffer.value) dismissedOfferIds.value = new Set([...dismissedOfferIds.value, resumeOffer.value.id]);
   resumeOffer.value = null;
+  boundCheckOfferId.value = null;
   checkOpen.value = false;
   void refreshPendingOffers();
 }
@@ -2048,6 +2074,7 @@ onUnmounted(() => {
       :runtime-projections="runtimeByKey"
       :ensure-runtime-projection="ensureRuntimeProjection"
       @update:open="onCheckClosed"
+      @offer-bound="onCheckOfferBound"
       @settled="refreshPendingOffers"
     />
 
