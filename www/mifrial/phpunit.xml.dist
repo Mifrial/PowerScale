@@ -32,6 +32,9 @@
         <testsuite name="file">
             <directory>modules/Core/File/tests</directory>
         </testsuite>
+        <testsuite name="image">
+            <directory>modules/Core/Image/tests</directory>
+        </testsuite>
         <testsuite name="cache">
             <directory>modules/Core/Cache/tests</directory>
         </testsuite>

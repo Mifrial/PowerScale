@@ -4,10 +4,12 @@
   "type": "project",
   "license": "proprietary",
   "require": {
-    "php": "^8.2",
+    "php": "^8.3",
     "ext-fileinfo": "*",
+    "ext-imagick": "*",
     "ext-mbstring": "*",
-    "illuminate/database": "^11.0"
+    "illuminate/database": "^11.0",
+    "intervention/image": "^4.4"
   },
   "suggest": {
     "ext-redis": "Core/Cache redis driver"
@@ -47,6 +49,7 @@
       "Mifrial\\Core\\Mail\\": "modules/Core/Mail/",
       "Mifrial\\Core\\Logger\\": "modules/Core/Logger/",
       "Mifrial\\Core\\File\\": "modules/Core/File/",
+      "Mifrial\\Core\\Image\\": "modules/Core/Image/",
       "Mifrial\\Core\\Cache\\": "modules/Core/Cache/",
       "Mifrial\\Messages\\Chat\\": "modules/Messages/Chat/",
       "Mifrial\\Versioning\\Space\\": "modules/Versioning/Space/",
@@ -67,6 +70,7 @@
       "/modules/Core/Mail/tests/",
       "/modules/Core/Logger/tests/",
       "/modules/Core/File/tests/",
+      "/modules/Core/Image/tests/",
       "/modules/Core/Cache/tests/",
       "/modules/Messages/Chat/tests/",
       "/modules/Versioning/Space/tests/",
