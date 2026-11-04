@@ -45,6 +45,36 @@ interface IGameStrikes
     ): array;
 
     /**
+     * Открывает несколько ударов одним выбором. Права как у declareStrike.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ game.edit_all.
+     * @param bool $viewAll Ключ game.view_all.
+     * @param int $battleId Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedBattleVersion Версия боя.
+     * @param array $choice Разобранный выбор со strikes.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws ActionException AUTH_DENIED или INVALID_PARAMS.
+     * @throws GameNotFoundException Если боя или карточки нет.
+     * @throws GameInvalidException Если выбор или сессия.
+     * @throws GameBattleConflictException Если версия или чужой ключ.
+     */
+    public function declareMultiStrike(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        int $battleId,
+        string $idempotencyKey,
+        int $expectedBattleVersion,
+        array $choice,
+    ): array;
+
+    /**
      * Закрывает удар. Писатель игры или владелец персонажа-защитника; NPC — только писатель.
      *
      * @param int $gameId Игра.

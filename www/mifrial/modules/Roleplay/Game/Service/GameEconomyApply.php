@@ -729,7 +729,7 @@ final class GameEconomyApply
      *
      * @param int $characterId Персонаж.
      *
-     * @return array{money: int, lines: array<string, int>, version: int} Держатель.
+     * @return array{money: int, lines: array<string, int>, baseMoney: int, baseLines: array<string, int>, version: int} Держатель.
      */
     private function characterHolder(int $characterId): array
     {
@@ -761,7 +761,7 @@ final class GameEconomyApply
      * @param int $gameId Игра.
      * @param int $npcId NPC.
      *
-     * @return array{money: int, lines: array<string, int>, version: int, document: array<string, mixed>} Держатель.
+     * @return array{money: int, lines: array<string, int>, baseMoney: int, baseLines: array<string, int>, version: int, document: array<string, mixed>} Держатель.
      *
      * @throws GameNotFoundException Если нет.
      * @throws GameInvalidException Если лист битый.
@@ -865,7 +865,7 @@ final class GameEconomyApply
      * Персонаж через apply.
      *
      * @param int $characterId Персонаж.
-     * @param array{money: int, lines: array<string, int>, version: int} $holder Итог.
+     * @param array{money: int, lines: array<string, int>, baseMoney: int, baseLines: array<string, int>, version: int} $holder Итог.
      *
      * @return array{characterId: int, actualVersion: int} Версия.
      *
@@ -907,7 +907,7 @@ final class GameEconomyApply
      * NPC через applyToDocument.
      *
      * @param int $npcId NPC.
-     * @param array{money: int, lines: array<string, int>, version: int, document: array<string, mixed>} $holder Итог.
+     * @param array{money: int, lines: array<string, int>, baseMoney: int, baseLines: array<string, int>, version: int, document: array<string, mixed>} $holder Итог.
      *
      * @return array{npcId: int, actualVersion: int} Версия.
      *

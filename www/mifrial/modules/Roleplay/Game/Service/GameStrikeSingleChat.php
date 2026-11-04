@@ -136,10 +136,6 @@ final class GameStrikeSingleChat
             $bits[] = $wound . ' рану';
         }
 
-        if ($push === null && $bits === []) {
-            $bits[] = '0 истощения';
-        }
-
         $will = isset($result['will']) ? [
             'roll' => $result['will'],
             'text' => $this->chat->getExhaustionText(
@@ -279,11 +275,7 @@ final class GameStrikeSingleChat
         $defender = $this->chat->getEntityToken($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
         $speaker = $this->chat->getSpeakerOf($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
         foreach ($checks as $entry) {
-            if (!is_array($entry) || !is_array($entry['roll'] ?? null)) {
-                continue;
-            }
-
-            $text = is_string($entry['text'] ?? null) ? $entry['text'] : '';
+            $text = $entry['text'];
             $this->consequences->postCheck(
                 $game,
                 $actorUserId,
@@ -426,7 +418,6 @@ final class GameStrikeSingleChat
             null,
             null,
             $this->chat->getSpeakerOf($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0),
-            null,
             $parentId,
         );
     }

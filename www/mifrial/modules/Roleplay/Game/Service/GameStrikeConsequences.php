@@ -515,9 +515,9 @@ final class GameStrikeConsequences
      */
     private function sendCheck(int $chatId, int $actorUserId, array $check, array $thread, ?array $speaker): void
     {
-        $text = is_string($check['text'] ?? null) ? $check['text'] : '';
-        $roll = is_array($check['roll'] ?? null) ? $check['roll'] : null;
-        $attachments = $roll === null ? [] : [['type' => 'roll', 'payload' => $roll]];
+        $text = $check['text'];
+        $roll = $check['roll'];
+        $attachments = [['type' => 'roll', 'payload' => $roll]];
         $this->chats->send($chatId, $actorUserId, $text, $this->withThread($attachments, $thread, $speaker), null);
     }
 
@@ -599,7 +599,7 @@ final class GameStrikeConsequences
 
         $hooks = [];
         foreach ($rule->getMechanics() as $row) {
-            if (!is_array($row) || !is_int($row['mechanic_id'] ?? null) || !is_array($row['mechanic_payload'] ?? null)) {
+            if (!is_int($row['mechanic_id'] ?? null) || !is_array($row['mechanic_payload'] ?? null)) {
                 throw new GameInvalidException('Game strike hook is invalid');
             }
 
@@ -734,7 +734,12 @@ final class GameStrikeConsequences
     /**
      * @param array<string, mixed> $sheet Лист.
      *
-     * @return array{roll: array<string, mixed>, operation: array<string, mixed>|null}
+     * @return array{
+     *     roll: array<string, mixed>,
+     *     operation: array<string, mixed>|null,
+     *     outcome: string,
+     *     declineCodes: list<string>
+     * }
      */
     private function will(GameRecord $game, CharacterRuleSlice $slice, array $sheet, int $quotient): array
     {
@@ -880,7 +885,7 @@ final class GameStrikeConsequences
     {
         $rule = $slice->findLive('check-injury');
         $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        if (!$spec instanceof CheckSpec || $rule === null) {
+        if (!$spec instanceof CheckSpec) {
             return null;
         }
 

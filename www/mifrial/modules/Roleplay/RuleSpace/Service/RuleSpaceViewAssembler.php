@@ -142,7 +142,7 @@ final class RuleSpaceViewAssembler
     {
         $rows = [];
         foreach ($mechanics as $row) {
-            if (!is_array($row) || !isset($row['mechanic_id']) || !is_int($row['mechanic_id'])) {
+            if (!isset($row['mechanic_id']) || !is_int($row['mechanic_id'])) {
                 continue;
             }
 

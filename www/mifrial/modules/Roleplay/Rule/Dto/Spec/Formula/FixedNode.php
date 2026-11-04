@@ -12,7 +12,7 @@ final class FixedNode implements DimensionalFormula
     /**
      * Создаёт узел.
      *
-     * @param mixed $value Поле.
+     * @param int $value Значение.
      *
      * @return void
      */

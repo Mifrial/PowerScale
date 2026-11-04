@@ -252,7 +252,7 @@ final class CharacterRequirementFacts
                 continue;
             }
 
-            $source = is_array($row) ? ($row['sourceRuleCode'] ?? null) : null;
+            $source = $row['sourceRuleCode'] ?? null;
             $bonuses[] = new ResourceLimitBonus(is_string($source) ? $source : null, $delta);
         }
 

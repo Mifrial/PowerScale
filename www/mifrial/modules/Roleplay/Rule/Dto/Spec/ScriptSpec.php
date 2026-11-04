@@ -12,7 +12,7 @@ final class ScriptSpec implements RuleSpec
     /**
      * Создаёт spec.
      *
-     * @param mixed $kind Поле.
+     * @param string $kind Вид.
      *
      * @return void
      */

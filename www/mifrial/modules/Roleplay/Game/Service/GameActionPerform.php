@@ -484,7 +484,7 @@ final class GameActionPerform
     /**
      * Закрывает ожидание и собирает итог.
      *
-     * @param array{prepared: array<string, mixed>, priced: array<string, mixed>, sheetVersion: int} $executed Итог.
+     * @param array{prepared: array<string, mixed>, priced: array<string, mixed>, sheetVersion: int, rolls: list<array{roll: array<string, mixed>, text: string}>} $executed Итог.
      * @param string $actionRuleCode Карточка.
      * @param string $actorKind Вид character или npc.
      * @param int $actorId Идентификатор актора.
@@ -520,7 +520,7 @@ final class GameActionPerform
             'sheetVersion' => $executed['sheetVersion'],
             'spent' => $priced['amounts']['action-points'] ?? 0,
             'amounts' => $priced['amounts'],
-            'rolls' => $executed['rolls'] ?? [],
+            'rolls' => $executed['rolls'],
         ];
     }
 

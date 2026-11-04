@@ -184,10 +184,6 @@ final class RaceSpecs
         $parameters = SpecShape::object($row, 'parameters') ?? [];
         $values = [];
         foreach ($parameters as $code => $value) {
-            if (!is_string($code)) {
-                throw new RuleSpecShapeException('parameters');
-            }
-
             $values[$code] = DimensionalNumbers::pair(SpecShape::requireMap($value, 'parameters'), 'parameters');
         }
 

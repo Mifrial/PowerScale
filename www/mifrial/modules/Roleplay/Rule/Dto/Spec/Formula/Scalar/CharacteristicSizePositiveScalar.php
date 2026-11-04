@@ -12,7 +12,7 @@ final class CharacteristicSizePositiveScalar implements ScalarFormula
     /**
      * Создаёт узел.
      *
-     * @param mixed $characteristicCode Поле.
+     * @param string $characteristicCode Код характеристики.
      *
      * @return void
      */

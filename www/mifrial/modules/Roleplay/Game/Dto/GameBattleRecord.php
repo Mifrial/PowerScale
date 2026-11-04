@@ -59,9 +59,6 @@ final class GameBattleRecord
         $round = $fields['round'] ?? 0;
         $debt = $fields['action_debt'] ?? [];
         $cycle = $fields['concentration_cycle'] ?? [];
-        if ($cycle === null) {
-            $cycle = [];
-        }
         if (
             !is_int($id) || !is_int($sessionId) || !is_int($stateVersion) || !is_array($pending)
             || !is_int($activeIndex) || !is_int($round) || !is_array($debt) || !is_array($cycle)

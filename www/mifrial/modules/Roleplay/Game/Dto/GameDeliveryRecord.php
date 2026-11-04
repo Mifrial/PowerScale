@@ -85,6 +85,16 @@ final class GameDeliveryRecord
     }
 
     /**
+     * Игра строки.
+     *
+     * @return int Id игры.
+     */
+    public function getGameId(): int
+    {
+        return $this->gameId;
+    }
+
+    /**
      * Ключи листов.
      *
      * @return array<int, array<string, mixed>> Список.

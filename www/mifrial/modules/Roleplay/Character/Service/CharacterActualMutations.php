@@ -30,7 +30,6 @@ use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceArithmetic;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceStorage;
 use Mifrial\Roleplay\Character\Service\Runtime\Character;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
-use Mifrial\Roleplay\Character\Service\Save\CharacterSheetDocument;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
@@ -54,7 +53,6 @@ final class CharacterActualMutations implements ICharacterActualMutations
      * @param ICharacterRuleSlices $ruleSlices Срез ревизии.
      * @param ICharacterSheets $sheets Валидатор.
      * @param CharacterChoiceAssembler $choiceAssembler Модель choices.
-     * @param CharacterSheetDocument $sheetDocument Девять ключей sheet.
      *
      * @return void
      */
@@ -63,7 +61,6 @@ final class CharacterActualMutations implements ICharacterActualMutations
         private readonly ICharacterRuleSlices $ruleSlices,
         private readonly ICharacterSheets $sheets,
         private readonly CharacterChoiceAssembler $choiceAssembler,
-        private readonly CharacterSheetDocument $sheetDocument,
     ) {
         $this->stateRows = new CharacterActualStateRows();
         $this->resourceStorage = new CharacterResourceStorage();
@@ -99,6 +96,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
             $patched['choices'],
             $this->sheetAfter($record, $patched),
             $expectedActualVersion,
+            DateTime::now(),
         );
     }
 
@@ -528,7 +526,6 @@ final class CharacterActualMutations implements ICharacterActualMutations
      * @param array<string, mixed> $sheet Sheet.
      * @param CharacterRuleSlice $slice Срез.
      * @param array<int, mixed> $operations Операции.
-     * @param array<string, mixed> $choices Выборы листа.
      *
      * @return array<string, mixed> Sheet.
      *
@@ -583,7 +580,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
             $keys !== ['current', 'kind', 'resourceCode']
             || !is_string($code)
             || $code === ''
-            || !array_key_exists('current', is_array($operation) ? $operation : [])
+            || !array_key_exists('current', $operation)
         ) {
             throw new CharacterInvalidException('Character patch operation is invalid');
         }
@@ -1281,25 +1278,6 @@ final class CharacterActualMutations implements ICharacterActualMutations
         if (!$shaped || ($active !== null && !is_bool($active))) {
             throw new CharacterInvalidException('Character choices shape is invalid');
         }
-    }
-
-    /**
-     * Наличные уже лежащего листа.
-     *
-     * @param array<string, mixed> $choices Документ.
-     *
-     * @return int Сумма.
-     *
-     * @throws CharacterInvalidException Если ключа нет или это не целое.
-     */
-    private function moneyOf(array $choices): int
-    {
-        $money = $choices['money'] ?? null;
-        if (!is_int($money)) {
-            throw new CharacterInvalidException('Character money is invalid');
-        }
-
-        return $money;
     }
 
     /**

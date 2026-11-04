@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Service\Schema;
 
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Fluent;
+use Illuminate\Database\Schema\ColumnDefinition;
 use Mifrial\Core\SmartTable\Dto\ColumnMeta;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Schema\DdlFailedException;
@@ -218,11 +218,11 @@ final class ColumnSchema
      * @param string $columnName Имя.
      * @param ColumnMeta $columnMeta Метаданные.
      *
-     * @return Fluent Колонка Blueprint.
+     * @return ColumnDefinition Колонка Blueprint.
      *
      * @throws MapInvalidException Если тип неизвестен.
      */
-    private function blueprintColumn(Blueprint $blueprint, string $columnName, ColumnMeta $columnMeta): Fluent
+    private function blueprintColumn(Blueprint $blueprint, string $columnName, ColumnMeta $columnMeta): ColumnDefinition
     {
         return match ($columnMeta->sqlType) {
             'VARCHAR' => $this->varcharColumn($blueprint, $columnName, $columnMeta),
@@ -243,11 +243,11 @@ final class ColumnSchema
      * @param string $columnName Имя.
      * @param ColumnMeta $columnMeta Метаданные.
      *
-     * @return Fluent Колонка.
+     * @return ColumnDefinition Колонка.
      *
      * @throws MapInvalidException Если длины нет.
      */
-    private function varcharColumn(Blueprint $blueprint, string $columnName, ColumnMeta $columnMeta): Fluent
+    private function varcharColumn(Blueprint $blueprint, string $columnName, ColumnMeta $columnMeta): ColumnDefinition
     {
         if ($columnMeta->length === null || $columnMeta->length < 1) {
             throw new MapInvalidException('VARCHAR requires length');
@@ -263,11 +263,11 @@ final class ColumnSchema
      * @param string $columnName Имя.
      * @param ColumnMeta $columnMeta Метаданные.
      *
-     * @return Fluent Колонка.
+     * @return ColumnDefinition Колонка.
      *
      * @throws MapInvalidException Если длина не 1.
      */
-    private function tinyIntegerColumn(Blueprint $blueprint, string $columnName, ColumnMeta $columnMeta): Fluent
+    private function tinyIntegerColumn(Blueprint $blueprint, string $columnName, ColumnMeta $columnMeta): ColumnDefinition
     {
         if ($columnMeta->length !== 1) {
             throw new MapInvalidException('TINYINT requires length 1');

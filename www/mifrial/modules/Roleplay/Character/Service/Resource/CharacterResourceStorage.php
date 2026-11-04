@@ -78,10 +78,6 @@ final class CharacterResourceStorage
         $serialized = [];
         $seen = [];
         foreach ($rows as $row) {
-            if (!$row instanceof ResourceRow) {
-                throw new CharacterInvalidException('Resource row is invalid');
-            }
-
             $code = $row->getRuleCode();
             if (isset($seen[$code])) {
                 throw new CharacterInvalidException('Resource row is duplicated');
@@ -136,10 +132,6 @@ final class CharacterResourceStorage
     ): array {
         $validated = [];
         foreach ($spends as $spend) {
-            if (!$spend instanceof ResourceSpend) {
-                throw new CharacterInvalidException('Resource spend is invalid');
-            }
-
             $spec = $this->spec($slice, $spend->getResourceCode());
             $amount = $this->parseValue($spend->getAmount()->toNative(), $spec);
             $validated[] = new ResourceSpend($spend->getResourceCode(), $amount);

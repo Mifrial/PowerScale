@@ -98,12 +98,6 @@ final class ModuleSetupCollector
         }
 
         $setup = new $setupClass();
-        if (!$setup instanceof IModuleSetup) {
-            throw new SetupException(
-                'SETUP_INVALID',
-                'Module setup class is invalid: ' . $moduleKey,
-            );
-        }
 
         return $setup;
     }

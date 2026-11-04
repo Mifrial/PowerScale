@@ -65,7 +65,7 @@ final class GameCheckRepository
         }
 
         $row = $rows[0];
-        if (!is_array($row) || !is_string($row['rule_code'] ?? null)) {
+        if (!is_string($row['rule_code'] ?? null)) {
             throw new GameInvalidException('Game check row is invalid');
         }
 
@@ -119,7 +119,7 @@ final class GameCheckRepository
 
         $rows = [];
         foreach ($result->rows() as $row) {
-            if (!is_array($row) || !is_int($row['process_id'] ?? null)) {
+            if (!is_int($row['process_id'] ?? null)) {
                 throw new GameInvalidException('Game check row is invalid');
             }
 
@@ -243,7 +243,7 @@ final class GameCheckRepository
             null,
         ));
         foreach ($result->rows() as $row) {
-            if (!is_array($row) || !is_int($row['id'] ?? null)) {
+            if (!is_int($row['id'] ?? null)) {
                 throw new GameInvalidException('Game check row is invalid');
             }
 

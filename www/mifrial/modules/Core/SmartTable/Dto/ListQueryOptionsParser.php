@@ -51,7 +51,7 @@ final class ListQueryOptionsParser
     private function assertKnownOptionKeys(array $options): void
     {
         foreach (array_keys($options) as $optionKey) {
-            if (!is_string($optionKey) || !in_array($optionKey, self::OPTION_KEYS, true)) {
+            if (!in_array($optionKey, self::OPTION_KEYS, true)) {
                 throw new MapInvalidException('Unknown list query option');
             }
         }

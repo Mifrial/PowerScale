@@ -238,7 +238,7 @@ final class GameActionDeclare
             $followUp,
             $process,
         );
-        if (($applied['debt'] ?? false) !== true) {
+        if (!$applied['debt']) {
             $this->postChat($game, $actorUserId, $input, $applied, $battle);
         }
 
@@ -296,7 +296,6 @@ final class GameActionDeclare
         $reaction = $spec instanceof AbilityActionSpec ? $spec->getBase()->getReaction() : null;
         if (
             $reaction === null
-            || !$spec instanceof AbilityActionSpec
             || $spec->getOperations() !== []
             || $spec->getBase()->getActionEffects() !== []
         ) {
@@ -335,7 +334,7 @@ final class GameActionDeclare
 
         $supporters = $this->supportersOf($row);
         foreach ($supporters as $entry) {
-            $actor = is_array($entry) ? ($entry['actor'] ?? null) : null;
+            $actor = $entry['actor'] ?? null;
             if (
                 is_array($actor)
                 && ($actor['type'] ?? null) === $input['actor']['type']
@@ -598,7 +597,7 @@ final class GameActionDeclare
         array $applied,
         bool $followUp,
     ): array {
-        if (($applied['debt'] ?? false) === true) {
+        if ($applied['debt'] === true) {
             return [
                 'battleId' => $battle->getId(),
                 'version' => $applied['version'],
@@ -632,16 +631,18 @@ final class GameActionDeclare
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $input Вход.
-     * @param array<string, mixed> $pending Ожидание.
+     * @param GameBattleRecord $battle Бой.
      * @param int $actorUserId Пользователь.
      * @param bool $viewAll Полный просмотр.
      * @param bool $followUp Нужна ли подготовка после прошлого удара.
      *
      * @return array{
+     *     debt: bool,
      *     pending: array<string, mixed>,
      *     performed: array<string, mixed>,
      *     version: int,
-     *     reaction: string|null
+     *     reaction: string|null,
+     *     remaining?: int
      * } Итог.
      *
      * @throws GameInvalidException Если действие отвергнуто.
@@ -754,10 +755,6 @@ final class GameActionDeclare
         }
 
         if ($descriptive) {
-            if (!is_array($process)) {
-                throw new GameInvalidException('Game process is invalid');
-            }
-
             $spends = $paid ? $quoted['spends'] : $planned['spends'];
             if ($paid) {
                 $sheetVersion = $input['expectedSheet'];
@@ -1049,6 +1046,8 @@ final class GameActionDeclare
      *     actionRuleCode: string,
      *     targetKey: string|null,
      *     chosenAmounts: array<string, int>,
+     *     processRuleCode: string|null,
+     *     processStepCode: string|null,
      *     actor: array{type: string, id: int}
      * } Вход.
      *
@@ -1231,7 +1230,7 @@ final class GameActionDeclare
     private function targetOfKey(string $key): array
     {
         $parts = explode(':', $key, 2);
-        $type = $parts[0] ?? null;
+        $type = $parts[0];
         $rawId = $parts[1] ?? null;
         $id = is_string($rawId) && ctype_digit($rawId) ? (int) $rawId : 0;
         if (($type !== 'character' && $type !== 'npc') || $id < 1) {

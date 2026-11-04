@@ -54,11 +54,12 @@ final class ModuleRouteCatalog
         }
 
         foreach ($moduleRoutes as $routeAction => $routeSpecification) {
+            $invalidRouteLabel = is_string($routeAction) ? $routeAction : '?';
             if (!$this->isValidRoute($routeAction, $routeSpecification)) {
                 throw new InvalidModuleConfigException(
                     $moduleGroup,
                     $moduleName,
-                    'Invalid route: ' . (is_string($routeAction) ? $routeAction : '?'),
+                    'Invalid route: ' . $invalidRouteLabel,
                 );
             }
 
@@ -116,11 +117,12 @@ final class ModuleRouteCatalog
         mixed $routeAction,
         mixed $routeSpecification,
     ): void {
+        $invalidRouteLabel = is_string($routeAction) ? $routeAction : '?';
         if (!$this->isValidRoute($routeAction, $routeSpecification)) {
             throw new InvalidModuleConfigException(
                 $loadedModule['group'],
                 $loadedModule['name'],
-                'Invalid route: ' . (is_string($routeAction) ? $routeAction : '?'),
+                'Invalid route: ' . $invalidRouteLabel,
             );
         }
 
@@ -147,6 +149,9 @@ final class ModuleRouteCatalog
      * @param mixed $routeSpecification Описание маршрута.
      *
      * @return bool true, если маршрут можно зарегистрировать.
+     *
+     * @phpstan-assert-if-true string $routeAction
+     * @phpstan-assert-if-true array{handler: string, csrf?: bool} $routeSpecification
      */
     private function isValidRoute(mixed $routeAction, mixed $routeSpecification): bool
     {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Service\Schema;
 
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Fluent;
+use Illuminate\Database\Schema\ColumnDefinition;
 use Mifrial\Core\SmartTable\Dto\ColumnMeta;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Schema\DdlFailedException;
@@ -253,11 +253,11 @@ final class MfvSchema
      * @param Blueprint $blueprint Чертёж.
      * @param ColumnMeta $columnMeta Метаданные элемента.
      *
-     * @return Fluent Колонка.
+     * @return ColumnDefinition Колонка.
      *
      * @throws MapInvalidException Если тип неизвестен.
      */
-    private function valueColumn(Blueprint $blueprint, ColumnMeta $columnMeta): Fluent
+    private function valueColumn(Blueprint $blueprint, ColumnMeta $columnMeta): ColumnDefinition
     {
         return match ($columnMeta->sqlType) {
             'VARCHAR' => $this->varcharValue($blueprint, $columnMeta),
@@ -274,11 +274,11 @@ final class MfvSchema
      * @param Blueprint $blueprint Чертёж.
      * @param ColumnMeta $columnMeta Метаданные.
      *
-     * @return Fluent Колонка.
+     * @return ColumnDefinition Колонка.
      *
      * @throws MapInvalidException Если длины нет.
      */
-    private function varcharValue(Blueprint $blueprint, ColumnMeta $columnMeta): Fluent
+    private function varcharValue(Blueprint $blueprint, ColumnMeta $columnMeta): ColumnDefinition
     {
         if ($columnMeta->length === null || $columnMeta->length < 1) {
             throw new MapInvalidException('VARCHAR requires length');
@@ -293,11 +293,11 @@ final class MfvSchema
      * @param Blueprint $blueprint Чертёж.
      * @param ColumnMeta $columnMeta Метаданные.
      *
-     * @return Fluent Колонка.
+     * @return ColumnDefinition Колонка.
      *
      * @throws MapInvalidException Если длина не 1.
      */
-    private function tinyIntegerValue(Blueprint $blueprint, ColumnMeta $columnMeta): Fluent
+    private function tinyIntegerValue(Blueprint $blueprint, ColumnMeta $columnMeta): ColumnDefinition
     {
         if ($columnMeta->length !== 1) {
             throw new MapInvalidException('TINYINT requires length 1');

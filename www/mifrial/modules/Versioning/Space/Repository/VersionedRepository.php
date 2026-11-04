@@ -141,25 +141,27 @@ final class VersionedRepository implements IVersionedRepository
     ): RevisionRecord {
         $spaceGuard = new SpaceGuard();
 
-        return $spaceGuard->run(function () use ($spaceId, $entries, $allowUnchangedComposition, $expectedRevision): RevisionRecord {
-            $this->assertSpaceExists($spaceId);
-            $parsedEntries = $this->commitComposition->parseEntries($entries);
-            $writtenRevision = $this->smartTableGateway->transaction(
-                function () use ($spaceId, $parsedEntries, $allowUnchangedComposition, $expectedRevision) {
-                    $preparedComposition = $this->commitComposition->assemble($parsedEntries);
+        return $spaceGuard->run(
+            function () use ($spaceId, $entries, $allowUnchangedComposition, $expectedRevision): RevisionRecord {
+                $this->assertSpaceExists($spaceId);
+                $parsedEntries = $this->commitComposition->parseEntries($entries);
+                $writtenRevision = $this->smartTableGateway->transaction(
+                    function () use ($spaceId, $parsedEntries, $allowUnchangedComposition, $expectedRevision) {
+                        $preparedComposition = $this->commitComposition->assemble($parsedEntries);
 
-                    return $this->revisionPublisher->publish(
-                        $spaceId,
-                        $preparedComposition,
-                        $allowUnchangedComposition,
-                        $expectedRevision,
-                    );
-                },
-            );
-            $this->revisionSliceStore->save($writtenRevision->getRevisionSlice());
+                        return $this->revisionPublisher->publish(
+                            $spaceId,
+                            $preparedComposition,
+                            $allowUnchangedComposition,
+                            $expectedRevision,
+                        );
+                    },
+                );
+                $this->revisionSliceStore->save($writtenRevision->getRevisionSlice());
 
-            return $writtenRevision->getRevisionRecord();
-        });
+                return $writtenRevision->getRevisionRecord();
+            },
+        );
     }
 
     /**

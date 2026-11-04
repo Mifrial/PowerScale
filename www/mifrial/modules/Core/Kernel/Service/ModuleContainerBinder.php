@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\Kernel\Service;
 
 use Closure;
+use Mifrial\Core\Kernel\Container\ModuleContainer;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Container\IModuleContainer;
 use Mifrial\Core\Kernel\Interface\Service\IModuleManager;

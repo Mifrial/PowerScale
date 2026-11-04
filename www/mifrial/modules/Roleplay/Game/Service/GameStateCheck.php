@@ -94,7 +94,7 @@ final class GameStateCheck
             ['base' => $after, 'size' => 0],
         );
         $roll['label'] = $slice->findLive($checkCode)?->getName() ?? $checkCode;
-        $rating = is_int($roll['rating'] ?? null) ? $roll['rating'] : 0;
+        $rating = $roll['rating'];
 
         return ['roll' => $roll, 'outcome' => $this->rule->outcome($slice, $check, $rating)];
     }

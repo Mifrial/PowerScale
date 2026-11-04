@@ -347,11 +347,12 @@ final class GameCharacterRepository // phpcs:ignore MifrialCodingStandard.Metric
      */
     private function getById(int $rowId): GameCharacterRecord
     {
-        try {
-            return $this->record($this->characterRecords->getById($rowId));
-        } catch (RowNotFoundException $exception) {
-            throw new GameNotFoundException('Game character was not found', $exception);
+        $row = $this->characterRecords->getById($rowId);
+        if ($row === null) {
+            throw new GameNotFoundException('Game character was not found');
         }
+
+        return $this->record($row);
     }
 
     /**

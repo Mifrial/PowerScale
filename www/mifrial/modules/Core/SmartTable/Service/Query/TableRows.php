@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Service\Query;
 
+use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\ReferenceConstraintException;
 use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;

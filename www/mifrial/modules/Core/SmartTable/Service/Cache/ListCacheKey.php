@@ -8,7 +8,6 @@ use JsonException;
 use Mifrial\Core\Kernel\Value\DateTime as UnixDateTime;
 use Mifrial\Core\SmartTable\Dto\AggregateQuery;
 use Mifrial\Core\SmartTable\Dto\CountField;
-use Mifrial\Core\SmartTable\Dto\FilterCondition;
 use Mifrial\Core\SmartTable\Dto\FilterGroup;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Dto\MaxField;
@@ -89,13 +88,11 @@ final class ListCacheKey
                 continue;
             }
 
-            if ($child instanceof FilterCondition) {
-                $children[] = [
-                    'field' => $child->fieldName(),
-                    'operator' => $child->operator(),
-                    'operand' => $this->canonValue($child->operand()),
-                ];
-            }
+            $children[] = [
+                'field' => $child->fieldName(),
+                'operator' => $child->operator(),
+                'operand' => $this->canonValue($child->operand()),
+            ];
         }
 
         return ['logic' => $filterGroup->logic(), 'children' => $children];

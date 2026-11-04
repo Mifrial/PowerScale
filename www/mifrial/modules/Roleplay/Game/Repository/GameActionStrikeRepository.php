@@ -67,10 +67,6 @@ final class GameActionStrikeRepository
         ));
         $rows = [];
         foreach ($result->rows() as $row) {
-            if (!is_array($row)) {
-                throw new GameInvalidException('Game action strike row is invalid');
-            }
-
             $rows[] = $row;
         }
 
@@ -205,9 +201,7 @@ final class GameActionStrikeRepository
         } catch (RowNotFoundException $exception) {
             throw new GameNotFoundException('Game action strike was not found', $exception);
         } catch (
-            FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException
+            RowWriteFailedException
             | ReferenceConstraintException $exception
         ) {
             throw new GameInvalidException('Game action strike field is invalid', $exception);

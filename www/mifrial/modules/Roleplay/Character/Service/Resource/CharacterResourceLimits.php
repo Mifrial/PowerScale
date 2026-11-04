@@ -327,10 +327,6 @@ final class CharacterResourceLimits
     {
         $indexed = [];
         foreach ($rows as $row) {
-            if (!$row instanceof ResourceRow) {
-                throw new CharacterInvalidException('Resource row is invalid');
-            }
-
             $code = $row->getRuleCode();
             if (isset($indexed[$code])) {
                 throw new CharacterInvalidException('Resource row is duplicated');

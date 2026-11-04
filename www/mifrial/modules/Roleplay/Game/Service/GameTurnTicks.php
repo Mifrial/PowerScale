@@ -144,7 +144,6 @@ final class GameTurnTicks
     }
 
     /**
-     * @param array<string, mixed> $row Строка.
      *
      * @return array{tick: int, operations: list<array<string, mixed>>, roll: array<string, mixed>|null}
      */
@@ -281,7 +280,7 @@ final class GameTurnTicks
         $effects = $this->consequences->effects($game, $sheet, $injury, 0, $split, $effect->getDamageTypeCode(), false);
         $operations = $effects['operations'];
         $next = $this->decay($effect, $row);
-        if ($next === null || $this->strength($next) <= 0) {
+        if ($this->strength($next) <= 0) {
             $operations[] = ['kind' => 'removeState', 'id' => $row['id']];
         } else {
             $patch = ['kind' => 'patchState', 'id' => $row['id'], 'value' => $next['value']];
@@ -296,11 +295,14 @@ final class GameTurnTicks
     }
 
     /**
+     * Строка после decay.
+     *
+     * @param DamageOverTimeEffect $effect Эффект.
      * @param array<string, mixed> $row Строка.
      *
-     * @return array<string, mixed>|null Строка после decay или null, если силу не трогаем и она уже есть.
+     * @return array<string, mixed> Строка после decay.
      */
-    private function decay(DamageOverTimeEffect $effect, array $row): ?array
+    private function decay(DamageOverTimeEffect $effect, array $row): array
     {
         $decay = $effect->getDecay();
         if ($decay === null || $decay instanceof CharacteristicDecay || $decay instanceof CheckDecay) {
@@ -437,7 +439,12 @@ final class GameTurnTicks
     }
 
     /**
-     * @param array<string, mixed> $row Строка.
+     * Код маркера строки.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param mixed $code Код.
+     *
+     * @return string|null Код маркера или null.
      */
     private function marker(CharacterRuleSlice $slice, mixed $code): ?string
     {
@@ -451,7 +458,7 @@ final class GameTurnTicks
         }
 
         foreach ($rule->getMechanics() as $binding) {
-            if (!is_array($binding) || !is_int($binding['mechanic_id'] ?? null)) {
+            if (!is_int($binding['mechanic_id'] ?? null)) {
                 continue;
             }
 

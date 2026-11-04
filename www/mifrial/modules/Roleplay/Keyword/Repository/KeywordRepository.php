@@ -6,7 +6,6 @@ namespace Mifrial\Roleplay\Keyword\Repository;
 
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
-use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
 use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
@@ -55,7 +54,7 @@ final class KeywordRepository
             ]);
         } catch (UniqueConstraintException $exception) {
             throw new KeywordInvalidException('Keyword code is already used', $exception);
-        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+        } catch (FieldInvalidException | MapInvalidException $exception) {
             throw new KeywordInvalidException('Keyword field is invalid', $exception);
         }
     }
@@ -117,7 +116,7 @@ final class KeywordRepository
                 'sort' => ['id' => 'asc'],
                 'limit' => ListQuery::MAX_LIMIT,
             ]));
-        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+        } catch (FieldInvalidException | MapInvalidException $exception) {
             throw new KeywordInvalidException('Keyword list is invalid', $exception);
         }
 
@@ -146,7 +145,7 @@ final class KeywordRepository
             $this->keywordRecords->update($keywordId, $fields);
         } catch (RowNotFoundException $exception) {
             throw new KeywordNotFoundException('Keyword was not found', $exception);
-        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+        } catch (FieldInvalidException | MapInvalidException $exception) {
             throw new KeywordInvalidException('Keyword field is invalid', $exception);
         }
     }

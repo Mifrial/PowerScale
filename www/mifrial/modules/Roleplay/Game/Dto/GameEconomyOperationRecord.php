@@ -96,4 +96,14 @@ final class GameEconomyOperationRecord
     {
         return $this->result;
     }
+
+    /**
+     * Игра операции.
+     *
+     * @return int Id игры.
+     */
+    public function getGameId(): int
+    {
+        return $this->gameId;
+    }
 }

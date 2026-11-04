@@ -321,7 +321,7 @@ final class GameBattleMutator
     {
         $kept = [];
         foreach ($turnOrder as $entry) {
-            if (!is_array($entry) || !is_string($entry['type'] ?? null) || !is_int($entry['id'] ?? null)) {
+            if (!is_string($entry['type'] ?? null) || !is_int($entry['id'] ?? null)) {
                 continue;
             }
 

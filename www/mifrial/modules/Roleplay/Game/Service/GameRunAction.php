@@ -697,7 +697,7 @@ final class GameRunAction
     {
         $rows = [];
         $pending = [];
-        foreach (array_values($strikes) as $index => $strike) {
+        foreach ($strikes as $index => $strike) {
             $rows[] = [
                 'index' => $index,
                 'itemInventoryId' => $strike['itemInventoryId'],

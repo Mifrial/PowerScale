@@ -69,10 +69,6 @@ final class GameProcessFlow
             throw new GameInvalidException('Game process step is invalid');
         }
 
-        if ($target !== null && (!is_string($target['type'] ?? null) || !is_int($target['id'] ?? null))) {
-            throw new GameInvalidException('Game process target is invalid');
-        }
-
         $slice = $this->strikeRules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->rules->spec($slice, $processRuleCode);
         $open = $this->processes->findOpenForActor($battle->getId(), $actor['type'], $actor['id']);

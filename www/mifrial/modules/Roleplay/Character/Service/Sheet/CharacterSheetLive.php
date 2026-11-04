@@ -271,7 +271,7 @@ final class CharacterSheetLive
 
             if ($effect instanceof ResourceLimitModifyEffect && $effect->getResourceCode() === $resourceCode) {
                 $delta = $effect->getAmount() * ($effect->isPerUnit() ? $units : 1);
-                $bonuses[] = new ResourceLimitBonus(is_string($code) ? $code : null, $delta);
+                $bonuses[] = new ResourceLimitBonus($code, $delta);
             }
         }
 

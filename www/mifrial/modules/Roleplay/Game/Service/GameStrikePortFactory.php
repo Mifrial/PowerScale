@@ -587,7 +587,7 @@ final class GameStrikePortFactory
      *
      * @param IServiceLocator $serviceLocator Каталог.
      *
-     * @return GameStrikeRules Правила.
+     * @return GameStrikeConsequences Последствия.
      *
      * @throws KernelException Если порта нет.
      */
@@ -821,7 +821,7 @@ final class GameStrikePortFactory
      *
      * @param IServiceLocator $serviceLocator Каталог.
      *
-     * @return IUserAccess Доступ.
+     * @return IEventManager Менеджер событий.
      *
      * @throws KernelException Если порта нет.
      */

@@ -6,7 +6,6 @@ namespace Mifrial\Roleplay\Mechanic\Repository;
 
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
-use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
 use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
@@ -55,7 +54,7 @@ final class MechanicRepository
             ]);
         } catch (UniqueConstraintException $exception) {
             throw new MechanicInvalidException('Mechanic code and handler version are already used', $exception);
-        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+        } catch (FieldInvalidException | MapInvalidException $exception) {
             throw new MechanicInvalidException('Mechanic field is invalid', $exception);
         }
     }
@@ -121,7 +120,7 @@ final class MechanicRepository
                 'sort' => ['id' => 'asc'],
                 'limit' => ListQuery::MAX_LIMIT,
             ]));
-        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+        } catch (FieldInvalidException | MapInvalidException $exception) {
             throw new MechanicInvalidException('Mechanic list is invalid', $exception);
         }
 
@@ -150,7 +149,7 @@ final class MechanicRepository
             $this->mechanicRecords->update($mechanicId, $fields);
         } catch (RowNotFoundException $exception) {
             throw new MechanicNotFoundException('Mechanic was not found', $exception);
-        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+        } catch (FieldInvalidException | MapInvalidException $exception) {
             throw new MechanicInvalidException('Mechanic field is invalid', $exception);
         }
     }

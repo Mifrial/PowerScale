@@ -56,7 +56,7 @@ final class CacheStoreGuard
     public static function assertTags(array $tagNames): void
     {
         foreach ($tagNames as $tagName) {
-            if (!is_string($tagName) || $tagName === '') {
+            if ($tagName === '') {
                 throw new CacheInvalidException('Cache tag is empty');
             }
         }
@@ -74,7 +74,7 @@ final class CacheStoreGuard
     public static function assertKeys(array $cacheKeys): void
     {
         foreach ($cacheKeys as $cacheKey) {
-            if (!is_string($cacheKey) || $cacheKey === '') {
+            if ($cacheKey === '') {
                 throw new CacheInvalidException('Cache key is empty');
             }
         }

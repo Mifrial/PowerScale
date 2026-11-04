@@ -264,7 +264,7 @@ final class GamePortFactory
      *
      * @param IServiceLocator $serviceLocator Каталог.
      *
-     * @return GameDonorChats Сборщик.
+     * @return IChats Чаты.
      *
      * @throws KernelException Если порта нет.
      */

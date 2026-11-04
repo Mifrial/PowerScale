@@ -26,7 +26,6 @@ use Mifrial\Roleplay\Character\Service\Read\CharacterViewerParser;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
 use Mifrial\Roleplay\Character\Service\Save\CharacterInputNormalizer;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSaveAssembly;
-use Mifrial\Roleplay\Character\Service\Save\CharacterSheetDocument;
 use Mifrial\Roleplay\Character\Service\Save\CharacterShopBalance;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterSpecReader;
@@ -136,7 +135,6 @@ final class CharacterPortFactory
             $this->ruleSlices($serviceLocator),
             $this->sheets($serviceLocator),
             new CharacterChoiceAssembler(),
-            new CharacterSheetDocument(),
         );
     }
 

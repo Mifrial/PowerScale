@@ -14,7 +14,7 @@ final class ItemModifierTypeSpec implements RuleSpec
     /**
      * Создаёт spec.
      *
-     * @param mixed $exclusive Поле.
+     * @param bool $exclusive Исключающий тип.
      *
      * @return void
      */

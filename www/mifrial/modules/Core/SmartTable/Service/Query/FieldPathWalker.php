@@ -80,10 +80,7 @@ final class FieldPathWalker
     public function definitionFor(string $tableRef): SmartTableDefinition
     {
         if (class_exists($tableRef) && is_subclass_of($tableRef, SmartTableDefinition::class)) {
-            $tableDefinition = new $tableRef();
-            if ($tableDefinition instanceof SmartTableDefinition) {
-                return $tableDefinition;
-            }
+            return new $tableRef();
         }
 
         return $this->catalogLookup->definitionByName($tableRef);

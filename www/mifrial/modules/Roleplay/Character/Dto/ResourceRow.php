@@ -33,12 +33,6 @@ final class ResourceRow
         if ($ruleCode === '') {
             throw new CharacterInvalidException('Resource rule code is empty');
         }
-
-        foreach ($bonuses as $bonus) {
-            if (!$bonus instanceof ResourceLimitBonus) {
-                throw new CharacterInvalidException('Resource bonus is invalid');
-            }
-        }
     }
 
     /**

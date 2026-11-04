@@ -78,10 +78,6 @@ final class RuleSpaceCatalogDraftComposer
         $placements = [];
         foreach ($puts as $index => $putEntry) {
             $ruleRow = $putRows[$index] ?? [];
-            if (!is_array($ruleRow)) {
-                continue;
-            }
-
             $placement = $jsonMapper->mapPutPlacement($ruleRow);
             if ($placement instanceof RuleSpaceCatalogPlacement) {
                 $placements[] = $placement;

@@ -229,7 +229,7 @@ final class CharacterVisibilityRepository
      * @param int $ownerUserId Владелец.
      * @param list<int>|null $sharedCharacterIds Id зрителя.
      *
-     * @return array<string, mixed> Filter.
+     * @return array<int|string, mixed> Filter.
      */
     private function visibleFilter(int $ownerUserId, ?array $sharedCharacterIds): array
     {

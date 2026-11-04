@@ -21,6 +21,7 @@ use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceCatalog;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpacePatch;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceSelection;
+use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceConflictException;
 use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceInvalidException;
 use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceNotFoundException;
 use Mifrial\Roleplay\RuleSpace\Interface\Service\IRuleSpaces;

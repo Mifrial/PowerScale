@@ -218,6 +218,6 @@ final class GroupInputNormalizer
             throw new UserInvalidException('Group permission key is duplicate');
         }
 
-        return array_values($normalizedKeys);
+        return $normalizedKeys;
     }
 }

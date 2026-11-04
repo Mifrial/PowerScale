@@ -12,8 +12,8 @@ final class ParameterScalar implements ScalarFormula
     /**
      * Создаёт узел.
      *
-     * @param mixed $parameterCode Поле.
-     * @param mixed $perUnit Поле.
+     * @param string $parameterCode Код параметра.
+     * @param int $perUnit Значение за единицу.
      *
      * @return void
      */

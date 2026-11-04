@@ -8,6 +8,8 @@ use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 
 /**
  * Размерное число: целая база, размер и необязательная шкала модификации.
+ *
+ * @phpstan-consistent-constructor
  */
 class DimensionalNumber
 {

@@ -286,7 +286,7 @@ final class CharacterGrantCoverage
         $seen = [];
         while ($queue !== []) {
             $code = array_shift($queue);
-            if (!is_string($code) || isset($seen[$code])) {
+            if (isset($seen[$code])) {
                 continue;
             }
 

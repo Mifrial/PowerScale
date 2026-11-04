@@ -104,7 +104,7 @@ final class GameSessionRepository
      * Пишет сессию и состав одной транзакцией.
      *
      * @param int $gameId Игра.
-     * @param list<int> $characterIds Снимок входа.
+     * @param array<int, int> $characterIds Снимок входа.
      *
      * @return void
      *
@@ -302,11 +302,7 @@ final class GameSessionRepository
             $records->delete($rowId);
         } catch (RowNotFoundException $exception) {
             throw new GameNotFoundException('Game session was not found', $exception);
-        } catch (
-            FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
+        } catch (RowWriteFailedException $exception) {
             throw new GameInvalidException('Game session field is invalid', $exception);
         }
     }

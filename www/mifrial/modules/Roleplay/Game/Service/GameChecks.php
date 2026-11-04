@@ -436,7 +436,6 @@ final class GameChecks implements IGameChecks
             $expectedSheetVersion,
             $proposal,
             $side,
-            $flat,
             $blocks,
             $stored,
             $open,
@@ -662,8 +661,8 @@ final class GameChecks implements IGameChecks
      * Видимость, повтор, право и сессия.
      *
      * @param int $gameId Игра.
-     * @param int $actorUserId Актор.
-     * @param bool $editAll Ключ.
+     * @param int $_actorUserId Актор.
+     * @param bool $_editAll Ключ.
      * @param bool $viewAll Ключ.
      * @param string $idempotencyKey Ключ.
      * @param array<string, mixed> $body Тело.
@@ -1541,8 +1540,8 @@ final class GameChecks implements IGameChecks
             'targetId' => $check['targetId'],
             'proposal' => $check['proposal'] ?? null,
             'rolls' => $check['rolls'] ?? null,
-            'mode' => $check['mode'] ?? 'solo',
-            'offer' => $check['offer'] ?? 'accepted',
+            'mode' => $check['mode'],
+            'offer' => $check['offer'],
         ];
     }
 
@@ -1875,7 +1874,7 @@ final class GameChecks implements IGameChecks
      *
      * @param array<string, mixed> $opened Строка process.
      * @param string $mode solo или pairwise.
-     * @param array{participant: array{type: string, id: int}, ruleCode: string, asked: array{base: int, size: int}|null, target: array{type: string, id: int}|null} $choice Выбор.
+     * @param array{participant: array{type: string, id: int}, ruleCode: string, asked: array{base: int, size: int}|null, target: array{type: string, id: int}|null, proposal: array<string, mixed>|null} $choice Выбор.
      * @param string $offer Статус предложения.
      * @param array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int}|null $thrown Итог.
      *
@@ -1897,7 +1896,7 @@ final class GameChecks implements IGameChecks
             $fields['target_id'] = $choice['target']['id'];
         }
 
-        if (is_array($choice['proposal'] ?? null)) {
+        if (is_array($choice['proposal'])) {
             $fields['proposal'] = $choice['proposal'];
         }
 

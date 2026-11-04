@@ -40,7 +40,7 @@ final class LocalFileStorage implements IFileStorage
     public function hash(string $sourcePath): string
     {
         $hash = hash_file('sha256', $sourcePath);
-        if (!is_string($hash) || $hash === '') {
+        if (!is_string($hash)) {
             throw new FileStorageException('Cannot hash a file');
         }
 

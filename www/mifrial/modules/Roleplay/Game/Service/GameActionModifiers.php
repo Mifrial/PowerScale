@@ -106,7 +106,7 @@ final class GameActionModifiers
         $rows = [];
         foreach ($slice->getLiveRules() as $rule) {
             $level = $abilityLevels[$rule->getCode()] ?? 0;
-            if (!is_int($level) || $level < 1) {
+            if ($level < 1) {
                 continue;
             }
 

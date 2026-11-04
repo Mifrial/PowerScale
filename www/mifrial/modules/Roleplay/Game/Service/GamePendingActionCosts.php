@@ -381,8 +381,8 @@ final class GamePendingActionCosts
         if (is_array($effect) && ($effect['type'] ?? null) === 'after_action_until_resource_spent_check_modifier') {
             $resource = $effect['resource_code'] ?? null;
             $amount = $effect['amount'] ?? null;
-            $spent = is_string($resource) ? ($spentAmounts[$resource] ?? 0) : 0;
-            if (is_int($amount) && is_int($spent) && $spent > 0) {
+            $spent = $spentAmounts[$resource] ?? 0;
+            if ($spent > 0) {
                 $remaining = $amount - $spent;
                 $keep = $remaining > 0;
                 if ($keep) {
@@ -532,7 +532,7 @@ final class GamePendingActionCosts
 
         $rows = [];
         foreach ($targetKeys as $targetKey) {
-            if (!is_string($targetKey) || $targetKey === '') {
+            if ($targetKey === '') {
                 continue;
             }
 

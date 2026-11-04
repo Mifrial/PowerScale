@@ -16,8 +16,6 @@ final class AbilityGrantBlock
      * @param array<int, AbilityGrant> $grants Гранты.
      *
      * @return void
-     * @param mixed $level Поле.
-     * @param mixed $grants Поле.
      */
     public function __construct(
         private readonly int $level,

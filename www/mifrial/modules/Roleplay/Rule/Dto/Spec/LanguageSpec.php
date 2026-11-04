@@ -12,9 +12,9 @@ final class LanguageSpec implements RuleSpec
     /**
      * Создаёт spec.
      *
-     * @param mixed $role Поле.
-     * @param mixed $parentCode Поле.
-     * @param mixed $scriptCodes Поле.
+     * @param string $role Роль.
+     * @param string|null $parentCode Код родителя или null.
+     * @param array $scriptCodes Коды письменностей.
      *
      * @return void
      */

@@ -80,6 +80,7 @@ final class Characters implements ICharacters
      * @param array $choices Build.
      * @param array $sheet Кэш.
      * @param int $expectedVersion Текущий actual_version.
+     * @param DateTime|null $updatedAt Момент записи или null — текущий.
      *
      * @return CharacterRecord После записи.
      *
@@ -87,8 +88,13 @@ final class Characters implements ICharacters
      * @throws CharacterNotFoundException Если строки нет.
      * @throws CharacterConflictException Если version устарел.
      */
-    public function replacePayload(int $id, array $choices, array $sheet, int $expectedVersion): CharacterRecord
-    {
+    public function replacePayload(
+        int $id,
+        array $choices,
+        array $sheet,
+        int $expectedVersion,
+        ?DateTime $updatedAt = null,
+    ): CharacterRecord {
         $this->characterInputNormalizer->requirePositiveInt($expectedVersion, 'Character expected version is invalid');
 
         return $this->characterRepository->replacePayload(
@@ -96,7 +102,7 @@ final class Characters implements ICharacters
             $this->characterInputNormalizer->normalizePayload($choices),
             $this->characterInputNormalizer->normalizePayload($sheet),
             $expectedVersion,
-            DateTime::now(),
+            $updatedAt ?? DateTime::now(),
         );
     }
 

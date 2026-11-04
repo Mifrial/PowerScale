@@ -21,7 +21,6 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicModifyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SenseModifyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Race\RaceSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\SenseSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\State\CharacteristicModifyEffect;
@@ -449,7 +448,7 @@ final class CharacterLiveCharacteristics
                 }
 
                 $delta = $effect->getAmount() * ($effect->isPerUnit() ? $units : 1);
-                $source = is_string($code) ? $code : '';
+                $source = $code;
                 foreach ($this->penaltyTargets($slice, $effect->getCharacteristicCode()) as $target) {
                     $raw[$target][] = ['source' => $source, 'delta' => $delta];
                 }
@@ -743,7 +742,7 @@ final class CharacterLiveCharacteristics
                 continue;
             }
 
-            $group = $spec instanceof CharacteristicSpec ? $spec->getGroup() : null;
+            $group = $spec->getGroup();
             $codes = $groups[$group ?? ''] ?? [];
             $picked = $this->pick($values, $codes, $formula === 'max');
             if ($picked !== null) {
@@ -768,9 +767,6 @@ final class CharacterLiveCharacteristics
         $context = new FormulaContext($values, []);
         foreach ($this->equippedLive->equipped($slice, $choices) as $item) {
             $spec = $item['spec'];
-            if (!$spec instanceof ItemSpec) {
-                continue;
-            }
 
             $limits = array_merge(
                 $spec->getArmor()?->getCharacteristicLimits() ?? [],
@@ -848,11 +844,7 @@ final class CharacterLiveCharacteristics
             return $number;
         }
 
-        if ($shifted instanceof CharacteristicNumber) {
-            return $shifted;
-        }
-
-        return new CharacteristicNumber($shifted->getBase(), $shifted->getSize());
+        return $shifted;
     }
 
     /**

@@ -150,7 +150,7 @@ final class CommitEntry
     {
         foreach ($columnMap as $columnName => $columnValue) {
             unset($columnValue);
-            if (!is_string($columnName) || in_array($columnName, self::RESERVED_KEYS, true)) {
+            if (in_array($columnName, self::RESERVED_KEYS, true)) {
                 throw new SpaceInvalidException('Commit column map is invalid');
             }
         }

@@ -244,11 +244,11 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
      *
      * @param array<string, mixed> $choices Документ.
      *
-     * @return bool|null Флаг.
+     * @return bool Флаг.
      *
      * @throws ActionException INVALID_PARAMS.
      */
-    private function activeOf(array $choices): ?bool
+    private function activeOf(array $choices): bool
     {
         if (!array_key_exists('active', $choices)) {
             return true;

@@ -50,8 +50,6 @@ final class GameStrikes implements IGameStrikes
 
     private readonly GameReplayTransaction $replayTransaction;
 
-    private readonly ConflictSheetProjection $conflictProjection;
-
     private readonly GameStrikeChat $chat;
 
     private readonly GameStrikeAccess $access;
@@ -111,7 +109,6 @@ final class GameStrikes implements IGameStrikes
         $this->amounts = new GameStrikeAmounts();
         $this->sheetWrites = new GameStrikeSheetWrites($mutations, $this->npcs);
         $this->replayTransaction = new GameReplayTransaction($smartTableGateway);
-        $this->conflictProjection = $conflictProjection;
         $this->chat = new GameStrikeChat($this->npcs, $rules);
         $this->access = new GameStrikeAccess($this->members, $this->characters, $this->battles, $cardAccess);
         $this->sheets = new GameStrikeSheets(
@@ -136,7 +133,6 @@ final class GameStrikes implements IGameStrikes
             $this->sheets,
             $this->npcs,
             $consequences,
-            $this->amounts,
         );
         $this->closeService = new GameStrikeClose(
             $rules,

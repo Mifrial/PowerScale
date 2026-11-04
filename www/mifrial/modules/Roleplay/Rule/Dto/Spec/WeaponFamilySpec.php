@@ -12,7 +12,7 @@ final class WeaponFamilySpec implements RuleSpec
     /**
      * Создаёт spec.
      *
-     * @param mixed $costs Поле.
+     * @param array $costs Стоимости.
      *
      * @return void
      */

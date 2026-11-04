@@ -17,7 +17,6 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\CharacterActualMutations;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
-use Mifrial\Roleplay\Character\Service\Save\CharacterSheetDocument;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
 use PHPUnit\Framework\TestCase;
 
@@ -656,7 +655,6 @@ final class CharacterActualStateTest extends TestCase
             $slices,
             $this->sheets(),
             new CharacterChoiceAssembler(),
-            new CharacterSheetDocument(),
         );
 
         $this->expectException(CharacterNotFoundException::class);
@@ -682,7 +680,6 @@ final class CharacterActualStateTest extends TestCase
             $slices,
             $this->sheets(),
             new CharacterChoiceAssembler(),
-            new CharacterSheetDocument(),
         );
     }
 

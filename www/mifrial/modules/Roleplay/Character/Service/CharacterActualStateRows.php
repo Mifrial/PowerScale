@@ -36,7 +36,7 @@ final class CharacterActualStateRows
         $keys = array_keys($operation);
         sort($keys);
         $code = $operation['stateRuleCode'] ?? null;
-        if (!is_string($code) || $code === '' || ($operation['kind'] ?? null) !== 'putState') {
+        if (!is_string($code) || $code === '') {
             throw new CharacterInvalidException('Character patch operation is invalid');
         }
 
@@ -591,8 +591,7 @@ final class CharacterActualStateRows
         }
 
         $spec = $rule->getSpec();
-        $marked = $rule->getType() === 'state' && $spec instanceof StateSpec && $this->hasMark($spec, $remainder);
-        if (!$marked || !$spec instanceof StateSpec) {
+        if ($rule->getType() !== 'state' || !$spec instanceof StateSpec || !$this->hasMark($spec, $remainder)) {
             return $found;
         }
 

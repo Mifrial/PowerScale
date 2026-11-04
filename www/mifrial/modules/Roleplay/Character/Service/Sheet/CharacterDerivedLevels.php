@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Character\Service\Sheet;
 
-use Mifrial\Roleplay\Character\Dto\CharacterAbilityChoice;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
@@ -70,7 +69,7 @@ final class CharacterDerivedLevels
     {
         $sum = 0;
         foreach ($choices->getAbilities() as $ability) {
-            if (!$ability instanceof CharacterAbilityChoice || $ability->getLevel() < 1) {
+            if ($ability->getLevel() < 1) {
                 continue;
             }
 

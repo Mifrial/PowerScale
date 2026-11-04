@@ -32,10 +32,6 @@ final class AbilityZones
         $zones = SpecShape::object($document, 'zones') ?? [];
         $prices = [];
         foreach ($zones as $code => $row) {
-            if (!is_string($code)) {
-                throw new RuleSpecShapeException('zones');
-            }
-
             $row = SpecShape::requireMap($row, 'zones');
 
             $kind = SpecShape::optionalString($row, 'kind') ?? SpecShape::optionalString($row, 'type') ?? '';
@@ -90,15 +86,11 @@ final class AbilityZones
 
         $values = [];
         foreach ($table as $key => $cost) {
-            if (is_int($key)) {
-                $key = (string) $key;
-            }
-
-            if (!is_string($key) || !is_int($cost)) {
+            if (!is_int($cost)) {
                 throw new RuleSpecShapeException('costs');
             }
 
-            $values[$key] = $cost;
+            $values[(string) $key] = $cost;
         }
 
         return $values;
@@ -118,10 +110,6 @@ final class AbilityZones
         $source = SpecShape::object($row, 'tables') ?? [];
         $tables = [];
         foreach ($source as $code => $table) {
-            if (!is_string($code)) {
-                throw new RuleSpecShapeException('tables');
-            }
-
             $tables[$code] = self::table(['costs' => $table]);
         }
 

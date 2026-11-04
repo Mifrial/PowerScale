@@ -367,7 +367,7 @@ final class GameStrikeRules
         $rows = [];
         foreach ($slice->getLiveRules() as $rule) {
             $level = $levels[$rule->getCode()] ?? 0;
-            if (!is_int($level) || $level < 1) {
+            if ($level < 1) {
                 continue;
             }
 
@@ -436,7 +436,7 @@ final class GameStrikeRules
     ): bool {
         if ($actorKind === 'character') {
             $snapshot = $this->characterSnapshot($actorId);
-            $sheet = is_array($snapshot['sheet'] ?? null) ? $snapshot['sheet'] : [];
+            $sheet = $snapshot['sheet'];
         } else {
             $sheet = is_array($npcChoices['sheet'] ?? null) ? $npcChoices['sheet'] : [];
         }
@@ -1158,7 +1158,7 @@ final class GameStrikeRules
      * @return string Код карточки.
      *
      * @throws GameInvalidException Если карточек нет или их несколько.
-     * @throws GameNotFoundException Если ревизии нет.
+     * @throws CharacterNotFoundException Если ревизии нет.
      */
     public function findHitCode(int $spaceId, int $rulesRevision): string
     {
@@ -1678,9 +1678,8 @@ final class GameStrikeRules
         }
 
         $damageType = $attackContext['damageTypeCode'] ?? null;
-        $damageType = is_string($damageType) && $damageType !== '' ? $damageType : null;
+        $damageType = $damageType !== '' ? $damageType : null;
         $occupyHands = $attackContext['occupyHands'] ?? 0;
-        $occupyHands = is_int($occupyHands) ? $occupyHands : 0;
 
         $entries = [];
         foreach ($this->actionEffectBases($slice, $actionRuleCode, $base, $abilityLevels) as $current) {
@@ -1766,7 +1765,7 @@ final class GameStrikeRules
         $bases = [$base];
         foreach ($slice->getLiveRules() as $rule) {
             $level = $abilityLevels[$rule->getCode()] ?? 0;
-            if (!is_int($level) || $level < 1) {
+            if ($level < 1) {
                 continue;
             }
 
@@ -2795,9 +2794,6 @@ final class GameStrikeRules
 
         $choices = $npcChoices;
         $sheet = $npcSheet;
-        if (!is_array($choices) || !is_array($sheet)) {
-            throw new GameInvalidException('Game strike npc choices are missing');
-        }
 
         return [
             'sheet' => $sheet,
@@ -3084,7 +3080,7 @@ final class GameStrikeRules
     private function computedSheet(CharacterRuleSlice $slice, array $sheet, array $choices): array
     {
         if (is_array($sheet['sheet'] ?? null) && is_array($sheet['choices'] ?? null)) {
-            $choices = is_array($sheet['choices']) ? $sheet['choices'] : $choices;
+            $choices = $sheet['choices'];
             $sheet = $sheet['sheet'];
         }
 
@@ -3257,24 +3253,6 @@ final class GameStrikeRules
         $quantity = $matches[0]['quantity'] ?? null;
         if (count($matches) !== 1 || !is_int($quantity) || $quantity < 1) {
             throw new GameInvalidException('Game strike inventory item is unavailable');
-        }
-    }
-
-    /**
-     * Лист персонажа цели.
-     *
-     * @param int $characterId Персонаж.
-     *
-     * @return array<string, mixed> sheet.
-     *
-     * @throws GameNotFoundException Если строки нет.
-     */
-    private function storedSheet(int $characterId): array
-    {
-        try {
-            return $this->characters->get($characterId)->getSheet();
-        } catch (CharacterNotFoundException $exception) {
-            throw new GameNotFoundException('Game strike character was not found', $exception);
         }
     }
 
@@ -3747,7 +3725,7 @@ final class GameStrikeRules
         }
 
         if (is_array($sheet['sheet'] ?? null) && is_array($sheet['choices'] ?? null)) {
-            $choices = is_array($sheet['choices']) ? $sheet['choices'] : $choices;
+            $choices = $sheet['choices'];
             $sheet = $sheet['sheet'];
         }
 

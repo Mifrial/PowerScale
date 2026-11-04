@@ -64,10 +64,8 @@ final class GameEconomyOperationRepository
             ));
             $page = 0;
             foreach ($result->rows() as $row) {
-                if (is_array($row)) {
-                    $records[] = $this->record($row);
-                    $page++;
-                }
+                $records[] = $this->record($row);
+                $page++;
             }
 
             $offset += 500;

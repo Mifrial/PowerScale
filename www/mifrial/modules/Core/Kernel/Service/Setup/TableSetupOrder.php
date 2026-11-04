@@ -95,12 +95,6 @@ final class TableSetupOrder
         }
 
         $definition = $classReflection->newInstance();
-        if (!$definition instanceof SmartTableDefinition) {
-            throw new SetupException(
-                'SETUP_INVALID',
-                'Setup table class must be a SmartTable definition: ' . $tableClass,
-            );
-        }
 
         return $definition;
     }

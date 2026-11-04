@@ -17,8 +17,8 @@ final class AbilityParameter
      * @param string $code Код.
      * @param string $label Подпись.
      * @param string|null $description Описание.
-     * @param string $resolution purchase или activation.
-     * @param string $kind scalar или dimensional.
+     * @param string $resolution Purchase или activation.
+     * @param string $kind Scalar или dimensional.
      * @param int|DimensionalNumber $default Значение по умолчанию.
      * @param int|DimensionalNumber|null $min Минимум.
      * @param int|DimensionalNumber|null $max Максимум.
@@ -77,5 +77,55 @@ final class AbilityParameter
     public function getLinked(): ?ParameterLink
     {
         return $this->linked;
+    }
+
+    /**
+     * Подпись.
+     *
+     * @return string Подпись.
+     */
+    public function getLabel(): string
+    {
+        return $this->label;
+    }
+
+    /**
+     * Описание.
+     *
+     * @return string|null Описание или null.
+     */
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    /**
+     * Место применения.
+     *
+     * @return string purchase или activation.
+     */
+    public function getResolution(): string
+    {
+        return $this->resolution;
+    }
+
+    /**
+     * Минимум.
+     *
+     * @return int|DimensionalNumber|null Минимум или null.
+     */
+    public function getMin(): int|DimensionalNumber|null
+    {
+        return $this->min;
+    }
+
+    /**
+     * Максимум.
+     *
+     * @return int|DimensionalNumber|null Максимум или null.
+     */
+    public function getMax(): int|DimensionalNumber|null
+    {
+        return $this->max;
     }
 }

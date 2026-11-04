@@ -113,10 +113,6 @@ final class ItemModifiers
         $map = SpecShape::object($price, 'by_keyword') ?? [];
         $overrides = [];
         foreach ($map as $code => $row) {
-            if (!is_string($code)) {
-                throw new RuleSpecShapeException('by_keyword');
-            }
-
             $row = SpecShape::requireMap($row, 'by_keyword');
 
             $overrides[$code] = new ItemModifierPriceOverride(

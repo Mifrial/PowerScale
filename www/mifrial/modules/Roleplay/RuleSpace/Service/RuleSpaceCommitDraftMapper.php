@@ -261,9 +261,6 @@ final class RuleSpaceCommitDraftMapper
             }
 
             $payload = $row['mechanicPayload'] ?? [];
-            if ($payload === null) {
-                $payload = [];
-            }
 
             if ($payload instanceof JsonObject) {
                 $payload = $payload->getMembers();

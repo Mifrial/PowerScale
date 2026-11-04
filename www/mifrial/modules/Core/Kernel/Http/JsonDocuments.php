@@ -38,7 +38,7 @@ final class JsonDocuments
     {
         if ($node instanceof stdClass) {
             $members = [];
-            foreach ($node as $key => $child) {
+            foreach (get_object_vars($node) as $key => $child) {
                 $members[$key] = self::preserve($child);
             }
 

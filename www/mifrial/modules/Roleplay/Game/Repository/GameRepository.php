@@ -151,10 +151,6 @@ final class GameRepository
         ));
         $records = [];
         foreach ($result->rows() as $row) {
-            if (!is_array($row)) {
-                throw new GameInvalidException('Game row is invalid');
-            }
-
             $records[] = GameRecord::fromNormalized($row);
         }
 
@@ -180,10 +176,6 @@ final class GameRepository
         ));
         $records = [];
         foreach ($result->rows() as $row) {
-            if (!is_array($row)) {
-                throw new GameInvalidException('Game row is invalid');
-            }
-
             $records[] = GameRecord::fromNormalized($row);
         }
 
@@ -226,7 +218,7 @@ final class GameRepository
      * Заменяет набор whitelist.
      *
      * @param int $gameId Игра.
-     * @param list<int> $userIds Id.
+     * @param array<int, int> $userIds Id.
      *
      * @return void
      *

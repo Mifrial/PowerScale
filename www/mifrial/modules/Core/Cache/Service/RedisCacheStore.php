@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\Cache\Service;
 
 use Mifrial\Core\Cache\Exception\CacheDriverFailedException;
+use Mifrial\Core\Cache\Exception\CacheInvalidException;
 use Mifrial\Core\Cache\Interface\Service\ICacheStore;
 use Redis;
 use Throwable;
@@ -180,9 +181,7 @@ final class RedisCacheStore implements ICacheStore
         }
 
         foreach ($members as $member) {
-            if (is_string($member)) {
-                $cacheKeys[] = $member;
-            }
+            $cacheKeys[] = $member;
         }
 
         return $cacheKeys;

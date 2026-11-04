@@ -134,7 +134,7 @@ final class GameCheckRoll
      * @return void
      *
      * @throws GameInvalidException Если карточка чужая.
-     * @throws GameNotFoundException Если ревизии нет.
+     * @throws CharacterNotFoundException Если ревизии нет.
      */
     public function assertRule(int $spaceId, int $rulesRevision, string $ruleCode, string $flow, ?array $asked): void
     {
@@ -165,7 +165,7 @@ final class GameCheckRoll
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
      *
      * @throws GameInvalidException Если карточка или пул чужие.
-     * @throws GameNotFoundException Если ревизии нет.
+     * @throws CharacterNotFoundException Если ревизии нет.
      */
     public function throwCheck(
         int $spaceId,
@@ -195,7 +195,7 @@ final class GameCheckRoll
      * @return array{initiator: array<string, mixed>, opponent: array<string, mixed>} Итоги.
      *
      * @throws GameInvalidException Если карточка, режим или пул чужие.
-     * @throws GameNotFoundException Если ревизии нет.
+     * @throws CharacterNotFoundException Если ревизии нет.
      */
     public function throwJointCheck(
         int $spaceId,
@@ -279,7 +279,7 @@ final class GameCheckRoll
             new RollSpec(
                 $pool['diceCount'],
                 $pool['dieFaces'],
-                $override?->efficiency ?? $efficiency->getBase(),
+                $override->efficiency ?? $efficiency->getBase(),
                 $pool['size'],
                 $this->advantagesOf($override, $slice, $sheet, $chain['characteristic'], $check->isHitCheck()),
                 $override?->efficiency !== null || $this->hasExplicitEfficiency($check),
@@ -299,7 +299,7 @@ final class GameCheckRoll
      *
      * @return CharacterRuleSlice Срез.
      *
-     * @throws GameNotFoundException Если ревизии нет.
+     * @throws CharacterNotFoundException Если ревизии нет.
      */
     public function slice(int $spaceId, int $rulesRevision): CharacterRuleSlice
     {
@@ -315,7 +315,7 @@ final class GameCheckRoll
      * @return string Код карточки.
      *
      * @throws GameInvalidException Если карточек нет или их несколько.
-     * @throws GameNotFoundException Если ревизии нет.
+     * @throws CharacterNotFoundException Если ревизии нет.
      */
     public function findHitCode(int $spaceId, int $rulesRevision): string
     {
@@ -350,7 +350,7 @@ final class GameCheckRoll
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
      *
      * @throws GameInvalidException Если карточка или pool чужие.
-     * @throws GameNotFoundException Если ревизии нет.
+     * @throws CharacterNotFoundException Если ревизии нет.
      */
     public function throwHitWithMastery(
         int $spaceId,
@@ -438,7 +438,7 @@ final class GameCheckRoll
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
      *
      * @throws GameInvalidException Если карточка или пул чужие.
-     * @throws GameNotFoundException Если ревизии нет.
+     * @throws CharacterNotFoundException Если ревизии нет.
      */
     public function throwWithDifficulty(
         int $spaceId,
@@ -478,7 +478,7 @@ final class GameCheckRoll
      * @return string Код карточки.
      *
      * @throws GameInvalidException Если карточек нет или их несколько.
-     * @throws GameNotFoundException Если ревизии нет.
+     * @throws CharacterNotFoundException Если ревизии нет.
      */
     public function findInitiativeCode(int $spaceId, int $rulesRevision): string
     {
@@ -506,7 +506,7 @@ final class GameCheckRoll
      * @return CheckSpec Карточка.
      *
      * @throws GameInvalidException Если карточек нет или их несколько.
-     * @throws GameNotFoundException Если ревизии нет.
+     * @throws CharacterNotFoundException Если ревизии нет.
      */
     public function initiativeCheck(int $spaceId, int $rulesRevision): CheckSpec
     {
@@ -697,7 +697,7 @@ final class GameCheckRoll
             new RollSpec(
                 $pool['diceCount'],
                 $pool['dieFaces'],
-                $override?->efficiency ?? $efficiency->getBase(),
+                $override->efficiency ?? $efficiency->getBase(),
                 $pool['size'],
                 $this->advantagesOf($override, $slice, $sheet, $chain['characteristic'], $check->isHitCheck()),
                 $override?->efficiency !== null || $this->hasExplicitEfficiency($check),
@@ -745,7 +745,7 @@ final class GameCheckRoll
             ];
         }
 
-        $code = $override?->characteristicCode ?? $characteristic;
+        $code = $override->characteristicCode ?? $characteristic;
 
         return $this->pool($code, $sheet, $payload);
     }
@@ -824,7 +824,7 @@ final class GameCheckRoll
                 }
 
                 if ($delta !== 0) {
-                    $rows[] = new RollAdvantage(is_string($code) ? $code : 'state', $delta);
+                    $rows[] = new RollAdvantage($code, $delta);
                 }
             }
         }

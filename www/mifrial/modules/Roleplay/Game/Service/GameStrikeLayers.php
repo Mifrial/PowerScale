@@ -120,7 +120,7 @@ final class GameStrikeLayers
     {
         $rule = $slice->findLive($code);
         $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        if (!$spec instanceof DamageTypeSpec || $rule === null) {
+        if (!$spec instanceof DamageTypeSpec) {
             throw new GameInvalidException('Game strike damage type is invalid');
         }
 
@@ -134,8 +134,6 @@ final class GameStrikeLayers
      * @param int|null $blockItemInventoryId Id строки.
      *
      * @return int|null Id или null.
-     *
-     * @throws GameInvalidException Если строк нет или их несколько.
      */
     private function blockId(string $reaction, ?int $blockItemInventoryId): ?int
     {
@@ -151,49 +149,6 @@ final class GameStrikeLayers
     }
 
     /**
-     * Id надетых строк кода.
-     *
-     * @param array<string, mixed> $choices Выборы.
-     * @param string|null $ruleCode Код.
-     *
-     * @return list<int> Id.
-     */
-    private function equippedIds(array $choices, ?string $ruleCode): array
-    {
-        $inventory = $choices['inventory'] ?? [];
-        if (!is_array($inventory) || !is_string($ruleCode)) {
-            return [];
-        }
-
-        $found = [];
-        foreach ($inventory as $row) {
-            $id = $this->equippedRowId($row, $ruleCode);
-            if ($id !== null) {
-                $found[] = $id;
-            }
-        }
-
-        return $found;
-    }
-
-    /**
-     * Надетая строка этого кода с целым id.
-     *
-     * @param mixed $row Строка инвентаря.
-     * @param string $ruleCode Код.
-     *
-     * @return int|null Id или null.
-     */
-    private function equippedRowId(mixed $row, string $ruleCode): ?int
-    {
-        if (!is_array($row) || ($row['equipped'] ?? false) !== true || ($row['ruleCode'] ?? null) !== $ruleCode) {
-            return null;
-        }
-
-        return is_int($row['id'] ?? null) ? $row['id'] : null;
-    }
-
-    /**
      * Привязки механик правила.
      *
      * @param CharacterResolvedRule $rule Правило.
@@ -205,8 +160,7 @@ final class GameStrikeLayers
         $bindings = [];
         foreach ($rule->getMechanics() as $row) {
             if (
-                !is_array($row)
-                || !array_key_exists('mechanic_id', $row)
+                !array_key_exists('mechanic_id', $row)
                 || !is_int($row['mechanic_id'])
                 || $row['mechanic_id'] < 1
             ) {
@@ -214,9 +168,6 @@ final class GameStrikeLayers
             }
 
             $mechanicPayload = $row['mechanic_payload'] ?? [];
-            if ($mechanicPayload === null) {
-                $mechanicPayload = [];
-            }
 
             if (!is_array($mechanicPayload)) {
                 throw new MechanicInvalidException('Mechanic binding payload is invalid');

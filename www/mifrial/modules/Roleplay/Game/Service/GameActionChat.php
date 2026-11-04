@@ -80,12 +80,8 @@ final class GameActionChat
         try {
             $this->chats->send($chatId, $actorUserId, $text, $attachments, null);
             foreach ($rolls as $entry) {
-                $roll = is_array($entry) ? ($entry['roll'] ?? null) : null;
-                if (!is_array($roll)) {
-                    continue;
-                }
-
-                $line = is_string($entry['text'] ?? null) ? $entry['text'] : '';
+                $roll = $entry['roll'];
+                $line = $entry['text'];
                 $this->chats->send(
                     $chatId,
                     $actorUserId,

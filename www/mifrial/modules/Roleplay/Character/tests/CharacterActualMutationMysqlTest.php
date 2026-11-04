@@ -471,7 +471,6 @@ final class CharacterActualMutationMysqlTest extends TestCase
             $slices,
             $sheets,
             new CharacterChoiceAssembler(),
-            new CharacterSheetDocument(),
         );
     }
 

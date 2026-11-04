@@ -51,7 +51,7 @@ final class AggregateQueryOptionsParser
     private function assertKnownOptionKeys(array $options): void
     {
         foreach (array_keys($options) as $optionKey) {
-            if (!is_string($optionKey) || !in_array($optionKey, self::OPTION_KEYS, true)) {
+            if (!in_array($optionKey, self::OPTION_KEYS, true)) {
                 throw new MapInvalidException('Unknown aggregate query option');
             }
         }
@@ -174,15 +174,40 @@ final class AggregateQueryOptionsParser
         mixed $selectItem,
         array $groupNames,
     ): bool {
-        $itemKey = $this->selectItemKey($selectItem, $groupNames);
+        $normalized = $this->normalizedSelectItem($selectItem);
+        $itemKey = $this->selectItemKey($normalized, $groupNames);
         if (in_array($itemKey, $seenKeys, true)) {
             throw new MapInvalidException('Aggregate select key is duplicated');
         }
 
         $seenKeys[] = $itemKey;
-        $selectItems[] = $selectItem;
+        $selectItems[] = $normalized;
 
-        return !is_string($selectItem);
+        return !is_string($normalized);
+    }
+
+    /**
+     * Приводит элемент select к допустимому типу.
+     *
+     * @param mixed $selectItem Кандидат.
+     *
+     * @return string|CountField|MaxField|MinField|SumField Элемент.
+     *
+     * @throws MapInvalidException Если элемент недопустим.
+     */
+    private function normalizedSelectItem(mixed $selectItem): string|CountField|MaxField|MinField|SumField
+    {
+        if (
+            is_string($selectItem)
+            || $selectItem instanceof CountField
+            || $selectItem instanceof MaxField
+            || $selectItem instanceof MinField
+            || $selectItem instanceof SumField
+        ) {
+            return $selectItem;
+        }
+
+        throw new MapInvalidException('Aggregate select item is invalid');
     }
 
     /**

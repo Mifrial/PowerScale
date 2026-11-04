@@ -12,8 +12,8 @@ final class ParameterFloorDivScalar implements ScalarFormula
     /**
      * Создаёт узел.
      *
-     * @param mixed $parameterCode Поле.
-     * @param mixed $divisor Поле.
+     * @param string $parameterCode Код параметра.
+     * @param int $divisor Делитель.
      *
      * @return void
      */

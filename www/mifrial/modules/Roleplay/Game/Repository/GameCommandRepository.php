@@ -227,11 +227,7 @@ final class GameCommandRepository
             $this->commandRecords->update($commandId, ['result' => $result]);
         } catch (RowNotFoundException $exception) {
             throw new GameNotFoundException('Game command was not found', $exception);
-        } catch (
-            FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
+        } catch (RowWriteFailedException $exception) {
             throw new GameInvalidException('Game command field is invalid', $exception);
         }
     }
@@ -381,11 +377,7 @@ final class GameCommandRepository
             $this->commandRecords->delete($commandId);
         } catch (RowNotFoundException $exception) {
             throw new GameNotFoundException('Game command was not found', $exception);
-        } catch (
-            FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
+        } catch (RowWriteFailedException $exception) {
             throw new GameInvalidException('Game command field is invalid', $exception);
         }
     }

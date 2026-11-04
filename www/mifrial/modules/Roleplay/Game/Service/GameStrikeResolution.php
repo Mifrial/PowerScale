@@ -8,6 +8,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -22,7 +23,6 @@ final class GameStrikeResolution
      * @param GameStrikeSheets $sheets Листы и конфликты.
      * @param GameNpcRepository $npcs NPC.
      * @param GameStrikeConsequences $consequences Последствия попадания.
-     * @param GameStrikeAmounts $amounts Пары и нули.
      *
      * @return void
      */
@@ -31,7 +31,6 @@ final class GameStrikeResolution
         private readonly GameStrikeSheets $sheets,
         private readonly GameNpcRepository $npcs,
         private readonly GameStrikeConsequences $consequences,
-        private readonly GameStrikeAmounts $amounts,
     ) {
     }
 
@@ -43,7 +42,7 @@ final class GameStrikeResolution
      * @param string $hitCode Код hit-check.
      * @param array<string, mixed> $pending Карта ожидания.
      * @param CharacterRuleSlice $slice Срез.
-     * @param list<array<string, mixed>> $extraAdvantages Дополнительные преимущества (широкий удар).
+     * @param array<int, RollAdvantage> $extraAdvantages Дополнительные преимущества (широкий удар).
      * @param array<int, string> $targetKeys Цели атаки для хвостов прошлого действия.
      * @param int $extraAccuracy Дополнительная Точность.
      *

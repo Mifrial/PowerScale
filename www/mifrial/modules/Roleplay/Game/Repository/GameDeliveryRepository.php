@@ -94,7 +94,7 @@ final class GameDeliveryRepository
             null,
         ));
         $rows = $result->rows();
-        if ($rows === [] || !is_array($rows[0])) {
+        if ($rows === []) {
             return 0;
         }
 
@@ -190,8 +190,8 @@ final class GameDeliveryRepository
         ));
         $records = [];
         foreach ($result->rows() as $row) {
-            $record = is_array($row) ? GameDeliveryRecord::fromNormalized($row) : null;
-            if ($record instanceof GameDeliveryRecord && ($afterCursor === null || $record->getId() > $afterCursor)) {
+            $record = GameDeliveryRecord::fromNormalized($row);
+            if ($afterCursor === null || $record->getId() > $afterCursor) {
                 $records[] = $record;
             }
         }

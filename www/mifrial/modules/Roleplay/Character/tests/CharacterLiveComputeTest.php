@@ -14,7 +14,6 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\CharacterActualMutations;
 use Mifrial\Roleplay\Character\Service\Runtime\Character;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
-use Mifrial\Roleplay\Character\Service\Save\CharacterSheetDocument;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicModifyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
@@ -463,7 +462,6 @@ final class CharacterLiveComputeTest extends TestCase
             $slices,
             $this->sheets(),
             new CharacterChoiceAssembler(),
-            new CharacterSheetDocument(),
         );
     }
 

@@ -14,7 +14,7 @@ final class ToScalar implements ScalarFormula
     /**
      * Создаёт узел.
      *
-     * @param mixed $value Поле.
+     * @param DimensionalFormula $value Формула.
      *
      * @return void
      */

@@ -12,8 +12,8 @@ final class CharacteristicSizeGapScalar implements ScalarFormula
     /**
      * Создаёт узел.
      *
-     * @param mixed $characteristicCodeFrom Поле.
-     * @param mixed $characteristicCodeTo Поле.
+     * @param string $characteristicCodeFrom Код характеристики «от».
+     * @param string $characteristicCodeTo Код характеристики «до».
      *
      * @return void
      */

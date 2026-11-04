@@ -60,7 +60,7 @@ final class GrantAssignOnRegisterPermissionsStep implements ISetupStep
 
             try {
                 $this->userGroups->update($groupId, GroupPatch::fromNormalized([
-                    'permissions' => array_values(array_merge($group->getPermissionKeys(), $missing)),
+                    'permissions' => array_merge($group->getPermissionKeys(), $missing),
                 ]));
             } catch (UserInvalidException $exception) {
                 throw new SetupException('SETUP_INVALID', 'Cannot update seed group', $exception);

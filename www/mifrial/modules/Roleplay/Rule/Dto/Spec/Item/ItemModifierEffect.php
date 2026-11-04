@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Item;
 
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\ItemModifierOp;
+
 /**
  * Эффект модификатора.
  */

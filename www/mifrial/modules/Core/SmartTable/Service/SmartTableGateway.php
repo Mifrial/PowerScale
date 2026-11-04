@@ -17,7 +17,6 @@ use Mifrial\Core\SmartTable\Service\Query\TableRows;
 use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use ReflectionClass;
-use ReflectionException;
 use Throwable;
 
 /**
@@ -78,6 +77,7 @@ final class SmartTableGateway implements ISmartTableGateway
      * @return mixed Результат $work.
      *
      * @throws TransactionFailedException Если commit или rollback не удались.
+     * @throws \Throwable Если $work бросил исключение: оно уходит наружу после rollback.
      */
     public function transaction(Closure $work): mixed
     {
@@ -120,20 +120,13 @@ final class SmartTableGateway implements ISmartTableGateway
             throw new MapInvalidException('Definition class is invalid');
         }
 
-        try {
-            $reflectionClass = new ReflectionClass($definitionClass);
-        } catch (ReflectionException) {
-            throw new MapInvalidException('Definition class is invalid');
-        }
+        $reflectionClass = new ReflectionClass($definitionClass);
 
         if ($reflectionClass->isAbstract() || !$this->hasOptionalConstructor($reflectionClass)) {
             throw new MapInvalidException('Definition class is invalid');
         }
 
         $tableDefinition = $reflectionClass->newInstance();
-        if (!$tableDefinition instanceof SmartTableDefinition) {
-            throw new MapInvalidException('Definition class is invalid');
-        }
 
         return $tableDefinition;
     }

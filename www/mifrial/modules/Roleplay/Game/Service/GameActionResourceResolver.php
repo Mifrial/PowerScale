@@ -300,7 +300,7 @@ final class GameActionResourceResolver
     /**
      * Проверяет карту предложений выбранной суммы.
      *
-     * @param array<string, mixed> $chosenAmounts Server proposal.
+     * @param array<int|string, mixed> $chosenAmounts Server proposal.
      * @param array<int, ResourceComponent> $components Live components.
      *
      * @return void
@@ -322,8 +322,7 @@ final class GameActionResourceResolver
 
         foreach ($chosenAmounts as $code => $value) {
             if (
-                !is_string($code)
-                || $code === ''
+                $code === ''
                 || !isset($codes[$code])
                 || (!is_int($value) && !is_array($value))
             ) {

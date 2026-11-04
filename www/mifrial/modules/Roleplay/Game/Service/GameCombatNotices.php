@@ -134,10 +134,6 @@ final class GameCombatNotices
     {
         $parts = [];
         foreach ($order as $entry) {
-            if (!is_array($entry)) {
-                continue;
-            }
-
             $parts[] = $this->nameOf($entry) . ' (' . $this->scoreOf($entry) . ')';
         }
 

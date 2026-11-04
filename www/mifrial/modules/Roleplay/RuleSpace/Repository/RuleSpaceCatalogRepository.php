@@ -40,8 +40,6 @@ final class RuleSpaceCatalogRepository
      * @param int $revision Номер часов.
      *
      * @return RuleSpaceCatalog Снимок.
-     *
-     * @throws RuleSpaceInvalidException Если строки битые.
      */
     public function getByRevision(int $spaceId, int $revision): RuleSpaceCatalog
     {
@@ -65,8 +63,6 @@ final class RuleSpaceCatalogRepository
      * @param int $sectionVersion Номер снимка.
      *
      * @return RuleSpaceCatalog Снимок.
-     *
-     * @throws RuleSpaceInvalidException Если строки битые.
      */
     public function getBySectionVersion(int $spaceId, int $sectionVersion): RuleSpaceCatalog
     {

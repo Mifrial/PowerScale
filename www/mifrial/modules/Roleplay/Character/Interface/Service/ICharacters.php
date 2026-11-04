@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Character\Interface\Service;
 
+use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
@@ -45,6 +46,7 @@ interface ICharacters
      * @param array $choices Build.
      * @param array $sheet Кэш.
      * @param int $expectedVersion Текущий actual_version.
+     * @param DateTime|null $updatedAt Момент записи или null — текущий.
      *
      * @return CharacterRecord После записи.
      *
@@ -52,7 +54,13 @@ interface ICharacters
      * @throws CharacterNotFoundException Если строки нет.
      * @throws CharacterConflictException Если version устарел.
      */
-    public function replacePayload(int $id, array $choices, array $sheet, int $expectedVersion): CharacterRecord;
+    public function replacePayload(
+        int $id,
+        array $choices,
+        array $sheet,
+        int $expectedVersion,
+        ?DateTime $updatedAt = null,
+    ): CharacterRecord;
 
     /**
      * Пишет имя, active, choices и sheet при совпадении expectedVersion.

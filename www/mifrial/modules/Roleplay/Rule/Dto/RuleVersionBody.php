@@ -162,7 +162,7 @@ final class RuleVersionBody
 
         $seenIds = [];
         foreach ($keywordIds as $keywordId) {
-            if (!is_int($keywordId) || $keywordId < 1 || isset($seenIds[$keywordId])) {
+            if ($keywordId < 1 || isset($seenIds[$keywordId])) {
                 throw new RuleInvalidException('Keyword ids are invalid');
             }
 

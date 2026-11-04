@@ -104,7 +104,7 @@ final class PathListHydrator
         $aliasName = '__st_m' . $mfvIndex;
         $ownerIds = [];
         foreach ($rowMaps as $rowMap) {
-            if (isset($rowMap[$aliasName]) && $rowMap[$aliasName] !== null) {
+            if (isset($rowMap[$aliasName])) {
                 $ownerIds[] = (int) $rowMap[$aliasName];
             }
         }
@@ -115,7 +115,7 @@ final class PathListHydrator
             $ownerIds,
         );
         foreach ($rowMaps as $rowIndex => $rowMap) {
-            $ownerId = isset($rowMap[$aliasName]) && $rowMap[$aliasName] !== null
+            $ownerId = isset($rowMap[$aliasName])
                 ? (int) $rowMap[$aliasName]
                 : 0;
             $rowMaps[$rowIndex][$fieldName] = $groupedValues[$ownerId] ?? [];

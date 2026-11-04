@@ -51,7 +51,7 @@ final class RequestContext implements IRequestContext
         $this->queuedCookies = [];
         $this->requestActor = null;
         foreach ($httpRequest->getCookieMap() as $cookieName => $cookieValue) {
-            if (is_string($cookieName) && is_string($cookieValue) && $cookieValue !== '') {
+            if ($cookieValue !== '') {
                 $this->incomingCookies[$cookieName] = $cookieValue;
             }
         }

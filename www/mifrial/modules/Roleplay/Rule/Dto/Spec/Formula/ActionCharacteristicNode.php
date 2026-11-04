@@ -12,10 +12,10 @@ final class ActionCharacteristicNode implements DimensionalFormula
     /**
      * Создаёт узел.
      *
-     * @param mixed $action Поле.
-     * @param mixed $characteristic Поле.
-     * @param mixed $multiplier Поле.
-     * @param mixed $modifiers Поле.
+     * @param string $action Действие.
+     * @param string $characteristic Характеристика.
+     * @param int|null $multiplier Множитель или null.
+     * @param array $modifiers Модификаторы.
      *
      * @return void
      */

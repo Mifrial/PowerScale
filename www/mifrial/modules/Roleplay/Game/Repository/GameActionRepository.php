@@ -166,7 +166,7 @@ final class GameActionRepository
     {
         return $this->smartTableGateway->transaction(function () use ($action, $strikes): int {
             $actionId = $this->add($action);
-            foreach (array_values($strikes) as $index => $strike) {
+            foreach ($strikes as $index => $strike) {
                 $strike['strike_index'] = $index;
                 $this->addStrike($actionId, $strike);
             }
@@ -409,9 +409,7 @@ final class GameActionRepository
         } catch (RowNotFoundException $exception) {
             throw new GameNotFoundException('Game action was not found', $exception);
         } catch (
-            FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException
+            RowWriteFailedException
             | ReferenceConstraintException $exception
         ) {
             throw new GameInvalidException('Game action field is invalid', $exception);
@@ -484,10 +482,6 @@ final class GameActionRepository
         ));
         $rows = [];
         foreach ($result->rows() as $row) {
-            if (!is_array($row)) {
-                throw new GameInvalidException('Game action row is invalid');
-            }
-
             $rows[] = $row;
         }
 

@@ -10,7 +10,6 @@ use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Messages\Chat\Exception\ChatInvalidException;
 use Mifrial\Messages\Chat\Exception\ChatNotFoundException;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
-use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
@@ -373,7 +372,7 @@ final class GameTurns
         $this->assertActor($game, $actorUserId, $editAll, $current);
         if ($command === 'end') {
             $ended = $this->endWork($game, $battle, $expectedBattle, $expectedSheet, $current, $actorUserId);
-            $order = $battle->getTurnOrder() ?? [];
+            $order = $battle->getTurnOrder();
             $index = $ended['activeIndex'] ?? 0;
             $entry = is_int($index) ? ($order[$index] ?? null) : null;
             $name = is_array($entry) && is_string($entry['name'] ?? null) && $entry['name'] !== ''
@@ -447,26 +446,23 @@ final class GameTurns
         $cycle = $battle->getConcentrationCycle();
         $actorKey = $current['type'] . ':' . $current['id'];
         $concentration = new GameConcentration();
-        if ($concentration->resourceCode($slice, is_array($snapshot['sheet'] ?? null) ? $snapshot['sheet'] : []) !== null) {
+        if ($concentration->resourceCode($slice, $snapshot['sheet']) !== null) {
             $ended = (new GameConcentrationCycle())->endTurn($cycle, $actorKey);
             $cycle = $ended['cycle'];
             if ($ended['refill']) {
                 $built['operations'][] = ['kind' => 'refillCheckTokenResources'];
             }
         }
+
         $sheetVersion = $performed['sheetVersion'];
         if ($built['operations'] !== []) {
-            try {
-                $sheetVersion = $this->sheets->write(
-                    $game,
-                    $current['type'],
-                    $current['id'],
-                    $snapshot['actualVersion'],
-                    $built['operations'],
-                );
-            } catch (CharacterInvalidException $exception) {
-                throw new GameInvalidException('Game turn sheet is invalid', $exception);
-            }
+            $sheetVersion = $this->sheets->write(
+                $game,
+                $current['type'],
+                $current['id'],
+                $snapshot['actualVersion'],
+                $built['operations'],
+            );
         }
 
         $cursor = $this->advanced($battle);
@@ -495,7 +491,7 @@ final class GameTurns
             $battle->getId(),
             $battle->getRound(),
             $battle->getActiveIndex(),
-            $performed['rolls'] ?? [],
+            $performed['rolls'],
         );
         $this->post($game, $built['rolls']);
 

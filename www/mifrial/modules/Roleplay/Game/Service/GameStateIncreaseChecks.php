@@ -64,22 +64,18 @@ final class GameStateIncreaseChecks
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $rulesRevision);
         $rolls = [];
         foreach ($states as $code => $change) {
-            if (!is_string($code) || !is_array($change)) {
-                continue;
-            }
-
             if ($onlyCodes !== null && !in_array($code, $onlyCodes, true)) {
                 continue;
             }
 
-            $before = $change['before'] ?? null;
-            $after = $change['after'] ?? null;
+            $before = $change['before'];
+            $after = $change['after'];
             $checkCode = $change['check_code'] ?? null;
-            if (!is_int($before) || !is_int($after) || $after <= $before) {
+            if ($after <= $before) {
                 continue;
             }
 
-            if (!is_string($checkCode) || $checkCode === '') {
+            if ($checkCode === null || $checkCode === '') {
                 continue;
             }
 
@@ -112,7 +108,7 @@ final class GameStateIncreaseChecks
             $rolls[] = [
                 'roll' => $rolled['roll'],
                 'text' => $this->text($slice, $code, $rolled['roll'], $after),
-                'verdict' => $applied && $outcome !== null ? $this->verdict($slice, $outcome) : null,
+                'verdict' => $applied ? $this->verdict($slice, $outcome) : null,
             ];
         }
 
@@ -130,16 +126,20 @@ final class GameStateIncreaseChecks
     private function verdict(CharacterRuleSlice $slice, string $code): string
     {
         $rule = $slice->findLive($code);
-        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
+        if ($rule === null) {
+            return 'получает состояние «' . $code . '».';
+        }
+
+        $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
         if (!$spec instanceof StateSpec) {
-            return 'получает состояние «' . ($rule?->getName() ?? $code) . '».';
+            return 'получает состояние «' . $rule->getName() . '».';
         }
 
         if ($spec->isLying()) {
             return 'падает!';
         }
 
-        return 'получает состояние «' . ($rule?->getName() ?? $code) . '».';
+        return 'получает состояние «' . $rule->getName() . '».';
     }
 
     /**

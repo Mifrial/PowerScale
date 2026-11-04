@@ -50,7 +50,7 @@ final class ProcessSpecs
         ));
         $startStepCode = SpecShape::string($process, 'start_step_code');
         if ($startStepCode === '') {
-            $startStepCode = $steps[0]->getCode() ?? '';
+            $startStepCode = $steps[0]->getCode();
         }
 
         return new ProcessSpec(

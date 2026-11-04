@@ -12,8 +12,8 @@ final class CharacteristicNode implements DimensionalFormula
     /**
      * Создаёт узел.
      *
-     * @param mixed $characteristicCode Поле.
-     * @param mixed $modifier Поле.
+     * @param string $characteristicCode Код характеристики.
+     * @param int $modifier Модификатор.
      *
      * @return void
      */

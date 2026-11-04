@@ -14,7 +14,7 @@ final class DimensionalNode implements DimensionalFormula
     /**
      * Создаёт узел.
      *
-     * @param mixed $number Поле.
+     * @param DimensionalNumber $number Число.
      *
      * @return void
      */

@@ -39,10 +39,9 @@ final class RevisionPublisher
      * @param int $spaceId Пространство.
      * @param PreparedComposition $preparedComposition Состав.
      * @param bool $allowUnchangedComposition Разрешить тот же набор version_id.
+     * @param int|null $expectedRevision Голова, от которой собран состав. null — прежняя нумерация MAX+1.
      *
      * @return WrittenRevision Ревизия и срез.
-     *
-     * @param int|null $expectedRevision Голова, от которой собран состав. null — прежняя нумерация MAX+1.
      *
      * @throws SpaceInvalidException Если состав не изменился или гонка номера.
      * @throws SpaceConflictException Если голова уже не expectedRevision.
@@ -239,6 +238,7 @@ final class RevisionPublisher
      * @return array<string, mixed> Строка.
      *
      * @throws SpaceInvalidException Если строки нет после insert.
+     * @throws UniqueConstraintException Если номер ревизии уже занят.
      */
     private function addRevisionRow(int $spaceId, int $revisionNumber): array
     {

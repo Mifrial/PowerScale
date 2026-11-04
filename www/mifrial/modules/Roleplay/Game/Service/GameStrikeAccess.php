@@ -69,9 +69,9 @@ final class GameStrikeAccess
      */
     public function assertRoster(int $battleId, array $attacker, array $targets): void
     {
-        $this->assertKind($attacker['type'] ?? null);
+        $this->assertKind($attacker['type']);
         foreach ($targets as $target) {
-            $this->assertKind($target['type'] ?? null);
+            $this->assertKind($target['type']);
             if ($target === $attacker) {
                 throw new GameInvalidException('Game strike target is invalid');
             }
@@ -212,9 +212,9 @@ final class GameStrikeAccess
             return;
         }
 
-        $kind = $side['type'] ?? null;
-        $id = $side['id'] ?? null;
-        if (!is_string($kind) || !is_int($id) || $kind !== 'character') {
+        $kind = $side['type'];
+        $id = $side['id'];
+        if ($kind !== 'character') {
             throw new ActionException('AUTH_DENIED', 'Permission denied');
         }
 

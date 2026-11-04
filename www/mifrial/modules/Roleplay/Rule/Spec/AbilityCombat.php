@@ -280,7 +280,7 @@ final class AbilityCombat
         $source = SpecShape::object($push, 'posture_rating_divisor_by_damage_type') ?? [];
         $divisors = [];
         foreach ($source as $code => $value) {
-            if (!is_string($code) || !is_int($value)) {
+            if (!is_int($value)) {
                 throw new RuleSpecShapeException('posture_rating_divisor_by_damage_type');
             }
 

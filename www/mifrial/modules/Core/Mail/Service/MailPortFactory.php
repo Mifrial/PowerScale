@@ -105,7 +105,7 @@ final class MailPortFactory
         $templateRepository = new MailTemplateRepository(
             $gateway->open(MailTemplateTable::class)->records(),
         );
-        $kernelContainer = $serviceLocator->get(IKernelContainer::class);
+        $kernelContainer = $this->kernelContainer($serviceLocator);
 
         return [
             'events' => new MailEventRepository($gateway->open(MailEventTable::class)->records()),
@@ -120,6 +120,25 @@ final class MailPortFactory
                 $this->processLogger($kernelContainer),
             ),
         ];
+    }
+
+    /**
+     * Контейнер Kernel из каталога.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return IKernelContainer Контейнер Kernel.
+     *
+     * @throws KernelException Если каталог вернул не Kernel-контейнер.
+     */
+    private function kernelContainer(IServiceLocator $serviceLocator): IKernelContainer
+    {
+        $kernelContainer = $serviceLocator->get(IKernelContainer::class);
+        if (!$kernelContainer instanceof IKernelContainer) {
+            throw new KernelException('PORT_TYPE', 'Mail requires IKernelContainer');
+        }
+
+        return $kernelContainer;
     }
 
     /**

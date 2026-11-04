@@ -272,7 +272,7 @@ final class CharacterMigration
             'abilities' => $this->listOf($choices, 'abilities'),
             'inventory' => $this->listOf($choices, 'inventory'),
             'customRules' => $this->listOf($choices, 'customRules'),
-            'active' => $this->activeOf($choices, $record->isActive()) ?? true,
+            'active' => $this->activeOf($choices, $record->isActive()),
         ];
     }
 
@@ -411,9 +411,9 @@ final class CharacterMigration
      * @param array<string, mixed> $choices Документ.
      * @param bool $fallback Флаг строки.
      *
-     * @return bool|null Флаг.
+     * @return bool Флаг.
      */
-    private function activeOf(array $choices, bool $fallback): ?bool
+    private function activeOf(array $choices, bool $fallback): bool
     {
         if (!array_key_exists('active', $choices)) {
             return $fallback;

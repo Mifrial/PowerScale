@@ -32,6 +32,7 @@ interface ISmartTableGateway
      * @return mixed Результат $work.
      *
      * @throws TransactionFailedException Если commit или rollback не удались.
+     * @throws \Throwable Если $work бросил исключение: оно уходит наружу после rollback.
      */
     public function transaction(Closure $work): mixed;
 

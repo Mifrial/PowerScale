@@ -100,7 +100,6 @@ final class GameStrikeClose
             $this->spend,
             $this->amounts,
             $this->rows,
-            $this->targets,
             $choices,
             $this->singleChat,
             new GameActionModifierRunner(

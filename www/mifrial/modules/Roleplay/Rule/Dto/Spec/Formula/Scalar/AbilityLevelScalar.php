@@ -12,9 +12,9 @@ final class AbilityLevelScalar implements ScalarFormula
     /**
      * Создаёт узел.
      *
-     * @param mixed $abilityCode Поле.
-     * @param mixed $multiplier Поле.
-     * @param mixed $offset Поле.
+     * @param string $abilityCode Код способности.
+     * @param int|null $multiplier Множитель или null.
+     * @param int|null $offset Смещение или null.
      *
      * @return void
      */

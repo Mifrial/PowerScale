@@ -6,7 +6,6 @@ namespace Mifrial\Roleplay\RuleSpace\Repository;
 
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
-use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\ReferenceConstraintException;
 use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
@@ -60,7 +59,7 @@ final class RuleSpaceRepository
             throw new RuleSpaceInvalidException('Rule space unique is violated', $exception);
         } catch (ReferenceConstraintException $exception) {
             throw new RuleSpaceInvalidException('Rule space owner is invalid', $exception);
-        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+        } catch (FieldInvalidException | MapInvalidException $exception) {
             throw new RuleSpaceInvalidException('Rule space field is invalid', $exception);
         }
     }
@@ -113,7 +112,7 @@ final class RuleSpaceRepository
             $this->ruleSpaceRecords->update($row['id'], $fields);
         } catch (RowNotFoundException $exception) {
             throw new RuleSpaceNotFoundException('Rule space was not found', $exception);
-        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+        } catch (FieldInvalidException | MapInvalidException $exception) {
             throw new RuleSpaceInvalidException('Rule space field is invalid', $exception);
         }
     }
@@ -158,7 +157,7 @@ final class RuleSpaceRepository
                 'sort' => ['id' => 'asc'],
                 'limit' => $limit,
             ]));
-        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+        } catch (FieldInvalidException | MapInvalidException $exception) {
             throw new RuleSpaceInvalidException('Rule space list is invalid', $exception);
         }
 
@@ -188,7 +187,7 @@ final class RuleSpaceRepository
                 'sort' => ['id' => 'asc'],
                 'limit' => $limit,
             ]));
-        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+        } catch (FieldInvalidException | MapInvalidException $exception) {
             throw new RuleSpaceInvalidException('Rule space list is invalid', $exception);
         }
 
@@ -218,7 +217,7 @@ final class RuleSpaceRepository
                 'sort' => ['id' => 'asc'],
                 'limit' => $limit,
             ]));
-        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+        } catch (FieldInvalidException | MapInvalidException $exception) {
             throw new RuleSpaceInvalidException('Rule space list is invalid', $exception);
         }
 

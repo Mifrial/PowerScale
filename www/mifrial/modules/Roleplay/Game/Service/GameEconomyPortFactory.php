@@ -187,7 +187,7 @@ final class GameEconomyPortFactory
      *
      * @param IServiceLocator $serviceLocator Каталог.
      *
-     * @return IUserAccess Доступ.
+     * @return IEventManager Менеджер событий.
      *
      * @throws KernelException Если порта нет.
      */

@@ -117,7 +117,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $this->access,
             $sheets,
             $sheetWrites,
-            new GameStrikeResolution($rules, $sheets, $this->npcs, $consequences, $amounts),
+            new GameStrikeResolution($rules, $sheets, $this->npcs, $consequences),
             $spend,
             new GameStrikeChat($this->npcs, $rules),
             $consequences,

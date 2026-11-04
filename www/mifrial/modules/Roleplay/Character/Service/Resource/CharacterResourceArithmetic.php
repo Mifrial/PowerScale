@@ -81,10 +81,6 @@ final class CharacterResourceArithmetic
     {
         $delta = 0;
         foreach ($bonuses as $bonus) {
-            if (!$bonus instanceof ResourceLimitBonus) {
-                throw new CharacterInvalidException('Resource bonus is invalid');
-            }
-
             $delta += $bonus->getDelta();
         }
 
@@ -317,7 +313,7 @@ final class CharacterResourceArithmetic
     {
         $indexed = [];
         foreach ($rows as $row) {
-            if (!$row instanceof ResourceRow || isset($indexed[$row->getRuleCode()])) {
+            if (isset($indexed[$row->getRuleCode()])) {
                 throw new CharacterInvalidException('Resource rows are invalid');
             }
 
@@ -340,10 +336,6 @@ final class CharacterResourceArithmetic
     {
         $indexed = [];
         foreach ($spends as $spend) {
-            if (!$spend instanceof ResourceSpend) {
-                throw new CharacterInvalidException('Resource spend is invalid');
-            }
-
             $code = $spend->getResourceCode();
             $indexed[$code] = isset($indexed[$code])
                 ? $this->add($indexed[$code], $spend->getAmount())

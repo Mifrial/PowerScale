@@ -15,7 +15,6 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StepCost;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\ChainTransition;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\CustomTransition;
-use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Чистые правила процесса: шаги, переходы и цена шага.
@@ -318,7 +317,7 @@ final class GameProcessRules
             return max(0, $amount);
         }
 
-        if ($amount instanceof DimensionalNumber && $amount->getSize() === 0) {
+        if ($amount->getSize() === 0) {
             return max(0, $amount->getBase());
         }
 

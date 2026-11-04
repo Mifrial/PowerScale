@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameEconomyConflictException;
+use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -204,7 +205,7 @@ final class GameStrikeTargetClose
                 );
         }
 
-        if ($reactionRuleCode !== null && $slice !== null) {
+        if ($reactionRuleCode !== null) {
             $this->pendingAfter = (new GamePendingActionCosts())->complete(
                 $slice,
                 $this->choices->targetChoices($game, $target),

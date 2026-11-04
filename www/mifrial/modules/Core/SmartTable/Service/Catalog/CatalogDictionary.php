@@ -257,10 +257,6 @@ final class CatalogDictionary
     private function uniqueKeysFromRow(array $metaRow): array
     {
         $uniqueKeys = $metaRow['unique_keys'] ?? [];
-        if ($uniqueKeys === null) {
-            return [];
-        }
-
         if (!is_array($uniqueKeys)) {
             throw new MapInvalidException('Unique keys are invalid');
         }

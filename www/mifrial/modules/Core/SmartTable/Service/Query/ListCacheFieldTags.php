@@ -116,9 +116,7 @@ final class ListCacheFieldTags
                 continue;
             }
 
-            if ($child instanceof FilterCondition) {
-                $this->appendConditionTags($localTable, $child, $tags);
-            }
+            $this->appendConditionTags($localTable, $child, $tags);
         }
     }
 
@@ -191,12 +189,10 @@ final class ListCacheFieldTags
                 continue;
             }
 
-            if ($child instanceof FilterCondition) {
-                $tags[$innerTable->getName() . ':' . $child->fieldName()] = true;
-                $operand = $child->operand();
-                if ($operand instanceof OuterColumn) {
-                    $tags[$outerTable->getName() . ':' . $operand->fieldName()] = true;
-                }
+            $tags[$innerTable->getName() . ':' . $child->fieldName()] = true;
+            $operand = $child->operand();
+            if ($operand instanceof OuterColumn) {
+                $tags[$outerTable->getName() . ':' . $operand->fieldName()] = true;
             }
         }
     }

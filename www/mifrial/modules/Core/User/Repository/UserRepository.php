@@ -360,16 +360,12 @@ final class UserRepository
      *
      * @return array<int, int> Id.
      *
-     * @throws UserInvalidException Если тип или длина.
+     * @throws UserInvalidException Если длина больше 500.
      */
     private function uniqueUserIds(array $userIds): array
     {
         $uniqueIds = [];
         foreach ($userIds as $userId) {
-            if (!is_int($userId)) {
-                throw new UserInvalidException('User id list is invalid');
-            }
-
             $uniqueIds[$userId] = $userId;
         }
 

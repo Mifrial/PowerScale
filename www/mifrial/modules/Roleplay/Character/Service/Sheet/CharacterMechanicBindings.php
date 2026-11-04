@@ -25,7 +25,7 @@ final class CharacterMechanicBindings
         $bindings = [];
         foreach ($slice->getLiveRules() as $rule) {
             foreach ($rule->getMechanics() as $row) {
-                $binding = is_array($row) ? $this->bindingOf($rule->getCode(), $row) : null;
+                $binding = $this->bindingOf($rule->getCode(), $row);
                 if ($binding !== null) {
                     $bindings[] = $binding;
                 }

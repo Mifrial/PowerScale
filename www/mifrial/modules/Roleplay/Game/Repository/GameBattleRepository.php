@@ -296,6 +296,8 @@ final class GameBattleRepository
      *
      * @param int $battleId Бой.
      * @param array<int, array<string, mixed>> $turnOrder Список.
+     * @param int|null $activeIndex Индекс хода или null.
+     * @param int|null $round Раунд или null.
      *
      * @return void
      *
@@ -316,10 +318,6 @@ final class GameBattleRepository
 
         if ($round !== null) {
             $fields['round'] = $round;
-        }
-
-        if ($cycle !== null) {
-            $fields['concentration_cycle'] = $cycle;
         }
 
         try {
@@ -571,11 +569,7 @@ final class GameBattleRepository
             $records->delete($rowId);
         } catch (RowNotFoundException $exception) {
             throw new GameNotFoundException('Game battle was not found', $exception);
-        } catch (
-            FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
+        } catch (RowWriteFailedException $exception) {
             throw new GameInvalidException('Game battle field is invalid', $exception);
         }
     }

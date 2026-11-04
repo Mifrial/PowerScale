@@ -58,6 +58,7 @@ interface IRuleSpaces
      * @return RuleSpaceRecord Мир.
      *
      * @throws RuleSpaceNotFoundException Если sidecar нет.
+     * @throws RuleSpaceInvalidException Если запись битая.
      */
     public function get(int $spaceId): RuleSpaceRecord;
 

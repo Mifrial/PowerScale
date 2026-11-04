@@ -31,7 +31,6 @@ final class GameStrikeSingleClose
      * @param GameStrikeSpend $spend Траты.
      * @param GameStrikeAmounts $amounts Пары и нули.
      * @param GameStrikeCloseRows $rows Строки удара.
-     * @param GameStrikeTargetClose $targets Расчёт цели.
      * @param GameStrikeTargetChoices $choices Choices целей.
      * @param GameStrikeSingleChat $chat Чат.
      * @param GameActionModifierRunner $modifiers Модификаторы действия.
@@ -51,7 +50,6 @@ final class GameStrikeSingleClose
         private readonly GameStrikeSpend $spend,
         private readonly GameStrikeAmounts $amounts,
         private readonly GameStrikeCloseRows $rows,
-        private readonly GameStrikeTargetClose $targets,
         private readonly GameStrikeTargetChoices $choices,
         private readonly GameStrikeSingleChat $chat,
         private readonly GameActionModifierRunner $modifiers,
@@ -145,9 +143,7 @@ final class GameStrikeSingleClose
         $this->choices->assertReaction($game, $target, $requestChoice);
         $choice = $this->authoritativeChoice($game, $target, $requestChoice);
         $turn = ($choice['turn'] ?? false) === true;
-        $conditions = is_array($open['conditions'] ?? null)
-            ? $open['conditions']
-            : (new GameStrikeConditions())->defaults();
+        $conditions = $open['conditions'];
         if ($turn && (($conditions['flank'] ?? false) !== true || $choice['reaction'] === 'ignore')) {
             throw new GameInvalidException('Game strike turn is invalid');
         }
@@ -461,7 +457,7 @@ final class GameStrikeSingleClose
                         : $this->resolution->successOf($attackerRoll, $defenderRoll, $choice['reaction']),
                     $previousSr,
                 ));
-        if (!$isPush && is_int($success) && $success > 0 && $strikePackage['extraSuccesses'] > 0) {
+        if (!$isPush && $success > 0 && $strikePackage['extraSuccesses'] > 0) {
             $bonusSuccesses = $strikePackage['extraSuccesses'];
             $bonusRating = $this->rules->processBonusRating($attackerRoll, $bonusSuccesses);
             $success += $bonusRating;
@@ -578,7 +574,7 @@ final class GameStrikeSingleClose
             $stability = $this->push->stability(
                 $pushSpec,
                 $choice['reaction'],
-                $pushRating ?? 0,
+                $pushRating,
                 $defenderStrength,
                 $floor,
             );
@@ -631,7 +627,7 @@ final class GameStrikeSingleClose
         }
 
         $noEffects = $isPush
-            ? $prepared === null || ($prepared['operations'] ?? []) === []
+            ? $prepared === null || $prepared['operations'] === []
             : $autoFail;
         $result['sheetVersion'] = $noEffects && $spends === []
             ? null

@@ -12,7 +12,7 @@ final class FixedScalar implements ScalarFormula
     /**
      * Создаёт узел.
      *
-     * @param mixed $value Поле.
+     * @param int $value Значение.
      *
      * @return void
      */

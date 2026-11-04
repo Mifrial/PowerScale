@@ -176,9 +176,7 @@ final class GameProcessRepository
 
         $rows = [];
         foreach ($result->rows() as $row) {
-            if (is_array($row)) {
-                $rows[] = GameProcessRecord::fromNormalized($row);
-            }
+            $rows[] = GameProcessRecord::fromNormalized($row);
         }
 
         return $rows;

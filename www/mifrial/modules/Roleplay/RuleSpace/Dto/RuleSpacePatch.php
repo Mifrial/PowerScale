@@ -40,7 +40,7 @@ final class RuleSpacePatch
     public static function fromNormalized(array $values): self
     {
         foreach ($values as $fieldName => $fieldValue) {
-            if (!is_string($fieldName) || !in_array($fieldName, self::FIELD_NAMES, true)) {
+            if (!in_array($fieldName, self::FIELD_NAMES, true)) {
                 throw new RuleSpaceInvalidException('Rule space patch field is invalid');
             }
 

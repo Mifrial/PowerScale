@@ -14,7 +14,6 @@ use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ResistanceGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;
-use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ScalarFormula;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -177,14 +176,10 @@ final class CharacterCombatGrantLayers
                 return $this->evaluations->evaluateDimensional($value, $context);
             }
 
-            if ($value instanceof ScalarFormula) {
-                return new DimensionalNumber($this->evaluations->evaluateScalar($value, $context), 0);
-            }
+            return new DimensionalNumber($this->evaluations->evaluateScalar($value, $context), 0);
         } catch (RuleInvalidException $exception) {
             throw new CharacterInvalidException('Character combat layers are invalid', $exception);
         }
-
-        $this->reject();
     }
 
     /**

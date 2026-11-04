@@ -183,6 +183,7 @@ final class GameRunActionBody
             if (!is_string($value['source']) || $value['source'] === '') {
                 throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
             }
+
             $spend['source'] = $value['source'];
         }
 
@@ -190,6 +191,7 @@ final class GameRunActionBody
             if (!in_array($value['mode'], ['advantage', 'accuracy'], true)) {
                 throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
             }
+
             $spend['mode'] = $value['mode'];
         }
 

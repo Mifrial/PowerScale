@@ -6,6 +6,7 @@ namespace Mifrial\Core\Cache\Service;
 
 use Closure;
 use Mifrial\Core\Cache\Exception\CacheDriverFailedException;
+use Mifrial\Core\Cache\Exception\CacheInvalidException;
 use Mifrial\Core\Cache\Interface\Service\ICacheStore;
 use Throwable;
 

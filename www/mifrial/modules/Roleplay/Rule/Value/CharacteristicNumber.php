@@ -22,14 +22,18 @@ final class CharacteristicNumber extends DimensionalNumber
      *
      * @param int $base База.
      * @param int $size Размер.
+     * @param int|null $baseMin Нижняя граница базы или null.
+     * @param int|null $baseMax Верхняя граница базы или null.
      *
      * @return void
      */
     public function __construct(
         int $base,
         int $size,
+        ?int $baseMin = null,
+        ?int $baseMax = null,
     ) {
-        parent::__construct($base, $size, self::BASE_MIN, self::BASE_MAX);
+        parent::__construct($base, $size, $baseMin ?? self::BASE_MIN, $baseMax ?? self::BASE_MAX);
     }
 
     /**

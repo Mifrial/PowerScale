@@ -48,8 +48,12 @@ final class GameStrikeSpend
      * @param string $lane Полоса долга.
      * @param string $subject Подлежащее сообщений об ошибке.
      *
-     * @return array{pending: array<string, mixed>, debtHold: array<string, mixed>|null}
-     *         Карта ожидания и удержанный долг.
+     * @return array{
+     *     pending: array<string, mixed>,
+     *     debtHold: array<string, mixed>|null,
+     *     cycle: array<string, mixed>|null,
+     *     tokenSpend: array{resource: string, amount: int, source: string, mode: string}|null
+     * } Карта ожидания и удержанный долг.
      *
      * @throws GameInvalidException Если ресурс или атакующий невалидны.
      * @throws GameNotFoundException Если revision или NPC отсутствует.

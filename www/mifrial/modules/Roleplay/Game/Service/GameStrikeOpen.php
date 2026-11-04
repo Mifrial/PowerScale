@@ -316,7 +316,6 @@ final class GameStrikeOpen
             $debt,
             null,
             null,
-            $hold['cycle'],
         );
 
         $choice['tokenSpendInfo'] = $this->tokenInfo($game, $choice, $snapshot);

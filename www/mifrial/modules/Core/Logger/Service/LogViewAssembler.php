@@ -60,7 +60,7 @@ final class LogViewAssembler
 
         $safeContext = [];
         foreach ($context as $contextKey => $contextValue) {
-            if (!is_string($contextKey) || !isset(self::CONTEXT_KEYS[$contextKey])) {
+            if (!isset(self::CONTEXT_KEYS[$contextKey])) {
                 continue;
             }
 

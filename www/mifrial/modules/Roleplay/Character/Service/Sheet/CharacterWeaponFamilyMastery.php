@@ -14,7 +14,6 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityProcessSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 
 /**
@@ -117,9 +116,6 @@ final class CharacterWeaponFamilyMastery
         $levels = [];
         foreach ($this->equipped->equippedOrInnate($slice, $choices) as $row) {
             $spec = $row['spec'];
-            if (!$spec instanceof ItemSpec) {
-                continue;
-            }
 
             $familyCode = $spec->getProficiencyFamilyCode();
             if ($familyCode === null || $familyCode === '') {
@@ -150,7 +146,7 @@ final class CharacterWeaponFamilyMastery
     {
         $level = 0;
         foreach ($choices->getAbilities() as $ability) {
-            if (!$ability instanceof CharacterAbilityChoice || !$this->matchesFamily($slice, $ability, $familyCode)) {
+            if (!$this->matchesFamily($slice, $ability, $familyCode)) {
                 continue;
             }
 
