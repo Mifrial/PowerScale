@@ -9,7 +9,9 @@ use Mifrial\Core\Auth\Table\AuthPasswordResetTable;
 use Mifrial\Core\Auth\Table\AuthSecurityPolicyTable;
 use Mifrial\Core\Auth\Table\AuthSessionTable;
 use Mifrial\Core\Auth\Table\UserIdentityTable;
+use Mifrial\Core\File\Table\FileTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Core\User\Table\UserAvatarTable;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
@@ -34,6 +36,8 @@ final class UserMysqlTables
             UserIdentityTable::class,
             AuthGroupSecurityPolicyTable::class,
             AuthSecurityPolicyTable::class,
+            UserAvatarTable::class,
+            FileTable::class,
             UserGroupMemberTable::class,
             UserGroupTable::class,
             UserTable::class,

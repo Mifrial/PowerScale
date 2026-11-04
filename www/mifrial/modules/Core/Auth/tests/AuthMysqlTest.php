@@ -59,12 +59,15 @@ use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Interface\Service\IUserGroups;
 use Mifrial\Core\User\Repository\UserGroupMemberRepository;
 use Mifrial\Core\User\Repository\UserGroupRepository;
+use Mifrial\Core\User\Tests\Fixture\FakeFiles;
+use Mifrial\Core\User\Repository\UserAvatarRepository;
 use Mifrial\Core\User\Repository\UserRepository;
 use Mifrial\Core\User\Schema\UserSchema;
 use Mifrial\Core\User\Service\UserAccess;
 use Mifrial\Core\User\Service\UserAccounts;
 use Mifrial\Core\User\Service\UserGroups;
 use Mifrial\Core\User\Service\UserViewAssembler;
+use Mifrial\Core\User\Table\UserAvatarTable;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
@@ -906,6 +909,7 @@ final class AuthMysqlTest extends TestCase
             $gateway->open(UserTable::class)->schema(),
             $gateway->open(UserGroupTable::class)->schema(),
             $gateway->open(UserGroupMemberTable::class)->schema(),
+            $gateway->open(UserAvatarTable::class)->schema(),
         ))->install();
         (new AuthSchema(
             $gateway->open(UserIdentityTable::class)->schema(),
@@ -1074,6 +1078,8 @@ final class AuthMysqlTest extends TestCase
         return new UserViewAssembler(
             new UserGroupRepository($smartTableGateway->open(UserGroupTable::class)->records()),
             new UserGroupMemberRepository($smartTableGateway->open(UserGroupMemberTable::class)->records()),
+            new UserAvatarRepository($smartTableGateway->open(UserAvatarTable::class)->records()),
+            new FakeFiles(),
         );
     }
 

@@ -32,6 +32,7 @@ use Mifrial\Core\User\Service\GroupInputNormalizer;
 use Mifrial\Core\User\Service\UserAccounts;
 use Mifrial\Core\User\Service\UserGroups;
 use Mifrial\Core\User\Service\UserInputNormalizer;
+use Mifrial\Core\User\Table\UserAvatarTable;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
@@ -379,6 +380,7 @@ final class UserGroupsMysqlTest extends TestCase
             $smartTableGateway->open(UserTable::class)->schema(),
             $smartTableGateway->open(UserGroupTable::class)->schema(),
             $smartTableGateway->open(UserGroupMemberTable::class)->schema(),
+            $smartTableGateway->open(UserAvatarTable::class)->schema(),
         );
     }
 

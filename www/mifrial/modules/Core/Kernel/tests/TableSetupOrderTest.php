@@ -45,7 +45,7 @@ final class TableSetupOrderTest extends TestCase
     }
 
     /**
-     * Карты User: членство после user и группы.
+     * Карты User: членство и аватар после user и группы.
      *
      * @return void
      */
@@ -57,7 +57,7 @@ final class TableSetupOrderTest extends TestCase
             $names[] = $definition->getName();
         }
 
-        self::assertSame(['user', 'user_group', 'user_group_member'], $names);
+        self::assertSame(['user', 'user_avatar', 'user_group', 'user_group_member'], $names);
     }
 
     /**

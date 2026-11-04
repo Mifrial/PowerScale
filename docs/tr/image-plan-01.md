@@ -243,12 +243,20 @@ public function activePublicIds(array $fileIds): array;
 user_avatar
   id         IdField
   user_id    UserReferenceField  required, unique, onDelete cascade
-  file_id    FileReferenceField  required, onDelete setNull
+  file_id    IntField            required, indexed, без FK на `file`
   created_at DateTimeField       default: now
 ```
 
-`Schema/UserSchema` получает четвёртую карту, `UserModuleSetup` — тот же
-`getTableClasses()` (он читает `UserSchema`, правок не требует).
+`file_id` намеренно без физического FK: `Core/User` не должен тянуть схему
+`Core/File` в свою установку (иначе каждая установка User требует таблицу
+`file`, а тесты — файловый модуль). Строки `file` не удаляются, только
+архивируются, поэтому `ON DELETE SET NULL` ничего не охраняет. Если строка
+файла исчезнет, проекция просто отдаст `avatar: null`.
+
+`user_id` уникален через настройку поля (`unique => true`), а не составным
+ключом: `defineUniqueKeys()` в SmartTable обслуживает только кортежи из 2+
+колонок. `UserSchema` получает четвёртую карту `UserAvatarTable`;
+`UserModuleSetup` менять не нужно — он читает `UserSchema::getTableClasses()`.
 
 ### 8.2 Сервис
 
@@ -286,8 +294,10 @@ private function avatarSpec(): ImageTransformSpec
 ### 8.3 HTTP
 
 - Новый маршрут `user.setAvatar`, `csrf: true`, `SetUserAvatarInput`
-  (`filePublicId: string|null`), `SetUserAvatarAction`, метод
-  `UserHttpService::setAvatar()`.
+  (`filePublicId: string|null`), `SetUserAvatarAction`.
+- Действие зависит от порта `IUserAvatar`, а не от `UserHttpService`: у
+  сценария учётки уже 6 зависимостей, а аватар — отдельный пайплайн
+  (файл → Image → File). Порт собирается `UserHttpServiceFactory::createAvatar()`.
 - `user.update` аватар не принимает: нормализатор и биндер отвергают
   неизвестный ключ (`INVALID_PARAMS`), поэтому отдельное действие.
 - Ошибки: нет/чужой файл — `FILE_DENIED`/`FILE_NOT_FOUND` (как у File),

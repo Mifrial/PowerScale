@@ -6,6 +6,7 @@ namespace Mifrial\Core\User\Schema;
 
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Core\User\Table\UserAvatarTable;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
@@ -21,6 +22,7 @@ final class UserSchema
      * @param IOpenedSchema $userSchema DDL `user`.
      * @param IOpenedSchema $groupSchema DDL `user_group`.
      * @param IOpenedSchema $memberSchema DDL `user_group_member`.
+     * @param IOpenedSchema $avatarSchema DDL `user_avatar`.
      *
      * @return void
      */
@@ -28,6 +30,7 @@ final class UserSchema
         private readonly IOpenedSchema $userSchema,
         private readonly IOpenedSchema $groupSchema,
         private readonly IOpenedSchema $memberSchema,
+        private readonly IOpenedSchema $avatarSchema,
     ) {
     }
 
@@ -42,6 +45,7 @@ final class UserSchema
             UserTable::class,
             UserGroupTable::class,
             UserGroupMemberTable::class,
+            UserAvatarTable::class,
         ];
     }
 
@@ -55,6 +59,7 @@ final class UserSchema
         $this->apply($this->userSchema);
         $this->apply($this->groupSchema);
         $this->apply($this->memberSchema);
+        $this->apply($this->avatarSchema);
     }
 
     /**

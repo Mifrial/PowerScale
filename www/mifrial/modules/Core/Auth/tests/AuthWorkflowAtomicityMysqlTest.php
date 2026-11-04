@@ -69,12 +69,15 @@ use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Interface\Service\IUserGroups;
 use Mifrial\Core\User\Repository\UserGroupMemberRepository;
 use Mifrial\Core\User\Repository\UserGroupRepository;
+use Mifrial\Core\User\Tests\Fixture\FakeFiles;
+use Mifrial\Core\User\Repository\UserAvatarRepository;
 use Mifrial\Core\User\Repository\UserRepository;
 use Mifrial\Core\User\Schema\UserSchema;
 use Mifrial\Core\User\Service\UserAccess;
 use Mifrial\Core\User\Service\UserAccounts;
 use Mifrial\Core\User\Service\UserGroups;
 use Mifrial\Core\User\Service\UserViewAssembler;
+use Mifrial\Core\User\Table\UserAvatarTable;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
@@ -552,6 +555,7 @@ final class AuthWorkflowAtomicityMysqlTest extends TestCase
             $gateway->open(UserTable::class)->schema(),
             $gateway->open(UserGroupTable::class)->schema(),
             $gateway->open(UserGroupMemberTable::class)->schema(),
+            $gateway->open(UserAvatarTable::class)->schema(),
         ))->install();
         (new AuthSchema(
             $gateway->open(UserIdentityTable::class)->schema(),
@@ -721,6 +725,8 @@ final class AuthWorkflowAtomicityMysqlTest extends TestCase
             new UserViewAssembler(
                 new UserGroupRepository($gateway->open(UserGroupTable::class)->records()),
                 new UserGroupMemberRepository($gateway->open(UserGroupMemberTable::class)->records()),
+                new UserAvatarRepository($gateway->open(UserAvatarTable::class)->records()),
+                new FakeFiles(),
             ),
             $this->passwordPolicy(),
             new SmartTableTransactionRunner($gateway),
@@ -748,6 +754,8 @@ final class AuthWorkflowAtomicityMysqlTest extends TestCase
             new UserViewAssembler(
                 new UserGroupRepository($gateway->open(UserGroupTable::class)->records()),
                 new UserGroupMemberRepository($gateway->open(UserGroupMemberTable::class)->records()),
+                new UserAvatarRepository($gateway->open(UserAvatarTable::class)->records()),
+                new FakeFiles(),
             ),
             $this->userAccounts(),
             $userGroups,

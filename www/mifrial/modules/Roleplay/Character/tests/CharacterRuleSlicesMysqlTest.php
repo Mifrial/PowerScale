@@ -16,6 +16,7 @@ use Mifrial\Core\SmartTable\Tests\Support\MysqlSchemaFixture;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Schema\UserSchema;
+use Mifrial\Core\User\Table\UserAvatarTable;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
@@ -234,6 +235,7 @@ final class CharacterRuleSlicesMysqlTest extends TestCase
             $gateway->open(UserTable::class)->schema(),
             $gateway->open(UserGroupTable::class)->schema(),
             $gateway->open(UserGroupMemberTable::class)->schema(),
+            $gateway->open(UserAvatarTable::class)->schema(),
         ))->install();
         (new KeywordSchema($gateway->open(KeywordTable::class)->schema()))->install();
         (new MechanicSchema($gateway->open(MechanicTable::class)->schema()))->install();

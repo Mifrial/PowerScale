@@ -12,12 +12,14 @@ use Mifrial\Core\User\Action\GetGroupAction;
 use Mifrial\Core\User\Action\GetGroupMembersAction;
 use Mifrial\Core\User\Action\GetUserAction;
 use Mifrial\Core\User\Action\GetUsersByIdsAction;
+use Mifrial\Core\User\Action\SetUserAvatarAction;
 use Mifrial\Core\User\Action\UpdateGroupAction;
 use Mifrial\Core\User\Action\UpdateUserAction;
 use Mifrial\Core\User\Container\UserContainer;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
+use Mifrial\Core\User\Interface\Service\IUserAvatar;
 use Mifrial\Core\User\Interface\Service\IUserGroups;
 use Mifrial\Core\User\Interface\Service\IUserViews;
 use Mifrial\Core\User\Service\GroupHttpService;
@@ -53,6 +55,11 @@ return [
         ): IUserAccess {
             return (new UserHttpServiceFactory())->createAccess($serviceLocator);
         },
+        IUserAvatar::class => static function (
+            IServiceLocator $serviceLocator,
+        ): IUserAvatar {
+            return (new UserHttpServiceFactory())->createAvatar($serviceLocator);
+        },
         UserHttpService::class => static function (
             IServiceLocator $serviceLocator,
         ): UserHttpService {
@@ -72,6 +79,9 @@ return [
         },
         DeactivateUserAction::class => static function (IServiceLocator $serviceLocator): DeactivateUserAction {
             return new DeactivateUserAction((new UserHttpServiceFactory())->fromContainer($serviceLocator));
+        },
+        SetUserAvatarAction::class => static function (IServiceLocator $serviceLocator): SetUserAvatarAction {
+            return new SetUserAvatarAction((new UserHttpServiceFactory())->createAvatar($serviceLocator));
         },
         GroupHttpService::class => static function (
             IServiceLocator $serviceLocator,
@@ -116,6 +126,10 @@ return [
         ],
         'user.deactivate' => [
             'handler' => DeactivateUserAction::class,
+            'csrf' => true,
+        ],
+        'user.setAvatar' => [
+            'handler' => SetUserAvatarAction::class,
             'csrf' => true,
         ],
         'userGroup.findPage' => [

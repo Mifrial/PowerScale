@@ -6,6 +6,7 @@ namespace Mifrial\Core\User\Tests;
 
 use Mifrial\Core\User\Schema\UserSchema;
 use Mifrial\Core\User\Setup\UserModuleSetup;
+use Mifrial\Core\User\Table\UserAvatarTable;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
@@ -24,6 +25,7 @@ final class UserModuleSetupTest extends TestCase
             UserTable::class,
             UserGroupTable::class,
             UserGroupMemberTable::class,
+            UserAvatarTable::class,
         ];
 
         self::assertSame($expected, UserSchema::getTableClasses());

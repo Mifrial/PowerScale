@@ -4,6 +4,20 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\User\Tests;
 
+use Mifrial\Core\File\Dto\FileRecord;
+use Mifrial\Core\File\Dto\FileSettings;
+use Mifrial\Core\File\Dto\IncomingUpload;
+use Mifrial\Core\File\Interface\Service\IFiles;
+use Mifrial\Core\File\Repository\FileRepository;
+use Mifrial\Core\File\Schema\FileSchema;
+use Mifrial\Core\File\Service\FileIntake;
+use Mifrial\Core\File\Service\FileReadService;
+use Mifrial\Core\File\Service\FileStorageFactory;
+use Mifrial\Core\File\Service\FileUploadService;
+use Mifrial\Core\File\Service\FileViewAssembler;
+use Mifrial\Core\File\Service\FilesService;
+use Mifrial\Core\File\Table\FileTable;
+use Mifrial\Core\Image\Service\ImagePortFactory;
 use Mifrial\Core\Kernel\Dto\DatabaseSettings;
 use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Exception\ActionException;
@@ -36,29 +50,39 @@ use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserLastBypassException;
 use Mifrial\Core\User\Exception\UserNotFoundException;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
+use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
+use Mifrial\Core\User\Interface\Service\IUserAvatar;
 use Mifrial\Core\User\Interface\Service\IUserGroups;
 use Mifrial\Core\User\Repository\UserGroupMemberRepository;
 use Mifrial\Core\User\Repository\UserGroupRepository;
+use Mifrial\Core\User\Repository\UserAvatarRepository;
 use Mifrial\Core\User\Repository\UserRepository;
 use Mifrial\Core\User\Schema\UserSchema;
 use Mifrial\Core\User\Service\GroupHttpService;
 use Mifrial\Core\User\Service\GroupInputNormalizer;
 use Mifrial\Core\User\Service\UserAccess;
 use Mifrial\Core\User\Service\UserAccounts;
+use Mifrial\Core\User\Service\UserAvatarService;
 use Mifrial\Core\User\Service\UserGroups;
 use Mifrial\Core\User\Service\UserHttpService;
 use Mifrial\Core\User\Service\UserInputNormalizer;
 use Mifrial\Core\User\Service\UserMembershipSync;
 use Mifrial\Core\User\Service\UserViewAssembler;
+use Mifrial\Core\User\Table\UserAvatarTable;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
 use PHPUnit\Framework\TestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 
 final class UserHttpMysqlTest extends TestCase
 {
     use MysqlSchemaFixture;
+
+    private const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
     private ?IUserAccounts $userAccounts = null;
 
@@ -73,6 +97,13 @@ final class UserHttpMysqlTest extends TestCase
     private ?IRequestContext $requestContext = null;
 
     private ?IlluminateDatabaseConnection $databaseConnection = null;
+
+    private string $storageRoot = '';
+
+    /**
+     * @var array<int, string>
+     */
+    private array $temporaryFiles = [];
 
     /**
      * MySQL или skip; готовит схему и данные.
@@ -92,11 +123,46 @@ final class UserHttpMysqlTest extends TestCase
         $this->prepareMysql(
             $databaseConnection,
             'user',
-            ['user', 'user_group', 'user_group_member'],
+            ['user', 'user_group', 'user_group_member', 'user_avatar', 'file'],
             function (): void {
                 $this->userSchema()->install();
+                (new FileSchema(
+                    $this->smartTableGateway()->open(FileTable::class)->schema(),
+                ))->install();
             },
         );
+        $this->storageRoot = sys_get_temp_dir() . '/opencode-user-avatar-' . bin2hex(random_bytes(6));
+        mkdir($this->storageRoot, 0770, true);
+    }
+
+    /**
+     * Сносит временный диск и файлы.
+     *
+     * @return void
+     */
+    protected function tearDown(): void
+    {
+        foreach ($this->temporaryFiles as $temporaryFile) {
+            if (is_file($temporaryFile)) {
+                unlink($temporaryFile);
+            }
+        }
+
+        $this->temporaryFiles = [];
+        if ($this->storageRoot === '' || !is_dir($this->storageRoot)) {
+            return;
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($this->storageRoot, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        /** @var SplFileInfo $entry */
+        foreach ($iterator as $entry) {
+            $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
+        }
+
+        rmdir($this->storageRoot);
     }
 
     /**
@@ -225,6 +291,139 @@ final class UserHttpMysqlTest extends TestCase
         }
 
         $this->assertDispatchGetList($viewerId);
+    }
+
+    /**
+     * Аватар: производная 512×512 webp, замена, чужой файл, снятие.
+     *
+     * @return void
+     */
+    public function testAvatarSetReplaceClear(): void
+    {
+        $alice = $this->userAccounts()->add($this->newUser(['login' => 'alice', 'name' => 'Alice']));
+        $bob = $this->userAccounts()->add($this->newUser(['login' => 'bob', 'name' => 'Bob']));
+        $requestContext = $this->requestContext();
+        $requestContext->setActor(new RequestActor($alice, [], false));
+        $avatar = $this->avatarService();
+        $files = $this->filesService();
+        $png = (string) base64_decode(self::PNG_BASE64, true);
+
+        $firstPublicId = (string) $this->uploadService()->upload($this->incoming($png, 'selfie.png'))['publicId'];
+        $first = $avatar->setAvatar($firstPublicId);
+        self::assertIsString($first['avatar']);
+        self::assertNotSame($firstPublicId, $first['avatar']);
+        $derived = $files->requireOwned((string) $first['avatar']);
+        self::assertSame('image/webp', $derived->getMime());
+        self::assertSame(512, $derived->getWidth());
+        self::assertSame(512, $derived->getHeight());
+        self::assertSame('avatar.webp', $derived->getOriginalName());
+        self::assertSame($alice, $first['id']);
+
+        $userHttp = $this->userHttpService($requestContext);
+        $requestContext->setActor(new RequestActor($bob, ['user.view'], false));
+        self::assertSame($first['avatar'], $userHttp->get($alice)['avatar']);
+
+        $requestContext->setActor(new RequestActor($alice, [], false));
+        $secondPublicId = (string) $this->uploadService()->upload($this->incoming($png, 'again.png'))['publicId'];
+        $second = $avatar->setAvatar($secondPublicId);
+        self::assertNotSame($first['avatar'], $second['avatar']);
+        self::assertTrue($files->requireReadable((string) $first['avatar'])->isArchived());
+        self::assertFalse($files->requireReadable((string) $second['avatar'])->isArchived());
+
+        $requestContext->setActor(new RequestActor($bob, [], false));
+        try {
+            $avatar->setAvatar($secondPublicId);
+            self::fail('foreign file must be denied');
+        } catch (ActionException $exception) {
+            self::assertSame('FILE_DENIED', $exception->getErrorCode());
+        }
+
+        $requestContext->setActor(new RequestActor($alice, [], false));
+        $files->archive($secondPublicId);
+        try {
+            $avatar->setAvatar($secondPublicId);
+            self::fail('archived source must be rejected');
+        } catch (ActionException $exception) {
+            self::assertSame('USER_INVALID', $exception->getErrorCode());
+        }
+
+        $cleared = $avatar->setAvatar(null);
+        self::assertNull($cleared['avatar']);
+        self::assertTrue($files->requireReadable((string) $second['avatar'])->isArchived());
+        self::assertNull($avatar->setAvatar(null)['avatar']);
+    }
+
+    /**
+     * Сборщик грузит аватары пачкой: один вызов проекции на список.
+     *
+     * @return void
+     */
+    public function testAssembleManyLoadsAvatarsInOneProjection(): void
+    {
+        $alice = $this->userAccounts()->add($this->newUser(['login' => 'alice', 'name' => 'Alice']));
+        $bob = $this->userAccounts()->add($this->newUser(['login' => 'bob', 'name' => 'Bob']));
+        $requestContext = $this->requestContext();
+        $png = (string) base64_decode(self::PNG_BASE64, true);
+        $avatar = $this->avatarService();
+
+        foreach ([$alice, $bob] as $userId) {
+            $requestContext->setActor(new RequestActor($userId, [], false));
+            $publicId = (string) $this->uploadService()->upload($this->incoming($png, 'selfie.png'))['publicId'];
+            $avatar->setAvatar($publicId);
+        }
+
+        $gateway = $this->smartTableGateway();
+        $countingFiles = new class ($this->filesService()) implements IFiles {
+            public int $calls = 0;
+
+            public function __construct(private readonly IFiles $inner)
+            {
+            }
+
+            public function requireReadable(string $publicId): FileRecord
+            {
+                return $this->inner->requireReadable($publicId);
+            }
+
+            public function requireOwned(string $publicId): FileRecord
+            {
+                return $this->inner->requireOwned($publicId);
+            }
+
+            public function archive(string $publicId): void
+            {
+                $this->inner->archive($publicId);
+            }
+
+            public function copyOwnedTo(string $publicId, string $targetPath): FileRecord
+            {
+                return $this->inner->copyOwnedTo($publicId, $targetPath);
+            }
+
+            public function storeDerived(string $sourcePublicId, string $sourcePath, string $originalName): FileRecord
+            {
+                return $this->inner->storeDerived($sourcePublicId, $sourcePath, $originalName);
+            }
+
+            public function activePublicIds(array $fileIds): array
+            {
+                $this->calls++;
+
+                return $this->inner->activePublicIds($fileIds);
+            }
+        };
+
+        $assembler = new UserViewAssembler(
+            new UserGroupRepository($gateway->open(UserGroupTable::class)->records()),
+            new UserGroupMemberRepository($gateway->open(UserGroupMemberTable::class)->records()),
+            new UserAvatarRepository($gateway->open(UserAvatarTable::class)->records()),
+            $countingFiles,
+        );
+        $views = $assembler->assembleMany($this->userAccounts()->getByIds([$alice, $bob]));
+        self::assertSame(1, $countingFiles->calls);
+        foreach ($views as $userView) {
+            self::assertIsString($userView['avatar']);
+        }
     }
 
     /**
@@ -542,6 +741,8 @@ final class UserHttpMysqlTest extends TestCase
             new UserViewAssembler(
                 new UserGroupRepository($this->smartTableGateway()->open(UserGroupTable::class)->records()),
                 new UserGroupMemberRepository($this->smartTableGateway()->open(UserGroupMemberTable::class)->records()),
+                new UserAvatarRepository($this->smartTableGateway()->open(UserAvatarTable::class)->records()),
+                $this->filesService(),
             ),
             $this->userAccounts(),
             new UserMembershipSync($userAccess, $this->userGroups()),
@@ -560,6 +761,121 @@ final class UserHttpMysqlTest extends TestCase
         $this->requestContext = new RequestContext();
 
         return $this->requestContext;
+    }
+
+    /**
+     * Guard актора из общего контекста.
+     *
+     * @return IUserAccess Guard.
+     */
+    private function userAccess(): IUserAccess
+    {
+        return new UserAccess($this->requestContext());
+    }
+
+    /**
+     * Порт файлов на временном корне теста.
+     *
+     * @return IFiles Порт.
+     */
+    private function filesService(): IFiles
+    {
+        $settings = $this->fileSettings();
+        $repository = new FileRepository($this->smartTableGateway()->open(FileTable::class)->records());
+        $storage = (new FileStorageFactory())->create($settings);
+        $userAccess = $this->userAccess();
+
+        return new FilesService(
+            new FileReadService($userAccess, $repository),
+            $repository,
+            $storage,
+            new FileIntake($repository, $storage, $settings),
+            $userAccess,
+        );
+    }
+
+    /**
+     * Сервис multipart-загрузки на том же корне.
+     *
+     * @return FileUploadService Сервис.
+     */
+    private function uploadService(): FileUploadService
+    {
+        $settings = $this->fileSettings();
+        $repository = new FileRepository($this->smartTableGateway()->open(FileTable::class)->records());
+
+        return new FileUploadService(
+            $this->userAccess(),
+            new FileIntake($repository, (new FileStorageFactory())->create($settings), $settings),
+            new FileViewAssembler(),
+        );
+    }
+
+    /**
+     * Аватар на реальных файлах, Image и JSON-сборщике.
+     *
+     * @return IUserAvatar Порт аватара.
+     */
+    private function avatarService(): IUserAvatar
+    {
+        $gateway = $this->smartTableGateway();
+        $files = $this->filesService();
+        $avatarRepository = new UserAvatarRepository(
+            $gateway->open(UserAvatarTable::class)->records(),
+        );
+
+        return new UserAvatarService(
+            $this->userAccess(),
+            $this->userAccounts(),
+            new UserViewAssembler(
+                new UserGroupRepository($gateway->open(UserGroupTable::class)->records()),
+                new UserGroupMemberRepository($gateway->open(UserGroupMemberTable::class)->records()),
+                $avatarRepository,
+                $files,
+            ),
+            $avatarRepository,
+            $files,
+            (new ImagePortFactory())->create(),
+        );
+    }
+
+    /**
+     * Настройки files на временном корне.
+     *
+     * @return FileSettings Настройки.
+     */
+    private function fileSettings(): FileSettings
+    {
+        return FileSettings::fromSection([
+            'path' => $this->storageRoot,
+            'max_size' => 33554432,
+            'mime' => ['image/png', 'image/jpeg', 'image/webp'],
+        ], $this->storageRoot);
+    }
+
+    /**
+     * Мультипарт-вход из настоящего tmp.
+     *
+     * @param string $content Байты.
+     * @param string $name Имя.
+     *
+     * @return IncomingUpload Вход.
+     */
+    private function incoming(string $content, string $name): IncomingUpload
+    {
+        $temporaryPath = (string) tempnam(sys_get_temp_dir(), 'opencode-user-avatar-');
+        file_put_contents($temporaryPath, $content);
+        $this->temporaryFiles[] = $temporaryPath;
+
+        return IncomingUpload::fromFileMap([
+            'file' => [
+                'tmp_name' => $temporaryPath,
+                'name' => $name,
+                'size' => strlen($content),
+                'error' => UPLOAD_ERR_OK,
+                'type' => 'application/octet-stream',
+            ],
+        ], strlen($content));
     }
 
     /**
@@ -638,6 +954,7 @@ final class UserHttpMysqlTest extends TestCase
             $smartTableGateway->open(UserTable::class)->schema(),
             $smartTableGateway->open(UserGroupTable::class)->schema(),
             $smartTableGateway->open(UserGroupMemberTable::class)->schema(),
+            $smartTableGateway->open(UserAvatarTable::class)->schema(),
         );
     }
 

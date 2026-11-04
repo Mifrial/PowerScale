@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\User\Service;
 
+use Mifrial\Core\File\Interface\Service\IFiles;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Core\User\Dto\GroupRecord;
 use Mifrial\Core\User\Dto\UserRecord;
 use Mifrial\Core\User\Interface\Service\IUserViews;
+use Mifrial\Core\User\Repository\UserAvatarRepository;
 use Mifrial\Core\User\Repository\UserGroupMemberRepository;
 use Mifrial\Core\User\Repository\UserGroupRepository;
 
 /**
- * JSON User: unix UTC, email null, bypass из живых групп.
+ * JSON User: unix UTC, email null, bypass из живых групп, avatar по public_id.
  */
 final class UserViewAssembler implements IUserViews
 {
@@ -21,12 +23,16 @@ final class UserViewAssembler implements IUserViews
      *
      * @param UserGroupRepository $groupRepository Группы.
      * @param UserGroupMemberRepository $memberRepository Членство.
+     * @param UserAvatarRepository $avatarRepository Файлы аватаров.
+     * @param IFiles $files Порт файлов для проекции публичных id.
      *
      * @return void
      */
     public function __construct(
         private readonly UserGroupRepository $groupRepository,
         private readonly UserGroupMemberRepository $memberRepository,
+        private readonly UserAvatarRepository $avatarRepository,
+        private readonly IFiles $files,
     ) {
     }
 
@@ -69,12 +75,38 @@ final class UserViewAssembler implements IUserViews
 
         $groupIdsByUserId = $this->memberRepository->getGroupIdsByUserIds($userIds);
         $groupsById = $this->groupsById($groupIdsByUserId);
+        $avatarPublicIds = $this->avatarPublicIds($userIds);
         $views = [];
         foreach ($userRecords as $userRecord) {
-            $views[] = $this->assembleLoaded($userRecord, $groupIdsByUserId, $groupsById);
+            $views[] = $this->assembleLoaded($userRecord, $groupIdsByUserId, $groupsById, $avatarPublicIds);
         }
 
         return $views;
+    }
+
+    /**
+     * public_id аватаров пачкой: один запрос ссылок и один запрос файлов.
+     *
+     * @param array<int, int> $userIds Учётки.
+     *
+     * @return array<int, string> user id → public_id.
+     */
+    private function avatarPublicIds(array $userIds): array
+    {
+        $fileIdsByUserId = $this->avatarRepository->getFileIdsByUserIds($userIds);
+        if ($fileIdsByUserId === []) {
+            return [];
+        }
+
+        $publicIds = $this->files->activePublicIds(array_values($fileIdsByUserId));
+        $avatarPublicIds = [];
+        foreach ($fileIdsByUserId as $userId => $fileId) {
+            if (isset($publicIds[$fileId])) {
+                $avatarPublicIds[$userId] = $publicIds[$fileId];
+            }
+        }
+
+        return $avatarPublicIds;
     }
 
     /**
@@ -102,6 +134,7 @@ final class UserViewAssembler implements IUserViews
      * @param UserRecord $userRecord Профиль.
      * @param array<int, array<int, int>> $groupIdsByUserId Членство.
      * @param array<int, GroupRecord> $groupsById Группы.
+     * @param array<int, string> $avatarPublicIds Аватары user id → public_id.
      *
      * @return array<string, mixed> JSON.
      */
@@ -109,6 +142,7 @@ final class UserViewAssembler implements IUserViews
         UserRecord $userRecord,
         array $groupIdsByUserId,
         array $groupsById,
+        array $avatarPublicIds,
     ): array {
         $userId = $userRecord->getId();
         $groupRecords = $this->groupsOfUser($groupIdsByUserId[$userId] ?? [], $groupsById);
@@ -125,6 +159,7 @@ final class UserViewAssembler implements IUserViews
             'permissions' => $this->permissionKeys($groupRecords),
             'deactivatedUntil' => $this->unixOrNull($userRecord->getDeactivatedUntil()),
             'deactivateReason' => $userRecord->getDeactivateReason(),
+            'avatar' => $avatarPublicIds[$userId] ?? null,
         ];
 
         return $this->withOptionalProfile($view, $userRecord);

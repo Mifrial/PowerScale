@@ -38,6 +38,7 @@ use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Schema\UserSchema;
+use Mifrial\Core\User\Table\UserAvatarTable;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
@@ -331,6 +332,7 @@ final class FileHttpMysqlTest extends TestCase
             $gateway->open(UserTable::class)->schema(),
             $gateway->open(UserGroupTable::class)->schema(),
             $gateway->open(UserGroupMemberTable::class)->schema(),
+            $gateway->open(UserAvatarTable::class)->schema(),
         ))->install();
         (new FileSchema($gateway->open(FileTable::class)->schema()))->install();
     }
