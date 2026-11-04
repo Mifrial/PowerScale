@@ -72,6 +72,7 @@ final class GameChecks implements IGameChecks
      * @param GameCheckChat $chat Сообщения проверок.
      * @param GameConcentration $concentration Жетоны.
      * @param GameConcentrationCycle $concentrationCycle Цикл жетонов.
+     * @param GameDeliverySignal $delivery Outbox события check.
      *
      * @return void
      */
@@ -85,6 +86,7 @@ final class GameChecks implements IGameChecks
         private readonly GameCheckChat $chat,
         private readonly GameConcentration $concentration,
         private readonly GameConcentrationCycle $concentrationCycle,
+        private readonly GameDeliverySignal $delivery,
     ) {
         $this->sessions = new GameSessionRepository($smartTableGateway);
         $this->commands = new GameCommandRepository($smartTableGateway);
@@ -143,8 +145,10 @@ final class GameChecks implements IGameChecks
         $this->assertSide($ready['game'], $actorUserId, $editAll, $choice['participant']);
         $this->roll->assertRule($ready['game']->getSpaceId(), $ready['game']->getRulesRevision(), $choice['ruleCode'], 'solo', $choice['asked']);
         $sheet = $this->sheet($ready['game']->getId(), $choice['participant']['type'], $choice['participant']['id'], $expectedSheetVersion);
+        $result = $this->commitSolo($ready['game'], $battleId, $idempotencyKey, $expectedSheetVersion, $choice, $sheet, $actorUserId);
+        $this->announce($ready['game']->getId(), $idempotencyKey);
 
-        return $this->commitSolo($ready['game'], $battleId, $idempotencyKey, $expectedSheetVersion, $choice, $sheet, $actorUserId);
+        return $result;
     }
 
     /**
@@ -185,8 +189,10 @@ final class GameChecks implements IGameChecks
         $this->roll->assertRule($ready['game']->getSpaceId(), $ready['game']->getRulesRevision(), $choice['ruleCode'], 'joint', $choice['asked']);
         $this->assertTarget($ready['game']->getId(), $battleId, $choice['participant'], $choice['target']);
         $this->sheet($ready['game']->getId(), $choice['participant']['type'], $choice['participant']['id'], $expectedSheetVersion);
+        $result = $this->commitProposal($ready['game'], $battleId, $idempotencyKey, $expectedSheetVersion, $choice, $actorUserId);
+        $this->announce($ready['game']->getId(), $idempotencyKey);
 
-        return $this->commitProposal($ready['game'], $battleId, $idempotencyKey, $expectedSheetVersion, $choice, $actorUserId);
+        return $result;
     }
 
     /**
@@ -251,7 +257,7 @@ final class GameChecks implements IGameChecks
             $versions['opponent'],
         );
 
-        return $this->commitAnswer(
+        $result = $this->commitAnswer(
             $ready['game'],
             $processId,
             $idempotencyKey,
@@ -264,6 +270,9 @@ final class GameChecks implements IGameChecks
             $side,
             $actorUserId,
         );
+        $this->announce($ready['game']->getId(), $idempotencyKey);
+
+        return $result;
     }
 
     /**
@@ -386,22 +395,44 @@ final class GameChecks implements IGameChecks
         $this->sheet($ready['game']->getId(), $actor['type'], $actor['id'], $expectedSheetVersion);
 
         $flat = is_array($proposal['proposal'] ?? null) ? $proposal['proposal'] : $proposal;
-        $blocks = $this->proposalBlocks($flat);
-        $stored[$side] = array_merge($stored[$side], $blocks[$side]);
-        $stored['waitingOn'] = $side === 'initiator' ? 'opponent' : 'initiator';
-        $stored['revision'] = (int) ($stored['revision'] ?? 0) + 1;
-        $stored[$side . 'SheetVersion'] = $expectedSheetVersion;
-        $this->checks->storeProposal($processId, $stored);
+        $result = $this->smartTableGateway->transaction(function () use (
+            $ready,
+            $processId,
+            $idempotencyKey,
+            $expectedSheetVersion,
+            $proposal,
+            $side,
+            $flat,
+            $stored,
+            $open,
+        ): array {
+            $blocks = $this->proposalBlocks($flat);
+            $stored[$side] = array_merge($stored[$side], $blocks[$side]);
+            $stored['waitingOn'] = $side === 'initiator' ? 'opponent' : 'initiator';
+            $stored['revision'] = (int) ($stored['revision'] ?? 0) + 1;
+            $stored[$side . 'SheetVersion'] = $expectedSheetVersion;
+            $this->checks->storeProposal($processId, $stored);
 
-        return [
-            'processId' => $processId,
-            'status' => 'pending',
-            'ruleCode' => $open['ruleCode'],
-            'proposal' => $this->flatProposal($stored),
-            'waitingOn' => $stored['waitingOn'],
-            'initiator' => $stored['initiator']['type'] . ':' . $stored['initiator']['id'],
-            'opponent' => $stored['opponent']['type'] . ':' . $stored['opponent']['id'],
-        ];
+            $result = [
+                'processId' => $processId,
+                'status' => 'pending',
+                'ruleCode' => $open['ruleCode'],
+                'proposal' => $this->flatProposal($stored),
+                'waitingOn' => $stored['waitingOn'],
+                'initiator' => $stored['initiator']['type'] . ':' . $stored['initiator']['id'],
+                'opponent' => $stored['opponent']['type'] . ':' . $stored['opponent']['id'],
+            ];
+            $this->commands->add($ready['game']->getId(), $open['sessionId'], 'check', $idempotencyKey, [
+                'processId' => $processId,
+                'proposal' => $proposal,
+                'expectedSheetVersion' => $expectedSheetVersion,
+            ], $result);
+
+            return $result;
+        });
+        $this->announce($ready['game']->getId(), $idempotencyKey);
+
+        return $result;
     }
 
     /**
@@ -443,11 +474,28 @@ final class GameChecks implements IGameChecks
         $actor = $this->party($proposal['actor'] ?? null);
         $side = $this->sideOf($stored, $actor);
         $this->assertSide($ready['game'], $actorUserId, $editAll, $actor);
-        $this->processes->cancel($processId);
-        $this->checks->storeOutcome($processId, 'cancelled', null);
-        $this->chat->postCancelled($ready['game'], $actorUserId, $actor, $open['ruleCode']);
+        $result = $this->smartTableGateway->transaction(function () use (
+            $ready,
+            $processId,
+            $idempotencyKey,
+            $actor,
+            $actorUserId,
+            $open,
+        ): array {
+            $this->processes->cancel($processId);
+            $this->checks->storeOutcome($processId, 'cancelled', null);
+            $this->chat->postCancelled($ready['game'], $actorUserId, $actor, $open['ruleCode']);
+            $result = ['processId' => $processId, 'status' => 'cancelled'];
+            $this->commands->add($ready['game']->getId(), $open['sessionId'], 'check', $idempotencyKey, [
+                'processId' => $processId,
+                'cancel' => true,
+            ], $result);
 
-        return ['processId' => $processId, 'status' => 'cancelled'];
+            return $result;
+        });
+        $this->announce($ready['game']->getId(), $idempotencyKey);
+
+        return $result;
     }
 
     /**
@@ -1699,6 +1747,22 @@ final class GameChecks implements IGameChecks
         }
 
         return $fields;
+    }
+
+    /**
+     * Пишет событие check в outbox после коммита. Ошибку транспорта глотает сигнал.
+     *
+     * @param int $gameId Игра.
+     * @param string $idempotencyKey Ключ команды журнала.
+     *
+     * @return void
+     */
+    private function announce(int $gameId, string $idempotencyKey): void
+    {
+        $stored = $this->commands->findByKey($gameId, 'check', $idempotencyKey);
+        if ($stored !== null) {
+            $this->delivery->recorded($gameId, 'check', $stored['id'], []);
+        }
     }
 
     /**

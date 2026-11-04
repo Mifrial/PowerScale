@@ -14,6 +14,7 @@ use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
+use Mifrial\Roleplay\Game\Service\GameDeliveryPortFactory;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
 use Mifrial\Roleplay\Game\Table\GameCheckTable;
 use Mifrial\Roleplay\Game\Table\GameProcessTable;
@@ -67,6 +68,7 @@ final class GameCheckMysqlTest extends TestCase
         ]);
         self::assertTrue($solo['success'], json_encode($solo));
         self::assertSame('resolved', $solo['data']['status']);
+        self::assertSame(1, $this->checkDeliveryCount($gameId));
         self::assertSame(['base' => 0, 'size' => 0], $solo['data']['difficulty']);
         self::assertSame(0, $solo['data']['rating']);
         self::assertNull($solo['data']['sheetVersion']);
@@ -375,6 +377,7 @@ final class GameCheckMysqlTest extends TestCase
         self::assertTrue($offer['success'], json_encode($offer));
         self::assertSame('pending', $offer['data']['status']);
         self::assertSame('opponent', $offer['data']['waitingOn']);
+        self::assertSame(1, $this->checkDeliveryCount($gameId));
         $processId = $offer['data']['processId'];
         $all = $this->dispatch('game.getCheckOffers', ['gameId' => $gameId]);
         self::assertTrue($all['success'], json_encode($all));
@@ -402,6 +405,7 @@ final class GameCheckMysqlTest extends TestCase
         self::assertTrue($revised['success'], json_encode($revised));
         self::assertSame('initiator', $revised['data']['waitingOn']);
         self::assertSame(1, $revised['data']['proposal']['opponentAdv']);
+        self::assertSame(2, $this->checkDeliveryCount($gameId));
 
         $cancelled = $this->dispatch('game.cancelCheck', [
             'gameId' => $gameId,
@@ -411,6 +415,7 @@ final class GameCheckMysqlTest extends TestCase
         ]);
         self::assertTrue($cancelled['success'], json_encode($cancelled));
         self::assertSame('cancelled', $cancelled['data']['status']);
+        self::assertSame(3, $this->checkDeliveryCount($gameId));
         self::assertCount(0, $this->dispatch('game.getCheckOffers', ['gameId' => $gameId])['data']);
 
         $second = $this->dispatch('game.proposeCheck', [
@@ -444,6 +449,7 @@ final class GameCheckMysqlTest extends TestCase
         self::assertTrue($accepted['success'], json_encode($accepted));
         self::assertSame('resolved', $accepted['data']['status']);
         self::assertSame(1, $accepted['data']['proposal']['opponentAdv']);
+        self::assertSame(5, $this->checkDeliveryCount($gameId));
         self::assertArrayHasKey('initiator', $accepted['data']['sheetVersions']);
         self::assertArrayHasKey('opponent', $accepted['data']['sheetVersions']);
         self::assertArrayHasKey('initiator', $accepted['data']['rolls']);
@@ -909,6 +915,27 @@ final class GameCheckMysqlTest extends TestCase
         self::assertIsString($offer);
 
         return $offer;
+    }
+
+    /**
+     * Сколько событий check доставлено игре.
+     *
+     * @param int $gameId Игра.
+     *
+     * @return int Количество.
+     */
+    private function checkDeliveryCount(int $gameId): int
+    {
+        $delivery = (new GameDeliveryPortFactory())->create($this->gameApplication()->getLocator());
+        $frame = $delivery->tail($gameId, $this->ownerUserId, true, 0);
+        $count = 0;
+        foreach ($frame['events'] as $event) {
+            if (($event['source'] ?? null) === 'check') {
+                ++$count;
+            }
+        }
+
+        return $count;
     }
 
     /**

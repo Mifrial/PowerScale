@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Core\Event\Interface\Container\IEventContainer;
+use Mifrial\Core\Event\Interface\Service\IEventManager;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
@@ -31,7 +33,7 @@ use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 
 /**
- * Сборка проверки. Слушателя доставки не регистрирует.
+ * Сборка проверки. Регистрирует outbox для события check.
  */
 final class GameCheckPortFactory
 {
@@ -48,15 +50,18 @@ final class GameCheckPortFactory
     {
         $gateway = $this->gateway($serviceLocator);
         $characters = $this->port($serviceLocator, ICharacterContainer::class, ICharacters::class, 'ICharacters');
+        $events = $this->events($serviceLocator);
+        $card = new GameCardAccess(
+            new GameRepository($gateway),
+            new GameMemberRepository($gateway),
+            new GameInvitationRepository($gateway),
+        );
+        GameDeliveryListener::register($events, new GameDelivery($gateway, $this->games($serviceLocator), $card));
 
         return new GameChecks(
             $gateway,
             $this->games($serviceLocator),
-            new GameCardAccess(
-                new GameRepository($gateway),
-                new GameMemberRepository($gateway),
-                new GameInvitationRepository($gateway),
-            ),
+            $card,
             $this->processes($serviceLocator),
             $this->port($serviceLocator, ICharacterContainer::class, ICharacterActualMutations::class, 'ICharacterActualMutations'),
             new GameCheckRoll(
@@ -74,6 +79,7 @@ final class GameCheckPortFactory
             ),
             new GameConcentration(),
             new GameConcentrationCycle(),
+            new GameDeliverySignal($events),
         );
     }
 
@@ -113,6 +119,25 @@ final class GameCheckPortFactory
         }
 
         return $gateway;
+    }
+
+    /**
+     * События.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return IEventManager Порт.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function events(IServiceLocator $serviceLocator): IEventManager
+    {
+        $events = $serviceLocator->get(IEventContainer::class)->get(IEventManager::class);
+        if (!$events instanceof IEventManager) {
+            throw new KernelException('PORT_TYPE', 'Game check requires IEventManager');
+        }
+
+        return $events;
     }
 
     /**

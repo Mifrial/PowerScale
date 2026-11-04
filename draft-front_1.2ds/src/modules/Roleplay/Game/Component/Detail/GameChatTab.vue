@@ -873,6 +873,15 @@ function sheetsCoverRealtime(event: GameRealtimeEvent): boolean {
 
 async function applyRealtimeEvent(event: GameRealtimeEvent): Promise<boolean> {
   if (event.gameId !== gameId.value || event.cursor <= realtimeCursor) return true;
+  if (event.source === 'check') {
+    if (chatId.value !== null) {
+      await chatStore.refreshLatest(chatId.value);
+    }
+    await refreshPendingOffers();
+    realtimeCursor = event.cursor;
+
+    return true;
+  }
   if (
     event.source === 'strike' ||
     event.source === 'turn' ||
@@ -1563,7 +1572,6 @@ const pendingOffers = ref<CheckOffer[]>([]);
 const dismissedOfferIds = ref<Set<number>>(new Set());
 /** Оферта, привязанная к открытому окну проверки: закрываем, когда она перестала быть pending. */
 const boundCheckOfferId = ref<number | null>(null);
-let pendingPoll: ReturnType<typeof setInterval> | null = null;
 
 const speakerEntityKey = computed<CombatEntityKey | null>(() => {
   const key = activeSpeakerKey.value;
@@ -1623,12 +1631,20 @@ function pendingToResume(): CheckOffer | undefined {
 }
 
 let pendingBusy = false;
+let pendingQueued = false;
 
 async function refreshPendingOffers(): Promise<void> {
-  if (pendingBusy) return;
+  if (pendingBusy) {
+    pendingQueued = true;
+
+    return;
+  }
   pendingBusy = true;
   try {
-    await refreshPendingOffersNow();
+    do {
+      pendingQueued = false;
+      await refreshPendingOffersNow();
+    } while (pendingQueued);
   } finally {
     pendingBusy = false;
   }
@@ -1861,9 +1877,7 @@ async function onLaunchChargeCast(payload: { casterKey: CombatEntityKey; sustain
   spellOpen.value = true;
 }
 
-const PENDING_OFFERS_POLL_MS = 5000;
-
-function pollPendingOffers(): void {
+function refreshOffersWhenVisible(): void {
   if (document.visibilityState !== 'visible') return;
   void refreshPendingOffers();
 }
@@ -1871,25 +1885,19 @@ function pollPendingOffers(): void {
 watch(
   () => [props.active, activeSpeakerKey.value, gameId.value] as const,
   ([active]) => {
-    if (pendingPoll) {
-      clearInterval(pendingPoll);
-      pendingPoll = null;
-    }
     if (!active) return;
-    pollPendingOffers();
-    pendingPoll = setInterval(pollPendingOffers, PENDING_OFFERS_POLL_MS);
+    void refreshPendingOffers();
   },
   { immediate: true },
 );
 
 onMounted(() => {
-  document.addEventListener('visibilitychange', pollPendingOffers);
+  document.addEventListener('visibilitychange', refreshOffersWhenVisible);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('visibilitychange', pollPendingOffers);
+  document.removeEventListener('visibilitychange', refreshOffersWhenVisible);
   disconnectRealtime();
-  if (pendingPoll) clearInterval(pendingPoll);
 });
 </script>
 
