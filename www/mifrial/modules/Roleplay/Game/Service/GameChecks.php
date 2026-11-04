@@ -484,7 +484,13 @@ final class GameChecks implements IGameChecks
         ): array {
             $this->processes->cancel($processId);
             $this->checks->storeOutcome($processId, 'cancelled', null);
-            $this->chat->postCancelled($ready['game'], $actorUserId, $actor, $open['ruleCode']);
+            $this->chat->postCancelled(
+                $ready['game'],
+                $actorUserId,
+                $this->checkThread($processId, $open['battleId'], $open['sessionId']),
+                $actor,
+                $open['ruleCode'],
+            );
             $result = ['processId' => $processId, 'status' => 'cancelled'];
             $this->commands->add($ready['game']->getId(), $open['sessionId'], 'check', $idempotencyKey, [
                 'processId' => $processId,
@@ -858,7 +864,15 @@ final class GameChecks implements IGameChecks
             'check' => $choice,
             'expectedSheetVersion' => $expectedSheetVersion,
         ], $result);
-        $this->chat->postSolo($game, $actorUserId, $choice['participant'], $choice['ruleCode'], $thrown);
+        $this->chat->postSolo(
+            $game,
+            $actorUserId,
+            $this->checkThread($opened['processId'], $battleId, $opened['sessionId']),
+            $choice['participant'],
+            $choice['ruleCode'],
+            $thrown,
+            $spent['amount'],
+        );
 
         return $result;
     }
@@ -917,7 +931,17 @@ final class GameChecks implements IGameChecks
                 'proposal' => $choice,
                 'expectedSheetVersion' => $expectedSheetVersion,
             ], $result);
-            $this->chat->postProposal($game, $actorUserId, $choice['participant'], $choice['target'], $choice['ruleCode']);
+            $this->chat->postProposal(
+                $game,
+                $actorUserId,
+                $this->checkThread($opened['processId'], $battleId, $opened['sessionId']),
+                $choice['participant'],
+                $choice['target'],
+                $choice['ruleCode'],
+                is_int($proposal['initiator']['spendConcentration'] ?? null)
+                    ? $proposal['initiator']['spendConcentration']
+                    : 0,
+            );
         });
 
         return $result;
@@ -1024,7 +1048,13 @@ final class GameChecks implements IGameChecks
         if ($decision !== 'accept') {
             $this->processes->cancel($processId);
             $this->checks->storeOutcome($processId, 'declined', null);
-            $this->chat->postDeclined($game, $actorUserId, $proposal[$side], $open['ruleCode']);
+            $this->chat->postDeclined(
+                $game,
+                $actorUserId,
+                $this->checkThread($processId, $open['battleId'], $open['sessionId']),
+                $proposal[$side],
+                $open['ruleCode'],
+            );
 
             return $this->view($processId, 'cancelled', null, null);
         }
@@ -1082,7 +1112,16 @@ final class GameChecks implements IGameChecks
         $result['initiator'] = $proposal['initiator']['type'] . ':' . $proposal['initiator']['id'];
         $result['opponent'] = $proposal['opponent']['type'] . ':' . $proposal['opponent']['id'];
         $result['sheetVersions'] = $versions;
-        $this->chat->postResolution($game, $actorUserId, $proposal, $open['ruleCode'], $rolls);
+        $this->chat->postResolution(
+            $game,
+            $actorUserId,
+            $this->checkThread($processId, $open['battleId'], $open['sessionId']),
+            $proposal,
+            $open['ruleCode'],
+            $rolls,
+            $initiatorSpent['amount'],
+            $opponentSpent['amount'],
+        );
 
         return $result;
     }
@@ -1747,6 +1786,22 @@ final class GameChecks implements IGameChecks
         }
 
         return $fields;
+    }
+
+    /**
+     * Тред проверки: ход боя или сессия.
+     *
+     * @param int $processId Process.
+     * @param int|null $battleId Бой или null.
+     * @param int $sessionId Сессия.
+     *
+     * @return array{id: string, parentId: string, kind: string} Тред.
+     */
+    private function checkThread(int $processId, ?int $battleId, int $sessionId): array
+    {
+        $battle = $battleId === null ? null : $this->battles->find($battleId);
+
+        return GameCombatThread::buildCheck($processId, $battle, $sessionId);
     }
 
     /**

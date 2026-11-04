@@ -12,7 +12,7 @@ use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 
 /**
- * Сообщения проверок: объявление, бросок и исход.
+ * Тред проверки: объявление, бросок и результат.
  */
 final class GameCheckChat
 {
@@ -33,22 +33,26 @@ final class GameCheckChat
     }
 
     /**
-     * Предложение проверки.
+     * Объявление проверки.
      *
      * @param GameRecord $game Игра.
      * @param int $actorUserId Автор сообщения.
+     * @param array{id: string, parentId: string, kind: string} $thread Тред.
      * @param array{type: string, id: int} $initiator Инициатор.
      * @param array{type: string, id: int} $opponent Цель.
      * @param string $ruleCode Карточка проверки.
+     * @param int $spent Потрачено жетонов концентрации.
      *
      * @return void
      */
     public function postProposal(
         GameRecord $game,
         int $actorUserId,
+        array $thread,
         array $initiator,
         array $opponent,
         string $ruleCode,
+        int $spent,
     ): void {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
@@ -58,10 +62,13 @@ final class GameCheckChat
         $this->send(
             $chatId,
             $actorUserId,
-            $this->tokenOf($initiator) . ' предлагает проверку [[rule:' . $ruleCode . ']] против '
+            $this->withConcentration($initiator, $spent)
+                . ' совершает проверку [[rule:' . $ruleCode . ']] против '
                 . $this->tokenOf($opponent) . '.',
             [],
             $this->speakerOf($initiator),
+            $thread,
+            'default',
         );
     }
 
@@ -70,12 +77,13 @@ final class GameCheckChat
      *
      * @param GameRecord $game Игра.
      * @param int $actorUserId Автор сообщения.
+     * @param array{id: string, parentId: string, kind: string} $thread Тред.
      * @param array{type: string, id: int} $side Отказавшаяся сторона.
      * @param string $ruleCode Карточка проверки.
      *
      * @return void
      */
-    public function postDeclined(GameRecord $game, int $actorUserId, array $side, string $ruleCode): void
+    public function postDeclined(GameRecord $game, int $actorUserId, array $thread, array $side, string $ruleCode): void
     {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
@@ -88,6 +96,7 @@ final class GameCheckChat
             $this->tokenOf($side) . ' отклоняет проверку [[rule:' . $ruleCode . ']].',
             [],
             $this->speakerOf($side),
+            $thread,
         );
     }
 
@@ -96,12 +105,13 @@ final class GameCheckChat
      *
      * @param GameRecord $game Игра.
      * @param int $actorUserId Автор сообщения.
+     * @param array{id: string, parentId: string, kind: string} $thread Тред.
      * @param array{type: string, id: int} $side Отменившая сторона.
      * @param string $ruleCode Карточка проверки.
      *
      * @return void
      */
-    public function postCancelled(GameRecord $game, int $actorUserId, array $side, string $ruleCode): void
+    public function postCancelled(GameRecord $game, int $actorUserId, array $thread, array $side, string $ruleCode): void
     {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
@@ -114,32 +124,40 @@ final class GameCheckChat
             $this->tokenOf($side) . ' отменяет проверку [[rule:' . $ruleCode . ']].',
             [],
             $this->speakerOf($side),
+            $thread,
         );
     }
 
     /**
-     * Итог совместной проверки: бросок каждой стороны.
+     * Броски совместной проверки и итог.
      *
      * @param GameRecord $game Игра.
      * @param int $actorUserId Автор сообщения.
+     * @param array{id: string, parentId: string, kind: string} $thread Тред.
      * @param array<string, mixed> $proposal Предложение.
      * @param string $ruleCode Карточка проверки.
      * @param array<string, array<string, mixed>> $rolls Броски сторон.
+     * @param int $initiatorSpent Жетоны инициатора.
+     * @param int $opponentSpent Жетоны цели.
      *
      * @return void
      */
     public function postResolution(
         GameRecord $game,
         int $actorUserId,
+        array $thread,
         array $proposal,
         string $ruleCode,
         array $rolls,
+        int $initiatorSpent,
+        int $opponentSpent,
     ): void {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
             return;
         }
 
+        $spent = ['initiator' => $initiatorSpent, 'opponent' => $opponentSpent];
         foreach (['initiator', 'opponent'] as $side) {
             $party = $proposal[$side] ?? null;
             $roll = $rolls[$side] ?? null;
@@ -150,30 +168,50 @@ final class GameCheckChat
             $this->send(
                 $chatId,
                 $actorUserId,
-                $this->tokenOf($party) . ' бросает проверку [[rule:' . $ruleCode . ']].',
+                $this->withConcentration($party, $spent[$side]) . ' бросает проверку [[rule:' . $ruleCode . ']].',
                 [['type' => 'roll', 'payload' => $roll]],
                 $this->speakerOf($party),
+                $thread,
             );
         }
+
+        $initiator = $proposal['initiator'] ?? null;
+        $opponent = $proposal['opponent'] ?? null;
+        if (!is_array($initiator) || !is_array($opponent)) {
+            return;
+        }
+
+        $this->send(
+            $chatId,
+            $actorUserId,
+            $this->jointResult($initiator, $opponent, $ruleCode, $rolls),
+            [],
+            $this->speakerOf($initiator),
+            $thread,
+        );
     }
 
     /**
-     * Соло-проверка: объявление и бросок.
+     * Соло-проверка: объявление, бросок и результат.
      *
      * @param GameRecord $game Игра.
      * @param int $actorUserId Автор сообщения.
+     * @param array{id: string, parentId: string, kind: string} $thread Тред.
      * @param array{type: string, id: int} $participant Участник.
      * @param string $ruleCode Карточка проверки.
      * @param array<string, mixed> $thrown Бросок.
+     * @param int $spent Жетоны концентрации.
      *
      * @return void
      */
     public function postSolo(
         GameRecord $game,
         int $actorUserId,
+        array $thread,
         array $participant,
         string $ruleCode,
         array $thrown,
+        int $spent,
     ): void {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
@@ -184,11 +222,118 @@ final class GameCheckChat
         $this->send(
             $chatId,
             $actorUserId,
-            $this->tokenOf($participant) . ' совершает проверку [[rule:' . $ruleCode . ']].',
+            $this->withConcentration($participant, $spent)
+                . ' совершает проверку [[rule:' . $ruleCode . ']] против сложности '
+                . $this->dimensionalText($thrown['difficulty'] ?? null) . '.',
             [],
             $speaker,
+            $thread,
+            'default',
         );
-        $this->send($chatId, $actorUserId, '', [['type' => 'roll', 'payload' => $thrown]], $speaker);
+        $this->send($chatId, $actorUserId, '', [['type' => 'roll', 'payload' => $thrown]], $speaker, $thread);
+        $this->send(
+            $chatId,
+            $actorUserId,
+            $this->soloResult($participant, $ruleCode, $thrown),
+            [],
+            $speaker,
+            $thread,
+        );
+    }
+
+    /**
+     * Итог соло-проверки.
+     *
+     * @param array{type: string, id: int} $participant Участник.
+     * @param string $ruleCode Карточка.
+     * @param array<string, mixed> $thrown Бросок.
+     *
+     * @return string Текст.
+     */
+    private function soloResult(array $participant, string $ruleCode, array $thrown): string
+    {
+        $token = $this->tokenOf($participant);
+        $difficulty = $this->dimensionalText($thrown['difficulty'] ?? null);
+        $rating = is_int($thrown['rating'] ?? null) ? $thrown['rating'] : 0;
+        if (($thrown['success'] ?? false) === true) {
+            return $token . ' проходит проверку [[rule:' . $ruleCode . ']] против сложности '
+                . $difficulty . ' (рейтинг ' . $rating . ').';
+        }
+
+        return $token . ' проваливает проверку [[rule:' . $ruleCode . ']] против сложности '
+            . $difficulty . ' (рейтинг ' . $rating . ').';
+    }
+
+    /**
+     * Итог совместной проверки.
+     *
+     * @param array{type: string, id: int} $initiator Инициатор.
+     * @param array{type: string, id: int} $opponent Цель.
+     * @param string $ruleCode Карточка.
+     * @param array<string, array<string, mixed>> $rolls Броски.
+     *
+     * @return string Текст.
+     */
+    private function jointResult(array $initiator, array $opponent, string $ruleCode, array $rolls): string
+    {
+        $left = is_array($rolls['initiator'] ?? null) ? $rolls['initiator'] : [];
+        $right = is_array($rolls['opponent'] ?? null) ? $rolls['opponent'] : [];
+        $leftSuccesses = $this->successesOf($left);
+        $rightSuccesses = $this->successesOf($right);
+        $leftPassed = ($left['success'] ?? false) === true;
+        $rightPassed = ($right['success'] ?? false) === true;
+        $tokens = [
+            'initiator' => $this->tokenOf($initiator),
+            'opponent' => $this->tokenOf($opponent),
+        ];
+        $score = $tokens['initiator'] . ' ' . $leftSuccesses . ' против ' . $rightSuccesses . ' ' . $tokens['opponent'];
+        if ($leftPassed && $rightPassed) {
+            return 'Проверка [[rule:' . $ruleCode . ']]: ничья, ' . $score . '.';
+        }
+
+        if ($leftPassed) {
+            return 'Проверка [[rule:' . $ruleCode . ']]: побеждает ' . $tokens['initiator'] . ', ' . $score . '.';
+        }
+
+        if ($rightPassed) {
+            return 'Проверка [[rule:' . $ruleCode . ']]: побеждает ' . $tokens['opponent'] . ', ' . $score . '.';
+        }
+
+        return 'Проверка [[rule:' . $ruleCode . ']]: никто не преуспел, ' . $score . '.';
+    }
+
+    /**
+     * Успехи броска.
+     *
+     * @param array<string, mixed> $roll Бросок.
+     *
+     * @return int Успехи.
+     */
+    private function successesOf(array $roll): int
+    {
+        $base = $roll['roll']['base'] ?? null;
+        if (is_int($base)) {
+            return $base;
+        }
+
+        return is_int($roll['successes'] ?? null) ? $roll['successes'] : 0;
+    }
+
+    /**
+     * Токен участника и упоминание концентрации.
+     *
+     * @param array{type: string, id: int} $participant Участник.
+     * @param int $spent Жетоны.
+     *
+     * @return string Текст.
+     */
+    private function withConcentration(array $participant, int $spent): string
+    {
+        if ($spent < 1) {
+            return $this->tokenOf($participant);
+        }
+
+        return $this->tokenOf($participant) . ', используя концентрацию (' . $spent . '),';
     }
 
     /**
@@ -244,18 +389,58 @@ final class GameCheckChat
     }
 
     /**
-     * Отправляет сообщение со спикером.
+     * Размерное число для текста.
+     *
+     * @param mixed $value Пара base/size.
+     *
+     * @return string Текст.
+     */
+    private function dimensionalText(mixed $value): string
+    {
+        if (!is_array($value) || !is_int($value['base'] ?? null) || !is_int($value['size'] ?? null)) {
+            return '?';
+        }
+
+        $base = (string) $value['base'];
+        $size = $value['size'];
+        if ($size === 0) {
+            return $base;
+        }
+
+        $arrow = $size > 0 ? '↑' : '↓';
+        $power = abs($size);
+
+        return $base . $arrow . ($power > 1 ? (string) $power : '');
+    }
+
+    /**
+     * Отправляет сообщение треда со спикером.
      *
      * @param int $chatId Чат.
      * @param int $actorUserId Автор.
      * @param string $text Текст.
      * @param list<array<string, mixed>> $attachments Вложения.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string} $speaker Спикер.
+     * @param array{id: string, parentId: string, kind: string} $thread Тред.
+     * @param string|null $kind Вид заголовка треда.
      *
      * @return void
      */
-    private function send(int $chatId, int $actorUserId, string $text, array $attachments, array $speaker): void
-    {
+    private function send(
+        int $chatId,
+        int $actorUserId,
+        string $text,
+        array $attachments,
+        array $speaker,
+        array $thread,
+        ?string $kind = null,
+    ): void {
+        $payload = ['thread' => $thread];
+        if ($kind !== null) {
+            $payload['kind'] = $kind;
+        }
+
+        $attachments[] = ['type' => 'chat_system', 'payload' => $payload];
         $attachments[] = ['type' => 'chat_speaker', 'payload' => $speaker];
         $this->chats->send($chatId, $actorUserId, $text, $attachments, null);
     }

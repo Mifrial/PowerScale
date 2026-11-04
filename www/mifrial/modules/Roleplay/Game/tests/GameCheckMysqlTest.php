@@ -76,12 +76,19 @@ final class GameCheckMysqlTest extends TestCase
         self::assertArrayHasKey('faces', $solo['data']);
         self::assertArrayHasKey('advantages', $solo['data']);
         $messages = $this->allMessages($gameId);
+        $checkMessages = $this->messagesOfThread($messages, 'check-1');
+        self::assertCount(3, $checkMessages);
         self::assertCount(1, array_filter(
-            $messages,
+            $checkMessages,
             static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'совершает проверку'),
         ));
         self::assertCount(1, array_filter(
-            $messages,
+            $checkMessages,
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'проходит проверку')
+                || str_contains($message->getContent(), 'проваливает проверку'),
+        ));
+        self::assertCount(1, array_filter(
+            $checkMessages,
             static fn (MessageRecord $message): bool => $message->getAttachments() !== []
                 && array_filter(
                     $message->getAttachments(),
@@ -457,6 +464,25 @@ final class GameCheckMysqlTest extends TestCase
         self::assertArrayHasKey('faces', $accepted['data']['rolls']['initiator']);
         self::assertArrayHasKey('faces', $accepted['data']['rolls']['opponent']);
         self::assertCount(0, $this->dispatch('game.getCheckOffers', ['gameId' => $gameId])['data']);
+        $messages = $this->allMessages($gameId);
+        $checkThreads = array_values(array_filter(
+            $this->messageThreadIds($messages),
+            static fn (string $id): bool => str_starts_with($id, 'check-'),
+        ));
+        self::assertSame(
+            ['check-' . $offer['data']['processId'], 'check-' . $second['data']['processId']],
+            $checkThreads,
+        );
+        self::assertCount(1, array_filter(
+            $messages,
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'побеждает')
+                || str_contains($message->getContent(), 'ничья')
+                || str_contains($message->getContent(), 'никто не преуспел'),
+        ));
+        self::assertCount(2, array_filter(
+            $messages,
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'бросает проверку'),
+        ));
     }
 
     /**
@@ -951,6 +977,67 @@ final class GameCheckMysqlTest extends TestCase
         foreach ($this->characterFacade()->get($characterId)->getSheet()['resources'] ?? [] as $row) {
             if (is_array($row) && ($row['ruleCode'] ?? null) === $code) {
                 return is_int($row['current'] ?? null) ? $row['current'] : null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Уникальные id тредов сообщений в порядке появления.
+     *
+     * @param array<int, MessageRecord> $messages Сообщения.
+     *
+     * @return array<int, string> Id.
+     */
+    private function messageThreadIds(array $messages): array
+    {
+        $ids = [];
+        foreach ($messages as $message) {
+            $id = $this->threadIdOf($message);
+            if ($id !== null && !in_array($id, $ids, true)) {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Сообщения одного треда.
+     *
+     * @param array<int, MessageRecord> $messages Сообщения.
+     * @param string $threadId Тред.
+     *
+     * @return array<int, MessageRecord> Сообщения треда.
+     */
+    private function messagesOfThread(array $messages, string $threadId): array
+    {
+        return array_values(array_filter(
+            $messages,
+            fn (MessageRecord $message): bool => $this->threadIdOf($message) === $threadId,
+        ));
+    }
+
+    /**
+     * Id треда сообщения.
+     *
+     * @param MessageRecord $message Сообщение.
+     *
+     * @return string|null Id или null.
+     */
+    private function threadIdOf(MessageRecord $message): ?string
+    {
+        foreach ($message->getAttachments() as $attachment) {
+            if (($attachment['type'] ?? null) !== 'chat_system') {
+                continue;
+            }
+
+            $payload = $attachment['payload'] ?? null;
+            $thread = is_array($payload) ? ($payload['thread'] ?? null) : null;
+            $id = is_array($thread) ? ($thread['id'] ?? null) : null;
+            if (is_string($id)) {
+                return $id;
             }
         }
 

@@ -49,6 +49,28 @@ final class GameCombatThread
     }
 
     /**
+     * Тред проверки внутри текущего хода или сессии.
+     *
+     * @param int $processId Process проверки.
+     * @param GameBattleRecord|null $battle Бой или null.
+     * @param int $sessionId Сессия.
+     *
+     * @return array{id: string, parentId: string, kind: string} Тред.
+     */
+    public static function buildCheck(int $processId, ?GameBattleRecord $battle, int $sessionId): array
+    {
+        $parentId = $battle === null
+            ? 's' . $sessionId
+            : self::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex())['id'];
+
+        return [
+            'id' => 'check-' . $processId,
+            'parentId' => $parentId,
+            'kind' => 'check',
+        ];
+    }
+
+    /**
      * Тред атаки внутри текущего хода.
      *
      * @param GameBattleRecord $battle Бой.

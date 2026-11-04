@@ -5,6 +5,7 @@ import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/At
 import {
   COMBAT_CHAT_ATTACK,
   COMBAT_CHAT_BATTLE,
+  COMBAT_CHAT_CHECK,
   COMBAT_CHAT_INITIATIVE,
   COMBAT_CHAT_ROUND,
   COMBAT_CHAT_SESSION,
@@ -21,6 +22,7 @@ export class CombatChatFoldService {
 
   private parentKindOf(kind: string): string {
     if (kind === COMBAT_CHAT_ATTACK) return COMBAT_CHAT_TURN;
+    if (kind === COMBAT_CHAT_CHECK) return COMBAT_CHAT_TURN;
     if (kind === COMBAT_CHAT_INITIATIVE) return COMBAT_CHAT_ROUND;
     if (kind === COMBAT_CHAT_TURN) return COMBAT_CHAT_ROUND;
     if (kind === COMBAT_CHAT_ROUND) return COMBAT_CHAT_BATTLE;
@@ -198,6 +200,12 @@ export class CombatChatFoldService {
     return bits.join(' ');
   }
 
+  private checkFoldSummary(messages: ChatMessage[]): string {
+    const declaration = messages.find((message) => message.content.includes(' совершает проверку '));
+
+    return declaration?.content ? this.compact(declaration.content) : 'Проверка';
+  }
+
   private initiativeFoldSummary(messages: ChatMessage[]): string {
     const order = [...messages].reverse().find((message) => message.content.includes('Порядок инициативы'));
     if (order?.content) return order.content.replace(/\s+/g, ' ').trim();
@@ -209,6 +217,7 @@ export class CombatChatFoldService {
 
   private foldSummary(kind: string, header: ChatMessage | undefined, body: ChatMessage[]): string {
     if (kind === COMBAT_CHAT_ATTACK) return this.attackFoldSummary(header ? [header, ...body] : body);
+    if (kind === COMBAT_CHAT_CHECK) return this.checkFoldSummary(header ? [header, ...body] : body);
     if (kind === COMBAT_CHAT_INITIATIVE) return this.initiativeFoldSummary(header ? [header, ...body] : body);
     if (header?.content) return header.content;
     if (kind === COMBAT_CHAT_TURN) return 'Ход';
@@ -251,17 +260,25 @@ export class CombatChatFoldService {
       ...childGroups.map((child) => ({ type: 'fold' as const, fold: this.toNode(acc, child) })),
     ].sort((left, right) => this.firstChildId(left) - this.firstChildId(right));
     const messageIds = [
-      ...group.messages.map((message) => message.id),
-      ...children.flatMap((child) => (child.type === 'fold' ? child.fold.messageIds : [child.message.id])),
+      ...new Set([
+        ...group.messages.map((message) => message.id),
+        ...children.flatMap((child) => (child.type === 'fold' ? child.fold.messageIds : [child.message.id])),
+      ]),
     ];
 
     return {
       id: group.id,
       kind: group.kind,
       summary: this.foldSummary(group.kind, header, body),
-      chrome: group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_INITIATIVE ? 'end' : 'start',
+      chrome:
+        group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_CHECK || group.kind === COMBAT_CHAT_INITIATIVE
+          ? 'end'
+          : 'start',
       tone: group.kind === COMBAT_CHAT_ROUND || group.kind === COMBAT_CHAT_SESSION ? 'highlighted' : 'default',
-      variant: group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_INITIATIVE ? 'block' : 'divider',
+      variant:
+        group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_CHECK || group.kind === COMBAT_CHAT_INITIATIVE
+          ? 'block'
+          : 'divider',
       children,
       messageIds,
     };
