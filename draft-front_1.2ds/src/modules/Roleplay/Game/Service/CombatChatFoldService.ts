@@ -201,7 +201,20 @@ export class CombatChatFoldService {
   }
 
   private checkFoldSummary(messages: ChatMessage[]): string {
-    const declaration = messages.find((message) => message.content.includes(' совершает проверку '));
+    const outcome = [...messages].reverse().find((message) => {
+      const text = message.content;
+
+      return (
+        text.includes(' преуспел в проверке ') ||
+        text.includes(' провалил проверку ') ||
+        text.includes(' закончилась ничьей') ||
+        text.includes('Никто не преуспел в проверке') ||
+        text.includes(' отклоняет проверку ') ||
+        text.includes(' отменяет проверку ')
+      );
+    });
+    if (outcome?.content) return this.compact(outcome.content);
+    const declaration = messages.find((message) => message.content.includes(' проверк'));
 
     return declaration?.content ? this.compact(declaration.content) : 'Проверка';
   }

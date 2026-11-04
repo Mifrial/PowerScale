@@ -72,14 +72,13 @@ describe('buildCombatChatFolds', () => {
     const messages = [
       msg(1, 'Ходит Гаррик', { kind: 'default', thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
       msg(2, '[[character:1,Гаррик]] совершает проверку [[rule:check-reaction]] против сложности 5.', {
-        kind: 'default',
         thread: { id: 'check-1', parentId: 't1', kind: COMBAT_CHAT_CHECK },
       }),
       msg(3, '', {
         thread: { id: 'check-1', parentId: 't1', kind: COMBAT_CHAT_CHECK },
         attachments: [{ type: 'roll', payload: {} }],
       }),
-      msg(4, '[[character:1,Гаррик]] проходит проверку [[rule:check-reaction]] против сложности 5 (рейтинг 1).', {
+      msg(4, '[[character:1,Гаррик]] преуспел в проверке [[rule:check-reaction]] против сложности 5 с 1 РУ.', {
         thread: { id: 'check-1', parentId: 't1', kind: COMBAT_CHAT_CHECK },
       }),
     ];
@@ -89,8 +88,8 @@ describe('buildCombatChatFolds', () => {
     const check = turn.fold.children[0];
     if (check?.type !== 'fold') throw new Error('check fold');
     expect(check.fold.kind).toBe(COMBAT_CHAT_CHECK);
-    expect(check.fold.summary).toContain('совершает проверку');
-    expect(check.fold.children).toHaveLength(2);
+    expect(check.fold.summary).toContain('преуспел в проверке');
+    expect(check.fold.children).toHaveLength(3);
     expect(check.fold.messageIds).toEqual([2, 3, 4]);
   });
 

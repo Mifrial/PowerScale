@@ -84,8 +84,8 @@ final class GameCheckMysqlTest extends TestCase
         ));
         self::assertCount(1, array_filter(
             $checkMessages,
-            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'проходит проверку')
-                || str_contains($message->getContent(), 'проваливает проверку'),
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'преуспел в проверке')
+                || str_contains($message->getContent(), 'провалил проверку'),
         ));
         self::assertCount(1, array_filter(
             $checkMessages,
@@ -473,15 +473,20 @@ final class GameCheckMysqlTest extends TestCase
             ['check-' . $offer['data']['processId'], 'check-' . $second['data']['processId']],
             $checkThreads,
         );
+        $checkMessages = $this->messagesOfThread($messages, 'check-' . $second['data']['processId']);
+        self::assertCount(3, $checkMessages);
         self::assertCount(1, array_filter(
-            $messages,
-            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'побеждает')
-                || str_contains($message->getContent(), 'ничья')
-                || str_contains($message->getContent(), 'никто не преуспел'),
+            $checkMessages,
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'преуспел в проверке')
+                || str_contains($message->getContent(), 'закончилась ничьей')
+                || str_contains($message->getContent(), 'Никто не преуспел'),
         ));
-        self::assertCount(2, array_filter(
-            $messages,
-            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'бросает проверку'),
+        self::assertCount(1, array_filter(
+            $checkMessages,
+            static fn (MessageRecord $message): bool => count(array_filter(
+                $message->getAttachments(),
+                static fn (array $attachment): bool => ($attachment['type'] ?? null) === 'roll',
+            )) === 2,
         ));
     }
 

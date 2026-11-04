@@ -62,13 +62,11 @@ final class GameCheckChat
         $this->send(
             $chatId,
             $actorUserId,
-            $this->withConcentration($initiator, $spent)
-                . ' совершает проверку [[rule:' . $ruleCode . ']] против '
-                . $this->tokenOf($opponent) . '.',
+            'Совместная проверка [[rule:' . $ruleCode . ']] между '
+                . $this->jointName($initiator, $spent) . ' и ' . $this->tokenOf($opponent) . '.',
             [],
             $this->speakerOf($initiator),
             $thread,
-            'default',
         );
     }
 
@@ -157,30 +155,28 @@ final class GameCheckChat
             return;
         }
 
-        $spent = ['initiator' => $initiatorSpent, 'opponent' => $opponentSpent];
-        foreach (['initiator', 'opponent'] as $side) {
-            $party = $proposal[$side] ?? null;
-            $roll = $rolls[$side] ?? null;
-            if (!is_array($party) || !is_array($roll)) {
-                continue;
-            }
-
-            $this->send(
-                $chatId,
-                $actorUserId,
-                $this->withConcentration($party, $spent[$side]) . ' бросает проверку [[rule:' . $ruleCode . ']].',
-                [['type' => 'roll', 'payload' => $roll]],
-                $this->speakerOf($party),
-                $thread,
-            );
-        }
-
         $initiator = $proposal['initiator'] ?? null;
         $opponent = $proposal['opponent'] ?? null;
         if (!is_array($initiator) || !is_array($opponent)) {
             return;
         }
 
+        $attachments = [];
+        foreach (['initiator', 'opponent'] as $side) {
+            $roll = $rolls[$side] ?? null;
+            if (is_array($roll)) {
+                $attachments[] = ['type' => 'roll', 'payload' => $roll];
+            }
+        }
+
+        $this->send(
+            $chatId,
+            $actorUserId,
+            'Броски проверки [[rule:' . $ruleCode . ']].',
+            $attachments,
+            $this->speakerOf($initiator),
+            $thread,
+        );
         $this->send(
             $chatId,
             $actorUserId,
@@ -228,7 +224,6 @@ final class GameCheckChat
             [],
             $speaker,
             $thread,
-            'default',
         );
         $this->send($chatId, $actorUserId, '', [['type' => 'roll', 'payload' => $thrown]], $speaker, $thread);
         $this->send(
@@ -256,12 +251,12 @@ final class GameCheckChat
         $difficulty = $this->dimensionalText($thrown['difficulty'] ?? null);
         $rating = is_int($thrown['rating'] ?? null) ? $thrown['rating'] : 0;
         if (($thrown['success'] ?? false) === true) {
-            return $token . ' проходит проверку [[rule:' . $ruleCode . ']] против сложности '
-                . $difficulty . ' (рейтинг ' . $rating . ').';
+            return $token . ' преуспел в проверке [[rule:' . $ruleCode . ']] против сложности '
+                . $difficulty . ' с ' . $rating . ' РУ.';
         }
 
-        return $token . ' проваливает проверку [[rule:' . $ruleCode . ']] против сложности '
-            . $difficulty . ' (рейтинг ' . $rating . ').';
+        return $token . ' провалил проверку [[rule:' . $ruleCode . ']] против сложности '
+            . $difficulty . ' (РУ ' . $rating . ').';
     }
 
     /**
@@ -286,20 +281,34 @@ final class GameCheckChat
             'initiator' => $this->tokenOf($initiator),
             'opponent' => $this->tokenOf($opponent),
         ];
-        $score = $tokens['initiator'] . ' ' . $leftSuccesses . ' против ' . $rightSuccesses . ' ' . $tokens['opponent'];
+        $score = $leftSuccesses . ' против ' . $rightSuccesses;
         if ($leftPassed && $rightPassed) {
-            return 'Проверка [[rule:' . $ruleCode . ']]: ничья, ' . $score . '.';
+            return 'Проверка [[rule:' . $ruleCode . ']] между ' . $tokens['initiator'] . ' и '
+                . $tokens['opponent'] . ' закончилась ничьей: ' . $score . '.';
         }
 
-        if ($leftPassed) {
-            return 'Проверка [[rule:' . $ruleCode . ']]: побеждает ' . $tokens['initiator'] . ', ' . $score . '.';
+        if (!$leftPassed && !$rightPassed) {
+            return 'Никто не преуспел в проверке [[rule:' . $ruleCode . ']]: ' . $score . '.';
         }
 
-        if ($rightPassed) {
-            return 'Проверка [[rule:' . $ruleCode . ']]: побеждает ' . $tokens['opponent'] . ', ' . $score . '.';
-        }
+        $winner = $leftPassed ? 'initiator' : 'opponent';
+        $loser = $leftPassed ? 'opponent' : 'initiator';
+        $rating = $this->ratingOf($leftPassed ? $left : $right);
 
-        return 'Проверка [[rule:' . $ruleCode . ']]: никто не преуспел, ' . $score . '.';
+        return $tokens[$winner] . ' преуспел в проверке [[rule:' . $ruleCode . ']] против '
+            . $tokens[$loser] . ' с ' . $rating . ' РУ.';
+    }
+
+    /**
+     * Рейтинг броска.
+     *
+     * @param array<string, mixed> $roll Бросок.
+     *
+     * @return int Рейтинг.
+     */
+    private function ratingOf(array $roll): int
+    {
+        return is_int($roll['rating'] ?? null) ? $roll['rating'] : 0;
     }
 
     /**
@@ -317,6 +326,24 @@ final class GameCheckChat
         }
 
         return is_int($roll['successes'] ?? null) ? $roll['successes'] : 0;
+    }
+
+    /**
+     * Имя стороны совместной проверки с концентрацией.
+     *
+     * @param array{type: string, id: int} $participant Участник.
+     * @param int $spent Жетоны.
+     *
+     * @return string Текст.
+     */
+    private function jointName(array $participant, int $spent): string
+    {
+        $token = $this->tokenOf($participant);
+        if ($spent < 1) {
+            return $token;
+        }
+
+        return $token . ' (концентрация ' . $spent . ')';
     }
 
     /**
