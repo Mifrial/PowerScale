@@ -285,6 +285,20 @@ final class GameStrikeSingleClose
             $spends = array_merge($spends, $turnSpends);
         }
 
+        $defenderToken = $choice['reaction'] === 'ignore'
+            ? null
+            : $this->spend->defenderToken(
+                $game,
+                $choice,
+                $this->sheets->getTargetSheet($game, $target),
+                $hitCode,
+                $target['type'] . ':' . $target['id'],
+                $battle->getConcentrationCycle(),
+            );
+        if ($defenderToken !== null) {
+            $spends[] = $defenderToken['spend'];
+        }
+
         $previousSr = $lastStrike->previousSr($pending, $attackerKind, $attackerId, $targetKey);
         $supports = $this->supportAdvantages($row);
         $advantages = $supports['attacker'];
@@ -351,6 +365,10 @@ final class GameStrikeSingleClose
         $defenderAdvantages = $supports['defender'];
         if ($flank !== null) {
             $defenderAdvantages[] = $flank;
+        }
+
+        if ($defenderToken !== null) {
+            $defenderAdvantages[] = $defenderToken['advantage'];
         }
 
         if ($choice['reaction'] === 'dodge') {
@@ -727,7 +745,20 @@ final class GameStrikeSingleClose
                     ],
                 ],
             );
-            $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
+            if ($defenderToken !== null) {
+                $this->battles->replaceTracked(
+                    $battleId,
+                    $expectedBattleVersion,
+                    $pending,
+                    null,
+                    null,
+                    null,
+                    $defenderToken['cycle'],
+                );
+            } else {
+                $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
+            }
+
             $result['closed'] = false;
             $result['sequential'] = true;
             $result['resolvedIndex'] = $activeIndex;
@@ -825,7 +856,20 @@ final class GameStrikeSingleClose
             ],
         );
 
-        $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
+        if ($defenderToken !== null) {
+            $this->battles->replaceTracked(
+                $battleId,
+                $expectedBattleVersion,
+                $pending,
+                null,
+                null,
+                null,
+                $defenderToken['cycle'],
+            );
+        } else {
+            $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
+        }
+
         $result['closed'] = true;
         $result['sequential'] = $sequential;
         $result['resolvedIndex'] = $activeIndex;

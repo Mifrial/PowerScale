@@ -489,6 +489,10 @@ final class GameRunActionBody
             $allowed[] = 'turn';
         }
 
+        if (array_key_exists('spendConcentration', $row)) {
+            $allowed[] = 'spendConcentration';
+        }
+
         if (
             array_key_exists('blockItemInventoryId', $row)
             || array_key_exists('blockItemProfileIndex', $row)
@@ -509,6 +513,7 @@ final class GameRunActionBody
         $profileIndex = $row['blockItemProfileIndex'] ?? null;
         $ruleCode = $row['blockItemRuleCode'] ?? null;
         $turn = $row['turn'] ?? false;
+        $spendConcentration = $row['spendConcentration'] ?? 0;
         $target = array_key_exists('target', $row) ? $this->side($row['target']) : null;
         $block = ($inventoryId === null || is_int($inventoryId))
             && ($profileIndex === null || is_int($profileIndex))
@@ -518,13 +523,15 @@ final class GameRunActionBody
             || !is_bool($turn)
             || ($turn && $reaction === 'ignore')
             || !is_int($expected)
+            || !is_int($spendConcentration)
+            || $spendConcentration < 0
             || !$block
             || ($reaction === 'block' && (!is_int($inventoryId) || !is_int($profileIndex)))
         ) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense row');
         }
 
-        return [
+        $choice = [
             'target' => $target,
             'reaction' => $reaction,
             'blockItemInventoryId' => $inventoryId,
@@ -533,6 +540,11 @@ final class GameRunActionBody
             'expectedSheetVersion' => $expected,
             'turn' => $turn,
         ];
+        if (array_key_exists('spendConcentration', $row)) {
+            $choice['spendConcentration'] = $spendConcentration;
+        }
+
+        return $choice;
     }
 
     /**

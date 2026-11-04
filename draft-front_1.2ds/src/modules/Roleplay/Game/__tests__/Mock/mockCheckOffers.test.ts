@@ -162,6 +162,52 @@ describe('mockCheckOffers: handshake pairwise', () => {
     expect(accepted.status).toBe('accepted');
   });
 
+  it('групповая оферта хранит трату концентрации по каждой цели', async () => {
+    const targetThree = 'character:3' as const;
+    const groupHit = {
+      itemRuleCode: 'sword',
+      itemName: 'Меч',
+      profileType: 'strike' as const,
+      accuracy: { base: 4, size: 0 },
+      reaction: null,
+    };
+    const groupProposal = {
+      ...proposal,
+      attackAction: {
+        initiator,
+        source: { kind: 'action', actionRuleCode: 'wide' },
+        mode: 'wide',
+        strikes: [
+          { targetKey: opponent, profile: {} },
+          { targetKey: targetThree, profile: {} },
+        ],
+        reactionMode: 'simultaneous',
+        totalOdCost: 4,
+      },
+      hit: groupHit,
+    } as unknown as CheckOfferProposal;
+    const created = await createCheckOffer(7, {
+      checkCode: 'check-hit',
+      initiator,
+      opponent,
+      proposal: groupProposal,
+    });
+
+    await acceptCheckOffer(created.id, targetThree, {
+      ...groupProposal,
+      opponentSpendConcentration: 1,
+      hit: { ...groupHit, reaction: 'dodge' },
+    });
+    const accepted = await acceptCheckOffer(created.id, opponent, {
+      ...groupProposal,
+      opponentSpendConcentration: 2,
+      hit: { ...groupHit, reaction: 'dodge' },
+    });
+
+    expect(accepted.proposal.targetProposals?.find((row) => row.targetKey === targetThree)?.spendConcentration).toBe(1);
+    expect(accepted.proposal.targetProposals?.find((row) => row.targetKey === opponent)?.spendConcentration).toBe(2);
+  });
+
   it('последовательные удары ждут отдельную реакцию на каждый', async () => {
     const strikeHit = {
       itemRuleCode: 'ruka',

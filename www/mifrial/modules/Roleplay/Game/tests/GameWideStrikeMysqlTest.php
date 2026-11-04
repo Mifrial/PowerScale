@@ -171,6 +171,97 @@ final class GameWideStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Жетон концентрации защиты в широком ударе даёт преимущество только своей цели.
+     *
+     * @return void
+     */
+    public function testWideDefenseConcentrationAppliesPerTarget(): void
+    {
+        $world = $this->worldWithWeapon(hitConcentration: true, extraEntries: [
+            RuleCommitEntry::put('concentration', new RuleVersionBody('resource', 'Concentration', '', [
+                'is_dimensional' => false,
+                'auto_add' => false,
+                'check_token' => true,
+                'limit' => ['base' => 2, 'adjustments' => []],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('peak', new RuleVersionBody('ability', 'Peak', '', [
+                'type' => 'skill',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+                'grants' => [],
+                'peak_concentration' => true,
+                'will_focus' => false,
+                'long_tension' => false,
+            ], [], [], 'needs_work')),
+        ]);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Wide-Concentration-Attacker');
+        $firstId = $this->admit($world->getId(), $gameId, 'Wide-Concentration-First', [
+            'abilityLevels' => ['peak' => 1],
+            'resources' => [['ruleCode' => 'concentration', 'current' => 2]],
+        ]);
+        $secondId = $this->admit($world->getId(), $gameId, 'Wide-Concentration-Second');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-wide-concentration',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $targets = [
+            ['type' => 'character', 'id' => $firstId],
+            ['type' => 'character', 'id' => $secondId],
+        ];
+        $opened = $this->dispatch('game.runAction', $this->declareBody(
+            $gameId,
+            $battleId,
+            's-wide-concentration',
+            1,
+            $this->wideAttack($attackerId, $targets),
+        ));
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-wide-concentration',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->wideDefenseEnvelope($this->defenses($targets, [
+                [
+                    'reaction' => 'dodge',
+                    'spendConcentration' => 1,
+                    'expectedSheetVersion' => $this->characterFacade()->get($firstId)->getActualVersion(),
+                ],
+                [
+                    'reaction' => 'dodge',
+                    'expectedSheetVersion' => $this->characterFacade()->get($secondId)->getActualVersion(),
+                ],
+            ])),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $firstAdvantages = $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [];
+        $secondAdvantages = $closed['data']['strikes'][1]['defenseRoll']['advantages'] ?? [];
+        $firstConcentration = array_values(array_filter(
+            $firstAdvantages,
+            static fn (mixed $row): bool => is_array($row) && ($row['source_code'] ?? null) === 'concentration',
+        ));
+        $secondConcentration = array_values(array_filter(
+            $secondAdvantages,
+            static fn (mixed $row): bool => is_array($row) && ($row['source_code'] ?? null) === 'concentration',
+        ));
+        self::assertCount(1, $firstConcentration);
+        self::assertSame(1, $firstConcentration[0]['delta'] ?? null);
+        self::assertSame([], $secondConcentration);
+        $firstResources = $this->characterFacade()->get($firstId)->getSheet()['resources'] ?? [];
+        $secondResources = $this->characterFacade()->get($secondId)->getSheet()['resources'] ?? [];
+        self::assertSame(1, $this->resourceCurrent($firstResources, 'concentration'));
+        self::assertNull($this->resourceCurrent($secondResources, 'concentration'));
+    }
+
+    /**
      * Две цели, пустые числа, отказ одной не затирает другую.
      *
      * @return void
@@ -2179,15 +2270,26 @@ final class GameWideStrikeMysqlTest extends TestCase
      *
      * @return RuleSpaceRecord Мир.
      */
-    private function worldWithWeapon(bool|int $penetrationMode = false, ?int $damageTypeCap = null): RuleSpaceRecord
-    {
+    private function worldWithWeapon(
+        bool|int $penetrationMode = false,
+        ?int $damageTypeCap = null,
+        bool $hitConcentration = false,
+        array $extraEntries = [],
+    ): RuleSpaceRecord {
         $withPenetration = $penetrationMode === true;
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
         $rollId = $this->plainRollId($mechanics);
         $reliabilityCutId = $this->reliabilityCutId($mechanics);
         $world = $this->addWorldWithRevision(
-            'razrabotka' . ($damageTypeCap === null ? '' : '-cap' . $damageTypeCap),
+            'razrabotka' . ($damageTypeCap === null ? '' : '-cap' . $damageTypeCap)
+            . ($hitConcentration ? '-conc' : '')
+            . ($extraEntries === []
+                ? ''
+                : '-ex' . substr(md5(implode(',', array_map(
+                    static fn (RuleCommitEntry $entry): string => (string) $entry->getCode(),
+                    $extraEntries,
+                ))), 0, 6)),
         );
         $swordProfile = ['type' => 'strike', 'distance' => ['min' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]], 'max' => ['type' => 'ipari', 'value' => ['type' => 'fixed', 'value' => 0]]], 'accuracy' => ['base' => 3, 'size' => 0]];
         if ($withPenetration) {
@@ -2206,7 +2308,7 @@ final class GameWideStrikeMysqlTest extends TestCase
                 ],
             ];
         }
-        $this->worldRevision = $this->gameRuleSpaces()->commit($world->getId(), [
+        $entries = [
             RuleCommitEntry::put('human', new RuleVersionBody('race', 'Human', '', [
                 'characteristics' => [[
                     'characteristic_code' => 'strength',
@@ -2507,14 +2609,16 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'allow_characteristic_override' => false,
                 'allowed_modes' => 'both',
                 'ordinary_root' => true,
-                'concentration_token' => false,
+                'concentration_token' => $hitConcentration,
                 'willpower' => false,
                 'unstable_check' => false,
                 'hit_check' => true,
                 'initiative' => false,
                 'difficulty_input' => ['kind' => 'none', 'state_code' => ''],
             ], [], [], 'needs_work')),
-        ])->getRevision();
+            ...$extraEntries,
+        ];
+        $this->worldRevision = $this->gameRuleSpaces()->commit($world->getId(), $entries)->getRevision();
 
         return $world;
     }
@@ -2580,6 +2684,25 @@ final class GameWideStrikeMysqlTest extends TestCase
             'npcId' => $npc['npcId'],
             'actualVersion' => $saved['data']['actualVersion'] ?? $npc['actualVersion'],
         ];
+    }
+
+    /**
+     * Current ресурса по коду.
+     *
+     * @param array<int, mixed> $resources Строки листа.
+     * @param string $code Код ресурса.
+     *
+     * @return int|null Current.
+     */
+    private function resourceCurrent(array $resources, string $code): ?int
+    {
+        foreach ($resources as $row) {
+            if (is_array($row) && ($row['ruleCode'] ?? null) === $code) {
+                return is_int($row['current'] ?? null) ? $row['current'] : null;
+            }
+        }
+
+        return null;
     }
 
     /**

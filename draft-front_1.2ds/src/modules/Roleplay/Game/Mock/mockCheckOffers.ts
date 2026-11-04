@@ -108,7 +108,11 @@ function applyOpponentProposal(offer: CheckOffer, actorKey: CombatEntityKey, pro
     };
   } else {
     const target = targetProposalsOf(offer).find((entry) => entry.targetKey === actorKey);
-    if (target && proposal.hit) target.hit = { ...target.hit, ...proposal.hit };
+    if (target && proposal.hit) {
+      target.hit = { ...target.hit, ...proposal.hit };
+      const spend = proposal.opponentSpendConcentration;
+      target.spendConcentration = typeof spend === 'number' && spend > 0 ? Math.floor(spend) : 0;
+    }
     offer.proposal = {
       ...offer.proposal,
       ...proposal,

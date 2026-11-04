@@ -210,17 +210,20 @@ final class GameStrikeCloseRows
         $inventoryId = $row['block_item_inventory_id'] ?? null;
         $profileIndex = $row['block_item_profile_index'] ?? null;
         $ruleCode = $row['block_item_rule_code'] ?? null;
+        $spendConcentration = $row['spend_concentration'] ?? 0;
         if (
             !is_string($reaction)
             || !is_int($expectedSheetVersion)
             || ($inventoryId !== null && !is_int($inventoryId))
             || ($profileIndex !== null && !is_int($profileIndex))
             || ($ruleCode !== null && !is_string($ruleCode))
+            || !is_int($spendConcentration)
+            || $spendConcentration < 0
         ) {
             throw new GameInvalidException('Game wide strike target row is invalid');
         }
 
-        return [
+        $choice = [
             'reaction' => $reaction,
             'blockItemInventoryId' => $inventoryId,
             'blockItemProfileIndex' => $profileIndex,
@@ -228,6 +231,11 @@ final class GameStrikeCloseRows
             'expectedSheetVersion' => $expectedSheetVersion,
             'conditions' => GameStrikeTargetRow::conditions($row),
         ];
+        if ($spendConcentration > 0) {
+            $choice['spendConcentration'] = $spendConcentration;
+        }
+
+        return $choice;
     }
 
     /**

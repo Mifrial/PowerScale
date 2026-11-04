@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Character\Service\Resource;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\DimensionalResourceValue;
+use Mifrial\Roleplay\Character\Dto\ResourceLimitBonus;
 use Mifrial\Roleplay\Character\Dto\ResourceRow;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Dto\ResourceValue;
@@ -241,10 +242,10 @@ final class CharacterResourceStorage
      */
     private function parseRow(mixed $row, CharacterRuleSlice $slice): ResourceRow
     {
-        [$ruleCode, $value, $base] = $this->rowParts($row, $slice);
+        [$ruleCode, $value, $base, $bonuses] = $this->rowParts($row, $slice);
         $spec = $this->spec($slice, $ruleCode);
 
-        return new ResourceRow($ruleCode, $this->parseValue($value, $spec), $base);
+        return new ResourceRow($ruleCode, $this->parseValue($value, $spec), $base, $bonuses);
     }
 
     /**
@@ -272,7 +273,8 @@ final class CharacterResourceStorage
      * @param mixed $row Native row.
      * @param CharacterRuleSlice $slice Live rule slice.
      *
-     * @return array{0: string, 1: mixed, 2: int|DimensionalNumber|null} Code, current, base.
+     * @return array{0: string, 1: mixed, 2: int|DimensionalNumber|null, 3: array<int, ResourceLimitBonus>}
+     *         Code, current, base, bonuses.
      *
      * @throws CharacterInvalidException При неверной форме или live rule.
      */
@@ -298,7 +300,51 @@ final class CharacterResourceStorage
 
         $this->spec($slice, $ruleCode);
 
-        return [$ruleCode, $row['current'], $this->parseBase($row['base'] ?? null)];
+        return [
+            $ruleCode,
+            $row['current'],
+            $this->parseBase($row['base'] ?? null),
+            $this->parseBonuses($row['bonuses'] ?? []),
+        ];
+    }
+
+    /**
+     * Разбирает вклады в лимит.
+     *
+     * @param mixed $bonuses Native.
+     *
+     * @return array<int, ResourceLimitBonus> Вклады.
+     *
+     * @throws CharacterInvalidException Если форма чужая.
+     */
+    private function parseBonuses(mixed $bonuses): array
+    {
+        if (!is_array($bonuses) || !array_is_list($bonuses)) {
+            throw new CharacterInvalidException('Resource bonuses are invalid');
+        }
+
+        $parsed = [];
+        foreach ($bonuses as $bonus) {
+            if (!is_array($bonus) || array_is_list($bonus)) {
+                throw new CharacterInvalidException('Resource bonus is invalid');
+            }
+
+            $keys = array_keys($bonus);
+            sort($keys);
+            $source = $bonus['sourceRuleCode'] ?? null;
+            $delta = $bonus['delta'] ?? null;
+            if (
+                $keys !== ['delta', 'sourceRuleCode']
+                || ($source !== null && !is_string($source))
+                || !is_int($delta)
+            ) {
+                throw new CharacterInvalidException('Resource bonus is invalid');
+            }
+
+            $parsed[] = new ResourceLimitBonus($source, $delta);
+        }
+
+        return $parsed;
     }
 
     /**

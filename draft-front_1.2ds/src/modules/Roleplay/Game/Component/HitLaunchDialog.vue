@@ -252,6 +252,7 @@ const phpWideChoices = ref<
     blockItemInventoryId?: number;
     blockItemProfileIndex?: number;
     turn?: boolean;
+    spendConcentration?: number;
   }[]
 >([]);
 const coveringAdv = ref(0);
@@ -1811,9 +1812,18 @@ async function acceptWideAttack(
       accepted.initiator,
       accepted.proposal.initiatorSpendConcentration,
     );
+    const defenderSpent = new Map<CombatEntityKey, number>();
+    for (const target of targetProposals) {
+      const spent =
+        target.hit.reaction === 'ignore'
+          ? 0
+          : await applyConcentrationSpend(target.targetKey, target.spendConcentration ?? 0);
+      defenderSpent.set(target.targetKey, spent);
+    }
     const inputs = targetProposals.map((target, index) => {
       const profile = attackStrikes.find((strike) => strike.targetKey === target.targetKey)?.profile ?? attack;
       const defender = overviewOf(target.targetKey);
+      const tokenSpent = defenderSpent.get(target.targetKey) ?? 0;
 
       return {
         attackerLabel: nameOf(accepted.initiator),
@@ -1846,6 +1856,7 @@ async function acceptWideAttack(
         defenderAdv: accepted.proposal.opponentAdv,
         defenderAdvantageModifiers: actionEffectService
           .checkAdvantageModifiers(pendingEffectsByEntity.value[target.targetKey] ?? [], hitCheckCode.value, 'defender')
+          .concat(tokenSpent > 0 ? [concentrationTokenService.tokenAdvantage(tokenSpent)] : [])
           .concat(
             stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(target.targetKey), props.rules, {
               kind: 'hit',
@@ -2053,6 +2064,7 @@ async function acceptAndRoll(): Promise<void> {
     offer.value = accepted;
     opponentKey.value = accepted.waitingOnTargets?.[0] ?? accepted.opponent;
     reaction.value = null;
+    spendDefenderConcentration.value = 0;
     applyReactionDefaults(null);
 
     return;
@@ -2101,7 +2113,10 @@ async function acceptAndRoll(): Promise<void> {
     accepted.initiator,
     accepted.proposal.initiatorSpendConcentration,
   );
-  const defenderSpent = await applyConcentrationSpend(accepted.opponent, accepted.proposal.opponentSpendConcentration);
+  const defenderSpent =
+    hit.reaction === 'ignore'
+      ? 0
+      : await applyConcentrationSpend(accepted.opponent, accepted.proposal.opponentSpendConcentration);
   const attackStrikes = accepted.proposal.attackAction?.strikes ?? [];
   const commonHitInput: Omit<HitRollInput, 'attack'> = {
     attackerLabel: nameOf(accepted.initiator),
@@ -3634,6 +3649,9 @@ async function phpDefense() {
       reaction: reaction.value,
       turn: Boolean(flank.value && turn.value && reaction.value !== 'ignore'),
       ...(block ? { blockItemInventoryId: block.inventoryItemId, blockItemProfileIndex: block.profileIndex } : {}),
+      ...(reaction.value !== 'ignore' && spendDefenderConcentration.value > 0
+        ? { spendConcentration: spendDefenderConcentration.value }
+        : {}),
     },
   };
 }
@@ -3697,6 +3715,7 @@ function syncPhpWideTargets(): void {
     reaction.value = null;
     blockItemRuleCode.value = null;
     turn.value = false;
+    spendDefenderConcentration.value = 0;
   }
   if (opponentKey.value) applyPhpConditions(wideTargetConditionsOf(opponentKey.value));
 }
@@ -3728,6 +3747,9 @@ async function phpWideDefense() {
           target: { type: targetType, id: target.id },
           reaction: choice.reaction,
           ...(choice.turn === true ? { turn: true } : {}),
+          ...(choice.reaction !== 'ignore' && (choice.spendConcentration ?? 0) > 0
+            ? { spendConcentration: choice.spendConcentration }
+            : {}),
           expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
           ...(choice.reaction === 'block'
             ? {
@@ -3752,8 +3774,12 @@ function rememberPhpWideChoice(): boolean {
     reaction: chosen,
     ...(chosen !== 'ignore' && turn.value && flank.value ? { turn: true } : {}),
     ...(chosen === 'block' ? phpBlockFor(current) : {}),
+    ...(chosen !== 'ignore' && spendDefenderConcentration.value > 0
+      ? { spendConcentration: spendDefenderConcentration.value }
+      : {}),
   };
   phpWideChoices.value = next;
+  spendDefenderConcentration.value = 0;
   const following = keys[index + 1];
   if (!following) return true;
   opponentKey.value = following;

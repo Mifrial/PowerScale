@@ -47,6 +47,45 @@ final class CharacterResourceStorageTest extends TestCase
     }
 
     /**
+     * Native round-trip keeps limit bonuses with their sources.
+     *
+     * @return void
+     */
+    public function testNativeRoundTripKeepsBonuses(): void
+    {
+        $storage = new CharacterResourceStorage();
+        $rows = $storage->parseRows(
+            [
+                [
+                    'ruleCode' => 'action-points',
+                    'current' => 1,
+                    'base' => 5,
+                    'bonuses' => [
+                        ['sourceRuleCode' => 'intellect_source', 'delta' => 2],
+                        ['sourceRuleCode' => null, 'delta' => -1],
+                    ],
+                ],
+            ],
+            $this->slice(),
+        );
+
+        self::assertSame(
+            [
+                [
+                    'ruleCode' => 'action-points',
+                    'current' => 1,
+                    'base' => 5,
+                    'bonuses' => [
+                        ['sourceRuleCode' => 'intellect_source', 'delta' => 2],
+                        ['sourceRuleCode' => null, 'delta' => -1],
+                    ],
+                ],
+            ],
+            $storage->serializeRows($rows),
+        );
+    }
+
+    /**
      * Rejects duplicates, unknown rules and implicit conversions.
      *
      * @return void

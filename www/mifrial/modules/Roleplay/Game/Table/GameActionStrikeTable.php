@@ -58,6 +58,7 @@ final class GameActionStrikeTable extends SmartTableDefinition
             new IntField('block_item_inventory_id', FieldSettings::fromOptions([]), 1, null),
             new IntField('block_item_profile_index', FieldSettings::fromOptions([]), 0, null),
             new StringField('block_item_rule_code', FieldSettings::fromOptions([]), 255),
+            new IntField('spend_concentration', FieldSettings::fromOptions([]), 0, null),
             new IntField('expected_sheet_version', FieldSettings::fromOptions([]), 0, null),
             new IntField('repeat_weapon_uses', FieldSettings::fromOptions([]), 0, null),
         ];

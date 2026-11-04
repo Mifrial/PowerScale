@@ -120,6 +120,7 @@ final class GameStrikeWideClose
                 'block_item_profile_index' => $choice['blockItemProfileIndex'],
                 'block_item_rule_code' => $choice['blockItemRuleCode'],
                 'expected_sheet_version' => $choice['expectedSheetVersion'],
+                'spend_concentration' => $choice['spendConcentration'] ?? 0,
                 'conditions' => $conditions,
             ]);
             $rows[$index]['reaction'] = $choice['reaction'];
@@ -127,6 +128,7 @@ final class GameStrikeWideClose
             $rows[$index]['block_item_profile_index'] = $choice['blockItemProfileIndex'];
             $rows[$index]['block_item_rule_code'] = $choice['blockItemRuleCode'];
             $rows[$index]['expected_sheet_version'] = $choice['expectedSheetVersion'];
+            $rows[$index]['spend_concentration'] = $choice['spendConcentration'] ?? 0;
             $rows[$index]['conditions'] = $conditions;
         }
 
@@ -173,7 +175,10 @@ final class GameStrikeWideClose
             return $penetration;
         };
 
-        $this->targets->begin($battle->getPendingActionEffects());
+        $this->targets->begin(
+            $battle->getPendingActionEffects(),
+            $battle->getConcentrationCycle(),
+        );
         $results = [];
         foreach ($rows as $index => $row) {
             $results[] = $this->targets->one(
@@ -252,7 +257,19 @@ final class GameStrikeWideClose
         );
 
         $this->actions->close($strikeId);
-        $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
+        if ($this->targets->tokenUsed()) {
+            $this->battles->replaceTracked(
+                $battleId,
+                $expectedBattleVersion,
+                $pending,
+                null,
+                null,
+                null,
+                $this->targets->cycleAfter(),
+            );
+        } else {
+            $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
+        }
 
         return [
             'battleId' => $battleId,

@@ -527,6 +527,17 @@ final class GameRunAction
         }
 
         $defense = $defenses[0];
+        $choice = [
+            'reaction' => $defense['reaction'],
+            'blockItemInventoryId' => $defense['blockItemInventoryId'],
+            'blockItemProfileIndex' => $defense['blockItemProfileIndex'],
+            'blockItemRuleCode' => $defense['blockItemRuleCode'],
+            'turn' => $defense['turn'],
+        ];
+        if (array_key_exists('spendConcentration', $defense)) {
+            $choice['spendConcentration'] = $defense['spendConcentration'];
+        }
+
         $result = $this->strikes->resolveStrike(
             $gameId,
             $actorUserId,
@@ -536,13 +547,7 @@ final class GameRunAction
             $idempotencyKey,
             $expectedVersion,
             $defense['expectedSheetVersion'],
-            [
-                'reaction' => $defense['reaction'],
-                'blockItemInventoryId' => $defense['blockItemInventoryId'],
-                'blockItemProfileIndex' => $defense['blockItemProfileIndex'],
-                'blockItemRuleCode' => $defense['blockItemRuleCode'],
-                'turn' => $defense['turn'],
-            ],
+            $choice,
         );
 
         return $this->respondedSingle($open, $result);

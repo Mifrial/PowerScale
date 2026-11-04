@@ -880,7 +880,6 @@ function launchErrorMessage(e: unknown): string {
   return (
     {
       'Game concentration amount is invalid': 'Недостаточно жетонов концентрации для такой траты',
-      'Game concentration is blocked': 'Жетоны концентрации уже тратились в этом цикле',
       'Game concentration is not allowed': 'Эта проверка не может тратить жетоны концентрации',
     }[message] ??
     (message || 'Не удалось запустить проверку')

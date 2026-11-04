@@ -27,15 +27,32 @@ final class GameStrikeTargetClose
     private array $pendingAfter = [];
 
     /**
+     * Цикл жетонов после расчёта.
+     *
+     * @var array<string, mixed>
+     */
+    private array $cycleAfter = [];
+
+    /**
+     * Тратил ли хоть один защитник жетон концентрации.
+     *
+     * @var bool
+     */
+    private bool $tokenUsed = false;
+
+    /**
      * Начинает расчёт с карты боя.
      *
      * @param array<string, mixed> $pending Карта.
+     * @param array<string, mixed> $cycle Цикл жетонов.
      *
      * @return void
      */
-    public function begin(array $pending): void
+    public function begin(array $pending, array $cycle = []): void
     {
         $this->pendingAfter = $pending;
+        $this->cycleAfter = $cycle;
+        $this->tokenUsed = false;
     }
 
     /**
@@ -46,6 +63,26 @@ final class GameStrikeTargetClose
     public function pendingAfter(): array
     {
         return $this->pendingAfter;
+    }
+
+    /**
+     * Цикл жетонов после расчёта.
+     *
+     * @return array<string, mixed> Карта.
+     */
+    public function cycleAfter(): array
+    {
+        return $this->cycleAfter;
+    }
+
+    /**
+     * Был ли потрачен жетон концентрации.
+     *
+     * @return bool Признак.
+     */
+    public function tokenUsed(): bool
+    {
+        return $this->tokenUsed;
     }
 
     /**
@@ -107,7 +144,13 @@ final class GameStrikeTargetClose
             return GameStrikeTargetRow::row($target, $refusalCode, null, null, null);
         }
 
-        $reaction = $this->reactionOf($game, $target, $choice, GameStrikeTargetRow::conditions($row));
+        $reaction = $this->reactionOf(
+            $game,
+            $target,
+            $choice,
+            GameStrikeTargetRow::conditions($row),
+            $hitCode,
+        );
         if ($reaction['insufficient']) {
             $zero = $this->amounts->view($this->amounts->zero());
 
@@ -135,6 +178,7 @@ final class GameStrikeTargetClose
             $slice,
             $hitCode,
             GameStrikeTargetRow::conditions($row),
+            $reaction['token']['advantage'] ?? null,
         );
         $slice ??= $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $success = $lastStrike->boostSuccess(
@@ -229,12 +273,19 @@ final class GameStrikeTargetClose
      * @param array{type: string, id: int} $target Цель.
      * @param array<string, mixed> $choice Защита.
      * @param array<string, mixed> $conditions Условия цели.
+     * @param string $hitCode Карточка проверки попадания.
      *
      * @return array{spends: array<int, ResourceSpend>, pending: array<string, mixed>,
-     *               slice: CharacterRuleSlice|null, reactionRuleCode: string|null, insufficient: bool}
+     *               slice: CharacterRuleSlice|null, reactionRuleCode: string|null, insufficient: bool,
+     *               token: array{spend: ResourceSpend, advantage: RollAdvantage, cycle: array<string, mixed>}|null}
      */
-    private function reactionOf(GameRecord $game, array $target, array $choice, array $conditions): array
-    {
+    private function reactionOf(
+        GameRecord $game,
+        array $target,
+        array $choice,
+        array $conditions,
+        string $hitCode,
+    ): array {
         $pending = $this->pendingAfter;
         $spends = $this->spend->getReactionSpends(
             $game,
@@ -295,12 +346,30 @@ final class GameStrikeTargetClose
             );
         }
 
+        $token = $choice['reaction'] === 'ignore'
+            ? null
+            : $this->spend->defenderToken(
+                $game,
+                $choice,
+                $this->sheets->getTargetSheet($game, $target),
+                $hitCode,
+                $target['type'] . ':' . $target['id'],
+                $this->cycleAfter,
+            );
+        if ($token !== null) {
+            $spends[] = $token['spend'];
+        }
+
         $insufficient = $spends !== [] && !$this->rules->hasSufficientResources(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $this->sheets->getTargetSheet($game, $target),
             $spends,
         );
+        if (!$insufficient && $token !== null) {
+            $this->cycleAfter = $token['cycle'];
+            $this->tokenUsed = true;
+        }
 
         return [
             'spends' => $spends,
@@ -308,6 +377,7 @@ final class GameStrikeTargetClose
             'slice' => $slice,
             'reactionRuleCode' => $reactionRuleCode,
             'insufficient' => $insufficient,
+            'token' => $insufficient ? null : $token,
         ];
     }
 
@@ -324,6 +394,7 @@ final class GameStrikeTargetClose
      * @param CharacterRuleSlice|null $slice Срез.
      * @param string $hitCode Код проверки.
      * @param array<string, mixed> $conditions Условия цели.
+     * @param RollAdvantage|null $token Преимущество жетона концентрации.
      *
      * @return array{defenderRoll: array<string, mixed>|null, autoFail: bool, success: int}
      */
@@ -338,6 +409,7 @@ final class GameStrikeTargetClose
         ?CharacterRuleSlice $slice,
         string $hitCode,
         array $conditions,
+        ?RollAdvantage $token = null,
     ): array {
         $targetOpen = GameStrikeTargetRow::targetOpen($open, $target);
         $defenderRoll = null;
@@ -345,6 +417,10 @@ final class GameStrikeTargetClose
         $flank = ($conditions['flank'] ?? false) === true && ($conditions['turn'] ?? false) !== true
             ? [new RollAdvantage('flank', -2)]
             : [];
+        if ($token !== null) {
+            $flank[] = $token;
+        }
+
         if ($choice['reaction'] === 'dodge') {
             $defenderRoll = $this->resolution->dodgeRollOf(
                 $game,

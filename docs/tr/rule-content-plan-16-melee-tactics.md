@@ -317,7 +317,7 @@ battleground и позиции.
 - максимум `1 + уровень peak_concentration`;
 - трата при объявлении соло-проверки, оферты и удара; преимущество с
   источником ресурса;
-- цикл `used`/`blocked` в `concentration_cycle` на `game_battle`; refill в
+- цикл `used` в `concentration_cycle` на `game_battle`; refill в
   конце своего хода через Character-операцию `refillCheckTokenResources`;
 - моковый `setCombatResource` в real-режиме не вызывается.
 

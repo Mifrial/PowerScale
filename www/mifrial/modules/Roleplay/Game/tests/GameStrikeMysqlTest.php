@@ -371,7 +371,7 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         $advantages = $closed['data']['strikes'][0]['roll']['advantages'] ?? [];
-        self::assertContains(['source_code' => 'concentration', 'delta' => 1], $advantages);
+        $this->assertAdvantage('concentration', 1, $advantages);
         $resources = $this->characterFacade()->get($attackerId)->getSheet()['resources'] ?? [];
         $current = null;
         foreach ($resources as $row) {
@@ -476,6 +476,93 @@ final class GameStrikeMysqlTest extends TestCase
         $advantages = $closed['data']['strikes'][0]['roll']['advantages'] ?? [];
         self::assertNotContains(['source_code' => 'concentration', 'delta' => 1], $advantages);
         $resources = $this->characterFacade()->get($attackerId)->getSheet()['resources'] ?? [];
+        $current = null;
+        foreach ($resources as $row) {
+            if (is_array($row) && ($row['ruleCode'] ?? null) === 'concentration') {
+                $current = $row['current'] ?? null;
+            }
+        }
+        self::assertSame(1, $current);
+    }
+
+    /**
+     * Жетон концентрации защиты даёт преимущество на уклонение и списывается.
+     *
+     * @return void
+     */
+    public function testDefenderConcentrationTokenAddsDefenseAdvantage(): void
+    {
+        $world = $this->worldWithWeapon(
+            hitConcentration: true,
+            extraRules: [
+                'concentration' => [
+                    'type' => 'resource',
+                    'name' => 'Concentration',
+                    'spec' => [
+                        'is_dimensional' => false,
+                        'auto_add' => false,
+                        'check_token' => true,
+                        'limit' => ['base' => 2, 'adjustments' => []],
+                    ],
+                ],
+                'peak' => [
+                    'type' => 'ability',
+                    'name' => 'Peak',
+                    'spec' => [
+                        'type' => 'skill',
+                        'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+                        'grants' => [],
+                        'peak_concentration' => true,
+                        'will_focus' => false,
+                        'long_tension' => false,
+                    ],
+                ],
+            ],
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker');
+        $defenderId = $this->admit($world->getId(), $gameId, 'Concentrated', sheet: [
+            'abilityLevels' => ['peak' => 1],
+            'resources' => [['ruleCode' => 'concentration', 'current' => 2]],
+        ], abilities: [['ruleCode' => 'peak', 'level' => 1]]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-defense-concentration',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-defense-concentration',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-defense-concentration',
+            'expectedVersion' => $declared['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'dodge', 'spendConcentration' => 1],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $advantages = $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [];
+        $concentration = array_values(array_filter(
+            $advantages,
+            static fn (mixed $row): bool => is_array($row) && ($row['source_code'] ?? null) === 'concentration',
+        ));
+        self::assertCount(1, $concentration);
+        self::assertSame(1, $concentration[0]['delta'] ?? null);
+        $resources = $this->characterFacade()->get($defenderId)->getSheet()['resources'] ?? [];
         $current = null;
         foreach ($resources as $row) {
             if (is_array($row) && ($row['ruleCode'] ?? null) === 'concentration') {
@@ -5184,10 +5271,7 @@ final class GameStrikeMysqlTest extends TestCase
             ),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
-        self::assertContains(
-            ['source_code' => 'circumstances', 'delta' => 1],
-            $closed['data']['strikes'][0]['roll']['advantages'] ?? [],
-        );
+        $this->assertAdvantage('circumstances', 1, $closed['data']['strikes'][0]['roll']['advantages'] ?? []);
     }
 
     /**
@@ -5263,14 +5347,8 @@ final class GameStrikeMysqlTest extends TestCase
             ),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
-        self::assertContains(
-            ['source_code' => 'circumstances', 'delta' => 1],
-            $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [],
-        );
-        self::assertNotContains(
-            ['source_code' => 'circumstances', 'delta' => 1],
-            $closed['data']['strikes'][0]['roll']['advantages'] ?? [],
-        );
+        $this->assertAdvantage('circumstances', 1, $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? []);
+        $this->assertNoAdvantage('circumstances', 1, $closed['data']['strikes'][0]['roll']['advantages'] ?? []);
     }
 
     /**
@@ -5350,10 +5428,7 @@ final class GameStrikeMysqlTest extends TestCase
             ),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
-        self::assertContains(
-            ['source_code' => 'circumstances', 'delta' => 2],
-            $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [],
-        );
+        $this->assertAdvantage('circumstances', 2, $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? []);
     }
 
     /**
@@ -5525,10 +5600,7 @@ final class GameStrikeMysqlTest extends TestCase
             ),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
-        self::assertContains(
-            ['source_code' => 'circumstances', 'delta' => 2],
-            $closed['data']['strikes'][0]['roll']['advantages'] ?? [],
-        );
+        $this->assertAdvantage('circumstances', 2, $closed['data']['strikes'][0]['roll']['advantages'] ?? []);
     }
 
     /**
@@ -7029,10 +7101,52 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
-     * Выбор атаки персонажа по персонажу.
+     * Проверяет преимущество по источнику и дельте без учёта подписи.
+     *
+     * @param string $source Источник.
+     * @param int $delta Дельта.
+     * @param array<int, mixed> $advantages Записи броска.
+     *
+     * @return void
+     */
+    private function assertAdvantage(string $source, int $delta, array $advantages): void
+    {
+        $matched = array_values(array_filter(
+            $advantages,
+            static fn (mixed $row): bool => is_array($row)
+                && ($row['source_code'] ?? null) === $source
+                && ($row['delta'] ?? null) === $delta,
+        ));
+        self::assertNotEmpty($matched, 'Advantage ' . $source . ' ' . $delta . ' is missing');
+    }
+
+    /**
+     * Проверяет отсутствие преимущества по источнику и дельте.
+     *
+     * @param string $source Источник.
+     * @param int $delta Дельта.
+     * @param array<int, mixed> $advantages Записи броска.
+     *
+     * @return void
+     */
+    private function assertNoAdvantage(string $source, int $delta, array $advantages): void
+    {
+        $matched = array_values(array_filter(
+            $advantages,
+            static fn (mixed $row): bool => is_array($row)
+                && ($row['source_code'] ?? null) === $source
+                && ($row['delta'] ?? null) === $delta,
+        ));
+        self::assertSame([], $matched, 'Advantage ' . $source . ' ' . $delta . ' is present');
+    }
+
+    /**
+     * Выбор атаки мечом.
      *
      * @param int $attackerId Атакующий.
      * @param int $defenderId Защитник.
+     * @param string $actionRuleCode Карточка действия.
+     * @param string $itemRuleCode Предмет.
      *
      * @return array<string, mixed> Тело.
      */

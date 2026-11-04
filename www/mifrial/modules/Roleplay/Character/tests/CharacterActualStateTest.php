@@ -331,6 +331,85 @@ final class CharacterActualStateTest extends TestCase
     }
 
     /**
+     * refillCheckTokenResources поднимает current до базы с бонусами гранта.
+     *
+     * @return void
+     */
+    public function testRefillCheckTokenRestoresLimitWithGrantBonuses(): void
+    {
+        $slice = $this->slice([
+            $this->rule('concentration', 'resource', [
+                'is_dimensional' => false,
+                'auto_add' => false,
+                'check_token' => true,
+                'limit' => ['base' => 0, 'adjustments' => []],
+            ]),
+            $this->rule('kontsentratsiya', 'ability', [
+                'type' => 'trait',
+                'grants' => [
+                    [
+                        'level' => 1,
+                        'grants' => [
+                            [
+                                'type' => 'resource',
+                                'resource_code' => 'concentration',
+                                'limit' => 1,
+                                'permanent' => true,
+                            ],
+                            [
+                                'type' => 'resource_limit_change',
+                                'resource_code' => 'concentration',
+                                'source_code' => 'intellect_source',
+                                'amount' => 2,
+                                'permanent' => true,
+                            ],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+        $slices = $this->createMock(ICharacterRuleSlices::class);
+        $slices->method('get')->willReturn($slice);
+        $sheets = $this->createMock(ICharacterSheets::class);
+        $sheets->method('validate')->willReturn(
+            new CharacterValidation([], ['kontsentratsiya' => 1], [], 0, [], [], [], true),
+        );
+        $mutations = new CharacterActualMutations(
+            $this->createMock(ICharacters::class),
+            $slices,
+            $sheets,
+            new CharacterChoiceAssembler(),
+        );
+
+        $patched = $mutations->applyToDocument(
+            1,
+            1,
+            [
+                'name' => '',
+                'raceCode' => '',
+                'abilities' => [['ruleCode' => 'kontsentratsiya', 'level' => 1]],
+                'inventory' => [],
+                'characteristicPurchases' => [],
+                'customRules' => [],
+                'money' => 1,
+            ],
+            [
+                'resources' => [
+                    [
+                        'ruleCode' => 'concentration',
+                        'current' => 0,
+                        'base' => 1,
+                        'bonuses' => [['sourceRuleCode' => 'intellect_source', 'delta' => 2]],
+                    ],
+                ],
+            ],
+            [['kind' => 'refillCheckTokenResources']],
+        );
+
+        self::assertSame(3, $patched['sheet']['resources'][0]['current']);
+    }
+
+    /**
      * refillTurnResource не поднимает current выше лимита состояния.
      *
      * @return void

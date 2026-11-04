@@ -12,6 +12,7 @@ use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
@@ -117,7 +118,7 @@ final class GameStrikeSpend
         $debt->assertFree($battle->getActionDebt(), $actorKey);
         $planned = $debt->plan($slice, $sheet, $spends, $debt->refillCode($slice), 'strike', $choice, $lane);
         $spends = $planned['spends'];
-        $token = $this->tokenSpend($game, $choice, $sheet, $choices, $slice, $kind, $id, $battle);
+        $token = $this->tokenSpend($game, $choice, $sheet, $choices, $slice);
         if ($token !== null && !$planned['open']) {
             throw new GameInvalidException($subject . ' concentration requires an open strike');
         }
@@ -192,9 +193,6 @@ final class GameStrikeSpend
      * @param array<string, mixed> $sheet Лист.
      * @param array<string, mixed> $choices Выборы листа.
      * @param CharacterRuleSlice $slice Срез.
-     * @param string $kind Вид.
-     * @param int $id Идентификатор.
-     * @param GameBattleRecord $battle Бой.
      *
      * @return array{resource: string, amount: int, source: string, mode: string}|null Трата.
      *
@@ -206,9 +204,6 @@ final class GameStrikeSpend
         array $sheet,
         array $choices,
         CharacterRuleSlice $slice,
-        string $kind,
-        int $id,
-        GameBattleRecord $battle,
     ): ?array {
         $raw = $choice['tokenSpend'] ?? null;
         $amount = is_array($raw) ? ($raw['amount'] ?? 0) : $raw;
@@ -237,16 +232,59 @@ final class GameStrikeSpend
             throw new GameInvalidException('Game concentration accuracy card is missing');
         }
 
-        $actorKey = $kind . ':' . $id;
-        if (!(new GameConcentrationCycle())->canSpend($battle->getConcentrationCycle(), $actorKey)) {
-            throw new GameInvalidException('Game concentration is blocked');
-        }
-
         return [
             'resource' => $resource,
             'amount' => $amount,
             'source' => is_array($card) && is_string($card['source'] ?? null) ? $card['source'] : $resource,
             'mode' => $mode,
+        ];
+    }
+
+    /**
+     * Жетон концентрации защиты удара.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $choice Защита.
+     * @param array<string, mixed> $sheet Лист цели.
+     * @param string $hitCode Карточка проверки попадания.
+     * @param string $actorKey Ключ цели.
+     * @param array<string, mixed> $cycle Цикл боя.
+     *
+     * @return array{spend: ResourceSpend, advantage: RollAdvantage, cycle: array<string, mixed>}|null Трата.
+     *
+     * @throws GameInvalidException Если жетон недоступен.
+     */
+    public function defenderToken(
+        GameRecord $game,
+        array $choice,
+        array $sheet,
+        string $hitCode,
+        string $actorKey,
+        array $cycle,
+    ): ?array {
+        $amount = $choice['spendConcentration'] ?? 0;
+        if (!is_int($amount) || $amount < 1) {
+            return null;
+        }
+
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $concentration = new GameConcentration();
+        $resource = $concentration->resourceCode($slice, $sheet);
+        if ($resource === null) {
+            throw new GameInvalidException('Game concentration resource is missing');
+        }
+
+        $levels = is_array($sheet['abilityLevels'] ?? null) ? $sheet['abilityLevels'] : [];
+        if (!$concentration->allows($slice, $hitCode, null, $levels)) {
+            throw new GameInvalidException('Game concentration is not allowed');
+        }
+
+        $concentration->assertAmount($slice, $sheet, $levels, $resource, $amount);
+
+        return [
+            'spend' => new ResourceSpend($resource, new ScalarResourceValue($amount)),
+            'advantage' => new RollAdvantage($resource, $amount),
+            'cycle' => (new GameConcentrationCycle())->markUsed($cycle, $actorKey),
         ];
     }
 

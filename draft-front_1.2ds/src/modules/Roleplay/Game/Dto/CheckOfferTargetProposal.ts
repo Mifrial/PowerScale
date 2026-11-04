@@ -4,4 +4,6 @@ import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferP
 export interface CheckOfferTargetProposal {
   targetKey: CombatEntityKey;
   hit: NonNullable<CheckOfferProposal['hit']>;
+  /** Сколько жетонов концентрации тратит эта цель на защиту. */
+  spendConcentration?: number;
 }

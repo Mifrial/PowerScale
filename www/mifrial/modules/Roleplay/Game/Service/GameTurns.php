@@ -466,11 +466,6 @@ final class GameTurns
         }
 
         $cursor = $this->advanced($battle);
-        $order = $battle->getTurnOrder() ?? [];
-        $next = is_array($order[$cursor['index']] ?? null) ? $order[$cursor['index']] : null;
-        if (is_array($next) && is_string($next['type'] ?? null) && is_int($next['id'] ?? null)) {
-            $cycle = (new GameConcentrationCycle())->beginTurn($cycle, $next['type'] . ':' . $next['id']);
-        }
 
         $saved = $this->battles->replaceTracked(
             $battle->getId(),

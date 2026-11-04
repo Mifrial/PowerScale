@@ -196,12 +196,17 @@ final class GameStrikeBody
             $allowed[] = 'turn';
         }
 
+        if (array_key_exists('spendConcentration', $defense)) {
+            $allowed[] = 'spendConcentration';
+        }
+
         $this->assertKeys($defense, $allowed);
         $reaction = $defense['reaction'] ?? null;
         $blockItemInventoryId = $defense['blockItemInventoryId'] ?? null;
         $blockItemProfileIndex = $defense['blockItemProfileIndex'] ?? null;
         $blockItemRuleCode = $defense['blockItemRuleCode'] ?? null;
         $turn = $defense['turn'] ?? false;
+        $spendConcentration = $defense['spendConcentration'] ?? 0;
         if (
             !is_string($reaction)
             || !is_bool($turn)
@@ -209,19 +214,26 @@ final class GameStrikeBody
             || ($blockItemInventoryId !== null && !is_int($blockItemInventoryId))
             || ($blockItemProfileIndex !== null && !is_int($blockItemProfileIndex))
             || ($blockItemRuleCode !== null && !is_string($blockItemRuleCode))
+            || !is_int($spendConcentration)
+            || $spendConcentration < 0
             || ($reaction === 'block'
                 && (!is_int($blockItemInventoryId) || !is_int($blockItemProfileIndex)))
         ) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense');
         }
 
-        return [
+        $choice = [
             'reaction' => $reaction,
             'blockItemInventoryId' => $blockItemInventoryId,
             'blockItemProfileIndex' => $blockItemProfileIndex,
             'blockItemRuleCode' => $blockItemRuleCode,
             'turn' => $turn,
         ];
+        if (array_key_exists('spendConcentration', $defense)) {
+            $choice['spendConcentration'] = $spendConcentration;
+        }
+
+        return $choice;
     }
 
     /**
@@ -372,6 +384,10 @@ final class GameStrikeBody
             $allowed[] = 'turn';
         }
 
+        if (array_key_exists('spendConcentration', $row)) {
+            $allowed[] = 'spendConcentration';
+        }
+
         $this->assertKeys($row, $allowed, 'wide strike');
         $target = $this->side($row['target'] ?? null);
         $reaction = $row['reaction'] ?? null;
@@ -380,6 +396,7 @@ final class GameStrikeBody
         $blockItemRuleCode = $row['blockItemRuleCode'] ?? null;
         $expectedSheetVersion = $row['expectedSheetVersion'] ?? null;
         $turn = $row['turn'] ?? false;
+        $spendConcentration = $row['spendConcentration'] ?? 0;
         $block = ($blockItemInventoryId === null || is_int($blockItemInventoryId))
             && ($blockItemProfileIndex === null || is_int($blockItemProfileIndex))
             && ($blockItemRuleCode === null || is_string($blockItemRuleCode));
@@ -388,6 +405,8 @@ final class GameStrikeBody
             || !is_bool($turn)
             || ($turn && $reaction === 'ignore')
             || !is_int($expectedSheetVersion)
+            || !is_int($spendConcentration)
+            || $spendConcentration < 0
             || !$block
             || ($reaction === 'block'
                 && (!is_int($blockItemInventoryId) || !is_int($blockItemProfileIndex)))
@@ -398,7 +417,7 @@ final class GameStrikeBody
             );
         }
 
-        return [
+        $choice = [
             'target' => $target,
             'reaction' => $reaction,
             'blockItemInventoryId' => $blockItemInventoryId,
@@ -407,6 +426,11 @@ final class GameStrikeBody
             'expectedSheetVersion' => $expectedSheetVersion,
             'turn' => $turn,
         ];
+        if (array_key_exists('spendConcentration', $row)) {
+            $choice['spendConcentration'] = $spendConcentration;
+        }
+
+        return $choice;
     }
 
     /**

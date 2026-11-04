@@ -192,9 +192,7 @@ final class GameChecks implements IGameChecks
         $sheet = $this->sheet($ready['game']->getId(), $choice['participant']['type'], $choice['participant']['id'], $expectedSheetVersion);
         $this->assertBlockConcentration(
             $ready['game'],
-            $choice['participant'],
             $sheet,
-            $checkBattleId,
             $choice['ruleCode'],
             is_array($choice['proposal']['initiator'] ?? null) ? $choice['proposal']['initiator'] : [],
         );
@@ -275,9 +273,7 @@ final class GameChecks implements IGameChecks
         );
         $this->assertBlockConcentration(
             $ready['game'],
-            $proposal[$side],
             $side === 'initiator' ? $initiatorSheet : $opponentSheet,
-            is_int($open['battleId'] ?? null) ? $open['battleId'] : null,
             $open['ruleCode'],
             is_array($proposal[$side]) ? $proposal[$side] : [],
         );
@@ -423,9 +419,7 @@ final class GameChecks implements IGameChecks
         $blocks = $this->proposalBlocks($flat);
         $this->assertBlockConcentration(
             $ready['game'],
-            $actor,
             $sheet,
-            is_int($open['battleId'] ?? null) ? $open['battleId'] : null,
             $open['ruleCode'],
             $blocks[$side],
         );
@@ -742,9 +736,7 @@ final class GameChecks implements IGameChecks
      * Ресурс жетонов, если трата допустима.
      *
      * @param GameRecord $game Игра.
-     * @param array{type: string, id: int} $participant Участник.
      * @param array<string, mixed> $sheet Лист.
-     * @param int|null $battleId Бой или null.
      * @param string $checkCode Карточка проверки.
      * @param int $amount Сколько жетонов.
      * @param string|null $characteristic Характеристика стороны или null.
@@ -755,9 +747,7 @@ final class GameChecks implements IGameChecks
      */
     private function concentrationResource(
         GameRecord $game,
-        array $participant,
         array $sheet,
-        ?int $battleId,
         string $checkCode,
         int $amount,
         ?string $characteristic = null,
@@ -775,14 +765,6 @@ final class GameChecks implements IGameChecks
         }
 
         $this->concentration->assertAmount($slice, $sheet, $levels, $resource, $amount);
-        $battle = $battleId === null ? null : $this->battles->find($battleId);
-        $actorKey = $participant['type'] . ':' . $participant['id'];
-        if (
-            $battle !== null
-            && !$this->concentrationCycle->canSpend($battle->getConcentrationCycle(), $actorKey)
-        ) {
-            throw new GameInvalidException('Game concentration is blocked');
-        }
 
         return $resource;
     }
@@ -791,9 +773,7 @@ final class GameChecks implements IGameChecks
      * Проверяет трату жетонов стороны до открытия или правки предложения.
      *
      * @param GameRecord $game Игра.
-     * @param array{type: string, id: int} $party Сторона.
      * @param array<string, mixed> $sheet Лист стороны.
-     * @param int|null $battleId Бой проверки.
      * @param string $checkCode Карточка проверки.
      * @param array<string, mixed> $block Блок стороны.
      *
@@ -803,9 +783,7 @@ final class GameChecks implements IGameChecks
      */
     private function assertBlockConcentration(
         GameRecord $game,
-        array $party,
         array $sheet,
-        ?int $battleId,
         string $checkCode,
         array $block,
     ): void {
@@ -816,9 +794,7 @@ final class GameChecks implements IGameChecks
 
         $this->concentrationResource(
             $game,
-            $party,
             $sheet,
-            $battleId,
             $checkCode,
             $amount,
             is_string($block['characteristic'] ?? null) ? $block['characteristic'] : null,
@@ -857,9 +833,7 @@ final class GameChecks implements IGameChecks
 
         $resource = $this->concentrationResource(
             $game,
-            $participant,
             $sheet,
-            $battleId,
             $checkCode,
             $amount,
             $characteristic,

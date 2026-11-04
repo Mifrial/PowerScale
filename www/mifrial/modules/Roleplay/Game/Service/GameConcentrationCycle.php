@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 /**
- * Цикл жетонов в бою: тратил ли актор и можно ли тратить после refill.
+ * Цикл жетонов в бою: тратил ли актор с конца предыдущего хода.
  */
 final class GameConcentrationCycle
 {
@@ -15,7 +15,7 @@ final class GameConcentrationCycle
      * @param array<string, mixed> $cycle Карта боя.
      * @param string $actorKey Ключ.
      *
-     * @return array{used: bool, blocked: bool} Состояние.
+     * @return array{used: bool} Состояние.
      */
     public function state(array $cycle, string $actorKey): array
     {
@@ -23,21 +23,7 @@ final class GameConcentrationCycle
 
         return [
             'used' => ($row['used'] ?? false) === true,
-            'blocked' => ($row['blocked'] ?? false) === true,
         ];
-    }
-
-    /**
-     * Можно ли тратить сейчас.
-     *
-     * @param array<string, mixed> $cycle Карта боя.
-     * @param string $actorKey Ключ.
-     *
-     * @return bool Можно.
-     */
-    public function canSpend(array $cycle, string $actorKey): bool
-    {
-        return !$this->state($cycle, $actorKey)['blocked'];
     }
 
     /**
@@ -58,27 +44,6 @@ final class GameConcentrationCycle
     }
 
     /**
-     * Начало своего хода: снимает блок после refill.
-     *
-     * @param array<string, mixed> $cycle Карта боя.
-     * @param string $actorKey Ключ.
-     *
-     * @return array<string, mixed> Карта.
-     */
-    public function beginTurn(array $cycle, string $actorKey): array
-    {
-        if (!array_key_exists($actorKey, $cycle)) {
-            return $cycle;
-        }
-
-        $state = $this->state($cycle, $actorKey);
-        $state['blocked'] = false;
-        $cycle[$actorKey] = $state;
-
-        return $cycle;
-    }
-
-    /**
      * Конец своего хода: refill только если не тратил.
      *
      * @param array<string, mixed> $cycle Карта боя.
@@ -90,10 +55,7 @@ final class GameConcentrationCycle
     {
         $state = $this->state($cycle, $actorKey);
         $refill = !$state['used'];
-        $cycle[$actorKey] = [
-            'used' => false,
-            'blocked' => $refill,
-        ];
+        $cycle[$actorKey] = ['used' => false];
 
         return ['cycle' => $cycle, 'refill' => $refill];
     }

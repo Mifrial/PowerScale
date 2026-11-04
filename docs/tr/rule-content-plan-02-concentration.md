@@ -46,7 +46,7 @@ Character: грант `kontsentratsiya`, `check_token`, `current` в листе.
   читаются из общих полей спеки (`AbilityWithBase::getBase()`), иначе
   грант «Предельной концентрации» не поднимал потолок;
 - Сосредоточение воли (`will_focus`) и Длительное напряжение (`long_tension`);
-- условный refill в конце своего хода: `used`/`blocked` в JSON-поле
+- условный refill в конце своего хода: `used` в JSON-поле
   `concentration_cycle` на `game_battle`, операция Character
   `refillCheckTokenResources`;
 - real-проверки: `CheckLaunchDialog` больше не бросает кубики и не тратит
