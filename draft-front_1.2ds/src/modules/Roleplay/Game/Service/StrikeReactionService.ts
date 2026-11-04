@@ -46,6 +46,9 @@ export class StrikeReactionService {
   ): ReactionOffer[] {
     const attackerKey = this.entityKey(strike.attackerKind, strike.attackerId);
     const defenderKey = this.entityKey(strike.defenderKind, strike.defenderId);
+    const reacted = new Set(
+      (strike.supporters ?? []).map((supporter) => this.entityKey(supporter.actor.type, supporter.actor.id)),
+    );
     const names: Record<SupportSide, string> = {
       attacker: this.nameOf(strike.attackerKind, strike.attackerId, memberships, npcs),
       defender: this.nameOf(strike.defenderKind, strike.defenderId, memberships, npcs),
@@ -64,6 +67,7 @@ export class StrikeReactionService {
     const actors = this.actorsOf(currentUserId, memberships, npcs, canWrite);
     const offers: ReactionOffer[] = [];
     for (const actor of actors) {
+      if (reacted.has(actor.key)) continue;
       const role = actor.key === attackerKey ? 'attacker' : actor.key === defenderKey ? 'defender' : 'third_party';
       for (const entry of reactions) {
         if (!this.allows(entry.reaction.performer, role)) continue;

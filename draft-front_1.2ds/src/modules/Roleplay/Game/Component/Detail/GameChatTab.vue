@@ -653,9 +653,9 @@ const reactionCandidates = computed<ReactionOffer[]>(() => {
 
 const hasReaction = computed(() => reactionCandidates.value.length > 0);
 const reactionLabel = computed(() => {
-  const names = [...new Set(reactionCandidates.value.map((offer) => offer.rule.name))];
+  const actors = new Set(reactionCandidates.value.map((offer) => offer.actor.key));
 
-  return names.length === 1 ? names[0] : 'Доступные реакции';
+  return actors.size > 1 ? `Реакции (${actors.size})` : 'Реакции';
 });
 
 function openReactionOffer(strike: GamePhpOpenStrike, manual = false): void {
@@ -743,6 +743,7 @@ async function onReactionSubmit(payload: {
     dismissedReactionKey.value = strikeReactionService.strikeKey(strike);
     closeReactionOffer();
     store.applyGameUpdate(await getGameApi().getGame(gameId.value));
+    phpOpenStrike.value = gamePhpBattleContext.openStrike;
     battleRevision.value += 1;
   } catch (cause) {
     reactionError.value = cause instanceof Error ? cause.message : 'Не удалось объявить реакцию';

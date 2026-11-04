@@ -1,4 +1,5 @@
 import type { GamePhpStrikeConditions } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeConditions';
+import type { GamePhpOpenStrikeSupporter } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeSupporter';
 
 /** Открытый удар PHP из карточки боя. */
 export interface GamePhpOpenStrike {
@@ -13,4 +14,6 @@ export interface GamePhpOpenStrike {
   profileType: string;
   profileIndex: number;
   conditions?: GamePhpStrikeConditions;
+  /** Уже объявленные реакции: один участник реагирует один раз. */
+  supporters?: GamePhpOpenStrikeSupporter[];
 }

@@ -205,6 +205,23 @@ describe('StrikeReactionService', () => {
     ).toEqual([]);
   });
 
+  it('участник, уже объявивший реакцию, не предлагается снова', () => {
+    const strike = {
+      ...STRIKE,
+      supporters: [
+        {
+          actor: { type: 'character' as const, id: 7 },
+          ruleCode: 'podderzhka-v-boyu',
+          side: 'attacker',
+          advantage: 2,
+          source: 'circumstances',
+        },
+      ],
+    };
+
+    expect(strikeReactionService.offers(strike, 10, [membership({})], [], RULES, false)).toEqual([]);
+  });
+
   it('карточка без узла reaction не считается реакцией', () => {
     const withoutTrigger = {
       ...SUPPORT,

@@ -333,6 +333,18 @@ final class GameActionDeclare
             throw new GameInvalidException('Game strike support weapon profile is invalid');
         }
 
+        $supporters = $this->supportersOf($row);
+        foreach ($supporters as $entry) {
+            $actor = is_array($entry) ? ($entry['actor'] ?? null) : null;
+            if (
+                is_array($actor)
+                && ($actor['type'] ?? null) === $input['actor']['type']
+                && ($actor['id'] ?? null) === $input['actor']['id']
+            ) {
+                throw new GameInvalidException('Game strike reaction is already declared');
+            }
+        }
+
         $quote = $this->perform->quote(
             $game,
             $input['actor']['type'],
@@ -365,18 +377,6 @@ final class GameActionDeclare
             $input['context']['expectedSheetVersion'],
             $quote['spends'],
         );
-
-        $supporters = $this->supportersOf($row);
-        foreach ($supporters as $entry) {
-            $actor = is_array($entry) ? ($entry['actor'] ?? null) : null;
-            if (
-                is_array($actor)
-                && ($actor['type'] ?? null) === $input['actor']['type']
-                && ($actor['id'] ?? null) === $input['actor']['id']
-            ) {
-                throw new GameInvalidException('Game strike support is already declared');
-            }
-        }
 
         $supporters[] = [
             'actor' => $input['actor'],

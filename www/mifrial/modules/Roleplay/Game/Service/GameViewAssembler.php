@@ -131,7 +131,29 @@ final class GameViewAssembler
             'profileType' => is_string($target['profile_type'] ?? null) ? $target['profile_type'] : '',
             'profileIndex' => $this->intField($target, 'profile_index'),
             'conditions' => GameStrikeTargetRow::conditions($target),
+            'supporters' => $this->supportersOf($target),
         ];
+    }
+
+    /**
+     * Уже объявленные реакции строки удара.
+     *
+     * @param array<string, mixed> $row Колонки.
+     *
+     * @return array<int, array<string, mixed>> Записи.
+     */
+    private function supportersOf(array $row): array
+    {
+        $raw = $row['supporters'] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter($raw, static fn (mixed $entry): bool => is_array($entry)));
     }
 
     /**

@@ -29,6 +29,7 @@ import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinReques
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpOpenStrikeSupporter } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeSupporter';
 import type { GamePhpStrikeConditions } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeConditions';
 import type { Chronicle } from '@/modules/Roleplay/Game/Dto/Chronicle';
 import type { ChronicleEntry } from '@/modules/Roleplay/Game/Dto/ChronicleEntry';
@@ -1438,6 +1439,7 @@ export class GameApi implements IGameApi {
     if (typeof row.defenderKind !== 'string' || defenderId === null) return null;
     if (typeof row.actionRuleCode !== 'string' || typeof row.itemRuleCode !== 'string') return null;
     if (itemInventoryId === null || typeof row.profileType !== 'string' || profileIndex === null) return null;
+    const supporters = this.openStrikeSupportersOf(row.supporters);
 
     return {
       ...(strikeId !== null && strikeId > 0 ? { strikeId } : {}),
@@ -1451,7 +1453,39 @@ export class GameApi implements IGameApi {
       profileType: row.profileType,
       profileIndex,
       ...(conditions ? { conditions } : {}),
+      ...(supporters.length > 0 ? { supporters } : {}),
     };
+  }
+
+  private openStrikeSupportersOf(value: unknown): GamePhpOpenStrikeSupporter[] {
+    if (!Array.isArray(value)) return [];
+    const supporters: GamePhpOpenStrikeSupporter[] = [];
+    for (const entry of value) {
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+      const row = entry as Record<string, unknown>;
+      const actor = row.actor;
+      if (actor === null || typeof actor !== 'object' || Array.isArray(actor)) continue;
+      const actorRow = actor as Record<string, unknown>;
+      const type = actorRow.type;
+      const id = this.intField(actorRow.id);
+      if ((type !== 'character' && type !== 'npc') || id === null) continue;
+      if (typeof row.ruleCode !== 'string' || typeof row.side !== 'string') continue;
+      const advantage = this.intField(row.advantage) ?? 0;
+      const source = typeof row.source === 'string' ? row.source : 'circumstances';
+      const weapon = row.weapon;
+      supporters.push({
+        actor: { type, id },
+        ruleCode: row.ruleCode,
+        side: row.side,
+        advantage,
+        source,
+        ...(weapon !== null && typeof weapon === 'object' && !Array.isArray(weapon)
+          ? { weapon: weapon as GamePhpOpenStrikeSupporter['weapon'] }
+          : {}),
+      });
+    }
+
+    return supporters;
   }
 
   private intField(value: unknown): number | null {

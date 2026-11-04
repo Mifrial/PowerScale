@@ -5257,6 +5257,7 @@ final class GameStrikeMysqlTest extends TestCase
         ));
         self::assertFalse($again['success'], json_encode($again));
         self::assertSame('GAME_INVALID', $again['error']['code'] ?? null);
+        self::assertStringContainsString('already declared', $again['error']['message'] ?? '');
     }
 
     /**

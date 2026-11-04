@@ -16,11 +16,26 @@ const emit = defineEmits<{
   refuse: [];
 }>();
 
-const optionIndex = ref(0);
+const actorIndex = ref(0);
+const offerIndex = ref(0);
 const side = ref<SupportSide>('attacker');
 const weaponId = ref<number | null>(null);
 
-const current = computed<ReactionOffer | null>(() => props.offers[optionIndex.value] ?? null);
+const actorGroups = computed(() => {
+  const groups = new Map<string, { actor: ReactionOffer['actor']; offers: ReactionOffer[] }>();
+  for (const offer of props.offers) {
+    const group = groups.get(offer.actor.key) ?? { actor: offer.actor, offers: [] };
+    group.offers.push(offer);
+    groups.set(offer.actor.key, group);
+  }
+
+  return [...groups.values()];
+});
+
+const currentGroup = computed(() => actorGroups.value[actorIndex.value] ?? null);
+const current = computed<ReactionOffer | null>(() => currentGroup.value?.offers[offerIndex.value] ?? null);
+
+const actorKindLabel = computed(() => (currentGroup.value?.actor.kind === 'npc' ? 'НПС' : 'персонаж'));
 
 const sideItems = computed(
   () =>
@@ -51,16 +66,20 @@ const sourceLabel = computed(() =>
 watch(
   () => props.open,
   (open) => {
-    if (open) optionIndex.value = 0;
+    if (open) {
+      actorIndex.value = 0;
+      offerIndex.value = 0;
+    }
   },
 );
 
-watch(
-  () => props.offers,
-  (offers) => {
-    if (optionIndex.value >= offers.length) optionIndex.value = 0;
-  },
-);
+watch(actorGroups, (groups) => {
+  if (actorIndex.value >= groups.length) actorIndex.value = 0;
+});
+
+watch(actorIndex, () => {
+  offerIndex.value = 0;
+});
 
 watch(
   () => [props.open, current.value] as const,
@@ -93,12 +112,9 @@ function submit(): void {
 <template>
   <v-dialog :model-value="open" max-width="520" scrollable @update:model-value="emit('update:open', $event)">
     <v-card>
-      <v-card-title class="d-flex align-center text-body-1 py-2 px-4">
-        <span>{{ current?.rule.name ?? 'Реакция' }}</span>
-        <v-spacer />
-        <v-btn icon variant="text" size="small" aria-label="Свернуть" @click="close">
-          <v-icon size="18">mdi-close</v-icon>
-        </v-btn>
+      <v-card-title class="text-body-1 py-2 px-4">
+        Реакция — {{ currentGroup?.actor.name ?? '…' }}
+        <div class="text-caption text-medium-emphasis">{{ actorKindLabel }}</div>
       </v-card-title>
       <v-card-text class="pt-0">
         <div v-if="current?.rule.description" class="text-body-2 mb-3">{{ current.rule.description }}</div>
@@ -112,17 +128,29 @@ function submit(): void {
         </v-alert>
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
         <v-select
-          v-if="offers.length > 1"
-          v-model="optionIndex"
-          :items="offers.map((entry, index) => ({ title: `${entry.rule.name} — ${entry.actor.name}`, value: index }))"
-          label="Карточка и кто объявляет"
+          v-if="actorGroups.length > 1"
+          v-model="actorIndex"
+          :items="
+            actorGroups.map((group, index) => ({
+              title: `${group.actor.name} · ${group.actor.kind === 'npc' ? 'НПС' : 'персонаж'}`,
+              value: index,
+            }))
+          "
+          label="Кто реагирует"
           density="compact"
           hide-details="auto"
           class="mb-3"
         />
-        <div v-else-if="current" class="text-caption text-medium-emphasis mb-3">
-          Объявляет: {{ current.actor.name }}
-        </div>
+        <v-select
+          v-if="currentGroup && currentGroup.offers.length > 1"
+          v-model="offerIndex"
+          :items="currentGroup.offers.map((offer, index) => ({ title: offer.rule.name, value: index }))"
+          label="Реакция"
+          density="compact"
+          hide-details="auto"
+          class="mb-3"
+        />
+        <div v-else-if="current" class="text-caption text-medium-emphasis mb-3">Карточка: {{ current.rule.name }}</div>
         <v-select
           v-if="current"
           v-model="side"
@@ -142,8 +170,8 @@ function submit(): void {
           class="mb-3"
         />
         <div class="text-caption text-medium-emphasis">
-          Стоимость списывается при объявлении реакции — до ответа цели, как у остальных реакций. Мастерство выбранного
-          оружия проверит сервер: если оно ниже требования карточки, реакция будет отклонена.
+          Стоимость списывается при объявлении реакции — до ответа цели, как у остальных реакций. Один участник
+          реагирует на удар один раз. Мастерство выбранного оружия проверит сервер.
         </div>
       </v-card-text>
       <v-card-actions class="flex-wrap ga-2 px-4 pb-3">

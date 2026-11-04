@@ -4373,7 +4373,7 @@ const canSubmit = computed(() => {
                 {{ phpPendingDefenseIsOwner ? 'Ответить на удар' : 'Показать удар' }}
               </v-btn>
               <v-btn v-if="hasReaction" variant="tonal" size="small" :disabled="busy" @click="requestReaction">
-                {{ reactionActionLabel ?? 'Доступные реакции' }}
+                {{ reactionActionLabel ?? 'Реакции' }}
               </v-btn>
             </div>
           </v-alert>
@@ -4418,7 +4418,7 @@ const canSubmit = computed(() => {
                 Взять на себя
               </v-btn>
               <v-btn v-if="hasReaction" variant="tonal" size="small" :disabled="busy" @click="requestReaction">
-                {{ reactionActionLabel ?? 'Доступные реакции' }}
+                {{ reactionActionLabel ?? 'Реакции' }}
               </v-btn>
             </div>
           </v-alert>
@@ -4690,7 +4690,7 @@ const canSubmit = computed(() => {
       </v-card-text>
       <v-card-actions class="py-2 px-4">
         <v-btn v-if="hasReaction" variant="tonal" size="small" :disabled="busy" @click="requestReaction">
-          {{ reactionActionLabel ?? 'Доступные реакции' }}
+          {{ reactionActionLabel ?? 'Реакции' }}
         </v-btn>
         <v-spacer />
         <v-btn variant="text" size="small" :disabled="busy" @click="close">Закрыть</v-btn>
