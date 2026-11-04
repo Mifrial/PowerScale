@@ -1005,10 +1005,12 @@ export class GameApi implements IGameApi {
       gameId,
       idempotencyKey: createRandomId(),
       expectedSheetVersion: await this.checkSheetVersion(gameId, data.initiator),
-      checkCode: data.checkCode,
-      initiator,
-      opponent,
-      ...data.proposal,
+      proposal: {
+        checkCode: data.checkCode,
+        initiator,
+        opponent,
+        ...data.proposal,
+      },
     });
 
     return this.checkOfferOf(row, gameId);
@@ -1065,7 +1067,7 @@ export class GameApi implements IGameApi {
   async acceptCheckOffer(
     offerId: number,
     actorKey: CombatEntityKey,
-    _proposal?: CheckOfferProposal,
+    proposal?: CheckOfferProposal,
     gameId?: number,
   ): Promise<CheckOffer> {
     const id = this.checkGameId(gameId);
@@ -1074,8 +1076,13 @@ export class GameApi implements IGameApi {
       processId: offerId,
       idempotencyKey: createRandomId(),
       expectedSheetVersion: await this.checkSheetVersion(id, actorKey),
-      answer: { decision: 'accept', actor: this.checkPartyOf(actorKey) },
+      answer: {
+        decision: 'accept',
+        actor: this.checkPartyOf(actorKey),
+        ...(proposal ? { proposal } : {}),
+      },
     });
+    this.rememberOfferSheets(row);
 
     return this.checkOfferOf(row, id);
   }
@@ -1138,6 +1145,18 @@ export class GameApi implements IGameApi {
       ...(row.rolls !== undefined ? { rolls: row.rolls as Record<string, unknown> } : {}),
       updatedAt: '',
     };
+  }
+
+  private rememberOfferSheets(row: Record<string, unknown>): void {
+    const versions = row.sheetVersions;
+    if (versions === null || typeof versions !== 'object' || Array.isArray(versions)) return;
+    for (const side of ['initiator', 'opponent'] as const) {
+      const key = row[side];
+      const version = (versions as Record<string, unknown>)[side];
+      if (typeof key === 'string' && typeof version === 'number' && version > 0) {
+        gamePhpBattleContext.rememberSheet(key as CombatEntityKey, version);
+      }
+    }
   }
 
   private checkGameId(gameId?: number): number {

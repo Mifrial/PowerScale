@@ -13,6 +13,7 @@ const props = defineProps<{
   rules: Rule[];
   checkCode: string;
   characteristicCode?: string | null;
+  disabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -55,6 +56,7 @@ watch(
     density="compact"
     hide-details="auto"
     class="mt-2"
+    :disabled="disabled"
     @update:model-value="emit('update:modelValue', $event ?? 0)"
   />
 </template>

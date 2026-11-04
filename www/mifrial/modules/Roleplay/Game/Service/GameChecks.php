@@ -10,6 +10,7 @@ namespace Mifrial\Roleplay\Game\Service;
 use JsonException;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
@@ -216,6 +217,7 @@ final class GameChecks implements IGameChecks
         $ready = $this->ready($gameId, $actorUserId, $editAll, $viewAll, $idempotencyKey, [
             'processId' => $processId,
             'answer' => $decision,
+            'proposal' => $answer['proposal'] ?? null,
             'expectedSheetVersion' => $expectedSheetVersion,
         ]);
         if ($ready['replay'] !== null) {
@@ -233,6 +235,8 @@ final class GameChecks implements IGameChecks
             throw new GameInvalidException('Game check is not waiting for this side');
         }
 
+        $proposal = $this->withAnswerProposal($proposal, $answer['proposal'] ?? null, $side, $expectedSheetVersion);
+        $open['proposal'] = $proposal;
         $versions = $this->answerVersions($proposal, $side, $expectedSheetVersion);
         $initiatorSheet = $this->sheet(
             $ready['game']->getId(),
@@ -732,12 +736,12 @@ final class GameChecks implements IGameChecks
     /**
      * Характеристика проверки.
      *
-     * @param \Mifrial\Roleplay\Character\Dto\CharacterRuleSlice $slice Срез.
+     * @param CharacterRuleSlice $slice Срез.
      * @param string $checkCode Карточка.
      *
      * @return string|null Код.
      */
-    private function characteristicOf(\Mifrial\Roleplay\Character\Dto\CharacterRuleSlice $slice, string $checkCode): ?string
+    private function characteristicOf(CharacterRuleSlice $slice, string $checkCode): ?string
     {
         $rule = $slice->findLive($checkCode);
         $spec = $rule?->getSpec();
@@ -799,6 +803,7 @@ final class GameChecks implements IGameChecks
         if ($spent['battleVersion'] !== null) {
             $result['battleVersion'] = $spent['battleVersion'];
         }
+
         $this->checks->add($this->row($opened, 'solo', $choice, 'accepted', $thrown));
         $this->commands->add($game->getId(), $opened['sessionId'], 'check', $idempotencyKey, [
             'battleId' => $battleId,
@@ -1028,6 +1033,7 @@ final class GameChecks implements IGameChecks
         $result['status'] = 'resolved';
         $result['initiator'] = $proposal['initiator']['type'] . ':' . $proposal['initiator']['id'];
         $result['opponent'] = $proposal['opponent']['type'] . ':' . $proposal['opponent']['id'];
+        $result['sheetVersions'] = $versions;
         $this->chat->postResolution($game, $actorUserId, $proposal, $open['ruleCode'], $rolls);
 
         return $result;
@@ -1383,6 +1389,53 @@ final class GameChecks implements IGameChecks
                 ? 0
                 : $this->concentrationAmount($body['concentration'] ?? $body['spendConcentration'] ?? 0),
         ];
+    }
+
+    /**
+     * Принятие с правкой своей стороны: блок ждущей стороны заменяется.
+     *
+     * @param array<string, mixed> $proposal Сохранённое предложение.
+     * @param mixed $flat Плоское предложение из ответа или null.
+     * @param string $side initiator или opponent.
+     * @param int $expectedSheetVersion Версия листа отвечающей стороны.
+     *
+     * @return array<string, mixed> Предложение.
+     *
+     * @throws GameInvalidException Если блок чужой.
+     */
+    private function withAnswerProposal(array $proposal, mixed $flat, string $side, int $expectedSheetVersion): array
+    {
+        if (!is_array($flat)) {
+            return $proposal;
+        }
+
+        $keys = [
+            'initiatorCharacteristic',
+            'opponentCharacteristic',
+            'initiatorAdv',
+            'opponentAdv',
+            'initiatorFree',
+            'opponentFree',
+            'initiatorSpendConcentration',
+            'opponentSpendConcentration',
+        ];
+        $hasCheckFields = false;
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $flat)) {
+                $hasCheckFields = true;
+                break;
+            }
+        }
+
+        if (!$hasCheckFields) {
+            return $proposal;
+        }
+
+        $blocks = $this->proposalBlocks($flat);
+        $proposal[$side] = array_merge($proposal[$side], $blocks[$side]);
+        $proposal[$side . 'SheetVersion'] = $expectedSheetVersion;
+
+        return $proposal;
     }
 
     /**

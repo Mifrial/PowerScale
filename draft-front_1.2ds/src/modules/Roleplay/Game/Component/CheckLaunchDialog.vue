@@ -7,8 +7,11 @@ import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
+import { ROLL_DIE_FACES_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_FACES_MAX';
+import { ROLL_DIE_FACES_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_FACES_MIN';
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferProposal';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
@@ -100,6 +103,7 @@ const initiatorCharacteristic = ref<string | null>(null);
 const opponentCharacteristic = ref<string | null>(null);
 const initiatorAdv = ref(0);
 const spendConcentration = ref(0);
+const opponentSpendConcentration = ref(0);
 const opponentAdv = ref(0);
 const initiatorUseFree = ref(false);
 const opponentUseFree = ref(false);
@@ -175,6 +179,32 @@ const myTurn = computed(() => {
   return actor !== null && current.waitingOn === actor;
 });
 const formLocked = computed(() => lockedParticipants.value && !myTurn.value);
+const initiatorBlockLocked = computed(() => offer.value !== null && actorRole(offer.value) !== 'initiator');
+const opponentBlockLocked = computed(() => offer.value !== null && actorRole(offer.value) !== 'opponent');
+
+const askDifficultyValue = computed<DimensionalNumberValue>({
+  get: () => ({ base: askBase.value, size: askSize.value }),
+  set: (value) => {
+    askBase.value = value?.base ?? 0;
+    askSize.value = value?.size ?? 0;
+  },
+});
+
+const initiatorFreeValue = computed<DimensionalNumberValue>({
+  get: () => ({ base: initiatorFreeDice.value, size: initiatorFreeSize.value }),
+  set: (value) => {
+    initiatorFreeDice.value = value?.base ?? ROLL_DICE_COUNT_MIN;
+    initiatorFreeSize.value = value?.size ?? ROLL_DIE_FACES_MIN;
+  },
+});
+
+const opponentFreeValue = computed<DimensionalNumberValue>({
+  get: () => ({ base: opponentFreeDice.value, size: opponentFreeSize.value }),
+  set: (value) => {
+    opponentFreeDice.value = value?.base ?? ROLL_DICE_COUNT_MIN;
+    opponentFreeSize.value = value?.size ?? ROLL_DIE_FACES_MIN;
+  },
+});
 
 const fromState = computed(() => selectedSpec.value?.difficulty_input.kind === 'from_state');
 const askDifficulty = computed(() => selectedSpec.value?.difficulty_input.kind === 'ask');
@@ -322,7 +352,8 @@ function proposal(): CheckOfferProposal {
           efficiency: opponentFreeEfficiency.value,
         }
       : null,
-    initiatorSpendConcentration: gamePhpMode.isEnabled() ? 0 : spendConcentration.value,
+    initiatorSpendConcentration: spendConcentration.value,
+    opponentSpendConcentration: opponentSpendConcentration.value,
   };
 }
 
@@ -345,6 +376,7 @@ function applyProposal(data: CheckOfferProposal): void {
   }
   opponentTouched.value = data.opponentCharacteristic !== data.initiatorCharacteristic;
   spendConcentration.value = concentrationTokenService.parseSpendAmount(data.initiatorSpendConcentration);
+  opponentSpendConcentration.value = concentrationTokenService.parseSpendAmount(data.opponentSpendConcentration ?? 0);
 }
 
 async function hydrateNew(generation: number): Promise<void> {
@@ -354,6 +386,7 @@ async function hydrateNew(generation: number): Promise<void> {
   initiatorAdv.value = 0;
   opponentAdv.value = 0;
   spendConcentration.value = 0;
+  opponentSpendConcentration.value = 0;
   askBase.value = 0;
   askSize.value = 0;
   knowledgeFieldCode.value = '';
@@ -364,8 +397,8 @@ async function hydrateNew(generation: number): Promise<void> {
   opponentFreeDice.value = defaults.freeDiceCount;
   initiatorFreeEfficiency.value = defaults.efficiency;
   opponentFreeEfficiency.value = defaults.efficiency;
-  initiatorFreeSize.value = 0;
-  opponentFreeSize.value = 0;
+  initiatorFreeSize.value = defaults.dieFaces;
+  opponentFreeSize.value = defaults.dieFaces;
   const root = checks.value.find((rule) => checkResolutionService.asCheckSpec(rule)?.ordinary_root === true);
   checkCode.value = root?.code ?? checks.value[0]?.code ?? '';
   initiatorKey.value = speakerEntity.value ?? entityOptions.value[0]?.value ?? null;
@@ -740,7 +773,7 @@ async function accept(): Promise<void> {
   const current = offer.value;
   if (!current) throw new Error('Нет оферты');
   const actor = speakerEntity.value ?? current.opponent;
-  const accepted = await getGameApi().acceptCheckOffer(current.id, actor, undefined, props.gameId);
+  const accepted = await getGameApi().acceptCheckOffer(current.id, actor, proposal(), props.gameId);
   if (gamePhpMode.isEnabled()) {
     offer.value = accepted;
 
@@ -961,52 +994,45 @@ const statusHint = computed(() => {
               :disabled="formLocked"
             />
           </div>
-          <div v-else class="check-launch-row mt-2">
-            <ClampedNumberField
-              v-model="initiatorFreeDice"
+          <div v-else class="mt-2">
+            <DimensionalNumberInput
+              v-model="initiatorFreeValue"
+              label="Кубы"
               :min="ROLL_DICE_COUNT_MIN"
               :max="ROLL_DICE_COUNT_MAX"
-              density="compact"
-              hide-details
-              label="Кубы"
+              :size-min="ROLL_DIE_FACES_MIN"
+              :size-max="ROLL_DIE_FACES_MAX"
               :disabled="formLocked"
             />
-            <ClampedNumberField
-              v-model="initiatorFreeEfficiency"
-              :min="ROLL_EFFICIENCY_MIN"
-              :max="ROLL_EFFICIENCY_MAX"
-              density="compact"
-              hide-details
-              label="Эффективность"
-              :disabled="formLocked"
-            />
-            <ClampedNumberField
-              v-model="initiatorFreeSize"
-              :min="-3"
-              :max="3"
-              density="compact"
-              hide-details
-              label="Размер"
-              :disabled="formLocked"
-            />
-            <ClampedNumberField
-              v-model="initiatorAdv"
-              :min="-ROLL_ADV_MAX"
-              :max="ROLL_ADV_MAX"
-              density="compact"
-              hide-details
-              label="Преим./помехи"
-              :disabled="formLocked"
-            />
+            <div class="check-launch-row mt-2">
+              <ClampedNumberField
+                v-model="initiatorFreeEfficiency"
+                :min="ROLL_EFFICIENCY_MIN"
+                :max="ROLL_EFFICIENCY_MAX"
+                density="compact"
+                hide-details
+                label="Эффективность"
+                :disabled="formLocked"
+              />
+              <ClampedNumberField
+                v-model="initiatorAdv"
+                :min="-ROLL_ADV_MAX"
+                :max="ROLL_ADV_MAX"
+                density="compact"
+                hide-details
+                label="Преим./помехи"
+                :disabled="formLocked"
+              />
+            </div>
           </div>
           <ConcentrationTokenOption
-            v-if="!gamePhpMode.isEnabled()"
             v-model="spendConcentration"
             :version="modelOf(initiatorKey)?.effectiveVersion ?? null"
             :overlay="overlayOf(initiatorKey)"
             :rules="rules"
             :check-code="checkCode"
             :characteristic-code="initiatorUseFree ? null : initiatorCharacteristic"
+            :disabled="formLocked || initiatorBlockLocked"
           />
 
           <KnowledgeCheckLaunchFields
@@ -1021,16 +1047,15 @@ const statusHint = computed(() => {
 
           <template v-if="launchKind === 'solo'">
             <div v-if="fromState" class="text-caption text-medium-emphasis mt-3">Сложность: {{ fromStateLabel }}</div>
-            <div v-else-if="askDifficulty && canEdit" class="check-launch-row mt-3">
-              <ClampedNumberField
-                v-model="askBase"
+            <div v-else-if="askDifficulty && canEdit" class="mt-3">
+              <DimensionalNumberInput
+                v-model="askDifficultyValue"
+                label="Сложность"
                 :min="0"
                 :max="40"
-                density="compact"
-                hide-details
-                label="Сложность"
+                :size-min="-3"
+                :size-max="3"
               />
-              <ClampedNumberField v-model="askSize" :min="-3" :max="3" density="compact" hide-details label="Размер" />
             </div>
             <div v-else class="text-caption text-medium-emphasis mt-3">Сложность {0|0}</div>
           </template>
@@ -1087,44 +1112,47 @@ const statusHint = computed(() => {
                 :disabled="formLocked"
               />
             </div>
-            <div v-else class="check-launch-row mt-2">
-              <ClampedNumberField
-                v-model="opponentFreeDice"
+            <div v-else class="mt-2">
+              <DimensionalNumberInput
+                v-model="opponentFreeValue"
+                label="Кубы"
                 :min="ROLL_DICE_COUNT_MIN"
                 :max="ROLL_DICE_COUNT_MAX"
-                density="compact"
-                hide-details
-                label="Кубы"
+                :size-min="ROLL_DIE_FACES_MIN"
+                :size-max="ROLL_DIE_FACES_MAX"
                 :disabled="formLocked"
               />
-              <ClampedNumberField
-                v-model="opponentFreeEfficiency"
-                :min="ROLL_EFFICIENCY_MIN"
-                :max="ROLL_EFFICIENCY_MAX"
-                density="compact"
-                hide-details
-                label="Эффективность"
-                :disabled="formLocked"
-              />
-              <ClampedNumberField
-                v-model="opponentFreeSize"
-                :min="-3"
-                :max="3"
-                density="compact"
-                hide-details
-                label="Размер"
-                :disabled="formLocked"
-              />
-              <ClampedNumberField
-                v-model="opponentAdv"
-                :min="-ROLL_ADV_MAX"
-                :max="ROLL_ADV_MAX"
-                density="compact"
-                hide-details
-                label="Преим./помехи"
-                :disabled="formLocked"
-              />
+              <div class="check-launch-row mt-2">
+                <ClampedNumberField
+                  v-model="opponentFreeEfficiency"
+                  :min="ROLL_EFFICIENCY_MIN"
+                  :max="ROLL_EFFICIENCY_MAX"
+                  density="compact"
+                  hide-details
+                  label="Эффективность"
+                  :disabled="formLocked"
+                />
+                <ClampedNumberField
+                  v-model="opponentAdv"
+                  :min="-ROLL_ADV_MAX"
+                  :max="ROLL_ADV_MAX"
+                  density="compact"
+                  hide-details
+                  label="Преим./помехи"
+                  :disabled="formLocked"
+                />
+              </div>
             </div>
+            <ConcentrationTokenOption
+              v-if="offer !== null"
+              v-model="opponentSpendConcentration"
+              :version="modelOf(opponentKey)?.effectiveVersion ?? null"
+              :overlay="overlayOf(opponentKey)"
+              :rules="rules"
+              :check-code="checkCode"
+              :characteristic-code="opponentUseFree ? null : opponentCharacteristic"
+              :disabled="formLocked || opponentBlockLocked"
+            />
           </template>
 
           <v-alert v-if="statusHint" type="info" variant="tonal" density="compact" class="mt-3">{{

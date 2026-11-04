@@ -390,10 +390,18 @@ final class GameCheckMysqlTest extends TestCase
             'answer' => [
                 'decision' => 'accept',
                 'actor' => ['type' => 'character', 'id' => $rival],
+                'proposal' => [
+                    'opponentCharacteristic' => null,
+                    'opponentAdv' => 1,
+                    'opponentFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+                ],
             ],
         ]);
         self::assertTrue($accepted['success'], json_encode($accepted));
         self::assertSame('resolved', $accepted['data']['status']);
+        self::assertSame(1, $accepted['data']['proposal']['opponentAdv']);
+        self::assertArrayHasKey('initiator', $accepted['data']['sheetVersions']);
+        self::assertArrayHasKey('opponent', $accepted['data']['sheetVersions']);
         self::assertArrayHasKey('initiator', $accepted['data']['rolls']);
         self::assertArrayHasKey('opponent', $accepted['data']['rolls']);
         self::assertArrayHasKey('faces', $accepted['data']['rolls']['initiator']);
@@ -452,6 +460,61 @@ final class GameCheckMysqlTest extends TestCase
         ]);
         self::assertFalse($tooMany['success']);
         self::assertSame('GAME_INVALID', $tooMany['error']['code']);
+    }
+
+    /**
+     * Совместная проверка тратит жетон своей стороны.
+     *
+     * @return void
+     */
+    public function testJointConcentrationToken(): void
+    {
+        $world = $this->worldWithCheck(true);
+        $gameId = $this->addGame($world->getId());
+        $hero = $this->admit($world->getId(), $gameId, 'Hero', [
+            'abilityLevels' => ['peak' => 1],
+            'resources' => [['ruleCode' => 'concentration', 'current' => 2]],
+        ], [['ruleCode' => 'peak', 'level' => 1]]);
+        $rival = $this->admit($world->getId(), $gameId, 'Rival', [
+            'abilityLevels' => ['peak' => 1],
+            'resources' => [['ruleCode' => 'concentration', 'current' => 2]],
+        ], [['ruleCode' => 'peak', 'level' => 1]]);
+        $heroVersion = $this->characterFacade()->get($hero)->getActualVersion();
+        $rivalVersion = $this->characterFacade()->get($rival)->getActualVersion();
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE, GamePermissionKeys::EDIT_ALL]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+
+        $offer = $this->dispatch('game.proposeCheck', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'joint-concentration',
+            'expectedSheetVersion' => $heroVersion,
+            'proposal' => [
+                'checkCode' => 'notice',
+                'initiator' => ['type' => 'character', 'id' => $hero],
+                'opponent' => ['type' => 'character', 'id' => $rival],
+                'initiatorFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+                'opponentFree' => ['diceCount' => 3, 'dieSize' => 6, 'efficiency' => 0],
+                'initiatorSpendConcentration' => 1,
+            ],
+        ]);
+        self::assertTrue($offer['success'], json_encode($offer));
+        $accepted = $this->dispatch('game.answerCheck', [
+            'gameId' => $gameId,
+            'processId' => $offer['data']['processId'],
+            'idempotencyKey' => 'joint-concentration-accept',
+            'expectedSheetVersion' => $rivalVersion,
+            'answer' => [
+                'decision' => 'accept',
+                'actor' => ['type' => 'character', 'id' => $rival],
+            ],
+        ]);
+        self::assertTrue($accepted['success'], json_encode($accepted));
+        self::assertContains(
+            ['source_code' => 'concentration', 'delta' => 1],
+            $accepted['data']['rolls']['initiator']['advantages'] ?? [],
+        );
+        self::assertSame(1, $this->resourceCurrent($hero, 'concentration'));
+        self::assertSame(2, $this->resourceCurrent($rival, 'concentration'));
     }
 
     /**
@@ -768,6 +831,25 @@ final class GameCheckMysqlTest extends TestCase
         self::assertIsString($offer);
 
         return $offer;
+    }
+
+    /**
+     * Текущее значение ресурса.
+     *
+     * @param int $characterId Персонаж.
+     * @param string $code Ресурс.
+     *
+     * @return int|null Значение.
+     */
+    private function resourceCurrent(int $characterId, string $code): ?int
+    {
+        foreach ($this->characterFacade()->get($characterId)->getSheet()['resources'] ?? [] as $row) {
+            if (is_array($row) && ($row['ruleCode'] ?? null) === $code) {
+                return is_int($row['current'] ?? null) ? $row['current'] : null;
+            }
+        }
+
+        return null;
     }
 
     /**
