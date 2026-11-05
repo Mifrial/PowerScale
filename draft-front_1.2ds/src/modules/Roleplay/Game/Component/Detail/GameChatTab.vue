@@ -775,7 +775,8 @@ const actualTargetWindow = computed(() => {
 const maneuverAwaiting = computed(
   () =>
     strikeAwaiting.value.find(
-      (entry) => entry.kind === 'maneuver_reveal' && isMyStrikeActor(entry.actor.type, entry.actor.id),
+      (entry) =>
+        entry.kind === 'maneuver_reveal' && (canWriteStrike.value || isMyStrikeActor(entry.actor.type, entry.actor.id)),
     ) ?? null,
 );
 
