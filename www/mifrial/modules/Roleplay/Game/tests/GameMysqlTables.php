@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Tests;
 
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Core\SmartTable\Tests\Support\TestDatabaseGuard;
 use Mifrial\Core\User\Tests\UserMysqlTables;
 use Mifrial\Messages\Chat\Table\ChatMemberTable;
 use Mifrial\Messages\Chat\Table\ChatMessageTable;
@@ -56,6 +57,7 @@ final class GameMysqlTables
      */
     public static function drop(ISmartTableGateway $smartTableGateway): void
     {
+        TestDatabaseGuard::assertTestBootstrap();
         $tableClasses = [
             GameDeliveryTable::class,
             GameCheckTable::class,

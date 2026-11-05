@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Messages\Chat\Tests;
 
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Core\SmartTable\Tests\Support\TestDatabaseGuard;
 use Mifrial\Messages\Chat\Table\ChatMemberTable;
 use Mifrial\Messages\Chat\Table\ChatMessageTable;
 use Mifrial\Messages\Chat\Table\ChatTable;
@@ -23,6 +24,7 @@ final class ChatMysqlTables
      */
     public static function drop(ISmartTableGateway $smartTableGateway): void
     {
+        TestDatabaseGuard::assertTestBootstrap();
         $tableClasses = [
             ChatMessageTable::class,
             ChatMemberTable::class,

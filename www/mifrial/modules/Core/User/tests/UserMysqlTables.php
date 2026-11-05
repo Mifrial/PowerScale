@@ -11,6 +11,7 @@ use Mifrial\Core\Auth\Table\AuthSessionTable;
 use Mifrial\Core\Auth\Table\UserIdentityTable;
 use Mifrial\Core\File\Table\FileTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Core\SmartTable\Tests\Support\TestDatabaseGuard;
 use Mifrial\Core\User\Table\UserAvatarTable;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
@@ -30,6 +31,7 @@ final class UserMysqlTables
      */
     public static function drop(ISmartTableGateway $smartTableGateway): void
     {
+        TestDatabaseGuard::assertTestBootstrap();
         $tableClasses = [
             AuthPasswordResetTable::class,
             AuthSessionTable::class,

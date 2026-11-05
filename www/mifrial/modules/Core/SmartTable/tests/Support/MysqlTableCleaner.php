@@ -25,6 +25,7 @@ final class MysqlTableCleaner
      */
     public static function truncateAll(IlluminateDatabaseConnection $connection, array $alwaysTruncate = []): void
     {
+        TestDatabaseGuard::assertSafeConnection($connection);
         $mySqlConnection = $connection->illuminateConnection();
         $tables = self::getTables($mySqlConnection);
         $mySqlConnection->statement('SET FOREIGN_KEY_CHECKS=0');

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Mifrial\Core\SmartTable\Tests\Support\TestDatabaseGuard;
+
 $root = dirname(__DIR__);
 $autoload = $root . '/vendor/autoload.php';
 if (is_file($autoload)) {
@@ -44,6 +46,11 @@ try {
     // MySQL недоступен: unit-тесты должны работать и без него.
     return;
 }
+
+// Тестовый bootstrap сносит все таблицы БД из config/test.php. Если этот
+// конфиг случайно указывает на dev-БД, лучше упасть до первого DROP.
+TestDatabaseGuard::assertNotDevDatabase($host, $port, $database);
+define(TestDatabaseGuard::MARKER, $database);
 
 $tableNames = $pdo->query(
     "SELECT table_name FROM information_schema.tables "

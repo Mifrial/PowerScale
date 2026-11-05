@@ -30,6 +30,7 @@ trait MysqlSchemaFixture
         Closure $install,
         array $alwaysTruncate = [],
     ): void {
+        TestDatabaseGuard::assertSafeConnection($connection);
         MysqlSchemaRegistry::ensure($connection, $group, $sentinelTables, $install);
         MysqlTableCleaner::truncateAll($connection, $alwaysTruncate);
     }
