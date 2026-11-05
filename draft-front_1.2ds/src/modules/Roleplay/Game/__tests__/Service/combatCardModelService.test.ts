@@ -720,4 +720,24 @@ describe('combatStatePicker', () => {
       poison: { poisonRuleCode: 'poison-scorpion', damage_type_code: 'poison-1', strength: { base: 3, size: 1 } },
     });
   });
+
+  it('подписывает метку боя как помехи на проверки защиты с источником', () => {
+    const mark = {
+      subject: { type: 'character', id: 1 },
+      kind: 'advantage',
+      value: -2,
+      source_code: 'circumstances',
+      source_label: 'Обстоятельства',
+      source_rule_code: 'obmannyy-manevr',
+      scope: { defense_against: { type: 'npc', id: 5 } },
+      consumes: 'first_defense',
+      expires: { kind: 'turn', of: { type: 'npc', id: 5 } },
+    };
+
+    expect(combatCardModelService.battleMarkText(mark, 'Гоблин-страж')).toBe(
+      '2 помехи на проверки защиты от попадания от Гоблин-страж до конца его хода (обстоятельства)',
+    );
+    expect(combatCardModelService.battleMarkText({ ...mark, value: -1 }, 'Гоблин-страж')).toContain('1 помеха ');
+    expect(combatCardModelService.battleMarkText({ ...mark, value: 3 }, 'Гоблин-страж')).toContain('3 преимущества ');
+  });
 });

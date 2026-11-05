@@ -1603,6 +1603,8 @@ export class GameApi implements IGameApi {
         kind: row.kind,
         value: valueRow,
         source_code: row.source_code,
+        source_label: typeof row.source_label === 'string' ? row.source_label : null,
+        source_rule_code: typeof row.source_rule_code === 'string' ? row.source_rule_code : null,
         scope: { defense_against: against },
         consumes: typeof row.consumes === 'string' ? row.consumes : 'first_defense',
         expires: { kind: 'turn', of: against },

@@ -143,10 +143,10 @@ function markActorName(type: string, id: number): string {
 }
 
 function markText(mark: GamePhpBattleMark): string {
-  const sign = mark.value > 0 ? '+' : '';
-  const against = markActorName(mark.scope.defense_against.type, mark.scope.defense_against.id);
-
-  return `${sign}${mark.value} к защите от ${against} до конца его хода`;
+  return combatCardModelService.battleMarkText(
+    mark,
+    markActorName(mark.scope.defense_against.type, mark.scope.defense_against.id),
+  );
 }
 
 const isOpen = ref(props.open);
@@ -191,8 +191,8 @@ function entityName(key: string): string {
   return props.memberships.find((membership) => membership.characterId === id)?.characterName ?? key;
 }
 
-const activeEffectLabels = computed(() =>
-  pendingEffects.value.map((pending) => {
+const activeEffectLabels = computed(() => [
+  ...pendingEffects.value.map((pending) => {
     const source = props.rules.find((rule) => rule.code === pending.sourceRuleCode)?.name ?? 'Временный эффект';
     if (pending.effect.type === 'last_strike_snapshot') {
       return `${source}: ${lastStrikeService.describe(pending.effect, entityName)}`;
@@ -203,7 +203,8 @@ const activeEffectLabels = computed(() =>
 
     return `${source}: ${actionEffectService.describe(pending.effect)}`;
   }),
-);
+  ...entityMarks.value.map((mark) => markText(mark)),
+]);
 
 onMounted(() => {
   if (keywords.value.length === 0) void fetchTags();
@@ -1096,13 +1097,6 @@ function onSheetToggleEquipped(itemId: number): void {
     </template>
 
     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="ma-3">{{ error }}</v-alert>
-
-    <v-alert v-if="entityMarks.length" type="warning" variant="tonal" density="compact" class="ma-3">
-      <div class="text-caption font-weight-medium mb-1">Метки боя</div>
-      <div v-for="(mark, index) in entityMarks" :key="`${mark.kind}:${index}`" class="text-body-2">
-        {{ markText(mark) }}
-      </div>
-    </v-alert>
 
     <div v-if="model && effectiveVersion === null" class="text-medium-emphasis text-center pa-8">
       Лист участника не заполнен

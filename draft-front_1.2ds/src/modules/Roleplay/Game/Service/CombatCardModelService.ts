@@ -1,5 +1,6 @@
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GamePhpBattleMark } from '@/modules/Roleplay/Game/Dto/GamePhpBattleMark';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { CombatStateOption } from '@/modules/Roleplay/Game/Dto/CombatStateOption';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
@@ -10,6 +11,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { ADVANTAGE_SOURCE_LABELS } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CombatMasterySection } from '@/modules/Roleplay/Character/Dto/Overview/CombatMasterySection';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -102,6 +104,32 @@ export class CombatCardModelService {
       effectiveVersion,
       canEdit: this.combatCardCanEdit(key, canEdit, currentUserId, memberships),
     };
+  }
+
+  /**
+   * Подпись метки боя: «2 помехи на проверки защиты от попадания от X до конца его хода (обстоятельства)».
+   *
+   * `value` — дельта кубов: отрицательная даёт помехи, положительная — преимущества.
+   */
+  battleMarkText(mark: GamePhpBattleMark, attackerName: string): string {
+    const amount = Math.abs(mark.value);
+    const effect =
+      mark.value < 0
+        ? `${amount} ${this.plural(amount, 'помеха', 'помехи', 'помех')}`
+        : `${amount} ${this.plural(amount, 'преимущество', 'преимущества', 'преимуществ')}`;
+    const source = mark.source_label ?? ADVANTAGE_SOURCE_LABELS[mark.source_code] ?? mark.source_code;
+    const suffix = source ? ` (${source.charAt(0).toLowerCase()}${source.slice(1)})` : '';
+
+    return `${effect} на проверки защиты от попадания от ${attackerName} до конца его хода${suffix}`;
+  }
+
+  private plural(amount: number, one: string, few: string, many: string): string {
+    const mod10 = amount % 10;
+    const mod100 = amount % 100;
+    if (mod10 === 1 && mod100 !== 11) return one;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+
+    return many;
   }
 
   poisonName(state: CharacterStateValue, rules: Rule[]): string {
