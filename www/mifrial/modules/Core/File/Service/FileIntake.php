@@ -51,7 +51,6 @@ final class FileIntake
      * @param int $ownerId Владелец.
      * @param string $sourcePath Абсолютный путь к локальному файлу.
      * @param string $originalName Имя для строки.
-     * @param bool $isDerived Производная соседа, а не пользовательский оригинал.
      *
      * @return FileRecord Вставленная строка.
      *
@@ -64,10 +63,65 @@ final class FileIntake
         int $ownerId,
         string $sourcePath,
         string $originalName,
-        bool $isDerived = false,
     ): FileRecord {
-        $size = $this->sourceSize($sourcePath);
-        $mime = $this->acceptedMime($sourcePath);
+        return $this->intake($ownerId, $sourcePath, $originalName, false, true);
+    }
+
+    /**
+     * Принимает готовую производную соседа: upload-политика не применяется.
+     *
+     * @param int $ownerId Владелец.
+     * @param string $sourcePath Абсолютный путь к локальному файлу.
+     * @param string $originalName Имя для строки.
+     *
+     * @return FileRecord Вставленная строка.
+     *
+     * @throws FileInvalidException Если файл или имя недопустимы.
+     * @throws FileImageInvalidException Если картинка не читается.
+     */
+    public function insertDerived(
+        int $ownerId,
+        string $sourcePath,
+        string $originalName,
+    ): FileRecord {
+        return $this->intake($ownerId, $sourcePath, $originalName, true, false);
+    }
+
+    /**
+     * Общий потолок размера файла.
+     *
+     * @return int Байты.
+     */
+    public function maxSize(): int
+    {
+        return $this->fileSettings->maxSize();
+    }
+
+    /**
+     * Общий приём: проверки, шард, строка.
+     *
+     * @param int $ownerId Владелец.
+     * @param string $sourcePath Абсолютный путь к локальному файлу.
+     * @param string $originalName Имя для строки.
+     * @param bool $isDerived Производная соседа.
+     * @param bool $enforceUploadPolicy Применять mime/size политику загрузки.
+     *
+     * @return FileRecord Вставленная строка.
+     *
+     * @throws FileInvalidException Если файл или имя недопустимы.
+     * @throws FileTooLargeException Если размер больше лимита.
+     * @throws FileMimeInvalidException Если тип вне политики.
+     * @throws FileImageInvalidException Если картинка не читается.
+     */
+    private function intake(
+        int $ownerId,
+        string $sourcePath,
+        string $originalName,
+        bool $isDerived,
+        bool $enforceUploadPolicy,
+    ): FileRecord {
+        $size = $this->sourceSize($sourcePath, $enforceUploadPolicy);
+        $mime = $this->acceptedMime($sourcePath, $enforceUploadPolicy);
         [$width, $height] = $this->imageDimensions($sourcePath, $mime);
         $originalName = $this->normalizeName($originalName);
         $sha256 = $this->fileStorage->hash($sourcePath);
@@ -91,26 +145,17 @@ final class FileIntake
     }
 
     /**
-     * Общий потолок размера файла.
-     *
-     * @return int Байты.
-     */
-    public function maxSize(): int
-    {
-        return $this->fileSettings->maxSize();
-    }
-
-    /**
      * Проверяет наличие и размер локального файла.
      *
      * @param string $sourcePath Абсолютный путь.
+     * @param bool $enforceMaxSize Применять общий потолок загрузки.
      *
      * @return int Фактический размер в байтах.
      *
      * @throws FileTooLargeException Если размер больше лимита.
      * @throws FileInvalidException Если файл пуст.
      */
-    private function sourceSize(string $sourcePath): int
+    private function sourceSize(string $sourcePath, bool $enforceMaxSize): int
     {
         if (!is_file($sourcePath)) {
             throw new FileInvalidException('Accepted file is missing');
@@ -121,7 +166,7 @@ final class FileIntake
             throw new FileInvalidException('Accepted file is empty');
         }
 
-        if ($size > $this->fileSettings->maxSize()) {
+        if ($enforceMaxSize && $size > $this->fileSettings->maxSize()) {
             throw new FileTooLargeException($this->fileSettings->maxSize());
         }
 
@@ -132,15 +177,16 @@ final class FileIntake
      * Серверный mime и политика хранилища.
      *
      * @param string $sourcePath Абсолютный путь.
+     * @param bool $enforcePolicy Применять список разрешённых типов.
      *
      * @return string Mime.
      *
      * @throws FileMimeInvalidException Если тип вне политики.
      */
-    private function acceptedMime(string $sourcePath): string
+    private function acceptedMime(string $sourcePath, bool $enforcePolicy): string
     {
         $mime = $this->fileStorage->mimeType($sourcePath);
-        if (!$this->fileSettings->allowsMime($mime)) {
+        if ($enforcePolicy && !$this->fileSettings->allowsMime($mime)) {
             throw new FileMimeInvalidException($this->fileSettings->mime());
         }
 

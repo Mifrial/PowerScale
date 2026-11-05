@@ -4,6 +4,7 @@ import type { AvatarCrop } from '@/modules/Core/User/Dto/AvatarCrop';
 import type { AvatarSource } from '@/modules/Core/User/Dto/AvatarSource';
 import { getFileApi, validateFileSelection } from '@/modules/Core/File/init';
 import { useUserStore } from '@/modules/Core/User/Store/users';
+import { avatarErrorService } from '@/modules/Core/User/Service/Instance/avatarErrorService';
 import { AVATAR_MAX_SIZE } from '@/modules/Core/User/Constant/Avatar/AVATAR_MAX_SIZE';
 import { AVATAR_MIME } from '@/modules/Core/User/Constant/Avatar/AVATAR_MIME';
 
@@ -29,7 +30,7 @@ export function useAvatarUpload() {
         height: record.height,
       };
     } catch (caught) {
-      error.value = caught instanceof Error ? caught.message : 'Не удалось загрузить файл';
+      error.value = avatarErrorService.describe(caught, 'Не удалось загрузить файл');
 
       return null;
     } finally {
@@ -43,7 +44,7 @@ export function useAvatarUpload() {
     try {
       return await store.setAvatar(filePublicId, crop);
     } catch (caught) {
-      error.value = caught instanceof Error ? caught.message : 'Не удалось сохранить аватар';
+      error.value = avatarErrorService.describe(caught, 'Не удалось сохранить аватар');
 
       return null;
     } finally {
@@ -57,7 +58,7 @@ export function useAvatarUpload() {
     try {
       return await store.setAvatar(null, null);
     } catch (caught) {
-      error.value = caught instanceof Error ? caught.message : 'Не удалось снять аватар';
+      error.value = avatarErrorService.describe(caught, 'Не удалось снять аватар');
 
       return null;
     } finally {

@@ -26,5 +26,5 @@ interface IUserAvatar
      *
      * @return array{avatar: string|null, source: array<string, mixed>|null, crop: array<string, int>|null} Состояние.
      */
-    public function avatarState(): array;
+    public function getAvatarState(): array;
 }

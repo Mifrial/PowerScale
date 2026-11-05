@@ -25,6 +25,7 @@ final class FindFilePageInput implements IActionInput
      * @param OptionalString $mime Тип.
      * @param OptionalInt $ownerId Владелец.
      * @param OptionalBool $isArchived Архив.
+     * @param OptionalBool $isDerived Производная.
      * @param int|null $from Нижняя граница unix UTC.
      * @param int|null $to Верхняя граница unix UTC.
      *
@@ -36,6 +37,7 @@ final class FindFilePageInput implements IActionInput
         public readonly OptionalString $mime,
         public readonly OptionalInt $ownerId,
         public readonly OptionalBool $isArchived,
+        public readonly OptionalBool $isDerived,
         public readonly ?int $from = null,
         public readonly ?int $to = null,
     ) {

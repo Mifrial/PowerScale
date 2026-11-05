@@ -1,16 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { AvatarCrop } from '@/modules/Core/User/Dto/AvatarCrop';
-import {
-  clampViewport,
-  cropFromViewport,
-  minScale,
-  viewportFromCrop,
-  zoomOf,
-  zoomTo,
-  type CropImageSize,
-  type CropViewport,
-} from '@/modules/Core/User/Service/AvatarCropMath';
+import type { CropImageSize } from '@/modules/Core/User/Dto/CropImageSize';
+import type { CropViewport } from '@/modules/Core/User/Dto/CropViewport';
+import { avatarCropService } from '@/modules/Core/User/Service/Instance/avatarCropService';
+import { AVATAR_MAX_ZOOM } from '@/modules/Core/User/Constant/Avatar/AVATAR_MAX_ZOOM';
 
 const props = withDefaults(
   defineProps<{
@@ -38,9 +32,9 @@ let dragStart: { x: number; y: number; offsetX: number; offsetY: number } | null
 function applyViewport(next: CropViewport): void {
   if (!imageSize.value) return;
 
-  viewport.value = clampViewport(next, stageSize.value, imageSize.value);
-  zoom.value = zoomOf(viewport.value, stageSize.value, imageSize.value);
-  emit('change', cropFromViewport(viewport.value, stageSize.value, imageSize.value));
+  viewport.value = avatarCropService.clampViewport(next, stageSize.value, imageSize.value);
+  zoom.value = avatarCropService.getZoom(viewport.value, stageSize.value, imageSize.value);
+  emit('change', avatarCropService.getCropFromViewport(viewport.value, stageSize.value, imageSize.value));
 }
 
 function setupImage(image: HTMLImageElement): void {
@@ -51,8 +45,8 @@ function setupImage(image: HTMLImageElement): void {
   const initialCrop = props.initialCrop;
   applyViewport(
     initialCrop && initialCrop.size > 0
-      ? viewportFromCrop(initialCrop, stageSize.value, imageSize.value)
-      : { scale: minScale(stageSize.value, imageSize.value), offsetX: 0, offsetY: 0 },
+      ? avatarCropService.getViewportFromCrop(initialCrop, stageSize.value, imageSize.value)
+      : { scale: avatarCropService.getMinScale(stageSize.value, imageSize.value), offsetX: 0, offsetY: 0 },
   );
 }
 
@@ -90,13 +84,17 @@ function onWheel(event: WheelEvent): void {
   if (!ready.value || !imageSize.value) return;
 
   event.preventDefault();
-  applyViewport(zoomTo(viewport.value, zoom.value - event.deltaY * 0.002, stageSize.value, imageSize.value));
+  applyViewport(
+    avatarCropService.zoomTo(viewport.value, zoom.value - event.deltaY * 0.002, stageSize.value, imageSize.value),
+  );
 }
 
 function onZoomInput(value: number | number[]): void {
   if (!imageSize.value) return;
 
-  applyViewport(zoomTo(viewport.value, Array.isArray(value) ? value[0] : value, stageSize.value, imageSize.value));
+  applyViewport(
+    avatarCropService.zoomTo(viewport.value, Array.isArray(value) ? value[0] : value, stageSize.value, imageSize.value),
+  );
 }
 
 const imageStyle = computed(() => {
@@ -167,7 +165,7 @@ onBeforeUnmount(() => {
     <v-slider
       v-model="zoom"
       :min="1"
-      :max="8"
+      :max="AVATAR_MAX_ZOOM"
       :step="0.01"
       hide-details
       class="mt-3"

@@ -2,7 +2,7 @@
 
 **Статус:** сделано, 2026-09-04. Нарезка — [`core-tails-roadmap.md`](core-tails-roadmap.md). Этап E [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md). HTTP групп — [`user-plan-04-groups-http.md`](user-plan-04-groups-http.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
-Цель: `userGroup.getMembers` как `findPage`: не «до 500 id без total». JSON-вид GroupMember не менять (`id`, `name`, `login`).
+Цель: `userGroup.getMembers` как `findPage`: не «до 500 id без total». JSON-вид GroupMember не менять (`id`, `name`, `login`); позже в `avatar`-заходе добавлен `avatar` — см. [`image-plan-02-avatar-crop.md`](image-plan-02-avatar-crop.md).
 
 Guest (Auth 4) не блокер: guard тот же `user_group.view`.
 

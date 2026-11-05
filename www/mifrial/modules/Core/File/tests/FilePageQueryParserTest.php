@@ -27,6 +27,7 @@ final class FilePageQueryParserTest extends TestCase
             OptionalString::present('image/png'),
             OptionalInt::present(7),
             OptionalBool::present(true),
+            OptionalBool::present(false),
             100,
             200,
         ));
@@ -35,6 +36,7 @@ final class FilePageQueryParserTest extends TestCase
         self::assertSame('image/png', $query->getMime());
         self::assertSame(7, $query->getOwnerId());
         self::assertTrue($query->getIsArchived());
+        self::assertFalse($query->getIsDerived());
         self::assertSame(100, $query->getFromUnix());
         self::assertSame(200, $query->getToUnix());
     }
@@ -52,10 +54,12 @@ final class FilePageQueryParserTest extends TestCase
             OptionalString::absent(),
             OptionalInt::absent(),
             OptionalBool::absent(),
+            OptionalBool::absent(),
         ));
         self::assertNull($query->getMime());
         self::assertNull($query->getOwnerId());
         self::assertNull($query->getIsArchived());
+        self::assertNull($query->getIsDerived());
         self::assertNull($query->getFromUnix());
         self::assertNull($query->getToUnix());
     }
@@ -70,16 +74,25 @@ final class FilePageQueryParserTest extends TestCase
         $parser = new FilePageQueryParser();
         foreach (
             [
-                [0, 0, OptionalString::absent(), OptionalInt::absent(), OptionalBool::absent(), null, null],
-                [101, 0, OptionalString::absent(), OptionalInt::absent(), OptionalBool::absent(), null, null],
-                [1, -1, OptionalString::absent(), OptionalInt::absent(), OptionalBool::absent(), null, null],
-                [1, 0, OptionalString::absent(), OptionalInt::absent(), OptionalBool::absent(), 20, 10],
-                [1, 0, OptionalString::present('png'), OptionalInt::absent(), OptionalBool::absent(), null, null],
-                [1, 0, OptionalString::absent(), OptionalInt::present(0), OptionalBool::absent(), null, null],
-            ] as [$limit, $offset, $mime, $ownerId, $isArchived, $from, $to]
+                [0, 0, OptionalString::absent(), OptionalInt::absent(), OptionalBool::absent(), OptionalBool::absent(), null, null],
+                [101, 0, OptionalString::absent(), OptionalInt::absent(), OptionalBool::absent(), OptionalBool::absent(), null, null],
+                [1, -1, OptionalString::absent(), OptionalInt::absent(), OptionalBool::absent(), OptionalBool::absent(), null, null],
+                [1, 0, OptionalString::absent(), OptionalInt::absent(), OptionalBool::absent(), OptionalBool::absent(), 20, 10],
+                [1, 0, OptionalString::present('png'), OptionalInt::absent(), OptionalBool::absent(), OptionalBool::absent(), null, null],
+                [1, 0, OptionalString::absent(), OptionalInt::present(0), OptionalBool::absent(), OptionalBool::absent(), null, null],
+            ] as [$limit, $offset, $mime, $ownerId, $isArchived, $isDerived, $from, $to]
         ) {
             try {
-                $parser->parse(new FindFilePageInput($limit, $offset, $mime, $ownerId, $isArchived, $from, $to));
+                $parser->parse(new FindFilePageInput(
+                    $limit,
+                    $offset,
+                    $mime,
+                    $ownerId,
+                    $isArchived,
+                    $isDerived,
+                    $from,
+                    $to,
+                ));
                 self::fail('invalid page input must fail');
             } catch (FileInvalidException $exception) {
                 self::assertSame('FILE_INVALID', $exception->getErrorCode());

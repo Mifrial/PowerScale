@@ -3,8 +3,10 @@ import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import SmartGrid from '@/modules/Core/UI/Component/Grid/SmartGrid.vue';
 import FileDetailsDialog from '@/modules/Core/File/Component/FileDetailsDialog.vue';
 import { columns } from '@/modules/Core/File/Constant/Grid/files/columns';
-import { filterFields } from '@/modules/Core/File/Constant/Grid/files/filterFields';
 import { useFileList } from '@/modules/Core/File/Composables/useFileList';
+import { useFileFilterFields } from '@/modules/Core/File/Composables/useFileFilterFields';
+
+const { fields: filterFields } = useFileFilterFields();
 
 const {
   rows,

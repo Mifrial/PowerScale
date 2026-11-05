@@ -1,4 +1,5 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
+import type { ActionResponse } from '@/modules/Core/Engine/Dto/ActionResponse';
 import type { IUserApi } from '@/modules/Core/User/Interface/IUserApi';
 import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
 import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
@@ -7,6 +8,7 @@ import type { AvatarCrop } from '@/modules/Core/User/Dto/AvatarCrop';
 import type { AvatarState } from '@/modules/Core/User/Dto/AvatarState';
 import type { FindPageQuery } from '@/modules/Core/User/Dto/FindPageQuery';
 import type { FindPageResult } from '@/modules/Core/User/Dto/FindPageResult';
+import { UserApiError } from '@/modules/Core/User/Dto/UserApiError';
 
 export class UserApi implements IUserApi {
   constructor(private readonly engine: Engine) {}
@@ -62,15 +64,20 @@ export class UserApi implements IUserApi {
       },
       signal,
     );
-    if (!res.data) throw new Error('Failed to set avatar');
 
-    return res.data;
+    return this.requireData(res, 'Failed to set avatar');
   }
 
   async getAvatar(signal?: AbortSignal): Promise<AvatarState> {
     const res = await this.engine.runAction<AvatarState>('user.getAvatar', {}, signal);
-    if (!res.data) throw new Error('Failed to load avatar');
 
-    return res.data;
+    return this.requireData(res, 'Failed to load avatar');
+  }
+
+  private requireData<T>(response: ActionResponse<T>, fallbackMessage: string): T {
+    if (response.success && response.data) return response.data;
+    const error = response.error;
+
+    throw new UserApiError(error?.code ?? 'INTERNAL', error?.message ?? fallbackMessage, error?.details);
   }
 }

@@ -15,6 +15,10 @@ const props = withDefaults(
   { alt: 'Файл', archived: false, width: undefined, height: undefined, cover: false },
 );
 
+const emit = defineEmits<{
+  error: [];
+}>();
+
 const loading = ref(true);
 const failed = ref(false);
 
@@ -45,6 +49,7 @@ function onLoad(): void {
 function onError(): void {
   failed.value = true;
   loading.value = false;
+  emit('error');
 }
 </script>
 

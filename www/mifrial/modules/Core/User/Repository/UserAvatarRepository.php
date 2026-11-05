@@ -6,6 +6,7 @@ namespace Mifrial\Core\User\Repository;
 
 use Closure;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
+use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
 use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
@@ -45,7 +46,7 @@ final class UserAvatarRepository
      */
     public function find(int $userId): ?UserAvatarRecord
     {
-        $row = $this->avatarRecords->getUnique(ListQuery::fromOptions([
+        $row = $this->readUnique(ListQuery::fromOptions([
             'filter' => ['user_id' => $userId],
             'limit' => 1,
             'select' => ['file_id', 'source_file_id', 'crop_x', 'crop_y', 'crop_size'],
@@ -77,7 +78,7 @@ final class UserAvatarRepository
         $fileIdsByUserId = [];
         $offset = 0;
         do {
-            $pageRows = $this->avatarRecords->getList(ListQuery::fromOptions([
+            $pageRows = $this->readList(ListQuery::fromOptions([
                 'filter' => ['user_id' => array_values($uniqueIds)],
                 'limit' => 500,
                 'offset' => $offset,
@@ -171,7 +172,7 @@ final class UserAvatarRepository
      */
     private function findRowId(int $userId): ?int
     {
-        $row = $this->avatarRecords->getUnique(ListQuery::fromOptions([
+        $row = $this->readUnique(ListQuery::fromOptions([
             'filter' => ['user_id' => $userId],
             'limit' => 1,
             'select' => ['id'],
@@ -181,6 +182,44 @@ final class UserAvatarRepository
         }
 
         return (int) $row['id'];
+    }
+
+    /**
+     * Читает одну строку и мапит отказ карты в User.
+     *
+     * @param ListQuery $listQuery Запрос.
+     *
+     * @return array<string, mixed>|null Строка или null.
+     *
+     * @throws UserInvalidException Если карта недопустима.
+     */
+    private function readUnique(ListQuery $listQuery): ?array
+    {
+        try {
+            $row = $this->avatarRecords->getUnique($listQuery);
+        } catch (MapInvalidException $exception) {
+            throw new UserInvalidException('Avatar map is invalid', $exception);
+        }
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
+     * Читает страницу строк и мапит отказ карты в User.
+     *
+     * @param ListQuery $listQuery Запрос.
+     *
+     * @return ListResult Страница.
+     *
+     * @throws UserInvalidException Если карта недопустима.
+     */
+    private function readList(ListQuery $listQuery): ListResult
+    {
+        try {
+            return $this->avatarRecords->getList($listQuery);
+        } catch (MapInvalidException $exception) {
+            throw new UserInvalidException('Avatar list query is invalid', $exception);
+        }
     }
 
     /**

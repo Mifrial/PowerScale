@@ -76,7 +76,7 @@ public function findOwnImages(FindOwnImagesInput $input): array;
 `user_avatar` получает nullable-колонки:
 
 ```
-source_file_id IntField  nullable, indexed
+source_file_id IntField  nullable
 crop_x         IntField  nullable, min 0
 crop_y         IntField  nullable, min 0
 crop_size      IntField  nullable, min 1
@@ -84,6 +84,11 @@ crop_size      IntField  nullable, min 1
 
 Старые строки остаются валидными: `source_file_id = null` — источник
 неизвестен, аватар показывается, но «Изменить» предложит выбрать файл.
+
+Источник — только оригинал: `is_derived = false`, не архив, png/jpeg/webp,
+размер ≤ 2 МБ, стороны ≤ 4096. Производную (в том числе текущий
+`avatar.webp`) в `setAvatar` передать нельзя — `USER_INVALID`. Эти лимиты
+живут в `UserAvatarService`; подсказка в профиле их больше не дублирует.
 
 `user.getAvatar` → `{ avatar: string|null, source: { publicId, originalName,
 width, height }|null, crop: { x, y, size }|null }`.
@@ -116,16 +121,19 @@ cropSize: int|null   // квадрат
 - `UserAvatar.vue` — кружок: `FileImage` при `user.avatar`, иначе инициалы.
 - `AvatarCropStage.vue` — чистый кроппер: фиксированная сцена, картинка
   позиционируется и масштабируется, круг вырезан box-shadow. Математика
-  вынесена в `Service/AvatarCropMath.ts` и покрыта vitest.
+  вынесена в `Service/AvatarCropService` и покрыта vitest.
 - `UserAvatarDialog.vue` — два шага: выбор источника (загрузить / «Мои
-  изображения») и кроп. Ошибки сервера показываются как есть.
+  изображения») и кроп. Отказы API мапятся в русские подсказки по коду.
 - `UserAvatarField.vue` — аватар, «Изменить» и «Снять». Подсказка про
   2 МБ/512 px убрана.
 - `useAvatarUpload` — загрузка и `user.setAvatar(publicId, crop)`.
 - `useAvatarEditor` — состояние диалога: текущий источник/кроп из
-  `user.getAvatar`, список своих картинок.
+  `user.getAvatar`, постраничный список своих картинок, защита от гонки
+  «загрузил, пока грузился текущий аватар».
 - Показ: `SideBar`, профиль, слайдер, `GroupDetailPage`, чат
   (`ChatListItem`, `ChatMessageRow`), участники/заявки/приглашения игры.
+  У сообщений персонажа/НПС пока показывается аватар игрока: аватар
+  персонажа — отдельная задача.
 
 ## 4. Срезы
 

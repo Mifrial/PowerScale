@@ -38,8 +38,8 @@ final class UserAvatarRecord
      */
     public static function fromRow(array $row): ?self
     {
-        $fileId = $row['file_id'] ?? null;
-        if (!is_int($fileId) || $fileId < 1) {
+        $fileId = self::intValue($row['file_id'] ?? null);
+        if ($fileId === null || $fileId < 1) {
             return null;
         }
 
@@ -112,6 +112,28 @@ final class UserAvatarRecord
      */
     private static function optionalInt(mixed $value, int $minimum): ?int
     {
-        return is_int($value) && $value >= $minimum ? $value : null;
+        $intValue = self::intValue($value);
+
+        return $intValue !== null && $intValue >= $minimum ? $intValue : null;
+    }
+
+    /**
+     * Целое из int или числовой строки драйвера.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return int|null Целое или null.
+     */
+    private static function intValue(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && preg_match('/^\d+$/', $value) === 1) {
+            return (int) $value;
+        }
+
+        return null;
     }
 }

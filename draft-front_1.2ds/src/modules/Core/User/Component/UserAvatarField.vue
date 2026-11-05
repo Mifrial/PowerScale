@@ -21,9 +21,11 @@ const emit = defineEmits<{
 const {
   open,
   step,
+  stateLoading,
   source,
   initialCrop,
   sources,
+  sourcesTotal,
   sourcesLoading,
   uploading,
   error,
@@ -31,6 +33,7 @@ const {
   startUpload,
   pick,
   back,
+  loadMore,
   apply,
   clearAvatar,
 } = useAvatarEditor();
@@ -65,6 +68,8 @@ async function onClear(): Promise<void> {
       :source="source"
       :initial-crop="initialCrop"
       :sources="sources"
+      :sources-total="sourcesTotal"
+      :state-loading="stateLoading"
       :sources-loading="sourcesLoading"
       :uploading="uploading"
       :error="error"
@@ -72,6 +77,7 @@ async function onClear(): Promise<void> {
       @pick="pick"
       @apply="onApply"
       @back="back"
+      @load-more="loadMore"
     />
   </div>
 </template>

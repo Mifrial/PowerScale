@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\User\Service;
 
 use Mifrial\Core\File\Dto\FileRecord;
+use Mifrial\Core\File\Exception\FileException;
 use Mifrial\Core\File\Interface\Service\IFiles;
 use Mifrial\Core\Image\Dto\ImageCrop;
 use Mifrial\Core\Image\Dto\ImageTransformSpec;
@@ -86,15 +87,7 @@ final class UserAvatarService implements IUserAvatar
         $this->assertAvatarSource($sourceRecord);
         $crop = $this->cropSpec($cropX, $cropY, $cropSize);
         $derivedRecord = $this->deriveAvatar($filePublicId, $crop);
-        $this->userAvatarRepository->save(
-            $userId,
-            $derivedRecord->getId(),
-            $sourceRecord->getId(),
-            $crop?->getX(),
-            $crop?->getY(),
-            $crop?->getWidth(),
-        );
-        $this->archiveQuietly($this->publicIdOf($previous?->getFileId()));
+        $this->persistAvatar($userId, $sourceRecord, $derivedRecord, $crop, $previous);
 
         return $this->userView($userId);
     }
@@ -104,7 +97,7 @@ final class UserAvatarService implements IUserAvatar
      *
      * @return array{avatar: string|null, source: array<string, mixed>|null, crop: array<string, int>|null} Состояние.
      */
-    public function avatarState(): array
+    public function getAvatarState(): array
     {
         $requestActor = $this->userAccess->requireActor();
         $avatarRecord = $this->userAvatarRepository->find($requestActor->getUserId());
@@ -130,8 +123,10 @@ final class UserAvatarService implements IUserAvatar
      */
     private function assertAvatarSource(FileRecord $fileRecord): void
     {
-        if ($fileRecord->isArchived()) {
-            throw new UserInvalidException('Avatar file is archived');
+        if ($fileRecord->isArchived() || $fileRecord->isDerived()) {
+            throw new UserInvalidException(
+                $fileRecord->isArchived() ? 'Avatar file is archived' : 'Avatar source must be an original file',
+            );
         }
 
         if (!in_array($fileRecord->getMime(), self::ALLOWED_MIME, true)) {
@@ -148,7 +143,7 @@ final class UserAvatarService implements IUserAvatar
             throw new UserInvalidException('Avatar file has no image dimensions');
         }
 
-        if ($width > self::MAX_SIDE || $height > self::MAX_SIDE) {
+        if (max($width, $height) > self::MAX_SIDE) {
             throw new UserInvalidException('Avatar image sides are too large');
         }
     }
@@ -192,12 +187,8 @@ final class UserAvatarService implements IUserAvatar
      */
     private function assertCropBounds(int $cropX, int $cropY, int $cropSize): void
     {
-        if ($cropX < 0 || $cropY < 0) {
-            throw new UserInvalidException('Avatar crop offset is negative');
-        }
-
-        if ($cropSize < 1 || $cropSize > self::MAX_SIDE) {
-            throw new UserInvalidException('Avatar crop size is out of bounds');
+        if ($cropX < 0 || $cropY < 0 || $cropSize < 1 || $cropSize > self::MAX_SIDE) {
+            throw new UserInvalidException('Avatar crop is out of bounds');
         }
     }
 
@@ -224,6 +215,8 @@ final class UserAvatarService implements IUserAvatar
             return $this->files->storeDerived($sourcePublicId, $derivedPath, self::DERIVED_NAME);
         } catch (ImageException $imageException) {
             throw new UserInvalidException('Avatar image is invalid', $imageException);
+        } catch (FileException $fileException) {
+            throw new UserInvalidException('Avatar source is not available', $fileException);
         } finally {
             $this->removeFile($copyPath);
             if ($derivedPath !== null) {
@@ -265,6 +258,44 @@ final class UserAvatarService implements IUserAvatar
         if ($previous !== null) {
             $this->archiveQuietly($this->publicIdOf($previous->getFileId()));
         }
+    }
+
+    /**
+     * Записывает строку аватара; при сбое убирает новую производную.
+     *
+     * @param int $userId Учётка.
+     * @param FileRecord $sourceRecord Исходник.
+     * @param FileRecord $derivedRecord Производная.
+     * @param ImageCrop|null $crop Выбранный квадрат.
+     * @param UserAvatarRecord|null $previous Прежняя строка.
+     *
+     * @return void
+     *
+     * @throws Throwable Если строка не записалась.
+     */
+    private function persistAvatar(
+        int $userId,
+        FileRecord $sourceRecord,
+        FileRecord $derivedRecord,
+        ?ImageCrop $crop,
+        ?UserAvatarRecord $previous,
+    ): void {
+        try {
+            $this->userAvatarRepository->save(
+                $userId,
+                $derivedRecord->getId(),
+                $sourceRecord->getId(),
+                $crop?->getX(),
+                $crop?->getY(),
+                $crop?->getWidth(),
+            );
+        } catch (Throwable $throwable) {
+            $this->archiveQuietly($derivedRecord->getPublicId());
+
+            throw $throwable;
+        }
+
+        $this->archiveQuietly($this->publicIdOf($previous?->getFileId()));
     }
 
     /**

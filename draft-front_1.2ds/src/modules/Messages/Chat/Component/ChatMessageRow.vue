@@ -100,6 +100,7 @@ function onAuthorClick(): void {
 
   <div v-else class="chat-message">
     <div class="chat-msg-header">
+      <!-- Временно: у сообщений персонажа/НПС показывается аватар игрока; аватар персонажа — отдельная задача. -->
       <UserAvatar
         v-if="props.user"
         :user="props.user"

@@ -31,6 +31,6 @@ final class GetUserAvatarAction implements IActionHandler
      */
     public function handle(): array
     {
-        return $this->userAvatar->avatarState();
+        return $this->userAvatar->getAvatarState();
     }
 }

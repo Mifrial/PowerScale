@@ -64,7 +64,7 @@ CSRF **true** на всех (как `user.*`). HTTP 401 нет: нет акто�
 
 Контракт ответа **сервера**, не копия Vue-эскиза. `Group`: `id`, `name`, `active`, `memberCount`, `permissions` (сорт), `createdAt` unix int UTC, **плюс** `bypass`, `assignOnRegister` **на чтении** (админке). Ключи входа create/update — camelCase JSON (`assignOnRegister`); колонка ST — `assign_on_register`.
 
-`GroupMember`: `id`, `name`, `login`. Без `initials` в JSON; Vue считает тем же `initials()`. Email не светить.
+`GroupMember`: `id`, `name`, `login`, позже добавлен `avatar` ([`image-plan-02-avatar-crop.md`](image-plan-02-avatar-crop.md)). Без `initials` в JSON; Vue считает тем же `initials()`. Email не светить.
 
 `memberCount`: COUNT по `user_group_member` на пачку id групп из `findPage`/`get`. Один `aggregate` (`GROUP BY group_id`) — [`user-plan-08-member-count-aggregate.md`](user-plan-08-member-count-aggregate.md). Нет строк у группы — 0. Лимит **500 групп** на странице. Страница членов — [`user-plan-06-members-page.md`](user-plan-06-members-page.md).
 

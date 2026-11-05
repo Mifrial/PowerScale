@@ -22,5 +22,19 @@ export const columns: ColumnDefinition[] = [
       falseColor: 'success',
     },
   },
+  {
+    key: 'isDerived',
+    label: 'Производная',
+    type: 'boolean',
+    sortable: false,
+    meta: {
+      trueLabel: 'Да',
+      falseLabel: 'Нет',
+      trueIcon: 'mdi-file-link',
+      falseIcon: 'mdi-file',
+      trueColor: 'info',
+      falseColor: 'grey',
+    },
+  },
   { key: 'createdAt', label: 'Загружен', type: 'datetime', sortable: false },
 ];

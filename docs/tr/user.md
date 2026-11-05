@@ -57,7 +57,7 @@ HTTP `user.create` / `user.update`: поле `groups` — **id групп** (`in
 
 HTTP админки учётки — [`user-plan-03-http.md`](user-plan-03-http.md) и [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md): страница `user.findPage` (`{ items, total }`), не dump `getList`. JSON User — `IUserViews`: `email` `string|null`, `bypass`, unix-даты, camelCase `deactivatedUntil` / `deactivateReason`, `avatar` — `public_id` или `null`, без `super_admin` / `avatar_file_id` / `initials`. Вход deactivate: `deactivatedUntil` как **`Y-m-d`**; в ответе — unix. Гость — сессия Auth без `user_id`, не строка User и не `id: 0`. `AUTH_REQUIRED` → HTTP 400; клиент редиректит на login по **коду**, CSRF 403 не вылогинивает.
 
-HTTP групп — [`user-plan-04-groups-http.md`](user-plan-04-groups-http.md): `userGroup.findPage`, JSON `bypass` / `assignOnRegister` только на чтении; `GroupMember` без `initials`. Страница членов — [`user-plan-06-members-page.md`](user-plan-06-members-page.md).
+HTTP групп — [`user-plan-04-groups-http.md`](user-plan-04-groups-http.md): `userGroup.findPage`, JSON `bypass` / `assignOnRegister` только на чтении; `GroupMember` — `id`, `name`, `login`, `avatar` (`public_id` производной или `null`), без `initials`. Страница членов — [`user-plan-06-members-page.md`](user-plan-06-members-page.md).
 
 ## Ошибки
 

@@ -17,6 +17,8 @@ export class FileQueryFromGridService {
     if (ownerId !== undefined) httpQuery.ownerId = ownerId;
     const isArchived = this.filterBoolean(query.filters.isArchived);
     if (isArchived !== undefined) httpQuery.isArchived = isArchived;
+    const isDerived = this.filterBoolean(query.filters.isDerived);
+    if (isDerived !== undefined) httpQuery.isDerived = isDerived;
     this.putCreatedAt(httpQuery, query.filters.createdAt);
 
     return httpQuery;

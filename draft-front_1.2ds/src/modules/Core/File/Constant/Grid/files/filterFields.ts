@@ -1,5 +1,6 @@
 import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
 
+/** Поля фильтра админской страницы файлов; владелец дополняется списком пользователей. */
 export const filterFields: FilterField[] = [
   { key: 'createdAt', label: 'Период', type: 'datetime' },
   {
@@ -12,7 +13,7 @@ export const filterFields: FilterField[] = [
       { label: 'WebP', value: 'image/webp' },
     ],
   },
-  { key: 'ownerId', label: 'Владелец', type: 'number', modes: ['equals'], meta: { min: 1 } },
+  { key: 'ownerId', label: 'Владелец', type: 'select', options: [] },
   {
     key: 'isArchived',
     label: 'Архив',
@@ -20,6 +21,15 @@ export const filterFields: FilterField[] = [
     options: [
       { label: 'Активные', value: false },
       { label: 'В архиве', value: true },
+    ],
+  },
+  {
+    key: 'isDerived',
+    label: 'Производная',
+    type: 'select',
+    options: [
+      { label: 'Только оригиналы', value: false },
+      { label: 'Только производные', value: true },
     ],
   },
 ];

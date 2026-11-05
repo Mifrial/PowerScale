@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// Плоский фильтр страницы: limit/offset и фильтры — поля запроса, не порты.
+
 namespace Mifrial\Core\File\Dto;
 
 /**
@@ -17,6 +20,7 @@ final class FilePageQuery
      * @param string|null $mime Тип или null.
      * @param int|null $ownerId Владелец или null.
      * @param bool|null $isArchived Архив или null.
+     * @param bool|null $isDerived Производная или null.
      * @param int|null $fromUnix Нижняя граница created_at.
      * @param int|null $toUnix Верхняя граница created_at.
      *
@@ -28,6 +32,7 @@ final class FilePageQuery
         private readonly ?string $mime,
         private readonly ?int $ownerId,
         private readonly ?bool $isArchived,
+        private readonly ?bool $isDerived,
         private readonly ?int $fromUnix,
         private readonly ?int $toUnix,
     ) {
@@ -81,6 +86,16 @@ final class FilePageQuery
     public function getIsArchived(): ?bool
     {
         return $this->isArchived;
+    }
+
+    /**
+     * Фильтр производной.
+     *
+     * @return bool|null Флаг или null.
+     */
+    public function getIsDerived(): ?bool
+    {
+        return $this->isDerived;
     }
 
     /**

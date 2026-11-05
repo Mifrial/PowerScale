@@ -230,6 +230,7 @@ final class FileRepository
         $this->pushEquals($clauses, 'mime', $pageQuery->getMime());
         $this->pushEquals($clauses, 'owner_id', $pageQuery->getOwnerId());
         $this->pushEquals($clauses, 'is_archived', $pageQuery->getIsArchived());
+        $this->pushEquals($clauses, 'is_derived', $pageQuery->getIsDerived());
         $this->pushDateTime($clauses, '>=', $pageQuery->getFromUnix());
         $this->pushDateTime($clauses, '<=', $pageQuery->getToUnix());
 

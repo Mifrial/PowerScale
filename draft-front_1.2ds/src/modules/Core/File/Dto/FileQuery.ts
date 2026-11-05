@@ -5,6 +5,7 @@ export interface FileQuery {
   mime?: string;
   ownerId?: number;
   isArchived?: boolean;
+  isDerived?: boolean;
   from?: number;
   to?: number;
 }

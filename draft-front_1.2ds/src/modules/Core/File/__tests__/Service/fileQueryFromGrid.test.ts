@@ -30,6 +30,17 @@ describe('FileQueryFromGridService', () => {
     ).toEqual({ limit: 10, offset: 0, mime: 'image/png', ownerId: 7, isArchived: true });
   });
 
+  it('мапит владельца из select и флаг производной', () => {
+    expect(
+      fileQueryFromGridService.toQuery(
+        gridQuery({
+          ownerId: 7,
+          isDerived: false,
+        }),
+      ),
+    ).toEqual({ limit: 10, offset: 0, ownerId: 7, isDerived: false });
+  });
+
   it('не кладёт пустые фильтры', () => {
     expect(
       fileQueryFromGridService.toQuery(

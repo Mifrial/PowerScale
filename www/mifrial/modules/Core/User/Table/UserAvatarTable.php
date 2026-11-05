@@ -50,7 +50,7 @@ final class UserAvatarTable extends SmartTableDefinition
             ),
             // Источник и последний выбранный круг. Nullable: старые строки
             // показывают аватар, но источник придётся выбрать заново.
-            new IntField('source_file_id', FieldSettings::fromOptions(['indexed' => true]), 1),
+            new IntField('source_file_id', FieldSettings::fromOptions([]), 1),
             new IntField('crop_x', FieldSettings::fromOptions([]), 0),
             new IntField('crop_y', FieldSettings::fromOptions([]), 0),
             new IntField('crop_size', FieldSettings::fromOptions([]), 1),

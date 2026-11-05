@@ -413,6 +413,13 @@ final class FileHttpMysqlTest extends TestCase
         $files->copyOwnedTo((string) $first['publicId'], $copyPath);
         $files->storeDerived((string) $first['publicId'], $copyPath, 'avatar.webp');
 
+        // Производная не проходит upload-политику files.mime: здесь только image/png.
+        $notePath = $this->temporaryPath('opencode-note-');
+        file_put_contents($notePath, 'not an image');
+        $noteRecord = $files->storeDerived((string) $first['publicId'], $notePath, 'note.txt');
+        self::assertTrue($noteRecord->isDerived());
+        self::assertSame('text/plain', $noteRecord->getMime());
+
         $this->setActor($bob);
         $bobView = $this->uploadService($section)->upload($this->incoming($png, 'bob.png'));
 

@@ -101,32 +101,56 @@ final class FileMysqlTest extends TestCase
         self::assertTrue($repository->getById($second)->isArchived());
         self::assertSame(400, $repository->getById($second)->getArchivedAt()?->toUnix());
 
-        $page = $repository->findPage(new FilePageQuery(10, 0, null, null, null, null, null));
+        $page = $repository->findPage(new FilePageQuery(10, 0, null, null, null, null, null, null));
         self::assertSame(3, $page->getTotal());
         self::assertSame([$third, $second, $first], array_map(
             static fn ($fileRecord): int => $fileRecord->getId(),
             $page->getRecords(),
         ));
 
-        $png = $repository->findPage(new FilePageQuery(10, 0, 'image/png', null, null, null, null));
+        $png = $repository->findPage(new FilePageQuery(10, 0, 'image/png', null, null, null, null, null));
         self::assertSame([$third, $first], array_column(
             array_map(static fn ($fileRecord): array => ['id' => $fileRecord->getId()], $png->getRecords()),
             'id',
         ));
-        $owner = $repository->findPage(new FilePageQuery(10, 0, null, $alice, null, null, null));
+        $owner = $repository->findPage(new FilePageQuery(10, 0, null, $alice, null, null, null, null));
         self::assertSame(2, $owner->getTotal());
-        $archived = $repository->findPage(new FilePageQuery(10, 0, null, null, true, null, null));
+        $archived = $repository->findPage(new FilePageQuery(10, 0, null, null, true, null, null, null));
         self::assertSame([$second], array_map(
             static fn ($fileRecord): int => $fileRecord->getId(),
             $archived->getRecords(),
         ));
-        $active = $repository->findPage(new FilePageQuery(10, 0, null, null, false, null, null));
+        $active = $repository->findPage(new FilePageQuery(10, 0, null, null, false, null, null, null));
         self::assertSame([$third, $first], array_map(
             static fn ($fileRecord): int => $fileRecord->getId(),
             $active->getRecords(),
         ));
-        $range = $repository->findPage(new FilePageQuery(10, 0, null, null, null, 200, 300));
+        $range = $repository->findPage(new FilePageQuery(10, 0, null, null, null, null, 200, 300));
         self::assertSame(2, $range->getTotal());
+    }
+
+    /**
+     * Фильтр производной отделяет оригиналы от файлов соседей.
+     *
+     * @return void
+     */
+    public function testFindPageFiltersDerived(): void
+    {
+        $alice = $this->addUser('alice');
+        $repository = $this->repository();
+        $original = $repository->add($this->newFile($alice, str_repeat('a', 32), 'image/png', 100));
+        $derived = $repository->add($this->newFile($alice, str_repeat('b', 32), 'image/webp', 100, 100, true));
+
+        $derivedPage = $repository->findPage(new FilePageQuery(10, 0, null, null, null, true, null, null));
+        self::assertSame([$derived], array_map(
+            static fn ($fileRecord): int => $fileRecord->getId(),
+            $derivedPage->getRecords(),
+        ));
+        $originalPage = $repository->findPage(new FilePageQuery(10, 0, null, null, null, false, null, null));
+        self::assertSame([$original], array_map(
+            static fn ($fileRecord): int => $fileRecord->getId(),
+            $originalPage->getRecords(),
+        ));
     }
 
     /**
@@ -215,6 +239,7 @@ final class FileMysqlTest extends TestCase
         string $mime,
         int $size,
         int $createdAt = 100,
+        bool $isDerived = false,
     ): NewFile {
         return NewFile::fromNormalized([
             'public_id' => $publicId,
@@ -228,6 +253,7 @@ final class FileMysqlTest extends TestCase
             'width' => null,
             'height' => null,
             'is_archived' => false,
+            'is_derived' => $isDerived,
             'created_at' => DateTime::fromUnix($createdAt),
         ]);
     }

@@ -66,7 +66,9 @@ final class FileRecord
     public static function fromNormalized(array $fields): self
     {
         self::assertShape($fields);
-        /** @var DateTime $createdAt */
+        /**
+         * @var DateTime $createdAt
+         */
         $createdAt = $fields['created_at'];
 
         return new self(

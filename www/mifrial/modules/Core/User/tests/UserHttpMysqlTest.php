@@ -319,7 +319,7 @@ final class UserHttpMysqlTest extends TestCase
         self::assertSame('avatar.webp', $derived->getOriginalName());
         self::assertSame($alice, $first['id']);
 
-        $state = $avatar->avatarState();
+        $state = $avatar->getAvatarState();
         self::assertSame($first['avatar'], $state['avatar']);
         self::assertSame($firstPublicId, $state['source']['publicId']);
         self::assertSame(['x' => 0, 'y' => 0, 'size' => 1], $state['crop']);
@@ -340,7 +340,7 @@ final class UserHttpMysqlTest extends TestCase
         $recropped = $avatar->setAvatar($firstPublicId, 0, 0, 1);
         self::assertNotSame($first['avatar'], $recropped['avatar']);
         self::assertTrue($files->requireReadable((string) $first['avatar'])->isArchived());
-        self::assertSame($firstPublicId, $avatar->avatarState()['source']['publicId']);
+        self::assertSame($firstPublicId, $avatar->getAvatarState()['source']['publicId']);
 
         $secondPublicId = (string) $this->uploadService()->upload($this->incoming($png, 'again.png'))['publicId'];
         $second = $avatar->setAvatar($secondPublicId, 0, 0, 1);
@@ -358,6 +358,8 @@ final class UserHttpMysqlTest extends TestCase
 
         $requestContext->setActor(new RequestActor($alice, [], false));
         $files->archive($secondPublicId);
+        // Архивный источник не отдаётся в состояние, но сама производная жива.
+        self::assertNull($avatar->getAvatarState()['source']);
         try {
             $avatar->setAvatar($secondPublicId, 0, 0, 1);
             self::fail('archived source must be rejected');
@@ -368,7 +370,7 @@ final class UserHttpMysqlTest extends TestCase
         $cleared = $avatar->setAvatar(null, null, null, null);
         self::assertNull($cleared['avatar']);
         self::assertTrue($files->requireReadable((string) $second['avatar'])->isArchived());
-        self::assertSame(['avatar' => null, 'source' => null, 'crop' => null], $avatar->avatarState());
+        self::assertSame(['avatar' => null, 'source' => null, 'crop' => null], $avatar->getAvatarState());
         self::assertNull($avatar->setAvatar(null, null, null, null)['avatar']);
     }
 
@@ -384,8 +386,34 @@ final class UserHttpMysqlTest extends TestCase
         $png = (string) base64_decode(self::PNG_BASE64, true);
         $publicId = (string) $this->uploadService()->upload($this->incoming($png, 'selfie.png'))['publicId'];
 
-        $this->expectException(ActionException::class);
-        $this->avatarService()->setAvatar($publicId, 0, 0, 2);
+        try {
+            $this->avatarService()->setAvatar($publicId, 0, 0, 2);
+            self::fail('crop outside source must be rejected');
+        } catch (ActionException $exception) {
+            self::assertSame('USER_INVALID', $exception->getErrorCode());
+        }
+    }
+
+    /**
+     * Производная (в том числе текущий аватар) не годится в источник.
+     *
+     * @return void
+     */
+    public function testAvatarRejectsDerivedSource(): void
+    {
+        $alice = $this->userAccounts()->add($this->newUser(['login' => 'alice', 'name' => 'Alice']));
+        $this->requestContext()->setActor(new RequestActor($alice, [], false));
+        $png = (string) base64_decode(self::PNG_BASE64, true);
+        $publicId = (string) $this->uploadService()->upload($this->incoming($png, 'selfie.png'))['publicId'];
+        $avatar = $this->avatarService();
+        $first = $avatar->setAvatar($publicId, 0, 0, 1);
+
+        try {
+            $avatar->setAvatar((string) $first['avatar'], 0, 0, 1);
+            self::fail('derived source must be rejected');
+        } catch (ActionException $exception) {
+            self::assertSame('USER_INVALID', $exception->getErrorCode());
+        }
     }
 
     /**
@@ -527,6 +555,22 @@ final class UserHttpMysqlTest extends TestCase
         self::assertIsInt($created['createdAt']);
         $groupId = $created['id'];
         $this->userGroups()->addMember($memberId, $groupId);
+
+        $requestContext->setActor(new RequestActor($memberId, [], false));
+        $memberAvatar = $this->avatarService()->setAvatar(
+            (string) $this->uploadService()->upload(
+                $this->incoming((string) base64_decode(self::PNG_BASE64, true), 'mo.png'),
+            )['publicId'],
+            0,
+            0,
+            1,
+        );
+        $requestContext->setActor(new RequestActor(
+            $editorId,
+            ['user_group.view', 'user_group.create', 'user_group.edit', 'user.view'],
+            false,
+        ));
+
         $listedPage = $groupHttp->findPage(new FindPageInput(
             50,
             0,
@@ -541,6 +585,7 @@ final class UserHttpMysqlTest extends TestCase
         self::assertSame(1, $membersPage['total']);
         self::assertCount(1, $membersPage['items']);
         self::assertSame('Mo', $membersPage['items'][0]['name']);
+        self::assertSame($memberAvatar['avatar'], $membersPage['items'][0]['avatar']);
         self::assertArrayNotHasKey('initials', $membersPage['items'][0]);
         self::assertArrayHasKey('assignOnRegister', $listed[0]);
         self::assertArrayNotHasKey('assign_on_register', $listed[0]);

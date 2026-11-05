@@ -2,8 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import type { AvatarCrop } from '@/modules/Core/User/Dto/AvatarCrop';
 import type { AvatarSource } from '@/modules/Core/User/Dto/AvatarSource';
-import type { FileRecord } from '@/modules/Core/File/Dto/FileRecord';
-import type { AvatarEditorStep } from '@/modules/Core/User/Composables/useAvatarEditor';
+import type { AvatarEditorStep } from '@/modules/Core/User/Enum/AvatarEditorStep';
 import { getFileApi } from '@/modules/Core/File/init';
 import AvatarCropStage from '@/modules/Core/User/Component/AvatarCropStage.vue';
 
@@ -14,19 +13,31 @@ const props = withDefaults(
     step: AvatarEditorStep;
     source?: AvatarSource | null;
     initialCrop?: AvatarCrop | null;
-    sources?: FileRecord[];
+    sources?: AvatarSource[];
+    sourcesTotal?: number;
+    stateLoading?: boolean;
     sourcesLoading?: boolean;
     uploading?: boolean;
     error?: string | null;
   }>(),
-  { source: null, initialCrop: null, sources: () => [], sourcesLoading: false, uploading: false, error: null },
+  {
+    source: null,
+    initialCrop: null,
+    sources: () => [],
+    sourcesTotal: 0,
+    stateLoading: false,
+    sourcesLoading: false,
+    uploading: false,
+    error: null,
+  },
 );
 
 const emit = defineEmits<{
   upload: [file: File];
-  pick: [record: FileRecord];
+  pick: [source: AvatarSource];
   apply: [crop: AvatarCrop];
   back: [];
+  'load-more': [];
 }>();
 
 const crop = ref<AvatarCrop | null>(null);
@@ -82,21 +93,38 @@ function onFilePicked(event: Event): void {
           </v-btn>
 
           <div class="text-caption text-medium-emphasis mt-4 mb-2">Или выберите из загруженных</div>
-          <div v-if="sourcesLoading" class="d-flex justify-center pa-4">
+          <div v-if="stateLoading" class="d-flex align-center justify-center ga-2 pa-4">
+            <v-progress-circular indeterminate width="2" size="24" color="primary" />
+            <span class="text-caption text-medium-emphasis">Загружаем текущий аватар…</span>
+          </div>
+          <div v-else-if="sourcesLoading && sources.length === 0" class="d-flex justify-center pa-4">
             <v-progress-circular indeterminate width="2" size="24" color="primary" />
           </div>
-          <div v-else-if="sources.length > 0" class="avatar-source-grid">
-            <button
-              v-for="record in sources"
-              :key="record.publicId"
-              type="button"
-              class="avatar-source"
-              :title="record.originalName"
-              @click="emit('pick', record)"
+          <template v-else-if="sources.length > 0">
+            <div class="avatar-source-grid">
+              <button
+                v-for="record in sources"
+                :key="record.publicId"
+                type="button"
+                class="avatar-source"
+                :title="record.originalName"
+                @click="emit('pick', record)"
+              >
+                <img :src="viewUrl(record.publicId)" :alt="record.originalName" loading="lazy" decoding="async" />
+              </button>
+            </div>
+            <v-btn
+              v-if="sources.length < sourcesTotal"
+              block
+              variant="text"
+              size="small"
+              class="mt-2"
+              :loading="sourcesLoading"
+              @click="emit('load-more')"
             >
-              <img :src="viewUrl(record.publicId)" :alt="record.originalName" />
-            </button>
-          </div>
+              Показать ещё
+            </v-btn>
+          </template>
           <div v-else class="text-caption text-medium-emphasis">У вас пока нет загруженных изображений</div>
         </template>
       </v-card-text>

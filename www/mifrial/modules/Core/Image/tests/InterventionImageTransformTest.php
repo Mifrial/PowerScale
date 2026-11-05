@@ -135,6 +135,34 @@ final class InterventionImageTransformTest extends TestCase
     }
 
     /**
+     * Кроп применяется после EXIF-ориентации, а не до неё.
+     *
+     * @return void
+     */
+    public function testCropsAfterExifOrientation(): void
+    {
+        $source = $this->twoColorJpegWithOrientation();
+        $result = $this->transform()->transform(
+            $source,
+            new ImageTransformSpec(
+                16,
+                16,
+                FitMode::Cover,
+                OutputFormat::Png,
+                90,
+                new ImageCrop(0, 32, 48, 32),
+            ),
+        );
+
+        $this->track($result);
+
+        self::assertSame(16, $result->getWidth());
+        self::assertSame(16, $result->getHeight());
+        // После поворота 90° CW красная половина сверху, синяя — снизу.
+        $this->assertPixelNear($result, 8, 8, 0, 0, 255);
+    }
+
+    /**
      * Битые байты отвергаются как IMAGE_INVALID.
      *
      * @return void
@@ -277,6 +305,35 @@ final class InterventionImageTransformTest extends TestCase
         $path = $this->directory . '/two-color.png';
         $image->writeImage($path);
         $image->clear();
+
+        return $path;
+    }
+
+    /**
+     * Создаёт двухцветный JPEG 64×48 с EXIF Orientation = 6.
+     *
+     * @return string Путь.
+     */
+    private function twoColorJpegWithOrientation(): string
+    {
+        $image = new Imagick();
+        $image->newImage(64, 48, new ImagickPixel('red'), 'jpeg');
+        $draw = new ImagickDraw();
+        $draw->setFillColor(new ImagickPixel('blue'));
+        $draw->rectangle(32, 0, 63, 47);
+        $image->drawImage($draw);
+        $plain = $image->getImageBlob();
+        $image->clear();
+
+        $tiff = 'II' . pack('v', 42) . pack('V', 8)
+            . pack('v', 1)
+            . pack('v', 0x0112) . pack('v', 3) . pack('V', 1) . pack('v', 6) . pack('v', 0)
+            . pack('V', 0);
+        $payload = "Exif\0\0" . $tiff;
+        $app1 = "\xFF\xE1" . pack('n', strlen($payload) + 2) . $payload;
+
+        $path = $this->directory . '/two-color-oriented.jpg';
+        file_put_contents($path, substr($plain, 0, 2) . $app1 . substr($plain, 2));
 
         return $path;
     }

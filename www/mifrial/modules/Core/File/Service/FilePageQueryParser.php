@@ -35,7 +35,8 @@ final class FilePageQueryParser
             $input->offset,
             $this->parseMime($input->mime),
             $this->parseOwnerId($input->ownerId),
-            $this->parseIsArchived($input->isArchived),
+            $this->parseBool($input->isArchived),
+            $this->parseBool($input->isDerived),
             $input->from,
             $input->to,
         );
@@ -86,16 +87,8 @@ final class FilePageQueryParser
      */
     private function parseMime(OptionalString $mime): ?string
     {
-        if (!$mime->isPresent()) {
-            return null;
-        }
-
-        $mimeValue = $mime->getValue();
-        if ($mimeValue === null) {
-            return null;
-        }
-
-        $trimmed = trim($mimeValue);
+        $mimeValue = $mime->isPresent() ? $mime->getValue() : null;
+        $trimmed = trim($mimeValue ?? '');
         if ($trimmed === '') {
             return null;
         }
@@ -135,14 +128,14 @@ final class FilePageQueryParser
     }
 
     /**
-     * Разбирает флаг архива.
+     * Разбирает булев фильтр.
      *
-     * @param OptionalBool $isArchived Поле.
+     * @param OptionalBool $flag Поле.
      *
      * @return bool|null Флаг или null.
      */
-    private function parseIsArchived(OptionalBool $isArchived): ?bool
+    private function parseBool(OptionalBool $flag): ?bool
     {
-        return $isArchived->isPresent() ? $isArchived->getValue() : null;
+        return $flag->isPresent() ? $flag->getValue() : null;
     }
 }
