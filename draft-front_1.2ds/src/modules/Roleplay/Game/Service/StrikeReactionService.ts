@@ -3,6 +3,8 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpOpenWideStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrike';
+import type { GamePhpOpenWideStrikeTarget } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrikeTarget';
 import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionRequest';
 import type { ReactionActor } from '@/modules/Roleplay/Game/Dto/ReactionActor';
 import type { ReactionCoverEffect, ReactionOffer } from '@/modules/Roleplay/Game/Dto/ReactionOffer';
@@ -22,6 +24,15 @@ import { actionOdCost } from '@/modules/Roleplay/Game/Utils/combatActions';
 export type ReactionSubmit =
   | { kind: 'support'; side: SupportSide; itemInventoryId: number }
   | { kind: 'cover'; reaction: string; itemInventoryId: number; itemRuleCode: string };
+
+/** Участники строки удара для расчёта доступных реакций. */
+interface StrikeContext {
+  attacker: { type: string; id: number };
+  defender: { type: string; id: number };
+  profileType: string;
+  supporters: { actor: { type: string; id: number } }[];
+  coverers: { actor: { type: string; id: number } }[];
+}
 
 /**
  * Реакции на открытый удар: какие карточки доступны и что нужно для заявки.
@@ -51,17 +62,84 @@ export class StrikeReactionService {
     rules: Rule[],
     canWrite: boolean,
   ): ReactionOffer[] {
-    const attackerKey = this.entityKey(strike.attackerKind, strike.attackerId);
-    const defenderKey = this.entityKey(strike.defenderKind, strike.defenderId);
-    const reacted = new Set(
-      (strike.supporters ?? []).map((supporter) => this.entityKey(supporter.actor.type, supporter.actor.id)),
+    return this.offersOf(
+      {
+        attacker: { type: strike.attackerKind, id: strike.attackerId },
+        defender: { type: strike.defenderKind, id: strike.defenderId },
+        profileType: strike.profileType,
+        supporters: strike.supporters ?? [],
+        coverers: strike.coverers ?? [],
+      },
+      currentUserId,
+      memberships,
+      npcs,
+      rules,
+      canWrite,
     );
-    for (const coverer of strike.coverers ?? []) {
+  }
+
+  /**
+   * Доступные реакции на строку широкого удара.
+   *
+   * Заявка адресуется конкретной цели строки: сервер выбирает строку по
+   * `context.target`, а не по одному общему защитнику.
+   */
+  wideOffers(
+    strike: GamePhpOpenWideStrike,
+    target: GamePhpOpenWideStrikeTarget,
+    currentUserId: number | null,
+    memberships: GameCharacterMembership[],
+    npcs: GameNpc[],
+    rules: Rule[],
+    canWrite: boolean,
+  ): ReactionOffer[] {
+    const offers = this.offersOf(
+      {
+        attacker: { type: strike.attacker.type, id: strike.attacker.id },
+        defender: { type: target.type, id: target.id },
+        profileType: strike.profileType,
+        supporters: target.supporters ?? [],
+        coverers: target.coverers ?? [],
+      },
+      currentUserId,
+      memberships,
+      npcs,
+      rules,
+      canWrite,
+    );
+    const covered = this.nameOf(target.type, target.id, memberships, npcs);
+
+    return offers.map((offer) => ({
+      ...offer,
+      target: { type: target.type, id: target.id },
+      label: `${offer.rule.name} · ${covered}`,
+    }));
+  }
+
+  /** Устойчивый ключ строки широкого удара для подавления окна. */
+  wideStrikeKey(strike: GamePhpOpenWideStrike, target: { type: string; id: number }): string {
+    return `wide:${strike.id}:${target.type}:${target.id}`;
+  }
+
+  private offersOf(
+    context: StrikeContext,
+    currentUserId: number | null,
+    memberships: GameCharacterMembership[],
+    npcs: GameNpc[],
+    rules: Rule[],
+    canWrite: boolean,
+  ): ReactionOffer[] {
+    const attackerKey = this.entityKey(context.attacker.type, context.attacker.id);
+    const defenderKey = this.entityKey(context.defender.type, context.defender.id);
+    const reacted = new Set(
+      context.supporters.map((supporter) => this.entityKey(supporter.actor.type, supporter.actor.id)),
+    );
+    for (const coverer of context.coverers) {
       reacted.add(this.entityKey(coverer.actor.type, coverer.actor.id));
     }
     const names: Record<SupportSide, string> = {
-      attacker: this.nameOf(strike.attackerKind, strike.attackerId, memberships, npcs),
-      defender: this.nameOf(strike.defenderKind, strike.defenderId, memberships, npcs),
+      attacker: this.nameOf(context.attacker.type, context.attacker.id, memberships, npcs),
+      defender: this.nameOf(context.defender.type, context.defender.id, memberships, npcs),
     };
     const reactions = rules
       .map((rule) => ({
@@ -98,7 +176,7 @@ export class StrikeReactionService {
 
         if (entry.support) {
           const profile = entry.support.profile ?? 'strike';
-          if (profile !== strike.profileType) continue;
+          if (profile !== context.profileType) continue;
           const weapons = this.weaponsOf(actor.version, rules, profile);
           if (weapons.length === 0) continue;
           offers.push({
@@ -144,8 +222,12 @@ export class StrikeReactionService {
     expectedBattleVersion: number,
     expectedSheetVersion: number,
     idempotencyKey: string,
+    target?: { type: string; id: number },
   ): GamePhpRunActionRequest {
     const context: Record<string, unknown> = { expectedSheetVersion };
+    if (target) {
+      context.target = { type: target.type, id: target.id };
+    }
     if (submit.kind === 'support') {
       const weapon = this.weaponOf(offer, submit.itemInventoryId);
       if (!weapon) throw new Error('Оружие реакции не найдено');

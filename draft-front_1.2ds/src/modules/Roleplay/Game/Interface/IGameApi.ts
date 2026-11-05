@@ -336,7 +336,7 @@ export interface IGameApi {
       battleId: number;
       idempotencyKey: string;
       expectedVersion: number;
-      window: { actualTarget: string };
+      window: { row?: string; actualTarget: string };
     },
     signal?: AbortSignal,
   ): Promise<GamePhpRunActionResult>;

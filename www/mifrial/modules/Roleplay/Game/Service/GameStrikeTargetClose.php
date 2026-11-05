@@ -96,6 +96,7 @@ final class GameStrikeTargetClose
      * @param GameStrikeSpend $spend Траты реакции.
      * @param GameStrikeAmounts $amounts Пары и нули.
      * @param GameStrikeTargetChoices $choices Choices целей.
+     * @param GameStrikeCover $cover Броски прикрытия.
      *
      * @return void
      */
@@ -107,7 +108,65 @@ final class GameStrikeTargetClose
         private readonly GameStrikeSpend $spend,
         private readonly GameStrikeAmounts $amounts,
         private readonly GameStrikeTargetChoices $choices,
+        private readonly GameStrikeCover $cover,
     ) {
+    }
+
+    /**
+     * Готовит реакцию цели и броски прикрывающих до применения.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $open Открытый удар.
+     * @param array<string, mixed> $row Строка цели.
+     * @param array<string, mixed> $choice Защита.
+     * @param string $hitCode Код проверки.
+     * @param array<string, mixed> $attackerRoll Бросок атаки.
+     * @param string $profileType Профиль.
+     * @param bool $isPush Толчок.
+     * @param DimensionalNumber|null $shotDistance Дистанция выстрела.
+     *
+     * @return array{reaction: array<string, mixed>, cover: array<string, mixed>|null} Подготовка.
+     */
+    public function prepare(
+        GameRecord $game,
+        array $open,
+        array $row,
+        array $choice,
+        string $hitCode,
+        array $attackerRoll,
+        string $profileType,
+        bool $isPush,
+        ?DimensionalNumber $shotDistance = null,
+    ): array {
+        $target = GameStrikeTargetRow::defender($row);
+        $reaction = $this->reactionOf(
+            $game,
+            $target,
+            $choice,
+            GameStrikeTargetRow::conditions($row),
+            $hitCode,
+        );
+        $cover = null;
+        if (!$reaction['insufficient'] && $this->jsonRows($row, 'coverers') !== []) {
+            $cover = $this->cover->resolve(
+                $game,
+                $open,
+                $row,
+                GameStrikeTargetRow::conditions($row),
+                $choice,
+                $attackerRoll,
+                $hitCode,
+                $reaction['slice'] ?? $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+                $this->pendingAfter,
+                $reaction['pending'],
+                $profileType,
+                $isPush,
+                $shotDistance,
+                is_int($choice['expectedSheetVersion'] ?? null) ? $choice['expectedSheetVersion'] : 0,
+            );
+        }
+
+        return ['reaction' => $reaction, 'cover' => $cover];
     }
 
     /**
@@ -124,6 +183,9 @@ final class GameStrikeTargetClose
      * @param callable(): DimensionalNumber $penetrationFactory Ленивое проникновение.
      * @param int $actorUserId Актор.
      * @param bool $viewAll Полный просмотр.
+     * @param array<int, RollAdvantage> $extraAdvantages Преимущества защиты из поддержек.
+     * @param array<string, mixed>|null $prepared Реакция и прикрытие строки.
+     * @param array<string, mixed>|null $resolved Готовая защита без переброса.
      *
      * @return array<string, mixed> Запись цели.
      */
@@ -139,19 +201,38 @@ final class GameStrikeTargetClose
         callable $penetrationFactory,
         int $actorUserId,
         bool $viewAll,
+        array $extraAdvantages = [],
+        ?array $prepared = null,
+        ?array $resolved = null,
     ): array {
         $target = GameStrikeTargetRow::defender($row);
         if ($refusalCode !== null) {
             return GameStrikeTargetRow::row($target, $refusalCode, null, null, null);
         }
 
-        $reaction = $this->reactionOf(
-            $game,
-            $target,
-            $choice,
-            GameStrikeTargetRow::conditions($row),
-            $hitCode,
-        );
+        if ($resolved !== null) {
+            $choice = $resolved['choice'];
+            $attackerRoll = $resolved['attackerRoll'];
+            $reaction = [
+                'spends' => [],
+                'pending' => $this->pendingAfter,
+                'slice' => $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+                'reactionRuleCode' => $resolved['reactionRuleCode'],
+                'insufficient' => false,
+                'token' => null,
+            ];
+        } elseif ($prepared !== null) {
+            $reaction = $prepared['reaction'];
+        } else {
+            $reaction = $this->reactionOf(
+                $game,
+                $target,
+                $choice,
+                GameStrikeTargetRow::conditions($row),
+                $hitCode,
+            );
+        }
+
         if ($reaction['insufficient']) {
             $zero = $this->amounts->view($this->amounts->zero());
 
@@ -168,19 +249,30 @@ final class GameStrikeTargetClose
             is_int($open['attacker_id'] ?? null) ? $open['attacker_id'] : 0,
             $target['type'] . ':' . $target['id'],
         );
-        $defense = $this->defenseOf(
-            $game,
-            $open,
-            $target,
-            $choice,
-            $attackerRoll,
-            $reaction['pending'],
-            $reactionRuleCode,
-            $slice,
-            $hitCode,
-            GameStrikeTargetRow::conditions($row),
-            $reaction['token']['advantage'] ?? null,
-        );
+        $defense = $resolved !== null
+            ? [
+                'defenderRoll' => $resolved['defenderRoll'],
+                'autoFail' => $this->rules->isHitAutoFail($attackerRoll['roll']),
+                'success' => $this->resolution->successOf(
+                    $attackerRoll,
+                    $resolved['defenderRoll'],
+                    is_string($choice['reaction'] ?? null) ? $choice['reaction'] : 'ignore',
+                ),
+            ]
+            : $this->defenseOf(
+                $game,
+                $open,
+                $target,
+                $choice,
+                $attackerRoll,
+                $reaction['pending'],
+                $reactionRuleCode,
+                $slice,
+                $hitCode,
+                GameStrikeTargetRow::conditions($row),
+                $reaction['token']['advantage'] ?? null,
+                $extraAdvantages,
+            );
         $slice ??= $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $success = $lastStrike->boostSuccess(
             $slice,
@@ -411,6 +503,7 @@ final class GameStrikeTargetClose
         string $hitCode,
         array $conditions,
         ?RollAdvantage $token = null,
+        array $extraAdvantages = [],
     ): array {
         $targetOpen = GameStrikeTargetRow::targetOpen($open, $target);
         $defenderRoll = null;
@@ -421,6 +514,8 @@ final class GameStrikeTargetClose
         if ($token !== null) {
             $flank[] = $token;
         }
+
+        array_push($flank, ...$extraAdvantages);
 
         if ($choice['reaction'] === 'dodge') {
             $defenderRoll = $this->resolution->dodgeRollOf(
@@ -599,6 +694,7 @@ final class GameStrikeTargetClose
      * @param CharacterRuleSlice $slice Срез.
      * @param int $targetCount Число целей.
      * @param array<int, string> $targetKeys Ключи целей.
+     * @param array<int, RollAdvantage> $extraAdvantages Преимущества атакующего из поддержек.
      *
      * @return array<string, mixed> Roll.
      */
@@ -609,6 +705,7 @@ final class GameStrikeTargetClose
         CharacterRuleSlice $slice,
         int $targetCount,
         array $targetKeys = [],
+        array $extraAdvantages = [],
     ): array {
         $hitCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
@@ -623,6 +720,8 @@ final class GameStrikeTargetClose
             $advantages[] = $wideAdvantage;
         }
 
+        array_push($advantages, ...$extraAdvantages);
+
         return $this->resolution->rollOf(
             $game,
             $open,
@@ -632,5 +731,27 @@ final class GameStrikeTargetClose
             $advantages,
             $targetKeys,
         );
+    }
+
+    /**
+     * Список JSON-записей строки удара.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     * @param string $key Колонка.
+     *
+     * @return list<array<string, mixed>> Записи.
+     */
+    private function jsonRows(array $row, string $key): array
+    {
+        $raw = $row[$key] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter($raw, static fn (mixed $entry): bool => is_array($entry)));
     }
 }

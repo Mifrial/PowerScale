@@ -226,7 +226,7 @@ function submit(): void {
         <v-select
           v-if="currentGroup && currentGroup.offers.length > 1"
           v-model="offerIndex"
-          :items="currentGroup.offers.map((offer, index) => ({ title: offer.rule.name, value: index }))"
+          :items="currentGroup.offers.map((offer, index) => ({ title: offer.label ?? offer.rule.name, value: index }))"
           label="Реакция"
           density="compact"
           hide-details="auto"

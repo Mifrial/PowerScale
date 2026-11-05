@@ -106,7 +106,7 @@ final class GameActionChat
      * @param string $actorKind Вид character или npc.
      * @param int $actorId Идентификатор актора.
      * @param GameBattleRecord $battle Бой.
-     * @param int $strikeId Удар.
+     * @param string $threadId Нить атаки.
      * @param string $actionRuleCode Карточка реакции.
      * @param array{type: string, id: int} $target Прикрываемый.
      * @param string $reaction Выбранная защита.
@@ -123,7 +123,7 @@ final class GameActionChat
         string $actorKind,
         int $actorId,
         GameBattleRecord $battle,
-        int $strikeId,
+        string $threadId,
         string $actionRuleCode,
         array $target,
         string $reaction,
@@ -135,7 +135,6 @@ final class GameActionChat
             throw new GameInvalidException('Game chat is missing');
         }
 
-        $threadId = 'attack-' . $strikeId;
         $thread = GameCombatThread::buildAttack($battle, $threadId);
         $actor = $this->strikeChat->getEntityToken($actorKind, $actorId);
         $covered = $this->strikeChat->getEntityToken($target['type'], $target['id']);
@@ -161,7 +160,7 @@ final class GameActionChat
      * @param string $actorKind Вид character или npc.
      * @param int $actorId Идентификатор актора.
      * @param GameBattleRecord $battle Бой.
-     * @param int $strikeId Удар.
+     * @param string $threadId Нить атаки.
      * @param string $actionRuleCode Карточка реакции.
      * @param string $side Сторона удара: attacker или defender.
      * @param array{type: string, id: int} $sideActor Участник выбранной стороны.
@@ -178,7 +177,7 @@ final class GameActionChat
         string $actorKind,
         int $actorId,
         GameBattleRecord $battle,
-        int $strikeId,
+        string $threadId,
         string $actionRuleCode,
         string $side,
         array $sideActor,
@@ -190,7 +189,6 @@ final class GameActionChat
             throw new GameInvalidException('Game chat is missing');
         }
 
-        $threadId = 'attack-' . $strikeId;
         $thread = GameCombatThread::buildAttack($battle, $threadId);
         $actor = $this->strikeChat->getEntityToken($actorKind, $actorId);
         $target = $this->strikeChat->getEntityToken($sideActor['type'], $sideActor['id']);

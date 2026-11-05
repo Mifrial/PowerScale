@@ -275,8 +275,17 @@ final class GameActionDeclare
         $this->access->assertRoster($input['battleId'], $input['actor'], []);
 
         $open = $this->actions->findOpenWithStrikes($input['battleId'], 'strike');
+        $wide = false;
         $strikes = is_array($open['strikes'] ?? null) ? $open['strikes'] : [];
-        $row = count($strikes) === 1 && is_array($strikes[0]) ? $strikes[0] : null;
+        if ($open === null || count($strikes) !== 1) {
+            $open = $this->actions->findOpenWithStrikes($input['battleId'], 'wide_strike');
+            $strikes = is_array($open['strikes'] ?? null) ? $open['strikes'] : [];
+            $wide = true;
+        }
+
+        $row = $wide
+            ? $this->rowOfTarget($strikes, $input['context'])
+            : (is_array($strikes[0] ?? null) ? $strikes[0] : null);
         if ($open === null || $row === null) {
             throw new GameInvalidException('Game strike reaction is not available');
         }
@@ -343,6 +352,8 @@ final class GameActionDeclare
                 throw new GameInvalidException('Game strike cover actor is invalid');
             }
 
+            $chatStrikeId = is_int($open['id'] ?? null) ? $open['id'] : $strikeId;
+
             return $this->declareCover(
                 $game,
                 $input,
@@ -350,7 +361,7 @@ final class GameActionDeclare
                 $battle,
                 $row,
                 $strikeId,
-                is_int($open['id'] ?? null) ? $open['id'] : $strikeId,
+                ($wide ? 'attack-wide-' : 'attack-') . $chatStrikeId,
                 $coverers,
                 $actorUserId,
             );
@@ -361,7 +372,7 @@ final class GameActionDeclare
             throw new GameInvalidException('Game strike support side is invalid');
         }
 
-        $attackProfile = $open['profile_type'] ?? null;
+        $attackProfile = $open['profile_type'] ?? $row['profile_type'] ?? null;
         if ($support->getProfile() !== null && $attackProfile !== $support->getProfile()) {
             throw new GameInvalidException('Game strike support profile is invalid');
         }
@@ -425,7 +436,7 @@ final class GameActionDeclare
             $input['actor']['type'],
             $input['actor']['id'],
             $battle,
-            $chatStrikeId,
+            ($wide ? 'attack-wide-' : 'attack-') . $chatStrikeId,
             $input['actionRuleCode'],
             $effect['side'],
             $effect['side'] === 'attacker' ? $attacker : $target,
@@ -522,6 +533,33 @@ final class GameActionDeclare
     }
 
     /**
+     * Строка широкого удара по выбранной цели.
+     *
+     * @param list<array<string, mixed>> $strikes Строки удара.
+     * @param array<string, mixed> $context Контекст реакции.
+     *
+     * @return array<string, mixed>|null Строка или null.
+     */
+    private function rowOfTarget(array $strikes, array $context): ?array
+    {
+        $target = is_array($context['target'] ?? null) ? $context['target'] : null;
+        if ($target === null || !is_string($target['type'] ?? null) || !is_int($target['id'] ?? null)) {
+            return null;
+        }
+
+        foreach ($strikes as $row) {
+            if (
+                ($row['target_type'] ?? null) === $target['type']
+                && ($row['target_id'] ?? null) === $target['id']
+            ) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Уже объявленные поддержки строки удара.
      *
      * @param array<string, mixed> $row Строка удара.
@@ -615,7 +653,7 @@ final class GameActionDeclare
      * @param GameBattleRecord $battle Бой.
      * @param array<string, mixed> $row Строка удара.
      * @param int $strikeId Строка.
-     * @param int $chatStrikeId Нить атаки.
+     * @param string $threadId Нить атаки.
      * @param list<array<string, mixed>> $coverers Уже заявившиеся.
      * @param int $actorUserId Пользователь.
      *
@@ -630,7 +668,7 @@ final class GameActionDeclare
         GameBattleRecord $battle,
         array $row,
         int $strikeId,
-        int $chatStrikeId,
+        string $threadId,
         array $coverers,
         int $actorUserId,
     ): array {
@@ -709,7 +747,7 @@ final class GameActionDeclare
             $input['actor']['type'],
             $input['actor']['id'],
             $battle,
-            $chatStrikeId,
+            $threadId,
             $input['actionRuleCode'],
             $target,
             $effect['reaction'],

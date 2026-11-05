@@ -343,49 +343,93 @@ final class GameStrikes implements IGameStrikes
         }
 
         $open = $this->actions->findOpenWithStrikes($battleId, 'strike');
+        $wide = false;
         $strikes = is_array($open['strikes'] ?? null) ? $open['strikes'] : [];
-        $row = is_array($strikes[0] ?? null) ? $strikes[0] : null;
-        $attacker = $row === null
-            ? null
-            : ['type' => $open['attacker_kind'] ?? null, 'id' => $open['attacker_id'] ?? null];
-        if (
-            $open === null
-            || $row === null
-            || !is_array($attacker)
-            || !is_string($attacker['type'] ?? null)
-            || !is_int($attacker['id'] ?? null)
-        ) {
+        if ($open === null || count($strikes) !== 1) {
+            $open = $this->actions->findOpenWithStrikes($battleId, 'wide_strike');
+            $strikes = is_array($open['strikes'] ?? null) ? $open['strikes'] : [];
+            $wide = true;
+        }
+
+        if ($open === null || $strikes === []) {
+            throw new GameInvalidException('Game strike window is not open');
+        }
+
+        $attacker = ['type' => $open['attacker_kind'] ?? null, 'id' => $open['attacker_id'] ?? null];
+        if (!is_string($attacker['type'] ?? null) || !is_int($attacker['id'] ?? null)) {
             throw new GameInvalidException('Game strike window is not open');
         }
 
         $this->access->assertAttacker($game, $actorUserId, $editAll, $attacker);
-        $resolution = $row['resolution'] ?? null;
-        if (is_string($resolution)) {
-            $resolution = json_decode($resolution, true);
-        }
-
-        $awaiting = is_array($resolution) && is_array($resolution['awaiting'] ?? null)
-            ? $resolution['awaiting']
-            : [];
         $target = is_string($window['actualTarget'] ?? null) ? $window['actualTarget'] : '';
-        $allowed = false;
-        foreach ($awaiting as $entry) {
-            if (!is_array($entry) || ($entry['kind'] ?? null) !== 'actual_target') {
-                continue;
-            }
+        $rowKey = is_string($window['row'] ?? null) ? $window['row'] : '';
 
-            foreach (is_array($entry['options'] ?? null) ? $entry['options'] : [] as $option) {
-                if (is_array($option) && ($option['key'] ?? null) === $target) {
-                    $allowed = true;
-                }
-            }
-        }
+        $result = $wide
+            ? $this->resumeWideWindow(
+                $game,
+                $sessionId,
+                $battleId,
+                $idempotencyKey,
+                $expectedBattleVersion,
+                $strikes,
+                $rowKey,
+                $target,
+                $window,
+                $actorUserId,
+                $editAll,
+                $viewAll,
+            )
+            : $this->resumeSingleWindow(
+                $game,
+                $sessionId,
+                $battleId,
+                $idempotencyKey,
+                $expectedBattleVersion,
+                $strikes[0],
+                $target,
+                $actorUserId,
+                $editAll,
+                $viewAll,
+            );
+        $this->announce($gameId, $idempotencyKey);
 
-        if (!$allowed) {
+        return $result;
+    }
+
+    /**
+     * Продолжает одиночный удар по решению окна.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param int $battleId Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedBattleVersion Версия боя.
+     * @param array<string, mixed> $row Строка удара.
+     * @param string $target Ключ цели.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ.
+     * @param bool $viewAll Ключ.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    private function resumeSingleWindow(
+        GameRecord $game,
+        int $sessionId,
+        int $battleId,
+        string $idempotencyKey,
+        int $expectedBattleVersion,
+        array $row,
+        string $target,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+    ): array {
+        $awaiting = $this->awaitingOfRow($row);
+        if (!$this->optionAllowed($awaiting, $target)) {
             throw new GameInvalidException('Game strike window target is invalid');
         }
 
-        $result = $this->closeService->resumeSingle(
+        return $this->closeService->resumeSingle(
             $game,
             $sessionId,
             $battleId,
@@ -396,9 +440,127 @@ final class GameStrikes implements IGameStrikes
             $editAll,
             $viewAll,
         );
-        $this->announce($gameId, $idempotencyKey);
+    }
 
-        return $result;
+    /**
+     * Продолжает широкий удар по решению окна одной строки.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param int $battleId Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedBattleVersion Версия боя.
+     * @param list<array<string, mixed>> $strikes Строки удара.
+     * @param string $rowKey Ключ строки.
+     * @param string $target Ключ цели.
+     * @param array<string, mixed> $window Решение окна.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ.
+     * @param bool $viewAll Ключ.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    private function resumeWideWindow(
+        GameRecord $game,
+        int $sessionId,
+        int $battleId,
+        string $idempotencyKey,
+        int $expectedBattleVersion,
+        array $strikes,
+        string $rowKey,
+        string $target,
+        array $window,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+    ): array {
+        $resume = [];
+        foreach ($strikes as $row) {
+            $rowId = is_int($row['id'] ?? null) ? $row['id'] : 0;
+            $awaitings = $this->awaitingOfRow($row);
+            if ($awaitings === []) {
+                continue;
+            }
+
+            $matches = $rowKey === '' || $rowKey === (string) $rowId;
+            foreach ($awaitings as $entry) {
+                if (($entry['rowKey'] ?? null) === $rowKey) {
+                    $matches = true;
+                }
+            }
+
+            if (!$matches || !$this->optionAllowed($awaitings, $target)) {
+                continue;
+            }
+
+            $resume[$rowId] = ['actualTarget' => $target];
+        }
+
+        if ($resume === []) {
+            throw new GameInvalidException('Game strike window target is invalid');
+        }
+
+        if (!isset($window['actualTarget'])) {
+            throw new GameInvalidException('Game strike window target is invalid');
+        }
+
+        return $this->closeService->resumeWide(
+            $game,
+            $sessionId,
+            $this->battleOf($sessionId, $battleId, $expectedBattleVersion),
+            $idempotencyKey,
+            $expectedBattleVersion,
+            $resume,
+            $actorUserId,
+            $editAll,
+            $viewAll,
+        );
+    }
+
+    /**
+     * Ожидания строки удара.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return list<array<string, mixed>> Ожидания.
+     */
+    private function awaitingOfRow(array $row): array
+    {
+        $resolution = $row['resolution'] ?? null;
+        if (is_string($resolution)) {
+            $resolution = json_decode($resolution, true);
+        }
+
+        $awaiting = is_array($resolution) && is_array($resolution['awaiting'] ?? null)
+            ? $resolution['awaiting']
+            : [];
+
+        return array_values(array_filter($awaiting, static fn (mixed $entry): bool => is_array($entry)));
+    }
+
+    /**
+     * Выбор входит в ожидания.
+     *
+     * @param list<array<string, mixed>> $awaiting Ожидания.
+     * @param string $target Ключ цели.
+     *
+     * @return bool Признак.
+     */
+    private function optionAllowed(array $awaiting, string $target): bool
+    {
+        foreach ($awaiting as $entry) {
+            if (($entry['kind'] ?? null) !== 'actual_target') {
+                continue;
+            }
+
+            foreach (is_array($entry['options'] ?? null) ? $entry['options'] : [] as $option) {
+                if (is_array($option) && ($option['key'] ?? null) === $target) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

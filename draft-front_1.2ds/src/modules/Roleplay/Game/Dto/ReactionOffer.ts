@@ -35,4 +35,8 @@ export interface ReactionOffer {
   reaction: ReactionSpec;
   cost: number;
   effect: ReactionSupportEffect | ReactionCoverEffect;
+  /** Строка широкого удара, к которой относится заявка. */
+  target?: { type: string; id: number };
+  /** Подпись выбора, когда одна карточка доступна на несколько строк. */
+  label?: string;
 }

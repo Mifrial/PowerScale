@@ -3,6 +3,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpOpenWideStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrike';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import { versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
@@ -199,6 +200,20 @@ const STRIKE: GamePhpOpenStrike = {
   profileIndex: 0,
 };
 
+const WIDE: GamePhpOpenWideStrike = {
+  id: 11,
+  attacker: { type: 'character', id: 3 },
+  actionRuleCode: 'swing',
+  itemInventoryId: 1,
+  itemRuleCode: 'sword',
+  profileType: 'strike',
+  profileIndex: 0,
+  targets: [
+    { type: 'character', id: 5, answered: false },
+    { type: 'character', id: 6, answered: false },
+  ],
+};
+
 const RULES = [ACTION_POINTS, SUPPORT, SWORD, BOW];
 
 describe('StrikeReactionService', () => {
@@ -362,5 +377,61 @@ describe('StrikeReactionService', () => {
         blockItemRuleCode: 'shield',
       },
     });
+  });
+
+  it('прикрытие строки широкого удара адресует заявку конкретной цели', () => {
+    const coverVersion = version([{ id: 1, ruleCode: 'shield', quantity: 1, equipped: true }]);
+    coverVersion.abilities = [{ ruleCode: 'prikrytie', level: 1 }];
+    const members = [membership({ approvedCharacterVersion: coverVersion })];
+    const offers = strikeReactionService.wideOffers(
+      WIDE,
+      WIDE.targets[0],
+      10,
+      members,
+      [],
+      [ACTION_POINTS, SUPPORT, COVER, SWORD, SHIELD],
+      false,
+    );
+
+    expect(offers).toHaveLength(1);
+    expect(offers[0].target).toEqual({ type: 'character', id: 5 });
+    expect(offers[0].label).toContain('Прикрытие');
+
+    const request = strikeReactionService.request(
+      1,
+      offers[0],
+      { kind: 'cover', reaction: 'block', itemInventoryId: 1, itemRuleCode: 'shield' },
+      9,
+      4,
+      3,
+      'key',
+      offers[0].target,
+    );
+    expect(request.action.context).toMatchObject({
+      expectedSheetVersion: 3,
+      target: { type: 'character', id: 5 },
+      cover: { reaction: 'block', blockItemRuleCode: 'shield' },
+    });
+  });
+
+  it('уже заявившийся прикрывающий не предлагается для этой строки', () => {
+    const coverVersion = version([{ id: 1, ruleCode: 'shield', quantity: 1, equipped: true }]);
+    coverVersion.abilities = [{ ruleCode: 'prikrytie', level: 1 }];
+    const members = [membership({ approvedCharacterVersion: coverVersion })];
+    const covered = {
+      ...WIDE.targets[0],
+      coverers: [{ actor: { type: 'character', id: 7 }, ruleCode: 'prikrytie', reaction: 'block' }],
+    };
+    const offers = strikeReactionService.wideOffers(
+      WIDE,
+      covered,
+      10,
+      members,
+      [],
+      [ACTION_POINTS, SUPPORT, COVER, SWORD, SHIELD],
+      false,
+    );
+
+    expect(offers).toHaveLength(0);
   });
 });

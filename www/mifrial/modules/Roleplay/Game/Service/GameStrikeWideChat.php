@@ -45,6 +45,7 @@ final class GameStrikeWideChat
      * @param GameBattleRecord $battle Бой.
      * @param CharacterRuleSlice $slice Срез.
      * @param int $actorUserId Актор.
+     * @param array<int, array<string, mixed>> $covers Прикрытия по строкам.
      *
      * @return void
      */
@@ -58,6 +59,7 @@ final class GameStrikeWideChat
         GameBattleRecord $battle,
         CharacterRuleSlice $slice,
         int $actorUserId,
+        array $covers = [],
     ): void {
         $shown = [];
         foreach ($results as $index => $record) {
@@ -91,10 +93,29 @@ final class GameStrikeWideChat
         $typeBit = $this->chat->getDamageTypeBit($game, $itemRuleCode, $profileType, $profileIndex, $slice);
         $targets = [];
         $reactions = [];
+        $failed = [];
         foreach ($shown as $item) {
-            $target = $item['record']['target'] ?? $this->defender($item['row']);
+            $rowId = is_int($item['row']['id'] ?? null) ? $item['row']['id'] : 0;
+            $cover = is_array($covers[$rowId] ?? null) ? $covers[$rowId] : null;
+            $target = $cover !== null && is_array($cover['target'] ?? null)
+                ? $cover['target']
+                : ($item['record']['target'] ?? $this->defender($item['row']));
             $name = $this->chat->getEntityToken($target['type'], $target['id']);
             $targets[] = $name;
+            if ($cover !== null) {
+                $bit = $this->coverBit($cover);
+                if ($bit !== '') {
+                    $reactions[] = $bit;
+                }
+
+                $attempts = $this->coverAttemptsText($cover);
+                if ($attempts !== '') {
+                    $failed[] = $attempts;
+                }
+
+                continue;
+            }
+
             $reaction = $item['choice']['reaction'] ?? 'ignore';
             $reactionCode = $reaction === 'ignore'
                 ? null
@@ -114,7 +135,15 @@ final class GameStrikeWideChat
         }
 
         $narrative = $attacker . ' наносит ' . $typeBit . ' ' . $kind . ' оружием [[rule:' . $itemRuleCode . ']] по '
-            . $this->chat->getJoinNames($targets) . '. ' . implode(', ', $reactions) . '!';
+            . $this->chat->getJoinNames($targets) . '.';
+        if ($reactions !== []) {
+            $narrative .= ' ' . implode(', ', $reactions) . '!';
+        }
+
+        if ($failed !== []) {
+            $narrative .= ' ' . implode('; ', $failed) . ' — прикрытие не удаётся.';
+        }
+
         $threadId = 'attack-wide-' . ($row['id'] ?? 0);
         $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
         $speaker = $this->chat->getSpeakerOf($row['attacker_kind'] ?? 'character', $row['attacker_id'] ?? 0);
@@ -147,6 +176,16 @@ final class GameStrikeWideChat
             $attacker . ' совершает действие ' . $action . ' за ' . $actionAp . 'ОД.',
             $narrative,
         ], $speaker, $parentId);
+        foreach ($shown as $item) {
+            $rowId = is_int($item['row']['id'] ?? null) ? $item['row']['id'] : 0;
+            $cover = is_array($covers[$rowId] ?? null) ? $covers[$rowId] : null;
+            if ($cover === null) {
+                continue;
+            }
+
+            $this->postCoverChecks($game, $actorUserId, $threadId, $slice, $cover, $speaker, $parentId);
+        }
+
         $this->consequences->postRolls($game, $actorUserId, $threadId, $rolls, $speaker, $parentId);
         foreach ($shown as $item) {
             $this->outcome(
@@ -160,6 +199,174 @@ final class GameStrikeWideChat
                 $parentId,
             );
         }
+    }
+
+    /**
+     * Строка победившего прикрытия.
+     *
+     * @param array<string, mixed> $cover Описание прикрытия.
+     *
+     * @return string Текст или пустая строка.
+     */
+    private function coverBit(array $cover): string
+    {
+        foreach (is_array($cover['attempts'] ?? null) ? $cover['attempts'] : [] as $attempt) {
+            if (!is_array($attempt) || ($attempt['winner'] ?? false) !== true) {
+                continue;
+            }
+
+            $actor = $attempt['actor'] ?? null;
+            if (!is_array($actor) || !is_string($actor['type'] ?? null) || !is_int($actor['id'] ?? null)) {
+                continue;
+            }
+
+            $cost = is_int($attempt['cost'] ?? null) ? $attempt['cost'] : 0;
+            $block = is_string($attempt['blockItemRuleCode'] ?? null) && $attempt['blockItemRuleCode'] !== ''
+                ? ' с [[rule:' . $attempt['blockItemRuleCode'] . ']]'
+                : '';
+
+            return $this->chat->getEntityToken($actor['type'], $actor['id'])
+                . ' принимает удар на себя: ' . $this->ruleToken($attempt['ruleCode'] ?? null)
+                . ' за ' . $cost . ' ОД' . $block;
+        }
+
+        return '';
+    }
+
+    /**
+     * Строка провалившихся попыток прикрытия.
+     *
+     * @param array<string, mixed> $cover Описание прикрытия.
+     *
+     * @return string Текст или пустая строка.
+     */
+    private function coverAttemptsText(array $cover): string
+    {
+        $target = is_array($cover['target'] ?? null) ? $cover['target'] : null;
+        if ($target === null || !is_string($target['type'] ?? null) || !is_int($target['id'] ?? null)) {
+            return '';
+        }
+
+        $victim = $this->chat->getEntityToken($target['type'], $target['id']);
+        $parts = [];
+        foreach (is_array($cover['attempts'] ?? null) ? $cover['attempts'] : [] as $attempt) {
+            if (!is_array($attempt) || ($attempt['winner'] ?? false) === true) {
+                continue;
+            }
+
+            $actor = $attempt['actor'] ?? null;
+            if (!is_array($actor) || !is_string($actor['type'] ?? null) || !is_int($actor['id'] ?? null)) {
+                continue;
+            }
+
+            $cost = is_int($attempt['cost'] ?? null) ? $attempt['cost'] : 0;
+            $reaction = is_string($attempt['reaction'] ?? null) && $attempt['reaction'] !== ''
+                ? ', [[rule:' . $attempt['reaction'] . ']]'
+                : '';
+            $block = is_string($attempt['blockItemRuleCode'] ?? null) && $attempt['blockItemRuleCode'] !== ''
+                ? ' с [[rule:' . $attempt['blockItemRuleCode'] . ']]'
+                : '';
+            $parts[] = $this->chat->getEntityToken($actor['type'], $actor['id'])
+                . ' пытается прикрыть ' . $victim . ': ' . $this->ruleToken($attempt['ruleCode'] ?? null)
+                . ' за ' . $cost . ' ОД' . $reaction . $block;
+        }
+
+        return implode('; ', $parts);
+    }
+
+    /**
+     * Проверки исходной цели и прикрывающих до общего броска.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param string $threadId Тред.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $cover Описание прикрытия.
+     * @param array<string, mixed>|null $speaker Спикер.
+     * @param string|null $parentId Родитель.
+     *
+     * @return void
+     */
+    private function postCoverChecks(
+        GameRecord $game,
+        int $actorUserId,
+        string $threadId,
+        CharacterRuleSlice $slice,
+        array $cover,
+        ?array $speaker,
+        ?string $parentId,
+    ): void {
+        $target = is_array($cover['target'] ?? null) ? $cover['target'] : null;
+        $targetReaction = is_string($cover['targetReaction'] ?? null) ? $cover['targetReaction'] : 'ignore';
+        $targetRoll = is_array($cover['targetRoll'] ?? null) ? $cover['targetRoll'] : null;
+        if (
+            ($cover['targetActual'] ?? false) !== true
+            && $target !== null
+            && is_string($target['type'] ?? null)
+            && is_int($target['id'] ?? null)
+            && $targetReaction !== 'ignore'
+            && $targetRoll !== null
+        ) {
+            $victim = $this->chat->getEntityToken($target['type'], $target['id']);
+            $code = is_string($cover['targetReactionRuleCode'] ?? null)
+                ? $cover['targetReactionRuleCode']
+                : null;
+            $this->consequences->postCheck(
+                $game,
+                $actorUserId,
+                $threadId,
+                $this->chat->getReactionBit(
+                    $victim,
+                    $targetReaction,
+                    $code,
+                    $this->spend->getActionAp($slice, $code ?? ''),
+                ) . '.',
+                $targetRoll,
+                $speaker,
+                $parentId,
+            );
+        }
+
+        foreach (is_array($cover['attempts'] ?? null) ? $cover['attempts'] : [] as $attempt) {
+            if (!is_array($attempt) || !is_array($attempt['roll'] ?? null)) {
+                continue;
+            }
+
+            $actor = $attempt['actor'] ?? null;
+            if (!is_array($actor) || !is_string($actor['type'] ?? null) || !is_int($actor['id'] ?? null)) {
+                continue;
+            }
+
+            $reaction = is_string($attempt['reaction'] ?? null) ? $attempt['reaction'] : '';
+            $cost = is_int($attempt['cost'] ?? null) ? $attempt['cost'] : 0;
+            $block = is_string($attempt['blockItemRuleCode'] ?? null) && $attempt['blockItemRuleCode'] !== ''
+                ? ' с [[rule:' . $attempt['blockItemRuleCode'] . ']]'
+                : '';
+            $this->consequences->postCheck(
+                $game,
+                $actorUserId,
+                $threadId,
+                $this->chat->getEntityToken($actor['type'], $actor['id'])
+                    . ' пытается совершить [[rule:' . $reaction . ']] за ' . $cost . ' ОД' . $block . '.',
+                $attempt['roll'],
+                $speaker,
+                $parentId,
+            );
+        }
+    }
+
+    /**
+     * Токен карточки или запасное имя.
+     *
+     * @param mixed $ruleCode Код.
+     *
+     * @return string Токен.
+     */
+    private function ruleToken(mixed $ruleCode): string
+    {
+        return is_string($ruleCode) && $ruleCode !== ''
+            ? '[[rule:' . $ruleCode . ']]'
+            : 'Прикрытие';
     }
 
     /**

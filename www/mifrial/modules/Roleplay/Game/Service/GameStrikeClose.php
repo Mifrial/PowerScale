@@ -81,6 +81,15 @@ final class GameStrikeClose
         );
         $this->rows = new GameStrikeCloseRows($this->battles, $this->actions, $this->access);
         $choices = new GameStrikeTargetChoices($this->rules, $this->sheets);
+        $support = new GameStrikeSupport();
+        $cover = new GameStrikeCover($this->rules, $this->rows, $this->resolution);
+        $declaredSpend = new GameStrikeDeclaredSpend(
+            $this->rules,
+            $this->actions,
+            $this->sheets,
+            $this->sheetWrites,
+            $this->spend,
+        );
         $this->targets = new GameStrikeTargetClose(
             $this->rules,
             $this->sheets,
@@ -89,6 +98,7 @@ final class GameStrikeClose
             $this->spend,
             $this->amounts,
             $choices,
+            $cover,
         );
         $this->single = new GameStrikeSingleClose(
             $this->rules,
@@ -116,6 +126,9 @@ final class GameStrikeClose
             $this->push,
             $this->stateChecks,
             $this->processes,
+            $support,
+            $cover,
+            $declaredSpend,
         );
         $this->wide = new GameStrikeWideClose(
             $this->rules,
@@ -130,6 +143,10 @@ final class GameStrikeClose
             $this->spend,
             $this->amounts,
             $this->resolution,
+            $support,
+            $cover,
+            $declaredSpend,
+            $this->sheetWrites,
         );
     }
 
@@ -240,6 +257,64 @@ final class GameStrikeClose
                 $battleId,
                 $expectedBattleVersion,
                 0,
+                [],
+                $actorUserId,
+                $editAll,
+                $viewAll,
+                $resume,
+            ),
+            $body,
+        )['result'];
+    }
+
+    /**
+     * Продолжает широкий удар после выбора фактической цели по строкам.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param GameBattleRecord $battle Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedBattleVersion Версия боя.
+     * @param array<int, array<string, mixed>> $resume Решения окна по строкам.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ.
+     * @param bool $viewAll Полный просмотр.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function resumeWide(
+        GameRecord $game,
+        int $sessionId,
+        GameBattleRecord $battle,
+        string $idempotencyKey,
+        int $expectedBattleVersion,
+        array $resume,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+    ): array {
+        $body = [
+            'battleId' => $battle->getId(),
+            'window' => $resume,
+            'expectedVersion' => $expectedBattleVersion,
+        ];
+
+        return $this->replayTransaction->execute(
+            fn (): ?array => $this->commands->findByKey($game->getId(), 'wide_window', $idempotencyKey),
+            fn (): int => $this->commands->reserve(
+                $game->getId(),
+                $sessionId,
+                'wide_window',
+                $idempotencyKey,
+                $body,
+            ),
+            function (int $reservationId, array $result): void {
+                $this->commands->complete($reservationId, $result);
+            },
+            fn (): array => $this->wide->close(
+                $game,
+                $battle,
+                $expectedBattleVersion,
                 [],
                 $actorUserId,
                 $editAll,

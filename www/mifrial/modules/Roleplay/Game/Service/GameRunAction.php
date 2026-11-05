@@ -877,6 +877,7 @@ final class GameRunAction
             'closed' => ($result['closed'] ?? false) === true,
             'strikes' => $strikes,
             'pendingStrikes' => $pending,
+            'awaiting' => is_array($result['awaiting'] ?? null) ? $result['awaiting'] : [],
         ];
     }
 

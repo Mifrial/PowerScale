@@ -342,6 +342,15 @@ const phpWideAnswerTargets = computed(() => {
     .filter((target) => !target.answered);
 });
 const phpWideAnswering = computed(() => phpWideAnswerTargets.value.length > 0);
+/** Прикрывающие выбранной строки широкого удара. */
+const phpWideCovererNames = computed(() => {
+  const wide = phpWideProjection.value;
+  const key = opponentKey.value;
+  if (!wide || !key) return [];
+  const target = wide.targets.find((item) => gameWideDefenseService.targetKey(item) === key);
+
+  return (target?.coverers ?? []).map((coverer) => nameOf(gameWideDefenseService.targetKey(coverer.actor)));
+});
 const phpStrike = computed(() =>
   phpWideMode.value
     ? null
@@ -4486,6 +4495,9 @@ const canSubmit = computed(() => {
           </v-alert>
           <v-alert v-if="isDefenderStep" type="info" variant="tonal" density="compact" class="mt-2 mb-1">
             Вы отвечаете за защиту цели: <strong>{{ nameOf(opponentKey) }}</strong>
+            <div v-if="phpWideCovererNames.length" class="text-caption mt-1">
+              Прикрывают: {{ phpWideCovererNames.join(', ') }}.
+            </div>
           </v-alert>
           <v-alert v-else-if="offer && isWaiting" type="info" variant="tonal" density="compact" class="mt-2 mb-1">
             Ожидаем одобрения:

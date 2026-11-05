@@ -256,7 +256,14 @@ final class GameProjections implements IGameProjections
                 'id' => $targetId,
                 'answered' => $answered,
                 'conditions' => GameStrikeTargetRow::conditions($targetRow),
+                'supporters' => $this->jsonRowsOf($targetRow, 'supporters'),
+                'coverers' => $this->jsonRowsOf($targetRow, 'coverers'),
             ];
+            $awaiting = $this->awaitingOfRow($targetRow);
+            if ($awaiting !== []) {
+                $target['awaiting'] = $awaiting;
+            }
+
             $canRead = $writer || $this->wideAccess->canAnswer(
                 $game,
                 $actorUserId,
@@ -289,6 +296,47 @@ final class GameProjections implements IGameProjections
             'profileIndex' => is_int($firstStrike['profile_index'] ?? null) ? $firstStrike['profile_index'] : 0,
             'targets' => $targets,
         ];
+    }
+
+    /**
+     * Список JSON-записей строки удара.
+     *
+     * @param array<string, mixed> $row Строка.
+     * @param string $key Колонка.
+     *
+     * @return list<array<string, mixed>> Записи.
+     */
+    private function jsonRowsOf(array $row, string $key): array
+    {
+        $raw = $row[$key] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter($raw, static fn (mixed $entry): bool => is_array($entry)));
+    }
+
+    /**
+     * Ожидания строки удара.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return list<array<string, mixed>> Ожидания.
+     */
+    private function awaitingOfRow(array $row): array
+    {
+        $resolution = $row['resolution'] ?? null;
+        if (is_string($resolution)) {
+            $resolution = json_decode($resolution, true);
+        }
+
+        return is_array($resolution) && is_array($resolution['awaiting'] ?? null)
+            ? array_values(array_filter($resolution['awaiting'], static fn (mixed $entry): bool => is_array($entry)))
+            : [];
     }
 
     /**

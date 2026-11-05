@@ -18,6 +18,7 @@ use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameActionStrikeRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
@@ -2247,6 +2248,549 @@ final class GameWideStrikeMysqlTest extends TestCase
         } catch (MechanicInvalidException) {
             return $mechanics->getByCodeVersion('plain_roll', '1.0.0')->getId();
         }
+    }
+
+    /**
+     * Прикрытие широкого удара переносит цель по строке.
+     *
+     * @return void
+     */
+    public function testWideCoverReactionMovesTargetPerRow(): void
+    {
+        $world = $this->worldWithWeapon(extraEntries: $this->reactionEntries());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $points = ['resources' => [['ruleCode' => 'action-points', 'current' => 10]]];
+        $attackerId = $this->admit($world->getId(), $gameId, 'Wide-Cover-Attacker', $points);
+        $firstId = $this->admit($world->getId(), $gameId, 'Wide-Cover-First', $points);
+        $secondId = $this->admit($world->getId(), $gameId, 'Wide-Cover-Second', $points);
+        $covererId = $this->admit($world->getId(), $gameId, 'Wide-Cover-Coverer', $points, [
+            ['ruleCode' => 'buckler', 'equipped' => true],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-wide-cover',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+                ['type' => 'character', 'id' => $covererId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $targets = [
+            ['type' => 'character', 'id' => $firstId],
+            ['type' => 'character', 'id' => $secondId],
+        ];
+        $opened = $this->dispatch('game.runAction', $this->declareBody(
+            $gameId,
+            $battleId,
+            's-wide-cover',
+            1,
+            $this->wideAttack($attackerId, $targets),
+        ));
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $cover = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'wide-cover-declare',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'reaction',
+                'code' => 'prikrytie',
+                'actor' => ['type' => 'character', 'id' => $covererId],
+                'context' => [
+                    'expectedSheetVersion' => $this->characterFacade()->get($covererId)->getActualVersion(),
+                    'target' => $targets[0],
+                    'cover' => [
+                        'reaction' => 'block',
+                        'blockItemInventoryId' => 1,
+                        'blockItemProfileIndex' => 0,
+                        'blockItemRuleCode' => 'buckler',
+                    ],
+                ],
+            ],
+        ]);
+        self::assertTrue($cover['success'], json_encode($cover));
+        self::assertSame(0, $cover['data']['spent'] ?? null);
+        self::assertSame(10, $this->actionPointsOf($covererId));
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $openRow = (new GameActionRepository($gateway))->findOpenWithStrikes($battleId, 'wide_strike');
+        self::assertCount(1, $openRow['strikes'][0]['coverers'] ?? []);
+        self::assertSame([], $openRow['strikes'][1]['coverers'] ?? []);
+
+        $messages = $this->chatMessages($gameId);
+        $coverMessages = array_values(array_filter(
+            $messages,
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'прикрывает'),
+        ));
+        self::assertCount(1, $coverMessages);
+        $thread = $this->threadOf($coverMessages[0]);
+        self::assertSame('attack-wide-' . $opened['data']['strikeId'], $thread['id'] ?? null);
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-wide-cover',
+            'expectedVersion' => $cover['data']['version'],
+            'action' => $this->wideDefenseEnvelope($this->defenses($targets, [
+                [
+                    'reaction' => 'ignore',
+                    'expectedSheetVersion' => $this->characterFacade()->get($firstId)->getActualVersion(),
+                ],
+                [
+                    'reaction' => 'ignore',
+                    'expectedSheetVersion' => $this->characterFacade()->get($secondId)->getActualVersion(),
+                ],
+            ])),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(8, $this->actionPointsOf($covererId));
+
+        if (($closed['data']['closed'] ?? true) === false) {
+            $awaiting = $closed['data']['awaiting'][0] ?? null;
+            self::assertSame('actual_target', $awaiting['kind'] ?? null);
+            self::assertSame('character:' . $firstId, $awaiting['rowKey'] ?? null);
+            $keys = array_map(
+                static fn (array $option): string => (string) ($option['key'] ?? ''),
+                is_array($awaiting['options'] ?? null) ? $awaiting['options'] : [],
+            );
+            self::assertContains('character:' . $firstId, $keys);
+            self::assertContains('character:' . $covererId, $keys);
+
+            $resolved = $this->dispatch('game.resolveStrikeWindow', [
+                'gameId' => $gameId,
+                'battleId' => $battleId,
+                'idempotencyKey' => 'w-wide-cover',
+                'expectedVersion' => $closed['data']['version'],
+                'window' => [
+                    'row' => 'character:' . $firstId,
+                    'actualTarget' => 'character:' . $covererId,
+                ],
+            ]);
+            self::assertTrue($resolved['success'], json_encode($resolved));
+            self::assertTrue($resolved['data']['closed'] ?? false, json_encode($resolved));
+            $closed = $resolved;
+        }
+
+        $rowsResult = $closed['data']['strikes'] ?? $closed['data']['targetResults'] ?? [];
+        $targetIds = array_map(
+            static fn (array $row): int => (int) ($row['target']['id'] ?? 0),
+            is_array($rowsResult) ? $rowsResult : [],
+        );
+        sort($targetIds);
+        $expectedIds = [$covererId, $secondId];
+        sort($expectedIds);
+        self::assertSame($expectedIds, $targetIds);
+    }
+
+    /**
+     * Провал прикрытия по строке ждёт выбора фактической цели.
+     *
+     * @return void
+     */
+    public function testWideCoverAllFailedPausesPerRow(): void
+    {
+        $entries = $this->reactionEntries();
+        $entries[] = RuleCommitEntry::put('cursed-shield', new RuleVersionBody('item', 'Cursed shield', '', [
+            'category' => 'shield',
+            'proficiency_family_code' => 'shield',
+            'block_profile' => [
+                'efficiency' => ['base' => -100, 'size' => 0],
+                'defense' => ['base' => -100, 'size' => 0],
+                'resistances' => [],
+            ],
+        ], [], [], 'needs_work'));
+        $world = $this->worldWithWeapon(extraEntries: $entries);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $points = ['resources' => [['ruleCode' => 'action-points', 'current' => 10]]];
+        $attackerId = $this->admit($world->getId(), $gameId, 'Wide-Fail-Attacker', $points);
+        $firstId = $this->admit($world->getId(), $gameId, 'Wide-Fail-First', $points, [
+            ['ruleCode' => 'cursed-shield', 'equipped' => true],
+        ]);
+        $secondId = $this->admit($world->getId(), $gameId, 'Wide-Fail-Second', $points);
+        $covererId = $this->admit($world->getId(), $gameId, 'Wide-Fail-Coverer', $points, [
+            ['ruleCode' => 'cursed-shield', 'equipped' => true],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-wide-fail',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+                ['type' => 'character', 'id' => $covererId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $targets = [
+            ['type' => 'character', 'id' => $firstId],
+            ['type' => 'character', 'id' => $secondId],
+        ];
+        $opened = $this->dispatch('game.runAction', $this->declareBody(
+            $gameId,
+            $battleId,
+            's-wide-fail',
+            1,
+            $this->wideAttack($attackerId, $targets),
+        ));
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $cover = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'wide-fail-declare',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'reaction',
+                'code' => 'prikrytie',
+                'actor' => ['type' => 'character', 'id' => $covererId],
+                'context' => [
+                    'expectedSheetVersion' => $this->characterFacade()->get($covererId)->getActualVersion(),
+                    'target' => $targets[0],
+                    'cover' => [
+                        'reaction' => 'block',
+                        'blockItemInventoryId' => 1,
+                        'blockItemProfileIndex' => 0,
+                        'blockItemRuleCode' => 'cursed-shield',
+                    ],
+                ],
+            ],
+        ]);
+        self::assertTrue($cover['success'], json_encode($cover));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-wide-fail',
+            'expectedVersion' => $cover['data']['version'],
+            'action' => $this->wideDefenseEnvelope($this->defenses($targets, [
+                [
+                    'reaction' => 'block',
+                    'blockItemInventoryId' => 1,
+                    'blockItemProfileIndex' => 0,
+                    'blockItemRuleCode' => 'cursed-shield',
+                    'expectedSheetVersion' => $this->characterFacade()->get($firstId)->getActualVersion(),
+                ],
+                [
+                    'reaction' => 'ignore',
+                    'expectedSheetVersion' => $this->characterFacade()->get($secondId)->getActualVersion(),
+                ],
+            ])),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertFalse($closed['data']['closed'] ?? true, json_encode($closed));
+        $awaiting = $closed['data']['awaiting'][0] ?? null;
+        self::assertSame('actual_target', $awaiting['kind'] ?? null);
+        self::assertSame('character', $awaiting['actor']['type'] ?? null);
+        self::assertSame($attackerId, $awaiting['actor']['id'] ?? null);
+        self::assertSame('character:' . $firstId, $awaiting['rowKey'] ?? null);
+        $keys = array_map(
+            static fn (array $option): string => (string) ($option['key'] ?? ''),
+            is_array($awaiting['options'] ?? null) ? $awaiting['options'] : [],
+        );
+        self::assertContains('character:' . $firstId, $keys);
+        self::assertContains('character:' . $covererId, $keys);
+        self::assertSame(8, $this->actionPointsOf($covererId));
+        self::assertSame(8, $this->actionPointsOf($firstId));
+
+        $repeat = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-wide-fail-repeat',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->wideDefenseEnvelope($this->defenses($targets, [
+                [
+                    'reaction' => 'block',
+                    'blockItemInventoryId' => 1,
+                    'blockItemProfileIndex' => 0,
+                    'blockItemRuleCode' => 'cursed-shield',
+                    'expectedSheetVersion' => $this->characterFacade()->get($firstId)->getActualVersion(),
+                ],
+                [
+                    'reaction' => 'ignore',
+                    'expectedSheetVersion' => $this->characterFacade()->get($secondId)->getActualVersion(),
+                ],
+            ])),
+        ]);
+        self::assertTrue($repeat['success'], json_encode($repeat));
+        self::assertFalse($repeat['data']['closed'] ?? true, json_encode($repeat));
+        self::assertSame(8, $this->actionPointsOf($covererId));
+        self::assertSame(8, $this->actionPointsOf($firstId));
+
+        $resolved = $this->dispatch('game.resolveStrikeWindow', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'w-wide-fail',
+            'expectedVersion' => $closed['data']['version'],
+            'window' => [
+                'row' => 'character:' . $firstId,
+                'actualTarget' => 'character:' . $firstId,
+            ],
+        ]);
+        self::assertTrue($resolved['success'], json_encode($resolved));
+        self::assertTrue($resolved['data']['closed'] ?? false, json_encode($resolved));
+        $rowsResult = $resolved['data']['strikes'] ?? $resolved['data']['targetResults'] ?? [];
+        $targetIds = array_map(
+            static fn (array $row): int => (int) ($row['target']['id'] ?? 0),
+            is_array($rowsResult) ? $rowsResult : [],
+        );
+        sort($targetIds);
+        $expectedIds = [$firstId, $secondId];
+        sort($expectedIds);
+        self::assertSame($expectedIds, $targetIds);
+
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->chatMessages($gameId),
+        );
+        self::assertNotSame([], array_filter(
+            $contents,
+            static fn (string $content): bool => str_contains($content, 'прикрытие не удаётся'),
+        ));
+        $blockActors = [];
+        foreach ($this->chatMessages($gameId) as $message) {
+            foreach ($message->getAttachments() as $attachment) {
+                $payload = is_array($attachment) ? ($attachment['payload'] ?? null) : null;
+                if (($attachment['type'] ?? null) !== 'roll' || !is_array($payload)) {
+                    continue;
+                }
+
+                if (str_contains((string) ($payload['label'] ?? ''), 'Блок')) {
+                    $blockActors[] = $payload['actorKey'] ?? null;
+                }
+            }
+        }
+
+        self::assertContains('character:' . $firstId, $blockActors);
+        self::assertContains('character:' . $covererId, $blockActors);
+    }
+
+    /**
+     * Поддержка широкого удара усиливает бросок выбранной цели.
+     *
+     * @return void
+     */
+    public function testWideSupportAddsAdvantageToTargetRow(): void
+    {
+        $world = $this->worldWithWeapon(extraEntries: $this->reactionEntries());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $points = ['resources' => [['ruleCode' => 'action-points', 'current' => 10]]];
+        $attackerId = $this->admit($world->getId(), $gameId, 'Wide-Support-Attacker', $points);
+        $firstId = $this->admit($world->getId(), $gameId, 'Wide-Support-First', $points);
+        $secondId = $this->admit($world->getId(), $gameId, 'Wide-Support-Second', $points);
+        $supporterId = $this->admit($world->getId(), $gameId, 'Wide-Support-Supporter', $points);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-wide-support',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+                ['type' => 'character', 'id' => $supporterId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $targets = [
+            ['type' => 'character', 'id' => $firstId],
+            ['type' => 'character', 'id' => $secondId],
+        ];
+        $opened = $this->dispatch('game.runAction', $this->declareBody(
+            $gameId,
+            $battleId,
+            's-wide-support',
+            1,
+            $this->wideAttack($attackerId, $targets),
+        ));
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $support = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'wide-support-declare',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'reaction',
+                'code' => 'support-any',
+                'actor' => ['type' => 'character', 'id' => $supporterId],
+                'context' => [
+                    'expectedSheetVersion' => $this->characterFacade()->get($supporterId)->getActualVersion(),
+                    'target' => $targets[0],
+                    'support' => [
+                        'side' => 'defender',
+                        'itemInventoryId' => 1,
+                        'itemRuleCode' => 'sword',
+                        'profileType' => 'strike',
+                    ],
+                ],
+            ],
+        ]);
+        self::assertTrue($support['success'], json_encode($support));
+        self::assertSame(10, $this->actionPointsOf($supporterId));
+
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $openRow = (new GameActionRepository($gateway))->findOpenWithStrikes($battleId, 'wide_strike');
+        self::assertCount(1, $openRow['strikes'][0]['supporters'] ?? []);
+        self::assertSame([], $openRow['strikes'][1]['supporters'] ?? []);
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-wide-support',
+            'expectedVersion' => $support['data']['version'],
+            'action' => $this->wideDefenseEnvelope($this->defenses($targets, [
+                [
+                    'reaction' => 'dodge',
+                    'expectedSheetVersion' => $this->characterFacade()->get($firstId)->getActualVersion(),
+                ],
+                [
+                    'reaction' => 'dodge',
+                    'expectedSheetVersion' => $this->characterFacade()->get($secondId)->getActualVersion(),
+                ],
+            ])),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(8, $this->actionPointsOf($supporterId));
+
+        $firstAdvantages = $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [];
+        $secondAdvantages = $closed['data']['strikes'][1]['defenseRoll']['advantages'] ?? [];
+        $matched = array_values(array_filter(
+            $firstAdvantages,
+            static fn (mixed $row): bool => is_array($row)
+                && ($row['source_code'] ?? null) === 'circumstances'
+                && ($row['delta'] ?? null) === 1,
+        ));
+        self::assertNotEmpty($matched, json_encode($firstAdvantages));
+        $unexpected = array_values(array_filter(
+            $secondAdvantages,
+            static fn (mixed $row): bool => is_array($row)
+                && ($row['source_code'] ?? null) === 'circumstances'
+                && ($row['delta'] ?? null) === 1,
+        ));
+        self::assertSame([], $unexpected);
+    }
+
+    /**
+     * Правила реакций и блока для широкого удара.
+     *
+     * @return list<RuleCommitEntry> Записи.
+     */
+    private function reactionEntries(): array
+    {
+        return [
+            RuleCommitEntry::put('action-points', new RuleVersionBody('resource', 'Action points', '', [
+                'is_dimensional' => false,
+                'auto_add' => true,
+                'check_token' => false,
+                'turn_refill' => true,
+                'limit' => ['base' => 10, 'adjustments' => []],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('prikrytie', new RuleVersionBody('ability', 'Cover', '', [
+                'type' => 'action',
+                'zones' => ['or' => ['kind' => 'automatic']],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 2,
+                ]],
+                'reaction' => [
+                    'trigger' => 'strike',
+                    'window' => 'before_defense',
+                    'performer' => 'third_party',
+                ],
+                'cover_ally' => [
+                    'defense_advantages' => [
+                        ['delta' => -1, 'source_code' => 'circumstances'],
+                    ],
+                    'reactions' => ['block'],
+                    'resolution' => [
+                        'success' => 'highest_rating',
+                        'failure' => 'attacker_choice',
+                        'becomes' => 'actual_target',
+                    ],
+                    'distance' => 'declared',
+                ],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('support-any', new RuleVersionBody('ability', 'Support any', '', [
+                'type' => 'action',
+                'zones' => ['or' => ['kind' => 'automatic']],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 2,
+                ]],
+                'reaction' => [
+                    'trigger' => 'strike',
+                    'window' => 'before_defense',
+                    'performer' => 'third_party',
+                ],
+                'support' => ['sides' => ['attacker', 'defender'], 'advantage' => 1],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('block', new RuleVersionBody('ability', 'Block', '', [
+                'type' => 'action',
+                'combat_action' => 'block',
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 2,
+                ]],
+            ], [], [], 'needs_work')),
+        ];
+    }
+
+    /**
+     * Тред сообщения.
+     *
+     * @param MessageRecord $message Сообщение.
+     *
+     * @return array<string, mixed> Тред.
+     */
+    private function threadOf(MessageRecord $message): array
+    {
+        foreach ($message->getAttachments() as $attachment) {
+            if (!is_array($attachment) || ($attachment['type'] ?? null) !== 'chat_system') {
+                continue;
+            }
+
+            $payload = $attachment['payload'] ?? null;
+            if (is_array($payload) && is_array($payload['thread'] ?? null)) {
+                return $payload['thread'];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Текущее значение ресурса персонажа.
+     *
+     * @param int $characterId Персонаж.
+     * @param string $code Код.
+     *
+     * @return int|null Значение.
+     */
+    private function actionPointsOf(int $characterId): ?int
+    {
+        $sheet = $this->characterFacade()->get($characterId)->getSheet();
+
+        return $this->resourceCurrent(
+            is_array($sheet['resources'] ?? null) ? $sheet['resources'] : [],
+            'action-points',
+        );
     }
 
     /**

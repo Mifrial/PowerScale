@@ -22,6 +22,9 @@ import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameStateSnapshot } from '@/modules/Roleplay/Game/Dto/GameStateSnapshot';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
 import type { GamePhpOpenWideStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrike';
+import type { GamePhpOpenWideStrikeTarget } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrikeTarget';
+import type { GamePhpStrikeAwaiting } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAwaiting';
+import type { GamePhpOpenStrikeCoverer } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeCoverer';
 import type { GameLifecycleResult } from '@/modules/Roleplay/Game/Dto/GameLifecycleResult';
 import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerOption';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -594,9 +597,13 @@ async function tryOpenPhpWideStrike(wide: GamePhpOpenWideStrike): Promise<void> 
   const user = currentUser.value;
   if (!user) return;
   openWideStrike.value = wide;
-  if (hitOpen.value || !gameWideDefenseService.shouldAutoOpen(wide, user.id, memberships.value, canWriteStrike.value)) {
+  if (hitOpen.value) return;
+  if (!gameWideDefenseService.shouldAutoOpen(wide, user.id, memberships.value, canWriteStrike.value)) {
+    openWideReactionOffer(wide);
+
     return;
   }
+  closeReactionOffer();
   const attackerKey = gameWideDefenseService.attackerKey(wide);
   const targetKeys = wide.targets.map((target) => gameWideDefenseService.targetKey(target));
   await loadRuntimeProjections([attackerKey, ...targetKeys]);
@@ -633,10 +640,12 @@ function closeReactionOffer(): void {
   reactionOpen.value = false;
   reactionOptions.value = [];
   reactionStrike.value = null;
+  reactionWide.value = null;
+  reactionOfferKey.value = null;
   reactionError.value = null;
 }
 
-const reactionCandidates = computed<ReactionOffer[]>(() => {
+const singleReactionCandidates = computed<ReactionOffer[]>(() => {
   void battleRevision.value;
   const strike = phpOpenStrike.value ?? gamePhpBattleContext.openStrike;
   if (!strike) return [];
@@ -651,6 +660,59 @@ const reactionCandidates = computed<ReactionOffer[]>(() => {
   );
 });
 
+const wideReactionCandidates = computed<ReactionOffer[]>(() => {
+  void battleRevision.value;
+  const wide = openWideStrike.value;
+  if (!wide) return [];
+  const offers: ReactionOffer[] = [];
+  for (const target of wide.targets) {
+    if (target.answered) continue;
+    offers.push(
+      ...strikeReactionService.wideOffers(
+        wide,
+        target,
+        currentUser.value?.id ?? null,
+        memberships.value,
+        npcs.value,
+        revisionRules.value,
+        canWriteStrike.value,
+      ),
+    );
+  }
+
+  return offers;
+});
+
+const reactionCandidates = computed<ReactionOffer[]>(() =>
+  singleReactionCandidates.value.length > 0 ? singleReactionCandidates.value : wideReactionCandidates.value,
+);
+
+function openWideReactionOffer(wide: GamePhpOpenWideStrike, manual = false): void {
+  const key = `wide:${wide.id}`;
+  if (!manual && (dismissedReactionKey.value === key || minimizedReactionKey.value === key)) {
+    closeReactionOffer();
+
+    return;
+  }
+  const options = wideReactionCandidates.value;
+  if (options.length === 0) {
+    closeReactionOffer();
+
+    return;
+  }
+  if (reactionOpen.value && reactionOfferKey.value === key) {
+    reactionOptions.value = options;
+
+    return;
+  }
+  reactionStrike.value = null;
+  reactionWide.value = wide;
+  reactionOfferKey.value = key;
+  reactionOptions.value = options;
+  reactionError.value = null;
+  reactionOpen.value = true;
+}
+
 const hasReaction = computed(() => reactionCandidates.value.length > 0);
 const reactionLabel = computed(() => {
   const actors = new Set(reactionCandidates.value.map((offer) => offer.actor.key));
@@ -660,17 +722,47 @@ const reactionLabel = computed(() => {
 
 const strikeAwaiting = computed(() => (phpOpenStrike.value ?? gamePhpBattleContext.openStrike)?.awaiting ?? []);
 
-const actualTargetWindow = computed(() => {
-  const entry = strikeAwaiting.value.find((row) => row.kind === 'actual_target');
-  if (!entry) return null;
+const wideAwaiting = computed(() => {
+  void battleRevision.value;
+  const wide = openWideStrike.value;
+  if (!wide) return [];
+  const rows: { entry: GamePhpStrikeAwaiting; row: GamePhpOpenWideStrikeTarget }[] = [];
+  for (const row of wide.targets) {
+    for (const entry of row.awaiting ?? []) rows.push({ entry, row });
+  }
 
-  return isMyStrikeActor(entry.actor.type, entry.actor.id) ? entry : null;
+  return rows;
 });
 
-const strikeCovererNames = computed(() => {
-  const coverers = (phpOpenStrike.value ?? gamePhpBattleContext.openStrike)?.coverers ?? [];
+const actualTargetWindow = computed(() => {
+  const entry = strikeAwaiting.value.find((row) => row.kind === 'actual_target');
+  if (entry && isMyStrikeActor(entry.actor.type, entry.actor.id)) {
+    return {
+      key: null as string | null,
+      options: entry.options,
+      covererNames:
+        (phpOpenStrike.value ?? gamePhpBattleContext.openStrike)?.coverers?.map((coverer: GamePhpOpenStrikeCoverer) =>
+          strikeActorName(coverer.actor.type, coverer.actor.id),
+        ) ?? [],
+    };
+  }
+  const wideStrike = openWideStrike.value;
+  const wide = wideAwaiting.value.find(({ entry: wideEntry }) => {
+    if (wideEntry.kind !== 'actual_target') return false;
+    const type = wideEntry.actor?.type ?? wideStrike?.attacker.type ?? '';
+    const id = wideEntry.actor?.id ?? wideStrike?.attacker.id ?? 0;
 
-  return coverers.map((coverer) => strikeActorName(coverer.actor.type, coverer.actor.id));
+    return isMyStrikeActor(type, id);
+  });
+  if (!wide) return null;
+
+  return {
+    key: `${wide.row.type}:${wide.row.id}`,
+    options: wide.entry.options,
+    covererNames: (wide.row.coverers ?? []).map((coverer: GamePhpOpenStrikeCoverer) =>
+      strikeActorName(coverer.actor.type, coverer.actor.id),
+    ),
+  };
 });
 
 function isMyStrikeActor(type: string, id: number): boolean {
@@ -694,6 +786,7 @@ function strikeActorName(type: string, id: number): string {
 async function chooseActualTarget(key: string): Promise<void> {
   const battleId = gamePhpBattleContext.battleId;
   if (battleId === null) return;
+  const rowKey = actualTargetWindow.value?.key ?? null;
 
   reactionBusy.value = true;
   reactionError.value = null;
@@ -703,16 +796,42 @@ async function chooseActualTarget(key: string): Promise<void> {
       battleId,
       idempotencyKey: createRandomId(),
       expectedVersion: gamePhpBattleContext.battleVersion,
-      window: { actualTarget: key },
+      window: rowKey === null ? { actualTarget: key } : { row: rowKey, actualTarget: key },
     });
     gamePhpBattleContext.rememberOpenStrike(null);
     phpOpenStrike.value = null;
     closeReactionOffer();
     store.applyGameUpdate(await getGameApi().getGame(gameId.value));
+    if (rowKey !== null) {
+      // Широкий удар живёт в отдельной проекции: без её перечитывания
+      // окно выбора висело с уже закрытым ударом.
+      applyBattleSheets(await getGameApi().getBattleSheets({ gameId: gameId.value, battleId }));
+      openWideStrike.value = gamePhpBattleContext.openWideStrike;
+    }
     await tryOpenPhpStrike();
     battleRevision.value += 1;
   } catch (cause) {
     reactionError.value = cause instanceof Error ? cause.message : 'Не удалось выбрать цель';
+  } finally {
+    reactionBusy.value = false;
+  }
+}
+
+/** Перечитывает открытый удар, если окно осталось от устаревшей проекции. */
+async function refreshStrikeWindow(): Promise<void> {
+  const battleId = gamePhpBattleContext.battleId;
+  if (battleId === null) return;
+
+  reactionBusy.value = true;
+  reactionError.value = null;
+  try {
+    applyBattleSheets(await getGameApi().getBattleSheets({ gameId: gameId.value, battleId }));
+    openWideStrike.value = gamePhpBattleContext.openWideStrike;
+    phpOpenStrike.value = gamePhpBattleContext.openStrike;
+    if (!gamePhpBattleContext.openWideStrike && !gamePhpBattleContext.openStrike) closeReactionOffer();
+    battleRevision.value += 1;
+  } catch (cause) {
+    reactionError.value = cause instanceof Error ? cause.message : 'Не удалось обновить удар';
   } finally {
     reactionBusy.value = false;
   }
@@ -748,6 +867,8 @@ function openReactionOffer(strike: GamePhpOpenStrike, manual = false): void {
     return;
   }
   reactionStrike.value = strike;
+  reactionWide.value = null;
+  reactionOfferKey.value = strikeKey;
   reactionOptions.value = options;
   reactionError.value = null;
   reactionOpen.value = true;
@@ -755,26 +876,32 @@ function openReactionOffer(strike: GamePhpOpenStrike, manual = false): void {
 
 function openReactionFromMenu(): void {
   const strike = phpOpenStrike.value ?? gamePhpBattleContext.openStrike;
-  if (!strike) return;
-  openReactionOffer(strike, true);
+  if (strike) {
+    openReactionOffer(strike, true);
+
+    return;
+  }
+  const wide = openWideStrike.value;
+  if (wide) openWideReactionOffer(wide, true);
 }
 
 function onReactionClosed(value: boolean): void {
   if (value) return;
-  if (reactionStrike.value) minimizedReactionKey.value = strikeReactionService.strikeKey(reactionStrike.value);
+  if (reactionOfferKey.value) minimizedReactionKey.value = reactionOfferKey.value;
   closeReactionOffer();
 }
 
 function onReactionRefused(): void {
-  if (reactionStrike.value) dismissedReactionKey.value = strikeReactionService.strikeKey(reactionStrike.value);
+  if (reactionOfferKey.value) dismissedReactionKey.value = reactionOfferKey.value;
   closeReactionOffer();
 }
 
 async function onReactionSubmit(payload: { offer: ReactionOffer; submit: ReactionSubmit }): Promise<void> {
-  const strike = reactionStrike.value;
+  const wide = reactionWide.value;
   const battleId = gamePhpBattleContext.battleId;
   const actorKey = payload.offer.actor.key;
-  if (!strike || battleId === null) return;
+  const offerKey = reactionOfferKey.value;
+  if ((!reactionStrike.value && !wide) || battleId === null) return;
 
   reactionBusy.value = true;
   reactionError.value = null;
@@ -790,12 +917,18 @@ async function onReactionSubmit(payload: { offer: ReactionOffer; submit: Reactio
         gamePhpBattleContext.battleVersion,
         expectedSheet,
         createRandomId(),
+        payload.offer.target,
       ),
     );
-    dismissedReactionKey.value = strikeReactionService.strikeKey(strike);
+    if (offerKey !== null) dismissedReactionKey.value = offerKey;
     closeReactionOffer();
     store.applyGameUpdate(await getGameApi().getGame(gameId.value));
-    phpOpenStrike.value = gamePhpBattleContext.openStrike;
+    if (wide) {
+      applyBattleSheets(await getGameApi().getBattleSheets({ gameId: gameId.value, battleId }));
+      await tryOpenPhpStrike();
+    } else {
+      phpOpenStrike.value = gamePhpBattleContext.openStrike;
+    }
     battleRevision.value += 1;
   } catch (cause) {
     reactionError.value = cause instanceof Error ? cause.message : 'Не удалось объявить реакцию';
@@ -1621,6 +1754,9 @@ const hitPhpBound = ref(false);
 const reactionOpen = ref(false);
 const reactionOptions = ref<ReactionOffer[]>([]);
 const reactionStrike = ref<GamePhpOpenStrike | null>(null);
+/** Реакция на строку широкого удара: цель заявки в `context.target`. */
+const reactionWide = ref<GamePhpOpenWideStrike | null>(null);
+const reactionOfferKey = ref<string | null>(null);
 const reactionBusy = ref(false);
 const reactionError = ref<string | null>(null);
 const dismissedReactionKey = ref<string | null>(null);
@@ -2231,8 +2367,14 @@ onUnmounted(() => {
         <v-card-title class="text-body-1 py-2 px-4">Куда направлен удар?</v-card-title>
         <v-card-text class="pt-0">
           <div class="text-body-2 mb-2">Все прикрытия провалились. Выберите фактическую цель.</div>
-          <v-alert v-if="strikeCovererNames.length" type="info" variant="tonal" density="compact" class="mb-2">
-            Прикрывали: {{ strikeCovererNames.join(', ') }}.
+          <v-alert
+            v-if="actualTargetWindow.covererNames.length"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mb-2"
+          >
+            Прикрывали: {{ actualTargetWindow.covererNames.join(', ') }}.
           </v-alert>
           <v-alert v-if="reactionError" type="error" variant="tonal" density="compact" class="mb-2">
             {{ reactionError }}
@@ -2248,6 +2390,9 @@ onUnmounted(() => {
               {{ strikeActorName(option.actor.type, option.actor.id) }}
             </v-btn>
           </div>
+          <v-btn variant="text" size="small" :disabled="reactionBusy" class="mt-2" @click="refreshStrikeWindow">
+            Обновить удар
+          </v-btn>
         </v-card-text>
       </v-card>
     </v-dialog>
