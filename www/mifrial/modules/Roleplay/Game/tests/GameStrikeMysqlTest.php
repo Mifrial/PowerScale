@@ -573,6 +573,109 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Метка боя даёт помеху защите и снимается после реальной защиты.
+     *
+     * @return void
+     */
+    public function testBattleMarkAddsDefensePenaltyAndIsConsumed(): void
+    {
+        $world = $this->worldWithWeapon();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Mark-Attacker');
+        $defenderId = $this->admit($world->getId(), $gameId, 'Mark-Defender');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-mark-defense',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $this->seedBattleMarks($battleId, [$this->battleMark($defenderId, $attackerId)]);
+        self::assertCount(1, $this->battleRow($battleId)['marks'] ?? []);
+
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-mark-defense',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+        self::assertCount(1, $this->battleRow($battleId)['marks'] ?? []);
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-mark-defense',
+            'expectedVersion' => $declared['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'dodge'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        $advantages = $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [];
+        $penalty = array_values(array_filter(
+            $advantages,
+            static fn (mixed $row): bool => is_array($row)
+                && ($row['source_code'] ?? null) === 'circumstances'
+                && ($row['delta'] ?? null) === -2,
+        ));
+        self::assertCount(1, $penalty, json_encode($closed['data']));
+        self::assertSame([], $this->battleRow($battleId)['marks'] ?? null);
+    }
+
+    /**
+     * «Игнорирование» не тратит метку.
+     *
+     * @return void
+     */
+    public function testBattleMarkSurvivesIgnore(): void
+    {
+        $world = $this->worldWithWeapon();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Ignore-Attacker');
+        $defenderId = $this->admit($world->getId(), $gameId, 'Ignore-Defender');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-mark-ignore',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $this->seedBattleMarks($battleId, [$this->battleMark($defenderId, $attackerId)]);
+
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-mark-ignore',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-mark-ignore',
+            'expectedVersion' => $declared['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertCount(1, $this->battleRow($battleId)['marks'] ?? []);
+    }
+
+    /**
      * Добивание требует повреждения прошлого удара и той же цели.
      *
      * @return void
@@ -5420,6 +5523,120 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Защита прикрывающего читает его метку, метка цели не тратится.
+     *
+     * @return void
+     */
+    public function testCoverConsumesCovererMarkNotTargetMark(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->supportRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Cover-Mark-Attacker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Cover-Mark-Defender', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $covererId = $this->admit($world->getId(), $gameId, 'Cover-Mark-Coverer', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ], [
+            ['ruleCode' => 'buckler', 'equipped' => true],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-cover-mark',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+                ['type' => 'character', 'id' => $covererId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $this->seedBattleMarks($battleId, [
+            $this->battleMark($defenderId, $attackerId),
+            $this->battleMark($covererId, $attackerId),
+        ]);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-cover-mark',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $cover = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'cover-mark-declare',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'reaction',
+                'code' => 'prikrytie',
+                'actor' => ['type' => 'character', 'id' => $covererId],
+                'context' => [
+                    'expectedSheetVersion' => $this->characterFacade()->get($covererId)->getActualVersion(),
+                    'cover' => [
+                        'reaction' => 'block',
+                        'blockItemInventoryId' => 1,
+                        'blockItemProfileIndex' => 0,
+                        'blockItemRuleCode' => 'sword',
+                    ],
+                ],
+            ],
+        ]);
+        self::assertTrue($cover['success'], json_encode($cover));
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $openRow = (new GameActionRepository($gateway))->findOpenWithStrikes($battleId, 'strike');
+        self::assertCount(1, $openRow['strikes'][0]['coverers'] ?? []);
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-cover-mark',
+            'expectedVersion' => $cover['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        if (($closed['data']['closed'] ?? true) === false) {
+            self::assertCount(2, $this->battleRow($battleId)['marks'] ?? []);
+            $resolved = $this->dispatch('game.resolveStrikeWindow', [
+                'gameId' => $gameId,
+                'battleId' => $battleId,
+                'idempotencyKey' => 'w-cover-mark',
+                'expectedVersion' => $closed['data']['version'],
+                'window' => ['actualTarget' => 'character:' . $covererId],
+            ]);
+            self::assertTrue($resolved['success'], json_encode($resolved));
+            self::assertTrue($resolved['data']['closed'] ?? false, json_encode($resolved));
+        } else {
+            $advantages = $closed['data']['strikes'][0]['defenseRoll']['advantages'] ?? [];
+            $penalty = array_values(array_filter(
+                $advantages,
+                static fn (mixed $row): bool => is_array($row)
+                    && ($row['source_code'] ?? null) === 'circumstances'
+                    && ($row['delta'] ?? null) === -2,
+            ));
+            self::assertCount(1, $penalty);
+            self::assertSame(
+                'character:' . $covererId,
+                $closed['data']['strikes'][0]['defenseRoll']['actorKey'] ?? null,
+            );
+        }
+
+        $marks = $this->battleRow($battleId)['marks'] ?? [];
+        self::assertCount(1, $marks);
+        self::assertSame($defenderId, $marks[0]['subject']['id'] ?? null);
+    }
+
+    /**
      * Провал всех прикрытий ставит удар на выбор фактической цели.
      *
      * @return void
@@ -8366,6 +8583,43 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertIsArray($row);
 
         return $row;
+    }
+
+    /**
+     * Кладёт метки в бой напрямую, не двигая версию.
+     *
+     * @param int $battleId Бой.
+     * @param array<int, array<string, mixed>> $marks Метки.
+     *
+     * @return void
+     */
+    private function seedBattleMarks(int $battleId, array $marks): void
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $gateway->open(GameBattleTable::class)->records()->update($battleId, ['marks' => $marks]);
+    }
+
+    /**
+     * Метка «помеха защите от ударов атакующего».
+     *
+     * @param int $subject Кому.
+     * @param int $attacker Против кого.
+     *
+     * @return array<string, mixed> Метка.
+     */
+    private function battleMark(int $subject, int $attacker): array
+    {
+        return [
+            'subject' => ['type' => 'character', 'id' => $subject],
+            'kind' => 'advantage',
+            'value' => -2,
+            'source_code' => 'circumstances',
+            'source_rule_code' => 'obman',
+            'scope' => ['defense_against' => ['type' => 'character', 'id' => $attacker]],
+            'consumes' => 'first_defense',
+            'expires' => ['kind' => 'turn', 'of' => ['type' => 'character', 'id' => $attacker]],
+        ];
     }
 
     /**

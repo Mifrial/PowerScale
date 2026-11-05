@@ -52,6 +52,7 @@ final class GameBattleTable extends SmartTableDefinition
             new IntField('round', FieldSettings::fromOptions(['required' => true, 'default' => 0]), 0, null),
             new JsonField('action_debt', FieldSettings::fromOptions([])),
             new JsonField('concentration_cycle', FieldSettings::fromOptions([])),
+            new JsonField('marks', FieldSettings::fromOptions([])),
         ];
     }
 }

@@ -8,8 +8,8 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
-use Mifrial\Roleplay\Rule\Spec\AbilityCombat;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CoverAlly;
+use Mifrial\Roleplay\Rule\Spec\AbilityCombat;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -17,6 +17,8 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
  */
 final class GameStrikeCover
 {
+    private readonly GameBattleMarks $marks;
+
     /**
      * Создаёт расчёт прикрытия.
      *
@@ -31,6 +33,7 @@ final class GameStrikeCover
         private readonly GameStrikeCloseRows $rows,
         private readonly GameStrikeResolution $resolution,
     ) {
+        $this->marks = new GameBattleMarks();
     }
 
     /**
@@ -50,6 +53,7 @@ final class GameStrikeCover
      * @param bool $isPush Толчок.
      * @param DimensionalNumber|null $shotDistance Дистанция выстрела исходной цели.
      * @param int $targetSheetVersion Версия листа исходной цели.
+     * @param array<int, array<string, mixed>> $marks Метки боя.
      *
      * @return array{
      *     winner: array<string, mixed>|null,
@@ -72,9 +76,14 @@ final class GameStrikeCover
         bool $isPush,
         ?DimensionalNumber $shotDistance = null,
         int $targetSheetVersion = 0,
+        array $marks = [],
     ): array {
         $target = $this->rows->defender($row);
         $targetOpen = $this->rows->targetOpen($open, $target);
+        $attacker = $this->attackerOf($open);
+        $targetMarks = $choice['reaction'] === 'ignore' || $attacker === null
+            ? ['advantages' => [], 'keys' => []]
+            : $this->marks->forDefense($marks, $target, $attacker);
         $candidates = [];
         $primaryKey = $this->rows->targetKey($target);
         $primary = $this->candidate(
@@ -88,7 +97,7 @@ final class GameStrikeCover
             $targetPending,
             $profileType,
             $isPush,
-            [],
+            $targetMarks['advantages'],
             $shotDistance,
         );
         $candidates[$primaryKey] = [
@@ -97,6 +106,7 @@ final class GameStrikeCover
             'ruleCode' => '',
             'expectedSheetVersion' => $targetSheetVersion,
             'cost' => 0,
+            'markKeys' => $targetMarks['keys'],
             'reactionRuleCode' => $choice['reaction'] === 'ignore'
                 ? null
                 : $this->rules->reactionRuleCode(
@@ -138,6 +148,9 @@ final class GameStrikeCover
                 $slice,
                 is_string($entry['ruleCode'] ?? null) ? $entry['ruleCode'] : '',
             );
+            $coverMarks = $coverChoice['reaction'] === 'ignore' || $attacker === null
+                ? ['advantages' => [], 'keys' => []]
+                : $this->marks->forDefense($marks, $actor, $attacker);
             $candidate = $this->candidate(
                 $game,
                 $coverOpen,
@@ -149,7 +162,7 @@ final class GameStrikeCover
                 $pending,
                 $profileType,
                 $isPush,
-                $advantages,
+                array_merge($advantages, $coverMarks['advantages']),
             );
             $key = $this->rows->targetKey($actor);
             $cost = is_int($entry['cost'] ?? null) ? $entry['cost'] : 0;
@@ -166,6 +179,7 @@ final class GameStrikeCover
                     ? $entry['expectedSheetVersion']
                     : 0,
                 'cost' => $cost,
+                'markKeys' => $coverMarks['keys'],
                 'reactionRuleCode' => $reactionRuleCode,
                 'attackerRoll' => $candidate['attackerRoll'],
                 'defenderRoll' => $candidate['defenderRoll'],
@@ -280,6 +294,24 @@ final class GameStrikeCover
             'passed' => $defenderRoll !== null && ($defenderRoll['success'] ?? false) === true,
             'rating' => is_int($defenderRoll['rating'] ?? null) ? $defenderRoll['rating'] : 0,
         ];
+    }
+
+    /**
+     * Атакующий из строки удара.
+     *
+     * @param array<string, mixed> $open Открытый удар.
+     *
+     * @return array{type: string, id: int}|null Пара или null.
+     */
+    private function attackerOf(array $open): ?array
+    {
+        $kind = $open['attacker_kind'] ?? null;
+        $id = $open['attacker_id'] ?? null;
+        if (!is_string($kind) || !is_int($id) || !in_array($kind, ['character', 'npc'], true) || $id < 1) {
+            return null;
+        }
+
+        return ['type' => $kind, 'id' => $id];
     }
 
     /**

@@ -23,6 +23,7 @@ final class GameBattleRecord
      * @param int $round Номер раунда. 0 — курсор ещё не поставлен.
      * @param array<string, mixed> $actionDebt Карта долга ОД.
      * @param array<string, mixed> $concentrationCycle Карта цикла концентрации.
+     * @param array<int, array<string, mixed>> $marks Метки боя.
      *
      * @return void
      */
@@ -36,6 +37,7 @@ final class GameBattleRecord
         private readonly int $round = 0,
         private readonly array $actionDebt = [],
         private readonly array $concentrationCycle = [],
+        private readonly array $marks = [],
     ) {
     }
 
@@ -59,14 +61,33 @@ final class GameBattleRecord
         $round = $fields['round'] ?? 0;
         $debt = $fields['action_debt'] ?? [];
         $cycle = $fields['concentration_cycle'] ?? [];
+        $marks = $fields['marks'] ?? [];
         if (
             !is_int($id) || !is_int($sessionId) || !is_int($stateVersion) || !is_array($pending)
             || !is_int($activeIndex) || !is_int($round) || !is_array($debt) || !is_array($cycle)
+            || !is_array($marks) || !array_is_list($marks)
         ) {
             throw new GameInvalidException('Game battle row is invalid');
         }
 
-        return new self($id, $sessionId, $stateVersion, $turnOrder, $pending, $activeIndex, $round, $debt, $cycle);
+        foreach ($marks as $mark) {
+            if (!is_array($mark)) {
+                throw new GameInvalidException('Game battle row is invalid');
+            }
+        }
+
+        return new self(
+            $id,
+            $sessionId,
+            $stateVersion,
+            $turnOrder,
+            $pending,
+            $activeIndex,
+            $round,
+            $debt,
+            $cycle,
+            $marks,
+        );
     }
 
     /**
@@ -157,6 +178,16 @@ final class GameBattleRecord
     public function getActionDebt(): array
     {
         return $this->actionDebt;
+    }
+
+    /**
+     * Метки боя.
+     *
+     * @return array<int, array<string, mixed>> Список меток.
+     */
+    public function getMarks(): array
+    {
+        return $this->marks;
     }
 
     /**

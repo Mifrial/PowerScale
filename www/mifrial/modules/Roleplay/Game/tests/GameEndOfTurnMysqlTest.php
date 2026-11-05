@@ -107,6 +107,52 @@ final class GameEndOfTurnMysqlTest extends TestCase
     }
 
     /**
+     * Конец хода атакующего снимает его метки, чужие остаются.
+     *
+     * @return void
+     */
+    public function testEndTurnExpiresAttackerMarks(): void
+    {
+        $scene = $this->battlePair();
+        $row = $this->battleRow($scene['battleId']);
+        $order = is_array($row['turn_order'] ?? null) ? $row['turn_order'] : [];
+        $current = $order[$row['active_index'] ?? 0] ?? null;
+        self::assertIsArray($current);
+        $other = null;
+        foreach ($order as $entry) {
+            if (
+                is_array($entry)
+                && ($entry['type'] !== $current['type'] || $entry['id'] !== $current['id'])
+            ) {
+                $other = $entry;
+            }
+        }
+        self::assertIsArray($other);
+
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $gateway->open(GameBattleTable::class)->records()->update($scene['battleId'], [
+            'marks' => [
+                $this->battleMark($current['id'], $current),
+                $this->battleMark($other['id'], $current, $other),
+            ],
+        ]);
+
+        $ended = $this->endTurn(
+            $scene['gameId'],
+            $scene['battleId'],
+            'mark-expire',
+            $row['state_version'],
+            $this->characterFacade()->get($current['id'])->getActualVersion(),
+        );
+        self::assertTrue($ended['success'], json_encode($ended));
+
+        $marks = $this->battleRow($scene['battleId'])['marks'] ?? [];
+        self::assertCount(1, $marks);
+        self::assertSame($other['id'], $marks[0]['expires']['of']['id'] ?? null);
+    }
+
+    /**
      * Конец хода прогоняет Ожидание: снимок сгорает, подготовка остаётся.
      *
      * @return void
@@ -972,6 +1018,31 @@ final class GameEndOfTurnMysqlTest extends TestCase
         self::assertIsArray($row);
 
         return $row;
+    }
+
+    /**
+     * Метка боя.
+     *
+     * @param int $subject Кому.
+     * @param array{type: string, id: int} $attacker Атакующий.
+     * @param array{type: string, id: int}|null $expires Актор срока или атакующий.
+     *
+     * @return array<string, mixed> Метка.
+     */
+    private function battleMark(int $subject, array $attacker, ?array $expires = null): array
+    {
+        $expires ??= $attacker;
+
+        return [
+            'subject' => ['type' => 'character', 'id' => $subject],
+            'kind' => 'advantage',
+            'value' => -2,
+            'source_code' => 'circumstances',
+            'source_rule_code' => 'obman',
+            'scope' => ['defense_against' => $attacker],
+            'consumes' => 'first_defense',
+            'expires' => ['kind' => 'turn', 'of' => $expires],
+        ];
     }
 
     /**

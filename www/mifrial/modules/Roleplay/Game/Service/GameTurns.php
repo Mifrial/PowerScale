@@ -55,6 +55,8 @@ final class GameTurns
 
     private readonly GameActionChat $actionChat;
 
+    private readonly GameBattleMarks $marks;
+
     /**
      * Создаёт сценарий.
      *
@@ -112,6 +114,7 @@ final class GameTurns
             $reactions,
         );
         $this->actionChat = new GameActionChat($chats, new GameStrikeChat($this->npcs, $rules));
+        $this->marks = new GameBattleMarks();
     }
 
     private readonly GameActionRepository $strikesRepo;
@@ -467,6 +470,12 @@ final class GameTurns
 
         $cursor = $this->advanced($battle);
 
+        $marksBefore = $battle->getMarks();
+        $marksAfter = $this->marks->expireTurn($marksBefore, $current);
+        if (count($marksAfter) === count($marksBefore)) {
+            $marksAfter = null;
+        }
+
         $saved = $this->battles->replaceTracked(
             $battle->getId(),
             $expectedBattle,
@@ -475,6 +484,7 @@ final class GameTurns
             $cursor['index'],
             $cursor['round'],
             $cycle,
+            $marksAfter,
         );
         $this->actionChat->post(
             $game,

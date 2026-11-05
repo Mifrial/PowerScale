@@ -165,6 +165,7 @@ final class GameBattleRepository
      * @param int $battleId Бой.
      * @param int $expectedVersion Ожидаемая версия.
      * @param array<string, mixed> $pending Карта.
+     * @param array<int, array<string, mixed>>|null $marks Метки или null, чтобы не трогать.
      *
      * @return GameBattleRecord Строка.
      *
@@ -172,18 +173,24 @@ final class GameBattleRepository
      * @throws GameNotFoundException Если боя нет.
      * @throws GameInvalidException Если поле.
      */
-    public function replacePending(int $battleId, int $expectedVersion, array $pending): GameBattleRecord
-    {
+    public function replacePending(
+        int $battleId,
+        int $expectedVersion,
+        array $pending,
+        ?array $marks = null,
+    ): GameBattleRecord {
         $current = $this->require($battleId);
         if ($current->getStateVersion() !== $expectedVersion) {
             throw new GameBattleConflictException($current->getStateVersion());
         }
 
+        $fields = ['pending_action_effects' => $pending, 'state_version' => $expectedVersion + 1];
+        if ($marks !== null) {
+            $fields['marks'] = $marks;
+        }
+
         try {
-            $this->battleRecords->update($battleId, [
-                'pending_action_effects' => $pending,
-                'state_version' => $expectedVersion + 1,
-            ]);
+            $this->battleRecords->update($battleId, $fields);
         } catch (
             FieldRequiredException
             | FieldInvalidException
@@ -206,6 +213,7 @@ final class GameBattleRepository
      * @param int|null $activeIndex Курсор или null.
      * @param int|null $round Раунд или null.
      * @param array<string, mixed>|null $cycle Цикл концентрации или null.
+     * @param array<int, array<string, mixed>>|null $marks Метки или null, чтобы не трогать.
      *
      * @return GameBattleRecord Строка.
      *
@@ -221,6 +229,7 @@ final class GameBattleRepository
         ?int $activeIndex,
         ?int $round,
         ?array $cycle = null,
+        ?array $marks = null,
     ): GameBattleRecord {
         $current = $this->require($battleId);
         if ($current->getStateVersion() !== $expectedVersion) {
@@ -246,6 +255,10 @@ final class GameBattleRepository
 
         if ($cycle !== null) {
             $fields['concentration_cycle'] = $cycle;
+        }
+
+        if ($marks !== null) {
+            $fields['marks'] = $marks;
         }
 
         try {

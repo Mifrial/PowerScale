@@ -23,6 +23,7 @@ use Mifrial\Roleplay\Game\Repository\GameActionStrikeRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
 use Mifrial\Roleplay\Game\Table\GameActionStrikeTable;
+use Mifrial\Roleplay\Game\Table\GameBattleTable;
 use Mifrial\Roleplay\Game\Table\GameDeliveryTable;
 use Mifrial\Roleplay\Game\Table\GameSessionTable;
 use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
@@ -169,6 +170,78 @@ final class GameWideStrikeMysqlTest extends TestCase
         }
         self::assertTrue($byTarget[$first['npcId']]['flank']);
         self::assertFalse($byTarget[$second['npcId']]['flank']);
+    }
+
+    /**
+     * Метки боя в широком ударе применяются к защите своей цели и тратятся.
+     *
+     * @return void
+     */
+    public function testWideBattleMarksApplyPerTarget(): void
+    {
+        $world = $this->worldWithWeapon();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Wide-Mark-Attacker');
+        $firstId = $this->admit($world->getId(), $gameId, 'Wide-Mark-First');
+        $secondId = $this->admit($world->getId(), $gameId, 'Wide-Mark-Second');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-wide-marks',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $this->seedBattleMarks($battleId, [
+            $this->battleMark($firstId, $attackerId),
+            $this->battleMark($secondId, $attackerId),
+        ]);
+        $targets = [
+            ['type' => 'character', 'id' => $firstId],
+            ['type' => 'character', 'id' => $secondId],
+        ];
+        $opened = $this->dispatch('game.runAction', $this->declareBody(
+            $gameId,
+            $battleId,
+            's-wide-marks',
+            1,
+            $this->wideAttack($attackerId, $targets),
+        ));
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-wide-marks',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->wideDefenseEnvelope($this->defenses($targets, [
+                [
+                    'reaction' => 'dodge',
+                    'expectedSheetVersion' => $this->characterFacade()->get($firstId)->getActualVersion(),
+                ],
+                [
+                    'reaction' => 'dodge',
+                    'expectedSheetVersion' => $this->characterFacade()->get($secondId)->getActualVersion(),
+                ],
+            ])),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        foreach ([0, 1] as $index) {
+            $advantages = $closed['data']['strikes'][$index]['defenseRoll']['advantages'] ?? [];
+            $penalty = array_values(array_filter(
+                $advantages,
+                static fn (mixed $row): bool => is_array($row)
+                    && ($row['source_code'] ?? null) === 'circumstances'
+                    && ($row['delta'] ?? null) === -2,
+            ));
+            self::assertCount(1, $penalty);
+        }
+
+        self::assertSame([], $this->battleRow($battleId)['marks'] ?? null);
     }
 
     /**
@@ -2807,6 +2880,60 @@ final class GameWideStrikeMysqlTest extends TestCase
         } catch (MechanicInvalidException) {
             return $mechanics->getByCodeVersion('reliability_cut', '1.0.0')->getId();
         }
+    }
+
+    /**
+     * Кладёт метки в бой напрямую, не двигая версию.
+     *
+     * @param int $battleId Бой.
+     * @param array<int, array<string, mixed>> $marks Метки.
+     *
+     * @return void
+     */
+    private function seedBattleMarks(int $battleId, array $marks): void
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $gateway->open(GameBattleTable::class)->records()->update($battleId, ['marks' => $marks]);
+    }
+
+    /**
+     * Метка «помеха защите от ударов атакующего».
+     *
+     * @param int $subject Кому.
+     * @param int $attacker Против кого.
+     *
+     * @return array<string, mixed> Метка.
+     */
+    private function battleMark(int $subject, int $attacker): array
+    {
+        return [
+            'subject' => ['type' => 'character', 'id' => $subject],
+            'kind' => 'advantage',
+            'value' => -2,
+            'source_code' => 'circumstances',
+            'source_rule_code' => 'obman',
+            'scope' => ['defense_against' => ['type' => 'character', 'id' => $attacker]],
+            'consumes' => 'first_defense',
+            'expires' => ['kind' => 'turn', 'of' => ['type' => 'character', 'id' => $attacker]],
+        ];
+    }
+
+    /**
+     * Строка боя.
+     *
+     * @param int $battleId Бой.
+     *
+     * @return array<string, mixed> Строка.
+     */
+    private function battleRow(int $battleId): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $row = $gateway->open(GameBattleTable::class)->records()->getById($battleId);
+        self::assertIsArray($row);
+
+        return $row;
     }
 
     /**

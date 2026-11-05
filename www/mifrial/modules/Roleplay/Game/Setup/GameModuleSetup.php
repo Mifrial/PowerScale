@@ -68,6 +68,7 @@ final class GameModuleSetup implements IModuleSetup
             new DropUnidentifiedNpcStatesStep($this->smartTableGateway),
             new AlignGameActionColumnsStep($this->smartTableGateway),
             new AlignGameActionStrikeColumnsStep($this->smartTableGateway),
+            new AlignGameBattleColumnsStep($this->smartTableGateway),
         ];
     }
 }

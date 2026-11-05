@@ -17,6 +17,8 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
  */
 final class GameStrikeWideClose
 {
+    private readonly GameBattleMarks $marks;
+
     /**
      * Создаёт закрытие.
      *
@@ -57,6 +59,7 @@ final class GameStrikeWideClose
         private readonly GameStrikeDeclaredSpend $declaredSpend,
         private readonly GameStrikeSheetWrites $sheetWrites,
     ) {
+        $this->marks = new GameBattleMarks();
     }
 
     public function close(
@@ -251,6 +254,8 @@ final class GameStrikeWideClose
                 $attackerRoll,
                 is_string($row['profile_type'] ?? null) ? $row['profile_type'] : 'strike',
                 false,
+                null,
+                $battle->getMarks(),
             );
             $cover = $prepared[$rowId]['cover'];
             if (!is_array($cover)) {
@@ -326,6 +331,7 @@ final class GameStrikeWideClose
                 $supports['defender'],
                 $state === null ? ($prepared[$rowId] ?? null) : null,
                 $state,
+                $battle->getMarks(),
             );
         }
 
@@ -391,6 +397,8 @@ final class GameStrikeWideClose
         );
 
         $this->actions->close($strikeId);
+        $markKeys = $this->targets->markKeys();
+        $marksAfter = $markKeys === [] ? null : $this->marks->consume($battle->getMarks(), $markKeys);
         if ($this->targets->tokenUsed()) {
             $this->battles->replaceTracked(
                 $battleId,
@@ -400,9 +408,10 @@ final class GameStrikeWideClose
                 null,
                 null,
                 $this->targets->cycleAfter(),
+                $marksAfter,
             );
         } else {
-            $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
+            $this->battles->replacePending($battleId, $expectedBattleVersion, $pending, $marksAfter);
         }
 
         return [
@@ -588,6 +597,7 @@ final class GameStrikeWideClose
                 'defenderRoll' => $candidate['defenderRoll'] ?? null,
                 'reactionRuleCode' => $candidate['reactionRuleCode'] ?? null,
                 'expectedSheetVersion' => $row['expected_sheet_version'],
+                'markKeys' => $candidate['markKeys'] ?? [],
             ]),
             'cover' => $primaryKey === null
                 ? null
@@ -622,7 +632,31 @@ final class GameStrikeWideClose
             'reactionRuleCode' => is_string($candidate['reactionRuleCode'] ?? null)
                 ? $candidate['reactionRuleCode']
                 : null,
+            'markKeys' => $this->stringList($candidate['markKeys'] ?? null),
         ];
+    }
+
+    /**
+     * Список строк из недоверенного значения.
+     *
+     * @param mixed $raw Значение.
+     *
+     * @return array<int, string> Строки.
+     */
+    private function stringList(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($raw as $row) {
+            if (is_string($row)) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
     }
 
     /**

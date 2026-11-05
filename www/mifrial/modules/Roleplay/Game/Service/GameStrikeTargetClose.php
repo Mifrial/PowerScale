@@ -42,6 +42,15 @@ final class GameStrikeTargetClose
     private bool $tokenUsed = false;
 
     /**
+     * Ключи меток, чьи защиты реально применены.
+     *
+     * @var array<int, string>
+     */
+    private array $markKeys = [];
+
+    private readonly GameBattleMarks $marks;
+
+    /**
      * Начинает расчёт с карты боя.
      *
      * @param array<string, mixed> $pending Карта.
@@ -54,6 +63,7 @@ final class GameStrikeTargetClose
         $this->pendingAfter = $pending;
         $this->cycleAfter = $cycle;
         $this->tokenUsed = false;
+        $this->markKeys = [];
     }
 
     /**
@@ -87,6 +97,16 @@ final class GameStrikeTargetClose
     }
 
     /**
+     * Ключи меток, чьи защиты пошли в итог.
+     *
+     * @return array<int, string> Ключи.
+     */
+    public function markKeys(): array
+    {
+        return $this->markKeys;
+    }
+
+    /**
      * Создаёт расчёт цели.
      *
      * @param GameStrikeRules $rules Правила.
@@ -110,6 +130,7 @@ final class GameStrikeTargetClose
         private readonly GameStrikeTargetChoices $choices,
         private readonly GameStrikeCover $cover,
     ) {
+        $this->marks = new GameBattleMarks();
     }
 
     /**
@@ -124,6 +145,7 @@ final class GameStrikeTargetClose
      * @param string $profileType Профиль.
      * @param bool $isPush Толчок.
      * @param DimensionalNumber|null $shotDistance Дистанция выстрела.
+     * @param array<int, array<string, mixed>> $marks Метки боя.
      *
      * @return array{reaction: array<string, mixed>, cover: array<string, mixed>|null} Подготовка.
      */
@@ -137,6 +159,7 @@ final class GameStrikeTargetClose
         string $profileType,
         bool $isPush,
         ?DimensionalNumber $shotDistance = null,
+        array $marks = [],
     ): array {
         $target = GameStrikeTargetRow::defender($row);
         $reaction = $this->reactionOf(
@@ -163,6 +186,7 @@ final class GameStrikeTargetClose
                 $isPush,
                 $shotDistance,
                 is_int($choice['expectedSheetVersion'] ?? null) ? $choice['expectedSheetVersion'] : 0,
+                $marks,
             );
         }
 
@@ -186,6 +210,7 @@ final class GameStrikeTargetClose
      * @param array<int, RollAdvantage> $extraAdvantages Преимущества защиты из поддержек.
      * @param array<string, mixed>|null $prepared Реакция и прикрытие строки.
      * @param array<string, mixed>|null $resolved Готовая защита без переброса.
+     * @param array<int, array<string, mixed>> $marks Метки боя.
      *
      * @return array<string, mixed> Запись цели.
      */
@@ -204,6 +229,7 @@ final class GameStrikeTargetClose
         array $extraAdvantages = [],
         ?array $prepared = null,
         ?array $resolved = null,
+        array $marks = [],
     ): array {
         $target = GameStrikeTargetRow::defender($row);
         if ($refusalCode !== null) {
@@ -249,6 +275,14 @@ final class GameStrikeTargetClose
             is_int($open['attacker_id'] ?? null) ? $open['attacker_id'] : 0,
             $target['type'] . ':' . $target['id'],
         );
+        $markDefense = ['advantages' => [], 'keys' => []];
+        if ($resolved === null && in_array($choice['reaction'] ?? null, ['dodge', 'block'], true)) {
+            $attacker = $this->attackerOf($open);
+            if ($attacker !== null) {
+                $markDefense = $this->marks->forDefense($marks, $target, $attacker);
+            }
+        }
+
         $defense = $resolved !== null
             ? [
                 'defenderRoll' => $resolved['defenderRoll'],
@@ -271,8 +305,15 @@ final class GameStrikeTargetClose
                 $hitCode,
                 GameStrikeTargetRow::conditions($row),
                 $reaction['token']['advantage'] ?? null,
-                $extraAdvantages,
+                array_merge($extraAdvantages, $markDefense['advantages']),
             );
+        $appliedMarks = $resolved !== null
+            ? $this->stringList($resolved['markKeys'] ?? null)
+            : $markDefense['keys'];
+        if ($appliedMarks !== []) {
+            $this->markKeys = array_merge($this->markKeys, $appliedMarks);
+        }
+
         $slice ??= $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $success = $lastStrike->boostSuccess(
             $slice,
@@ -731,6 +772,47 @@ final class GameStrikeTargetClose
             $advantages,
             $targetKeys,
         );
+    }
+
+    /**
+     * Атакующий из строки удара.
+     *
+     * @param array<string, mixed> $open Открытый удар.
+     *
+     * @return array{type: string, id: int}|null Пара или null.
+     */
+    private function attackerOf(array $open): ?array
+    {
+        $kind = $open['attacker_kind'] ?? null;
+        $id = $open['attacker_id'] ?? null;
+        if (!is_string($kind) || !is_int($id) || !in_array($kind, ['character', 'npc'], true) || $id < 1) {
+            return null;
+        }
+
+        return ['type' => $kind, 'id' => $id];
+    }
+
+    /**
+     * Список строк из недоверенного значения.
+     *
+     * @param mixed $raw Значение.
+     *
+     * @return array<int, string> Строки.
+     */
+    private function stringList(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($raw as $row) {
+            if (is_string($row)) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
     }
 
     /**

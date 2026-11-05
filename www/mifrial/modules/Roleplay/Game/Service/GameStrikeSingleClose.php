@@ -22,6 +22,8 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
  */
 final class GameStrikeSingleClose
 {
+    private readonly GameBattleMarks $marks;
+
     /**
      * Создаёт закрытие.
      *
@@ -66,6 +68,7 @@ final class GameStrikeSingleClose
         private readonly GameStrikeCover $cover,
         private readonly GameStrikeDeclaredSpend $declaredSpend,
     ) {
+        $this->marks = new GameBattleMarks();
     }
 
     /**
@@ -386,6 +389,7 @@ final class GameStrikeSingleClose
         }
 
         $defenderRoll = null;
+        $markKeys = $this->stringList($resumeState['markKeys'] ?? null);
         $pushChecks = [];
         $attackerRoll = $resumeState !== null
             ? $resumeState['attackerRoll']
@@ -426,6 +430,7 @@ final class GameStrikeSingleClose
                 $isPush,
                 $profileType === 'shoot' ? $metrics['distance'] : null,
                 $expectedSheetVersion,
+                $battle->getMarks(),
             );
             if ($cover['winner'] !== null) {
                 $primaryTarget = $target;
@@ -456,6 +461,7 @@ final class GameStrikeSingleClose
                 $attackerRoll = $cover['winner']['attackerRoll'];
                 $defenderRoll = $cover['winner']['defenderRoll'];
                 $defenseRolled = true;
+                $markKeys = $this->stringList($cover['winner']['markKeys'] ?? null);
             } elseif ($cover['failed']) {
                 return $this->pauseForTargetChoice(
                     $game,
@@ -493,6 +499,16 @@ final class GameStrikeSingleClose
 
         if ($defenderToken !== null) {
             $defenderAdvantages[] = $defenderToken['advantage'];
+        }
+
+        if (!$defenseRolled && in_array($choice['reaction'], ['dodge', 'block'], true)) {
+            $markDefense = $this->marks->forDefense(
+                $battle->getMarks(),
+                $target,
+                ['type' => $attackerKind, 'id' => $attackerId],
+            );
+            $defenderAdvantages = array_merge($defenderAdvantages, $markDefense['advantages']);
+            $markKeys = array_merge($markKeys, $markDefense['keys']);
         }
 
         if (!$defenseRolled && $choice['reaction'] === 'dodge') {
@@ -858,6 +874,7 @@ final class GameStrikeSingleClose
             $this->actions->closeWithAnswers($strikeId, $answer);
         }
 
+        $marksAfter = $markKeys === [] ? null : $this->marks->consume($battle->getMarks(), $markKeys);
         $remaining = $sequential ? $this->remainingStrikes($strikeId, $activeIndex, $choice['reaction']) : 0;
         if ($remaining > 0) {
             $pending = $lastStrike->store(
@@ -884,9 +901,10 @@ final class GameStrikeSingleClose
                     null,
                     null,
                     $defenderToken['cycle'],
+                    $marksAfter,
                 );
             } else {
-                $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
+                $this->battles->replacePending($battleId, $expectedBattleVersion, $pending, $marksAfter);
             }
 
             $result['closed'] = false;
@@ -995,9 +1013,10 @@ final class GameStrikeSingleClose
                 null,
                 null,
                 $defenderToken['cycle'],
+                $marksAfter,
             );
         } else {
-            $this->battles->replacePending($battleId, $expectedBattleVersion, $pending);
+            $this->battles->replacePending($battleId, $expectedBattleVersion, $pending, $marksAfter);
         }
 
         $result['closed'] = true;
@@ -1248,6 +1267,29 @@ final class GameStrikeSingleClose
     }
 
     /**
+     * Список строк из недоверенного значения.
+     *
+     * @param mixed $raw Значение.
+     *
+     * @return array<int, string> Строки.
+     */
+    private function stringList(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($raw as $row) {
+            if (is_string($row)) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
      * JSON-объект строки удара.
      *
      * @param array<string, mixed> $row Строка удара.
@@ -1368,7 +1410,8 @@ final class GameStrikeSingleClose
      *     defenderRoll: array<string, mixed>|null,
      *     expectedSheetVersion: int,
      *     prepaid: bool,
-     *     cover: array<string, mixed>|null
+     *     cover: array<string, mixed>|null,
+     *     markKeys: array<int, string>
      * } Состояние.
      *
      * @throws GameInvalidException Если окно закрыто или выбор чужой.
@@ -1425,6 +1468,7 @@ final class GameStrikeSingleClose
                 : 0,
             'prepaid' => true,
             'cover' => $cover,
+            'markKeys' => is_array($candidate['markKeys'] ?? null) ? $candidate['markKeys'] : [],
         ];
     }
 }
