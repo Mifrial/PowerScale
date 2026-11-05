@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Tests\Support;
 
+use Mifrial\Core\SmartTable\Service\Schema\DestructiveDdlGuard;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use RuntimeException;
 
@@ -21,7 +22,7 @@ final class TestDatabaseGuard
      *
      * @var string
      */
-    public const MARKER = 'MIFRIAL_TEST_DATABASE';
+    public const MARKER = DestructiveDdlGuard::MARKER;
 
     /**
      * Пропускает только процесс, прошедший tests/bootstrap.php.

@@ -122,6 +122,7 @@ final class TableSchema
      */
     public function deleteTable(SmartTableDefinition $tableDefinition): void
     {
+        DestructiveDdlGuard::assertAllowed();
         $tableName = $tableDefinition->getName();
         $schemaBuilder = $this->databaseConnection->illuminateConnection()->getSchemaBuilder();
         if (!$schemaBuilder->hasTable($tableName)) {
