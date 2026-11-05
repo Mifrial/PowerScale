@@ -11,10 +11,8 @@ import {
   checkResolutionService,
 } from '@/modules/Roleplay/Rule/init';
 import {
-  ADVANTAGE_SOURCE_ACTION,
   ADVANTAGE_SOURCE_CIRCUMSTANCES,
-  ADVANTAGE_SOURCE_MULTI_ATTACK,
-  ADVANTAGE_SOURCE_TRAINING,
+  ADVANTAGE_SOURCE_LABELS,
 } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { characterHandsService } from '@/modules/Roleplay/Character/init';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
@@ -781,11 +779,9 @@ export class ActionEffectService {
   }
 
   private advantageSourceLabel(sourceCode: string | undefined): string {
-    if (sourceCode === ADVANTAGE_SOURCE_ACTION) return 'Действие';
-    if (sourceCode === ADVANTAGE_SOURCE_MULTI_ATTACK) return 'множественная атака';
-    if (sourceCode === ADVANTAGE_SOURCE_TRAINING) return 'тренировки';
+    const code = sourceCode ?? ADVANTAGE_SOURCE_CIRCUMSTANCES;
 
-    return 'Обстоятельства';
+    return ADVANTAGE_SOURCE_LABELS[code] ?? code;
   }
 
   private scopeIncludesHit(scope: { hit_count: number | 'all' }, hitNumber: number): boolean {

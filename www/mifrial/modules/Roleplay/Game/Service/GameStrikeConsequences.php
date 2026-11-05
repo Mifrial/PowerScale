@@ -289,6 +289,7 @@ final class GameStrikeConsequences
      * @param array<string, mixed>|null $defenseRoll Бросок защиты.
      * @param string|null $parentId Родительский ход.
      * @param array{text: string, roll: array<string, mixed>}|null $beforeOutcome Проверка до итога.
+     * @param list<array{text: string, roll: array<string, mixed>}> $preRollChecks Проверки перед общими бросками.
      *
      * @return void
      */
@@ -308,6 +309,7 @@ final class GameStrikeConsequences
         ?array $defenseRoll = null,
         ?string $parentId = null,
         ?array $beforeOutcome = null,
+        array $preRollChecks = [],
     ): void {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
@@ -324,6 +326,10 @@ final class GameStrikeConsequences
                 if ($strike !== '') {
                     $this->sendText($chatId, $actorUserId, $strike, $thread, $speaker);
                 }
+            }
+
+            foreach ($preRollChecks as $check) {
+                $this->sendCheck($chatId, $actorUserId, $check, $thread, $speaker);
             }
 
             $rolls = [$hitRoll];

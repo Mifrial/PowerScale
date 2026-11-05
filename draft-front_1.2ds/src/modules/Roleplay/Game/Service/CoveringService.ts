@@ -4,7 +4,7 @@ import type { CoverInvite } from '@/modules/Roleplay/Game/Dto/CoverInvite';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { ADVANTAGE_SOURCE_LABELS } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { actionOdCost, asActionAbilitySpec, turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
 
 /** Альтернативные защитники одной реакции: Прикрытие. */
@@ -43,14 +43,15 @@ export class CoveringService {
     return (invites ?? []).filter((invite) => invite.decision === 'cover');
   }
 
-  circumstanceModifier(rules: Rule[]): AdvantageModifier {
+  getDefenseAdvantageModifiers(rules: Rule[]): AdvantageModifier[] {
     const spec = this.coverRule(rules)?.spec;
+    if (!spec || typeof spec !== 'object' || !('cover_ally' in spec) || !spec.cover_ally) return [];
 
-    return {
-      source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES,
-      source_label: 'Обстоятельства',
-      delta: spec && typeof spec === 'object' && 'cover_ally' in spec ? (spec.cover_ally?.circumstance_delta ?? 0) : 0,
-    };
+    return spec.cover_ally.defense_advantages.map((row) => ({
+      source_code: row.source_code,
+      source_label: ADVANTAGE_SOURCE_LABELS[row.source_code] ?? null,
+      delta: row.delta,
+    }));
   }
 
   bestPassedKey(results: { key: CombatEntityKey; passed: boolean; rating: number }[]): CombatEntityKey | null {

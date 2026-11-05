@@ -14,7 +14,9 @@ final class RollAdvantage
      *
      * @param string|null $sourceCode Источник; null — отдельная запись, не схлопывается с другими null.
      * @param int $delta Дельта кубов. Плюс — преимущество, минус — помеха.
-     * @param string|null $sourceLabel Подпись источника или null.
+     * @param string|null $sourceLabel Подпись источника или null. Подпись
+     *                                  передаёт вызывающий: DTO реестра не знает
+     *                                  и ничего не подставляет.
      *
      * @return void
      */

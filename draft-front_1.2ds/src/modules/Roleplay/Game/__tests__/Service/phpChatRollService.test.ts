@@ -23,7 +23,7 @@ describe('PhpChatRollService', () => {
           delta: -2,
         },
       ],
-      advantages: [{ source_code: 'flank', delta: -2 }],
+      advantages: [{ source_code: 'flank', source_label: 'Фланговая атака', delta: -2 }],
       faces: [6, 5, 2],
       adjustedRolls: [6, 5, 2],
       successes: [-1, 0, 1],

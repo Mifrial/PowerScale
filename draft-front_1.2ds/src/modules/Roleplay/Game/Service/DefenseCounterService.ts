@@ -1,7 +1,10 @@
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
-import { ADVANTAGE_SOURCE_ACTION } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import {
+  ADVANTAGE_SOURCE_LABELS,
+  ADVANTAGE_SOURCE_PREPARATION,
+} from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 
 /**
  * Подготовка «Противодействовать защите»: одно висящее сравнение с прошлой реакцией цели.
@@ -23,8 +26,8 @@ export class DefenseCounterService {
     if (!prepared || !targetKey || !reaction || prepared.targetKey !== targetKey) return null;
 
     return {
-      source_code: ADVANTAGE_SOURCE_ACTION,
-      source_label: 'Подготовка',
+      source_code: ADVANTAGE_SOURCE_PREPARATION,
+      source_label: ADVANTAGE_SOURCE_LABELS[ADVANTAGE_SOURCE_PREPARATION],
       delta: prepared.reaction === reaction ? 1 : -1,
     };
   }

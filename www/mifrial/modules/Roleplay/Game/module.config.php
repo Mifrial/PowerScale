@@ -51,6 +51,7 @@ use Mifrial\Roleplay\Game\Action\RejectGameCharacterAction;
 use Mifrial\Roleplay\Game\Action\RemoveGameMemberAction;
 use Mifrial\Roleplay\Game\Action\ReplaceGameShopAction;
 use Mifrial\Roleplay\Game\Action\RequestGameJoinAction;
+use Mifrial\Roleplay\Game\Action\ResolveGameStrikeWindowAction;
 use Mifrial\Roleplay\Game\Action\RespondGameInvitationAction;
 use Mifrial\Roleplay\Game\Action\RespondGameJoinRequestAction;
 use Mifrial\Roleplay\Game\Action\ReturnGameCharacterAction;
@@ -188,6 +189,13 @@ return [
         },
         RunGameActionAction::class => static function (IServiceLocator $serviceLocator): RunGameActionAction {
             return new RunGameActionAction((new GameStrikePortFactory())->createRunActionHttp($serviceLocator));
+        },
+        ResolveGameStrikeWindowAction::class => static function (
+            IServiceLocator $serviceLocator,
+        ): ResolveGameStrikeWindowAction {
+            return new ResolveGameStrikeWindowAction(
+                (new GameStrikePortFactory())->createWindowHttp($serviceLocator),
+            );
         },
         StartGameBattleAction::class => static function (IServiceLocator $serviceLocator): StartGameBattleAction {
             return new StartGameBattleAction((new GameBattlePortFactory())->createHttp($serviceLocator));
@@ -578,6 +586,10 @@ return [
         ],
         'game.runAction' => [
             'handler' => RunGameActionAction::class,
+            'csrf' => true,
+        ],
+        'game.resolveStrikeWindow' => [
+            'handler' => ResolveGameStrikeWindowAction::class,
             'csrf' => true,
         ],
         'game.applyEconomy' => [

@@ -16,6 +16,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdjustment;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
@@ -385,9 +386,11 @@ final class GameStrikeRules
                 }
 
                 $source = $effect->getSourceCode();
+                $source = is_string($source) && $source !== '' ? $source : null;
                 $rows[] = new RollAdvantage(
-                    is_string($source) && $source !== '' ? $source : null,
+                    $source,
                     $effect->getDelta(),
+                    AdvantageSourceLabels::getLabel($source),
                 );
             }
         }
@@ -571,7 +574,11 @@ final class GameStrikeRules
             return null;
         }
 
-        return new RollAdvantage('circumstances', $delta * ($targetCount - 1));
+        return new RollAdvantage(
+            'circumstances',
+            $delta * ($targetCount - 1),
+            AdvantageSourceLabels::getLabel('circumstances'),
+        );
     }
 
     /**
@@ -1336,7 +1343,7 @@ final class GameStrikeRules
             $efficiency = $efficiency->modify($penalty->getDelta());
             $efficiencyAdjustments[] = [
                 'source_code' => 'distance',
-                'source_label' => 'Штраф дистанции',
+                'source_label' => AdvantageSourceLabels::getLabel('distance'),
                 'delta' => $penalty->getDelta(),
             ];
         }
@@ -1478,9 +1485,11 @@ final class GameStrikeRules
             }
 
             $source = $effect->getSourceCode();
+            $source = is_string($source) && $source !== '' ? $source : null;
             $rows[] = new RollAdvantage(
-                is_string($source) && $source !== '' ? $source : null,
+                $source,
                 $effect->getDelta(),
+                AdvantageSourceLabels::getLabel($source),
             );
         }
 

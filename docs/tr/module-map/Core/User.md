@@ -18,12 +18,15 @@
 - `Mifrial\Core\User\Interface\Service\IUserGroups`
 - `Mifrial\Core\User\Interface\Service\IUserViews`
 - `Mifrial\Core\User\Interface\Service\IUserAccess`
+- `Mifrial\Core\User\Interface\Service\IUserAvatar`
 - `Mifrial\Core\User\Service\UserHttpService`
 - `Mifrial\Core\User\Action\FindUserPageAction`
 - `Mifrial\Core\User\Action\GetUserAction`
 - `Mifrial\Core\User\Action\GetUsersByIdsAction`
+- `Mifrial\Core\User\Action\GetUserAvatarAction`
 - `Mifrial\Core\User\Action\UpdateUserAction`
 - `Mifrial\Core\User\Action\DeactivateUserAction`
+- `Mifrial\Core\User\Action\SetUserAvatarAction`
 - `Mifrial\Core\User\Service\GroupHttpService`
 - `Mifrial\Core\User\Action\FindGroupPageAction`
 - `Mifrial\Core\User\Action\GetGroupAction`
@@ -41,6 +44,8 @@
 | `user.getByIds` | `GetUsersByIdsAction` | да |
 | `user.update` | `UpdateUserAction` | да |
 | `user.deactivate` | `DeactivateUserAction` | да |
+| `user.setAvatar` | `SetUserAvatarAction` | да |
+| `user.getAvatar` | `GetUserAvatarAction` | да |
 | `userGroup.findPage` | `FindGroupPageAction` | да |
 | `userGroup.get` | `GetGroupAction` | да |
 | `userGroup.getMembers` | `GetGroupMembersAction` | да |
@@ -53,12 +58,13 @@
 - `Interface/Container/IUserContainer.php` — Публичный контейнер модуля User.
 - `Interface/Service/IUserAccess.php` — Guards HTTP учётки по снимку актора.
 - `Interface/Service/IUserAccounts.php` — Фасад учётки для соседей: профиль, без схемы и без таблиц.
+- `Interface/Service/IUserAvatar.php` — Аватар учётки: выбранный круг, источник и производная.
 - `Interface/Service/IUserGroups.php` — Фасад групп и членства для соседей: без схемы и без таблиц.
 - `Interface/Service/IUserViews.php` — JSON-профиль User для HTTP и Auth.
 
 ## Зависимости
 
-- **Зависит от:** [Core/Kernel](Kernel.md), [Core/SmartTable](SmartTable.md)
+- **Зависит от:** [Core/File](File.md), [Core/Image](Image.md), [Core/Kernel](Kernel.md), [Core/SmartTable](SmartTable.md)
 - **От него зависят:** [Core/Auth](Auth.md), [Core/File](File.md), [Core/Logger](Logger.md), [Messages/Chat](../Messages/Chat.md), [Roleplay/Character](../Roleplay/Character.md), [Roleplay/Game](../Roleplay/Game.md), [Roleplay/Keyword](../Roleplay/Keyword.md), [Roleplay/Mechanic](../Roleplay/Mechanic.md), [Roleplay/RuleSpace](../Roleplay/RuleSpace.md)
 
 ## События

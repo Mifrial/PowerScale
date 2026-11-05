@@ -5552,7 +5552,21 @@ const mockDevelopmentImportRaw: Rule[] = [
       ],
       grants: [],
       parent_ability_code: null,
-      cover_ally: { circumstance_delta: -1 },
+      reaction: {
+        trigger: 'strike',
+        window: 'before_defense',
+        performer: 'third_party',
+      },
+      cover_ally: {
+        defense_advantages: [{ delta: -1, source_code: 'circumstances' }],
+        reactions: ['block'],
+        resolution: {
+          success: 'highest_rating',
+          failure: 'attacker_choice',
+          becomes: 'actual_target',
+        },
+        distance: 'declared',
+      },
       action_components: [
         {
           type: 'resource',

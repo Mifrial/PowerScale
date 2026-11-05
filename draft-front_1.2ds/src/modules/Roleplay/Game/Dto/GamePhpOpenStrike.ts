@@ -1,3 +1,5 @@
+import type { GamePhpOpenStrikeCoverer } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeCoverer';
+import type { GamePhpStrikeAwaiting } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAwaiting';
 import type { GamePhpStrikeConditions } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeConditions';
 import type { GamePhpOpenStrikeSupporter } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeSupporter';
 
@@ -16,4 +18,8 @@ export interface GamePhpOpenStrike {
   conditions?: GamePhpStrikeConditions;
   /** Уже объявленные реакции: один участник реагирует один раз. */
   supporters?: GamePhpOpenStrikeSupporter[];
+  /** Уже заявленные прикрывающие. */
+  coverers?: GamePhpOpenStrikeCoverer[];
+  /** Ожидающие решения (например, выбор фактической цели). */
+  awaiting?: GamePhpStrikeAwaiting[];
 }

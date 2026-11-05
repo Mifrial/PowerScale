@@ -303,12 +303,18 @@
                 "Mifrial\\Core\\File\\Interface\\Service\\IFiles",
                 "Mifrial\\Core\\File\\Service\\FileHttpService",
                 "Mifrial\\Core\\File\\Action\\FindFilePageAction",
+                "Mifrial\\Core\\File\\Action\\FindOwnImagesAction",
                 "Mifrial\\Core\\File\\Action\\GetFileAction"
             ],
             "routes": [
                 {
                     "action": "file.findPage",
                     "handler": "Mifrial\\Core\\File\\Action\\FindFilePageAction",
+                    "csrf": true
+                },
+                {
+                    "action": "file.findOwnImages",
+                    "handler": "Mifrial\\Core\\File\\Action\\FindOwnImagesAction",
                     "csrf": true
                 },
                 {
@@ -341,7 +347,9 @@
                 "Core/SmartTable",
                 "Core/User"
             ],
-            "dependedOnBy": [],
+            "dependedOnBy": [
+                "Core/User"
+            ],
             "plans": [
                 {
                     "path": "docs/tr/file-plan-01.md",
@@ -352,6 +360,42 @@
                     "hasStatus": true
                 }
             ]
+        },
+        {
+            "key": "Core/Image",
+            "group": "Core",
+            "name": "Image",
+            "path": "modules/Core/Image",
+            "namespace": "Mifrial\\Core\\Image",
+            "container": "Mifrial\\Core\\Image\\Container\\ImageContainer",
+            "locator": "Mifrial\\Core\\Image\\Interface\\Container\\IImageContainer",
+            "setup": null,
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Core\\Image\\Interface\\Service\\IImageTransform"
+            ],
+            "routes": [],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "IImageContainer",
+                    "path": "Interface/Container/IImageContainer.php",
+                    "summary": "Контейнер портов модуля Image."
+                },
+                {
+                    "name": "IImageTransform",
+                    "path": "Interface/Service/IImageTransform.php",
+                    "summary": "Порт построения производной картинки."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Kernel"
+            ],
+            "dependedOnBy": [
+                "Core/User"
+            ],
+            "plans": []
         },
         {
             "key": "Core/Kernel",
@@ -466,6 +510,7 @@
                 "Core/Cache",
                 "Core/Event",
                 "Core/File",
+                "Core/Image",
                 "Core/Logger",
                 "Core/Mail",
                 "Core/SmartTable",
@@ -921,12 +966,15 @@
                 "Mifrial\\Core\\User\\Interface\\Service\\IUserGroups",
                 "Mifrial\\Core\\User\\Interface\\Service\\IUserViews",
                 "Mifrial\\Core\\User\\Interface\\Service\\IUserAccess",
+                "Mifrial\\Core\\User\\Interface\\Service\\IUserAvatar",
                 "Mifrial\\Core\\User\\Service\\UserHttpService",
                 "Mifrial\\Core\\User\\Action\\FindUserPageAction",
                 "Mifrial\\Core\\User\\Action\\GetUserAction",
                 "Mifrial\\Core\\User\\Action\\GetUsersByIdsAction",
+                "Mifrial\\Core\\User\\Action\\GetUserAvatarAction",
                 "Mifrial\\Core\\User\\Action\\UpdateUserAction",
                 "Mifrial\\Core\\User\\Action\\DeactivateUserAction",
+                "Mifrial\\Core\\User\\Action\\SetUserAvatarAction",
                 "Mifrial\\Core\\User\\Service\\GroupHttpService",
                 "Mifrial\\Core\\User\\Action\\FindGroupPageAction",
                 "Mifrial\\Core\\User\\Action\\GetGroupAction",
@@ -959,6 +1007,16 @@
                 {
                     "action": "user.deactivate",
                     "handler": "Mifrial\\Core\\User\\Action\\DeactivateUserAction",
+                    "csrf": true
+                },
+                {
+                    "action": "user.setAvatar",
+                    "handler": "Mifrial\\Core\\User\\Action\\SetUserAvatarAction",
+                    "csrf": true
+                },
+                {
+                    "action": "user.getAvatar",
+                    "handler": "Mifrial\\Core\\User\\Action\\GetUserAvatarAction",
                     "csrf": true
                 },
                 {
@@ -1010,6 +1068,11 @@
                     "summary": "Фасад учётки для соседей: профиль, без схемы и без таблиц."
                 },
                 {
+                    "name": "IUserAvatar",
+                    "path": "Interface/Service/IUserAvatar.php",
+                    "summary": "Аватар учётки: выбранный круг, источник и производная."
+                },
+                {
                     "name": "IUserGroups",
                     "path": "Interface/Service/IUserGroups.php",
                     "summary": "Фасад групп и членства для соседей: без схемы и без таблиц."
@@ -1022,6 +1085,8 @@
             ],
             "readme": false,
             "dependsOn": [
+                "Core/File",
+                "Core/Image",
                 "Core/Kernel",
                 "Core/SmartTable"
             ],
@@ -1591,6 +1656,7 @@
                 "Mifrial\\Roleplay\\Game\\Action\\AbortGameAction",
                 "Mifrial\\Roleplay\\Game\\Action\\AbortProcessGameAction",
                 "Mifrial\\Roleplay\\Game\\Action\\RunGameActionAction",
+                "Mifrial\\Roleplay\\Game\\Action\\ResolveGameStrikeWindowAction",
                 "Mifrial\\Roleplay\\Game\\Action\\StartGameBattleAction",
                 "Mifrial\\Roleplay\\Game\\Action\\SetGameBattleRosterAction",
                 "Mifrial\\Roleplay\\Game\\Action\\EndGameBattleAction",
@@ -1936,6 +2002,11 @@
                     "csrf": true
                 },
                 {
+                    "action": "game.resolveStrikeWindow",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\ResolveGameStrikeWindowAction",
+                    "csrf": true
+                },
+                {
                     "action": "game.applyEconomy",
                     "handler": "Mifrial\\Roleplay\\Game\\Action\\ApplyGameEconomyAction",
                     "csrf": true
@@ -2100,6 +2171,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/game-plan-45-strike-phases.md",
+                    "title": "План 45 — фазы удара и альтернативный защитник",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/game-plan-01.md",
                     "title": "План Game 1 — каркас модуля и строка игры",
                     "kind": "plan",
@@ -2118,14 +2197,6 @@
                 {
                     "path": "docs/tr/game-plan-43-processes.md",
                     "title": "План 43 — Процессы как оркестратор действий",
-                    "kind": "plan",
-                    "state": "ЧАСТИЧНО",
-                    "date": null,
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/game-plan-44-checks-real.md",
-                    "title": "План 44 — проверки в real-режиме",
                     "kind": "plan",
                     "state": "ЧАСТИЧНО",
                     "date": null,
@@ -2398,6 +2469,14 @@
                 {
                     "path": "docs/tr/game-plan-42-push-check.md",
                     "title": "План 42 — Толчок как проверка",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/game-plan-44-checks-real.md",
+                    "title": "План 44 — проверки в real-режиме",
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": null,
@@ -2814,14 +2893,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/rule-content-plan-15-melee-tactics-design.md",
-                    "title": "C2 — дизайн способностей «Защита знанием» и «Прикрытие»",
-                    "kind": "plan",
-                    "state": "ПЛАН",
-                    "date": "2026-09-20",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/rule-roadmap.md",
                     "title": "Нарезка Roleplay/Rule",
                     "kind": "plan",
@@ -2859,6 +2930,14 @@
                     "kind": "plan",
                     "state": "В РАБОТЕ",
                     "date": "2026-10-25",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-15-melee-tactics-design.md",
+                    "title": "C2 — дизайн способностей «Защита знанием» и «Прикрытие»",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": null,
                     "hasStatus": true
                 },
                 {

@@ -191,6 +191,66 @@ final class GameStrikeClose
     }
 
     /**
+     * Продолжает одиночный удар после выбора фактической цели.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param int $battleId Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedBattleVersion Версия боя.
+     * @param array<string, mixed> $resume Решение окна.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ.
+     * @param bool $viewAll Полный просмотр.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function resumeSingle(
+        GameRecord $game,
+        int $sessionId,
+        int $battleId,
+        string $idempotencyKey,
+        int $expectedBattleVersion,
+        array $resume,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+    ): array {
+        $body = [
+            'battleId' => $battleId,
+            'window' => $resume,
+            'expectedVersion' => $expectedBattleVersion,
+        ];
+
+        return $this->replayTransaction->execute(
+            fn (): ?array => $this->commands->findByKey($game->getId(), 'strike_window', $idempotencyKey),
+            fn (): int => $this->commands->reserve(
+                $game->getId(),
+                $sessionId,
+                'strike_window',
+                $idempotencyKey,
+                $body,
+            ),
+            function (int $reservationId, array $result): void {
+                $this->commands->complete($reservationId, $result);
+            },
+            fn (): array => $this->single->close(
+                $game,
+                $sessionId,
+                $battleId,
+                $expectedBattleVersion,
+                0,
+                [],
+                $actorUserId,
+                $editAll,
+                $viewAll,
+                $resume,
+            ),
+            $body,
+        )['result'];
+    }
+
+    /**
      * Закрывает одиночный удар.
      *
      * @param GameRecord $game Игра.

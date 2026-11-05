@@ -132,7 +132,52 @@ final class GameViewAssembler
             'profileIndex' => $this->intField($target, 'profile_index'),
             'conditions' => GameStrikeTargetRow::conditions($target),
             'supporters' => $this->supportersOf($target),
+            'coverers' => $this->rowsOf($target, 'coverers'),
+            'awaiting' => $this->awaitingOf($target),
         ];
+    }
+
+    /**
+     * Ожидающие решения открытого удара.
+     *
+     * @param array<string, mixed> $row Колонки.
+     *
+     * @return array<int, array<string, mixed>> Ожидания.
+     */
+    private function awaitingOf(array $row): array
+    {
+        $raw = $row['resolution'] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if (!is_array($raw) || !is_array($raw['awaiting'] ?? null)) {
+            return [];
+        }
+
+        return array_values(array_filter($raw['awaiting'], static fn (mixed $entry): bool => is_array($entry)));
+    }
+
+    /**
+     * Записи строки удара.
+     *
+     * @param array<string, mixed> $row Колонки.
+     * @param string $key Колонка.
+     *
+     * @return array<int, array<string, mixed>> Записи.
+     */
+    private function rowsOf(array $row, string $key): array
+    {
+        $raw = $row[$key] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter($raw, static fn (mixed $entry): bool => is_array($entry)));
     }
 
     /**

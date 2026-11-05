@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
+use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdjustment;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
@@ -569,10 +570,12 @@ final class GamePendingActionCosts
         }
 
         $source = $effect['source_code'] ?? null;
+        $source = is_string($source) && $source !== '' ? $source : null;
 
         return new RollAdvantage(
-            is_string($source) && $source !== '' ? $source : null,
+            $source,
             $delta,
+            AdvantageSourceLabels::getLabel($source),
         );
     }
 

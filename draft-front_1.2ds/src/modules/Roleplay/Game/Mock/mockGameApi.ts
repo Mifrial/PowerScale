@@ -170,6 +170,7 @@ export const mockGameApi: IGameApi = {
     sheets: [],
   }),
   runAction: async () => ({ kind: 'action', phase: 'declare', battleId: 0, version: 1 }),
+  resolveStrikeWindow: async () => ({ kind: 'strike', phase: 'respond', battleId: 0, version: 1 }),
   manualSheet: mockManualSheet.manualSheet,
   endTurn: async () => ({ version: 1 }),
   continueAction: async () => ({ version: 1 }),

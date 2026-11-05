@@ -283,7 +283,7 @@ final class GameStrikeSpend
 
         return [
             'spend' => new ResourceSpend($resource, new ScalarResourceValue($amount)),
-            'advantage' => new RollAdvantage($resource, $amount),
+            'advantage' => new RollAdvantage($resource, $amount, $slice->findLive($resource)?->getName()),
             'cycle' => (new GameConcentrationCycle())->markUsed($cycle, $actorKey),
         ];
     }

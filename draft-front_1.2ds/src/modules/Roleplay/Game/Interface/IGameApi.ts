@@ -330,6 +330,16 @@ export interface IGameApi {
   ): Promise<GameSheets>;
   getBattleSheets(query: { gameId: number; battleId: number }, signal?: AbortSignal): Promise<GameBattleSheets>;
   runAction(body: GamePhpRunActionRequest, signal?: AbortSignal): Promise<GamePhpRunActionResult>;
+  resolveStrikeWindow(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      window: { actualTarget: string };
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpRunActionResult>;
   manualSheet(body: GameManualSheetRequest, signal?: AbortSignal): Promise<GameManualSheetResult>;
   endTurn(
     body: {

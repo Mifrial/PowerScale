@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 
 /**
@@ -75,7 +76,11 @@ final class GamePreparedDefense
             return null;
         }
 
-        return new RollAdvantage('action', $previous === $reaction ? 1 : -1);
+        return new RollAdvantage(
+            'preparation',
+            $previous === $reaction ? 1 : -1,
+            AdvantageSourceLabels::getLabel('preparation'),
+        );
     }
 
     /**

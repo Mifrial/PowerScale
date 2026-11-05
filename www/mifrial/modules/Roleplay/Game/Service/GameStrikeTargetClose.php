@@ -11,6 +11,7 @@ use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameEconomyConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
+use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -415,7 +416,7 @@ final class GameStrikeTargetClose
         $defenderRoll = null;
         $ratedRoll = $attackerRoll;
         $flank = ($conditions['flank'] ?? false) === true && ($conditions['turn'] ?? false) !== true
-            ? [new RollAdvantage('flank', -2)]
+            ? [new RollAdvantage('flank', -2, AdvantageSourceLabels::getLabel('flank'))]
             : [];
         if ($token !== null) {
             $flank[] = $token;

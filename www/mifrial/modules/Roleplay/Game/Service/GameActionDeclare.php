@@ -26,8 +26,10 @@ use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CoverAlly;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ReactionModifier;
+use Mifrial\Roleplay\Rule\Spec\AbilityCombat;
 use Mifrial\Roleplay\Rule\Spec\SupportSpecs;
 
 /**
@@ -314,8 +316,44 @@ final class GameActionDeclare
         }
 
         $support = SupportSpecs::read($rule->getSpecDocument());
-        if ($support === null) {
+        $cover = AbilityCombat::cover($rule->getSpecDocument());
+        if ($support === null && $cover === null) {
             throw new GameInvalidException('Game strike reaction has no executable effect');
+        }
+
+        if ($support !== null && $cover !== null) {
+            throw new GameInvalidException('Game strike reaction effect is ambiguous');
+        }
+
+        $supporters = $this->supportersOf($row);
+        $coverers = $this->coverersOf($row);
+        foreach (array_merge($supporters, $coverers) as $entry) {
+            $actor = $entry['actor'] ?? null;
+            if (
+                is_array($actor)
+                && ($actor['type'] ?? null) === $input['actor']['type']
+                && ($actor['id'] ?? null) === $input['actor']['id']
+            ) {
+                throw new GameInvalidException('Game strike reaction is already declared');
+            }
+        }
+
+        if ($cover !== null) {
+            if ($role !== 'third_party') {
+                throw new GameInvalidException('Game strike cover actor is invalid');
+            }
+
+            return $this->declareCover(
+                $game,
+                $input,
+                $cover,
+                $battle,
+                $row,
+                $strikeId,
+                is_int($open['id'] ?? null) ? $open['id'] : $strikeId,
+                $coverers,
+                $actorUserId,
+            );
         }
 
         $effect = $this->supportInput($input['context']);
@@ -330,18 +368,6 @@ final class GameActionDeclare
 
         if ($support->getProfile() !== null && $effect['profileType'] !== $support->getProfile()) {
             throw new GameInvalidException('Game strike support weapon profile is invalid');
-        }
-
-        $supporters = $this->supportersOf($row);
-        foreach ($supporters as $entry) {
-            $actor = $entry['actor'] ?? null;
-            if (
-                is_array($actor)
-                && ($actor['type'] ?? null) === $input['actor']['type']
-                && ($actor['id'] ?? null) === $input['actor']['id']
-            ) {
-                throw new GameInvalidException('Game strike reaction is already declared');
-            }
         }
 
         $quote = $this->perform->quote(
@@ -369,13 +395,6 @@ final class GameActionDeclare
         }
 
         $this->perform->assertSpends($game, $quote['document']['sheet'], $quote['spends']);
-        $sheetVersion = $this->perform->spend(
-            $game,
-            $input['actor']['type'],
-            $input['actor']['id'],
-            $input['context']['expectedSheetVersion'],
-            $quote['spends'],
-        );
 
         $supporters[] = [
             'actor' => $input['actor'],
@@ -388,6 +407,7 @@ final class GameActionDeclare
                 'itemRuleCode' => $effect['itemRuleCode'],
                 'profileType' => $effect['profileType'],
             ],
+            'expectedSheetVersion' => $input['context']['expectedSheetVersion'],
         ];
         $this->actions->answerStrike($strikeId, ['supporters' => $supporters]);
         $saved = $this->battles->replaceTracked(
@@ -398,7 +418,6 @@ final class GameActionDeclare
             null,
             null,
         );
-        $spent = $this->spentOf($quote['spends']);
         $chatStrikeId = is_int($open['id'] ?? null) ? $open['id'] : $strikeId;
         $this->chat->postStrikeReaction(
             $game,
@@ -410,18 +429,19 @@ final class GameActionDeclare
             $input['actionRuleCode'],
             $effect['side'],
             $effect['side'] === 'attacker' ? $attacker : $target,
-            $spent,
+            0,
             $support->getAdvantage(),
         );
 
         return [
             'battleId' => $battle->getId(),
             'version' => $saved->getStateVersion(),
-            'sheetVersion' => $sheetVersion,
+            'sheetVersion' => null,
             'strikeId' => $strikeId,
             'side' => $effect['side'],
             'advantage' => $support->getAdvantage(),
-            'spent' => $spent,
+            'spent' => 0,
+            'declared' => true,
         ];
     }
 
@@ -510,7 +530,32 @@ final class GameActionDeclare
      */
     private function supportersOf(array $row): array
     {
-        $raw = $row['supporters'] ?? null;
+        return $this->jsonRows($row, 'supporters');
+    }
+
+    /**
+     * Уже объявленные прикрывающие строки удара.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     *
+     * @return list<array<string, mixed>> Записи.
+     */
+    private function coverersOf(array $row): array
+    {
+        return $this->jsonRows($row, 'coverers');
+    }
+
+    /**
+     * Список JSON-записей строки удара.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     * @param string $key Колонка.
+     *
+     * @return list<array<string, mixed>> Записи.
+     */
+    private function jsonRows(array $row, string $key): array
+    {
+        $raw = $row[$key] ?? null;
         if (is_string($raw)) {
             $raw = json_decode($raw, true);
         }
@@ -520,6 +565,167 @@ final class GameActionDeclare
         }
 
         return array_values(array_filter($raw, static fn (mixed $entry): bool => is_array($entry)));
+    }
+
+    /**
+     * Payload эффекта cover_ally: выбранная защита и предмет блока.
+     *
+     * @param array<string, mixed> $context Контекст реакции.
+     *
+     * @return array{
+     *     reaction: string,
+     *     blockItemInventoryId: int,
+     *     blockItemProfileIndex: int,
+     *     blockItemRuleCode: string
+     * } Вход.
+     *
+     * @throws GameInvalidException Если поле чужое.
+     */
+    private function coverInput(array $context): array
+    {
+        $cover = is_array($context['cover'] ?? null) ? $context['cover'] : null;
+        $reaction = is_array($cover) ? ($cover['reaction'] ?? null) : null;
+        $inventoryId = is_array($cover) ? ($cover['blockItemInventoryId'] ?? null) : null;
+        $profileIndex = is_array($cover) ? ($cover['blockItemProfileIndex'] ?? null) : null;
+        $ruleCode = is_array($cover) ? ($cover['blockItemRuleCode'] ?? null) : null;
+        if (
+            !is_string($reaction)
+            || $reaction === ''
+            || !is_int($inventoryId)
+            || !is_int($profileIndex)
+            || !is_string($ruleCode)
+        ) {
+            throw new GameInvalidException('Game strike cover is invalid');
+        }
+
+        return [
+            'reaction' => $reaction,
+            'blockItemInventoryId' => $inventoryId,
+            'blockItemProfileIndex' => $profileIndex,
+            'blockItemRuleCode' => $ruleCode,
+        ];
+    }
+
+    /**
+     * Объявляет прикрытие: заявка без списания.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $input Вход реакции.
+     * @param CoverAlly $cover Узел прикрытия.
+     * @param GameBattleRecord $battle Бой.
+     * @param array<string, mixed> $row Строка удара.
+     * @param int $strikeId Строка.
+     * @param int $chatStrikeId Нить атаки.
+     * @param list<array<string, mixed>> $coverers Уже заявившиеся.
+     * @param int $actorUserId Пользователь.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если защита недоступна или цена выше прикрытия.
+     */
+    private function declareCover(
+        GameRecord $game,
+        array $input,
+        CoverAlly $cover,
+        GameBattleRecord $battle,
+        array $row,
+        int $strikeId,
+        int $chatStrikeId,
+        array $coverers,
+        int $actorUserId,
+    ): array {
+        $effect = $this->coverInput($input['context']);
+        if (!in_array($effect['reaction'], $cover->getReactions(), true)) {
+            throw new GameInvalidException('Game strike cover reaction is invalid');
+        }
+
+        $target = $this->strikeParticipant($row['target_type'] ?? null, $row['target_id'] ?? null);
+        if ($target === null) {
+            throw new GameInvalidException('Game strike cover target is invalid');
+        }
+
+        $choices = new GameStrikeTargetChoices($this->rules, $this->sheets);
+        $actorChoices = $choices->targetChoices($game, $input['actor']);
+        $actorSheet = $this->sheets->getTargetSheet($game, $input['actor']);
+        if ($effect['reaction'] === 'block') {
+            $this->rules->assertBlockSelection(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $actorChoices,
+                $effect['blockItemInventoryId'],
+                $effect['blockItemProfileIndex'],
+                $effect['blockItemRuleCode'],
+            );
+        }
+
+        $quote = $this->perform->quote(
+            $game,
+            $input['actor']['type'],
+            $input['actor']['id'],
+            $input['actionRuleCode'],
+            $battle->getPendingActionEffects(),
+            false,
+            [],
+            null,
+        );
+        $coverCost = $this->spentOf($quote['spends']);
+        $this->perform->assertSpends($game, $quote['document']['sheet'], $quote['spends']);
+        $reactionSpends = $this->rules->resolveReactionResourceSpends(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $effect['reaction'],
+            $effect['reaction'] === 'block' ? $effect['blockItemInventoryId'] : null,
+            $effect['blockItemRuleCode'],
+            $actorChoices,
+            $actorSheet,
+        );
+        if ($this->spentOf($reactionSpends) > $coverCost) {
+            throw new GameInvalidException('Game strike cover reaction is too expensive');
+        }
+
+        $coverers[] = [
+            'actor' => $input['actor'],
+            'ruleCode' => $input['actionRuleCode'],
+            'reaction' => $effect['reaction'],
+            'blockItemInventoryId' => $effect['blockItemInventoryId'],
+            'blockItemProfileIndex' => $effect['blockItemProfileIndex'],
+            'blockItemRuleCode' => $effect['blockItemRuleCode'],
+            'expectedSheetVersion' => $input['context']['expectedSheetVersion'],
+            'cost' => $coverCost,
+            'reactedAt' => $strikeId,
+        ];
+        $this->actions->answerStrike($strikeId, ['coverers' => $coverers]);
+        $saved = $this->battles->replaceTracked(
+            $battle->getId(),
+            $input['expectedBattle'],
+            null,
+            null,
+            null,
+            null,
+        );
+        $this->chat->postStrikeCover(
+            $game,
+            $actorUserId,
+            $input['actor']['type'],
+            $input['actor']['id'],
+            $battle,
+            $chatStrikeId,
+            $input['actionRuleCode'],
+            $target,
+            $effect['reaction'],
+            $effect['blockItemRuleCode'],
+            $coverCost,
+        );
+
+        return [
+            'battleId' => $battle->getId(),
+            'version' => $saved->getStateVersion(),
+            'sheetVersion' => null,
+            'strikeId' => $strikeId,
+            'cover' => $effect['reaction'],
+            'spent' => 0,
+            'declared' => true,
+        ];
     }
 
     /**

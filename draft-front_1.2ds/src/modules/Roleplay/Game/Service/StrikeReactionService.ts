@@ -5,7 +5,7 @@ import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
 import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionRequest';
 import type { ReactionActor } from '@/modules/Roleplay/Game/Dto/ReactionActor';
-import type { ReactionOffer } from '@/modules/Roleplay/Game/Dto/ReactionOffer';
+import type { ReactionCoverEffect, ReactionOffer } from '@/modules/Roleplay/Game/Dto/ReactionOffer';
 import type { ReactionWeapon } from '@/modules/Roleplay/Game/Dto/ReactionWeapon';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ReactionPerformer, ReactionSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ReactionSpec';
@@ -14,14 +14,21 @@ import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { SupportSide } from '@/modules/Roleplay/Rule/Enum/Ability/SupportSide';
 import type { WeaponProfileType } from '@/modules/Roleplay/Rule/Enum/Item/WeaponProfileType';
+import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
+import { ADVANTAGE_SOURCE_LABELS } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { actionOdCost } from '@/modules/Roleplay/Game/Utils/combatActions';
+
+/** Куда идёт заявка реакции: Поддержка или Прикрытие. */
+export type ReactionSubmit =
+  | { kind: 'support'; side: SupportSide; itemInventoryId: number }
+  | { kind: 'cover'; reaction: string; itemInventoryId: number; itemRuleCode: string };
 
 /**
  * Реакции на открытый удар: какие карточки доступны и что нужно для заявки.
  *
- * Доступность берётся из спеки карточки: узел `reaction` говорит, когда
- * реакция применима, узел эффекта (`support`) — что она делает. Кодов правил
- * и частных карточек здесь нет.
+ * Доступность берётся из узла `reaction`: он говорит, когда реакция
+ * применима. Конкретный эффект (`support`, `cover_ally`) выбирается после
+ * выбора карточки. Кодов правил и частных карточек здесь нет.
  */
 export class StrikeReactionService {
   /** Устойчивый ключ открытого удара для подавления повторного окна. */
@@ -49,16 +56,31 @@ export class StrikeReactionService {
     const reacted = new Set(
       (strike.supporters ?? []).map((supporter) => this.entityKey(supporter.actor.type, supporter.actor.id)),
     );
+    for (const coverer of strike.coverers ?? []) {
+      reacted.add(this.entityKey(coverer.actor.type, coverer.actor.id));
+    }
     const names: Record<SupportSide, string> = {
       attacker: this.nameOf(strike.attackerKind, strike.attackerId, memberships, npcs),
       defender: this.nameOf(strike.defenderKind, strike.defenderId, memberships, npcs),
     };
     const reactions = rules
-      .map((rule) => ({ rule, reaction: this.reactionSpec(rule), support: this.supportSpec(rule) }))
+      .map((rule) => ({
+        rule,
+        reaction: this.reactionSpec(rule),
+        support: this.supportSpec(rule),
+        cover: this.coverSpec(rule),
+      }))
       .filter(
-        (entry): entry is { rule: Rule; reaction: ReactionSpec; support: SupportSpec } =>
+        (
+          entry,
+        ): entry is {
+          rule: Rule;
+          reaction: ReactionSpec;
+          support: SupportSpec | null;
+          cover: ReactionCoverEffect | null;
+        } =>
           entry.reaction !== null &&
-          entry.support !== null &&
+          (entry.support !== null || entry.cover !== null) &&
           entry.reaction.trigger === 'strike' &&
           entry.reaction.window === 'before_defense',
       );
@@ -72,21 +94,41 @@ export class StrikeReactionService {
       for (const entry of reactions) {
         if (!this.allows(entry.reaction.performer, role)) continue;
         if (!this.hasAbility(actor.version, entry.rule.code)) continue;
-        const profile = entry.support.profile ?? 'strike';
-        if (profile !== strike.profileType) continue;
-        const weapons = this.weaponsOf(actor.version, rules, profile);
-        if (weapons.length === 0) continue;
-        const components = this.componentsOf(entry.rule);
-        offers.push({
-          rule: entry.rule,
-          actor,
-          reaction: entry.reaction,
-          sides: entry.support.sides.map((value) => ({ value, name: names[value] })),
-          weapons,
-          advantage: entry.support.advantage,
-          source: entry.support.source ?? 'circumstances',
-          cost: actionOdCost(components, 0, 'action-points'),
-        });
+        const cost = actionOdCost(this.componentsOf(entry.rule), 0, 'action-points');
+
+        if (entry.support) {
+          const profile = entry.support.profile ?? 'strike';
+          if (profile !== strike.profileType) continue;
+          const weapons = this.weaponsOf(actor.version, rules, profile);
+          if (weapons.length === 0) continue;
+          offers.push({
+            rule: entry.rule,
+            actor,
+            reaction: entry.reaction,
+            cost,
+            effect: {
+              kind: 'support',
+              sides: entry.support.sides.map((value) => ({ value, name: names[value] })),
+              weapons,
+              advantage: entry.support.advantage,
+              source: entry.support.source ?? 'circumstances',
+            },
+          });
+          continue;
+        }
+
+        if (entry.cover) {
+          if (role !== 'third_party') continue;
+          const blockItems = this.blockItemsOf(actor.version, rules);
+          if (blockItems.length === 0) continue;
+          offers.push({
+            rule: entry.rule,
+            actor,
+            reaction: entry.reaction,
+            cost,
+            effect: { ...entry.cover, blockItems },
+          });
+        }
       }
     }
 
@@ -97,13 +139,33 @@ export class StrikeReactionService {
   request(
     gameId: number,
     offer: ReactionOffer,
-    side: SupportSide,
-    weapon: ReactionWeapon,
+    submit: ReactionSubmit,
     battleId: number,
     expectedBattleVersion: number,
     expectedSheetVersion: number,
     idempotencyKey: string,
   ): GamePhpRunActionRequest {
+    const context: Record<string, unknown> = { expectedSheetVersion };
+    if (submit.kind === 'support') {
+      const weapon = this.weaponOf(offer, submit.itemInventoryId);
+      if (!weapon) throw new Error('Оружие реакции не найдено');
+      context.support = {
+        side: submit.side,
+        itemInventoryId: weapon.itemInventoryId,
+        itemRuleCode: weapon.itemRuleCode,
+        profileType: weapon.profileType,
+      };
+    } else {
+      const item = this.blockItemOf(offer, submit.itemInventoryId);
+      if (!item) throw new Error('Предмет блока не найден');
+      context.cover = {
+        reaction: submit.reaction,
+        blockItemInventoryId: item.itemInventoryId,
+        blockItemProfileIndex: 0,
+        blockItemRuleCode: item.itemRuleCode,
+      };
+    }
+
     return {
       gameId,
       battleId,
@@ -114,17 +176,29 @@ export class StrikeReactionService {
         kind: 'reaction',
         code: offer.rule.code,
         actor: { type: offer.actor.kind, id: offer.actor.id },
-        context: {
-          expectedSheetVersion,
-          support: {
-            side,
-            itemInventoryId: weapon.itemInventoryId,
-            itemRuleCode: weapon.itemRuleCode,
-            profileType: weapon.profileType,
-          },
-        },
+        context,
       },
     };
+  }
+
+  private weaponOf(offer: ReactionOffer, itemInventoryId: number): ReactionWeapon | null {
+    if (offer.effect.kind !== 'support') return null;
+
+    return (
+      offer.effect.weapons.find((weapon) => weapon.itemInventoryId === itemInventoryId) ??
+      offer.effect.weapons[0] ??
+      null
+    );
+  }
+
+  private blockItemOf(offer: ReactionOffer, itemInventoryId: number): ReactionWeapon | null {
+    if (offer.effect.kind !== 'cover') return null;
+
+    return (
+      offer.effect.blockItems.find((item) => item.itemInventoryId === itemInventoryId) ??
+      offer.effect.blockItems[0] ??
+      null
+    );
   }
 
   private allows(performer: ReactionPerformer, role: string): boolean {
@@ -185,6 +259,26 @@ export class StrikeReactionService {
     return support;
   }
 
+  private coverSpec(rule: Rule): ReactionCoverEffect | null {
+    if (rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object') return null;
+    if (!('type' in rule.spec) || rule.spec.type !== 'action') return null;
+    const cover = rule.spec.cover_ally;
+    if (!cover || !cover.reactions || cover.reactions.length === 0) return null;
+
+    const defenseAdvantages: AdvantageModifier[] = (cover.defense_advantages ?? []).map((row) => ({
+      source_code: row.source_code,
+      source_label: ADVANTAGE_SOURCE_LABELS[row.source_code] ?? null,
+      delta: row.delta,
+    }));
+
+    return {
+      kind: 'cover',
+      reactions: cover.reactions,
+      defenseAdvantages,
+      blockItems: [],
+    };
+  }
+
   private componentsOf(rule: Rule): ActionComponent[] {
     if (!rule.spec || typeof rule.spec !== 'object' || !('type' in rule.spec) || rule.spec.type !== 'action') return [];
 
@@ -212,6 +306,25 @@ export class StrikeReactionService {
     }
 
     return weapons;
+  }
+
+  private blockItemsOf(version: CharacterVersion, rules: Rule[]): ReactionWeapon[] {
+    const items: ReactionWeapon[] = [];
+    for (const item of version.inventory) {
+      if (!item.equipped || !item.ruleCode) continue;
+      const rule = rules.find((candidate) => candidate.type === 'item' && candidate.code === item.ruleCode);
+      if (!rule) continue;
+      const spec = rule.spec as ItemSpec | undefined;
+      if (!spec?.block_profile) continue;
+      items.push({
+        itemInventoryId: item.id,
+        itemRuleCode: item.ruleCode,
+        name: rule.name,
+        profileType: 'strike',
+      });
+    }
+
+    return items;
   }
 
   private nameOf(kind: string, id: number, memberships: GameCharacterMembership[], npcs: GameNpc[]): string {

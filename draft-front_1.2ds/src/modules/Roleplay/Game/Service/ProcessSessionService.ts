@@ -9,7 +9,10 @@ import type { ActionResolution } from '@/modules/Roleplay/Game/Dto/ActionResolut
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
-import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import {
+  ADVANTAGE_SOURCE_CIRCUMSTANCES,
+  ADVANTAGE_SOURCE_LABELS,
+} from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { actionRefEquals } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 
@@ -321,6 +324,12 @@ export class ProcessSessionService {
     const prior = this.priorWeaponUses(session, weaponKey);
     if (prior <= 0) return [];
 
-    return [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: 'Обстоятельства', delta: -prior }];
+    return [
+      {
+        source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES,
+        source_label: ADVANTAGE_SOURCE_LABELS[ADVANTAGE_SOURCE_CIRCUMSTANCES],
+        delta: -prior,
+      },
+    ];
   }
 }

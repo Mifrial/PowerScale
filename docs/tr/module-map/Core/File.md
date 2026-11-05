@@ -18,6 +18,7 @@
 - `Mifrial\Core\File\Interface\Service\IFiles`
 - `Mifrial\Core\File\Service\FileHttpService`
 - `Mifrial\Core\File\Action\FindFilePageAction`
+- `Mifrial\Core\File\Action\FindOwnImagesAction`
 - `Mifrial\Core\File\Action\GetFileAction`
 
 ## Маршруты
@@ -25,6 +26,7 @@
 | Action | Handler | CSRF |
 |---|---|---|
 | `file.findPage` | `FindFilePageAction` | да |
+| `file.findOwnImages` | `FindOwnImagesAction` | да |
 | `file.get` | `GetFileAction` | да |
 
 ## Контракты `Interface/`
@@ -36,7 +38,7 @@
 ## Зависимости
 
 - **Зависит от:** [Core/Kernel](Kernel.md), [Core/SmartTable](SmartTable.md), [Core/User](User.md)
-- **От него зависят:** —
+- **От него зависят:** [Core/User](User.md)
 
 ## События
 

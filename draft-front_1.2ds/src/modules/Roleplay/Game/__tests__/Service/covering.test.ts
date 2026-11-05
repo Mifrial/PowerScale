@@ -29,7 +29,7 @@ const COVER_RULE: Rule = {
     requirements: [],
     grants: [],
     parent_ability_code: null,
-    cover_ally: { circumstance_delta: -1 },
+    cover_ally: { defense_advantages: [{ delta: -1, source_code: 'circumstances' }] },
     action_components: [{ type: 'resource', resource_code: 'action-points', amount: 2 }],
   },
   createdAt: 1,
@@ -53,11 +53,13 @@ describe('CoveringService', () => {
     expect(coveringService.canUseReaction('block')).toBe(true);
     expect(coveringService.canUseReaction('dodge')).toBe(false);
     expect(coveringService.cost([ACTION_POINTS, COVER_RULE])).toBe(2);
-    expect(coveringService.circumstanceModifier([COVER_RULE])).toEqual({
-      source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES,
-      source_label: 'Обстоятельства',
-      delta: -1,
-    });
+    expect(coveringService.getDefenseAdvantageModifiers([COVER_RULE])).toEqual([
+      {
+        source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES,
+        source_label: 'Обстоятельства',
+        delta: -1,
+      },
+    ]);
   });
 
   it('атакующий и цель не кандидаты', () => {

@@ -165,6 +165,21 @@ final class GameStrikePortFactory
     }
 
     /**
+     * HTTP решения окна удара.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameStrikeWindowHttp Сценарий.
+     */
+    public function createWindowHttp(IServiceLocator $serviceLocator): GameStrikeWindowHttp
+    {
+        return new GameStrikeWindowHttp(
+            $this->userAccess($serviceLocator),
+            $this->create($serviceLocator),
+        );
+    }
+
+    /**
      * HTTP опций действий участника.
      *
      * @param IServiceLocator $serviceLocator Каталог.

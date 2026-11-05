@@ -105,4 +105,34 @@ interface IGameStrikes
         int $expectedSheetVersion,
         array $defense,
     ): array;
+
+    /**
+     * Продолжает удар после выбора фактической цели.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ game.edit_all.
+     * @param bool $viewAll Ключ game.view_all.
+     * @param int $battleId Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedBattleVersion Версия боя.
+     * @param array<string, mixed> $window Решение окна.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws ActionException AUTH_DENIED.
+     * @throws GameNotFoundException Если боя или карточки нет.
+     * @throws GameInvalidException Если окно закрыто или выбор чужой.
+     * @throws GameBattleConflictException Если версия или чужой ключ.
+     */
+    public function resolveWindow(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        int $battleId,
+        string $idempotencyKey,
+        int $expectedBattleVersion,
+        array $window,
+    ): array;
 }

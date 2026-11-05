@@ -1,7 +1,7 @@
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { ADVANTAGE_SOURCE_TRAINING } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { ADVANTAGE_SOURCE_LABELS, ADVANTAGE_SOURCE_TRAINING } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 
 /** Преимущество «Защиты знанием»: известна атакующая способность с уровнем ≥ 1. */
 export class KnowledgeDefenseService {
@@ -29,9 +29,11 @@ export class KnowledgeDefenseService {
       spec && typeof spec === 'object' && 'known_attack_defense' in spec ? spec.known_attack_defense : undefined;
     if (!field || !this.knowsAttack(abilities, actionRuleCode)) return null;
 
+    const sourceCode = field.source_code ?? ADVANTAGE_SOURCE_TRAINING;
+
     return {
-      source_code: field.source_code ?? ADVANTAGE_SOURCE_TRAINING,
-      source_label: 'тренировки',
+      source_code: sourceCode,
+      source_label: ADVANTAGE_SOURCE_LABELS[sourceCode] ?? null,
       delta: field.delta,
     };
   }

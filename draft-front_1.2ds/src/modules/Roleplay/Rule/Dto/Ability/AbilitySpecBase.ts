@@ -90,7 +90,16 @@ export interface AbilitySpecBase {
   long_tension?: boolean;
   /** Альтернативный защитник одной реакции. Цена — в action_components. */
   cover_ally?: {
-    circumstance_delta: number;
+    defense_advantages: { delta: number; source_code: string }[];
+    /** Закрытый список защит, которые предложит механика. */
+    reactions?: string[];
+    /** Стратегия переноса фактической цели. */
+    resolution?: {
+      success: string;
+      failure: string;
+      becomes: string;
+    };
+    distance?: string;
   };
   /** Преимущество на защиту от атаки, которой владеет защитник. */
   known_attack_defense?: {

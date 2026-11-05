@@ -17,6 +17,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Dto\GameCheckThrowOverride;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdjustment;
@@ -768,6 +769,10 @@ final class GameCheckRoll
         if ($override !== null && $override->advantage !== null && $override->advantage !== 0) {
             $source = $override->source ?? 'roll';
             $label = $slice?->findLive($source)?->getName();
+            if ($label === null && $source === 'roll') {
+                $label = AdvantageSourceLabels::getLabel('roll');
+            }
+
             $rows[] = new RollAdvantage($source, $override->advantage, $label);
         }
 
@@ -824,7 +829,7 @@ final class GameCheckRoll
                 }
 
                 if ($delta !== 0) {
-                    $rows[] = new RollAdvantage($code, $delta);
+                    $rows[] = new RollAdvantage($code, $delta, $slice->findLive($code)?->getName());
                 }
             }
         }

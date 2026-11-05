@@ -87,6 +87,55 @@ function weaponRule(code: string, name: string, profile: 'strike' | 'shoot'): Ru
 const SWORD = weaponRule('sword', 'Меч', 'strike');
 const BOW = weaponRule('bow', 'Лук', 'shoot');
 
+const SHIELD: Rule = {
+  mechanics: [],
+  id: null,
+  code: 'shield',
+  type: 'item',
+  name: 'Щит',
+  description: '',
+  spaceId: 1,
+  spec: {
+    type: 'item',
+    category: 'equipment',
+    cost_gm: null,
+    weight: null,
+    special_rule_codes: [],
+    block_profile: {
+      efficiency: { base: 4, size: 0 },
+      defense: { base: 3, size: 0 },
+      resistances: [],
+    },
+  } as RuleSpec,
+  createdAt: 1,
+};
+
+const COVER: Rule = {
+  mechanics: [],
+  id: null,
+  code: 'prikrytie',
+  type: 'ability',
+  name: 'Прикрытие',
+  description: '',
+  spaceId: 1,
+  spec: {
+    type: 'action',
+    zones: {},
+    requirements: [],
+    grants: [],
+    parent_ability_code: null,
+    action_components: [{ type: 'resource', resource_code: 'action-points', amount: 2 }],
+    reaction: { trigger: 'strike', window: 'before_defense', performer: 'third_party' },
+    cover_ally: {
+      defense_advantages: [{ delta: -1, source_code: 'circumstances' }],
+      reactions: ['block'],
+      resolution: { success: 'highest_rating', failure: 'attacker_choice', becomes: 'actual_target' },
+      distance: 'declared',
+    },
+  },
+  createdAt: 1,
+};
+
 function version(inventory: CharacterVersion['inventory']): CharacterVersion {
   const base = structuredClone(versions[1]);
   base.abilities = [{ ruleCode: 'podderzhka-v-boyu', level: 1 }];
@@ -157,8 +206,10 @@ describe('StrikeReactionService', () => {
     const offers = strikeReactionService.offers(STRIKE, 10, [membership({})], [], RULES, false);
 
     expect(offers).toHaveLength(1);
-    expect(offers[0].sides.map((side) => side.value)).toEqual(['attacker', 'defender']);
-    expect(offers[0].weapons.map((weapon) => weapon.itemRuleCode)).toEqual(['sword']);
+    const effect = offers[0].effect;
+    if (effect.kind !== 'support') throw new Error('expected support');
+    expect(effect.sides.map((side) => side.value)).toEqual(['attacker', 'defender']);
+    expect(effect.weapons.map((weapon) => weapon.itemRuleCode)).toEqual(['sword']);
     expect(offers[0].reaction).toEqual({ trigger: 'strike', window: 'before_defense', performer: 'third_party' });
   });
 
@@ -242,7 +293,16 @@ describe('StrikeReactionService', () => {
 
   it('тело реакции содержит сторону и выбранное оружие', () => {
     const offer = strikeReactionService.offers(STRIKE, 10, [membership({})], [], RULES, false)[0];
-    const request = strikeReactionService.request(1, offer, 'defender', offer.weapons[0], 9, 4, 3, 'key');
+    if (offer.effect.kind !== 'support') throw new Error('expected support');
+    const request = strikeReactionService.request(
+      1,
+      offer,
+      { kind: 'support', side: 'defender', itemInventoryId: offer.effect.weapons[0].itemInventoryId },
+      9,
+      4,
+      3,
+      'key',
+    );
 
     expect(request).toMatchObject({
       gameId: 1,
@@ -262,6 +322,44 @@ describe('StrikeReactionService', () => {
             profileType: 'strike',
           },
         },
+      },
+    });
+  });
+
+  it('прикрытие показывается по узлу reaction и не требует support', () => {
+    const coverVersion = version([{ id: 1, ruleCode: 'shield', quantity: 1, equipped: true }]);
+    coverVersion.abilities = [{ ruleCode: 'prikrytie', level: 1 }];
+    const offers = strikeReactionService.offers(
+      STRIKE,
+      10,
+      [membership({ approvedCharacterVersion: coverVersion })],
+      [],
+      [ACTION_POINTS, SUPPORT, COVER, SWORD, SHIELD],
+      false,
+    );
+
+    expect(offers).toHaveLength(1);
+    const effect = offers[0].effect;
+    if (effect.kind !== 'cover') throw new Error('expected cover');
+    expect(effect.reactions).toEqual(['block']);
+    expect(effect.blockItems.map((item) => item.itemRuleCode)).toEqual(['shield']);
+
+    const request = strikeReactionService.request(
+      1,
+      offers[0],
+      { kind: 'cover', reaction: 'block', itemInventoryId: 1, itemRuleCode: 'shield' },
+      9,
+      4,
+      3,
+      'key',
+    );
+    expect(request.action.context).toEqual({
+      expectedSheetVersion: 3,
+      cover: {
+        reaction: 'block',
+        blockItemInventoryId: 1,
+        blockItemProfileIndex: 0,
+        blockItemRuleCode: 'shield',
       },
     });
   });

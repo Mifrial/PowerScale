@@ -29,6 +29,8 @@ import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinReques
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpOpenStrikeCoverer } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeCoverer';
+import type { GamePhpStrikeAwaiting } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAwaiting';
 import type { GamePhpOpenStrikeSupporter } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeSupporter';
 import type { GamePhpStrikeConditions } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeConditions';
 import type { Chronicle } from '@/modules/Roleplay/Game/Dto/Chronicle';
@@ -1228,12 +1230,16 @@ export class GameApi implements IGameApi {
     if (body.action.kind === 'action') {
       const actor = body.action.actor;
       gamePhpBattleContext.rememberPending(result.pendingActionEffects ?? {});
-      if (actor) gamePhpBattleContext.rememberSheet(`${actor.type}:${actor.id}`, result.sheetVersion ?? 1);
+      if (actor && typeof result.sheetVersion === 'number') {
+        gamePhpBattleContext.rememberSheet(`${actor.type}:${actor.id}`, result.sheetVersion);
+      }
     }
 
     if (body.action.kind === 'reaction') {
       const actor = body.action.actor;
-      if (actor) gamePhpBattleContext.rememberSheet(`${actor.type}:${actor.id}`, result.sheetVersion ?? 1);
+      if (actor && typeof result.sheetVersion === 'number') {
+        gamePhpBattleContext.rememberSheet(`${actor.type}:${actor.id}`, result.sheetVersion);
+      }
     }
 
     if (body.action.kind === 'strike' && body.action.phase === 'respond') {
@@ -1241,6 +1247,28 @@ export class GameApi implements IGameApi {
         if (typeof row.sheetVersion === 'number') {
           gamePhpBattleContext.rememberSheet(`${row.target.type}:${row.target.id}`, row.sheetVersion);
         }
+      }
+    }
+
+    return result;
+  }
+
+  /** Решение окна удара: выбор фактической цели после провала прикрытий. */
+  async resolveStrikeWindow(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      window: { actualTarget: string };
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpRunActionResult> {
+    const result = await this.requireData<GamePhpRunActionResult>('game.resolveStrikeWindow', body, signal);
+    if (body.battleId > 0) gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    for (const row of result.strikes ?? []) {
+      if (typeof row.sheetVersion === 'number') {
+        gamePhpBattleContext.rememberSheet(`${row.target.type}:${row.target.id}`, row.sheetVersion);
       }
     }
 
@@ -1584,6 +1612,8 @@ export class GameApi implements IGameApi {
     if (typeof row.actionRuleCode !== 'string' || typeof row.itemRuleCode !== 'string') return null;
     if (itemInventoryId === null || typeof row.profileType !== 'string' || profileIndex === null) return null;
     const supporters = this.openStrikeSupportersOf(row.supporters);
+    const coverers = this.openStrikeCoverersOf(row.coverers);
+    const awaiting = this.openStrikeAwaitingOf(row.awaiting);
 
     return {
       ...(strikeId !== null && strikeId > 0 ? { strikeId } : {}),
@@ -1598,7 +1628,69 @@ export class GameApi implements IGameApi {
       profileIndex,
       ...(conditions ? { conditions } : {}),
       ...(supporters.length > 0 ? { supporters } : {}),
+      ...(coverers.length > 0 ? { coverers } : {}),
+      ...(awaiting.length > 0 ? { awaiting } : {}),
     };
+  }
+
+  private openStrikeCoverersOf(value: unknown): GamePhpOpenStrikeCoverer[] {
+    if (!Array.isArray(value)) return [];
+    const coverers: GamePhpOpenStrikeCoverer[] = [];
+    for (const entry of value) {
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+      const row = entry as Record<string, unknown>;
+      const actor = row.actor;
+      if (actor === null || typeof actor !== 'object' || Array.isArray(actor)) continue;
+      const actorRow = actor as Record<string, unknown>;
+      const type = actorRow.type;
+      const id = this.intField(actorRow.id);
+      if ((type !== 'character' && type !== 'npc') || id === null) continue;
+      if (typeof row.ruleCode !== 'string' || typeof row.reaction !== 'string') continue;
+      coverers.push({
+        actor: { type, id },
+        ruleCode: row.ruleCode,
+        reaction: row.reaction,
+        ...(this.intField(row.blockItemInventoryId) !== null
+          ? { blockItemInventoryId: this.intField(row.blockItemInventoryId) }
+          : {}),
+        ...(this.intField(row.blockItemProfileIndex) !== null
+          ? { blockItemProfileIndex: this.intField(row.blockItemProfileIndex) }
+          : {}),
+        ...(typeof row.blockItemRuleCode === 'string' ? { blockItemRuleCode: row.blockItemRuleCode } : {}),
+      });
+    }
+
+    return coverers;
+  }
+
+  private openStrikeAwaitingOf(value: unknown): GamePhpStrikeAwaiting[] {
+    if (!Array.isArray(value)) return [];
+    const awaiting: GamePhpStrikeAwaiting[] = [];
+    for (const entry of value) {
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+      const row = entry as Record<string, unknown>;
+      const actor = row.actor;
+      if (actor === null || typeof actor !== 'object' || Array.isArray(actor)) continue;
+      const actorRow = actor as Record<string, unknown>;
+      const type = actorRow.type;
+      const id = this.intField(actorRow.id);
+      if (typeof row.kind !== 'string' || typeof type !== 'string' || id === null) continue;
+      const options: GamePhpStrikeAwaiting['options'] = [];
+      for (const option of Array.isArray(row.options) ? row.options : []) {
+        if (option === null || typeof option !== 'object' || Array.isArray(option)) continue;
+        const optionRow = option as Record<string, unknown>;
+        const optionActor = optionRow.actor;
+        if (typeof optionRow.key !== 'string' || optionActor === null || typeof optionActor !== 'object') continue;
+        const optionActorRow = optionActor as Record<string, unknown>;
+        const optionType = optionActorRow.type;
+        const optionId = this.intField(optionActorRow.id);
+        if (typeof optionType !== 'string' || optionId === null) continue;
+        options.push({ key: optionRow.key, actor: { type: optionType, id: optionId } });
+      }
+      awaiting.push({ kind: row.kind, actor: { type, id }, options });
+    }
+
+    return awaiting;
   }
 
   private openStrikeSupportersOf(value: unknown): GamePhpOpenStrikeSupporter[] {

@@ -12,7 +12,7 @@ import type { DamageTypeHook } from '@/modules/Roleplay/Game/Dto/DamageTypeHook'
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CHECK_INJURY_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { ADVANTAGE_SOURCE_LABELS, ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 
@@ -139,7 +139,7 @@ export class InjuryRollService {
     const delta = hooks.reduce((sum, hook) => sum + (hook.efficiencyDelta ?? 0), 0);
     if (delta >= 0) return [];
 
-    return [{ source_code: 'damage-type-injury', source_label: 'тип урона', delta }];
+    return [{ source_code: 'damage-type-injury', source_label: ADVANTAGE_SOURCE_LABELS['damage-type-injury'], delta }];
   }
 
   private emptyInjury(difficulty: number, rating: number, breakdown?: InjuryDifficultyBreakdown): InjuryOutcome {
@@ -239,6 +239,8 @@ export class InjuryRollService {
   manualInjuryAdvantages(delta: number): AdvantageModifier[] {
     if (delta === 0) return [];
 
-    return [{ source_code: ADVANTAGE_SOURCE_MANUAL, source_label: 'вручную', delta }];
+    return [
+      { source_code: ADVANTAGE_SOURCE_MANUAL, source_label: ADVANTAGE_SOURCE_LABELS[ADVANTAGE_SOURCE_MANUAL], delta },
+    ];
   }
 }

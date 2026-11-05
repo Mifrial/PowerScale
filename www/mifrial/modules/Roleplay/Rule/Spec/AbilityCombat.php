@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CoverAlly;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DefenseAdvantage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DodgeRangedPenalty;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\AttackHit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\AutoHit;
@@ -150,6 +151,9 @@ final class AbilityCombat
     /**
      * Прикрытие.
      *
+     * Старая форма `circumstance_delta` отклоняется: источник и величина
+     * должны быть раздельными полями.
+     *
      * @param array<string|int, mixed> $document Документ.
      *
      * @return CoverAlly|null Прикрытие или null.
@@ -163,7 +167,48 @@ final class AbilityCombat
             return null;
         }
 
-        return new CoverAlly(SpecShape::int($row, 'circumstance_delta'));
+        if (array_key_exists('circumstance_delta', $row)) {
+            throw new RuleSpecShapeException('cover_ally.circumstance_delta');
+        }
+
+        $advantages = [];
+        foreach (SpecShape::list($row, 'defense_advantages') as $entry) {
+            $entry = SpecShape::requireMap($entry, 'cover_ally.defense_advantages');
+            $source = SpecShape::optionalString($entry, 'source_code');
+            if ($source === null || trim($source) === '') {
+                throw new RuleSpecShapeException('cover_ally.defense_advantages.source_code');
+            }
+
+            $advantages[] = new DefenseAdvantage(SpecShape::int($entry, 'delta'), $source);
+        }
+
+        $reactions = SpecShape::stringList($row, 'reactions');
+        if ($reactions === [] || in_array('', $reactions, true)) {
+            throw new RuleSpecShapeException('cover_ally.reactions');
+        }
+
+        $resolution = SpecShape::requireMap($row['resolution'] ?? null, 'cover_ally.resolution');
+        $success = SpecShape::optionalString($resolution, 'success');
+        $failure = SpecShape::optionalString($resolution, 'failure');
+        $becomes = SpecShape::optionalString($resolution, 'becomes');
+        if (
+            $success !== CoverAlly::SUCCESS_HIGHEST_RATING
+            || $failure !== CoverAlly::FAILURE_ATTACKER_CHOICE
+            || $becomes !== CoverAlly::BECOMES_ACTUAL_TARGET
+        ) {
+            throw new RuleSpecShapeException('cover_ally.resolution');
+        }
+
+        return new CoverAlly(
+            $advantages,
+            $reactions,
+            [
+                'success' => (string) $success,
+                'failure' => (string) $failure,
+                'becomes' => (string) $becomes,
+            ],
+            SpecShape::optionalString($row, 'distance'),
+        );
     }
 
     /**

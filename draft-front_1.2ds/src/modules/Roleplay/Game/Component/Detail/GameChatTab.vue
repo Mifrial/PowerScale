@@ -72,7 +72,7 @@ import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { ChatFoldChild } from '@/modules/Messages/Chat/Dto/ChatFoldChild';
 import type { ReactionOffer } from '@/modules/Roleplay/Game/Dto/ReactionOffer';
-import type { SupportSide } from '@/modules/Roleplay/Rule/Enum/Ability/SupportSide';
+import type { ReactionSubmit } from '@/modules/Roleplay/Game/Service/StrikeReactionService';
 import { strikeReactionService } from '@/modules/Roleplay/Game/Service/Instance/strikeReactionService';
 
 const props = defineProps<{
@@ -658,6 +658,66 @@ const reactionLabel = computed(() => {
   return actors.size > 1 ? `Реакции (${actors.size})` : 'Реакции';
 });
 
+const strikeAwaiting = computed(() => (phpOpenStrike.value ?? gamePhpBattleContext.openStrike)?.awaiting ?? []);
+
+const actualTargetWindow = computed(() => {
+  const entry = strikeAwaiting.value.find((row) => row.kind === 'actual_target');
+  if (!entry) return null;
+
+  return isMyStrikeActor(entry.actor.type, entry.actor.id) ? entry : null;
+});
+
+const strikeCovererNames = computed(() => {
+  const coverers = (phpOpenStrike.value ?? gamePhpBattleContext.openStrike)?.coverers ?? [];
+
+  return coverers.map((coverer) => strikeActorName(coverer.actor.type, coverer.actor.id));
+});
+
+function isMyStrikeActor(type: string, id: number): boolean {
+  if (type === 'character') {
+    return memberships.value.some(
+      (membership) => membership.characterId === id && membership.characterOwnerId === currentUser.value?.id,
+    );
+  }
+
+  return canWriteStrike.value;
+}
+
+function strikeActorName(type: string, id: number): string {
+  if (type === 'character') {
+    return memberships.value.find((membership) => membership.characterId === id)?.characterName ?? `Персонаж ${id}`;
+  }
+
+  return npcs.value.find((npc) => npc.id === id)?.name ?? `НПС ${id}`;
+}
+
+async function chooseActualTarget(key: string): Promise<void> {
+  const battleId = gamePhpBattleContext.battleId;
+  if (battleId === null) return;
+
+  reactionBusy.value = true;
+  reactionError.value = null;
+  try {
+    await getGameApi().resolveStrikeWindow({
+      gameId: gameId.value,
+      battleId,
+      idempotencyKey: createRandomId(),
+      expectedVersion: gamePhpBattleContext.battleVersion,
+      window: { actualTarget: key },
+    });
+    gamePhpBattleContext.rememberOpenStrike(null);
+    phpOpenStrike.value = null;
+    closeReactionOffer();
+    store.applyGameUpdate(await getGameApi().getGame(gameId.value));
+    await tryOpenPhpStrike();
+    battleRevision.value += 1;
+  } catch (cause) {
+    reactionError.value = cause instanceof Error ? cause.message : 'Не удалось выбрать цель';
+  } finally {
+    reactionBusy.value = false;
+  }
+}
+
 function openReactionOffer(strike: GamePhpOpenStrike, manual = false): void {
   const strikeKey = strikeReactionService.strikeKey(strike);
   if (!manual && (dismissedReactionKey.value === strikeKey || minimizedReactionKey.value === strikeKey)) {
@@ -710,18 +770,11 @@ function onReactionRefused(): void {
   closeReactionOffer();
 }
 
-async function onReactionSubmit(payload: {
-  offer: ReactionOffer;
-  side: SupportSide;
-  itemInventoryId: number;
-}): Promise<void> {
+async function onReactionSubmit(payload: { offer: ReactionOffer; submit: ReactionSubmit }): Promise<void> {
   const strike = reactionStrike.value;
   const battleId = gamePhpBattleContext.battleId;
   const actorKey = payload.offer.actor.key;
   if (!strike || battleId === null) return;
-  const weapon =
-    payload.offer.weapons.find((row) => row.itemInventoryId === payload.itemInventoryId) ?? payload.offer.weapons[0];
-  if (!weapon) return;
 
   reactionBusy.value = true;
   reactionError.value = null;
@@ -732,8 +785,7 @@ async function onReactionSubmit(payload: {
       strikeReactionService.request(
         gameId.value,
         payload.offer,
-        payload.side,
-        weapon,
+        payload.submit,
         battleId,
         gamePhpBattleContext.battleVersion,
         expectedSheet,
@@ -2174,6 +2226,31 @@ onUnmounted(() => {
       @refuse="onReactionRefused"
       @submit="onReactionSubmit"
     />
+    <v-dialog :model-value="Boolean(actualTargetWindow)" max-width="440" persistent>
+      <v-card v-if="actualTargetWindow">
+        <v-card-title class="text-body-1 py-2 px-4">Куда направлен удар?</v-card-title>
+        <v-card-text class="pt-0">
+          <div class="text-body-2 mb-2">Все прикрытия провалились. Выберите фактическую цель.</div>
+          <v-alert v-if="strikeCovererNames.length" type="info" variant="tonal" density="compact" class="mb-2">
+            Прикрывали: {{ strikeCovererNames.join(', ') }}.
+          </v-alert>
+          <v-alert v-if="reactionError" type="error" variant="tonal" density="compact" class="mb-2">
+            {{ reactionError }}
+          </v-alert>
+          <div class="d-flex flex-column ga-2">
+            <v-btn
+              v-for="option in actualTargetWindow.options"
+              :key="option.key"
+              variant="tonal"
+              :loading="reactionBusy"
+              @click="chooseActualTarget(option.key)"
+            >
+              {{ strikeActorName(option.actor.type, option.actor.id) }}
+            </v-btn>
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
     <InjuryLaunchDialog
       :open="injuryOpen"
       :game-id="gameId"

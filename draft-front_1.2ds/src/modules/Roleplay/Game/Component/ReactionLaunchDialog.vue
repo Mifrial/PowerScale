@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import type { ReactionOffer } from '@/modules/Roleplay/Game/Dto/ReactionOffer';
+import type { ReactionSubmit } from '@/modules/Roleplay/Game/Service/StrikeReactionService';
 import type { SupportSide } from '@/modules/Roleplay/Rule/Enum/Ability/SupportSide';
 
 const props = defineProps<{
@@ -12,7 +13,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:open': [value: boolean];
-  submit: [payload: { offer: ReactionOffer; side: SupportSide; itemInventoryId: number }];
+  submit: [payload: { offer: ReactionOffer; submit: ReactionSubmit }];
   refuse: [];
 }>();
 
@@ -20,6 +21,8 @@ const actorIndex = ref(0);
 const offerIndex = ref(0);
 const side = ref<SupportSide>('attacker');
 const weaponId = ref<number | null>(null);
+const coverReaction = ref<string>('');
+const blockItemId = ref<number | null>(null);
 
 const actorGroups = computed(() => {
   const groups = new Map<string, { actor: ReactionOffer['actor']; offers: ReactionOffer[] }>();
@@ -37,17 +40,41 @@ const current = computed<ReactionOffer | null>(() => currentGroup.value?.offers[
 
 const actorKindLabel = computed(() => (currentGroup.value?.actor.kind === 'npc' ? 'НПС' : 'персонаж'));
 
-const sideItems = computed(
-  () =>
-    current.value?.sides.map((entry) => ({
-      title: entry.value === 'attacker' ? `Помочь атакующему: ${entry.name}` : `Помочь защищающемуся: ${entry.name}`,
-      value: entry.value,
-    })) ?? [],
+const sideItems = computed(() =>
+  (current.value?.effect.kind === 'support' ? current.value.effect.sides : []).map((entry) => ({
+    title: entry.value === 'attacker' ? `Помочь атакующему: ${entry.name}` : `Помочь защищающемуся: ${entry.name}`,
+    value: entry.value,
+  })),
 );
 
-const weaponItems = computed(
-  () => current.value?.weapons.map((weapon) => ({ title: weapon.name, value: weapon.itemInventoryId })) ?? [],
+const weaponItems = computed(() =>
+  (current.value?.effect.kind === 'support' ? current.value.effect.weapons : []).map((weapon) => ({
+    title: weapon.name,
+    value: weapon.itemInventoryId,
+  })),
 );
+
+const coverReactionItems = computed(() =>
+  (current.value?.effect.kind === 'cover' ? current.value.effect.reactions : []).map((code) => ({
+    title: coverReactionLabel(code),
+    value: code,
+  })),
+);
+
+const blockItems = computed(() =>
+  (current.value?.effect.kind === 'cover' ? current.value.effect.blockItems : []).map((item) => ({
+    title: item.name,
+    value: item.itemInventoryId,
+  })),
+);
+
+const defenseAdvantageText = computed(() => {
+  if (current.value?.effect.kind !== 'cover') return '';
+  const rows = current.value.effect.defenseAdvantages;
+  if (rows.length === 0) return 'без помех';
+
+  return rows.map((row) => `${row.source_label ?? row.source_code} ${row.delta > 0 ? '+' : ''}${row.delta}`).join(', ');
+});
 
 const triggerText = computed(() => {
   const reaction = current.value?.reaction;
@@ -60,8 +87,28 @@ const triggerText = computed(() => {
 });
 
 const sourceLabel = computed(() =>
-  current.value?.source === 'circumstances' ? 'обстоятельства' : current.value?.source,
+  current.value?.effect.kind === 'support' && current.value.effect.source === 'circumstances'
+    ? 'обстоятельства'
+    : current.value?.effect.kind === 'support'
+      ? current.value.effect.source
+      : '',
 );
+
+const canSubmit = computed(() => {
+  if (!current.value) return false;
+  if (current.value.effect.kind === 'support') return weaponId.value !== null;
+  if (!coverReaction.value) return false;
+
+  return coverReaction.value !== 'block' || blockItemId.value !== null;
+});
+
+function coverReactionLabel(code: string): string {
+  if (code === 'block') return 'Блокирование';
+  if (code === 'dodge') return 'Уклонение';
+  if (code === 'parry') return 'Парирование';
+
+  return code;
+}
 
 watch(
   () => props.open,
@@ -85,11 +132,22 @@ watch(
   () => [props.open, current.value] as const,
   () => {
     if (!current.value) return;
-    side.value = current.value.sides[0]?.value ?? 'attacker';
-    weaponId.value = current.value.weapons[0]?.itemInventoryId ?? null;
+    if (current.value.effect.kind === 'support') {
+      side.value = current.value.effect.sides[0]?.value ?? 'attacker';
+      weaponId.value = current.value.effect.weapons[0]?.itemInventoryId ?? null;
+
+      return;
+    }
+    coverReaction.value = current.value.effect.reactions[0] ?? '';
+    blockItemId.value = current.value.effect.blockItems[0]?.itemInventoryId ?? null;
   },
   { immediate: true },
 );
+
+watch(coverReaction, (code) => {
+  if (current.value?.effect.kind !== 'cover' || code === 'block') return;
+  blockItemId.value = null;
+});
 
 function close(): void {
   emit('update:open', false);
@@ -100,11 +158,27 @@ function refuse(): void {
 }
 
 function submit(): void {
-  if (!current.value || weaponId.value === null) return;
+  if (!current.value || !canSubmit.value) return;
+  if (current.value.effect.kind === 'support') {
+    if (weaponId.value === null) return;
+    emit('submit', {
+      offer: current.value,
+      submit: { kind: 'support', side: side.value, itemInventoryId: weaponId.value },
+    });
+
+    return;
+  }
+
+  if (blockItemId.value === null) return;
   emit('submit', {
     offer: current.value,
-    side: side.value,
-    itemInventoryId: weaponId.value,
+    submit: {
+      kind: 'cover',
+      reaction: coverReaction.value,
+      itemInventoryId: blockItemId.value,
+      itemRuleCode:
+        current.value.effect.blockItems.find((item) => item.itemInventoryId === blockItemId.value)?.itemRuleCode ?? '',
+    },
   });
 }
 </script>
@@ -120,10 +194,18 @@ function submit(): void {
         <div v-if="current?.rule.description" class="text-body-2 mb-3">{{ current.rule.description }}</div>
         <v-alert v-if="current" type="info" variant="tonal" density="compact" class="mb-3">
           <div><strong>Когда:</strong> {{ triggerText }}</div>
-          <div>
-            <strong>Эффект:</strong> +{{ current.advantage }} преимущества выбранной стороне; источник —
-            {{ sourceLabel }}.
-          </div>
+          <template v-if="current.effect.kind === 'support'">
+            <div>
+              <strong>Эффект:</strong> +{{ current.effect.advantage }} преимущества выбранной стороне; источник —
+              {{ sourceLabel }}.
+            </div>
+          </template>
+          <template v-else>
+            <div>
+              <strong>Эффект:</strong> вы становитесь альтернативным защитником; помеха защите —
+              {{ defenseAdvantageText }}.
+            </div>
+          </template>
           <div><strong>Стоимость:</strong> {{ current.cost }} ОД.</div>
         </v-alert>
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
@@ -151,36 +233,53 @@ function submit(): void {
           class="mb-3"
         />
         <div v-else-if="current" class="text-caption text-medium-emphasis mb-3">Карточка: {{ current.rule.name }}</div>
-        <v-select
-          v-if="current"
-          v-model="side"
-          :items="sideItems"
-          label="Кому помочь"
-          density="compact"
-          hide-details="auto"
-          class="mb-3"
-        />
-        <v-select
-          v-if="current"
-          v-model="weaponId"
-          :items="weaponItems"
-          label="Оружие"
-          density="compact"
-          hide-details="auto"
-          class="mb-3"
-        />
+        <template v-if="current?.effect.kind === 'support'">
+          <v-select
+            v-model="side"
+            :items="sideItems"
+            label="Кому помочь"
+            density="compact"
+            hide-details="auto"
+            class="mb-3"
+          />
+          <v-select
+            v-model="weaponId"
+            :items="weaponItems"
+            label="Оружие"
+            density="compact"
+            hide-details="auto"
+            class="mb-3"
+          />
+        </template>
+        <template v-else-if="current?.effect.kind === 'cover'">
+          <v-select
+            v-model="coverReaction"
+            :items="coverReactionItems"
+            label="Защита"
+            density="compact"
+            hide-details="auto"
+            class="mb-3"
+          />
+          <v-select
+            v-if="coverReaction === 'block'"
+            v-model="blockItemId"
+            :items="blockItems"
+            label="Чем блокировать"
+            density="compact"
+            hide-details="auto"
+            class="mb-3"
+          />
+        </template>
         <div class="text-caption text-medium-emphasis">
-          Стоимость списывается при объявлении реакции — до ответа цели, как у остальных реакций. Один участник
-          реагирует на удар один раз. Мастерство выбранного оружия проверит сервер.
+          Стоимость списывается при старте реакции, а не при объявлении. Один участник реагирует на удар один раз.
+          Мастерство выбранного предмета проверит сервер.
         </div>
       </v-card-text>
       <v-card-actions class="flex-wrap ga-2 px-4 pb-3">
         <v-btn variant="text" color="error" :disabled="busy" @click="refuse">Отказаться</v-btn>
         <v-spacer />
         <v-btn variant="text" :disabled="busy" @click="close">Свернуть</v-btn>
-        <v-btn color="primary" :loading="busy" :disabled="!current || weaponId === null" @click="submit">
-          Применить
-        </v-btn>
+        <v-btn color="primary" :loading="busy" :disabled="!canSubmit" @click="submit">Применить</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

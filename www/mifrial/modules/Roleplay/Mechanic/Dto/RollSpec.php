@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Mechanic\Dto;
 
+use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
+
 /**
  * Параметры одного броска до событий механик.
  */
@@ -183,6 +185,6 @@ final class RollSpec
             return $this->advantages;
         }
 
-        return [new RollAdvantage('roll', $adv)];
+        return [new RollAdvantage('roll', $adv, AdvantageSourceLabels::getLabel('roll'))];
     }
 }

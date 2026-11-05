@@ -99,6 +99,61 @@ final class GameActionChat
     }
 
     /**
+     * Пишет объявление прикрытия в тред открытого удара.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор сообщения.
+     * @param string $actorKind Вид character или npc.
+     * @param int $actorId Идентификатор актора.
+     * @param GameBattleRecord $battle Бой.
+     * @param int $strikeId Удар.
+     * @param string $actionRuleCode Карточка реакции.
+     * @param array{type: string, id: int} $target Прикрываемый.
+     * @param string $reaction Выбранная защита.
+     * @param string $blockItemRuleCode Предмет блока.
+     * @param int $cost Стоимость прикрытия.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чата нет или отправитель не участник.
+     */
+    public function postStrikeCover(
+        GameRecord $game,
+        int $actorUserId,
+        string $actorKind,
+        int $actorId,
+        GameBattleRecord $battle,
+        int $strikeId,
+        string $actionRuleCode,
+        array $target,
+        string $reaction,
+        string $blockItemRuleCode,
+        int $cost,
+    ): void {
+        $chatId = $game->getGameChatId();
+        if ($chatId === null) {
+            throw new GameInvalidException('Game chat is missing');
+        }
+
+        $threadId = 'attack-' . $strikeId;
+        $thread = GameCombatThread::buildAttack($battle, $threadId);
+        $actor = $this->strikeChat->getEntityToken($actorKind, $actorId);
+        $covered = $this->strikeChat->getEntityToken($target['type'], $target['id']);
+        $block = $blockItemRuleCode !== '' ? ' с [[rule:' . $blockItemRuleCode . ']]' : '';
+        $text = $actor . ' объявляет [[rule:' . $actionRuleCode . ']]: прикрывает '
+            . $covered . ', [[rule:' . $reaction . ']]' . $block . ' за ' . $cost . ' ОД при старте.';
+        $attachments = [
+            ['type' => 'chat_system', 'payload' => ['thread' => $thread]],
+            ['type' => 'chat_speaker', 'payload' => $this->strikeChat->getSpeakerOf($actorKind, $actorId)],
+        ];
+        try {
+            $this->chats->send($chatId, $actorUserId, $text, $attachments, null);
+        } catch (ChatNotFoundException | ChatInvalidException $exception) {
+            throw new GameInvalidException('Game chat member is invalid', $exception);
+        }
+    }
+
+    /**
      * Пишет объявление реакции в тред открытого удара.
      *
      * @param GameRecord $game Игра.

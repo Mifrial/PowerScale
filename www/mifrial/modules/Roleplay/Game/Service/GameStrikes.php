@@ -295,6 +295,113 @@ final class GameStrikes implements IGameStrikes
     }
 
     /**
+     * Продолжает удар после выбора фактической цели.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ game.edit_all.
+     * @param bool $viewAll Ключ game.view_all.
+     * @param int $battleId Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedBattleVersion Версия боя.
+     * @param array<string, mixed> $window Решение окна.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws ActionException AUTH_DENIED.
+     * @throws GameInvalidException Если окно закрыто или выбор чужой.
+     */
+    public function resolveWindow(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        int $battleId,
+        string $idempotencyKey,
+        int $expectedBattleVersion,
+        array $window,
+    ): array {
+        $body = [
+            'battleId' => $battleId,
+            'window' => $window,
+            'expectedVersion' => $expectedBattleVersion,
+        ];
+        $game = $this->games->get($gameId);
+        $this->access->assertVisible($game, $actorUserId, $viewAll);
+        $replay = $this->findReplay($gameId, $idempotencyKey, $body);
+        if ($replay !== null) {
+            return $replay;
+        }
+
+        if ($idempotencyKey === '' || $game->getStatus() === 'completed') {
+            throw new GameInvalidException('Game strike window is invalid');
+        }
+
+        $sessionId = $this->sessions->findSessionId($gameId);
+        if ($sessionId === null) {
+            throw new GameInvalidException('Game session is not running');
+        }
+
+        $open = $this->actions->findOpenWithStrikes($battleId, 'strike');
+        $strikes = is_array($open['strikes'] ?? null) ? $open['strikes'] : [];
+        $row = is_array($strikes[0] ?? null) ? $strikes[0] : null;
+        $attacker = $row === null
+            ? null
+            : ['type' => $open['attacker_kind'] ?? null, 'id' => $open['attacker_id'] ?? null];
+        if (
+            $open === null
+            || $row === null
+            || !is_array($attacker)
+            || !is_string($attacker['type'] ?? null)
+            || !is_int($attacker['id'] ?? null)
+        ) {
+            throw new GameInvalidException('Game strike window is not open');
+        }
+
+        $this->access->assertAttacker($game, $actorUserId, $editAll, $attacker);
+        $resolution = $row['resolution'] ?? null;
+        if (is_string($resolution)) {
+            $resolution = json_decode($resolution, true);
+        }
+
+        $awaiting = is_array($resolution) && is_array($resolution['awaiting'] ?? null)
+            ? $resolution['awaiting']
+            : [];
+        $target = is_string($window['actualTarget'] ?? null) ? $window['actualTarget'] : '';
+        $allowed = false;
+        foreach ($awaiting as $entry) {
+            if (!is_array($entry) || ($entry['kind'] ?? null) !== 'actual_target') {
+                continue;
+            }
+
+            foreach (is_array($entry['options'] ?? null) ? $entry['options'] : [] as $option) {
+                if (is_array($option) && ($option['key'] ?? null) === $target) {
+                    $allowed = true;
+                }
+            }
+        }
+
+        if (!$allowed) {
+            throw new GameInvalidException('Game strike window target is invalid');
+        }
+
+        $result = $this->closeService->resumeSingle(
+            $game,
+            $sessionId,
+            $battleId,
+            $idempotencyKey,
+            $expectedBattleVersion,
+            ['actualTarget' => $target],
+            $actorUserId,
+            $editAll,
+            $viewAll,
+        );
+        $this->announce($gameId, $idempotencyKey);
+
+        return $result;
+    }
+
+    /**
      * Видимость, повтор, право и сессия.
      *
      * @param int $gameId Игра.

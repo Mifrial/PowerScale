@@ -1693,7 +1693,7 @@ final class GameStrikeMysqlTest extends TestCase
                 'reaction' => 'block',
                 'blockItemInventoryId' => 1,
                 'blockItemProfileIndex' => 0,
-                'blockItemRuleCode' => 'sword',
+                'blockItemRuleCode' => 'buckler',
             ], $this->characterFacade()->get($defenderId)->getActualVersion()),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
@@ -5175,6 +5175,36 @@ final class GameStrikeMysqlTest extends TestCase
                     ]],
                 ],
             ],
+            'prikrytie' => [
+                'type' => 'ability',
+                'name' => 'Прикрытие',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'action_components' => [[
+                        'type' => 'resource',
+                        'resource_code' => 'action-points',
+                        'amount' => 2,
+                    ]],
+                    'reaction' => [
+                        'trigger' => 'strike',
+                        'window' => 'before_defense',
+                        'performer' => 'third_party',
+                    ],
+                    'cover_ally' => [
+                        'defense_advantages' => [
+                            ['delta' => -1, 'source_code' => 'circumstances'],
+                        ],
+                        'reactions' => ['block'],
+                        'resolution' => [
+                            'success' => 'highest_rating',
+                            'failure' => 'attacker_choice',
+                            'becomes' => 'actual_target',
+                        ],
+                        'distance' => 'declared',
+                    ],
+                ],
+            ],
         ]);
     }
 
@@ -5240,8 +5270,8 @@ final class GameStrikeMysqlTest extends TestCase
             ],
         ]);
         self::assertTrue($support['success'], json_encode($support));
-        self::assertSame(2, $support['data']['spent']);
-        self::assertSame(8, $this->actionPointsOf($supporterId));
+        self::assertSame(0, $support['data']['spent']);
+        self::assertSame(10, $this->actionPointsOf($supporterId));
         $gateway = $this->smartTableGateway;
         self::assertInstanceOf(ISmartTableGateway::class, $gateway);
         $openRow = (new GameActionRepository($gateway))->findOpenWithStrikes($battleId, 'strike');
@@ -5271,7 +5301,282 @@ final class GameStrikeMysqlTest extends TestCase
             ),
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(8, $this->actionPointsOf($supporterId));
         $this->assertAdvantage('circumstances', 1, $closed['data']['strikes'][0]['roll']['advantages'] ?? []);
+    }
+
+    /**
+     * Прикрытие объявляется по узлу reaction без списания и переносит цель.
+     *
+     * @return void
+     */
+    public function testCoverReactionDeclaresAndResolves(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->supportRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $covererId = $this->admit($world->getId(), $gameId, 'Coverer', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ], [
+            ['ruleCode' => 'buckler', 'equipped' => true],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-cover',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+                ['type' => 'character', 'id' => $covererId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-cover',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $cover = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'cover-declare',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'reaction',
+                'code' => 'prikrytie',
+                'actor' => ['type' => 'character', 'id' => $covererId],
+                'context' => [
+                    'expectedSheetVersion' => $this->characterFacade()->get($covererId)->getActualVersion(),
+                    'cover' => [
+                        'reaction' => 'block',
+                        'blockItemInventoryId' => 1,
+                        'blockItemProfileIndex' => 0,
+                        'blockItemRuleCode' => 'sword',
+                    ],
+                ],
+            ],
+        ]);
+        self::assertTrue($cover['success'], json_encode($cover));
+        self::assertSame(0, $cover['data']['spent'] ?? null);
+        self::assertSame(10, $this->actionPointsOf($covererId));
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $openRow = (new GameActionRepository($gateway))->findOpenWithStrikes($battleId, 'strike');
+        self::assertSame('block', $openRow['strikes'][0]['coverers'][0]['reaction'] ?? null);
+        $messages = $this->chatMessages($gameId);
+        $coverMessages = array_values(array_filter(
+            $messages,
+            static fn (MessageRecord $message): bool => str_contains($message->getContent(), 'прикрывает'),
+        ));
+        self::assertCount(1, $coverMessages);
+        $coverThread = $this->threadOf($coverMessages[0]);
+        self::assertSame('attack-' . $opened['data']['strikeId'], $coverThread['id'] ?? null);
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-cover',
+            'expectedVersion' => $cover['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(8, $this->actionPointsOf($covererId));
+
+        if (($closed['data']['closed'] ?? true) === false) {
+            $awaiting = $closed['data']['awaiting'][0] ?? null;
+            self::assertSame('actual_target', $awaiting['kind'] ?? null);
+            $keys = array_map(
+                static fn (array $option): string => (string) ($option['key'] ?? ''),
+                is_array($awaiting['options'] ?? null) ? $awaiting['options'] : [],
+            );
+            self::assertContains('character:' . $defenderId, $keys);
+            self::assertContains('character:' . $covererId, $keys);
+
+            $resolved = $this->dispatch('game.resolveStrikeWindow', [
+                'gameId' => $gameId,
+                'battleId' => $battleId,
+                'idempotencyKey' => 'w-cover',
+                'expectedVersion' => $closed['data']['version'],
+                'window' => ['actualTarget' => 'character:' . $covererId],
+            ]);
+            self::assertTrue($resolved['success'], json_encode($resolved));
+            self::assertTrue($resolved['data']['closed'] ?? false, json_encode($resolved));
+        }
+    }
+
+    /**
+     * Провал всех прикрытий ставит удар на выбор фактической цели.
+     *
+     * @return void
+     */
+    public function testCoverAllFailedPausesAndResumes(): void
+    {
+        $rules = $this->supportRules();
+        $rules['block'] = [
+            'type' => 'ability',
+            'name' => 'Block',
+            'spec' => [
+                'type' => 'action',
+                'combat_action' => 'block',
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 2,
+                ]],
+            ],
+        ];
+        $rules['cursed-shield'] = [
+            'type' => 'item',
+            'name' => 'Cursed shield',
+            'spec' => [
+                'type' => 'item',
+                'category' => 'shield',
+                'proficiency_family_code' => 'shield',
+                'block_profile' => [
+                    'efficiency' => ['base' => -100, 'size' => 0],
+                    'defense' => ['base' => -100, 'size' => 0],
+                    'resistances' => [],
+                ],
+            ],
+        ];
+        $world = $this->worldWithWeapon(extraRules: $rules);
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Attacker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Defender', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ], [
+            ['ruleCode' => 'cursed-shield', 'equipped' => true],
+        ]);
+        $covererId = $this->admit($world->getId(), $gameId, 'Coverer', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 10]],
+        ], [
+            ['ruleCode' => 'cursed-shield', 'equipped' => true],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-cover-fail',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+                ['type' => 'character', 'id' => $covererId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-cover-fail',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $cover = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'cover-fail-declare',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'reaction',
+                'code' => 'prikrytie',
+                'actor' => ['type' => 'character', 'id' => $covererId],
+                'context' => [
+                    'expectedSheetVersion' => $this->characterFacade()->get($covererId)->getActualVersion(),
+                    'cover' => [
+                        'reaction' => 'block',
+                        'blockItemInventoryId' => 1,
+                        'blockItemProfileIndex' => 0,
+                        'blockItemRuleCode' => 'cursed-shield',
+                    ],
+                ],
+            ],
+        ]);
+        self::assertTrue($cover['success'], json_encode($cover));
+        self::assertSame(10, $this->actionPointsOf($covererId));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-cover-fail',
+            'expectedVersion' => $cover['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                [
+                    'reaction' => 'block',
+                    'blockItemInventoryId' => 1,
+                    'blockItemProfileIndex' => 0,
+                    'blockItemRuleCode' => 'cursed-shield',
+                ],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(false, $closed['data']['closed'] ?? null);
+        self::assertSame(8, $this->actionPointsOf($covererId));
+        self::assertSame(8, $this->actionPointsOf($defenderId));
+
+        $awaiting = $closed['data']['awaiting'][0] ?? null;
+        self::assertSame('actual_target', $awaiting['kind'] ?? null);
+        $keys = array_map(
+            static fn (array $option): string => (string) ($option['key'] ?? ''),
+            is_array($awaiting['options'] ?? null) ? $awaiting['options'] : [],
+        );
+        self::assertContains('character:' . $defenderId, $keys);
+        self::assertContains('character:' . $covererId, $keys);
+
+        $resolved = $this->dispatch('game.resolveStrikeWindow', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'w-cover-fail',
+            'expectedVersion' => $closed['data']['version'],
+            'window' => ['actualTarget' => 'character:' . $defenderId],
+        ]);
+        self::assertTrue($resolved['success'], json_encode($resolved));
+        self::assertSame(8, $this->actionPointsOf($covererId));
+        self::assertSame(8, $this->actionPointsOf($defenderId));
+
+        $messages = $this->chatMessages($gameId);
+        $contents = array_map(static fn (MessageRecord $message): string => $message->getContent(), $messages);
+        self::assertNotSame([], array_filter(
+            $contents,
+            static fn (string $content): bool => str_contains($content, 'прикрытие не удаётся'),
+        ));
+        $blockActors = [];
+        foreach ($messages as $message) {
+            foreach ($message->getAttachments() as $attachment) {
+                $payload = is_array($attachment) ? ($attachment['payload'] ?? null) : null;
+                if (($attachment['type'] ?? null) !== 'roll' || !is_array($payload)) {
+                    continue;
+                }
+
+                if (str_contains((string) ($payload['label'] ?? ''), 'Блок')) {
+                    $blockActors[] = $payload['actorKey'] ?? null;
+                }
+            }
+        }
+
+        self::assertContains('character:' . $defenderId, $blockActors);
+        self::assertContains('character:' . $covererId, $blockActors);
     }
 
     /**

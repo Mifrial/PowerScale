@@ -577,6 +577,13 @@ const coveringCandidates = computed(() =>
 
 const acceptedCoverInvites = computed(() => coveringService.acceptedInvites(offer.value?.proposal.coverInvites));
 
+const phpCovererNames = computed(
+  () =>
+    (props.phpOpenStrike ?? gamePhpBattleContext.openStrike ?? phpStrike.value)?.coverers?.map((coverer) =>
+      nameOf(`${coverer.actor.type}:${coverer.actor.id}` as CombatEntityKey),
+    ) ?? [],
+);
+
 const coveringBlockProfiles = computed(() => {
   const key = isCoveringStep.value && offer.value ? actingEntity(offer.value) : null;
 
@@ -2220,7 +2227,7 @@ async function acceptAndRoll(): Promise<void> {
       defenseEfficiency: invite.defenseEfficiency ?? commonHitInput.defenseEfficiency,
       defenderAdv: invite.coveringAdv ?? 0,
       defenderAdvantageModifiers: knowledgeDefenseModifiers(invite.coveringKey, hit.actionRuleCode).concat(
-        coveringService.circumstanceModifier(props.rules),
+        coveringService.getDefenseAdvantageModifiers(props.rules),
       ),
     }));
     const covered = hitRollService.rollCoveredHit(
@@ -4685,6 +4692,9 @@ const canSubmit = computed(() => {
             <div v-if="acceptedCoverInvites.length" class="text-body-2">
               Вас попытается прикрыть
               {{ acceptedCoverInvites.map((invite) => nameOf(invite.coveringKey)).join(', ') }}
+            </div>
+            <div v-if="phpCovererNames.length" class="text-body-2">
+              Вас прикрывают: {{ phpCovererNames.join(', ') }}. Если их защита преуспеет, удар примут они.
             </div>
             <div class="text-caption text-medium-emphasis">Реакция защиты</div>
             <div v-if="sequentialStrikeCaption" class="text-body-2 mb-1">{{ sequentialStrikeCaption }}</div>

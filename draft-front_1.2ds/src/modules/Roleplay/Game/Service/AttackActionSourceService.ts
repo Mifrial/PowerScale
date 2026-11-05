@@ -6,6 +6,7 @@ import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import {
   ADVANTAGE_SOURCE_CIRCUMSTANCES,
+  ADVANTAGE_SOURCE_LABELS,
   ADVANTAGE_SOURCE_MULTI_ATTACK,
 } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
@@ -59,7 +60,13 @@ export class AttackActionSourceService {
     const delta = this.extraTargetHitAdvantage(targetCount, rule);
     if (!delta) return [];
 
-    return [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: 'Обстоятельства', delta }];
+    return [
+      {
+        source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES,
+        source_label: ADVANTAGE_SOURCE_LABELS[ADVANTAGE_SOURCE_CIRCUMSTANCES],
+        delta,
+      },
+    ];
   }
 
   compatibleProfiles(
@@ -208,7 +215,7 @@ export class AttackActionSourceService {
     return [
       {
         source_code: ADVANTAGE_SOURCE_MULTI_ATTACK,
-        source_label: 'множественная атака',
+        source_label: ADVANTAGE_SOURCE_LABELS[ADVANTAGE_SOURCE_MULTI_ATTACK],
         delta: -weaponCount,
       },
     ];

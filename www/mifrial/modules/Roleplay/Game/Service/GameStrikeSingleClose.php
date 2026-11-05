@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Dto\ResourceSpend;
+use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
@@ -11,7 +14,10 @@ use Mifrial\Roleplay\Game\Exception\GameEconomyConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
+use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CoverAlly;
+use Mifrial\Roleplay\Rule\Spec\AbilityCombat;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -71,6 +77,7 @@ final class GameStrikeSingleClose
      * @param int $actorUserId Актор.
      * @param bool $editAll Ключ.
      * @param bool $viewAll Полный просмотр.
+     * @param array<string, mixed>|null $resume Решение окна фактической цели.
      *
      * @return array<string, mixed> Итог.
      */
@@ -84,8 +91,11 @@ final class GameStrikeSingleClose
         int $actorUserId,
         bool $editAll,
         bool $viewAll,
+        ?array $resume = null,
     ): array {
-        $open = $this->rows->openSingle($battleId, $game, $actorUserId, $editAll);
+        $open = $resume !== null
+            ? $this->rows->requireOpen($battleId, 'strike')
+            : $this->rows->openSingle($battleId, $game, $actorUserId, $editAll);
         $battle = $this->rows->battleOf($sessionId, $battleId, $expectedBattleVersion);
         $strikeId = $open['id'] ?? null;
         if (!is_int($strikeId)) {
@@ -117,6 +127,13 @@ final class GameStrikeSingleClose
             throw new GameInvalidException('Game strike row is invalid');
         }
 
+        $resumeState = null;
+        if ($resume !== null) {
+            $resumeState = $this->resumeState($row, $resume);
+            $row = $resumeState['row'];
+            $expectedSheetVersion = $resumeState['expectedSheetVersion'];
+        }
+
         $open = array_merge($open, [
             'item_inventory_id' => $row['item_inventory_id'] ?? null,
             'item_rule_code' => $row['item_rule_code'] ?? null,
@@ -140,8 +157,13 @@ final class GameStrikeSingleClose
         );
 
         $lastStrike = new GameLastStrikeSnapshot();
-        $this->choices->assertReaction($game, $target, $requestChoice);
-        $choice = $this->authoritativeChoice($game, $target, $requestChoice);
+        if ($resumeState === null) {
+            $this->choices->assertReaction($game, $target, $requestChoice);
+            $choice = $this->authoritativeChoice($game, $target, $requestChoice);
+        } else {
+            $choice = $resumeState['choice'];
+        }
+
         $turn = ($choice['turn'] ?? false) === true;
         $conditions = $open['conditions'];
         if ($turn && (($conditions['flank'] ?? false) !== true || $choice['reaction'] === 'ignore')) {
@@ -176,6 +198,7 @@ final class GameStrikeSingleClose
         );
 
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $row = $this->spendDeclaredReactions($game, $slice, $row);
         $profileType = is_string($open['profile_type'] ?? null) ? $open['profile_type'] : '';
         $profileIndex = is_int($open['profile_index'] ?? null) ? $open['profile_index'] : 0;
         $itemInventoryId = is_int($open['item_inventory_id'] ?? null) ? $open['item_inventory_id'] : 0;
@@ -299,10 +322,15 @@ final class GameStrikeSingleClose
             $spends[] = $defenderToken['spend'];
         }
 
+        if ($resumeState !== null && $resumeState['prepaid']) {
+            $spends = [];
+            $defenderToken = null;
+        }
+
         $previousSr = $lastStrike->previousSr($pending, $attackerKind, $attackerId, $targetKey);
         $supports = $this->supportAdvantages($row);
         $advantages = $supports['attacker'];
-        $token = $this->tokenAdvantage($row);
+        $token = $this->tokenAdvantage($row, $slice);
         if ($token !== null) {
             $advantages[] = $token;
         }
@@ -310,21 +338,37 @@ final class GameStrikeSingleClose
         $tokenAccuracy = $this->tokenAccuracy($row);
         $strikePackage = $this->processes->strikePackage($process);
         if ($strikePackage['advantage'] !== 0) {
-            $advantages[] = new RollAdvantage('action', $strikePackage['advantage']);
+            $advantages[] = new RollAdvantage(
+                'action',
+                $strikePackage['advantage'],
+                AdvantageSourceLabels::getLabel('action'),
+            );
         }
 
         $repeatUses = is_array($process) && is_int($process['prior'] ?? null) ? $process['prior'] : 0;
         if ($repeatUses > 0) {
-            $advantages[] = new RollAdvantage('circumstances', -$repeatUses);
+            $advantages[] = new RollAdvantage(
+                'circumstances',
+                -$repeatUses,
+                AdvantageSourceLabels::getLabel('circumstances'),
+            );
         }
 
         $flank = ($conditions['flank'] ?? false) === true && !$turn
-            ? new RollAdvantage('flank', -2)
+            ? new RollAdvantage('flank', -2, AdvantageSourceLabels::getLabel('flank'))
             : null;
         if ($packets > 1) {
-            $advantages[] = new RollAdvantage('multi_attack', -$packets);
+            $advantages[] = new RollAdvantage(
+                'multi_attack',
+                -$packets,
+                AdvantageSourceLabels::getLabel('multi_attack'),
+            );
         } elseif ($sequential) {
-            $advantages[] = new RollAdvantage('multi_attack', -1);
+            $advantages[] = new RollAdvantage(
+                'multi_attack',
+                -1,
+                AdvantageSourceLabels::getLabel('multi_attack'),
+            );
         }
 
         $prepared = (new GamePreparedDefense())->modifier(
@@ -340,17 +384,94 @@ final class GameStrikeSingleClose
 
         $defenderRoll = null;
         $pushChecks = [];
+        $attackerRoll = $resumeState !== null
+            ? $resumeState['attackerRoll']
+            : $this->resolution->rollOf(
+                $game,
+                $open,
+                $hitCode,
+                $pending,
+                $slice,
+                $advantages,
+                [$targetKey],
+                $tokenAccuracy,
+            );
+        $defenseRolled = $resumeState !== null;
+        if ($resumeState !== null) {
+            $defenderRoll = $resumeState['defenderRoll'];
+        }
 
-        $attackerRoll = $this->resolution->rollOf(
-            $game,
-            $open,
-            $hitCode,
-            $pending,
-            $slice,
-            $advantages,
-            [$targetKey],
-            $tokenAccuracy,
-        );
+        $coverers = $this->jsonRows($row, 'coverers');
+        $coverInfo = null;
+        if ($resumeState !== null && is_array($resumeState['cover'] ?? null)) {
+            $coverInfo = $resumeState['cover'];
+        }
+
+        if ($coverers !== [] && $resumeState === null) {
+            $cover = $this->resolveCover(
+                $game,
+                $open,
+                $row,
+                $conditions,
+                $choice,
+                $attackerRoll,
+                $hitCode,
+                $slice,
+                $pending,
+                $defenderPending,
+                $profileType,
+                $isPush,
+                $profileType === 'shoot' ? $metrics['distance'] : null,
+                $expectedSheetVersion,
+            );
+            if ($cover['winner'] !== null) {
+                $primaryTarget = $target;
+                $primaryKey = $this->rows->targetKey($primaryTarget);
+                $winnerKey = $this->rows->targetKey($cover['winner']['actor']);
+                $coverInfo = $this->coverInfoOf($cover['candidates'], $primaryKey, $winnerKey);
+                if ($spends !== []) {
+                    $this->sheetWrites->writeResources(
+                        $game,
+                        $target['type'],
+                        $target['id'],
+                        $expectedSheetVersion,
+                        $spends,
+                    );
+                }
+
+                $target = $cover['winner']['actor'];
+                $targetKey = $this->rows->targetKey($target);
+                $choice = $cover['winner']['choice'];
+                $expectedSheetVersion = $cover['winner']['expectedSheetVersion'];
+                $reactionRuleCode = $cover['winner']['reactionRuleCode'];
+                $turnRuleCode = null;
+                $defenderChoices = $this->choices->targetChoices($game, $target);
+                $spends = $cover['winner']['spends'];
+                $defenderPending = $pending;
+                $defenderToken = null;
+                $targetOpen = $this->rows->targetOpen($open, $target);
+                $attackerRoll = $cover['winner']['attackerRoll'];
+                $defenderRoll = $cover['winner']['defenderRoll'];
+                $defenseRolled = true;
+            } elseif ($cover['failed']) {
+                return $this->pauseForTargetChoice(
+                    $game,
+                    $battle,
+                    $target,
+                    $spends,
+                    $strikeId,
+                    is_int($row['id'] ?? null) ? $row['id'] : $strikeId,
+                    $expectedBattleVersion,
+                    $attackerRoll,
+                    $cover,
+                    $choice,
+                    $expectedSheetVersion,
+                    $attackerKind,
+                    $attackerId,
+                );
+            }
+        }
+
         if (
             $choice['reaction'] !== 'ignore'
             && $this->rules->isUnconscious(
@@ -371,7 +492,7 @@ final class GameStrikeSingleClose
             $defenderAdvantages[] = $defenderToken['advantage'];
         }
 
-        if ($choice['reaction'] === 'dodge') {
+        if (!$defenseRolled && $choice['reaction'] === 'dodge') {
             $shotDistance = $profileType === 'shoot' ? $metrics['distance'] : null;
             $defenderRoll = $this->resolution->dodgeRollOf(
                 $game,
@@ -389,7 +510,7 @@ final class GameStrikeSingleClose
                 : $this->rules->rerateHit($attackerRoll, $defenderRoll);
         }
 
-        if ($choice['reaction'] === 'block') {
+        if (!$defenseRolled && $choice['reaction'] === 'block') {
             $defenderRoll = $this->resolution->blockRollOf(
                 $game,
                 $targetOpen,
@@ -415,7 +536,11 @@ final class GameStrikeSingleClose
             }
         }
 
-        if ($choice['reaction'] === 'ignore' && ($profileType === 'shoot' || $profileType === 'throw')) {
+        if (
+            !$defenseRolled
+            && $choice['reaction'] === 'ignore'
+            && ($profileType === 'shoot' || $profileType === 'throw')
+        ) {
             $attackerRoll = $this->resolution->rerateRangedHit(
                 $game,
                 $open,
@@ -695,6 +820,7 @@ final class GameStrikeSingleClose
             $choice['reaction'],
             $result,
             null,
+            $coverInfo,
         );
         if ($pushChecks !== []) {
             $this->chat->postChecks($game, $battle, $targetOpen, $actorUserId, $strikeId, $pushChecks);
@@ -721,6 +847,7 @@ final class GameStrikeSingleClose
             'block_item_profile_index' => $choice['blockItemProfileIndex'],
             'block_item_rule_code' => $choice['blockItemRuleCode'],
             'conditions' => $conditions,
+            'resolution' => [],
         ];
         if ($sequential) {
             $this->actions->answerStrike(is_int($row['id'] ?? null) ? $row['id'] : 0, $answer);
@@ -1055,7 +1182,7 @@ final class GameStrikeSingleClose
                 continue;
             }
 
-            $supports[$side][] = new RollAdvantage($source, $advantage);
+            $supports[$side][] = new RollAdvantage($source, $advantage, AdvantageSourceLabels::getLabel($source));
         }
 
         return $supports;
@@ -1065,10 +1192,11 @@ final class GameStrikeSingleClose
      * Преимущество от жетонов концентрации.
      *
      * @param array<string, mixed> $row Строка удара.
+     * @param CharacterRuleSlice $slice Срез правил.
      *
      * @return RollAdvantage|null Преимущество.
      */
-    private function tokenAdvantage(array $row): ?RollAdvantage
+    private function tokenAdvantage(array $row, CharacterRuleSlice $slice): ?RollAdvantage
     {
         $raw = $row['token_spend'] ?? null;
         if (is_string($raw)) {
@@ -1085,7 +1213,7 @@ final class GameStrikeSingleClose
             return null;
         }
 
-        return new RollAdvantage($source, $amount);
+        return new RollAdvantage($source, $amount, $slice->findLive($source)?->getName());
     }
 
     /**
@@ -1135,5 +1263,657 @@ final class GameStrikeSingleClose
         }
 
         return $codes;
+    }
+
+    /**
+     * JSON-список записей строки удара.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     * @param string $key Колонка.
+     *
+     * @return list<array<string, mixed>> Записи.
+     */
+    private function jsonRows(array $row, string $key): array
+    {
+        $raw = $row[$key] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter($raw, static fn (mixed $entry): bool => is_array($entry)));
+    }
+
+    /**
+     * JSON-объект строки удара.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     * @param string $key Колонка.
+     *
+     * @return array<string, mixed> Объект.
+     */
+    private function jsonRow(array $row, string $key): array
+    {
+        $raw = $row[$key] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        return is_array($raw) ? $raw : [];
+    }
+
+    /**
+     * Списывает заявки Поддержки и Прикрытия в момент старта реакции.
+     *
+     * Объявление ничего не списывает. Если ресурсов уже не хватает, заявка
+     * снимается и не участвует в расчёте; устаревшая версия листа — конфликт.
+     *
+     * @param GameRecord $game Игра.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $row Строка удара.
+     *
+     * @return array<string, mixed> Строка с обновлёнными заявками.
+     *
+     * @throws \Mifrial\Roleplay\Game\Exception\GameBattleConflictException Если версия листа чужая.
+     */
+    private function spendDeclaredReactions(GameRecord $game, CharacterRuleSlice $slice, array $row): array
+    {
+        $turn = $this->spend->getTurnResourceCode($slice);
+        if ($turn === null) {
+            return $row;
+        }
+
+        $changed = false;
+        foreach (['supporters', 'coverers'] as $key) {
+            $entries = $this->jsonRows($row, $key);
+            $kept = [];
+            foreach ($entries as $entry) {
+                if (($entry['spent'] ?? false) === true) {
+                    $kept[] = $entry;
+                    continue;
+                }
+
+                $expected = $entry['expectedSheetVersion'] ?? null;
+                $actor = $entry['actor'] ?? null;
+                if (
+                    !is_int($expected)
+                    || !is_array($actor)
+                    || !is_string($actor['type'] ?? null)
+                    || !is_int($actor['id'] ?? null)
+                ) {
+                    $kept[] = $entry;
+                    continue;
+                }
+
+                $changed = true;
+                $entry['spent'] = true;
+                $amount = $key === 'supporters'
+                    ? $this->spend->getActionAp($slice, is_string($entry['ruleCode'] ?? null) ? $entry['ruleCode'] : '')
+                    : (is_int($entry['cost'] ?? null) ? $entry['cost'] : 0);
+                if ($amount <= 0) {
+                    $kept[] = $entry;
+                    continue;
+                }
+
+                $spends = [new ResourceSpend($turn, new ScalarResourceValue($amount))];
+                $sheet = $this->sheets->getTargetSheet($game, $actor);
+                if (
+                    !$this->rules->hasSufficientResources(
+                        $game->getSpaceId(),
+                        $game->getRulesRevision(),
+                        $sheet,
+                        $spends,
+                    )
+                ) {
+                    continue;
+                }
+
+                $entry['expectedSheetVersion'] = $this->sheetWrites->writeResources(
+                    $game,
+                    $actor['type'],
+                    $actor['id'],
+                    $expected,
+                    $spends,
+                );
+                $kept[] = $entry;
+            }
+
+            if ($changed) {
+                $row[$key] = $kept;
+            }
+        }
+
+        if ($changed) {
+            $strikeId = $row['id'] ?? null;
+            if (is_int($strikeId)) {
+                $this->actions->answerStrike($strikeId, [
+                    'supporters' => $row['supporters'],
+                    'coverers' => $row['coverers'],
+                ]);
+            }
+        }
+
+        return $row;
+    }
+
+    /**
+     * Помехи защите прикрывающего из его карточки.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $ruleCode Карточка прикрытия.
+     *
+     * @return array<int, RollAdvantage> Помехи.
+     */
+    private function coverAdvantages(CharacterRuleSlice $slice, string $ruleCode): array
+    {
+        $rule = $slice->findLive($ruleCode);
+        if ($rule === null || $rule->isSpecBroken()) {
+            return [];
+        }
+
+        $cover = AbilityCombat::cover($rule->getSpecDocument());
+        if (!$cover instanceof CoverAlly) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($cover->getDefenseAdvantages() as $entry) {
+            $rows[] = new RollAdvantage(
+                $entry->getSourceCode(),
+                $entry->getDelta(),
+                AdvantageSourceLabels::getLabel($entry->getSourceCode()),
+            );
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Бросок одной защиты против уже брошенной атаки.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $open Строка удара с нужным защитником.
+     * @param array<string, mixed> $conditions Условия строки.
+     * @param array<string, mixed> $choice Защита.
+     * @param array<string, mixed> $attackerRoll Бросок атаки.
+     * @param string $hitCode Карточка попадания.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $pending Ожидание.
+     * @param string $profileType Профиль.
+     * @param bool $isPush Толчок.
+     * @param array<int, RollAdvantage> $extraAdvantages Помехи защиты.
+     * @param DimensionalNumber|null $shotDistance Дистанция выстрела.
+     *
+     * @return array{attackerRoll: array<string, mixed>, defenderRoll: array<string, mixed>|null, passed: bool, rating: int} Защита.
+     *
+     * @throws GameInvalidException Если защита битая.
+     */
+    private function defenseCandidate(
+        GameRecord $game,
+        array $open,
+        array $conditions,
+        array $choice,
+        array $attackerRoll,
+        string $hitCode,
+        CharacterRuleSlice $slice,
+        array $pending,
+        string $profileType,
+        bool $isPush,
+        array $extraAdvantages,
+        ?DimensionalNumber $shotDistance = null,
+    ): array {
+        if ($choice['reaction'] === 'ignore') {
+            return [
+                'attackerRoll' => $attackerRoll,
+                'defenderRoll' => null,
+                'passed' => false,
+                'rating' => 0,
+            ];
+        }
+
+        $reactionRuleCode = $this->rules->reactionRuleCode(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['reaction'],
+        );
+        $defenderRoll = null;
+        if ($choice['reaction'] === 'dodge') {
+            $defenderRoll = $this->resolution->dodgeRollOf(
+                $game,
+                $open,
+                $hitCode,
+                $attackerRoll,
+                $pending,
+                $reactionRuleCode,
+                $slice,
+                $extraAdvantages,
+                $shotDistance,
+            );
+            $attackerRoll = $profileType === 'shoot' || $profileType === 'throw'
+                ? $this->resolution->rerateRangedHit($game, $open, $conditions, $attackerRoll, $defenderRoll, 'dodge')
+                : $this->rules->rerateHit($attackerRoll, $defenderRoll);
+        } elseif ($choice['reaction'] === 'block') {
+            $defenderRoll = $this->resolution->blockRollOf(
+                $game,
+                $open,
+                $choice,
+                $hitCode,
+                $attackerRoll,
+                $pending,
+                $reactionRuleCode,
+                $slice,
+                $extraAdvantages,
+            );
+            if ($isPush) {
+                $attackerRoll = $this->rules->rerateHit($attackerRoll, $defenderRoll);
+            } elseif ($profileType === 'shoot' || $profileType === 'throw') {
+                $attackerRoll = $this->resolution->rerateRangedHit(
+                    $game,
+                    $open,
+                    $conditions,
+                    $attackerRoll,
+                    $defenderRoll,
+                    'block',
+                );
+            }
+        }
+
+        return [
+            'attackerRoll' => $attackerRoll,
+            'defenderRoll' => $defenderRoll,
+            'passed' => $defenderRoll !== null && ($defenderRoll['success'] ?? false) === true,
+            'rating' => is_int($defenderRoll['rating'] ?? null) ? $defenderRoll['rating'] : 0,
+        ];
+    }
+
+    /**
+     * Считает защиты исходной цели и прикрывающих, выбирает победителя.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $open Строка удара.
+     * @param array<string, mixed> $row Строка удара.
+     * @param array<string, mixed> $conditions Условия.
+     * @param array<string, mixed> $choice Защита исходной цели.
+     * @param array<string, mixed> $attackerRoll Бросок атаки.
+     * @param string $hitCode Карточка попадания.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $pending Ожидание.
+     * @param array<string, mixed> $targetPending Ожидание исходной цели.
+     * @param string $profileType Профиль.
+     * @param bool $isPush Толчок.
+     * @param DimensionalNumber|null $shotDistance Дистанция выстрела исходной цели.
+     * @param int $targetSheetVersion Версия листа исходной цели.
+     *
+     * @return array{
+     *     winner: array<string, mixed>|null,
+     *     failed: bool,
+     *     candidates: array<string, array<string, mixed>>
+     * } Итог.
+     *
+     * @throws GameInvalidException Если защита битая.
+     */
+    private function resolveCover(
+        GameRecord $game,
+        array $open,
+        array $row,
+        array $conditions,
+        array $choice,
+        array $attackerRoll,
+        string $hitCode,
+        CharacterRuleSlice $slice,
+        array $pending,
+        array $targetPending,
+        string $profileType,
+        bool $isPush,
+        ?DimensionalNumber $shotDistance = null,
+        int $targetSheetVersion = 0,
+    ): array {
+        $target = $this->rows->defender($row);
+        $targetOpen = $this->rows->targetOpen($open, $target);
+        $candidates = [];
+        $primaryKey = $this->rows->targetKey($target);
+        $primary = $this->defenseCandidate(
+            $game,
+            $targetOpen,
+            $conditions,
+            $choice,
+            $attackerRoll,
+            $hitCode,
+            $slice,
+            $targetPending,
+            $profileType,
+            $isPush,
+            [],
+            $shotDistance,
+        );
+        $candidates[$primaryKey] = [
+            'actor' => $target,
+            'choice' => $choice,
+            'ruleCode' => '',
+            'expectedSheetVersion' => $targetSheetVersion,
+            'cost' => 0,
+            'reactionRuleCode' => $choice['reaction'] === 'ignore'
+                ? null
+                : $this->rules->reactionRuleCode(
+                    $game->getSpaceId(),
+                    $game->getRulesRevision(),
+                    $choice['reaction'],
+                ),
+            'attackerRoll' => $primary['attackerRoll'],
+            'defenderRoll' => $primary['defenderRoll'],
+            'passed' => $primary['passed'],
+            'rating' => $primary['rating'],
+            'spends' => [],
+        ];
+
+        $winner = null;
+        foreach ($this->jsonRows($row, 'coverers') as $entry) {
+            $actor = $entry['actor'] ?? null;
+            if (
+                !is_array($actor)
+                || !is_string($actor['type'] ?? null)
+                || !is_int($actor['id'] ?? null)
+                || !is_string($entry['reaction'] ?? null)
+            ) {
+                continue;
+            }
+
+            $coverChoice = [
+                'reaction' => $entry['reaction'],
+                'blockItemInventoryId' => $entry['blockItemInventoryId'] ?? null,
+                'blockItemProfileIndex' => $entry['blockItemProfileIndex'] ?? null,
+                'blockItemRuleCode' => $entry['blockItemRuleCode'] ?? null,
+                'turn' => false,
+            ];
+            $coverOpen = array_merge($open, [
+                'defender_kind' => $actor['type'],
+                'defender_id' => $actor['id'],
+            ]);
+            $advantages = $this->coverAdvantages(
+                $slice,
+                is_string($entry['ruleCode'] ?? null) ? $entry['ruleCode'] : '',
+            );
+            $candidate = $this->defenseCandidate(
+                $game,
+                $coverOpen,
+                $conditions,
+                $coverChoice,
+                $attackerRoll,
+                $hitCode,
+                $slice,
+                $pending,
+                $profileType,
+                $isPush,
+                $advantages,
+            );
+            $key = $this->rows->targetKey($actor);
+            $cost = is_int($entry['cost'] ?? null) ? $entry['cost'] : 0;
+            $reactionRuleCode = $this->rules->reactionRuleCode(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $coverChoice['reaction'],
+            );
+            $candidates[$key] = [
+                'actor' => $actor,
+                'choice' => $coverChoice,
+                'ruleCode' => is_string($entry['ruleCode'] ?? null) ? $entry['ruleCode'] : '',
+                'expectedSheetVersion' => is_int($entry['expectedSheetVersion'] ?? null)
+                    ? $entry['expectedSheetVersion']
+                    : 0,
+                'cost' => $cost,
+                'reactionRuleCode' => $reactionRuleCode,
+                'attackerRoll' => $candidate['attackerRoll'],
+                'defenderRoll' => $candidate['defenderRoll'],
+                'passed' => $candidate['passed'],
+                'rating' => $candidate['rating'],
+                'spends' => [],
+            ];
+            if ($candidate['passed'] && ($winner === null || $candidate['rating'] > $winner['rating'])) {
+                $winner = $candidates[$key];
+            }
+        }
+
+        return [
+            'winner' => $winner,
+            'failed' => $winner === null,
+            'candidates' => $candidates,
+        ];
+    }
+
+    /**
+     * Останавливает удар и ждёт выбора фактической цели атакующим.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
+     * @param array{type: string, id: int} $target Исходная цель.
+     * @param array<int, ResourceSpend> $spends Защита исходной цели.
+     * @param int $strikeId Строка.
+     * @param int $rowId Строка удара.
+     * @param int $expectedBattleVersion Версия боя.
+     * @param array<string, mixed> $attackerRoll Бросок атаки.
+     * @param array<string, mixed> $cover Итог прикрытия.
+     * @param array<string, mixed> $choice Защита исходной цели.
+     * @param int $expectedSheetVersion Версия листа исходной цели.
+     * @param string $attackerKind Вид атакующего.
+     * @param int $attackerId Атакующий.
+     *
+     * @return array<string, mixed> Итог с ожиданием.
+     */
+    private function pauseForTargetChoice(
+        GameRecord $game,
+        GameBattleRecord $battle,
+        array $target,
+        array $spends,
+        int $strikeId,
+        int $rowId,
+        int $expectedBattleVersion,
+        array $attackerRoll,
+        array $cover,
+        array $choice,
+        int $expectedSheetVersion,
+        string $attackerKind,
+        int $attackerId,
+    ): array {
+        $primaryKey = $target['type'] . ':' . $target['id'];
+        if ($spends !== []) {
+            $expectedSheetVersion = $this->sheetWrites->writeResources(
+                $game,
+                $target['type'],
+                $target['id'],
+                $expectedSheetVersion,
+                $spends,
+            );
+            $cover['candidates'][$primaryKey]['expectedSheetVersion'] = $expectedSheetVersion;
+        }
+
+        $options = [];
+        foreach ($cover['candidates'] as $key => $candidate) {
+            $options[] = ['key' => $key, 'actor' => $candidate['actor']];
+        }
+
+        $awaiting = [
+            [
+                'kind' => 'actual_target',
+                'actor' => ['type' => $attackerKind, 'id' => $attackerId],
+                'options' => $options,
+            ],
+        ];
+        $resolution = [
+            'attackerRoll' => $attackerRoll,
+            'primaryKey' => $primaryKey,
+            'candidates' => $cover['candidates'],
+            'awaiting' => $awaiting,
+        ];
+        $this->actions->answerStrike($rowId, [
+            'reaction' => $choice['reaction'],
+            'block_item_inventory_id' => $choice['blockItemInventoryId'],
+            'block_item_profile_index' => $choice['blockItemProfileIndex'],
+            'block_item_rule_code' => $choice['blockItemRuleCode'],
+            'expected_sheet_version' => $expectedSheetVersion,
+            'resolution' => $resolution,
+        ]);
+        $saved = $this->battles->replaceTracked(
+            $battle->getId(),
+            $expectedBattleVersion,
+            null,
+            null,
+            null,
+            null,
+        );
+
+        return [
+            'battleId' => $battle->getId(),
+            'strikeId' => $strikeId,
+            'version' => $saved->getStateVersion(),
+            'closed' => false,
+            'awaiting' => $awaiting,
+        ];
+    }
+
+    /**
+     * Собирает описание прикрытия для чата.
+     *
+     * @param array<string, mixed> $candidates Кандидаты защит.
+     * @param string $primaryKey Ключ исходной цели.
+     * @param string|null $winnerKey Ключ победителя.
+     *
+     * @return array<string, mixed>|null Описание или null.
+     */
+    private function coverInfoOf(array $candidates, string $primaryKey, ?string $winnerKey): ?array
+    {
+        $primary = $candidates[$primaryKey] ?? null;
+        if (!is_array($primary)) {
+            return null;
+        }
+
+        $primaryActor = $primary['actor'] ?? null;
+        $primaryChoice = $primary['choice'] ?? null;
+        if (
+            !is_array($primaryActor)
+            || !is_string($primaryActor['type'] ?? null)
+            || !is_int($primaryActor['id'] ?? null)
+            || !is_array($primaryChoice)
+        ) {
+            return null;
+        }
+
+        $attempts = [];
+        foreach ($candidates as $key => $candidate) {
+            if ($key === $primaryKey || !is_array($candidate)) {
+                continue;
+            }
+
+            $actor = $candidate['actor'] ?? null;
+            $choice = $candidate['choice'] ?? null;
+            if (
+                !is_array($actor)
+                || !is_string($actor['type'] ?? null)
+                || !is_int($actor['id'] ?? null)
+                || !is_array($choice)
+            ) {
+                continue;
+            }
+
+            $attempts[] = [
+                'key' => $key,
+                'actor' => ['type' => $actor['type'], 'id' => $actor['id']],
+                'ruleCode' => is_string($candidate['ruleCode'] ?? null) ? $candidate['ruleCode'] : '',
+                'reaction' => is_string($choice['reaction'] ?? null) ? $choice['reaction'] : '',
+                'blockItemRuleCode' => is_string($choice['blockItemRuleCode'] ?? null)
+                    ? $choice['blockItemRuleCode']
+                    : '',
+                'cost' => is_int($candidate['cost'] ?? null) ? $candidate['cost'] : 0,
+                'roll' => is_array($candidate['defenderRoll'] ?? null) ? $candidate['defenderRoll'] : null,
+                'passed' => ($candidate['passed'] ?? false) === true,
+                'winner' => $winnerKey !== null && $key === $winnerKey,
+            ];
+        }
+
+        return [
+            'target' => ['type' => $primaryActor['type'], 'id' => $primaryActor['id']],
+            'targetReaction' => is_string($primaryChoice['reaction'] ?? null) ? $primaryChoice['reaction'] : 'ignore',
+            'targetReactionRuleCode' => is_string($primary['reactionRuleCode'] ?? null)
+                ? $primary['reactionRuleCode']
+                : null,
+            'targetRoll' => is_array($primary['defenderRoll'] ?? null) ? $primary['defenderRoll'] : null,
+            'targetActual' => $winnerKey === $primaryKey,
+            'attempts' => $attempts,
+        ];
+    }
+
+    /**
+     * Восстанавливает состояние окна выбора фактической цели.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     * @param array<string, mixed> $resume Решение.
+     *
+     * @return array{
+     *     row: array<string, mixed>,
+     *     choice: array<string, mixed>,
+     *     attackerRoll: array<string, mixed>,
+     *     defenderRoll: array<string, mixed>|null,
+     *     expectedSheetVersion: int,
+     *     prepaid: bool,
+     *     cover: array<string, mixed>|null
+     * } Состояние.
+     *
+     * @throws GameInvalidException Если окно закрыто или выбор чужой.
+     */
+    private function resumeState(array $row, array $resume): array
+    {
+        $resolution = $this->jsonRow($row, 'resolution');
+        $candidates = $resolution['candidates'] ?? null;
+        $key = $resume['actualTarget'] ?? null;
+        if (!is_array($candidates) || !is_string($key) || !is_array($candidates[$key] ?? null)) {
+            throw new GameInvalidException('Game strike window is not open');
+        }
+
+        $candidate = $candidates[$key];
+        $actor = $candidate['actor'] ?? null;
+        $choice = $candidate['choice'] ?? null;
+        $attackerRoll = $candidate['attackerRoll'] ?? null;
+        if (
+            !is_array($actor)
+            || !is_string($actor['type'] ?? null)
+            || !is_int($actor['id'] ?? null)
+            || !is_array($choice)
+            || !is_array($attackerRoll)
+        ) {
+            throw new GameInvalidException('Game strike window choice is invalid');
+        }
+
+        $row['target_type'] = $actor['type'];
+        $row['target_id'] = $actor['id'];
+        $row['reaction'] = $choice['reaction'] ?? null;
+        $row['block_item_inventory_id'] = $choice['blockItemInventoryId'] ?? null;
+        $row['block_item_profile_index'] = $choice['blockItemProfileIndex'] ?? null;
+        $row['block_item_rule_code'] = $choice['blockItemRuleCode'] ?? null;
+        $row['expected_sheet_version'] = $candidate['expectedSheetVersion'] ?? 0;
+
+        $primaryKey = is_string($resolution['primaryKey'] ?? null) ? $resolution['primaryKey'] : null;
+        $cover = $primaryKey === null
+            ? null
+            : $this->coverInfoOf($candidates, $primaryKey, $key);
+
+        return [
+            'row' => $row,
+            'choice' => [
+                'reaction' => $choice['reaction'],
+                'blockItemInventoryId' => $choice['blockItemInventoryId'] ?? null,
+                'blockItemProfileIndex' => $choice['blockItemProfileIndex'] ?? null,
+                'blockItemRuleCode' => $choice['blockItemRuleCode'] ?? null,
+                'turn' => false,
+            ],
+            'attackerRoll' => $attackerRoll,
+            'defenderRoll' => is_array($candidate['defenderRoll'] ?? null) ? $candidate['defenderRoll'] : null,
+            'expectedSheetVersion' => is_int($candidate['expectedSheetVersion'] ?? null)
+                ? $candidate['expectedSheetVersion']
+                : 0,
+            'prepaid' => true,
+            'cover' => $cover,
+        ];
     }
 }

@@ -21,7 +21,10 @@ import { itemModifierService } from '@/modules/Roleplay/Rule/init';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
-import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import {
+  ADVANTAGE_SOURCE_CIRCUMSTANCES,
+  ADVANTAGE_SOURCE_LABELS,
+} from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { bestCombatMastery } from '@/modules/Roleplay/Game/Utils/strikeCharacteristicMods';
 import { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/init';
 import { SLASHING_DAMAGE_TYPE_CODE } from '@/modules/Roleplay/Rule/Constant/DamageType/SLASHING_DAMAGE_TYPE_CODE';
@@ -36,7 +39,7 @@ import type { SimultaneousHitRoll } from '@/modules/Roleplay/Game/Dto/Simultaneo
 import type { HitCheckRoll } from '@/modules/Roleplay/Game/Dto/HitCheckRoll';
 import type { WideHitRoll } from '@/modules/Roleplay/Game/Dto/WideHitRoll';
 import type { WideHitRollTargetResult } from '@/modules/Roleplay/Game/Dto/WideHitRollTargetResult';
-import { FLANK_DEFENSE_LABEL } from '@/modules/Roleplay/Game/Constant/Combat/FLANK_DEFENSE_LABEL';
+
 export class HitRollService {
   private static readonly FALLBACK_MASTERY: DimensionalNumberValue = { base: 3, size: -1 };
 
@@ -100,7 +103,7 @@ export class HitRollService {
 
     return {
       efficiency: CharacteristicNumber.from(efficiency).modifyWith(penalty.delta).value,
-      adjustments: [{ source_code: 'distance', source_label: 'Штраф дистанции', delta: penalty.delta }],
+      adjustments: [{ source_code: 'distance', source_label: ADVANTAGE_SOURCE_LABELS.distance, delta: penalty.delta }],
     };
   }
 
@@ -303,7 +306,13 @@ export class HitRollService {
     );
     const flankAdv =
       input.flank && !input.turn
-        ? [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: FLANK_DEFENSE_LABEL, delta: -2 }]
+        ? [
+            {
+              source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES,
+              source_label: ADVANTAGE_SOURCE_LABELS.flank,
+              delta: -2,
+            },
+          ]
         : [];
     const defenseSpec = this.poolSpec(
       input.defenderLabel,
@@ -406,7 +415,13 @@ export class HitRollService {
     );
     const flankAdv =
       input.flank && !input.turn
-        ? [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: FLANK_DEFENSE_LABEL, delta: -2 }]
+        ? [
+            {
+              source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES,
+              source_label: ADVANTAGE_SOURCE_LABELS.flank,
+              delta: -2,
+            },
+          ]
         : [];
     const defenseSpec = this.poolSpec(
       input.defenderLabel,
