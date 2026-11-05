@@ -316,6 +316,28 @@ const maneuverAvailable = computed(
     (resolvedAttackAction.value?.strikes.length ?? 0) <= 1,
 );
 
+/** Короткая подпись эффекта манёвра для чипа улучшения: «2 помехи защите». */
+function maneuverDefenseLabel(rule: Rule): string {
+  const spec = rule.spec as unknown;
+  if (!spec || typeof spec !== 'object' || Array.isArray(spec)) return rule.name;
+  const maneuver = (spec as Record<string, unknown>).maneuver;
+  if (!maneuver || typeof maneuver !== 'object' || Array.isArray(maneuver)) return rule.name;
+  const outcome = (maneuver as Record<string, unknown>).outcome;
+  if (!outcome || typeof outcome !== 'object' || Array.isArray(outcome)) return rule.name;
+  const marks = (outcome as Record<string, unknown>).on_target_failed;
+  if (!Array.isArray(marks)) return rule.name;
+  const parts: string[] = [];
+  for (const mark of marks) {
+    if (!mark || typeof mark !== 'object' || Array.isArray(mark)) continue;
+    const row = mark as Record<string, unknown>;
+    if (row.kind !== 'advantage' || typeof row.value !== 'number' || row.value === 0) continue;
+    const amount = Math.abs(row.value);
+    parts.push(`${amount} ${row.value < 0 ? 'помехи' : 'преимущества'} защите`);
+  }
+
+  return parts.length > 0 ? parts.join(', ') : rule.name;
+}
+
 /** Обманный манёвр как улучшение в общем списке улучшений удара. */
 const maneuverUpgradeOptions = computed<StrikeUpgradeOption[]>(() => {
   if (!maneuverAvailable.value) return [];
@@ -325,7 +347,7 @@ const maneuverUpgradeOptions = computed<StrikeUpgradeOption[]>(() => {
     ruleCode: rule.code,
     name: 'Обманный манёвр',
     exclusiveGroup: 'maneuver',
-    mode: { code: rule.code, label: rule.name, injury_check_advantage: 0 },
+    mode: { code: rule.code, label: maneuverDefenseLabel(rule), injury_check_advantage: 0 },
   }));
 });
 
