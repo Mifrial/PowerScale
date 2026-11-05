@@ -45,6 +45,7 @@ final class GameStrikeSingleChat
      * @param array<string, mixed> $result Итог.
      * @param array<string, mixed>|null $strengthRoll Проверка Силы до итога.
      * @param array<string, mixed>|null $cover Прикрытие: исходная цель и прикрывающий.
+     * @param array<string, mixed>|null $maneuver Раскрытый манёвр.
      *
      * @return void
      */
@@ -58,6 +59,7 @@ final class GameStrikeSingleChat
         array $result,
         ?array $strengthRoll = null,
         ?array $cover = null,
+        ?array $maneuver = null,
     ): void {
         $threadId = 'attack-' . $strikeId;
         $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
@@ -143,6 +145,12 @@ final class GameStrikeSingleChat
             $narrative .= ' Тот уклоняется — толчок сорван.';
         } else {
             $narrative .= $reactionText;
+        }
+
+        if ($maneuver !== null) {
+            $maneuverCode = is_string($maneuver['ruleCode'] ?? null) ? $maneuver['ruleCode'] : '';
+            $maneuverRule = $maneuverCode !== '' ? '[[rule:' . $maneuverCode . ']]' : 'Обманный манёвр';
+            $narrative .= ' Это был ' . $maneuverRule . ': атака проваливается.';
         }
 
         if (($open['profile_type'] ?? null) === 'shoot' || ($open['profile_type'] ?? null) === 'throw') {

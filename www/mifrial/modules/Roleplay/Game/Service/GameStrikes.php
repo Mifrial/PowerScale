@@ -376,7 +376,14 @@ final class GameStrikes implements IGameStrikes
                 $editAll,
                 $viewAll,
             );
-            $this->announce($gameId, $idempotencyKey);
+            $this->announceWindow(
+                $gameId,
+                $sessionId,
+                $idempotencyKey,
+                $body,
+                $result,
+                'strike_window',
+            );
 
             return $result;
         }
@@ -417,7 +424,14 @@ final class GameStrikes implements IGameStrikes
                 $editAll,
                 $viewAll,
             );
-        $this->announce($gameId, $idempotencyKey);
+        $this->announceWindow(
+            $gameId,
+            $sessionId,
+            $idempotencyKey,
+            $body,
+            $result,
+            $wide ? 'wide_window' : 'strike_window',
+        );
 
         return $result;
     }
@@ -921,6 +935,49 @@ final class GameStrikes implements IGameStrikes
         $this->announce($game->getId(), $idempotencyKey);
 
         return $result;
+    }
+
+    /**
+     * Запоминает решение окна и шлёт realtime-сигнал.
+     *
+     * `resumeSingle`/`resumeWide` уже пишут команду `strike_window`/
+     * `wide_window`; промежуточная фаза манёвра команды не пишет, поэтому
+     * итог сохраняется здесь. Сигнал идёт как `strike` с id команды, чтобы
+     * `GameDelivery` нашёл бой по журналу и другие клиенты обновили окно.
+     *
+     * @param int $gameId Игра.
+     * @param int $sessionId Сессия.
+     * @param string $idempotencyKey Ключ.
+     * @param array<string, mixed> $body Тело команды.
+     * @param array<string, mixed> $result Итог окна.
+     * @param string $source Источник команды.
+     *
+     * @return void
+     */
+    private function announceWindow(
+        int $gameId,
+        int $sessionId,
+        string $idempotencyKey,
+        array $body,
+        array $result,
+        string $source,
+    ): void {
+        $stored = $this->commands->findByKey($gameId, $source, $idempotencyKey);
+        if ($stored === null) {
+            try {
+                $this->commands->add($gameId, $sessionId, $source, $idempotencyKey, $body, $result);
+            } catch (GameBattleConflictException) {
+                // Параллельный запрос уже записал команду.
+            }
+
+            $stored = $this->commands->findByKey($gameId, $source, $idempotencyKey);
+        }
+
+        if ($stored === null) {
+            return;
+        }
+
+        $this->deliverySignal->recorded($gameId, 'strike', $stored['id'], []);
     }
 
     /**

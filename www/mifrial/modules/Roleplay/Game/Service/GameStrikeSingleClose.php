@@ -886,6 +886,9 @@ final class GameStrikeSingleClose
             $result,
             null,
             $coverInfo,
+            $maneuver !== []
+                ? ['ruleCode' => is_string($maneuver['ruleCode'] ?? null) ? $maneuver['ruleCode'] : null]
+                : null,
         );
         if ($pushChecks !== []) {
             $this->chat->postChecks($game, $battle, $targetOpen, $actorUserId, $strikeId, $pushChecks);

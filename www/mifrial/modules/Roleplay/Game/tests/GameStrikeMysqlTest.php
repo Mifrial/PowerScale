@@ -727,6 +727,7 @@ final class GameStrikeMysqlTest extends TestCase
 
         $awaiting = $closed['data']['awaiting'][0];
         $option = $awaiting['options'][0];
+        $deliveryBefore = count($this->deliveryRows());
         $resolved = $this->dispatch('game.resolveStrikeWindow', [
             'gameId' => $gameId,
             'battleId' => $battleId,
@@ -739,6 +740,7 @@ final class GameStrikeMysqlTest extends TestCase
             ],
         ]);
         self::assertTrue($resolved['success'], json_encode($resolved));
+        self::assertSame($deliveryBefore + 1, count($this->deliveryRows()));
 
         if (($resolved['data']['closed'] ?? true) === false) {
             $decision = $resolved['data']['awaiting'][0] ?? null;
@@ -763,6 +765,16 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($defenderId, $marks[0]['subject']['id'] ?? null);
         self::assertSame($attackerId, $marks[0]['scope']['defense_against']['id'] ?? null);
         self::assertSame(-2, $marks[0]['value'] ?? null);
+
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->chatMessages($gameId),
+        );
+        self::assertNotSame([], array_filter(
+            $contents,
+            static fn (string $text): bool => str_contains($text, '[[rule:obmannyy-manevr]]')
+                && str_contains($text, 'атака проваливается'),
+        ));
     }
 
     /**
