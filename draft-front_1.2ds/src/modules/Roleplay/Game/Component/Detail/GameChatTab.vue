@@ -791,14 +791,14 @@ const maneuverWindow = computed(() => {
 });
 
 const maneuverDecision = ref<'keep' | 'refuse'>('keep');
-const maneuverOption = ref<GamePhpStrikeAwaitingOption | null>(null);
-watch(
-  () => maneuverAwaiting.value?.phase,
-  () => {
-    maneuverOption.value = maneuverAwaiting.value?.options[0] ?? null;
+/** Ручной выбор проверки; null — берём первую предложенную. */
+const maneuverPicked = ref<GamePhpStrikeAwaitingOption | null>(null);
+const maneuverOption = computed<GamePhpStrikeAwaitingOption | null>({
+  get: () => maneuverPicked.value ?? maneuverAwaiting.value?.options[0] ?? null,
+  set: (value) => {
+    maneuverPicked.value = value;
   },
-  { immediate: true },
-);
+});
 
 function maneuverOptionLabel(option: GamePhpStrikeAwaitingOption): string {
   const check = revisionRules.value.find((rule) => rule.code === option.check)?.name ?? option.check ?? '';
@@ -836,6 +836,7 @@ async function submitManeuver(decision?: 'keep' | 'refuse'): Promise<void> {
     });
     gamePhpBattleContext.rememberOpenStrike(null);
     phpOpenStrike.value = null;
+    maneuverPicked.value = null;
     closeReactionOffer();
     store.applyGameUpdate(await getGameApi().getGame(gameId.value));
     applyBattleSheets(await getGameApi().getBattleSheets({ gameId: gameId.value, battleId }));
