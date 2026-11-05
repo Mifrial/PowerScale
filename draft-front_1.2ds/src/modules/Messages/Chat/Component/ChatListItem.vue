@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 import type { User } from '@/modules/Core/User/Dto/User';
-import { useCurrentUser } from '@/modules/Core/User/init';
+import { useCurrentUser, UserAvatar } from '@/modules/Core/User/init';
 import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers';
 import { DateTime } from '@/modules/Core/Engine/Value/DateTime';
 import { avatarColors } from '@/modules/Messages/Chat/Constant/avatarColors';
@@ -36,10 +36,6 @@ const name = computed(() => {
   return props.chat.name;
 });
 
-function chatAvatarColor(userId: number): string {
-  return avatarColors[userId % avatarColors.length];
-}
-
 const groupColor = computed(() => avatarColors[props.chat.id % avatarColors.length]);
 
 const groupInitials = computed(() => {
@@ -58,15 +54,13 @@ const groupInitials = computed(() => {
   >
     <div class="chat-list-avatar">
       <template v-if="props.chat.type === 'private'">
-        <v-avatar
+        <UserAvatar
           v-if="otherMember"
-          :color="chatAvatarColor(otherMember.id)"
-          size="36"
+          :user="otherMember"
+          :size="36"
           style="cursor: pointer"
           @click.stop="emit('open-profile', otherMember.id)"
-        >
-          <span class="text-body-2 font-weight-medium text-white">{{ chatUsers.initials(otherMember) }}</span>
-        </v-avatar>
+        />
       </template>
       <template v-else>
         <v-avatar :color="groupColor" size="36">

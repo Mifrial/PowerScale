@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { User } from '@/modules/Core/User/Dto/User';
+import type { AvatarCrop } from '@/modules/Core/User/Dto/AvatarCrop';
 import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
 import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
 import type { FindPageQuery } from '@/modules/Core/User/Dto/FindPageQuery';
@@ -139,8 +140,8 @@ export const useUserStore = defineStore('users', () => {
     }
   }
 
-  async function setAvatar(filePublicId: string | null, signal?: AbortSignal): Promise<User> {
-    const user = await getUserApi().setAvatar(filePublicId, signal);
+  async function setAvatar(filePublicId: string | null, crop: AvatarCrop | null, signal?: AbortSignal): Promise<User> {
+    const user = await getUserApi().setAvatar(filePublicId, crop, signal);
     const idx = users.value.findIndex((u) => u.id === user.id);
     if (idx !== -1) users.value[idx] = user;
     if (currentUser.value?.id === user.id) currentUser.value = user;

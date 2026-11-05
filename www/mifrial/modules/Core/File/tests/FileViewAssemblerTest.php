@@ -40,6 +40,7 @@ final class FileViewAssemblerTest extends TestCase
         self::assertSame(800, $view['width']);
         self::assertSame(600, $view['height']);
         self::assertTrue($view['isArchived']);
+        self::assertFalse($view['isDerived']);
         self::assertSame(1700000000, $view['archivedAt']);
         self::assertSame(1690000000, $view['createdAt']);
         self::assertArrayNotHasKey('storagePath', $view);

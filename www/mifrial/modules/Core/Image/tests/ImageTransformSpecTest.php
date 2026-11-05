@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Image\Tests;
 
+use Mifrial\Core\Image\Dto\ImageCrop;
 use Mifrial\Core\Image\Dto\ImageTransformSpec;
 use Mifrial\Core\Image\Enum\FitMode;
 use Mifrial\Core\Image\Enum\OutputFormat;
@@ -53,13 +54,27 @@ final class ImageTransformSpecTest extends TestCase
      */
     public function testAcceptsBoundaryValues(): void
     {
-        $spec = new ImageTransformSpec(1, 20000, FitMode::Contain, OutputFormat::Png, 1);
+        $crop = new ImageCrop(0, 0, 1, 1);
+        $spec = new ImageTransformSpec(1, 20000, FitMode::Contain, OutputFormat::Png, 1, $crop);
 
         self::assertSame(1, $spec->getWidth());
         self::assertSame(20000, $spec->getHeight());
         self::assertSame(FitMode::Contain, $spec->getMode());
         self::assertSame(OutputFormat::Png, $spec->getFormat());
         self::assertSame(1, $spec->getQuality());
+        self::assertSame($crop, $spec->getCrop());
         self::assertSame('image/png', $spec->getFormat()->mime());
+    }
+
+    /**
+     * Кроп по умолчанию отсутствует.
+     *
+     * @return void
+     */
+    public function testCropIsOptional(): void
+    {
+        $spec = new ImageTransformSpec(64, 64, FitMode::Cover, OutputFormat::Webp, 90);
+
+        self::assertNull($spec->getCrop());
     }
 }

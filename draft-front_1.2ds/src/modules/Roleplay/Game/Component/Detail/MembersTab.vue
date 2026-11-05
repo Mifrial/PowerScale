@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
-import { getUserApi, useCurrentUser, useUserCatalog } from '@/modules/Core/User/init';
+import { getUserApi, useCurrentUser, useUserCatalog, UserAvatar } from '@/modules/Core/User/init';
 import { joinRequestCaptionService } from '@/modules/Roleplay/Game/Service/Instance/joinRequestCaptionService';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { GAME_MEMBER_ROLE_OPTIONS } from '@/modules/Roleplay/Game/Constant/GameMemberRole/GAME_MEMBER_ROLE_OPTIONS';
@@ -45,10 +45,6 @@ watch(
 
 function memberName(member: GameMember): string {
   return joinRequestCaptionService.caption(knownUser(member.userId), member.userId).name;
-}
-
-function memberInitials(member: GameMember): string {
-  return joinRequestCaptionService.caption(knownUser(member.userId), member.userId).initials;
 }
 
 const sliderOpen = ref(false);
@@ -175,9 +171,12 @@ function confirmRemove(): void {
             @click="openProfile(member)"
           >
             <div class="d-flex align-center ga-2 py-1">
-              <v-avatar color="primary" size="28" variant="tonal" class="member-avatar">
-                <span class="text-body-2">{{ memberInitials(member) }}</span>
-              </v-avatar>
+              <UserAvatar
+                :user="knownUser(member.userId)"
+                :name="memberName(member)"
+                :size="28"
+                class="member-avatar"
+              />
               <span class="text-body-2">{{ memberName(member) }}</span>
               <v-spacer />
               <v-select

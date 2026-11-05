@@ -1,4 +1,7 @@
 import type { User } from '@/modules/Core/User/Dto/User';
+import type { AvatarCrop } from '@/modules/Core/User/Dto/AvatarCrop';
+import type { AvatarSource } from '@/modules/Core/User/Dto/AvatarSource';
+import type { AvatarState } from '@/modules/Core/User/Dto/AvatarState';
 import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
 import type { FindPageQuery } from '@/modules/Core/User/Dto/FindPageQuery';
 import type { FindPageResult } from '@/modules/Core/User/Dto/FindPageResult';
@@ -229,11 +232,40 @@ export async function mockDeactivateUser(
 /** Актор мока: сервер ставит аватар текущему пользователю, мок повторяет это для id 1. */
 const mockActorId = 1;
 
-export async function mockSetUserAvatar(filePublicId: string | null, signal?: AbortSignal): Promise<User> {
+const avatarSources = new Map<number, { source: AvatarSource; crop: AvatarCrop | null }>();
+
+export async function mockGetUserAvatar(signal?: AbortSignal): Promise<AvatarState> {
+  await abortableDelay(80, signal);
+  const u = users.find((x) => x.id === mockActorId);
+  const stored = avatarSources.get(mockActorId);
+
+  return {
+    avatar: u?.avatar ?? null,
+    source: stored?.source ?? null,
+    crop: stored?.crop ?? null,
+  };
+}
+
+export async function mockSetUserAvatar(
+  filePublicId: string | null,
+  crop: AvatarCrop | null,
+  signal?: AbortSignal,
+): Promise<User> {
   await abortableDelay(150, signal);
   const u = users.find((x) => x.id === mockActorId);
   if (!u) throw new Error('User not found');
-  u.avatar = filePublicId;
+  if (filePublicId === null) {
+    u.avatar = null;
+    avatarSources.delete(mockActorId);
+
+    return toHttpUser(u);
+  }
+
+  u.avatar = `d${filePublicId.slice(1)}`;
+  avatarSources.set(mockActorId, {
+    source: { publicId: filePublicId, originalName: 'avatar', width: null, height: null },
+    crop,
+  });
 
   return toHttpUser(u);
 }

@@ -17,6 +17,7 @@ use Mifrial\Core\Image\Enum\FitMode;
 use Mifrial\Core\Image\Enum\OutputFormat;
 use Mifrial\Core\Image\Exception\ImageException;
 use Mifrial\Core\Image\Exception\ImageSourceInvalidException;
+use Mifrial\Core\Image\Exception\ImageSpecInvalidException;
 use Mifrial\Core\Image\Exception\ImageTransformException;
 use Mifrial\Core\Image\Interface\Service\IImageTransform;
 use Throwable;
@@ -158,7 +159,8 @@ final class InterventionImageTransform implements IImageTransform
      */
     private function encode(string $sourcePath, ImageTransformSpec $spec, string $targetPath): ImageResult
     {
-        $image = $this->fit($this->imageManager->decode($sourcePath)->orient(), $spec);
+        $image = $this->imageManager->decode($sourcePath)->orient();
+        $image = $this->fit($this->crop($image, $spec), $spec);
         $image->encode($this->encoder($spec))->save($targetPath);
 
         $size = filesize($targetPath);
@@ -173,6 +175,33 @@ final class InterventionImageTransform implements IImageTransform
             $image->height(),
             $size,
         );
+    }
+
+    /**
+     * Вырезает прямоугольник из уже ориентированной картинки.
+     *
+     * @param ImageInterface $image Картинка после orient().
+     * @param ImageTransformSpec $spec Параметры.
+     *
+     * @return ImageInterface Картинка до или после кропа.
+     *
+     * @throws ImageSpecInvalidException Если кроп выходит за границы исходника.
+     */
+    private function crop(ImageInterface $image, ImageTransformSpec $spec): ImageInterface
+    {
+        $crop = $spec->getCrop();
+        if ($crop === null) {
+            return $image;
+        }
+
+        if (
+            $crop->getX() + $crop->getWidth() > $image->width()
+            || $crop->getY() + $crop->getHeight() > $image->height()
+        ) {
+            throw new ImageSpecInvalidException('Image crop is out of bounds');
+        }
+
+        return $image->crop($crop->getWidth(), $crop->getHeight(), $crop->getX(), $crop->getY());
     }
 
     /**

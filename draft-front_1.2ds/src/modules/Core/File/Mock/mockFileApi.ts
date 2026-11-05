@@ -22,6 +22,7 @@ const initialCatalog: FileRecord[] = [
     height: 1080,
     sha256: 'c'.repeat(64),
     isArchived: false,
+    isDerived: false,
     archivedAt: null,
     createdAt: 1_700_000_300,
   },
@@ -36,6 +37,7 @@ const initialCatalog: FileRecord[] = [
     height: 512,
     sha256: 'b'.repeat(64),
     isArchived: false,
+    isDerived: false,
     archivedAt: null,
     createdAt: 1_700_000_200,
   },
@@ -50,6 +52,7 @@ const initialCatalog: FileRecord[] = [
     height: 256,
     sha256: 'a'.repeat(64),
     isArchived: true,
+    isDerived: false,
     archivedAt: 1_700_000_250,
     createdAt: 1_700_000_100,
   },
@@ -109,6 +112,7 @@ export const mockFileApi: IFileApi = {
       height: null,
       sha256: randomSha256(),
       isArchived: false,
+      isDerived: false,
       archivedAt: null,
       createdAt: Math.floor(Date.now() / 1000),
     };
@@ -123,6 +127,15 @@ export const mockFileApi: IFileApi = {
     const items = matched.slice(query.offset, query.offset + query.limit);
 
     return { items, total: matched.length };
+  },
+
+  async findOwnImages(limit: number, offset: number, signal?: AbortSignal): Promise<FilePage> {
+    await abortableDelay(80, signal);
+    const matched = catalog.filter(
+      (record) => record.ownerId === 1 && !record.isArchived && !record.isDerived && record.mime.startsWith('image/'),
+    );
+
+    return { items: matched.slice(offset, offset + limit), total: matched.length };
   },
 
   async get(id: number, signal?: AbortSignal): Promise<FileRecord> {

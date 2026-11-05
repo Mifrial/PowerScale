@@ -16,10 +16,10 @@ use Mifrial\Core\File\Schema\FileSchema;
 use Mifrial\Core\File\Service\FileByteService;
 use Mifrial\Core\File\Service\FileIntake;
 use Mifrial\Core\File\Service\FileReadService;
+use Mifrial\Core\File\Service\FilesService;
 use Mifrial\Core\File\Service\FileStorageFactory;
 use Mifrial\Core\File\Service\FileUploadService;
 use Mifrial\Core\File\Service\FileViewAssembler;
-use Mifrial\Core\File\Service\FilesService;
 use Mifrial\Core\File\Table\FileTable;
 use Mifrial\Core\File\Tests\Fixture\ByteCapture;
 use Mifrial\Core\File\Tests\Fixture\FakeFileStorage;
@@ -239,6 +239,8 @@ final class FileHttpMysqlTest extends TestCase
         self::assertSame('avatar.webp', $derived->getOriginalName());
         self::assertSame('image/png', $derived->getMime());
         self::assertFalse($derived->isArchived());
+        self::assertTrue($derived->isDerived());
+        self::assertFalse($sourceRecord->isDerived());
         self::assertFileDoesNotExist($copyPath);
 
         $secondCopy = $this->temporaryPath('opencode-derive-');
@@ -386,6 +388,48 @@ final class FileHttpMysqlTest extends TestCase
             ),
             new FileViewAssembler(),
         );
+    }
+
+    /**
+     * file.findOwnImages: только свои неархивные картинки, без права file.view.
+     *
+     * @return void
+     */
+    public function testFindOwnImagesScopesToActor(): void
+    {
+        $alice = $this->addUser('alice');
+        $bob = $this->addUser('bob');
+        $section = ['path' => $this->storageRoot, 'max_size' => 1000, 'mime' => ['image/png']];
+        $png = (string) base64_decode(self::PNG_BASE64, true);
+
+        $this->setActor($alice);
+        $first = $this->uploadService($section)->upload($this->incoming($png, 'first.png'));
+        $second = $this->uploadService($section)->upload($this->incoming($png, 'second.png'));
+        $files = $this->filesService($section);
+        $files->archive((string) $second['publicId']);
+
+        // Производная тоже принадлежит актору, но в «мои изображения» не попадает.
+        $copyPath = $this->temporaryPath('opencode-own-');
+        $files->copyOwnedTo((string) $first['publicId'], $copyPath);
+        $files->storeDerived((string) $first['publicId'], $copyPath, 'avatar.webp');
+
+        $this->setActor($bob);
+        $bobView = $this->uploadService($section)->upload($this->incoming($png, 'bob.png'));
+
+        $this->setActor($alice);
+        $alicePage = $this->dispatch('file.findOwnImages', ['limit' => 10, 'offset' => 0]);
+        self::assertTrue($alicePage['success']);
+        self::assertSame(1, $alicePage['data']['total']);
+        self::assertSame($first['publicId'], $alicePage['data']['items'][0]['publicId']);
+
+        $this->setActor($bob);
+        $bobPage = $this->dispatch('file.findOwnImages', ['limit' => 10, 'offset' => 0]);
+        self::assertTrue($bobPage['success']);
+        self::assertSame(1, $bobPage['data']['total']);
+        self::assertSame($bobView['publicId'], $bobPage['data']['items'][0]['publicId']);
+
+        $invalid = $this->dispatch('file.findOwnImages', ['limit' => 0, 'offset' => 0]);
+        self::assertSame('FILE_INVALID', $invalid['error']['code']);
     }
 
     /**

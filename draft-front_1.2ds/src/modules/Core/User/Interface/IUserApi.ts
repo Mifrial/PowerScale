@@ -1,4 +1,6 @@
 import type { User } from '@/modules/Core/User/Dto/User';
+import type { AvatarCrop } from '@/modules/Core/User/Dto/AvatarCrop';
+import type { AvatarState } from '@/modules/Core/User/Dto/AvatarState';
 import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
 import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
 import type { FindPageQuery } from '@/modules/Core/User/Dto/FindPageQuery';
@@ -10,6 +12,7 @@ export interface IUserApi {
   getUsersByIds(ids: number[], signal?: AbortSignal): Promise<User[]>;
   createUser(data: CreateUserData, signal?: AbortSignal): Promise<User>;
   updateUser(id: number, data: UpdateUserData, signal?: AbortSignal): Promise<User>;
-  setAvatar(filePublicId: string | null, signal?: AbortSignal): Promise<User>;
+  setAvatar(filePublicId: string | null, crop: AvatarCrop | null, signal?: AbortSignal): Promise<User>;
+  getAvatar(signal?: AbortSignal): Promise<AvatarState>;
   deactivateUser(id: number, reason?: string, deactivatedUntil?: string, signal?: AbortSignal): Promise<void>;
 }

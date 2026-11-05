@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 // phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
 // Геттеры полной строки файла; параметры ctor — поля, не порты.
 
 namespace Mifrial\Core\File\Dto;
@@ -29,6 +30,7 @@ final class FileRecord
      * @param int|null $width Ширина картинки.
      * @param int|null $height Высота картинки.
      * @param bool $isArchived Архив.
+     * @param bool $isDerived Производная соседа.
      * @param DateTime|null $archivedAt Момент архива.
      * @param DateTime $createdAt Момент загрузки.
      *
@@ -46,6 +48,7 @@ final class FileRecord
         private readonly ?int $width,
         private readonly ?int $height,
         private readonly bool $isArchived,
+        private readonly bool $isDerived,
         private readonly ?DateTime $archivedAt,
         private readonly DateTime $createdAt,
     ) {
@@ -62,43 +65,23 @@ final class FileRecord
      */
     public static function fromNormalized(array $fields): self
     {
-        $id = $fields['id'] ?? null;
-        $publicId = $fields['public_id'] ?? null;
-        $ownerId = $fields['owner_id'] ?? null;
-        $originalName = $fields['original_name'] ?? null;
-        $mime = $fields['mime'] ?? null;
-        $size = $fields['size'] ?? null;
-        $sha256 = $fields['sha256'] ?? null;
-        $storagePath = $fields['storage_path'] ?? null;
-        $isArchived = $fields['is_archived'] ?? null;
-        $createdAt = $fields['created_at'] ?? null;
-        if (
-            !is_int($id)
-            || !is_string($publicId)
-            || !is_int($ownerId)
-            || !is_string($originalName)
-            || !is_string($mime)
-            || !is_int($size)
-            || !is_string($sha256)
-            || !is_string($storagePath)
-            || !is_bool($isArchived)
-            || !$createdAt instanceof DateTime
-        ) {
-            throw new FileInvalidException('File record is incomplete');
-        }
+        self::assertShape($fields);
+        /** @var DateTime $createdAt */
+        $createdAt = $fields['created_at'];
 
         return new self(
-            $id,
-            $publicId,
-            $ownerId,
-            $originalName,
-            $mime,
-            $size,
-            $sha256,
-            $storagePath,
+            (int) $fields['id'],
+            (string) $fields['public_id'],
+            (int) $fields['owner_id'],
+            (string) $fields['original_name'],
+            (string) $fields['mime'],
+            (int) $fields['size'],
+            (string) $fields['sha256'],
+            (string) $fields['storage_path'],
             self::optionalInt($fields['width'] ?? null),
             self::optionalInt($fields['height'] ?? null),
-            $isArchived,
+            (bool) $fields['is_archived'],
+            (bool) ($fields['is_derived'] ?? false),
             self::optionalDateTime($fields['archived_at'] ?? null),
             $createdAt,
         );
@@ -165,7 +148,7 @@ final class FileRecord
     }
 
     /**
-     * SHA-256.
+     * Хеш SHA-256.
      *
      * @return string Hex.
      */
@@ -215,6 +198,16 @@ final class FileRecord
     }
 
     /**
+     * Производная соседа (превью, аватар), не пользовательский оригинал.
+     *
+     * @return bool true, если файл создан storeDerived.
+     */
+    public function isDerived(): bool
+    {
+        return $this->isDerived;
+    }
+
+    /**
      * Момент архива.
      *
      * @return DateTime|null Время или null.
@@ -232,6 +225,102 @@ final class FileRecord
     public function getCreatedAt(): DateTime
     {
         return $this->createdAt;
+    }
+
+    /**
+     * Проверяет обязательные поля строки.
+     *
+     * @param array<string, mixed> $fields Строка.
+     *
+     * @return void
+     *
+     * @throws FileInvalidException Если поле отсутствует или неверного типа.
+     */
+    private static function assertShape(array $fields): void
+    {
+        self::assertIntFields($fields);
+        self::assertTextFields($fields);
+        self::assertStorageFields($fields);
+        self::assertBoolFields($fields);
+        if (!(($fields['created_at'] ?? null) instanceof DateTime)) {
+            throw new FileInvalidException('File record has no created_at');
+        }
+    }
+
+    /**
+     * Проверяет целочисленные поля.
+     *
+     * @param array<string, mixed> $fields Строка.
+     *
+     * @return void
+     *
+     * @throws FileInvalidException Если поле не int.
+     */
+    private static function assertIntFields(array $fields): void
+    {
+        if (!is_int($fields['id'] ?? null) || !is_int($fields['owner_id'] ?? null)) {
+            throw new FileInvalidException('File record has no id');
+        }
+
+        if (!is_int($fields['size'] ?? null)) {
+            throw new FileInvalidException('File record has no size');
+        }
+    }
+
+    /**
+     * Проверяет текстовые поля.
+     *
+     * @param array<string, mixed> $fields Строка.
+     *
+     * @return void
+     *
+     * @throws FileInvalidException Если поле не string.
+     */
+    private static function assertTextFields(array $fields): void
+    {
+        if (
+            !is_string($fields['public_id'] ?? null)
+            || !is_string($fields['original_name'] ?? null)
+            || !is_string($fields['mime'] ?? null)
+        ) {
+            throw new FileInvalidException('File record has no text fields');
+        }
+    }
+
+    /**
+     * Проверяет поля хранения.
+     *
+     * @param array<string, mixed> $fields Строка.
+     *
+     * @return void
+     *
+     * @throws FileInvalidException Если поле неверного типа.
+     */
+    private static function assertStorageFields(array $fields): void
+    {
+        if (
+            !is_string($fields['sha256'] ?? null)
+            || !is_string($fields['storage_path'] ?? null)
+            || !is_bool($fields['is_derived'] ?? false)
+        ) {
+            throw new FileInvalidException('File record has no storage fields');
+        }
+    }
+
+    /**
+     * Проверяет булевы поля.
+     *
+     * @param array<string, mixed> $fields Строка.
+     *
+     * @return void
+     *
+     * @throws FileInvalidException Если поле не bool.
+     */
+    private static function assertBoolFields(array $fields): void
+    {
+        if (!is_bool($fields['is_archived'] ?? null)) {
+            throw new FileInvalidException('File record has no archive flag');
+        }
     }
 
     /**

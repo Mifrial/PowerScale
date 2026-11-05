@@ -15,7 +15,7 @@ use Mifrial\Core\User\Schema\UserSchema;
 final class UserModuleSetup implements IModuleSetup
 {
     /**
-     * Возвращает три карты модуля User.
+     * Возвращает карты модуля User в порядке установки.
      *
      * @return array<int, class-string<SmartTableDefinition>> Карты.
      */

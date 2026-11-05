@@ -10,6 +10,7 @@ export interface FileRecord {
   height: number | null;
   sha256: string;
   isArchived: boolean;
+  isDerived: boolean;
   archivedAt: number | null;
   createdAt: number;
 }

@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace Mifrial\Core\Image\Tests;
 
 use Imagick;
+use ImagickDraw;
 use ImagickPixel;
+use Mifrial\Core\Image\Dto\ImageCrop;
 use Mifrial\Core\Image\Dto\ImageResult;
 use Mifrial\Core\Image\Dto\ImageTransformSpec;
 use Mifrial\Core\Image\Enum\FitMode;
 use Mifrial\Core\Image\Enum\OutputFormat;
 use Mifrial\Core\Image\Exception\ImageSourceInvalidException;
+use Mifrial\Core\Image\Exception\ImageSpecInvalidException;
 use Mifrial\Core\Image\Interface\Service\IImageTransform;
 use Mifrial\Core\Image\Service\ImagePortFactory;
 use PHPUnit\Framework\TestCase;
@@ -189,6 +192,57 @@ final class InterventionImageTransformTest extends TestCase
     }
 
     /**
+     * Кроп вырезает прямоугольник до вписывания.
+     *
+     * @return void
+     */
+    public function testCropsBeforeFitting(): void
+    {
+        $source = $this->twoColorPng();
+        $result = $this->transform()->transform(
+            $source,
+            new ImageTransformSpec(
+                16,
+                16,
+                FitMode::Cover,
+                OutputFormat::Png,
+                90,
+                new ImageCrop(32, 0, 32, 32),
+            ),
+        );
+
+        $this->track($result);
+
+        self::assertSame(16, $result->getWidth());
+        self::assertSame(16, $result->getHeight());
+        self::assertSame([16, 16, IMAGETYPE_PNG], $this->encodedShape($result));
+        $this->assertPixelNear($result, 8, 8, 0, 0, 255);
+    }
+
+    /**
+     * Кроп за границей исходника отвергается.
+     *
+     * @return void
+     */
+    public function testRejectsCropOutsideSource(): void
+    {
+        $source = $this->pngSource(64, 48);
+
+        $this->expectException(ImageSpecInvalidException::class);
+        $this->transform()->transform(
+            $source,
+            new ImageTransformSpec(
+                16,
+                16,
+                FitMode::Cover,
+                OutputFormat::Png,
+                90,
+                new ImageCrop(48, 0, 32, 32),
+            ),
+        );
+    }
+
+    /**
      * Создаёт PNG заданного размера.
      *
      * @param int $width Ширина.
@@ -201,6 +255,26 @@ final class InterventionImageTransformTest extends TestCase
         $image = new Imagick();
         $image->newImage($width, $height, new ImagickPixel('red'), 'png');
         $path = $this->directory . '/source-' . $width . 'x' . $height . '.png';
+        $image->writeImage($path);
+        $image->clear();
+
+        return $path;
+    }
+
+    /**
+     * Создаёт PNG 64×48: левая половина красная, правая — синяя.
+     *
+     * @return string Путь.
+     */
+    private function twoColorPng(): string
+    {
+        $image = new Imagick();
+        $image->newImage(64, 48, new ImagickPixel('red'), 'png');
+        $draw = new ImagickDraw();
+        $draw->setFillColor(new ImagickPixel('blue'));
+        $draw->rectangle(32, 0, 63, 47);
+        $image->drawImage($draw);
+        $path = $this->directory . '/two-color.png';
         $image->writeImage($path);
         $image->clear();
 

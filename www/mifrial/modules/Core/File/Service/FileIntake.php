@@ -51,6 +51,7 @@ final class FileIntake
      * @param int $ownerId Владелец.
      * @param string $sourcePath Абсолютный путь к локальному файлу.
      * @param string $originalName Имя для строки.
+     * @param bool $isDerived Производная соседа, а не пользовательский оригинал.
      *
      * @return FileRecord Вставленная строка.
      *
@@ -59,8 +60,12 @@ final class FileIntake
      * @throws FileMimeInvalidException Если тип вне политики.
      * @throws FileImageInvalidException Если картинка не читается.
      */
-    public function insert(int $ownerId, string $sourcePath, string $originalName): FileRecord
-    {
+    public function insert(
+        int $ownerId,
+        string $sourcePath,
+        string $originalName,
+        bool $isDerived = false,
+    ): FileRecord {
         $size = $this->sourceSize($sourcePath);
         $mime = $this->acceptedMime($sourcePath);
         [$width, $height] = $this->imageDimensions($sourcePath, $mime);
@@ -68,8 +73,7 @@ final class FileIntake
         $sha256 = $this->fileStorage->hash($sourcePath);
         $publicId = $this->uniquePublicId();
         $storagePath = $this->fileStorage->storagePath($publicId, $sha256);
-        $this->fileStorage->store($sourcePath, $storagePath);
-        $fileId = $this->insertRow(
+        $newFile = $this->newFile(
             $ownerId,
             $publicId,
             $originalName,
@@ -79,9 +83,11 @@ final class FileIntake
             $storagePath,
             $width,
             $height,
+            $isDerived,
         );
+        $this->fileStorage->store($sourcePath, $storagePath);
 
-        return $this->fileRepository->getById($fileId);
+        return $this->storeNewFile($newFile, $storagePath);
     }
 
     /**
@@ -213,49 +219,23 @@ final class FileIntake
     /**
      * Вставляет строку; при сбое удаляет уже записанные байты.
      *
-     * @param int $ownerId Владелец.
-     * @param string $publicId Внешний id.
-     * @param string $originalName Имя.
-     * @param string $mime Тип.
-     * @param int $size Байт.
-     * @param string $sha256 Хеш.
-     * @param string $storagePath Путь.
-     * @param int|null $width Ширина.
-     * @param int|null $height Высота.
+     * @param NewFile $newFile Поля строки.
+     * @param string $storagePath Путь шарда.
      *
-     * @return int Id строки.
+     * @return FileRecord Вставленная строка.
      *
      * @throws Throwable Если строка не вставилась; байты при этом удаляются.
      */
-    private function insertRow(
-        int $ownerId,
-        string $publicId,
-        string $originalName,
-        string $mime,
-        int $size,
-        string $sha256,
-        string $storagePath,
-        ?int $width,
-        ?int $height,
-    ): int {
-        $newFile = $this->newFile(
-            $ownerId,
-            $publicId,
-            $originalName,
-            $mime,
-            $size,
-            $sha256,
-            $storagePath,
-            $width,
-            $height,
-        );
-
+    private function storeNewFile(NewFile $newFile, string $storagePath): FileRecord
+    {
         try {
-            return $this->fileRepository->add($newFile);
+            $fileId = $this->fileRepository->add($newFile);
         } catch (Throwable $throwable) {
             $this->deleteStoredFile($storagePath);
             throw $throwable;
         }
+
+        return $this->fileRepository->getById($fileId);
     }
 
     /**
@@ -270,6 +250,7 @@ final class FileIntake
      * @param string $storagePath Путь.
      * @param int|null $width Ширина.
      * @param int|null $height Высота.
+     * @param bool $isDerived Производная.
      *
      * @return NewFile Поля новой строки.
      */
@@ -283,6 +264,7 @@ final class FileIntake
         string $storagePath,
         ?int $width,
         ?int $height,
+        bool $isDerived,
     ): NewFile {
         return NewFile::fromNormalized([
             'public_id' => $publicId,
@@ -295,6 +277,7 @@ final class FileIntake
             'width' => $width,
             'height' => $height,
             'is_archived' => false,
+            'is_derived' => $isDerived,
         ]);
     }
 

@@ -8,7 +8,7 @@ import { DateTime } from '@/modules/Core/Engine/Value/DateTime';
 import { getContentRenderer, getContentRendererEntry, getInlineRenderer } from '@/modules/Messages/Chat/init';
 import { inlineContentService } from '@/modules/Messages/Chat/Service/Instance/inlineContentService';
 import { hostInlineRendererContext } from '@/modules/Messages/Chat/Utils/hostInlineRendererContext';
-import { displayName, initials } from '@/modules/Core/User/init';
+import { displayName, initials, UserAvatar } from '@/modules/Core/User/init';
 import ChatVisibilityMenu from '@/modules/Messages/Chat/Component/ChatVisibilityMenu.vue';
 
 const props = defineProps<{
@@ -100,8 +100,16 @@ function onAuthorClick(): void {
 
   <div v-else class="chat-message">
     <div class="chat-msg-header">
-      <v-avatar
+      <UserAvatar
         v-if="props.user"
+        :user="props.user"
+        :size="28"
+        class="chat-msg-avatar"
+        style="cursor: pointer"
+        @click="emit('open-profile', props.msg.userId)"
+      />
+      <v-avatar
+        v-else
         color="secondary"
         size="28"
         class="chat-msg-avatar"

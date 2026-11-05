@@ -34,6 +34,11 @@ final class SetUserAvatarAction implements IActionHandler
      */
     public function handle(SetUserAvatarInput $input): array
     {
-        return $this->userAvatar->setAvatar($input->filePublicId);
+        return $this->userAvatar->setAvatar(
+            $input->filePublicId,
+            $input->cropX,
+            $input->cropY,
+            $input->cropSize,
+        );
     }
 }

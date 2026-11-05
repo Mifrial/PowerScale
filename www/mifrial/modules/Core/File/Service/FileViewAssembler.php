@@ -31,6 +31,7 @@ final class FileViewAssembler
             'height' => $fileRecord->getHeight(),
             'sha256' => $fileRecord->getSha256(),
             'isArchived' => $fileRecord->isArchived(),
+            'isDerived' => $fileRecord->isDerived(),
             'archivedAt' => $fileRecord->getArchivedAt()?->toUnix(),
             'createdAt' => $fileRecord->getCreatedAt()->toUnix(),
         ];

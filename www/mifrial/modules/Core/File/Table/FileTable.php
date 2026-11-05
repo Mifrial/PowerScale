@@ -52,6 +52,10 @@ final class FileTable extends SmartTableDefinition
                 'default' => false,
                 'indexed' => true,
             ])),
+            new BoolField('is_derived', FieldSettings::fromOptions([
+                'required' => true,
+                'default' => false,
+            ])),
             new DateTimeField('archived_at', FieldSettings::fromOptions([])),
             new DateTimeField('created_at', FieldSettings::fromOptions([
                 'required' => true,

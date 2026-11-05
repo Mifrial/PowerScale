@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useCurrentUser, useUserCatalog } from '@/modules/Core/User/init';
+import { useCurrentUser, useUserCatalog, UserAvatar } from '@/modules/Core/User/init';
 import type { User } from '@/modules/Core/User/Dto/User';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
@@ -33,10 +33,6 @@ function userOf(userId: number): User | undefined {
 
 function requestName(userId: number): string {
   return joinRequestCaptionService.caption(userOf(userId), userId).name;
-}
-
-function requestInitials(userId: number): string {
-  return joinRequestCaptionService.caption(userOf(userId), userId).initials;
 }
 
 async function load(): Promise<void> {
@@ -92,9 +88,7 @@ watch(
       <v-list v-else-if="pendingRequests.length > 0" density="compact" class="pa-0">
         <v-list-item v-for="request in pendingRequests" :key="request.userId">
           <div class="d-flex align-center ga-2 py-1">
-            <v-avatar color="primary" size="28" variant="tonal" class="flex-shrink-0">
-              <span class="text-body-2">{{ requestInitials(request.userId) }}</span>
-            </v-avatar>
+            <UserAvatar :user="userOf(request.userId)" :name="requestName(request.userId)" :size="28" />
             <span class="text-body-2">{{ requestName(request.userId) }}</span>
             <v-spacer />
             <v-btn size="x-small" color="success" variant="tonal" @click="respond(request, 'accept')">Принять</v-btn>

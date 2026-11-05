@@ -12,10 +12,10 @@ use Mifrial\Core\File\Repository\FileRepository;
 use Mifrial\Core\File\Schema\FileSchema;
 use Mifrial\Core\File\Service\FileIntake;
 use Mifrial\Core\File\Service\FileReadService;
+use Mifrial\Core\File\Service\FilesService;
 use Mifrial\Core\File\Service\FileStorageFactory;
 use Mifrial\Core\File\Service\FileUploadService;
 use Mifrial\Core\File\Service\FileViewAssembler;
-use Mifrial\Core\File\Service\FilesService;
 use Mifrial\Core\File\Table\FileTable;
 use Mifrial\Core\Image\Service\ImagePortFactory;
 use Mifrial\Core\Kernel\Dto\DatabaseSettings;
@@ -54,9 +54,9 @@ use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Interface\Service\IUserAvatar;
 use Mifrial\Core\User\Interface\Service\IUserGroups;
+use Mifrial\Core\User\Repository\UserAvatarRepository;
 use Mifrial\Core\User\Repository\UserGroupMemberRepository;
 use Mifrial\Core\User\Repository\UserGroupRepository;
-use Mifrial\Core\User\Repository\UserAvatarRepository;
 use Mifrial\Core\User\Repository\UserRepository;
 use Mifrial\Core\User\Schema\UserSchema;
 use Mifrial\Core\User\Service\GroupHttpService;
@@ -294,7 +294,7 @@ final class UserHttpMysqlTest extends TestCase
     }
 
     /**
-     * Аватар: производная 512×512 webp, замена, чужой файл, снятие.
+     * Аватар: кроп 256×256 webp, источник, перекроп, чужой файл, снятие.
      *
      * @return void
      */
@@ -309,30 +309,48 @@ final class UserHttpMysqlTest extends TestCase
         $png = (string) base64_decode(self::PNG_BASE64, true);
 
         $firstPublicId = (string) $this->uploadService()->upload($this->incoming($png, 'selfie.png'))['publicId'];
-        $first = $avatar->setAvatar($firstPublicId);
+        $first = $avatar->setAvatar($firstPublicId, 0, 0, 1);
         self::assertIsString($first['avatar']);
         self::assertNotSame($firstPublicId, $first['avatar']);
         $derived = $files->requireOwned((string) $first['avatar']);
         self::assertSame('image/webp', $derived->getMime());
-        self::assertSame(512, $derived->getWidth());
-        self::assertSame(512, $derived->getHeight());
+        self::assertSame(256, $derived->getWidth());
+        self::assertSame(256, $derived->getHeight());
         self::assertSame('avatar.webp', $derived->getOriginalName());
         self::assertSame($alice, $first['id']);
+
+        $state = $avatar->avatarState();
+        self::assertSame($first['avatar'], $state['avatar']);
+        self::assertSame($firstPublicId, $state['source']['publicId']);
+        self::assertSame(['x' => 0, 'y' => 0, 'size' => 1], $state['crop']);
+
+        if ($this->application instanceof IApplication) {
+            $payload = $this->application->dispatch('user.getAvatar', [])->toArray();
+            self::assertTrue($payload['success']);
+            self::assertSame($first['avatar'], $payload['data']['avatar']);
+            self::assertSame($firstPublicId, $payload['data']['source']['publicId']);
+        }
 
         $userHttp = $this->userHttpService($requestContext);
         $requestContext->setActor(new RequestActor($bob, ['user.view'], false));
         self::assertSame($first['avatar'], $userHttp->get($alice)['avatar']);
 
+        // Перекроп того же источника: новый файл, старый архивный, источник тот же.
         $requestContext->setActor(new RequestActor($alice, [], false));
-        $secondPublicId = (string) $this->uploadService()->upload($this->incoming($png, 'again.png'))['publicId'];
-        $second = $avatar->setAvatar($secondPublicId);
-        self::assertNotSame($first['avatar'], $second['avatar']);
+        $recropped = $avatar->setAvatar($firstPublicId, 0, 0, 1);
+        self::assertNotSame($first['avatar'], $recropped['avatar']);
         self::assertTrue($files->requireReadable((string) $first['avatar'])->isArchived());
+        self::assertSame($firstPublicId, $avatar->avatarState()['source']['publicId']);
+
+        $secondPublicId = (string) $this->uploadService()->upload($this->incoming($png, 'again.png'))['publicId'];
+        $second = $avatar->setAvatar($secondPublicId, 0, 0, 1);
+        self::assertNotSame($recropped['avatar'], $second['avatar']);
+        self::assertTrue($files->requireReadable((string) $recropped['avatar'])->isArchived());
         self::assertFalse($files->requireReadable((string) $second['avatar'])->isArchived());
 
         $requestContext->setActor(new RequestActor($bob, [], false));
         try {
-            $avatar->setAvatar($secondPublicId);
+            $avatar->setAvatar($secondPublicId, 0, 0, 1);
             self::fail('foreign file must be denied');
         } catch (ActionException $exception) {
             self::assertSame('FILE_DENIED', $exception->getErrorCode());
@@ -341,16 +359,33 @@ final class UserHttpMysqlTest extends TestCase
         $requestContext->setActor(new RequestActor($alice, [], false));
         $files->archive($secondPublicId);
         try {
-            $avatar->setAvatar($secondPublicId);
+            $avatar->setAvatar($secondPublicId, 0, 0, 1);
             self::fail('archived source must be rejected');
         } catch (ActionException $exception) {
             self::assertSame('USER_INVALID', $exception->getErrorCode());
         }
 
-        $cleared = $avatar->setAvatar(null);
+        $cleared = $avatar->setAvatar(null, null, null, null);
         self::assertNull($cleared['avatar']);
         self::assertTrue($files->requireReadable((string) $second['avatar'])->isArchived());
-        self::assertNull($avatar->setAvatar(null)['avatar']);
+        self::assertSame(['avatar' => null, 'source' => null, 'crop' => null], $avatar->avatarState());
+        self::assertNull($avatar->setAvatar(null, null, null, null)['avatar']);
+    }
+
+    /**
+     * Кроп за границей источника — USER_INVALID.
+     *
+     * @return void
+     */
+    public function testAvatarRejectsCropOutsideSource(): void
+    {
+        $alice = $this->userAccounts()->add($this->newUser(['login' => 'alice', 'name' => 'Alice']));
+        $this->requestContext()->setActor(new RequestActor($alice, [], false));
+        $png = (string) base64_decode(self::PNG_BASE64, true);
+        $publicId = (string) $this->uploadService()->upload($this->incoming($png, 'selfie.png'))['publicId'];
+
+        $this->expectException(ActionException::class);
+        $this->avatarService()->setAvatar($publicId, 0, 0, 2);
     }
 
     /**
@@ -369,7 +404,7 @@ final class UserHttpMysqlTest extends TestCase
         foreach ([$alice, $bob] as $userId) {
             $requestContext->setActor(new RequestActor($userId, [], false));
             $publicId = (string) $this->uploadService()->upload($this->incoming($png, 'selfie.png'))['publicId'];
-            $avatar->setAvatar($publicId);
+            $avatar->setAvatar($publicId, 0, 0, 1);
         }
 
         $gateway = $this->smartTableGateway();
@@ -723,6 +758,12 @@ final class UserHttpMysqlTest extends TestCase
             $this->userAccounts(),
             new UserGroupMemberRepository(
                 $this->smartTableGateway()->open(UserGroupMemberTable::class)->records(),
+            ),
+            new UserViewAssembler(
+                new UserGroupRepository($this->smartTableGateway()->open(UserGroupTable::class)->records()),
+                new UserGroupMemberRepository($this->smartTableGateway()->open(UserGroupMemberTable::class)->records()),
+                new UserAvatarRepository($this->smartTableGateway()->open(UserAvatarTable::class)->records()),
+                $this->filesService(),
             ),
         );
     }

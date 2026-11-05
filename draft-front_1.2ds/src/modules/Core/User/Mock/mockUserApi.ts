@@ -9,4 +9,5 @@ export const mockUserApi: IUserApi = {
   updateUser: mock.mockUpdateUser,
   deactivateUser: mock.mockDeactivateUser,
   setAvatar: mock.mockSetUserAvatar,
+  getAvatar: mock.mockGetUserAvatar,
 };

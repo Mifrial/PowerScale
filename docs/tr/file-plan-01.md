@@ -73,6 +73,10 @@ final class FileTable extends SmartTableDefinition
                 'default' => false,
                 'indexed' => true,
             ])),
+            new BoolField('is_derived', FieldSettings::fromOptions([
+                'required' => true,
+                'default' => false,
+            ])),
             new DateTimeField('archived_at', FieldSettings::fromOptions([])),
             new DateTimeField('created_at', FieldSettings::fromOptions([
                 'required' => true,
@@ -102,6 +106,9 @@ final class FileTable extends SmartTableDefinition
   nullable, чтобы расширение `mime`-политики не требовало миграции.
 - `is_archived`/`archived_at` — архив. Архивная строка: метаданные читаются,
   байты не отдаются.
+- `is_derived` — файл создан соседом через `storeDerived` (превью, аватар),
+  а не загружен пользователем. Такие строки не попадают в «мои изображения»
+  (`file.findOwnImages`) и не предлагаются как источники для кропа.
 - `created_at` — `DateTimeNow`, как в остальных таблицах.
 
 Индексы: `public_id` (`UNIQUE`), `owner_id` (FK-индекс MySQL + явный `idx`),
@@ -391,12 +398,17 @@ interface IFiles
 ```
 
 `copyOwnedTo` + `storeDerived` + `activePublicIds` — стык с потребителем
-производных (аватар в `Core/User`, [`image-plan-01.md`](image-plan-01.md)).
+производных (аватар в `Core/User`, [`image-plan-02-avatar-crop.md`](image-plan-02-avatar-crop.md)).
 File не знает, что байты — картинка: преобразование делает сосед, File лишь
 отдаёт копию своей строки и принимает готовые байты новой строкой. Общий
 путь с multipart-загрузкой — `Service/FileIntake`. Чтение копии — потоковое
 (`IFileStorage::exportTo`), `storeDerived` переносит исходный временный файл
 в шард (move).
+
+Для выбора уже загруженной картинки есть отдельное чтение
+`file.findOwnImages` (`{ limit, offset }`): неархивные файлы актора с
+`mime LIKE image/%`, без права `file.view`. Это не админская `file.findPage`,
+а публичный список «моих изображений» для соседей.
 
 Порт принимает `public_id`, а не внутренний `id`: §2 запрещает внутренний id
 во внешних входах и проекциях, а потребитель получает от клиента именно

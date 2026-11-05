@@ -11,6 +11,7 @@ use Mifrial\Core\User\Action\FindUserPageAction;
 use Mifrial\Core\User\Action\GetGroupAction;
 use Mifrial\Core\User\Action\GetGroupMembersAction;
 use Mifrial\Core\User\Action\GetUserAction;
+use Mifrial\Core\User\Action\GetUserAvatarAction;
 use Mifrial\Core\User\Action\GetUsersByIdsAction;
 use Mifrial\Core\User\Action\SetUserAvatarAction;
 use Mifrial\Core\User\Action\UpdateGroupAction;
@@ -74,6 +75,9 @@ return [
         GetUsersByIdsAction::class => static function (IServiceLocator $serviceLocator): GetUsersByIdsAction {
             return new GetUsersByIdsAction((new UserHttpServiceFactory())->fromContainer($serviceLocator));
         },
+        GetUserAvatarAction::class => static function (IServiceLocator $serviceLocator): GetUserAvatarAction {
+            return new GetUserAvatarAction((new UserHttpServiceFactory())->createAvatar($serviceLocator));
+        },
         UpdateUserAction::class => static function (IServiceLocator $serviceLocator): UpdateUserAction {
             return new UpdateUserAction((new UserHttpServiceFactory())->fromContainer($serviceLocator));
         },
@@ -130,6 +134,10 @@ return [
         ],
         'user.setAvatar' => [
             'handler' => SetUserAvatarAction::class,
+            'csrf' => true,
+        ],
+        'user.getAvatar' => [
+            'handler' => GetUserAvatarAction::class,
             'csrf' => true,
         ],
         'userGroup.findPage' => [

@@ -118,7 +118,7 @@ final class FilesService implements IFiles
         $requestActor = $this->userAccess->requireActor();
         $name = $originalName !== '' ? $originalName : $sourceRecord->getOriginalName();
 
-        return $this->fileIntake->insert($requestActor->getUserId(), $sourcePath, $name);
+        return $this->fileIntake->insert($requestActor->getUserId(), $sourcePath, $name, true);
     }
 
     /**

@@ -1,16 +1,28 @@
 import { describe, it, expect } from 'vitest';
-import { mockDeactivateUser, mockFindPage, mockGetUser, mockSetUserAvatar } from '@/modules/Core/User/Mock/mockUsers';
+import {
+  mockDeactivateUser,
+  mockFindPage,
+  mockGetUser,
+  mockGetUserAvatar,
+  mockSetUserAvatar,
+} from '@/modules/Core/User/Mock/mockUsers';
 
 describe('mockSetUserAvatar', () => {
-  it('ставит и снимает аватар текущего пользователя мока', async () => {
+  it('ставит производную, хранит источник и кроп, затем снимает', async () => {
     const publicId = 'a'.repeat(32);
-    const withAvatar = await mockSetUserAvatar(publicId);
-    expect(withAvatar.avatar).toBe(publicId);
-    expect((await mockGetUser(1)).avatar).toBe(publicId);
+    const crop = { x: 10, y: 20, size: 100 };
+    const withAvatar = await mockSetUserAvatar(publicId, crop);
+    expect(withAvatar.avatar).toBe(`d${publicId.slice(1)}`);
+    expect((await mockGetUser(1)).avatar).toBe(withAvatar.avatar);
 
-    const cleared = await mockSetUserAvatar(null);
+    const state = await mockGetUserAvatar();
+    expect(state.source?.publicId).toBe(publicId);
+    expect(state.crop).toEqual(crop);
+
+    const cleared = await mockSetUserAvatar(null, null);
     expect(cleared.avatar).toBeNull();
     expect((await mockGetUser(1)).avatar).toBeNull();
+    expect((await mockGetUserAvatar()).source).toBeNull();
   });
 });
 

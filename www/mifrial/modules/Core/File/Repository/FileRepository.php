@@ -161,6 +161,40 @@ final class FileRepository
     }
 
     /**
+     * Страница неархивных картинок актора.
+     *
+     * @param int $ownerId Владелец.
+     * @param int $limit Размер 1..100.
+     * @param int $offset Сдвиг.
+     *
+     * @return FilePage Страница.
+     *
+     * @throws FileInvalidException Если запрос ST недопустим.
+     */
+    public function findOwnImagePage(int $ownerId, int $limit, int $offset): FilePage
+    {
+        $listResult = $this->readList(ListQuery::fromOptions([
+            'limit' => $limit,
+            'offset' => $offset,
+            'countTotal' => true,
+            'sort' => ['created_at' => 'desc', 'id' => 'desc'],
+            'filter' => [
+                'LOGIC' => 'AND',
+                ['=owner_id' => $ownerId],
+                ['=is_archived' => false],
+                ['=is_derived' => false],
+                ['%mime' => 'image/%'],
+            ],
+        ]));
+        $records = [];
+        foreach ($listResult->rows() as $row) {
+            $records[] = FileRecord::fromNormalized($row);
+        }
+
+        return new FilePage($records, $listResult->total() ?? 0);
+    }
+
+    /**
      * Ищет ровно одну строку по фильтру.
      *
      * @param array<string, mixed> $filter Фильтр.
@@ -193,26 +227,60 @@ final class FileRepository
     private function pageFilter(FilePageQuery $pageQuery): ?array
     {
         $clauses = [];
-        if ($pageQuery->getMime() !== null) {
-            $clauses[] = ['=mime' => $pageQuery->getMime()];
+        $this->pushEquals($clauses, 'mime', $pageQuery->getMime());
+        $this->pushEquals($clauses, 'owner_id', $pageQuery->getOwnerId());
+        $this->pushEquals($clauses, 'is_archived', $pageQuery->getIsArchived());
+        $this->pushDateTime($clauses, '>=', $pageQuery->getFromUnix());
+        $this->pushDateTime($clauses, '<=', $pageQuery->getToUnix());
+
+        return $this->andGroup($clauses);
+    }
+
+    /**
+     * Добавляет равенство, если значение задано.
+     *
+     * @param array<int, array<string, mixed>> $clauses Условия.
+     * @param string $fieldName Колонка.
+     * @param int|string|bool|null $value Значение.
+     *
+     * @return void
+     */
+    private function pushEquals(array &$clauses, string $fieldName, int|string|bool|null $value): void
+    {
+        if ($value === null) {
+            return;
         }
 
-        if ($pageQuery->getOwnerId() !== null) {
-            $clauses[] = ['=owner_id' => $pageQuery->getOwnerId()];
+        $clauses[] = ['=' . $fieldName => $value];
+    }
+
+    /**
+     * Добавляет границу created_at, если значение задано.
+     *
+     * @param array<int, array<string, mixed>> $clauses Условия.
+     * @param string $operator Оператор сравнения.
+     * @param int|null $unix Unix UTC.
+     *
+     * @return void
+     */
+    private function pushDateTime(array &$clauses, string $operator, ?int $unix): void
+    {
+        if ($unix === null) {
+            return;
         }
 
-        if ($pageQuery->getIsArchived() !== null) {
-            $clauses[] = ['=is_archived' => $pageQuery->getIsArchived()];
-        }
+        $clauses[] = [$operator . 'created_at' => DateTime::fromUnix($unix)];
+    }
 
-        if ($pageQuery->getFromUnix() !== null) {
-            $clauses[] = ['>=created_at' => DateTime::fromUnix($pageQuery->getFromUnix())];
-        }
-
-        if ($pageQuery->getToUnix() !== null) {
-            $clauses[] = ['<=created_at' => DateTime::fromUnix($pageQuery->getToUnix())];
-        }
-
+    /**
+     * Склеивает условия через AND.
+     *
+     * @param array<int, array<string, mixed>> $clauses Условия.
+     *
+     * @return array<string|int, mixed>|null WHERE или null.
+     */
+    private function andGroup(array $clauses): ?array
+    {
         if ($clauses === []) {
             return null;
         }
@@ -221,6 +289,9 @@ final class FileRepository
             return $clauses[0];
         }
 
+        /**
+         * @var array<string|int, mixed> $andGroup
+         */
         $andGroup = ['LOGIC' => 'AND'];
         foreach ($clauses as $clause) {
             $andGroup[] = $clause;

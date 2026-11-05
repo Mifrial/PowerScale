@@ -12,11 +12,11 @@ use Mifrial\Core\User\Dto\Action\FindPageInput;
 use Mifrial\Core\User\Dto\Action\GetGroupMembersInput;
 use Mifrial\Core\User\Dto\Action\UpdateGroupInput;
 use Mifrial\Core\User\Dto\GroupRecord;
-use Mifrial\Core\User\Dto\UserRecord;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Interface\Service\IUserGroups;
+use Mifrial\Core\User\Interface\Service\IUserViews;
 use Mifrial\Core\User\Repository\UserGroupMemberRepository;
 
 /**
@@ -31,6 +31,7 @@ final class GroupHttpService
      * @param IUserGroups $userGroups Группы.
      * @param IUserAccounts $userAccounts Учётки.
      * @param UserGroupMemberRepository $memberRepository COUNT членств.
+     * @param IUserViews $userViews JSON User для аватаров участников.
      * @param GroupInputNormalizer $groupNormalizer New/Patch.
      *
      * @return void
@@ -40,6 +41,7 @@ final class GroupHttpService
         private readonly IUserGroups $userGroups,
         private readonly IUserAccounts $userAccounts,
         private readonly UserGroupMemberRepository $memberRepository,
+        private readonly IUserViews $userViews,
         private readonly GroupInputNormalizer $groupNormalizer = new GroupInputNormalizer(),
     ) {
     }
@@ -98,9 +100,10 @@ final class GroupHttpService
     {
         $this->userAccess->requireKey('user_group.view');
         $memberPage = $this->userGroups->findMemberPage($input->groupId, $input->limit, $input->offset);
+        $memberViews = $this->userViews->assembleMany($this->userAccounts->getByIds($memberPage->getIds()));
         $members = [];
-        foreach ($this->userAccounts->getByIds($memberPage->getIds()) as $userRecord) {
-            $members[] = $this->assembleMember($userRecord);
+        foreach ($memberViews as $memberView) {
+            $members[] = $this->assembleMember($memberView);
         }
 
         return [
@@ -257,18 +260,19 @@ final class GroupHttpService
     }
 
     /**
-     * JSON члена.
+     * JSON члена: минимум для списка плюс аватар.
      *
-     * @param UserRecord $userRecord Учётка.
+     * @param array<string, mixed> $userView JSON User.
      *
      * @return array<string, mixed> GroupMember.
      */
-    private function assembleMember(UserRecord $userRecord): array
+    private function assembleMember(array $userView): array
     {
         return [
-            'id' => $userRecord->getId(),
-            'name' => $userRecord->getName(),
-            'login' => $userRecord->getLogin(),
+            'id' => $userView['id'] ?? null,
+            'name' => $userView['name'] ?? null,
+            'login' => $userView['login'] ?? null,
+            'avatar' => $userView['avatar'] ?? null,
         ];
     }
 

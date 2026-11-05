@@ -98,8 +98,12 @@ user_groups(
 )
 
 -- Текущая физика аватара — user_avatar, не колонка users:
--- user_avatar(id, user_id UNIQUE → user, file_id INT без FK на file, created_at).
+-- user_avatar(id, user_id UNIQUE → user, file_id INT без FK на file,
+--             source_file_id INT NULL, crop_x/crop_y INT NULL,
+--             crop_size INT NULL, created_at).
 -- file_id без FK: схема User не тянет схему File, строки file не удаляются.
+-- source_file_id и crop_* nullable: старые строки показывают аватар,
+-- но источник придётся выбрать заново.
 
 group_permissions(
   group_id → groups.id NOT NULL,

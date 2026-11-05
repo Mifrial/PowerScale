@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useCurrentUser } from '@/modules/Core/User/init';
+import { useCurrentUser, useUserCatalog, UserAvatar } from '@/modules/Core/User/init';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { getUserApi } from '@/modules/Core/User/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
@@ -18,6 +18,7 @@ const props = defineProps<{
 }>();
 
 const { userId } = useCurrentUser();
+const catalog = useUserCatalog();
 const store = useGameStore();
 
 const invitations = ref<GameInvitation[]>([]);
@@ -43,6 +44,7 @@ async function load(): Promise<void> {
     invitations.value = props.canManage
       ? await getGameApi().getGameInvitations(props.gameId)
       : (await getGameApi().getMyInvitations()).filter((invitation) => invitation.gameId === props.gameId);
+    await catalog.ensureUsers([...new Set(invitations.value.map((invitation) => invitation.inviteeId))]);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось загрузить приглашения';
   } finally {
@@ -52,6 +54,10 @@ async function load(): Promise<void> {
 
 function invitationStatusLabel(status: GameInvitation['status']): string {
   return GAME_INVITATION_STATUS_LABEL[status];
+}
+
+function inviteeUser(inviteeId: number): User | undefined {
+  return catalog.users.value.find((user) => user.id === inviteeId);
 }
 
 function invitationStatusColor(status: GameInvitation['status']): string {
@@ -138,9 +144,7 @@ watch(
       <v-list v-else-if="visibleInvitations.length > 0" density="compact" class="pa-0">
         <v-list-item v-for="invitation in visibleInvitations" :key="invitation.id">
           <div class="d-flex align-center ga-2 py-1">
-            <v-avatar color="primary" size="28" variant="tonal" class="flex-shrink-0">
-              <span class="text-body-2">{{ invitation.inviteeName.charAt(0) }}</span>
-            </v-avatar>
+            <UserAvatar :user="inviteeUser(invitation.inviteeId)" :name="invitation.inviteeName" :size="28" />
             <span class="text-body-2">{{ invitation.inviteeName }}</span>
             <span class="text-caption text-medium-emphasis">от {{ invitation.inviterName }}</span>
             <v-spacer />

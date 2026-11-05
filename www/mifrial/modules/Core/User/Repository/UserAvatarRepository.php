@@ -12,6 +12,7 @@ use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
 use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
+use Mifrial\Core\User\Dto\UserAvatarRecord;
 use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserNotFoundException;
@@ -34,26 +35,23 @@ final class UserAvatarRepository
     }
 
     /**
-     * Файл аватара учётки.
+     * Строка аватара учётки.
      *
      * @param int $userId Учётка.
      *
-     * @return int|null file id или null.
+     * @return UserAvatarRecord|null Запись или null.
      *
      * @throws UserInvalidException Если карта недопустима.
      */
-    public function findFileId(int $userId): ?int
+    public function find(int $userId): ?UserAvatarRecord
     {
         $row = $this->avatarRecords->getUnique(ListQuery::fromOptions([
             'filter' => ['user_id' => $userId],
             'limit' => 1,
-            'select' => ['file_id'],
+            'select' => ['file_id', 'source_file_id', 'crop_x', 'crop_y', 'crop_size'],
         ]));
-        if (!is_array($row)) {
-            return null;
-        }
 
-        return (int) $row['file_id'];
+        return is_array($row) ? UserAvatarRecord::fromRow($row) : null;
     }
 
     /**
@@ -96,10 +94,14 @@ final class UserAvatarRepository
     }
 
     /**
-     * Ставит аватар: вставка или замена ссылки.
+     * Ставит аватар: вставка или замена ссылки и кропа.
      *
      * @param int $userId Учётка.
-     * @param int $fileId Файл.
+     * @param int $fileId Производная.
+     * @param int|null $sourceFileId Исходник.
+     * @param int|null $cropX Левый край.
+     * @param int|null $cropY Верхний край.
+     * @param int|null $cropSize Сторона квадрата.
      *
      * @return void
      *
@@ -107,20 +109,30 @@ final class UserAvatarRepository
      * @throws UserInvalidException Если значения недопустимы.
      * @throws UserNotFoundException Если учётки нет.
      */
-    public function save(int $userId, int $fileId): void
-    {
+    public function save(
+        int $userId,
+        int $fileId,
+        ?int $sourceFileId,
+        ?int $cropX,
+        ?int $cropY,
+        ?int $cropSize,
+    ): void {
+        $fields = [
+            'file_id' => $fileId,
+            'source_file_id' => $sourceFileId,
+            'crop_x' => $cropX,
+            'crop_y' => $cropY,
+            'crop_size' => $cropSize,
+        ];
         $rowId = $this->findRowId($userId);
         if ($rowId === null) {
-            $this->write(fn (): int => $this->avatarRecords->add([
-                'user_id' => $userId,
-                'file_id' => $fileId,
-            ]));
+            $this->write(fn (): int => $this->avatarRecords->add(['user_id' => $userId] + $fields));
 
             return;
         }
 
-        $this->write(function () use ($rowId, $fileId): mixed {
-            $this->avatarRecords->update($rowId, ['file_id' => $fileId]);
+        $this->write(function () use ($rowId, $fields): mixed {
+            $this->avatarRecords->update($rowId, $fields);
 
             return null;
         });

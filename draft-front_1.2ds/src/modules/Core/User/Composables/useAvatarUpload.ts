@@ -1,5 +1,7 @@
 import { ref } from 'vue';
 import type { User } from '@/modules/Core/User/Dto/User';
+import type { AvatarCrop } from '@/modules/Core/User/Dto/AvatarCrop';
+import type { AvatarSource } from '@/modules/Core/User/Dto/AvatarSource';
 import { getFileApi, validateFileSelection } from '@/modules/Core/File/init';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { AVATAR_MAX_SIZE } from '@/modules/Core/User/Constant/Avatar/AVATAR_MAX_SIZE';
@@ -11,7 +13,7 @@ export function useAvatarUpload() {
   const uploading = ref(false);
   const error = ref<string | null>(null);
 
-  async function upload(file: File): Promise<User | null> {
+  async function uploadFile(file: File): Promise<AvatarSource | null> {
     const validationError = validateFileSelection(file, { maxSize: AVATAR_MAX_SIZE, accept: AVATAR_MIME });
     error.value = validationError;
     if (validationError) return null;
@@ -20,9 +22,28 @@ export function useAvatarUpload() {
     try {
       const record = await getFileApi().upload(file);
 
-      return await store.setAvatar(record.publicId);
+      return {
+        publicId: record.publicId,
+        originalName: record.originalName,
+        width: record.width,
+        height: record.height,
+      };
     } catch (caught) {
-      error.value = caught instanceof Error ? caught.message : 'Не удалось загрузить аватар';
+      error.value = caught instanceof Error ? caught.message : 'Не удалось загрузить файл';
+
+      return null;
+    } finally {
+      uploading.value = false;
+    }
+  }
+
+  async function applyCrop(filePublicId: string, crop: AvatarCrop): Promise<User | null> {
+    uploading.value = true;
+    error.value = null;
+    try {
+      return await store.setAvatar(filePublicId, crop);
+    } catch (caught) {
+      error.value = caught instanceof Error ? caught.message : 'Не удалось сохранить аватар';
 
       return null;
     } finally {
@@ -34,7 +55,7 @@ export function useAvatarUpload() {
     uploading.value = true;
     error.value = null;
     try {
-      return await store.setAvatar(null);
+      return await store.setAvatar(null, null);
     } catch (caught) {
       error.value = caught instanceof Error ? caught.message : 'Не удалось снять аватар';
 
@@ -44,5 +65,5 @@ export function useAvatarUpload() {
     }
   }
 
-  return { uploading, error, upload, clear };
+  return { uploading, error, uploadFile, applyCrop, clear };
 }

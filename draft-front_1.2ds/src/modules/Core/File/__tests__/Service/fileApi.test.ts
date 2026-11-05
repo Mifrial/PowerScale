@@ -18,6 +18,7 @@ const record: FileRecord = {
   height: 20,
   sha256: 'b'.repeat(64),
   isArchived: false,
+  isDerived: false,
   archivedAt: null,
   createdAt: 1_700_000_000,
 };

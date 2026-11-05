@@ -6,11 +6,13 @@ namespace Mifrial\Core\User\Service;
 
 use Mifrial\Core\File\Dto\FileRecord;
 use Mifrial\Core\File\Interface\Service\IFiles;
+use Mifrial\Core\Image\Dto\ImageCrop;
 use Mifrial\Core\Image\Dto\ImageTransformSpec;
 use Mifrial\Core\Image\Enum\FitMode;
 use Mifrial\Core\Image\Enum\OutputFormat;
 use Mifrial\Core\Image\Exception\ImageException;
 use Mifrial\Core\Image\Interface\Service\IImageTransform;
+use Mifrial\Core\User\Dto\UserAvatarRecord;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
@@ -20,13 +22,15 @@ use Mifrial\Core\User\Repository\UserAvatarRepository;
 use Throwable;
 
 /**
- * Аватар учётки: проверка файла, производная 512×512 webp, ссылка `user_avatar`.
+ * Аватар учётки: выбранный круг, производная 256×256 webp и ссылка `user_avatar`.
  */
 final class UserAvatarService implements IUserAvatar
 {
     private const MAX_BYTES = 2097152;
 
     private const MAX_SIDE = 4096;
+
+    private const DERIVED_SIDE = 256;
 
     private const DERIVED_NAME = 'avatar.webp';
 
@@ -57,34 +61,62 @@ final class UserAvatarService implements IUserAvatar
     /**
      * Ставит или снимает аватар текущего актора.
      *
-     * @param string|null $filePublicId Загруженный файл или null, чтобы снять.
+     * @param string|null $filePublicId Исходник или null, чтобы снять.
+     * @param int|null $cropX Левый край кропа.
+     * @param int|null $cropY Верхний край кропа.
+     * @param int|null $cropSize Сторона квадрата кропа.
      *
      * @return array<string, mixed> JSON User после изменения.
      *
-     * @throws UserInvalidException Если файл не годится в аватар.
+     * @throws UserInvalidException Если файл или кроп не годятся в аватар.
      */
-    public function setAvatar(?string $filePublicId): array
+    public function setAvatar(?string $filePublicId, ?int $cropX, ?int $cropY, ?int $cropSize): array
     {
         $requestActor = $this->userAccess->requireActor();
         $userId = $requestActor->getUserId();
-        $previousPublicId = $this->previousAvatarPublicId($userId);
+        $previous = $this->userAvatarRepository->find($userId);
 
         if ($filePublicId === null) {
-            $this->userAvatarRepository->clear($userId);
-            $this->archiveQuietly($previousPublicId);
+            $this->clearAvatar($userId, $previous);
 
             return $this->userView($userId);
         }
 
         $sourceRecord = $this->files->requireOwned($filePublicId);
         $this->assertAvatarSource($sourceRecord);
-        $derivedRecord = $this->deriveAvatar($filePublicId);
-        $this->userAvatarRepository->save($userId, $derivedRecord->getId());
-        if ($previousPublicId !== null && $previousPublicId !== $filePublicId) {
-            $this->archiveQuietly($previousPublicId);
-        }
+        $crop = $this->cropSpec($cropX, $cropY, $cropSize);
+        $derivedRecord = $this->deriveAvatar($filePublicId, $crop);
+        $this->userAvatarRepository->save(
+            $userId,
+            $derivedRecord->getId(),
+            $sourceRecord->getId(),
+            $crop?->getX(),
+            $crop?->getY(),
+            $crop?->getWidth(),
+        );
+        $this->archiveQuietly($this->publicIdOf($previous?->getFileId()));
 
         return $this->userView($userId);
+    }
+
+    /**
+     * Текущий источник, кроп и производная актора.
+     *
+     * @return array{avatar: string|null, source: array<string, mixed>|null, crop: array<string, int>|null} Состояние.
+     */
+    public function avatarState(): array
+    {
+        $requestActor = $this->userAccess->requireActor();
+        $avatarRecord = $this->userAvatarRepository->find($requestActor->getUserId());
+        if ($avatarRecord === null) {
+            return ['avatar' => null, 'source' => null, 'crop' => null];
+        }
+
+        return [
+            'avatar' => $this->publicIdOf($avatarRecord->getFileId()),
+            'source' => $this->sourceView($avatarRecord->getSourceFileId()),
+            'crop' => $this->cropView($avatarRecord),
+        ];
     }
 
     /**
@@ -122,22 +154,71 @@ final class UserAvatarService implements IUserAvatar
     }
 
     /**
+     * Проверяет и собирает квадрат кропа; все null — центр-кроп в Image.
+     *
+     * @param int|null $cropX Левый край.
+     * @param int|null $cropY Верхний край.
+     * @param int|null $cropSize Сторона.
+     *
+     * @return ImageCrop|null Кроп или null.
+     *
+     * @throws UserInvalidException Если кроп неполный или вне диапазона.
+     */
+    private function cropSpec(?int $cropX, ?int $cropY, ?int $cropSize): ?ImageCrop
+    {
+        if ($cropX === null && $cropY === null && $cropSize === null) {
+            return null;
+        }
+
+        if ($cropX === null || $cropY === null || $cropSize === null) {
+            throw new UserInvalidException('Avatar crop is incomplete');
+        }
+
+        $this->assertCropBounds($cropX, $cropY, $cropSize);
+
+        return new ImageCrop($cropX, $cropY, $cropSize, $cropSize);
+    }
+
+    /**
+     * Проверяет пределы кропа.
+     *
+     * @param int $cropX Левый край.
+     * @param int $cropY Верхний край.
+     * @param int $cropSize Сторона.
+     *
+     * @return void
+     *
+     * @throws UserInvalidException Если кроп вне диапазона.
+     */
+    private function assertCropBounds(int $cropX, int $cropY, int $cropSize): void
+    {
+        if ($cropX < 0 || $cropY < 0) {
+            throw new UserInvalidException('Avatar crop offset is negative');
+        }
+
+        if ($cropSize < 1 || $cropSize > self::MAX_SIDE) {
+            throw new UserInvalidException('Avatar crop size is out of bounds');
+        }
+    }
+
+    /**
      * Готовит производную и кладёт её новой строкой.
      *
      * @param string $sourcePublicId Внешний id исходника.
+     * @param ImageCrop|null $crop Выбранный круг или null для центра.
      *
      * @return FileRecord Строка производной.
      *
      * @throws UserInvalidException Если картинка не преобразовалась.
      */
-    private function deriveAvatar(string $sourcePublicId): FileRecord
+    private function deriveAvatar(string $sourcePublicId, ?ImageCrop $crop): FileRecord
     {
         $copyPath = $this->temporaryPath();
         $derivedPath = null;
 
         try {
             $this->files->copyOwnedTo($sourcePublicId, $copyPath);
-            $imageResult = $this->imageTransform->transform($copyPath, $this->avatarSpec());
+            $imageResult = $this->imageTransform->transform($copyPath, $this->avatarSpec($crop));
             $derivedPath = $imageResult->getPath();
 
             return $this->files->storeDerived($sourcePublicId, $derivedPath, self::DERIVED_NAME);
@@ -152,25 +233,96 @@ final class UserAvatarService implements IUserAvatar
     }
 
     /**
-     * Параметры аватара: квадрат 512, webp, качество 90.
+     * Параметры аватара: квадрат 256, webp, качество 90.
+     *
+     * @param ImageCrop|null $crop Выбранный круг.
      *
      * @return ImageTransformSpec Спецификация.
      */
-    private function avatarSpec(): ImageTransformSpec
+    private function avatarSpec(?ImageCrop $crop): ImageTransformSpec
     {
-        return new ImageTransformSpec(512, 512, FitMode::Cover, OutputFormat::Webp, 90);
+        return new ImageTransformSpec(
+            self::DERIVED_SIDE,
+            self::DERIVED_SIDE,
+            FitMode::Cover,
+            OutputFormat::Webp,
+            90,
+            $crop,
+        );
     }
 
     /**
-     * Внешний id текущей производной.
+     * Снимает строку и архивирует прежнюю производную.
      *
      * @param int $userId Учётка.
+     * @param UserAvatarRecord|null $previous Прежняя строка.
+     *
+     * @return void
+     */
+    private function clearAvatar(int $userId, ?UserAvatarRecord $previous): void
+    {
+        $this->userAvatarRepository->clear($userId);
+        if ($previous !== null) {
+            $this->archiveQuietly($this->publicIdOf($previous->getFileId()));
+        }
+    }
+
+    /**
+     * JSON источника для диалога кропа.
+     *
+     * @param int|null $sourceFileId Исходник.
+     *
+     * @return array<string, mixed>|null Поля или null.
+     */
+    private function sourceView(?int $sourceFileId): ?array
+    {
+        if ($sourceFileId === null) {
+            return null;
+        }
+
+        $publicId = $this->publicIdOf($sourceFileId);
+        if ($publicId === null) {
+            return null;
+        }
+
+        $sourceRecord = $this->files->requireOwned($publicId);
+
+        return [
+            'publicId' => $publicId,
+            'originalName' => $sourceRecord->getOriginalName(),
+            'width' => $sourceRecord->getWidth(),
+            'height' => $sourceRecord->getHeight(),
+        ];
+    }
+
+    /**
+     * JSON кропа для диалога.
+     *
+     * @param UserAvatarRecord $avatarRecord Строка.
+     *
+     * @return array<string, int>|null Кроп или null.
+     */
+    private function cropView(UserAvatarRecord $avatarRecord): ?array
+    {
+        $cropX = $avatarRecord->getCropX();
+        $cropY = $avatarRecord->getCropY();
+        $cropSize = $avatarRecord->getCropSize();
+        if ($cropX === null || $cropY === null || $cropSize === null) {
+            return null;
+        }
+
+        return ['x' => $cropX, 'y' => $cropY, 'size' => $cropSize];
+    }
+
+    /**
+     * public_id живого файла по внутреннему id.
+     *
+     * @param int|null $fileId Идентификатор.
      *
      * @return string|null public_id или null.
      */
-    private function previousAvatarPublicId(int $userId): ?string
+    private function publicIdOf(?int $fileId): ?string
     {
-        $fileId = $this->userAvatarRepository->findFileId($userId);
         if ($fileId === null) {
             return null;
         }

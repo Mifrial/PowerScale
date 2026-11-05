@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref } from 'vue';
 import type { User } from '@/modules/Core/User/Dto/User';
-import { useAvatarUpload } from '@/modules/Core/User/Composables/useAvatarUpload';
-import { initials as userInitials } from '@/modules/Core/User/Utils/initials';
-
-const FileImage = defineAsyncComponent(() => import('@/modules/Core/File/Component/FileImage.vue'));
+import type { AvatarCrop } from '@/modules/Core/User/Dto/AvatarCrop';
+import { useAvatarEditor } from '@/modules/Core/User/Composables/useAvatarEditor';
+import UserAvatar from '@/modules/Core/User/Component/UserAvatar.vue';
+import UserAvatarDialog from '@/modules/Core/User/Component/UserAvatarDialog.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -19,71 +18,60 @@ const emit = defineEmits<{
   updated: [value: User];
 }>();
 
-const { uploading, error, upload, clear } = useAvatarUpload();
-const fileInput = ref<HTMLInputElement | null>(null);
+const {
+  open,
+  step,
+  source,
+  initialCrop,
+  sources,
+  sourcesLoading,
+  uploading,
+  error,
+  start,
+  startUpload,
+  pick,
+  back,
+  apply,
+  clearAvatar,
+} = useAvatarEditor();
 
-const initials = computed(() => userInitials(props.user.name, props.user.surname));
-
-function pickFile(): void {
-  fileInput.value?.click();
-}
-
-async function onFilePicked(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  input.value = '';
-  if (!file) return;
-
-  const updated = await upload(file);
+async function onApply(crop: AvatarCrop): Promise<void> {
+  const updated = await apply(crop);
   if (updated) emit('updated', updated);
 }
 
 async function onClear(): Promise<void> {
-  const updated = await clear();
+  const updated = await clearAvatar();
   if (updated) emit('updated', updated);
 }
 </script>
 
 <template>
   <div class="avatar-field text-center">
-    <FileImage
-      v-if="user.avatar"
-      :public-id="user.avatar"
-      alt="Аватар"
-      :width="props.size"
-      :height="props.size"
-      cover
-      class="avatar-field__image"
-    />
-    <v-avatar v-else color="primary" :size="props.size" class="mb-2">
-      <span class="text-h3 font-weight-medium text-white">{{ initials }}</span>
-    </v-avatar>
+    <UserAvatar :user="props.user" :size="props.size" class="mb-2" />
 
-    <div v-if="canEdit" class="mt-2">
-      <input
-        ref="fileInput"
-        type="file"
-        class="d-none"
-        accept="image/png,image/jpeg,image/webp"
-        @change="onFilePicked"
-      />
-      <v-btn size="small" variant="tonal" :loading="uploading" @click="pickFile">
-        <v-icon start size="small">mdi-upload</v-icon>Загрузить
+    <div v-if="canEdit">
+      <v-btn size="small" variant="tonal" :loading="uploading" @click="start">
+        <v-icon start size="small">mdi-camera-outline</v-icon>Изменить
       </v-btn>
-      <v-btn v-if="user.avatar" size="small" variant="text" :disabled="uploading" @click="onClear"> Снять </v-btn>
+      <v-btn v-if="user.avatar" size="small" variant="text" :disabled="uploading" @click="onClear">Снять</v-btn>
     </div>
 
     <div v-if="error" class="text-caption text-error mt-1">{{ error }}</div>
-    <div v-else-if="canEdit" class="text-caption text-medium-emphasis mt-1">
-      PNG, JPEG или WebP до 2 МБ; сервер уменьшит до 512×512
-    </div>
+
+    <UserAvatarDialog
+      v-model="open"
+      :step="step"
+      :source="source"
+      :initial-crop="initialCrop"
+      :sources="sources"
+      :sources-loading="sourcesLoading"
+      :uploading="uploading"
+      :error="error"
+      @upload="startUpload"
+      @pick="pick"
+      @apply="onApply"
+      @back="back"
+    />
   </div>
 </template>
-
-<style scoped>
-.avatar-field__image {
-  border-radius: 50%;
-  overflow: hidden;
-  margin: 0 auto 8px;
-}
-</style>

@@ -129,13 +129,13 @@ describe('users store', () => {
     store.users.push(mockUsers[0]);
     const publicId = 'a'.repeat(32);
 
-    const updated = await store.setAvatar(publicId);
+    const updated = await store.setAvatar(publicId, { x: 0, y: 0, size: 1 });
 
-    expect(updated.avatar).toBe(publicId);
-    expect(store.currentUser?.avatar).toBe(publicId);
-    expect(store.users[0].avatar).toBe(publicId);
+    expect(updated.avatar).not.toBeNull();
+    expect(store.currentUser?.avatar).toBe(updated.avatar);
+    expect(store.users[0].avatar).toBe(updated.avatar);
 
-    const cleared = await store.setAvatar(null);
+    const cleared = await store.setAvatar(null, null);
 
     expect(cleared.avatar).toBeNull();
     expect(store.currentUser?.avatar).toBeNull();

@@ -24,6 +24,12 @@ export class FileApi implements IFileApi {
     return this.requireData(response, 'File page is empty');
   }
 
+  async findOwnImages(limit: number, offset: number, signal?: AbortSignal): Promise<FilePage> {
+    const response = await this.engine.runAction<FilePage>('file.findOwnImages', { limit, offset }, signal);
+
+    return this.requireData(response, 'Own image page is empty');
+  }
+
   async get(id: number, signal?: AbortSignal): Promise<FileRecord> {
     const response = await this.engine.runAction<FileRecord>('file.get', { id }, signal);
 

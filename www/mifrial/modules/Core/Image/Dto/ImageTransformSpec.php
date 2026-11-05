@@ -23,6 +23,7 @@ final class ImageTransformSpec
      * @param FitMode $mode Режим вписывания.
      * @param OutputFormat $format Формат результата.
      * @param int $quality Качество 1..100.
+     * @param ImageCrop|null $crop Кроп исходника до вписывания или null.
      *
      * @return void
      *
@@ -34,6 +35,7 @@ final class ImageTransformSpec
         private readonly FitMode $mode,
         private readonly OutputFormat $format,
         private readonly int $quality,
+        private readonly ?ImageCrop $crop = null,
     ) {
         if ($width < 1 || $width > self::MAX_SIDE || $height < 1 || $height > self::MAX_SIDE) {
             throw new ImageSpecInvalidException('Image frame side must be 1..' . self::MAX_SIDE);
@@ -92,5 +94,15 @@ final class ImageTransformSpec
     public function getQuality(): int
     {
         return $this->quality;
+    }
+
+    /**
+     * Кроп исходника до вписывания.
+     *
+     * @return ImageCrop|null Прямоугольник или null.
+     */
+    public function getCrop(): ?ImageCrop
+    {
+        return $this->crop;
     }
 }

@@ -12,6 +12,7 @@ use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Interface\Service\IUserGroups;
+use Mifrial\Core\User\Interface\Service\IUserViews;
 use Mifrial\Core\User\Repository\UserGroupMemberRepository;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 
@@ -35,10 +36,12 @@ final class GroupHttpServiceFactory
         $userAccess = $userContainer->get(IUserAccess::class);
         $userGroups = $userContainer->get(IUserGroups::class);
         $userAccounts = $userContainer->get(IUserAccounts::class);
+        $userViews = $userContainer->get(IUserViews::class);
         if (
             !$userAccess instanceof IUserAccess
             || !$userGroups instanceof IUserGroups
             || !$userAccounts instanceof IUserAccounts
+            || !$userViews instanceof IUserViews
         ) {
             throw new KernelException('PORT_TYPE', 'User group HTTP ports have a wrong type');
         }
@@ -54,6 +57,7 @@ final class GroupHttpServiceFactory
             $userGroups,
             $userAccounts,
             new UserGroupMemberRepository($smartTableGateway->open(UserGroupMemberTable::class)->records()),
+            $userViews,
         );
     }
 

@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
-import { useCurrentUser } from '@/modules/Core/User/init';
+import { UserAvatar, useCurrentUser } from '@/modules/Core/User/init';
 import { useMenuTree } from '@/modules/Core/UI/Composables/useMenuTree';
 import MenuTree from '@/modules/Core/UI/Component/Navigation/MenuTree.vue';
 import LogoutConfirmDialog from '@/modules/Core/Auth/Component/LogoutConfirmDialog.vue';
@@ -12,7 +12,7 @@ const emit = defineEmits<{ 'update:collapsed': [value: boolean] }>();
 
 const router = useRouter();
 const auth = useAuthStore();
-const { currentUser, username, userLogin, avatarLetters } = useCurrentUser();
+const { currentUser, username, userLogin } = useCurrentUser();
 const { tree } = useMenuTree();
 
 const isCollapsed = computed(() => props.collapsed);
@@ -37,9 +37,7 @@ function openLogoutDialog(): void {
     <template #prepend>
       <v-list-item class="px-2 py-3" :active="false" @click="openProfile">
         <template #prepend>
-          <v-avatar color="primary" size="36">
-            <span class="text-body-2 font-weight-medium text-white">{{ avatarLetters }}</span>
-          </v-avatar>
+          <UserAvatar :user="currentUser" :size="36" />
         </template>
         <v-list-item-title class="font-weight-medium text-body-2">
           {{ username }}

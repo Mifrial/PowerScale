@@ -3,6 +3,8 @@ import type { IUserApi } from '@/modules/Core/User/Interface/IUserApi';
 import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
 import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
 import type { User } from '@/modules/Core/User/Dto/User';
+import type { AvatarCrop } from '@/modules/Core/User/Dto/AvatarCrop';
+import type { AvatarState } from '@/modules/Core/User/Dto/AvatarState';
 import type { FindPageQuery } from '@/modules/Core/User/Dto/FindPageQuery';
 import type { FindPageResult } from '@/modules/Core/User/Dto/FindPageResult';
 
@@ -49,9 +51,25 @@ export class UserApi implements IUserApi {
     await this.engine.runAction('user.deactivate', { id, reason, deactivatedUntil }, signal);
   }
 
-  async setAvatar(filePublicId: string | null, signal?: AbortSignal): Promise<User> {
-    const res = await this.engine.runAction<User>('user.setAvatar', { filePublicId }, signal);
+  async setAvatar(filePublicId: string | null, crop: AvatarCrop | null, signal?: AbortSignal): Promise<User> {
+    const res = await this.engine.runAction<User>(
+      'user.setAvatar',
+      {
+        filePublicId,
+        cropX: crop?.x ?? null,
+        cropY: crop?.y ?? null,
+        cropSize: crop?.size ?? null,
+      },
+      signal,
+    );
     if (!res.data) throw new Error('Failed to set avatar');
+
+    return res.data;
+  }
+
+  async getAvatar(signal?: AbortSignal): Promise<AvatarState> {
+    const res = await this.engine.runAction<AvatarState>('user.getAvatar', {}, signal);
+    if (!res.data) throw new Error('Failed to load avatar');
 
     return res.data;
   }

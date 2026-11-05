@@ -28,6 +28,8 @@ export const UserProfileSlider = defineAsyncComponent(
   () => import('@/modules/Core/User/Component/UserProfileSlider.vue'),
 );
 
+export const UserAvatar = defineAsyncComponent(() => import('@/modules/Core/User/Component/UserAvatar.vue'));
+
 export function registerUserApi(api: IUserApi): void {
   serviceLocator.set('Core.User.Service.UserApi', api);
 }

@@ -5,7 +5,7 @@ import { useGroupStore } from '@/modules/Core/User/Store/groups';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import PermissionMatrix from '@/modules/Core/User/Component/PermissionMatrix.vue';
 import GridFooter from '@/modules/Core/UI/Component/Grid/GridFooter.vue';
-import { initials } from '@/modules/Core/User/Utils/initials';
+import { UserAvatar } from '@/modules/Core/User/init';
 import type { Pagination } from '@/modules/Core/UI/Dto/Grid/Pagination';
 
 const route = useRoute();
@@ -79,9 +79,7 @@ async function deactivate() {
         <v-list v-if="store.groupMembersTotal > 0">
           <v-list-item v-for="member in store.groupMembers" :key="member.id" :to="`/users/${member.id}`">
             <template #prepend>
-              <v-avatar color="primary" size="36">
-                <span class="text-body-2">{{ initials(member.name, member.login) }}</span>
-              </v-avatar>
+              <UserAvatar :avatar="member.avatar" :name="member.name" :size="36" />
             </template>
             <v-list-item-title>{{ member.name }}</v-list-item-title>
             <v-list-item-subtitle>@{{ member.login }}</v-list-item-subtitle>

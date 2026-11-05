@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Mifrial\Core\File\Action\FindFilePageAction;
+use Mifrial\Core\File\Action\FindOwnImagesAction;
 use Mifrial\Core\File\Action\GetFileAction;
 use Mifrial\Core\File\Container\FileContainer;
 use Mifrial\Core\File\Interface\Container\IFileContainer;
@@ -26,6 +27,9 @@ return [
         FindFilePageAction::class => static function (IServiceLocator $serviceLocator): FindFilePageAction {
             return new FindFilePageAction((new FilePortFactory())->fromContainer($serviceLocator));
         },
+        FindOwnImagesAction::class => static function (IServiceLocator $serviceLocator): FindOwnImagesAction {
+            return new FindOwnImagesAction((new FilePortFactory())->fromContainer($serviceLocator));
+        },
         GetFileAction::class => static function (IServiceLocator $serviceLocator): GetFileAction {
             return new GetFileAction((new FilePortFactory())->fromContainer($serviceLocator));
         },
@@ -33,6 +37,10 @@ return [
     'routes' => [
         'file.findPage' => [
             'handler' => FindFilePageAction::class,
+            'csrf' => true,
+        ],
+        'file.findOwnImages' => [
+            'handler' => FindOwnImagesAction::class,
             'csrf' => true,
         ],
         'file.get' => [

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Mifrial\Core\File\Service;
 
 use Mifrial\Core\File\Dto\Action\FindFilePageInput;
+use Mifrial\Core\File\Dto\Action\FindOwnImagesInput;
 use Mifrial\Core\File\Dto\IncomingUpload;
+use Mifrial\Core\File\Exception\FileInvalidException;
 use Mifrial\Core\File\Repository\FileRepository;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 
@@ -47,6 +49,38 @@ final class FileHttpService
     {
         $this->userAccess->requireKey(FilePermissionKeys::VIEW);
         $page = $this->fileRepository->findPage($this->filePageQueryParser->parse($input));
+        $items = [];
+        foreach ($page->getRecords() as $fileRecord) {
+            $items[] = $this->fileViewAssembler->assemble($fileRecord);
+        }
+
+        return [
+            'items' => $items,
+            'total' => $page->getTotal(),
+        ];
+    }
+
+    /**
+     * Страница картинок текущего актора без права `file.view`.
+     *
+     * @param FindOwnImagesInput $input JSON.
+     *
+     * @return array{items: array<int, array<string, mixed>>, total: int} Страница.
+     *
+     * @throws FileInvalidException Если границы страницы недопустимы.
+     */
+    public function findOwnImages(FindOwnImagesInput $input): array
+    {
+        if ($input->limit < 1 || $input->limit > 100 || $input->offset < 0) {
+            throw new FileInvalidException('File page bounds are invalid');
+        }
+
+        $requestActor = $this->userAccess->requireActor();
+        $page = $this->fileRepository->findOwnImagePage(
+            $requestActor->getUserId(),
+            $input->limit,
+            $input->offset,
+        );
         $items = [];
         foreach ($page->getRecords() as $fileRecord) {
             $items[] = $this->fileViewAssembler->assemble($fileRecord);

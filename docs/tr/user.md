@@ -43,13 +43,17 @@ HTTP `user.create` / `user.update`: поле `groups` — **id групп** (`in
 
 `UserRecord` / `GroupRecord` — геттеры смысла (`getLogin()`, `isBypass()`), не мешок ключей. `NewUser` / `UserPatch` / `NewGroup` / `GroupPatch` — присутствующие ключи (`fields()`). Сборка JSON User — `IUserViews`, не Record (`DEC-079`).
 
-Аватар — таблица `user_avatar` (`user_id` UNIQUE FK cascade, `file_id` без FK
-на `file`, `created_at`), не колонка `user`: `file.owner_id → user` и
-`user.avatar_file_id → file` дают цикл FK в установке. Поле JSON `avatar` —
-`public_id` файла-производной или `null`; ставит/снимает `user.setAvatar`
-(`filePublicId: string|null`), `user.update` аватара не принимает. Сервер
-строит производную 512×512 webp (`Core/Image`), исходник — обычная загрузка
-через `file.upload`. Канон — [`image-plan-01.md`](image-plan-01.md).
+Аватар — таблица `user_avatar` (`user_id` UNIQUE FK cascade, `file_id` —
+производная без FK на `file`, `source_file_id` — исходник, `crop_x` /
+`crop_y` / `crop_size` — выбранный квадрат, `created_at`), не колонка `user`:
+`file.owner_id → user` и `user.avatar_file_id → file` дают цикл FK в
+установке. Поле JSON `avatar` — `public_id` производной или `null`.
+`user.getAvatar` отдаёт `{ avatar, source, crop }`; `user.setAvatar` принимает
+`filePublicId` и плоский кроп (`cropX`, `cropY`, `cropSize`), без кропа Image
+делает центр. Производная — 256×256 webp по выбранному кругу; источник и
+старые оригиналы — обычные файлы пользователя, список для переключения —
+`file.findOwnImages`. `user.update` аватара не принимает. Канон —
+[`image-plan-02-avatar-crop.md`](image-plan-02-avatar-crop.md).
 
 HTTP админки учётки — [`user-plan-03-http.md`](user-plan-03-http.md) и [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md): страница `user.findPage` (`{ items, total }`), не dump `getList`. JSON User — `IUserViews`: `email` `string|null`, `bypass`, unix-даты, camelCase `deactivatedUntil` / `deactivateReason`, `avatar` — `public_id` или `null`, без `super_admin` / `avatar_file_id` / `initials`. Вход deactivate: `deactivatedUntil` как **`Y-m-d`**; в ответе — unix. Гость — сессия Auth без `user_id`, не строка User и не `id: 0`. `AUTH_REQUIRED` → HTTP 400; клиент редиректит на login по **коду**, CSRF 403 не вылогинивает.
 
