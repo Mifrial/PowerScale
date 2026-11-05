@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameMemberRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 
 /**
  * Плоский JSON игры. sessionRunning истинен, когда строка сессии есть.
@@ -90,8 +91,27 @@ final class GameViewAssembler
             'round' => $battle->getRound(),
             'openStrike' => $this->openStrikeOf($openStrike),
             'pendingActionEffects' => $battle->getPendingActionEffects(),
-            'marks' => $battle->getMarks(),
+            'marks' => $this->marksOf($battle->getMarks()),
         ];
+    }
+
+    /**
+     * Метки боя с подписью источника.
+     *
+     * @param array<int, array<string, mixed>> $marks Метки.
+     *
+     * @return array<int, array<string, mixed>> JSON.
+     */
+    private function marksOf(array $marks): array
+    {
+        $rows = [];
+        foreach ($marks as $mark) {
+            $sourceCode = is_string($mark['source_code'] ?? null) ? $mark['source_code'] : null;
+            $mark['source_label'] = AdvantageSourceLabels::getLabel($sourceCode);
+            $rows[] = $mark;
+        }
+
+        return $rows;
     }
 
     /**
