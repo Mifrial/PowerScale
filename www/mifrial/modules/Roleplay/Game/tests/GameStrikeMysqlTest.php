@@ -626,7 +626,7 @@ final class GameStrikeMysqlTest extends TestCase
                 && ($row['delta'] ?? null) === -2,
         ));
         self::assertCount(1, $penalty, json_encode($closed['data']));
-        self::assertSame([], $this->battleRow($battleId)['marks'] ?? null);
+        self::assertSame([], $this->battleRow($battleId)['marks'] ?? []);
     }
 
     /**
@@ -673,6 +673,307 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($closed['success'], json_encode($closed));
         self::assertCount(1, $this->battleRow($battleId)['marks'] ?? []);
+    }
+
+    /**
+     * Обманный манёвр: раскрытие, авто-провал и метка.
+     *
+     * @return void
+     */
+    public function testManeuverRevealAutoFailsAndPlacesMark(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->maneuverRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Maneuver-Attacker', abilities: [
+            ['ruleCode' => 'obmannyy-manevr', 'level' => 1],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Maneuver-Defender');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-maneuver',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $attack = $this->characterAttack($attackerId, $defenderId)
+            + ['maneuverRuleCode' => 'obmannyy-manevr'];
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-maneuver',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($attack),
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-maneuver',
+            'expectedVersion' => $declared['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'dodge'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertFalse($closed['data']['closed'] ?? true);
+        self::assertSame('maneuver_reveal', $closed['data']['awaiting'][0]['kind'] ?? null);
+        self::assertSame('check', $closed['data']['awaiting'][0]['phase'] ?? null);
+
+        $awaiting = $closed['data']['awaiting'][0];
+        $option = $awaiting['options'][0];
+        $resolved = $this->dispatch('game.resolveStrikeWindow', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'w-maneuver',
+            'expectedVersion' => $closed['data']['version'],
+            'window' => [
+                'actor' => $awaiting['actor'],
+                'check' => $option['check'],
+                'characteristic' => $option['characteristic'],
+            ],
+        ]);
+        self::assertTrue($resolved['success'], json_encode($resolved));
+
+        if (($resolved['data']['closed'] ?? true) === false) {
+            $decision = $resolved['data']['awaiting'][0] ?? null;
+            self::assertSame('decision', $decision['phase'] ?? null);
+            $resolved = $this->dispatch('game.resolveStrikeWindow', [
+                'gameId' => $gameId,
+                'battleId' => $battleId,
+                'idempotencyKey' => 'w-maneuver-keep',
+                'expectedVersion' => $resolved['data']['version'],
+                'window' => [
+                    'actor' => $decision['actor'],
+                    'decision' => 'keep',
+                ],
+            ]);
+            self::assertTrue($resolved['success'], json_encode($resolved));
+        }
+
+        self::assertTrue($resolved['data']['closed'] ?? false, json_encode($resolved));
+        self::assertSame(0, $resolved['data']['success'] ?? null);
+        $marks = $this->battleRow($battleId)['marks'] ?? [];
+        self::assertCount(1, $marks);
+        self::assertSame($defenderId, $marks[0]['subject']['id'] ?? null);
+        self::assertSame($attackerId, $marks[0]['scope']['defense_against']['id'] ?? null);
+        self::assertSame(-2, $marks[0]['value'] ?? null);
+    }
+
+    /**
+     * Строго победивший может отказаться: метки и реакции нет.
+     *
+     * @return void
+     */
+    public function testManeuverStrictWinnerMayRefuse(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->maneuverRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Maneuver-Win-Attacker', abilities: [
+            ['ruleCode' => 'obmannyy-manevr', 'level' => 1],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Maneuver-Win-Defender');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-maneuver-win',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-maneuver-win',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId)
+                    + ['maneuverRuleCode' => 'obmannyy-manevr'],
+            ),
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-maneuver-win',
+            'expectedVersion' => $declared['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'dodge'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $awaiting = $closed['data']['awaiting'][0] ?? null;
+        self::assertIsArray($awaiting);
+        $option = null;
+        foreach ($awaiting['options'] as $candidate) {
+            if (($candidate['characteristic'] ?? null) === 'strength') {
+                $option = $candidate;
+            }
+        }
+        self::assertIsArray($option);
+
+        $revealed = $this->dispatch('game.resolveStrikeWindow', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'w-maneuver-win',
+            'expectedVersion' => $closed['data']['version'],
+            'window' => [
+                'actor' => $awaiting['actor'],
+                'check' => $option['check'],
+                'characteristic' => $option['characteristic'],
+            ],
+        ]);
+        self::assertTrue($revealed['success'], json_encode($revealed));
+        self::assertFalse($revealed['data']['closed'] ?? true);
+        $decision = $revealed['data']['awaiting'][0] ?? null;
+        self::assertSame('decision', $decision['phase'] ?? null);
+
+        $refused = $this->dispatch('game.resolveStrikeWindow', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'w-maneuver-refuse',
+            'expectedVersion' => $revealed['data']['version'],
+            'window' => [
+                'actor' => $decision['actor'],
+                'decision' => 'refuse',
+            ],
+        ]);
+        self::assertTrue($refused['success'], json_encode($refused));
+        self::assertTrue($refused['data']['closed'] ?? false, json_encode($refused));
+        self::assertSame(0, $refused['data']['success'] ?? null);
+        self::assertSame([], $this->battleRow($battleId)['marks'] ?? []);
+    }
+
+    /**
+     * Без реакций манёвр проваливает атаку без проверок и меток.
+     *
+     * @return void
+     */
+    public function testManeuverWithoutReactionsAutoFails(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->maneuverRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Maneuver-Empty-Attacker', abilities: [
+            ['ruleCode' => 'obmannyy-manevr', 'level' => 1],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Maneuver-Empty-Defender');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-maneuver-empty',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-maneuver-empty',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId)
+                    + ['maneuverRuleCode' => 'obmannyy-manevr'],
+            ),
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-maneuver-empty',
+            'expectedVersion' => $declared['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertTrue($closed['data']['closed'] ?? false);
+        self::assertSame(0, $closed['data']['success'] ?? null);
+        self::assertSame([], $this->battleRow($battleId)['marks'] ?? []);
+    }
+
+    /**
+     * Правила Обманного манёвра для теста.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function maneuverRules(): array
+    {
+        $check = [
+            'allow_characteristic_override' => false,
+            'allowed_modes' => 'joint',
+            'ordinary_root' => true,
+            'concentration_token' => false,
+            'willpower' => false,
+            'unstable_check' => false,
+            'hit_check' => false,
+            'difficulty_input' => ['kind' => 'none', 'state_code' => ''],
+        ];
+
+        return [
+            'deception' => [
+                'type' => 'check',
+                'name' => 'Deception',
+                'spec' => [...$check, 'characteristic_code' => 'will'],
+                'roll' => true,
+            ],
+            'check-attention' => [
+                'type' => 'check',
+                'name' => 'Attention',
+                'spec' => [...$check, 'characteristic_code' => 'will'],
+                'roll' => true,
+            ],
+            'check-melee-combat' => [
+                'type' => 'check',
+                'name' => 'Melee combat',
+                'spec' => [...$check, 'characteristic_code' => 'strength'],
+                'roll' => true,
+            ],
+            'obmannyy-manevr' => [
+                'type' => 'ability',
+                'name' => 'Обманный манёвр',
+                'spec' => [
+                    'type' => 'skill',
+                    'maneuver' => [
+                        'trigger' => 'strike',
+                        'window' => 'after_defense_before_check',
+                        'attack' => 'auto_fail',
+                        'check' => [
+                            'attacker' => [
+                                ['check' => 'deception', 'characteristic' => 'will'],
+                            ],
+                            'target' => [
+                                ['check' => 'check-attention', 'characteristic' => 'will'],
+                                ['check' => 'check-melee-combat', 'characteristic' => 'strength'],
+                            ],
+                        ],
+                        'outcome' => [
+                            'on_target_passed' => 'may_ignore',
+                            'on_target_failed' => [[
+                                'kind' => 'advantage',
+                                'value' => -2,
+                                'source_code' => 'circumstances',
+                                'scope' => 'defense_against_attacker',
+                                'consumes' => 'first_defense',
+                                'expires' => 'attacker_turn',
+                            ]],
+                        ],
+                    ],
+                ],
+            ],
+        ];
     }
 
     /**

@@ -282,10 +282,19 @@ final class GameRunActionBody
             $allowed[] = 'tokenSpend';
         }
 
+        if (array_key_exists('maneuverRuleCode', $context)) {
+            $allowed[] = 'maneuverRuleCode';
+        }
+
         $this->assertKeys($context, $allowed, 'strike context');
         $rows = $context['strikes'] ?? null;
         $chosen = $context['chosenAmounts'] ?? [];
         $token = $this->tokenSpend($context['tokenSpend'] ?? null);
+        $maneuver = $context['maneuverRuleCode'] ?? null;
+        if ($maneuver !== null && (!is_string($maneuver) || $maneuver === '')) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike context');
+        }
+
         $process = $this->process($context);
         if (!is_array($rows) || $rows === [] || !array_is_list($rows) || !is_array($chosen)) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike context');
@@ -300,6 +309,7 @@ final class GameRunActionBody
             'strikes' => $strikes,
             'chosenAmounts' => $chosen,
             'tokenSpend' => $token,
+            'maneuverRuleCode' => $maneuver,
             'processRuleCode' => $process['processRuleCode'],
             'processStepCode' => $process['processStepCode'],
         ];

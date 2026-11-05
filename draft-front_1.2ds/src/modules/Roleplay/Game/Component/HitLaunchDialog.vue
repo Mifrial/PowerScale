@@ -227,6 +227,7 @@ const opponentKey = ref<CombatEntityKey | null>(null);
 const reaction = ref<HitDefenseReaction | null>(null);
 const attackerAdv = ref(0);
 const spendAttackerConcentration = ref(0);
+const maneuverRuleCode = ref<string | null>(null);
 const useAccuracyToken = ref(false);
 const spendDefenderConcentration = ref(0);
 const defenderAdv = ref(0);
@@ -293,6 +294,27 @@ const procedure = computed(() =>
 );
 
 const resolvedAttackerKey = computed(() => offer.value?.initiator ?? props.attackerKey);
+
+const maneuverOffers = computed(() => {
+  const version = versionOf(resolvedAttackerKey.value);
+  if (!version) return [];
+  const offers: Rule[] = [];
+  for (const rule of props.rules) {
+    if (rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object') continue;
+    if (!('maneuver' in rule.spec)) continue;
+    if (!version.abilities.some((ability) => ability.ruleCode === rule.code && ability.level > 0)) continue;
+    offers.push(rule);
+  }
+
+  return offers;
+});
+
+const maneuverAvailable = computed(
+  () =>
+    maneuverOffers.value.length > 0 &&
+    resolvedAttackAction.value?.mode !== 'wide' &&
+    (resolvedAttackAction.value?.strikes.length ?? 0) <= 1,
+);
 
 const entityOptions = computed(() => {
   const items: { value: CombatEntityKey; title: string }[] = [];
@@ -3902,6 +3924,7 @@ function phpSingleStrikeEnvelope(attack: {
   processStepCode?: string;
   tokenSpend?: number;
   tokenMode?: 'advantage' | 'accuracy';
+  maneuverRuleCode?: string;
 }) {
   return {
     phase: 'declare' as const,
@@ -3914,6 +3937,7 @@ function phpSingleStrikeEnvelope(attack: {
       ...(attack.tokenSpend && attack.tokenSpend > 0
         ? { tokenSpend: { amount: attack.tokenSpend, mode: attack.tokenMode ?? 'advantage' } }
         : {}),
+      ...(attack.maneuverRuleCode ? { maneuverRuleCode: attack.maneuverRuleCode } : {}),
       ...(attack.processRuleCode
         ? { processRuleCode: attack.processRuleCode, processStepCode: attack.processStepCode }
         : {}),
@@ -4034,6 +4058,7 @@ async function submitPhpStrike(): Promise<boolean> {
               ...(attackBody.attack as PhpSingleAttack),
               tokenSpend: spendAttackerConcentration.value,
               tokenMode: useAccuracyToken.value ? 'accuracy' : 'advantage',
+              maneuverRuleCode: maneuverAvailable.value ? (maneuverRuleCode.value ?? undefined) : undefined,
             }),
       });
       phpDeclared.value = true;
@@ -4121,6 +4146,17 @@ async function submitPhpStrike(): Promise<boolean> {
     },
   });
   if (result.closed !== true) {
+    if ((result.awaiting?.length ?? 0) > 0 && phpDeclaredStrike.value) {
+      const pending: GamePhpOpenStrike = {
+        ...phpDeclaredStrike.value,
+        awaiting: result.awaiting,
+        ...(result.maneuver ? { maneuver: result.maneuver } : {}),
+      };
+      phpDeclaredStrike.value = pending;
+      phpPendingStrike.value = pending;
+      gamePhpBattleContext.rememberOpenStrike(pending);
+      emit('strike-refresh');
+    }
     const next = result.strikes?.find((row) => row.reaction === null);
     if (next) {
       const pending: GamePhpOpenStrike = {
@@ -4640,6 +4676,18 @@ const canSubmit = computed(() => {
             :overlay="overlays.find((item) => item.entityKey === resolvedAttackerKey) ?? null"
             :rules="rules"
             :check-code="hitCheckCode"
+          />
+          <v-select
+            v-if="isCompose && !isPreparationAction && maneuverAvailable"
+            v-model="maneuverRuleCode"
+            :items="maneuverOffers"
+            item-title="name"
+            item-value="code"
+            label="Обманный манёвр (улучшение)"
+            density="compact"
+            hide-details
+            clearable
+            class="mt-2"
           />
           <v-checkbox
             v-if="isCompose && !isPreparationAction && accuracyTokenAvailable && spendAttackerConcentration > 0"

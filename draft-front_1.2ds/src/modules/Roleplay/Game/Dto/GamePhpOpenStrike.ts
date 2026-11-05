@@ -1,4 +1,5 @@
 import type { GamePhpOpenStrikeCoverer } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeCoverer';
+import type { GamePhpManeuver } from '@/modules/Roleplay/Game/Dto/GamePhpManeuver';
 import type { GamePhpStrikeAwaiting } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAwaiting';
 import type { GamePhpStrikeConditions } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeConditions';
 import type { GamePhpOpenStrikeSupporter } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeSupporter';
@@ -22,4 +23,6 @@ export interface GamePhpOpenStrike {
   coverers?: GamePhpOpenStrikeCoverer[];
   /** Ожидающие решения (например, выбор фактической цели). */
   awaiting?: GamePhpStrikeAwaiting[];
+  /** Раскрытый Обманный манёвр: скрыт до ответов защитников. */
+  maneuver?: GamePhpManeuver | null;
 }

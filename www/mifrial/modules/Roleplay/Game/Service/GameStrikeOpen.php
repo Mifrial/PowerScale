@@ -554,7 +554,10 @@ final class GameStrikeOpen
             : $choice['targets'];
 
         $strikes = is_array($choice['strikes'] ?? null) && $choice['strikes'] !== []
-            ? $this->strikeRows($choice['strikes'])
+            ? $this->strikeRows(
+                $choice['strikes'],
+                is_array($choice['maneuver'] ?? null) ? $choice['maneuver'] : [],
+            )
             : $this->strikes($targets, $choice);
 
         return [
@@ -567,10 +570,11 @@ final class GameStrikeOpen
      * Строки ударов из разобранного выбора.
      *
      * @param list<array<string, mixed>> $strikes Строки.
+     * @param array<string, mixed> $maneuver Манёвр строки.
      *
      * @return list<array<string, mixed>> Строки.
      */
-    private function strikeRows(array $strikes): array
+    private function strikeRows(array $strikes, array $maneuver = []): array
     {
         $rows = [];
         foreach ($strikes as $strike) {
@@ -583,6 +587,7 @@ final class GameStrikeOpen
                 'target_type' => $strike['target']['type'],
                 'target_id' => $strike['target']['id'],
                 'conditions' => $strike['conditions'] ?? (new GameStrikeConditions())->defaults(),
+                'maneuver' => $maneuver,
                 'reaction' => null,
                 'block_item_inventory_id' => null,
                 'block_item_profile_index' => null,
@@ -619,6 +624,7 @@ final class GameStrikeOpen
                 'conditions' => is_array($conditions)
                     ? $conditions
                     : (new GameStrikeConditions())->defaults(),
+                'maneuver' => is_array($choice['maneuver'] ?? null) ? $choice['maneuver'] : [],
                 'action_modifiers' => is_array($choice['modifiers'] ?? null)
                     ? array_values($choice['modifiers'])
                     : [],

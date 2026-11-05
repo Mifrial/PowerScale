@@ -90,6 +90,7 @@ final class GameViewAssembler
             'round' => $battle->getRound(),
             'openStrike' => $this->openStrikeOf($openStrike),
             'pendingActionEffects' => $battle->getPendingActionEffects(),
+            'marks' => $battle->getMarks(),
         ];
     }
 
@@ -134,6 +135,49 @@ final class GameViewAssembler
             'supporters' => $this->supportersOf($target),
             'coverers' => $this->rowsOf($target, 'coverers'),
             'awaiting' => $this->awaitingOf($target),
+            'maneuver' => $this->maneuverOf($target),
+        ];
+    }
+
+    /**
+     * Раскрытый манёвр открытого удара.
+     *
+     * @param array<string, mixed> $row Колонки.
+     *
+     * @return array<string, mixed>|null Описание или null.
+     */
+    private function maneuverOf(array $row): ?array
+    {
+        $raw = $row['resolution'] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if (!is_array($raw) || !is_array($raw['maneuver'] ?? null)) {
+            return null;
+        }
+
+        $maneuver = $raw['maneuver'];
+        $targets = [];
+        foreach (is_array($raw['targets'] ?? null) ? $raw['targets'] : [] as $key => $target) {
+            if (!is_array($target)) {
+                continue;
+            }
+
+            $targets[$key] = [
+                'actor' => $target['actor'] ?? null,
+                'check' => $target['check'] ?? null,
+                'roll' => $target['roll'] ?? null,
+                'won' => $target['won'] ?? null,
+                'decision' => $target['decision'] ?? null,
+            ];
+        }
+
+        return [
+            'ruleCode' => is_string($maneuver['ruleCode'] ?? null) ? $maneuver['ruleCode'] : '',
+            'phase' => is_string($raw['phase'] ?? null) ? $raw['phase'] : '',
+            'attacker' => $raw['attacker'] ?? null,
+            'targets' => $targets,
         ];
     }
 

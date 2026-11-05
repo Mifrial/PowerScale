@@ -249,6 +249,76 @@ final class GameCheckRoll
     }
 
     /**
+     * Совместная проверка с разными карточками у сторон.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $initiatorRuleCode Проверка инициатора.
+     * @param array<string, mixed> $initiatorSheet Лист инициатора.
+     * @param GameCheckThrowOverride|null $initiatorOverride Смена инициатора.
+     * @param string $opponentRuleCode Проверка противника.
+     * @param array<string, mixed> $opponentSheet Лист противника.
+     * @param GameCheckThrowOverride|null $opponentOverride Смена противника.
+     *
+     * @return array{initiator: array<string, mixed>, opponent: array<string, mixed>} Броски.
+     *
+     * @throws GameInvalidException Если карточка или пул чужие.
+     */
+    public function throwJointCheckSides(
+        int $spaceId,
+        int $rulesRevision,
+        string $initiatorRuleCode,
+        array $initiatorSheet,
+        ?GameCheckThrowOverride $initiatorOverride,
+        string $opponentRuleCode,
+        array $opponentSheet,
+        ?GameCheckThrowOverride $opponentOverride,
+    ): array {
+        $slice = $this->slices->get($spaceId, $rulesRevision);
+        $initiatorCheck = $this->checkOf($slice, $initiatorRuleCode);
+        $opponentCheck = $this->checkOf($slice, $opponentRuleCode);
+        $this->assertFlow($initiatorCheck, 'joint');
+        $this->assertFlow($opponentCheck, 'joint');
+        $initiatorChain = $this->chain($slice, $initiatorCheck, $initiatorRuleCode, false);
+        $opponentChain = $this->chain($slice, $opponentCheck, $opponentRuleCode, false);
+        $bindings = $this->bindings($slice);
+        $payload = $this->rollPayload($bindings);
+        $initiator = $this->rolledSide(
+            $slice,
+            $initiatorCheck,
+            $initiatorChain,
+            $bindings,
+            $payload,
+            $this->efficiency($initiatorCheck),
+            $initiatorSheet,
+            $initiatorOverride,
+        );
+        $opponent = $this->rolledSide(
+            $slice,
+            $opponentCheck,
+            $opponentChain,
+            $bindings,
+            $payload,
+            $this->efficiency($opponentCheck),
+            $opponentSheet,
+            $opponentOverride,
+        );
+        $initiatorLabel = $slice->findLive($initiatorRuleCode)?->getName() ?? '';
+        $opponentLabel = $slice->findLive($opponentRuleCode)?->getName() ?? '';
+
+        return [
+            'initiator' => $this->scored(
+                ['base' => $opponent->getTotalSuccesses(), 'size' => $opponent->getSpec()->getDieSize()],
+                $initiator,
+            ) + ['label' => $initiatorLabel],
+            'opponent' => $this->scored(
+                ['base' => $initiator->getTotalSuccesses(), 'size' => $initiator->getSpec()->getDieSize()],
+                $opponent,
+            ) + ['label' => $opponentLabel],
+        ];
+    }
+
+    /**
      * Бросок одной стороны совместной проверки.
      *
      * @param CharacterRuleSlice $slice Срез.

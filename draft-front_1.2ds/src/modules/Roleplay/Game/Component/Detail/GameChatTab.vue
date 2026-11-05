@@ -24,6 +24,7 @@ import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenS
 import type { GamePhpOpenWideStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrike';
 import type { GamePhpOpenWideStrikeTarget } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrikeTarget';
 import type { GamePhpStrikeAwaiting } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAwaiting';
+import type { GamePhpStrikeAwaitingOption } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAwaiting';
 import type { GamePhpOpenStrikeCoverer } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeCoverer';
 import type { GameLifecycleResult } from '@/modules/Roleplay/Game/Dto/GameLifecycleResult';
 import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerOption';
@@ -722,6 +723,12 @@ const reactionLabel = computed(() => {
 
 const strikeAwaiting = computed(() => (phpOpenStrike.value ?? gamePhpBattleContext.openStrike)?.awaiting ?? []);
 
+const battleMarks = computed(() => {
+  void battleRevision.value;
+
+  return gamePhpBattleContext.battleMarks;
+});
+
 const wideAwaiting = computed(() => {
   void battleRevision.value;
   const wide = openWideStrike.value;
@@ -764,6 +771,84 @@ const actualTargetWindow = computed(() => {
     ),
   };
 });
+
+const maneuverAwaiting = computed(
+  () =>
+    strikeAwaiting.value.find(
+      (entry) => entry.kind === 'maneuver_reveal' && isMyStrikeActor(entry.actor.type, entry.actor.id),
+    ) ?? null,
+);
+
+const maneuverWindow = computed(() => {
+  const entry = maneuverAwaiting.value;
+  if (!entry) return null;
+  const strike = phpOpenStrike.value ?? gamePhpBattleContext.openStrike;
+
+  return {
+    entry,
+    attack: strike?.maneuver ?? null,
+  };
+});
+
+const maneuverDecision = ref<'keep' | 'refuse'>('keep');
+const maneuverOption = ref<GamePhpStrikeAwaitingOption | null>(null);
+watch(
+  () => maneuverAwaiting.value?.phase,
+  () => {
+    maneuverOption.value = maneuverAwaiting.value?.options[0] ?? null;
+  },
+  { immediate: true },
+);
+
+function maneuverOptionLabel(option: GamePhpStrikeAwaitingOption): string {
+  const check = revisionRules.value.find((rule) => rule.code === option.check)?.name ?? option.check ?? '';
+  const characteristic =
+    revisionRules.value.find((rule) => rule.code === option.characteristic)?.name ?? option.characteristic ?? '';
+
+  return `${check} · ${characteristic}`;
+}
+
+async function submitManeuver(decision?: 'keep' | 'refuse'): Promise<void> {
+  const entry = maneuverAwaiting.value;
+  const battleId = gamePhpBattleContext.battleId;
+  if (!entry || battleId === null) return;
+
+  reactionBusy.value = true;
+  reactionError.value = null;
+  try {
+    let window:
+      | { actor: { type: string; id: number }; check: string; characteristic: string }
+      | { actor: { type: string; id: number }; decision: 'keep' | 'refuse' };
+    if (entry.phase === 'decision') {
+      window = { actor: entry.actor, decision: decision ?? maneuverDecision.value };
+    } else {
+      const option = maneuverOption.value ?? entry.options[0];
+      if (!option?.check || !option.characteristic) throw new Error('Проверка манёвра не найдена');
+      window = { actor: entry.actor, check: option.check, characteristic: option.characteristic };
+    }
+
+    await getGameApi().resolveStrikeWindow({
+      gameId: gameId.value,
+      battleId,
+      idempotencyKey: createRandomId(),
+      expectedVersion: gamePhpBattleContext.battleVersion,
+      window,
+    });
+    gamePhpBattleContext.rememberOpenStrike(null);
+    phpOpenStrike.value = null;
+    closeReactionOffer();
+    store.applyGameUpdate(await getGameApi().getGame(gameId.value));
+    applyBattleSheets(await getGameApi().getBattleSheets({ gameId: gameId.value, battleId }));
+    openWideStrike.value = gamePhpBattleContext.openWideStrike;
+    phpOpenStrike.value = gamePhpBattleContext.openStrike;
+    await tryOpenPhpStrike();
+    battleRevision.value += 1;
+  } catch (cause) {
+    reactionError.value = cause instanceof Error ? cause.message : 'Не удалось раскрыть манёвр';
+  } finally {
+    reactionBusy.value = false;
+  }
+}
 
 function isMyStrikeActor(type: string, id: number): boolean {
   if (type === 'character') {
@@ -2249,6 +2334,7 @@ onUnmounted(() => {
       :process-sessions="processSessionsByEntity"
       :runtime-projection="cardKey ? (runtimeByKey[cardKey] ?? null) : null"
       :live-version="cardKey ? (liveSheetByKey[cardKey] ?? null) : null"
+      :battle-marks="battleMarks"
       @update:open="onCloseCard"
       @toggle-quick-roll="toggleQuickRoll"
       @overlay-changed="onOverlayChanged"
@@ -2385,14 +2471,50 @@ onUnmounted(() => {
               :key="option.key"
               variant="tonal"
               :loading="reactionBusy"
-              @click="chooseActualTarget(option.key)"
+              @click="chooseActualTarget(option.key ?? '')"
             >
-              {{ strikeActorName(option.actor.type, option.actor.id) }}
+              {{ strikeActorName(option.actor?.type ?? '', option.actor?.id ?? 0) }}
             </v-btn>
           </div>
           <v-btn variant="text" size="small" :disabled="reactionBusy" class="mt-2" @click="refreshStrikeWindow">
             Обновить удар
           </v-btn>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+    <v-dialog :model-value="Boolean(maneuverWindow)" max-width="520" persistent>
+      <v-card v-if="maneuverWindow">
+        <v-card-title class="text-body-1 py-2 px-4">Обманный манёвр</v-card-title>
+        <v-card-text class="pt-0">
+          <template v-if="maneuverWindow.entry.phase === 'check'">
+            <div class="text-body-2 mb-2">
+              Атакующий раскрыл обман. Выберите проверку и характеристику — бросок идёт против его Обмана.
+            </div>
+            <v-select
+              v-model="maneuverOption"
+              :items="maneuverWindow.entry.options"
+              :item-title="maneuverOptionLabel"
+              return-object
+              density="compact"
+              hide-details
+              class="mb-3"
+            />
+            <v-btn variant="tonal" :loading="reactionBusy" @click="submitManeuver()">Бросить</v-btn>
+          </template>
+          <template v-else>
+            <div class="text-body-2 mb-3">
+              Вы распознали обман и можете отказаться от реакции. Иначе останетесь с меткой до конца хода атакующего.
+            </div>
+            <div class="d-flex ga-2">
+              <v-btn variant="tonal" :loading="reactionBusy" @click="submitManeuver('keep')">Оставить реакцию</v-btn>
+              <v-btn variant="flat" color="primary" :loading="reactionBusy" @click="submitManeuver('refuse')">
+                Отказаться
+              </v-btn>
+            </div>
+          </template>
+          <v-alert v-if="reactionError" type="error" variant="tonal" density="compact" class="mt-2">
+            {{ reactionError }}
+          </v-alert>
         </v-card-text>
       </v-card>
     </v-dialog>

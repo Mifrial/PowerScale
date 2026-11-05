@@ -1,6 +1,7 @@
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { GameInitiativeOrderEntry } from '@/modules/Roleplay/Game/Dto/GameInitiativeOrderEntry';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpBattleMark } from '@/modules/Roleplay/Game/Dto/GamePhpBattleMark';
 import type { GamePhpOpenWideStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrike';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 
@@ -15,6 +16,7 @@ export class GamePhpBattleContext {
   openStrike: GamePhpOpenStrike | null = null;
   openWideStrike: GamePhpOpenWideStrike | null = null;
   pendingActionEffects: Record<string, PendingActionEffect[]> = {};
+  battleMarks: GamePhpBattleMark[] = [];
 
   rememberBattle(battleId: number, version: number): void {
     this.battleId = battleId;
@@ -39,6 +41,10 @@ export class GamePhpBattleContext {
 
   rememberPending(pending: Record<string, PendingActionEffect[]>): void {
     this.pendingActionEffects = pending;
+  }
+
+  rememberBattleMarks(marks: GamePhpBattleMark[]): void {
+    this.battleMarks = marks;
   }
 
   getScale(): GameInitiative | null {
@@ -71,5 +77,6 @@ export class GamePhpBattleContext {
     this.openStrike = null;
     this.openWideStrike = null;
     this.pendingActionEffects = {};
+    this.battleMarks = [];
   }
 }

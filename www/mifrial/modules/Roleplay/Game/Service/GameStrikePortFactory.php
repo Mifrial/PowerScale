@@ -92,6 +92,7 @@ final class GameStrikePortFactory
             new GamePushRules($rules),
             $this->createStateIncreaseChecks($serviceLocator),
             $this->processFlow($serviceLocator, $gateway, $rules),
+            $this->checkRoll($serviceLocator),
         );
     }
 

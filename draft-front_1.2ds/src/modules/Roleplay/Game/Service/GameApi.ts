@@ -29,6 +29,8 @@ import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinReques
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrike';
+import type { GamePhpManeuver, GamePhpManeuverTarget } from '@/modules/Roleplay/Game/Dto/GamePhpManeuver';
+import type { GamePhpBattleMark } from '@/modules/Roleplay/Game/Dto/GamePhpBattleMark';
 import type { GamePhpOpenStrikeCoverer } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeCoverer';
 import type { GamePhpStrikeAwaiting } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAwaiting';
 import type { GamePhpOpenStrikeSupporter } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeSupporter';
@@ -1260,7 +1262,10 @@ export class GameApi implements IGameApi {
       battleId: number;
       idempotencyKey: string;
       expectedVersion: number;
-      window: { row?: string; actualTarget: string };
+      window:
+        | { row?: string; actualTarget: string }
+        | { actor: { type: string; id: number }; check: string; characteristic: string }
+        | { actor: { type: string; id: number }; decision: 'keep' | 'refuse' };
     },
     signal?: AbortSignal,
   ): Promise<GamePhpRunActionResult> {
@@ -1574,6 +1579,46 @@ export class GameApi implements IGameApi {
     }
     gamePhpBattleContext.rememberOpenStrike(this.openStrikeOf(record.openStrike));
     gamePhpBattleContext.rememberPending(this.pendingOf(record.pendingActionEffects));
+    gamePhpBattleContext.rememberBattleMarks(this.battleMarksOf(record.marks));
+  }
+
+  private battleMarksOf(value: unknown): GamePhpBattleMark[] {
+    if (!Array.isArray(value)) return [];
+    const marks: GamePhpBattleMark[] = [];
+    for (const entry of value) {
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+      const row = entry as Record<string, unknown>;
+      const subject = this.actorOf(row.subject);
+      const scope = row.scope;
+      const against =
+        scope !== null && typeof scope === 'object' && !Array.isArray(scope)
+          ? this.actorOf((scope as Record<string, unknown>).defense_against)
+          : null;
+      if (subject === null || against === null) continue;
+      if (typeof row.kind !== 'string' || typeof row.source_code !== 'string') continue;
+      const valueRow = row.value;
+      if (typeof valueRow !== 'number') continue;
+      marks.push({
+        subject,
+        kind: row.kind,
+        value: valueRow,
+        source_code: row.source_code,
+        scope: { defense_against: against },
+        consumes: typeof row.consumes === 'string' ? row.consumes : 'first_defense',
+        expires: { kind: 'turn', of: against },
+      });
+    }
+
+    return marks;
+  }
+
+  private actorOf(value: unknown): { type: string; id: number } | null {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+    const row = value as Record<string, unknown>;
+    const id = this.intField(row.id);
+    if (typeof row.type !== 'string' || id === null) return null;
+
+    return { type: row.type, id };
   }
 
   private pendingOf(value: unknown): Record<string, PendingActionEffect[]> {
@@ -1614,6 +1659,7 @@ export class GameApi implements IGameApi {
     const supporters = this.openStrikeSupportersOf(row.supporters);
     const coverers = this.openStrikeCoverersOf(row.coverers);
     const awaiting = this.openStrikeAwaitingOf(row.awaiting);
+    const maneuver = this.openStrikeManeuverOf(row.maneuver);
 
     return {
       ...(strikeId !== null && strikeId > 0 ? { strikeId } : {}),
@@ -1630,6 +1676,60 @@ export class GameApi implements IGameApi {
       ...(supporters.length > 0 ? { supporters } : {}),
       ...(coverers.length > 0 ? { coverers } : {}),
       ...(awaiting.length > 0 ? { awaiting } : {}),
+      ...(maneuver ? { maneuver } : {}),
+    };
+  }
+
+  private openStrikeManeuverOf(value: unknown): GamePhpManeuver | null {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+    const row = value as Record<string, unknown>;
+    if (typeof row.ruleCode !== 'string' || typeof row.phase !== 'string') return null;
+    const targets: Record<string, GamePhpManeuverTarget> = {};
+    const rawTargets = row.targets;
+    if (rawTargets !== null && typeof rawTargets === 'object' && !Array.isArray(rawTargets)) {
+      for (const [key, target] of Object.entries(rawTargets as Record<string, unknown>)) {
+        if (target === null || typeof target !== 'object' || Array.isArray(target)) continue;
+        const targetRow = target as Record<string, unknown>;
+        const actor = targetRow.actor;
+        const check = targetRow.check;
+        targets[key] = {
+          actor:
+            actor !== null && typeof actor === 'object' && !Array.isArray(actor)
+              ? {
+                  type: String((actor as Record<string, unknown>).type ?? ''),
+                  id: this.intField((actor as Record<string, unknown>).id) ?? 0,
+                }
+              : null,
+          check:
+            check !== null && typeof check === 'object' && !Array.isArray(check)
+              ? {
+                  check: String((check as Record<string, unknown>).check ?? ''),
+                  characteristic: String((check as Record<string, unknown>).characteristic ?? ''),
+                }
+              : null,
+          roll:
+            targetRow.roll !== null && typeof targetRow.roll === 'object' && !Array.isArray(targetRow.roll)
+              ? (targetRow.roll as Record<string, unknown>)
+              : null,
+          won: typeof targetRow.won === 'boolean' ? targetRow.won : null,
+          decision: targetRow.decision === 'keep' || targetRow.decision === 'refuse' ? targetRow.decision : null,
+        };
+      }
+    }
+    const attacker = row.attacker;
+
+    return {
+      ruleCode: row.ruleCode,
+      phase: row.phase,
+      ...(attacker !== null && typeof attacker === 'object' && !Array.isArray(attacker)
+        ? {
+            attacker: {
+              type: String((attacker as Record<string, unknown>).type ?? ''),
+              id: this.intField((attacker as Record<string, unknown>).id) ?? 0,
+            },
+          }
+        : {}),
+      targets,
     };
   }
 
@@ -1680,6 +1780,14 @@ export class GameApi implements IGameApi {
         if (option === null || typeof option !== 'object' || Array.isArray(option)) continue;
         const optionRow = option as Record<string, unknown>;
         const optionActor = optionRow.actor;
+        if (typeof optionRow.check === 'string' && typeof optionRow.characteristic === 'string') {
+          options.push({ check: optionRow.check, characteristic: optionRow.characteristic });
+          continue;
+        }
+        if (typeof optionRow.key === 'string' && (optionActor === null || typeof optionActor !== 'object')) {
+          options.push({ key: optionRow.key });
+          continue;
+        }
         if (typeof optionRow.key !== 'string' || optionActor === null || typeof optionActor !== 'object') continue;
         const optionActorRow = optionActor as Record<string, unknown>;
         const optionType = optionActorRow.type;
@@ -1687,7 +1795,16 @@ export class GameApi implements IGameApi {
         if (typeof optionType !== 'string' || optionId === null) continue;
         options.push({ key: optionRow.key, actor: { type: optionType, id: optionId } });
       }
-      awaiting.push({ kind: row.kind, actor: { type, id }, options });
+      awaiting.push({
+        kind: row.kind,
+        actor: { type, id },
+        options,
+        ...(typeof row.phase === 'string' ? { phase: row.phase } : {}),
+        ...(row.roll !== null && typeof row.roll === 'object' && !Array.isArray(row.roll)
+          ? { roll: row.roll as Record<string, unknown> }
+          : {}),
+        ...(typeof row.won === 'boolean' ? { won: row.won } : {}),
+      });
     }
 
     return awaiting;

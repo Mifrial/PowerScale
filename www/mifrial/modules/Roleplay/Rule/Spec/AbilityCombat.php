@@ -12,6 +12,9 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\AutoHit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\HitResolution;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\NoneHit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\KnownAttackDefense;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ManeuverCheck;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ManeuverMark;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ManeuverModifier;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\NextCastDifficulty;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\PushSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellChain;
@@ -209,6 +212,135 @@ final class AbilityCombat
             ],
             SpecShape::optionalString($row, 'distance'),
         );
+    }
+
+    /**
+     * Обманный манёвр.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return ManeuverModifier|null Манёвр или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    public static function maneuver(array $document): ?ManeuverModifier
+    {
+        $row = SpecShape::object($document, 'maneuver');
+        if ($row === null) {
+            return null;
+        }
+
+        if (SpecShape::string($row, 'trigger') !== ManeuverModifier::TRIGGER_STRIKE) {
+            throw new RuleSpecShapeException('maneuver.trigger');
+        }
+
+        if (SpecShape::string($row, 'window') !== ManeuverModifier::WINDOW_AFTER_DEFENSE_BEFORE_CHECK) {
+            throw new RuleSpecShapeException('maneuver.window');
+        }
+
+        if (SpecShape::string($row, 'attack') !== ManeuverModifier::ATTACK_AUTO_FAIL) {
+            throw new RuleSpecShapeException('maneuver.attack');
+        }
+
+        $checks = SpecShape::object($row, 'check');
+        if ($checks === null) {
+            throw new RuleSpecShapeException('maneuver.check');
+        }
+
+        $attacker = self::maneuverChecks($checks, 'attacker');
+        $target = self::maneuverChecks($checks, 'target');
+        if ($attacker === [] || $target === []) {
+            throw new RuleSpecShapeException('maneuver.check');
+        }
+
+        $outcome = SpecShape::object($row, 'outcome');
+        if ($outcome === null) {
+            throw new RuleSpecShapeException('maneuver.outcome');
+        }
+
+        if (SpecShape::string($outcome, 'on_target_passed') !== ManeuverModifier::OUTCOME_MAY_IGNORE) {
+            throw new RuleSpecShapeException('maneuver.outcome.on_target_passed');
+        }
+
+        $marks = [];
+        foreach (SpecShape::list($outcome, 'on_target_failed') as $entry) {
+            $entry = SpecShape::requireMap($entry, 'maneuver.outcome.on_target_failed');
+            if (SpecShape::string($entry, 'kind') !== ManeuverModifier::MARK_KIND_ADVANTAGE) {
+                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.kind');
+            }
+
+            $value = SpecShape::int($entry, 'value');
+            if ($value === 0) {
+                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.value');
+            }
+
+            $source = SpecShape::string($entry, 'source_code');
+            if ($source === '') {
+                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.source_code');
+            }
+
+            if (SpecShape::string($entry, 'scope') !== ManeuverModifier::SCOPE_DEFENSE_AGAINST_ATTACKER) {
+                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.scope');
+            }
+
+            if (SpecShape::string($entry, 'consumes') !== ManeuverModifier::CONSUMES_FIRST_DEFENSE) {
+                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.consumes');
+            }
+
+            if (SpecShape::string($entry, 'expires') !== ManeuverModifier::EXPIRES_ATTACKER_TURN) {
+                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.expires');
+            }
+
+            $marks[] = new ManeuverMark(
+                ManeuverModifier::MARK_KIND_ADVANTAGE,
+                $value,
+                $source,
+                ManeuverModifier::SCOPE_DEFENSE_AGAINST_ATTACKER,
+                ManeuverModifier::CONSUMES_FIRST_DEFENSE,
+                ManeuverModifier::EXPIRES_ATTACKER_TURN,
+            );
+        }
+
+        if ($marks === []) {
+            throw new RuleSpecShapeException('maneuver.outcome.on_target_failed');
+        }
+
+        return new ManeuverModifier(
+            ManeuverModifier::TRIGGER_STRIKE,
+            ManeuverModifier::WINDOW_AFTER_DEFENSE_BEFORE_CHECK,
+            ManeuverModifier::ATTACK_AUTO_FAIL,
+            $attacker,
+            $target,
+            true,
+            $marks,
+        );
+    }
+
+    /**
+     * Пары проверок одной стороны манёвра.
+     *
+     * @param array<string, mixed> $checks Узел check.
+     * @param string $side Сторона.
+     *
+     * @return array<int, ManeuverCheck> Пары.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function maneuverChecks(array $checks, string $side): array
+    {
+        $rows = [];
+        foreach (SpecShape::list($checks, $side) as $entry) {
+            $entry = SpecShape::requireMap($entry, 'maneuver.check.' . $side);
+            $check = SpecShape::string($entry, 'check');
+            $characteristic = SpecShape::string($entry, 'characteristic');
+            if ($check === '' || $characteristic === '') {
+                throw new RuleSpecShapeException('maneuver.check.' . $side);
+            }
+
+            $rows[] = new ManeuverCheck($check, $characteristic);
+        }
+
+        return $rows;
     }
 
     /**

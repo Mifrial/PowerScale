@@ -336,7 +336,10 @@ export interface IGameApi {
       battleId: number;
       idempotencyKey: string;
       expectedVersion: number;
-      window: { row?: string; actualTarget: string };
+      window:
+        | { row?: string; actualTarget: string }
+        | { actor: { type: string; id: number }; check: string; characteristic: string }
+        | { actor: { type: string; id: number }; decision: 'keep' | 'refuse' };
     },
     signal?: AbortSignal,
   ): Promise<GamePhpRunActionResult>;

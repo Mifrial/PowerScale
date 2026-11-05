@@ -537,6 +537,10 @@ trait GameMysqlFixture
             $context['processStepCode'] = $attack['processStepCode'];
         }
 
+        if (array_key_exists('maneuverRuleCode', $attack)) {
+            $context['maneuverRuleCode'] = $attack['maneuverRuleCode'];
+        }
+
         return [
             'phase' => 'declare',
             'kind' => 'strike',
@@ -586,6 +590,10 @@ trait GameMysqlFixture
 
         if (array_key_exists('processStepCode', $attack)) {
             $context['processStepCode'] = $attack['processStepCode'];
+        }
+
+        if (array_key_exists('maneuverRuleCode', $attack)) {
+            $context['maneuverRuleCode'] = $attack['maneuverRuleCode'];
         }
 
         return [

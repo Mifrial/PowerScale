@@ -22,6 +22,7 @@ use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
+use Mifrial\Roleplay\Rule\Spec\AbilityCombat;
 
 /**
  * Атака и защита одного удара.
@@ -64,6 +65,10 @@ final class GameStrikes implements IGameStrikes
 
     private readonly GameStrikeClose $closeService;
 
+    private readonly GameCheckRoll $checkRoll;
+
+    private readonly GameStrikeManeuver $maneuver;
+
     /**
      * Создаёт фасад.
      *
@@ -97,7 +102,9 @@ final class GameStrikes implements IGameStrikes
         private readonly GamePushRules $push,
         private readonly GameStateIncreaseChecks $stateChecks,
         private readonly GameProcessFlow $processes,
+        GameCheckRoll $checkRoll,
     ) {
+        $this->checkRoll = $checkRoll;
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->actions = new GameActionRepository($smartTableGateway);
         $this->commands = new GameCommandRepository($smartTableGateway);
@@ -118,6 +125,7 @@ final class GameStrikes implements IGameStrikes
             $this->members,
             $conflictProjection,
         );
+        $this->maneuver = new GameStrikeManeuver($this->actions, $this->battles, $this->sheets);
         $this->spend = new GameStrikeSpend($rules, $this->sheetWrites);
         $this->open = new GameStrikeOpen(
             $this->battles,
@@ -355,6 +363,24 @@ final class GameStrikes implements IGameStrikes
             throw new GameInvalidException('Game strike window is not open');
         }
 
+        if (!$wide && $this->isManeuverOpen($strikes[0])) {
+            $result = $this->resumeManeuver(
+                $game,
+                $sessionId,
+                $battleId,
+                $idempotencyKey,
+                $expectedBattleVersion,
+                $strikes[0],
+                $window,
+                $actorUserId,
+                $editAll,
+                $viewAll,
+            );
+            $this->announce($gameId, $idempotencyKey);
+
+            return $result;
+        }
+
         $attacker = ['type' => $open['attacker_kind'] ?? null, 'id' => $open['attacker_id'] ?? null];
         if (!is_string($attacker['type'] ?? null) || !is_int($attacker['id'] ?? null)) {
             throw new GameInvalidException('Game strike window is not open');
@@ -394,6 +420,103 @@ final class GameStrikes implements IGameStrikes
         $this->announce($gameId, $idempotencyKey);
 
         return $result;
+    }
+
+    /**
+     * Открыто ли окно раскрытия манёвра.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     *
+     * @return bool Признак.
+     */
+    private function isManeuverOpen(array $row): bool
+    {
+        $resolution = $row['resolution'] ?? null;
+        if (is_string($resolution)) {
+            $resolution = json_decode($resolution, true);
+        }
+
+        if (!is_array($resolution) || !in_array($resolution['phase'] ?? null, ['check', 'decision'], true)) {
+            return false;
+        }
+
+        foreach (is_array($resolution['awaiting'] ?? null) ? $resolution['awaiting'] : [] as $entry) {
+            if (is_array($entry) && ($entry['kind'] ?? null) === 'maneuver_reveal') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Принимает решение в окне раскрытия манёвра.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param int $battleId Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedBattleVersion Версия боя.
+     * @param array<string, mixed> $row Строка удара.
+     * @param array<string, mixed> $window Решение.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ.
+     * @param bool $viewAll Ключ.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws ActionException AUTH_DENIED.
+     * @throws GameInvalidException Если окно или выбор чужие.
+     */
+    private function resumeManeuver(
+        GameRecord $game,
+        int $sessionId,
+        int $battleId,
+        string $idempotencyKey,
+        int $expectedBattleVersion,
+        array $row,
+        array $window,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+    ): array {
+        $actor = $window['actor'] ?? null;
+        if (
+            !is_array($actor)
+            || !is_string($actor['type'] ?? null)
+            || !is_int($actor['id'] ?? null)
+        ) {
+            throw new GameInvalidException('Game maneuver actor is invalid');
+        }
+
+        $this->access->assertTarget($game, $actorUserId, $editAll, [
+            'type' => $actor['type'],
+            'id' => $actor['id'],
+        ]);
+        $battle = $this->battleOf($sessionId, $battleId, $expectedBattleVersion);
+        $result = $this->maneuver->resolve(
+            $game,
+            $battle,
+            $row,
+            $window,
+            $expectedBattleVersion,
+            $this->checkRoll,
+        );
+        if (!is_array($result['finish'] ?? null)) {
+            return $result;
+        }
+
+        return $this->closeService->resumeSingle(
+            $game,
+            $sessionId,
+            $battleId,
+            $idempotencyKey,
+            (int) $result['version'],
+            ['maneuver' => $result['finish']],
+            $actorUserId,
+            $editAll,
+            $viewAll,
+        );
     }
 
     /**
@@ -696,6 +819,7 @@ final class GameStrikes implements IGameStrikes
             $choice['attacker']['id'],
             $choice['actionRuleCode'],
         );
+        $choice['maneuver'] = $this->maneuverOf($game, $choice);
         $this->assertModifiers($game, $choice);
         if ($this->rules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $choice['actionRuleCode']) === null) {
             $this->rules->resolveInventorySpend(
@@ -981,6 +1105,47 @@ final class GameStrikes implements IGameStrikes
                 throw new GameInvalidException('Game action modifier scope is invalid');
             }
         }
+    }
+
+    /**
+     * Проверяет карточку манёвра и отдаёт её строку удара.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $choice Выбор.
+     *
+     * @return array<string, mixed> Описание манёвра или пустой список.
+     *
+     * @throws GameInvalidException Если карточка недоступна или форма чужая.
+     */
+    private function maneuverOf(GameRecord $game, array $choice): array
+    {
+        $code = $choice['maneuverRuleCode'] ?? null;
+        if ($code === null) {
+            return [];
+        }
+
+        if (!is_string($code) || $code === '') {
+            throw new GameInvalidException('Game maneuver card is invalid');
+        }
+
+        if (is_array($choice['strikes'] ?? null) && count($choice['strikes']) > 1) {
+            throw new GameInvalidException('Game maneuver supports a single strike');
+        }
+
+        $this->availability->assertAvailable(
+            $game,
+            $choice['attacker']['type'],
+            $choice['attacker']['id'],
+            $code,
+        );
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $rule = $slice->findLive($code);
+        $spec = $rule === null || $rule->isSpecBroken() ? null : AbilityCombat::maneuver($rule->getSpecDocument());
+        if ($spec === null) {
+            throw new GameInvalidException('Game maneuver card is invalid');
+        }
+
+        return $spec->toArray() + ['ruleCode' => $code];
     }
 
     /**

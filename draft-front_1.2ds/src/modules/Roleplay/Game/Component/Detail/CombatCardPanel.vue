@@ -58,6 +58,7 @@ import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { InventoryItemOverview } from '@/modules/Roleplay/Character/Dto/Overview/InventoryItemOverview';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { GamePhpBattleMark } from '@/modules/Roleplay/Game/Dto/GamePhpBattleMark';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
@@ -108,6 +109,8 @@ const props = defineProps<{
   /** Full actual projection для NPC, загруженный по запросу; Character остаётся compatibility path до R6. */
   runtimeProjection?: GameRuntimeEntityProjection | null;
   liveVersion?: CharacterVersion | null;
+  /** Метки боя, действующие на участника. */
+  battleMarks?: GamePhpBattleMark[];
 }>();
 
 const emit = defineEmits<{
@@ -126,6 +129,25 @@ const emit = defineEmits<{
 
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 const askTokenSpend = inject(CONCENTRATION_TOKEN_ASK_INJECT_KEY, undefined);
+
+const entityMarks = computed(() =>
+  (props.battleMarks ?? []).filter((mark) => `${mark.subject.type}:${mark.subject.id}` === props.entityKey),
+);
+
+function markActorName(type: string, id: number): string {
+  if (type === 'character') {
+    return props.memberships.find((membership) => membership.characterId === id)?.characterName ?? `Персонаж ${id}`;
+  }
+
+  return props.npcs.find((npc) => npc.id === id)?.name ?? `НПС ${id}`;
+}
+
+function markText(mark: GamePhpBattleMark): string {
+  const sign = mark.value > 0 ? '+' : '';
+  const against = markActorName(mark.scope.defense_against.type, mark.scope.defense_against.id);
+
+  return `${sign}${mark.value} к защите от ${against} до конца его хода`;
+}
 
 const isOpen = ref(props.open);
 watch(
@@ -1074,6 +1096,13 @@ function onSheetToggleEquipped(itemId: number): void {
     </template>
 
     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="ma-3">{{ error }}</v-alert>
+
+    <v-alert v-if="entityMarks.length" type="warning" variant="tonal" density="compact" class="ma-3">
+      <div class="text-caption font-weight-medium mb-1">Метки боя</div>
+      <div v-for="(mark, index) in entityMarks" :key="`${mark.kind}:${index}`" class="text-body-2">
+        {{ markText(mark) }}
+      </div>
+    </v-alert>
 
     <div v-if="model && effectiveVersion === null" class="text-medium-emphasis text-center pa-8">
       Лист участника не заполнен

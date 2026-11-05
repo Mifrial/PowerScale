@@ -321,6 +321,10 @@ final class GameRunAction
             throw new GameInvalidException('Game concentration supports a single strike');
         }
 
+        if (($context['maneuverRuleCode'] ?? null) !== null && ($wideCard || count($strikes) > 1)) {
+            throw new GameInvalidException('Game maneuver supports a single strike');
+        }
+
         if (!$wideCard && count($targetKeys) === 1) {
             $base = $this->rules->actionBaseOf(
                 $game->getSpaceId(),
@@ -576,6 +580,7 @@ final class GameRunAction
             'chosenAmounts' => $parsed['context']['chosenAmounts'],
             'modifiers' => $strike['modifiers'] ?? [],
             'tokenSpend' => $parsed['context']['tokenSpend'] ?? null,
+            'maneuverRuleCode' => $parsed['context']['maneuverRuleCode'] ?? null,
         ];
         if ($strike['ammunitionInventoryId'] !== null) {
             $attack['ammunitionInventoryId'] = $strike['ammunitionInventoryId'];

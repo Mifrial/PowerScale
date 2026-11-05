@@ -24,6 +24,8 @@ final class GameStrikeSingleClose
 {
     private readonly GameBattleMarks $marks;
 
+    private readonly GameStrikeManeuver $maneuver;
+
     /**
      * Создаёт закрытие.
      *
@@ -69,6 +71,7 @@ final class GameStrikeSingleClose
         private readonly GameStrikeDeclaredSpend $declaredSpend,
     ) {
         $this->marks = new GameBattleMarks();
+        $this->maneuver = new GameStrikeManeuver($this->actions, $this->battles, $this->sheets);
     }
 
     /**
@@ -134,10 +137,17 @@ final class GameStrikeSingleClose
         }
 
         $resumeState = null;
-        if ($resume !== null) {
+        $maneuverResume = $resume !== null && is_array($resume['maneuver'] ?? null)
+            ? $resume['maneuver']
+            : null;
+        if ($resume !== null && $maneuverResume === null) {
             $resumeState = $this->resumeState($row, $resume);
             $row = $resumeState['row'];
             $expectedSheetVersion = $resumeState['expectedSheetVersion'];
+        } elseif ($maneuverResume !== null) {
+            $expectedSheetVersion = is_int($row['expected_sheet_version'] ?? null)
+                ? $row['expected_sheet_version']
+                : 0;
         }
 
         $open = array_merge($open, [
@@ -163,11 +173,43 @@ final class GameStrikeSingleClose
         );
 
         $lastStrike = new GameLastStrikeSnapshot();
-        if ($resumeState === null) {
+        if ($maneuverResume !== null) {
+            $choice = $this->rowChoice($row);
+        } elseif ($resumeState === null) {
             $this->choices->assertReaction($game, $target, $requestChoice);
             $choice = $this->authoritativeChoice($game, $target, $requestChoice);
         } else {
             $choice = $resumeState['choice'];
+        }
+
+        $maneuver = $this->maneuver->maneuverOf($row);
+        $maneuverDone = ($this->jsonRow($row, 'resolution')['phase'] ?? null) === 'done';
+        $maneuverFail = $maneuverResume !== null || $maneuverDone;
+        $maneuverMarks = [];
+        if ($maneuverResume !== null) {
+            $maneuverMarks = is_array($maneuverResume['subjects'] ?? null)
+                ? array_values(array_filter(
+                    $maneuverResume['subjects'],
+                    static fn (mixed $subject): bool => is_array($subject)
+                        && is_string($subject['type'] ?? null)
+                        && is_int($subject['id'] ?? null),
+                ))
+                : [];
+        } elseif (!$maneuverDone && $resumeState === null && $maneuver !== []) {
+            $begin = $this->maneuver->begin(
+                $game,
+                $battle,
+                $row,
+                ['type' => $attackerKind, 'id' => $attackerId],
+                $choice,
+                $expectedBattleVersion,
+                $expectedSheetVersion,
+            );
+            if ($begin['active'] === true && is_array($begin['result'] ?? null)) {
+                return $begin['result'];
+            }
+
+            $maneuverFail = true;
         }
 
         $turn = ($choice['turn'] ?? false) === true;
@@ -603,7 +645,7 @@ final class GameStrikeSingleClose
             );
         }
 
-        $autoFail = $this->rules->isHitAutoFail($attackerRoll['roll']);
+        $autoFail = $maneuverFail || $this->rules->isHitAutoFail($attackerRoll['roll']);
         $pushRating = $isPush
             ? ($autoFail ? 0 : (is_int($attackerRoll['rating'] ?? null) ? $attackerRoll['rating'] : 0))
             : null;
@@ -875,6 +917,24 @@ final class GameStrikeSingleClose
         }
 
         $marksAfter = $markKeys === [] ? null : $this->marks->consume($battle->getMarks(), $markKeys);
+        if ($maneuverMarks !== []) {
+            $base = $marksAfter ?? $battle->getMarks();
+            foreach ($maneuverMarks as $subject) {
+                foreach (is_array($maneuver['marks'] ?? null) ? $maneuver['marks'] : [] as $mark) {
+                    if (!is_array($mark)) {
+                        continue;
+                    }
+
+                    $base = $this->marks->upsert(
+                        $base,
+                        $this->maneuverMark($subject, $attackerKind, $attackerId, $maneuver, $mark),
+                    );
+                }
+            }
+
+            $marksAfter = $base;
+        }
+
         $remaining = $sequential ? $this->remainingStrikes($strikeId, $activeIndex, $choice['reaction']) : 0;
         if ($remaining > 0) {
             $pending = $lastStrike->store(
@@ -1047,6 +1107,66 @@ final class GameStrikeSingleClose
         }
 
         return $remaining;
+    }
+
+    /**
+     * Метка манёвра для защитника.
+     *
+     * @param array{type: string, id: int} $subject Защитник.
+     * @param string $attackerKind Вид атакующего.
+     * @param int $attackerId Атакующий.
+     * @param array<string, mixed> $maneuver Описание манёвра.
+     * @param array<string, mixed> $mark Описание метки.
+     *
+     * @return array<string, mixed> Метка боя.
+     */
+    private function maneuverMark(
+        array $subject,
+        string $attackerKind,
+        int $attackerId,
+        array $maneuver,
+        array $mark,
+    ): array {
+        $value = is_int($mark['value'] ?? null) ? $mark['value'] : 0;
+        $source = is_string($mark['source_code'] ?? null) ? $mark['source_code'] : 'circumstances';
+
+        return [
+            'subject' => ['type' => $subject['type'], 'id' => $subject['id']],
+            'kind' => is_string($mark['kind'] ?? null) ? $mark['kind'] : 'advantage',
+            'value' => $value,
+            'source_code' => $source,
+            'source_rule_code' => is_string($maneuver['ruleCode'] ?? null) ? $maneuver['ruleCode'] : null,
+            'scope' => ['defense_against' => ['type' => $attackerKind, 'id' => $attackerId]],
+            'consumes' => 'first_defense',
+            'expires' => ['kind' => 'turn', 'of' => ['type' => $attackerKind, 'id' => $attackerId]],
+        ];
+    }
+
+    /**
+     * Защита из строки после раскрытия манёвра.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     *
+     * @return array<string, mixed> Выбор.
+     */
+    private function rowChoice(array $row): array
+    {
+        return [
+            'reaction' => is_string($row['reaction'] ?? null) ? $row['reaction'] : 'ignore',
+            'blockItemInventoryId' => is_int($row['block_item_inventory_id'] ?? null)
+                ? $row['block_item_inventory_id']
+                : null,
+            'blockItemProfileIndex' => is_int($row['block_item_profile_index'] ?? null)
+                ? $row['block_item_profile_index']
+                : null,
+            'blockItemRuleCode' => is_string($row['block_item_rule_code'] ?? null)
+                ? $row['block_item_rule_code']
+                : null,
+            'turn' => false,
+            'expectedSheetVersion' => is_int($row['expected_sheet_version'] ?? null)
+                ? $row['expected_sheet_version']
+                : 0,
+        ];
     }
 
     /**

@@ -59,6 +59,7 @@ final class AbilityBase
      * @param string|null $dodgeSoak Код характеристики смягчения.
      * @param ProcessCloseSpec|null $closesParentProcess Закрытие процесса-родителя.
      * @param ReactionModifier|null $reaction Когда карточку можно объявить реакцией.
+     * @param ManeuverModifier|null $maneuver Обманный манёвр или null.
      *
      * @return void
      */
@@ -106,6 +107,7 @@ final class AbilityBase
         private readonly ?string $dodgeSoak = null,
         private readonly ?ProcessCloseSpec $closesParentProcess = null,
         private readonly ?ReactionModifier $reaction = null,
+        private readonly ?ManeuverModifier $maneuver = null,
     ) {
     }
 
@@ -537,5 +539,15 @@ final class AbilityBase
     public function getReaction(): ?ReactionModifier
     {
         return $this->reaction;
+    }
+
+    /**
+     * Обманный манёвр.
+     *
+     * @return ManeuverModifier|null Манёвр или null.
+     */
+    public function getManeuver(): ?ManeuverModifier
+    {
+        return $this->maneuver;
     }
 }

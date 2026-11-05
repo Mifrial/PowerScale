@@ -70,6 +70,7 @@ final class AbilityBases
             SpecShape::optionalString($document, 'dodge_soak'),
             self::closesParentProcess($document),
             ReactionSpecs::read($document),
+            AbilityCombat::maneuver($document),
         );
     }
 
