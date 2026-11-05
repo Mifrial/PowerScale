@@ -110,6 +110,7 @@ import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/inj
 import { injuryPackageService } from '@/modules/Roleplay/Game/Service/Instance/injuryPackageService';
 import { strikeUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/strikeUpgradeService';
 import HitStrikeUpgradeList from '@/modules/Roleplay/Game/Component/HitStrikeUpgradeList.vue';
+import type { StrikeUpgradeOption } from '@/modules/Roleplay/Game/Dto/Strike/StrikeUpgradeOption';
 
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
 
@@ -227,7 +228,6 @@ const opponentKey = ref<CombatEntityKey | null>(null);
 const reaction = ref<HitDefenseReaction | null>(null);
 const attackerAdv = ref(0);
 const spendAttackerConcentration = ref(0);
-const maneuverRuleCode = ref<string | null>(null);
 const useAccuracyToken = ref(false);
 const spendDefenderConcentration = ref(0);
 const defenderAdv = ref(0);
@@ -315,6 +315,25 @@ const maneuverAvailable = computed(
     resolvedAttackAction.value?.mode !== 'wide' &&
     (resolvedAttackAction.value?.strikes.length ?? 0) <= 1,
 );
+
+/** Обманный манёвр как улучшение в общем списке улучшений удара. */
+const maneuverUpgradeOptions = computed<StrikeUpgradeOption[]>(() => {
+  if (!maneuverAvailable.value) return [];
+
+  return maneuverOffers.value.map((rule) => ({
+    optionId: `maneuver:${rule.code}`,
+    ruleCode: rule.code,
+    name: 'Обманный манёвр',
+    exclusiveGroup: 'maneuver',
+    mode: { code: rule.code, label: rule.name, injury_check_advantage: 0 },
+  }));
+});
+
+const maneuverRuleCode = computed<string | null>(() => {
+  const selected = appliedStrikeUpgradeCodes.value.find((code) => code.startsWith('maneuver:'));
+
+  return selected ? selected.slice('maneuver:'.length) : null;
+});
 
 const entityOptions = computed(() => {
   const items: { value: CombatEntityKey; title: string }[] = [];
@@ -4146,6 +4165,7 @@ async function submitPhpStrike(): Promise<boolean> {
     },
   });
   if (result.closed !== true) {
+    const maneuverPending = (result.awaiting ?? []).some((entry) => entry.kind === 'maneuver_reveal');
     if ((result.awaiting?.length ?? 0) > 0 && phpDeclaredStrike.value) {
       const pending: GamePhpOpenStrike = {
         ...phpDeclaredStrike.value,
@@ -4156,6 +4176,13 @@ async function submitPhpStrike(): Promise<boolean> {
       phpPendingStrike.value = pending;
       gamePhpBattleContext.rememberOpenStrike(pending);
       emit('strike-refresh');
+      if (maneuverPending) {
+        // Шаг защиты записан, решение идёт в отдельном окне манёвра.
+        reaction.value = null;
+        blockItemRuleCode.value = null;
+
+        return true;
+      }
     }
     const next = result.strikes?.find((row) => row.reaction === null);
     if (next) {
@@ -4363,13 +4390,14 @@ const strikeUpgradePreviewTargets = computed(() => {
   return keys.map((key) => versionOf(key));
 });
 
-const strikeUpgradeOptions = computed(() =>
-  strikeUpgradeService.listApplicableUnion(
+const strikeUpgradeOptions = computed(() => [
+  ...strikeUpgradeService.listApplicableUnion(
     versionOf(resolvedAttackerKey.value)?.abilities ?? [],
     strikeUpgradePreviewTargets.value,
     props.rules,
   ),
-);
+  ...maneuverUpgradeOptions.value,
+]);
 
 watch(strikeUpgradeOptions, (options) => {
   appliedStrikeUpgradeCodes.value = strikeUpgradeService.pruneSelected(options, appliedStrikeUpgradeCodes.value);
@@ -4676,18 +4704,6 @@ const canSubmit = computed(() => {
             :overlay="overlays.find((item) => item.entityKey === resolvedAttackerKey) ?? null"
             :rules="rules"
             :check-code="hitCheckCode"
-          />
-          <v-select
-            v-if="isCompose && !isPreparationAction && maneuverAvailable"
-            v-model="maneuverRuleCode"
-            :items="maneuverOffers"
-            item-title="name"
-            item-value="code"
-            label="Обманный манёвр (улучшение)"
-            density="compact"
-            hide-details
-            clearable
-            class="mt-2"
           />
           <v-checkbox
             v-if="isCompose && !isPreparationAction && accuracyTokenAvailable && spendAttackerConcentration > 0"

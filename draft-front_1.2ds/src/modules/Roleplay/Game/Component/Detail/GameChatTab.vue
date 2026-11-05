@@ -1049,6 +1049,16 @@ async function tryOpenPhpStrike(force = false): Promise<void> {
   phpOpenStrike.value = strike;
   const attackerKey = `${strike.attackerKind}:${strike.attackerId}` as CombatEntityKey;
   const defenderKey = `${strike.defenderKind}:${strike.defenderId}` as CombatEntityKey;
+  const maneuverPending = (strike.awaiting ?? []).some((entry) => entry.kind === 'maneuver_reveal');
+  if (maneuverPending) {
+    // Защита уже записана: шаг защиты закрыт, решение идёт в окне манёвра.
+    closeReactionOffer();
+    if (hitOpen.value && hitPhpBound.value && hitPhpDefenderKey.value === defenderKey) {
+      onHitClosed(false, false);
+    }
+
+    return;
+  }
   const canDefend = gameStrikeDefenseService.shouldAutoOpen(
     strike,
     currentUser.value?.id ?? null,

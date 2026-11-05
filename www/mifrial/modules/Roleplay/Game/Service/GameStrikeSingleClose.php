@@ -140,6 +140,10 @@ final class GameStrikeSingleClose
         $maneuverResume = $resume !== null && is_array($resume['maneuver'] ?? null)
             ? $resume['maneuver']
             : null;
+        if ($resume === null && $this->maneuverWindowOpen($row)) {
+            throw new GameInvalidException('Game maneuver window is open');
+        }
+
         if ($resume !== null && $maneuverResume === null) {
             $resumeState = $this->resumeState($row, $resume);
             $row = $resumeState['row'];
@@ -1140,6 +1144,37 @@ final class GameStrikeSingleClose
             'consumes' => 'first_defense',
             'expires' => ['kind' => 'turn', 'of' => ['type' => $attackerKind, 'id' => $attackerId]],
         ];
+    }
+
+    /**
+     * Открыто ли окно раскрытия манёвра по строке.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     *
+     * @return bool Признак.
+     */
+    private function maneuverWindowOpen(array $row): bool
+    {
+        $resolution = $row['resolution'] ?? null;
+        if (is_string($resolution)) {
+            $resolution = json_decode($resolution, true);
+        }
+
+        if (!is_array($resolution)) {
+            return false;
+        }
+
+        if (!in_array($resolution['phase'] ?? null, ['check', 'decision'], true)) {
+            return false;
+        }
+
+        foreach (is_array($resolution['awaiting'] ?? null) ? $resolution['awaiting'] : [] as $entry) {
+            if (is_array($entry) && ($entry['kind'] ?? null) === 'maneuver_reveal') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -905,6 +905,67 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Повторная защита при открытом окне манёвра отклоняется.
+     *
+     * @return void
+     */
+    public function testManeuverRejectsRepeatedDefense(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->maneuverRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Maneuver-Repeat-Attacker', abilities: [
+            ['ruleCode' => 'obmannyy-manevr', 'level' => 1],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Maneuver-Repeat-Defender');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-maneuver-repeat',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-maneuver-repeat',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($attackerId, $defenderId)
+                    + ['maneuverRuleCode' => 'obmannyy-manevr'],
+            ),
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+        $defense = $this->strikeDefenseEnvelope(
+            ['reaction' => 'dodge'],
+            $this->characterFacade()->get($defenderId)->getActualVersion(),
+        );
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-maneuver-repeat',
+            'expectedVersion' => $declared['data']['version'],
+            'action' => $defense,
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame('maneuver_reveal', $closed['data']['awaiting'][0]['kind'] ?? null);
+
+        $repeated = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-maneuver-repeat-again',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $defense,
+        ]);
+        self::assertFalse($repeated['success'], json_encode($repeated));
+        self::assertSame('GAME_INVALID', $repeated['error']['code'] ?? null);
+        self::assertSame('Game maneuver window is open', $repeated['error']['message'] ?? null);
+    }
+
+    /**
      * Правила Обманного манёвра для теста.
      *
      * @return array<string, array<string, mixed>> Правила.
