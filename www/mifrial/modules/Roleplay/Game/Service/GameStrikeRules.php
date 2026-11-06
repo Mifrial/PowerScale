@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
-use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Game\Dto\GameStrikeActorRef;
 use Mifrial\Roleplay\Game\Dto\GameStrikeAttack;
+use Mifrial\Roleplay\Game\Dto\GameStrikeBlockRequest;
+use Mifrial\Roleplay\Game\Dto\GameStrikeDodgeRequest;
+use Mifrial\Roleplay\Game\Dto\GameStrikeHitRequest;
 use Mifrial\Roleplay\Game\Dto\GameStrikeProfileRef;
 use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -22,22 +24,17 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DodgeRangedPenalty;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackAccuracyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackCharacteristicModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionDurabilityShaveEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\PushSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\DamageTypeSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponProfile;
-use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
-use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -60,6 +57,14 @@ final class GameStrikeRules
     private readonly GameStrikeActionCards $cards;
 
     private readonly GameStrikeDefense $defense;
+
+    private readonly GameStrikeChecks $checks;
+
+    private readonly GameStrikeMastery $mastery;
+
+    private readonly GameStrikeHitCheck $hitCheck;
+
+    private readonly GameStrikeRolls $rolls;
 
     private readonly GameStrikeDistance $distance;
 
@@ -101,7 +106,18 @@ final class GameStrikeRules
         $this->distance = new GameStrikeDistance($formulaEvaluations, $this->movement);
         $this->damage = new GameStrikeDamage($formulaEvaluations);
         $this->cards = new GameStrikeActionCards($slices, $participants);
+        $this->checks = new GameStrikeChecks($slices, $participants, $equipment, $this->cards);
+        $this->mastery = new GameStrikeMastery($participants, $equipment);
+        $this->hitCheck = new GameStrikeHitCheck($hitRoll, $slices);
         $this->defense = new GameStrikeDefense($slices, $participants, $layers, $this->soaks, $this->cards);
+        $this->rolls = new GameStrikeRolls(
+            $hitRoll,
+            $slices,
+            $participants,
+            $equipment,
+            $this->mastery,
+            $this->checks,
+        );
     }
 
     /**
@@ -270,20 +286,19 @@ final class GameStrikeRules
         ?array $npcChoices,
         int $instanceIndex = 0,
     ): void {
-        $this->assertLive($spaceId, $rulesRevision, $actionRuleCode);
-        if ($this->pushOf($spaceId, $rulesRevision, $actionRuleCode) === null) {
-            $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex);
-        }
-
-        $choices = $attackerKind === 'character'
-            ? $this->characterSnapshot($attackerId)['choices']
-            : $npcChoices;
-        if (!is_array($choices)) {
-            throw new GameInvalidException('Game strike attacker choices are invalid');
-        }
-
-        $this->equipment->assertInventoryItem($choices, $itemInventoryId, $itemRuleCode, $spaceId, $rulesRevision, $instanceIndex);
-        $this->assertPushProfile($spaceId, $rulesRevision, $actionRuleCode, $itemRuleCode, $profileType, $profileIndex);
+        $this->checks->assertAttack(
+            $spaceId,
+            $rulesRevision,
+            $actionRuleCode,
+            $itemInventoryId,
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+            $attackerKind,
+            $attackerId,
+            $npcChoices,
+            $instanceIndex,
+        );
     }
 
     /**
@@ -300,77 +315,6 @@ final class GameStrikeRules
     public function pushOf(int $spaceId, int $rulesRevision, string $actionRuleCode): ?PushSpec
     {
         return GameStrikeRuleLookup::actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode)?->getPush();
-    }
-
-    /**
-     * Профиль допустим для толчка.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param string $actionRuleCode Действие.
-     * @param string $itemRuleCode Предмет.
-     * @param string $profileType Профиль.
-     * @param int $profileIndex Индекс.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если профиль не подходит.
-     * @throws GameNotFoundException Если ревизии нет.
-     */
-    private function assertPushProfile(
-        int $spaceId,
-        int $rulesRevision,
-        string $actionRuleCode,
-        string $itemRuleCode,
-        string $profileType,
-        int $profileIndex,
-    ): void {
-        $push = $this->pushOf($spaceId, $rulesRevision, $actionRuleCode);
-        if ($push === null) {
-            return;
-        }
-
-        if ($profileType !== 'strike') {
-            throw new GameInvalidException('Game push profile is invalid');
-        }
-
-        $item = $this->item($spaceId, $rulesRevision, $itemRuleCode);
-        if ($push->getProfiles() === 'hands_or_shield') {
-            if (!$item->isInnate() && $item->getShield() === null) {
-                throw new GameInvalidException('Game push profile is invalid');
-            }
-
-            return;
-        }
-
-        $profile = $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex);
-        if (!$this->pushProfileFits($push, $item, $profile)) {
-            throw new GameInvalidException('Game push profile is invalid');
-        }
-    }
-
-    /**
-     * Предмет годится для выбранного толчка.
-     *
-     * @param PushSpec $push Толчок.
-     * @param ItemSpec $item Предмет.
-     * @param WeaponProfile $profile Профиль.
-     *
-     * @return bool true, если годится.
-     */
-    private function pushProfileFits(PushSpec $push, ItemSpec $item, WeaponProfile $profile): bool
-    {
-        if ($push->getProfiles() === 'hands_or_shield') {
-            return $item->isInnate() || $item->getShield() !== null;
-        }
-
-        if ($push->getProfiles() === 'slashing_or_blunt_strike') {
-            $type = $profile->getDamage()->getDamageTypeCode();
-
-            return $type === 'slashing' || $type === 'blunt';
-        }
-
-        return false;
     }
 
     /**
@@ -512,24 +456,7 @@ final class GameStrikeRules
         string $actionRuleCode,
         int $targetCount,
     ): void {
-        $base = GameStrikeRuleLookup::actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
-        if ($base === null) {
-            throw new GameInvalidException('Game strike action is invalid');
-        }
-
-        $maxTargets = $base->getMaxTargets() ?? 1;
-        if ($maxTargets < 1) {
-            throw new GameInvalidException('Game strike max targets is invalid');
-        }
-
-        $mode = $base->getAttackMode();
-        if ($mode !== null && ($mode === 'wide') !== ($maxTargets > 1)) {
-            throw new GameInvalidException('Game strike attack mode is invalid');
-        }
-
-        if ($targetCount < 1 || $targetCount > $maxTargets) {
-            throw new GameInvalidException('Game strike target count is invalid');
-        }
+        $this->checks->assertAttackTargets($spaceId, $rulesRevision, $actionRuleCode, $targetCount);
     }
 
     /**
@@ -857,11 +784,10 @@ final class GameStrikeRules
      * @return string Код карточки.
      *
      * @throws GameInvalidException Если карточек нет или их несколько.
-     * @throws CharacterNotFoundException Если ревизии нет.
      */
     public function findHitCode(int $spaceId, int $rulesRevision): string
     {
-        return $this->hitRoll->findHitCode($spaceId, $rulesRevision);
+        return $this->hitCheck->findHitCode($spaceId, $rulesRevision);
     }
 
     /**
@@ -873,7 +799,7 @@ final class GameStrikeRules
      */
     public function isHitAutoFail(array $roll): bool
     {
-        return $this->hitRoll->isCombatAutoFail($roll);
+        return $this->hitCheck->isHitAutoFail($roll);
     }
 
     /**
@@ -919,69 +845,34 @@ final class GameStrikeRules
         int $pendingAccuracyDelta = 0,
         ?RollAdjustment $pendingAdjustment = null,
     ): array {
-        $documents = $this->participants->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
-        $item = $this->equipment->selectedItem($spaceId, $rulesRevision, $documents['choices'], $itemInventoryId, $itemRuleCode);
-        $mastery = $this->mastery(
-            $this->slice($spaceId, $rulesRevision),
-            $documents['sheet'],
-            $documents['choices'],
-            $item->getProficiencyFamilyCode(),
-            $profileType,
-            $documents['key'],
-        );
-        $accuracy = $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex)->getAccuracy();
-        $accuracyDelta = $this->attackAccuracyDelta(
-            $this->slice($spaceId, $rulesRevision),
-            $actionRuleCode,
-            $profileType,
-        ) + $pendingAccuracyDelta;
-        if ($accuracyDelta !== 0) {
-            $accuracy = (new CharacteristicNumber($accuracy->getBase(), $accuracy->getSize()))->modify($accuracyDelta);
-        }
-
-        $adjustment = (new GameRollAdjustment())->fromCard(
-            $this->slice($spaceId, $rulesRevision),
-            $actionRuleCode,
-            $profileType,
-        );
-        if ($pendingAdjustment !== null) {
-            $adjustment = $adjustment->merge($pendingAdjustment);
-        }
-
-        return $this->hitRoll->throwHitWithMastery(
-            $spaceId,
-            $rulesRevision,
+        return $this->rolls->hit(new GameStrikeHitRequest(
+            $this->target(
+                $spaceId,
+                $rulesRevision,
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+                $itemInventoryId,
+                $attackerKind,
+                $attackerId,
+                $npcSheet,
+                $npcChoices,
+                $sheetVersion,
+                null,
+                0,
+                0,
+            ),
             $ruleCode,
-            $documents['sheet'],
-            $mastery,
-            $accuracy,
-            ['base' => 0, 'size' => 0],
+            $actionRuleCode,
             $advantages,
-            $adjustment,
-        );
+            $pendingAccuracyDelta,
+            $pendingAdjustment,
+        ));
     }
 
     public function isUnconscious(int $spaceId, int $rulesRevision, array $sheet): bool
     {
-        $slice = $this->slice($spaceId, $rulesRevision);
-        $states = $sheet['states'] ?? [];
-        if (!is_array($states)) {
-            return false;
-        }
-
-        foreach ($states as $row) {
-            if (!is_array($row) || !is_string($row['stateRuleCode'] ?? null)) {
-                continue;
-            }
-
-            $rule = $slice->findLive($row['stateRuleCode']);
-            $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-            if ($spec instanceof StateSpec && $spec->isDeclineUnconscious()) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->hitCheck->isUnconscious($spaceId, $rulesRevision, $sheet);
     }
 
     /**
@@ -1015,48 +906,18 @@ final class GameStrikeRules
         ?DimensionalNumber $shotDistance = null,
         ?string $profileType = null,
     ): array {
-        $slice = $this->slice($spaceId, $rulesRevision);
-        $mastery = $this->bestEquippedMastery($slice, $sheet, $choices, 'strike', $participantKey);
-        if (!$mastery instanceof DimensionalNumber || $mastery->getBase() <= 0) {
-            throw new GameInvalidException('Game strike dodge mastery is invalid');
-        }
-
-        $dodgeRule = $this->dodgeRule($slice);
-        $efficiency = $this->dodgeEfficiency($dodgeRule);
-        $efficiencyAdjustments = [];
-        $penalty = $this->dodgeRangedPenalty($dodgeRule);
-        if (
-            $penalty instanceof DodgeRangedPenalty
-            && $profileType !== null
-            && $penalty->getProfileType() === $profileType
-            && $shotDistance instanceof DimensionalNumber
-            && $shotDistance->compare($penalty->getDistance()) >= 0
-        ) {
-            $efficiency = $efficiency->modify($penalty->getDelta());
-            $efficiencyAdjustments[] = [
-                'source_code' => 'distance',
-                'source_label' => AdvantageSourceLabels::getLabel('distance'),
-                'delta' => $penalty->getDelta(),
-            ];
-        }
-
-        $raw = is_array($attackerRoll['raw'] ?? null) ? $attackerRoll['raw'] : $attackerRoll['roll'];
-
-        $result = $this->hitRoll->throwHitWithMastery(
+        return $this->rolls->dodge(new GameStrikeDodgeRequest(
             $spaceId,
             $rulesRevision,
             $ruleCode,
             $sheet,
-            $mastery,
-            $efficiency,
-            $raw,
+            $choices,
+            $attackerRoll,
+            $participantKey,
             $advantages,
-        );
-        if ($efficiencyAdjustments !== []) {
-            $result['efficiencyAdjustments'] = $efficiencyAdjustments;
-        }
-
-        return $result;
+            $shotDistance,
+            $profileType,
+        ));
     }
 
     /**
@@ -1069,16 +930,7 @@ final class GameStrikeRules
      */
     public function rerateHit(array $attackerRoll, array $defenderRoll): array
     {
-        $difficulty = $defenderRoll;
-        if (is_array($defenderRoll['roll'] ?? null) || is_array($defenderRoll['raw'] ?? null)) {
-            $difficulty = is_array($defenderRoll['roll'] ?? null) ? $defenderRoll['roll'] : $defenderRoll['raw'];
-        }
-
-        if (!is_int($difficulty['base'] ?? null) || !is_int($difficulty['size'] ?? null)) {
-            throw new GameInvalidException('Game strike defense roll is invalid');
-        }
-
-        return $this->hitRoll->rerate($attackerRoll, $difficulty);
+        return $this->hitCheck->rerate($attackerRoll, $defenderRoll);
     }
 
     /**
@@ -1112,39 +964,18 @@ final class GameStrikeRules
         ?string $participantKey = null,
         array $advantages = [],
     ): array {
-        $this->assertBlockSelection(
-            $spaceId,
-            $rulesRevision,
-            $choices,
-            $blockItemInventoryId,
-            $blockItemProfileIndex,
-            null,
-        );
-        $item = $this->equipment->selectedItemById($spaceId, $rulesRevision, $choices, $blockItemInventoryId);
-        $profile = $item->getBlockProfile();
-        if ($profile === null) {
-            throw new GameInvalidException('Game strike block profile is invalid');
-        }
-
-        $mastery = $this->mastery(
-            $this->slice($spaceId, $rulesRevision),
-            $sheet,
-            $choices,
-            $item->getProficiencyFamilyCode(),
-            'strike',
-            $participantKey,
-        );
-
-        return $this->hitRoll->throwHitWithMastery(
+        return $this->rolls->block(new GameStrikeBlockRequest(
             $spaceId,
             $rulesRevision,
             $ruleCode,
             $sheet,
-            $mastery,
-            $profile->getEfficiency(),
-            $attackerRoll['roll'],
+            $choices,
+            $blockItemInventoryId,
+            $blockItemProfileIndex,
+            $attackerRoll,
+            $participantKey,
             $advantages,
-        );
+        ));
     }
 
     /**
@@ -1725,10 +1556,7 @@ final class GameStrikeRules
      */
     public function assertBlock(int $spaceId, int $rulesRevision, string $blockItemRuleCode): void
     {
-        $item = $this->item($spaceId, $rulesRevision, $blockItemRuleCode);
-        if ($item->getWeapon() === null && $item->getShield() === null) {
-            throw new GameInvalidException('Game strike block item is invalid');
-        }
+        $this->checks->assertBlock($spaceId, $rulesRevision, $blockItemRuleCode);
     }
 
     /**
@@ -1750,56 +1578,7 @@ final class GameStrikeRules
         string $actionRuleCode,
         string $blockItemRuleCode,
     ): void {
-        $push = $this->pushOf($spaceId, $rulesRevision, $actionRuleCode);
-        if ($push === null) {
-            return;
-        }
-
-        $item = $this->item($spaceId, $rulesRevision, $blockItemRuleCode);
-        if ($this->pushBlockFits($push, $item)) {
-            return;
-        }
-
-        throw new GameInvalidException('Game push block item is invalid');
-    }
-
-    /**
-     * Предмет закрывает толчок по спеке.
-     *
-     * @param PushSpec $push Толчок.
-     * @param ItemSpec $item Предмет.
-     *
-     * @return bool true, если закрывает.
-     */
-    private function pushBlockFits(PushSpec $push, ItemSpec $item): bool
-    {
-        $profiles = $push->getBlockProfiles();
-        if ($profiles === 'any') {
-            return true;
-        }
-
-        if ($profiles === 'hands_or_shield') {
-            return $item->isInnate() || $item->getShield() !== null;
-        }
-
-        if ($profiles === 'shield_only') {
-            return $item->getShield() !== null;
-        }
-
-        if ($profiles === 'slashing_or_blunt_strike') {
-            $weaponProfiles = $item->getWeapon()?->getWeaponProfiles() ?? [];
-            $shieldProfiles = $item->getShield()?->getWeaponProfiles() ?? [];
-            foreach (array_merge($weaponProfiles, $shieldProfiles) as $profile) {
-                $type = $profile->getDamage()->getDamageTypeCode();
-                if ($profile->getType() === 'strike' && ($type === 'slashing' || $type === 'blunt')) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        return false;
+        $this->checks->assertPushBlock($spaceId, $rulesRevision, $actionRuleCode, $blockItemRuleCode);
     }
 
     /**
@@ -1825,39 +1604,14 @@ final class GameStrikeRules
         int $blockItemProfileIndex,
         ?string $blockItemRuleCode,
     ): void {
-        if ($blockItemProfileIndex !== 0) {
-            throw new GameInvalidException('Game strike block profile is invalid');
-        }
-
-        $inventory = $choices['inventory'] ?? null;
-        if (!is_array($inventory)) {
-            throw new GameInvalidException('Game strike inventory is invalid');
-        }
-
-        $row = null;
-        foreach ($inventory as $candidate) {
-            if (is_array($candidate) && ($candidate['id'] ?? null) === $blockItemInventoryId) {
-                if ($row !== null) {
-                    throw new GameInvalidException('Game strike block item is ambiguous');
-                }
-
-                $row = $candidate;
-            }
-        }
-
-        $ruleCode = is_array($row) ? ($row['ruleCode'] ?? null) : null;
-        if (
-            !is_array($row)
-            || ($row['equipped'] ?? false) !== true
-            || !is_string($ruleCode)
-        ) {
-            throw new GameInvalidException('Game strike block item is invalid');
-        }
-
-        $item = $this->item($spaceId, $rulesRevision, $ruleCode);
-        if ($item->getBlockProfile() === null) {
-            throw new GameInvalidException('Game strike block profile is invalid');
-        }
+        $this->checks->assertBlockSelection(
+            $spaceId,
+            $rulesRevision,
+            $choices,
+            $blockItemInventoryId,
+            $blockItemProfileIndex,
+            $blockItemRuleCode,
+        );
     }
 
     /**
@@ -2087,7 +1841,7 @@ final class GameStrikeRules
             throw new GameInvalidException('Game strike support weapon profile is invalid');
         }
 
-        return $this->mastery(
+        return $this->mastery->of(
             $this->slice($spaceId, $rulesRevision),
             $sheet,
             $choices,
@@ -2224,243 +1978,6 @@ final class GameStrikeRules
         $factor = 2 ** max(0, $rollSize - $difficultySize);
 
         return $successes * $factor;
-    }
-
-    private function dodgeRule(CharacterRuleSlice $slice): CharacterResolvedRule
-    {
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if ($spec instanceof AbilityActionSpec && $spec->getBase()->getCombatAction() === 'dodge') {
-                return $rule;
-            }
-        }
-
-        throw new GameInvalidException('Game strike dodge efficiency is invalid');
-    }
-
-    private function dodgeEfficiency(CharacterResolvedRule $rule): CharacteristicNumber
-    {
-        $spec = $rule->getSpec();
-        $efficiency = $spec instanceof AbilityActionSpec ? $spec->getBase()->getDodgeEfficiency() : null;
-        if (!$efficiency instanceof CharacteristicNumber) {
-            throw new GameInvalidException('Game strike dodge efficiency is invalid');
-        }
-
-        return $efficiency;
-    }
-
-    private function dodgeRangedPenalty(CharacterResolvedRule $rule): ?DodgeRangedPenalty
-    {
-        $spec = $rule->getSpec();
-
-        return $spec instanceof AbilityActionSpec ? $spec->getBase()->getDodgeRangedPenalty() : null;
-    }
-
-    private function combatCharacteristic(CharacterRuleSlice $slice, string $profileType): string
-    {
-        $matched = null;
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if ($spec instanceof CharacteristicSpec && in_array($profileType, $spec->getWeaponMasteryProfiles(), true)) {
-                if ($matched !== null) {
-                    throw new GameInvalidException('Game strike characteristic is ambiguous');
-                }
-
-                $matched = $rule->getCode();
-            }
-        }
-
-        if ($matched === null) {
-            throw new GameInvalidException('Game strike characteristic is invalid');
-        }
-
-        return $matched;
-    }
-
-    /**
-     * Профиль предмета.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param string $itemRuleCode Предмет.
-     * @param string $profileType Вид.
-     * @param int $profileIndex Смещение.
-     *
-     * @return WeaponProfile Профиль.
-     *
-     * @throws GameInvalidException Если профиля нет.
-     * @throws GameNotFoundException Если ревизии нет.
-     */
-    private function profile(
-        int $spaceId,
-        int $rulesRevision,
-        string $itemRuleCode,
-        string $profileType,
-        int $profileIndex,
-    ): WeaponProfile {
-        return $this->slices->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex);
-    }
-
-    /**
-     * Выбирает лучшее мастерство носимого оружия этого профиля.
-     *
-     * @param CharacterRuleSlice $slice Срез правил.
-     * @param array<string, mixed> $sheet Лист.
-     * @param array<string, mixed> $choices Выборы.
-     * @param string $profileType Тип профиля.
-     * @param string|null $participantKey Ключ листа защитника.
-     *
-     * @return DimensionalNumber|null Лучшее мастерство или null.
-     *
-     * @throws GameInvalidException Если characteristic или domain неоднозначны.
-     */
-    private function bestEquippedMastery(
-        CharacterRuleSlice $slice,
-        array $sheet,
-        array $choices,
-        string $profileType,
-        ?string $participantKey = null,
-    ): ?DimensionalNumber {
-        $best = null;
-        $inventory = $choices['inventory'] ?? [];
-        if (!is_array($inventory)) {
-            $inventory = [];
-        }
-
-        foreach ($inventory as $row) {
-            if (!is_array($row) || !is_string($row['ruleCode'] ?? null)) {
-                continue;
-            }
-
-            $rule = $slice->findLive($row['ruleCode']);
-            $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-            if (!$spec instanceof ItemSpec || !$this->equipment->isCarried($row, $spec)) {
-                continue;
-            }
-
-            $weapon = $spec->getWeapon();
-            if (!$weapon instanceof WeaponBlock) {
-                continue;
-            }
-
-            $matches = false;
-            foreach ($weapon->getWeaponProfiles() as $profile) {
-                if ($profile->getType() === $profileType) {
-                    $matches = true;
-                }
-            }
-
-            if (!$matches || $spec->getProficiencyFamilyCode() === null) {
-                continue;
-            }
-
-            $mastery = $this->mastery(
-                $slice,
-                $sheet,
-                $choices,
-                $spec->getProficiencyFamilyCode(),
-                $profileType,
-                $participantKey,
-            );
-            if ($best === null || $mastery->compare($best) > 0) {
-                $best = $mastery;
-            }
-        }
-
-        if ($best instanceof DimensionalNumber) {
-            return $best;
-        }
-
-        return $this->participants->formulaContext($slice, $sheet, $choices, $participantKey)
-            ->findCharacteristic($this->combatCharacteristic($slice, $profileType));
-    }
-
-    private function mastery(
-        CharacterRuleSlice $slice,
-        array $sheet,
-        array $choices,
-        ?string $familyCode,
-        string $profileType,
-        ?string $participantKey = null,
-    ): DimensionalNumber {
-        if (is_array($sheet['sheet'] ?? null) && is_array($sheet['choices'] ?? null)) {
-            $sheet = $sheet['sheet'];
-        }
-
-        if ($familyCode === null || $familyCode === '') {
-            throw new GameInvalidException('Game strike weapon family is invalid');
-        }
-
-        $characteristicCode = null;
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if (
-                $spec instanceof CharacteristicSpec
-                && in_array($profileType, $spec->getWeaponMasteryProfiles(), true)
-            ) {
-                if ($characteristicCode !== null) {
-                    throw new GameInvalidException('Game strike characteristic is ambiguous');
-                }
-
-                $characteristicCode = $rule->getCode();
-            }
-        }
-
-        if ($characteristicCode === null) {
-            throw new GameInvalidException('Game strike characteristic is invalid');
-        }
-
-        $derived = $this->participants->formulaContext($slice, $sheet, $choices, $participantKey)
-            ->findCharacteristic($characteristicCode);
-        if (!$derived instanceof DimensionalNumber) {
-            throw new GameInvalidException('Game strike characteristic is invalid');
-        }
-
-        $base = new CharacteristicNumber($derived->getBase(), $derived->getSize());
-
-        $computed = $this->participants->computedSheet($slice, $sheet, $choices);
-        $stored = $computed['weaponFamilyMastery'][$familyCode][$profileType] ?? null;
-        if (is_array($stored) && is_int($stored['base'] ?? null) && is_int($stored['size'] ?? null)) {
-            return new CharacteristicNumber($stored['base'], $stored['size']);
-        }
-
-        return $base;
-    }
-
-    /**
-     * Сдвиг точности текущего удара.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $actionRuleCode Карточка.
-     * @param string $profileType Профиль: strike, throw или shoot.
-     *
-     * @return int Сумма дельт.
-     */
-    private function attackAccuracyDelta(CharacterRuleSlice $slice, string $actionRuleCode, string $profileType): int
-    {
-        if ($actionRuleCode === '') {
-            return 0;
-        }
-
-        $spec = $slice->findLive($actionRuleCode)?->getSpec();
-        if (!$spec instanceof AbilityActionSpec) {
-            return 0;
-        }
-
-        $delta = 0;
-        foreach ($spec->getBase()->getActionEffects() as $effect) {
-            if (!$effect instanceof CurrentActionAttackAccuracyEffect) {
-                continue;
-            }
-
-            if (!$effect->getScope()->appliesTo($profileType, 1)) {
-                continue;
-            }
-
-            $delta += $effect->getDelta();
-        }
-
-        return $delta;
     }
 
     /**
@@ -2611,23 +2128,27 @@ final class GameStrikeRules
     }
 
     /**
-     * Живое правило.
+     * Профиль предмета.
      *
      * @param int $spaceId Мир.
      * @param int $rulesRevision Ревизия.
-     * @param string $ruleCode Код.
+     * @param string $itemRuleCode Предмет.
+     * @param string $profileType Вид.
+     * @param int $profileIndex Смещение.
      *
-     * @return void
+     * @return WeaponProfile Профиль.
      *
-     * @throws GameInvalidException Если кода нет.
+     * @throws GameInvalidException Если профиля нет.
      * @throws GameNotFoundException Если ревизии нет.
      */
-    private function assertLive(int $spaceId, int $rulesRevision, string $ruleCode): void
-    {
-        $live = $this->slice($spaceId, $rulesRevision)->findLive($ruleCode);
-        if ($live === null) {
-            throw new GameInvalidException('Game strike rule is not live');
-        }
+    private function profile(
+        int $spaceId,
+        int $rulesRevision,
+        string $itemRuleCode,
+        string $profileType,
+        int $profileIndex,
+    ): WeaponProfile {
+        return $this->slices->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex);
     }
 
     /**
