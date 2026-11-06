@@ -1,6 +1,8 @@
 export interface RouteMapData {
   mapId: number;
   variantId: number;
-  fromNodeId: number;
-  toNodeId: number;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
 }

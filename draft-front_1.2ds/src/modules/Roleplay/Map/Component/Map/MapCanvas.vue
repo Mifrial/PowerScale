@@ -3,16 +3,16 @@ import { onMounted, onUnmounted, ref, watch } from 'vue';
 import type { CanvasPoint } from '@/modules/Roleplay/Map/Dto/CanvasPoint';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
 import type { MapEditTarget } from '@/modules/Roleplay/Map/Dto/MapEditTarget';
+import type { MapAreaShape } from '@/modules/Roleplay/Map/Dto/MapAreaShape';
+import type { MapHandle } from '@/modules/Roleplay/Map/Dto/MapHandle';
 import type { MapHit } from '@/modules/Roleplay/Map/Dto/MapHit';
 import type { MapLine } from '@/modules/Roleplay/Map/Dto/MapLine';
 import type { MapPoint } from '@/modules/Roleplay/Map/Dto/MapPoint';
 import type { MapRoute } from '@/modules/Roleplay/Map/Dto/MapRoute';
 import type { MapSize } from '@/modules/Roleplay/Map/Dto/MapSize';
-import type { MapTerrain } from '@/modules/Roleplay/Map/Dto/MapTerrain';
 import type { MapVariant } from '@/modules/Roleplay/Map/Dto/MapVariant';
 import type { MapViewport } from '@/modules/Roleplay/Map/Dto/MapViewport';
 import type { MapToolMode } from '@/modules/Roleplay/Map/Enum/MapToolMode';
-import { MAP_AREA_KIND_COLORS } from '@/modules/Roleplay/Map/Constant/Map/MAP_AREA_KIND_COLORS';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
 import { mapGeometryService } from '@/modules/Roleplay/Map/init';
 import { getFileApi } from '@/modules/Core/File/init';
@@ -24,21 +24,19 @@ const props = defineProps<{
   selected: MapHit | null;
   selectedTarget: MapEditTarget | null;
   route: MapRoute | null;
-  terrains: MapTerrain[];
   draftArea: MapPoint[];
   draftLine: MapPoint[];
   rectPoints: MapPoint[];
   calibrationPoints: MapPoint[];
   rulerPoints: MapPoint[];
   rulerLabel: string | null;
-  edgeSourceId: number | null;
   tool: MapToolMode;
   cursor: string;
 }>();
 
 const emit = defineEmits<{
   'pointer-down': [point: MapPoint, screen: CanvasPoint, button: number, alt: boolean];
-  'pointer-move': [point: MapPoint, screen: CanvasPoint, alt: boolean];
+  'pointer-move': [point: MapPoint, screen: CanvasPoint, alt: boolean, shift: boolean];
   'pointer-up': [point: MapPoint, screen: CanvasPoint];
   'pointer-dblclick': [point: MapPoint];
   wheel: [screen: CanvasPoint, deltaY: number];
@@ -68,13 +66,29 @@ const toWorld = (screen: CanvasPoint): MapPoint => [
   (screen.y - props.viewport.offsetY) / props.viewport.scale,
 ];
 
-const terrainColor = (code: string | null): string =>
-  props.terrains.find((terrain) => terrain.code === code)?.color ?? '#8a8a8a';
+const areaNodeIds = (): Set<number> => {
+  const ids = new Set<number>();
+  for (const area of props.map?.areas ?? []) {
+    if (area.nodeId !== null) ids.add(area.nodeId);
+  }
 
-const objectColor = (kind: string): string => {
-  const color = MAP_AREA_KIND_COLORS[kind as keyof typeof MAP_AREA_KIND_COLORS];
+  return ids;
+};
 
-  return color ?? '#8d8d8d';
+const sortedAreas = (layer: 'surface' | 'object') =>
+  (props.map?.areas ?? [])
+    .filter((area) => area.layer === layer)
+    .slice()
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
+
+const sortedLines = () => {
+  const variant = props.variant;
+  if (!variant) return [];
+
+  return (props.map?.lines ?? [])
+    .filter((line) => line.variantId === variant.id && line.isPresent && line.points.length >= 2)
+    .slice()
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
 };
 
 const placements = (): Record<number, MapPoint> => {
@@ -83,41 +97,32 @@ const placements = (): Record<number, MapPoint> => {
   return mapGeometryService.placementPoints(props.map.nodes, props.variant.id);
 };
 
-const edgePoints = (edgeId: number): MapPoint[] => {
-  const edge = props.map?.edges.find((candidate) => candidate.id === edgeId);
-  if (!edge) return [];
-
-  return mapGeometryService.edgePoints(edge, placements());
-};
-
-const shapeOf = (areaId: number): MapPoint[] | null => {
+const areaShapeOf = (areaId: number): MapAreaShape | null => {
   const variant = props.variant;
   const area = props.map?.areas.find((candidate) => candidate.id === areaId);
   if (!variant || !area) return null;
-  const shape = area.shapes.find((candidate) => candidate.variantId === variant.id && candidate.isPresent);
 
-  return shape?.path ?? null;
+  return area.shapes.find((candidate) => candidate.variantId === variant.id && candidate.isPresent) ?? null;
 };
 
-const selectedArea = (): { id: number; path: MapPoint[] } | null => {
-  if (props.selected?.kind !== 'area') return null;
-  const path = shapeOf(props.selected.id);
+const flatShapeOf = (areaId: number): MapPoint[] | null => {
+  const shape = areaShapeOf(areaId);
 
-  return path ? { id: props.selected.id, path } : null;
+  return shape ? mapGeometryService.flattenContour(shape.path, shape.handles ?? []) : null;
+};
+
+const selectedArea = (): { id: number; path: MapPoint[]; handles: MapHandle[] } | null => {
+  if (props.selected?.kind !== 'area') return null;
+  const shape = areaShapeOf(props.selected.id);
+  if (!shape) return null;
+
+  return { id: props.selected.id, path: shape.path, handles: shape.handles ?? [] };
 };
 
 const selectedLine = (): MapLine | null => {
   if (props.selected?.kind !== 'line') return null;
 
   return props.map?.lines.find((line) => line.id === props.selected?.id) ?? null;
-};
-
-const selectedEdge = (): { id: number; path: MapPoint[]; isCustom: boolean } | null => {
-  if (props.selected?.kind !== 'edge') return null;
-  const path = edgePoints(props.selected.id);
-  const edge = props.map?.edges.find((candidate) => candidate.id === props.selected?.id);
-
-  return path.length >= 2 ? { id: props.selected.id, path, isCustom: (edge?.path.length ?? 0) >= 2 } : null;
 };
 
 function scheduleDraw(): void {
@@ -155,16 +160,15 @@ function draw(): void {
   }
 
   drawGrid(context);
-  drawAreas(context, 'terrain');
+  drawAreas(context, 'surface');
   drawLines(context);
   drawAreas(context, 'object');
-  drawEdges(context);
   drawRoute(context);
   context.restore();
 
+  drawAreaLabels(context);
   drawNodes(context);
   drawEditorHandles(context);
-  drawHoveredNode(context);
   drawDraft(context);
 }
 
@@ -184,13 +188,12 @@ function drawGrid(context: CanvasRenderingContext2D): void {
   context.stroke();
 }
 
-function drawAreas(context: CanvasRenderingContext2D, layer: 'terrain' | 'object'): void {
+function drawAreas(context: CanvasRenderingContext2D, layer: 'surface' | 'object'): void {
   if (!props.map) return;
-  for (const area of props.map.areas) {
-    if (area.layer !== layer) continue;
-    const path = shapeOf(area.id);
+  for (const area of sortedAreas(layer)) {
+    const path = flatShapeOf(area.id);
     if (!path || path.length < 3) continue;
-    const color = area.layer === 'terrain' ? terrainColor(area.terrainCode) : objectColor(area.kind);
+    const color = area.color;
     context.beginPath();
     path.forEach((point, index) => {
       if (index === 0) {
@@ -217,14 +220,27 @@ function drawAreas(context: CanvasRenderingContext2D, layer: 'terrain' | 'object
 
 function drawLines(context: CanvasRenderingContext2D): void {
   if (!props.map || !props.variant) return;
-  for (const line of props.map.lines) {
-    if (line.variantId !== props.variant.id || !line.isPresent || line.points.length < 2) continue;
-    const flat = mapGeometryService.flattenLine(line.points, line.handles ?? [], line.widths);
-    const color = terrainColor(line.terrainCode);
-    drawRibbon(context, flat.points, flat.widths, color);
+  for (const line of sortedLines()) {
+    drawLineSegments(context, line);
     if (props.selected?.kind === 'line' && props.selected.id === line.id) {
+      const flat = mapGeometryService.flattenLine(line.points, line.handles ?? [], line.widths);
       drawPolyline(context, flat.points, '#1e88e5', 2 / props.viewport.scale);
     }
+  }
+}
+
+function drawLineSegments(context: CanvasRenderingContext2D, line: MapLine): void {
+  const handles = line.handles ?? [];
+  for (let index = 1; index < line.points.length; index += 1) {
+    const points: MapPoint[] = [line.points[index - 1], line.points[index]];
+    const widths = [line.widths[index - 1] ?? 1, line.widths[index] ?? 1];
+    const segmentHandles = [
+      handles[index - 1] ?? { in: [0, 0] as MapPoint, out: [0, 0] as MapPoint },
+      handles[index] ?? { in: [0, 0] as MapPoint, out: [0, 0] as MapPoint },
+    ];
+    const flat = mapGeometryService.flattenLine(points, segmentHandles, widths);
+    const segment = line.segments[index - 1];
+    drawRibbon(context, flat.points, flat.widths, segment?.color ?? line.color);
   }
 }
 
@@ -311,71 +327,72 @@ function drawPolyline(context: CanvasRenderingContext2D, points: MapPoint[], col
   context.stroke();
 }
 
-function drawEdges(context: CanvasRenderingContext2D): void {
-  if (!props.map) return;
-  for (const edge of props.map.edges) {
-    if (props.variant && edge.variantId !== props.variant.id) continue;
-    const points = edgePoints(edge.id);
-    if (points.length < 2) continue;
-    const isSelected = props.selected?.kind === 'edge' && props.selected.id === edge.id;
-    drawPolyline(
-      context,
-      points,
-      isSelected ? '#1e88e5' : terrainColor(edge.terrainCode),
-      (MAP_CANVAS_CONFIG.edgeWidth + (isSelected ? 2 : 0)) / props.viewport.scale,
-    );
-    if (edge.isDirected) {
-      drawArrow(context, points, isSelected ? '#1e88e5' : terrainColor(edge.terrainCode));
-    }
-  }
-}
-
-function drawArrow(context: CanvasRenderingContext2D, points: MapPoint[], color: string): void {
-  const end = points[points.length - 1];
-  const before = points[points.length - 2];
-  const angle = Math.atan2(end[1] - before[1], end[0] - before[0]);
-  const size = 12 / props.viewport.scale;
-  context.beginPath();
-  context.moveTo(end[0], end[1]);
-  context.lineTo(end[0] - size * Math.cos(angle - Math.PI / 6), end[1] - size * Math.sin(angle - Math.PI / 6));
-  context.lineTo(end[0] - size * Math.cos(angle + Math.PI / 6), end[1] - size * Math.sin(angle + Math.PI / 6));
-  context.closePath();
-  context.fillStyle = color;
-  context.fill();
-}
-
 function drawRoute(context: CanvasRenderingContext2D): void {
   if (!props.route || props.route.points.length < 2) return;
+  const simplified = mapGeometryService.simplifyPath(props.route.points, routeTolerance(props.route.points));
+  const smooth = mapGeometryService.smoothPath(simplified);
   drawPolyline(
     context,
-    props.route.points,
+    smooth,
     '#d81b60',
     MAP_CANVAS_CONFIG.routeWidth / props.viewport.scale,
   );
 }
 
+/** Допуск упрощения по медианному шагу точек сетки. */
+function routeTolerance(points: MapPoint[]): number {
+  const steps: number[] = [];
+  for (let index = 1; index < points.length; index += 1) {
+    steps.push(mapGeometryService.distance(points[index - 1], points[index]));
+  }
+  steps.sort((left, right) => left - right);
+  const median = steps[Math.floor(steps.length / 2)] ?? 2;
+
+  return Math.max(1.5, median * 0.75);
+}
+
+function drawAreaLabels(context: CanvasRenderingContext2D): void {
+  if (!props.map) return;
+  context.font = '12px Roboto, sans-serif';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.lineWidth = 3;
+  context.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+  context.fillStyle = '#263238';
+  for (const area of props.map.areas) {
+    const label = area.label.trim();
+    if (label === '') continue;
+    const path = flatShapeOf(area.id);
+    if (!path || path.length < 3) continue;
+    const point = toScreen(mapGeometryService.polygonCentroid(path));
+    context.strokeText(label, point.x, point.y);
+    context.fillText(label, point.x, point.y);
+  }
+  context.textAlign = 'start';
+}
+
 function drawNodes(context: CanvasRenderingContext2D): void {
   if (!props.map || !props.variant) return;
   const points = placements();
+  const linked = areaNodeIds();
   for (const node of props.map.nodes) {
     const point = points[node.id];
     if (!point) continue;
-    if (!node.isPoi && !props.map.canEdit) continue;
+    if (linked.has(node.id)) continue;
     const screen = toScreen(point);
     const isSelected = props.selected?.kind === 'node' && props.selected.id === node.id;
-    const isEdgeSource = props.edgeSourceId === node.id;
     context.beginPath();
     context.arc(screen.x, screen.y, MAP_CANVAS_CONFIG.nodeRadius, 0, Math.PI * 2);
-    context.fillStyle = node.isPoi ? '#ffffff' : '#f7f1e3';
+    context.fillStyle = '#ffffff';
     context.fill();
-    context.lineWidth = isSelected || isEdgeSource ? 3 : 2;
-    context.strokeStyle = isSelected || isEdgeSource ? '#1e88e5' : node.isPoi ? '#455a64' : '#8d6e63';
+    context.lineWidth = isSelected ? 3 : 2;
+    context.strokeStyle = isSelected ? '#1e88e5' : '#455a64';
     context.stroke();
     const placement = node.placements.find(
       (candidate) => candidate.variantId === props.variant?.id && candidate.isPresent,
     );
     const label = placement?.labelOverride || node.name;
-    if (node.isPoi && label) {
+    if (label) {
       context.font = '12px Roboto, sans-serif';
       context.fillStyle = '#263238';
       context.textBaseline = 'middle';
@@ -384,31 +401,39 @@ function drawNodes(context: CanvasRenderingContext2D): void {
   }
 }
 
-function drawHoveredNode(context: CanvasRenderingContext2D): void {
-  if (props.tool !== 'edge' || !hoverPoint.value) return;
-  const tolerance = MAP_CANVAS_CONFIG.nodeHitRadius / props.viewport.scale;
-  let nearest: MapPoint | null = null;
-  let distance = tolerance;
-  for (const point of Object.values(placements())) {
-    const current = mapGeometryService.distance(hoverPoint.value, point);
-    if (current <= distance) {
-      nearest = point;
-      distance = current;
-    }
-  }
-  if (!nearest) return;
-  const screen = toScreen(nearest);
-  context.beginPath();
-  context.arc(screen.x, screen.y, MAP_CANVAS_CONFIG.nodeRadius + 5, 0, Math.PI * 2);
-  context.strokeStyle = '#1e88e5';
-  context.lineWidth = 2;
-  context.stroke();
-}
-
 function drawEditorHandles(context: CanvasRenderingContext2D): void {
   if (props.map?.canEdit !== true) return;
   const area = selectedArea();
   if (area) {
+    const target = props.selectedTarget;
+    const activeVertexIndex =
+      target !== null &&
+      (target.kind === 'area-vertex' || target.kind === 'area-handle-in' || target.kind === 'area-handle-out') &&
+      target.id === area.id
+        ? target.index
+        : null;
+
+    area.path.forEach((point, index) => {
+      const handle = area.handles[index] ?? { in: [0, 0] as MapPoint, out: [0, 0] as MapPoint };
+      if (index === activeVertexIndex) {
+        const display = mapGeometryService.areaDisplayHandles(
+          area.path,
+          area.handles,
+          index,
+          MAP_CANVAS_CONFIG.handleStub / props.viewport.scale,
+        );
+        drawBezierHandle(context, point, display.in, '#8e24aa', true, display.inIsStub);
+        drawBezierHandle(context, point, display.out, '#8e24aa', true, display.outIsStub);
+      } else {
+        if (Math.hypot(handle.in[0], handle.in[1]) > 1) {
+          drawBezierHandle(context, point, [point[0] + handle.in[0], point[1] + handle.in[1]], '#b39ddb', false, false);
+        }
+        if (Math.hypot(handle.out[0], handle.out[1]) > 1) {
+          drawBezierHandle(context, point, [point[0] + handle.out[0], point[1] + handle.out[1]], '#b39ddb', false, false);
+        }
+      }
+    });
+
     area.path.forEach((point, index) => {
       drawVertex(context, point, isActive('area-vertex', area.id, index));
     });
@@ -467,25 +492,6 @@ function drawEditorHandles(context: CanvasRenderingContext2D): void {
     });
   }
 
-  const edge = selectedEdge();
-  if (edge) {
-    for (let index = 1; index < edge.path.length - 1; index += 1) {
-      drawVertex(context, edge.path[index], isActive('edge-vertex', edge.id, index));
-    }
-    if (!edge.isCustom && edge.path.length >= 2) {
-      const midpoint: MapPoint = [
-        (edge.path[0][0] + edge.path[edge.path.length - 1][0]) / 2,
-        (edge.path[0][1] + edge.path[edge.path.length - 1][1]) / 2,
-      ];
-      const screen = toScreen(midpoint);
-      context.font = '16px Roboto, sans-serif';
-      context.fillStyle = '#1e88e5';
-      context.textAlign = 'center';
-      context.textBaseline = 'middle';
-      context.fillText('+', screen.x, screen.y);
-      context.textAlign = 'start';
-    }
-  }
 }
 
 function isActive(kind: MapEditTarget['kind'], id: number, index: number): boolean {
@@ -573,7 +579,6 @@ function drawDraft(context: CanvasRenderingContext2D): void {
   drawRectDraft(context);
   drawCalibration(context);
   drawRuler(context);
-  drawEdgePreview(context);
 }
 
 function drawPolylineDraft(context: CanvasRenderingContext2D, points: MapPoint[], isClosed: boolean): void {
@@ -687,22 +692,6 @@ function drawRuler(context: CanvasRenderingContext2D): void {
   }
 }
 
-function drawEdgePreview(context: CanvasRenderingContext2D): void {
-  if (props.tool !== 'edge' || props.edgeSourceId === null || !hoverPoint.value) return;
-  const source = placements()[props.edgeSourceId];
-  if (!source) return;
-  const start = toScreen(source);
-  const end = toScreen(hoverPoint.value);
-  context.beginPath();
-  context.moveTo(start.x, start.y);
-  context.lineTo(end.x, end.y);
-  context.strokeStyle = '#1e88e5';
-  context.lineWidth = 2;
-  context.setLineDash([6, 4]);
-  context.stroke();
-  context.setLineDash([]);
-}
-
 function resizeCanvas(): void {
   const element = canvas.value;
   const container = wrapper.value;
@@ -743,7 +732,7 @@ function onPointerMove(event: PointerEvent): void {
   const screen = screenPointOf(event);
   const point = toWorld(screen);
   hoverPoint.value = point;
-  emit('pointer-move', point, screen, event.altKey);
+  emit('pointer-move', point, screen, event.altKey, event.shiftKey);
   scheduleDraw();
 }
 
@@ -798,14 +787,12 @@ watch(
     props.selected,
     props.selectedTarget,
     props.route,
-    props.terrains,
     props.draftArea,
     props.draftLine,
     props.rectPoints,
     props.calibrationPoints,
     props.rulerPoints,
     props.rulerLabel,
-    props.edgeSourceId,
   ],
   scheduleDraw,
   { deep: true },

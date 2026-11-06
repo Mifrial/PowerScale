@@ -18,24 +18,30 @@ final class MapLineRecord
      *
      * @param int $id Id.
      * @param int $variantId Вариант.
-     * @param int $terrainId Террейн.
+     * @param string $color Цвет ленты.
+     * @param int $speed Проходимость: 0 — непроходимо.
      * @param array<int, array{0: int, 1: int}> $points Осевая линия.
      * @param array<int, int> $widths Ширина в точках.
      * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки Безье.
+     * @param array<int, array{speed: int, color: string|null}> $segments Стили сегментов; пусто — по умолчанию.
      * @param string $label Подпись.
      * @param bool $isPresent Лента есть в варианте.
+     * @param int $sortOrder Порядок среди лент.
      *
      * @return void
      */
     private function __construct(
         private readonly int $id,
         private readonly int $variantId,
-        private readonly int $terrainId,
+        private readonly string $color,
+        private readonly int $speed,
         private readonly array $points,
         private readonly array $widths,
         private readonly array $handles,
+        private readonly array $segments,
         private readonly string $label,
         private readonly bool $isPresent,
+        private readonly int $sortOrder,
     ) {
     }
 
@@ -58,12 +64,15 @@ final class MapLineRecord
         return new self(
             MapValues::requireInt($fields, 'id'),
             MapValues::requireInt($fields, 'variant_id'),
-            MapValues::requireInt($fields, 'terrain_id'),
+            MapValues::requireString($fields, 'color'),
+            MapValues::requireInt($fields, 'speed'),
             $points,
             MapValues::widths($fields['widths'] ?? null, count($points)),
             MapValues::handles($fields['handles'] ?? null, count($points)),
+            MapValues::segments($fields['segments'] ?? null, count($points) - 1),
             MapValues::requireString($fields, 'label'),
             MapValues::requireBool($fields, 'is_present'),
+            MapValues::optionalInt($fields, 'sort_order') ?? 0,
         );
     }
 
@@ -88,13 +97,23 @@ final class MapLineRecord
     }
 
     /**
-     * Террейн.
+     * Цвет.
      *
-     * @return int Id террейна.
+     * @return string Цвет.
      */
-    public function getTerrainId(): int
+    public function getColor(): string
     {
-        return $this->terrainId;
+        return $this->color;
+    }
+
+    /**
+     * Проходимость.
+     *
+     * @return int Скорость.
+     */
+    public function getSpeed(): int
+    {
+        return $this->speed;
     }
 
     /**
@@ -128,6 +147,16 @@ final class MapLineRecord
     }
 
     /**
+     * Стили сегментов.
+     *
+     * @return array<int, array{speed: int, color: string|null}> Стили; пусто — по умолчанию.
+     */
+    public function getSegments(): array
+    {
+        return $this->segments;
+    }
+
+    /**
      * Подпись.
      *
      * @return string Подпись.
@@ -135,6 +164,16 @@ final class MapLineRecord
     public function getLabel(): string
     {
         return $this->label;
+    }
+
+    /**
+     * Порядок среди лент.
+     *
+     * @return int Порядок.
+     */
+    public function getSortOrder(): int
+    {
+        return $this->sortOrder;
     }
 
     /**

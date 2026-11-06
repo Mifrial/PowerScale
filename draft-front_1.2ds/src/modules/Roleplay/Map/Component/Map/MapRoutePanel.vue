@@ -1,91 +1,55 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import type { MapPoint } from '@/modules/Roleplay/Map/Dto/MapPoint';
 import type { MapRoute } from '@/modules/Roleplay/Map/Dto/MapRoute';
 
 const props = defineProps<{
-  nodes: { id: number; name: string }[];
+  from: MapPoint | null;
+  to: MapPoint | null;
   route: MapRoute | null;
   error: string | null;
   loading: boolean;
 }>();
 
 const emit = defineEmits<{
-  build: [fromNodeId: number, toNodeId: number];
+  build: [];
   clear: [];
 }>();
 
-const fromNodeId = ref<number | null>(null);
-const toNodeId = ref<number | null>(null);
+const pointLabel = (point: MapPoint | null): string => (point === null ? 'не выбрано' : `${point[0]}, ${point[1]}`);
 
-watch(
-  () => props.nodes,
-  (nodes) => {
-    if (fromNodeId.value !== null && !nodes.some((node) => node.id === fromNodeId.value)) {
-      fromNodeId.value = null;
-    }
-    if (toNodeId.value !== null && !nodes.some((node) => node.id === toNodeId.value)) {
-      toNodeId.value = null;
-    }
-  },
-);
+const distance = (route: MapRoute): string =>
+  route.distanceMeters === null ? `${Math.round(route.distancePixels)} px` : `${route.distanceMeters} м`;
 
-function build(): void {
-  if (fromNodeId.value === null || toNodeId.value === null) return;
-  emit('build', fromNodeId.value, toNodeId.value);
-}
-
-function clear(): void {
-  fromNodeId.value = null;
-  toNodeId.value = null;
-  emit('clear');
-}
+const cost = (route: MapRoute): string =>
+  route.costMeters === null ? `${Math.round(route.costPixels)} px` : `${route.costMeters} м`;
 </script>
 
 <template>
   <div class="map-route-panel">
-    <v-select
-      v-model="fromNodeId"
-      :items="props.nodes"
-      item-title="name"
-      item-value="id"
-      label="Откуда"
-      variant="outlined"
-      density="comfortable"
-      hide-details
-    />
-    <v-select
-      v-model="toNodeId"
-      :items="props.nodes"
-      item-title="name"
-      item-value="id"
-      label="Куда"
-      variant="outlined"
-      density="comfortable"
-      hide-details
-      class="mt-2"
-    />
-    <p class="text-caption text-medium-emphasis mt-2">
-      Маршрут — по любым узлам, включая невидимые waypoint-ы. Для произвольных точек используйте линейку в редакторе.
+    <p class="text-body-2 mb-3">
+      Кликните точку начала и точку конца на карте. Путь сам обойдёт воду, стены и дома и предпочтёт дороги.
     </p>
+    <div class="text-body-2">Откуда: {{ pointLabel(props.from) }}</div>
+    <div class="text-body-2 mt-1">Куда: {{ pointLabel(props.to) }}</div>
     <div class="d-flex align-center mt-3">
       <v-btn
         color="primary"
         variant="tonal"
         :loading="props.loading"
-        :disabled="fromNodeId === null || toNodeId === null"
-        @click="build"
+        :disabled="props.from === null || props.to === null"
+        @click="emit('build')"
       >
         Построить
       </v-btn>
-      <v-btn variant="text" class="ml-2" @click="clear">Сбросить</v-btn>
+      <v-btn variant="text" class="ml-2" @click="emit('clear')">Сбросить</v-btn>
     </div>
     <v-alert v-if="props.error" type="error" variant="tonal" density="compact" class="mt-3">
       {{ props.error }}
     </v-alert>
     <v-alert v-if="props.route" type="info" variant="tonal" density="compact" class="mt-3">
-      <div>Расстояние: {{ props.route.distanceMeters }} м</div>
-      <div>Стоимость пути: {{ props.route.costMeters }} м</div>
-      <div class="text-caption">Узлов: {{ props.route.nodeIds.length }}, рёбер: {{ props.route.edgeIds.length }}</div>
+      <div>Расстояние: {{ distance(props.route) }}</div>
+      <div>Стоимость пути: {{ cost(props.route) }}</div>
+      <div class="text-caption">Точек пути: {{ props.route.points.length }}</div>
     </v-alert>
   </div>
 </template>

@@ -41,8 +41,10 @@ final class MapRouteHttp
             $actor,
             $input->mapId,
             $input->variantId,
-            $input->fromNodeId,
-            $input->toNodeId,
+            $input->fromX,
+            $input->fromY,
+            $input->toX,
+            $input->toY,
         );
 
         return $this->viewAssembler->assembleRoute($route);

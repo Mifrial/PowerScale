@@ -96,6 +96,34 @@ final class MapGeometryTest extends TestCase
     }
 
     /**
+     * Замкнутый контур: прямые рёбра не сэмплируются, кривые — да.
+     *
+     * @return void
+     */
+    public function testFlattenContour(): void
+    {
+        $square = [[0, 0], [100, 0], [100, 100], [0, 100]];
+        self::assertSame($square, $this->geometry->flattenContour($square, [], 4));
+
+        $handles = [
+            ['in' => [0, 0], 'out' => [0, 40]],
+            ['in' => [0, 40], 'out' => [0, 0]],
+            ['in' => [0, 0], 'out' => [0, 0]],
+            ['in' => [0, 0], 'out' => [0, 0]],
+        ];
+        $flat = $this->geometry->flattenContour($square, $handles, 4);
+
+        self::assertCount(16, $flat);
+        self::assertSame([0, 0], $flat[0]);
+        self::assertGreaterThan(0, $flat[1][1]);
+        self::assertSame([100, 0], $flat[4]);
+        self::assertSame([100, 100], $flat[8]);
+        self::assertSame([0, 100], $flat[12]);
+        self::assertTrue($this->geometry->pointInPolygon([50, 60], $flat));
+        self::assertFalse($this->geometry->pointInPolygon([50, 5], $flat));
+    }
+
+    /**
      * Точка в полигоне и расстояние до отрезка.
      *
      * @return void

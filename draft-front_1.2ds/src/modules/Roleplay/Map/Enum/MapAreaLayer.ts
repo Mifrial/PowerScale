@@ -1,2 +1,2 @@
-/** Слой полигона: ландшафт или объект. */
-export type MapAreaLayer = 'terrain' | 'object';
+/** Слой области: поверхность или объект. */
+export type MapAreaLayer = 'surface' | 'object';

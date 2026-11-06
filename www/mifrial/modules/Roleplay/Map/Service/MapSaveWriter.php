@@ -19,7 +19,7 @@ final class MapSaveWriter
      * @param MapRepository $mapRepository Строки карт.
      * @param MapVariantWriter $variantWriter Варианты.
      * @param MapNodeWriter $nodeWriter Узлы.
-     * @param MapGraphSaveWriter $graphWriter Области и рёбра.
+     * @param MapGraphSaveWriter $graphWriter Области.
      * @param MapLineSaveWriter $lineWriter Ленты.
      * @param MapLinkSaveWriter $linkWriter Размещения и формы.
      *
@@ -51,7 +51,6 @@ final class MapSaveWriter
         $variantMap = $this->variantWriter->write($mapId, $data['variants'], $isNew);
         $nodeMap = $this->nodeWriter->write($mapId, $data['nodes']);
         $areaMap = $this->graphWriter->areas($mapId, $data['areas'], $nodeMap);
-        $this->graphWriter->edges($variantMap, $data['edges'], $nodeMap);
         $this->lineWriter->write($variantMap, $data['lines']);
         $this->linkWriter->placements($variantMap, $data['nodes'], $nodeMap);
         $this->linkWriter->shapes($variantMap, $data['areas'], $areaMap);

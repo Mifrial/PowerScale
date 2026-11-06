@@ -145,7 +145,6 @@ final class MapNodeWriter
     private function fields(array $node): array
     {
         return [
-            'is_poi' => $node['isPoi'],
             'name' => $node['name'],
             'short_info' => $node['shortInfo'],
             'public_info' => $node['publicInfo'],
@@ -167,7 +166,6 @@ final class MapNodeWriter
     {
         return $this->nodeStore->addNode(
             $mapId,
-            $node['isPoi'],
             $node['name'],
             $node['shortInfo'],
             $node['publicInfo'],

@@ -18,62 +18,63 @@ const emit = defineEmits<{
 }>();
 
 const namedOnly = ref(false);
-const poiOnly = ref(false);
+
+const linkedNodeIds = computed(() => {
+  const ids = new Set<number>();
+  for (const area of props.map.areas) {
+    if (area.nodeId !== null) ids.add(area.nodeId);
+  }
+
+  return ids;
+});
 
 const variantNodes = computed(() => {
   const variant = props.variant;
   if (!variant) return [];
 
   return props.map.nodes.filter((node) => {
+    if (linkedNodeIds.value.has(node.id)) return false;
     if (!node.placements.some((placement) => placement.variantId === variant.id && placement.isPresent)) return false;
-    if (poiOnly.value && !node.isPoi) return false;
     if (namedOnly.value && node.name.trim() === '') return false;
 
     return true;
   });
 });
 
-function variantAreas(layer: 'terrain' | 'object') {
+function variantAreas(layer: 'surface' | 'object') {
   const variant = props.variant;
   if (!variant) return [];
 
-  return props.map.areas.filter((area) => {
-    if (area.layer !== layer) return false;
-    if (!area.shapes.some((shape) => shape.variantId === variant.id && shape.isPresent)) return false;
-    if (namedOnly.value && area.label.trim() === '') return false;
+  return props.map.areas
+    .filter((area) => {
+      if (area.layer !== layer) return false;
+      if (!area.shapes.some((shape) => shape.variantId === variant.id && shape.isPresent)) return false;
+      if (namedOnly.value && area.label.trim() === '') return false;
 
-    return true;
-  });
+      return true;
+    })
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
 }
 
 const objectAreas = computed(() => variantAreas('object'));
-const terrainAreas = computed(() => variantAreas('terrain'));
+const surfaceAreas = computed(() => variantAreas('surface'));
+const placeAreas = computed(() =>
+  [...objectAreas.value, ...surfaceAreas.value].filter((area) => area.nodeId !== null),
+);
 
 const variantLines = computed(() => {
   const variant = props.variant;
   if (!variant) return [];
 
-  return props.map.lines.filter((line) => {
-    if (line.variantId !== variant.id || !line.isPresent) return false;
-    if (namedOnly.value && line.label.trim() === '') return false;
+  return props.map.lines
+    .filter((line) => {
+      if (line.variantId !== variant.id || !line.isPresent) return false;
+      if (namedOnly.value && line.label.trim() === '') return false;
 
-    return true;
-  });
+      return true;
+    })
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
 });
-
-const variantEdges = computed(() => {
-  const variant = props.variant;
-  if (!variant) return [];
-
-  return props.map.edges.filter((edge) => edge.variantId === variant.id);
-});
-
-const nodeName = (nodeId: number): string => {
-  const node = props.map.nodes.find((candidate) => candidate.id === nodeId);
-  if (!node) return `Узел #${nodeId}`;
-
-  return node.isPoi && node.name ? node.name : `Узел #${node.id}`;
-};
 
 const isSelected = (kind: MapHit['kind'], id: number): boolean =>
   props.selected?.kind === kind && props.selected.id === id;
@@ -98,7 +99,7 @@ function edit(kind: MapHit['kind'], id: number): void {
       class="mb-3"
       @click="emit('create', 'node')"
     >
-      Добавить точку
+      Добавить место
     </v-btn>
 
     <div class="d-flex ga-3 mb-2">
@@ -110,11 +111,10 @@ function edit(kind: MapHit['kind'], id: number): void {
         hide-details
         class="text-caption"
       />
-      <v-switch v-model="poiOnly" label="Только POI" color="primary" density="compact" hide-details />
     </div>
 
     <v-expansion-panels variant="accordion" multiple>
-      <v-expansion-panel title="Точки" :value="0">
+      <v-expansion-panel title="Места" :value="0">
         <v-expansion-panel-text>
           <v-list density="compact" nav>
             <v-list-item
@@ -124,9 +124,9 @@ function edit(kind: MapHit['kind'], id: number): void {
               @click="select('node', node.id)"
             >
               <template #prepend>
-                <v-icon :icon="node.icon || (node.isPoi ? 'mdi-map-marker' : 'mdi-checkbox-blank-circle-outline')" />
+                <v-icon :icon="node.icon || 'mdi-map-marker'" />
               </template>
-              <v-list-item-title>{{ node.isPoi && node.name ? node.name : `Узел #${node.id}` }}</v-list-item-title>
+              <v-list-item-title>{{ node.name || `Место #${node.id}` }}</v-list-item-title>
               <template #append>
                 <v-btn
                   v-if="props.map.canEdit"
@@ -137,8 +137,28 @@ function edit(kind: MapHit['kind'], id: number): void {
                 />
               </template>
             </v-list-item>
-            <v-list-item v-if="variantNodes.length === 0">
-              <v-list-item-title class="text-medium-emphasis">Нет точек</v-list-item-title>
+            <v-list-item
+              v-for="area in placeAreas"
+              :key="`place-${area.id}`"
+              :active="isSelected('area', area.id)"
+              @click="select('area', area.id)"
+            >
+              <template #prepend>
+                <v-icon icon="mdi-map-marker-circle" />
+              </template>
+              <v-list-item-title>{{ area.label || `Место #${area.id}` }}</v-list-item-title>
+              <template #append>
+                <v-btn
+                  v-if="props.map.canEdit"
+                  icon="mdi-pencil-outline"
+                  size="x-small"
+                  variant="text"
+                  @click.stop="edit('area', area.id)"
+                />
+              </template>
+            </v-list-item>
+            <v-list-item v-if="variantNodes.length === 0 && placeAreas.length === 0">
+              <v-list-item-title class="text-medium-emphasis">Нет мест</v-list-item-title>
             </v-list-item>
           </v-list>
         </v-expansion-panel-text>
@@ -171,11 +191,11 @@ function edit(kind: MapHit['kind'], id: number): void {
         </v-expansion-panel-text>
       </v-expansion-panel>
 
-      <v-expansion-panel title="Ландшафт" :value="2">
+      <v-expansion-panel title="Поверхности" :value="2">
         <v-expansion-panel-text>
           <v-list density="compact" nav>
             <v-list-item
-              v-for="area in terrainAreas"
+              v-for="area in surfaceAreas"
               :key="area.id"
               :active="isSelected('area', area.id)"
               @click="select('area', area.id)"
@@ -183,7 +203,7 @@ function edit(kind: MapHit['kind'], id: number): void {
               <template #prepend>
                 <v-icon icon="mdi-vector-polygon" />
               </template>
-              <v-list-item-title>{{ area.label || `Ландшафт #${area.id}` }}</v-list-item-title>
+              <v-list-item-title>{{ area.label || `Поверхность #${area.id}` }}</v-list-item-title>
               <template #append>
                 <v-btn
                   v-if="props.map.canEdit"
@@ -225,34 +245,6 @@ function edit(kind: MapHit['kind'], id: number): void {
         </v-expansion-panel-text>
       </v-expansion-panel>
 
-      <v-expansion-panel title="Рёбра" :value="4">
-        <v-expansion-panel-text>
-          <v-list density="compact" nav>
-            <v-list-item
-              v-for="edge in variantEdges"
-              :key="edge.id"
-              :active="isSelected('edge', edge.id)"
-              @click="select('edge', edge.id)"
-            >
-              <template #prepend>
-                <v-icon icon="mdi-vector-polyline" />
-              </template>
-              <v-list-item-title>
-                {{ edge.label || `${nodeName(edge.fromNodeId)} → ${nodeName(edge.toNodeId)}` }}
-              </v-list-item-title>
-              <template #append>
-                <v-btn
-                  v-if="props.map.canEdit"
-                  icon="mdi-pencil-outline"
-                  size="x-small"
-                  variant="text"
-                  @click.stop="edit('edge', edge.id)"
-                />
-              </template>
-            </v-list-item>
-          </v-list>
-        </v-expansion-panel-text>
-      </v-expansion-panel>
     </v-expansion-panels>
   </div>
 </template>

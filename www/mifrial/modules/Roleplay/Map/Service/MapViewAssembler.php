@@ -8,17 +8,15 @@ use Mifrial\Core\File\Interface\Service\IFiles;
 use Mifrial\Roleplay\Map\Dto\MapAreaRecord;
 use Mifrial\Roleplay\Map\Dto\MapAreaShapeRecord;
 use Mifrial\Roleplay\Map\Dto\MapDetail;
-use Mifrial\Roleplay\Map\Dto\MapEdgeRecord;
 use Mifrial\Roleplay\Map\Dto\MapLineRecord;
 use Mifrial\Roleplay\Map\Dto\MapNodeRecord;
 use Mifrial\Roleplay\Map\Dto\MapPlacementRecord;
 use Mifrial\Roleplay\Map\Dto\MapRecord;
 use Mifrial\Roleplay\Map\Dto\MapRoute;
-use Mifrial\Roleplay\Map\Dto\MapTerrainRecord;
 use Mifrial\Roleplay\Map\Dto\MapVariantRecord;
 
 /**
- * JSON-представление карт, точек, областей, лент, рёбер и маршрута.
+ * JSON-представление карт, мест, областей, лент и маршрута.
  */
 final class MapViewAssembler
 {
@@ -26,13 +24,11 @@ final class MapViewAssembler
      * Создаёт сборщик.
      *
      * @param IFiles $files Файлы подложек.
-     * @param MapTerrainService $terrainService Справочник террейнов.
      *
      * @return void
      */
     public function __construct(
         private readonly IFiles $files,
-        private readonly MapTerrainService $terrainService,
     ) {
     }
 
@@ -68,15 +64,12 @@ final class MapViewAssembler
      */
     public function assembleDetail(MapDetail $detail): array
     {
-        $codes = $this->terrainCodes();
-
         return $this->assembleSummary($detail->getMap()) + [
             'canEdit' => $detail->canEdit(),
             'variants' => $this->variantViews($detail),
             'nodes' => $this->nodeViews($detail),
-            'areas' => $this->areaViews($detail, $codes),
-            'lines' => $this->lineViews($detail, $codes),
-            'edges' => $this->edgeViews($detail, $codes),
+            'areas' => $this->areaViews($detail),
+            'lines' => $this->lineViews($detail),
         ];
     }
 
@@ -123,7 +116,6 @@ final class MapViewAssembler
     {
         $view = [
             'id' => $nodeRecord->getId(),
-            'isPoi' => $nodeRecord->isPoi(),
             'name' => $nodeRecord->getName(),
             'shortInfo' => $nodeRecord->getShortInfo(),
             'linkedMapId' => $nodeRecord->getLinkedMapId(),
@@ -143,31 +135,29 @@ final class MapViewAssembler
      *
      * @param MapAreaRecord $areaRecord Область.
      * @param array<int, MapAreaShapeRecord> $shapes Полигоны.
-     * @param array<int, string> $codes Id террейна → код.
      *
      * @return array<string, mixed> JSON.
      */
-    public function assembleArea(MapAreaRecord $areaRecord, array $shapes, array $codes): array
+    public function assembleArea(MapAreaRecord $areaRecord, array $shapes): array
     {
         $shapeViews = [];
         foreach ($shapes as $shapeRecord) {
             $shapeViews[] = [
                 'variantId' => $shapeRecord->getVariantId(),
                 'path' => $shapeRecord->getPath(),
+                'handles' => $shapeRecord->getHandles(),
                 'isPresent' => $shapeRecord->isPresent(),
             ];
         }
 
-        $terrainId = $areaRecord->getTerrainId();
-
         return [
             'id' => $areaRecord->getId(),
             'layer' => $areaRecord->getLayer(),
-            'terrainCode' => $terrainId === null ? null : ($codes[$terrainId] ?? null),
-            'kind' => $areaRecord->getKind(),
+            'color' => $areaRecord->getColor(),
+            'speed' => $areaRecord->getSpeed(),
             'label' => $areaRecord->getLabel(),
             'nodeId' => $areaRecord->getNodeId(),
-            'blocksMovement' => $areaRecord->blocksMovement(),
+            'sortOrder' => $areaRecord->getSortOrder(),
             'shapes' => $shapeViews,
         ];
     }
@@ -176,63 +166,23 @@ final class MapViewAssembler
      * Лента.
      *
      * @param MapLineRecord $lineRecord Лента.
-     * @param array<int, string> $codes Id террейна → код.
      *
      * @return array<string, mixed> JSON.
      */
-    public function assembleLine(MapLineRecord $lineRecord, array $codes): array
+    public function assembleLine(MapLineRecord $lineRecord): array
     {
         return [
             'id' => $lineRecord->getId(),
             'variantId' => $lineRecord->getVariantId(),
-            'terrainCode' => $codes[$lineRecord->getTerrainId()] ?? null,
+            'color' => $lineRecord->getColor(),
+            'speed' => $lineRecord->getSpeed(),
             'points' => $lineRecord->getPoints(),
             'widths' => $lineRecord->getWidths(),
             'handles' => $lineRecord->getHandles(),
+            'segments' => $lineRecord->getSegments(),
             'label' => $lineRecord->getLabel(),
             'isPresent' => $lineRecord->isPresent(),
-        ];
-    }
-
-    /**
-     * Ребро.
-     *
-     * @param MapEdgeRecord $edgeRecord Ребро.
-     * @param array<int, string> $codes Id террейна → код.
-     *
-     * @return array<string, mixed> JSON.
-     */
-    public function assembleEdge(MapEdgeRecord $edgeRecord, array $codes): array
-    {
-        return [
-            'id' => $edgeRecord->getId(),
-            'variantId' => $edgeRecord->getVariantId(),
-            'fromNodeId' => $edgeRecord->getFromNodeId(),
-            'toNodeId' => $edgeRecord->getToNodeId(),
-            'terrainCode' => $codes[$edgeRecord->getTerrainId()] ?? null,
-            'path' => $edgeRecord->getPath(),
-            'distanceMeters' => $edgeRecord->getDistanceMeters(),
-            'isDirected' => $edgeRecord->isDirected(),
-            'label' => $edgeRecord->getLabel(),
-        ];
-    }
-
-    /**
-     * Террейн.
-     *
-     * @param MapTerrainRecord $terrainRecord Террейн.
-     *
-     * @return array<string, mixed> JSON.
-     */
-    public function assembleTerrain(MapTerrainRecord $terrainRecord): array
-    {
-        return [
-            'id' => $terrainRecord->getId(),
-            'code' => $terrainRecord->getCode(),
-            'label' => $terrainRecord->getLabel(),
-            'speedFactor' => $terrainRecord->getSpeedFactor(),
-            'color' => $terrainRecord->getColor(),
-            'sortOrder' => $terrainRecord->getSortOrder(),
+            'sortOrder' => $lineRecord->getSortOrder(),
         ];
     }
 
@@ -246,9 +196,9 @@ final class MapViewAssembler
     public function assembleRoute(MapRoute $route): array
     {
         return [
-            'nodeIds' => $route->getNodeIds(),
             'points' => $route->getPoints(),
-            'edgeIds' => $route->getEdgeIds(),
+            'distancePixels' => $route->getDistancePixels(),
+            'costPixels' => $route->getCostPixels(),
             'distanceMeters' => $route->getDistanceMeters(),
             'costMeters' => $route->getCostMeters(),
         ];
@@ -301,16 +251,15 @@ final class MapViewAssembler
      * Области в JSON.
      *
      * @param MapDetail $detail Снимок.
-     * @param array<int, string> $codes Id террейна → код.
      *
      * @return array<int, array<string, mixed>> JSON.
      */
-    private function areaViews(MapDetail $detail, array $codes): array
+    private function areaViews(MapDetail $detail): array
     {
         $shapes = $this->groupShapes($detail->getShapes());
         $views = [];
         foreach ($detail->getAreas() as $areaRecord) {
-            $views[] = $this->assembleArea($areaRecord, $shapes[$areaRecord->getId()] ?? [], $codes);
+            $views[] = $this->assembleArea($areaRecord, $shapes[$areaRecord->getId()] ?? []);
         }
 
         return $views;
@@ -320,51 +269,17 @@ final class MapViewAssembler
      * Ленты в JSON.
      *
      * @param MapDetail $detail Снимок.
-     * @param array<int, string> $codes Id террейна → код.
      *
      * @return array<int, array<string, mixed>> JSON.
      */
-    private function lineViews(MapDetail $detail, array $codes): array
+    private function lineViews(MapDetail $detail): array
     {
         $views = [];
         foreach ($detail->getLines() as $lineRecord) {
-            $views[] = $this->assembleLine($lineRecord, $codes);
+            $views[] = $this->assembleLine($lineRecord);
         }
 
         return $views;
-    }
-
-    /**
-     * Рёбра в JSON.
-     *
-     * @param MapDetail $detail Снимок.
-     * @param array<int, string> $codes Id террейна → код.
-     *
-     * @return array<int, array<string, mixed>> JSON.
-     */
-    private function edgeViews(MapDetail $detail, array $codes): array
-    {
-        $views = [];
-        foreach ($detail->getEdges() as $edgeRecord) {
-            $views[] = $this->assembleEdge($edgeRecord, $codes);
-        }
-
-        return $views;
-    }
-
-    /**
-     * Коды террейнов.
-     *
-     * @return array<int, string> Id → код.
-     */
-    private function terrainCodes(): array
-    {
-        $codes = [];
-        foreach ($this->terrainService->getAll() as $terrainRecord) {
-            $codes[$terrainRecord->getId()] = $terrainRecord->getCode();
-        }
-
-        return $codes;
     }
 
     /**

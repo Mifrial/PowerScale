@@ -17,7 +17,6 @@ final class MapNodeRecord
      *
      * @param int $id Id.
      * @param int $mapId Карта.
-     * @param bool $isPoi Точка интереса.
      * @param string $name Имя.
      * @param string $shortInfo Короткая информация.
      * @param string $publicInfo Раскрываемая информация.
@@ -30,7 +29,6 @@ final class MapNodeRecord
     private function __construct(
         private readonly int $id,
         private readonly int $mapId,
-        private readonly bool $isPoi,
         private readonly string $name,
         private readonly string $shortInfo,
         private readonly string $publicInfo,
@@ -52,7 +50,6 @@ final class MapNodeRecord
         return new self(
             MapValues::requireInt($fields, 'id'),
             MapValues::requireInt($fields, 'map_id'),
-            MapValues::requireBool($fields, 'is_poi'),
             MapValues::requireString($fields, 'name'),
             MapValues::requireString($fields, 'short_info'),
             MapValues::requireString($fields, 'public_info'),
@@ -80,16 +77,6 @@ final class MapNodeRecord
     public function getMapId(): int
     {
         return $this->mapId;
-    }
-
-    /**
-     * Точка интереса.
-     *
-     * @return bool Флаг.
-     */
-    public function isPoi(): bool
-    {
-        return $this->isPoi;
     }
 
     /**

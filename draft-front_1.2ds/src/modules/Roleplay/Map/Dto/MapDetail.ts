@@ -1,5 +1,4 @@
 import type { MapArea } from '@/modules/Roleplay/Map/Dto/MapArea';
-import type { MapEdge } from '@/modules/Roleplay/Map/Dto/MapEdge';
 import type { MapLine } from '@/modules/Roleplay/Map/Dto/MapLine';
 import type { MapNode } from '@/modules/Roleplay/Map/Dto/MapNode';
 import type { MapSummary } from '@/modules/Roleplay/Map/Dto/MapSummary';
@@ -11,5 +10,4 @@ export interface MapDetail extends MapSummary {
   nodes: MapNode[];
   areas: MapArea[];
   lines: MapLine[];
-  edges: MapEdge[];
 }

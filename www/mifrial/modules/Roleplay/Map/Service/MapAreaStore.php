@@ -82,25 +82,33 @@ final class MapAreaStore
      * Добавляет область.
      *
      * @param int $mapId Карта.
-     * @param string $layer Terrain|object.
-     * @param int|null $terrainId Террейн.
-     * @param string $kind Вид объекта.
+     * @param string $layer Слой: surface или object.
+     * @param string $color Цвет.
+     * @param int $speed Проходимость.
      * @param string $label Подпись.
-     * @param int|null $nodeId POI.
-     * @param bool $blocksMovement Непроходим.
+     * @param int|null $nodeId Место.
+     * @param int $sortOrder Порядок внутри слоя.
      *
      * @return int Id.
      */
     public function addArea(
         int $mapId,
         string $layer,
-        ?int $terrainId,
-        string $kind,
+        string $color,
+        int $speed,
         string $label,
         ?int $nodeId,
-        bool $blocksMovement,
+        int $sortOrder,
     ): int {
-        return $this->areaRepository->add($mapId, $layer, $terrainId, $kind, $label, $nodeId, $blocksMovement);
+        return $this->areaRepository->add(
+            $mapId,
+            $layer,
+            $color,
+            $speed,
+            $label,
+            $nodeId,
+            $sortOrder,
+        );
     }
 
     /**
@@ -122,13 +130,14 @@ final class MapAreaStore
      * @param int $variantId Вариант.
      * @param int $areaId Область.
      * @param array<int, array{0: int, 1: int}> $path Полигон.
+     * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки Безье.
      * @param bool $isPresent Присутствует.
      *
      * @return void
      */
-    public function upsertShape(int $variantId, int $areaId, array $path, bool $isPresent): void
+    public function upsertShape(int $variantId, int $areaId, array $path, array $handles, bool $isPresent): void
     {
-        $this->shapeRepository->upsert($variantId, $areaId, $path, $isPresent);
+        $this->shapeRepository->upsert($variantId, $areaId, $path, $handles, $isPresent);
     }
 
     /**

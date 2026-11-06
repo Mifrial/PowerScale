@@ -8,9 +8,7 @@ use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Roleplay\Map\Table\MapAreaTable;
 use Mifrial\Roleplay\Map\Table\MapNodeTable;
 use Mifrial\Roleplay\Map\Table\MapTable;
-use Mifrial\Roleplay\Map\Table\MapTerrainTable;
 use Mifrial\Roleplay\Map\Table\MapVariantAreaTable;
-use Mifrial\Roleplay\Map\Table\MapVariantEdgeTable;
 use Mifrial\Roleplay\Map\Table\MapVariantLineTable;
 use Mifrial\Roleplay\Map\Table\MapVariantNodeTable;
 use Mifrial\Roleplay\Map\Table\MapVariantTable;
@@ -30,12 +28,10 @@ final class MapSchema
         return [
             MapTable::class,
             MapVariantTable::class,
-            MapTerrainTable::class,
             MapNodeTable::class,
             MapVariantNodeTable::class,
             MapAreaTable::class,
             MapVariantAreaTable::class,
-            MapVariantEdgeTable::class,
             MapVariantLineTable::class,
         ];
     }

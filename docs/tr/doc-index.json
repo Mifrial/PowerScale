@@ -2481,7 +2481,6 @@
                 "docs/tr/file-plan-01.md",
                 "docs/tr/game-roadmap.md",
                 "docs/tr/game-system.md",
-                "docs/tr/map-plan-01.md",
                 "docs/tr/spatial-roadmap.md",
                 "docs/tr/ui-system.md"
             ]
@@ -5406,7 +5405,7 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-06 — серверный срез переработан под «черновик → публикация»; ждёт ручной проверки.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-06 — террейны заменены явными цветом и скоростью элемента; ждёт ручной проверки.",
             "layers": [
                 "PHP",
                 "VUE",
@@ -5414,12 +5413,12 @@
             ],
             "basis": "PHP",
             "date": "2026-11-06",
-            "bytes": 23380,
-            "lines": 465,
+            "bytes": 22704,
+            "lines": 389,
             "modules": [
                 "Roleplay/Map"
             ],
-            "linksCount": 3,
+            "linksCount": 2,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/map-plan-02.md",
@@ -5433,7 +5432,7 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-06 — фронтенд переработан под черновик и публикацию; ждёт ручной проверки.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-06 — явные цвет и скорость, Безье контуров областей, массовая ширина и сглаживание маршрута; ждёт ручной проверки.",
             "layers": [
                 "PHP",
                 "VUE",
@@ -5441,8 +5440,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-06",
-            "bytes": 15121,
-            "lines": 186,
+            "bytes": 14061,
+            "lines": 180,
             "modules": [
                 "Roleplay/Map"
             ],
@@ -8010,7 +8009,7 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-06 — видение и границы; контракт карт переработан под «черновик → публикация».",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-06 — видение и границы; карты переведены на явные цвет и скорость элемента.",
             "layers": [
                 "PHP",
                 "VUE",
@@ -8018,8 +8017,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-06",
-            "bytes": 10727,
-            "lines": 141,
+            "bytes": 10670,
+            "lines": 137,
             "modules": [
                 "Roleplay/Map"
             ],

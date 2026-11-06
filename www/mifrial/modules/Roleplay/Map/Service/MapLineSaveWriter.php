@@ -98,12 +98,15 @@ final class MapLineSaveWriter
 
         return $this->lineStore->addLine(
             $variantId,
-            $fields['terrain_id'],
+            $fields['color'],
+            $fields['speed'],
             $fields['points'],
             $fields['widths'],
             $fields['handles'],
+            $fields['segments'],
             $fields['label'],
             $fields['is_present'],
+            $fields['sort_order'],
         );
     }
 
@@ -119,12 +122,15 @@ final class MapLineSaveWriter
     {
         return [
             'variant_id' => $variantId,
-            'terrain_id' => $line['terrainId'],
+            'color' => $line['color'],
+            'speed' => $line['speed'],
             'points' => $line['points'],
             'widths' => $line['widths'],
             'handles' => $line['handles'],
+            'segments' => $line['segments'],
             'label' => $line['label'],
             'is_present' => $line['isPresent'],
+            'sort_order' => $line['sortOrder'],
         ];
     }
 

@@ -134,6 +134,102 @@ final class MapGeometry
     }
 
     /**
+     * Разворачивает замкнутый контур области с ручками Безье в полилинию.
+     *
+     * Сегмент `i → i+1` использует `out` вершины `i` и `in` вершины `i+1`;
+     * последний сегмент замыкается с `out` последней вершины на `in` первой.
+     * Повторной первой точки в результате нет.
+     *
+     * @param array<int, array{0: int, 1: int}> $path Вершины контура.
+     * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки.
+     * @param int $samples Число сэмплов на сегмент.
+     *
+     * @return array<int, array{0: int, 1: int}> Полилиния.
+     */
+    public function flattenContour(array $path, array $handles, int $samples = 12): array
+    {
+        $count = count($path);
+        if ($count < 3) {
+            return $path;
+        }
+
+        if (!$this->hasCurveHandles($handles, $count)) {
+            return $path;
+        }
+
+        $steps = max(1, $samples);
+        $flat = [];
+        for ($index = 0; $index < $count; $index += 1) {
+            $next = ($index + 1) % $count;
+            $start = $path[$index];
+            $end = $path[$next];
+            $startOut = $handles[$index]['out'];
+            $endIn = $handles[$next]['in'];
+            $controlOne = [$start[0] + $startOut[0], $start[1] + $startOut[1]];
+            $controlTwo = [$end[0] + $endIn[0], $end[1] + $endIn[1]];
+            for ($step = 0; $step < $steps; $step += 1) {
+                $flat[] = $this->cubicPoint($start, $controlOne, $controlTwo, $end, $step / $steps);
+            }
+        }
+
+        return $flat;
+    }
+
+    /**
+     * Есть ли в контуре хоть одна ненулевая ручка.
+     *
+     * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки.
+     * @param int $count Число вершин.
+     *
+     * @return bool Флаг.
+     */
+    private function hasCurveHandles(array $handles, int $count): bool
+    {
+        if ($count < 1) {
+            return false;
+        }
+
+        foreach ($handles as $handle) {
+            $in = $handle['in'];
+            $out = $handle['out'];
+            if (abs($in[0]) + abs($in[1]) + abs($out[0]) + abs($out[1]) > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Разворачивает один сегмент ленты.
+     *
+     * @param array<int, array{0: int, 1: int}> $points Осевая линия.
+     * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки.
+     * @param array<int, int> $widths Ширина по точкам.
+     * @param int $index Номер сегмента (1..count-1).
+     * @param int $samples Число сэмплов.
+     *
+     * @return array{0: array<int, array{0: int, 1: int}>, 1: array<int, int>} Точки и ширины.
+     */
+    public function ribbonSegment(
+        array $points,
+        array $handles,
+        array $widths,
+        int $index,
+        int $samples = 8,
+    ): array {
+        if ($index < 1 || $index >= count($points) || count($widths) !== count($points)) {
+            return [[], []];
+        }
+
+        if ($handles === []) {
+            $handles = array_fill(0, count($points), ['in' => [0, 0], 'out' => [0, 0]]);
+        }
+
+        return $this->flattenSegment($points, $handles, $widths, $index, max(1, $samples));
+    }
+
+    /**
      * Точка внутри полигона.
      *
      * @param array{0: int, 1: int} $point Точка.

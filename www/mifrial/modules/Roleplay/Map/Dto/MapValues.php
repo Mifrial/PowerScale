@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Map\Dto;
 
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Map\Exception\MapInvalidException;
+use Mifrial\Roleplay\Map\Service\MapSpeed;
 
 /**
  * Строгие преобразования полей строки карты.
@@ -193,6 +194,50 @@ final class MapValues
         }
 
         return $widths;
+    }
+
+    /**
+     * Стили сегментов ленты.
+     *
+     * @param mixed $value Значение JSON.
+     * @param int $expected Ожидаемое число сегментов.
+     *
+     * @return array<int, array{speed: int, color: string|null}> Стили; пусто — по умолчанию.
+     *
+     * @throws MapInvalidException Если форма неверна.
+     */
+    public static function segments(mixed $value, int $expected): array
+    {
+        if ($value === null || $value === []) {
+            return [];
+        }
+
+        if (!is_array($value) || count($value) !== $expected) {
+            throw new MapInvalidException('Map line segments are invalid');
+        }
+
+        $segments = [];
+        foreach ($value as $segment) {
+            if (!is_array($segment)) {
+                throw new MapInvalidException('Map line segment is invalid');
+            }
+
+            $speed = self::intValue($segment['speed'] ?? null);
+            if ($speed === null || $speed < 0 || $speed > MapSpeed::MAX) {
+                throw new MapInvalidException('Map line segment speed is invalid');
+            }
+
+            $color = $segment['color'] ?? null;
+            if ($color !== null) {
+                if (!is_string($color) || preg_match('/^#[0-9a-fA-F]{6}$/', $color) !== 1) {
+                    throw new MapInvalidException('Map line segment color is invalid');
+                }
+            }
+
+            $segments[] = ['speed' => $speed, 'color' => $color];
+        }
+
+        return $segments;
     }
 
     /**

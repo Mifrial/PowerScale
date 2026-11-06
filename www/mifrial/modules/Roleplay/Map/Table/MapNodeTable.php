@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Map\Table;
 
 use Mifrial\Core\SmartTable\Dto\FieldSettings;
-use Mifrial\Core\SmartTable\Field\BoolField;
 use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\IntField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
@@ -41,7 +40,6 @@ final class MapNodeTable extends SmartTableDefinition
         return [
             new IdField(),
             new ReferenceField('map_id', $indexed, MapTable::class, 'cascade'),
-            new BoolField('is_poi', FieldSettings::fromOptions(['required' => true, 'default' => false])),
             new StringField('name', $required, 255),
             new TextField('short_info', $required),
             new TextField('public_info', $required),

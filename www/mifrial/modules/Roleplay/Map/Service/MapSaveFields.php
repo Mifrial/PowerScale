@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Map\Service;
 
 use Mifrial\Roleplay\Map\Exception\MapInvalidException;
+use Mifrial\Roleplay\Map\Service\MapSpeed;
 
 /**
  * Разбор и проверка полей снимка карты.
@@ -166,6 +167,72 @@ final class MapSaveFields
         }
 
         return $value;
+    }
+
+    /**
+     * Цвет `#rrggbb`.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return string Цвет.
+     *
+     * @throws MapInvalidException Если цвет неверен.
+     */
+    public function colorValue(array $row, string $key, string $path): string
+    {
+        $color = trim($this->stringValue($row, $key, $path));
+        if (preg_match('/^#[0-9a-fA-F]{6}$/', $color) !== 1) {
+            throw new MapInvalidException($path . ' is invalid');
+        }
+
+        return $color;
+    }
+
+    /**
+     * Стили сегментов ленты.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     * @param int $expected Ожидаемое число сегментов.
+     *
+     * @return array<int, array{speed: int, color: string|null}> Стили; пусто — по умолчанию.
+     *
+     * @throws MapInvalidException Если форма неверна.
+     */
+    public function segmentsValue(array $row, string $key, string $path, int $expected): array
+    {
+        $value = $row[$key] ?? null;
+        if ($value === null || $value === []) {
+            return [];
+        }
+
+        if (!is_array($value) || count($value) !== $expected) {
+            throw new MapInvalidException($path . ' does not match the points');
+        }
+
+        $segments = [];
+        foreach ($value as $index => $segment) {
+            $segmentPath = $path . '[' . $index . ']';
+            if (!is_array($segment)) {
+                throw new MapInvalidException($segmentPath . ' is invalid');
+            }
+
+            $color = $this->optionalStringValue($segment, 'color', $segmentPath . '.color');
+            $color = $color === null ? null : trim($color);
+            if ($color !== null && preg_match('/^#[0-9a-fA-F]{6}$/', $color) !== 1) {
+                throw new MapInvalidException($segmentPath . '.color is invalid');
+            }
+
+            $segments[] = [
+                'speed' => $this->intValue($segment, 'speed', $segmentPath . '.speed', 0, MapSpeed::MAX),
+                'color' => $color,
+            ];
+        }
+
+        return $segments;
     }
 
     /**

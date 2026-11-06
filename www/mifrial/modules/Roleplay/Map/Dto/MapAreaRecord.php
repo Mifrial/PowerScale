@@ -16,12 +16,12 @@ final class MapAreaRecord
      *
      * @param int $id Id.
      * @param int $mapId Карта.
-     * @param string $layer terrain|object.
-     * @param int|null $terrainId Террейн ландшафта.
-     * @param string $kind Вид объекта.
+     * @param string $layer surface|object.
+     * @param string $color Цвет области.
+     * @param int $speed Проходимость: 0 — непроходимо.
      * @param string $label Подпись.
-     * @param int|null $nodeId Привязанный POI.
-     * @param bool $blocksMovement Объект непроходим.
+     * @param int|null $nodeId Привязанное место.
+     * @param int $sortOrder Порядок внутри слоя.
      *
      * @return void
      */
@@ -29,11 +29,11 @@ final class MapAreaRecord
         private readonly int $id,
         private readonly int $mapId,
         private readonly string $layer,
-        private readonly ?int $terrainId,
-        private readonly string $kind,
+        private readonly string $color,
+        private readonly int $speed,
         private readonly string $label,
         private readonly ?int $nodeId,
-        private readonly bool $blocksMovement,
+        private readonly int $sortOrder,
     ) {
     }
 
@@ -50,11 +50,11 @@ final class MapAreaRecord
             MapValues::requireInt($fields, 'id'),
             MapValues::requireInt($fields, 'map_id'),
             MapValues::requireString($fields, 'layer'),
-            MapValues::optionalInt($fields, 'terrain_id'),
-            MapValues::requireString($fields, 'kind'),
+            MapValues::requireString($fields, 'color'),
+            MapValues::requireInt($fields, 'speed'),
             MapValues::requireString($fields, 'label'),
             MapValues::optionalInt($fields, 'node_id'),
-            MapValues::requireBool($fields, 'blocks_movement'),
+            MapValues::optionalInt($fields, 'sort_order') ?? 0,
         );
     }
 
@@ -81,7 +81,7 @@ final class MapAreaRecord
     /**
      * Слой.
      *
-     * @return string terrain|object.
+     * @return string surface|object.
      */
     public function getLayer(): string
     {
@@ -89,23 +89,33 @@ final class MapAreaRecord
     }
 
     /**
-     * Террейн.
+     * Цвет.
      *
-     * @return int|null Id террейна или null.
+     * @return string Цвет.
      */
-    public function getTerrainId(): ?int
+    public function getColor(): string
     {
-        return $this->terrainId;
+        return $this->color;
     }
 
     /**
-     * Вид.
+     * Проходимость.
      *
-     * @return string Вид.
+     * @return int Скорость.
      */
-    public function getKind(): string
+    public function getSpeed(): int
     {
-        return $this->kind;
+        return $this->speed;
+    }
+
+    /**
+     * Порядок внутри слоя.
+     *
+     * @return int Порядок.
+     */
+    public function getSortOrder(): int
+    {
+        return $this->sortOrder;
     }
 
     /**
@@ -119,22 +129,12 @@ final class MapAreaRecord
     }
 
     /**
-     * Точка интереса.
+     * Место.
      *
      * @return int|null Id узла или null.
      */
     public function getNodeId(): ?int
     {
         return $this->nodeId;
-    }
-
-    /**
-     * Непроходим.
-     *
-     * @return bool Флаг.
-     */
-    public function blocksMovement(): bool
-    {
-        return $this->blocksMovement;
     }
 }

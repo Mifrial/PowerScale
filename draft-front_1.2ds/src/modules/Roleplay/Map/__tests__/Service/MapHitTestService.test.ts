@@ -10,9 +10,8 @@ function candidates(overrides: Partial<MapHitCandidates> = {}): MapHitCandidates
   return {
     nodes: [],
     objects: [],
-    terrains: [],
+    surfaces: [],
     lines: [],
-    edges: [],
     ...overrides,
   };
 }
@@ -74,7 +73,7 @@ describe('MapHitTestService', () => {
     expect(service.findLine([10, 8], lines, 0)).toBeNull();
   });
 
-  it('prefers a node over an object, a line, an edge and terrain', () => {
+  it('prefers a node over an object, a line and surface', () => {
     const hitCandidates = candidates({
       nodes: [{ id: 5, x: 10, y: 10 }],
       objects: [
@@ -102,16 +101,7 @@ describe('MapHitTestService', () => {
           ],
         },
       ],
-      edges: [
-        {
-          id: 7,
-          path: [
-            [0, 10],
-            [20, 10],
-          ],
-        },
-      ],
-      terrains: [
+      surfaces: [
         {
           id: 9,
           path: [
@@ -132,7 +122,7 @@ describe('MapHitTestService', () => {
     expect(service.hitTest([30, 10], { ...hitCandidates, nodes: [], objects: [] }, tolerances)).toBeNull();
   });
 
-  it('falls back to a line, then an edge, then terrain', () => {
+  it('falls back to a line, then surface', () => {
     const line = {
       id: 8,
       points: [
@@ -145,14 +135,7 @@ describe('MapHitTestService', () => {
         { in: [0, 0] as [number, number], out: [0, 0] as [number, number] },
       ],
     };
-    const edge = {
-      id: 7,
-      path: [
-        [0, 20],
-        [20, 20],
-      ] as [number, number][],
-    };
-    const terrain = {
+    const surface = {
       id: 9,
       path: [
         [0, 0],
@@ -161,11 +144,10 @@ describe('MapHitTestService', () => {
         [0, 30],
       ] as [number, number][],
     };
-    const base = candidates({ lines: [line], edges: [edge], terrains: [terrain] });
+    const base = candidates({ lines: [line], surfaces: [surface] });
 
     expect(service.hitTest([10, 12], base, tolerances)).toEqual({ kind: 'line', id: 8 });
-    expect(service.hitTest([10, 21], { ...base, lines: [] }, tolerances)).toEqual({ kind: 'edge', id: 7 });
-    expect(service.hitTest([25, 5], { ...base, lines: [], edges: [] }, tolerances)).toEqual({
+    expect(service.hitTest([10, 21], { ...base, lines: [] }, tolerances)).toEqual({
       kind: 'area',
       id: 9,
     });

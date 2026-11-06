@@ -1,13 +1,14 @@
 import { computed, ref, toRaw } from 'vue';
 import type { MapArea } from '@/modules/Roleplay/Map/Dto/MapArea';
 import type { MapAreaEdit } from '@/modules/Roleplay/Map/Dto/MapAreaEdit';
+import type { MapAreaShape } from '@/modules/Roleplay/Map/Dto/MapAreaShape';
 import type { MapConflict } from '@/modules/Roleplay/Map/Dto/MapConflict';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
-import type { MapEdge } from '@/modules/Roleplay/Map/Dto/MapEdge';
-import type { MapEdgeEdit } from '@/modules/Roleplay/Map/Dto/MapEdgeEdit';
 import type { MapLine } from '@/modules/Roleplay/Map/Dto/MapLine';
+import type { MapHandle } from '@/modules/Roleplay/Map/Dto/MapHandle';
 import type { MapLineEdit } from '@/modules/Roleplay/Map/Dto/MapLineEdit';
 import type { MapLineHandle } from '@/modules/Roleplay/Map/Dto/MapLineHandle';
+import type { MapLineSegment } from '@/modules/Roleplay/Map/Dto/MapLineSegment';
 import type { MapMeta } from '@/modules/Roleplay/Map/Dto/MapMeta';
 import type { MapNode } from '@/modules/Roleplay/Map/Dto/MapNode';
 import type { MapNodeEdit } from '@/modules/Roleplay/Map/Dto/MapNodeEdit';
@@ -17,6 +18,7 @@ import type { MapSnapshot } from '@/modules/Roleplay/Map/Dto/MapSnapshot';
 import type { MapVariant } from '@/modules/Roleplay/Map/Dto/MapVariant';
 import type { MapVariantEdit } from '@/modules/Roleplay/Map/Dto/MapVariantEdit';
 import type { MapWarning } from '@/modules/Roleplay/Map/Dto/MapWarning';
+import { zeroMapHandle } from '@/modules/Roleplay/Map/Dto/MapHandle';
 import { zeroMapLineHandle } from '@/modules/Roleplay/Map/Dto/MapLineHandle';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
 import { getMapApi } from '@/modules/Roleplay/Map/init';
@@ -53,6 +55,9 @@ export function useMapDraft() {
     const copy = structuredClone(raw);
     baseline.value = copy;
     draft.value = structuredClone(raw);
+    for (const area of draft.value?.areas ?? []) {
+      area.shapes.forEach(normalizeAreaShape);
+    }
     baselineJson.value = JSON.stringify(copy);
     conflict.value = null;
     warnings.value = [];
@@ -183,7 +188,6 @@ export function useMapDraft() {
     const node = findNode(nodeId);
     if (!node) return;
     record();
-    node.isPoi = edit.isPoi;
     node.name = edit.name;
     node.shortInfo = edit.shortInfo;
     node.publicInfo = edit.publicInfo;
@@ -196,7 +200,6 @@ export function useMapDraft() {
     record();
     const node: MapNode = {
       id: nextTempId(),
-      isPoi: edit.isPoi,
       name: edit.name,
       shortInfo: edit.shortInfo,
       publicInfo: edit.publicInfo,
@@ -215,7 +218,6 @@ export function useMapDraft() {
     if (!current) return;
     record();
     current.nodes = current.nodes.filter((node) => node.id !== nodeId);
-    current.edges = current.edges.filter((edge) => edge.fromNodeId !== nodeId && edge.toNodeId !== nodeId);
     for (const area of current.areas) {
       if (area.nodeId === nodeId) area.nodeId = null;
     }
@@ -245,14 +247,44 @@ export function useMapDraft() {
 
   function addArea(edit: MapAreaEdit, variantId: number, path: MapPoint[]): number {
     record();
+    const current = draft.value;
+    if (!current) return 0;
     const area: MapArea = {
       id: nextTempId(),
       ...areaFields(edit),
-      shapes: path.length >= 3 ? [{ variantId, path: copyPoints(path), isPresent: true }] : [],
+      sortOrder: nextSortOrder(current.areas),
+      shapes: path.length >= 3
+        ? [
+            {
+              variantId,
+              path: copyPoints(path),
+              handles: path.map(() => zeroMapHandle()),
+              isPresent: true,
+            },
+          ]
+        : [],
     };
-    draft.value?.areas.push(area);
+    current.areas.push(area);
 
     return area.id;
+  }
+
+  /** Поднимает или опускает область внутри её слоя. */
+  function moveArea(areaId: number, direction: -1 | 1): void {
+    const current = draft.value;
+    const area = findArea(areaId);
+    if (!current || !area) return;
+    const group = current.areas
+      .filter((candidate) => candidate.layer === area.layer)
+      .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
+    const index = group.findIndex((candidate) => candidate.id === areaId);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= group.length) return;
+    record();
+    [group[index], group[target]] = [group[target], group[index]];
+    group.forEach((candidate, order) => {
+      candidate.sortOrder = order;
+    });
   }
 
   function removeArea(areaId: number): void {
@@ -275,6 +307,7 @@ export function useMapDraft() {
     const shape = ensureAreaShape(areaId, variantId);
     if (!shape) return;
     shape.path = copyPoints(path);
+    normalizeAreaShape(shape);
   }
 
   function setAreaVertex(areaId: number, variantId: number, index: number, point: MapPoint): void {
@@ -284,45 +317,123 @@ export function useMapDraft() {
     shape.path[index] = [point[0], point[1]];
   }
 
-  function insertAreaVertex(areaId: number, variantId: number, index: number, point: MapPoint): void {
+  function insertAreaVertex(
+    areaId: number,
+    variantId: number,
+    index: number,
+    point: MapPoint,
+    handle: MapHandle = zeroMapHandle(),
+  ): void {
     const shape = findAreaShape(areaId, variantId);
     if (!shape) return;
     record();
-    shape.path.splice(Math.min(Math.max(0, index + 1), shape.path.length), 0, [point[0], point[1]]);
+    normalizeAreaShape(shape);
+    const position = Math.min(Math.max(0, index + 1), shape.path.length);
+    shape.path.splice(position, 0, [point[0], point[1]]);
+    shape.handles.splice(position, 0, handle);
   }
 
   function removeAreaVertex(areaId: number, variantId: number, index: number): void {
     const shape = findAreaShape(areaId, variantId);
     if (!shape || shape.path.length <= 3 || index < 0 || index >= shape.path.length) return;
     record();
+    normalizeAreaShape(shape);
     shape.path.splice(index, 1);
+    shape.handles.splice(index, 1);
+  }
+
+  /** Ручка Безье вершины контура. */
+  function setAreaHandle(
+    areaId: number,
+    variantId: number,
+    index: number,
+    side: 'in' | 'out',
+    offset: MapPoint,
+  ): void {
+    const shape = findAreaShape(areaId, variantId);
+    if (!shape || index < 0 || index >= shape.path.length) return;
+    record();
+    normalizeAreaShape(shape);
+    shape.handles[index] = {
+      ...shape.handles[index],
+      [side]: [offset[0], offset[1]],
+    };
   }
 
   function updateLine(lineId: number, edit: MapLineEdit): void {
     const line = findLine(lineId);
     if (!line) return;
     record();
-    line.terrainCode = edit.terrainCode;
+    line.color = edit.color;
+    line.speed = clampSpeed(edit.speed);
+    line.segments = segmentStyles(edit.segments, line.points.length, edit.color, line.speed);
     line.label = edit.label;
+    if (edit.widthAll) {
+      line.widths = line.points.map(() => clampWidth(edit.width));
+    }
     normalizeLine(line);
   }
 
   function addLine(edit: MapLineEdit, variantId: number, points: MapPoint[]): number {
     record();
-    const width = Math.max(1, Math.round(Number(edit.width) || 1));
+    const current = draft.value;
+    if (!current) return 0;
+    const width = clampWidth(edit.width);
     const line: MapLine = {
       id: nextTempId(),
       variantId,
-      terrainCode: edit.terrainCode,
+      color: edit.color,
+      speed: clampSpeed(edit.speed),
       points: copyPoints(points),
       widths: points.map(() => width),
       handles: autoHandles(points),
+      segments: segmentStyles(edit.segments, points.length, edit.color, clampSpeed(edit.speed)),
       label: edit.label,
       isPresent: true,
+      sortOrder: nextSortOrder(current.lines),
     };
-    draft.value?.lines.push(line);
+    current.lines.push(line);
 
     return line.id;
+  }
+
+  /** Поднимает или опускает ленту в её варианте. */
+  function moveLine(lineId: number, direction: -1 | 1): void {
+    const current = draft.value;
+    const line = findLine(lineId);
+    if (!current || !line) return;
+    const group = current.lines
+      .filter((candidate) => candidate.variantId === line.variantId)
+      .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
+    const index = group.findIndex((candidate) => candidate.id === lineId);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= group.length) return;
+    record();
+    [group[index], group[target]] = [group[target], group[index]];
+    group.forEach((candidate, order) => {
+      candidate.sortOrder = order;
+    });
+  }
+
+  /** Стиль одного сегмента ленты. */
+  function setLineSegmentStyle(lineId: number, index: number, segment: MapLineSegment): void {
+    const line = findLine(lineId);
+    if (!line || index < 0 || index >= line.points.length - 1) return;
+    record();
+    normalizeLine(line);
+    const base = segmentStyleOf(line);
+    if (line.segments.length === 0) {
+      line.segments = line.points.slice(1).map(() => ({ ...base }));
+    }
+    line.segments[index] = { speed: clampSpeed(segment.speed), color: segment.color };
+  }
+
+  /** Возвращает все сегменты ленты к цвету и скорости по умолчанию. */
+  function resetLineSegments(lineId: number): void {
+    const line = findLine(lineId);
+    if (!line) return;
+    record();
+    line.segments = [];
   }
 
   function removeLine(lineId: number): void {
@@ -385,8 +496,22 @@ export function useMapDraft() {
     if (!line || line.points.length === 0) return;
     record();
     normalizeLine(line);
-    const value = Math.min(20000, Math.max(1, Math.round(width)));
+    const value = clampWidth(width);
     line.widths = line.points.map(() => value);
+  }
+
+  /** Масштабирует все ширины ленты относительно перетаскиваемой точки. */
+  function scaleLineWidths(lineId: number, index: number, width: number): void {
+    const line = findLine(lineId);
+    if (!line || index < 0 || index >= line.points.length) return;
+    const base = line.widths[index] ?? 1;
+    const target = clampWidth(width);
+    if (base <= 0 || target === base) return;
+    record();
+    normalizeLine(line);
+    const factor = target / base;
+    line.widths = line.widths.map((value) => clampWidth(Math.round(value * factor)));
+    line.widths[index] = target;
   }
 
   function insertLineVertex(lineId: number, index: number, point: MapPoint, width: number, handle: MapLineHandle): void {
@@ -395,6 +520,10 @@ export function useMapDraft() {
     record();
     normalizeLine(line);
     const position = Math.min(Math.max(0, index + 1), line.points.length);
+    if (line.segments.length > 0) {
+      const source = Math.max(0, Math.min(position - 1, line.segments.length - 1));
+      line.segments.splice(source, 0, { ...(line.segments[source] ?? segmentStyleOf(line)) });
+    }
     line.points.splice(position, 0, [Math.round(point[0]), Math.round(point[1])]);
     line.widths.splice(position, 0, Math.max(1, Math.round(width)));
     line.handles.splice(position, 0, {
@@ -408,65 +537,12 @@ export function useMapDraft() {
     if (!line || line.points.length <= 2 || index < 0 || index >= line.points.length) return;
     record();
     normalizeLine(line);
+    if (line.segments.length > 0) {
+      line.segments.splice(Math.min(index, line.segments.length - 1), 1);
+    }
     line.points.splice(index, 1);
     line.widths.splice(index, 1);
     line.handles.splice(index, 1);
-  }
-
-  function updateEdge(edgeId: number, edit: MapEdgeEdit): void {
-    const edge = findEdge(edgeId);
-    if (!edge) return;
-    record();
-    Object.assign(edge, edgeFields(edit));
-  }
-
-  function addEdge(edit: MapEdgeEdit, variantId: number): number {
-    record();
-    const edge: MapEdge = {
-      id: nextTempId(),
-      variantId,
-      ...edgeFields(edit),
-      path: [],
-    };
-    draft.value?.edges.push(edge);
-
-    return edge.id;
-  }
-
-  function removeEdge(edgeId: number): void {
-    const current = draft.value;
-    if (!current) return;
-    record();
-    current.edges = current.edges.filter((edge) => edge.id !== edgeId);
-  }
-
-  function setEdgePath(edgeId: number, path: MapPoint[]): void {
-    const edge = findEdge(edgeId);
-    if (!edge) return;
-    record();
-    edge.path = copyPoints(path);
-  }
-
-  function setEdgeVertex(edgeId: number, index: number, point: MapPoint): void {
-    const edge = findEdge(edgeId);
-    if (!edge || index <= 0 || index >= edge.path.length - 1) return;
-    record();
-    edge.path[index] = [point[0], point[1]];
-  }
-
-  function insertEdgeVertex(edgeId: number, index: number, point: MapPoint): void {
-    const edge = findEdge(edgeId);
-    if (!edge || edge.path.length < 2) return;
-    record();
-    const position = Math.min(Math.max(1, index + 1), edge.path.length - 1);
-    edge.path.splice(position, 0, [point[0], point[1]]);
-  }
-
-  function removeEdgeVertex(edgeId: number, index: number): void {
-    const edge = findEdge(edgeId);
-    if (!edge || index <= 0 || index >= edge.path.length - 1) return;
-    record();
-    edge.path.splice(index, 1);
   }
 
   function updateVariant(variantId: number, edit: MapVariantEdit): void {
@@ -537,7 +613,6 @@ export function useMapDraft() {
       shapes: area.shapes.filter((shape) => shape.variantId !== variantId),
     }));
     current.lines = current.lines.filter((line) => line.variantId !== variantId);
-    current.edges = current.edges.filter((edge) => edge.variantId !== variantId);
     if (removed?.isDefault && current.variants.length > 0) {
       current.variants[0].isDefault = true;
     }
@@ -604,6 +679,21 @@ export function useMapDraft() {
     while (line.handles.length < line.points.length) line.handles.push(zeroMapLineHandle());
     line.widths = line.widths.slice(0, line.points.length);
     line.handles = line.handles.slice(0, line.points.length);
+    const segments = Math.max(0, line.points.length - 1);
+    if (line.segments.length > 0) {
+      while (line.segments.length < segments) {
+        line.segments.push({ ...(line.segments.at(-1) ?? segmentStyleOf(line)) });
+      }
+      line.segments = line.segments.slice(0, segments);
+    }
+  }
+
+  function normalizeAreaShape(shape: MapAreaShape): void {
+    shape.handles = shape.handles ?? [];
+    while (shape.handles.length < shape.path.length) {
+      shape.handles.push(zeroMapHandle());
+    }
+    shape.handles = shape.handles.slice(0, shape.path.length);
   }
 
   function findNode(nodeId: number): MapNode | undefined {
@@ -623,19 +713,16 @@ export function useMapDraft() {
     if (!area) return undefined;
     let shape = area.shapes.find((candidate) => candidate.variantId === variantId);
     if (!shape) {
-      shape = { variantId, path: [], isPresent: true };
+      shape = { variantId, path: [], handles: [], isPresent: true };
       area.shapes.push(shape);
     }
+    normalizeAreaShape(shape);
 
     return shape;
   }
 
   function findLine(lineId: number): MapLine | undefined {
     return draft.value?.lines.find((line) => line.id === lineId);
-  }
-
-  function findEdge(edgeId: number): MapEdge | undefined {
-    return draft.value?.edges.find((edge) => edge.id === edgeId);
   }
 
   function findVariant(variantId: number): MapVariant | undefined {
@@ -673,30 +760,29 @@ export function useMapDraft() {
     updateArea,
     addArea,
     removeArea,
+    moveArea,
     translateArea,
     setAreaPath,
     setAreaVertex,
+    setAreaHandle,
     insertAreaVertex,
     removeAreaVertex,
     updateLine,
     addLine,
     removeLine,
+    moveLine,
+    setLineSegmentStyle,
+    resetLineSegments,
     translateLine,
     setLinePoints,
     setLineVertex,
     setLineHandle,
     setLineWidth,
     setLineWidthAll,
+    scaleLineWidths,
     smoothLine,
     insertLineVertex,
     removeLineVertex,
-    updateEdge,
-    addEdge,
-    removeEdge,
-    setEdgePath,
-    setEdgeVertex,
-    insertEdgeVertex,
-    removeEdgeVertex,
     updateVariant,
     addVariant,
     removeVariant,
@@ -732,17 +818,18 @@ function snapshotOf(detail: MapDetail): MapSnapshot {
     })),
     areas: raw.areas.map((area) => ({
       ...area,
-      shapes: area.shapes.map((shape) => ({
-        ...shape,
-        path: clampPoints(shape.path, boundsFor(bounds, shape.variantId)),
-      })),
+      shapes: area.shapes.map((shape) => {
+        const path = clampPoints(shape.path, boundsFor(bounds, shape.variantId));
+        const handles = (shape.handles ?? []).map((handle) => ({
+          in: roundPoint(handle.in),
+          out: roundPoint(handle.out),
+        }));
+        while (handles.length < path.length) handles.push({ in: [0, 0], out: [0, 0] });
+
+        return { ...shape, path, handles: handles.slice(0, path.length) };
+      }),
     })),
     lines: raw.lines.map((line) => lineForSave(line, boundsFor(bounds, line.variantId))),
-    edges: raw.edges.map((edge) => ({
-      ...edge,
-      path: clampPoints(edge.path, boundsFor(bounds, edge.variantId)),
-      distanceMeters: edge.distanceMeters === null ? null : Math.max(0, Math.round(edge.distanceMeters)),
-    })),
   };
 }
 
@@ -791,6 +878,7 @@ function lineForSave(line: MapLine, bounds: WorldBounds): MapLine {
     points,
     widths: widths.slice(0, points.length),
     handles: handles.slice(0, points.length),
+    segments: segmentStyles(line.segments, points.length, line.color, line.speed),
   };
 }
 
@@ -852,23 +940,53 @@ function autoHandles(points: MapPoint[]): MapLineHandle[] {
 function areaFields(edit: MapAreaEdit): Omit<MapArea, 'id' | 'shapes'> {
   return {
     layer: edit.layer,
-    terrainCode: edit.layer === 'terrain' ? edit.terrainCode : null,
-    kind: edit.layer === 'object' ? edit.kind : 'other',
+    color: edit.color,
+    speed: clampSpeed(edit.speed),
     label: edit.label,
     nodeId: edit.nodeId,
-    blocksMovement: edit.blocksMovement,
+    sortOrder: edit.sortOrder,
   };
 }
 
-function edgeFields(edit: MapEdgeEdit): Omit<MapEdge, 'id' | 'variantId' | 'path'> {
-  return {
-    fromNodeId: edit.fromNodeId,
-    toNodeId: edit.toNodeId,
-    terrainCode: edit.terrainCode,
-    distanceMeters: edit.distanceMeters === null ? null : Math.round(edit.distanceMeters),
-    isDirected: edit.isDirected,
-    label: edit.label,
-  };
+/** Базовый стиль ленты для новых сегментов. */
+function segmentStyleOf(line: MapLine): MapLineSegment {
+  return { speed: line.speed, color: line.color };
+}
+
+/** Стили сегментов: пусто или ровно по числу сегментов. */
+function segmentStyles(
+  styles: MapLineSegment[] | undefined,
+  points: number,
+  color: string,
+  speed: number,
+): MapLineSegment[] {
+  const expected = Math.max(0, points - 1);
+  const source = styles ?? [];
+  if (source.length === 0) return [];
+
+  return Array.from({ length: expected }, (_, index) => {
+    const style = source[index] ?? source.at(-1);
+
+    return style ? { speed: clampSpeed(style.speed), color: style.color ?? color } : { speed, color };
+  });
+}
+
+function clampSpeed(value: number): number {
+  if (!Number.isFinite(value)) return 5000;
+
+  return Math.min(10000, Math.max(0, Math.round(value)));
+}
+
+function clampWidth(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+
+  return Math.min(20000, Math.max(1, Math.round(value)));
+}
+
+function nextSortOrder(items: { sortOrder: number }[]): number {
+  if (items.length === 0) return 0;
+
+  return Math.max(...items.map((item) => item.sortOrder)) + 1;
 }
 
 function conflictOf(details: unknown): MapConflict | null {

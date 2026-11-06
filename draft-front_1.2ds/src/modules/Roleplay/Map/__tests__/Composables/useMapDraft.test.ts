@@ -34,7 +34,6 @@ function detail(overrides: Partial<MapDetail> = {}): MapDetail {
     nodes: [],
     areas: [],
     lines: [],
-    edges: [],
     ...overrides,
   };
 }
@@ -46,7 +45,6 @@ let saveError: Error | null = null;
 const api: IMapApi = {
   findPage: () => Promise.reject(new Error('unused')),
   get: () => Promise.reject(new Error('unused')),
-  getTerrains: () => Promise.reject(new Error('unused')),
   save: async (data) => {
     savedPayload = data;
     if (saveError) throw saveError;
@@ -111,7 +109,7 @@ describe('useMapDraft', () => {
   it('keeps per-point widths and handles, and supports undo', () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    const lineId = state.addLine({ terrainCode: 'water', width: 10, label: 'Река' }, 1, [
+    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] }, 1, [
       [0, 0],
       [10, 0],
     ]);
@@ -138,7 +136,7 @@ describe('useMapDraft', () => {
   it('creates ribbons with smooth interior handles', () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    state.addLine({ terrainCode: 'water', width: 10, label: 'Река' }, 1, [
+    state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] }, 1, [
       [0, 0],
       [10, 10],
       [20, 0],
@@ -154,7 +152,7 @@ describe('useMapDraft', () => {
   it('rounds fractional geometry before map.save', async () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    const lineId = state.addLine({ terrainCode: 'water', width: 10, label: 'Река' }, 1, [
+    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] }, 1, [
       [0, 0],
       [10, 0],
     ]);
@@ -188,7 +186,6 @@ describe('useMapDraft', () => {
     );
     const nodeId = state.addNode(
       {
-        isPoi: true,
         name: 'Край',
         shortInfo: '',
         publicInfo: '',
@@ -202,11 +199,12 @@ describe('useMapDraft', () => {
     state.addArea(
       {
         layer: 'object',
-        terrainCode: null,
-        kind: 'other',
+        color: '#8d8d8d',
+        speed: 0,
         label: 'Край',
         nodeId,
-        blocksMovement: false,
+        sortOrder: 0,
+        place: null,
       },
       1,
       [
@@ -215,10 +213,14 @@ describe('useMapDraft', () => {
         [250, -20],
       ],
     );
-    state.addLine({ terrainCode: 'water', width: 10, label: 'Река' }, 1, [
-      [-20, 50],
-      [250, 140],
-    ]);
+    state.addLine(
+      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] },
+      1,
+      [
+        [-20, 50],
+        [250, 140],
+      ],
+    );
     state.setLineVertex(state.draft.value?.lines[0].id ?? 0, 0, [Number.NaN, 50]);
 
     await state.save();
@@ -229,16 +231,138 @@ describe('useMapDraft', () => {
       [200, 50],
       [200, 0],
     ]);
+    expect(savedPayload?.map.areas[0].shapes[0].handles).toEqual([
+      { in: [0, 0], out: [0, 0] },
+      { in: [0, 0], out: [0, 0] },
+      { in: [0, 0], out: [0, 0] },
+    ]);
     expect(savedPayload?.map.lines[0].points).toEqual([
       [0, 50],
       [200, 100],
     ]);
   });
 
+  it('keeps area bezier handles and splits a curved contour', async () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+    const areaId = state.addArea(
+      {
+        layer: 'surface',
+        color: '#4e7a4e',
+        speed: 2000,
+        label: 'Лес',
+        nodeId: null,
+        sortOrder: 0,
+        place: null,
+      },
+      1,
+      [
+        [0, 0],
+        [100, 0],
+        [100, 100],
+        [0, 100],
+      ],
+    );
+    state.setAreaHandle(areaId, 1, 0, 'out', [0, 40]);
+    state.setAreaHandle(areaId, 1, 1, 'in', [0, 40]);
+    state.insertAreaVertex(areaId, 1, 0, [50, 30], { in: [-10, -5], out: [10, 5] });
+
+    const shape = state.draft.value?.areas[0].shapes[0];
+    expect(shape?.path).toHaveLength(5);
+    expect(shape?.handles).toHaveLength(5);
+    expect(shape?.handles[1]).toEqual({ in: [-10, -5], out: [10, 5] });
+
+    await state.save();
+    expect(savedPayload?.map.areas[0].shapes[0].handles[1]).toEqual({ in: [-10, -5], out: [10, 5] });
+    expect(savedPayload?.map.areas[0].shapes[0].handles[0].out).toEqual([0, 40]);
+  });
+
+  it('moves areas inside their layer and lines inside their variant', () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+    const firstArea = state.addArea(
+      {
+        layer: 'object',
+        color: '#111111',
+        speed: 0,
+        label: 'Первый',
+        nodeId: null,
+        sortOrder: 0,
+        place: null,
+      },
+      1,
+      [
+        [0, 0],
+        [10, 0],
+        [10, 10],
+      ],
+    );
+    const secondArea = state.addArea(
+      {
+        layer: 'object',
+        color: '#222222',
+        speed: 0,
+        label: 'Второй',
+        nodeId: null,
+        sortOrder: 0,
+        place: null,
+      },
+      1,
+      [
+        [20, 20],
+        [30, 20],
+        [30, 30],
+      ],
+    );
+    state.moveArea(secondArea, -1);
+    expect(state.draft.value?.areas.find((area) => area.id === secondArea)?.sortOrder).toBe(0);
+    expect(state.draft.value?.areas.find((area) => area.id === firstArea)?.sortOrder).toBe(1);
+
+    const firstLine = state.addLine(
+      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Первая', segments: [] },
+      1,
+      [
+        [0, 0],
+        [10, 0],
+      ],
+    );
+    const secondLine = state.addLine(
+      { color: '#c5c6c6', speed: 10000, width: 10, widthAll: false, label: 'Вторая', segments: [] },
+      1,
+      [
+        [0, 20],
+        [10, 20],
+      ],
+    );
+    state.moveLine(secondLine, -1);
+    expect(state.draft.value?.lines.find((line) => line.id === secondLine)?.sortOrder).toBe(0);
+    expect(state.draft.value?.lines.find((line) => line.id === firstLine)?.sortOrder).toBe(1);
+  });
+
+  it('keeps a style override for a single line segment', () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+    const lineId = state.addLine(
+      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] },
+      1,
+      [
+        [0, 0],
+        [10, 0],
+        [20, 0],
+      ],
+    );
+    state.setLineSegmentStyle(lineId, 1, { speed: 1000, color: '#b7a98a' });
+
+    expect(state.draft.value?.lines[0].segments[1]).toEqual({ speed: 1000, color: '#b7a98a' });
+
+    state.resetLineSegments(lineId);
+    expect(state.draft.value?.lines[0].segments).toEqual([]);
+  });
+
   it('serializes line widths and handles into map.save', async () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    const lineId = state.addLine({ terrainCode: 'water', width: 10, label: 'Река' }, 1, [
+    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] }, 1, [
       [0, 0],
       [10, 0],
     ]);
@@ -249,6 +373,73 @@ describe('useMapDraft', () => {
 
     expect(savedPayload?.map.lines[0].widths).toEqual([10, 20]);
     expect(savedPayload?.map.lines[0].handles[0].out).toEqual([4, 2]);
+  });
+
+  it('applies one width to all points and scales widths proportionally', () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+    const lineId = state.addLine(
+      {
+        color: '#3f6f8f',
+        speed: 400,
+        width: 10,
+        widthAll: true,
+        label: 'Река',
+        segments: [],
+      },
+      1,
+      [
+        [0, 0],
+        [10, 0],
+        [20, 0],
+      ],
+    );
+    state.setLineWidth(lineId, 1, 20);
+    expect(state.draft.value?.lines[0].widths).toEqual([10, 20, 10]);
+
+    state.scaleLineWidths(lineId, 1, 40);
+    expect(state.draft.value?.lines[0].widths).toEqual([20, 40, 20]);
+
+    state.updateLine(lineId, {
+      color: '#3f6f8f',
+      speed: 400,
+      width: 7,
+      widthAll: true,
+      label: 'Река',
+      segments: [],
+    });
+    expect(state.draft.value?.lines[0].widths).toEqual([7, 7, 7]);
+  });
+
+  it('serializes segment styles and speed into map.save', async () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+    const lineId = state.addLine(
+      {
+        color: '#3f6f8f',
+        speed: 400,
+        width: 10,
+        widthAll: true,
+        label: 'Река',
+        segments: [],
+      },
+      1,
+      [
+        [0, 0],
+        [10, 0],
+        [20, 0],
+      ],
+    );
+    state.setLineSegmentStyle(lineId, 0, { speed: 1000.4, color: '#b7a98a' });
+    state.setLineSegmentStyle(lineId, 1, { speed: -5, color: null });
+
+    await state.save();
+
+    expect(savedPayload?.map.lines[0].speed).toBe(400);
+    expect(savedPayload?.map.lines[0].segments).toEqual([
+      { speed: 1000, color: '#b7a98a' },
+      { speed: 0, color: '#3f6f8f' },
+    ]);
   });
 
   it('saves a copy without an id and adopts the new map', async () => {

@@ -82,7 +82,6 @@ final class MapNodeStore
      * Добавляет узел.
      *
      * @param int $mapId Карта.
-     * @param bool $isPoi POI.
      * @param string $name Имя.
      * @param string $shortInfo Короткая информация.
      * @param string $publicInfo Раскрываемая информация.
@@ -94,7 +93,6 @@ final class MapNodeStore
      */
     public function addNode(
         int $mapId,
-        bool $isPoi,
         string $name,
         string $shortInfo,
         string $publicInfo,
@@ -104,7 +102,6 @@ final class MapNodeStore
     ): int {
         return $this->nodeRepository->add(
             $mapId,
-            $isPoi,
             $name,
             $shortInfo,
             $publicInfo,

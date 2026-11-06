@@ -9,7 +9,7 @@
 - **Неймспейс:** `Mifrial\Roleplay\Map`
 - **Контейнер:** `Mifrial\Roleplay\Map\Container\MapContainer`
 - **Локатор:** `Mifrial\Roleplay\Map\Interface\Container\IMapContainer`
-- **Setup:** `Closure(IServiceLocator)`
+- **Setup:** `Mifrial\Roleplay\Map\Setup\MapModuleSetup`
 - **Канон:** не зафиксирован
 
 ## Порты
@@ -17,13 +17,11 @@
 - `Mifrial\Roleplay\Map\Service\MapCatalogHttp`
 - `Mifrial\Roleplay\Map\Service\MapSaveHttp`
 - `Mifrial\Roleplay\Map\Service\MapRouteHttp`
-- `Mifrial\Roleplay\Map\Service\MapTerrainHttp`
 - `Mifrial\Roleplay\Map\Action\FindMapPageAction`
 - `Mifrial\Roleplay\Map\Action\GetMapAction`
 - `Mifrial\Roleplay\Map\Action\ArchiveMapAction`
 - `Mifrial\Roleplay\Map\Action\SaveMapAction`
 - `Mifrial\Roleplay\Map\Action\RouteMapAction`
-- `Mifrial\Roleplay\Map\Action\GetMapTerrainsAction`
 
 ## Маршруты
 
@@ -33,7 +31,6 @@
 | `map.get` | `GetMapAction` | да |
 | `map.save` | `SaveMapAction` | да |
 | `map.archive` | `ArchiveMapAction` | да |
-| `map.getTerrains` | `GetMapTerrainsAction` | да |
 | `map.route` | `RouteMapAction` | да |
 
 ## Контракты `Interface/`

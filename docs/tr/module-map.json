@@ -2608,19 +2608,17 @@
             "namespace": "Mifrial\\Roleplay\\Map",
             "container": "Mifrial\\Roleplay\\Map\\Container\\MapContainer",
             "locator": "Mifrial\\Roleplay\\Map\\Interface\\Container\\IMapContainer",
-            "setup": "Closure(IServiceLocator)",
+            "setup": "Mifrial\\Roleplay\\Map\\Setup\\MapModuleSetup",
             "requestBind": null,
             "ports": [
                 "Mifrial\\Roleplay\\Map\\Service\\MapCatalogHttp",
                 "Mifrial\\Roleplay\\Map\\Service\\MapSaveHttp",
                 "Mifrial\\Roleplay\\Map\\Service\\MapRouteHttp",
-                "Mifrial\\Roleplay\\Map\\Service\\MapTerrainHttp",
                 "Mifrial\\Roleplay\\Map\\Action\\FindMapPageAction",
                 "Mifrial\\Roleplay\\Map\\Action\\GetMapAction",
                 "Mifrial\\Roleplay\\Map\\Action\\ArchiveMapAction",
                 "Mifrial\\Roleplay\\Map\\Action\\SaveMapAction",
-                "Mifrial\\Roleplay\\Map\\Action\\RouteMapAction",
-                "Mifrial\\Roleplay\\Map\\Action\\GetMapTerrainsAction"
+                "Mifrial\\Roleplay\\Map\\Action\\RouteMapAction"
             ],
             "routes": [
                 {
@@ -2641,11 +2639,6 @@
                 {
                     "action": "map.archive",
                     "handler": "Mifrial\\Roleplay\\Map\\Action\\ArchiveMapAction",
-                    "csrf": true
-                },
-                {
-                    "action": "map.getTerrains",
-                    "handler": "Mifrial\\Roleplay\\Map\\Action\\GetMapTerrainsAction",
                     "csrf": true
                 },
                 {

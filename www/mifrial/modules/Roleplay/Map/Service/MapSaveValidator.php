@@ -22,7 +22,7 @@ final class MapSaveValidator
      * @param MapSaveFields $fields Поля снимка.
      * @param MapSaveSets $sets Коллекции снимка.
      * @param IFiles $files Файлы подложек.
-     * @param MapGraphSaveValidator $graphValidator Области, ленты и рёбра.
+     * @param MapGraphSaveValidator $graphValidator Области и ленты.
      *
      * @return void
      */
@@ -53,7 +53,6 @@ final class MapSaveValidator
             'nodes' => $nodes,
             'areas' => $this->graphValidator->areas($payload, $variants, $nodes),
             'lines' => $this->graphValidator->lines($payload, $variants),
-            'edges' => $this->graphValidator->edges($payload, $variants, $nodes),
         ];
     }
 
@@ -220,15 +219,13 @@ final class MapSaveValidator
     private function nodeRow(array $row, int $index, array $variantIds): array
     {
         $path = 'nodes[' . $index . ']';
-        $isPoi = $this->fields->boolValue($row, 'isPoi', $path . '.isPoi');
         $name = trim($this->fields->stringValue($row, 'name', $path . '.name'));
-        if ($isPoi && $name === '') {
-            throw new MapInvalidException($path . '.name is empty for a POI');
+        if ($name === '') {
+            throw new MapInvalidException($path . '.name is empty');
         }
 
         return [
             'id' => $this->fields->identifier($row, 'id', $path . '.id'),
-            'isPoi' => $isPoi,
             'name' => $name,
             'shortInfo' => trim((string) $this->fields->optionalStringValue($row, 'shortInfo', $path . '.shortInfo')),
             'publicInfo' => trim((string) $this->fields->optionalStringValue(

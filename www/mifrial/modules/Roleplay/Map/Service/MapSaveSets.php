@@ -59,23 +59,6 @@ final class MapSaveSets
     }
 
     /**
-     * Масштабы вариантов.
-     *
-     * @param array<int, array<string, mixed>> $variants Варианты.
-     *
-     * @return array<int, int|null> Id → миллиметры на пиксель.
-     */
-    public function scales(array $variants): array
-    {
-        $scales = [];
-        foreach ($variants as $variant) {
-            $scales[$variant['id']] = $variant['millimetersPerPixel'];
-        }
-
-        return $scales;
-    }
-
-    /**
      * Проверяет уникальность id.
      *
      * @param array<int, array<string, mixed>> $rows Строки.

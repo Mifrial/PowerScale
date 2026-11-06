@@ -36,12 +36,15 @@ final class MapLineRepository
      * Добавляет ленту.
      *
      * @param int $variantId Вариант.
-     * @param int $terrainId Террейн.
+     * @param string $color Цвет.
+     * @param int $speed Проходимость.
      * @param array<int, array{0: int, 1: int}> $points Осевая линия.
      * @param array<int, int> $widths Ширина по точкам.
      * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки Безье.
+     * @param array<int, array{speed: int, color: string|null}> $segments Стили сегментов.
      * @param string $label Подпись.
      * @param bool $isPresent Присутствует.
+     * @param int $sortOrder Порядок среди лент.
      *
      * @return int Id.
      *
@@ -49,22 +52,28 @@ final class MapLineRepository
      */
     public function add(
         int $variantId,
-        int $terrainId,
+        string $color,
+        int $speed,
         array $points,
         array $widths,
         array $handles,
+        array $segments,
         string $label,
         bool $isPresent,
+        int $sortOrder,
     ): int {
         try {
             return $this->lineRecords->add([
                 'variant_id' => $variantId,
-                'terrain_id' => $terrainId,
+                'color' => $color,
+                'speed' => $speed,
                 'points' => $points,
                 'widths' => $widths,
                 'handles' => $handles,
+                'segments' => $segments,
                 'label' => $label,
                 'is_present' => $isPresent,
+                'sort_order' => $sortOrder,
             ]);
         } catch (FieldInvalidException | SmartMapInvalidException | RowWriteFailedException $exception) {
             throw new MapInvalidException('Map line row is invalid', $exception);

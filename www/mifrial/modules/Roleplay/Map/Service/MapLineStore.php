@@ -40,25 +40,42 @@ final class MapLineStore
      * Добавляет ленту.
      *
      * @param int $variantId Вариант.
-     * @param int $terrainId Террейн.
+     * @param string $color Цвет.
+     * @param int $speed Проходимость.
      * @param array<int, array{0: int, 1: int}> $points Осевая линия.
      * @param array<int, int> $widths Ширина по точкам.
      * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки Безье.
+     * @param array<int, array{speed: int, color: string|null}> $segments Стили сегментов.
      * @param string $label Подпись.
      * @param bool $isPresent Присутствует.
+     * @param int $sortOrder Порядок среди лент.
      *
      * @return int Id.
      */
     public function addLine(
         int $variantId,
-        int $terrainId,
+        string $color,
+        int $speed,
         array $points,
         array $widths,
         array $handles,
+        array $segments,
         string $label,
         bool $isPresent,
+        int $sortOrder,
     ): int {
-        return $this->lineRepository->add($variantId, $terrainId, $points, $widths, $handles, $label, $isPresent);
+        return $this->lineRepository->add(
+            $variantId,
+            $color,
+            $speed,
+            $points,
+            $widths,
+            $handles,
+            $segments,
+            $label,
+            $isPresent,
+            $sortOrder,
+        );
     }
 
     /**

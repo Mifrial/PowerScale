@@ -36,12 +36,12 @@ final class MapAreaRepository
      * Добавляет область.
      *
      * @param int $mapId Карта.
-     * @param string $layer Terrain|object.
-     * @param int|null $terrainId Террейн.
-     * @param string $kind Вид объекта.
+     * @param string $layer Слой: surface или object.
+     * @param string $color Цвет.
+     * @param int $speed Проходимость.
      * @param string $label Подпись.
-     * @param int|null $nodeId POI.
-     * @param bool $blocksMovement Непроходим.
+     * @param int|null $nodeId Место.
+     * @param int $sortOrder Порядок внутри слоя.
      *
      * @return int Id.
      *
@@ -50,21 +50,21 @@ final class MapAreaRepository
     public function add(
         int $mapId,
         string $layer,
-        ?int $terrainId,
-        string $kind,
+        string $color,
+        int $speed,
         string $label,
         ?int $nodeId,
-        bool $blocksMovement,
+        int $sortOrder,
     ): int {
         try {
             return $this->areaRecords->add([
                 'map_id' => $mapId,
                 'layer' => $layer,
-                'terrain_id' => $terrainId,
-                'kind' => $kind,
+                'color' => $color,
+                'speed' => $speed,
                 'label' => $label,
                 'node_id' => $nodeId,
-                'blocks_movement' => $blocksMovement,
+                'sort_order' => $sortOrder,
             ]);
         } catch (FieldInvalidException | SmartMapInvalidException | RowWriteFailedException $exception) {
             throw new MapInvalidException('Map area row is invalid', $exception);

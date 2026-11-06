@@ -1,6 +1,5 @@
 /** Правка узла в черновике. */
 export interface MapNodeEdit {
-  isPoi: boolean;
   name: string;
   shortInfo: string;
   publicInfo: string;

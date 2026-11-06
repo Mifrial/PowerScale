@@ -24,9 +24,7 @@ use Mifrial\Core\User\Table\UserAvatarTable;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
-use Mifrial\Roleplay\Map\Repository\MapTerrainRepository;
 use Mifrial\Roleplay\Map\Schema\MapSchema;
-use Mifrial\Roleplay\Map\Table\MapTerrainTable;
 use PHPUnit\Framework\TestCase;
 
 final class MapHttpMysqlTest extends TestCase
@@ -90,7 +88,6 @@ final class MapHttpMysqlTest extends TestCase
         self::assertSame([], $public['data']['nodes']);
         self::assertSame([], $public['data']['areas']);
         self::assertSame([], $public['data']['lines']);
-        self::assertSame([], $public['data']['edges']);
         self::assertSame([], $public['data']['warnings']);
 
         $private = $this->dispatch('map.save', ['map' => $this->emptyPayload('Тайна', 'private')]);
@@ -113,18 +110,14 @@ final class MapHttpMysqlTest extends TestCase
         self::assertFalse($allView['data']['canEdit']);
         $allPage = $this->dispatch('map.findPage', ['limit' => 10, 'offset' => 0]);
         self::assertSame(2, $allPage['data']['total']);
-
-        $terrains = $this->dispatch('map.getTerrains', null);
-        self::assertTrue($terrains['success']);
-        self::assertCount(7, $terrains['data']);
     }
 
     /**
-     * Граф, блокеры и маршрут.
+     * Скорость, сегменты и маршрут по зоне.
      *
      * @return void
      */
-    public function testGraphRouteAndWarnings(): void
+    public function testSpeedRouteAndSegments(): void
     {
         $alice = $this->addUser('alice');
         $this->setActor($alice, ['map.edit']);
@@ -140,44 +133,157 @@ final class MapHttpMysqlTest extends TestCase
         self::assertTrue($saved['success']);
         self::assertCount(2, $saved['data']['nodes']);
         self::assertCount(1, $saved['data']['areas']);
-        self::assertCount(1, $saved['data']['edges']);
-        self::assertNotEmpty($saved['data']['warnings']);
-        self::assertSame('MAP_EDGE_CROSSES_BLOCKER', $saved['data']['warnings'][0]['code']);
+        self::assertSame([], $saved['data']['warnings']);
 
-        $nodeAId = $saved['data']['nodes'][0]['id'];
-        $nodeBId = $saved['data']['nodes'][1]['id'];
         $variantId = $saved['data']['variants'][0]['id'];
         self::assertSame($variantId, $saved['data']['lines'][0]['variantId']);
         self::assertSame([60, 0], $saved['data']['lines'][0]['handles'][0]['out']);
         self::assertSame([-60, 0], $saved['data']['lines'][0]['handles'][1]['in']);
-        self::assertNull($saved['data']['edges'][0]['distanceMeters']);
+        self::assertSame('#5a7f9a', $saved['data']['areas'][0]['color']);
+        self::assertSame(0, $saved['data']['areas'][0]['speed']);
+        self::assertSame(
+            array_fill(0, 4, ['in' => [0, 0], 'out' => [0, 0]]),
+            $saved['data']['areas'][0]['shapes'][0]['handles'],
+        );
+        self::assertSame(0, $saved['data']['areas'][0]['sortOrder']);
+        self::assertSame([], $saved['data']['lines'][0]['segments']);
+        self::assertSame(400, $saved['data']['lines'][0]['speed']);
+        self::assertSame(0, $saved['data']['lines'][0]['sortOrder']);
 
-        $route = $this->dispatch('map.route', [
+        $aroundWater = $this->dispatch('map.route', [
             'mapId' => $mapId,
             'variantId' => $variantId,
-            'fromNodeId' => $nodeAId,
-            'toNodeId' => $nodeBId,
+            'fromX' => 10,
+            'fromY' => 10,
+            'toX' => 110,
+            'toY' => 10,
         ]);
-        self::assertTrue($route['success']);
-        self::assertSame(100, $route['data']['distanceMeters']);
-        self::assertSame(100, $route['data']['costMeters']);
-        self::assertCount(3, $route['data']['points']);
+        self::assertTrue($aroundWater['success']);
+        self::assertGreaterThan(100, $aroundWater['data']['distancePixels']);
+        self::assertGreaterThan(0, $aroundWater['data']['distanceMeters']);
+        self::assertGreaterThan(2, count($aroundWater['data']['points']));
 
-        $withoutEdge = $this->withIds($payload, $saved['data']);
-        $withoutEdge['edges'] = [];
-        $removed = $this->dispatch('map.save', [
+        $bridge = $this->withIds($payload, $saved['data']);
+        $bridge['areas'][] = [
+            'id' => -2,
+            'layer' => 'object',
+            'color' => '#9a8b73',
+            'speed' => 10000,
+            'label' => 'Мост',
+            'nodeId' => null,
+            'sortOrder' => 9,
+            'shapes' => [
+                [
+                    'variantId' => -1,
+                    'path' => [[40, 0], [60, 0], [60, 20], [40, 20]],
+                    'handles' => [
+                        ['in' => [0, 0], 'out' => [0, 4]],
+                        ['in' => [0, 4], 'out' => [0, 0]],
+                        ['in' => [0, 0], 'out' => [0, 0]],
+                        ['in' => [0, 0], 'out' => [0, 0]],
+                    ],
+                    'isPresent' => true,
+                ],
+            ],
+        ];
+        $bridge['areas'][1]['shapes'][0]['variantId'] = $variantId;
+        $bridgeSaved = $this->dispatch('map.save', [
             'id' => $mapId,
             'expectedVersion' => $saved['data']['version'],
-            'map' => $withoutEdge,
+            'map' => $bridge,
         ]);
-        self::assertTrue($removed['success']);
-        self::assertSame([], $removed['data']['edges']);
-        $removedNodeIds = array_column($removed['data']['nodes'], 'id');
+        self::assertTrue($bridgeSaved['success']);
+        self::assertSame([0, 4], $bridgeSaved['data']['areas'][1]['shapes'][0]['handles'][0]['out']);
+
+        $overBridge = $this->dispatch('map.route', [
+            'mapId' => $mapId,
+            'variantId' => $variantId,
+            'fromX' => 10,
+            'fromY' => 10,
+            'toX' => 110,
+            'toY' => 10,
+        ]);
+        self::assertTrue($overBridge['success']);
+        self::assertLessThan($aroundWater['data']['distancePixels'], $overBridge['data']['distancePixels']);
+
+        $withRoad = $this->withIds($payload, $bridgeSaved['data']);
+        $withRoad['lines'][] = [
+            'id' => -2,
+            'variantId' => -1,
+            'color' => '#C5C6C6',
+            'speed' => 10000,
+            'points' => [[0, 10], [200, 10]],
+            'widths' => [8, 8],
+            'handles' => [],
+            'segments' => [],
+            'label' => 'Дорога',
+            'isPresent' => true,
+            'sortOrder' => 1,
+        ];
+        $withRoad['lines'][1]['variantId'] = $variantId;
+        $roadSaved = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $bridgeSaved['data']['version'],
+            'map' => $withRoad,
+        ]);
+        self::assertTrue($roadSaved['success']);
+
+        $alongRoad = $this->dispatch('map.route', [
+            'mapId' => $mapId,
+            'variantId' => $variantId,
+            'fromX' => 10,
+            'fromY' => 10,
+            'toX' => 110,
+            'toY' => 10,
+        ]);
+        self::assertTrue($alongRoad['success']);
+        self::assertLessThan($aroundWater['data']['distancePixels'], $alongRoad['data']['distancePixels']);
+
+        $withSegments = $this->withIds($payload, $roadSaved['data']);
+        $withSegments['lines'][0]['segments'] = [['speed' => 1000, 'color' => '#B7A98A']];
+        $segmentsSaved = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $roadSaved['data']['version'],
+            'map' => $withSegments,
+        ]);
+        self::assertTrue($segmentsSaved['success']);
+        self::assertSame(
+            [['speed' => 1000, 'color' => '#B7A98A']],
+            $segmentsSaved['data']['lines'][0]['segments'],
+        );
+
+        $blocked = $this->withIds($payload, $segmentsSaved['data']);
+        $blocked['areas'][] = [
+            'id' => -3,
+            'layer' => 'object',
+            'color' => '#000000',
+            'speed' => 0,
+            'label' => 'Стена',
+            'nodeId' => null,
+            'sortOrder' => 10,
+            'shapes' => [
+                [
+                    'variantId' => -1,
+                    'path' => [[0, 0], [200, 0], [200, 200], [0, 200]],
+                    'isPresent' => true,
+                ],
+            ],
+        ];
+        $blocked['areas'][1]['shapes'][0]['variantId'] = $variantId;
+        $blockedSaved = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $segmentsSaved['data']['version'],
+            'map' => $blocked,
+        ]);
+        self::assertTrue($blockedSaved['success']);
+
         $noRoute = $this->dispatch('map.route', [
             'mapId' => $mapId,
             'variantId' => $variantId,
-            'fromNodeId' => $removedNodeIds[0],
-            'toNodeId' => $removedNodeIds[1],
+            'fromX' => 10,
+            'fromY' => 10,
+            'toX' => 110,
+            'toY' => 10,
         ]);
         self::assertFalse($noRoute['success']);
         self::assertSame('MAP_NO_ROUTE', $noRoute['error']['code']);
@@ -199,7 +305,6 @@ final class MapHttpMysqlTest extends TestCase
         $payload['nodes'] = [
             [
                 'id' => -1,
-                'isPoi' => true,
                 'name' => 'Ратуша',
                 'shortInfo' => '',
                 'publicInfo' => '',
@@ -215,11 +320,11 @@ final class MapHttpMysqlTest extends TestCase
             [
                 'id' => -1,
                 'layer' => 'object',
-                'terrainCode' => null,
-                'kind' => 'building',
+                'color' => '#9e9e9e',
+                'speed' => 0,
                 'label' => 'Ратуша',
                 'nodeId' => -1,
-                'blocksMovement' => true,
+                'sortOrder' => 0,
                 'shapes' => [
                     [
                         'variantId' => -1,
@@ -277,19 +382,39 @@ final class MapHttpMysqlTest extends TestCase
             array_column($first['data']['nodes'], 'id'),
             array_column($second['data']['nodes'], 'id'),
         );
-        self::assertSame($first['data']['edges'][0]['id'], $second['data']['edges'][0]['id']);
         self::assertSame('Базар 2', $second['data']['nodes'][0]['name']);
 
-        $selfEdge = $payload;
-        $selfEdge['edges'][0]['toNodeId'] = -1;
+        $secondPayload['nodes'][0]['name'] = '';
         $bad = $this->dispatch('map.save', [
             'id' => $mapId,
             'expectedVersion' => $second['data']['version'],
             'force' => true,
-            'map' => $selfEdge,
+            'map' => $secondPayload,
         ]);
         self::assertFalse($bad['success']);
         self::assertSame('MAP_INVALID', $bad['error']['code']);
+
+        $secondPayload['nodes'][0]['name'] = 'Базар 2';
+        $secondPayload['areas'][0]['color'] = 'red';
+        $badColor = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $second['data']['version'],
+            'force' => true,
+            'map' => $secondPayload,
+        ]);
+        self::assertFalse($badColor['success']);
+        self::assertSame('MAP_INVALID', $badColor['error']['code']);
+
+        $secondPayload['areas'][0]['color'] = '#5a7f9a';
+        $secondPayload['areas'][0]['speed'] = 20000;
+        $badSpeed = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $second['data']['version'],
+            'force' => true,
+            'map' => $secondPayload,
+        ]);
+        self::assertFalse($badSpeed['success']);
+        self::assertSame('MAP_INVALID', $badSpeed['error']['code']);
 
         $negative = $payload;
         $negative['nodes'][0]['placements'][0]['x'] = -1;
@@ -369,7 +494,6 @@ final class MapHttpMysqlTest extends TestCase
         $payload = $this->emptyPayload('Тайна', 'private');
         $payload['nodes'][] = [
             'id' => -1,
-            'isPoi' => true,
             'name' => 'Склад',
             'shortInfo' => 'коротко',
             'publicInfo' => 'публично',
@@ -442,7 +566,6 @@ final class MapHttpMysqlTest extends TestCase
             'nodes' => [],
             'areas' => [],
             'lines' => [],
-            'edges' => [],
         ];
     }
 
@@ -456,14 +579,13 @@ final class MapHttpMysqlTest extends TestCase
      */
     private function withIds(array $payload, array $snapshot): array
     {
-        foreach (['variants', 'nodes', 'areas', 'lines', 'edges'] as $key) {
+        foreach (['variants', 'nodes', 'areas', 'lines'] as $key) {
             foreach ($payload[$key] as $index => $row) {
                 $payload[$key][$index]['id'] = $snapshot[$key][$index]['id'];
             }
         }
 
         $variantId = $snapshot['variants'][0]['id'];
-        $nodeIds = array_column($snapshot['nodes'], 'id');
         foreach ($payload['nodes'] as $index => $node) {
             foreach ($node['placements'] as $placementIndex => $placement) {
                 $payload['nodes'][$index]['placements'][$placementIndex]['variantId'] = $variantId;
@@ -477,17 +599,11 @@ final class MapHttpMysqlTest extends TestCase
         foreach ($payload['lines'] as $index => $line) {
             $payload['lines'][$index]['variantId'] = $variantId;
         }
-        foreach ($payload['edges'] as $index => $edge) {
-            $payload['edges'][$index]['variantId'] = $variantId;
-            $payload['edges'][$index]['fromNodeId'] = $nodeIds[0];
-            $payload['edges'][$index]['toNodeId'] = $nodeIds[1];
-        }
-
         return $payload;
     }
 
     /**
-     * Два узла, вода поперёк ребра и одна дорога.
+     * Два места, вода и река.
      *
      * @return array<string, mixed> Данные.
      */
@@ -511,7 +627,6 @@ final class MapHttpMysqlTest extends TestCase
             'nodes' => [
                 [
                     'id' => -1,
-                    'isPoi' => true,
                     'name' => 'Базар',
                     'shortInfo' => 'шумно',
                     'publicInfo' => '',
@@ -524,7 +639,6 @@ final class MapHttpMysqlTest extends TestCase
                 ],
                 [
                     'id' => -2,
-                    'isPoi' => true,
                     'name' => 'Замок',
                     'shortInfo' => '',
                     'publicInfo' => '',
@@ -539,12 +653,12 @@ final class MapHttpMysqlTest extends TestCase
             'areas' => [
                 [
                     'id' => -1,
-                    'layer' => 'terrain',
-                    'terrainCode' => 'water',
-                    'kind' => 'other',
+                    'layer' => 'surface',
+                    'color' => '#5a7f9a',
+                    'speed' => 0,
                     'label' => 'Ручей',
                     'nodeId' => null,
-                    'blocksMovement' => false,
+                    'sortOrder' => 0,
                     'shapes' => [
                         [
                             'variantId' => -1,
@@ -558,28 +672,18 @@ final class MapHttpMysqlTest extends TestCase
                 [
                     'id' => -1,
                     'variantId' => -1,
-                    'terrainCode' => 'water',
+                    'color' => '#3F6F8F',
+                    'speed' => 400,
                     'points' => [[0, 60], [200, 60]],
                     'widths' => [20, 20],
                     'handles' => [
                         ['in' => [0, 0], 'out' => [60, 0]],
                         ['in' => [-60, 0], 'out' => [0, 0]],
                     ],
+                    'segments' => [],
                     'label' => 'Река',
                     'isPresent' => true,
-                ],
-            ],
-            'edges' => [
-                [
-                    'id' => -1,
-                    'variantId' => -1,
-                    'fromNodeId' => -1,
-                    'toNodeId' => -2,
-                    'terrainCode' => 'road',
-                    'path' => [[10, 10], [50, 10], [110, 10]],
-                    'distanceMeters' => null,
-                    'isDirected' => false,
-                    'label' => '',
+                    'sortOrder' => 0,
                 ],
             ],
         ];
@@ -597,6 +701,7 @@ final class MapHttpMysqlTest extends TestCase
         $application = (new ApplicationFactory())->boot(dirname(__DIR__, 4));
         $this->application = $application;
         self::assertArrayHasKey('map.save', $application->getModuleManager()->getRoutes());
+        self::assertArrayNotHasKey('map.getTerrains', $application->getModuleManager()->getRoutes());
         self::assertArrayNotHasKey('map.saveNode', $application->getModuleManager()->getRoutes());
         $kernelContainer = $application->getLocator()->get(IKernelContainer::class);
         $requestContext = $kernelContainer->get(IRequestContext::class);
@@ -618,7 +723,7 @@ final class MapHttpMysqlTest extends TestCase
     }
 
     /**
-     * User + Map + террейны.
+     * User + Map.
      *
      * @return void
      */
@@ -635,9 +740,6 @@ final class MapHttpMysqlTest extends TestCase
         foreach (MapSchema::getTableClasses() as $tableClass) {
             $gateway->open($tableClass)->schema()->createTable();
         }
-
-        (new MapTerrainRepository($gateway->open(MapTerrainTable::class)->records()))
-            ->ensureDefaults(MapTerrainTable::defaultTerrains());
     }
 
     /**

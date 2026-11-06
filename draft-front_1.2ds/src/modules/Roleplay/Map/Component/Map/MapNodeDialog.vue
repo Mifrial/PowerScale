@@ -17,10 +17,9 @@ const emit = defineEmits<{
   remove: [nodeId: number];
 }>();
 
-const canSubmit = computed(() => !form.isPoi || form.name.trim() !== '');
+const canSubmit = computed(() => form.name.trim() !== '');
 
 const form = reactive({
-  isPoi: true,
   name: '',
   shortInfo: '',
   publicInfo: '',
@@ -31,7 +30,6 @@ const form = reactive({
 
 watch(open, (value) => {
   if (!value) return;
-  form.isPoi = props.node?.isPoi ?? true;
   form.name = props.node?.name ?? '';
   form.shortInfo = props.node?.shortInfo ?? '';
   form.publicInfo = props.node?.publicInfo ?? '';
@@ -42,7 +40,6 @@ watch(open, (value) => {
 
 function submit(): void {
   emit('submit', {
-    isPoi: form.isPoi,
     name: form.name.trim(),
     shortInfo: form.shortInfo.trim(),
     publicInfo: form.publicInfo.trim(),
@@ -64,16 +61,8 @@ function remove(): void {
         {{ props.node ? 'Точка карты' : 'Новая точка' }}
       </v-card-title>
       <v-card-text>
-        <v-switch
-          v-model="form.isPoi"
-          label="Точка интереса (видимая)"
-          color="primary"
-          density="compact"
-          hide-details
-        />
-        <p class="text-caption text-medium-emphasis mt-1">
-          Выключено — невидимый waypoint для маршрута. Включено — видимая точка с информацией; её можно привязать к
-          объекту.
+        <p class="text-caption text-medium-emphasis">
+          Видимое место с информацией. Площадное место задаётся в карточке объекта или поверхности.
         </p>
         <v-row dense class="mt-2">
           <v-col cols="12" sm="8">

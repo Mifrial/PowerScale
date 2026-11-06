@@ -7,4 +7,5 @@ export interface MapLineHitCandidate {
   points: MapPoint[];
   widths: number[];
   handles: MapLineHandle[];
+  sortOrder?: number;
 }

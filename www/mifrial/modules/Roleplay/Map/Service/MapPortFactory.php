@@ -17,19 +17,15 @@ use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Map\Interface\Container\IMapContainer;
 use Mifrial\Roleplay\Map\Repository\MapAreaRepository;
 use Mifrial\Roleplay\Map\Repository\MapAreaShapeRepository;
-use Mifrial\Roleplay\Map\Repository\MapEdgeRepository;
 use Mifrial\Roleplay\Map\Repository\MapLineRepository;
 use Mifrial\Roleplay\Map\Repository\MapNodeRepository;
 use Mifrial\Roleplay\Map\Repository\MapPlacementRepository;
 use Mifrial\Roleplay\Map\Repository\MapRepository;
-use Mifrial\Roleplay\Map\Repository\MapTerrainRepository;
 use Mifrial\Roleplay\Map\Repository\MapVariantRepository;
 use Mifrial\Roleplay\Map\Table\MapAreaTable;
 use Mifrial\Roleplay\Map\Table\MapNodeTable;
 use Mifrial\Roleplay\Map\Table\MapTable;
-use Mifrial\Roleplay\Map\Table\MapTerrainTable;
 use Mifrial\Roleplay\Map\Table\MapVariantAreaTable;
-use Mifrial\Roleplay\Map\Table\MapVariantEdgeTable;
 use Mifrial\Roleplay\Map\Table\MapVariantLineTable;
 use Mifrial\Roleplay\Map\Table\MapVariantNodeTable;
 use Mifrial\Roleplay\Map\Table\MapVariantTable;
@@ -84,22 +80,6 @@ final class MapPortFactory
         return new MapRouteHttp(
             $this->accessService($serviceLocator),
             $this->routeService($serviceLocator),
-            $this->viewAssembler($serviceLocator),
-        );
-    }
-
-    /**
-     * HTTP террейнов.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return MapTerrainHttp Сценарий.
-     */
-    public function createTerrainHttp(IServiceLocator $serviceLocator): MapTerrainHttp
-    {
-        return new MapTerrainHttp(
-            $this->accessService($serviceLocator),
-            $this->terrainService($serviceLocator),
             $this->viewAssembler($serviceLocator),
         );
     }
@@ -162,25 +142,6 @@ final class MapPortFactory
     }
 
     /**
-     * HTTP террейнов из контейнера.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return MapTerrainHttp Сценарий.
-     *
-     * @throws KernelException Если порт неверного типа.
-     */
-    public function fromTerrainContainer(IServiceLocator $serviceLocator): MapTerrainHttp
-    {
-        $service = $serviceLocator->get(IMapContainer::class)->get(MapTerrainHttp::class);
-        if (!$service instanceof MapTerrainHttp) {
-            throw new KernelException('PORT_TYPE', 'Map terrain HTTP has a wrong type');
-        }
-
-        return $service;
-    }
-
-    /**
      * Доступ.
      *
      * @param IServiceLocator $serviceLocator Каталог.
@@ -237,7 +198,6 @@ final class MapPortFactory
             $this->saveWriter($serviceLocator),
             $this->transactionRunner($serviceLocator),
             $this->detailService($serviceLocator),
-            new MapBlockingCheck($this->terrainService($serviceLocator), new MapGeometry()),
         );
     }
 
@@ -257,7 +217,6 @@ final class MapPortFactory
             new MapGraphSaveValidator(
                 new MapSaveFields(),
                 new MapSaveSets(),
-                $this->terrainService($serviceLocator),
             ),
         );
     }
@@ -275,28 +234,13 @@ final class MapPortFactory
             $this->mapRepository($serviceLocator),
             new MapVariantWriter($this->variantRepository($serviceLocator)),
             new MapNodeWriter($this->nodeStore($serviceLocator)),
-            new MapGraphSaveWriter(
-                $this->areaStore($serviceLocator),
-                $this->edgeStore($serviceLocator),
-            ),
+            new MapGraphSaveWriter($this->areaStore($serviceLocator)),
             new MapLineSaveWriter($this->lineStore($serviceLocator)),
             new MapLinkSaveWriter(
                 $this->nodeStore($serviceLocator),
                 $this->areaStore($serviceLocator),
             ),
         );
-    }
-
-    /**
-     * Террейны.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return MapTerrainService Сервис.
-     */
-    private function terrainService(IServiceLocator $serviceLocator): MapTerrainService
-    {
-        return new MapTerrainService($this->terrainRepository($serviceLocator));
     }
 
     /**
@@ -334,22 +278,6 @@ final class MapPortFactory
     }
 
     /**
-     * Рёбра.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return MapEdgeStore Стор.
-     */
-    private function edgeStore(IServiceLocator $serviceLocator): MapEdgeStore
-    {
-        return new MapEdgeStore(
-            new MapEdgeRepository(
-                $this->smartTableGateway($serviceLocator)->open(MapVariantEdgeTable::class)->records(),
-            ),
-        );
-    }
-
-    /**
      * Ленты.
      *
      * @param IServiceLocator $serviceLocator Каталог.
@@ -379,7 +307,6 @@ final class MapPortFactory
             $this->variantService($serviceLocator),
             $this->nodeStore($serviceLocator),
             $this->areaStore($serviceLocator),
-            $this->edgeStore($serviceLocator),
             $this->lineStore($serviceLocator),
         );
     }
@@ -393,13 +320,15 @@ final class MapPortFactory
      */
     private function routeService(IServiceLocator $serviceLocator): MapRouteService
     {
+        $geometry = new MapGeometry();
+
         return new MapRouteService(
             $this->accessService($serviceLocator),
             $this->variantService($serviceLocator),
-            $this->nodeStore($serviceLocator),
-            $this->edgeStore($serviceLocator),
-            $this->terrainService($serviceLocator),
-            new MapRouteGraph(),
+            $this->areaStore($serviceLocator),
+            $this->lineStore($serviceLocator),
+            new MapRouteGrid($geometry),
+            $geometry,
         );
     }
 
@@ -412,7 +341,7 @@ final class MapPortFactory
      */
     private function viewAssembler(IServiceLocator $serviceLocator): MapViewAssembler
     {
-        return new MapViewAssembler($this->files($serviceLocator), $this->terrainService($serviceLocator));
+        return new MapViewAssembler($this->files($serviceLocator));
     }
 
     /**
@@ -440,20 +369,6 @@ final class MapPortFactory
     {
         return new MapVariantRepository(
             $this->smartTableGateway($serviceLocator)->open(MapVariantTable::class)->records(),
-        );
-    }
-
-    /**
-     * Террейны.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return MapTerrainRepository Строки.
-     */
-    private function terrainRepository(IServiceLocator $serviceLocator): MapTerrainRepository
-    {
-        return new MapTerrainRepository(
-            $this->smartTableGateway($serviceLocator)->open(MapTerrainTable::class)->records(),
         );
     }
 

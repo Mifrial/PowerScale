@@ -21,7 +21,6 @@ final class MapDetail
      * @param array<int, MapPlacementRecord> $placements Размещения.
      * @param array<int, MapAreaRecord> $areas Области.
      * @param array<int, MapAreaShapeRecord> $shapes Полигоны.
-     * @param array<int, MapEdgeRecord> $edges Рёбра.
      * @param array<int, MapLineRecord> $lines Ленты.
      * @param bool $canEdit Можно править.
      *
@@ -34,7 +33,6 @@ final class MapDetail
         private readonly array $placements,
         private readonly array $areas,
         private readonly array $shapes,
-        private readonly array $edges,
         private readonly array $lines,
         private readonly bool $canEdit,
     ) {
@@ -98,16 +96,6 @@ final class MapDetail
     public function getShapes(): array
     {
         return $this->shapes;
-    }
-
-    /**
-     * Рёбра.
-     *
-     * @return array<int, MapEdgeRecord> Рёбра.
-     */
-    public function getEdges(): array
-    {
-        return $this->edges;
     }
 
     /**

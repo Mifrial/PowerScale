@@ -16,16 +16,20 @@ final class RouteMapInput implements IActionInput
      *
      * @param int $mapId Карта.
      * @param int $variantId Вариант.
-     * @param int $fromNodeId Начало.
-     * @param int $toNodeId Конец.
+     * @param int $fromX Начало X.
+     * @param int $fromY Начало Y.
+     * @param int $toX Конец X.
+     * @param int $toY Конец Y.
      *
      * @return void
      */
     public function __construct(
         public readonly int $mapId,
         public readonly int $variantId,
-        public readonly int $fromNodeId,
-        public readonly int $toNodeId,
+        public readonly int $fromX,
+        public readonly int $fromY,
+        public readonly int $toX,
+        public readonly int $toY,
     ) {
     }
 }

@@ -6,7 +6,6 @@ import type { MapPage } from '@/modules/Roleplay/Map/Dto/MapPage';
 import type { MapRoute } from '@/modules/Roleplay/Map/Dto/MapRoute';
 import type { MapSaveResult } from '@/modules/Roleplay/Map/Dto/MapSaveResult';
 import type { SaveMapData } from '@/modules/Roleplay/Map/Dto/SaveMapData';
-import type { MapTerrain } from '@/modules/Roleplay/Map/Dto/MapTerrain';
 import type { RouteMapData } from '@/modules/Roleplay/Map/Dto/RouteMapData';
 import { MapApiError } from '@/modules/Roleplay/Map/Service/MapApiError';
 
@@ -27,10 +26,6 @@ export class MapApi implements IMapApi {
 
   async get(id: number, signal?: AbortSignal): Promise<MapDetail> {
     return this.requireData<MapDetail>('map.get', { id }, signal);
-  }
-
-  async getTerrains(signal?: AbortSignal): Promise<MapTerrain[]> {
-    return this.requireData<MapTerrain[]>('map.getTerrains', undefined, signal);
   }
 
   async save(data: SaveMapData, signal?: AbortSignal): Promise<MapSaveResult> {

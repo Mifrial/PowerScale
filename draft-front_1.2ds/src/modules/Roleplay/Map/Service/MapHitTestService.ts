@@ -1,5 +1,4 @@
 import type { MapAreaHitCandidate } from '@/modules/Roleplay/Map/Dto/MapAreaHitCandidate';
-import type { MapEdgeHitCandidate } from '@/modules/Roleplay/Map/Dto/MapEdgeHitCandidate';
 import type { MapHit } from '@/modules/Roleplay/Map/Dto/MapHit';
 import type { MapHitCandidates } from '@/modules/Roleplay/Map/Dto/MapHitCandidates';
 import type { MapHitTolerances } from '@/modules/Roleplay/Map/Dto/MapHitTolerances';
@@ -11,7 +10,7 @@ import type { MapGeometryService } from '@/modules/Roleplay/Map/Service/MapGeome
 /**
  * Поиск объекта карты под указателем.
  *
- * Приоритет: узел, объект, лента, ребро, ландшафт. Лента попадает и по ширине.
+ * Приоритет: узел, объект, лента, поверхность. Лента попадает и по ширине.
  */
 export class MapHitTestService {
   constructor(private readonly geometry: MapGeometryService) {}
@@ -32,8 +31,10 @@ export class MapHitTestService {
 
   findArea(point: MapPoint, areas: MapAreaHitCandidate[]): MapHit | null {
     for (let index = areas.length - 1; index >= 0; index -= 1) {
-      if (this.geometry.pointInPolygon(point, areas[index].path)) {
-        return { kind: 'area', id: areas[index].id };
+      const area = areas[index];
+      const contour = this.geometry.flattenContour(area.path, area.handles ?? []);
+      if (this.geometry.pointInPolygon(point, contour)) {
+        return { kind: 'area', id: area.id };
       }
     }
 
@@ -55,27 +56,12 @@ export class MapHitTestService {
     return nearest === null ? null : { kind: 'line', id: nearest.id };
   }
 
-  findEdge(point: MapPoint, edges: MapEdgeHitCandidate[], tolerance: number): MapHit | null {
-    let nearest: MapEdgeHitCandidate | null = null;
-    let nearestDistance = tolerance;
-    for (const edge of edges) {
-      const distance = this.geometry.distanceToPolyline(point, edge.path);
-      if (distance <= nearestDistance) {
-        nearest = edge;
-        nearestDistance = distance;
-      }
-    }
-
-    return nearest === null ? null : { kind: 'edge', id: nearest.id };
-  }
-
   hitTest(point: MapPoint, candidates: MapHitCandidates, tolerances: MapHitTolerances): MapHit | null {
     return (
       this.findNode(point, candidates.nodes, tolerances.node) ??
       this.findArea(point, candidates.objects) ??
       this.findLine(point, candidates.lines, tolerances.edge) ??
-      this.findEdge(point, candidates.edges, tolerances.edge) ??
-      this.findArea(point, candidates.terrains)
+      this.findArea(point, candidates.surfaces)
     );
   }
 }

@@ -48,6 +48,7 @@ final class MapVariantAreaTable extends SmartTableDefinition
                 'cascade',
             ),
             new JsonField('path', FieldSettings::fromOptions(['required' => true])),
+            new JsonField('handles', FieldSettings::fromOptions(['required' => true, 'default' => []])),
             new BoolField('is_present', FieldSettings::fromOptions([
                 'required' => true,
                 'default' => true,

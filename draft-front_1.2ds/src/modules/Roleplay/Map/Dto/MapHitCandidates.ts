@@ -1,5 +1,4 @@
 import type { MapAreaHitCandidate } from '@/modules/Roleplay/Map/Dto/MapAreaHitCandidate';
-import type { MapEdgeHitCandidate } from '@/modules/Roleplay/Map/Dto/MapEdgeHitCandidate';
 import type { MapLineHitCandidate } from '@/modules/Roleplay/Map/Dto/MapLineHitCandidate';
 import type { MapNodeHitCandidate } from '@/modules/Roleplay/Map/Dto/MapNodeHitCandidate';
 
@@ -7,7 +6,6 @@ import type { MapNodeHitCandidate } from '@/modules/Roleplay/Map/Dto/MapNodeHitC
 export interface MapHitCandidates {
   nodes: MapNodeHitCandidate[];
   objects: MapAreaHitCandidate[];
-  terrains: MapAreaHitCandidate[];
+  surfaces: MapAreaHitCandidate[];
   lines: MapLineHitCandidate[];
-  edges: MapEdgeHitCandidate[];
 }

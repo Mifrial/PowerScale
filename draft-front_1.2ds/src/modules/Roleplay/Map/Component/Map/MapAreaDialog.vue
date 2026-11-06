@@ -1,74 +1,111 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import type { MapArea } from '@/modules/Roleplay/Map/Dto/MapArea';
 import type { MapAreaEdit } from '@/modules/Roleplay/Map/Dto/MapAreaEdit';
-import type { MapAreaKind } from '@/modules/Roleplay/Map/Enum/MapAreaKind';
 import type { MapAreaLayer } from '@/modules/Roleplay/Map/Enum/MapAreaLayer';
-import type { MapTerrain } from '@/modules/Roleplay/Map/Dto/MapTerrain';
-import { MAP_AREA_KIND_OPTIONS } from '@/modules/Roleplay/Map/Constant/Map/MAP_AREA_KIND_OPTIONS';
+import type { MapNode } from '@/modules/Roleplay/Map/Dto/MapNode';
+import type { MapSummary } from '@/modules/Roleplay/Map/Dto/MapSummary';
+import { MAP_AREA_PRESETS } from '@/modules/Roleplay/Map/Constant/Map/MAP_AREA_PRESETS';
+import {
+  MAP_AREA_DEFAULT_COLOR,
+  MAP_SPEED_DEFAULT,
+  speedFromInput,
+  speedToInput,
+} from '@/modules/Roleplay/Map/Constant/Map/MAP_SPEED';
 
 const open = defineModel<boolean>('open', { default: false });
 
 const props = defineProps<{
   area: MapArea | null;
-  terrains: MapTerrain[];
-  nodes: { id: number; name: string }[];
+  node: MapNode | null;
+  mapOptions: MapSummary[];
   submitting: boolean;
 }>();
 
 const emit = defineEmits<{
   submit: [edit: MapAreaEdit];
   remove: [areaId: number];
-  openNode: [nodeId: number];
 }>();
 
 const form = reactive({
   layer: 'object' as MapAreaLayer,
-  kind: 'other' as MapAreaKind,
+  color: MAP_AREA_DEFAULT_COLOR,
+  speed: 0,
   label: '',
-  terrainCode: null as string | null,
-  nodeId: null as number | null,
-  blocksMovement: false,
-  makePoi: false,
+  sortOrder: 0,
+  hasPlace: false,
+  placeName: '',
+  shortInfo: '',
+  publicInfo: '',
+  gmInfo: '',
+  icon: '',
+  linkedMapId: null as number | null,
 });
 
-const terrainOptions = computed(() => props.terrains.map((terrain) => ({ title: terrain.label, value: terrain.code })));
-const linkedNode = computed(() => props.nodes.find((node) => node.id === form.nodeId) ?? null);
+const preset = ref<string | null>(null);
+
+const presetOptions = computed(() =>
+  MAP_AREA_PRESETS.map((item) => ({
+    title: item.title,
+    value: item.code,
+    subtitle: item.layer === 'object' ? 'объект' : 'поверхность',
+  })),
+);
 
 const layerOptions: { title: string; value: MapAreaLayer }[] = [
   { title: 'Объект', value: 'object' },
-  { title: 'Ландшафт', value: 'terrain' },
+  { title: 'Поверхность', value: 'surface' },
 ];
-
-watch(
-  () => form.layer,
-  (layer) => {
-    if (layer === 'terrain' && form.terrainCode === null) {
-      form.terrainCode = props.terrains[0]?.code ?? null;
-    }
-  },
-);
 
 watch(open, (value) => {
   if (!value) return;
+  preset.value = null;
   form.layer = props.area?.layer ?? 'object';
-  form.kind = props.area?.kind ?? 'other';
+  form.color = props.area?.color ?? MAP_AREA_DEFAULT_COLOR;
+  form.speed = speedToInput(
+    props.area?.speed ?? (form.layer === 'surface' ? MAP_SPEED_DEFAULT : 0),
+  );
   form.label = props.area?.label ?? '';
-  form.terrainCode = props.area?.terrainCode ?? (form.layer === 'terrain' ? (props.terrains[0]?.code ?? null) : null);
-  form.nodeId = props.area?.nodeId ?? null;
-  form.blocksMovement = props.area?.blocksMovement ?? false;
-  form.makePoi = false;
+  form.sortOrder = props.area?.sortOrder ?? 0;
+  form.hasPlace = props.node !== null;
+  form.placeName = props.node?.name ?? '';
+  form.shortInfo = props.node?.shortInfo ?? '';
+  form.publicInfo = props.node?.publicInfo ?? '';
+  form.gmInfo = props.node?.gmInfo ?? '';
+  form.icon = props.node?.icon ?? '';
+  form.linkedMapId = props.node?.linkedMapId ?? null;
 });
+
+function applyPreset(code: string | null): void {
+  preset.value = code;
+  const found = MAP_AREA_PRESETS.find((item) => item.code === code);
+  if (!found) return;
+  form.layer = found.layer;
+  form.color = found.color;
+  form.speed = speedToInput(found.speed);
+  if (form.label.trim() === '') {
+    form.label = found.title;
+  }
+}
 
 function submit(): void {
   emit('submit', {
     layer: form.layer,
-    terrainCode: form.layer === 'terrain' ? form.terrainCode : null,
-    kind: form.layer === 'object' ? form.kind : 'other',
+    color: form.color.trim() || MAP_AREA_DEFAULT_COLOR,
+    speed: speedFromInput(Number(form.speed)),
     label: form.label.trim(),
-    nodeId: form.nodeId,
-    blocksMovement: form.layer === 'object' ? form.blocksMovement : false,
-    makePoi: form.layer === 'object' && form.makePoi && form.nodeId === null,
+    nodeId: props.area?.nodeId ?? null,
+    sortOrder: form.sortOrder,
+    place: form.hasPlace
+      ? {
+          name: form.placeName.trim() || form.label.trim() || 'Место',
+          shortInfo: form.shortInfo.trim(),
+          publicInfo: form.publicInfo.trim(),
+          gmInfo: form.gmInfo.trim(),
+          icon: form.icon.trim(),
+          linkedMapId: form.linkedMapId,
+        }
+      : null,
   });
 }
 
@@ -78,12 +115,23 @@ function remove(): void {
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="520" :persistent="props.submitting">
+  <v-dialog v-model="open" max-width="640" :persistent="props.submitting">
     <v-card>
       <v-card-title class="text-body-1 font-weight-medium">
         {{ props.area ? 'Область карты' : 'Новая область' }}
       </v-card-title>
       <v-card-text>
+        <v-select
+          :model-value="preset"
+          :items="presetOptions"
+          item-title="title"
+          item-value="value"
+          label="Шаблон"
+          variant="outlined"
+          density="comfortable"
+          clearable
+          @update:model-value="applyPreset"
+        />
         <v-select
           v-model="form.layer"
           :items="layerOptions"
@@ -92,65 +140,87 @@ function remove(): void {
           label="Слой"
           variant="outlined"
           density="comfortable"
-        />
-        <v-select
-          v-if="form.layer === 'terrain'"
-          v-model="form.terrainCode"
-          :items="terrainOptions"
-          label="Террейн"
-          variant="outlined"
-          density="comfortable"
           class="mt-3"
         />
-        <v-select
-          v-else
-          v-model="form.kind"
-          :items="MAP_AREA_KIND_OPTIONS"
-          item-title="title"
-          item-value="value"
-          label="Вид объекта"
-          variant="outlined"
-          density="comfortable"
-          class="mt-3"
-        />
-        <v-text-field v-model="form.label" label="Подпись" variant="outlined" density="comfortable" class="mt-3" />
-        <v-select
-          v-model="form.nodeId"
-          :items="props.nodes"
-          item-title="name"
-          item-value="id"
-          label="Привязанная точка интереса"
-          variant="outlined"
-          density="comfortable"
-          clearable
-          class="mt-3"
-        />
-        <div v-if="form.layer === 'object'" class="mt-2">
-          <v-switch
-            v-if="form.nodeId === null"
-            v-model="form.makePoi"
-            label="Сделать точкой интереса"
-            color="primary"
-            density="compact"
-            hide-details
-          />
-          <div v-else class="d-flex align-center ga-2">
-            <span class="text-caption text-medium-emphasis">{{ linkedNode?.name ?? 'Точка привязана' }}</span>
-            <v-btn size="small" variant="text" @click="emit('openNode', Number(form.nodeId))">Открыть точку</v-btn>
-          </div>
+        <div class="d-flex align-center ga-2 mt-3">
+          <input v-model="form.color" type="color" class="map-color" aria-label="Цвет области" />
+          <v-text-field v-model="form.color" label="Цвет" variant="outlined" density="comfortable" hide-details />
         </div>
+        <v-text-field
+          v-model.number="form.speed"
+          type="number"
+          min="0"
+          max="100"
+          step="1"
+          label="Скорость (0 — непроходимо)"
+          variant="outlined"
+          density="comfortable"
+          class="mt-3"
+        />
+        <p class="text-caption text-medium-emphasis mt-1">
+          50 — обычная земля, 70 — грунтовая дорога, 100 — каменная; лес 20, брод 10, река 4.
+        </p>
+        <v-text-field v-model="form.label" label="Подпись" variant="outlined" density="comfortable" class="mt-3" />
+
+        <v-divider class="my-4" />
         <v-switch
-          v-if="form.layer === 'object'"
-          v-model="form.blocksMovement"
-          label="Непроходимый объект"
+          v-model="form.hasPlace"
+          label="Это место с информацией"
           color="primary"
           density="compact"
           hide-details
-          class="mt-3"
         />
-        <p v-else class="text-caption text-medium-emphasis mt-3">
-          Проходимость ландшафта задаёт скорость террейна: ноль блокирует маршрут.
-        </p>
+        <template v-if="form.hasPlace">
+          <v-row dense class="mt-2">
+            <v-col cols="12" sm="8">
+              <v-text-field v-model="form.placeName" label="Имя места" variant="outlined" density="comfortable" />
+            </v-col>
+            <v-col cols="12" sm="4">
+              <v-text-field
+                v-model="form.icon"
+                label="Иконка (mdi-…)"
+                variant="outlined"
+                density="comfortable"
+                placeholder="mdi-map-marker"
+              />
+            </v-col>
+          </v-row>
+          <v-textarea
+            v-model="form.shortInfo"
+            label="Короткая информация"
+            variant="outlined"
+            density="comfortable"
+            rows="2"
+            class="mt-2"
+          />
+          <v-textarea
+            v-model="form.publicInfo"
+            label="Раскрываемая информация"
+            variant="outlined"
+            density="comfortable"
+            rows="2"
+            class="mt-2"
+          />
+          <v-textarea
+            v-model="form.gmInfo"
+            label="Информация ведущего"
+            variant="outlined"
+            density="comfortable"
+            rows="2"
+            class="mt-2"
+          />
+          <v-select
+            v-model="form.linkedMapId"
+            :items="props.mapOptions"
+            item-title="name"
+            item-value="id"
+            label="Связанная карта"
+            variant="outlined"
+            density="comfortable"
+            clearable
+            class="mt-2"
+          />
+        </template>
       </v-card-text>
       <v-card-actions>
         <v-btn
@@ -170,3 +240,15 @@ function remove(): void {
     </v-card>
   </v-dialog>
 </template>
+
+<style scoped>
+.map-color {
+  width: 48px;
+  height: 40px;
+  flex: 0 0 48px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.24);
+  border-radius: 4px;
+  background: transparent;
+}
+</style>

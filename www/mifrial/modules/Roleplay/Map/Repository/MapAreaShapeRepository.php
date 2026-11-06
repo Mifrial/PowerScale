@@ -38,17 +38,18 @@ final class MapAreaShapeRepository
      * @param int $variantId Вариант.
      * @param int $areaId Область.
      * @param array<int, array{0: int, 1: int}> $path Полигон.
+     * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки Безье.
      * @param bool $isPresent Присутствует.
      *
      * @return void
      *
      * @throws MapInvalidException Если поля недопустимы.
      */
-    public function upsert(int $variantId, int $areaId, array $path, bool $isPresent): void
+    public function upsert(int $variantId, int $areaId, array $path, array $handles, bool $isPresent): void
     {
         $existing = $this->findOne($variantId, $areaId);
         if ($existing !== null) {
-            $this->update($existing->getId(), ['path' => $path, 'is_present' => $isPresent]);
+            $this->update($existing->getId(), ['path' => $path, 'handles' => $handles, 'is_present' => $isPresent]);
 
             return;
         }
@@ -58,6 +59,7 @@ final class MapAreaShapeRepository
                 'variant_id' => $variantId,
                 'area_id' => $areaId,
                 'path' => $path,
+                'handles' => $handles,
                 'is_present' => $isPresent,
             ]);
         } catch (FieldInvalidException | SmartMapInvalidException | RowWriteFailedException $exception) {

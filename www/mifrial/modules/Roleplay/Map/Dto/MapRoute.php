@@ -12,31 +12,21 @@ final class MapRoute
     /**
      * Собирает маршрут.
      *
-     * @param array<int, int> $nodeIds Узлы.
      * @param array<int, array{0: int, 1: int}> $points Точки.
-     * @param array<int, int> $edgeIds Рёбра.
-     * @param int $distanceMeters Расстояние.
-     * @param int $costMeters Эффективное расстояние.
+     * @param float $distancePixels Длина пути в пикселях.
+     * @param float $costPixels Стоимость пути в пикселях.
+     * @param int|null $distanceMeters Расстояние или null без масштаба.
+     * @param int|null $costMeters Стоимость или null без масштаба.
      *
      * @return void
      */
     public function __construct(
-        private readonly array $nodeIds,
         private readonly array $points,
-        private readonly array $edgeIds,
-        private readonly int $distanceMeters,
-        private readonly int $costMeters,
+        private readonly float $distancePixels,
+        private readonly float $costPixels,
+        private readonly ?int $distanceMeters,
+        private readonly ?int $costMeters,
     ) {
-    }
-
-    /**
-     * Узлы.
-     *
-     * @return array<int, int> Id.
-     */
-    public function getNodeIds(): array
-    {
-        return $this->nodeIds;
     }
 
     /**
@@ -50,31 +40,41 @@ final class MapRoute
     }
 
     /**
-     * Рёбра.
+     * Длина пути.
      *
-     * @return array<int, int> Id.
+     * @return float Пиксели.
      */
-    public function getEdgeIds(): array
+    public function getDistancePixels(): float
     {
-        return $this->edgeIds;
+        return $this->distancePixels;
+    }
+
+    /**
+     * Стоимость пути.
+     *
+     * @return float Пиксели.
+     */
+    public function getCostPixels(): float
+    {
+        return $this->costPixels;
     }
 
     /**
      * Расстояние.
      *
-     * @return int Метры.
+     * @return int|null Метры или null.
      */
-    public function getDistanceMeters(): int
+    public function getDistanceMeters(): ?int
     {
         return $this->distanceMeters;
     }
 
     /**
-     * Эффективное расстояние.
+     * Стоимость.
      *
-     * @return int Метры.
+     * @return int|null Метры или null.
      */
-    public function getCostMeters(): int
+    public function getCostMeters(): ?int
     {
         return $this->costMeters;
     }

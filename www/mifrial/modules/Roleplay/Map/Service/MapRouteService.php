@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Map\Service;
 
 use Mifrial\Core\Kernel\Dto\RequestActor;
-use Mifrial\Roleplay\Map\Dto\MapEdgeRecord;
-use Mifrial\Roleplay\Map\Dto\MapPlacementRecord;
+use Mifrial\Roleplay\Map\Dto\MapAreaRecord;
+use Mifrial\Roleplay\Map\Dto\MapAreaShapeRecord;
+use Mifrial\Roleplay\Map\Dto\MapLineRecord;
 use Mifrial\Roleplay\Map\Dto\MapRoute;
-use Mifrial\Roleplay\Map\Dto\MapTerrainRecord;
-use Mifrial\Roleplay\Map\Exception\MapInvalidException;
+use Mifrial\Roleplay\Map\Exception\MapNoRouteException;
 
 /**
- * Загружает граф варианта и собирает маршрут.
+ * Маршрут по проходимой зоне варианта.
  */
 final class MapRouteService
 {
@@ -21,200 +21,162 @@ final class MapRouteService
      *
      * @param MapAccessService $accessService Доступ.
      * @param MapVariantService $variantService Варианты.
-     * @param MapNodeStore $nodeStore Узлы.
-     * @param MapEdgeStore $edgeStore Рёбра.
-     * @param MapTerrainService $terrainService Террейны.
-     * @param MapRouteGraph $routeGraph Чистый граф.
+     * @param MapAreaStore $areaStore Области.
+     * @param MapLineStore $lineStore Ленты.
+     * @param MapRouteGrid $grid Сетка.
+     * @param MapGeometry $geometry Геометрия контуров.
      *
      * @return void
      */
     public function __construct(
         private readonly MapAccessService $accessService,
         private readonly MapVariantService $variantService,
-        private readonly MapNodeStore $nodeStore,
-        private readonly MapEdgeStore $edgeStore,
-        private readonly MapTerrainService $terrainService,
-        private readonly MapRouteGraph $routeGraph,
+        private readonly MapAreaStore $areaStore,
+        private readonly MapLineStore $lineStore,
+        private readonly MapRouteGrid $grid,
+        private readonly MapGeometry $geometry,
     ) {
     }
 
     /**
-     * Строит маршрут между узлами.
+     * Строит маршрут между точками.
      *
      * @param RequestActor $actor Актор.
      * @param int $mapId Карта.
      * @param int $variantId Вариант.
-     * @param int $fromNodeId Начало.
-     * @param int $toNodeId Конец.
+     * @param int $fromX Начало X.
+     * @param int $fromY Начало Y.
+     * @param int $toX Конец X.
+     * @param int $toY Конец Y.
      *
      * @return MapRoute Маршрут.
      *
-     * @throws MapInvalidException Если нет масштаба или узла.
+     * @throws MapNoRouteException Если пути нет.
      */
     public function route(
         RequestActor $actor,
         int $mapId,
         int $variantId,
-        int $fromNodeId,
-        int $toNodeId,
+        int $fromX,
+        int $fromY,
+        int $toX,
+        int $toY,
     ): MapRoute {
         $this->accessService->requireMapForView($actor, $mapId);
         $variantRecord = $this->variantService->requireVariant($mapId, $variantId);
-        $placements = $this->indexPlacements($this->nodeStore->findPlacements($variantId));
-        if (!isset($placements[$fromNodeId]) || !isset($placements[$toNodeId])) {
-            throw new MapInvalidException('Map route node is not present in the variant');
+        $areas = $this->areaStore->findAreas($mapId);
+        $shapes = $this->indexShapes($this->areaStore->findShapes($variantId));
+        $surfaces = [];
+        $objects = [];
+        foreach ($areas as $areaRecord) {
+            $shape = $shapes[$areaRecord->getId()] ?? null;
+            if (!$shape instanceof MapAreaShapeRecord || !$shape->isPresent() || count($shape->getPath()) < 3) {
+                continue;
+            }
+
+            $item = [
+                'id' => $areaRecord->getId(),
+                'path' => $this->geometry->flattenContour($shape->getPath(), $shape->getHandles()),
+                'speed' => $areaRecord->getSpeed(),
+                'sortOrder' => $areaRecord->getSortOrder(),
+            ];
+            if ($areaRecord->getLayer() === 'surface') {
+                $surfaces[] = $item;
+            } else {
+                $objects[] = $item;
+            }
         }
 
-        $edges = $this->edgeStore->findEdges($variantId);
-        $adjacency = $this->routeGraph->buildAdjacency(
-            $edges,
-            $placements,
-            $this->indexTerrains($this->terrainService->getAll()),
-            $variantRecord->getMillimetersPerPixel(),
+        $ribbons = $this->ribbons($this->lineStore->findLines($variantId));
+        $width = $variantRecord->getWidth() ?? 1200;
+        $height = $variantRecord->getHeight() ?? 900;
+        $field = $this->grid->build($width, $height, $surfaces, $ribbons, $objects);
+        $route = $this->grid->route(
+            $field,
+            [$this->clamp($fromX, 0, $width), $this->clamp($fromY, 0, $height)],
+            [$this->clamp($toX, 0, $width), $this->clamp($toY, 0, $height)],
         );
-        $path = $this->routeGraph->shortestPath($adjacency, $fromNodeId, $toNodeId);
+        $scale = $variantRecord->getMillimetersPerPixel();
+
         return new MapRoute(
-            $path['nodeIds'],
-            $this->buildPoints($path['edgeIds'], $this->indexEdges($edges), $placements),
-            $path['edgeIds'],
-            $path['distance'],
-            $path['cost'],
+            $route['points'],
+            $route['distancePixels'],
+            $route['costPixels'],
+            $scale === null ? null : (int) round($route['distancePixels'] * $scale / 1000),
+            $scale === null ? null : (int) round($route['costPixels'] * $scale / 1000),
         );
     }
 
     /**
-     * Индексирует размещения.
+     * Ленты варианта.
      *
-     * @param array<int, MapPlacementRecord> $placements Размещения.
+     * @param array<int, MapLineRecord> $lines Ленты.
      *
-     * @return array<int, MapPlacementRecord> Узел → размещение.
+     * @return array<int, array{
+     *     id: int,
+     *     points: array<int, array{0: int, 1: int}>,
+     *     widths: array<int, int>,
+     *     handles: array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}>,
+     *     segmentSpeeds: array<int, int>,
+     *     defaultSpeed: int,
+     *     sortOrder: int
+     * }> Ленты.
      */
-    private function indexPlacements(array $placements): array
+    private function ribbons(array $lines): array
     {
-        $indexed = [];
-        foreach ($placements as $placementRecord) {
-            if ($placementRecord->isPresent()) {
-                $indexed[$placementRecord->getNodeId()] = $placementRecord;
+        $ribbons = [];
+        foreach ($lines as $lineRecord) {
+            if (!$lineRecord->isPresent() || count($lineRecord->getPoints()) < 2) {
+                continue;
             }
-        }
 
-        return $indexed;
-    }
-
-    /**
-     * Индексирует террейны.
-     *
-     * @param array<int, MapTerrainRecord> $terrains Террейны.
-     *
-     * @return array<int, MapTerrainRecord> Id → террейн.
-     */
-    private function indexTerrains(array $terrains): array
-    {
-        $indexed = [];
-        foreach ($terrains as $terrainRecord) {
-            $indexed[$terrainRecord->getId()] = $terrainRecord;
-        }
-
-        return $indexed;
-    }
-
-    /**
-     * Индексирует рёбра.
-     *
-     * @param array<int, MapEdgeRecord> $edges Рёбра.
-     *
-     * @return array<int, MapEdgeRecord> Id → ребро.
-     */
-    private function indexEdges(array $edges): array
-    {
-        $indexed = [];
-        foreach ($edges as $edgeRecord) {
-            $indexed[$edgeRecord->getId()] = $edgeRecord;
-        }
-
-        return $indexed;
-    }
-
-    /**
-     * Строит полилинию маршрута.
-     *
-     * @param array<int, int> $edgeIds Рёбра по порядку.
-     * @param array<int, MapEdgeRecord> $edgesById Рёбра по id.
-     * @param array<int, MapPlacementRecord> $placements Размещения.
-     *
-     * @return array<int, array{0: int, 1: int}> Точки.
-     */
-    private function buildPoints(array $edgeIds, array $edgesById, array $placements): array
-    {
-        $points = [];
-        foreach ($edgeIds as $edgeId) {
-            $edgeRecord = $edgesById[$edgeId] ?? null;
-            if ($edgeRecord instanceof MapEdgeRecord) {
-                $points = $this->appendPoints($points, $this->edgePoints($edgeRecord, $placements));
+            $segmentSpeeds = [];
+            foreach ($lineRecord->getSegments() as $segment) {
+                $segmentSpeeds[] = $segment['speed'];
             }
-        }
 
-        return $points;
-    }
-
-    /**
-     * Добавляет точки без дубля на стыке.
-     *
-     * @param array<int, array{0: int, 1: int}> $points Накопленные точки.
-     * @param array<int, array{0: int, 1: int}> $edgePoints Точки ребра.
-     *
-     * @return array<int, array{0: int, 1: int}> Точки.
-     */
-    private function appendPoints(array $points, array $edgePoints): array
-    {
-        foreach ($edgePoints as $point) {
-            if ($points === [] || $points[array_key_last($points)] !== $point) {
-                $points[] = $point;
-            }
-        }
-
-        return $points;
-    }
-
-    /**
-     * Точки ребра в порядке from → to.
-     *
-     * @param MapEdgeRecord $edgeRecord Ребро.
-     * @param array<int, MapPlacementRecord> $placements Размещения.
-     *
-     * @return array<int, array{0: int, 1: int}> Точки.
-     */
-    private function edgePoints(MapEdgeRecord $edgeRecord, array $placements): array
-    {
-        $fromPlacement = $placements[$edgeRecord->getFromNodeId()];
-        $toPlacement = $placements[$edgeRecord->getToNodeId()];
-        $path = $edgeRecord->getPath();
-        if ($path === []) {
-            return [
-                [$fromPlacement->getX(), $fromPlacement->getY()],
-                [$toPlacement->getX(), $toPlacement->getY()],
+            $ribbons[] = [
+                'id' => $lineRecord->getId(),
+                'points' => $lineRecord->getPoints(),
+                'widths' => $lineRecord->getWidths(),
+                'handles' => $lineRecord->getHandles(),
+                'segmentSpeeds' => $segmentSpeeds,
+                'defaultSpeed' => $lineRecord->getSpeed(),
+                'sortOrder' => $lineRecord->getSortOrder(),
             ];
         }
 
-        $first = $path[0];
-        $last = $path[array_key_last($path)];
-        $fromPoint = [$fromPlacement->getX(), $fromPlacement->getY()];
-
-        return $this->pointDistance($last, $fromPoint) < $this->pointDistance($first, $fromPoint)
-            ? array_reverse($path)
-            : $path;
+        return $ribbons;
     }
 
     /**
-     * Евклидово расстояние между точками.
+     * Индекс полигонов.
      *
-     * @param array{0: int, 1: int} $left Точка.
-     * @param array{0: int, 1: int} $right Точка.
+     * @param array<int, MapAreaShapeRecord> $shapes Полигоны.
      *
-     * @return float Пиксели.
+     * @return array<int, MapAreaShapeRecord> Id области → полигон.
      */
-    private function pointDistance(array $left, array $right): float
+    private function indexShapes(array $shapes): array
     {
-        return sqrt(($left[0] - $right[0]) ** 2 + ($left[1] - $right[1]) ** 2);
+        $indexed = [];
+        foreach ($shapes as $shapeRecord) {
+            $indexed[$shapeRecord->getAreaId()] = $shapeRecord;
+        }
+
+        return $indexed;
+    }
+
+    /**
+     * Прижимает координату.
+     *
+     * @param int $value Значение.
+     * @param int $min Минимум.
+     * @param int $max Максимум.
+     *
+     * @return int Значение.
+     */
+    private function clamp(int $value, int $min, int $max): int
+    {
+        return max($min, min($max, $value));
     }
 }

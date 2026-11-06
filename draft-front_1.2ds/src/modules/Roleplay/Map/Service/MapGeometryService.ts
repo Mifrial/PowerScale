@@ -1,5 +1,4 @@
-import type { MapEdge } from '@/modules/Roleplay/Map/Dto/MapEdge';
-import type { MapLineHandle } from '@/modules/Roleplay/Map/Dto/MapLineHandle';
+import type { MapHandle } from '@/modules/Roleplay/Map/Dto/MapHandle';
 import type { MapPoint } from '@/modules/Roleplay/Map/Dto/MapPoint';
 
 /**
@@ -134,7 +133,7 @@ export class MapGeometryService {
   /** Разворачивает ленту с ручками Безье в полилинию с ширинами. */
   flattenLine(
     points: MapPoint[],
-    handles: MapLineHandle[],
+    handles: MapHandle[],
     widths: number[],
     samples = 16,
   ): { points: MapPoint[]; widths: number[] } {
@@ -179,6 +178,80 @@ export class MapGeometryService {
     ];
   }
 
+  /**
+   * Разворачивает замкнутый контур области в полилинию.
+   *
+   * Сегмент `i → i+1` использует `out` вершины `i` и `in` вершины `i+1`;
+   * последний сегмент замыкается на первую вершину. Повторной первой точки нет.
+   */
+  flattenContour(path: MapPoint[], handles: MapHandle[], samples = 12): MapPoint[] {
+    if (path.length < 3) return path;
+
+    const source = handles ?? [];
+    const curved = source.some((handle) => this.handleLength(handle) > 0);
+    if (!curved) return path;
+
+    const steps = Math.max(1, samples);
+    const flat: MapPoint[] = [];
+    for (let index = 0; index < path.length; index += 1) {
+      const next = (index + 1) % path.length;
+      const start = path[index];
+      const end = path[next];
+      const startOut = source[index]?.out ?? [0, 0];
+      const endIn = source[next]?.in ?? [0, 0];
+      const controlOne: MapPoint = [start[0] + startOut[0], start[1] + startOut[1]];
+      const controlTwo: MapPoint = [end[0] + endIn[0], end[1] + endIn[1]];
+      for (let step = 0; step < steps; step += 1) {
+        flat.push(this.cubicPoint(start, controlOne, controlTwo, end, step / steps));
+      }
+    }
+
+    return flat;
+  }
+
+  /** Касательная в вершине замкнутого контура. */
+  areaTangent(path: MapPoint[], handles: MapHandle[], index: number): MapPoint {
+    const point = path[index];
+    if (!point) return [1, 0];
+
+    const handle = handles[index];
+    if (handle && this.handleLength(handle) > 0) {
+      const direction: MapPoint = [handle.out[0] - handle.in[0], handle.out[1] - handle.in[1]];
+      const length = Math.hypot(direction[0], direction[1]);
+      if (length > 0) return [direction[0] / length, direction[1] / length];
+    }
+
+    const previous = path[(index - 1 + path.length) % path.length];
+    const next = path[(index + 1) % path.length];
+
+    return this.normalize([next[0] - previous[0], next[1] - previous[1]]);
+  }
+
+  /** Видимые ручки Безье вершины контура; при отсутствии — направляющие-заглушки. */
+  areaDisplayHandles(
+    path: MapPoint[],
+    handles: MapHandle[],
+    index: number,
+    stub: number,
+  ): { in: MapPoint; out: MapPoint; inIsStub: boolean; outIsStub: boolean } {
+    const point = path[index];
+    const handle = handles[index] ?? { in: [0, 0] as MapPoint, out: [0, 0] as MapPoint };
+    const tangent = this.areaTangent(path, handles, index);
+    const inIsStub = Math.hypot(handle.in[0], handle.in[1]) <= 1;
+    const outIsStub = Math.hypot(handle.out[0], handle.out[1]) <= 1;
+
+    return {
+      in: inIsStub
+        ? [point[0] - tangent[0] * stub, point[1] - tangent[1] * stub]
+        : [point[0] + handle.in[0], point[1] + handle.in[1]],
+      out: outIsStub
+        ? [point[0] + tangent[0] * stub, point[1] + tangent[1] * stub]
+        : [point[0] + handle.out[0], point[1] + handle.out[1]],
+      inIsStub,
+      outIsStub,
+    };
+  }
+
   /** Делит кубический сегмент на две части, сохраняя форму. */
   splitCubic(
     start: MapPoint,
@@ -201,7 +274,7 @@ export class MapGeometryService {
   }
 
   /** Касательная в узле ленты с учётом ручек. */
-  lineTangent(points: MapPoint[], handles: MapLineHandle[], index: number): MapPoint {
+  lineTangent(points: MapPoint[], handles: MapHandle[], index: number): MapPoint {
     if (points.length < 2) {
       return [1, 0];
     }
@@ -237,7 +310,7 @@ export class MapGeometryService {
   }
 
   /** Нормаль в узле ленты. */
-  lineNormal(points: MapPoint[], handles: MapLineHandle[], index: number): MapPoint {
+  lineNormal(points: MapPoint[], handles: MapHandle[], index: number): MapPoint {
     const tangent = this.lineTangent(points, handles, index);
 
     return [-tangent[1], tangent[0]];
@@ -246,7 +319,7 @@ export class MapGeometryService {
   /** Положение ручки ширины для узла. */
   widthHandlePoint(
     points: MapPoint[],
-    handles: MapLineHandle[],
+    handles: MapHandle[],
     widths: number[],
     index: number,
     offset: number,
@@ -264,7 +337,7 @@ export class MapGeometryService {
    */
   lineDisplayHandles(
     points: MapPoint[],
-    handles: MapLineHandle[],
+    handles: MapHandle[],
     index: number,
     stub: number,
   ): { in: MapPoint; out: MapPoint; inIsStub: boolean; outIsStub: boolean } {
@@ -310,16 +383,62 @@ export class MapGeometryService {
     );
   }
 
-  /** Полилиния ребра; пустой путь — прямая между размещениями. */
-  edgePoints(edge: MapEdge, placements: Record<number, MapPoint>): MapPoint[] {
-    if (edge.path.length >= 2) {
-      return edge.path;
+  /**
+   * Упрощает ломаную по алгоритму Дугласа — Пекера.
+   *
+   * Нужен только для отрисовки маршрута: цифры расстояния и стоимости
+   * остаются по исходной сетке.
+   */
+  simplifyPath(points: MapPoint[], tolerance: number): MapPoint[] {
+    if (points.length <= 2 || tolerance <= 0) {
+      return points.map((point) => [point[0], point[1]]);
     }
 
-    const from = placements[edge.fromNodeId];
-    const to = placements[edge.toNodeId];
+    const limit = tolerance * tolerance;
+    const keep = new Array<boolean>(points.length).fill(false);
+    keep[0] = true;
+    keep[points.length - 1] = true;
+    const stack: [number, number][] = [[0, points.length - 1]];
+    while (stack.length > 0) {
+      const [first, last] = stack.pop() as [number, number];
+      let farthest = limit;
+      let index = -1;
+      for (let candidate = first + 1; candidate < last; candidate += 1) {
+        const distance = this.segmentDistanceSquared(points[candidate], points[first], points[last]);
+        if (distance > farthest) {
+          farthest = distance;
+          index = candidate;
+        }
+      }
+      if (index >= 0) {
+        keep[index] = true;
+        stack.push([first, index], [index, last]);
+      }
+    }
 
-    return from && to ? [from, to] : [];
+    return points.filter((_, index) => keep[index]).map((point) => [point[0], point[1]]);
+  }
+
+  /**
+   * Сглаживает ломаную схемой Чайкина; концы остаются на месте.
+   */
+  smoothPath(points: MapPoint[], iterations = 2): MapPoint[] {
+    if (points.length < 3) {
+      return points.map((point) => [point[0], point[1]]);
+    }
+
+    let result = points.map((point) => [point[0], point[1]] as MapPoint);
+    for (let iteration = 0; iteration < iterations; iteration += 1) {
+      const next: MapPoint[] = [result[0]];
+      for (let index = 0; index < result.length - 1; index += 1) {
+        next.push(this.lerp(result[index], result[index + 1], 0.25));
+        next.push(this.lerp(result[index], result[index + 1], 0.75));
+      }
+      next.push(result[result.length - 1]);
+      result = next;
+    }
+
+    return result;
   }
 
   /** Размещения варианта: id узла → точка. */
@@ -340,6 +459,26 @@ export class MapGeometryService {
 
   private lerp(start: MapPoint, end: MapPoint, t: number): MapPoint {
     return [start[0] + (end[0] - start[0]) * t, start[1] + (end[1] - start[1]) * t];
+  }
+
+  private segmentDistanceSquared(point: MapPoint, start: MapPoint, end: MapPoint): number {
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared === 0) {
+      return (point[0] - start[0]) ** 2 + (point[1] - start[1]) ** 2;
+    }
+    const t = Math.min(1, Math.max(0, ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / lengthSquared));
+    const projectionX = start[0] + t * dx;
+    const projectionY = start[1] + t * dy;
+
+    return (point[0] - projectionX) ** 2 + (point[1] - projectionY) ** 2;
+  }
+
+  private handleLength(handle: MapHandle | undefined): number {
+    if (!handle) return 0;
+
+    return Math.hypot(handle.in[0], handle.in[1]) + Math.hypot(handle.out[0], handle.out[1]);
   }
 
   private normalize(vector: MapPoint): MapPoint {

@@ -54,26 +54,6 @@ describe('MapGeometryService', () => {
     expect(service.segmentsIntersect([0, 0], [10, 0], [0, 5], [10, 5])).toBe(false);
   });
 
-  it('resolves an empty edge path to the straight line between placements', () => {
-    const edge = {
-      id: 1,
-      variantId: 1,
-      fromNodeId: 1,
-      toNodeId: 2,
-      terrainCode: 'road',
-      path: [],
-      distanceMeters: null,
-      isDirected: false,
-      label: '',
-    };
-    const points = service.edgePoints(edge, { 1: [0, 0], 2: [10, 0] });
-
-    expect(points).toEqual([
-      [0, 0],
-      [10, 0],
-    ]);
-  });
-
   it('flattens a bezier ribbon and interpolates widths', () => {
     const flat = service.flattenLine(
       [
@@ -136,5 +116,69 @@ describe('MapGeometryService', () => {
       ),
     ).toBe(5);
     expect(service.distanceToPolyline([5, 5], [])).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('simplifies a staircase and keeps the endpoints', () => {
+    const points: [number, number][] = [
+      [0, 0],
+      [5, 0],
+      [10, 0],
+      [10, 5],
+      [10, 10],
+    ];
+    const simplified = service.simplifyPath(points, 3);
+
+    expect(simplified[0]).toEqual([0, 0]);
+    expect(simplified[simplified.length - 1]).toEqual([10, 10]);
+    expect(simplified.length).toBeLessThan(points.length);
+  });
+
+  it('flattens a closed contour with handles', () => {
+    expect(service.flattenContour(square, [])).toEqual(square);
+
+    const handles = [
+      { in: [0, 0] as [number, number], out: [0, 4] as [number, number] },
+      { in: [0, 4] as [number, number], out: [0, 0] as [number, number] },
+      { in: [0, 0] as [number, number], out: [0, 0] as [number, number] },
+      { in: [0, 0] as [number, number], out: [0, 0] as [number, number] },
+    ];
+    const flat = service.flattenContour(square, handles, 4);
+
+    expect(flat).toHaveLength(16);
+    expect(flat[0]).toEqual([0, 0]);
+    expect(flat[1][1]).toBeGreaterThan(0);
+    expect(flat[4]).toEqual([10, 0]);
+    expect(flat[12]).toEqual([0, 10]);
+    expect(service.pointInPolygon([5, 6], flat)).toBe(true);
+    expect(service.pointInPolygon([5, 0.1], flat)).toBe(false);
+  });
+
+  it('shows stub handles around a closed contour', () => {
+    const display = service.areaDisplayHandles(square, [], 0, 2);
+
+    expect(display.inIsStub).toBe(true);
+    expect(display.outIsStub).toBe(true);
+    expect(Math.hypot(display.in[0], display.in[1])).toBeCloseTo(2);
+    expect(display.in[0]).toBeCloseTo(-display.out[0]);
+    expect(display.in[1]).toBeCloseTo(-display.out[1]);
+  });
+
+  it('smooths a path without moving the endpoints', () => {
+    const points: [number, number][] = [
+      [0, 0],
+      [0, 10],
+      [10, 10],
+    ];
+    const smooth = service.smoothPath(points);
+
+    expect(smooth[0]).toEqual([0, 0]);
+    expect(smooth[smooth.length - 1]).toEqual([10, 10]);
+    expect(smooth.length).toBeGreaterThan(points.length);
+    for (const point of smooth) {
+      expect(point[0]).toBeGreaterThanOrEqual(0);
+      expect(point[0]).toBeLessThanOrEqual(10);
+      expect(point[1]).toBeGreaterThanOrEqual(0);
+      expect(point[1]).toBeLessThanOrEqual(10);
+    }
   });
 });

@@ -2,12 +2,11 @@
 import { computed } from 'vue';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
 import type { MapHit } from '@/modules/Roleplay/Map/Dto/MapHit';
-import type { MapTerrain } from '@/modules/Roleplay/Map/Dto/MapTerrain';
+import { formatSpeed } from '@/modules/Roleplay/Map/Constant/Map/MAP_SPEED';
 
 const props = defineProps<{
   map: MapDetail;
   selected: MapHit | null;
-  terrains: MapTerrain[];
   activeIndex: number | null;
 }>();
 
@@ -19,6 +18,8 @@ const emit = defineEmits<{
   corner: [];
   width: [lineId: number, index: number, width: number];
   uniformWidth: [lineId: number, width: number];
+  raise: [];
+  lower: [];
   close: [];
 }>();
 
@@ -32,10 +33,6 @@ const area = computed(() =>
 
 const line = computed(() =>
   props.selected?.kind === 'line' ? props.map.lines.find((item) => item.id === props.selected?.id) : null,
-);
-
-const edge = computed(() =>
-  props.selected?.kind === 'edge' ? props.map.edges.find((item) => item.id === props.selected?.id) : null,
 );
 
 const linkedNode = computed(() =>
@@ -75,18 +72,28 @@ function setVertexWidth(value: number | string): void {
 }
 
 const title = computed(
-  () => node.value?.name || area.value?.label || line.value?.label || edge.value?.label || 'Объект карты',
+  () => node.value?.name || area.value?.label || line.value?.label || 'Объект карты',
 );
 
-const terrainLabel = (code: string | null): string =>
-  props.terrains.find((terrain) => terrain.code === code)?.label ?? '—';
+const areaPosition = computed(() => {
+  if (!area.value) return '';
+  const group = props.map.areas
+    .filter((item) => item.layer === area.value?.layer)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
+  const index = group.findIndex((item) => item.id === area.value?.id);
 
-const nodeName = (nodeId: number): string => {
-  const item = props.map.nodes.find((candidate) => candidate.id === nodeId);
-  if (!item) return `Узел #${nodeId}`;
+  return index < 0 ? '' : `${index + 1} из ${group.length}`;
+});
 
-  return item.isPoi && item.name ? item.name : `Узел #${item.id}`;
-};
+const linePosition = computed(() => {
+  if (!line.value) return '';
+  const group = props.map.lines
+    .filter((item) => item.variantId === line.value?.variantId)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
+  const index = group.findIndex((item) => item.id === line.value?.id);
+
+  return index < 0 ? '' : `${index + 1} из ${group.length}`;
+});
 
 function edit(): void {
   if (props.selected) emit('edit', props.selected);
@@ -116,9 +123,13 @@ function remove(): void {
         </template>
       </template>
       <template v-else-if="area">
-        <div>Слой: {{ area.layer === 'terrain' ? 'ландшафт' : 'объект' }}</div>
-        <div v-if="area.layer === 'terrain'">Террейн: {{ terrainLabel(area.terrainCode) }}</div>
-        <div v-else>Вид: {{ area.kind }}{{ area.blocksMovement ? ', непроходим' : '' }}</div>
+        <div>Слой: {{ area.layer === 'surface' ? 'поверхность' : 'объект' }}</div>
+        <div class="d-flex align-center ga-2">
+          <span class="map-info__swatch" :style="{ background: area.color }" />
+          <span>{{ area.color }}</span>
+        </div>
+        <div>Скорость: {{ formatSpeed(area.speed) }}</div>
+        <div class="text-caption text-medium-emphasis">Порядок: {{ areaPosition }}</div>
         <template v-if="linkedNode">
           <v-divider class="my-2" />
           <div class="text-caption text-medium-emphasis">Точка: {{ linkedNode.name }}</div>
@@ -132,15 +143,23 @@ function remove(): void {
         </template>
       </template>
       <template v-else-if="line">
-        <div>Террейн: {{ terrainLabel(line.terrainCode) }}</div>
+        <div class="d-flex align-center ga-2">
+          <span class="map-info__swatch" :style="{ background: line.color }" />
+          <span>{{ line.color }}</span>
+        </div>
+        <div>Скорость: {{ formatSpeed(line.speed) }}</div>
         <div>Точек: {{ line.points.length }}, ширина: {{ lineWidthRange }}</div>
+        <div class="text-caption text-medium-emphasis">Порядок: {{ linePosition }}</div>
+        <div v-if="line.segments.length > 0" class="text-caption text-medium-emphasis">
+          Сегментов с особым стилем: {{ line.segments.length }}
+        </div>
         <v-row v-if="props.map.canEdit" dense class="mt-2">
           <v-col cols="6">
             <v-text-field
               :model-value="uniformWidth"
               type="number"
               min="1"
-              label="Ширина всюду, px"
+              label="Ширина всех точек, px"
               variant="outlined"
               density="compact"
               hide-details
@@ -162,17 +181,11 @@ function remove(): void {
         </v-row>
         <div class="text-caption text-medium-emphasis mt-2">
           <template v-if="props.map.canEdit">
-            Кликните вершину на карте, чтобы увидеть ручки Безье (фиолетовые) и ручку ширины (оранжевый ромб).
+            Кликните вершину на карте, чтобы увидеть ручки Безье (фиолетовые) и ручку ширины (оранжевый ромб). Shift при перетаскивании ромба масштабирует все ширины.
             <span v-if="props.activeIndex !== null"> Сейчас выбрана точка {{ props.activeIndex + 1 }}.</span>
           </template>
           <template v-else>Ширина меняется по точкам вдоль осевой линии.</template>
         </div>
-      </template>
-      <template v-else-if="edge">
-        <div>{{ nodeName(edge.fromNodeId) }} → {{ nodeName(edge.toNodeId) }}</div>
-        <div>Террейн: {{ terrainLabel(edge.terrainCode) }}</div>
-        <div>Расстояние: {{ edge.distanceMeters === null ? 'по масштабу' : `${edge.distanceMeters} м` }}</div>
-        <div v-if="edge.isDirected" class="text-caption">Только в одну сторону</div>
       </template>
     </v-card-text>
     <v-card-actions v-if="props.map.canEdit" class="flex-wrap">
@@ -182,6 +195,10 @@ function remove(): void {
         </v-btn>
         <v-btn size="small" variant="text" prepend-icon="mdi-auto-fix" @click="emit('smooth')">Сгладить</v-btn>
         <v-btn size="small" variant="text" prepend-icon="mdi-vector-corner" @click="emit('corner')">Угол</v-btn>
+      </template>
+      <template v-if="area || line">
+        <v-btn size="small" variant="text" prepend-icon="mdi-arrow-up" @click="emit('raise')">Выше</v-btn>
+        <v-btn size="small" variant="text" prepend-icon="mdi-arrow-down" @click="emit('lower')">Ниже</v-btn>
       </template>
       <v-btn size="small" variant="text" prepend-icon="mdi-pencil-outline" @click="edit">Изменить</v-btn>
       <v-spacer />
@@ -193,5 +210,12 @@ function remove(): void {
 <style scoped>
 .map-info {
   border-radius: 8px;
+}
+
+.map-info__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
 }
 </style>

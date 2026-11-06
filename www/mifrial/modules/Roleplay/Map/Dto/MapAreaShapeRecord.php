@@ -18,6 +18,7 @@ final class MapAreaShapeRecord
      * @param int $variantId Вариант.
      * @param int $areaId Область.
      * @param array<int, array{0: int, 1: int}> $path Полигон.
+     * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки Безье.
      * @param bool $isPresent Область есть в варианте.
      *
      * @return void
@@ -27,6 +28,7 @@ final class MapAreaShapeRecord
         private readonly int $variantId,
         private readonly int $areaId,
         private readonly array $path,
+        private readonly array $handles,
         private readonly bool $isPresent,
     ) {
     }
@@ -52,6 +54,7 @@ final class MapAreaShapeRecord
             MapValues::requireInt($fields, 'variant_id'),
             MapValues::requireInt($fields, 'area_id'),
             $path,
+            MapValues::handles($fields['handles'] ?? null, count($path)),
             MapValues::requireBool($fields, 'is_present'),
         );
     }
@@ -94,6 +97,16 @@ final class MapAreaShapeRecord
     public function getPath(): array
     {
         return $this->path;
+    }
+
+    /**
+     * Ручки Безье.
+     *
+     * @return array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> Ручки.
+     */
+    public function getHandles(): array
+    {
+        return $this->handles;
     }
 
     /**

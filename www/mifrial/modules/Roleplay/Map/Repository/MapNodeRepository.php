@@ -36,7 +36,6 @@ final class MapNodeRepository
      * Добавляет узел.
      *
      * @param int $mapId Карта.
-     * @param bool $isPoi Точка интереса.
      * @param string $name Имя.
      * @param string $shortInfo Короткая информация.
      * @param string $publicInfo Раскрываемая информация.
@@ -50,7 +49,6 @@ final class MapNodeRepository
      */
     public function add(
         int $mapId,
-        bool $isPoi,
         string $name,
         string $shortInfo,
         string $publicInfo,
@@ -61,7 +59,6 @@ final class MapNodeRepository
         try {
             return $this->nodeRecords->add([
                 'map_id' => $mapId,
-                'is_poi' => $isPoi,
                 'name' => $name,
                 'short_info' => $shortInfo,
                 'public_info' => $publicInfo,

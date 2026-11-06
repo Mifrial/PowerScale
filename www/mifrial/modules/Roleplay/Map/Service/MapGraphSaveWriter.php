@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Map\Service;
 
 use Mifrial\Roleplay\Map\Dto\MapAreaRecord;
-use Mifrial\Roleplay\Map\Dto\MapEdgeRecord;
 use Mifrial\Roleplay\Map\Exception\MapInvalidException;
 
 /**
- * Запись областей и рёбер снимка карты.
+ * Запись областей снимка карты.
  */
 final class MapGraphSaveWriter
 {
@@ -17,13 +16,11 @@ final class MapGraphSaveWriter
      * Создаёт писатель.
      *
      * @param MapAreaStore $areaStore Области и формы.
-     * @param MapEdgeStore $edgeStore Рёбра.
      *
      * @return void
      */
     public function __construct(
         private readonly MapAreaStore $areaStore,
-        private readonly MapEdgeStore $edgeStore,
     ) {
     }
 
@@ -66,29 +63,6 @@ final class MapGraphSaveWriter
     }
 
     /**
-     * Пишет рёбра по вариантам.
-     *
-     * @param array<int, int> $variantMap Id снимка → реальный id варианта.
-     * @param array<int, array<string, mixed>> $edges Рёбра снимка.
-     * @param array<int, int> $nodeMap Id снимка → реальный id узла.
-     *
-     * @return void
-     *
-     * @throws MapInvalidException Если ссылка не разрешилась.
-     */
-    public function edges(array $variantMap, array $edges, array $nodeMap): void
-    {
-        $byVariant = [];
-        foreach ($edges as $edge) {
-            $byVariant[$this->mapped($variantMap, $edge['variantId'])][] = $edge;
-        }
-
-        foreach ($variantMap as $realVariantId) {
-            $this->writeEdgesOfVariant($realVariantId, $byVariant[$realVariantId] ?? [], $nodeMap);
-        }
-    }
-
-    /**
      * Делит области на обновления и вставки.
      *
      * @param array<int, array<string, mixed>> $areas Области.
@@ -121,95 +95,6 @@ final class MapGraphSaveWriter
     }
 
     /**
-     * Рёбра одного варианта.
-     *
-     * @param int $variantId Реальный вариант.
-     * @param array<int, array<string, mixed>> $payload Рёбра.
-     * @param array<int, int> $nodeMap Узлы.
-     *
-     * @return void
-     *
-     * @throws MapInvalidException Если ссылка не разрешилась.
-     */
-    private function writeEdgesOfVariant(int $variantId, array $payload, array $nodeMap): void
-    {
-        $existing = $this->edgeStore->findEdges($variantId);
-        $existingById = $this->index($existing);
-        $kept = [];
-        foreach ($payload as $edge) {
-            $kept[$this->saveEdge($variantId, $edge, $nodeMap, $existingById)] = true;
-        }
-
-        foreach ($existing as $edgeRecord) {
-            if (!isset($kept[$edgeRecord->getId()])) {
-                $this->edgeStore->deleteEdge($edgeRecord->getId());
-            }
-        }
-    }
-
-    /**
-     * Одно ребро.
-     *
-     * @param int $variantId Вариант.
-     * @param array<string, mixed> $edge Ребро.
-     * @param array<int, int> $nodeMap Узлы.
-     * @param array<int, true> $existingById Известные id.
-     *
-     * @return int Реальный id.
-     *
-     * @throws MapInvalidException Если ребро неизвестно или ссылка не разрешилась.
-     */
-    private function saveEdge(int $variantId, array $edge, array $nodeMap, array $existingById): int
-    {
-        $fields = $this->edgeFields($variantId, $edge, $nodeMap);
-        if ($edge['id'] > 0) {
-            if (!isset($existingById[$edge['id']])) {
-                throw new MapInvalidException('Map edge is unknown');
-            }
-
-            $this->edgeStore->updateEdge($edge['id'], $fields);
-
-            return $edge['id'];
-        }
-
-        return $this->edgeStore->addEdge(
-            $variantId,
-            $fields['from_node_id'],
-            $fields['to_node_id'],
-            $fields['terrain_id'],
-            $fields['path'],
-            $fields['distance_meters'],
-            $fields['is_directed'],
-            $fields['label'],
-        );
-    }
-
-    /**
-     * Поля ребра.
-     *
-     * @param int $variantId Вариант.
-     * @param array<string, mixed> $edge Ребро.
-     * @param array<int, int> $nodeMap Узлы.
-     *
-     * @return array<string, mixed> Поля.
-     *
-     * @throws MapInvalidException Если ссылка не разрешилась.
-     */
-    private function edgeFields(int $variantId, array $edge, array $nodeMap): array
-    {
-        return [
-            'variant_id' => $variantId,
-            'from_node_id' => $this->mapped($nodeMap, $edge['fromNodeId']),
-            'to_node_id' => $this->mapped($nodeMap, $edge['toNodeId']),
-            'terrain_id' => $edge['terrainId'],
-            'path' => $edge['path'],
-            'distance_meters' => $edge['distanceMeters'],
-            'is_directed' => $edge['isDirected'],
-            'label' => $edge['label'],
-        ];
-    }
-
-    /**
      * Поля области.
      *
      * @param array<string, mixed> $area Область.
@@ -223,11 +108,11 @@ final class MapGraphSaveWriter
     {
         return [
             'layer' => $area['layer'],
-            'terrain_id' => $area['terrainId'],
-            'kind' => $area['kind'],
+            'color' => $area['color'],
+            'speed' => $area['speed'],
             'label' => $area['label'],
             'node_id' => $area['nodeId'] === null ? null : $this->mapped($nodeMap, $area['nodeId']),
-            'blocks_movement' => $area['blocksMovement'],
+            'sort_order' => $area['sortOrder'],
         ];
     }
 
@@ -249,18 +134,18 @@ final class MapGraphSaveWriter
         return $this->areaStore->addArea(
             $mapId,
             $fields['layer'],
-            $fields['terrain_id'],
-            $fields['kind'],
+            $fields['color'],
+            $fields['speed'],
             $fields['label'],
             $fields['node_id'],
-            $fields['blocks_movement'],
+            $fields['sort_order'],
         );
     }
 
     /**
      * Существующие id.
      *
-     * @param array<int, MapAreaRecord|MapEdgeRecord> $records Записи.
+     * @param array<int, MapAreaRecord> $records Записи.
      *
      * @return array<int, true> Id → true.
      */

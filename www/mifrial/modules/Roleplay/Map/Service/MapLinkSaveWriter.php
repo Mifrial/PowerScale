@@ -122,7 +122,13 @@ final class MapLinkSaveWriter
                 continue;
             }
 
-            $this->areaStore->upsertShape($realVariantId, $realAreaId, $shape['path'], $shape['isPresent']);
+            $this->areaStore->upsertShape(
+                $realVariantId,
+                $realAreaId,
+                $shape['path'],
+                $shape['handles'],
+                $shape['isPresent'],
+            );
         }
     }
 

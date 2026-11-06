@@ -9,8 +9,8 @@ export const MAP_CANVAS_CONFIG = {
   nodeRadius: 7,
   /** Радиус попадания по узлу на экране, CSS-пиксели. */
   nodeHitRadius: 12,
-  /** Допуск попадания по ребру на экране, CSS-пиксели. */
-  edgeHitRadius: 6,
+  /** Допуск попадания по ленте на экране, CSS-пиксели. */
+  lineHitRadius: 6,
   /** Радиус маркера вершины на экране, CSS-пиксели. */
   vertexRadius: 5,
   /** Допуск попадания по вершине на экране, CSS-пиксели. */
@@ -27,7 +27,6 @@ export const MAP_CANVAS_CONFIG = {
   dragThreshold: 4,
   areaFillAlpha: 0.28,
   areaStrokeWidth: 2,
-  edgeWidth: 3,
   lineStrokeWidth: 1,
   draftLineWidth: 12,
   routeWidth: 5,

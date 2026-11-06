@@ -3,14 +3,12 @@ import type { Ref } from 'vue';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
 import type { MapHit } from '@/modules/Roleplay/Map/Dto/MapHit';
 import type { MapSummary } from '@/modules/Roleplay/Map/Dto/MapSummary';
-import type { MapTerrain } from '@/modules/Roleplay/Map/Dto/MapTerrain';
 import type { MapVariant } from '@/modules/Roleplay/Map/Dto/MapVariant';
 import { getMapApi } from '@/modules/Roleplay/Map/init';
 import { MapApiError } from '@/modules/Roleplay/Map/Service/MapApiError';
 
 /** Состояние страницы карты: загрузка снимка, справочники и выбор варианта. */
 export function useMapDetail(params: { map: Ref<MapDetail | null> }) {
-  const terrains = ref<MapTerrain[]>([]);
   const catalog = ref<MapSummary[]>([]);
   const selectedVariantId = ref<number | null>(null);
   const selected = ref<MapHit | null>(null);
@@ -48,24 +46,16 @@ export function useMapDetail(params: { map: Ref<MapDetail | null> }) {
     return params.map.value?.lines.find((line) => line.id === selected.value?.id) ?? null;
   });
 
-  const selectedEdge = computed(() => {
-    if (selected.value?.kind !== 'edge') return null;
-
-    return params.map.value?.edges.find((edge) => edge.id === selected.value?.id) ?? null;
-  });
-
   async function load(mapId: number): Promise<MapDetail | null> {
     controller?.abort();
     controller = new AbortController();
     loading.value = true;
     error.value = null;
     try {
-      const [detail, terrainList, page] = await Promise.all([
+      const [detail, page] = await Promise.all([
         getMapApi().get(mapId, controller.signal),
-        getMapApi().getTerrains(controller.signal),
         getMapApi().findPage({ limit: 100, offset: 0 }, controller.signal),
       ]);
-      terrains.value = terrainList;
       catalog.value = page.items;
       selected.value = null;
 
@@ -103,7 +93,6 @@ export function useMapDetail(params: { map: Ref<MapDetail | null> }) {
   onUnmounted(() => controller?.abort());
 
   return {
-    terrains,
     catalog,
     variant,
     selectedVariantId,
@@ -111,7 +100,6 @@ export function useMapDetail(params: { map: Ref<MapDetail | null> }) {
     selectedNode,
     selectedArea,
     selectedLine,
-    selectedEdge,
     loading,
     error,
     canEdit,

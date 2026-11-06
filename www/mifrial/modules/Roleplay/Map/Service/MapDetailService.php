@@ -7,7 +7,6 @@ namespace Mifrial\Roleplay\Map\Service;
 use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Roleplay\Map\Dto\MapAreaShapeRecord;
 use Mifrial\Roleplay\Map\Dto\MapDetail;
-use Mifrial\Roleplay\Map\Dto\MapEdgeRecord;
 use Mifrial\Roleplay\Map\Dto\MapLineRecord;
 use Mifrial\Roleplay\Map\Dto\MapPlacementRecord;
 use Mifrial\Roleplay\Map\Dto\MapVariantRecord;
@@ -24,7 +23,6 @@ final class MapDetailService
      * @param MapVariantService $variantService Варианты.
      * @param MapNodeStore $nodeStore Узлы.
      * @param MapAreaStore $areaStore Области.
-     * @param MapEdgeStore $edgeStore Рёбра.
      * @param MapLineStore $lineStore Ленты.
      *
      * @return void
@@ -34,13 +32,12 @@ final class MapDetailService
         private readonly MapVariantService $variantService,
         private readonly MapNodeStore $nodeStore,
         private readonly MapAreaStore $areaStore,
-        private readonly MapEdgeStore $edgeStore,
         private readonly MapLineStore $lineStore,
     ) {
     }
 
     /**
-     * Загружает карту с графом.
+     * Загружает карту.
      *
      * @param RequestActor $actor Актор.
      * @param int $mapId Карта.
@@ -53,12 +50,10 @@ final class MapDetailService
         $variants = $this->variantService->findVariants($mapId);
         $placements = [];
         $shapes = [];
-        $edges = [];
         $lines = [];
         foreach ($variants as $variantRecord) {
             $placements = array_merge($placements, $this->nodeStore->findPlacements($variantRecord->getId()));
             $shapes = array_merge($shapes, $this->areaStore->findShapes($variantRecord->getId()));
-            $edges = array_merge($edges, $this->edgeStore->findEdges($variantRecord->getId()));
             $lines = array_merge($lines, $this->lineStore->findLines($variantRecord->getId()));
         }
 
@@ -69,7 +64,6 @@ final class MapDetailService
             $placements,
             $this->areaStore->findAreas($mapId),
             $shapes,
-            $edges,
             $lines,
             $this->accessService->canEdit($actor, $mapRecord),
         );
@@ -121,23 +115,6 @@ final class MapDetailService
         $grouped = [];
         foreach ($lines as $lineRecord) {
             $grouped[$lineRecord->getVariantId()][] = $lineRecord;
-        }
-
-        return $grouped;
-    }
-
-    /**
-     * Рёбра по варианту.
-     *
-     * @param array<int, MapEdgeRecord> $edges Рёбра.
-     *
-     * @return array<int, array<int, MapEdgeRecord>> id варианта → рёбра.
-     */
-    public function groupEdges(array $edges): array
-    {
-        $grouped = [];
-        foreach ($edges as $edgeRecord) {
-            $grouped[$edgeRecord->getVariantId()][] = $edgeRecord;
         }
 
         return $grouped;

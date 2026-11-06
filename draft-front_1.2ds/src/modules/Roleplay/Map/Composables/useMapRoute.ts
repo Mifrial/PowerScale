@@ -1,72 +1,68 @@
-import { computed, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import type { Ref } from 'vue';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
+import type { MapPoint } from '@/modules/Roleplay/Map/Dto/MapPoint';
 import type { MapRoute } from '@/modules/Roleplay/Map/Dto/MapRoute';
-import type { MapTerrain } from '@/modules/Roleplay/Map/Dto/MapTerrain';
 import type { MapVariant } from '@/modules/Roleplay/Map/Dto/MapVariant';
-import { MapApiError } from '@/modules/Roleplay/Map/Service/MapApiError';
-import { MapRouteGraph } from '@/modules/Roleplay/Map/Service/MapRouteGraph';
+import { MapRouteGrid } from '@/modules/Roleplay/Map/Service/MapRouteGrid';
 import { mapGeometryService } from '@/modules/Roleplay/Map/Service/Instance/mapGeometryService';
 
-/** Маршрут по черновику: локальный расчёт без запроса. */
+/** Маршрут по черновику: локальная сетка без запроса. */
 export function useMapRoute(params: {
   map: Ref<MapDetail | null>;
   variant: Ref<MapVariant | null>;
-  terrains: Ref<MapTerrain[]>;
 }) {
   const route = ref<MapRoute | null>(null);
   const error = ref<string | null>(null);
-  const graph = new MapRouteGraph(mapGeometryService);
+  const from = ref<MapPoint | null>(null);
+  const to = ref<MapPoint | null>(null);
+  const grid = new MapRouteGrid(mapGeometryService);
 
-  const nodeOptions = computed(() => {
+  function clampPoint(point: MapPoint): MapPoint {
+    const variant = params.variant.value;
+    const width = variant?.baseFile?.width ?? 1200;
+    const height = variant?.baseFile?.height ?? 900;
+
+    return [
+      Math.max(0, Math.min(width, Math.round(point[0]))),
+      Math.max(0, Math.min(height, Math.round(point[1]))),
+    ];
+  }
+
+  function pick(point: MapPoint): void {
+    const picked = clampPoint(point);
+    if (from.value === null || to.value !== null) {
+      from.value = picked;
+      to.value = null;
+      route.value = null;
+      error.value = null;
+
+      return;
+    }
+
+    to.value = picked;
+    build();
+  }
+
+  function build(): void {
     const detail = params.map.value;
     const variant = params.variant.value;
-    if (!detail || !variant) return [];
-
-    return detail.nodes
-      .filter((node) => node.placements.some((item) => item.variantId === variant.id && item.isPresent))
-      .map((node) => ({
-        id: node.id,
-        name: node.isPoi && node.name ? node.name : `Узел #${node.id}`,
-      }));
-  });
-
-  const poiOptions = computed(() => {
-    const detail = params.map.value;
-    if (!detail) return [];
-
-    return nodeOptions.value.filter((option) => {
-      const node = detail.nodes.find((candidate) => candidate.id === option.id);
-
-      return node?.isPoi === true && node.name !== '';
-    });
-  });
-
-  function build(fromNodeId: number, toNodeId: number): void {
-    const detail = params.map.value;
-    const variant = params.variant.value;
-    if (!detail || !variant) return;
+    if (!detail || !variant || from.value === null || to.value === null) return;
     error.value = null;
     try {
-      const edges = detail.edges.filter((edge) => edge.variantId === variant.id);
-      const placements = mapGeometryService.placementPoints(detail.nodes, variant.id);
-      route.value = graph.findRoute(
-        edges,
-        placements,
-        params.terrains.value,
-        variant.millimetersPerPixel,
-        fromNodeId,
-        toNodeId,
-      );
+      const field = grid.build(detail, variant);
+      route.value = grid.findRoute(field, from.value, to.value, variant.millimetersPerPixel);
     } catch (caught) {
       route.value = null;
-      error.value = caught instanceof MapApiError ? caught.message : 'Не удалось построить маршрут';
+      error.value = caught instanceof Error ? caught.message : 'Не удалось построить маршрут';
     }
   }
 
   function clear(): void {
     route.value = null;
     error.value = null;
+    from.value = null;
+    to.value = null;
   }
 
   watch(
@@ -83,8 +79,9 @@ export function useMapRoute(params: {
   return {
     route,
     error,
-    nodeOptions,
-    poiOptions,
+    from,
+    to,
+    pick,
     build,
     clear,
   };

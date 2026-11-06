@@ -24,7 +24,6 @@ final class MapSaveService
      * @param MapSaveWriter $writer Запись снимка.
      * @param ITransactionRunner $transactionRunner Единица работы.
      * @param MapDetailService $detailService Снимок после записи.
-     * @param MapBlockingCheck $blockingCheck Предупреждения.
      *
      * @return void
      */
@@ -34,7 +33,6 @@ final class MapSaveService
         private readonly MapSaveWriter $writer,
         private readonly ITransactionRunner $transactionRunner,
         private readonly MapDetailService $detailService,
-        private readonly MapBlockingCheck $blockingCheck,
     ) {
     }
 
@@ -69,7 +67,7 @@ final class MapSaveService
 
         return [
             'detail' => $detail,
-            'warnings' => $this->blockingCheck->check($detail),
+            'warnings' => [],
         ];
     }
 

@@ -3,7 +3,6 @@ import type { Ref } from 'vue';
 import type { CanvasPoint } from '@/modules/Roleplay/Map/Dto/CanvasPoint';
 import type { MapAreaHitCandidate } from '@/modules/Roleplay/Map/Dto/MapAreaHitCandidate';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
-import type { MapEdgeHitCandidate } from '@/modules/Roleplay/Map/Dto/MapEdgeHitCandidate';
 import type { MapEditTarget } from '@/modules/Roleplay/Map/Dto/MapEditTarget';
 import type { MapHit } from '@/modules/Roleplay/Map/Dto/MapHit';
 import type { MapHitCandidates } from '@/modules/Roleplay/Map/Dto/MapHitCandidates';
@@ -19,13 +18,15 @@ import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CA
 import { mapGeometryService, mapHitTestService, mapViewportService } from '@/modules/Roleplay/Map/init';
 
 type LineTarget = Extract<MapEditTarget, { kind: 'line-vertex' | 'line-handle-in' | 'line-handle-out' | 'line-width' }>;
+type AreaTarget = Extract<MapEditTarget, { kind: 'area-vertex' | 'area-handle-in' | 'area-handle-out' }>;
 
 type DragState =
   | { kind: 'node'; nodeId: number }
   | { kind: 'area'; areaId: number; start: MapPoint; origin: MapPoint[] }
   | { kind: 'line'; lineId: number; start: MapPoint; origin: MapPoint[] }
-  | { kind: 'vertex'; target: Extract<MapEditTarget, { kind: 'area-vertex' | 'line-vertex' | 'edge-vertex' }> }
+  | { kind: 'vertex'; target: Extract<MapEditTarget, { kind: 'area-vertex' | 'line-vertex' }> }
   | { kind: 'handle'; target: Extract<MapEditTarget, { kind: 'line-handle-in' | 'line-handle-out' }> }
+  | { kind: 'area-handle'; target: Extract<MapEditTarget, { kind: 'area-handle-in' | 'area-handle-out' }> }
   | { kind: 'width'; target: Extract<MapEditTarget, { kind: 'line-width' }> };
 
 /**
@@ -40,7 +41,6 @@ export function useMapEditor(params: {
   draft: MapDraftApi;
   onOpenNode: (nodeId: number) => void;
   onCreateNode: (point: MapPoint) => void;
-  onCreateEdge: (fromNodeId: number, toNodeId: number) => void;
   onCreateArea: (path: MapPoint[]) => void;
   onCreateRect: (path: MapPoint[]) => void;
   onCreateLine: (points: MapPoint[]) => void;
@@ -52,7 +52,6 @@ export function useMapEditor(params: {
   const draftArea = ref<MapPoint[]>([]);
   const draftLine = ref<MapPoint[]>([]);
   const rectPoints = ref<MapPoint[]>([]);
-  const edgeSourceId = ref<number | null>(null);
   const calibrationPoints = ref<MapPoint[]>([]);
   const rulerPoints = ref<MapPoint[]>([]);
   const activeTarget = ref<MapEditTarget | null>(null);
@@ -76,17 +75,28 @@ export function useMapEditor(params: {
     return mapGeometryService.placementPoints(detail.nodes, variant.id);
   });
 
+  const linkedNodeIds = computed(() => {
+    const ids = new Set<number>();
+    for (const area of params.map.value?.areas ?? []) {
+      if (area.nodeId !== null) ids.add(area.nodeId);
+    }
+
+    return ids;
+  });
+
   const activeNodes = computed<MapNodeHitCandidate[]>(() =>
-    Object.entries(placements.value).map(([nodeId, point]) => ({
-      id: Number(nodeId),
-      x: point[0],
-      y: point[1],
-    })),
+    Object.entries(placements.value)
+      .filter(([nodeId]) => !linkedNodeIds.value.has(Number(nodeId)))
+      .map(([nodeId, point]) => ({
+        id: Number(nodeId),
+        x: point[0],
+        y: point[1],
+      })),
   );
 
   const objects = computed<MapAreaHitCandidate[]>(() => areaCandidates('object'));
 
-  const terrains = computed<MapAreaHitCandidate[]>(() => areaCandidates('terrain'));
+  const surfaces = computed<MapAreaHitCandidate[]>(() => areaCandidates('surface'));
 
   const activeLines = computed<MapLineHitCandidate[]>(() => {
     const detail = params.map.value;
@@ -96,27 +106,17 @@ export function useMapEditor(params: {
     const lines: MapLineHitCandidate[] = [];
     for (const line of detail.lines) {
       if (line.variantId !== variant.id || !line.isPresent || line.points.length < 2) continue;
-      lines.push({ id: line.id, points: line.points, widths: line.widths, handles: line.handles ?? [] });
+      lines.push({
+        id: line.id,
+        points: line.points,
+        widths: line.widths,
+        handles: line.handles ?? [],
+        sortOrder: line.sortOrder,
+      });
     }
+    lines.sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0) || left.id - right.id);
 
     return lines;
-  });
-
-  const activeEdges = computed<MapEdgeHitCandidate[]>(() => {
-    const detail = params.map.value;
-    const variant = params.variant.value;
-    if (!detail || !variant) return [];
-
-    const edges: MapEdgeHitCandidate[] = [];
-    for (const edge of detail.edges) {
-      if (edge.variantId !== variant.id) continue;
-      const path = mapGeometryService.edgePoints(edge, placements.value);
-      if (path.length >= 2) {
-        edges.push({ id: edge.id, path });
-      }
-    }
-
-    return edges;
   });
 
   const selectedArea = computed(() => {
@@ -133,26 +133,12 @@ export function useMapEditor(params: {
     return params.map.value?.lines.find((line) => line.id === selection.id) ?? null;
   });
 
-  const selectedEdge = computed(() => {
-    const selection = params.selected.value;
-    if (selection?.kind !== 'edge') return null;
-
-    return params.map.value?.edges.find((edge) => edge.id === selection.id) ?? null;
-  });
-
   const selectedAreaPath = computed<MapPoint[]>(() => {
     const variant = params.variant.value;
     const area = selectedArea.value;
     if (!variant || !area) return [];
 
     return area.shapes.find((shape) => shape.variantId === variant.id && shape.isPresent)?.path ?? [];
-  });
-
-  const selectedEdgePath = computed<MapPoint[]>(() => {
-    const edge = selectedEdge.value;
-    if (!edge) return [];
-
-    return mapGeometryService.edgePoints(edge, placements.value);
   });
 
   const cursor = computed(() => {
@@ -162,7 +148,6 @@ export function useMapEditor(params: {
       return 'crosshair';
     }
     if (tool.value === 'ruler') return 'crosshair';
-    if (tool.value === 'edge') return 'pointer';
     if (
       activeTarget.value !== null ||
       params.selected.value?.kind === 'node' ||
@@ -191,9 +176,6 @@ export function useMapEditor(params: {
       if (params.selected.value === null) {
         return 'Клик — выбрать; пустое место — панорама; колесо — зум';
       }
-      if (params.selected.value.kind === 'edge') {
-        return 'Двойной клик по ребру — добавить точку пути; вершины тянутся';
-      }
       if (params.selected.value.kind === 'line') {
         return 'Тяните ленту целиком; вершины, ручки Безье и оранжевые ручки ширины — на выделении';
       }
@@ -202,11 +184,6 @@ export function useMapEditor(params: {
     }
 
     if (tool.value === 'node') return 'Клик — новая точка; тяните точку — перенос';
-    if (tool.value === 'edge') {
-      return edgeSourceId.value === null
-        ? 'Ребро: кликните первую точку'
-        : 'Ребро: кликните вторую точку или Esc';
-    }
     if (tool.value === 'area') {
       return draftArea.value.length === 0
         ? 'Полигон: кликните первую вершину'
@@ -247,7 +224,7 @@ export function useMapEditor(params: {
     () => fitToView(),
   );
 
-  function areaCandidates(layer: 'terrain' | 'object'): MapAreaHitCandidate[] {
+  function areaCandidates(layer: 'surface' | 'object'): MapAreaHitCandidate[] {
     const detail = params.map.value;
     const variant = params.variant.value;
     if (!detail || !variant) return [];
@@ -257,18 +234,17 @@ export function useMapEditor(params: {
       if (area.layer !== layer) continue;
       const shape = area.shapes.find((item) => item.variantId === variant.id && item.isPresent);
       if (shape) {
-        candidates.push({ id: area.id, path: shape.path });
+        candidates.push({
+          id: area.id,
+          path: shape.path,
+          handles: shape.handles ?? [],
+          sortOrder: area.sortOrder,
+        });
       }
     }
+    candidates.sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0) || left.id - right.id);
 
     return candidates;
-  }
-
-  function edgePath(edgeId: number): MapPoint[] {
-    const edge = params.map.value?.edges.find((candidate) => candidate.id === edgeId);
-    if (!edge) return [];
-
-    return mapGeometryService.edgePoints(edge, placements.value);
   }
 
   function fitToView(): void {
@@ -296,17 +272,65 @@ export function useMapEditor(params: {
   }
 
   function hitAt(point: MapPoint): MapHit | null {
+    return hitListAt(point)[0] ?? null;
+  }
+
+  /** Все попадания под точкой сверху вниз: для Alt+клика. */
+  function hitListAt(point: MapPoint): MapHit[] {
     const tolerance = MAP_CANVAS_CONFIG.nodeHitRadius / viewport.value.scale;
-    const edgeTolerance = MAP_CANVAS_CONFIG.edgeHitRadius / viewport.value.scale;
+    const edgeTolerance = MAP_CANVAS_CONFIG.lineHitRadius / viewport.value.scale;
     const candidates: MapHitCandidates = {
       nodes: activeNodes.value,
       objects: objects.value,
-      terrains: terrains.value,
+      surfaces: surfaces.value,
       lines: activeLines.value,
-      edges: activeEdges.value,
+    };
+    const hits: MapHit[] = [];
+    const seen = new Set<string>();
+    const push = (hit: MapHit | null): void => {
+      if (hit === null) return;
+      const key = `${hit.kind}:${hit.id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      hits.push(hit);
     };
 
-    return mapHitTestService.hitTest(point, candidates, { node: tolerance, edge: edgeTolerance });
+    push(mapHitTestService.findNode(point, candidates.nodes, tolerance));
+    for (let index = candidates.objects.length - 1; index >= 0; index -= 1) {
+      const area = candidates.objects[index];
+      const contour = mapGeometryService.flattenContour(area.path, area.handles ?? []);
+      if (mapGeometryService.pointInPolygon(point, contour)) {
+        push({ kind: 'area', id: area.id });
+      }
+    }
+    for (let index = candidates.lines.length - 1; index >= 0; index -= 1) {
+      const line = candidates.lines[index];
+      const flat = mapGeometryService.flattenLine(line.points, line.handles ?? [], line.widths);
+      if (mapGeometryService.distanceToRibbon(point, flat.points, flat.widths) <= edgeTolerance) {
+        push({ kind: 'line', id: line.id });
+      }
+    }
+    for (let index = candidates.surfaces.length - 1; index >= 0; index -= 1) {
+      const area = candidates.surfaces[index];
+      const contour = mapGeometryService.flattenContour(area.path, area.handles ?? []);
+      if (mapGeometryService.pointInPolygon(point, contour)) {
+        push({ kind: 'area', id: area.id });
+      }
+    }
+
+    return hits;
+  }
+
+  /** Alt+клик: следующее попадание под курсором. */
+  function cycleHit(point: MapPoint): MapHit | null {
+    const hits = hitListAt(point);
+    if (hits.length === 0) return null;
+    const current = params.selected.value;
+    const index = current === null
+      ? -1
+      : hits.findIndex((hit) => hit.kind === current.kind && hit.id === current.id);
+
+    return hits[(index + 1) % hits.length] ?? hits[0];
   }
 
   function editTargetAt(point: MapPoint): MapEditTarget | null {
@@ -315,8 +339,8 @@ export function useMapEditor(params: {
     const handleTolerance = MAP_CANVAS_CONFIG.handleHitRadius / scale;
     const area = selectedArea.value;
     if (area) {
-      const index = nearestVertex(selectedAreaPath.value, point, vertexTolerance);
-      if (index !== null) return { kind: 'area-vertex', id: area.id, index };
+      const handled = editAreaTargetAt(area, point, handleTolerance, vertexTolerance);
+      if (handled) return handled;
     }
 
     const line = selectedLine.value;
@@ -325,17 +349,73 @@ export function useMapEditor(params: {
       if (handled) return handled;
     }
 
-    const edge = selectedEdge.value;
-    if (edge) {
-      const path = selectedEdgePath.value;
-      for (let index = 1; index < path.length - 1; index += 1) {
-        if (mapGeometryService.distance(point, path[index]) <= vertexTolerance) {
-          return { kind: 'edge-vertex', id: edge.id, index };
-        }
+    return null;
+  }
+
+  function editAreaTargetAt(
+    area: {
+      id: number;
+      shapes: {
+        variantId: number;
+        path: MapPoint[];
+        handles: { in: MapPoint; out: MapPoint }[];
+        isPresent: boolean;
+      }[];
+    },
+    point: MapPoint,
+    handleTolerance: number,
+    vertexTolerance: number,
+  ): AreaTarget | null {
+    const variant = params.variant.value;
+    if (!variant) return null;
+    const shape = area.shapes.find((candidate) => candidate.variantId === variant.id && candidate.isPresent);
+    if (!shape || shape.path.length < 3) return null;
+
+    const handles = normalizeAreaHandles(shape);
+    const active = activeTarget.value;
+    const activeIndex =
+      active !== null &&
+      active.id === area.id &&
+      (active.kind === 'area-vertex' || active.kind === 'area-handle-in' || active.kind === 'area-handle-out')
+        ? active.index
+        : null;
+
+    if (activeIndex !== null) {
+      const display = mapGeometryService.areaDisplayHandles(
+        shape.path,
+        handles,
+        activeIndex,
+        MAP_CANVAS_CONFIG.handleStub / viewport.value.scale,
+      );
+      if (mapGeometryService.distance(point, display.in) <= handleTolerance) {
+        return { kind: 'area-handle-in', id: area.id, index: activeIndex };
+      }
+      if (mapGeometryService.distance(point, display.out) <= handleTolerance) {
+        return { kind: 'area-handle-out', id: area.id, index: activeIndex };
       }
     }
 
-    return null;
+    for (let index = 0; index < shape.path.length; index += 1) {
+      if (index === activeIndex) continue;
+      const handle = handles[index];
+      const base = shape.path[index];
+      if (
+        Math.hypot(handle.in[0], handle.in[1]) > 1 &&
+        mapGeometryService.distance(point, [base[0] + handle.in[0], base[1] + handle.in[1]]) <= handleTolerance
+      ) {
+        return { kind: 'area-handle-in', id: area.id, index };
+      }
+      if (
+        Math.hypot(handle.out[0], handle.out[1]) > 1 &&
+        mapGeometryService.distance(point, [base[0] + handle.out[0], base[1] + handle.out[1]]) <= handleTolerance
+      ) {
+        return { kind: 'area-handle-out', id: area.id, index };
+      }
+    }
+
+    const index = nearestVertex(shape.path, point, vertexTolerance);
+
+    return index === null ? null : { kind: 'area-vertex', id: area.id, index };
   }
 
   function editLineTargetAt(
@@ -417,6 +497,15 @@ export function useMapEditor(params: {
     }
 
     if (tool.value === 'view') {
+      if (alt) {
+        const cycled = cycleHit(point);
+        if (cycled !== null) {
+          params.selected.value = cycled;
+          activeTarget.value = null;
+
+          return;
+        }
+      }
       const editable = params.map.value?.canEdit === true;
       const target = editable ? editTargetAt(point) : null;
       if (target !== null) {
@@ -439,13 +528,6 @@ export function useMapEditor(params: {
         params.selected.value = hit;
         activeTarget.value = null;
         if (editable) beginObjectDrag(hit, point);
-
-        return;
-      }
-
-      if (hit?.kind === 'edge') {
-        params.selected.value = hit;
-        activeTarget.value = null;
 
         return;
       }
@@ -491,10 +573,12 @@ export function useMapEditor(params: {
     const variant = params.variant.value;
     if (!variant) return;
 
-    if (target.kind === 'area-vertex' || target.kind === 'line-vertex' || target.kind === 'edge-vertex') {
+    if (target.kind === 'area-vertex' || target.kind === 'line-vertex') {
       beginDrag({ kind: 'vertex', target });
     } else if (target.kind === 'line-handle-in' || target.kind === 'line-handle-out') {
       beginDrag({ kind: 'handle', target });
+    } else if (target.kind === 'area-handle-in' || target.kind === 'area-handle-out') {
+      beginDrag({ kind: 'area-handle', target });
     } else {
       beginDrag({ kind: 'width', target });
     }
@@ -505,7 +589,7 @@ export function useMapEditor(params: {
     params.draft.beginHistory();
   }
 
-  function onPointerMove(point: MapPoint, screen: CanvasPoint, alt = altPressed): void {
+  function onPointerMove(point: MapPoint, screen: CanvasPoint, alt = altPressed, shift = false): void {
     if (pointerStart.value && pointerLast.value) {
       const movedBy = Math.hypot(screen.x - pointerStart.value.x, screen.y - pointerStart.value.y);
       if (movedBy > MAP_CANVAS_CONFIG.dragThreshold) {
@@ -520,13 +604,13 @@ export function useMapEditor(params: {
         worldSize.value,
       );
     } else if (drag !== null) {
-      applyDrag(point, alt);
+      applyDrag(point, alt, shift);
     }
 
     pointerLast.value = screen;
   }
 
-  function applyDrag(point: MapPoint, alt: boolean): void {
+  function applyDrag(point: MapPoint, alt: boolean, shift: boolean): void {
     const variant = params.variant.value;
     if (!variant || drag === null) return;
     const snapped = snap(point);
@@ -563,10 +647,8 @@ export function useMapEditor(params: {
     if (drag.kind === 'vertex') {
       if (drag.target.kind === 'area-vertex') {
         params.draft.setAreaVertex(drag.target.id, variant.id, drag.target.index, snapped);
-      } else if (drag.target.kind === 'line-vertex') {
-        params.draft.setLineVertex(drag.target.id, drag.target.index, snapped);
       } else {
-        params.draft.setEdgeVertex(drag.target.id, drag.target.index, snapped);
+        params.draft.setLineVertex(drag.target.id, drag.target.index, snapped);
       }
 
       return;
@@ -589,6 +671,26 @@ export function useMapEditor(params: {
       return;
     }
 
+    if (drag.kind === 'area-handle') {
+      const target = drag.target;
+      const area = params.map.value?.areas.find((candidate) => candidate.id === target.id);
+      const shape = area?.shapes.find((candidate) => candidate.variantId === variant.id && candidate.isPresent);
+      if (!area || !shape) return;
+      const base = shape.path[target.index];
+      const free = snapFree(point);
+      const offset: MapPoint = [free[0] - base[0], free[1] - base[1]];
+      const side = target.kind === 'area-handle-in' ? 'in' : 'out';
+      params.draft.setAreaHandle(area.id, variant.id, target.index, side, offset);
+      if (!alt) {
+        params.draft.setAreaHandle(area.id, variant.id, target.index, side === 'in' ? 'out' : 'in', [
+          -offset[0],
+          -offset[1],
+        ]);
+      }
+
+      return;
+    }
+
     const target = drag.target;
     const line = params.map.value?.lines.find((candidate) => candidate.id === target.id);
     if (!line) return;
@@ -596,7 +698,11 @@ export function useMapEditor(params: {
     const offset = MAP_CANVAS_CONFIG.handleOffset / viewport.value.scale;
     const free = snapFree(point);
     const width = Math.max(1, Math.round((mapGeometryService.distance(base, free) - offset) * 2));
-    params.draft.setLineWidth(line.id, target.index, width);
+    if (shift) {
+      params.draft.scaleLineWidths(line.id, target.index, width);
+    } else {
+      params.draft.setLineWidth(line.id, target.index, width);
+    }
   }
 
   function onPointerUp(point: MapPoint): void {
@@ -636,15 +742,7 @@ export function useMapEditor(params: {
 
     const area = selectedArea.value;
     if (area) {
-      const path = selectedAreaPath.value;
-      if (path.length < 3) return false;
-      const segment = nearestSegment(path, point, true);
-      if (segment === null || segment.distance > MAP_CANVAS_CONFIG.vertexHitRadius / viewport.value.scale) {
-        return false;
-      }
-      params.draft.insertAreaVertex(area.id, variant.id, segment.index, snap(point));
-
-      return true;
+      return insertAreaVertexAt(area, point);
     }
 
     const line = selectedLine.value;
@@ -652,25 +750,76 @@ export function useMapEditor(params: {
       return insertLineVertexAt(line, point);
     }
 
-    const edge = selectedEdge.value;
-    if (edge) {
-      const path = selectedEdgePath.value;
-      if (path.length < 2) return false;
-      const segment = nearestSegment(path, point, false);
-      if (segment === null || segment.distance > MAP_CANVAS_CONFIG.vertexHitRadius / viewport.value.scale) {
-        return false;
-      }
-      params.draft.beginHistory();
-      if (edge.path.length < 2) {
-        params.draft.setEdgePath(edge.id, path);
-      }
-      params.draft.insertEdgeVertex(edge.id, segment.index, snap(point));
-      params.draft.endHistory();
+    return false;
+  }
 
-      return true;
+  function insertAreaVertexAt(
+    area: {
+      id: number;
+      shapes: {
+        variantId: number;
+        path: MapPoint[];
+        handles: { in: MapPoint; out: MapPoint }[];
+        isPresent: boolean;
+      }[];
+    },
+    point: MapPoint,
+  ): boolean {
+    const variant = params.variant.value;
+    if (!variant) return false;
+    const shape = area.shapes.find((candidate) => candidate.variantId === variant.id && candidate.isPresent);
+    if (!shape || shape.path.length < 3) return false;
+    const handles = normalizeAreaHandles(shape);
+    const tolerance = MAP_CANVAS_CONFIG.vertexHitRadius / viewport.value.scale;
+    let bestSegment = 0;
+    let bestT = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < shape.path.length; index += 1) {
+      const next = (index + 1) % shape.path.length;
+      const start = shape.path[index];
+      const end = shape.path[next];
+      const controlOne: MapPoint = [start[0] + handles[index].out[0], start[1] + handles[index].out[1]];
+      const controlTwo: MapPoint = [end[0] + handles[next].in[0], end[1] + handles[next].in[1]];
+      for (let step = 0; step <= 24; step += 1) {
+        const t = step / 24;
+        const sample = mapGeometryService.cubicPoint(start, controlOne, controlTwo, end, t);
+        const distance = mapGeometryService.distance(point, sample);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestSegment = index;
+          bestT = t;
+        }
+      }
     }
 
-    return false;
+    if (bestDistance > tolerance) return false;
+
+    const startIndex = bestSegment;
+    const endIndex = (bestSegment + 1) % shape.path.length;
+    const start = shape.path[startIndex];
+    const end = shape.path[endIndex];
+    const controlOne: MapPoint = [start[0] + handles[startIndex].out[0], start[1] + handles[startIndex].out[1]];
+    const controlTwo: MapPoint = [end[0] + handles[endIndex].in[0], end[1] + handles[endIndex].in[1]];
+    const split = mapGeometryService.splitCubic(start, controlOne, controlTwo, end, bestT);
+    const newPoint = clampPoint(split.left[3]);
+    const newHandle = {
+      in: [split.left[2][0] - newPoint[0], split.left[2][1] - newPoint[1]] as MapPoint,
+      out: [split.right[1][0] - newPoint[0], split.right[1][1] - newPoint[1]] as MapPoint,
+    };
+
+    params.draft.beginHistory();
+    params.draft.setAreaHandle(area.id, variant.id, startIndex, 'out', [
+      split.left[1][0] - start[0],
+      split.left[1][1] - start[1],
+    ]);
+    params.draft.setAreaHandle(area.id, variant.id, endIndex, 'in', [
+      split.right[2][0] - end[0],
+      split.right[2][1] - end[1],
+    ]);
+    params.draft.insertAreaVertex(area.id, variant.id, startIndex, newPoint, newHandle);
+    params.draft.endHistory();
+
+    return true;
   }
 
   function insertLineVertexAt(
@@ -749,13 +898,6 @@ export function useMapEditor(params: {
       return;
     }
 
-    if (tool.value === 'edge') {
-      handleEdgeClick(hit);
-      params.selected.value = hit;
-
-      return;
-    }
-
     if (tool.value === 'area') {
       draftArea.value = [...draftArea.value, snap(point)];
       params.selected.value = null;
@@ -791,26 +933,6 @@ export function useMapEditor(params: {
         calibrationPoints.value = [];
       }
     }
-  }
-
-  function handleEdgeClick(hit: MapHit | null): void {
-    if (hit?.kind !== 'node') {
-      edgeSourceId.value = null;
-
-      return;
-    }
-
-    if (edgeSourceId.value === null) {
-      edgeSourceId.value = hit.id;
-
-      return;
-    }
-
-    if (edgeSourceId.value !== hit.id) {
-      params.onCreateEdge(edgeSourceId.value, hit.id);
-    }
-
-    edgeSourceId.value = null;
   }
 
   function handleRectClick(point: MapPoint): void {
@@ -867,7 +989,6 @@ export function useMapEditor(params: {
     draftArea.value = [];
     draftLine.value = [snap(point)];
     rectPoints.value = [];
-    edgeSourceId.value = null;
     activeTarget.value = null;
     tool.value = 'line';
   }
@@ -884,7 +1005,6 @@ export function useMapEditor(params: {
     draftArea.value = [];
     draftLine.value = [];
     rectPoints.value = [];
-    edgeSourceId.value = null;
     calibrationPoints.value = [];
     rulerPoints.value = [];
     activeTarget.value = null;
@@ -932,8 +1052,6 @@ export function useMapEditor(params: {
       params.draft.removeAreaVertex(target.id, variant.id, target.index);
     } else if (target.kind === 'line-vertex') {
       params.draft.removeLineVertex(target.id, target.index);
-    } else if (target.kind === 'edge-vertex') {
-      params.draft.removeEdgeVertex(target.id, target.index);
     } else if (target.kind === 'line-handle-in' || target.kind === 'line-handle-out') {
       params.draft.setLineHandle(target.id, target.index, target.kind === 'line-handle-in' ? 'in' : 'out', [0, 0]);
     } else {
@@ -1018,25 +1136,6 @@ export function useMapEditor(params: {
     return nearest;
   }
 
-  function nearestSegment(
-    points: MapPoint[],
-    point: MapPoint,
-    closed: boolean,
-  ): { index: number; distance: number } | null {
-    if (points.length < 2) return null;
-    let nearest: { index: number; distance: number } | null = null;
-    const count = closed ? points.length : points.length - 1;
-    for (let index = 0; index < count; index += 1) {
-      const end = points[(index + 1) % points.length];
-      const current = mapGeometryService.distanceToSegment(point, points[index], end);
-      if (nearest === null || current < nearest.distance) {
-        nearest = { index, distance: current };
-      }
-    }
-
-    return nearest;
-  }
-
   function normalizeHandles(line: {
     points: MapPoint[];
     handles: { in: MapPoint; out: MapPoint }[];
@@ -1044,6 +1143,20 @@ export function useMapEditor(params: {
     while (line.handles.length < line.points.length) line.handles.push({ in: [0, 0], out: [0, 0] });
 
     return line.handles;
+  }
+
+  function normalizeAreaHandles(shape: {
+    path: MapPoint[];
+    handles: { in: MapPoint; out: MapPoint }[];
+  }): { in: MapPoint; out: MapPoint }[] {
+    const source = shape.handles ?? [];
+    const handles = source.slice(0, shape.path.length).map((handle) => ({
+      in: [handle.in[0], handle.in[1]] as MapPoint,
+      out: [handle.out[0], handle.out[1]] as MapPoint,
+    }));
+    while (handles.length < shape.path.length) handles.push({ in: [0, 0], out: [0, 0] });
+
+    return handles;
   }
 
   return {
@@ -1054,7 +1167,6 @@ export function useMapEditor(params: {
     draftArea,
     draftLine,
     rectPoints,
-    edgeSourceId,
     calibrationPoints,
     rulerPoints,
     rulerPixels,
@@ -1064,13 +1176,10 @@ export function useMapEditor(params: {
     hint,
     activeNodes,
     objects,
-    terrains,
+    surfaces,
     activeLines,
-    activeEdges,
     placements,
     selectedAreaPath,
-    selectedEdgePath,
-    edgePath,
     fitToView,
     resize,
     zoomBy,

@@ -39,7 +39,6 @@ const snapshot: MapSnapshot = {
   nodes: [],
   areas: [],
   lines: [],
-  edges: [],
 };
 
 describe('MapApi', () => {
@@ -100,7 +99,7 @@ describe('MapApi', () => {
     });
     const api = new MapApi(engine);
 
-    await expect(api.route({ mapId: 1, variantId: 1, fromNodeId: 1, toNodeId: 2 })).rejects.toMatchObject({
+    await expect(api.route({ mapId: 1, variantId: 1, fromX: 1, fromY: 2, toX: 3, toY: 4 })).rejects.toMatchObject({
       code: 'MAP_NO_ROUTE',
       message: 'Между точками нет проходимого маршрута',
     });
