@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
 use Mifrial\Roleplay\Game\Exception\GameEconomyConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
@@ -282,7 +283,7 @@ final class GameStrikeSingleClose
         $npcVersion = $attackerKind === 'npc'
             ? $this->sheets->getNpcVersion($game->getId(), $attackerId)
             : null;
-        $metrics = $this->rules->distanceMetrics(
+        $strikeTarget = GameStrikeTarget::of(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -294,8 +295,13 @@ final class GameStrikeSingleClose
             $npcSheet,
             $npcChoices,
             $npcVersion,
-            $conditions,
             $modifier,
+            0,
+            0,
+        );
+        $metrics = $this->rules->distance()->metrics(
+            $this->rules->damage()->attack($strikeTarget),
+            $conditions,
             $actionRuleCode,
         );
         $hitCode = $isPush

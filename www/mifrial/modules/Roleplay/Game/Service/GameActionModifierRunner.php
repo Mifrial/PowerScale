@@ -276,7 +276,7 @@ final class GameActionModifierRunner
             0,
             $gripBonus,
         );
-        $number = $this->rules->damage()->strength($this->rules->attack($target));
+        $number = $this->rules->damage()->strikeStrength($target);
         $shift = $effect->getSizeDelta();
 
         return $shift === 0 ? $number : $number->modify($shift * CharacteristicNumber::BASE_STEP);

@@ -5,14 +5,9 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
-use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
-use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
-use Mifrial\Roleplay\Game\Dto\GameStrikeActorRef;
-use Mifrial\Roleplay\Game\Dto\GameStrikeAttack;
 use Mifrial\Roleplay\Game\Dto\GameStrikeBlockRequest;
 use Mifrial\Roleplay\Game\Dto\GameStrikeDodgeRequest;
 use Mifrial\Roleplay\Game\Dto\GameStrikeHitRequest;
-use Mifrial\Roleplay\Game\Dto\GameStrikeProfileRef;
 use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
@@ -21,8 +16,6 @@ use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\PushSpec;
-use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
-use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -99,7 +92,7 @@ final class GameStrikeRules
             new GameStrikeProfileContext($formulaEvaluations),
         );
         $this->distance = new GameStrikeDistance($formulaEvaluations, $this->movement);
-        $this->damage = new GameStrikeDamage($formulaEvaluations);
+        $this->damage = new GameStrikeDamage($formulaEvaluations, $this->attacks);
         $this->cards = new GameStrikeActionCards($slices, $participants);
         $this->checks = new GameStrikeChecks($slices, $participants, $equipment, $this->cards);
         $this->mastery = new GameStrikeMastery($participants, $equipment);
@@ -116,24 +109,6 @@ final class GameStrikeRules
         $this->modifiers = new GameStrikeModifiers($this->successModifier);
         $this->spends = new GameStrikeSpends($slices, $this->resourceResolver, $this->inventorySpend);
         $this->outcome = new GameStrikeOutcome($slices, $participants, $this->splits, $equipment, $this->mastery);
-    }
-
-    /**
-     * Снимок удара по запросу.
-     *
-     * @param GameStrikeTarget $target Запрос удара.
-     *
-     * @return GameStrikeAttack Снимок.
-     *
-     * @throws GameInvalidException Если вид, профиль или лист битые.
-     * @throws RuleInvalidException Если база профиля битая.
-     * @throws CharacterInvalidException Если снимок битый.
-     * @throws CharacterNotFoundException Если персонажа нет.
-     * @throws GameNotFoundException Если ревизии нет.
-     */
-    public function attack(GameStrikeTarget $target): GameStrikeAttack
-    {
-        return $this->attacks->build($target);
     }
 
     /**
@@ -164,6 +139,16 @@ final class GameStrikeRules
     public function damage(): GameStrikeDamage
     {
         return $this->damage;
+    }
+
+    /**
+     * Расчёт дистанции.
+     *
+     * @return GameStrikeDistance Дистанция.
+     */
+    public function distance(): GameStrikeDistance
+    {
+        return $this->distance;
     }
 
     /**
@@ -375,182 +360,6 @@ final class GameStrikeRules
     }
 
     /**
-     * Число урона профиля для атакующего.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия игры.
-     * @param string $itemRuleCode Предмет.
-     * @param string $profileType Вид профиля.
-     * @param int $profileIndex Смещение.
-     * @param int $itemInventoryId Строка инвентаря.
-     * @param string $attackerKind Character или npc.
-     * @param int $attackerId Атакующий.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC или null.
-     * @param array<string, mixed>|null $npcChoices Снимок choices NPC или null.
-     * @param int|null $sheetVersion Версия листа NPC.
-     * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
-     * @param int $strengthDrop Штраф силы броска в размерах.
-     * @param int $gripBonus Бонус удержания к Силе удара.
-     *
-     * @return DimensionalNumber Пара формулы.
-     *
-     * @throws GameInvalidException Если профиль, лист или формула битые.
-     * @throws GameNotFoundException Если ревизии нет.
-     */
-    public function evaluateDamage(
-        int $spaceId,
-        int $rulesRevision,
-        string $itemRuleCode,
-        string $profileType,
-        int $profileIndex,
-        int $itemInventoryId,
-        string $attackerKind,
-        int $attackerId,
-        ?array $npcSheet,
-        ?array $npcChoices,
-        ?int $sheetVersion = null,
-        ?int $actionCharacteristicModifier = null,
-        int $strengthDrop = 0,
-        int $gripBonus = 0,
-    ): DimensionalNumber {
-        try {
-            return $this->damage->amount($this->attacks->build($this->target(
-                $spaceId,
-                $rulesRevision,
-                $itemRuleCode,
-                $profileType,
-                $profileIndex,
-                $itemInventoryId,
-                $attackerKind,
-                $attackerId,
-                $npcSheet,
-                $npcChoices,
-                $sheetVersion,
-                $actionCharacteristicModifier,
-                $strengthDrop,
-                $gripBonus,
-            )));
-        } catch (GameInvalidException $exception) {
-            throw $exception;
-        } catch (RuleInvalidException | CharacterInvalidException | CharacterNotFoundException $exception) {
-            throw new GameInvalidException('Game strike damage is invalid', $exception);
-        }
-    }
-
-    /**
-     * Запрос удара из идентификаторов.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия игры.
-     * @param string $itemRuleCode Предмет.
-     * @param string $profileType Вид профиля.
-     * @param int $profileIndex Смещение.
-     * @param int $itemInventoryId Строка инвентаря.
-     * @param string $attackerKind Character или npc.
-     * @param int $attackerId Атакующий.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC или null.
-     * @param array<string, mixed>|null $npcChoices Снимок choices NPC или null.
-     * @param int|null $sheetVersion Версия листа NPC.
-     * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
-     * @param int $strengthDrop Штраф силы броска в размерах.
-     * @param int $gripBonus Бонус удержания к Силе удара.
-     *
-     * @return GameStrikeTarget Запрос удара.
-     */
-    private function target(
-        int $spaceId,
-        int $rulesRevision,
-        string $itemRuleCode,
-        string $profileType,
-        int $profileIndex,
-        int $itemInventoryId,
-        string $attackerKind,
-        int $attackerId,
-        ?array $npcSheet,
-        ?array $npcChoices,
-        ?int $sheetVersion,
-        ?int $actionCharacteristicModifier,
-        int $strengthDrop,
-        int $gripBonus,
-    ): GameStrikeTarget {
-        return new GameStrikeTarget(
-            new GameStrikeProfileRef(
-                $spaceId,
-                $rulesRevision,
-                $itemRuleCode,
-                $profileType,
-                $profileIndex,
-                $itemInventoryId,
-            ),
-            new GameStrikeActorRef($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion),
-            $actionCharacteristicModifier,
-            $strengthDrop,
-            $gripBonus,
-        );
-    }
-
-    /**
-     * Вычисляет authoritative penetration выбранного inventory instance.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия игры.
-     * @param string $itemRuleCode Код предмета для consistency check.
-     * @param string $profileType Вид профиля.
-     * @param int $profileIndex Индекс профиля.
-     * @param int $itemInventoryId Строка инвентаря.
-     * @param string $attackerKind Character или npc.
-     * @param int $attackerId Атакующий.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
-     * @param array<string, mixed>|null $npcChoices Снимок choices NPC.
-     * @param int|null $sheetVersion Версия листа NPC.
-     * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
-     * @param int $strengthDrop Штраф силы броска в размерах.
-     * @param int $gripBonus Бонус удержания к Силе.
-     *
-     * @return DimensionalNumber Размерное проникновение.
-     *
-     * @throws GameInvalidException Если instance, профиль или формула битые.
-     * @throws GameNotFoundException Если ревизия или персонаж отсутствуют.
-     */
-    public function evaluatePenetration(
-        int $spaceId,
-        int $rulesRevision,
-        string $itemRuleCode,
-        string $profileType,
-        int $profileIndex,
-        int $itemInventoryId,
-        string $attackerKind,
-        int $attackerId,
-        ?array $npcSheet,
-        ?array $npcChoices,
-        ?int $sheetVersion = null,
-        ?int $actionCharacteristicModifier = null,
-        int $strengthDrop = 0,
-        int $gripBonus = 0,
-    ): DimensionalNumber {
-        try {
-            return $this->damage->penetration($this->attacks->build($this->target(
-                $spaceId,
-                $rulesRevision,
-                $itemRuleCode,
-                $profileType,
-                $profileIndex,
-                $itemInventoryId,
-                $attackerKind,
-                $attackerId,
-                $npcSheet,
-                $npcChoices,
-                $sheetVersion,
-                $actionCharacteristicModifier,
-                $strengthDrop,
-                $gripBonus,
-            )));
-        } catch (RuleInvalidException | CharacterInvalidException | CharacterNotFoundException $exception) {
-            throw new GameInvalidException('Game strike penetration is invalid', $exception);
-        }
-    }
-
-    /**
      * Код единственной живой проверки попадания.
      *
      * @param int $spaceId Мир.
@@ -621,7 +430,7 @@ final class GameStrikeRules
         ?RollAdjustment $pendingAdjustment = null,
     ): array {
         return $this->rolls->hit(new GameStrikeHitRequest(
-            $this->target(
+            GameStrikeTarget::of(
                 $spaceId,
                 $rulesRevision,
                 $itemRuleCode,
@@ -1190,125 +999,6 @@ final class GameStrikeRules
     public function checkByCharacteristic(int $spaceId, int $rulesRevision, string $characteristic): string
     {
         return $this->cards->checkByCharacteristic($spaceId, $rulesRevision, $characteristic);
-    }
-
-    /**
-     * Дистанция, полоса и штраф силы для условий удара.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param string $itemRuleCode Предмет.
-     * @param string $profileType Вид профиля.
-     * @param int $profileIndex Смещение.
-     * @param int $itemInventoryId Строка инвентаря.
-     * @param string $attackerKind Character или npc.
-     * @param int $attackerId Атакующий.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
-     * @param array<string, mixed>|null $npcChoices Снимок choices NPC.
-     * @param int|null $sheetVersion Версия листа NPC.
-     * @param array<string, mixed> $conditions Условия цели.
-     * @param int $actionCharacteristicModifier Сдвиг характеристики карточки.
-     * @param string $actionRuleCode Карточка действия.
-     *
-     * @return array{distance: DimensionalNumber, min: DimensionalNumber, max: DimensionalNumber|null,
-     *               falloff: DimensionalNumber|null, rangeSize: int, drop: int} Метрики.
-     *
-     * @throws GameInvalidException Если дистанция вне диапазона или не долетает.
-     */
-    public function distanceMetrics(
-        int $spaceId,
-        int $rulesRevision,
-        string $itemRuleCode,
-        string $profileType,
-        int $profileIndex,
-        int $itemInventoryId,
-        string $attackerKind,
-        int $attackerId,
-        ?array $npcSheet,
-        ?array $npcChoices,
-        ?int $sheetVersion,
-        array $conditions,
-        int $actionCharacteristicModifier = 0,
-        string $actionRuleCode = '',
-    ): array {
-        try {
-            return $this->distance->metrics($this->attacks->build($this->target(
-                $spaceId,
-                $rulesRevision,
-                $itemRuleCode,
-                $profileType,
-                $profileIndex,
-                $itemInventoryId,
-                $attackerKind,
-                $attackerId,
-                $npcSheet,
-                $npcChoices,
-                $sheetVersion,
-                $actionCharacteristicModifier,
-                0,
-                0,
-            )), $conditions, $actionRuleCode);
-        } catch (GameInvalidException $exception) {
-            throw $exception;
-        } catch (RuleInvalidException | RuleSpecShapeException | CharacterInvalidException | CharacterNotFoundException $exception) {
-            throw new GameInvalidException('Game strike distance is invalid', $exception);
-        }
-    }
-
-    /**
-     * Проверяет условия цели.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param string $itemRuleCode Предмет.
-     * @param string $profileType Вид профиля.
-     * @param int $profileIndex Смещение.
-     * @param int $itemInventoryId Строка инвентаря.
-     * @param string $attackerKind Character или npc.
-     * @param int $attackerId Атакующий.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
-     * @param array<string, mixed>|null $npcChoices Снимок choices NPC.
-     * @param int|null $sheetVersion Версия листа NPC.
-     * @param array<string, mixed> $conditions Условия.
-     * @param int $actionCharacteristicModifier Сдвиг характеристики карточки.
-     * @param string $actionRuleCode Карточка действия.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если условия неверны.
-     */
-    public function assertConditions(
-        int $spaceId,
-        int $rulesRevision,
-        string $itemRuleCode,
-        string $profileType,
-        int $profileIndex,
-        int $itemInventoryId,
-        string $attackerKind,
-        int $attackerId,
-        ?array $npcSheet,
-        ?array $npcChoices,
-        ?int $sheetVersion,
-        array $conditions,
-        int $actionCharacteristicModifier = 0,
-        string $actionRuleCode = '',
-    ): void {
-        $this->distance->assertConditions($this->attacks->build($this->target(
-            $spaceId,
-            $rulesRevision,
-            $itemRuleCode,
-            $profileType,
-            $profileIndex,
-            $itemInventoryId,
-            $attackerKind,
-            $attackerId,
-            $npcSheet,
-            $npcChoices,
-            $sheetVersion,
-            $actionCharacteristicModifier,
-            0,
-            0,
-        )), $conditions, $actionRuleCode);
     }
 
     /**

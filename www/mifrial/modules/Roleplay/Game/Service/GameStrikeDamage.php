@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameStrikeAttack;
+use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
@@ -23,12 +24,76 @@ final class GameStrikeDamage
      * Принимает обход формулы.
      *
      * @param IFormulaEvaluations $formulaEvaluations Обход формулы.
+     * @param GameStrikeAttackFactory|null $attacks Сборка снимка атаки.
      *
      * @return void
      */
     public function __construct(
         private readonly IFormulaEvaluations $formulaEvaluations,
+        private readonly ?GameStrikeAttackFactory $attacks = null,
     ) {
+    }
+
+    /**
+     * Снимок удара по запросу.
+     *
+     * @param GameStrikeTarget $target Запрос удара.
+     *
+     * @return GameStrikeAttack Снимок.
+     *
+     * @throws GameInvalidException Если фабрика не подключена или атака битая.
+     */
+    public function attack(GameStrikeTarget $target): GameStrikeAttack
+    {
+        if ($this->attacks === null) {
+            throw new GameInvalidException('Game strike attack factory is missing');
+        }
+
+        return $this->attacks->build($target);
+    }
+
+    /**
+     * Урон запроса удара.
+     *
+     * @param GameStrikeTarget $target Запрос удара.
+     *
+     * @return DimensionalNumber Урон.
+     *
+     * @throws GameInvalidException Если атака не собирается.
+     * @throws RuleInvalidException Если формула урона битая.
+     */
+    public function evaluate(GameStrikeTarget $target): DimensionalNumber
+    {
+        return $this->amount($this->attack($target));
+    }
+
+    /**
+     * Пробитие запроса удара.
+     *
+     * @param GameStrikeTarget $target Запрос удара.
+     *
+     * @return DimensionalNumber Пробитие.
+     *
+     * @throws GameInvalidException Если атака не собирается.
+     * @throws RuleInvalidException Если формула пробития битая.
+     */
+    public function evaluatePenetration(GameStrikeTarget $target): DimensionalNumber
+    {
+        return $this->penetration($this->attack($target));
+    }
+
+    /**
+     * Сила запроса удара.
+     *
+     * @param GameStrikeTarget $target Запрос удара.
+     *
+     * @return CharacteristicNumber Сила.
+     *
+     * @throws GameInvalidException Если атака не собирается или силы нет.
+     */
+    public function strikeStrength(GameStrikeTarget $target): CharacteristicNumber
+    {
+        return $this->strength($this->attack($target));
     }
 
     /**

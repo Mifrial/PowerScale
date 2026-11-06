@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
@@ -128,7 +129,7 @@ final class GameStrikeOpen
             }
 
             if ($push === null) {
-                $this->rules->assertConditions(
+                $strikeTarget = GameStrikeTarget::of(
                     $game->getSpaceId(),
                     $game->getRulesRevision(),
                     $itemRuleCode,
@@ -140,9 +141,6 @@ final class GameStrikeOpen
                     $npcSheet,
                     $npcChoices,
                     is_int($snapshot['actualVersion'] ?? null) ? $snapshot['actualVersion'] : null,
-                    is_array($target['conditions'] ?? null)
-                        ? $target['conditions']
-                        : (new GameStrikeConditions())->defaults(),
                     $this->rules->actionCharacteristicModifier(
                         $slice,
                         $actionCode,
@@ -159,6 +157,14 @@ final class GameStrikeOpen
                         ),
                         $abilityLevels,
                     ),
+                    0,
+                    0,
+                );
+                $this->rules->distance()->assertConditions(
+                    $this->rules->damage()->attack($strikeTarget),
+                    is_array($target['conditions'] ?? null)
+                        ? $target['conditions']
+                        : (new GameStrikeConditions())->defaults(),
                     $actionCode,
                 );
             }

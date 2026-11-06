@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameStrikeActorRef;
 use Mifrial\Roleplay\Game\Dto\GameStrikeDefenseTarget;
 use Mifrial\Roleplay\Game\Dto\GameStrikeProfileRef;
+use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
@@ -348,7 +349,7 @@ final class GameStrikeResolution
 
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
-        $metrics = $this->rules->distanceMetrics(
+        $target = GameStrikeTarget::of(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -360,7 +361,6 @@ final class GameStrikeResolution
             $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
-            $conditions,
             $this->rules->actionCharacteristicModifier(
                 $slice,
                 $actionRuleCode,
@@ -377,6 +377,13 @@ final class GameStrikeResolution
                 ),
                 $this->abilityLevels($game, $kind, $attackerId),
             ),
+            0,
+            0,
+        );
+        $metrics = $this->rules->distance()->metrics(
+            $this->rules->damage()->attack($target),
+            $conditions,
+            $actionRuleCode,
         );
 
         $defense = $defenderRoll !== null
@@ -495,7 +502,7 @@ final class GameStrikeResolution
             $success,
         );
 
-        return $this->rules->evaluatePenetration(
+        return $this->rules->damage()->evaluatePenetration(GameStrikeTarget::of(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -510,7 +517,7 @@ final class GameStrikeResolution
             $characteristicModifier,
             $strengthDrop,
             $this->rules->gripBonus($attackContext['occupyHands']),
-        );
+        ));
     }
 
     /**
@@ -715,7 +722,7 @@ final class GameStrikeResolution
             $characteristicModifier += $extraCharacteristicModifier;
         }
 
-        return $this->rules->evaluateDamage(
+        return $this->rules->damage()->evaluate(GameStrikeTarget::of(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -730,7 +737,7 @@ final class GameStrikeResolution
             $characteristicModifier,
             $strengthDrop,
             $this->rules->gripBonus($attackContext['occupyHands']),
-        );
+        ));
     }
 
     /**
