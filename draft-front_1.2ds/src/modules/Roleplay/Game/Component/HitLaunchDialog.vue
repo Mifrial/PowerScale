@@ -4506,28 +4506,31 @@ const canSubmit = computed(() => {
           </template>
           <template v-else-if="resolvedAttack"> оружием «{{ resolvedAttack.itemName }}»</template>
         </span>
-        <v-menu
+        <v-btn
           v-if="isCompose && !isPreparationAction && strikeUpgradeOptions.length"
-          v-model="upgradesOpen"
-          :close-on-content-click="false"
-          location="bottom end"
+          variant="tonal"
+          size="small"
+          type="button"
+          class="flex-shrink-0"
+          @click="upgradesOpen = true"
         >
-          <template #activator="{ props: menuProps }">
-            <v-btn v-bind="menuProps" variant="tonal" size="small" type="button" class="flex-shrink-0">
-              Улучшения<template v-if="appliedStrikeUpgradeCodes.length">
-                ({{ appliedStrikeUpgradeCodes.length }})</template
-              >
-            </v-btn>
-          </template>
-          <v-card max-width="540" class="pa-3">
-            <div class="text-subtitle-2 mb-2">Улучшения удара</div>
-            <HitStrikeUpgradeList v-model="appliedStrikeUpgradeCodes" :options="strikeUpgradeOptions" />
-            <div class="d-flex justify-end mt-3">
-              <v-btn variant="text" size="small" @click="upgradesOpen = false">Готово</v-btn>
-            </div>
-          </v-card>
-        </v-menu>
+          Улучшения<template v-if="appliedStrikeUpgradeCodes.length">
+            ({{ appliedStrikeUpgradeCodes.length }})</template
+          >
+        </v-btn>
       </v-card-title>
+      <v-dialog v-model="upgradesOpen" max-width="560">
+        <v-card>
+          <v-card-title class="text-body-1">Улучшения удара</v-card-title>
+          <v-card-text>
+            <HitStrikeUpgradeList v-model="appliedStrikeUpgradeCodes" :options="strikeUpgradeOptions" />
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn color="primary" variant="text" @click="upgradesOpen = false">Готово</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
       <v-card-text class="hit-dialog-body px-4 py-2">
         <div v-if="loadPhase === 'loading'" class="d-flex justify-center py-6">
           <v-progress-circular indeterminate />
