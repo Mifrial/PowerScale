@@ -31,49 +31,58 @@ const groups = computed(() => {
   }));
 });
 
-function selectedOf(group: string): string | null {
+function selectedOf(group: string): string {
   const option = props.options.find(
     (entry) => entry.exclusiveGroup === group && props.modelValue.includes(entry.optionId),
   );
 
-  return option?.optionId ?? null;
+  return option?.optionId ?? '';
 }
 
-function setGroup(group: string, optionId: string | null): void {
+function setGroup(group: string, value: unknown): void {
+  const optionId = typeof value === 'string' ? value : '';
   const next = props.modelValue.filter((code) => {
     const option = props.options.find((entry) => entry.optionId === code);
 
     return option?.exclusiveGroup !== group;
   });
-  if (optionId) next.push(optionId);
+  if (optionId !== '') next.push(optionId);
   emit('update:modelValue', next);
 }
 
-function chipLabel(option: StrikeUpgradeOption): string {
+function descriptionOf(option: StrikeUpgradeOption): string {
+  if (option.description) return option.description;
   const delta = option.mode.injury_check_advantage;
-  if (delta > 0) return `${option.mode.label} · +${delta}`;
-  if (delta < 0) return `${option.mode.label} · ${delta}`;
+  if (delta === 0) return '';
 
-  return option.mode.label;
+  return `${delta > 0 ? '+' : ''}${delta} к проверке увечья`;
 }
 </script>
 
 <template>
-  <div v-if="options.length" class="d-flex flex-column ga-2">
+  <div v-if="options.length" class="d-flex flex-column ga-3">
     <div v-for="entry in groups" :key="entry.group">
-      <div class="text-caption text-medium-emphasis">{{ entry.title }}</div>
-      <v-btn-toggle
+      <div class="text-subtitle-2 mb-1">{{ entry.title }}</div>
+      <v-radio-group
         :model-value="selectedOf(entry.group)"
         density="compact"
-        variant="outlined"
-        divided
-        class="mt-1"
-        @update:model-value="(value) => setGroup(entry.group, typeof value === 'string' ? value : null)"
+        hide-details
+        @update:model-value="(value) => setGroup(entry.group, value)"
       >
-        <v-btn v-for="option in entry.options" :key="option.optionId" :value="option.optionId" size="small">
-          {{ chipLabel(option) }}
-        </v-btn>
-      </v-btn-toggle>
+        <v-radio value="" density="compact">
+          <template #label>
+            <span class="text-body-2">Не применять</span>
+          </template>
+        </v-radio>
+        <v-radio v-for="option in entry.options" :key="option.optionId" :value="option.optionId" density="compact">
+          <template #label>
+            <div class="text-body-2">{{ option.mode.label || option.name }}</div>
+            <div v-if="descriptionOf(option)" class="text-caption text-medium-emphasis">
+              {{ descriptionOf(option) }}
+            </div>
+          </template>
+        </v-radio>
+      </v-radio-group>
     </div>
   </div>
 </template>

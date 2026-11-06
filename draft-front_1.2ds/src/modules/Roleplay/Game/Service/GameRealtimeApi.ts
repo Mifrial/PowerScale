@@ -11,6 +11,7 @@ import { GameRealtimeApiError } from '@/modules/Roleplay/Game/Service/GameRealti
  */
 export class GameRealtimeApi implements IGameRealtimePort {
   private lastCursor: number | null = null;
+  private lastGameId: number | null = null;
   private handle: SseHandle | null = null;
 
   constructor(private readonly engine: Engine) {}
@@ -29,6 +30,10 @@ export class GameRealtimeApi implements IGameRealtimePort {
     onError?: (error: Error) => void,
   ): () => void {
     this.handle?.close();
+    if (this.lastGameId !== gameId) {
+      this.lastCursor = null;
+      this.lastGameId = gameId;
+    }
     const query: Record<string, string | number | undefined> = { gameId };
     if (this.lastCursor !== null) query.lastCursor = this.lastCursor;
     this.handle = this.engine.openSse('/game/sync', query, {

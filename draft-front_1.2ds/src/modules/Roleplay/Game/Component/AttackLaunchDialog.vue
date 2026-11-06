@@ -9,6 +9,7 @@ import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCh
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
+import type { GamePhpBattleMark } from '@/modules/Roleplay/Game/Dto/GamePhpBattleMark';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
@@ -59,6 +60,8 @@ const props = defineProps<{
   actorKey?: CombatEntityKey | null;
   initiativeKeys?: string[];
   runtimeProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
+  /** Метки боя: показываем защищающемуся его помехи от этого атакующего. */
+  battleMarks?: GamePhpBattleMark[];
 }>();
 
 const emit = defineEmits<{
@@ -154,6 +157,37 @@ const launchEffectLines = computed(() => {
   lines.push(...actionEffectService.pendingLaunchLines(pending, props.rules));
 
   return lines;
+});
+
+function entityName(key: CombatEntityKey): string {
+  const { kind, id } = combatCardModelService.parseCombatEntityKey(key);
+  if (kind === 'npc') return props.npcs.find((npc) => npc.id === id)?.name ?? `НПС ${id}`;
+
+  return props.characters.find((membership) => membership.characterId === id)?.characterName ?? `Персонаж ${id}`;
+}
+
+/** Действующие эффекты выбранных защищающихся: ожидания и метки против этого атакующего. */
+const targetEffectLines = computed(() => {
+  const actor = actorKey.value;
+  if (!actor) return [];
+  const keys = [
+    ...new Set(slots.value.map((slot) => slot.targetKey).filter((key): key is CombatEntityKey => Boolean(key))),
+  ];
+
+  return keys
+    .map((key) => {
+      const pending = actionEffectService.pendingLaunchLines(pendingEffects.value[key] ?? [], props.rules);
+      const marks = (props.battleMarks ?? [])
+        .filter(
+          (mark) =>
+            `${mark.subject.type}:${mark.subject.id}` === key &&
+            `${mark.scope.defense_against.type}:${mark.scope.defense_against.id}` === actor,
+        )
+        .map((mark) => combatCardModelService.battleMarkText(mark, entityName(actor)));
+
+      return { key, name: entityName(key), lines: [...pending, ...marks] };
+    })
+    .filter((target) => target.lines.length > 0);
 });
 const serverActionModifiers = ref<GameActionModifier[]>([]);
 const actionModifiersError = ref(false);
@@ -1074,6 +1108,13 @@ watch(followUpTargetKeys, (allowed) => {
           <div v-if="launchEffectLines.length" class="text-body-2 text-medium-emphasis mt-2">
             <div v-for="(line, index) in launchEffectLines" :key="index">
               {{ line }}
+            </div>
+          </div>
+          <div v-if="targetEffectLines.length" class="text-body-2 text-medium-emphasis mt-2">
+            <div class="text-caption font-weight-medium mb-1">Эффекты защищающегося</div>
+            <div v-for="target in targetEffectLines" :key="target.key">
+              <div class="text-caption">{{ target.name }}:</div>
+              <div v-for="(line, index) in target.lines" :key="index">{{ line }}</div>
             </div>
           </div>
           <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>

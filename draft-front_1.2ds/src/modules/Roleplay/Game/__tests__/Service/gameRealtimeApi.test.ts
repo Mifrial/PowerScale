@@ -42,4 +42,17 @@ describe('GameRealtimeApi', () => {
       }),
     );
   });
+
+  it('does not reuse the cursor of another game on subscribe', () => {
+    const openSse = vi.fn().mockReturnValue({ close: vi.fn() });
+    const api = new GameRealtimeApi({ runAction: vi.fn(), openSse } as unknown as Engine);
+
+    api.subscribe(7, vi.fn());
+    const handlers = openSse.mock.calls[0][2] as { onEvent: (name: string, payload: unknown) => void };
+    handlers.onEvent('sync', { cursor: 4, events: [] });
+
+    api.subscribe(8, vi.fn());
+
+    expect(openSse).toHaveBeenLastCalledWith('/game/sync', { gameId: 8 }, expect.anything());
+  });
 });

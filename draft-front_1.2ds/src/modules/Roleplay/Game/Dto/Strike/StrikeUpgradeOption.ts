@@ -7,4 +7,6 @@ export interface StrikeUpgradeOption {
   name: string;
   exclusiveGroup: string;
   mode: StrikeUpgradeMode;
+  /** Краткое описание эффекта для попапа улучшений. */
+  description?: string;
 }

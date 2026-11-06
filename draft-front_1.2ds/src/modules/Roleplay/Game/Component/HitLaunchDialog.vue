@@ -286,6 +286,7 @@ let saturationResolve: ((steps: number) => void) | null = null;
 
 const error = ref<string | null>(null);
 const burstOpen = ref(false);
+const upgradesOpen = ref(false);
 const appliedStrikeUpgradeCodes = ref<string[]>([]);
 let burstWait: ((value: SpellBurstTarget[]) => void) | null = null;
 
@@ -348,6 +349,7 @@ const maneuverUpgradeOptions = computed<StrikeUpgradeOption[]>(() => {
     name: 'Обманный манёвр',
     exclusiveGroup: 'maneuver',
     mode: { code: rule.code, label: maneuverDefenseLabel(rule), injury_check_advantage: 0 },
+    description: 'Атака провалится; защищавшийся получит помехи на проверки защиты до конца вашего хода.',
   }));
 });
 
@@ -4496,12 +4498,35 @@ const canSubmit = computed(() => {
     @update:model-value="emit('update:open', $event)"
   >
     <v-card class="hit-dialog">
-      <v-card-title class="text-subtitle-1 py-2 px-4">
-        {{ hitDialogTitle
-        }}<template v-if="resolvedAttackAction && resolvedAttackAction.strikes.length > 1">
-          оружием «{{ resolvedAttackAction.strikes.map((strike) => strike.profile.itemName).join('» и «') }}»
-        </template>
-        <template v-else-if="resolvedAttack"> оружием «{{ resolvedAttack.itemName }}»</template>
+      <v-card-title class="text-subtitle-1 py-2 px-4 d-flex align-center ga-2">
+        <span class="flex-grow-1 text-truncate">
+          {{ hitDialogTitle
+          }}<template v-if="resolvedAttackAction && resolvedAttackAction.strikes.length > 1">
+            оружием «{{ resolvedAttackAction.strikes.map((strike) => strike.profile.itemName).join('» и «') }}»
+          </template>
+          <template v-else-if="resolvedAttack"> оружием «{{ resolvedAttack.itemName }}»</template>
+        </span>
+        <v-menu
+          v-if="isCompose && !isPreparationAction && strikeUpgradeOptions.length"
+          v-model="upgradesOpen"
+          :close-on-content-click="false"
+          location="bottom end"
+        >
+          <template #activator="{ props: menuProps }">
+            <v-btn v-bind="menuProps" variant="tonal" size="small" type="button" class="flex-shrink-0">
+              Улучшения<template v-if="appliedStrikeUpgradeCodes.length">
+                ({{ appliedStrikeUpgradeCodes.length }})</template
+              >
+            </v-btn>
+          </template>
+          <v-card max-width="540" class="pa-3">
+            <div class="text-subtitle-2 mb-2">Улучшения удара</div>
+            <HitStrikeUpgradeList v-model="appliedStrikeUpgradeCodes" :options="strikeUpgradeOptions" />
+            <div class="d-flex justify-end mt-3">
+              <v-btn variant="text" size="small" @click="upgradesOpen = false">Готово</v-btn>
+            </div>
+          </v-card>
+        </v-menu>
       </v-card-title>
       <v-card-text class="hit-dialog-body px-4 py-2">
         <div v-if="loadPhase === 'loading'" class="d-flex justify-center py-6">
@@ -4703,12 +4728,6 @@ const canSubmit = computed(() => {
             :initiative-keys="initiativeKeys"
             :exclude="followUpExclude"
             :disabled="!isCompose"
-          />
-          <HitStrikeUpgradeList
-            v-if="isCompose && !isPreparationAction"
-            v-model="appliedStrikeUpgradeCodes"
-            :options="strikeUpgradeOptions"
-            class="mt-2"
           />
           <ClampedNumberField
             v-if="isCompose && !isPreparationAction"

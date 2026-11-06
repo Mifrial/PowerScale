@@ -533,6 +533,13 @@ async function load(): Promise<void> {
       await tryOpenPhpStrike();
     }
     connectRealtime(requestGameId);
+    if (gamePhpMode.isEnabled()) {
+      // Между первым getGame и подпиской на SSE мог открыться удар.
+      // Догоняем состояние, иначе окно защиты не появится до перезагрузки.
+      store.applyGameUpdate(await getGameApi().getGame(requestGameId));
+      if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
+      await tryOpenPhpStrike();
+    }
     if (!gamePhpMode.isEnabled()) {
       try {
         await syncRealtime(requestGameId, characterKeys, requestSessionRunning, requestSequence);
@@ -2411,6 +2418,7 @@ onUnmounted(() => {
       :actor-key="attackActorKey"
       :initiative-keys="initiativeKeys"
       :runtime-projections="runtimeByKey"
+      :battle-marks="battleMarks"
       @update:open="onAttackClosed"
       @launch-attack="onLaunchAttack"
       @overlay-changed="onOverlayChanged"
