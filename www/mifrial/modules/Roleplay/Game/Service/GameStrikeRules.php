@@ -25,12 +25,10 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DodgeRangedPenalty;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackAccuracyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackCharacteristicModifierEffect;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackDodgeSoakEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionDurabilityShaveEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\PushSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\DamageTypeSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock;
@@ -47,11 +45,7 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
  */
 final class GameStrikeRules
 {
-    private const REACTION_CHARACTERISTIC = 'reaction';
-
     private readonly GameStrikeSoaks $soaks;
-
-    private readonly GameStrikeAmounts $amounts;
 
     private readonly GameStrikeSplits $splits;
 
@@ -62,6 +56,10 @@ final class GameStrikeRules
     private readonly GameStrikeMovement $movement;
 
     private readonly GameStrikeAttackFactory $attacks;
+
+    private readonly GameStrikeActionCards $cards;
+
+    private readonly GameStrikeDefense $defense;
 
     private readonly GameStrikeDistance $distance;
 
@@ -90,7 +88,6 @@ final class GameStrikeRules
         private readonly GameStrikeParticipants $participants,
     ) {
         $this->soaks = new GameStrikeSoaks();
-        $this->amounts = new GameStrikeAmounts();
         $this->splits = new GameStrikeSplits();
         $this->resourceResolver = new GameActionResourceResolver();
         $this->successModifier = new GameStrikeSuccessModifier();
@@ -103,6 +100,8 @@ final class GameStrikeRules
         );
         $this->distance = new GameStrikeDistance($formulaEvaluations, $this->movement);
         $this->damage = new GameStrikeDamage($formulaEvaluations);
+        $this->cards = new GameStrikeActionCards($slices, $participants);
+        $this->defense = new GameStrikeDefense($slices, $participants, $layers, $this->soaks, $this->cards);
     }
 
     /**
@@ -121,6 +120,16 @@ final class GameStrikeRules
     public function attack(GameStrikeTarget $target): GameStrikeAttack
     {
         return $this->attacks->build($target);
+    }
+
+    /**
+     * Расчёт защиты.
+     *
+     * @return GameStrikeDefense Защита.
+     */
+    public function defense(): GameStrikeDefense
+    {
+        return $this->defense;
     }
 
     /**
@@ -447,36 +456,7 @@ final class GameStrikeRules
         int $actorId,
         ?array $npcChoices,
     ): bool {
-        if ($actorKind === 'character') {
-            $snapshot = $this->characterSnapshot($actorId);
-            $sheet = $snapshot['sheet'];
-        } else {
-            $sheet = is_array($npcChoices['sheet'] ?? null) ? $npcChoices['sheet'] : [];
-        }
-
-        $levels = is_array($sheet['abilityLevels'] ?? null) ? $sheet['abilityLevels'] : [];
-        $slice = $this->slice($spaceId, $rulesRevision);
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->getSpec();
-            if (!$spec instanceof AbilityActionSpec && !$spec instanceof AbilityPlainSpec) {
-                continue;
-            }
-
-            $base = $spec->getBase();
-            if (
-                $base->getParentAbilityCode() !== $actionRuleCode
-                || !$base->isLiftParentMaxWeapons()
-            ) {
-                continue;
-            }
-
-            $level = $levels[$rule->getCode()] ?? 0;
-            if (is_int($level) && $level >= 1) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->cards->liftsMaxWeapons($spaceId, $rulesRevision, $actionRuleCode, $actorKind, $actorId, $npcChoices);
     }
 
     /**
@@ -493,9 +473,7 @@ final class GameStrikeRules
      */
     public function isSequentialStrike(int $spaceId, int $rulesRevision, string $actionRuleCode): bool
     {
-        $base = $this->actionBaseOf($spaceId, $rulesRevision, $actionRuleCode);
-
-        return $base !== null && (($base->getStrikeCount() ?? 1) > 1 || $base->isDistinctWeapons());
+        return $this->cards->isSequentialStrike($spaceId, $rulesRevision, $actionRuleCode);
     }
 
     /**
@@ -512,12 +490,7 @@ final class GameStrikeRules
      */
     public function isWideAttack(int $spaceId, int $rulesRevision, string $actionRuleCode): bool
     {
-        $base = GameStrikeRuleLookup::actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
-        if ($base === null) {
-            throw new GameInvalidException('Game strike action is invalid');
-        }
-
-        return ($base->getMaxTargets() ?? 1) > 1;
+        return $this->cards->isWideAttack($spaceId, $rulesRevision, $actionRuleCode);
     }
 
     /**
@@ -876,179 +849,6 @@ final class GameStrikeRules
     }
 
     /**
-     * Сопротивление брони цели по типу урона профиля. В лист не пишется.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия игры.
-     * @param string $itemRuleCode Предмет удара.
-     * @param string $profileType Вид профиля.
-     * @param int $profileIndex Смещение.
-     * @param string $defenderKind Character или npc.
-     * @param int $defenderId Цель.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC или null.
-     * @param array<string, mixed>|null $npcChoices Документ choices NPC или null.
-     * @param string $reaction Реакция.
-     * @param int|null $blockItemInventoryId Строка предмета блока.
-     * @param int $rating Рейтинг попадания.
-     * @param DimensionalNumber|null $penetration Проникновение атакующего.
-     * @param int $durabilityShave Срез надёжности с единиц удара.
-     *
-     * @return DimensionalNumber Сумма слоёв или ноль.
-     *
-     * @throws GameInvalidException Если профиль, тип или лист битые.
-     * @throws GameNotFoundException Если ревизии или персонажа нет.
-     */
-    public function evaluateResistance(
-        int $spaceId,
-        int $rulesRevision,
-        string $itemRuleCode,
-        string $profileType,
-        int $profileIndex,
-        string $defenderKind,
-        int $defenderId,
-        ?array $npcSheet,
-        ?array $npcChoices,
-        string $reaction,
-        ?int $blockItemInventoryId,
-        int $rating,
-        ?DimensionalNumber $penetration = null,
-        int $durabilityShave = 0,
-    ): DimensionalNumber {
-        if ($defenderKind !== 'character' && $defenderKind !== 'npc') {
-            throw new GameInvalidException('Game strike defender is invalid');
-        }
-
-        $damageType = $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex)
-            ->getDamage()
-            ->getDamageTypeCode();
-        if (!is_string($damageType) || $damageType === '') {
-            return $this->amounts->zero();
-        }
-
-        $documents = $this->participants->defenderDocuments($defenderKind, $defenderId, $npcSheet, $npcChoices);
-
-        return $this->layers->total(
-            $this->slice($spaceId, $rulesRevision),
-            $damageType,
-            $documents['sheet'],
-            $documents['choices'],
-            $reaction,
-            $blockItemInventoryId,
-            $rating,
-            $penetration,
-            $durabilityShave,
-        );
-    }
-
-    /**
-     * Смягчение реакции цели. В лист не пишется.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия игры.
-     * @param string $itemRuleCode Предмет удара.
-     * @param string $profileType Вид профиля.
-     * @param int $profileIndex Смещение.
-     * @param string $defenderKind Character или npc.
-     * @param int $defenderId Цель.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC или null.
-     * @param array<string, mixed>|null $npcChoices Выборы NPC или null.
-     * @param int|null $sheetVersion Версия листа NPC.
-     * @param string $reaction Выбранная реакция защиты.
-     * @param string $actionRuleCode Карточка удара.
-     * @param int $success Успех попадания.
-     * @param int $reduceBy Снижение от Реакции атакующего.
-     *
-     * @return DimensionalNumber|null Пара после сдвига или null, если у реакции нет dodge_soak.
-     *
-     * @throws GameInvalidException Если характеристика или профиль битые.
-     * @throws GameNotFoundException Если ревизии или листа нет.
-     */
-    public function evaluateSoak(
-        int $spaceId,
-        int $rulesRevision,
-        string $itemRuleCode,
-        string $profileType,
-        int $profileIndex,
-        string $defenderKind,
-        int $defenderId,
-        ?array $npcSheet,
-        ?array $npcChoices,
-        ?int $sheetVersion,
-        string $reaction,
-        string $actionRuleCode,
-        int $success,
-        int $reduceBy = 0,
-    ): ?DimensionalNumber {
-        if ($defenderKind !== 'character' && $defenderKind !== 'npc') {
-            throw new GameInvalidException('Game strike defender is invalid');
-        }
-
-        $slice = $this->slice($spaceId, $rulesRevision);
-        $characteristicCode = $this->dodgeSoakCode($slice, $reaction);
-        if ($characteristicCode === null) {
-            return null;
-        }
-
-        $benefit = $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex)
-            ->getDodgeBenefit() ?? -3;
-        $documents = $this->participants->defenderDocuments($defenderKind, $defenderId, $npcSheet, $npcChoices, $sheetVersion);
-        $soak = $this->soaks->shift(
-            $this->participants->formulaContext($slice, $documents['sheet'], $documents['choices'], $documents['key']),
-            $characteristicCode,
-            $benefit,
-        );
-
-        return $this->cutSoak($slice, $actionRuleCode, $profileType, $success, $soak, $reduceBy);
-    }
-
-    /**
-     * Снижение смягчения от Реакции атакующего по хвосту подготовки.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param array<string, mixed> $pending Карта ожидания.
-     * @param string $actorKind Вид атакующего.
-     * @param int $actorId Атакующий.
-     * @param string $profileType Тип профиля.
-     * @param int $hitNumber Номер попадания.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
-     * @param array<string, mixed>|null $npcChoices Выборы NPC.
-     * @param int|null $npcVersion Версия листа NPC.
-     *
-     * @return int Целое значение Реакции или 0, если хвоста нет.
-     *
-     * @throws GameInvalidException Если у атакующего нет Реакции.
-     * @throws GameNotFoundException Если листа нет.
-     */
-    public function dodgeSoakReduction(
-        int $spaceId,
-        int $rulesRevision,
-        array $pending,
-        string $actorKind,
-        int $actorId,
-        string $profileType,
-        int $hitNumber,
-        ?array $npcSheet,
-        ?array $npcChoices,
-        ?int $npcVersion,
-    ): int {
-        $effect = $this->armedSoakTail($pending, $actorKind, $actorId, $profileType, $hitNumber);
-        if ($effect === null) {
-            return 0;
-        }
-
-        return $this->reactionValue(
-            $spaceId,
-            $rulesRevision,
-            $actorKind,
-            $actorId,
-            $npcSheet,
-            $npcChoices,
-            $npcVersion,
-        );
-    }
-
-    /**
      * Код единственной живой проверки попадания.
      *
      * @param int $spaceId Мир.
@@ -1399,14 +1199,7 @@ final class GameStrikeRules
      */
     public function reactionRuleCode(int $spaceId, int $rulesRevision, string $reaction): ?string
     {
-        foreach ($this->slice($spaceId, $rulesRevision)->getLiveRules() as $rule) {
-            $spec = $rule->getSpec();
-            if ($spec instanceof AbilityActionSpec && $spec->getBase()->getCombatAction() === $reaction) {
-                return $rule->getCode();
-            }
-        }
-
-        return null;
+        return $this->cards->reactionRuleCode($spaceId, $rulesRevision, $reaction);
     }
 
     /**
@@ -1430,38 +1223,7 @@ final class GameStrikeRules
         array $counters,
         array $abilityLevels,
     ): ?array {
-        $found = [];
-        foreach ($this->slice($spaceId, $rulesRevision)->getLiveRules() as $rule) {
-            $spec = $rule->getSpec();
-            if (!$spec instanceof AbilityWithBase) {
-                continue;
-            }
-
-            $base = $spec->getBase();
-            if ($base->getParentAbilityCode() !== $processCode) {
-                continue;
-            }
-
-            $close = $base->getClosesParentProcess();
-            if ($close === null || ($abilityLevels[$rule->getCode()] ?? 0) < 1) {
-                continue;
-            }
-
-            if (!$close->meets($counters)) {
-                continue;
-            }
-
-            $found[$rule->getCode()] = $spec;
-        }
-
-        if ($found === []) {
-            return null;
-        }
-
-        ksort($found, SORT_STRING);
-        $code = array_key_first($found);
-
-        return ['code' => (string) $code, 'spec' => $found[$code]];
+        return $this->cards->closingAbility($spaceId, $rulesRevision, $processCode, $counters, $abilityLevels);
     }
 
     /**
@@ -2348,23 +2110,7 @@ final class GameStrikeRules
      */
     public function checkByCharacteristic(int $spaceId, int $rulesRevision, string $characteristic): string
     {
-        $matched = [];
-        foreach ($this->slice($spaceId, $rulesRevision)->getLiveRules() as $rule) {
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if (
-                $spec instanceof CheckSpec
-                && $spec->getCharacteristicCode() === $characteristic
-                && $spec->getDifficulty()->getKind() === 'ask'
-            ) {
-                $matched[] = $rule->getCode();
-            }
-        }
-
-        if (count($matched) !== 1) {
-            throw new GameInvalidException('Game push check is invalid');
-        }
-
-        return $matched[0];
+        return $this->cards->checkByCharacteristic($spaceId, $rulesRevision, $characteristic);
     }
 
     /**
@@ -2915,197 +2661,5 @@ final class GameStrikeRules
     private function slice(int $spaceId, int $rulesRevision): CharacterRuleSlice
     {
         return $this->slices->slice($spaceId, $rulesRevision);
-    }
-
-    /**
-     * Режет смягчение эффектами карточки удара.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $actionRuleCode Карточка удара.
-     * @param string $profileType Тип профиля.
-     * @param int $success Успех попадания.
-     * @param DimensionalNumber $soak Базовое смягчение.
-     * @param int $reduceBy Снижение от Реакции атакующего.
-     *
-     * @return DimensionalNumber Смягчение после эффектов.
-     */
-    private function cutSoak(
-        CharacterRuleSlice $slice,
-        string $actionRuleCode,
-        string $profileType,
-        int $success,
-        DimensionalNumber $soak,
-        int $reduceBy,
-    ): DimensionalNumber {
-        $cuts = $this->soakCuts($slice, $actionRuleCode, $profileType);
-        if ($cuts['sizeDelta'] !== 0) {
-            $soak = $soak->modify($cuts['sizeDelta']);
-        }
-
-        if ($cuts['ignoreAtSr'] !== null && $success >= $cuts['ignoreAtSr']) {
-            return new DimensionalNumber(0, 0);
-        }
-
-        if ($reduceBy > 0) {
-            return new DimensionalNumber(max(0, $soak->toInteger() - $reduceBy), 0);
-        }
-
-        return $soak;
-    }
-
-    /**
-     * Суммарный сдвиг размера и порог игнора эффектов текущей атаки.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $actionRuleCode Карточка удара.
-     * @param string $profileType Тип профиля.
-     *
-     * @return array{sizeDelta: int, ignoreAtSr: int|null} Сдвиг и порог.
-     */
-    private function soakCuts(CharacterRuleSlice $slice, string $actionRuleCode, string $profileType): array
-    {
-        $sizeDelta = 0;
-        $ignoreAtSr = null;
-        $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
-        foreach ($base?->getActionEffects() ?? [] as $effect) {
-            if (!$effect instanceof CurrentActionAttackDodgeSoakEffect) {
-                continue;
-            }
-
-            if (!$effect->getScope()->appliesTo($profileType, 1)) {
-                continue;
-            }
-
-            $sizeDelta += $effect->getSizeDelta();
-            $ignore = $effect->getIgnoreAtSr();
-            if ($ignore !== null) {
-                $ignoreAtSr = $ignoreAtSr === null ? $ignore : min($ignoreAtSr, $ignore);
-            }
-        }
-
-        return ['sizeDelta' => $sizeDelta, 'ignoreAtSr' => $ignoreAtSr];
-    }
-
-    /**
-     * Код характеристики смягчения из спеки выбранной реакции.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $reaction dodge или block.
-     *
-     * @return string|null Код или null, если поля нет.
-     */
-    private function dodgeSoakCode(CharacterRuleSlice $slice, string $reaction): ?string
-    {
-        $ruleCode = $this->reactionRuleCode($slice->getSpaceId(), $slice->getRevision(), $reaction);
-        if ($ruleCode === null) {
-            return null;
-        }
-
-        $spec = $slice->findLive($ruleCode)?->getSpec();
-        if (!$spec instanceof AbilityActionSpec) {
-            return null;
-        }
-
-        $code = $spec->getBase()->getDodgeSoak();
-
-        return is_string($code) && $code !== '' ? $code : null;
-    }
-
-    /**
-     * Взведённый хвост смягчения, подходящий к попаданию.
-     *
-     * @param array<string, mixed> $pending Карта ожидания.
-     * @param string $actorKind Вид атакующего.
-     * @param int $actorId Атакующий.
-     * @param string $profileType Тип профиля.
-     * @param int $hitNumber Номер попадания.
-     *
-     * @return array<string, mixed>|null Эффект или null.
-     */
-    private function armedSoakTail(
-        array $pending,
-        string $actorKind,
-        int $actorId,
-        string $profileType,
-        int $hitNumber,
-    ): ?array {
-        $key = $actorKind . ':' . $actorId;
-        $waiting = is_array($pending[$key] ?? null) ? $pending[$key] : [];
-        foreach ($waiting as $entry) {
-            $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
-            if (
-                !is_array($effect)
-                || ($effect['type'] ?? null) !== 'next_action_attack_dodge_soak_from_reaction'
-                || ($effect['armed'] ?? false) !== true
-            ) {
-                continue;
-            }
-
-            if (!$this->soakTailApplies($effect, $profileType, $hitNumber)) {
-                continue;
-            }
-
-            return $effect;
-        }
-
-        return null;
-    }
-
-    /**
-     * Область хвоста смягчения накрывает попадание.
-     *
-     * @param array<string, mixed> $effect Эффект.
-     * @param string $profileType Тип профиля.
-     * @param int $hitNumber Номер попадания.
-     *
-     * @return bool true, если накрывает.
-     */
-    private function soakTailApplies(array $effect, string $profileType, int $hitNumber): bool
-    {
-        $scope = is_array($effect['scope'] ?? null) ? $effect['scope'] : [];
-        $components = is_array($scope['components'] ?? null) ? $scope['components'] : [];
-        if (!in_array($profileType, $components, true)) {
-            return false;
-        }
-
-        $hitCount = $scope['hit_count'] ?? 1;
-
-        return $hitCount === 'all' || (is_int($hitCount) && $hitNumber <= $hitCount);
-    }
-
-    /**
-     * Целое значение Реакции атакующего.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param string $actorKind Вид атакующего.
-     * @param int $actorId Атакующий.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
-     * @param array<string, mixed>|null $npcChoices Выборы NPC.
-     * @param int|null $npcVersion Версия листа NPC.
-     *
-     * @return int Значение.
-     *
-     * @throws GameInvalidException Если у атакующего нет Реакции.
-     * @throws GameNotFoundException Если листа нет.
-     */
-    private function reactionValue(
-        int $spaceId,
-        int $rulesRevision,
-        string $actorKind,
-        int $actorId,
-        ?array $npcSheet,
-        ?array $npcChoices,
-        ?int $npcVersion,
-    ): int {
-        $slice = $this->slice($spaceId, $rulesRevision);
-        $documents = $this->participants->attackerDocuments($actorKind, $actorId, $npcSheet, $npcChoices, $npcVersion);
-        $value = $this->participants->formulaContext($slice, $documents['sheet'], $documents['choices'], $documents['key'])
-            ->findCharacteristic(self::REACTION_CHARACTERISTIC);
-        if ($value === null) {
-            throw new GameInvalidException('Game strike reaction characteristic is invalid');
-        }
-
-        return max(0, $value->toInteger());
     }
 }

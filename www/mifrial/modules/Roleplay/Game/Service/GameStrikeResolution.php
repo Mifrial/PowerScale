@@ -6,6 +6,9 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Game\Dto\GameStrikeActorRef;
+use Mifrial\Roleplay\Game\Dto\GameStrikeDefenseTarget;
+use Mifrial\Roleplay\Game\Dto\GameStrikeProfileRef;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
@@ -542,22 +545,28 @@ final class GameStrikeResolution
             throw new GameInvalidException('Game strike row is invalid');
         }
 
-        return $this->rules->evaluateResistance(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $itemRuleCode,
-            $profileType,
-            $profileIndex,
-            $kind,
-            $defenderId,
-            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $defenderId) : null,
-            $kind === 'npc' ? $this->npcChoices($game->getId(), $defenderId) : null,
+        return $this->rules->defense()->resistance(new GameStrikeDefenseTarget(
+            new GameStrikeProfileRef(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+                0,
+            ),
+            new GameStrikeActorRef(
+                $kind,
+                $defenderId,
+                $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $defenderId) : null,
+                $kind === 'npc' ? $this->npcChoices($game->getId(), $defenderId) : null,
+                null,
+            ),
             $choice['reaction'],
             $choice['blockItemInventoryId'],
             $rating,
             $penetration,
             $durabilityShave,
-        );
+        ));
     }
 
     /**
@@ -600,7 +609,7 @@ final class GameStrikeResolution
             throw new GameInvalidException('Game strike attacker is invalid');
         }
 
-        $reduceBy = $this->rules->dodgeSoakReduction(
+        $reduceBy = $this->rules->defense()->dodgeSoakReduction(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $pending,
@@ -613,18 +622,29 @@ final class GameStrikeResolution
             $attackerKind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
         );
 
-        return $this->rules->evaluateSoak(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $itemRuleCode,
-            $profileType,
-            $profileIndex,
-            $kind,
-            $defenderId,
-            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $defenderId) : null,
-            $kind === 'npc' ? $this->npcChoices($game->getId(), $defenderId) : null,
-            $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $defenderId) : null,
-            $reaction,
+        return $this->rules->defense()->soak(
+            new GameStrikeDefenseTarget(
+                new GameStrikeProfileRef(
+                    $game->getSpaceId(),
+                    $game->getRulesRevision(),
+                    $itemRuleCode,
+                    $profileType,
+                    $profileIndex,
+                    0,
+                ),
+                new GameStrikeActorRef(
+                    $kind,
+                    $defenderId,
+                    $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $defenderId) : null,
+                    $kind === 'npc' ? $this->npcChoices($game->getId(), $defenderId) : null,
+                    $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $defenderId) : null,
+                ),
+                $reaction,
+                null,
+                0,
+                null,
+                0,
+            ),
             is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '',
             $success,
             $reduceBy,

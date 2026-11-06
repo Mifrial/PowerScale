@@ -13,7 +13,7 @@
     "alwaysIncludeFolders": [
       "Value"
     ],
-    "maxDuplicatedLines": 11846
+    "maxDuplicatedLines": 11803
   },
   "allow": []
 }

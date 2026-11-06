@@ -450,15 +450,7 @@ final class GamePendingActionCosts
             return true;
         }
 
-        $scope = is_array($effect['scope'] ?? null) ? $effect['scope'] : [];
-        $components = is_array($scope['components'] ?? null) ? $scope['components'] : [];
-        if (!in_array($profileType, $components, true)) {
-            return false;
-        }
-
-        $hitCount = $scope['hit_count'] ?? 1;
-
-        return $hitCount === 'all' || (is_int($hitCount) && $hitNumber <= $hitCount);
+        return GamePendingActionScope::applies($effect['scope'] ?? null, $profileType, $hitNumber);
     }
 
     /**
