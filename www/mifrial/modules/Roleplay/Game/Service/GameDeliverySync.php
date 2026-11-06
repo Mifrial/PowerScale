@@ -13,12 +13,22 @@ use Mifrial\Roleplay\Game\Interface\Service\IGameSyncClock;
 
 /**
  * Держит /api/game/sync, пока клиент не закрыл соединение.
+ *
+ * У потока есть жёсткий потолок жизни: connection_aborted() ненадёжен под
+ * prefork/mod_php, и без потолка отключённый клиент навсегда занимает воркер.
+ * После потолка поток закрывается штатно, а клиент переподключается с курсором.
  */
 final class GameDeliverySync
 {
     private const TICK_SECONDS = 1;
 
     private const COMMENT_TICKS = 15;
+
+    /** Потолок жизни одного соединения в секундах. */
+    private const MAX_LIFETIME_SECONDS = 30;
+
+    /** Разброс потолка, чтобы вкладки не переподключались синхронно. */
+    private const LIFETIME_JITTER_SECONDS = 5;
 
     /**
      * Создаёт цикл.
@@ -52,21 +62,26 @@ final class GameDeliverySync
         $gameId = $this->gameId($httpRequest);
         $lastCursor = $this->lastCursor($httpRequest);
         $viewAll = $actor->hasKey(GamePermissionKeys::VIEW_ALL);
+        $deadline = $this->clock->now()
+            + self::MAX_LIFETIME_SECONDS
+            + random_int(0, self::LIFETIME_JITTER_SECONDS);
+        // Outbox пишется вместе с мутацией; catchUp — только ремонт при входе.
         $this->delivery->catchUp($gameId);
         $frame = $this->delivery->tail($gameId, $actor->getUserId(), $viewAll, $lastCursor);
         $sseEmitter->start();
         $sseEmitter->writeEvent('sync', $frame);
-        $this->loop($sseEmitter, $gameId, $actor->getUserId(), $viewAll, $frame['cursor']);
+        $this->loop($sseEmitter, $gameId, $actor->getUserId(), $viewAll, $frame['cursor'], $deadline);
     }
 
     /**
-     * Тики до обрыва.
+     * Тики до обрыва или потолка жизни.
      *
      * @param SseEmitter $sseEmitter Байты.
      * @param int $gameId Игра.
      * @param int $actorUserId Актор.
      * @param bool $viewAll Ключ.
      * @param int $lastCursor Уже отданный курсор.
+     * @param int $deadline Unix-секунды, после которых поток закрывается штатно.
      *
      * @return void
      */
@@ -76,11 +91,11 @@ final class GameDeliverySync
         int $actorUserId,
         bool $viewAll,
         int $lastCursor,
+        int $deadline,
     ): void {
         $cursor = $lastCursor;
         $quiet = 0;
-        while (!$this->clock->isAborted()) {
-            $this->delivery->catchUp($gameId);
+        while (!$this->clock->isAborted() && $this->clock->now() < $deadline) {
             $frame = $this->delivery->tail($gameId, $actorUserId, $viewAll, $cursor);
             if ($frame['cursor'] > $cursor) {
                 $cursor = $frame['cursor'];

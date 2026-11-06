@@ -12,6 +12,16 @@ use Mifrial\Roleplay\Game\Interface\Service\IGameSyncClock;
 final class SystemGameSyncClock implements IGameSyncClock
 {
     /**
+     * Текущие unix-секунды.
+     *
+     * @return int Секунды.
+     */
+    public function now(): int
+    {
+        return time();
+    }
+
+    /**
      * Пауза до следующего тика.
      *
      * @param int $seconds Секунды.

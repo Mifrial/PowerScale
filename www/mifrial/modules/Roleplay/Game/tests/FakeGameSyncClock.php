@@ -12,14 +12,32 @@ use Mifrial\Roleplay\Game\Interface\Service\IGameSyncClock;
 final class FakeGameSyncClock implements IGameSyncClock
 {
     /**
-     * Задаёт число тиков цикла.
+     * Сколько тиков цикл уже сделал.
+     */
+    public int $ticks = 0;
+
+    /**
+     * Задаёт число тиков и стартовые секунды.
      *
      * @param int $remainingLoops Входы в цикл.
+     * @param int $unix Стартовые unix-секунды.
      *
      * @return void
      */
-    public function __construct(private int $remainingLoops)
+    public function __construct(
+        private int $remainingLoops,
+        private int $unix = 1_700_000_000,
+    ) {
+    }
+
+    /**
+     * Секунды без sleep ОС.
+     *
+     * @return int Секунды.
+     */
+    public function now(): int
     {
+        return $this->unix;
     }
 
     /**
@@ -31,7 +49,8 @@ final class FakeGameSyncClock implements IGameSyncClock
      */
     public function sleep(int $seconds): void
     {
-        unset($seconds);
+        $this->unix += $seconds;
+        $this->ticks++;
         $this->remainingLoops--;
     }
 

@@ -10,6 +10,13 @@ namespace Mifrial\Roleplay\Game\Interface\Service;
 interface IGameSyncClock
 {
     /**
+     * Текущие unix-секунды цикла.
+     *
+     * @return int Секунды.
+     */
+    public function now(): int;
+
+    /**
      * Пауза до следующего тика.
      *
      * @param int $seconds Секунды.

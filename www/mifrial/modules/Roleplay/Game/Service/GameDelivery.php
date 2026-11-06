@@ -104,15 +104,24 @@ final class GameDelivery implements IGameDelivery
      */
     public function tail(int $gameId, int $actorUserId, bool $viewAll, ?int $lastCursor): array
     {
-        $game = $this->visibleGame($gameId, $actorUserId, $viewAll);
         if ($lastCursor === null) {
+            $this->visibleGame($gameId, $actorUserId, $viewAll);
+
             return ['cursor' => $this->rows->getMaxCursor($gameId), 'events' => []];
         }
 
+        // Пустой хвост — самый частый тик: без карточки и лишнего max(id).
         $stored = $this->rows->getAfter($gameId, $lastCursor);
-        $cursor = $stored === [] ? $this->rows->getMaxCursor($gameId) : $stored[array_key_last($stored)]->getId();
+        if ($stored === []) {
+            return ['cursor' => $lastCursor, 'events' => []];
+        }
 
-        return ['cursor' => $cursor, 'events' => $this->eventsOf($game, $actorUserId, $stored)];
+        $game = $this->visibleGame($gameId, $actorUserId, $viewAll);
+
+        return [
+            'cursor' => $stored[array_key_last($stored)]->getId(),
+            'events' => $this->eventsOf($game, $actorUserId, $stored),
+        ];
     }
 
     /**

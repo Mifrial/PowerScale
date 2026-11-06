@@ -28,6 +28,12 @@ final class ChatSseService
 
     private const HEARTBEAT_SECONDS = 60;
 
+    /** Потолок жизни одного соединения в секундах. */
+    private const MAX_LIFETIME_SECONDS = 30;
+
+    /** Разброс потолка, чтобы вкладки не переподключались синхронно. */
+    private const LIFETIME_JITTER_SECONDS = 5;
+
     private int $userId = 0;
 
     /**
@@ -81,7 +87,12 @@ final class ChatSseService
     public function run(IHttpRequest $httpRequest, SseEmitter $sseEmitter): void
     {
         $this->openStream($httpRequest, $sseEmitter);
-        while (!$this->sseClock->isAborted()) {
+        // connection_aborted() ненадёжен под prefork/mod_php: без потолка
+        // отключённый клиент навсегда занимает воркер. Клиент переподключится.
+        $deadline = $this->sseClock->now()->toUnix()
+            + self::MAX_LIFETIME_SECONDS
+            + random_int(0, self::LIFETIME_JITTER_SECONDS);
+        while (!$this->sseClock->isAborted() && $this->sseClock->now()->toUnix() < $deadline) {
             $this->finishTick($sseEmitter, $this->tick($sseEmitter));
         }
     }
