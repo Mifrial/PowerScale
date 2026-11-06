@@ -62,6 +62,8 @@ final class GameStrikeRules
 
     private readonly GameStrikeDistance $distance;
 
+    private readonly GameStrikeDamage $damage;
+
     /**
      * Создаёт проверку.
      *
@@ -92,6 +94,7 @@ final class GameStrikeRules
         $this->movement = new GameStrikeMovement();
         $this->profiles = new GameStrikeProfileContext($formulaEvaluations);
         $this->distance = new GameStrikeDistance($formulaEvaluations, $this->movement);
+        $this->damage = new GameStrikeDamage($formulaEvaluations);
     }
 
     /**
@@ -665,10 +668,7 @@ final class GameStrikeRules
                 'Game strike damage profile is invalid',
             );
 
-            return $this->formulaEvaluations->evaluateDimensional(
-                $attack->profile->getDamage()->getFormula(),
-                $attack->context,
-            );
+            return $this->damage->amount($attack);
         } catch (GameInvalidException $exception) {
             throw $exception;
         } catch (RuleInvalidException | CharacterInvalidException | CharacterNotFoundException $exception) {
@@ -733,18 +733,7 @@ final class GameStrikeRules
                 $gripBonus,
                 'Game strike damage profile is invalid',
             );
-            $strength = $attack->context->findActionCharacteristic($profileType, 'strength')
-                ?? $attack->context->findCharacteristic('strength');
-            if (!$strength instanceof DimensionalNumber) {
-                throw new GameInvalidException('Game strike strength is invalid');
-            }
-
-            $number = $strength instanceof CharacteristicNumber
-                ? $strength
-                : new CharacteristicNumber($strength->getBase(), $strength->getSize());
-            $delta = $attack->context->getActionCharacteristicModifier();
-
-            return $delta === 0 ? $number : $number->modify($delta);
+            return $this->damage->strength($attack);
         } catch (GameInvalidException $exception) {
             throw $exception;
         } catch (RuleInvalidException | CharacterInvalidException | CharacterNotFoundException $exception) {
@@ -890,10 +879,7 @@ final class GameStrikeRules
                 'Game strike penetration profile is invalid',
             );
 
-            return $this->formulaEvaluations->evaluateDimensional(
-                $attack->profile->getPenetration(),
-                $attack->context,
-            );
+            return $this->damage->penetration($attack);
         } catch (RuleInvalidException | CharacterInvalidException | CharacterNotFoundException $exception) {
             throw new GameInvalidException('Game strike penetration is invalid', $exception);
         }
