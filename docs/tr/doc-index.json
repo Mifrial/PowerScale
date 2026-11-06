@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 327,
-        "plans": 208,
+        "documents": 330,
+        "plans": 211,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 230,
+            "tr": 233,
             "tz": 2
         },
         "byZoneState": {
@@ -70,11 +70,11 @@
             },
             "tr": {
                 "нет": 23,
-                "СДЕЛАНО": 119,
+                "СДЕЛАНО": 120,
                 "ОТЛОЖЕН": 2,
                 "ПЛАН": 31,
                 "ЧАСТИЧНО": 28,
-                "В РАБОТЕ": 16,
+                "В РАБОТЕ": 18,
                 "ОТМЕНЁН": 4,
                 "СНИМОК": 7
             },
@@ -86,11 +86,11 @@
         "byState": {
             "СНИМОК": 64,
             "нет": 55,
-            "СДЕЛАНО": 120,
+            "СДЕЛАНО": 121,
             "ПЛАН": 34,
             "ОТЛОЖЕН": 6,
             "ЧАСТИЧНО": 28,
-            "В РАБОТЕ": 16,
+            "В РАБОТЕ": 18,
             "ОТМЕНЁН": 4
         }
     },
@@ -220,10 +220,9 @@
                 "СНИМОК": 3,
                 "нет": 1,
                 "ЧАСТИЧНО": 3,
-                "СДЕЛАНО": 33,
+                "СДЕЛАНО": 34,
                 "ОТМЕНЁН": 3,
-                "ПЛАН": 7,
-                "В РАБОТЕ": 1
+                "ПЛАН": 7
             },
             "layer": {
                 "PHP": 44,
@@ -239,6 +238,17 @@
             "layer": {
                 "PHP": 3,
                 "VUE": 2
+            }
+        },
+        "Roleplay/Map": {
+            "docs": 3,
+            "state": {
+                "В РАБОТЕ": 3
+            },
+            "layer": {
+                "PHP": 3,
+                "VUE": 3,
+                "МОК": 3
             }
         },
         "Roleplay/Mechanic": {
@@ -2467,6 +2477,8 @@
                 "docs/tr/file-plan-01.md",
                 "docs/tr/game-roadmap.md",
                 "docs/tr/game-system.md",
+                "docs/tr/map-plan-01.md",
+                "docs/tr/spatial-roadmap.md",
                 "docs/tr/ui-system.md"
             ]
         },
@@ -2970,7 +2982,7 @@
             ],
             "basis": null,
             "date": "2026-09-04",
-            "bytes": 19108,
+            "bytes": 19256,
             "lines": 223,
             "modules": [
                 "Messages/Chat"
@@ -2983,7 +2995,8 @@
                 "docs/tr/chat-plan-04.md",
                 "docs/tr/chat-plan-05.md",
                 "docs/tr/chat-roadmap.md",
-                "docs/tr/chat-system.md"
+                "docs/tr/chat-system.md",
+                "docs/tr/game-plan-45-strike-phases.md"
             ]
         },
         {
@@ -3202,8 +3215,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-18",
-            "bytes": 15885,
-            "lines": 180,
+            "bytes": 15976,
+            "lines": 181,
             "modules": [],
             "linksCount": 12,
             "brokenLinks": [],
@@ -3456,7 +3469,7 @@
             "layers": [],
             "basis": null,
             "date": "2026-11-02",
-            "bytes": 35649,
+            "bytes": 35657,
             "lines": 566,
             "modules": [
                 "Roleplay/Game"
@@ -3865,14 +3878,15 @@
             ],
             "basis": null,
             "date": "2026-10-04",
-            "bytes": 24815,
-            "lines": 152,
+            "bytes": 25520,
+            "lines": 155,
             "modules": [
                 "Roleplay/Game"
             ],
             "linksCount": 8,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/game-plan-45-strike-phases.md",
                 "docs/tr/game-roadmap.md"
             ]
         },
@@ -4342,7 +4356,7 @@
             ],
             "basis": "PHP",
             "date": "2026-10-28",
-            "bytes": 2209,
+            "bytes": 2259,
             "lines": 51,
             "modules": [
                 "Roleplay/Game"
@@ -4648,22 +4662,22 @@
             "title": "План 45 — фазы удара и альтернативный защитник",
             "zone": "tr",
             "kind": "plan",
-            "state": "В РАБОТЕ",
+            "state": "СДЕЛАНО",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~",
+            "statusRaw": "~СДЕЛАНО~, 2026-11-06. Срезы 45.1–45.5 закрыты, ручная проверка",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "PHP",
-            "date": null,
-            "bytes": 51513,
-            "lines": 561,
+            "date": "2026-11-06",
+            "bytes": 59961,
+            "lines": 585,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 6,
+            "linksCount": 8,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-44-checks-real.md",
@@ -5381,6 +5395,60 @@
             ]
         },
         {
+            "path": "docs/tr/map-plan-01.md",
+            "title": "Карты: серверный срез",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-06 — серверный срез переработан под «черновик → публикация»; ждёт ручной проверки.",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-06",
+            "bytes": 23380,
+            "lines": 465,
+            "modules": [
+                "Roleplay/Map"
+            ],
+            "linksCount": 3,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/map-plan-02.md",
+                "docs/tr/spatial-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/map-plan-02.md",
+            "title": "Карты: фронтенд-срез",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-06 — фронтенд переработан под черновик и публикацию; ждёт ручной проверки.",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-06",
+            "bytes": 15121,
+            "lines": 186,
+            "modules": [
+                "Roleplay/Map"
+            ],
+            "linksCount": 1,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/map-plan-01.md",
+                "docs/tr/spatial-roadmap.md"
+            ]
+        },
+        {
             "path": "docs/tr/mechanic-plan-01.md",
             "title": "План Mechanic 1 — каркас справочника для Rule",
             "zone": "tr",
@@ -5911,8 +5979,8 @@
             "layers": [],
             "basis": null,
             "date": null,
-            "bytes": 17619,
-            "lines": 221,
+            "bytes": 20048,
+            "lines": 253,
             "modules": [],
             "linksCount": 1,
             "brokenLinks": [],
@@ -6576,8 +6644,8 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 35528,
-            "lines": 428,
+            "bytes": 35612,
+            "lines": 427,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -6602,7 +6670,7 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-16",
-            "bytes": 18888,
+            "bytes": 18892,
             "lines": 55,
             "modules": [
                 "Roleplay/Rule"
@@ -7927,6 +7995,32 @@
                 "docs/tr/user-plan-01-account.md",
                 "docs/tr/user-plan-02-groups.md",
                 "docs/tr/versioning-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/spatial-roadmap.md",
+            "title": "Пространственный слой: карты, локации сцен, сцены",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-06 — видение и границы; контракт карт переработан под «черновик → публикация».",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-06",
+            "bytes": 10727,
+            "lines": 141,
+            "modules": [
+                "Roleplay/Map"
+            ],
+            "linksCount": 3,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/map-plan-01.md"
             ]
         },
         {

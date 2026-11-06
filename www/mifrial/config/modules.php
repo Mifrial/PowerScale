@@ -6,6 +6,7 @@ use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Keyword\Interface\Container\IKeywordContainer;
+use Mifrial\Roleplay\Map\Interface\Container\IMapContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
 use Mifrial\Roleplay\RuleSpace\Interface\Container\IRuleSpaceContainer;
@@ -24,6 +25,10 @@ return [
         IKeywordContainer::class => [
             'group' => 'Roleplay',
             'name' => 'Keyword',
+        ],
+        IMapContainer::class => [
+            'group' => 'Roleplay',
+            'name' => 'Map',
         ],
         IMechanicContainer::class => [
             'group' => 'Roleplay',

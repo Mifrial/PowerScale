@@ -41,7 +41,7 @@
 ## Зависимости
 
 - **Зависит от:** [Core/Cache](Cache.md), [Core/Kernel](Kernel.md)
-- **От него зависят:** [Core/Agent](Agent.md), [Core/Auth](Auth.md), [Core/File](File.md), [Core/Kernel](Kernel.md), [Core/Logger](Logger.md), [Core/Mail](Mail.md), [Core/User](User.md), [Messages/Chat](../Messages/Chat.md), [Roleplay/Character](../Roleplay/Character.md), [Roleplay/Game](../Roleplay/Game.md), [Roleplay/Keyword](../Roleplay/Keyword.md), [Roleplay/Mechanic](../Roleplay/Mechanic.md), [Roleplay/Rule](../Roleplay/Rule.md), [Roleplay/RuleSpace](../Roleplay/RuleSpace.md), [Versioning/Space](../Versioning/Space.md)
+- **От него зависят:** [Core/Agent](Agent.md), [Core/Auth](Auth.md), [Core/File](File.md), [Core/Kernel](Kernel.md), [Core/Logger](Logger.md), [Core/Mail](Mail.md), [Core/User](User.md), [Messages/Chat](../Messages/Chat.md), [Roleplay/Character](../Roleplay/Character.md), [Roleplay/Game](../Roleplay/Game.md), [Roleplay/Keyword](../Roleplay/Keyword.md), [Roleplay/Map](../Roleplay/Map.md), [Roleplay/Mechanic](../Roleplay/Mechanic.md), [Roleplay/Rule](../Roleplay/Rule.md), [Roleplay/RuleSpace](../Roleplay/RuleSpace.md), [Versioning/Space](../Versioning/Space.md)
 
 ## События
 

@@ -1,0 +1,61 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Mifrial\Roleplay\Map\Table;
+
+use Mifrial\Core\SmartTable\Dto\FieldSettings;
+use Mifrial\Core\SmartTable\Field\BoolField;
+use Mifrial\Core\SmartTable\Field\IdField;
+use Mifrial\Core\SmartTable\Field\JsonField;
+use Mifrial\Core\SmartTable\Field\ReferenceField;
+use Mifrial\Core\SmartTable\Field\StringField;
+use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+
+/**
+ * Карта `map_variant_line`: лента (река, ручей, дорога вне графа).
+ */
+final class MapVariantLineTable extends SmartTableDefinition
+{
+    /**
+     * Задаёт физическое имя таблицы.
+     *
+     * @return string Имя.
+     */
+    protected function tableName(): string
+    {
+        return 'map_variant_line';
+    }
+
+    /**
+     * Перечисляет поля определения.
+     *
+     * @return array Список полей.
+     */
+    protected function defineFields(): array
+    {
+        return [
+            new IdField(),
+            new ReferenceField(
+                'variant_id',
+                FieldSettings::fromOptions(['required' => true, 'indexed' => true]),
+                MapVariantTable::class,
+                'cascade',
+            ),
+            new ReferenceField(
+                'terrain_id',
+                FieldSettings::fromOptions(['required' => true, 'indexed' => true]),
+                MapTerrainTable::class,
+                'restrict',
+            ),
+            new JsonField('points', FieldSettings::fromOptions(['required' => true])),
+            new JsonField('widths', FieldSettings::fromOptions(['required' => true])),
+            new JsonField('handles', FieldSettings::fromOptions(['required' => true, 'default' => []])),
+            new StringField('label', FieldSettings::fromOptions(['required' => true]), 255),
+            new BoolField('is_present', FieldSettings::fromOptions([
+                'required' => true,
+                'default' => true,
+            ])),
+        ];
+    }
+}

@@ -50,6 +50,9 @@
         <testsuite name="keyword">
             <directory>modules/Roleplay/Keyword/tests</directory>
         </testsuite>
+        <testsuite name="map">
+            <directory>modules/Roleplay/Map/tests</directory>
+        </testsuite>
         <testsuite name="mechanic">
             <directory>modules/Roleplay/Mechanic/tests</directory>
         </testsuite>

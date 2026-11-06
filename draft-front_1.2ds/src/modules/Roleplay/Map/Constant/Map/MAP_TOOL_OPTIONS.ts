@@ -1,0 +1,13 @@
+import type { MapToolMode } from '@/modules/Roleplay/Map/Enum/MapToolMode';
+
+/** Инструменты редактора карты. */
+export const MAP_TOOL_OPTIONS: { value: MapToolMode; title: string; icon: string }[] = [
+  { value: 'view', title: 'Выбор и панорама', icon: 'mdi-cursor-default-outline' },
+  { value: 'node', title: 'Узел', icon: 'mdi-map-marker-plus-outline' },
+  { value: 'edge', title: 'Ребро', icon: 'mdi-vector-polyline' },
+  { value: 'area', title: 'Полигон', icon: 'mdi-vector-polygon' },
+  { value: 'rect', title: 'Прямоугольник', icon: 'mdi-rectangle-outline' },
+  { value: 'line', title: 'Лента', icon: 'mdi-waves' },
+  { value: 'ruler', title: 'Линейка', icon: 'mdi-ruler' },
+  { value: 'calibrate', title: 'Калибровка масштаба', icon: 'mdi-ruler-square' },
+];

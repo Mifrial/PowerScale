@@ -45,6 +45,8 @@ const MODULE_SLUGS = [
     'engine' => 'Core/Engine',
     'ui' => 'Core/UI',
     'home' => 'Roleplay/Home',
+    'map' => 'Roleplay/Map',
+    'spatial' => 'Roleplay/Map',
 ];
 
 $toolRoot = dirname(__DIR__, 2);

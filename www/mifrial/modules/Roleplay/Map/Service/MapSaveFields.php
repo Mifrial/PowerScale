@@ -1,0 +1,367 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Mifrial\Roleplay\Map\Service;
+
+use Mifrial\Roleplay\Map\Exception\MapInvalidException;
+
+/**
+ * Разбор и проверка полей снимка карты.
+ *
+ * Ошибки содержат путь к полю (`nodes[3].name`), чтобы UI подсветил объект.
+ */
+final class MapSaveFields
+{
+    /**
+     * Идентификатор сущности: целое, не ноль; отрицательный — новая.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return int Id.
+     *
+     * @throws MapInvalidException Если id неверен.
+     */
+    public function identifier(array $row, string $key, string $path): int
+    {
+        $value = $this->intValue($row, $key, $path, PHP_INT_MIN);
+        if ($value === 0) {
+            throw new MapInvalidException($path . ' is zero');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Необязательный идентификатор: null или ненулевое целое; отрицательный — новый.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return int|null Id или null.
+     *
+     * @throws MapInvalidException Если id неверен.
+     */
+    public function optionalIdentifier(array $row, string $key, string $path): ?int
+    {
+        if (($row[$key] ?? null) === null) {
+            return null;
+        }
+
+        return $this->identifier($row, $key, $path);
+    }
+
+    /**
+     * Целое поле.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     * @param int $min Минимум.
+     * @param int|null $max Максимум.
+     *
+     * @return int Значение.
+     *
+     * @throws MapInvalidException Если значение неверно.
+     */
+    public function intValue(array $row, string $key, string $path, int $min, ?int $max = null): int
+    {
+        $value = $row[$key] ?? null;
+        if (is_float($value) && floor($value) === $value) {
+            $value = (int) $value;
+        }
+
+        if (!is_int($value)) {
+            throw new MapInvalidException($path . ' is not an integer');
+        }
+
+        if ($value < $min || ($max !== null && $value > $max)) {
+            throw new MapInvalidException($path . ' is out of range');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Необязательное целое поле.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     * @param int $min Минимум.
+     *
+     * @return int|null Значение или null.
+     *
+     * @throws MapInvalidException Если значение неверно.
+     */
+    public function optionalIntValue(array $row, string $key, string $path, int $min): ?int
+    {
+        if (($row[$key] ?? null) === null) {
+            return null;
+        }
+
+        return $this->intValue($row, $key, $path, $min);
+    }
+
+    /**
+     * Строковое поле.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return string Значение.
+     *
+     * @throws MapInvalidException Если значение не строка.
+     */
+    public function stringValue(array $row, string $key, string $path): string
+    {
+        $value = $row[$key] ?? null;
+        if (!is_string($value)) {
+            throw new MapInvalidException($path . ' is not a string');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Необязательное строковое поле.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return string|null Значение или null.
+     *
+     * @throws MapInvalidException Если значение не строка.
+     */
+    public function optionalStringValue(array $row, string $key, string $path): ?string
+    {
+        if (!array_key_exists($key, $row) || $row[$key] === null) {
+            return null;
+        }
+
+        return $this->stringValue($row, $key, $path);
+    }
+
+    /**
+     * Булево поле.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return bool Значение.
+     *
+     * @throws MapInvalidException Если значение не bool.
+     */
+    public function boolValue(array $row, string $key, string $path): bool
+    {
+        $value = $row[$key] ?? null;
+        if (!is_bool($value)) {
+            throw new MapInvalidException($path . ' is not a boolean');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Точки полилинии или полигона.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     * @param int $min Минимум точек.
+     * @param bool $allowEmpty Пустой список допустим.
+     *
+     * @return array<int, array{0: int, 1: int}> Точки.
+     *
+     * @throws MapInvalidException Если форма неверна.
+     */
+    public function pointsValue(array $row, string $key, string $path, int $min, bool $allowEmpty = false): array
+    {
+        $value = $row[$key] ?? null;
+        if (!is_array($value)) {
+            throw new MapInvalidException($path . ' is not a list');
+        }
+
+        if ($value === [] && $allowEmpty) {
+            return [];
+        }
+
+        if (count($value) < $min) {
+            throw new MapInvalidException($path . ' has too few points');
+        }
+
+        $points = [];
+        foreach ($value as $point) {
+            $points[] = $this->pointValue($point, $path);
+        }
+
+        return $points;
+    }
+
+    /**
+     * Ширины ленты.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     * @param int $expected Ожидаемое число.
+     *
+     * @return array<int, int> Ширины.
+     *
+     * @throws MapInvalidException Если форма неверна.
+     */
+    public function widthsValue(array $row, string $key, string $path, int $expected): array
+    {
+        $value = $row[$key] ?? null;
+        if (!is_array($value) || count($value) !== $expected) {
+            throw new MapInvalidException($path . ' does not match the points');
+        }
+
+        $widths = [];
+        foreach ($value as $width) {
+            if (!is_int($width) || $width < 1 || $width > 20000) {
+                throw new MapInvalidException($path . ' has an invalid width');
+            }
+
+            $widths[] = $width;
+        }
+
+        return $widths;
+    }
+
+    /**
+     * Ручки Безье ленты.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     * @param int $expected Ожидаемое число.
+     *
+     * @return array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> Ручки.
+     *
+     * @throws MapInvalidException Если форма неверна.
+     */
+    public function handlesValue(array $row, string $key, string $path, int $expected): array
+    {
+        $value = $row[$key] ?? null;
+        if ($value === null || $value === []) {
+            return array_fill(0, $expected, ['in' => [0, 0], 'out' => [0, 0]]);
+        }
+
+        if (!is_array($value) || count($value) !== $expected) {
+            throw new MapInvalidException($path . ' does not match the points');
+        }
+
+        $handles = [];
+        foreach ($value as $handle) {
+            if (!is_array($handle)) {
+                throw new MapInvalidException($path . ' has an invalid handle');
+            }
+
+            $handles[] = [
+                'in' => $this->handleOffset($handle['in'] ?? null, $path),
+                'out' => $this->handleOffset($handle['out'] ?? null, $path),
+            ];
+        }
+
+        return $handles;
+    }
+
+    /**
+     * Смещение ручки.
+     *
+     * @param mixed $value Значение.
+     * @param string $path Путь.
+     *
+     * @return array{0: int, 1: int} Смещение.
+     *
+     * @throws MapInvalidException Если смещение неверно.
+     */
+    private function handleOffset(mixed $value, string $path): array
+    {
+        if (!is_array($value) || count($value) !== 2) {
+            throw new MapInvalidException($path . ' has an invalid handle');
+        }
+
+        $x = $value[0] ?? null;
+        $y = $value[1] ?? null;
+        $x = $this->offsetValue($x, $path);
+        $y = $this->offsetValue($y, $path);
+
+        return [$x, $y];
+    }
+
+    /**
+     * Знаковое смещение ручки.
+     *
+     * @param mixed $value Значение.
+     * @param string $path Путь.
+     *
+     * @return int Смещение.
+     *
+     * @throws MapInvalidException Если смещение неверно.
+     */
+    private function offsetValue(mixed $value, string $path): int
+    {
+        if (is_float($value) && floor($value) === $value) {
+            $value = (int) $value;
+        }
+
+        if (!is_int($value) || abs($value) > 20000) {
+            throw new MapInvalidException($path . ' has an invalid handle');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Точка [x, y].
+     *
+     * @param mixed $point Значение.
+     * @param string $path Путь.
+     *
+     * @return array{0: int, 1: int} Точка.
+     *
+     * @throws MapInvalidException Если точка неверна.
+     */
+    private function pointValue(mixed $point, string $path): array
+    {
+        if (!is_array($point) || count($point) !== 2) {
+            throw new MapInvalidException($path . ' has an invalid point');
+        }
+
+        $x = $point[0] ?? null;
+        $y = $point[1] ?? null;
+        if (!is_int($x) || !is_int($y)) {
+            throw new MapInvalidException($path . ' has an invalid point');
+        }
+
+        $this->assertCoordinate($x, $path);
+        $this->assertCoordinate($y, $path);
+
+        return [$x, $y];
+    }
+
+    /**
+     * Проверяет координату.
+     *
+     * @param int $value Значение.
+     * @param string $path Путь.
+     *
+     * @return void
+     *
+     * @throws MapInvalidException Если координата вне мира.
+     */
+    private function assertCoordinate(int $value, string $path): void
+    {
+        if ($value < 0 || $value > 20000) {
+            throw new MapInvalidException($path . ' has an invalid point');
+        }
+    }
+}

@@ -1,0 +1,858 @@
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
+import type { MapAreaEdit } from '@/modules/Roleplay/Map/Dto/MapAreaEdit';
+import type { MapEdgeEdit } from '@/modules/Roleplay/Map/Dto/MapEdgeEdit';
+import type { MapHit } from '@/modules/Roleplay/Map/Dto/MapHit';
+import type { MapLineEdit } from '@/modules/Roleplay/Map/Dto/MapLineEdit';
+import type { MapMeta } from '@/modules/Roleplay/Map/Dto/MapMeta';
+import type { MapNodeEdit } from '@/modules/Roleplay/Map/Dto/MapNodeEdit';
+import type { MapPoint } from '@/modules/Roleplay/Map/Dto/MapPoint';
+import type { MapSize } from '@/modules/Roleplay/Map/Dto/MapSize';
+import type { MapSummary } from '@/modules/Roleplay/Map/Dto/MapSummary';
+import type { MapVariantEdit } from '@/modules/Roleplay/Map/Dto/MapVariantEdit';
+import type { MapWarning } from '@/modules/Roleplay/Map/Dto/MapWarning';
+import type { MapDetailMode } from '@/modules/Roleplay/Map/Enum/MapDetailMode';
+import { useMapDetail } from '@/modules/Roleplay/Map/Composables/useMapDetail';
+import { useMapDraft } from '@/modules/Roleplay/Map/Composables/useMapDraft';
+import { useMapEditor } from '@/modules/Roleplay/Map/Composables/useMapEditor';
+import { useMapRoute } from '@/modules/Roleplay/Map/Composables/useMapRoute';
+import { mapGeometryService } from '@/modules/Roleplay/Map/init';
+import MapCanvas from '@/modules/Roleplay/Map/Component/Map/MapCanvas.vue';
+import MapToolbar from '@/modules/Roleplay/Map/Component/Map/MapToolbar.vue';
+import MapSidebar from '@/modules/Roleplay/Map/Component/Map/MapSidebar.vue';
+import MapRoutePanel from '@/modules/Roleplay/Map/Component/Map/MapRoutePanel.vue';
+import MapInfoPanel from '@/modules/Roleplay/Map/Component/Map/MapInfoPanel.vue';
+import MapNodeDialog from '@/modules/Roleplay/Map/Component/Map/MapNodeDialog.vue';
+import MapAreaDialog from '@/modules/Roleplay/Map/Component/Map/MapAreaDialog.vue';
+import MapLineDialog from '@/modules/Roleplay/Map/Component/Map/MapLineDialog.vue';
+import MapEdgeDialog from '@/modules/Roleplay/Map/Component/Map/MapEdgeDialog.vue';
+import MapVariantDialog from '@/modules/Roleplay/Map/Component/Map/MapVariantDialog.vue';
+import MapCalibrationDialog from '@/modules/Roleplay/Map/Component/Map/MapCalibrationDialog.vue';
+import MapSettingsDialog from '@/modules/Roleplay/Map/Component/Map/MapSettingsDialog.vue';
+import MapConflictDialog from '@/modules/Roleplay/Map/Component/Map/MapConflictDialog.vue';
+import MapWarningsDialog from '@/modules/Roleplay/Map/Component/Map/MapWarningsDialog.vue';
+import MapHelpDialog from '@/modules/Roleplay/Map/Component/Map/MapHelpDialog.vue';
+
+const route = useRoute();
+const router = useRouter();
+const draftState = useMapDraft();
+const detail = useMapDetail({ map: draftState.draft });
+const { draft, saving, conflict, warnings, dirty, canEdit, error: saveError } = draftState;
+const { terrains, catalog, variant, selectedVariantId, selected, loading, error: loadError } = detail;
+const routeState = useMapRoute({ map: draft, variant, terrains });
+
+const mode = ref<MapDetailMode>('view');
+const nodeOpen = ref(false);
+const nodeTargetId = ref<number | null>(null);
+const pendingPoint = ref<MapPoint | null>(null);
+const areaOpen = ref(false);
+const areaTargetId = ref<number | null>(null);
+const pendingPath = ref<MapPoint[] | null>(null);
+const lineOpen = ref(false);
+const lineTargetId = ref<number | null>(null);
+const pendingLine = ref<MapPoint[] | null>(null);
+const edgeOpen = ref(false);
+const edgeTargetId = ref<number | null>(null);
+const edgeFrom = ref<number | null>(null);
+const edgeTo = ref<number | null>(null);
+const variantOpen = ref(false);
+const variantTargetId = ref<number | null>(null);
+const suggestedScale = ref<number | null>(null);
+const calibrationOpen = ref(false);
+const calibrationPixels = ref(0);
+const settingsOpen = ref(false);
+const conflictOpen = ref(false);
+const warningsOpen = ref(false);
+const helpOpen = ref(false);
+const notice = ref<string | null>(null);
+const pendingLineDefaults = ref<{ terrainCode: string; width: number } | null>(null);
+
+const editor = useMapEditor({
+  map: draft,
+  variant,
+  selected,
+  draft: draftState,
+  onOpenNode: (nodeId) => openNode(nodeId),
+  onCreateNode: (point) => {
+    nodeTargetId.value = null;
+    pendingPoint.value = point;
+    nodeOpen.value = true;
+  },
+  onCreateEdge: (fromNodeId, toNodeId) => {
+    edgeTargetId.value = null;
+    edgeFrom.value = fromNodeId;
+    edgeTo.value = toNodeId;
+    edgeOpen.value = true;
+  },
+  onCreateArea: (path) => {
+    areaTargetId.value = null;
+    pendingPath.value = path;
+    areaOpen.value = true;
+  },
+  onCreateRect: (path) => {
+    areaTargetId.value = null;
+    pendingPath.value = path;
+    areaOpen.value = true;
+  },
+  onCreateLine: (points) => {
+    lineTargetId.value = null;
+    pendingLine.value = points;
+    lineOpen.value = true;
+  },
+  onCalibrate: (points) => {
+    calibrationPixels.value = mapGeometryService.distance(points[0], points[1]);
+    calibrationOpen.value = true;
+  },
+});
+
+const nodeTarget = computed(() => draft.value?.nodes.find((node) => node.id === nodeTargetId.value) ?? null);
+const areaTarget = computed(() => draft.value?.areas.find((area) => area.id === areaTargetId.value) ?? null);
+const lineTarget = computed(() => draft.value?.lines.find((line) => line.id === lineTargetId.value) ?? null);
+const edgeTarget = computed(() => draft.value?.edges.find((edge) => edge.id === edgeTargetId.value) ?? null);
+const variantTarget = computed(
+  () => draft.value?.variants.find((candidate) => candidate.id === variantTargetId.value) ?? null,
+);
+
+const nodeOptions = computed(() => {
+  const current = draft.value;
+  const currentVariant = variant.value;
+  if (!current || !currentVariant) return [];
+
+  return current.nodes
+    .filter((node) =>
+      node.placements.some((placement) => placement.variantId === currentVariant.id && placement.isPresent),
+    )
+    .map((node) => ({ id: node.id, name: node.isPoi && node.name ? node.name : `Узел #${node.id}` }));
+});
+
+const poiOptions = computed(() =>
+  nodeOptions.value.filter((option) => {
+    const node = draft.value?.nodes.find((candidate) => candidate.id === option.id);
+
+    return node?.isPoi === true && node.name !== '';
+  }),
+);
+
+const mapOptions = computed<MapSummary[]>(() => catalog.value.filter((candidate) => candidate.id !== draft.value?.id));
+
+const draftSize = computed(() => Math.max(editor.draftArea.value.length, editor.draftLine.value.length));
+const lineDefaults = computed(() => pendingLineDefaults.value);
+const activeLineIndex = computed(() => {
+  const target = editor.activeTarget.value;
+  if (
+    target === null ||
+    (target.kind !== 'line-vertex' &&
+      target.kind !== 'line-width' &&
+      target.kind !== 'line-handle-in' &&
+      target.kind !== 'line-handle-out')
+  ) {
+    return null;
+  }
+
+  return target.index;
+});
+const rulerLabel = computed(() => {
+  const points = editor.rulerPoints.value;
+  if (points.length < 2) return null;
+  const millimetersPerPixel = variant.value?.millimetersPerPixel ?? null;
+  if (millimetersPerPixel === null) {
+    return `${Math.round(editor.rulerPixels.value)} px · масштаб не задан`;
+  }
+  const meters = (editor.rulerPixels.value * millimetersPerPixel) / 1000;
+  const text = meters >= 1000 ? `${(meters / 1000).toFixed(2)} км` : `${Math.round(meters)} м`;
+
+  return `${text} · ${Math.round(editor.rulerPixels.value)} px`;
+});
+
+function edgeWarnings(edgeId: number | null): MapWarning[] {
+  if (edgeId === null) return [];
+
+  return warnings.value.filter((warning) => warning.edgeId === edgeId);
+}
+
+function onResize(size: MapSize): void {
+  editor.resize(size);
+}
+
+function onBaseSize(size: MapSize): void {
+  const current = variant.value;
+  if (!current || size.width <= 0 || size.height <= 0) return;
+  draftState.setVariantBaseSize(current.id, size.width, size.height);
+}
+
+function selectHit(hit: MapHit | null): void {
+  selected.value = hit;
+}
+
+function openNode(nodeId: number): void {
+  nodeTargetId.value = nodeId;
+  pendingPoint.value = null;
+  nodeOpen.value = true;
+}
+
+function openLinkedNode(nodeId: number): void {
+  areaOpen.value = false;
+  openNode(nodeId);
+}
+
+function openArea(areaId: number): void {
+  areaTargetId.value = areaId;
+  pendingPath.value = null;
+  areaOpen.value = true;
+}
+
+function openLine(lineId: number): void {
+  lineTargetId.value = lineId;
+  pendingLine.value = null;
+  pendingLineDefaults.value = null;
+  lineOpen.value = true;
+}
+
+function openEdge(edgeId: number): void {
+  edgeTargetId.value = edgeId;
+  edgeFrom.value = null;
+  edgeTo.value = null;
+  edgeOpen.value = true;
+}
+
+function openVariant(variantId: number | null): void {
+  variantTargetId.value = variantId;
+  suggestedScale.value = null;
+  variantOpen.value = true;
+}
+
+function editHit(hit: MapHit): void {
+  if (hit.kind === 'node') openNode(hit.id);
+  else if (hit.kind === 'area') openArea(hit.id);
+  else if (hit.kind === 'line') openLine(hit.id);
+  else openEdge(hit.id);
+}
+
+function removeHit(hit: MapHit): void {
+  if (hit.kind === 'node') draftState.removeNode(hit.id);
+  else if (hit.kind === 'area') draftState.removeArea(hit.id);
+  else if (hit.kind === 'line') draftState.removeLine(hit.id);
+  else draftState.removeEdge(hit.id);
+  editor.clearTarget();
+  selected.value = null;
+}
+
+function submitNode(edit: MapNodeEdit): void {
+  const target = nodeTarget.value;
+  if (target) {
+    draftState.updateNode(target.id, edit);
+  } else if (pendingPoint.value && variant.value) {
+    const nodeId = draftState.addNode(edit, variant.value.id, pendingPoint.value);
+    selected.value = { kind: 'node', id: nodeId };
+  }
+  nodeOpen.value = false;
+  pendingPoint.value = null;
+}
+
+function submitArea(edit: MapAreaEdit): void {
+  const target = areaTarget.value;
+  const path = target
+    ? (target.shapes.find((shape) => shape.variantId === variant.value?.id)?.path ?? [])
+    : (pendingPath.value ?? []);
+  let nodeToOpen: number | null = null;
+  let nextEdit = edit;
+
+  if (edit.makePoi && edit.nodeId === null && variant.value && path.length >= 3) {
+    const centroid = mapGeometryService.polygonCentroid(path);
+    const nodeId = draftState.addNode(
+      {
+        isPoi: true,
+        name: edit.label.trim() || 'Точка интереса',
+        shortInfo: '',
+        publicInfo: '',
+        gmInfo: '',
+        linkedMapId: null,
+        icon: '',
+      },
+      variant.value.id,
+      centroid,
+    );
+    nextEdit = { ...edit, nodeId };
+    nodeToOpen = nodeId;
+  }
+
+  if (target) {
+    draftState.updateArea(target.id, nextEdit);
+  } else if (pendingPath.value && variant.value) {
+    const areaId = draftState.addArea(nextEdit, variant.value.id, pendingPath.value);
+    selected.value = { kind: 'area', id: areaId };
+    editor.setTool('view');
+  }
+  areaOpen.value = false;
+  pendingPath.value = null;
+  if (nodeToOpen !== null) {
+    openNode(nodeToOpen);
+  }
+}
+
+function submitLine(edit: MapLineEdit): void {
+  const target = lineTarget.value;
+  if (target) {
+    draftState.updateLine(target.id, edit);
+  } else if (pendingLine.value && variant.value) {
+    const lineId = draftState.addLine(edit, variant.value.id, pendingLine.value);
+    selected.value = { kind: 'line', id: lineId };
+    editor.setTool('view');
+    editor.focusLineVertex(lineId, pendingLine.value.length - 1);
+  }
+  lineOpen.value = false;
+  pendingLine.value = null;
+  pendingLineDefaults.value = null;
+}
+
+function submitEdge(edit: MapEdgeEdit): void {
+  const target = edgeTarget.value;
+  if (target) {
+    draftState.updateEdge(target.id, edit);
+  } else if (variant.value) {
+    const edgeId = draftState.addEdge(edit, variant.value.id);
+    selected.value = { kind: 'edge', id: edgeId };
+    editor.setTool('view');
+  }
+  edgeOpen.value = false;
+}
+
+function submitVariant(edit: MapVariantEdit): void {
+  const target = variantTarget.value;
+  if (target) {
+    draftState.updateVariant(target.id, edit);
+  } else {
+    selectedVariantId.value = draftState.addVariant(edit);
+  }
+  variantOpen.value = false;
+  suggestedScale.value = null;
+}
+
+function removeNode(nodeId: number): void {
+  draftState.removeNode(nodeId);
+  nodeOpen.value = false;
+  selected.value = null;
+}
+
+function removeArea(areaId: number): void {
+  draftState.removeArea(areaId);
+  areaOpen.value = false;
+  selected.value = null;
+}
+
+function removeLine(lineId: number): void {
+  draftState.removeLine(lineId);
+  lineOpen.value = false;
+  selected.value = null;
+}
+
+function removeEdge(edgeId: number): void {
+  draftState.removeEdge(edgeId);
+  edgeOpen.value = false;
+  selected.value = null;
+}
+
+function removeVariant(variantId: number): void {
+  draftState.removeVariant(variantId);
+  variantOpen.value = false;
+  if (selectedVariantId.value === variantId) {
+    selectedVariantId.value = null;
+  }
+}
+
+function submitSettings(meta: MapMeta): void {
+  draftState.updateMeta(meta);
+  settingsOpen.value = false;
+}
+
+function applyCalibration(millimetersPerPixel: number): void {
+  calibrationOpen.value = false;
+  openVariant(variant.value?.id ?? null);
+  suggestedScale.value = millimetersPerPixel;
+}
+
+function openCalibration(): void {
+  mode.value = 'edit';
+  cancelDrafts();
+  editor.setTool('calibrate');
+}
+
+function openBackdrop(): void {
+  mode.value = 'edit';
+  openVariant(variant.value?.id ?? null);
+}
+
+function openHelp(): void {
+  helpOpen.value = true;
+}
+
+function cancelDrafts(): void {
+  pendingLineDefaults.value = null;
+  editor.cancelDraft();
+}
+
+function branchLine(): void {
+  const line = lineTarget.value ?? (selected.value?.kind === 'line' ? draft.value?.lines.find((item) => item.id === selected.value?.id) : null);
+  if (!line || !variant.value) return;
+  const target = editor.activeTarget.value;
+  const index =
+    target?.kind === 'line-vertex' && target.id === line.id
+      ? target.index
+      : line.points.length - 1;
+  const point = line.points[index];
+  if (!point) return;
+  pendingLineDefaults.value = {
+    terrainCode: line.terrainCode,
+    width: Math.max(1, line.widths[index] ?? 1),
+  };
+  mode.value = 'edit';
+  selected.value = { kind: 'line', id: line.id };
+  editor.startBranch(point);
+}
+
+function undoEdit(): void {
+  draftState.undo();
+  editor.clearTarget();
+  selected.value = null;
+}
+
+function redoEdit(): void {
+  draftState.redo();
+  editor.clearTarget();
+  selected.value = null;
+}
+
+async function saveDraft(): Promise<void> {
+  notice.value = null;
+  const result = await draftState.save(false);
+  if (!result) {
+    if (conflict.value) conflictOpen.value = true;
+
+    return;
+  }
+  conflictOpen.value = false;
+  selected.value = null;
+  detail.resetVariant(result);
+  warningsOpen.value = warnings.value.length > 0;
+  notice.value = 'Карта опубликована';
+}
+
+async function overwriteDraft(): Promise<void> {
+  conflictOpen.value = false;
+  const result = await draftState.save(true);
+  if (!result) return;
+  selected.value = null;
+  detail.resetVariant(result);
+  warningsOpen.value = warnings.value.length > 0;
+  notice.value = 'Карта перезаписана';
+}
+
+async function copyDraft(): Promise<void> {
+  const result = await draftState.saveAsCopy();
+  if (!result) return;
+  conflictOpen.value = false;
+  selected.value = null;
+  detail.resetVariant(result);
+  warningsOpen.value = warnings.value.length > 0;
+  await router.replace({ name: 'MapDetail', params: { id: result.id } });
+}
+
+async function archiveCurrent(): Promise<void> {
+  if (!window.confirm('Отправить карту в архив? Черновик будет потерян.')) return;
+  const archived = await draftState.archive();
+  if (archived) openMapList();
+}
+
+function refreshFromServer(): void {
+  if (dirty.value && !window.confirm('Отменить несохранённые изменения и загрузить карту заново?')) return;
+  loadDetail();
+}
+
+function discardDraft(): void {
+  if (!window.confirm('Отменить все несохранённые изменения?')) return;
+  draftState.discard();
+  selected.value = null;
+}
+
+function openSettings(): void {
+  mode.value = 'edit';
+  settingsOpen.value = true;
+}
+
+function openMapList(): void {
+  void router.push({ name: 'Maps' });
+}
+
+async function loadDetail(): Promise<void> {
+  const mapId = Number(route.params.id);
+  if (!Number.isFinite(mapId)) return;
+  const loaded = await detail.load(mapId);
+  if (!loaded) return;
+  draftState.setBaseline(loaded);
+  detail.resetVariant(loaded);
+  notice.value = null;
+}
+
+function onKeydown(event: KeyboardEvent): void {
+  if (isTyping(event.target)) return;
+  if (mode.value !== 'edit') return;
+
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+    event.preventDefault();
+    if (event.shiftKey) redoEdit();
+    else undoEdit();
+
+    return;
+  }
+
+  if (event.key === 'Delete' || event.key === 'Backspace') {
+    if (editor.deleteActive()) {
+      event.preventDefault();
+
+      return;
+    }
+    if (selected.value !== null) {
+      event.preventDefault();
+      removeHit(selected.value);
+    }
+
+    return;
+  }
+
+  if (event.key !== 'Enter' && event.key !== 'Escape') return;
+  const hasDialog =
+    nodeOpen.value ||
+    areaOpen.value ||
+    lineOpen.value ||
+    edgeOpen.value ||
+    variantOpen.value ||
+    calibrationOpen.value ||
+    settingsOpen.value ||
+    helpOpen.value;
+  if (hasDialog) return;
+  if (event.key === 'Enter') editor.finishDraft();
+  else {
+    if (editor.tool.value === 'ruler') editor.clearRuler();
+    cancelDrafts();
+  }
+}
+
+function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable
+  );
+}
+
+function onBeforeUnload(event: BeforeUnloadEvent): void {
+  if (!dirty.value) return;
+  event.preventDefault();
+  event.returnValue = '';
+}
+
+watch(canEdit, (value) => {
+  if (!value && mode.value === 'edit') mode.value = 'view';
+});
+
+watch(mode, (value) => {
+  if (value !== 'edit') {
+    editor.cancelDraft();
+    pendingLineDefaults.value = null;
+  }
+  if (value !== 'route') routeState.clear();
+});
+
+watch(lineOpen, (value) => {
+  if (!value) pendingLineDefaults.value = null;
+});
+
+watch(
+  () => editor.tool.value,
+  (value, previous) => {
+    if (previous === 'line' && value !== 'line') pendingLineDefaults.value = null;
+  },
+);
+
+watch(
+  () => route.params.id,
+  () => loadDetail(),
+);
+
+onBeforeRouteLeave(() => {
+  if (!dirty.value) return true;
+
+  return window.confirm('На карте есть несохранённые изменения. Уйти без сохранения?');
+});
+
+onMounted(() => {
+  loadDetail();
+  window.addEventListener('beforeunload', onBeforeUnload);
+  window.addEventListener('keydown', onKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', onBeforeUnload);
+  window.removeEventListener('keydown', onKeydown);
+});
+</script>
+
+<template>
+  <v-container fluid class="d-flex flex-column map-page">
+    <div class="d-flex flex-wrap align-center ga-3 mb-3">
+      <v-btn variant="text" prepend-icon="mdi-arrow-left" @click="openMapList">Карты</v-btn>
+      <h1 class="text-h6">{{ draft?.name ?? 'Карта' }}</h1>
+      <v-chip v-if="draft" size="small" variant="tonal">
+        {{ draft.visibility === 'public' ? 'Публичная' : 'Приватная' }}
+      </v-chip>
+      <v-chip v-if="draft && !canEdit" size="small" variant="tonal" color="info">Только просмотр</v-chip>
+      <v-chip v-if="loading" size="small" variant="tonal">Загрузка…</v-chip>
+      <v-spacer />
+      <span class="text-caption text-medium-emphasis">Версия {{ draft?.version ?? '—' }}</span>
+    </div>
+
+    <MapToolbar
+      v-model:mode="mode"
+      :tool="editor.tool.value"
+      :variant-id="selectedVariantId"
+      :variants="draft?.variants ?? []"
+      :can-edit="canEdit"
+      :saving="saving"
+      :dirty="dirty"
+      :draft-size="draftSize"
+      :can-undo="draftState.canUndo.value"
+      :can-redo="draftState.canRedo.value"
+      @update:tool="editor.setTool($event)"
+      @update:variant-id="detail.selectVariant($event)"
+      @fit="editor.fitToView()"
+      @zoom="editor.zoomBy($event)"
+      @refresh="refreshFromServer"
+      @save="saveDraft"
+      @discard="discardDraft"
+      @create-variant="openVariant(null)"
+      @edit-variant="openVariant(variant?.id ?? null)"
+      @calibrate="openCalibration"
+      @finish-draft="editor.finishDraft()"
+      @cancel-draft="cancelDrafts"
+      @settings="openSettings"
+      @backdrop="openBackdrop"
+      @help="openHelp"
+      @undo="undoEdit"
+      @redo="redoEdit"
+    />
+
+    <div class="text-caption text-medium-emphasis mt-2">{{ editor.hint.value }}</div>
+
+    <v-alert v-if="loadError" type="error" variant="tonal" class="mt-3">
+      {{ loadError }}
+      <template #append>
+        <v-btn size="small" variant="tonal" @click="refreshFromServer">Повторить</v-btn>
+      </template>
+    </v-alert>
+    <v-alert v-else-if="saveError" type="error" variant="tonal" class="mt-3">
+      {{ saveError }}
+      <template #append>
+        <v-btn size="small" variant="tonal" @click="draftState.clearError()">Скрыть</v-btn>
+      </template>
+    </v-alert>
+    <v-alert v-if="notice" type="success" variant="tonal" class="mt-3" closable @click:close="notice = null">
+      {{ notice }}
+    </v-alert>
+
+    <div class="map-workbench mt-3">
+      <div class="map-workbench__canvas">
+        <MapCanvas
+          :map="draft"
+          :variant="variant"
+          :viewport="editor.viewport.value"
+          :selected="selected"
+          :selected-target="editor.activeTarget.value"
+          :route="routeState.route.value"
+          :terrains="terrains"
+          :draft-area="editor.draftArea.value"
+          :draft-line="editor.draftLine.value"
+          :rect-points="editor.rectPoints.value"
+          :calibration-points="editor.calibrationPoints.value"
+          :ruler-points="editor.rulerPoints.value"
+          :ruler-label="rulerLabel"
+          :edge-source-id="editor.edgeSourceId.value"
+          :tool="editor.tool.value"
+          :cursor="editor.cursor.value"
+          @pointer-down="editor.onPointerDown"
+          @pointer-move="editor.onPointerMove"
+          @pointer-up="editor.onPointerUp"
+          @pointer-dblclick="editor.onDoubleClick"
+          @wheel="editor.zoomAt"
+          @resize="onResize"
+          @base-size="onBaseSize"
+        />
+      </div>
+
+      <div class="map-workbench__panel">
+        <MapSidebar
+          v-if="mode === 'edit' && draft"
+          :map="draft"
+          :variant="variant"
+          :selected="selected"
+          @select="selectHit"
+          @edit="editHit"
+          @create="editor.setTool($event)"
+        />
+        <MapRoutePanel
+          v-if="mode === 'route'"
+          :nodes="routeState.nodeOptions.value"
+          :route="routeState.route.value"
+          :error="routeState.error.value"
+          :loading="false"
+          @build="routeState.build"
+          @clear="routeState.clear"
+        />
+        <v-card v-if="editor.tool.value === 'ruler' && editor.rulerPoints.value.length > 0" variant="outlined" class="mt-3">
+          <v-card-title class="text-body-2">Линейка</v-card-title>
+          <v-card-text class="text-body-2">
+            <div>Точек: {{ editor.rulerPoints.value.length }}</div>
+            <div>{{ rulerLabel ?? 'Кликните вторую точку' }}</div>
+          </v-card-text>
+          <v-card-actions>
+            <v-btn size="small" variant="text" @click="editor.clearRuler()">Очистить</v-btn>
+          </v-card-actions>
+        </v-card>
+        <MapInfoPanel
+          v-if="draft && selected"
+          class="mt-3"
+          :map="draft"
+          :selected="selected"
+          :terrains="terrains"
+          :active-index="activeLineIndex"
+          @edit="editHit"
+          @remove="removeHit"
+          @branch="branchLine"
+          @smooth="editor.smoothLine()"
+          @corner="editor.cornerLine()"
+          @width="(lineId, index, width) => draftState.setLineWidth(lineId, index, width)"
+          @uniform-width="(lineId, width) => draftState.setLineWidthAll(lineId, width)"
+          @close="selectHit(null)"
+        />
+        <v-alert v-else-if="mode !== 'edit' && !loading" type="info" variant="tonal" class="mt-3">
+          Выберите точку, объект, ленту или ребро на карте.
+        </v-alert>
+      </div>
+    </div>
+
+    <MapNodeDialog
+      v-model:open="nodeOpen"
+      :node="nodeTarget"
+      :map-options="mapOptions"
+      :submitting="saving"
+      @submit="submitNode"
+      @remove="removeNode"
+    />
+
+    <MapAreaDialog
+      v-model:open="areaOpen"
+      :area="areaTarget"
+      :terrains="terrains"
+      :nodes="poiOptions"
+      :submitting="saving"
+      @submit="submitArea"
+      @remove="removeArea"
+      @open-node="openLinkedNode"
+    />
+
+    <MapLineDialog
+      v-model:open="lineOpen"
+      :line="lineTarget"
+      :terrains="terrains"
+      :defaults="lineDefaults"
+      :submitting="saving"
+      @submit="submitLine"
+      @remove="removeLine"
+    />
+
+    <MapEdgeDialog
+      v-model:open="edgeOpen"
+      :edge="edgeTarget"
+      :from-node-id="edgeFrom"
+      :to-node-id="edgeTo"
+      :terrains="terrains"
+      :nodes="nodeOptions"
+      :warnings="edgeWarnings(edgeTargetId)"
+      :submitting="saving"
+      :scale-required="variant?.millimetersPerPixel === null"
+      @submit="submitEdge"
+      @remove="removeEdge"
+    />
+
+    <MapVariantDialog
+      v-model:open="variantOpen"
+      :variant="variantTarget"
+      :can-delete="(draft?.variants.length ?? 0) > 1"
+      :submitting="saving"
+      :suggested-millimeters-per-pixel="suggestedScale"
+      @submit="submitVariant"
+      @remove="removeVariant"
+    />
+
+    <MapCalibrationDialog
+      v-model:open="calibrationOpen"
+      :pixels="calibrationPixels"
+      :submitting="false"
+      @apply="applyCalibration"
+    />
+
+    <MapSettingsDialog
+      v-if="draft"
+      v-model:open="settingsOpen"
+      :map="draft"
+      :submitting="false"
+      @submit="submitSettings"
+      @archive="archiveCurrent"
+    />
+
+    <MapConflictDialog
+      v-model:open="conflictOpen"
+      :conflict="conflict"
+      :saving="saving"
+      @overwrite="overwriteDraft"
+      @copy="copyDraft"
+    />
+
+    <MapWarningsDialog
+      v-if="draft"
+      v-model:open="warningsOpen"
+      :warnings="warnings"
+      :map="draft"
+      :terrains="terrains"
+    />
+
+    <MapHelpDialog v-model:open="helpOpen" />
+  </v-container>
+</template>
+
+<style scoped>
+.map-page {
+  height: 100%;
+}
+
+.map-workbench {
+  display: flex;
+  gap: 16px;
+  min-height: 480px;
+  height: calc(100vh - 260px);
+}
+
+.map-workbench__canvas {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.map-workbench__panel {
+  flex: 0 0 320px;
+  max-width: 320px;
+  overflow-y: auto;
+}
+</style>

@@ -24,6 +24,7 @@ import {
   registerGameRealtimePort,
 } from '@/modules/Roleplay/Game/init';
 import { registerUserModule } from '@/modules/Core/User/init';
+import { registerMapApi, registerMapModule } from '@/modules/Roleplay/Map/init';
 import { registerRuleModule } from '@/modules/Roleplay/Rule/init';
 import { registerRuleSpaceModule } from '@/modules/Roleplay/RuleSpace/init';
 import { registerCharacterModule, registerCharacterApi } from '@/modules/Roleplay/Character/init';
@@ -54,6 +55,7 @@ async function registerApiLayer(): Promise<void> {
     const { mockGameApi } = await import('@/modules/Roleplay/Game/Mock/mockGameApi');
     const { mockGameRealtimePort } = await import('@/modules/Roleplay/Game/Mock/mockGameRealtimePort');
     const { mockCharacterApi } = await import('@/modules/Roleplay/Character/Mock/mockCharacterApi');
+    const { mockMapApi } = await import('@/modules/Roleplay/Map/Mock/mockMapApi');
 
     registerAuthApi(mockAuthApi);
     registerChatApi(mockChatApi);
@@ -71,6 +73,7 @@ async function registerApiLayer(): Promise<void> {
     registerGameApi(mockGameApi);
     registerGameRealtimePort(mockGameRealtimePort);
     registerCharacterApi(mockCharacterApi);
+    registerMapApi(mockMapApi);
     registerCsrfApi(mockCsrfApi);
   } else {
     const { HttpClient, Engine, registerEngine } = await import('@/modules/Core/Engine/init');
@@ -92,6 +95,7 @@ async function registerApiLayer(): Promise<void> {
     const { GameApi } = await import('@/modules/Roleplay/Game/Service/GameApi');
     const { GameRealtimeApi } = await import('@/modules/Roleplay/Game/Service/GameRealtimeApi');
     const { CharacterApi } = await import('@/modules/Roleplay/Character/Service/CharacterApi');
+    const { MapApi } = await import('@/modules/Roleplay/Map/Service/MapApi');
 
     const csrfApi = new CsrfApi();
     registerCsrfApi(csrfApi);
@@ -116,6 +120,7 @@ async function registerApiLayer(): Promise<void> {
     registerGameApi(new GameApi(engine));
     registerGameRealtimePort(new GameRealtimeApi(engine));
     registerCharacterApi(new CharacterApi(engine));
+    registerMapApi(new MapApi(engine));
   }
 }
 
@@ -138,6 +143,7 @@ async function bootstrap(): Promise<void> {
   await registerRuleModule();
   registerRuleSpaceModule();
   registerGameModule();
+  registerMapModule();
   registerCharacterModule();
   registerNotificationModule();
   assertMenuTree();
