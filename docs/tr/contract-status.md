@@ -148,9 +148,10 @@ Frontend delta evidence, 2026-09-30:
 - `MockGameParticipantCandidateSource` использует bounded query/cursor/limit
   pages; full projections для инициативы запрашиваются отдельным batch только
   для выбранных `entityKeys`.
-- `GameRealtimeApi` сохраняет real transport без SSE и сообщает недоступность
-  будущего `game.sync`/subscription через typed `GAME_REALTIME_UNAVAILABLE`;
-  mock cursor/snapshot path остаётся отдельным.
+- `GameRealtimeApi` работает поверх SSE `/api/game/sync`: кадры приходят
+  курсором, подписка переподключается с `lastCursor`. Отдельного чтения
+  снимка (`game.sync`) нет ни в real-режиме, ни в моке — снимок был дефектом
+  эскиза.
 - Ручная dev-проверка инициативы подтверждена: кандидат-поиск показывает
   персонажей перед НПС с разделителем, выбранные сущности получают full
   projection одним batch-запросом, характеристика персонажа и free/fixed

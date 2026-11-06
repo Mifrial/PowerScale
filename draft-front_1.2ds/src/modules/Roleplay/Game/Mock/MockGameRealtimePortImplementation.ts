@@ -1,6 +1,4 @@
 import type { GameRealtimeEvent } from '@/modules/Roleplay/Game/Dto/GameRealtimeEvent';
-import type { GameRealtimeSyncRequest } from '@/modules/Roleplay/Game/Dto/GameRealtimeSyncRequest';
-import type { GameRealtimeSyncResult } from '@/modules/Roleplay/Game/Dto/GameRealtimeSyncResult';
 import type { GameRuntimeEntityChanged } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityChanged';
 import type { IGameRealtimePort } from '@/modules/Roleplay/Game/Interface/IGameRealtimePort';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
@@ -12,60 +10,20 @@ import {
   isSessionActive,
 } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import * as mockGameState from '@/modules/Roleplay/Game/Mock/mockGameState';
-import { MockGameRuntimeProjectionSource } from '@/modules/Roleplay/Game/Mock/MockGameRuntimeProjectionSource';
 
 /**
- * In-memory Game realtime contract. It models ordered delivery and bounded sync
- * without pretending to provide production SSE durability.
+ * In-memory Game realtime contract: ordered delivery by cursor, без снимка.
+ * Снимок — дефект эскиза, в PHP его нет.
  */
 export class MockGameRealtimePort implements IGameRealtimePort {
   private readonly eventsByGame = new Map<number, GameRealtimeEvent[]>();
   private readonly listenersByGame = new Map<number, Set<(event: GameRealtimeEvent) => void>>();
-  private readonly runtimeProjectionSource = new MockGameRuntimeProjectionSource();
   private readonly stopCharacterSubscription: () => void;
 
   constructor() {
     this.stopCharacterSubscription = characterChangePort.subscribe((change) => {
       void this.publishCharacterChange(change.characterId, change.actualVersion, change.changedSections);
     });
-  }
-
-  async sync(gameId: number, request: GameRealtimeSyncRequest, signal?: AbortSignal): Promise<GameRealtimeSyncResult> {
-    if (signal?.aborted) throw new DOMException('The operation was aborted', 'AbortError');
-
-    const events = this.eventsByGame.get(gameId) ?? [];
-    const currentCursor = events.at(-1)?.cursor ?? 0;
-    const firstCursor = events[0]?.cursor ?? currentCursor + 1;
-    const lastCursor = request.lastCursor;
-    const staleCursor = lastCursor !== null && lastCursor < firstCursor - 1;
-
-    if (lastCursor !== null && !staleCursor && lastCursor <= currentCursor) {
-      return {
-        kind: 'events',
-        currentCursor,
-        events: events.filter((event) => event.cursor > lastCursor),
-      };
-    }
-
-    const snapshot = await mockGameState.getGameStateSnapshot(gameId);
-    const entityKeys = [...new Set(request.entityKeys ?? [])];
-    const projections =
-      entityKeys.length === 0
-        ? []
-        : (
-            await this.runtimeProjectionSource.getRuntimeEntities(
-              gameId,
-              { entityKeys, projectionLevel: request.projectionLevel ?? 'summary' },
-              signal,
-            )
-          ).projections;
-
-    return {
-      kind: 'snapshot',
-      currentCursor,
-      snapshot,
-      projections,
-    };
   }
 
   subscribe(gameId: number, listener: (event: GameRealtimeEvent) => void): () => void {

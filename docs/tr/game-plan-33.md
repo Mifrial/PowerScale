@@ -36,10 +36,10 @@
 
 ## Остаток
 
-- Восстановление SSE после обрыва в real-режиме: `GameChatTab.recoverRealtime()`
-  зовёт `IGameRealtimePort::sync()`, а `GameRealtimeApi::sync()` бросает
-  `GAME_REALTIME_UNAVAILABLE`; ошибка глотается. Переподключение должно идти
-  повторным `openSse` с `lastCursor`, без `game.sync`.
+- Восстановление SSE после обрыва закрыто 2026-11-06: `subscription` переподключается
+  с `lastCursor`, отдельного `game.sync` нет. Неудачный кадр не блокирует
+  очередь доставки: проекция догоняется точечно, курсор двигают следующие
+  кадры или переподключение.
 - Магия и всплеск по-прежнему пишут часть состояний локально
   (`SpellCastDialog`, `persistBurstDamage`); это вне P4.
 

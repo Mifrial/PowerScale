@@ -12,8 +12,11 @@ describe('MockGameRealtimePort', () => {
     clearMockGameState();
   });
 
-  it('assigns monotonic gameId.cursor event ids and deduplicates sync by cursor', async () => {
+  it('assigns monotonic gameId.cursor event ids and delivers them in order', () => {
     const port = new MockGameRealtimePort();
+    const delivered: string[] = [];
+    const stop = port.subscribe(7, (event) => delivered.push(event.eventId));
+
     try {
       port.publishEntityChange({
         gameId: 7,
@@ -34,19 +37,20 @@ describe('MockGameRealtimePort', () => {
         battleId: 'battle-1',
       });
 
-      const result = await port.sync(7, { lastCursor: 0 });
-
-      expect(result.kind).toBe('events');
-      if (result.kind !== 'events') return;
-      expect(result.events.map((event) => event.eventId)).toEqual(['7.1', '7.2']);
-      expect(result.events.map((event) => event.cursor)).toEqual([1, 2]);
+      expect(delivered).toEqual(['7.1', '7.2']);
     } finally {
+      stop();
       port.dispose();
     }
   });
 
-  it('falls back to a bounded snapshot after the retained event window is stale', async () => {
+  it('keeps cursor monotonic after the retained window is exceeded', () => {
     const port = new MockGameRealtimePort();
+    let lastCursor = 0;
+    const stop = port.subscribe(8, (event) => {
+      lastCursor = event.cursor;
+    });
+
     try {
       for (let cursor = 1; cursor <= 101; cursor += 1) {
         port.publishEntityChange({
@@ -60,13 +64,9 @@ describe('MockGameRealtimePort', () => {
         });
       }
 
-      const result = await port.sync(8, { lastCursor: 0, entityKeys: ['npc:2'] });
-
-      expect(result.kind).toBe('snapshot');
-      if (result.kind !== 'snapshot') return;
-      expect(result.currentCursor).toBe(101);
-      expect(result.projections.length).toBeLessThanOrEqual(1);
+      expect(lastCursor).toBe(101);
     } finally {
+      stop();
       port.dispose();
     }
   });

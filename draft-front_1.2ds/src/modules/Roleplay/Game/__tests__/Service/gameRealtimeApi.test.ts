@@ -17,15 +17,6 @@ describe('GameRealtimeApi', () => {
     vi.useRealTimers();
   });
 
-  it('maps missing future game.sync action to explicit unsupported state', async () => {
-    const api = new GameRealtimeApi({ runAction: vi.fn(), openSse: vi.fn() } as unknown as Engine);
-
-    await expect(api.sync(1, { lastCursor: null })).rejects.toMatchObject({
-      name: 'GameRealtimeApiError',
-      code: 'GAME_REALTIME_UNAVAILABLE',
-    });
-  });
-
   it('opens /game/sync and forwards strike frames with battleId', () => {
     const openSse = vi.fn().mockReturnValue({ close: vi.fn() });
     const api = new GameRealtimeApi({ runAction: vi.fn(), openSse } as unknown as Engine);

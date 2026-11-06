@@ -55,6 +55,7 @@ import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance
 import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
 import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
 import { gameBattleSheetVersionService } from '@/modules/Roleplay/Game/Service/Instance/gameBattleSheetVersionService';
+import { GameRealtimeEventQueue } from '@/modules/Roleplay/Game/Service/GameRealtimeEventQueue';
 import { processSessionSourceService } from '@/modules/Roleplay/Game/Service/Instance/processSessionSourceService';
 import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
 
@@ -337,9 +338,12 @@ const pendingNpcProjectionKeys = new Set<CombatEntityKey>();
 let projectionEpoch = 0;
 let realtimeCursor = 0;
 let stopRealtimeSubscription: (() => void) | null = null;
-let realtimeApplyChain = Promise.resolve();
-let realtimeSyncRequired = false;
-let realtimeRecoveryPromise: Promise<void> | null = null;
+const realtimeQueue = new GameRealtimeEventQueue(applyRealtimeEvent, (event) => {
+  const entityKey = event.entityKey;
+  if (entityKey && isKnownRealtimeEntity(entityKey)) {
+    void loadRuntimeProjections([entityKey], event.gameId, true);
+  }
+});
 
 const runtimeParticipantKeys = computed(() => new Set(gameStateSnapshot.value?.session?.participantEntityKeys ?? []));
 
@@ -430,7 +434,6 @@ async function load(): Promise<void> {
   const requestSequence = ++loadSequence;
   processNoticeReady = false;
   const requestGameId = gameId.value;
-  const requestSessionRunning = props.detail.game.sessionRunning;
   const requestSpaceId = props.detail.game.spaceId;
   const requestRulesRevision = props.detail.game.rulesRevision;
   loading.value = true;
@@ -539,13 +542,6 @@ async function load(): Promise<void> {
       store.applyGameUpdate(await getGameApi().getGame(requestGameId));
       if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
       await tryOpenPhpStrike();
-    }
-    if (!gamePhpMode.isEnabled()) {
-      try {
-        await syncRealtime(requestGameId, characterKeys, requestSessionRunning, requestSequence);
-      } catch {
-        // Основной snapshot уже загружен; sync transport подключится при следующем reload/reconnect.
-      }
     }
   } catch (e) {
     if (requestSequence === loadSequence) {
@@ -1228,7 +1224,14 @@ async function applyRealtimeEvent(event: GameRealtimeEvent): Promise<boolean> {
     event.entityKey,
     knownProjection?.projectionLevel === 'full' || initiativeKeys.value.includes(event.entityKey) ? 'full' : 'summary',
   );
-  if (!projection || projection.actualVersion < event.actualVersion) return false;
+  if (!projection) {
+    // Сущность ушла из игры: проекция больше не нужна, кадр очередь не держит.
+    forgetRuntimeEntity(event.entityKey);
+    realtimeCursor = event.cursor;
+
+    return true;
+  }
+  if (projection.actualVersion < event.actualVersion) return false;
 
   applyRuntimeProjection(projection);
   realtimeCursor = event.cursor;
@@ -1236,19 +1239,13 @@ async function applyRealtimeEvent(event: GameRealtimeEvent): Promise<boolean> {
   return true;
 }
 
+/**
+ * Кадр — только сигнал «перечитай», истина клиента — прочитанные данные.
+ * Поэтому неудачный кадр не блокирует очередь: отставшую проекцию догоняем
+ * отдельно, а курсор двигают следующие кадры или переподключение.
+ */
 function enqueueRealtimeEvent(event: GameRealtimeEvent): void {
-  realtimeApplyChain = realtimeApplyChain
-    .then(async () => {
-      if (realtimeSyncRequired) return;
-      if (await applyRealtimeEvent(event)) return;
-
-      realtimeSyncRequired = true;
-      await recoverRealtime();
-    })
-    .catch(() => {
-      realtimeSyncRequired = true;
-      void recoverRealtime();
-    });
+  realtimeQueue.enqueue(event);
 }
 
 function realtimeEntityKeys(): CombatEntityKey[] {
@@ -1261,63 +1258,9 @@ function realtimeEntityKeys(): CombatEntityKey[] {
   ];
 }
 
-async function syncRealtime(
-  requestGameId: number,
-  entityKeys: readonly CombatEntityKey[],
-  requestSessionRunning: boolean,
-  requestSequence: number,
-): Promise<boolean> {
-  const result = await getGameRealtimePort().sync(requestGameId, {
-    lastCursor: realtimeCursor === 0 ? null : realtimeCursor,
-    entityKeys: [...entityKeys],
-    projectionLevel: requestSessionRunning ? 'summary' : 'full',
-  });
-  if (requestSequence !== loadSequence || requestGameId !== gameId.value) return false;
-
-  if (result.kind === 'snapshot') {
-    realtimeCursor = result.currentCursor;
-    gameStateSnapshot.value = result.snapshot;
-    for (const projection of result.projections) applyRuntimeProjection(projection);
-    const projectionsRecovered = await loadRuntimeProjections(
-      result.snapshot.battle?.initiative?.participants.map((participant) => participant.id) ?? [],
-      requestGameId,
-    );
-
-    return projectionsRecovered;
-  }
-
-  for (const event of result.events) {
-    if (!(await applyRealtimeEvent(event))) return false;
-  }
-  realtimeCursor = Math.max(realtimeCursor, result.currentCursor);
-
-  return true;
-}
-
-async function recoverRealtime(): Promise<void> {
-  if (realtimeRecoveryPromise) return realtimeRecoveryPromise;
-
-  realtimeRecoveryPromise = syncRealtime(
-    gameId.value,
-    realtimeEntityKeys(),
-    props.detail.game.sessionRunning,
-    loadSequence,
-  )
-    .then((recovered) => {
-      if (recovered) realtimeSyncRequired = false;
-    })
-    .catch(() => undefined)
-    .finally(() => {
-      realtimeRecoveryPromise = null;
-    });
-
-  return realtimeRecoveryPromise;
-}
-
 function connectRealtime(requestGameId: number): void {
   disconnectRealtime();
   if (!props.active) return;
-  realtimeSyncRequired = false;
   stopRealtimeSubscription = getGameRealtimePort().subscribe(
     requestGameId,
     (event) => {
@@ -1444,6 +1387,15 @@ function notifyCompletedProcessStep(
       return;
     }
   }
+}
+
+function forgetRuntimeEntity(entityKey: CombatEntityKey): void {
+  if (!(entityKey in runtimeByKey.value)) return;
+  const next = { ...runtimeByKey.value };
+  delete next[entityKey];
+  runtimeByKey.value = next;
+  staleNpcProjectionKeys.delete(entityKey);
+  pendingNpcProjectionKeys.delete(entityKey);
 }
 
 function applyRuntimeProjection(projection: GameRuntimeEntityProjection): void {

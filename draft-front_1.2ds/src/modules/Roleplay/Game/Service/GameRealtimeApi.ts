@@ -1,8 +1,6 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
 import type { SseHandle } from '@/modules/Core/Engine/Dto/SseHandle';
 import type { GameRealtimeEvent } from '@/modules/Roleplay/Game/Dto/GameRealtimeEvent';
-import type { GameRealtimeSyncRequest } from '@/modules/Roleplay/Game/Dto/GameRealtimeSyncRequest';
-import type { GameRealtimeSyncResult } from '@/modules/Roleplay/Game/Dto/GameRealtimeSyncResult';
 import type { IGameRealtimePort } from '@/modules/Roleplay/Game/Interface/IGameRealtimePort';
 import { GameRealtimeApiError } from '@/modules/Roleplay/Game/Service/GameRealtimeApiError';
 
@@ -15,7 +13,7 @@ const RECONNECT_MAX_MS = 5000;
 const RECONNECT_JITTER_MS = 250;
 
 /**
- * SSE /api/game/sync. Курсор внутри API; game.sync не вызывается.
+ * SSE /api/game/sync. Курсор внутри API; отдельного чтения снимка нет.
  *
  * Сервер закрывает поток по потолку жизни, поэтому поток переподключается
  * сам с последним курсором. Явное закрытие подписки переподключение отменяет.
@@ -33,14 +31,6 @@ export class GameRealtimeApi implements IGameRealtimePort {
   private backoffMs = RECONNECT_MIN_MS;
 
   constructor(private readonly engine: Engine) {}
-
-  async sync(
-    _gameId: number,
-    _request: GameRealtimeSyncRequest,
-    _signal?: AbortSignal,
-  ): Promise<GameRealtimeSyncResult> {
-    throw new GameRealtimeApiError('GAME_REALTIME_UNAVAILABLE', 'Game realtime sync failed');
-  }
 
   subscribe(
     gameId: number,
