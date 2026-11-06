@@ -9,7 +9,10 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
+use Mifrial\Roleplay\Game\Dto\GameStrikeActorRef;
 use Mifrial\Roleplay\Game\Dto\GameStrikeAttack;
+use Mifrial\Roleplay\Game\Dto\GameStrikeProfileRef;
+use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
@@ -58,7 +61,7 @@ final class GameStrikeRules
 
     private readonly GameStrikeMovement $movement;
 
-    private readonly GameStrikeProfileContext $profiles;
+    private readonly GameStrikeAttackFactory $attacks;
 
     private readonly GameStrikeDistance $distance;
 
@@ -92,9 +95,32 @@ final class GameStrikeRules
         $this->resourceResolver = new GameActionResourceResolver();
         $this->successModifier = new GameStrikeSuccessModifier();
         $this->movement = new GameStrikeMovement();
-        $this->profiles = new GameStrikeProfileContext($formulaEvaluations);
+        $this->attacks = new GameStrikeAttackFactory(
+            $slices,
+            $participants,
+            $equipment,
+            new GameStrikeProfileContext($formulaEvaluations),
+        );
         $this->distance = new GameStrikeDistance($formulaEvaluations, $this->movement);
         $this->damage = new GameStrikeDamage($formulaEvaluations);
+    }
+
+    /**
+     * Снимок удара по запросу.
+     *
+     * @param GameStrikeTarget $target Запрос удара.
+     *
+     * @return GameStrikeAttack Снимок.
+     *
+     * @throws GameInvalidException Если вид, профиль или лист битые.
+     * @throws RuleInvalidException Если база профиля битая.
+     * @throws CharacterInvalidException Если снимок битый.
+     * @throws CharacterNotFoundException Если персонажа нет.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function attack(GameStrikeTarget $target): GameStrikeAttack
+    {
+        return $this->attacks->build($target);
     }
 
     /**
@@ -650,7 +676,7 @@ final class GameStrikeRules
         int $gripBonus = 0,
     ): DimensionalNumber {
         try {
-            $attack = $this->attackContext(
+            return $this->damage->amount($this->attacks->build($this->target(
                 $spaceId,
                 $rulesRevision,
                 $itemRuleCode,
@@ -665,10 +691,7 @@ final class GameStrikeRules
                 $actionCharacteristicModifier,
                 $strengthDrop,
                 $gripBonus,
-                'Game strike damage profile is invalid',
-            );
-
-            return $this->damage->amount($attack);
+            )));
         } catch (GameInvalidException $exception) {
             throw $exception;
         } catch (RuleInvalidException | CharacterInvalidException | CharacterNotFoundException $exception) {
@@ -716,7 +739,7 @@ final class GameStrikeRules
         int $gripBonus = 0,
     ): DimensionalNumber {
         try {
-            $attack = $this->attackContext(
+            return $this->damage->strength($this->attacks->build($this->target(
                 $spaceId,
                 $rulesRevision,
                 $itemRuleCode,
@@ -731,9 +754,7 @@ final class GameStrikeRules
                 $actionCharacteristicModifier,
                 $strengthDrop,
                 $gripBonus,
-                'Game strike damage profile is invalid',
-            );
-            return $this->damage->strength($attack);
+            )));
         } catch (GameInvalidException $exception) {
             throw $exception;
         } catch (RuleInvalidException | CharacterInvalidException | CharacterNotFoundException $exception) {
@@ -742,7 +763,7 @@ final class GameStrikeRules
     }
 
     /**
-     * Профиль удара и контекст формулы для него.
+     * Запрос удара из идентификаторов.
      *
      * @param int $spaceId Мир.
      * @param int $rulesRevision Ревизия игры.
@@ -758,17 +779,10 @@ final class GameStrikeRules
      * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
      * @param int $strengthDrop Штраф силы броска в размерах.
      * @param int $gripBonus Бонус удержания к Силе удара.
-     * @param string $profileError Текст отказа для чужого профиля.
      *
-     * @return GameStrikeAttack Снимок атаки.
-     *
-     * @throws GameInvalidException Если вид, профиль или лист битые.
-     * @throws RuleInvalidException Если база профиля или сила не найдены.
-     * @throws CharacterInvalidException Если снимок битый.
-     * @throws CharacterNotFoundException Если персонажа нет.
-     * @throws GameNotFoundException Если ревизии нет.
+     * @return GameStrikeTarget Запрос удара.
      */
-    private function attackContext(
+    private function target(
         int $spaceId,
         int $rulesRevision,
         string $itemRuleCode,
@@ -783,42 +797,21 @@ final class GameStrikeRules
         ?int $actionCharacteristicModifier,
         int $strengthDrop,
         int $gripBonus,
-        string $profileError,
-    ): GameStrikeAttack {
-        if ($attackerKind !== 'character' && $attackerKind !== 'npc') {
-            throw new GameInvalidException('Game strike attacker is invalid');
-        }
-
-        $documents = $this->participants->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
-        $item = $this->equipment->selectedItem(
-            $spaceId,
-            $rulesRevision,
-            $documents['choices'],
-            $itemInventoryId,
-            $itemRuleCode,
-        );
-        $profiles = $item->getWeapon()?->getWeaponProfiles() ?? [];
-        $profile = $profiles[$profileIndex] ?? null;
-        if (!$profile instanceof WeaponProfile || $profile->getType() !== $profileType) {
-            throw new GameInvalidException($profileError);
-        }
-
-        $slice = $this->slice($spaceId, $rulesRevision);
-        $context = $this->participants->formulaContext(
-            $slice,
-            $documents['sheet'],
-            $documents['choices'],
-            $documents['key'],
-        );
-        $context = $this->profiles->build(
-            $profile,
-            $context,
-            $actionCharacteristicModifier ?? 0,
+    ): GameStrikeTarget {
+        return new GameStrikeTarget(
+            new GameStrikeProfileRef(
+                $spaceId,
+                $rulesRevision,
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+                $itemInventoryId,
+            ),
+            new GameStrikeActorRef($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion),
+            $actionCharacteristicModifier,
             $strengthDrop,
             $gripBonus,
         );
-
-        return new GameStrikeAttack($slice, $documents, $item, $profile, $context);
     }
 
     /**
@@ -861,7 +854,7 @@ final class GameStrikeRules
         int $gripBonus = 0,
     ): DimensionalNumber {
         try {
-            $attack = $this->attackContext(
+            return $this->damage->penetration($this->attacks->build($this->target(
                 $spaceId,
                 $rulesRevision,
                 $itemRuleCode,
@@ -876,10 +869,7 @@ final class GameStrikeRules
                 $actionCharacteristicModifier,
                 $strengthDrop,
                 $gripBonus,
-                'Game strike penetration profile is invalid',
-            );
-
-            return $this->damage->penetration($attack);
+            )));
         } catch (RuleInvalidException | CharacterInvalidException | CharacterNotFoundException $exception) {
             throw new GameInvalidException('Game strike penetration is invalid', $exception);
         }
@@ -2767,7 +2757,7 @@ final class GameStrikeRules
         string $actionRuleCode = '',
     ): array {
         try {
-            $attack = $this->attackContext(
+            return $this->distance->metrics($this->attacks->build($this->target(
                 $spaceId,
                 $rulesRevision,
                 $itemRuleCode,
@@ -2782,10 +2772,7 @@ final class GameStrikeRules
                 $actionCharacteristicModifier,
                 0,
                 0,
-                'Game strike distance profile is invalid',
-            );
-
-            return $this->distance->metrics($attack, $conditions, $actionRuleCode);
+            )), $conditions, $actionRuleCode);
         } catch (GameInvalidException $exception) {
             throw $exception;
         } catch (RuleInvalidException | RuleSpecShapeException | CharacterInvalidException | CharacterNotFoundException $exception) {
@@ -2831,7 +2818,7 @@ final class GameStrikeRules
         int $actionCharacteristicModifier = 0,
         string $actionRuleCode = '',
     ): void {
-        $this->distanceMetrics(
+        $this->distance->assertConditions($this->attacks->build($this->target(
             $spaceId,
             $rulesRevision,
             $itemRuleCode,
@@ -2843,10 +2830,10 @@ final class GameStrikeRules
             $npcSheet,
             $npcChoices,
             $sheetVersion,
-            $conditions,
             $actionCharacteristicModifier,
-            $actionRuleCode,
-        );
+            0,
+            0,
+        )), $conditions, $actionRuleCode);
     }
 
     /**

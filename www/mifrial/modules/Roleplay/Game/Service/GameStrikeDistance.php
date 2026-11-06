@@ -39,6 +39,24 @@ final class GameStrikeDistance
     }
 
     /**
+     * Проверяет условия цели по дистанции.
+     *
+     * @param GameStrikeAttack $attack Снимок атаки.
+     * @param array<string, mixed> $conditions Условия цели.
+     * @param string $actionRuleCode Карточка действия.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если условия неверны.
+     * @throws RuleInvalidException Если формула дистанции битая.
+     * @throws RuleSpecShapeException Если форма формулы чужая.
+     */
+    public function assertConditions(GameStrikeAttack $attack, array $conditions, string $actionRuleCode): void
+    {
+        $this->metrics($attack, $conditions, $actionRuleCode);
+    }
+
+    /**
      * Метрики дистанции подготовленного удара.
      *
      * @param GameStrikeAttack $attack Снимок атаки.
