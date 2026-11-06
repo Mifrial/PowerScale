@@ -668,15 +668,35 @@ final class GameStrikePortFactory
      */
     private function strikeRules(IServiceLocator $serviceLocator): GameStrikeRules
     {
+        $slices = $this->strikeSlices($serviceLocator);
+        $characters = $this->characters($serviceLocator);
+        $equipment = new GameStrikeEquipment($slices);
+
         return new GameStrikeRules(
-            $this->ruleSlices($serviceLocator),
-            $this->characters($serviceLocator),
+            $characters,
             $this->formulaContexts($serviceLocator),
             $this->formulaEvaluations($serviceLocator),
             $this->checkRoll($serviceLocator),
             $this->layers($serviceLocator),
             $this->characterSheets($serviceLocator),
+            $slices,
+            $equipment,
+            new GameStrikeInventorySpend($slices, $equipment, $characters),
         );
+    }
+
+    /**
+     * Срезы ревизии для удара.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameStrikeSlices Срезы.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function strikeSlices(IServiceLocator $serviceLocator): GameStrikeSlices
+    {
+        return new GameStrikeSlices($this->ruleSlices($serviceLocator));
     }
 
     /**

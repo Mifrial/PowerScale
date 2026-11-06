@@ -11,7 +11,6 @@ use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -38,7 +37,6 @@ use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\DamageTypeSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\DistanceValue;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponProfile;
@@ -48,7 +46,6 @@ use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 use Mifrial\Roleplay\Rule\Spec\Formulas;
-use Mifrial\Roleplay\Rule\Spec\ItemModifierOperations;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -70,11 +67,6 @@ final class GameStrikeRules
     private readonly GameStrikeSuccessModifier $successModifier;
 
     /**
-     * @var array<string, CharacterRuleSlice>
-     */
-    private array $ruleSliceCache = [];
-
-    /**
      * @var array<string, array<string, mixed>>
      */
     private array $sheetCache = [];
@@ -87,24 +79,28 @@ final class GameStrikeRules
     /**
      * Создаёт проверку.
      *
-     * @param ICharacterRuleSlices $ruleSlices Срез.
      * @param ICharacters $characters Лист.
      * @param ICharacterFormulaContexts $formulaContexts Контекст листа.
      * @param IFormulaEvaluations $formulaEvaluations Обход формулы.
      * @param GameCheckRoll $hitRoll Бросок попадания.
      * @param GameStrikeLayers $layers Сопротивление слоёв.
      * @param ICharacterSheets $sheets Полный пересчёт листа.
+     * @param GameStrikeSlices $slices Срезы ревизии.
+     * @param GameStrikeEquipment $equipment Снаряжение удара.
+     * @param GameStrikeInventorySpend $inventorySpend Списание предмета.
      *
      * @return void
      */
     public function __construct(
-        private readonly ICharacterRuleSlices $ruleSlices,
         private readonly ICharacters $characters,
         private readonly ICharacterFormulaContexts $formulaContexts,
         private readonly IFormulaEvaluations $formulaEvaluations,
         private readonly GameCheckRoll $hitRoll,
         private readonly GameStrikeLayers $layers,
         private readonly ICharacterSheets $sheets,
+        private readonly GameStrikeSlices $slices,
+        private readonly GameStrikeEquipment $equipment,
+        private readonly GameStrikeInventorySpend $inventorySpend,
     ) {
         $this->soaks = new GameStrikeSoaks();
         $this->amounts = new GameStrikeAmounts();
@@ -263,7 +259,7 @@ final class GameStrikeRules
             throw new GameInvalidException('Game strike attacker choices are invalid');
         }
 
-        $this->assertInventoryItem($choices, $itemInventoryId, $itemRuleCode, $spaceId, $rulesRevision, $instanceIndex);
+        $this->equipment->assertInventoryItem($choices, $itemInventoryId, $itemRuleCode, $spaceId, $rulesRevision, $instanceIndex);
         $this->assertPushProfile($spaceId, $rulesRevision, $actionRuleCode, $itemRuleCode, $profileType, $profileIndex);
     }
 
@@ -612,76 +608,18 @@ final class GameStrikeRules
         int $attackerId,
         ?array $npcChoices,
     ): ?array {
-        $choices = $attackerKind === 'character'
-            ? $this->characterSnapshot($attackerId)['choices']
-            : $npcChoices;
-        if (!is_array($choices)) {
-            throw new GameInvalidException('Game strike attacker choices are invalid');
-        }
-
-        $item = $this->selectedItem($spaceId, $rulesRevision, $choices, $itemInventoryId, $itemRuleCode);
-        $weapon = $item->getWeapon();
-        $profiles = $weapon?->getWeaponProfiles() ?? [];
-        $profile = $profiles[$profileIndex] ?? null;
-        if (!$profile instanceof WeaponProfile || $profile->getType() !== $profileType) {
-            throw new GameInvalidException('Game strike profile is invalid');
-        }
-
-        $ammunitionSpec = $profile->getAmmunition();
-        $mode = $ammunitionSpec?->getMode() ?? ($profileType === 'throw' ? 'self' : 'none');
-        if ($profileType === 'strike') {
-            if ($ammunitionInventoryId !== null) {
-                throw new GameInvalidException('Game strike ammunition is unexpected');
-            }
-
-            return null;
-        }
-
-        if ($profileType === 'throw') {
-            if ($mode !== 'self' || $ammunitionInventoryId !== null) {
-                throw new GameInvalidException('Game throw ammunition is unexpected');
-            }
-
-            $this->assertPositiveQuantity($choices, $itemInventoryId);
-
-            return [
-                'kind' => 'decrementInventoryQuantity',
-                'inventoryId' => $itemInventoryId,
-                'ruleCode' => $itemRuleCode,
-            ];
-        }
-
-        if ($profileType !== 'shoot' || $mode !== 'item' || !is_int($ammunitionInventoryId)) {
-            throw new GameInvalidException('Game strike ammunition is invalid');
-        }
-
-        $keywordCodes = $ammunitionSpec?->getKeywordCodes() ?? [];
-        if ($keywordCodes === []) {
-            throw new GameInvalidException('Game shoot ammunition requirements are missing');
-        }
-
-        $ammunition = $this->selectedAmmunition($choices, $ammunitionInventoryId);
-        $ammunitionRuleCode = $ammunition['ruleCode'];
-        $ammunitionRule = $this->slice($spaceId, $rulesRevision)->findLive($ammunitionRuleCode);
-        $ammunitionSpec = $ammunitionRule?->getSpec();
-        if (
-            $ammunitionRule === null
-            || $ammunitionRule->isSpecBroken()
-            || !$ammunitionSpec instanceof ItemSpec
-        ) {
-            throw new GameInvalidException('Game ammunition item is invalid');
-        }
-
-        $keywords = $ammunitionRule->getKeywordCodes();
-        if (array_diff($keywordCodes, $keywords) === []) {
-            return [
-                'kind' => 'decrementInventoryQuantity',
-                'inventoryId' => $ammunitionInventoryId,
-                'ruleCode' => $ammunitionRuleCode,
-            ];
-        }
-
-        throw new GameInvalidException('Game ammunition is incompatible');
+        return $this->inventorySpend->resolve(
+            $spaceId,
+            $rulesRevision,
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+            $itemInventoryId,
+            $ammunitionInventoryId,
+            $attackerKind,
+            $attackerId,
+            $npcChoices,
+        );
     }
 
     /**
@@ -874,7 +812,7 @@ final class GameStrikeRules
         }
 
         $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
-        $item = $this->selectedItem(
+        $item = $this->equipment->selectedItem(
             $spaceId,
             $rulesRevision,
             $documents['choices'],
@@ -945,7 +883,7 @@ final class GameStrikeRules
         int $gripBonus = 0,
     ): DimensionalNumber {
         $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
-        $item = $this->selectedItem(
+        $item = $this->equipment->selectedItem(
             $spaceId,
             $rulesRevision,
             $documents['choices'],
@@ -1228,7 +1166,7 @@ final class GameStrikeRules
         ?RollAdjustment $pendingAdjustment = null,
     ): array {
         $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
-        $item = $this->selectedItem($spaceId, $rulesRevision, $documents['choices'], $itemInventoryId, $itemRuleCode);
+        $item = $this->equipment->selectedItem($spaceId, $rulesRevision, $documents['choices'], $itemInventoryId, $itemRuleCode);
         $mastery = $this->mastery(
             $this->slice($spaceId, $rulesRevision),
             $documents['sheet'],
@@ -1428,7 +1366,7 @@ final class GameStrikeRules
             $blockItemProfileIndex,
             null,
         );
-        $item = $this->selectedItemById($spaceId, $rulesRevision, $choices, $blockItemInventoryId);
+        $item = $this->equipment->selectedItemById($spaceId, $rulesRevision, $choices, $blockItemInventoryId);
         $profile = $item->getBlockProfile();
         if ($profile === null) {
             throw new GameInvalidException('Game strike block profile is invalid');
@@ -1868,20 +1806,15 @@ final class GameStrikeRules
         string $profileType,
         int $profileIndex,
     ): int {
-        $hands = $this->item($spaceId, $rulesRevision, $itemRuleCode)->getOccupyHands();
-        if ($hands === null) {
-            return 0;
-        }
-
-        $row = $this->inventoryRow($choices, $itemInventoryId, $itemRuleCode);
-        $value = $row['occupyHands'] ?? $hands->getMin();
-        $value = is_int($value) ? $value : $hands->getMin();
-        $rest = max($hands->getMin(), min($hands->getMax(), $value));
-
-        $extra = $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex)
-            ->getExtraHands();
-
-        return $rest + (is_int($extra) && $extra > 0 ? $extra : 0);
+        return $this->equipment->occupyHands(
+            $spaceId,
+            $rulesRevision,
+            $choices,
+            $itemInventoryId,
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+        );
     }
 
     /**
@@ -1896,42 +1829,7 @@ final class GameStrikeRules
      */
     public function gripBonus(int $occupyHands): int
     {
-        if ($occupyHands >= 4) {
-            return 3;
-        }
-
-        return $occupyHands >= 2 ? 2 : 0;
-    }
-
-    /**
-     * Строка инвентаря выбранного предмета.
-     *
-     * @param array<string, mixed> $choices Authoritative choices.
-     * @param int $itemInventoryId Строка инвентаря.
-     * @param string $itemRuleCode Предмет.
-     *
-     * @return array<string, mixed> Строка.
-     *
-     * @throws GameInvalidException Если строки нет.
-     */
-    private function inventoryRow(array $choices, int $itemInventoryId, string $itemRuleCode): array
-    {
-        $inventory = $choices['inventory'] ?? null;
-        if (!is_array($inventory)) {
-            throw new GameInvalidException('Game strike inventory is invalid');
-        }
-
-        foreach ($inventory as $row) {
-            if (
-                is_array($row)
-                && ($row['id'] ?? null) === $itemInventoryId
-                && ($row['ruleCode'] ?? null) === $itemRuleCode
-            ) {
-                return $row;
-            }
-        }
-
-        throw new GameInvalidException('Game strike inventory item is invalid');
+        return $this->equipment->gripBonus($occupyHands);
     }
 
     /**
@@ -2493,8 +2391,8 @@ final class GameStrikeRules
         string $itemRuleCode,
         string $profileType,
     ): DimensionalNumber {
-        $this->assertInventoryItem($choices, $inventoryId, $itemRuleCode, $spaceId, $rulesRevision);
-        $item = $this->selectedItem($spaceId, $rulesRevision, $choices, $inventoryId, $itemRuleCode);
+        $this->equipment->assertInventoryItem($choices, $inventoryId, $itemRuleCode, $spaceId, $rulesRevision);
+        $item = $this->equipment->selectedItem($spaceId, $rulesRevision, $choices, $inventoryId, $itemRuleCode);
         $weapon = $item->getWeapon();
         $family = $item->getProficiencyFamilyCode();
         if (!$weapon instanceof WeaponBlock || $family === null || $family === '') {
@@ -2756,14 +2654,7 @@ final class GameStrikeRules
         string $profileType,
         int $profileIndex,
     ): WeaponProfile {
-        $weapon = $this->item($spaceId, $rulesRevision, $itemRuleCode)->getWeapon();
-        $profiles = $weapon === null ? [] : $weapon->getWeaponProfiles();
-        $profile = $profiles[$profileIndex] ?? null;
-        if (!$profile instanceof WeaponProfile || $profile->getType() !== $profileType) {
-            throw new GameInvalidException('Game strike profile is invalid');
-        }
-
-        return $profile;
+        return $this->slices->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex);
     }
 
     /**
@@ -2812,146 +2703,6 @@ final class GameStrikeRules
     }
 
     /**
-     * Разрешает выбранный предмет по inventory id.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param array<string, mixed> $choices Выборы.
-     * @param int $inventoryId Строка инвентаря.
-     * @param string $itemRuleCode Ожидаемый код.
-     *
-     * @return ItemSpec Живой предмет.
-     *
-     * @throws GameInvalidException Если instance невалиден.
-     * @throws GameNotFoundException Если ревизия отсутствует.
-     */
-    private function selectedItem(
-        int $spaceId,
-        int $rulesRevision,
-        array $choices,
-        int $inventoryId,
-        string $itemRuleCode,
-    ): ItemSpec {
-        $this->assertInventoryItem($choices, $inventoryId, $itemRuleCode, $spaceId, $rulesRevision);
-
-        $inventory = $choices['inventory'];
-        foreach ($inventory as $row) {
-            if (is_array($row) && ($row['id'] ?? null) === $inventoryId) {
-                return $this->effectiveItem($spaceId, $rulesRevision, $row);
-            }
-        }
-
-        throw new GameInvalidException('Game strike inventory item is invalid');
-    }
-
-    /**
-     * Разрешает выбранный предмет без доверия к его rule code.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param array<string, mixed> $choices Выборы.
-     * @param int $inventoryId Строка инвентаря.
-     *
-     * @return ItemSpec Живой предмет.
-     *
-     * @throws GameInvalidException Если instance невалиден.
-     * @throws GameNotFoundException Если ревизия отсутствует.
-     */
-    private function selectedItemById(
-        int $spaceId,
-        int $rulesRevision,
-        array $choices,
-        int $inventoryId,
-    ): ItemSpec {
-        $inventory = $choices['inventory'] ?? null;
-        if (!is_array($inventory)) {
-            throw new GameInvalidException('Game strike inventory is invalid');
-        }
-
-        $rows = array_values(array_filter(
-            $inventory,
-            static fn (mixed $row): bool => is_array($row) && ($row['id'] ?? null) === $inventoryId,
-        ));
-        $code = $rows[0]['ruleCode'] ?? null;
-        if (count($rows) !== 1 || !is_string($code) || ($rows[0]['equipped'] ?? false) !== true) {
-            throw new GameInvalidException('Game strike block item is invalid');
-        }
-
-        return $this->effectiveItem($spaceId, $rulesRevision, $rows[0]);
-    }
-
-    /**
-     * Применяет live operations выбранной inventory instance к live item.
-     *
-     * @param int $spaceId Мир.
-     * @param int $rulesRevision Ревизия.
-     * @param array<string, mixed> $row Строка инвентаря.
-     *
-     * @return ItemSpec Effective spec.
-     *
-     * @throws GameInvalidException Если item или modifier битые.
-     * @throws GameNotFoundException Если ревизия отсутствует.
-     */
-    private function effectiveItem(int $spaceId, int $rulesRevision, array $row): ItemSpec
-    {
-        $code = $row['ruleCode'] ?? null;
-        if (!is_string($code) || $code === '') {
-            throw new GameInvalidException('Game strike inventory item is invalid');
-        }
-
-        $slice = $this->slice($spaceId, $rulesRevision);
-        $rule = $slice->findLive($code);
-        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        if (!$spec instanceof ItemSpec) {
-            throw new GameInvalidException('Game strike item is invalid');
-        }
-
-        return ItemModifierOperations::apply(
-            $spec,
-            $this->modifierSpecs($slice, $row['modifiers'] ?? null),
-            $rule->getKeywordCodes(),
-        );
-    }
-
-    /**
-     * Разрешает live modifier specs строки инвентаря.
-     *
-     * @param CharacterRuleSlice $slice Срез правил.
-     * @param mixed $codes Коды модификаторов.
-     *
-     * @return array<int, ItemModifierSpec> Specs.
-     *
-     * @throws GameInvalidException Если коды или spec битые.
-     */
-    private function modifierSpecs(CharacterRuleSlice $slice, mixed $codes): array
-    {
-        if ($codes === null || $codes === []) {
-            return [];
-        }
-
-        if (!is_array($codes)) {
-            throw new GameInvalidException('Game strike item modifiers are invalid');
-        }
-
-        $specs = [];
-        foreach ($codes as $code) {
-            if (!is_string($code) || $code === '') {
-                throw new GameInvalidException('Game strike item modifier is invalid');
-            }
-
-            $rule = $slice->findLive($code);
-            $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-            if (!$spec instanceof ItemModifierSpec) {
-                throw new GameInvalidException('Game strike item modifier is invalid');
-            }
-
-            $specs[] = $spec;
-        }
-
-        return $specs;
-    }
-
-    /**
      * Выбирает лучшее мастерство носимого оружия этого профиля.
      *
      * @param CharacterRuleSlice $slice Срез правил.
@@ -2984,7 +2735,7 @@ final class GameStrikeRules
 
             $rule = $slice->findLive($row['ruleCode']);
             $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-            if (!$spec instanceof ItemSpec || !$this->isCarried($row, $spec)) {
+            if (!$spec instanceof ItemSpec || !$this->equipment->isCarried($row, $spec)) {
                 continue;
             }
 
@@ -3097,64 +2848,6 @@ final class GameStrikeRules
     }
 
     /**
-     * Проверяет выбранную надетую строку инвентаря.
-     *
-     * @param array<string, mixed> $choices Выборы листа.
-     * @param int $inventoryId Идентификатор строки.
-     * @param string $itemRuleCode Ожидаемый код предмета.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если строка отсутствует или не совпадает.
-     */
-    private function assertInventoryItem(
-        array $choices,
-        int $inventoryId,
-        string $itemRuleCode,
-        int $spaceId,
-        int $rulesRevision,
-        int $instanceIndex = 0,
-    ): void {
-        $inventory = $choices['inventory'] ?? null;
-        if (!is_array($inventory)) {
-            throw new GameInvalidException('Game strike inventory is invalid');
-        }
-
-        $matches = [];
-        foreach ($inventory as $row) {
-            if (is_array($row) && ($row['id'] ?? null) === $inventoryId) {
-                $matches[] = $row;
-            }
-        }
-
-        $item = $this->item($spaceId, $rulesRevision, $itemRuleCode);
-        $quantity = count($matches) === 1 ? ($matches[0]['quantity'] ?? 1) : 0;
-        if (
-            count($matches) !== 1
-            || !$this->isCarried($matches[0], $item)
-            || ($matches[0]['ruleCode'] ?? null) !== $itemRuleCode
-            || !is_int($quantity)
-            || $instanceIndex < 0
-            || $instanceIndex >= $quantity
-        ) {
-            throw new GameInvalidException('Game strike inventory item is invalid');
-        }
-    }
-
-    /**
-     * Строка в руках: надета или врождённое оружие.
-     *
-     * @param array<string, mixed> $row Строка инвентаря.
-     * @param ItemSpec $item Предмет.
-     *
-     * @return bool true, если доступна в бою.
-     */
-    private function isCarried(array $row, ItemSpec $item): bool
-    {
-        return ($row['equipped'] ?? false) === true || $item->isInnate();
-    }
-
-    /**
      * Сдвиг точности текущего удара.
      *
      * @param CharacterRuleSlice $slice Срез.
@@ -3188,81 +2881,6 @@ final class GameStrikeRules
         }
 
         return $delta;
-    }
-
-    /**
-     * Возвращает единственную строку боеприпаса с положительным остатком.
-     *
-     * @param array<string, mixed> $choices Выборы.
-     * @param int $inventoryId Идентификатор строки.
-     *
-     * @return array{ruleCode: string} Строка.
-     *
-     * @throws GameInvalidException Если строка отсутствует или неоднозначна.
-     * @throws GameNotFoundException Если ревизия отсутствует.
-     */
-    private function selectedAmmunition(array $choices, int $inventoryId): array
-    {
-        $inventory = $choices['inventory'] ?? null;
-        if (!is_array($inventory)) {
-            throw new GameInvalidException('Game ammunition inventory is invalid');
-        }
-
-        $matches = [];
-        foreach ($inventory as $row) {
-            if (is_array($row) && ($row['id'] ?? null) === $inventoryId) {
-                $matches[] = $row;
-            }
-        }
-
-        if (count($matches) !== 1) {
-            throw new GameInvalidException('Game ammunition inventory item is missing or ambiguous');
-        }
-
-        $ruleCode = $matches[0]['ruleCode'] ?? null;
-        $quantity = $matches[0]['quantity'] ?? null;
-        $equipped = $matches[0]['equipped'] ?? false;
-        if (
-            !is_string($ruleCode)
-            || $ruleCode === ''
-            || !is_int($quantity)
-            || $quantity < 1
-            || $equipped !== true
-        ) {
-            throw new GameInvalidException('Game ammunition inventory item is invalid');
-        }
-
-        return ['ruleCode' => $ruleCode];
-    }
-
-    /**
-     * Проверяет положительный остаток выбранной строки.
-     *
-     * @param array<string, mixed> $choices Выборы.
-     * @param int $inventoryId Идентификатор строки.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если строка отсутствует, неоднозначна или пуста.
-     */
-    private function assertPositiveQuantity(array $choices, int $inventoryId): void
-    {
-        $inventory = $choices['inventory'] ?? null;
-        if (!is_array($inventory)) {
-            throw new GameInvalidException('Game strike inventory is invalid');
-        }
-
-        $matches = [];
-        foreach ($inventory as $row) {
-            if (is_array($row) && ($row['id'] ?? null) === $inventoryId) {
-                $matches[] = $row;
-            }
-        }
-
-        $quantity = $matches[0]['quantity'] ?? null;
-        if (count($matches) !== 1 || !is_int($quantity) || $quantity < 1) {
-            throw new GameInvalidException('Game strike inventory item is unavailable');
-        }
     }
 
     /**
@@ -3366,7 +2984,7 @@ final class GameStrikeRules
     ): array {
         try {
             $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
-            $item = $this->selectedItem(
+            $item = $this->equipment->selectedItem(
                 $spaceId,
                 $rulesRevision,
                 $documents['choices'],
@@ -3807,13 +3425,7 @@ final class GameStrikeRules
      */
     private function item(int $spaceId, int $rulesRevision, string $ruleCode): ItemSpec
     {
-        $rule = $this->slice($spaceId, $rulesRevision)->findLive($ruleCode);
-        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        if (!$spec instanceof ItemSpec) {
-            throw new GameInvalidException('Game strike item is invalid');
-        }
-
-        return $spec;
+        return $this->slices->item($spaceId, $rulesRevision, $ruleCode);
     }
 
     /**
@@ -3829,22 +3441,7 @@ final class GameStrikeRules
      */
     private function slice(int $spaceId, int $rulesRevision): CharacterRuleSlice
     {
-        $key = $spaceId . ':' . $rulesRevision;
-        if (isset($this->ruleSliceCache[$key])) {
-            return $this->ruleSliceCache[$key];
-        }
-
-        try {
-            $slice = $this->ruleSlices->get($spaceId, $rulesRevision);
-        } catch (CharacterNotFoundException $exception) {
-            throw new GameNotFoundException('Game strike revision was not found', $exception);
-        } catch (CharacterInvalidException $exception) {
-            throw new GameInvalidException('Game strike revision is invalid', $exception);
-        }
-
-        $this->ruleSliceCache[$key] = $slice;
-
-        return $slice;
+        return $this->slices->slice($spaceId, $rulesRevision);
     }
 
     /**

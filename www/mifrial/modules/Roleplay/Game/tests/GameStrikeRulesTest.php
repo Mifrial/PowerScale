@@ -15,8 +15,11 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Service\GameCheckRoll;
 use Mifrial\Roleplay\Game\Service\GameStrikeAmounts;
+use Mifrial\Roleplay\Game\Service\GameStrikeEquipment;
+use Mifrial\Roleplay\Game\Service\GameStrikeInventorySpend;
 use Mifrial\Roleplay\Game\Service\GameStrikeLayers;
 use Mifrial\Roleplay\Game\Service\GameStrikeRules;
+use Mifrial\Roleplay\Game\Service\GameStrikeSlices;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
@@ -380,15 +383,19 @@ final class GameStrikeRulesTest extends TestCase
             $mechanics,
             new GameStrikeAmounts(),
         );
+        $strikeSlices = new GameStrikeSlices($slices);
+        $equipment = new GameStrikeEquipment($strikeSlices);
 
         return new GameStrikeRules(
-            $slices,
             $characters,
             $this->createMock(ICharacterFormulaContexts::class),
             $this->createMock(IFormulaEvaluations::class),
             $checkRoll,
             $layers,
             $sheets,
+            $strikeSlices,
+            $equipment,
+            new GameStrikeInventorySpend($strikeSlices, $equipment, $characters),
         );
     }
 
