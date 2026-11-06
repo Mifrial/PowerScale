@@ -152,7 +152,7 @@ Chat/Member/Message — тот же assembler, что HTTP: unix, `unreadCount` 
 |---|---|
 | `AUTH_REQUIRED` 400 JSON | нет актора, до потока |
 | `CHAT_INVALID` 400 JSON | кривой `since` / `afterId`, до потока |
-| выход | `connection_aborted` |
+| выход | `connection_aborted` или потолок жизни потока (30 с + разброс до 5 с); клиент переподключается с курсором |
 | `INTERNAL` | до потока — как action; в цикле — лог и закрыть, не полукадр |
 
 `AUTH_DENIED` нет. CSRF на URL нет.

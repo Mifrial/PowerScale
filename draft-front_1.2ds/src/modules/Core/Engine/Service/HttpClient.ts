@@ -305,7 +305,11 @@ export class HttpClient {
         eventName = parsed.eventName;
       }
       if (!signal.aborted) {
-        handlers.onError({ code: 'INTERNAL', message: 'Соединение чата прервано' });
+        if (handlers.onEnd) {
+          handlers.onEnd();
+        } else {
+          handlers.onError({ code: 'INTERNAL', message: 'Соединение чата прервано' });
+        }
       }
     } finally {
       reader.releaseLock();

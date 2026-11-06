@@ -1329,6 +1329,17 @@ function connectRealtime(requestGameId: number): void {
   );
 }
 
+/**
+ * Возврат во вкладку: снова подписаться на поток и проверить открытый удар.
+ * Пропущенные события придут курсором, поэтому полный reload не нужен.
+ */
+function resumeRealtime(): void {
+  const requestGameId = gameId.value;
+  if (!requestGameId) return;
+  connectRealtime(requestGameId);
+  void tryOpenPhpStrike();
+}
+
 async function loadRuntimeProjection(entityKey: CombatEntityKey): Promise<void> {
   const requestSequence = (projectionSequences.get(entityKey) ?? 0) + 1;
   const requestGameId = gameId.value;
@@ -2176,9 +2187,18 @@ async function onLaunchChargeCast(payload: { casterKey: CombatEntityKey; sustain
   spellOpen.value = true;
 }
 
-function refreshOffersWhenVisible(): void {
-  if (document.visibilityState !== 'visible') return;
+/**
+ * Фоновая вкладка не держит воркер сервера: поток закрывается, а при
+ * возврате подписка восстанавливается с последнего курсора.
+ */
+function onVisibilityChange(): void {
+  if (document.visibilityState === 'hidden') {
+    disconnectRealtime();
+
+    return;
+  }
   void refreshPendingOffers();
+  if (props.active) resumeRealtime();
 }
 
 watch(
@@ -2191,11 +2211,11 @@ watch(
 );
 
 onMounted(() => {
-  document.addEventListener('visibilitychange', refreshOffersWhenVisible);
+  document.addEventListener('visibilitychange', onVisibilityChange);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('visibilitychange', refreshOffersWhenVisible);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
   disconnectRealtime();
 });
 </script>

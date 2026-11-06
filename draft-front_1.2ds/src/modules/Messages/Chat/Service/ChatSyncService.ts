@@ -209,6 +209,14 @@ export class ChatSyncService {
         this.failChannel(error.message);
         this.scheduleSseReconnect();
       },
+      onEnd: () => {
+        if (!this.connected) return;
+        this.sseHandle?.close();
+        this.sseHandle = null;
+        // Потолок жизни потока на сервере: это не ошибка канала.
+        this.nextBackoffMs = this.initialBackoffMs;
+        this.scheduleSseReconnect();
+      },
     });
   }
 }
