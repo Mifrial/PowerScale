@@ -15,8 +15,6 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Service\GameCheckRoll;
 use Mifrial\Roleplay\Game\Service\GameStrikeAmounts;
-use Mifrial\Roleplay\Game\Service\GameStrikeEquipment;
-use Mifrial\Roleplay\Game\Service\GameStrikeInventorySpend;
 use Mifrial\Roleplay\Game\Service\GameStrikeLayers;
 use Mifrial\Roleplay\Game\Service\GameStrikeParticipants;
 use Mifrial\Roleplay\Game\Service\GameStrikeRules;
@@ -42,12 +40,12 @@ final class GameStrikeRulesTest extends TestCase
     {
         $rules = $this->rules(-1);
 
-        $three = $rules->wideTargetCheckAdvantage(1, 1, 'wide-card', 3);
+        $three = $rules->cards->wideTargetCheckAdvantage(1, 1, 'wide-card', 3);
         self::assertNotNull($three);
         self::assertSame('circumstances', $three->getSourceCode());
         self::assertSame(-2, $three->getDelta());
-        self::assertSame(-1, $rules->wideTargetCheckAdvantage(1, 1, 'wide-card', 2)?->getDelta());
-        self::assertNull($rules->wideTargetCheckAdvantage(1, 1, 'wide-card', 1));
+        self::assertSame(-1, $rules->cards->wideTargetCheckAdvantage(1, 1, 'wide-card', 2)?->getDelta());
+        self::assertNull($rules->cards->wideTargetCheckAdvantage(1, 1, 'wide-card', 1));
     }
 
     /**
@@ -57,7 +55,7 @@ final class GameStrikeRulesTest extends TestCase
      */
     public function testWidePenaltyUsesCardDelta(): void
     {
-        self::assertSame(-4, $this->rules(-2)->wideTargetCheckAdvantage(1, 1, 'wide-card', 3)?->getDelta());
+        self::assertSame(-4, $this->rules(-2)->cards->wideTargetCheckAdvantage(1, 1, 'wide-card', 3)?->getDelta());
     }
 
     /**
@@ -67,7 +65,7 @@ final class GameStrikeRulesTest extends TestCase
      */
     public function testWidePenaltyIsAbsentWithoutCardField(): void
     {
-        self::assertNull($this->rules(null)->wideTargetCheckAdvantage(1, 1, 'wide-card', 3));
+        self::assertNull($this->rules(null)->cards->wideTargetCheckAdvantage(1, 1, 'wide-card', 3));
     }
 
     /**
@@ -82,7 +80,7 @@ final class GameStrikeRulesTest extends TestCase
 
         self::assertSame(
             9,
-            $rules->actionCharacteristicModifier(
+            $rules->modifiers->actionCharacteristicModifier(
                 $slice,
                 'strike-card',
                 'strike',
@@ -92,7 +90,7 @@ final class GameStrikeRulesTest extends TestCase
         );
         self::assertSame(
             6,
-            $rules->actionCharacteristicModifier(
+            $rules->modifiers->actionCharacteristicModifier(
                 $slice,
                 'strike-card',
                 'strike',
@@ -102,7 +100,7 @@ final class GameStrikeRulesTest extends TestCase
         );
         self::assertSame(
             5,
-            $rules->actionCharacteristicModifier(
+            $rules->modifiers->actionCharacteristicModifier(
                 $slice,
                 'strike-card',
                 'strike',
@@ -112,11 +110,11 @@ final class GameStrikeRulesTest extends TestCase
         );
         self::assertSame(
             2,
-            $rules->actionCharacteristicModifier($slice, 'strike-card', 'strike', 1),
+            $rules->modifiers->actionCharacteristicModifier($slice, 'strike-card', 'strike', 1),
         );
         self::assertSame(
             0,
-            $rules->actionCharacteristicModifier($slice, 'strike-card', 'throw', 1),
+            $rules->modifiers->actionCharacteristicModifier($slice, 'strike-card', 'throw', 1),
         );
     }
 
@@ -131,11 +129,11 @@ final class GameStrikeRulesTest extends TestCase
         $rules = $this->rulesFor($slice);
         $choices = ['inventory' => [['id' => 7, 'ruleCode' => 'sword', 'equipped' => true, 'occupyHands' => 2]]];
 
-        $context = $rules->outcome()->attackFilterContext(1, 1, 'sword', 'strike', 0, $choices, 7);
+        $context = $rules->outcome->attackFilterContext(1, 1, 'sword', 'strike', 0, $choices, 7);
         self::assertSame('slashing', $context['damageTypeCode']);
         self::assertSame(2, $context['occupyHands']);
 
-        $default = $rules->outcome()->attackFilterContext(
+        $default = $rules->outcome->attackFilterContext(
             1,
             1,
             'sword',
@@ -158,15 +156,15 @@ final class GameStrikeRulesTest extends TestCase
         $rules = $this->rulesFor($slice);
         $choices = ['inventory' => [['id' => 9, 'ruleCode' => 'bow', 'equipped' => true]]];
 
-        $context = $rules->outcome()->attackFilterContext(1, 1, 'bow', 'shoot', 1, $choices, 9);
+        $context = $rules->outcome->attackFilterContext(1, 1, 'bow', 'shoot', 1, $choices, 9);
         self::assertSame(2, $context['occupyHands']);
         self::assertSame(
             2,
-            $rules->occupyHands(1, 1, $choices, 9, 'bow', 'shoot', 1),
+            $rules->equipment->occupyHands(1, 1, $choices, 9, 'bow', 'shoot', 1),
         );
         self::assertSame(
             1,
-            $rules->occupyHands(1, 1, $choices, 9, 'bow', 'strike', 0),
+            $rules->equipment->occupyHands(1, 1, $choices, 9, 'bow', 'strike', 0),
         );
     }
 
@@ -179,12 +177,12 @@ final class GameStrikeRulesTest extends TestCase
     {
         $rules = $this->rulesFor($this->filterSlice());
 
-        self::assertSame(0, $rules->gripBonus(0));
-        self::assertSame(0, $rules->gripBonus(1));
-        self::assertSame(2, $rules->gripBonus(2));
-        self::assertSame(2, $rules->gripBonus(3));
-        self::assertSame(3, $rules->gripBonus(4));
-        self::assertSame(3, $rules->gripBonus(6));
+        self::assertSame(0, $rules->equipment->gripBonus(0));
+        self::assertSame(0, $rules->equipment->gripBonus(1));
+        self::assertSame(2, $rules->equipment->gripBonus(2));
+        self::assertSame(2, $rules->equipment->gripBonus(3));
+        self::assertSame(3, $rules->equipment->gripBonus(4));
+        self::assertSame(3, $rules->equipment->gripBonus(6));
     }
 
     /**
@@ -200,15 +198,15 @@ final class GameStrikeRulesTest extends TestCase
 
         self::assertSame(
             3,
-            $rules->actionCharacteristicModifier($slice, 'source-card', 'strike', 1, $context),
+            $rules->modifiers->actionCharacteristicModifier($slice, 'source-card', 'strike', 1, $context),
         );
         self::assertSame(
             4,
-            $rules->actionCharacteristicModifier($slice, 'source-card', 'strike', 1, $context, ['double-power' => 1]),
+            $rules->modifiers->actionCharacteristicModifier($slice, 'source-card', 'strike', 1, $context, ['double-power' => 1]),
         );
         self::assertSame(
             4,
-            $rules->attackCharacteristicModifier(
+            $rules->modifiers->attackCharacteristicModifier(
                 $slice,
                 'source-card',
                 'strike',
@@ -233,19 +231,19 @@ final class GameStrikeRulesTest extends TestCase
 
         self::assertSame(
             9,
-            $rules->actionCharacteristicModifier($slice, 'strike-card', 'strike', 1, $context),
+            $rules->modifiers->actionCharacteristicModifier($slice, 'strike-card', 'strike', 1, $context),
         );
         self::assertSame(
             10,
-            $rules->actionCharacteristicModifier($slice, 'strike-card', 'strike', 1, $context, ['double-power' => 1]),
+            $rules->modifiers->actionCharacteristicModifier($slice, 'strike-card', 'strike', 1, $context, ['double-power' => 1]),
         );
         self::assertSame(
             9,
-            $rules->actionCharacteristicModifier($slice, 'strike-card', 'strike', 1, $context, ['double-power' => 0]),
+            $rules->modifiers->actionCharacteristicModifier($slice, 'strike-card', 'strike', 1, $context, ['double-power' => 0]),
         );
         self::assertSame(
             5,
-            $rules->actionCharacteristicModifier(
+            $rules->modifiers->actionCharacteristicModifier(
                 $slice,
                 'strike-card',
                 'strike',
@@ -256,7 +254,7 @@ final class GameStrikeRulesTest extends TestCase
         );
         self::assertSame(
             6,
-            $rules->actionCharacteristicModifier(
+            $rules->modifiers->actionCharacteristicModifier(
                 $slice,
                 'strike-card',
                 'strike',
@@ -276,9 +274,9 @@ final class GameStrikeRulesTest extends TestCase
     {
         $rules = $this->rulesFor($this->capSlice(3));
 
-        self::assertSame(3, $rules->outcome()->successRatingCap(1, 1, 'electricity'));
-        self::assertNull($rules->outcome()->successRatingCap(1, 1, 'cut'));
-        self::assertNull($rules->outcome()->successRatingCap(1, 1, null));
+        self::assertSame(3, $rules->outcome->successRatingCap(1, 1, 'electricity'));
+        self::assertNull($rules->outcome->successRatingCap(1, 1, 'cut'));
+        self::assertNull($rules->outcome->successRatingCap(1, 1, null));
     }
 
     /**
@@ -289,7 +287,7 @@ final class GameStrikeRulesTest extends TestCase
     public function testSuccessRatingCapRejectsUnknownDamageType(): void
     {
         $this->expectException(GameInvalidException::class);
-        $this->rulesFor($this->capSlice(3))->outcome()->successRatingCap(1, 1, 'missing');
+        $this->rulesFor($this->capSlice(3))->outcome->successRatingCap(1, 1, 'missing');
     }
 
     /**
@@ -386,7 +384,6 @@ final class GameStrikeRulesTest extends TestCase
             new GameStrikeAmounts(),
         );
         $strikeSlices = new GameStrikeSlices($slices);
-        $equipment = new GameStrikeEquipment($strikeSlices);
         $participants = new GameStrikeParticipants($characters, $formulaContexts, $sheets, $strikeSlices);
 
         return new GameStrikeRules(
@@ -394,8 +391,7 @@ final class GameStrikeRulesTest extends TestCase
             $checkRoll,
             $layers,
             $strikeSlices,
-            $equipment,
-            new GameStrikeInventorySpend($strikeSlices, $equipment, $characters),
+            $characters,
             $participants,
         );
     }

@@ -41,7 +41,7 @@ final class GamePushRules
      */
     public function pushOf(GameRecord $game, string $actionRuleCode): ?PushSpec
     {
-        return $this->rules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $actionRuleCode);
+        return $this->rules->cards->pushOf($game->getSpaceId(), $game->getRulesRevision(), $actionRuleCode);
     }
 
     /**
@@ -79,7 +79,7 @@ final class GamePushRules
      */
     public function unstableCode(GameRecord $game): string
     {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $matched = [];
         foreach ($slice->getLiveRules() as $rule) {
             $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
@@ -106,7 +106,7 @@ final class GamePushRules
      */
     public function stabilityFloor(array $sheet): DimensionalNumber
     {
-        $weight = $this->rules->characteristicOf($sheet, 'weight');
+        $weight = $this->rules->data->characteristicOf($sheet, 'weight');
 
         return $this->characteristic($weight)->modify(-3);
     }

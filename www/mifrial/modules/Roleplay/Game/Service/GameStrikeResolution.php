@@ -7,7 +7,10 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameStrikeActorRef;
+use Mifrial\Roleplay\Game\Dto\GameStrikeBlockRequest;
 use Mifrial\Roleplay\Game\Dto\GameStrikeDefenseTarget;
+use Mifrial\Roleplay\Game\Dto\GameStrikeDodgeRequest;
+use Mifrial\Roleplay\Game\Dto\GameStrikeHitRequest;
 use Mifrial\Roleplay\Game\Dto\GameStrikeProfileRef;
 use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -83,8 +86,8 @@ final class GameStrikeResolution
         }
 
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
-        $advantages = $this->rules->actionCheckAdvantages($slice, $actionRuleCode, $hitCode);
-        array_push($advantages, ...$this->rules->passiveCheckAdvantages(
+        $advantages = $this->rules->checks->actionCheckAdvantages($slice, $actionRuleCode, $hitCode);
+        array_push($advantages, ...$this->rules->modifiers->passiveCheckAdvantages(
             $slice,
             $this->abilityLevels($game, $kind, $attackerId),
             $hitCode,
@@ -105,24 +108,29 @@ final class GameStrikeResolution
             $targetKeys,
         );
 
-        $roll = $this->rules->rollHit(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
+        $roll = $this->rules->rolls->hit(new GameStrikeHitRequest(
+            GameStrikeTarget::of(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+                $itemInventoryId,
+                $kind,
+                $attackerId,
+                $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
+                $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
+                $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
+                null,
+                0,
+                0,
+            ),
             $hitCode,
-            $itemRuleCode,
-            $profileType,
-            $profileIndex,
-            $itemInventoryId,
-            $kind,
-            $attackerId,
-            $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
-            $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
             $actionRuleCode,
-            $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
             $advantages,
             $tail['accuracy'] + $extraAccuracy,
             $tail['adjustment'],
-        );
+        ));
         $roll['actorKey'] = $kind . ':' . $attackerId;
 
         return $roll;
@@ -172,12 +180,12 @@ final class GameStrikeResolution
             'defender',
         );
         if ($reactionRuleCode !== null) {
-            array_push($advantages, ...$this->rules->actionCheckAdvantages($slice, $reactionRuleCode, $hitCode));
+            array_push($advantages, ...$this->rules->checks->actionCheckAdvantages($slice, $reactionRuleCode, $hitCode));
         }
 
         array_push($advantages, ...$extraAdvantages);
 
-        $roll = $this->rules->rollDodge(
+        $roll = $this->rules->rolls->dodge(new GameStrikeDodgeRequest(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $hitCode,
@@ -188,7 +196,7 @@ final class GameStrikeResolution
             $advantages,
             $shotDistance,
             $profileType,
-        );
+        ));
         $roll['actorKey'] = $kind . ':' . $id;
         $roll['label'] = 'Уклонение';
 
@@ -240,12 +248,12 @@ final class GameStrikeResolution
             'defender',
         );
         if ($reactionRuleCode !== null) {
-            array_push($advantages, ...$this->rules->actionCheckAdvantages($slice, $reactionRuleCode, $hitCode));
+            array_push($advantages, ...$this->rules->checks->actionCheckAdvantages($slice, $reactionRuleCode, $hitCode));
         }
 
         array_push($advantages, ...$extraAdvantages);
 
-        $roll = $this->rules->rollBlock(
+        $roll = $this->rules->rolls->block(new GameStrikeBlockRequest(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $hitCode,
@@ -256,7 +264,7 @@ final class GameStrikeResolution
             $attackerRoll,
             $this->participantKey($game, $kind, $id),
             $advantages,
-        );
+        ));
         $roll['actorKey'] = $kind . ':' . $id;
         $roll['label'] = 'Блок';
 
@@ -281,7 +289,7 @@ final class GameStrikeResolution
             throw new GameInvalidException('Game strike attacker roll is invalid');
         }
 
-        $autoFail = $this->rules->isHitAutoFail($attackerRoll['roll']);
+        $autoFail = $this->rules->hitCheck->isHitAutoFail($attackerRoll['roll']);
         $defenderWon = $defenderRoll !== null && ($defenderRoll['success'] ?? false) === true;
 
         return $reaction === 'dodge'
@@ -305,7 +313,7 @@ final class GameStrikeResolution
             throw new GameInvalidException('Game strike attacker roll is invalid');
         }
 
-        return $this->rules->isHitAutoFail($attackerRoll['roll']) ? 0 : max(0, $rating);
+        return $this->rules->hitCheck->isHitAutoFail($attackerRoll['roll']) ? 0 : max(0, $rating);
     }
 
     /**
@@ -347,7 +355,7 @@ final class GameStrikeResolution
             throw new GameInvalidException('Game strike row is invalid');
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $target = GameStrikeTarget::of(
             $game->getSpaceId(),
@@ -361,12 +369,12 @@ final class GameStrikeResolution
             $kind === 'npc' ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
-            $this->rules->actionCharacteristicModifier(
+            $this->rules->modifiers->actionCharacteristicModifier(
                 $slice,
                 $actionRuleCode,
                 $profileType,
                 1,
-                $this->rules->outcome()->attackFilterContext(
+                $this->rules->outcome->attackFilterContext(
                     $game->getSpaceId(),
                     $game->getRulesRevision(),
                     $itemRuleCode,
@@ -380,8 +388,8 @@ final class GameStrikeResolution
             0,
             0,
         );
-        $metrics = $this->rules->distance()->metrics(
-            $this->rules->damage()->attack($target),
+        $metrics = $this->rules->distance->metrics(
+            $this->rules->damage->attack($target),
             $conditions,
             $actionRuleCode,
         );
@@ -417,7 +425,7 @@ final class GameStrikeResolution
             'difficulty' => $this->pairOf($difficulty),
         ];
 
-        return $this->rules->rerateHit($attackerRoll, [
+        return $this->rules->hitCheck->rerate($attackerRoll, [
             'base' => $difficulty->getBase(),
             'size' => $difficulty->getSize(),
         ]);
@@ -482,8 +490,8 @@ final class GameStrikeResolution
         }
 
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $attackContext = $this->rules->outcome()->attackFilterContext(
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $attackContext = $this->rules->outcome->attackFilterContext(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -492,7 +500,7 @@ final class GameStrikeResolution
             $this->participantChoices($game, $kind, $attackerId),
             $inventoryId,
         );
-        $characteristicModifier = $this->rules->attackCharacteristicModifier(
+        $characteristicModifier = $this->rules->modifiers->attackCharacteristicModifier(
             $slice,
             $actionRuleCode,
             $profileType,
@@ -502,7 +510,7 @@ final class GameStrikeResolution
             $success,
         );
 
-        return $this->rules->damage()->evaluatePenetration(GameStrikeTarget::of(
+        return $this->rules->damage->evaluatePenetration(GameStrikeTarget::of(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -516,7 +524,7 @@ final class GameStrikeResolution
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
             $characteristicModifier,
             $strengthDrop,
-            $this->rules->gripBonus($attackContext['occupyHands']),
+            $this->rules->equipment->gripBonus($attackContext['occupyHands']),
         ));
     }
 
@@ -552,7 +560,7 @@ final class GameStrikeResolution
             throw new GameInvalidException('Game strike row is invalid');
         }
 
-        return $this->rules->defense()->resistance(new GameStrikeDefenseTarget(
+        return $this->rules->defense->resistance(new GameStrikeDefenseTarget(
             new GameStrikeProfileRef(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
@@ -616,7 +624,7 @@ final class GameStrikeResolution
             throw new GameInvalidException('Game strike attacker is invalid');
         }
 
-        $reduceBy = $this->rules->defense()->dodgeSoakReduction(
+        $reduceBy = $this->rules->defense->dodgeSoakReduction(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $pending,
@@ -629,7 +637,7 @@ final class GameStrikeResolution
             $attackerKind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
         );
 
-        return $this->rules->defense()->soak(
+        return $this->rules->defense->soak(
             new GameStrikeDefenseTarget(
                 new GameStrikeProfileRef(
                     $game->getSpaceId(),
@@ -699,8 +707,8 @@ final class GameStrikeResolution
         }
 
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $attackContext = $this->rules->outcome()->attackFilterContext(
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $attackContext = $this->rules->outcome->attackFilterContext(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -709,7 +717,7 @@ final class GameStrikeResolution
             $this->participantChoices($game, $kind, $attackerId),
             $itemInventoryId,
         );
-        $characteristicModifier = $this->rules->attackCharacteristicModifier(
+        $characteristicModifier = $this->rules->modifiers->attackCharacteristicModifier(
             $slice,
             $actionRuleCode,
             $profileType,
@@ -722,7 +730,7 @@ final class GameStrikeResolution
             $characteristicModifier += $extraCharacteristicModifier;
         }
 
-        return $this->rules->damage()->evaluate(GameStrikeTarget::of(
+        return $this->rules->damage->evaluate(GameStrikeTarget::of(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -736,7 +744,7 @@ final class GameStrikeResolution
             $kind === 'npc' ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
             $characteristicModifier,
             $strengthDrop,
-            $this->rules->gripBonus($attackContext['occupyHands']),
+            $this->rules->equipment->gripBonus($attackContext['occupyHands']),
         ));
     }
 
@@ -776,7 +784,7 @@ final class GameStrikeResolution
             $defenderId,
             $injury,
             $success,
-            $this->rules->outcome()->damageTypeCode(
+            $this->rules->outcome->damageTypeCode(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $itemRuleCode,
@@ -849,7 +857,7 @@ final class GameStrikeResolution
             throw new GameInvalidException('Game strike sheet is invalid');
         }
 
-        $split = $this->rules->outcome()->splitInjury(
+        $split = $this->rules->outcome->splitInjury(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $kind,
@@ -867,7 +875,7 @@ final class GameStrikeResolution
             $split,
             $damageTypeCode,
             true,
-            $this->rules->enduranceOf(
+            $this->rules->data->enduranceOf(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $kind,
@@ -925,7 +933,7 @@ final class GameStrikeResolution
     private function participantChoices(GameRecord $game, string $kind, int $id): array
     {
         if ($kind === 'character') {
-            return $this->rules->characterSnapshot($id)['choices'];
+            return $this->rules->data->characterSnapshot($id)['choices'];
         }
 
         return $this->npcChoices($game->getId(), $id);
@@ -968,7 +976,7 @@ final class GameStrikeResolution
     private function abilityLevels(GameRecord $game, string $kind, int $actorId): array
     {
         $sheet = $kind === 'character'
-            ? $this->rules->characterSnapshot($actorId)['sheet']
+            ? $this->rules->data->characterSnapshot($actorId)['sheet']
             : $this->sheets->getNpcSheet($game->getId(), $actorId);
         $levels = $sheet['abilityLevels'] ?? null;
 
@@ -1034,14 +1042,14 @@ final class GameStrikeResolution
     private function participantKey(GameRecord $game, string $kind, int $id): string
     {
         if ($kind === 'character') {
-            return $this->rules->makeParticipantKey(
+            return $this->rules->data->makeParticipantKey(
                 'character',
                 $id,
-                $this->rules->characterSnapshot($id)['actualVersion'],
+                $this->rules->data->characterSnapshot($id)['actualVersion'],
             );
         }
 
-        return $this->rules->makeParticipantKey(
+        return $this->rules->data->makeParticipantKey(
             'npc',
             $id,
             $this->sheets->getNpcVersion($game->getId(), $id),

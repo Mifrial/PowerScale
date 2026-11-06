@@ -312,7 +312,7 @@ final class GameRunAction
         }
 
         $game = $this->games->get($gameId);
-        $wideCard = $this->rules->isWideAttack(
+        $wideCard = $this->rules->cards->isWideAttack(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $parsed['code'],
@@ -326,7 +326,7 @@ final class GameRunAction
         }
 
         if (!$wideCard && count($targetKeys) === 1) {
-            $base = $this->rules->actionBaseOf(
+            $base = $this->rules->cards->actionBaseOf(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $parsed['code'],

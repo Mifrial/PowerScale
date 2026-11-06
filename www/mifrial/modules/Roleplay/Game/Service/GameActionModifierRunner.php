@@ -81,7 +81,7 @@ final class GameActionModifierRunner
         int $gripBonus,
         int $actorUserId,
     ): array {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $levels = $this->sheets->abilityLevels($game, $attackerKind, $attackerId);
 
         $threadId = 'attack-' . $strikeId;
@@ -276,7 +276,7 @@ final class GameActionModifierRunner
             0,
             $gripBonus,
         );
-        $number = $this->rules->damage()->strikeStrength($target);
+        $number = $this->rules->damage->strikeStrength($target);
         $shift = $effect->getSizeDelta();
 
         return $shift === 0 ? $number : $number->modify($shift * CharacteristicNumber::BASE_STEP);

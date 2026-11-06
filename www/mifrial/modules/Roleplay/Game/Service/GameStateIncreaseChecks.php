@@ -61,7 +61,7 @@ final class GameStateIncreaseChecks
         array $operations,
         ?array $onlyCodes = null,
     ): array {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $rulesRevision);
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $rulesRevision);
         $rolls = [];
         foreach ($states as $code => $change) {
             if ($onlyCodes !== null && !in_array($code, $onlyCodes, true)) {

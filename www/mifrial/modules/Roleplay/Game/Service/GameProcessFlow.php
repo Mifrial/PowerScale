@@ -69,7 +69,7 @@ final class GameProcessFlow
             throw new GameInvalidException('Game process step is invalid');
         }
 
-        $slice = $this->strikeRules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->strikeRules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->rules->spec($slice, $processRuleCode);
         $open = $this->processes->findOpenForActor($battle->getId(), $actor['type'], $actor['id']);
         $isStart = $open === null;
@@ -155,7 +155,7 @@ final class GameProcessFlow
 
         if (
             $kind === 'strike'
-            && $this->strikeRules->isWideAttack(
+            && $this->strikeRules->cards->isWideAttack(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $actionCode,
@@ -259,7 +259,7 @@ final class GameProcessFlow
             return $pending;
         }
 
-        $slice = $this->strikeRules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->strikeRules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->rules->spec($slice, $row->getProcessRuleCode());
         $step = $this->rules->step($spec, $stepCode);
         $fields = [];
@@ -336,7 +336,7 @@ final class GameProcessFlow
             return $pending;
         }
 
-        $slice = $this->strikeRules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->strikeRules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->rules->spec($slice, $row->getProcessRuleCode());
         $this->processes->updateState($processId, ['status' => 'resolved']);
 
@@ -383,7 +383,7 @@ final class GameProcessFlow
             throw new GameInvalidException('Game process is missing');
         }
 
-        $slice = $this->strikeRules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->strikeRules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->rules->spec($slice, $row->getProcessRuleCode());
         $step = $this->rules->step($spec, $row->getCurrentStepCode());
         $effects = $mode === 'normal' ? $spec->getCompletionEffects() : $step->getInterruptionEffects();
@@ -469,12 +469,12 @@ final class GameProcessFlow
             return null;
         }
 
-        $slice = $this->strikeRules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->strikeRules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->rules->spec($slice, $row->getProcessRuleCode());
         $stepCode = is_string($open['process_step_code'] ?? null) ? $open['process_step_code'] : '';
         if ($stepCode === '') {
             $counters = $row->getCounters();
-            $closer = $this->strikeRules->closingAbility(
+            $closer = $this->strikeRules->cards->closingAbility(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $row->getProcessRuleCode(),
@@ -547,7 +547,7 @@ final class GameProcessFlow
             return null;
         }
 
-        $closer = $this->strikeRules->closingAbility(
+        $closer = $this->strikeRules->cards->closingAbility(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $row->getProcessRuleCode(),
@@ -558,11 +558,11 @@ final class GameProcessFlow
             return null;
         }
 
-        if ($this->strikeRules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $actionCode) !== null) {
+        if ($this->strikeRules->cards->pushOf($game->getSpaceId(), $game->getRulesRevision(), $actionCode) !== null) {
             throw new GameInvalidException('Game process closing push is not supported');
         }
 
-        if ($this->strikeRules->isWideAttack($game->getSpaceId(), $game->getRulesRevision(), $actionCode)) {
+        if ($this->strikeRules->cards->isWideAttack($game->getSpaceId(), $game->getRulesRevision(), $actionCode)) {
             throw new GameInvalidException('Game process closing wide strike is not supported');
         }
 
@@ -632,7 +632,7 @@ final class GameProcessFlow
             return null;
         }
 
-        $slice = $this->strikeRules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->strikeRules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->rules->spec($slice, $row->getProcessRuleCode());
         $available = $this->rules->availableSteps(
             $spec,
@@ -696,7 +696,7 @@ final class GameProcessFlow
         }
 
         $counters = $row->getCounters();
-        $closer = $this->strikeRules->closingAbility(
+        $closer = $this->strikeRules->cards->closingAbility(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $row->getProcessRuleCode(),

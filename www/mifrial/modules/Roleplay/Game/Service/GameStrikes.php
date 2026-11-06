@@ -813,7 +813,7 @@ final class GameStrikes implements IGameStrikes
             : null;
         $strikes = is_array($choice['strikes'] ?? null) ? $choice['strikes'] : [$choice];
         foreach ($strikes as $strike) {
-            $this->rules->assertAttack(
+            $this->rules->checks->assertAttack(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $choice['actionRuleCode'],
@@ -828,7 +828,7 @@ final class GameStrikes implements IGameStrikes
             );
         }
 
-        $this->rules->assertAttackTargets(
+        $this->rules->checks->assertAttackTargets(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['actionRuleCode'],
@@ -843,8 +843,8 @@ final class GameStrikes implements IGameStrikes
         );
         $choice['maneuver'] = $this->maneuverOf($game, $choice);
         $this->assertModifiers($game, $choice);
-        if ($this->rules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $choice['actionRuleCode']) === null) {
-            $this->rules->spends()->resolveInventorySpend(
+        if ($this->rules->cards->pushOf($game->getSpaceId(), $game->getRulesRevision(), $choice['actionRuleCode']) === null) {
+            $this->rules->spends->resolveInventorySpend(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $choice['itemRuleCode'],
@@ -1092,7 +1092,7 @@ final class GameStrikes implements IGameStrikes
 
         $threadId = 'attack-' . $strikeId;
         $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $contextCosts = is_array($choice['processContext']['costs'] ?? null)
             ? $choice['processContext']['costs']
             : null;
@@ -1155,7 +1155,7 @@ final class GameStrikes implements IGameStrikes
             $listed[] = $code;
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $modifiers = new GameActionModifiers();
         $levels = $this->sheets->abilityLevels($game, $attacker['type'], $attacker['id']);
         foreach ($listed as $code) {
@@ -1197,7 +1197,7 @@ final class GameStrikes implements IGameStrikes
             $choice['attacker']['id'],
             $code,
         );
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $rule = $slice->findLive($code);
         $spec = $rule === null || $rule->isSpecBroken() ? null : AbilityCombat::maneuver($rule->getSpecDocument());
         if ($spec === null) {
@@ -1232,7 +1232,7 @@ final class GameStrikes implements IGameStrikes
             $instances[$strike['itemInventoryId'] . ':' . $strike['instanceIndex']] = true;
         }
 
-        $base = $this->rules->actionBaseOf(
+        $base = $this->rules->cards->actionBaseOf(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['actionRuleCode'],
@@ -1262,7 +1262,7 @@ final class GameStrikes implements IGameStrikes
         }
 
         if (is_int($max) && $count > $max) {
-            $lifted = $this->rules->liftsMaxWeapons(
+            $lifted = $this->rules->cards->liftsMaxWeapons(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $choice['actionRuleCode'],

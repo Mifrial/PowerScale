@@ -56,7 +56,7 @@ final class GameActionOptionsHttp
             throw new ActionException('AUTH_DENIED', 'Permission denied');
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $levels = $this->sheets->abilityLevels($game, $input->actorType, $input->actorId);
 
         return ['modifiers' => $this->present($slice, (new GameActionModifiers())->available($slice, $levels))];

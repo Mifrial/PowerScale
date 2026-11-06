@@ -91,7 +91,7 @@ final class GameStrikeDeclaredSpend
                     $spends = [new ResourceSpend($turn, new ScalarResourceValue($amount))];
                     $sheet = $this->sheets->getTargetSheet($game, $actor);
                     if (
-                        !$this->rules->spends()->hasSufficientResources(
+                        !$this->rules->spends->hasSufficientResources(
                             $game->getSpaceId(),
                             $game->getRulesRevision(),
                             $sheet,

@@ -432,7 +432,7 @@ final class GameTurns
             throw new GameInvalidException('Game strike is open');
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $waitCode = $this->actionCards->getByCombatAction($slice, 'wait');
         $performed = $this->actionPerform->perform(
             $game,
@@ -538,7 +538,7 @@ final class GameTurns
             throw new GameBattleConflictException($snapshot['actualVersion']);
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $paid = (new GameActionDebt())->continuePay($slice, $snapshot['sheet'], $slot);
         $sheetVersion = $expectedSheet;
         if ($paid['spend'] !== null) {
@@ -718,7 +718,7 @@ final class GameTurns
     private function snapshot(array $current): array
     {
         if ($current['type'] === 'character') {
-            $snapshot = $this->rules->characterSnapshot($current['id']);
+            $snapshot = $this->rules->data->characterSnapshot($current['id']);
 
             return ['actualVersion' => $snapshot['actualVersion'], 'sheet' => $snapshot['sheet']];
         }

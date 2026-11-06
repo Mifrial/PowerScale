@@ -62,7 +62,7 @@ final class GameActionPerform
      */
     public function requiresFollowUp(GameRecord $game, string $actionRuleCode): bool
     {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->cards->assertServerPerformable($slice, $actionRuleCode);
 
         return $this->cards->hasRequirePreviousAttack($spec);
@@ -90,7 +90,7 @@ final class GameActionPerform
         int $actorId,
         string $targetKey,
     ): string {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->cards->assertServerPerformable($slice, $actionRuleCode);
         if (!$this->cards->hasRequirePreviousAttack($spec)) {
             throw new GameInvalidException('Game action card requires no previous attack');
@@ -460,7 +460,7 @@ final class GameActionPerform
         array $chosenAmounts,
         ?ProcessStep $step = null,
     ): array {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->cards->assertServerPerformable($slice, $actionRuleCode);
         $this->availability->assertAvailable($game, $actorKind, $actorId, $actionRuleCode);
         $document = $this->document($game, $actorKind, $actorId);
@@ -545,7 +545,7 @@ final class GameActionPerform
         array $chosen,
         bool $allowZeroChosen,
     ): array {
-        return $this->rules->spends()->resolveResourceSpends(
+        return $this->rules->spends->resolveResourceSpends(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $actionRuleCode,
@@ -573,7 +573,7 @@ final class GameActionPerform
     private function assertResources(GameRecord $game, array $sheet, array $spends): void
     {
         if (
-            $this->rules->spends()->hasSufficientResources(
+            $this->rules->spends->hasSufficientResources(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $sheet,
@@ -735,7 +735,7 @@ final class GameActionPerform
     private function document(GameRecord $game, string $actorKind, int $actorId): array
     {
         if ($actorKind === 'character') {
-            $snapshot = $this->rules->characterSnapshot($actorId);
+            $snapshot = $this->rules->data->characterSnapshot($actorId);
 
             return [
                 'actualVersion' => $snapshot['actualVersion'],

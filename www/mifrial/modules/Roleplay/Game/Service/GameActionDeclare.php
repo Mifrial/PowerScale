@@ -301,7 +301,7 @@ final class GameActionDeclare
             throw new GameInvalidException('Game strike reaction is invalid');
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $rule = $slice->findLive($input['actionRuleCode']);
         $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
         $reaction = $spec instanceof AbilityActionSpec ? $spec->getBase()->getReaction() : null;
@@ -391,7 +391,7 @@ final class GameActionDeclare
             [],
             null,
         );
-        $mastery = $this->rules->outcome()->weaponMasteryOf(
+        $mastery = $this->rules->outcome->weaponMasteryOf(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $quote['document']['sheet'],
@@ -686,7 +686,7 @@ final class GameActionDeclare
         $actorChoices = $choices->targetChoices($game, $input['actor']);
         $actorSheet = $this->sheets->getTargetSheet($game, $input['actor']);
         if ($effect['reaction'] === 'block') {
-            $this->rules->assertBlockSelection(
+            $this->rules->checks->assertBlockSelection(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $actorChoices,
@@ -708,7 +708,7 @@ final class GameActionDeclare
         );
         $coverCost = $this->spentOf($quote['spends']);
         $this->perform->assertSpends($game, $quote['document']['sheet'], $quote['spends']);
-        $reactionSpends = $this->rules->spends()->resolveReactionResourceSpends(
+        $reactionSpends = $this->rules->spends->resolveReactionResourceSpends(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $effect['reaction'],
@@ -903,7 +903,7 @@ final class GameActionDeclare
         ?array $process,
         bool $paid = false,
     ): array {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $step = null;
         if (is_array($process) && ($process['step'] ?? null) instanceof ProcessStep) {
             $step = $process['step'];

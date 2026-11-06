@@ -177,8 +177,8 @@ final class GameStrikeWideClose
             ];
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $hitCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $hitCode = $this->rules->hitCheck->findHitCode($game->getSpaceId(), $game->getRulesRevision());
         $rows = $this->declaredSpend->spend($game, $slice, $rows);
         $attackerRoll = $this->resumeAttackerRoll($rows, $resume);
         if ($attackerRoll === null) {
@@ -298,7 +298,7 @@ final class GameStrikeWideClose
             );
         }
 
-        $damage = $this->rules->isHitAutoFail($attackerRoll['roll'])
+        $damage = $this->rules->hitCheck->isHitAutoFail($attackerRoll['roll'])
             ? $this->amounts->zero()
             : $this->resolution->damageOf($game, $open);
 
@@ -822,7 +822,7 @@ final class GameStrikeWideClose
                 throw new GameInvalidException('Game wide strike block item is invalid');
             }
 
-            $choices[$index]['blockItemRuleCode'] = $this->rules->getBlockItemRuleCode(
+            $choices[$index]['blockItemRuleCode'] = $this->rules->equipment->getBlockItemRuleCode(
                 $this->choices->targetChoices($game, $target),
                 $inventoryId,
             );

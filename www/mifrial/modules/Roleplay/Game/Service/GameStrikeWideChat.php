@@ -119,10 +119,10 @@ final class GameStrikeWideChat
             $reaction = $item['choice']['reaction'] ?? 'ignore';
             $reactionCode = $reaction === 'ignore'
                 ? null
-                : $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), $reaction);
+                : $this->rules->cards->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), $reaction);
             $turn = ($item['choice']['conditions']['turn'] ?? false) === true;
             $turnCode = $turn
-                ? $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), 'turn')
+                ? $this->rules->cards->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), 'turn')
                 : null;
             $reactions[] = $this->chat->getReactionBit(
                 $name,

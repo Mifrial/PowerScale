@@ -76,7 +76,7 @@ final class GameStrikeSpend
 
         $choices = $snapshot['sheet']['choices'];
         $sheet = $snapshot['sheet']['sheet'];
-        $spends = $this->rules->spends()->resolveResourceSpends(
+        $spends = $this->rules->spends->resolveResourceSpends(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['actionRuleCode'],
@@ -95,7 +95,7 @@ final class GameStrikeSpend
             $spends = (new GameProcessRules())->replaceCosts($spends, $step);
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $adjusted = (new GamePendingActionCosts())->adjustSpends(
             $slice,
             $choices,
@@ -134,8 +134,8 @@ final class GameStrikeSpend
         }
 
         $inventorySpend = $planned['open']
-            && $this->rules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $choice['actionRuleCode']) === null
-            ? $this->rules->spends()->resolveInventorySpend(
+            && $this->rules->cards->pushOf($game->getSpaceId(), $game->getRulesRevision(), $choice['actionRuleCode']) === null
+            ? $this->rules->spends->resolveInventorySpend(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $choice['itemRuleCode'],
@@ -149,7 +149,7 @@ final class GameStrikeSpend
             )
             : null;
         if (
-            $spends !== [] && !$this->rules->spends()->hasSufficientResources(
+            $spends !== [] && !$this->rules->spends->hasSufficientResources(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $sheet,
@@ -217,7 +217,7 @@ final class GameStrikeSpend
             throw new GameInvalidException('Game concentration resource is missing');
         }
 
-        $checkCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
+        $checkCode = $this->rules->hitCheck->findHitCode($game->getSpaceId(), $game->getRulesRevision());
         $levels = is_array($sheet['abilityLevels'] ?? null) ? $sheet['abilityLevels'] : [];
         if (!$concentration->allows($slice, $checkCode, null, $levels)) {
             throw new GameInvalidException('Game concentration is not allowed');
@@ -267,7 +267,7 @@ final class GameStrikeSpend
             return null;
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $concentration = new GameConcentration();
         $resource = $concentration->resourceCode($slice, $sheet);
         if ($resource === null) {
@@ -324,7 +324,7 @@ final class GameStrikeSpend
 
             $minimum = is_array($node['min_mastery'] ?? null) ? $node['min_mastery'] : null;
             if ($minimum !== null) {
-                $mastery = $this->rules->outcome()->weaponMasteryOf(
+                $mastery = $this->rules->outcome->weaponMasteryOf(
                     $game->getSpaceId(),
                     $game->getRulesRevision(),
                     $sheet,
@@ -385,10 +385,10 @@ final class GameStrikeSpend
         }
 
         $blockRuleCode = $choice['reaction'] === 'block'
-            ? $this->rules->getBlockItemRuleCode($choices, $choice['blockItemInventoryId'])
+            ? $this->rules->equipment->getBlockItemRuleCode($choices, $choice['blockItemInventoryId'])
             : ($choice['blockItemRuleCode'] ?? '');
 
-        return $this->rules->spends()->resolveReactionResourceSpends(
+        return $this->rules->spends->resolveReactionResourceSpends(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['reaction'],

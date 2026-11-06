@@ -82,7 +82,7 @@ final class GameStrikeConsequences
         bool $knockout = true,
         ?DimensionalNumber $endurance = null,
     ): array {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $hooks = $damageTypeCode === null ? [] : $this->hooks($slice, $damageTypeCode);
         $cutting = $this->cutting($hooks);
         $quotient = $split['quotient'];
@@ -197,7 +197,7 @@ final class GameStrikeConsequences
      */
     public function willForDelta(GameRecord $game, array $sheet, int $delta): array
     {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         if ($delta === 0 || ($delta > 0 && $this->hasFlag($slice, $sheet, 'unconscious'))) {
             return ['roll' => null, 'operation' => null, 'outcome' => null, 'operations' => [], 'declineCodes' => []];
         }
@@ -224,7 +224,7 @@ final class GameStrikeConsequences
      */
     public function maimRoll(GameRecord $game, array $sheet, int $difficulty): array
     {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
 
         return $this->maim($game, $slice, $sheet, $difficulty, []);
     }
@@ -243,7 +243,7 @@ final class GameStrikeConsequences
      */
     public function optionalCheck(GameRecord $game, array $sheet, string $checkCode, int $difficulty): array
     {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $roll = $this->checks->throwWithDifficulty(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -266,7 +266,7 @@ final class GameStrikeConsequences
      */
     public function singleState(GameRecord $game, string $flag): string
     {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
 
         return $this->singleFlag($slice, $flag);
     }

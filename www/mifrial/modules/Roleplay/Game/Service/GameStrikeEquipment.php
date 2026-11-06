@@ -256,6 +256,37 @@ final class GameStrikeEquipment
         return $row;
     }
     /**
+     * Возвращает authoritative rule code выбранного блока.
+     *
+     * @param array<string, mixed> $choices Выборы защитника.
+     * @param int $blockItemInventoryId Строка блока.
+     *
+     * @return string Код live item.
+     *
+     * @throws GameInvalidException Если строка отсутствует.
+     */
+    public function getBlockItemRuleCode(array $choices, int $blockItemInventoryId): string
+    {
+        $inventory = $choices['inventory'] ?? null;
+        if (!is_array($inventory)) {
+            throw new GameInvalidException('Game strike inventory is invalid');
+        }
+
+        $rows = array_values(array_filter(
+            $inventory,
+            static fn (mixed $row): bool => is_array($row)
+                && ($row['id'] ?? null) === $blockItemInventoryId
+                && ($row['equipped'] ?? false) === true
+                && is_string($row['ruleCode'] ?? null),
+        ));
+        $row = $rows[0] ?? null;
+        if (!is_array($row)) {
+            throw new GameInvalidException('Game strike block item is invalid');
+        }
+
+        return $row['ruleCode'];
+    }
+    /**
      * Строка совпадает с предметом и надета.
      *
      * @param array<string, mixed> $row Строка.

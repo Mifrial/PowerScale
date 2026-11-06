@@ -84,7 +84,7 @@ final class GameStrikeChat
                 return $this->npcs->getById($id)->getName();
             }
 
-            return $this->rules->characterName($id);
+            return $this->rules->data->characterName($id);
         } catch (GameNotFoundException | CharacterNotFoundException) {
             return (string) $id;
         }
@@ -330,7 +330,7 @@ final class GameStrikeChat
             return 'безымянный';
         }
 
-        $code = $this->rules->outcome()->damageTypeCode(
+        $code = $this->rules->outcome->damageTypeCode(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,

@@ -109,7 +109,7 @@ final class GameStrikeCover
             'markKeys' => $targetMarks['keys'],
             'reactionRuleCode' => $choice['reaction'] === 'ignore'
                 ? null
-                : $this->rules->reactionRuleCode(
+                : $this->rules->cards->reactionRuleCode(
                     $game->getSpaceId(),
                     $game->getRulesRevision(),
                     $choice['reaction'],
@@ -166,7 +166,7 @@ final class GameStrikeCover
             );
             $key = $this->rows->targetKey($actor);
             $cost = is_int($entry['cost'] ?? null) ? $entry['cost'] : 0;
-            $reactionRuleCode = $this->rules->reactionRuleCode(
+            $reactionRuleCode = $this->rules->cards->reactionRuleCode(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $coverChoice['reaction'],
@@ -241,7 +241,7 @@ final class GameStrikeCover
             ];
         }
 
-        $reactionRuleCode = $this->rules->reactionRuleCode(
+        $reactionRuleCode = $this->rules->cards->reactionRuleCode(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['reaction'],
@@ -261,7 +261,7 @@ final class GameStrikeCover
             );
             $attackerRoll = $profileType === 'shoot' || $profileType === 'throw'
                 ? $this->resolution->rerateRangedHit($game, $open, $conditions, $attackerRoll, $defenderRoll, 'dodge')
-                : $this->rules->rerateHit($attackerRoll, $defenderRoll);
+                : $this->rules->hitCheck->rerate($attackerRoll, $defenderRoll);
         } elseif ($choice['reaction'] === 'block') {
             $defenderRoll = $this->resolution->blockRollOf(
                 $game,
@@ -275,7 +275,7 @@ final class GameStrikeCover
                 $extraAdvantages,
             );
             if ($isPush) {
-                $attackerRoll = $this->rules->rerateHit($attackerRoll, $defenderRoll);
+                $attackerRoll = $this->rules->hitCheck->rerate($attackerRoll, $defenderRoll);
             } elseif ($profileType === 'shoot' || $profileType === 'throw') {
                 $attackerRoll = $this->resolution->rerateRangedHit(
                     $game,

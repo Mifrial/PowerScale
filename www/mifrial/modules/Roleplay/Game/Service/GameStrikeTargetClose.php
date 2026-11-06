@@ -179,7 +179,7 @@ final class GameStrikeTargetClose
                 $choice,
                 $attackerRoll,
                 $hitCode,
-                $reaction['slice'] ?? $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+                $reaction['slice'] ?? $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
                 $this->pendingAfter,
                 $reaction['pending'],
                 $profileType,
@@ -242,7 +242,7 @@ final class GameStrikeTargetClose
             $reaction = [
                 'spends' => [],
                 'pending' => $this->pendingAfter,
-                'slice' => $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+                'slice' => $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
                 'reactionRuleCode' => $resolved['reactionRuleCode'],
                 'insufficient' => false,
                 'token' => null,
@@ -286,7 +286,7 @@ final class GameStrikeTargetClose
         $defense = $resolved !== null
             ? [
                 'defenderRoll' => $resolved['defenderRoll'],
-                'autoFail' => $this->rules->isHitAutoFail($attackerRoll['roll']),
+                'autoFail' => $this->rules->hitCheck->isHitAutoFail($attackerRoll['roll']),
                 'success' => $this->resolution->successOf(
                     $attackerRoll,
                     $resolved['defenderRoll'],
@@ -314,7 +314,7 @@ final class GameStrikeTargetClose
             $this->markKeys = array_merge($this->markKeys, $appliedMarks);
         }
 
-        $slice ??= $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice ??= $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $success = $lastStrike->boostSuccess(
             $slice,
             is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '',
@@ -430,8 +430,8 @@ final class GameStrikeTargetClose
         $slice = null;
         $reactionRuleCode = null;
         if ($choice['reaction'] !== 'ignore') {
-            $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-            $reactionRuleCode = $this->rules->reactionRuleCode(
+            $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+            $reactionRuleCode = $this->rules->cards->reactionRuleCode(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $choice['reaction'],
@@ -457,7 +457,7 @@ final class GameStrikeTargetClose
                 throw new GameInvalidException('Game wide strike turn is invalid');
             }
 
-            $turnCode = $this->rules->reactionRuleCode(
+            $turnCode = $this->rules->cards->reactionRuleCode(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 'turn',
@@ -468,7 +468,7 @@ final class GameStrikeTargetClose
 
             $spends = array_merge(
                 $spends,
-                $this->rules->spends()->resolveReactionResourceSpends(
+                $this->rules->spends->resolveReactionResourceSpends(
                     $game->getSpaceId(),
                     $game->getRulesRevision(),
                     'turn',
@@ -494,7 +494,7 @@ final class GameStrikeTargetClose
             $spends[] = $token['spend'];
         }
 
-        $insufficient = $spends !== [] && !$this->rules->spends()->hasSufficientResources(
+        $insufficient = $spends !== [] && !$this->rules->spends->hasSufficientResources(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $this->sheets->getTargetSheet($game, $target),
@@ -566,10 +566,10 @@ final class GameStrikeTargetClose
                 $attackerRoll,
                 $pending,
                 $reactionRuleCode,
-                $slice ?? $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+                $slice ?? $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
                 $flank,
             );
-            $ratedRoll = $this->rules->rerateHit($attackerRoll, $defenderRoll);
+            $ratedRoll = $this->rules->hitCheck->rerate($attackerRoll, $defenderRoll);
         }
 
         if ($choice['reaction'] === 'block') {
@@ -581,14 +581,14 @@ final class GameStrikeTargetClose
                 $attackerRoll,
                 $pending,
                 $reactionRuleCode,
-                $slice ?? $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+                $slice ?? $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
                 $flank,
             );
         }
 
         return [
             'defenderRoll' => $defenderRoll,
-            'autoFail' => $this->rules->isHitAutoFail($attackerRoll['roll']),
+            'autoFail' => $this->rules->hitCheck->isHitAutoFail($attackerRoll['roll']),
             'success' => $this->resolution->successOf($ratedRoll, $defenderRoll, $choice['reaction']),
         ];
     }
@@ -627,7 +627,7 @@ final class GameStrikeTargetClose
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $durabilityShave = $success === 0
             ? 0
-            : $this->rules->outcome()->durabilityShave(
+            : $this->rules->outcome->durabilityShave(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $actionRuleCode,
@@ -649,14 +649,14 @@ final class GameStrikeTargetClose
                 $durabilityShave,
             );
         $soak = $this->resolution->soakOf($game, $targetOpen, $choice['reaction'], $success, $pending);
-        $damageTypeCode = $this->rules->outcome()->damageTypeCode(
+        $damageTypeCode = $this->rules->outcome->damageTypeCode(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '',
             is_string($open['profile_type'] ?? null) ? $open['profile_type'] : '',
             is_int($open['profile_index'] ?? null) ? $open['profile_index'] : 0,
         );
-        $srCap = $this->rules->outcome()->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
+        $srCap = $this->rules->outcome->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
         $appliedSr = $this->amounts->appliedSr($success, $srCap);
 
         return [
@@ -748,10 +748,10 @@ final class GameStrikeTargetClose
         array $targetKeys = [],
         array $extraAdvantages = [],
     ): array {
-        $hitCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
+        $hitCode = $this->rules->hitCheck->findHitCode($game->getSpaceId(), $game->getRulesRevision());
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $advantages = [];
-        $wideAdvantage = $this->rules->wideTargetCheckAdvantage(
+        $wideAdvantage = $this->rules->cards->wideTargetCheckAdvantage(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $actionRuleCode,

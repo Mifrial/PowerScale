@@ -59,7 +59,7 @@ final class GameStrikeSheets
         }
 
         if ($kind === 'character') {
-            return $this->rules->characterSnapshot($id)['sheet'];
+            return $this->rules->data->characterSnapshot($id)['sheet'];
         }
 
         $wrapped = $this->getNpcSnapshot($game->getId(), $id)['sheet'];
@@ -82,7 +82,7 @@ final class GameStrikeSheets
     public function getTargetSheet(GameRecord $game, array $target): array
     {
         if ($target['type'] === 'character') {
-            return $this->rules->characterSnapshot($target['id'])['sheet'];
+            return $this->rules->data->characterSnapshot($target['id'])['sheet'];
         }
 
         return $this->getNpcSheet($game->getId(), $target['id']);
@@ -143,7 +143,7 @@ final class GameStrikeSheets
      */
     public function getCharacterSnapshot(int $characterId): array
     {
-        $snapshot = $this->rules->characterSnapshot($characterId);
+        $snapshot = $this->rules->data->characterSnapshot($characterId);
 
         return [
             'actualVersion' => $snapshot['actualVersion'],

@@ -207,7 +207,7 @@ final class GameManualSheetActions
             throw new GameInvalidException('Game manual sheet action is invalid');
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $before = $this->document($game, $target['kind'], $target['id']);
         $effects = $this->operations->effects($operation, $details, $slice);
         $planned = ['operations' => $effects, 'rolls' => []];
@@ -344,7 +344,7 @@ final class GameManualSheetActions
     private function document(GameRecord $game, string $kind, int $id): array
     {
         if ($kind === 'character') {
-            $snapshot = $this->rules->characterSnapshot($id);
+            $snapshot = $this->rules->data->characterSnapshot($id);
 
             return [
                 'rulesRevision' => $snapshot['rulesRevision'],

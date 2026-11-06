@@ -349,7 +349,7 @@ final class GameWideStrikes implements IGameWideStrikes
             throw new GameInvalidException('Game wide strike is already open');
         }
 
-        $this->rules->assertAttack(
+        $this->rules->checks->assertAttack(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['actionRuleCode'],
@@ -364,7 +364,7 @@ final class GameWideStrikes implements IGameWideStrikes
                 : null,
             $choice['instanceIndex'] ?? 0,
         );
-        $this->rules->assertAttackTargets(
+        $this->rules->checks->assertAttackTargets(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['actionRuleCode'],
@@ -376,7 +376,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $choice['attacker']['id'],
             $choice['actionRuleCode'],
         );
-        $this->rules->spends()->resolveInventorySpend(
+        $this->rules->spends->resolveInventorySpend(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['itemRuleCode'],

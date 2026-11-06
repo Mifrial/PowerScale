@@ -56,7 +56,7 @@ final class GameCardAvailability
         int $actorId,
         string $actionRuleCode,
     ): AbilityWithBase {
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->specOf($slice, $actionRuleCode);
         $document = $this->document($game, $actorKind, $actorId, $slice);
         $level = $this->levelOf($document['sheet'], $actionRuleCode);
@@ -128,7 +128,7 @@ final class GameCardAvailability
      */
     private function characterDocument(int $actorId): array
     {
-        $snapshot = $this->rules->characterSnapshot($actorId);
+        $snapshot = $this->rules->data->characterSnapshot($actorId);
 
         return ['choices' => $snapshot['choices'], 'sheet' => $snapshot['sheet']];
     }

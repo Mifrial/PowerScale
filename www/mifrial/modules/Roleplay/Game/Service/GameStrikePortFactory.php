@@ -670,7 +670,6 @@ final class GameStrikePortFactory
     {
         $slices = $this->strikeSlices($serviceLocator);
         $characters = $this->characters($serviceLocator);
-        $equipment = new GameStrikeEquipment($slices);
         $participants = new GameStrikeParticipants(
             $characters,
             $this->formulaContexts($serviceLocator),
@@ -683,8 +682,7 @@ final class GameStrikePortFactory
             $this->checkRoll($serviceLocator),
             $this->layers($serviceLocator),
             $slices,
-            $equipment,
-            new GameStrikeInventorySpend($slices, $equipment, $characters),
+            $characters,
             $participants,
         );
     }

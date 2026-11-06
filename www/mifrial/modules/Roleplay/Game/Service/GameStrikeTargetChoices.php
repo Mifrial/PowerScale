@@ -37,7 +37,7 @@ final class GameStrikeTargetChoices
     public function targetChoices(GameRecord $game, array $target): array
     {
         if ($target['type'] === 'character') {
-            return $this->rules->characterSnapshot($target['id'])['choices'];
+            return $this->rules->data->characterSnapshot($target['id'])['choices'];
         }
 
         return $this->defenderChoices($game->getId(), $target['id']);
@@ -60,7 +60,7 @@ final class GameStrikeTargetChoices
         }
 
         if ($kind === 'character') {
-            return $this->rules->characterSnapshot($id)['choices'];
+            return $this->rules->data->characterSnapshot($id)['choices'];
         }
 
         $snapshot = $this->sheets->getNpcSnapshot($game->getId(), $id);
@@ -115,7 +115,7 @@ final class GameStrikeTargetChoices
         }
 
         if ($choice['reaction'] === 'block') {
-            $this->rules->assertBlockSelection(
+            $this->rules->checks->assertBlockSelection(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $this->targetChoices($game, $target),

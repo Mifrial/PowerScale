@@ -85,8 +85,8 @@ final class GameStrikeOpen
 
         $action['action_rule_code'] = $actionCode;
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $push = $this->rules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $actionCode);
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $push = $this->rules->cards->pushOf($game->getSpaceId(), $game->getRulesRevision(), $actionCode);
         $npcSheet = $attackerKind === 'npc' && is_array($snapshot['sheet']['sheet'] ?? null)
             ? $snapshot['sheet']['sheet']
             : null;
@@ -141,12 +141,12 @@ final class GameStrikeOpen
                     $npcSheet,
                     $npcChoices,
                     is_int($snapshot['actualVersion'] ?? null) ? $snapshot['actualVersion'] : null,
-                    $this->rules->actionCharacteristicModifier(
+                    $this->rules->modifiers->actionCharacteristicModifier(
                         $slice,
                         $actionCode,
                         $profileType,
                         1,
-                        $this->rules->outcome()->attackFilterContext(
+                        $this->rules->outcome->attackFilterContext(
                             $game->getSpaceId(),
                             $game->getRulesRevision(),
                             $itemRuleCode,
@@ -160,8 +160,8 @@ final class GameStrikeOpen
                     0,
                     0,
                 );
-                $this->rules->distance()->assertConditions(
-                    $this->rules->damage()->attack($strikeTarget),
+                $this->rules->distance->assertConditions(
+                    $this->rules->damage->attack($strikeTarget),
                     is_array($target['conditions'] ?? null)
                         ? $target['conditions']
                         : (new GameStrikeConditions())->defaults(),
@@ -284,11 +284,11 @@ final class GameStrikeOpen
         $context = $this->processOf($game, $battle, $choice);
         $snapshot = $this->snapshot($game, $choice);
         $attacker = $choice['attacker'];
-        $inventorySpend = $this->rules->pushOf(
+        $inventorySpend = $this->rules->cards->pushOf(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['actionRuleCode'],
-        ) !== null ? null : $this->rules->spends()->resolveInventorySpend(
+        ) !== null ? null : $this->rules->spends->resolveInventorySpend(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['itemRuleCode'],
@@ -368,7 +368,7 @@ final class GameStrikeOpen
         }
 
         (new GameLastStrikeSnapshot())->assertFollowUp(
-            $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+            $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
             $actionRuleCode,
             $battle->getPendingActionEffects(),
             $attacker['type'],
@@ -508,7 +508,7 @@ final class GameStrikeOpen
         }
 
         $sheet = is_array($snapshot['sheet']['sheet'] ?? null) ? $snapshot['sheet']['sheet'] : [];
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $resource = (new GameConcentration())->resourceCode($slice, $sheet) ?? '';
 
         return [

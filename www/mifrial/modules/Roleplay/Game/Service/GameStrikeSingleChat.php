@@ -70,7 +70,7 @@ final class GameStrikeSingleChat
         $attacker = $this->chat->getEntityToken($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0);
         $push = is_array($result['push'] ?? null) ? $result['push'] : null;
         $pushRating = $push !== null && is_int($push['rating'] ?? null) ? $push['rating'] : null;
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actionCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $weapon = is_string($open['item_rule_code'] ?? null) ? '[[rule:' . $open['item_rule_code'] . ']]' : 'оружием';
         $kind = match ($open['profile_type'] ?? 'strike') {
@@ -92,10 +92,10 @@ final class GameStrikeSingleChat
         } elseif ($reaction === 'ignore') {
             $reactionText = ' Тот не реагирует.';
         } else {
-            $reactionCode = $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), $reaction);
+            $reactionCode = $this->rules->cards->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), $reaction);
             $turn = (GameStrikeTargetRow::conditions($open)['turn'] ?? false) === true;
             $turnCode = $turn
-                ? $this->rules->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), 'turn')
+                ? $this->rules->cards->reactionRuleCode($game->getSpaceId(), $game->getRulesRevision(), 'turn')
                 : null;
             $reactionText = ' ' . $this->chat->getReactionBit(
                 'Тот',

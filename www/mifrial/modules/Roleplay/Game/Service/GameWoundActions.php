@@ -212,7 +212,7 @@ final class GameWoundActions
             throw new GameInvalidException('Game wound action is invalid');
         }
 
-        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $actorSheet = $this->document($game, $actor['kind'], $actor['id']);
         $targetSheet = $this->document($game, $target['kind'], $target['id']);
         $row = $this->rowOf($targetSheet['sheet'], $stateId);
@@ -750,7 +750,7 @@ final class GameWoundActions
     {
         $held = 0;
         foreach ($this->characters->getListByGame($game->getId(), null) as $membership) {
-            $sheet = $this->rules->characterSnapshot($membership->getCharacterId())['sheet'];
+            $sheet = $this->rules->data->characterSnapshot($membership->getCharacterId())['sheet'];
             $held += $this->holdsOn($sheet, $actor);
         }
 
@@ -833,7 +833,7 @@ final class GameWoundActions
     private function document(GameRecord $game, string $kind, int $id): array
     {
         if ($kind === 'character') {
-            $snapshot = $this->rules->characterSnapshot($id);
+            $snapshot = $this->rules->data->characterSnapshot($id);
 
             return [
                 'actualVersion' => $snapshot['actualVersion'],
