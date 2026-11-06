@@ -772,6 +772,14 @@ final class GameStrikes implements IGameStrikes
         array $choice,
         int $actorUserId,
     ): array {
+        // Отпечаток запроса — только присланное клиентом. Производные поля
+        // (maneuver, processContext) в тело не идут: иначе replay того же ключа
+        // сверяет их с телом из ready() и даёт ложный GAME_CONFLICT.
+        $body = [
+            'attack' => $choice,
+            'battleId' => $battleId,
+            'expectedVersion' => $expectedBattleVersion,
+        ];
         $battle = $this->battleOf($sessionId, $battleId, $expectedBattleVersion);
         $this->access->assertRoster($battleId, $choice['attacker'], [$choice['defender']]);
         if ($this->actions->findOpenAny($battleId) !== null) {
@@ -851,12 +859,6 @@ final class GameStrikes implements IGameStrikes
                     : null,
             );
         }
-
-        $body = [
-            'attack' => $choice,
-            'battleId' => $battleId,
-            'expectedVersion' => $expectedBattleVersion,
-        ];
 
         $execution = $this->replayTransaction->execute(
             fn (): ?array => $this->commands->findByKey($game->getId(), 'strike', $idempotencyKey),

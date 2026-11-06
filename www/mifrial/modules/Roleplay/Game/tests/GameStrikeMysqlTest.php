@@ -778,6 +778,59 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Повтор объявления с манёвром по тому же ключу — replay, не GAME_CONFLICT.
+     *
+     * @return void
+     */
+    public function testManeuverDeclareReplaySameKeyAndBody(): void
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->maneuverRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Maneuver-Replay-Attacker', abilities: [
+            ['ruleCode' => 'obmannyy-manevr', 'level' => 1],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Maneuver-Replay-Defender');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-maneuver-replay',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $action = $this->strikeEnvelope(
+            $this->characterAttack($attackerId, $defenderId)
+                + ['maneuverRuleCode' => 'obmannyy-manevr'],
+        );
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-maneuver-replay',
+            'expectedVersion' => 1,
+            'action' => $action,
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+        $sheetVersion = $this->characterFacade()->get($attackerId)->getActualVersion();
+        $marksBefore = $this->battleRow($battleId)['marks'] ?? [];
+
+        $replay = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 's-maneuver-replay',
+            'expectedVersion' => 1,
+            'action' => $action,
+        ]);
+
+        self::assertTrue($replay['success'], json_encode($replay));
+        self::assertEquals($declared['data'], $replay['data']);
+        self::assertSame($sheetVersion, $this->characterFacade()->get($attackerId)->getActualVersion());
+        self::assertSame($marksBefore, $this->battleRow($battleId)['marks'] ?? []);
+    }
+
+    /**
      * Строго победивший может отказаться: метки и реакции нет.
      *
      * @return void
