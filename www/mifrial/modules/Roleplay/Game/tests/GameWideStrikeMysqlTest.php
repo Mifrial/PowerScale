@@ -2867,7 +2867,7 @@ final class GameWideStrikeMysqlTest extends TestCase
     }
 
     /**
-     * Id каталога production reliability_cut.
+     * Id каталога production pay_sr_vs_reliability.
      *
      * @param IMechanics $mechanics Каталог.
      *
@@ -2876,9 +2876,9 @@ final class GameWideStrikeMysqlTest extends TestCase
     private function reliabilityCutId(IMechanics $mechanics): int
     {
         try {
-            return $mechanics->add('reliability_cut', 'Reliability cut', '', '1.0.0');
+            return $mechanics->add('pay_sr_vs_reliability', 'Оплата РУ надёжностью', '', '1.0.0');
         } catch (MechanicInvalidException) {
-            return $mechanics->getByCodeVersion('reliability_cut', '1.0.0')->getId();
+            return $mechanics->getByCodeVersion('pay_sr_vs_reliability', '1.0.0')->getId();
         }
     }
 

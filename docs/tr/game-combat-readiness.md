@@ -164,12 +164,12 @@ Authoritative-источники:
 - Числовой эффект `block` — `BACKEND`: успех защитника режет успех атаки до 1
   (`GameStrikeResolution::successOf`), E2E — в P4 ([`game-plan-33.md`](game-plan-33.md)).
 - `ResistanceSlot::durability` / nullable threshold — `BACKEND` в Rule и
-  projection; фактическая production capability среза ещё не подтверждена.
-- Инфраструктура semantic reliability capability — `BACKEND`; живой handler и
-  content, который её включает, — `BACKEND_MISSING`.
-- `pay_sr_vs_reliability` — `BACKEND_MISSING`: handler в Mechanic
-  зарегистрирован (`PaySrVsReliabilityHandler`), но боевой путь Game его не
-  вызывает.
+  projection; порог проверен тестами Game на production-коде
+  `pay_sr_vs_reliability`.
+- Semantic reliability capability — `BACKEND`: тип урона включает срез
+  маркером `pay_sr_vs_reliability` (`IReliabilityCut`). Game читает маркер в
+  `GameStrikeLayers::total()` и режет слои с порогом `(РУ + единицы среза)`;
+  `run()` механики пуст намеренно — оплачиваемого шага и события в каноне нет.
 - `source_code` и source collapse для базового resistance path —
   `BACKEND`; semantic provenance блока и сквозное подтверждение ещё требуют
   отдельного гейта.
@@ -429,6 +429,11 @@ actual Character/NPC после mutation, stale-version конфликт в бр
 - resistance layers;
 - durability/reliability;
 - срез надёжности;
+- срез надёжности по РУ: тип урона включает его маркером
+  `pay_sr_vs_reliability` (`IReliabilityCut`), Game читает маркер в
+  `GameStrikeLayers::total()` и режет слои с порогом `(РУ + единицы среза)`.
+  Контент мира привязывает механику к «Руб/Кол/Реж»; событие у механики не
+  поднимается, оплачиваемого шага и диалога нет;
 - penetration;
 - block effect;
 - отдельные правила `strike`, `throw`, `shoot` (срез дистанции/боеприпасов);
@@ -436,8 +441,10 @@ actual Character/NPC после mutation, stale-version конфликт в бр
   проверяет строку инвентаря и профиль;
 - action-point spend и eligibility реакции.
 
-Остаётся `pay_sr_vs_reliability`: handler в Mechanic зарегистрирован, боевой
-путь Game его не вызывает (`BACKEND_MISSING`).
+Evidence: `GameStrikeMysqlTest::testReliabilityCutRemovesLayersAtOrBelowRating`
+и `GameStrikeMysqlTest::testCanonicalDamageTypesResolvePublishedReliabilityBinding`
+идут через production-код каталога; `GameWideStrikeMysqlTest` повторяет тот же
+путь для широкого удара.
 
 ### Gate P2 — прямые последствия
 
@@ -494,7 +501,7 @@ actual Character/NPC после mutation, stale-version конфликт в бр
 
 ## Ближайший порядок работ
 
-Гейты P1–P4 закрыты, кроме `pay_sr_vs_reliability`.
+Гейты P1–P4 закрыты.
 Дальше — бэклог атак вне гейтов:
 
 1. Требования оружия: статический `weapon.min_action_cost` в контенте и

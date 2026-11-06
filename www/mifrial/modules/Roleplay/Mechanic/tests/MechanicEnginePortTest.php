@@ -54,7 +54,7 @@ final class MechanicEnginePortTest extends TestCase
     }
 
     /**
-     * Production port разрешает reliability_cut через catalog и registry.
+     * Production port разрешает pay_sr_vs_reliability через catalog и registry.
      *
      * @return void
      */
@@ -67,8 +67,8 @@ final class MechanicEnginePortTest extends TestCase
             [new MechanicBinding('damage-type', 7, null)],
             [MechanicRecord::fromNormalized([
                 'id' => 7,
-                'code' => 'reliability_cut',
-                'name' => 'Reliability cut',
+                'code' => 'pay_sr_vs_reliability',
+                'name' => 'Оплата РУ надёжностью',
                 'description' => '',
                 'handler_version' => '1.0.0',
             ])],

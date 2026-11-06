@@ -16,8 +16,8 @@ use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
 use Mifrial\Roleplay\Mechanic\Interface\IMechanicHandler;
 use Mifrial\Roleplay\Mechanic\Interface\IReliabilityCut;
 use Mifrial\Roleplay\Mechanic\Interface\MechanicPayload;
+use Mifrial\Roleplay\Mechanic\Service\Handler\PaySrVsReliabilityHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PurchaseSurchargeHandler;
-use Mifrial\Roleplay\Mechanic\Service\Handler\ReliabilityCutHandler;
 use Mifrial\Roleplay\Mechanic\Service\MechanicEngine;
 use Mifrial\Roleplay\Mechanic\Service\MechanicHandlerRegistry;
 use PHPUnit\Framework\TestCase;
@@ -99,13 +99,13 @@ final class MechanicEngineTest extends TestCase
      */
     public function testProductionReliabilityHandlerIsMarkerOnly(): void
     {
-        $handler = new ReliabilityCutHandler();
+        $handler = new PaySrVsReliabilityHandler();
         $context = new stdClass();
         $context->state = 'unchanged';
 
         $handler->run(null, $context, 'arbitrary-event');
 
-        self::assertSame('reliability_cut', $handler->getCode());
+        self::assertSame('pay_sr_vs_reliability', $handler->getCode());
         self::assertSame('1.0.0', $handler->getVersion());
         self::assertSame([], $handler->getSubscriptions());
         self::assertSame(['state' => 'unchanged'], get_object_vars($context));

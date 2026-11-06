@@ -27,7 +27,6 @@ use Mifrial\Roleplay\Mechanic\Service\Handler\InjuryExtraDiceHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PaySrVsReliabilityHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PlainRollHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PurchaseSurchargeHandler;
-use Mifrial\Roleplay\Mechanic\Service\Handler\ReliabilityCutHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\SixOneRuleHandler;
 use Mifrial\Roleplay\Mechanic\Table\MechanicTable;
 
@@ -64,7 +63,6 @@ final class MechanicPortFactory
         $registry->register(new PurchaseSurchargeHandler());
         $registry->register(new SixOneRuleHandler());
         $registry->register(new AdvantageDisadvantageHandler());
-        $registry->register(new ReliabilityCutHandler());
         $registry->register(new PaySrVsReliabilityHandler());
         $registry->register(new InjuryEfficiencyHandler());
         $registry->register(new InjuryExtraDiceHandler());

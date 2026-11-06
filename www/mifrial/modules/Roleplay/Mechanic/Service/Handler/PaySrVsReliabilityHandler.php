@@ -10,6 +10,11 @@ use Mifrial\Roleplay\Mechanic\Interface\MechanicPayload;
 
 /**
  * Набранные РУ атаки срезают слои с надёжностью не выше этого рейтинга.
+ *
+ * Механика — маркер для боевого пути Game: `IReliabilityCut` сообщает, что тип
+ * урона включает срез по РУ, а сам срез применяет `GameStrikeLayers` по
+ * рейтингу попадания. Событий у механики нет, поэтому `run()` ничего не делает:
+ * оплачиваемого шага и диалога в каноне нет.
  */
 final class PaySrVsReliabilityHandler implements IMechanicHandler, IReliabilityCut
 {
