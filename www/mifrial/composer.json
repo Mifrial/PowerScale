@@ -25,7 +25,10 @@
     "phpcs-preflight": "@php tools/phpcs/preflight.php",
     "cs-check": "@php tools/phpcs/preflight.php && php-cs-fixer fix --dry-run --diff && phpcs",
     "cs-fix": "php-cs-fixer fix && phpcbf",
-    "quality": "@php tools/phpcs/preflight.php && phpcs --standard=phpcs-quality.xml.dist",
+    "quality": "@php tools/quality/run.php",
+    "dup": "@php tools/duplicates/scan.php",
+    "dup:check": "@php tools/duplicates/scan.php --check",
+    "dup:ratchet": "@php tools/duplicates/scan.php --ratchet",
     "stan": "@php tools/phpcs/preflight.php && phpstan analyse --no-progress",
     "map": "@php tools/module-map/generate.php",
     "map-check": "@php tools/module-map/generate.php --check",
@@ -85,6 +88,7 @@
   "autoload-dev": {
     "psr-4": {
       "MifrialCodingStandard\\": "tools/phpcs/MifrialCodingStandard/",
+      "Mifrial\\Tools\\Duplicates\\": "tools/duplicates/",
       "Mifrial\\Core\\Kernel\\Tests\\": "modules/Core/Kernel/tests/",
       "Mifrial\\Core\\SmartTable\\Tests\\": "modules/Core/SmartTable/tests/",
       "Mifrial\\Core\\Agent\\Tests\\": "modules/Core/Agent/tests/",

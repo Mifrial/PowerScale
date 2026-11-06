@@ -1,0 +1,19 @@
+{
+  "minTokens": 50,
+  "minLines": 8,
+  "excludePaths": [
+    "modules/*/tests/*"
+  ],
+  "gate": {
+    "excludeFolders": [
+      "Dto",
+      "Table",
+      "Spec"
+    ],
+    "alwaysIncludeFolders": [
+      "Value"
+    ],
+    "maxDuplicatedLines": 12097
+  },
+  "allow": []
+}
