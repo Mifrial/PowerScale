@@ -468,7 +468,7 @@ final class GameStrikeTargetClose
 
             $spends = array_merge(
                 $spends,
-                $this->rules->resolveReactionResourceSpends(
+                $this->rules->spends()->resolveReactionResourceSpends(
                     $game->getSpaceId(),
                     $game->getRulesRevision(),
                     'turn',
@@ -494,7 +494,7 @@ final class GameStrikeTargetClose
             $spends[] = $token['spend'];
         }
 
-        $insufficient = $spends !== [] && !$this->rules->hasSufficientResources(
+        $insufficient = $spends !== [] && !$this->rules->spends()->hasSufficientResources(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $this->sheets->getTargetSheet($game, $target),
@@ -627,7 +627,7 @@ final class GameStrikeTargetClose
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $durabilityShave = $success === 0
             ? 0
-            : $this->rules->durabilityShave(
+            : $this->rules->outcome()->durabilityShave(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $actionRuleCode,
@@ -649,14 +649,14 @@ final class GameStrikeTargetClose
                 $durabilityShave,
             );
         $soak = $this->resolution->soakOf($game, $targetOpen, $choice['reaction'], $success, $pending);
-        $damageTypeCode = $this->rules->damageTypeCode(
+        $damageTypeCode = $this->rules->outcome()->damageTypeCode(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '',
             is_string($open['profile_type'] ?? null) ? $open['profile_type'] : '',
             is_int($open['profile_index'] ?? null) ? $open['profile_index'] : 0,
         );
-        $srCap = $this->rules->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
+        $srCap = $this->rules->outcome()->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
         $appliedSr = $this->amounts->appliedSr($success, $srCap);
 
         return [

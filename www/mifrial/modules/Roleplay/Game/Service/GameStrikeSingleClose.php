@@ -256,7 +256,7 @@ final class GameStrikeSingleClose
         $itemInventoryId = is_int($open['item_inventory_id'] ?? null) ? $open['item_inventory_id'] : 0;
         $itemRuleCode = is_string($open['item_rule_code'] ?? null) ? $open['item_rule_code'] : '';
         $attackerChoices = $this->choices->attackerChoices($game, $open);
-        $attackContext = $this->rules->attackFilterContext(
+        $attackContext = $this->rules->outcome()->attackFilterContext(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -348,7 +348,7 @@ final class GameStrikeSingleClose
         }
 
         if ($turnRuleCode !== null) {
-            $turnSpends = $this->rules->resolveReactionResourceSpends(
+            $turnSpends = $this->rules->spends()->resolveReactionResourceSpends(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 'turn',
@@ -617,13 +617,13 @@ final class GameStrikeSingleClose
         }
 
         $damageTypeCode = $isPush
-            ? $this->rules->pushDamageTypeCode(
+            ? $this->rules->outcome()->pushDamageTypeCode(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $itemRuleCode,
                 $profileIndex,
             )
-            : $this->rules->damageTypeCode(
+            : $this->rules->outcome()->damageTypeCode(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $itemRuleCode,
@@ -633,7 +633,7 @@ final class GameStrikeSingleClose
         if (
             $choice['reaction'] !== 'ignore'
             && $spends !== []
-            && !$this->rules->hasSufficientResources(
+            && !$this->rules->spends()->hasSufficientResources(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $this->sheets->getTargetSheet($game, $target),
@@ -667,7 +667,7 @@ final class GameStrikeSingleClose
                 ));
         if (!$isPush && $success > 0 && $strikePackage['extraSuccesses'] > 0) {
             $bonusSuccesses = $strikePackage['extraSuccesses'];
-            $bonusRating = $this->rules->processBonusRating($attackerRoll, $bonusSuccesses);
+            $bonusRating = $this->rules->outcome()->processBonusRating($attackerRoll, $bonusSuccesses);
             $success += $bonusRating;
             $attackerRoll['rating'] = (is_int($attackerRoll['rating'] ?? null) ? $attackerRoll['rating'] : 0)
                 + $bonusRating;
@@ -677,7 +677,7 @@ final class GameStrikeSingleClose
             ];
         }
 
-        $srCap = $this->rules->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
+        $srCap = $this->rules->outcome()->successRatingCap($game->getSpaceId(), $game->getRulesRevision(), $damageTypeCode);
         $pushCanceled = $isPush && ($autoFail || ($pushRating <= 0 && $choice['reaction'] !== 'block'));
         $damageSr = $isPush
             ? ($pushCanceled ? 0 : ($pushRating > 0 ? $this->amounts->appliedSr($pushRating, $srCap) : 1))
@@ -705,7 +705,7 @@ final class GameStrikeSingleClose
         $result['srCap'] = $srCap;
         $durabilityShave = $damageSr === 0
             ? 0
-            : $this->rules->durabilityShave(
+            : $this->rules->outcome()->durabilityShave(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $actionRuleCode,

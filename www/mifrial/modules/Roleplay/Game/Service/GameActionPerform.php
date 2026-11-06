@@ -545,7 +545,7 @@ final class GameActionPerform
         array $chosen,
         bool $allowZeroChosen,
     ): array {
-        return $this->rules->resolveResourceSpends(
+        return $this->rules->spends()->resolveResourceSpends(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $actionRuleCode,
@@ -573,7 +573,7 @@ final class GameActionPerform
     private function assertResources(GameRecord $game, array $sheet, array $spends): void
     {
         if (
-            $this->rules->hasSufficientResources(
+            $this->rules->spends()->hasSufficientResources(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $sheet,

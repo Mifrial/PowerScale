@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\SelfDamageOutcomeEffect;
@@ -259,7 +260,7 @@ final class GameActionModifierRunner
         }
 
         $npc = $attackerKind === 'npc';
-        $strength = $this->rules->strikeStrength(
+        $target = GameStrikeTarget::of(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -275,9 +276,7 @@ final class GameActionModifierRunner
             0,
             $gripBonus,
         );
-        $number = $strength instanceof CharacteristicNumber
-            ? $strength
-            : new CharacteristicNumber($strength->getBase(), $strength->getSize());
+        $number = $this->rules->damage()->strength($this->rules->attack($target));
         $shift = $effect->getSizeDelta();
 
         return $shift === 0 ? $number : $number->modify($shift * CharacteristicNumber::BASE_STEP);

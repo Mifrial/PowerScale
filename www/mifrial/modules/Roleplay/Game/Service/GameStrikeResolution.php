@@ -366,7 +366,7 @@ final class GameStrikeResolution
                 $actionRuleCode,
                 $profileType,
                 1,
-                $this->rules->attackFilterContext(
+                $this->rules->outcome()->attackFilterContext(
                     $game->getSpaceId(),
                     $game->getRulesRevision(),
                     $itemRuleCode,
@@ -476,7 +476,7 @@ final class GameStrikeResolution
 
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $attackContext = $this->rules->attackFilterContext(
+        $attackContext = $this->rules->outcome()->attackFilterContext(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -693,7 +693,7 @@ final class GameStrikeResolution
 
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $attackContext = $this->rules->attackFilterContext(
+        $attackContext = $this->rules->outcome()->attackFilterContext(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,
@@ -769,7 +769,7 @@ final class GameStrikeResolution
             $defenderId,
             $injury,
             $success,
-            $this->rules->damageTypeCode(
+            $this->rules->outcome()->damageTypeCode(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $itemRuleCode,
@@ -842,7 +842,7 @@ final class GameStrikeResolution
             throw new GameInvalidException('Game strike sheet is invalid');
         }
 
-        $split = $this->rules->splitInjury(
+        $split = $this->rules->outcome()->splitInjury(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $kind,

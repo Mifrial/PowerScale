@@ -76,7 +76,7 @@ final class GameStrikeSpend
 
         $choices = $snapshot['sheet']['choices'];
         $sheet = $snapshot['sheet']['sheet'];
-        $spends = $this->rules->resolveResourceSpends(
+        $spends = $this->rules->spends()->resolveResourceSpends(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['actionRuleCode'],
@@ -135,7 +135,7 @@ final class GameStrikeSpend
 
         $inventorySpend = $planned['open']
             && $this->rules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $choice['actionRuleCode']) === null
-            ? $this->rules->resolveInventorySpend(
+            ? $this->rules->spends()->resolveInventorySpend(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $choice['itemRuleCode'],
@@ -149,7 +149,7 @@ final class GameStrikeSpend
             )
             : null;
         if (
-            $spends !== [] && !$this->rules->hasSufficientResources(
+            $spends !== [] && !$this->rules->spends()->hasSufficientResources(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $sheet,
@@ -324,7 +324,7 @@ final class GameStrikeSpend
 
             $minimum = is_array($node['min_mastery'] ?? null) ? $node['min_mastery'] : null;
             if ($minimum !== null) {
-                $mastery = $this->rules->weaponMasteryOf(
+                $mastery = $this->rules->outcome()->weaponMasteryOf(
                     $game->getSpaceId(),
                     $game->getRulesRevision(),
                     $sheet,
@@ -388,7 +388,7 @@ final class GameStrikeSpend
             ? $this->rules->getBlockItemRuleCode($choices, $choice['blockItemInventoryId'])
             : ($choice['blockItemRuleCode'] ?? '');
 
-        return $this->rules->resolveReactionResourceSpends(
+        return $this->rules->spends()->resolveReactionResourceSpends(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['reaction'],

@@ -376,7 +376,7 @@ final class GameWideStrikes implements IGameWideStrikes
             $choice['attacker']['id'],
             $choice['actionRuleCode'],
         );
-        $this->rules->resolveInventorySpend(
+        $this->rules->spends()->resolveInventorySpend(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['itemRuleCode'],

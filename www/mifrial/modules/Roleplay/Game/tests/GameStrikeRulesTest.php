@@ -131,11 +131,11 @@ final class GameStrikeRulesTest extends TestCase
         $rules = $this->rulesFor($slice);
         $choices = ['inventory' => [['id' => 7, 'ruleCode' => 'sword', 'equipped' => true, 'occupyHands' => 2]]];
 
-        $context = $rules->attackFilterContext(1, 1, 'sword', 'strike', 0, $choices, 7);
+        $context = $rules->outcome()->attackFilterContext(1, 1, 'sword', 'strike', 0, $choices, 7);
         self::assertSame('slashing', $context['damageTypeCode']);
         self::assertSame(2, $context['occupyHands']);
 
-        $default = $rules->attackFilterContext(
+        $default = $rules->outcome()->attackFilterContext(
             1,
             1,
             'sword',
@@ -158,7 +158,7 @@ final class GameStrikeRulesTest extends TestCase
         $rules = $this->rulesFor($slice);
         $choices = ['inventory' => [['id' => 9, 'ruleCode' => 'bow', 'equipped' => true]]];
 
-        $context = $rules->attackFilterContext(1, 1, 'bow', 'shoot', 1, $choices, 9);
+        $context = $rules->outcome()->attackFilterContext(1, 1, 'bow', 'shoot', 1, $choices, 9);
         self::assertSame(2, $context['occupyHands']);
         self::assertSame(
             2,
@@ -276,9 +276,9 @@ final class GameStrikeRulesTest extends TestCase
     {
         $rules = $this->rulesFor($this->capSlice(3));
 
-        self::assertSame(3, $rules->successRatingCap(1, 1, 'electricity'));
-        self::assertNull($rules->successRatingCap(1, 1, 'cut'));
-        self::assertNull($rules->successRatingCap(1, 1, null));
+        self::assertSame(3, $rules->outcome()->successRatingCap(1, 1, 'electricity'));
+        self::assertNull($rules->outcome()->successRatingCap(1, 1, 'cut'));
+        self::assertNull($rules->outcome()->successRatingCap(1, 1, null));
     }
 
     /**
@@ -289,7 +289,7 @@ final class GameStrikeRulesTest extends TestCase
     public function testSuccessRatingCapRejectsUnknownDamageType(): void
     {
         $this->expectException(GameInvalidException::class);
-        $this->rulesFor($this->capSlice(3))->successRatingCap(1, 1, 'missing');
+        $this->rulesFor($this->capSlice(3))->outcome()->successRatingCap(1, 1, 'missing');
     }
 
     /**

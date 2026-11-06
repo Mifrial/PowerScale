@@ -148,7 +148,7 @@ final class GameStrikeOpen
                         $actionCode,
                         $profileType,
                         1,
-                        $this->rules->attackFilterContext(
+                        $this->rules->outcome()->attackFilterContext(
                             $game->getSpaceId(),
                             $game->getRulesRevision(),
                             $itemRuleCode,
@@ -282,7 +282,7 @@ final class GameStrikeOpen
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['actionRuleCode'],
-        ) !== null ? null : $this->rules->resolveInventorySpend(
+        ) !== null ? null : $this->rules->spends()->resolveInventorySpend(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $choice['itemRuleCode'],

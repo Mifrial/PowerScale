@@ -330,7 +330,7 @@ final class GameStrikeChat
             return 'безымянный';
         }
 
-        $code = $this->rules->damageTypeCode(
+        $code = $this->rules->outcome()->damageTypeCode(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $itemRuleCode,

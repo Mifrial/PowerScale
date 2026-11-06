@@ -391,7 +391,7 @@ final class GameActionDeclare
             [],
             null,
         );
-        $mastery = $this->rules->weaponMasteryOf(
+        $mastery = $this->rules->outcome()->weaponMasteryOf(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $quote['document']['sheet'],
@@ -708,7 +708,7 @@ final class GameActionDeclare
         );
         $coverCost = $this->spentOf($quote['spends']);
         $this->perform->assertSpends($game, $quote['document']['sheet'], $quote['spends']);
-        $reactionSpends = $this->rules->resolveReactionResourceSpends(
+        $reactionSpends = $this->rules->spends()->resolveReactionResourceSpends(
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $effect['reaction'],

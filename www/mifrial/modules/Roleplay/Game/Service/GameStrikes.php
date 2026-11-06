@@ -844,7 +844,7 @@ final class GameStrikes implements IGameStrikes
         $choice['maneuver'] = $this->maneuverOf($game, $choice);
         $this->assertModifiers($game, $choice);
         if ($this->rules->pushOf($game->getSpaceId(), $game->getRulesRevision(), $choice['actionRuleCode']) === null) {
-            $this->rules->resolveInventorySpend(
+            $this->rules->spends()->resolveInventorySpend(
                 $game->getSpaceId(),
                 $game->getRulesRevision(),
                 $choice['itemRuleCode'],
