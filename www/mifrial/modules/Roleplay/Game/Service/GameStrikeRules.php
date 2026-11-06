@@ -17,15 +17,10 @@ use Mifrial\Roleplay\Game\Dto\GameStrikeProfileRef;
 use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
-use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdjustment;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackCharacteristicModifierEffect;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionDurabilityShaveEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\PushSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\DamageTypeSpec;
@@ -65,6 +60,8 @@ final class GameStrikeRules
     private readonly GameStrikeHitCheck $hitCheck;
 
     private readonly GameStrikeRolls $rolls;
+
+    private readonly GameStrikeModifiers $modifiers;
 
     private readonly GameStrikeDistance $distance;
 
@@ -118,6 +115,7 @@ final class GameStrikeRules
             $this->mastery,
             $this->checks,
         );
+        $this->modifiers = new GameStrikeModifiers($this->successModifier);
     }
 
     /**
@@ -328,37 +326,7 @@ final class GameStrikeRules
      */
     public function passiveCheckAdvantages(CharacterRuleSlice $slice, array $levels, string $checkCode): array
     {
-        $rows = [];
-        foreach ($slice->getLiveRules() as $rule) {
-            $level = $levels[$rule->getCode()] ?? 0;
-            if ($level < 1) {
-                continue;
-            }
-
-            $spec = $rule->getSpec();
-            if (!$spec instanceof AbilityPlainSpec) {
-                continue;
-            }
-
-            foreach ($spec->getBase()->getActionEffects() as $effect) {
-                if (
-                    !$effect instanceof CurrentActionCheckModifierEffect
-                    || !in_array($checkCode, $effect->getCheckCodes(), true)
-                ) {
-                    continue;
-                }
-
-                $source = $effect->getSourceCode();
-                $source = is_string($source) && $source !== '' ? $source : null;
-                $rows[] = new RollAdvantage(
-                    $source,
-                    $effect->getDelta(),
-                    AdvantageSourceLabels::getLabel($source),
-                );
-            }
-        }
-
-        return $rows;
+        return $this->modifiers->passiveCheckAdvantages($slice, $levels, $checkCode);
     }
 
     /**
@@ -478,17 +446,7 @@ final class GameStrikeRules
         string $actionRuleCode,
         int $targetCount,
     ): ?RollAdvantage {
-        $base = GameStrikeRuleLookup::actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
-        $delta = $base?->getWideTargetCheckAdvantage() ?? 0;
-        if ($delta === 0 || $targetCount < 2) {
-            return null;
-        }
-
-        return new RollAdvantage(
-            'circumstances',
-            $delta * ($targetCount - 1),
-            AdvantageSourceLabels::getLabel('circumstances'),
-        );
+        return $this->cards->wideTargetCheckAdvantage($spaceId, $rulesRevision, $actionRuleCode, $targetCount);
     }
 
     /**
@@ -992,31 +950,7 @@ final class GameStrikeRules
         string $actionRuleCode,
         string $checkCode,
     ): array {
-        $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
-        if ($base === null) {
-            return [];
-        }
-
-        $rows = [];
-        foreach ($base->getActionEffects() as $effect) {
-            if (!$effect instanceof CurrentActionCheckModifierEffect) {
-                continue;
-            }
-
-            if (!in_array($checkCode, $effect->getCheckCodes(), true)) {
-                continue;
-            }
-
-            $source = $effect->getSourceCode();
-            $source = is_string($source) && $source !== '' ? $source : null;
-            $rows[] = new RollAdvantage(
-                $source,
-                $effect->getDelta(),
-                AdvantageSourceLabels::getLabel($source),
-            );
-        }
-
-        return $rows;
+        return $this->checks->actionCheckAdvantages($slice, $actionRuleCode, $checkCode);
     }
 
     /**
@@ -1081,15 +1015,13 @@ final class GameStrikeRules
         array $attackContext = [],
         array $abilityLevels = [],
     ): int {
-        return $this->netSourceDeltas(
-            $this->actionCharacteristicDeltas(
-                $slice,
-                $actionRuleCode,
-                $profileType,
-                $hitNumber,
-                $attackContext,
-                $abilityLevels,
-            ),
+        return $this->modifiers->actionCharacteristicModifier(
+            $slice,
+            $actionRuleCode,
+            $profileType,
+            $hitNumber,
+            $attackContext,
+            $abilityLevels,
         );
     }
 
@@ -1119,164 +1051,15 @@ final class GameStrikeRules
         array $abilityLevels = [],
         ?int $success = null,
     ): int {
-        $entries = $this->actionCharacteristicDeltas(
+        return $this->modifiers->attackCharacteristicModifier(
             $slice,
             $actionRuleCode,
             $profileType,
             $hitNumber,
             $attackContext,
             $abilityLevels,
+            $success,
         );
-        if ($success !== null) {
-            $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
-            if ($base !== null) {
-                array_push(
-                    $entries,
-                    ...$this->successModifier->entriesFrom(
-                        $base->getActionEffects(),
-                        $profileType,
-                        $hitNumber,
-                        $success,
-                    ),
-                );
-            }
-        }
-
-        return $this->netSourceDeltas($entries);
-    }
-
-    /**
-     * Вклады «силы удара» карточки и её детей с источниками.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $actionRuleCode Карточка.
-     * @param string $profileType Тип профиля strike, throw или shoot.
-     * @param int $hitNumber Номер попадания.
-     * @param array{damageTypeCode?: string|null, occupyHands?: int} $attackContext
-     *        Контекст профиля: тип урона и занятые оружием руки.
-     * @param array<string, int> $abilityLevels Уровни способностей актора.
-     *
-     * @return list<array{source: string|null, delta: int}> Вклады.
-     */
-    private function actionCharacteristicDeltas(
-        CharacterRuleSlice $slice,
-        string $actionRuleCode,
-        string $profileType,
-        int $hitNumber,
-        array $attackContext = [],
-        array $abilityLevels = [],
-    ): array {
-        $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
-        if ($base === null) {
-            return [];
-        }
-
-        $damageType = $attackContext['damageTypeCode'] ?? null;
-        $damageType = $damageType !== '' ? $damageType : null;
-        $occupyHands = $attackContext['occupyHands'] ?? 0;
-
-        $entries = [];
-        foreach ($this->actionEffectBases($slice, $actionRuleCode, $base, $abilityLevels) as $current) {
-            foreach ($current->getActionEffects() as $effect) {
-                if (!$effect instanceof CurrentActionAttackCharacteristicModifierEffect) {
-                    continue;
-                }
-
-                if (!$effect->getScope()->appliesTo($profileType, $hitNumber)) {
-                    continue;
-                }
-
-                $types = $effect->getDamageTypeCodes();
-                if ($types !== [] && ($damageType === null || !in_array($damageType, $types, true))) {
-                    continue;
-                }
-
-                $minHands = $effect->getMinOccupyHands();
-                if ($minHands !== null && $occupyHands < $minHands) {
-                    continue;
-                }
-
-                $entries[] = ['source' => $effect->getSourceCode(), 'delta' => $effect->getDelta()];
-            }
-        }
-
-        return $entries;
-    }
-
-    /**
-     * Нетто вкладов: один источник — сильнейший плюс и сильнейший минус.
-     *
-     * @param list<array{source: string|null, delta: int}> $entries Вклады.
-     *
-     * @return int Сумма.
-     */
-    private function netSourceDeltas(array $entries): int
-    {
-        $groups = [];
-        foreach ($entries as $index => $entry) {
-            if ($entry['delta'] === 0) {
-                continue;
-            }
-
-            $key = $entry['source'] ?? "\0" . $index;
-            $groups[$key][] = $entry['delta'];
-        }
-
-        $net = 0;
-        foreach ($groups as $deltas) {
-            $bonus = 0;
-            $penalty = 0;
-            foreach ($deltas as $delta) {
-                if ($delta > 0) {
-                    $bonus = max($bonus, $delta);
-                } else {
-                    $penalty = min($penalty, $delta);
-                }
-            }
-
-            $net += $bonus + $penalty;
-        }
-
-        return $net;
-    }
-
-    /**
-     * Базы карточки действия и купленных дочерних навыков.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $actionRuleCode Карточка.
-     * @param AbilityBase $base База карточки.
-     * @param array<string, int> $abilityLevels Уровни способностей.
-     *
-     * @return array<int, AbilityBase> Базы.
-     */
-    private function actionEffectBases(
-        CharacterRuleSlice $slice,
-        string $actionRuleCode,
-        AbilityBase $base,
-        array $abilityLevels,
-    ): array {
-        $bases = [$base];
-        foreach ($slice->getLiveRules() as $rule) {
-            $level = $abilityLevels[$rule->getCode()] ?? 0;
-            if ($level < 1) {
-                continue;
-            }
-
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if (!$spec instanceof AbilityActionSpec && !$spec instanceof AbilityPlainSpec) {
-                continue;
-            }
-
-            $child = $spec->getBase();
-            if ($child->getParentAbilityCode() !== $actionRuleCode) {
-                continue;
-            }
-
-            $bases[] = $child;
-        }
-
-        return $bases;
     }
 
     /**
@@ -1397,13 +1180,12 @@ final class GameStrikeRules
         int $hitNumber,
         int $success,
     ): int {
-        $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
-        if ($base === null) {
-            return 0;
-        }
-
-        return $this->netSourceDeltas(
-            $this->successModifier->entriesFrom($base->getActionEffects(), $profileType, $hitNumber, $success),
+        return $this->modifiers->successRatingCharacteristicModifier(
+            $slice,
+            $actionRuleCode,
+            $profileType,
+            $hitNumber,
+            $success,
         );
     }
 

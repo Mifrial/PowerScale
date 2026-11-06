@@ -7,6 +7,8 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
@@ -32,7 +34,6 @@ final class GameStrikeActionCards
         private readonly GameStrikeParticipants $participants,
     ) {
     }
-
     /**
      * Общие поля карточки действия.
      *
@@ -48,7 +49,6 @@ final class GameStrikeActionCards
     {
         return GameStrikeRuleLookup::actionBase($this->slices->slice($spaceId, $rulesRevision), $actionRuleCode);
     }
-
     /**
      * Толчок карточки действия или null.
      *
@@ -64,7 +64,6 @@ final class GameStrikeActionCards
     {
         return $this->actionBaseOf($spaceId, $rulesRevision, $actionRuleCode)?->getPush();
     }
-
     /**
      * Снимает ли навык потолок экземпляров оружия.
      *
@@ -103,7 +102,6 @@ final class GameStrikeActionCards
 
         return false;
     }
-
     /**
      * Последовательные удары: свой бросок и реакция на каждый.
      *
@@ -122,7 +120,6 @@ final class GameStrikeActionCards
 
         return $base !== null && (($base->getStrikeCount() ?? 1) > 1 || $base->isDistinctWeapons());
     }
-
     /**
      * Широкая ли карточка: потолок целей больше одной.
      *
@@ -144,7 +141,6 @@ final class GameStrikeActionCards
 
         return ($base->getMaxTargets() ?? 1) > 1;
     }
-
     /**
      * Карточка реакции с нужным combat action.
      *
@@ -165,7 +161,6 @@ final class GameStrikeActionCards
 
         return null;
     }
-
     /**
      * Первая по коду живая карточка-потомок, закрывающая процесс.
      *
@@ -194,7 +189,6 @@ final class GameStrikeActionCards
 
         return ['code' => (string) $code, 'spec' => $found[$code]];
     }
-
     /**
      * Единственная живая проверка характеристики с заданной сложностью.
      *
@@ -227,7 +221,37 @@ final class GameStrikeActionCards
 
         return $matched[0];
     }
+    /**
+     * Помеха за число целей широкой атаки.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия игры.
+     * @param string $actionRuleCode Действие.
+     * @param int $targetCount Число целей.
+     *
+     * @return RollAdvantage|null Запись или null.
+     *
+     * @throws GameInvalidException Если карточка битая.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function wideTargetCheckAdvantage(
+        int $spaceId,
+        int $rulesRevision,
+        string $actionRuleCode,
+        int $targetCount,
+    ): ?RollAdvantage {
+        $base = GameStrikeRuleLookup::actionBase($this->slices->slice($spaceId, $rulesRevision), $actionRuleCode);
+        $delta = $base?->getWideTargetCheckAdvantage() ?? 0;
+        if ($delta === 0 || $targetCount < 2) {
+            return null;
+        }
 
+        return new RollAdvantage(
+            'circumstances',
+            $delta * ($targetCount - 1),
+            AdvantageSourceLabels::getLabel('circumstances'),
+        );
+    }
     /**
      * Уровни способностей актора.
      *
@@ -248,7 +272,6 @@ final class GameStrikeActionCards
 
         return is_array($sheet['abilityLevels'] ?? null) ? $sheet['abilityLevels'] : [];
     }
-
     /**
      * База купленного потомка карточки.
      *
@@ -267,7 +290,6 @@ final class GameStrikeActionCards
 
         return $base->getParentAbilityCode() === $parentCode ? $base : null;
     }
-
     /**
      * Кандидаты закрытия процесса.
      *
@@ -298,7 +320,6 @@ final class GameStrikeActionCards
 
         return $found;
     }
-
     /**
      * Карточка закрывает процесс в текущих условиях.
      *

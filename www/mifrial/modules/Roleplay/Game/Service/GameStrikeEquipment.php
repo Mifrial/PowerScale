@@ -27,7 +27,6 @@ final class GameStrikeEquipment
         private readonly GameStrikeSlices $slices,
     ) {
     }
-
     /**
      * Сколько рук занимает оружие в этой атаке.
      *
@@ -72,7 +71,6 @@ final class GameStrikeEquipment
 
         return $rest + (is_int($extra) && $extra > 0 ? $extra : 0);
     }
-
     /**
      * Бонус к Силе удара за удержание оружия.
      *
@@ -91,7 +89,6 @@ final class GameStrikeEquipment
 
         return $occupyHands >= 2 ? 2 : 0;
     }
-
     /**
      * Выбранный живой предмет строки инвентаря.
      *
@@ -117,7 +114,6 @@ final class GameStrikeEquipment
 
         return $this->effectiveItem($spaceId, $rulesRevision, $this->row($choices, $inventoryId));
     }
-
     /**
      * Разрешает выбранный предмет без доверия к его rule code.
      *
@@ -144,7 +140,6 @@ final class GameStrikeEquipment
 
         return $this->effectiveItem($spaceId, $rulesRevision, $row);
     }
-
     /**
      * Проверяет выбранную надетую строку инвентаря.
      *
@@ -176,7 +171,6 @@ final class GameStrikeEquipment
 
         throw new GameInvalidException('Game strike inventory item is invalid');
     }
-
     /**
      * Строка в руках: надета или врождённое оружие.
      *
@@ -189,7 +183,6 @@ final class GameStrikeEquipment
     {
         return ($row['equipped'] ?? false) === true || $item->isInnate();
     }
-
     /**
      * Одна строка инвентаря по id.
      *
@@ -224,7 +217,44 @@ final class GameStrikeEquipment
 
         return $matches[0];
     }
+    /**
+     * Строка инвентаря выбранного блока.
+     *
+     * @param array<string, mixed> $choices Выборы защитника.
+     * @param int $blockItemInventoryId Строка инвентаря.
+     *
+     * @return array<string, mixed> Строка.
+     *
+     * @throws GameInvalidException Если выбор невалиден.
+     */
+    public function blockRow(array $choices, int $blockItemInventoryId): array
+    {
+        $inventory = $choices['inventory'] ?? null;
+        if (!is_array($inventory)) {
+            throw new GameInvalidException('Game strike inventory is invalid');
+        }
 
+        $row = null;
+        $count = 0;
+        foreach ($inventory as $candidate) {
+            if (!is_array($candidate) || ($candidate['id'] ?? null) !== $blockItemInventoryId) {
+                continue;
+            }
+
+            $row = $candidate;
+            ++$count;
+        }
+
+        if ($count > 1) {
+            throw new GameInvalidException('Game strike block item is ambiguous');
+        }
+
+        if ($row === null) {
+            throw new GameInvalidException('Game strike block item is invalid');
+        }
+
+        return $row;
+    }
     /**
      * Строка совпадает с предметом и надета.
      *
@@ -238,7 +268,6 @@ final class GameStrikeEquipment
     {
         return $this->isCarried($row, $item) && ($row['ruleCode'] ?? null) === $itemRuleCode;
     }
-
     /**
      * Остатка хватает на выбранный экземпляр.
      *
@@ -256,7 +285,6 @@ final class GameStrikeEquipment
 
         return $instanceIndex >= 0 && $instanceIndex < $quantity;
     }
-
     /**
      * Применяет live operations выбранной inventory instance к live item.
      *
@@ -289,7 +317,6 @@ final class GameStrikeEquipment
             $rule->getKeywordCodes(),
         );
     }
-
     /**
      * Разрешает live modifier specs строки инвентаря.
      *
@@ -317,7 +344,6 @@ final class GameStrikeEquipment
 
         return $specs;
     }
-
     /**
      * Один live modifier spec по коду.
      *
@@ -342,7 +368,6 @@ final class GameStrikeEquipment
 
         return $spec;
     }
-
     /**
      * Строка инвентаря выбранного предмета.
      *

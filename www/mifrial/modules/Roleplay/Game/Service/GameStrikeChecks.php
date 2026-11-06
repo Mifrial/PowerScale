@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\PushSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponProfile;
@@ -32,7 +34,6 @@ final class GameStrikeChecks
         private readonly GameStrikeActionCards $cards,
     ) {
     }
-
     /**
      * Проверяет выбранный удар.
      *
@@ -81,7 +82,6 @@ final class GameStrikeChecks
         $this->equipment->assertInventoryItem($choices, $itemInventoryId, $itemRuleCode, $spaceId, $rulesRevision, $instanceIndex);
         $this->assertPushProfile($spaceId, $rulesRevision, $actionRuleCode, $itemRuleCode, $profileType, $profileIndex);
     }
-
     /**
      * Проверяет число целей карточки: потолок `max_targets` и режим.
      *
@@ -120,7 +120,6 @@ final class GameStrikeChecks
             throw new GameInvalidException('Game strike target count is invalid');
         }
     }
-
     /**
      * Предмет блока — живой предмет со щитом или оружием.
      *
@@ -140,7 +139,6 @@ final class GameStrikeChecks
             throw new GameInvalidException('Game strike block item is invalid');
         }
     }
-
     /**
      * Предмет годится для блока против толчка.
      *
@@ -172,7 +170,6 @@ final class GameStrikeChecks
 
         throw new GameInvalidException('Game push block item is invalid');
     }
-
     /**
      * Проверяет выбранную строку и профиль блока.
      *
@@ -200,7 +197,7 @@ final class GameStrikeChecks
             throw new GameInvalidException('Game strike block profile is invalid');
         }
 
-        $row = $this->blockRow($choices, $blockItemInventoryId);
+        $row = $this->equipment->blockRow($choices, $blockItemInventoryId);
         $ruleCode = $row['ruleCode'] ?? null;
         if (($row['equipped'] ?? false) !== true || !is_string($ruleCode)) {
             throw new GameInvalidException('Game strike block item is invalid');
@@ -211,7 +208,35 @@ final class GameStrikeChecks
             throw new GameInvalidException('Game strike block profile is invalid');
         }
     }
+    /**
+     * Текущие проверочные модификаторы карточки действия.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $actionRuleCode Карточка.
+     * @param string $checkCode Код проверки.
+     *
+     * @return array<int, RollAdvantage> Записи.
+     */
+    public function actionCheckAdvantages(
+        CharacterRuleSlice $slice,
+        string $actionRuleCode,
+        string $checkCode,
+    ): array {
+        $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
+        if ($base === null) {
+            return [];
+        }
 
+        $rows = [];
+        foreach ($base->getActionEffects() as $effect) {
+            $row = GameStrikeCheckAdvantage::of($effect, $checkCode);
+            if ($row !== null) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+    }
     /**
      * Живое правило.
      *
@@ -231,7 +256,6 @@ final class GameStrikeChecks
             throw new GameInvalidException('Game strike rule is not live');
         }
     }
-
     /**
      * Профиль допустим для толчка.
      *
@@ -276,7 +300,6 @@ final class GameStrikeChecks
             throw new GameInvalidException('Game push profile is invalid');
         }
     }
-
     /**
      * Предмет подходит для толчка руками или щитом.
      *
@@ -292,7 +315,6 @@ final class GameStrikeChecks
             throw new GameInvalidException('Game push profile is invalid');
         }
     }
-
     /**
      * Предмет годится для выбранного толчка.
      *
@@ -312,7 +334,6 @@ final class GameStrikeChecks
             default => false,
         };
     }
-
     /**
      * Предмет закрывает толчок по спеке.
      *
@@ -331,7 +352,6 @@ final class GameStrikeChecks
             default => false,
         };
     }
-
     /**
      * Есть ли у предмета рубящий или дробящий удар.
      *
@@ -351,44 +371,5 @@ final class GameStrikeChecks
         }
 
         return false;
-    }
-
-    /**
-     * Строка инвентаря выбранного блока.
-     *
-     * @param array<string, mixed> $choices Выборы защитника.
-     * @param int $blockItemInventoryId Строка инвентаря.
-     *
-     * @return array<string, mixed> Строка.
-     *
-     * @throws GameInvalidException Если выбор невалиден.
-     */
-    private function blockRow(array $choices, int $blockItemInventoryId): array
-    {
-        $inventory = $choices['inventory'] ?? null;
-        if (!is_array($inventory)) {
-            throw new GameInvalidException('Game strike inventory is invalid');
-        }
-
-        $row = null;
-        $count = 0;
-        foreach ($inventory as $candidate) {
-            if (!is_array($candidate) || ($candidate['id'] ?? null) !== $blockItemInventoryId) {
-                continue;
-            }
-
-            $row = $candidate;
-            ++$count;
-        }
-
-        if ($count > 1) {
-            throw new GameInvalidException('Game strike block item is ambiguous');
-        }
-
-        if ($row === null) {
-            throw new GameInvalidException('Game strike block item is invalid');
-        }
-
-        return $row;
     }
 }
