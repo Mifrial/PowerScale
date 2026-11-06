@@ -712,20 +712,9 @@ final class GameStrikeConsequences
      */
     private function endurance(CharacterRuleSlice $slice, array $sheet): DimensionalNumber
     {
-        $matched = [];
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if ($spec instanceof CharacteristicSpec && $spec->isDamageEndurance()) {
-                $matched[] = $rule->getCode();
-            }
-        }
-
-        if (count($matched) !== 1) {
-            throw new GameInvalidException('Game strike endurance is invalid');
-        }
-
         try {
-            $value = $this->contexts->build($sheet)->findCharacteristic($matched[0]);
+            $value = $this->contexts->build($sheet)
+                ->findCharacteristic(GameStrikeCharacteristicCodes::enduranceCode($slice));
         } catch (CharacterInvalidException $exception) {
             throw new GameInvalidException('Game strike endurance is invalid', $exception);
         }

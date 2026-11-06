@@ -4,15 +4,11 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
-use Mifrial\Roleplay\Character\Dto\CharacterRecord;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
@@ -67,40 +63,26 @@ final class GameStrikeRules
     private readonly GameStrikeSuccessModifier $successModifier;
 
     /**
-     * @var array<string, array<string, mixed>>
-     */
-    private array $sheetCache = [];
-
-    /**
-     * @var array<string, FormulaContext>
-     */
-    private array $contextCache = [];
-
-    /**
      * Создаёт проверку.
      *
-     * @param ICharacters $characters Лист.
-     * @param ICharacterFormulaContexts $formulaContexts Контекст листа.
      * @param IFormulaEvaluations $formulaEvaluations Обход формулы.
      * @param GameCheckRoll $hitRoll Бросок попадания.
      * @param GameStrikeLayers $layers Сопротивление слоёв.
-     * @param ICharacterSheets $sheets Полный пересчёт листа.
      * @param GameStrikeSlices $slices Срезы ревизии.
      * @param GameStrikeEquipment $equipment Снаряжение удара.
      * @param GameStrikeInventorySpend $inventorySpend Списание предмета.
+     * @param GameStrikeParticipants $participants Участники удара.
      *
      * @return void
      */
     public function __construct(
-        private readonly ICharacters $characters,
-        private readonly ICharacterFormulaContexts $formulaContexts,
         private readonly IFormulaEvaluations $formulaEvaluations,
         private readonly GameCheckRoll $hitRoll,
         private readonly GameStrikeLayers $layers,
-        private readonly ICharacterSheets $sheets,
         private readonly GameStrikeSlices $slices,
         private readonly GameStrikeEquipment $equipment,
         private readonly GameStrikeInventorySpend $inventorySpend,
+        private readonly GameStrikeParticipants $participants,
     ) {
         $this->soaks = new GameStrikeSoaks();
         $this->amounts = new GameStrikeAmounts();
@@ -811,7 +793,7 @@ final class GameStrikeRules
             throw new GameInvalidException('Game strike attacker is invalid');
         }
 
-        $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
+        $documents = $this->participants->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
         $item = $this->equipment->selectedItem(
             $spaceId,
             $rulesRevision,
@@ -826,7 +808,7 @@ final class GameStrikeRules
             throw new GameInvalidException('Game strike damage profile is invalid');
         }
 
-        $context = $this->formulaContext(
+        $context = $this->participants->formulaContext(
             $this->slice($spaceId, $rulesRevision),
             $documents['sheet'],
             $documents['choices'],
@@ -882,7 +864,7 @@ final class GameStrikeRules
         int $strengthDrop = 0,
         int $gripBonus = 0,
     ): DimensionalNumber {
-        $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
+        $documents = $this->participants->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
         $item = $this->equipment->selectedItem(
             $spaceId,
             $rulesRevision,
@@ -898,7 +880,7 @@ final class GameStrikeRules
         }
 
         try {
-            $context = $this->formulaContext(
+            $context = $this->participants->formulaContext(
                 $this->slice($spaceId, $rulesRevision),
                 $documents['sheet'],
                 $documents['choices'],
@@ -971,7 +953,7 @@ final class GameStrikeRules
             return $this->amounts->zero();
         }
 
-        $documents = $this->defenderDocuments($defenderKind, $defenderId, $npcSheet, $npcChoices);
+        $documents = $this->participants->defenderDocuments($defenderKind, $defenderId, $npcSheet, $npcChoices);
 
         return $this->layers->total(
             $this->slice($spaceId, $rulesRevision),
@@ -1037,9 +1019,9 @@ final class GameStrikeRules
 
         $benefit = $this->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex)
             ->getDodgeBenefit() ?? -3;
-        $documents = $this->defenderDocuments($defenderKind, $defenderId, $npcSheet, $npcChoices, $sheetVersion);
+        $documents = $this->participants->defenderDocuments($defenderKind, $defenderId, $npcSheet, $npcChoices, $sheetVersion);
         $soak = $this->soaks->shift(
-            $this->formulaContext($slice, $documents['sheet'], $documents['choices'], $documents['key']),
+            $this->participants->formulaContext($slice, $documents['sheet'], $documents['choices'], $documents['key']),
             $characteristicCode,
             $benefit,
         );
@@ -1165,7 +1147,7 @@ final class GameStrikeRules
         int $pendingAccuracyDelta = 0,
         ?RollAdjustment $pendingAdjustment = null,
     ): array {
-        $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
+        $documents = $this->participants->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
         $item = $this->equipment->selectedItem($spaceId, $rulesRevision, $documents['choices'], $itemInventoryId, $itemRuleCode);
         $mastery = $this->mastery(
             $this->slice($spaceId, $rulesRevision),
@@ -2224,18 +2206,7 @@ final class GameStrikeRules
      */
     public function characterSnapshot(int $characterId): array
     {
-        try {
-            $record = $this->characters->get($characterId);
-        } catch (CharacterNotFoundException $exception) {
-            throw new GameNotFoundException('Game strike character was not found', $exception);
-        }
-
-        return [
-            'actualVersion' => $record->getActualVersion(),
-            'rulesRevision' => $record->getRulesRevision(),
-            'choices' => $record->getChoices(),
-            'sheet' => $this->liveSheet($record),
-        ];
+        return $this->participants->characterSnapshot($characterId);
     }
 
     /**
@@ -2249,7 +2220,7 @@ final class GameStrikeRules
      */
     public function makeParticipantKey(string $kind, int $id, int $version): string
     {
-        return $kind . ':' . $id . ':' . $version;
+        return $this->participants->makeParticipantKey($kind, $id, $version);
     }
 
     /**
@@ -2261,7 +2232,7 @@ final class GameStrikeRules
      */
     public function characterName(int $characterId): string
     {
-        return $this->characters->get($characterId)->getName();
+        return $this->participants->characterName($characterId);
     }
 
     /**
@@ -2296,11 +2267,11 @@ final class GameStrikeRules
         }
 
         $slice = $this->slice($spaceId, $rulesRevision);
-        $documents = $this->defenderDocuments($defenderKind, $defenderId, $npcSheet, $npcChoices, $sheetVersion);
+        $documents = $this->participants->defenderDocuments($defenderKind, $defenderId, $npcSheet, $npcChoices, $sheetVersion);
 
         return $this->splits->operation(
             $slice,
-            $this->formulaContext($slice, $documents['sheet'], $documents['choices'], $documents['key']),
+            $this->participants->formulaContext($slice, $documents['sheet'], $documents['choices'], $documents['key']),
             $injury,
         );
     }
@@ -2330,15 +2301,15 @@ final class GameStrikeRules
         ?array $npcChoices,
         ?int $sheetVersion = null,
     ): DimensionalNumber {
-        $slice = $this->slice($spaceId, $rulesRevision);
-        $documents = $this->defenderDocuments($defenderKind, $defenderId, $npcSheet, $npcChoices, $sheetVersion);
-        $value = $this->formulaContext($slice, $documents['sheet'], $documents['choices'], $documents['key'])
-            ->findCharacteristic($this->enduranceCode($slice));
-        if (!$value instanceof DimensionalNumber) {
-            throw new GameInvalidException('Game strike endurance is invalid');
-        }
-
-        return $value;
+        return $this->participants->enduranceOf(
+            $spaceId,
+            $rulesRevision,
+            $defenderKind,
+            $defenderId,
+            $npcSheet,
+            $npcChoices,
+            $sheetVersion,
+        );
     }
 
     /**
@@ -2353,17 +2324,7 @@ final class GameStrikeRules
      */
     public function characteristicOf(array $sheet, string $code): DimensionalNumber
     {
-        try {
-            $value = $this->formulaContexts->build($sheet)->findCharacteristic($code);
-        } catch (CharacterInvalidException $exception) {
-            throw new GameInvalidException('Game strike characteristic is invalid', $exception);
-        }
-
-        if (!$value instanceof DimensionalNumber) {
-            throw new GameInvalidException('Game strike characteristic is invalid');
-        }
-
-        return $value;
+        return $this->participants->characteristicOf($sheet, $code);
     }
 
     /**
@@ -2616,23 +2577,6 @@ final class GameStrikeRules
         return $matched;
     }
 
-    private function enduranceCode(CharacterRuleSlice $slice): string
-    {
-        $matched = [];
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if ($spec instanceof CharacteristicSpec && $spec->isDamageEndurance()) {
-                $matched[] = $rule->getCode();
-            }
-        }
-
-        if (count($matched) !== 1) {
-            throw new GameInvalidException('Game strike endurance is invalid');
-        }
-
-        return $matched[0];
-    }
-
     /**
      * Профиль предмета.
      *
@@ -2655,51 +2599,6 @@ final class GameStrikeRules
         int $profileIndex,
     ): WeaponProfile {
         return $this->slices->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex);
-    }
-
-    /**
-     * Возвращает документы атакующего.
-     *
-     * @param string $kind Вид участника.
-     * @param int $id Идентификатор.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
-     * @param array<string, mixed>|null $npcChoices Снимок choices NPC.
-     * @param int|null $sheetVersion Версия листа NPC.
-     *
-     * @return array{sheet: array<string, mixed>, choices: array<string, mixed>, key: string|null} Документы.
-     *
-     * @throws GameInvalidException Если NPC choices отсутствуют.
-     * @throws GameNotFoundException Если персонаж отсутствует.
-     */
-    private function attackerDocuments(
-        string $kind,
-        int $id,
-        ?array $npcSheet,
-        ?array $npcChoices,
-        ?int $sheetVersion = null,
-    ): array {
-        if ($kind === 'character') {
-            $snapshot = $this->characterSnapshot($id);
-
-            return [
-                'sheet' => $snapshot['sheet'],
-                'choices' => $snapshot['choices'],
-                'key' => $this->makeParticipantKey('character', $id, $snapshot['actualVersion']),
-            ];
-        }
-
-        if ($kind !== 'npc' || !is_array($npcSheet)) {
-            throw new GameInvalidException('Game strike attacker is invalid');
-        }
-
-        $choices = $npcChoices;
-        $sheet = $npcSheet;
-
-        return [
-            'sheet' => $sheet,
-            'choices' => $choices,
-            'key' => $sheetVersion === null ? null : $this->makeParticipantKey('npc', $id, $sheetVersion),
-        ];
     }
 
     /**
@@ -2772,7 +2671,7 @@ final class GameStrikeRules
             return $best;
         }
 
-        return $this->formulaContext($slice, $sheet, $choices, $participantKey)
+        return $this->participants->formulaContext($slice, $sheet, $choices, $participantKey)
             ->findCharacteristic($this->combatCharacteristic($slice, $profileType));
     }
 
@@ -2811,7 +2710,7 @@ final class GameStrikeRules
             throw new GameInvalidException('Game strike characteristic is invalid');
         }
 
-        $derived = $this->formulaContext($slice, $sheet, $choices, $participantKey)
+        $derived = $this->participants->formulaContext($slice, $sheet, $choices, $participantKey)
             ->findCharacteristic($characteristicCode);
         if (!$derived instanceof DimensionalNumber) {
             throw new GameInvalidException('Game strike characteristic is invalid');
@@ -2819,32 +2718,13 @@ final class GameStrikeRules
 
         $base = new CharacteristicNumber($derived->getBase(), $derived->getSize());
 
-        $computed = $this->computedSheet($slice, $sheet, $choices);
+        $computed = $this->participants->computedSheet($slice, $sheet, $choices);
         $stored = $computed['weaponFamilyMastery'][$familyCode][$profileType] ?? null;
         if (is_array($stored) && is_int($stored['base'] ?? null) && is_int($stored['size'] ?? null)) {
             return new CharacteristicNumber($stored['base'], $stored['size']);
         }
 
         return $base;
-    }
-
-    /**
-     * Посчитанный лист с картой семейств.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $sheet Лист.
-     * @param array<string, mixed> $choices Выборы.
-     *
-     * @return array<string, mixed> Sheet.
-     */
-    private function computedSheet(CharacterRuleSlice $slice, array $sheet, array $choices): array
-    {
-        if (is_array($sheet['sheet'] ?? null) && is_array($sheet['choices'] ?? null)) {
-            $choices = $sheet['choices'];
-            $sheet = $sheet['sheet'];
-        }
-
-        return $this->sheets->compute($slice, $choices, $sheet);
     }
 
     /**
@@ -2881,66 +2761,6 @@ final class GameStrikeRules
         }
 
         return $delta;
-    }
-
-    /**
-     * Лист и выборы цели.
-     *
-     * @param string $defenderKind Character или npc.
-     * @param int $defenderId Цель.
-     * @param array<string, mixed>|null $npcSheet Снимок sheet.
-     * @param array<string, mixed>|null $npcChoices Документ choices.
-     * @param int|null $sheetVersion Версия листа NPC.
-     *
-     * @return array{sheet: array<string, mixed>, choices: array<string, mixed>, key: string|null} Документы.
-     *
-     * @throws GameInvalidException Если снимка NPC нет.
-     * @throws GameNotFoundException Если персонажа нет.
-     */
-    private function defenderDocuments(
-        string $defenderKind,
-        int $defenderId,
-        ?array $npcSheet,
-        ?array $npcChoices,
-        ?int $sheetVersion = null,
-    ): array {
-        if ($defenderKind === 'npc') {
-            return [
-                'sheet' => $this->npcSheet($npcSheet),
-                'choices' => $npcChoices ?? throw new GameInvalidException('Game strike npc choices are missing'),
-                'key' => $sheetVersion === null ? null : $this->makeParticipantKey('npc', $defenderId, $sheetVersion),
-            ];
-        }
-
-        try {
-            $record = $this->characters->get($defenderId);
-        } catch (CharacterNotFoundException $exception) {
-            throw new GameNotFoundException('Game strike character was not found', $exception);
-        }
-
-        return [
-            'sheet' => $this->liveSheet($record),
-            'choices' => $record->getChoices(),
-            'key' => $this->makeParticipantKey('character', $defenderId, $record->getActualVersion()),
-        ];
-    }
-
-    /**
-     * Снимок sheet NPC.
-     *
-     * @param array<string, mixed>|null $npcSheet Снимок или null.
-     *
-     * @return array<string, mixed> Документ.
-     *
-     * @throws GameInvalidException Если снимка нет.
-     */
-    private function npcSheet(?array $npcSheet): array
-    {
-        if ($npcSheet === null) {
-            throw new GameInvalidException('Game strike npc sheet is missing');
-        }
-
-        return $npcSheet;
     }
 
     /**
@@ -2983,7 +2803,7 @@ final class GameStrikeRules
         string $actionRuleCode = '',
     ): array {
         try {
-            $documents = $this->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
+            $documents = $this->participants->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
             $item = $this->equipment->selectedItem(
                 $spaceId,
                 $rulesRevision,
@@ -2998,7 +2818,7 @@ final class GameStrikeRules
                 throw new GameInvalidException('Game strike distance profile is invalid');
             }
 
-            $base = $this->formulaContext(
+            $base = $this->participants->formulaContext(
                 $this->slice($spaceId, $rulesRevision),
                 $documents['sheet'],
                 $documents['choices'],
@@ -3330,68 +3150,6 @@ final class GameStrikeRules
     }
 
     /**
-     * Контекст формулы: закупки листа, база расы, автоматические характеристики.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $sheet Лист.
-     * @param array<string, mixed> $choices Выборы.
-     * @param string|null $participantKey Ключ участника и версии листа.
-     *
-     * @return FormulaContext Контекст.
-     *
-     * @throws CharacterInvalidException Если снимок битый.
-     */
-    private function formulaContext(
-        CharacterRuleSlice $slice,
-        array $sheet,
-        array $choices,
-        ?string $participantKey = null,
-    ): FormulaContext {
-        if ($participantKey !== null && isset($this->contextCache[$participantKey])) {
-            return $this->contextCache[$participantKey];
-        }
-
-        if (is_array($sheet['sheet'] ?? null) && is_array($sheet['choices'] ?? null)) {
-            $choices = $sheet['choices'];
-            $sheet = $sheet['sheet'];
-        }
-
-        $computed = $this->sheets->compute($slice, $choices, $sheet);
-        $context = $this->formulaContexts->build($computed);
-        if ($participantKey !== null) {
-            $this->sheetCache[$participantKey] = $computed;
-            $this->contextCache[$participantKey] = $context;
-        }
-
-        return $context;
-    }
-
-    /**
-     * Посчитанный sheet actual.
-     *
-     * @param CharacterRecord $record Строка.
-     *
-     * @return array<string, mixed> Sheet.
-     */
-    private function liveSheet(CharacterRecord $record): array
-    {
-        $key = $this->makeParticipantKey('character', $record->getId(), $record->getActualVersion());
-        if (isset($this->sheetCache[$key])) {
-            return $this->sheetCache[$key];
-        }
-
-        $sheet = $this->sheets->compute(
-            $this->slice($record->getSpaceId(), $record->getRulesRevision()),
-            $record->getChoices(),
-            $record->getSheet(),
-        );
-        $this->sheetCache[$key] = $sheet;
-        $this->contextCache[$key] = $this->formulaContexts->build($sheet);
-
-        return $sheet;
-    }
-
-    /**
      * Живое правило.
      *
      * @param int $spaceId Мир.
@@ -3626,8 +3384,8 @@ final class GameStrikeRules
         ?int $npcVersion,
     ): int {
         $slice = $this->slice($spaceId, $rulesRevision);
-        $documents = $this->attackerDocuments($actorKind, $actorId, $npcSheet, $npcChoices, $npcVersion);
-        $value = $this->formulaContext($slice, $documents['sheet'], $documents['choices'], $documents['key'])
+        $documents = $this->participants->attackerDocuments($actorKind, $actorId, $npcSheet, $npcChoices, $npcVersion);
+        $value = $this->participants->formulaContext($slice, $documents['sheet'], $documents['choices'], $documents['key'])
             ->findCharacteristic(self::REACTION_CHARACTERISTIC);
         if ($value === null) {
             throw new GameInvalidException('Game strike reaction characteristic is invalid');

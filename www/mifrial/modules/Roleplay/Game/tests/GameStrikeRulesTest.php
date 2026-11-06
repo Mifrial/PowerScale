@@ -18,6 +18,7 @@ use Mifrial\Roleplay\Game\Service\GameStrikeAmounts;
 use Mifrial\Roleplay\Game\Service\GameStrikeEquipment;
 use Mifrial\Roleplay\Game\Service\GameStrikeInventorySpend;
 use Mifrial\Roleplay\Game\Service\GameStrikeLayers;
+use Mifrial\Roleplay\Game\Service\GameStrikeParticipants;
 use Mifrial\Roleplay\Game\Service\GameStrikeRules;
 use Mifrial\Roleplay\Game\Service\GameStrikeSlices;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
@@ -369,12 +370,13 @@ final class GameStrikeRulesTest extends TestCase
         $characters = $this->createMock(ICharacters::class);
         $mechanics = $this->createMock(IMechanics::class);
         $sheets = $this->createMock(ICharacterSheets::class);
+        $formulaContexts = $this->createMock(ICharacterFormulaContexts::class);
         $checkRoll = new GameCheckRoll(
             $slices,
             $characters,
             $mechanics,
             $this->createMock(IMechanicRolls::class),
-            $this->createMock(ICharacterFormulaContexts::class),
+            $formulaContexts,
             $sheets,
         );
         $layers = new GameStrikeLayers(
@@ -385,17 +387,16 @@ final class GameStrikeRulesTest extends TestCase
         );
         $strikeSlices = new GameStrikeSlices($slices);
         $equipment = new GameStrikeEquipment($strikeSlices);
+        $participants = new GameStrikeParticipants($characters, $formulaContexts, $sheets, $strikeSlices);
 
         return new GameStrikeRules(
-            $characters,
-            $this->createMock(ICharacterFormulaContexts::class),
             $this->createMock(IFormulaEvaluations::class),
             $checkRoll,
             $layers,
-            $sheets,
             $strikeSlices,
             $equipment,
             new GameStrikeInventorySpend($strikeSlices, $equipment, $characters),
+            $participants,
         );
     }
 

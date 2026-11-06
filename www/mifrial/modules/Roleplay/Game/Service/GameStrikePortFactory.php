@@ -671,17 +671,21 @@ final class GameStrikePortFactory
         $slices = $this->strikeSlices($serviceLocator);
         $characters = $this->characters($serviceLocator);
         $equipment = new GameStrikeEquipment($slices);
-
-        return new GameStrikeRules(
+        $participants = new GameStrikeParticipants(
             $characters,
             $this->formulaContexts($serviceLocator),
+            $this->characterSheets($serviceLocator),
+            $slices,
+        );
+
+        return new GameStrikeRules(
             $this->formulaEvaluations($serviceLocator),
             $this->checkRoll($serviceLocator),
             $this->layers($serviceLocator),
-            $this->characterSheets($serviceLocator),
             $slices,
             $equipment,
             new GameStrikeInventorySpend($slices, $equipment, $characters),
+            $participants,
         );
     }
 

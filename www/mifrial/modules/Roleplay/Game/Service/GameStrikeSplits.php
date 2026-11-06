@@ -7,7 +7,6 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
-use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -62,37 +61,11 @@ final class GameStrikeSplits
         CharacterRuleSlice $slice,
         FormulaContext $context,
     ): DimensionalNumber {
-        $value = $context->findCharacteristic($this->findCode($slice));
+        $value = $context->findCharacteristic(GameStrikeCharacteristicCodes::enduranceCode($slice));
         if ($value === null) {
             throw new GameInvalidException('Game strike endurance is invalid');
         }
 
         return $value;
-    }
-
-    /**
-     * Код единственной живой характеристики стойкости.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     *
-     * @return string Код карточки.
-     *
-     * @throws GameInvalidException Если карточек нет или их несколько.
-     */
-    private function findCode(CharacterRuleSlice $slice): string
-    {
-        $matched = [];
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if ($spec instanceof CharacteristicSpec && $spec->isDamageEndurance()) {
-                $matched[] = $rule->getCode();
-            }
-        }
-
-        if (count($matched) !== 1) {
-            throw new GameInvalidException('Game strike endurance is invalid');
-        }
-
-        return $matched[0];
     }
 }
