@@ -9,39 +9,33 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
+use Mifrial\Roleplay\Game\Dto\GameStrikeAttack;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdjustment;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
-use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityProcessSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DodgeRangedPenalty;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackAccuracyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackCharacteristicModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackDodgeSoakEffect;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionAttackReachEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionDurabilityShaveEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\PushSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\DamageTypeSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\DistanceValue;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponProfile;
-use Mifrial\Roleplay\Rule\Dto\Spec\Race\RaceSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
-use Mifrial\Roleplay\Rule\Spec\Formulas;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -61,6 +55,12 @@ final class GameStrikeRules
     private readonly GameActionResourceResolver $resourceResolver;
 
     private readonly GameStrikeSuccessModifier $successModifier;
+
+    private readonly GameStrikeMovement $movement;
+
+    private readonly GameStrikeProfileContext $profiles;
+
+    private readonly GameStrikeDistance $distance;
 
     /**
      * Создаёт проверку.
@@ -89,6 +89,9 @@ final class GameStrikeRules
         $this->splits = new GameStrikeSplits();
         $this->resourceResolver = new GameActionResourceResolver();
         $this->successModifier = new GameStrikeSuccessModifier();
+        $this->movement = new GameStrikeMovement();
+        $this->profiles = new GameStrikeProfileContext($formulaEvaluations);
+        $this->distance = new GameStrikeDistance($formulaEvaluations, $this->movement);
     }
 
     /**
@@ -258,7 +261,7 @@ final class GameStrikeRules
      */
     public function pushOf(int $spaceId, int $rulesRevision, string $actionRuleCode): ?PushSpec
     {
-        return $this->actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode)?->getPush();
+        return GameStrikeRuleLookup::actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode)?->getPush();
     }
 
     /**
@@ -389,7 +392,7 @@ final class GameStrikeRules
      */
     public function actionBaseOf(int $spaceId, int $rulesRevision, string $actionRuleCode): ?AbilityBase
     {
-        return $this->actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
+        return GameStrikeRuleLookup::actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
     }
 
     /**
@@ -480,7 +483,7 @@ final class GameStrikeRules
      */
     public function isWideAttack(int $spaceId, int $rulesRevision, string $actionRuleCode): bool
     {
-        $base = $this->actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
+        $base = GameStrikeRuleLookup::actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
         if ($base === null) {
             throw new GameInvalidException('Game strike action is invalid');
         }
@@ -507,7 +510,7 @@ final class GameStrikeRules
         string $actionRuleCode,
         int $targetCount,
     ): void {
-        $base = $this->actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
+        $base = GameStrikeRuleLookup::actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
         if ($base === null) {
             throw new GameInvalidException('Game strike action is invalid');
         }
@@ -546,7 +549,7 @@ final class GameStrikeRules
         string $actionRuleCode,
         int $targetCount,
     ): ?RollAdvantage {
-        $base = $this->actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
+        $base = GameStrikeRuleLookup::actionBase($this->slice($spaceId, $rulesRevision), $actionRuleCode);
         $delta = $base?->getWideTargetCheckAdvantage() ?? 0;
         if ($delta === 0 || $targetCount < 2) {
             return null;
@@ -644,7 +647,7 @@ final class GameStrikeRules
         int $gripBonus = 0,
     ): DimensionalNumber {
         try {
-            $built = $this->damageContext(
+            $attack = $this->attackContext(
                 $spaceId,
                 $rulesRevision,
                 $itemRuleCode,
@@ -659,11 +662,12 @@ final class GameStrikeRules
                 $actionCharacteristicModifier,
                 $strengthDrop,
                 $gripBonus,
+                'Game strike damage profile is invalid',
             );
 
             return $this->formulaEvaluations->evaluateDimensional(
-                $built['profile']->getDamage()->getFormula(),
-                $built['context'],
+                $attack->profile->getDamage()->getFormula(),
+                $attack->context,
             );
         } catch (GameInvalidException $exception) {
             throw $exception;
@@ -712,7 +716,7 @@ final class GameStrikeRules
         int $gripBonus = 0,
     ): DimensionalNumber {
         try {
-            $built = $this->damageContext(
+            $attack = $this->attackContext(
                 $spaceId,
                 $rulesRevision,
                 $itemRuleCode,
@@ -727,9 +731,10 @@ final class GameStrikeRules
                 $actionCharacteristicModifier,
                 $strengthDrop,
                 $gripBonus,
+                'Game strike damage profile is invalid',
             );
-            $strength = $built['context']->findActionCharacteristic($profileType, 'strength')
-                ?? $built['context']->findCharacteristic('strength');
+            $strength = $attack->context->findActionCharacteristic($profileType, 'strength')
+                ?? $attack->context->findCharacteristic('strength');
             if (!$strength instanceof DimensionalNumber) {
                 throw new GameInvalidException('Game strike strength is invalid');
             }
@@ -737,7 +742,7 @@ final class GameStrikeRules
             $number = $strength instanceof CharacteristicNumber
                 ? $strength
                 : new CharacteristicNumber($strength->getBase(), $strength->getSize());
-            $delta = $built['context']->getActionCharacteristicModifier();
+            $delta = $attack->context->getActionCharacteristicModifier();
 
             return $delta === 0 ? $number : $number->modify($delta);
         } catch (GameInvalidException $exception) {
@@ -764,8 +769,9 @@ final class GameStrikeRules
      * @param int|null $actionCharacteristicModifier Сдвиг характеристики действия.
      * @param int $strengthDrop Штраф силы броска в размерах.
      * @param int $gripBonus Бонус удержания к Силе удара.
+     * @param string $profileError Текст отказа для чужого профиля.
      *
-     * @return array{profile: WeaponProfile, context: FormulaContext} Профиль и контекст.
+     * @return GameStrikeAttack Снимок атаки.
      *
      * @throws GameInvalidException Если вид, профиль или лист битые.
      * @throws RuleInvalidException Если база профиля или сила не найдены.
@@ -773,7 +779,7 @@ final class GameStrikeRules
      * @throws CharacterNotFoundException Если персонажа нет.
      * @throws GameNotFoundException Если ревизии нет.
      */
-    private function damageContext(
+    private function attackContext(
         int $spaceId,
         int $rulesRevision,
         string $itemRuleCode,
@@ -788,7 +794,8 @@ final class GameStrikeRules
         ?int $actionCharacteristicModifier,
         int $strengthDrop,
         int $gripBonus,
-    ): array {
+        string $profileError,
+    ): GameStrikeAttack {
         if ($attackerKind !== 'character' && $attackerKind !== 'npc') {
             throw new GameInvalidException('Game strike attacker is invalid');
         }
@@ -801,20 +808,20 @@ final class GameStrikeRules
             $itemInventoryId,
             $itemRuleCode,
         );
-        $weapon = $item->getWeapon();
-        $profiles = $weapon?->getWeaponProfiles() ?? [];
+        $profiles = $item->getWeapon()?->getWeaponProfiles() ?? [];
         $profile = $profiles[$profileIndex] ?? null;
         if (!$profile instanceof WeaponProfile || $profile->getType() !== $profileType) {
-            throw new GameInvalidException('Game strike damage profile is invalid');
+            throw new GameInvalidException($profileError);
         }
 
+        $slice = $this->slice($spaceId, $rulesRevision);
         $context = $this->participants->formulaContext(
-            $this->slice($spaceId, $rulesRevision),
+            $slice,
             $documents['sheet'],
             $documents['choices'],
             $documents['key'],
         );
-        $context = $this->profileContext(
+        $context = $this->profiles->build(
             $profile,
             $context,
             $actionCharacteristicModifier ?? 0,
@@ -822,7 +829,7 @@ final class GameStrikeRules
             $gripBonus,
         );
 
-        return ['profile' => $profile, 'context' => $context];
+        return new GameStrikeAttack($slice, $documents, $item, $profile, $context);
     }
 
     /**
@@ -864,39 +871,28 @@ final class GameStrikeRules
         int $strengthDrop = 0,
         int $gripBonus = 0,
     ): DimensionalNumber {
-        $documents = $this->participants->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
-        $item = $this->equipment->selectedItem(
-            $spaceId,
-            $rulesRevision,
-            $documents['choices'],
-            $itemInventoryId,
-            $itemRuleCode,
-        );
-        $weapon = $item->getWeapon();
-        $profiles = $weapon === null ? [] : $weapon->getWeaponProfiles();
-        $profile = $profiles[$profileIndex] ?? null;
-        if (!$profile instanceof WeaponProfile || $profile->getType() !== $profileType) {
-            throw new GameInvalidException('Game strike penetration profile is invalid');
-        }
-
         try {
-            $context = $this->participants->formulaContext(
-                $this->slice($spaceId, $rulesRevision),
-                $documents['sheet'],
-                $documents['choices'],
-                $documents['key'],
-            );
-            $context = $this->profileContext(
-                $profile,
-                $context,
-                $actionCharacteristicModifier ?? 0,
+            $attack = $this->attackContext(
+                $spaceId,
+                $rulesRevision,
+                $itemRuleCode,
+                $profileType,
+                $profileIndex,
+                $itemInventoryId,
+                $attackerKind,
+                $attackerId,
+                $npcSheet,
+                $npcChoices,
+                $sheetVersion,
+                $actionCharacteristicModifier,
                 $strengthDrop,
                 $gripBonus,
+                'Game strike penetration profile is invalid',
             );
 
             return $this->formulaEvaluations->evaluateDimensional(
-                $profile->getPenetration(),
-                $context,
+                $attack->profile->getPenetration(),
+                $attack->context,
             );
         } catch (RuleInvalidException | CharacterInvalidException | CharacterNotFoundException $exception) {
             throw new GameInvalidException('Game strike penetration is invalid', $exception);
@@ -1389,7 +1385,7 @@ final class GameStrikeRules
         string $actionRuleCode,
         string $checkCode,
     ): array {
-        $base = $this->actionBase($slice, $actionRuleCode);
+        $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
         if ($base === null) {
             return [];
         }
@@ -1563,7 +1559,7 @@ final class GameStrikeRules
             $abilityLevels,
         );
         if ($success !== null) {
-            $base = $this->actionBase($slice, $actionRuleCode);
+            $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
             if ($base !== null) {
                 array_push(
                     $entries,
@@ -1601,7 +1597,7 @@ final class GameStrikeRules
         array $attackContext = [],
         array $abilityLevels = [],
     ): array {
-        $base = $this->actionBase($slice, $actionRuleCode);
+        $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
         if ($base === null) {
             return [];
         }
@@ -1832,7 +1828,7 @@ final class GameStrikeRules
         int $hitNumber,
         int $success,
     ): int {
-        $base = $this->actionBase($slice, $actionRuleCode);
+        $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
         if ($base === null) {
             return 0;
         }
@@ -1907,7 +1903,7 @@ final class GameStrikeRules
         ?string $damageType,
         int $hitNumber,
     ): ?bool {
-        $base = $this->actionBase($slice, $actionRuleCode);
+        $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
         if ($base === null) {
             return null;
         }
@@ -1975,24 +1971,6 @@ final class GameStrikeRules
         }
 
         return $count;
-    }
-
-    /**
-     * База карточки действия.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $actionRuleCode Карточка.
-     *
-     * @return AbilityBase|null База или null.
-     */
-    private function actionBase(CharacterRuleSlice $slice, string $actionRuleCode): ?AbilityBase
-    {
-        $spec = $slice->findLive($actionRuleCode)?->getSpec();
-        if ($spec instanceof AbilityActionSpec || $spec instanceof AbilityProcessSpec) {
-            return $spec->getBase();
-        }
-
-        return null;
     }
 
     /**
@@ -2803,94 +2781,25 @@ final class GameStrikeRules
         string $actionRuleCode = '',
     ): array {
         try {
-            $documents = $this->participants->attackerDocuments($attackerKind, $attackerId, $npcSheet, $npcChoices, $sheetVersion);
-            $item = $this->equipment->selectedItem(
+            $attack = $this->attackContext(
                 $spaceId,
                 $rulesRevision,
-                $documents['choices'],
-                $itemInventoryId,
                 $itemRuleCode,
+                $profileType,
+                $profileIndex,
+                $itemInventoryId,
+                $attackerKind,
+                $attackerId,
+                $npcSheet,
+                $npcChoices,
+                $sheetVersion,
+                $actionCharacteristicModifier,
+                0,
+                0,
+                'Game strike distance profile is invalid',
             );
-            $weapon = $item->getWeapon();
-            $profiles = $weapon?->getWeaponProfiles() ?? [];
-            $profile = $profiles[$profileIndex] ?? null;
-            if (!$profile instanceof WeaponProfile || $profile->getType() !== $profileType) {
-                throw new GameInvalidException('Game strike distance profile is invalid');
-            }
 
-            $base = $this->participants->formulaContext(
-                $this->slice($spaceId, $rulesRevision),
-                $documents['sheet'],
-                $documents['choices'],
-                $documents['key'],
-            );
-            $context = $this->profileContext($profile, $base, $actionCharacteristicModifier, 0);
-            $movementStep = $this->movementStep(
-                $this->slice($spaceId, $rulesRevision),
-                $documents['sheet'],
-                $documents['choices'],
-            );
-            $distance = $this->resolveDistanceValue($conditions['distance'], $context, $movementStep);
-            $min = $this->resolveDistanceValue($profile->getDistance()->getMin(), $context, $movementStep);
-            $maxValue = $profile->getDistance()->getMax();
-            $max = $maxValue === null ? null : $this->resolveDistanceValue($maxValue, $context, $movementStep);
-            if ($profileType === 'strike' && $max !== null && $actionRuleCode !== '') {
-                $max = $max->add($this->reachBonus(
-                    $this->slice($spaceId, $rulesRevision),
-                    $actionRuleCode,
-                    $profileType,
-                    $movementStep,
-                ));
-            }
-
-            if ($distance->compare($min) < 0 || ($max !== null && $distance->compare($max) > 0)) {
-                throw new GameInvalidException('Game strike distance is out of range');
-            }
-
-            $falloff = $profile->getFalloff();
-            $falloffNumber = null;
-            $rangeSize = 1;
-            if ($falloff !== null) {
-                $falloffNumber = $this->resolveDistanceValue($falloff, $context, $movementStep);
-                $threshold = $falloffNumber;
-                while ($distance->compare($threshold) > 0) {
-                    ++$rangeSize;
-                    $threshold = $threshold->withSize($threshold->getSize() + 1);
-                    if ($rangeSize > 32) {
-                        throw new GameInvalidException('Game strike distance is out of range');
-                    }
-                }
-            }
-
-            $drop = 0;
-            if ($profileType === 'throw' && $falloffNumber !== null) {
-                $drop = $distance->subtract($min)->divide($falloffNumber)->getQuotient();
-                $strength = $context->findActionCharacteristic('throw', 'strength')
-                    ?? $context->findCharacteristic('strength');
-                if (!$strength instanceof DimensionalNumber) {
-                    throw new GameInvalidException('Game strike throw strength is invalid');
-                }
-
-                $strength = (new CharacteristicNumber($strength->getBase(), $strength->getSize()))
-                    ->modify(-CharacteristicNumber::BASE_STEP * $drop);
-                $minStrength = $weapon?->getMinStrength();
-                if ($minStrength !== null) {
-                    $diff = $strength->getBase() + CharacteristicNumber::BASE_STEP * $strength->getSize()
-                        - ($minStrength->getBase() + CharacteristicNumber::BASE_STEP * $minStrength->getSize());
-                    if ($diff <= -2 * CharacteristicNumber::BASE_STEP) {
-                        throw new GameInvalidException('Game throw does not reach');
-                    }
-                }
-            }
-
-            return [
-                'distance' => $distance,
-                'min' => $min,
-                'max' => $max,
-                'falloff' => $falloffNumber,
-                'rangeSize' => $rangeSize,
-                'drop' => $drop,
-            ];
+            return $this->distance->metrics($attack, $conditions, $actionRuleCode);
         } catch (GameInvalidException $exception) {
             throw $exception;
         } catch (RuleInvalidException | RuleSpecShapeException | CharacterInvalidException | CharacterNotFoundException $exception) {
@@ -2955,44 +2864,6 @@ final class GameStrikeRules
     }
 
     /**
-     * Бонус «Выпада» к максимальной дистанции.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $actionRuleCode Карточка.
-     * @param string $profileType Вид профиля.
-     * @param DimensionalNumber $movementStep Шаг.
-     *
-     * @return DimensionalNumber Бонус.
-     */
-    private function reachBonus(
-        CharacterRuleSlice $slice,
-        string $actionRuleCode,
-        string $profileType,
-        DimensionalNumber $movementStep,
-    ): DimensionalNumber {
-        $base = $this->actionBase($slice, $actionRuleCode);
-        if ($base === null) {
-            return new DimensionalNumber(0, 0);
-        }
-
-        $bonus = new DimensionalNumber(0, 0);
-        foreach ($base->getActionEffects() as $effect) {
-            if (!$effect instanceof CurrentActionAttackReachEffect || !$effect->getScope()->appliesTo($profileType, 1)) {
-                continue;
-            }
-
-            $fraction = $effect->getStepFraction();
-            if ($fraction === 0.5) {
-                $bonus = $bonus->add($movementStep->withSize($movementStep->getSize() - 1));
-            } elseif ($fraction === 1) {
-                $bonus = $bonus->add($movementStep);
-            }
-        }
-
-        return $bonus;
-    }
-
-    /**
      * Размерный шаг расы и её способностей.
      *
      * @param CharacterRuleSlice $slice Срез.
@@ -3003,11 +2874,7 @@ final class GameStrikeRules
      */
     public function movementStep(CharacterRuleSlice $slice, array $sheet, array $choices): DimensionalNumber
     {
-        $raceCode = is_string($choices['raceCode'] ?? null)
-            ? $choices['raceCode']
-            : (is_string($choices['race'] ?? null) ? $choices['race'] : '');
-
-        return $this->movementStepOf($slice, $sheet, $raceCode);
+        return $this->movement->step($slice, $sheet, $choices);
     }
 
     /**
@@ -3021,132 +2888,7 @@ final class GameStrikeRules
      */
     public function movementStepOf(CharacterRuleSlice $slice, array $sheet, string $raceCode): DimensionalNumber
     {
-        $step = new DimensionalNumber(1, 0);
-        $race = $raceCode === '' ? null : $slice->findLive($raceCode);
-        $spec = $race?->getSpec();
-        if ($spec instanceof RaceSpec) {
-            $step = $spec->getMovementStep();
-        }
-
-        $abilityCodes = $sheet['racialAbilityCodes'] ?? [];
-        if (!is_array($abilityCodes)) {
-            return $step;
-        }
-
-        $delta = 0;
-        foreach ($abilityCodes as $code) {
-            if (!is_string($code)) {
-                continue;
-            }
-
-            $rule = $slice->findLive($code);
-            $ability = $rule?->getSpec();
-            if (
-                $ability instanceof AbilityActionSpec
-                || $ability instanceof AbilityPlainSpec
-                || $ability instanceof AbilityProcessSpec
-                || $ability instanceof AbilitySpellSpec
-            ) {
-                $delta += $ability->getBase()->getMovementStepSizeDelta() ?? 0;
-            }
-        }
-
-        return $delta === 0 ? $step : $step->withSize($step->getSize() + $delta);
-    }
-
-    /**
-     * Переводит DistanceValue в ипари.
-     *
-     * @param array<string, mixed>|DistanceValue $value DistanceValue.
-     * @param FormulaContext $context Контекст профиля.
-     * @param DimensionalNumber $movementStep Шаг.
-     *
-     * @return DimensionalNumber Ипари.
-     *
-     * @throws RuleInvalidException Если формула битая.
-     */
-    private function resolveDistanceValue(
-        array|DistanceValue $value,
-        FormulaContext $context,
-        DimensionalNumber $movementStep,
-    ): DimensionalNumber {
-        if ($value instanceof DistanceValue) {
-            $type = $value->getType();
-            $node = $value->getValue();
-        } else {
-            $type = $value['type'] ?? null;
-            $node = Formulas::dimensionalNode($value['value']);
-        }
-
-        $distance = $this->formulaEvaluations->evaluateDimensional($node, $context);
-        if ($type === 'ipari') {
-            return $distance;
-        }
-
-        if ($type !== 'step') {
-            throw new RuleInvalidException('Тип дистанции неизвестен');
-        }
-
-        return $distance->multiply($movementStep);
-    }
-
-    /**
-     * Контекст формулы профиля: базы профиля поверх листа, затем сдвиг карточки.
-     *
-     * @param WeaponProfile $profile Профиль.
-     * @param FormulaContext $context Базовый контекст листа.
-     * @param int $actionCharacteristicModifier Сдвиг карточки в пунктах.
-     * @param int $strengthDrop Штраф силы броска в размерах.
-     *
-     * @return FormulaContext Контекст профиля.
-     *
-     * @throws RuleInvalidException Если база профиля или сила не найдены.
-     */
-    private function profileContext(
-        WeaponProfile $profile,
-        FormulaContext $context,
-        int $actionCharacteristicModifier,
-        int $strengthDrop,
-        int $gripBonus = 0,
-    ): FormulaContext {
-        $bases = [];
-        foreach ($profile->getActionCharacteristics() as $base) {
-            $value = $this->formulaEvaluations->evaluateDimensional($base->getValue(), $context);
-            $bases[$base->getCharacteristic()] = new CharacteristicNumber($value->getBase(), $value->getSize());
-        }
-
-        if ($gripBonus !== 0 && !isset($bases['strength'])) {
-            $strength = $context->findCharacteristic('strength');
-            if ($strength instanceof DimensionalNumber) {
-                $context = $context->withCharacteristic(
-                    'strength',
-                    (new CharacteristicNumber($strength->getBase(), $strength->getSize()))->modify($gripBonus),
-                );
-            }
-        }
-
-        if ($profile->getType() === 'throw' && $strengthDrop > 0) {
-            $strength = $bases['strength'] ?? $context->findCharacteristic('strength');
-            if (!$strength instanceof DimensionalNumber) {
-                throw new RuleInvalidException('Нет силы броска');
-            }
-
-            if (!$strength instanceof CharacteristicNumber) {
-                $strength = new CharacteristicNumber($strength->getBase(), $strength->getSize());
-            }
-
-            $bases['strength'] = $strength->modify(-CharacteristicNumber::BASE_STEP * $strengthDrop);
-        }
-
-        if ($bases !== []) {
-            $context = $context->withActionCharacteristics([$profile->getType() => $bases]);
-        }
-
-        if ($actionCharacteristicModifier !== 0) {
-            $context = $context->withActionCharacteristicModifier($actionCharacteristicModifier);
-        }
-
-        return $context;
+        return $this->movement->stepOf($slice, $sheet, $raceCode);
     }
 
     /**
@@ -3251,7 +2993,7 @@ final class GameStrikeRules
     {
         $sizeDelta = 0;
         $ignoreAtSr = null;
-        $base = $this->actionBase($slice, $actionRuleCode);
+        $base = GameStrikeRuleLookup::actionBase($slice, $actionRuleCode);
         foreach ($base?->getActionEffects() ?? [] as $effect) {
             if (!$effect instanceof CurrentActionAttackDodgeSoakEffect) {
                 continue;
