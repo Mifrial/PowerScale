@@ -5284,7 +5284,7 @@ final class GameStrikeMysqlTest extends TestCase
     private function reliabilityCutId(IMechanics $mechanics): int
     {
         try {
-            return $mechanics->add('pay_sr_vs_reliability', 'Оплата РУ надёжностью', '', '1.0.0');
+            return $mechanics->add('pay_sr_vs_reliability', 'РУ против надёжности', '', '1.0.0');
         } catch (MechanicInvalidException) {
             return $mechanics->getByCodeVersion('pay_sr_vs_reliability', '1.0.0')->getId();
         }

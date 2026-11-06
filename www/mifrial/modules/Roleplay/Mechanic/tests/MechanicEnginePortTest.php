@@ -68,7 +68,7 @@ final class MechanicEnginePortTest extends TestCase
             [MechanicRecord::fromNormalized([
                 'id' => 7,
                 'code' => 'pay_sr_vs_reliability',
-                'name' => 'Оплата РУ надёжностью',
+                'name' => 'РУ против надёжности',
                 'description' => '',
                 'handler_version' => '1.0.0',
             ])],

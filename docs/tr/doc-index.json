@@ -54,8 +54,8 @@
             },
             "review": {
                 "СНИМОК": 49,
-                "нет": 12,
-                "СДЕЛАНО": 1,
+                "нет": 11,
+                "СДЕЛАНО": 2,
                 "ПЛАН": 1
             },
             "rule": {
@@ -85,8 +85,8 @@
         },
         "byState": {
             "СНИМОК": 64,
-            "нет": 55,
-            "СДЕЛАНО": 121,
+            "нет": 54,
+            "СДЕЛАНО": 122,
             "ПЛАН": 34,
             "ОТЛОЖЕН": 6,
             "ЧАСТИЧНО": 28,
@@ -305,16 +305,16 @@
             "docs": 135,
             "state": {
                 "СНИМОК": 58,
-                "нет": 46,
-                "СДЕЛАНО": 8,
+                "нет": 45,
+                "СДЕЛАНО": 9,
                 "ПЛАН": 7,
                 "ОТЛОЖЕН": 5,
                 "В РАБОТЕ": 6,
                 "ЧАСТИЧНО": 5
             },
             "layer": {
+                "PHP": 7,
                 "НИГДЕ": 5,
-                "PHP": 6,
                 "VUE": 12
             }
         }
@@ -1325,19 +1325,21 @@
         },
         {
             "path": "docs/review/plan-reliability-capability-2026-10-09.md",
-            "title": "Read-only implementation plan: production reliability capability",
+            "title": "Production reliability capability: что решили и чем закончилось",
             "zone": "review",
             "kind": "plan",
-            "state": null,
-            "stateSource": "none",
-            "statusRaw": "",
-            "layers": [],
-            "basis": null,
-            "date": null,
-            "bytes": 20287,
-            "lines": 391,
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~ (2026-11-06). Исторический документ: решение от",
+            "layers": [
+                "PHP"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-06",
+            "bytes": 5262,
+            "lines": 81,
             "modules": [],
-            "linksCount": 0,
+            "linksCount": 3,
             "brokenLinks": [],
             "backlinks": []
         },
@@ -1915,7 +1917,9 @@
             "modules": [],
             "linksCount": 0,
             "brokenLinks": [],
-            "backlinks": []
+            "backlinks": [
+                "docs/review/plan-reliability-capability-2026-10-09.md"
+            ]
         },
         {
             "path": "docs/specs/development-module-context.md",
@@ -3478,7 +3482,8 @@
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/plan-game-plan-32-end-of-turn-2026-10-12.md",
-                "docs/review/plan-game-plan-33-e2e-2026-10-12.md"
+                "docs/review/plan-game-plan-33-e2e-2026-10-12.md",
+                "docs/review/plan-reliability-capability-2026-10-09.md"
             ]
         },
         {
@@ -7073,6 +7078,7 @@
             "linksCount": 6,
             "brokenLinks": [],
             "backlinks": [
+                "docs/review/plan-reliability-capability-2026-10-09.md",
                 "docs/tr/TR.md",
                 "docs/tr/architecture.md",
                 "docs/tr/character-plan-10.md",

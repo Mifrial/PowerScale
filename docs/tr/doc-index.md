@@ -38,7 +38,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 |---|---|---|---|---|---|---|---|---|---|
 | `old` | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
 | `promts` | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 |
-| `review` | 63 | 1 | 0 | 0 | 1 | 0 | 0 | 49 | 12 |
+| `review` | 63 | 1 | 0 | 0 | 2 | 0 | 0 | 49 | 11 |
 | `rule` | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 6 |
 | `specs` | 22 | 2 | 0 | 0 | 0 | 4 | 0 | 5 | 11 |
 | `tr` | 233 | 31 | 18 | 28 | 120 | 2 | 4 | 7 | 23 |
@@ -66,7 +66,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Roleplay/Rule](module-map/Roleplay/Rule.md) | 43 | 10 | 8 | 4 | 16 | 3 | 10 | 13 | 2 |
 | [Roleplay/RuleSpace](module-map/Roleplay/RuleSpace.md) | 8 | 0 | 0 | 8 | 0 | 0 | 6 | 3 | 0 |
 | [Versioning/Space](module-map/Versioning/Space.md) | 2 | 0 | 0 | 0 | 2 | 0 | 2 | 0 | 0 |
-| — | 135 | 7 | 6 | 5 | 8 | 46 | 6 | 12 | 0 |
+| — | 135 | 7 | 6 | 5 | 9 | 45 | 7 | 12 | 0 |
 
 ## Реализация: где есть PHP и где только мок
 
