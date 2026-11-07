@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Map\Dto;
 
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Map\Exception\MapInvalidException;
+use Mifrial\Roleplay\Map\Service\MapDecor;
 use Mifrial\Roleplay\Map\Service\MapSpeed;
 
 /**
@@ -338,15 +339,49 @@ final class MapValues
             throw new MapInvalidException('Map area decor is invalid');
         }
 
+        $allowed = ['fillOpacity', 'set', 'density', 'scale', 'jitter', 'seed'];
         foreach (array_keys($value) as $unknown) {
-            if ($unknown !== 'fillOpacity') {
+            if (!in_array($unknown, $allowed, true)) {
                 throw new MapInvalidException('Map area decor has an unknown key');
             }
         }
 
-        return array_key_exists('fillOpacity', $value)
-            ? ['fillOpacity' => self::decorInt($value['fillOpacity'], 0, 100)]
-            : [];
+        $decor = [];
+        if (array_key_exists('fillOpacity', $value)) {
+            $decor['fillOpacity'] = self::decorInt($value['fillOpacity'], 0, 100);
+        }
+
+        $set = $value['set'] ?? null;
+        if ($set === null) {
+            if (count($decor) !== count($value)) {
+                throw new MapInvalidException('Map area decor has settings without a set');
+            }
+
+            return $decor;
+        }
+
+        if (!is_string($set) || !in_array($set, MapDecor::SETS, true)) {
+            throw new MapInvalidException('Map area decor set is invalid');
+        }
+
+        $decor['set'] = $set;
+        if (array_key_exists('density', $value)) {
+            $decor['density'] = self::decorInt($value['density'], 0, MapDecor::DENSITY_MAX);
+        }
+
+        if (array_key_exists('scale', $value)) {
+            $decor['scale'] = self::decorInt($value['scale'], MapDecor::SCALE_MIN, MapDecor::SCALE_MAX);
+        }
+
+        if (array_key_exists('jitter', $value)) {
+            $decor['jitter'] = self::decorInt($value['jitter'], 0, MapDecor::JITTER_MAX);
+        }
+
+        if (array_key_exists('seed', $value)) {
+            $decor['seed'] = self::decorInt($value['seed'], 0, MapDecor::SEED_MAX);
+        }
+
+        return $decor;
     }
 
     /**

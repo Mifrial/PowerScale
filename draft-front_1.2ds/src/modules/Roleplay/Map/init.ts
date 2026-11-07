@@ -22,4 +22,6 @@ export { mapViewportService } from '@/modules/Roleplay/Map/Service/Instance/mapV
 export { mapGeometryService } from '@/modules/Roleplay/Map/Service/Instance/mapGeometryService';
 export { mapRibbonService } from '@/modules/Roleplay/Map/Service/Instance/mapRibbonService';
 export { mapRenderService } from '@/modules/Roleplay/Map/Service/Instance/mapRenderService';
+export { mapDecorService } from '@/modules/Roleplay/Map/Service/Instance/mapDecorService';
+export { mapDecorPainter } from '@/modules/Roleplay/Map/Service/Instance/mapDecorPainter';
 export { mapHitTestService } from '@/modules/Roleplay/Map/Service/Instance/mapHitTestService';

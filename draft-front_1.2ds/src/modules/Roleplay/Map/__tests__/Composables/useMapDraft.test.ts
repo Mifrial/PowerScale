@@ -549,7 +549,7 @@ describe('useMapDraft', () => {
       {
         layer: 'surface',
         color: '#4e7a4e',
-        decor: { fillOpacity: 0 },
+        decor: { fillOpacity: 0, set: 'mixed', density: 60, scale: 90, jitter: 80, seed: 5 },
         speed: 2000,
         label: 'Лес',
         nodeId: null,
@@ -584,7 +584,14 @@ describe('useMapDraft', () => {
     await state.save();
 
     expect(savedPayload?.map.fillOpacity).toBe(30);
-    expect(savedPayload?.map.areas[0].decor).toEqual({ fillOpacity: 0 });
+    expect(savedPayload?.map.areas[0].decor).toEqual({
+      fillOpacity: 0,
+      set: 'mixed',
+      density: 60,
+      scale: 90,
+      jitter: 80,
+      seed: 5,
+    });
     expect(savedPayload?.map.lines[0].decor).toEqual({ fillOpacity: 0, depth: 40, depthWidth: 70 });
   });
 

@@ -337,15 +337,55 @@ final class MapSaveFields
             throw new MapInvalidException($path . ' is invalid');
         }
 
+        $allowed = ['fillOpacity', 'set', 'density', 'scale', 'jitter', 'seed'];
         foreach (array_keys($value) as $unknown) {
-            if ($unknown !== 'fillOpacity') {
+            if (!in_array($unknown, $allowed, true)) {
                 throw new MapInvalidException($path . ' has an unknown key');
             }
         }
 
-        return array_key_exists('fillOpacity', $value)
-            ? ['fillOpacity' => $this->intValue($value, 'fillOpacity', $path . '.fillOpacity', 0, 100)]
-            : [];
+        $decor = [];
+        if (array_key_exists('fillOpacity', $value)) {
+            $decor['fillOpacity'] = $this->intValue($value, 'fillOpacity', $path . '.fillOpacity', 0, 100);
+        }
+
+        $set = $value['set'] ?? null;
+        if ($set === null) {
+            if (count($decor) !== count($value)) {
+                throw new MapInvalidException($path . ' has settings without a set');
+            }
+
+            return $decor;
+        }
+
+        if (!is_string($set) || !in_array($set, MapDecor::SETS, true)) {
+            throw new MapInvalidException($path . '.set is invalid');
+        }
+
+        $decor['set'] = $set;
+        if (array_key_exists('density', $value)) {
+            $decor['density'] = $this->intValue($value, 'density', $path . '.density', 0, MapDecor::DENSITY_MAX);
+        }
+
+        if (array_key_exists('scale', $value)) {
+            $decor['scale'] = $this->intValue(
+                $value,
+                'scale',
+                $path . '.scale',
+                MapDecor::SCALE_MIN,
+                MapDecor::SCALE_MAX,
+            );
+        }
+
+        if (array_key_exists('jitter', $value)) {
+            $decor['jitter'] = $this->intValue($value, 'jitter', $path . '.jitter', 0, MapDecor::JITTER_MAX);
+        }
+
+        if (array_key_exists('seed', $value)) {
+            $decor['seed'] = $this->intValue($value, 'seed', $path . '.seed', 0, MapDecor::SEED_MAX);
+        }
+
+        return $decor;
     }
 
     /**

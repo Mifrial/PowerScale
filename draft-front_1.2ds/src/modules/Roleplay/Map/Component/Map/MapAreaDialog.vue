@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 import type { MapArea } from '@/modules/Roleplay/Map/Dto/MapArea';
+import type { MapAreaDecor, MapDecorSet } from '@/modules/Roleplay/Map/Dto/MapAreaDecor';
 import type { MapAreaEdit } from '@/modules/Roleplay/Map/Dto/MapAreaEdit';
 import type { MapAreaLayer } from '@/modules/Roleplay/Map/Enum/MapAreaLayer';
 import type { MapNode } from '@/modules/Roleplay/Map/Dto/MapNode';
 import type { MapSummary } from '@/modules/Roleplay/Map/Dto/MapSummary';
 import { MAP_AREA_PRESETS } from '@/modules/Roleplay/Map/Constant/Map/MAP_AREA_PRESETS';
+import {
+  MAP_DECOR_LIMITS,
+  MAP_DECOR_OPTIONS,
+  MAP_DECOR_SETS,
+  isMapDecorSet,
+} from '@/modules/Roleplay/Map/Constant/Map/MAP_DECOR';
 import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
 import {
   MAP_AREA_DEFAULT_COLOR,
@@ -38,6 +45,12 @@ const form = reactive({
   sortOrder: 0,
   fillOpacityOverride: false,
   fillOpacity: Number(MAP_FILL_OPACITY.default),
+  decorEnabled: false,
+  decorSet: 'grass' as MapDecorSet,
+  decorDensity: 0,
+  decorScale: 100,
+  decorJitter: 90,
+  decorSeed: 0,
   hasPlace: false,
   placeName: '',
   shortInfo: '',
@@ -72,6 +85,7 @@ watch(open, (value) => {
   form.sortOrder = props.area?.sortOrder ?? 0;
   form.fillOpacityOverride = props.area?.decor?.fillOpacity !== undefined;
   form.fillOpacity = props.area?.decor?.fillOpacity ?? props.mapFillOpacity;
+  loadDecor(props.area?.decor);
   form.hasPlace = props.node !== null;
   form.placeName = props.node?.name ?? '';
   form.shortInfo = props.node?.shortInfo ?? '';
@@ -88,19 +102,70 @@ function applyPreset(code: string | null): void {
   form.layer = found.layer;
   form.color = found.color;
   form.speed = speedToInput(found.speed);
+  loadDecor(found.decor);
   if (form.label.trim() === '') {
     form.label = found.title;
   }
 }
 
+/** Заполняет поля декора: из области или из шаблона; без набора — выключает. */
+function loadDecor(decor: MapAreaDecor | undefined): void {
+  if (!decor?.set || !isMapDecorSet(decor.set)) {
+    form.decorEnabled = false;
+    applyDecorDefaults('grass');
+
+    return;
+  }
+
+  form.decorEnabled = true;
+  form.decorSet = decor.set;
+  const info = MAP_DECOR_SETS[decor.set];
+  form.decorDensity = decor.density ?? info.density;
+  form.decorScale = decor.scale ?? info.scale;
+  form.decorJitter = decor.jitter ?? info.jitter;
+  form.decorSeed = decor.seed ?? 0;
+}
+
+/** Стартовые значения набора: смена набора не должна оставлять чужую плотность. */
+function applyDecorDefaults(set: MapDecorSet): void {
+  const info = MAP_DECOR_SETS[set];
+  form.decorSet = set;
+  form.decorDensity = info.density;
+  form.decorScale = info.scale;
+  form.decorJitter = info.jitter;
+}
+
+function onDecorSetChange(value: MapDecorSet | null): void {
+  if (value && isMapDecorSet(value)) {
+    applyDecorDefaults(value);
+  }
+}
+
 function submit(): void {
+  const decor: MapAreaDecor = {};
+  if (form.fillOpacityOverride) {
+    decor.fillOpacity = clampInt(form.fillOpacity, MAP_FILL_OPACITY.min, MAP_FILL_OPACITY.max, props.mapFillOpacity);
+  }
+
+  if (form.decorEnabled) {
+    const info = MAP_DECOR_SETS[form.decorSet];
+    decor.set = form.decorSet;
+    decor.density = clampInt(
+      form.decorDensity,
+      MAP_DECOR_LIMITS.density.min,
+      MAP_DECOR_LIMITS.density.max,
+      info.density,
+    );
+    decor.scale = clampInt(form.decorScale, MAP_DECOR_LIMITS.scale.min, MAP_DECOR_LIMITS.scale.max, info.scale);
+    decor.jitter = clampInt(form.decorJitter, MAP_DECOR_LIMITS.jitter.min, MAP_DECOR_LIMITS.jitter.max, info.jitter);
+    decor.seed = clampInt(form.decorSeed, MAP_DECOR_LIMITS.seed.min, MAP_DECOR_LIMITS.seed.max, 0);
+  }
+
   emit('submit', {
     layer: form.layer,
     color: form.color.trim() || MAP_AREA_DEFAULT_COLOR,
     speed: speedFromInput(Number(form.speed)),
-    decor: form.fillOpacityOverride
-      ? { fillOpacity: clampInt(form.fillOpacity, MAP_FILL_OPACITY.min, MAP_FILL_OPACITY.max, props.mapFillOpacity) }
-      : {},
+    decor,
     label: form.label.trim(),
     nodeId: props.area?.nodeId ?? null,
     sortOrder: form.sortOrder,
@@ -192,6 +257,70 @@ function remove(): void {
         <p v-else class="text-caption text-medium-emphasis mt-1">
           Наследует плотность карты: {{ props.mapFillOpacity }} %.
         </p>
+
+        <v-divider class="my-4" />
+        <div class="text-body-2 mb-2">Декор символами</div>
+        <v-switch
+          v-model="form.decorEnabled"
+          label="Рассыпать символы по области"
+          color="primary"
+          density="compact"
+          hide-details
+        />
+        <template v-if="form.decorEnabled">
+          <v-select
+            :model-value="form.decorSet"
+            :items="MAP_DECOR_OPTIONS"
+            item-title="title"
+            item-value="value"
+            label="Набор"
+            variant="outlined"
+            density="comfortable"
+            class="mt-3"
+            @update:model-value="onDecorSetChange"
+          />
+          <v-slider
+            v-model.number="form.decorDensity"
+            :min="MAP_DECOR_LIMITS.density.min"
+            :max="MAP_DECOR_LIMITS.density.max"
+            :step="1"
+            thumb-label
+            color="primary"
+            label="Плотность, символов на 10 000 px²"
+          />
+          <v-slider
+            v-model.number="form.decorScale"
+            :min="MAP_DECOR_LIMITS.scale.min"
+            :max="MAP_DECOR_LIMITS.scale.max"
+            :step="1"
+            thumb-label
+            color="primary"
+            label="Размер символа, %"
+          />
+          <v-slider
+            v-model.number="form.decorJitter"
+            :min="MAP_DECOR_LIMITS.jitter.min"
+            :max="MAP_DECOR_LIMITS.jitter.max"
+            :step="1"
+            thumb-label
+            color="primary"
+            label="Разброс позиции, %"
+          />
+          <v-text-field
+            v-model.number="form.decorSeed"
+            type="number"
+            :min="MAP_DECOR_LIMITS.seed.min"
+            :max="MAP_DECOR_LIMITS.seed.max"
+            label="Зерно раскладки (0 — по id области)"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+          />
+          <p class="text-caption text-medium-emphasis mt-2">
+            Символы детерминированы зерном и могут выходить за контур — так край не выглядит обрезанным. Декор только
+            визуальный: маршрут, проходимость и стоимость не меняются.
+          </p>
+        </template>
 
         <v-divider class="my-4" />
         <v-switch

@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { CanvasPoint } from '@/modules/Roleplay/Map/Dto/CanvasPoint';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
+import type { MapArea } from '@/modules/Roleplay/Map/Dto/MapArea';
 import type { MapEditTarget } from '@/modules/Roleplay/Map/Dto/MapEditTarget';
 import type { MapAreaShape } from '@/modules/Roleplay/Map/Dto/MapAreaShape';
 import type { MapHandle } from '@/modules/Roleplay/Map/Dto/MapHandle';
@@ -16,7 +17,13 @@ import type { MapToolMode } from '@/modules/Roleplay/Map/Enum/MapToolMode';
 import type { RibbonEdges, RibbonLayout } from '@/modules/Roleplay/Map/Service/MapRibbonService';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
 import { MAP_LINE_DEPTH } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DEPTH';
-import { mapGeometryService, mapRenderService, mapRibbonService } from '@/modules/Roleplay/Map/init';
+import {
+  mapDecorPainter,
+  mapDecorService,
+  mapGeometryService,
+  mapRenderService,
+  mapRibbonService,
+} from '@/modules/Roleplay/Map/init';
 import { getFileApi } from '@/modules/Core/File/init';
 
 const props = defineProps<{
@@ -322,14 +329,30 @@ function drawAreas(context: CanvasRenderingContext2D, layer: 'surface' | 'object
       }
     });
     context.closePath();
-    context.globalAlpha = mapRenderService.areaFillOpacity(area, props.map.fillOpacity) / 100;
+    const fillOpacity = mapRenderService.areaFillOpacity(area, props.map.fillOpacity);
+    context.globalAlpha = fillOpacity / 100;
     context.fillStyle = color;
     context.fill();
     context.globalAlpha = 1;
+    drawAreaDecor(context, area, path, fillOpacity);
     context.strokeStyle = color;
     context.lineWidth = MAP_CANVAS_CONFIG.areaStrokeWidth / props.viewport.scale;
     context.stroke();
   }
+}
+
+/** Декор области: символы рассыпаются по полигону и могут выходить за контур. */
+function drawAreaDecor(context: CanvasRenderingContext2D, area: MapArea, path: MapPoint[], fillOpacity: number): void {
+  if (!area.decor?.set) return;
+  const points = mapDecorService.layout(area.id, path, area.decor);
+  if (points.length === 0) return;
+
+  mapDecorPainter.paint(context, {
+    points,
+    color: area.color,
+    alpha: Math.min(0.95, 0.18 + (fillOpacity / 100) * 0.7),
+    minSize: 3 / props.viewport.scale,
+  });
 }
 
 /** Заливка и берега лент — часть статичного слоя. */

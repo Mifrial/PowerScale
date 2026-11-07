@@ -258,7 +258,14 @@ final class MapHttpMysqlTest extends TestCase
 
         $withDecor = $this->withIds($payload, $segmentsSaved['data']);
         $withDecor['fillOpacity'] = 34;
-        $withDecor['areas'][0]['decor'] = ['fillOpacity' => 72];
+        $withDecor['areas'][0]['decor'] = [
+            'fillOpacity' => 72,
+            'set' => 'mixed',
+            'density' => 60,
+            'scale' => 90,
+            'jitter' => 80,
+            'seed' => 5,
+        ];
         $withDecor['lines'][0]['colorBlend'] = 24;
         $withDecor['lines'][0]['decor'] = [
             'fillOpacity' => 80,
@@ -282,6 +289,11 @@ final class MapHttpMysqlTest extends TestCase
         self::assertTrue($decorSaved['success']);
         self::assertSame(34, $decorSaved['data']['fillOpacity']);
         self::assertSame(72, $decorSaved['data']['areas'][0]['decor']['fillOpacity']);
+        self::assertSame('mixed', $decorSaved['data']['areas'][0]['decor']['set']);
+        self::assertSame(60, $decorSaved['data']['areas'][0]['decor']['density']);
+        self::assertSame(90, $decorSaved['data']['areas'][0]['decor']['scale']);
+        self::assertSame(80, $decorSaved['data']['areas'][0]['decor']['jitter']);
+        self::assertSame(5, $decorSaved['data']['areas'][0]['decor']['seed']);
         self::assertSame(24, $decorSaved['data']['lines'][0]['colorBlend']);
         self::assertSame(80, $decorSaved['data']['lines'][0]['decor']['fillOpacity']);
         self::assertSame(45, $decorSaved['data']['lines'][0]['decor']['depth']);
@@ -496,6 +508,36 @@ final class MapHttpMysqlTest extends TestCase
         ]);
         self::assertFalse($badAreaDecor['success']);
         self::assertSame('MAP_INVALID', $badAreaDecor['error']['code']);
+
+        $secondPayload['areas'][0]['decor'] = ['set' => 'swamp'];
+        $badAreaSet = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $second['data']['version'],
+            'force' => true,
+            'map' => $secondPayload,
+        ]);
+        self::assertFalse($badAreaSet['success']);
+        self::assertSame('MAP_INVALID', $badAreaSet['error']['code']);
+
+        $secondPayload['areas'][0]['decor'] = ['set' => 'grass', 'density' => 201];
+        $badAreaDensity = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $second['data']['version'],
+            'force' => true,
+            'map' => $secondPayload,
+        ]);
+        self::assertFalse($badAreaDensity['success']);
+        self::assertSame('MAP_INVALID', $badAreaDensity['error']['code']);
+
+        $secondPayload['areas'][0]['decor'] = ['density' => 40];
+        $orphanAreaDensity = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $second['data']['version'],
+            'force' => true,
+            'map' => $secondPayload,
+        ]);
+        self::assertFalse($orphanAreaDensity['success']);
+        self::assertSame('MAP_INVALID', $orphanAreaDensity['error']['code']);
 
         $secondPayload['areas'][0]['decor'] = [];
         $secondPayload['fillOpacity'] = 101;

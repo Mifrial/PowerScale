@@ -143,7 +143,7 @@ id         IdField
 map_id     ReferenceField map, indexed, onDelete cascade
 layer      StringField 16, required, default 'object'   // surface|object
 color      StringField 16, required, default '#8d8d8d'
-decor      JsonField, required, default {}                 // {fillOpacity?: 0..100}, пусто = наследовать карту
+decor      JsonField, required, default {}                 // {fillOpacity?, set?, density?, scale?, jitter?, seed?}, пусто = без декора
 speed      IntField, required, default 5000, min 0, max 10000
 label      StringField 255, required, default ''
 node_id    ReferenceField map_node, nullable, onDelete setNull
@@ -155,7 +155,18 @@ sort_order IntField, required, default 0, min 0
 - `node_id` разрешён обоим слоям: лес, озеро, дом и площадь могут быть местом.
 - `sort_order` — порядок внутри слоя; больше — выше.
 - `decor.fillOpacity` — своя плотность заливки области, 0–100. Если ключа нет,
-  используется `map.fill_opacity`. Декор визуальный и не влияет на маршрут.
+  используется `map.fill_opacity`.
+- `decor.set` — набор символов декора: `grass`, `tree`, `pine`, `field`, `meadow`,
+  `mixed`. Нет ключа — область без символов.
+- `decor.density` — 0–200, символов на 10 000 px²; по умолчанию значение набора.
+- `decor.scale` — 40–250, размер символа в процентах; по умолчанию 100.
+- `decor.jitter` — 0–100, разброс позиции внутри ячейки; по умолчанию значение
+  набора.
+- `decor.seed` — 0–1000000, зерно раскладки; `0` — взять id области.
+
+Настройки декора без `set` недопустимы: `density`, `scale`, `jitter` и `seed`
+имеют смысл только вместе с набором. Декор визуальный и не влияет на маршрут,
+проходимость или стоимость.
 
 ### `map_variant_area`
 
@@ -310,7 +321,9 @@ sort_order IntField, required, default 0, min 0
   варианта (если размеры заданы);
 - карта: `fillOpacity` 0–100, по умолчанию 55;
 - область: `layer` из `surface|object`; `color` — `#rrggbb`; `decor` пуст или
-  содержит только `fillOpacity` 0–100; `speed` 0–10000; `nodeId` из снимка;
+  содержит `fillOpacity` 0–100, `set` из списка наборов, `density` 0–200,
+  `scale` 40–250, `jitter` 0–100 и `seed` 0–1000000; настройки без `set`
+  недопустимы; `speed` 0–10000; `nodeId` из снимка;
   полигон ≥ 3 точек; `handles` пуст или ровно по числу вершин; координаты в
   границах; `sortOrder ≥ 0`;
 - лента: ≥ 2 точек, `widths` и `handles` той же длины, ширина ≥ 1, смещения
@@ -371,8 +384,9 @@ map.route       { mapId, variantId, fromX, fromY, toX, toY }
                          "isPresent": true, "labelOverride": "" }] }
     ],
     "areas": [
-      { "id": 1, "layer": "object", "color": "#9e9e9e", "decor": {}, "speed": 0,
-        "label": "Ратуша", "nodeId": null, "sortOrder": 2,
+      { "id": 1, "layer": "surface", "color": "#4E7A4E",
+        "decor": { "set": "mixed", "density": 30, "scale": 100, "jitter": 90, "seed": 0 },
+        "speed": 2000, "label": "Лес", "nodeId": null, "sortOrder": 2,
         "shapes": [{ "variantId": 1,
                      "path": [[10,10],[20,10],[20,20]],
                      "handles": [{ "in": [0,0], "out": [0,0] },

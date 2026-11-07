@@ -23,6 +23,7 @@ import type { MapWarning } from '@/modules/Roleplay/Map/Dto/MapWarning';
 import { zeroMapHandle } from '@/modules/Roleplay/Map/Dto/MapHandle';
 import { zeroMapLineHandle } from '@/modules/Roleplay/Map/Dto/MapLineHandle';
 import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
+import { MAP_DECOR_LIMITS, MAP_DECOR_SETS, isMapDecorSet } from '@/modules/Roleplay/Map/Constant/Map/MAP_DECOR';
 import { MAP_LINE_DEPTH } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DEPTH';
 import {
   MAP_LINE_DEFAULT_COLOR_BLEND,
@@ -1049,9 +1050,36 @@ function normalizeDecor(decor: MapLineDecor | null | undefined): MapLineDecor {
 }
 
 function normalizeAreaDecor(decor: MapAreaDecor | null | undefined): MapAreaDecor {
-  if (decor?.fillOpacity === undefined) return {};
+  const result: MapAreaDecor = {};
+  if (decor?.fillOpacity !== undefined) {
+    result.fillOpacity = clampRange(decor.fillOpacity, 0, 100, MAP_FILL_OPACITY.default);
+  }
 
-  return { fillOpacity: clampRange(decor.fillOpacity, 0, 100, MAP_FILL_OPACITY.default) };
+  if (decor?.set !== undefined && isMapDecorSet(decor.set)) {
+    const info = MAP_DECOR_SETS[decor.set];
+    result.set = decor.set;
+    result.density = clampRange(
+      decor.density ?? info.density,
+      MAP_DECOR_LIMITS.density.min,
+      MAP_DECOR_LIMITS.density.max,
+      info.density,
+    );
+    result.scale = clampRange(
+      decor.scale ?? info.scale,
+      MAP_DECOR_LIMITS.scale.min,
+      MAP_DECOR_LIMITS.scale.max,
+      info.scale,
+    );
+    result.jitter = clampRange(
+      decor.jitter ?? info.jitter,
+      MAP_DECOR_LIMITS.jitter.min,
+      MAP_DECOR_LIMITS.jitter.max,
+      info.jitter,
+    );
+    result.seed = clampRange(decor.seed ?? 0, MAP_DECOR_LIMITS.seed.min, MAP_DECOR_LIMITS.seed.max, 0);
+  }
+
+  return result;
 }
 
 function nextSortOrder(items: { sortOrder: number }[]): number {
