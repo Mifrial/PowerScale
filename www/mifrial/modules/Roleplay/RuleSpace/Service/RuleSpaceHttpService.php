@@ -2,26 +2,17 @@
 
 declare(strict_types=1);
 
-// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
-// Один HTTP-сценарий мира: девять ruleSpace.*, не второй фасад.
-
 namespace Mifrial\Roleplay\RuleSpace\Service;
 
 use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Exception\ActionException;
-use Mifrial\Core\Kernel\Value\Optional\OptionalArray;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
-use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
-use Mifrial\Roleplay\Rule\Dto\RuleRevisionSlice;
 use Mifrial\Roleplay\RuleSpace\Dto\Action\CommitDraftInput;
 use Mifrial\Roleplay\RuleSpace\Dto\Action\CreateSpaceInput;
 use Mifrial\Roleplay\RuleSpace\Dto\Action\GetRevisionInput;
 use Mifrial\Roleplay\RuleSpace\Dto\Action\UpdateSpaceInput;
-use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceCatalog;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpacePatch;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord;
-use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceSelection;
-use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceConflictException;
 use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceInvalidException;
 use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceNotFoundException;
 use Mifrial\Roleplay\RuleSpace\Interface\Service\IRuleSpaces;
@@ -32,6 +23,8 @@ use Mifrial\Roleplay\RuleSpace\Repository\RuleSpaceRepository;
  */
 final class RuleSpaceHttpService
 {
+    private readonly RuleSpaceDraftPublisher $draftPublisher;
+
     private const LIST_LIMIT = 500;
 
     /**
@@ -54,6 +47,7 @@ final class RuleSpaceHttpService
         private readonly RuleSpaceCommitDraftMapper $commitDraftMapper,
         private readonly RuleSpaceSlug $ruleSpaceSlug,
     ) {
+        $this->draftPublisher = new RuleSpaceDraftPublisher($ruleSpaces);
     }
 
     /**
@@ -217,18 +211,12 @@ final class RuleSpaceHttpService
             throw new RuleSpaceInvalidException('Expected revision is invalid');
         }
 
-        $catalog = $this->draftCatalog(
-            $input->spaceId,
-            $input->sections,
-            $input->rules,
-            $puts,
-            $input->expectedRevision,
-        );
-        $revision = $this->publishDraft(
+        $revision = $this->draftPublisher->publish(
             $input->spaceId,
             $puts,
             $removedCodes,
-            $catalog,
+            $input->sections,
+            $input->rules,
             $input->expectedRevision,
         );
 
@@ -391,173 +379,6 @@ final class RuleSpaceHttpService
         $this->userAccess->requireSelfOrKey($ruleSpaceRecord->getOwnerId(), RuleSpacePermissionKeys::EDIT_ALL);
 
         return $ruleSpaceRecord;
-    }
-
-    /**
-     * Первая ревизия — полный put; иначе выбор поверх latest.
-     *
-     * @param int $spaceId Мир.
-     * @param array<int, RuleCommitEntry> $puts Put.
-     * @param array<int, string> $removedCodes Tombstone.
-     * @param RuleSpaceCatalog|null $catalog Снимок.
-     * @param int $expectedRevision Ревизия черновика.
-     *
-     * @return int Номер новой ревизии.
-     *
-     * @throws RuleSpaceInvalidException Если состав недопустим.
-     * @throws RuleSpaceConflictException Если голова уже другая.
-     * @throws RuleSpaceNotFoundException Если базы нет.
-     */
-    private function publishDraft(
-        int $spaceId,
-        array $puts,
-        array $removedCodes,
-        ?RuleSpaceCatalog $catalog,
-        int $expectedRevision,
-    ): int {
-        if ($expectedRevision === 0) {
-            return $this->publishFirstDraft($spaceId, $puts, $removedCodes, $catalog, $expectedRevision);
-        }
-
-        if ($puts === [] && $removedCodes === [] && $catalog instanceof RuleSpaceCatalog) {
-            $slice = $this->ruleSpaces->getRevision($spaceId, $expectedRevision);
-
-            return $this->ruleSpaces->commit(
-                $spaceId,
-                $this->keepEntries($slice),
-                $catalog,
-                $expectedRevision,
-            )->getRevision();
-        }
-
-        return $this->ruleSpaces->commitSelected(
-            $spaceId,
-            RuleSpaceSelection::fromParts($expectedRevision, $puts, $removedCodes),
-            $catalog,
-            $expectedRevision,
-        )->getRevision();
-    }
-
-    /**
-     * Первая ревизия: каталог-only недопустим.
-     *
-     * @param int $spaceId Мир.
-     * @param array<int, RuleCommitEntry> $puts Put.
-     * @param array<int, string> $removedCodes Tombstone.
-     * @param RuleSpaceCatalog|null $catalog Снимок.
-     * @param int $expectedRevision Ноль, если ревизий ещё нет.
-     *
-     * @return int Номер.
-     *
-     * @throws RuleSpaceInvalidException Если removed или пустой состав.
-     * @throws RuleSpaceConflictException Если голова уже есть.
-     */
-    private function publishFirstDraft(
-        int $spaceId,
-        array $puts,
-        array $removedCodes,
-        ?RuleSpaceCatalog $catalog,
-        int $expectedRevision,
-    ): int {
-        if ($removedCodes !== []) {
-            throw new RuleSpaceInvalidException('Removed codes need a published revision');
-        }
-
-        if ($puts === [] && $catalog instanceof RuleSpaceCatalog) {
-            throw new RuleSpaceInvalidException('Catalog-only needs a published revision');
-        }
-
-        return $this->ruleSpaces->commit($spaceId, $puts, $catalog, $expectedRevision)->getRevision();
-    }
-
-    /**
-     * Снимок из JSON sections или null.
-     *
-     * @param int $spaceId Мир.
-     * @param OptionalArray $sections Ключ JSON.
-     * @param array<int, mixed> $putRows JSON rules.
-     * @param array<int, RuleCommitEntry> $puts Put.
-     * @param int $expectedRevision Ревизия черновика.
-     *
-     * @return RuleSpaceCatalog|null Снимок.
-     *
-     * @throws RuleSpaceInvalidException Если дерево.
-     * @throws RuleSpaceNotFoundException Если базы нет.
-     */
-    private function draftCatalog(
-        int $spaceId,
-        OptionalArray $sections,
-        array $putRows,
-        array $puts,
-        int $expectedRevision,
-    ): ?RuleSpaceCatalog {
-        if (!$sections->isPresent()) {
-            return null;
-        }
-
-        $jsonMapper = new RuleSpaceCatalogJsonMapper();
-        $mappedSections = $jsonMapper->mapSections($sections->getValue());
-        $baseCatalog = RuleSpaceCatalog::empty();
-        $omitKeepCodes = [];
-        if ($expectedRevision > 0) {
-            $slice = $this->ruleSpaces->getRevision($spaceId, $expectedRevision);
-            $baseCatalog = $this->ruleSpaces->getCatalog($spaceId, $expectedRevision);
-            $omitKeepCodes = $this->omitKeepCodes($slice, $puts);
-        }
-
-        return (new RuleSpaceCatalogDraftComposer())->compose(
-            $mappedSections,
-            $puts,
-            $putRows,
-            $baseCatalog,
-            $omitKeepCodes,
-        );
-    }
-
-    /**
-     * Коды состава кроме put.
-     *
-     * @param RuleRevisionSlice $revisionSlice Latest.
-     * @param array<int, RuleCommitEntry> $puts Put.
-     *
-     * @return array<string, true> Коды.
-     */
-    private function omitKeepCodes(RuleRevisionSlice $revisionSlice, array $puts): array
-    {
-        $putCodes = [];
-        foreach ($puts as $putEntry) {
-            $code = $putEntry->getCode();
-            if ($code !== null) {
-                $putCodes[$code] = true;
-            }
-        }
-
-        $omitKeepCodes = [];
-        foreach ($revisionSlice->getItems() as $versionRecord) {
-            $code = $versionRecord->getCode();
-            if (!isset($putCodes[$code])) {
-                $omitKeepCodes[$code] = true;
-            }
-        }
-
-        return $omitKeepCodes;
-    }
-
-    /**
-     * Keep всего среза.
-     *
-     * @param RuleRevisionSlice $revisionSlice Состав.
-     *
-     * @return array<int, RuleCommitEntry> Keep.
-     */
-    private function keepEntries(RuleRevisionSlice $revisionSlice): array
-    {
-        $entries = [];
-        foreach ($revisionSlice->getItems() as $versionRecord) {
-            $entries[] = RuleCommitEntry::keep($versionRecord->getVersionId());
-        }
-
-        return $entries;
     }
 
     /**

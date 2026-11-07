@@ -15,6 +15,9 @@ use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceSpecRejectedException;
 
 /**
  * Отказ публикации, если spec состава битая.
+ *
+ * @phpstan-type Problem array{ruleCode: string, ruleName: string, messages: array<int, string>}
+ * @phpstan-type CompositionEntry array{code: string, type: string, name: string, spec: array<string|int, mixed>}
  */
 final class RuleRevisionSpecGuard
 {
@@ -51,49 +54,11 @@ final class RuleRevisionSpecGuard
         $composition = [];
         $keepIds = [];
         foreach ($entries as $entry) {
-            $body = $entry->getBody();
-            $code = $entry->getCode();
-            if ($body instanceof RuleVersionBody && is_string($code)) {
-                $read = RuleSpecs::read($body->getType(), $body->getSpec());
-                $this->append($problems, $code, $body->getName(), $read);
-                if ($entry->isActive() && !$read->isBroken()) {
-                    $composition[] = [
-                        'code' => $code,
-                        'type' => $body->getType(),
-                        'name' => $body->getName(),
-                        'spec' => $body->getSpec(),
-                    ];
-                }
-
-                continue;
-            }
-
-            $versionId = $entry->getVersionId();
-            if ($versionId !== null) {
-                $keepIds[] = $versionId;
-            }
+            $this->collectEntry($entry, $problems, $composition, $keepIds);
         }
 
-        foreach ($this->kept($spaceId, $keepIds, $expectedRevision) as $record) {
-            $read = RuleSpecs::read($record->getType(), $record->getSpecSource());
-            $this->append($problems, $record->getCode(), $record->getName(), $read);
-            if (!$read->isBroken()) {
-                $composition[] = [
-                    'code' => $record->getCode(),
-                    'type' => $record->getType(),
-                    'name' => $record->getName(),
-                    'spec' => $record->getSpecDocument(),
-                ];
-            }
-        }
-
-        foreach ($this->references->problems($composition) as $problem) {
-            $problems[] = $problem;
-        }
-
-        if ($problems !== []) {
-            throw new RuleSpaceSpecRejectedException($problems);
-        }
+        $this->collectRecords($this->kept($spaceId, $keepIds, $expectedRevision), $problems, $composition);
+        $this->assertComposition($problems, $composition);
     }
 
     /**
@@ -109,6 +74,60 @@ final class RuleRevisionSpecGuard
     {
         $problems = [];
         $composition = [];
+        $this->collectRecords($records, $problems, $composition);
+        $this->assertComposition($problems, $composition);
+    }
+
+    /**
+     * Разбирает пункт состава: put проверяет, keep копит id.
+     *
+     * @param RuleCommitEntry $entry Пункт.
+     * @param array<int, Problem> $problems Проблемы.
+     * @param array<int, CompositionEntry> $composition Состав.
+     * @param array<int, int> $keepIds Id keep.
+     *
+     * @return void
+     */
+    private function collectEntry(
+        RuleCommitEntry $entry,
+        array &$problems,
+        array &$composition,
+        array &$keepIds,
+    ): void {
+        $body = $entry->getBody();
+        $code = $entry->getCode();
+        if ($body instanceof RuleVersionBody && is_string($code)) {
+            $read = RuleSpecs::read($body->getType(), $body->getSpec());
+            $this->append($problems, $code, $body->getName(), $read);
+            if ($entry->isActive() && !$read->isBroken()) {
+                $composition[] = [
+                    'code' => $code,
+                    'type' => $body->getType(),
+                    'name' => $body->getName(),
+                    'spec' => $body->getSpec(),
+                ];
+            }
+
+            return;
+        }
+
+        $versionId = $entry->getVersionId();
+        if ($versionId !== null) {
+            $keepIds[] = $versionId;
+        }
+    }
+
+    /**
+     * Проверяет разобранные версии и копит состав.
+     *
+     * @param array<int, RuleVersionRecord> $records Версии.
+     * @param array<int, Problem> $problems Проблемы.
+     * @param array<int, CompositionEntry> $composition Состав.
+     *
+     * @return void
+     */
+    private function collectRecords(array $records, array &$problems, array &$composition): void
+    {
         foreach ($records as $record) {
             $read = RuleSpecs::read($record->getType(), $record->getSpecSource());
             $this->append($problems, $record->getCode(), $record->getName(), $read);
@@ -121,7 +140,20 @@ final class RuleRevisionSpecGuard
                 ];
             }
         }
+    }
 
+    /**
+     * Добавляет проблемы ссылок и бросает отказ, если что-то не так.
+     *
+     * @param array<int, Problem> $problems Проблемы.
+     * @param array<int, CompositionEntry> $composition Состав.
+     *
+     * @return void
+     *
+     * @throws RuleSpaceSpecRejectedException Если spec битая.
+     */
+    private function assertComposition(array $problems, array $composition): void
+    {
         foreach ($this->references->problems($composition) as $problem) {
             $problems[] = $problem;
         }

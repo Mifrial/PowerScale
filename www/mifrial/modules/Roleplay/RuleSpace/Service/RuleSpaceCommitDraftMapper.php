@@ -252,31 +252,45 @@ final class RuleSpaceCommitDraftMapper
 
         $rows = [];
         foreach ($value as $row) {
-            if ($row instanceof JsonObject) {
-                $row = $row->getMembers();
-            }
-
-            if (!is_array($row) || !isset($row['mechanicId']) || !is_int($row['mechanicId'])) {
-                $this->rejectField($ruleCode, 'mechanics');
-            }
-
-            $payload = $row['mechanicPayload'] ?? [];
-
-            if ($payload instanceof JsonObject) {
-                $payload = $payload->getMembers();
-            }
-
-            if (!is_array($payload)) {
-                $this->rejectField($ruleCode, 'mechanics');
-            }
-
-            $rows[] = [
-                'mechanic_id' => $row['mechanicId'],
-                'mechanic_payload' => $payload,
-            ];
+            $rows[] = $this->mechanicRow($row, $ruleCode);
         }
 
         return $rows;
+    }
+
+    /**
+     * Одна строка механики: id и payload.
+     *
+     * @param mixed $row Элемент списка JSON.
+     * @param string $ruleCode Код правила.
+     *
+     * @return array{mechanic_id: int, mechanic_payload: array<string|int, mixed>} Колонки.
+     *
+     * @throws RuleSpaceInvalidException Если форма строки неверна.
+     */
+    private function mechanicRow(mixed $row, string $ruleCode): array
+    {
+        if ($row instanceof JsonObject) {
+            $row = $row->getMembers();
+        }
+
+        if (!is_array($row) || !isset($row['mechanicId']) || !is_int($row['mechanicId'])) {
+            $this->rejectField($ruleCode, 'mechanics');
+        }
+
+        $payload = $row['mechanicPayload'] ?? [];
+        if ($payload instanceof JsonObject) {
+            $payload = $payload->getMembers();
+        }
+
+        if (!is_array($payload)) {
+            $this->rejectField($ruleCode, 'mechanics');
+        }
+
+        return [
+            'mechanic_id' => $row['mechanicId'],
+            'mechanic_payload' => $payload,
+        ];
     }
 
     /**

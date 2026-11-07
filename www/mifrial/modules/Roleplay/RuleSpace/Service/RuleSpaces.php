@@ -39,6 +39,7 @@ final class RuleSpaces implements IRuleSpaces
      * @param RuleSpaceRepository $ruleSpaceRepository Sidecar.
      * @param RuleSpaceWorldWriter $worldWriter Insert и commit.
      * @param ISmartTableGateway $smartTableGateway TX inherit.
+     * @param RuleSpaceMetaService $metaService Мета мира.
      *
      * @return void
      */
@@ -47,6 +48,7 @@ final class RuleSpaces implements IRuleSpaces
         private readonly RuleSpaceRepository $ruleSpaceRepository,
         private readonly RuleSpaceWorldWriter $worldWriter,
         private readonly ISmartTableGateway $smartTableGateway,
+        private readonly RuleSpaceMetaService $metaService,
     ) {
     }
 
@@ -146,10 +148,7 @@ final class RuleSpaces implements IRuleSpaces
     public function update(int $spaceId, RuleSpacePatch $patch): RuleSpaceRecord
     {
         $this->requireWorld($spaceId);
-        $sidecarFields = $this->sidecarFieldsFromPatch($patch);
-        (new RuleSpaceGuard())->run(
-            fn (): mixed => $this->writeMeta($spaceId, $sidecarFields),
-        );
+        $this->metaService->apply($spaceId, $patch);
 
         return $this->requireWorld($spaceId);
     }
@@ -166,13 +165,7 @@ final class RuleSpaces implements IRuleSpaces
     public function deactivate(int $spaceId): void
     {
         $this->requireWorld($spaceId);
-        (new RuleSpaceGuard())->run(
-            function () use ($spaceId): mixed {
-                $this->ruleSpaceRepository->updateBySpaceId($spaceId, ['active' => false]);
-
-                return null;
-            },
-        );
+        $this->metaService->deactivate($spaceId);
     }
 
     /**
@@ -361,94 +354,6 @@ final class RuleSpaces implements IRuleSpaces
         }
 
         return $world;
-    }
-
-    /**
-     * Колонки sidecar из Patch.
-     *
-     * @param RuleSpacePatch $patch Вход.
-     *
-     * @return array<string, string> name и/или description.
-     *
-     * @throws RuleSpaceInvalidException Если пусто или name пуст.
-     */
-    private function sidecarFieldsFromPatch(RuleSpacePatch $patch): array
-    {
-        $patchFields = $patch->fields();
-        if ($patchFields === []) {
-            throw new RuleSpaceInvalidException('Rule space patch is empty');
-        }
-
-        $sidecarFields = [];
-        if (array_key_exists('name', $patchFields)) {
-            $trimmedName = trim((string) $patchFields['name']);
-            if ($trimmedName === '') {
-                throw new RuleSpaceInvalidException('Rule space name must not be empty');
-            }
-
-            $sidecarFields['name'] = $trimmedName;
-        }
-
-        if (array_key_exists('description', $patchFields)) {
-            $sidecarFields['description'] = (string) $patchFields['description'];
-        }
-
-        return $sidecarFields + $this->publishedReadField($patchFields);
-    }
-
-    /**
-     * Колонка published_read, если ключ есть в patch.
-     *
-     * @param array<string, mixed> $patchFields Patch.
-     *
-     * @return array<string, string> Колонка или пусто.
-     *
-     * @throws RuleSpaceInvalidException Если значение не owner и не all.
-     */
-    private function publishedReadField(array $patchFields): array
-    {
-        if (!array_key_exists('published_read', $patchFields)) {
-            return [];
-        }
-
-        $publishedRead = $patchFields['published_read'];
-        if ($publishedRead !== 'owner' && $publishedRead !== 'all') {
-            throw new RuleSpaceInvalidException('Rule space published read is invalid');
-        }
-
-        return ['published_read' => $publishedRead];
-    }
-
-    /**
-     * Sidecar и опционально title часов.
-     *
-     * @param int $spaceId Мир.
-     * @param array<string, string> $sidecarFields Колонки.
-     *
-     * @return null Пусто.
-     *
-     * @throws RuleSpaceInvalidException Если unique или поле.
-     * @throws RuleSpaceNotFoundException Если часов нет.
-     */
-    private function writeMeta(int $spaceId, array $sidecarFields): mixed
-    {
-        $spaceName = $sidecarFields['name'] ?? null;
-        if (is_string($spaceName)) {
-            $this->smartTableGateway->transaction(
-                function () use ($spaceId, $sidecarFields, $spaceName): int {
-                    $this->rules->updateSpace($spaceId, $spaceName);
-                    $this->ruleSpaceRepository->updateBySpaceId($spaceId, $sidecarFields);
-
-                    return $spaceId;
-                },
-            );
-
-            return null;
-        }
-
-        $this->ruleSpaceRepository->updateBySpaceId($spaceId, $sidecarFields);
-
-        return null;
     }
 
     /**

@@ -50,6 +50,11 @@ final class RuleSpacePortFactory
                 new RuleRevisionSpecGuard($rules),
             ),
             $this->smartTableGateway($serviceLocator),
+            new RuleSpaceMetaService(
+                $rules,
+                $this->ruleSpaceRepository($serviceLocator),
+                $this->smartTableGateway($serviceLocator),
+            ),
         );
     }
 
