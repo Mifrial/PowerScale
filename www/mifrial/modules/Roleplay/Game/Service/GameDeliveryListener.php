@@ -26,6 +26,17 @@ final class GameDeliveryListener implements IEventListener
     private static ?WeakMap $registered = null;
 
     /**
+     * Создаёт слушателя.
+     *
+     * @param IGameDelivery $delivery Фасад.
+     *
+     * @return void
+     */
+    public function __construct(private readonly IGameDelivery $delivery)
+    {
+    }
+
+    /**
      * Одна подписка на этот IEventManager.
      *
      * @param IEventManager $events Порт.
@@ -44,16 +55,7 @@ final class GameDeliveryListener implements IEventListener
         $events->on(self::EVENT, new self($delivery));
     }
 
-    /**
-     * Создаёт слушателя.
-     *
-     * @param IGameDelivery $delivery Фасад.
-     *
-     * @return void
-     */
-    public function __construct(private readonly IGameDelivery $delivery)
-    {
-    }
+
 
     /**
      * Вставляет строку, если пары ещё нет.

@@ -22,12 +22,15 @@ use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
  */
 final class GameNpcs
 {
+    private readonly GameNpcDocument $documents;
+
     /**
      * Собирает сценарий.
      *
      * @param GameNpcRepository $npcRepository Строки.
      * @param IGames $games Игра.
      * @param ICharacterSheetEngines $sheetEngines Сборка листа.
+     * @param ISmartTableGateway $smartTableGateway Транзакции.
      *
      * @return void
      */
@@ -37,6 +40,7 @@ final class GameNpcs
         private readonly ICharacterSheetEngines $sheetEngines,
         private readonly ISmartTableGateway $smartTableGateway,
     ) {
+        $this->documents = new GameNpcDocument();
     }
 
     /**
@@ -59,7 +63,7 @@ final class GameNpcs
             throw new GameInvalidException('NPC sheet was not built');
         }
 
-        return $this->npcRepository->add($gameId, $report['name'], $this->version($game, $report), $visibility);
+        return $this->npcRepository->add($gameId, $report['name'], $this->documents->version($game, $report), $visibility);
     }
 
     /**
@@ -80,43 +84,12 @@ final class GameNpcs
         GameRecord $game,
         int $expectedActualVersion,
     ): GameNpcResourceBackfillResult {
-        return $this->smartTableGateway->transaction(function () use (
-            $record,
-            $game,
-            $expectedActualVersion,
-        ): GameNpcResourceBackfillResult {
-            $fresh = $this->npcRepository->getById($record->getId());
-            $this->assertVersion($fresh, $expectedActualVersion);
-            $document = $fresh->getVersion();
-            $choices = $this->choicesOf($fresh);
-            $previousSheet = $this->sheetOf($fresh);
-            $report = $this->runBuild(
-                $choices,
-                $game,
-                null,
-                $this->storedRevision($fresh),
-                $previousSheet,
-            );
-            if ($report['kind'] !== 'ok') {
-                throw new GameInvalidException('NPC resource backfill was not built');
-            }
-
-            $version = $this->version($game, $report, $this->storedRevision($fresh));
-            if ($this->canonical($document) === $this->canonical($version)) {
-                return new GameNpcResourceBackfillResult($fresh, 'noop');
-            }
-
-            $saved = $this->npcRepository->save(
-                $fresh,
-                $report['name'],
-                $version,
-                $fresh->getVisibility(),
-            );
-            $status = array_key_exists('resources', $previousSheet) ? 'changed' : 'initialized';
-
-            return new GameNpcResourceBackfillResult($saved, $status);
-        });
+        return $this->smartTableGateway->transaction(
+            fn (): GameNpcResourceBackfillResult => $this->backfillFresh($record, $game, $expectedActualVersion),
+        );
     }
+
+
 
     /**
      * Строка NPC этой игры.
@@ -165,15 +138,7 @@ final class GameNpcs
         int $expectedActualVersion,
     ): array {
         $this->assertVersion($record, $expectedActualVersion);
-        $choices['name'] = $name;
-        $report = $this->runBuild(
-            $choices,
-            $game,
-            null,
-            $this->storedRevision($record),
-            $this->sheetOf($record),
-        );
-        $report = $this->withSheetCheck($report, $sheet);
+        $report = $this->changedReport($record, $game, $name, $choices, $sheet);
         if ($report['kind'] !== 'ok') {
             return ['record' => null, 'report' => $report];
         }
@@ -181,12 +146,14 @@ final class GameNpcs
         $saved = $this->npcRepository->save(
             $record,
             $report['name'],
-            $this->version($game, $report, $this->storedRevision($record)),
+            $this->documents->version($game, $report, $this->documents->storedRevision($record)),
             $visibility,
         );
 
         return ['record' => $saved, 'report' => $report];
     }
+
+
 
     /**
      * Переводит лист на ревизию игры.
@@ -212,7 +179,7 @@ final class GameNpcs
         ?array $sheet = null,
     ): array {
         $this->assertVersion($record, $expectedActualVersion);
-        $sourceRevision = $this->storedRevision($record);
+        $sourceRevision = $this->documents->storedRevision($record);
         if ($sourceRevision === $game->getRulesRevision()) {
             throw new GameInvalidException('NPC sheet is already on the game revision');
         }
@@ -227,11 +194,129 @@ final class GameNpcs
         $saved = $this->npcRepository->save(
             $record,
             $report['name'],
-            $this->version($game, $report),
+            $this->documents->version($game, $report),
             $record->getVisibility(),
         );
 
         return ['record' => $saved, 'report' => $report];
+    }
+
+    /**
+     * Игра не completed.
+     *
+     * @param int $gameId Игра.
+     *
+     * @return GameRecord Строка.
+     *
+     * @throws GameInvalidException Если completed.
+     * @throws GameNotFoundException Если нет.
+     */
+    public function openGame(int $gameId): GameRecord
+    {
+        $game = $this->games->get($gameId);
+        if ($game->isCompleted()) {
+            throw new GameInvalidException('Completed game is read-only');
+        }
+
+        return $game;
+    }
+
+    /**
+     * Пересобирает ресурсы уже внутри транзакции.
+     *
+     * @param GameNpcRecord $record NPC.
+     * @param GameRecord $game Игра.
+     * @param int $expectedActualVersion Ожидаемая версия.
+     *
+     * @return GameNpcResourceBackfillResult Результат backfill.
+     *
+     * @throws GameConflictException Если версия устарела.
+     * @throws GameInvalidException Если лист не собирается.
+     * @throws GameNotFoundException Если строки или ревизии нет.
+     */
+    private function backfillFresh(
+        GameNpcRecord $record,
+        GameRecord $game,
+        int $expectedActualVersion,
+    ): GameNpcResourceBackfillResult {
+        $fresh = $this->npcRepository->getById($record->getId());
+        $this->assertVersion($fresh, $expectedActualVersion);
+        $document = $fresh->getVersion();
+        $previousSheet = $this->documents->sheetOf($fresh);
+        $report = $this->rebuildFresh($fresh, $game, $previousSheet);
+        $version = $this->documents->version($game, $report, $this->documents->storedRevision($fresh));
+        if ($this->documents->sameDocument($document, $version)) {
+            return new GameNpcResourceBackfillResult($fresh, 'noop');
+        }
+
+        $saved = $this->npcRepository->save(
+            $fresh,
+            $report['name'],
+            $version,
+            $fresh->getVisibility(),
+        );
+        $status = array_key_exists('resources', $previousSheet) ? 'changed' : 'initialized';
+
+        return new GameNpcResourceBackfillResult($saved, $status);
+    }
+
+    /**
+     * Пересобирает лист на ревизии самой строки.
+     *
+     * @param GameNpcRecord $fresh Свежая строка.
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $previousSheet Server-owned предыдущий лист.
+     *
+     * @return array<string, mixed> Отчёт.
+     *
+     * @throws GameInvalidException Если лист не собирается.
+     */
+    private function rebuildFresh(GameNpcRecord $fresh, GameRecord $game, array $previousSheet): array
+    {
+        $report = $this->runBuild(
+            $this->documents->choicesOf($fresh),
+            $game,
+            null,
+            $this->documents->storedRevision($fresh),
+            $previousSheet,
+        );
+        if ($report['kind'] !== 'ok') {
+            throw new GameInvalidException('NPC resource backfill was not built');
+        }
+
+        return $report;
+    }
+
+    /**
+     * Собирает присланные изменения на ревизии строки.
+     *
+     * @param GameNpcRecord $record Строка.
+     * @param GameRecord $game Игра.
+     * @param string $name Имя.
+     * @param array<string, mixed> $choices Документ.
+     * @param array<string, mixed>|null $sheet Сверка.
+     *
+     * @return array<string, mixed> Отчёт.
+     *
+     * @throws GameInvalidException Если ревизии нет.
+     */
+    private function changedReport(
+        GameNpcRecord $record,
+        GameRecord $game,
+        string $name,
+        array $choices,
+        ?array $sheet,
+    ): array {
+        $choices['name'] = $name;
+        $report = $this->runBuild(
+            $choices,
+            $game,
+            null,
+            $this->documents->storedRevision($record),
+            $this->documents->sheetOf($record),
+        );
+
+        return $this->documents->withSheetCheck($report, $sheet);
     }
 
     /**
@@ -249,11 +334,11 @@ final class GameNpcs
     {
         try {
             return $this->sheetEngines->remap(
-                $this->choicesOf($record),
+                $this->documents->choicesOf($record),
                 $game->getSpaceId(),
                 $sourceRevision,
                 $game->getRulesRevision(),
-                $this->sheetOf($record),
+                $this->documents->sheetOf($record),
             );
         } catch (CharacterNotFoundException $exception) {
             throw new GameInvalidException('NPC revision was not found', $exception);
@@ -291,31 +376,13 @@ final class GameNpcs
             $game,
             null,
             $game->getRulesRevision(),
-            $this->sheetOf($record),
+            $this->documents->sheetOf($record),
         );
 
-        return $this->withSheetCheck($report, $sheet);
+        return $this->documents->withSheetCheck($report, $sheet);
     }
 
-    /**
-     * Игра не completed.
-     *
-     * @param int $gameId Игра.
-     *
-     * @return GameRecord Строка.
-     *
-     * @throws GameInvalidException Если completed.
-     * @throws GameNotFoundException Если нет.
-     */
-    public function openGame(int $gameId): GameRecord
-    {
-        $game = $this->games->get($gameId);
-        if ($game->isCompleted()) {
-            throw new GameInvalidException('Completed game is read-only');
-        }
 
-        return $game;
-    }
 
     /**
      * Сборка. Ревизия по умолчанию — ревизия игры.
@@ -391,144 +458,17 @@ final class GameNpcs
         ];
     }
 
-    /**
-     * npc.version из отчёта сборки.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $report Отчёт.
-     * @param int|null $revision Ревизия листа или ревизия игры.
-     *
-     * @return array<string, mixed> Лист.
-     */
-    private function version(GameRecord $game, array $report, ?int $revision = null): array
-    {
-        return [
-            'choices' => $report['choices'],
-            'sheet' => $report['sheet'],
-            'spaceId' => $game->getSpaceId(),
-            'spaceCode' => $game->getSpaceCode(),
-            'rulesRevision' => $revision ?? $game->getRulesRevision(),
-        ];
-    }
 
-    /**
-     * Ревизия, уже лежащая в листе.
-     *
-     * @param GameNpcRecord $record Строка.
-     *
-     * @return int Номер.
-     *
-     * @throws GameInvalidException Если нет объекта choices или номера.
-     */
-    private function storedRevision(GameNpcRecord $record): int
-    {
-        $this->choicesOf($record);
-        $revision = $record->getVersion()['rulesRevision'] ?? null;
-        if (!is_int($revision)) {
-            throw new GameInvalidException('NPC sheet has no revision');
-        }
 
-        return $revision;
-    }
 
-    /**
-     * Сверяет присланный снимок с собранным. Порядок ключей JSON не важен.
-     *
-     * @param array<string, mixed> $report Отчёт сборки.
-     * @param array<string, mixed>|null $sheet Присланный снимок.
-     *
-     * @return array<string, mixed> Отчёт, при расхождении conflicts.
-     */
-    private function withSheetCheck(array $report, ?array $sheet): array
-    {
-        $built = $report['sheet'] ?? null;
-        if (!is_array($sheet) || !is_array($built) || $this->canonical($sheet) === $this->canonical($built)) {
-            return $report;
-        }
 
-        $problems = is_array($report['problems'] ?? null) ? $report['problems'] : [];
-        $problems[] = [
-            'code' => 'CHARACTER_SHEET',
-            'message' => 'Expected sheet does not match the server sheet',
-            'stage' => 'derived',
-            'path' => 'expectedSheet',
-        ];
-        $report['problems'] = $problems;
-        $report['kind'] = 'conflicts';
 
-        return $report;
-    }
 
-    /**
-     * Стабильный JSON объекта.
-     *
-     * @param array<mixed> $value Документ.
-     *
-     * @return string Текст.
-     */
-    private function canonical(array $value): string
-    {
-        $this->sortKeys($value);
-        $encoded = json_encode($value);
 
-        return is_string($encoded) ? $encoded : '';
-    }
 
-    /**
-     * Сортирует ключи объектов рекурсивно.
-     *
-     * @param array<mixed> $value Документ.
-     *
-     * @return void
-     */
-    private function sortKeys(array &$value): void
-    {
-        if (!array_is_list($value)) {
-            ksort($value);
-        }
 
-        foreach ($value as &$item) {
-            if (is_array($item)) {
-                $this->sortKeys($item);
-            }
-        }
-    }
 
-    /**
-     * Документ choices строки.
-     *
-     * @param GameNpcRecord $record Строка.
-     *
-     * @return array<string, mixed> Choices.
-     *
-     * @throws GameInvalidException Если ключа нет.
-     */
-    private function choicesOf(GameNpcRecord $record): array
-    {
-        $choices = $record->getVersion()['choices'] ?? null;
-        if (!is_array($choices) || array_is_list($choices)) {
-            throw new GameInvalidException('NPC sheet has no choices');
-        }
 
-        return $choices;
-    }
 
-    /**
-     * Возвращает принадлежащий серверу sheet NPC.
-     *
-     * @param GameNpcRecord $record NPC row.
-     *
-     * @return array<string, mixed> Stored sheet.
-     *
-     * @throws GameInvalidException If the version has no sheet.
-     */
-    private function sheetOf(GameNpcRecord $record): array
-    {
-        $sheet = $record->getVersion()['sheet'] ?? null;
-        if (!is_array($sheet) || array_is_list($sheet)) {
-            throw new GameInvalidException('NPC sheet is invalid');
-        }
 
-        return $sheet;
-    }
 }

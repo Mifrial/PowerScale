@@ -2,22 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Roleplay\Game\Service;
-
-// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassTooLong
 // phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
-// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh
+// Собранные порты сценария раны: параметры конструктора — порты, не поля строки.
+
+namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Core\Event\Interface\Service\IEventManager;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
-use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
-use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
-use Mifrial\Roleplay\Character\Dto\ResourceSpend;
-use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
-use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
@@ -30,20 +24,12 @@ use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ActionResourceCutGrant;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\WoundBandageAidGrant;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 
 /**
  * Зажать, отпустить и перевязать: лист, ресурс, карта ожидания и одно сообщение чата.
  */
 final class GameWoundActions
 {
-    private readonly GameBattleRepository $battles;
-
     private readonly GameCommandRepository $commands;
 
     private readonly GameNpcRepository $npcs;
@@ -61,6 +47,14 @@ final class GameWoundActions
     private readonly GameReplayTransaction $replayTransaction;
 
     private readonly GamePendingActionCosts $pendingCosts;
+
+    private readonly GameWoundRows $rows;
+
+    private readonly GameWoundPatch $patch;
+
+    private readonly GameWoundPrice $price;
+
+    private readonly GameWoundBattle $battle;
 
     /**
      * Создаёт сценарий.
@@ -84,7 +78,7 @@ final class GameWoundActions
         private readonly IChats $chats,
         IEventManager $events,
     ) {
-        $this->battles = new GameBattleRepository($smartTableGateway);
+        $battles = new GameBattleRepository($smartTableGateway);
         $this->commands = new GameCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->characters = new GameCharacterRepository($smartTableGateway);
@@ -94,6 +88,11 @@ final class GameWoundActions
         $this->replayTransaction = new GameReplayTransaction($smartTableGateway);
         $this->pendingCosts = new GamePendingActionCosts();
         $this->delivery = new GameDeliverySignal($events);
+        $this->rows = new GameWoundRows($rules, $this->npcs, $battles);
+        $grants = new GameWoundGrants();
+        $this->patch = new GameWoundPatch(new GameWoundHands($rules, $this->characters, $this->npcs), $grants);
+        $this->price = new GameWoundPrice($this->pendingCosts, $grants, $this->rows);
+        $this->battle = new GameWoundBattle($this->rows, $battles, $this->sheetWrites);
     }
 
     /**
@@ -132,6 +131,34 @@ final class GameWoundActions
         }
 
         return $this->commit($game, $actorUserId, $sessionId, $key, $body);
+    }
+
+    /**
+     * Исполняет рану после доплаты долга.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Пользователь.
+     * @param array<string, mixed> $body Сохранённое объявление.
+     * @param int $expectedBattle Версия боя.
+     * @param int $expectedSheet Версия листа после доплаты.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если команда отвергнута.
+     * @throws GameNotFoundException Если цели нет.
+     * @throws GameBattleConflictException Если версия боя чужая.
+     */
+    public function resume(
+        GameRecord $game,
+        int $actorUserId,
+        array $body,
+        int $expectedBattle,
+        int $expectedSheet,
+    ): array {
+        $body['expectedBattleVersion'] = $expectedBattle;
+        $body['expectedSheetVersion'] = $expectedSheet;
+
+        return $this->perform($game, $actorUserId, $body, true);
     }
 
     /**
@@ -193,6 +220,7 @@ final class GameWoundActions
      * @param GameRecord $game Игра.
      * @param int $actorUserId Пользователь.
      * @param array<string, mixed> $body Тело.
+     * @param bool $paid Трата уже списана при доплате долга.
      *
      * @return array<string, mixed> Итог.
      *
@@ -202,9 +230,81 @@ final class GameWoundActions
      */
     private function perform(GameRecord $game, int $actorUserId, array $body, bool $paid = false): array
     {
+        $prepared = $this->prepare($game, $body);
+        $opened = $this->battle->pay($game, $body, $prepared, $paid);
+        if ($opened !== null) {
+            return $opened;
+        }
+
+        $version = $this->writeSheets($game, $prepared, $paid);
+        $pending = $this->pendingCosts->complete(
+            $prepared['slice'],
+            $prepared['actorSheet']['choices'],
+            $prepared['actionRuleCode'],
+            $prepared['actor']['kind'],
+            $prepared['actor']['id'],
+            $prepared['priced']['pending'],
+            $this->rows->spentAmounts($prepared['priced']['spends']),
+        );
+        $battleVersion = $this->battle->store($body, $pending);
+        $this->say($game, $actorUserId, $prepared['operation']);
+
+        return [
+            'operation' => $prepared['operation'],
+            'target' => $prepared['target'],
+            'stateId' => $prepared['stateId'],
+            'sheetVersion' => $version,
+            'battleVersion' => $battleVersion,
+            'opened' => true,
+        ];
+    }
+
+    /**
+     * Собирает листы, строку, правку и цену команды.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $body Тело.
+     *
+     * @return array<string, mixed> Подготовка.
+     *
+     * @throws GameInvalidException Если команда отвергнута.
+     * @throws GameNotFoundException Если цели нет.
+     * @throws GameBattleConflictException Если версия боя чужая.
+     */
+    private function prepare(GameRecord $game, array $body): array
+    {
+        [$operation, $actor, $target, $stateId, $actionRuleCode, $expected] = $this->fields($body);
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $actorSheet = $this->rows->document($game, $actor['kind'], $actor['id']);
+        $targetSheet = $this->rows->document($game, $target['kind'], $target['id']);
+        $row = $this->rows->rowOf($targetSheet['sheet'], $stateId);
+
+        return [
+            'operation' => $operation,
+            'actor' => $actor,
+            'target' => $target,
+            'stateId' => $stateId,
+            'actionRuleCode' => $actionRuleCode,
+            'expected' => $expected,
+            'slice' => $slice,
+            'actorSheet' => $actorSheet,
+            'patch' => $this->patch->of($operation, $slice, $actorSheet, $row, $actor, $game),
+            'priced' => $this->price->of($slice, $actorSheet['choices'], $actionRuleCode, $actor, $body),
+        ];
+    }
+
+    /**
+     * Разбирает обязательные поля тела.
+     *
+     * @param array<string, mixed> $body Тело.
+     *
+     * @return array{0: string, 1: array{kind: string, id: int}, 2: array{kind: string, id: int}, 3: int, 4: string, 5: int} Поля.
+     *
+     * @throws GameInvalidException Если поле чужое.
+     */
+    private function fields(array $body): array
+    {
         $operation = $body['operation'] ?? null;
-        $actor = $this->pair($body['actor'] ?? null);
-        $target = $this->pair($body['target'] ?? null);
         $stateId = $body['stateId'] ?? null;
         $actionRuleCode = $body['actionRuleCode'] ?? null;
         $expected = $body['expectedSheetVersion'] ?? null;
@@ -212,320 +312,83 @@ final class GameWoundActions
             throw new GameInvalidException('Game wound action is invalid');
         }
 
-        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $actorSheet = $this->document($game, $actor['kind'], $actor['id']);
-        $targetSheet = $this->document($game, $target['kind'], $target['id']);
-        $row = $this->rowOf($targetSheet['sheet'], $stateId);
-        $patch = $this->patch($operation, $slice, $actorSheet, $row, $actor, $game);
-        $priced = $this->priced($slice, $actorSheet['choices'], $actionRuleCode, $actor, $body);
-        $battle = $this->battleOf($body);
-        $debt = new GameActionDebt();
-        $debtKey = $debt->key($actor['kind'], $actor['id']);
-        if ($battle !== null && !$paid) {
-            $debt->assertFree($battle->getActionDebt(), $debtKey);
-            $planned = $debt->plan(
-                $slice,
-                $actorSheet['sheet'],
-                $priced['spends'],
-                $debt->refillCode($slice),
-                'wound',
-                $body,
-            );
-            if (!$planned['open']) {
-                $version = $this->sheetWrites->writeResources(
-                    $game,
-                    $actor['kind'],
-                    $actor['id'],
-                    $actorSheet['actualVersion'],
-                    $planned['spends'],
-                );
-                $debtMap = $battle->getActionDebt();
-                $debtMap[$debtKey] = $planned['slot'];
-                $expectedBattle = is_int($body['expectedBattleVersion'] ?? null)
-                    ? $body['expectedBattleVersion']
-                    : $battle->getStateVersion();
-                $saved = $this->battles->replaceTracked(
-                    $battle->getId(),
-                    $expectedBattle,
-                    $priced['pending'],
-                    $debtMap,
-                    null,
-                    null,
-                );
+        return [
+            $operation,
+            $this->rows->pair($body['actor'] ?? null),
+            $this->rows->pair($body['target'] ?? null),
+            $stateId,
+            $actionRuleCode,
+            $expected,
+        ];
+    }
 
-                return [
-                    'operation' => $operation,
-                    'target' => $target,
-                    'stateId' => $stateId,
-                    'sheetVersion' => $version,
-                    'battleVersion' => $saved->getStateVersion(),
-                    'opened' => false,
-                    'debt' => true,
-                    'remaining' => $planned['slot']['remaining'] ?? 0,
-                ];
-            }
-        }
 
-        if ($actor['kind'] === $target['kind'] && $actor['id'] === $target['id']) {
-            $version = $this->sheetWrites->write(
-                $game,
-                $target['kind'],
-                $target['id'],
-                $expected,
-                [$patch],
-                null,
-                null,
-                $paid ? [] : $priced['spends'],
-            );
-        } else {
+
+
+
+
+
+    /**
+     * Пишет лист актора и цели.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $prepared Подготовка.
+     * @param bool $paid Трата уже списана.
+     *
+     * @return int Новая версия цели.
+     *
+     * @throws GameInvalidException Если лист отвергнут.
+     * @throws GameNotFoundException Если строки нет.
+     * @throws GameBattleConflictException Если версия листа чужая.
+     */
+    private function writeSheets(GameRecord $game, array $prepared, bool $paid): int
+    {
+        $spends = $paid ? [] : $prepared['priced']['spends'];
+        $sameActor = $prepared['actor']['kind'] === $prepared['target']['kind']
+            && $prepared['actor']['id'] === $prepared['target']['id'];
+        if (!$sameActor) {
             $this->sheetWrites->writeResources(
                 $game,
-                $actor['kind'],
-                $actor['id'],
-                $actorSheet['actualVersion'],
-                $paid ? [] : $priced['spends'],
-            );
-            $version = $this->sheetWrites->write(
-                $game,
-                $target['kind'],
-                $target['id'],
-                $expected,
-                [$patch],
+                $prepared['actor']['kind'],
+                $prepared['actor']['id'],
+                $prepared['actorSheet']['actualVersion'],
+                $spends,
             );
         }
 
-        $pending = $this->pendingCosts->complete(
-            $slice,
-            $actorSheet['choices'],
-            $actionRuleCode,
-            $actor['kind'],
-            $actor['id'],
-            $priced['pending'],
-            $this->spentAmounts($priced['spends']),
-        );
-        $battleVersion = $this->storePending($body, $pending);
-        $this->say($game, $actorUserId, $operation);
-        $result = [
-            'operation' => $operation,
-            'target' => $target,
-            'stateId' => $stateId,
-            'sheetVersion' => $version,
-            'battleVersion' => $battleVersion,
-            'opened' => true,
-        ];
-
-        return $result;
+        return $this->writeTarget($game, $prepared, $sameActor ? $spends : []);
     }
 
     /**
-     * Исполняет рану после доплаты долга.
+     * Пишет патч цели.
      *
      * @param GameRecord $game Игра.
-     * @param int $actorUserId Пользователь.
-     * @param array<string, mixed> $body Сохранённое объявление.
-     * @param int $expectedBattle Версия боя.
-     * @param int $expectedSheet Версия листа после доплаты.
+     * @param array<string, mixed> $prepared Подготовка.
+     * @param array<int, \Mifrial\Roleplay\Character\Dto\ResourceSpend> $spends Траты.
      *
-     * @return array<string, mixed> Итог.
-     *
-     * @throws GameInvalidException Если команда отвергнута.
-     * @throws GameNotFoundException Если цели нет.
-     * @throws GameBattleConflictException Если версия боя чужая.
-     */
-    public function resume(
-        GameRecord $game,
-        int $actorUserId,
-        array $body,
-        int $expectedBattle,
-        int $expectedSheet,
-    ): array {
-        $body['expectedBattleVersion'] = $expectedBattle;
-        $body['expectedSheetVersion'] = $expectedSheet;
-
-        return $this->perform($game, $actorUserId, $body, true);
-    }
-
-    /**
-     * Правка строки по операции.
-     *
-     * @param string $operation hold, release или bandage.
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array{choices: array<string, mixed>, sheet: array<string, mixed>} $actorSheet Лист актора.
-     * @param array<string, mixed> $row Строка раны.
-     * @param array{kind: string, id: int} $actor Держатель.
-     * @param GameRecord $game Игра.
-     *
-     * @return array<string, mixed> patchState.
+     * @return int Новая версия.
      *
      * @throws GameInvalidException Если операция отвергнута.
+     * @throws GameNotFoundException Если листа нет.
+     * @throws GameBattleConflictException Если версия другая.
      */
-    private function patch(
-        string $operation,
-        CharacterRuleSlice $slice,
-        array $actorSheet,
-        array $row,
-        array $actor,
-        GameRecord $game,
-    ): array {
-        if (($row['internal'] ?? false) === true && $operation !== 'release') {
-            throw new GameInvalidException('Game wound is internal');
-        }
-
-        if ($operation === 'hold') {
-            return $this->holdPatch($slice, $actorSheet, $row, $actor, $game);
-        }
-
-        if ($operation === 'release') {
-            return ['kind' => 'patchState', 'id' => $row['id'], 'heldBy' => null];
-        }
-
-        if ($operation === 'bandage') {
-            return $this->bandagePatch($slice, $actorSheet['choices'], $row);
-        }
-
-        throw new GameInvalidException('Game wound action is invalid');
-    }
-
-    /**
-     * Зажим, если рука свободна и строка ещё не зажата.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array{choices: array<string, mixed>, sheet: array<string, mixed>} $actorSheet Лист актора.
-     * @param array<string, mixed> $row Строка.
-     * @param array{kind: string, id: int} $actor Держатель.
-     * @param GameRecord $game Игра.
-     *
-     * @return array<string, mixed> Операция.
-     *
-     * @throws GameInvalidException Если руки нет или зажим уже стоит.
-     */
-    private function holdPatch(
-        CharacterRuleSlice $slice,
-        array $actorSheet,
-        array $row,
-        array $actor,
-        GameRecord $game,
-    ): array {
-        if (($row['heldBy'] ?? null) !== null) {
-            throw new GameInvalidException('Game wound is already held');
-        }
-
-        if ($this->freeHands($slice, $actorSheet, $actor, $game) < 1) {
-            throw new GameInvalidException('Game wound hold has no free hand');
-        }
-
-        return ['kind' => 'patchState', 'id' => $row['id'], 'heldBy' => $actor];
-    }
-
-    /**
-     * Перевязка: плюс 2, не выше силы и потолка 4, пока нет гранта помощи.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $choices Выборы актора.
-     * @param array<string, mixed> $row Строка.
-     *
-     * @return array<string, mixed> Операция.
-     *
-     * @throws GameInvalidException Если сила не число.
-     */
-    private function bandagePatch(CharacterRuleSlice $slice, array $choices, array $row): array
+    private function writeTarget(GameRecord $game, array $prepared, array $spends): int
     {
-        $strength = $row['value'] ?? null;
-        $bandage = $row['bandage'] ?? 0;
-        if (!is_int($strength) || !is_int($bandage)) {
-            throw new GameInvalidException('Game wound strength is invalid');
-        }
+        $target = $prepared['target'];
 
-        $aided = $this->hasAid($slice, $choices) || ($row['aided'] ?? false) === true;
-        $next = $bandage + 2;
-        if (!$aided) {
-            $next = min($next, 4);
-        }
-
-        return [
-            'kind' => 'patchState',
-            'id' => $row['id'],
-            'bandage' => min($next, $strength),
-            'aided' => $aided,
-        ];
+        return $this->sheetWrites->write(
+            $game,
+            $target['kind'],
+            $target['id'],
+            $prepared['expected'],
+            [$prepared['patch']],
+            null,
+            null,
+            $spends,
+        );
     }
 
-    /**
-     * Цены карточки, срез, ожидание и пол 2 у затронутого ресурса.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $choices Выборы актора.
-     * @param string $actionRuleCode Карточка.
-     * @param array{kind: string, id: int} $actor Актор.
-     * @param array<string, mixed> $body Тело.
-     *
-     * @return array{spends: array<int, ResourceSpend>, pending: array<string, mixed>} Трата и карта.
-     *
-     * @throws GameInvalidException Если у карточки нет ресурса.
-     * @throws GameNotFoundException Если боя нет.
-     * @throws GameBattleConflictException Если версия боя чужая.
-     */
-    private function priced(
-        CharacterRuleSlice $slice,
-        array $choices,
-        string $actionRuleCode,
-        array $actor,
-        array $body,
-    ): array {
-        $amounts = $this->cardAmounts($slice, $actionRuleCode);
-        $touched = $this->applyCuts($slice, $choices, $actionRuleCode, $amounts);
-        $battle = $this->battleOf($body);
-        $pending = $battle?->getPendingActionEffects() ?? [];
-        if ($battle !== null) {
-            $declared = $this->pendingCosts->declare(
-                $slice,
-                $choices,
-                $actionRuleCode,
-                $actor['kind'],
-                $actor['id'],
-                $pending,
-                $amounts,
-                false,
-            );
-            $amounts = $declared['amounts'];
-            $pending = $declared['pending'];
-            $touched = array_merge($touched, $declared['touched']);
-        }
 
-        $spends = [];
-        foreach ($amounts as $code => $amount) {
-            $value = array_key_exists($code, $touched) ? max($amount, 2) : $amount;
-            $spends[] = new ResourceSpend($code, new ScalarResourceValue($value));
-        }
-
-        return ['spends' => $spends, 'pending' => $pending];
-    }
-
-    /**
-     * Пишет карту, если тело назвало бой.
-     *
-     * @param array<string, mixed> $body Тело.
-     * @param array<string, mixed> $pending Карта.
-     *
-     * @return int|null Новая версия боя или null.
-     *
-     * @throws GameNotFoundException Если боя нет.
-     * @throws GameBattleConflictException Если версия чужая.
-     */
-    private function storePending(array $body, array $pending): ?int
-    {
-        $battleId = $body['battleId'] ?? 0;
-        $expected = $body['expectedBattleVersion'] ?? null;
-        if (!is_int($battleId) || $battleId < 1) {
-            return null;
-        }
-
-        if (!is_int($expected)) {
-            throw new GameInvalidException('Game wound battle version is invalid');
-        }
-
-        return $this->battles->replacePending($battleId, $expected, $pending)->getStateVersion();
-    }
 
     /**
      * Одно текстовое сообщение в чат игры.
@@ -555,381 +418,6 @@ final class GameWoundActions
     }
 
     /**
-     * Целые цены всех resource-компонентов.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $actionRuleCode Карточка.
-     *
-     * @return array<string, int> Суммы.
-     *
-     * @throws GameInvalidException Если компонента нет или цена не целая.
-     */
-    private function cardAmounts(CharacterRuleSlice $slice, string $actionRuleCode): array
-    {
-        $spec = $slice->findLive($actionRuleCode)?->getSpec();
-        if (!$spec instanceof AbilityActionSpec) {
-            throw new GameInvalidException('Game wound action card is invalid');
-        }
-
-        $amounts = [];
-        foreach ($spec->getComponents() as $component) {
-            if (!$component instanceof ResourceComponent) {
-                continue;
-            }
-
-            if (!is_int($component->getAmount())) {
-                throw new GameInvalidException('Game wound action resource is invalid');
-            }
-
-            $code = $component->getResourceCode();
-            $amounts[$code] = ($amounts[$code] ?? 0) + $component->getAmount();
-        }
-
-        if ($amounts === []) {
-            throw new GameInvalidException('Game wound action has no resource');
-        }
-
-        return $amounts;
-    }
-
-    /**
-     * Вычитает безусловные срезы.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $choices Выборы.
-     * @param string $actionRuleCode Карточка.
-     * @param array<string, int> $amounts Цены.
-     *
-     * @return array<string, bool> Затронутые ресурсы.
-     */
-    private function applyCuts(
-        CharacterRuleSlice $slice,
-        array $choices,
-        string $actionRuleCode,
-        array &$amounts,
-    ): array {
-        $touched = [];
-        foreach ($this->grants($slice, $choices) as $grant) {
-            if (!$grant instanceof ActionResourceCutGrant || $grant->getActionRuleCode() !== $actionRuleCode) {
-                continue;
-            }
-
-            $code = $grant->getResourceCode();
-            if (!array_key_exists($code, $amounts)) {
-                continue;
-            }
-
-            $amounts[$code] -= $grant->getAmount();
-            $touched[$code] = true;
-        }
-
-        return $touched;
-    }
-
-    /**
-     * Есть грант снятия потолка.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $choices Выборы.
-     *
-     * @return bool true, если грант куплен.
-     */
-    private function hasAid(CharacterRuleSlice $slice, array $choices): bool
-    {
-        foreach ($this->grants($slice, $choices) as $grant) {
-            if ($grant instanceof WoundBandageAidGrant) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Гранты блоков не выше купленного уровня.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $choices Выборы.
-     *
-     * @return array<int, object> Гранты.
-     */
-    private function grants(CharacterRuleSlice $slice, array $choices): array
-    {
-        $reader = new CharacterDonorGrants();
-        $grants = [];
-        $abilities = $choices['abilities'] ?? [];
-        if (!is_array($abilities)) {
-            return [];
-        }
-
-        foreach ($abilities as $choice) {
-            $code = is_array($choice) ? ($choice['ruleCode'] ?? null) : null;
-            $level = is_array($choice) ? ($choice['level'] ?? null) : null;
-            $rule = is_string($code) ? $slice->findLive($code) : null;
-            if (!$rule instanceof CharacterResolvedRule || !is_int($level)) {
-                continue;
-            }
-
-            if (!$rule->getSpec() instanceof AbilitySpec) {
-                continue;
-            }
-
-            foreach ($reader->getForLevel($rule, $code, $level) as $donor) {
-                $grants[] = $donor->getGrant();
-            }
-        }
-
-        return $grants;
-    }
-
-    /**
-     * Свободные руки держателя.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array{choices: array<string, mixed>, sheet: array<string, mixed>} $actorSheet Лист.
-     * @param array{kind: string, id: int} $actor Держатель.
-     * @param GameRecord $game Игра.
-     *
-     * @return int Число.
-     */
-    private function freeHands(CharacterRuleSlice $slice, array $actorSheet, array $actor, GameRecord $game): int
-    {
-        return $this->handCount()
-            - $this->equippedHands($slice, $actorSheet['choices'])
-            - $this->heldWounds($actor, $game);
-    }
-
-    /**
-     * Число рук расы. У всех текущих рас — 2.
-     *
-     * @return int Число.
-     */
-    private function handCount(): int
-    {
-        return 2;
-    }
-
-    /**
-     * Сумма min занятых рук надетого.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $choices Выборы.
-     *
-     * @return int Число.
-     */
-    private function equippedHands(CharacterRuleSlice $slice, array $choices): int
-    {
-        $occupied = 0;
-        $inventory = $choices['inventory'] ?? [];
-        if (!is_array($inventory)) {
-            return 0;
-        }
-
-        foreach ($inventory as $row) {
-            if (!is_array($row) || ($row['equipped'] ?? false) !== true || !is_string($row['ruleCode'] ?? null)) {
-                continue;
-            }
-
-            $spec = $slice->findLive($row['ruleCode'])?->getSpec();
-            $hands = $spec instanceof ItemSpec ? $spec->getOccupyHands() : null;
-            $occupied += $hands === null ? 0 : $hands->getMin();
-        }
-
-        return $occupied;
-    }
-
-    /**
-     * Внешние раны, которые этот держатель уже держит.
-     *
-     * @param array{kind: string, id: int} $actor Держатель.
-     * @param GameRecord $game Игра.
-     *
-     * @return int Число.
-     */
-    private function heldWounds(array $actor, GameRecord $game): int
-    {
-        $held = 0;
-        foreach ($this->characters->getListByGame($game->getId(), null) as $membership) {
-            $sheet = $this->rules->data->characterSnapshot($membership->getCharacterId())['sheet'];
-            $held += $this->holdsOn($sheet, $actor);
-        }
-
-        foreach ($this->npcs->getListByGame($game->getId()) as $npc) {
-            $sheet = $npc->getVersion()['sheet'] ?? [];
-            $held += is_array($sheet) ? $this->holdsOn($sheet, $actor) : 0;
-        }
-
-        return $held;
-    }
-
-    /**
-     * Зажимы одного листа.
-     *
-     * @param array<string, mixed> $sheet Лист.
-     * @param array{kind: string, id: int} $actor Держатель.
-     *
-     * @return int Число.
-     */
-    private function holdsOn(array $sheet, array $actor): int
-    {
-        $held = 0;
-        $states = $sheet['states'] ?? [];
-        if (!is_array($states)) {
-            return 0;
-        }
-
-        foreach ($states as $row) {
-            $holder = is_array($row) ? ($row['heldBy'] ?? null) : null;
-            $external = is_array($row) && ($row['internal'] ?? false) !== true;
-            if ($external && $holder === $actor) {
-                $held++;
-            }
-        }
-
-        return $held;
-    }
-
-    /**
-     * Открытый бой или null.
-     *
-     * @param array<string, mixed> $body Тело.
-     *
-     * @return GameBattleRecord|null Бой.
-     *
-     * @throws GameNotFoundException Если названного боя нет.
-     * @throws GameBattleConflictException Если версия чужая.
-     */
-    private function battleOf(array $body): ?GameBattleRecord
-    {
-        $battleId = $body['battleId'] ?? 0;
-        if (!is_int($battleId) || $battleId < 1) {
-            return null;
-        }
-
-        $battle = $this->battles->find($battleId);
-        $expected = $body['expectedBattleVersion'] ?? null;
-        if ($battle === null) {
-            throw new GameNotFoundException('Game battle was not found');
-        }
-
-        if (!is_int($expected) || $battle->getStateVersion() !== $expected) {
-            throw new GameBattleConflictException($battle->getStateVersion());
-        }
-
-        return $battle;
-    }
-
-    /**
-     * Лист цели или актора.
-     *
-     * @param GameRecord $game Игра.
-     * @param string $kind Вид.
-     * @param int $id Id.
-     *
-     * @return array{actualVersion: int, choices: array<string, mixed>, sheet: array<string, mixed>} Документ.
-     *
-     * @throws GameNotFoundException Если строки нет.
-     */
-    private function document(GameRecord $game, string $kind, int $id): array
-    {
-        if ($kind === 'character') {
-            $snapshot = $this->rules->data->characterSnapshot($id);
-
-            return [
-                'actualVersion' => $snapshot['actualVersion'],
-                'choices' => $snapshot['choices'],
-                'sheet' => $snapshot['sheet'],
-            ];
-        }
-
-        $npc = $this->npcs->getById($id);
-        if ($npc->getGameId() !== $game->getId()) {
-            throw new GameNotFoundException('Game npc was not found');
-        }
-
-        $version = $npc->getVersion();
-        $choices = $version['choices'] ?? [];
-        $sheet = $version['sheet'] ?? [];
-        if (!is_array($choices) || !is_array($sheet)) {
-            throw new GameInvalidException('Game npc sheet is invalid');
-        }
-
-        return [
-            'actualVersion' => $npc->getActualVersion(),
-            'choices' => $choices,
-            'sheet' => $sheet,
-        ];
-    }
-
-    /**
-     * Целые траты в карту ресурсов.
-     *
-     * @param array<int, ResourceSpend> $spends Траты.
-     *
-     * @return array<string, int> Суммы.
-     */
-    private function spentAmounts(array $spends): array
-    {
-        $amounts = [];
-        foreach ($spends as $spend) {
-            $native = $spend->getAmount()->toNative();
-            if (!is_int($native)) {
-                continue;
-            }
-
-            $amounts[$spend->getResourceCode()] = ($amounts[$spend->getResourceCode()] ?? 0) + $native;
-        }
-
-        return $amounts;
-    }
-
-    /**
-     * Строка состояния по id.
-     *
-     * @param array<string, mixed> $sheet Лист.
-     * @param int $stateId Id.
-     *
-     * @return array<string, mixed> Строка.
-     *
-     * @throws GameInvalidException Если строки нет.
-     */
-    private function rowOf(array $sheet, int $stateId): array
-    {
-        $states = $sheet['states'] ?? [];
-        if (!is_array($states)) {
-            throw new GameInvalidException('Game wound was not found');
-        }
-
-        foreach ($states as $row) {
-            if (is_array($row) && ($row['id'] ?? null) === $stateId) {
-                return $row;
-            }
-        }
-
-        throw new GameInvalidException('Game wound was not found');
-    }
-
-    /**
-     * Пара kind и id.
-     *
-     * @param mixed $pair Объект.
-     *
-     * @return array{kind: string, id: int} Пара.
-     *
-     * @throws GameInvalidException Если форма чужая.
-     */
-    private function pair(mixed $pair): array
-    {
-        $kind = is_array($pair) ? ($pair['kind'] ?? null) : null;
-        $id = is_array($pair) ? ($pair['id'] ?? null) : null;
-        if (($kind !== 'character' && $kind !== 'npc') || !is_int($id) || $id < 1) {
-            throw new GameInvalidException('Game wound actor is invalid');
-        }
-
-        return ['kind' => $kind, 'id' => $id];
-    }
-
-    /**
      * Писатель игры или владелец персонажа-актора.
      *
      * @param GameRecord $game Игра.
@@ -948,7 +436,7 @@ final class GameWoundActions
             return;
         }
 
-        $actor = $this->pair($body['actor'] ?? null);
+        $actor = $this->rows->pair($body['actor'] ?? null);
         if ($actor['kind'] !== 'character') {
             throw new ActionException('AUTH_DENIED', 'Permission denied');
         }
