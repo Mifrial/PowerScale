@@ -41,16 +41,40 @@ export interface RibbonLayout {
   transitions: RibbonTransition[];
 }
 
-/** Блик течения: короткий отрезок вдоль осевой. */
-export interface FlowMark {
-  start: MapPoint;
-  end: MapPoint;
-  width: number;
+/** Частица ряби: постоянные свойства блика, не зависящие от времени. */
+export interface FlowParticle {
+  /** Начальное положение вдоль дуги, доля 0..1. */
+  phase: number;
+  /** Поперечное смещение, доля полуширины -1..1. */
+  lateral: number;
+  /** Длина вдоль осевой, px. */
+  length: number;
+  /** Толщина в середине, px. */
+  thickness: number;
+  /** Готовый цвет блика. */
+  color: string;
+  /** Пиковая непрозрачность, 0..1. */
   alpha: number;
+  /** Частота мерцания, Гц. */
+  pulse: number;
+  /** Фаза мерцания, доля 0..1. */
+  pulsePhase: number;
 }
 
-/** Геометрия ленты: непрерывные участки цвета, градиенты и блики течения. */
+/** Блик ряби на текущий кадр. */
+export interface FlowGlint {
+  center: MapPoint;
+  tangent: MapPoint;
+  halfLength: number;
+  halfThickness: number;
+  alpha: number;
+  color: string;
+}
+
+/** Геометрия ленты: непрерывные участки цвета, градиенты и рябь течения. */
 export class MapRibbonService {
+  private readonly flowCache = new Map<string, FlowParticle[]>();
+
   constructor(private readonly geometry: MapGeometryService) {}
 
   /**
@@ -180,56 +204,146 @@ export class MapRibbonService {
     return this.edgePoint(flat.points, position);
   }
 
-  /** Детерминированные блики течения на момент времени. */
-  flowMarks(
-    line: MapLine,
-    layout: RibbonLayout,
-    timeMs: number,
-    reducedMotion = false,
-    scale = 1,
-  ): FlowMark[] {
+  /**
+   * Постоянные частицы ряби: раскладка, цвет и цикл мерцания.
+   *
+   * Раскладка детерминирована `seed` и кэшируется по подписи ленты.
+   */
+  flowParticles(line: MapLine, layout: RibbonLayout): FlowParticle[] {
     const flow = line.decor?.flow;
-    if (!flow?.enabled || layout.flat.totalLength < 4) return [];
-
     const flat = layout.flat;
+    if (!flow?.enabled || flat.totalLength < 8 || flat.points.length < 2) return [];
+
+    const key = this.flowSignature(line, flat);
+    const cached = this.flowCache.get(key);
+    if (cached) return cached;
+
     const random = this.seededRandom(flow.seed || line.id || 1);
-    const spacing = Math.max(28, Math.min(220, 220 - flow.density * 1.6));
-    const count = Math.max(1, Math.min(240, Math.ceil(flat.totalLength / spacing)));
+    const density = Math.max(0, Math.min(100, flow.density));
     const opacity = Math.max(0, Math.min(1, flow.opacity / 100));
-    const elapsed = reducedMotion ? 0 : timeMs / 1000;
-    const marks: FlowMark[] = [];
+    const spacing = Math.max(8, 24 - density * 0.16);
+    const count = Math.max(2, Math.min(400, Math.ceil(flat.totalLength / spacing)));
+    const averageWidth = flat.widths.reduce((sum, width) => sum + width, 0) / flat.widths.length;
+    const widthScale = Math.max(0.6, Math.min(1.8, averageWidth / 24));
+    const densityScale = 1.15 - density * 0.0045;
+    const particles: FlowParticle[] = [];
 
     for (let index = 0; index < count; index += 1) {
       const phase = random();
-      const lateral = (random() * 2 - 1) * 0.34;
-      const length = 14 + random() * 30;
-      const width = Math.max(1.2 / Math.max(0.2, scale), 1 + random() * 2.5);
-      const brightness = 0.55 + random() * 0.45;
-      const progress = ((phase + (elapsed * flow.speed * flow.direction) / flat.totalLength) % 1 + 1) % 1;
-      const distance = progress * flat.totalLength;
-      const position = this.positionAtDistance(flat, distance);
-      const point = this.centerPoint(flat, position);
-      const halfWidth = this.interpolateValue(flat.widths, position) / 2;
-      const tangent = this.tangentAt(flat, position);
-      const normal: MapPoint = [-tangent[1], tangent[0]];
-      const shiftX = normal[0] * lateral * halfWidth;
-      const shiftY = normal[1] * lateral * halfWidth;
-      const halfLength = length / 2;
-      marks.push({
-        start: [
-          point[0] + shiftX - tangent[0] * halfLength,
-          point[1] + shiftY - tangent[1] * halfLength,
-        ],
-        end: [
-          point[0] + shiftX + tangent[0] * halfLength,
-          point[1] + shiftY + tangent[1] * halfLength,
-        ],
-        width,
-        alpha: opacity * brightness,
+      const lateral = (random() < 0.5 ? -1 : 1) * (0.18 + random() * 0.66);
+      const position = this.positionAtDistance(flat, phase * flat.totalLength);
+      const water = this.waterColorAt(line, flat, position);
+      const tint = this.mixHex(water, flow.color, 0.3 + random() * 0.55);
+      particles.push({
+        phase,
+        lateral,
+        length: (16 + random() * 48) * widthScale * densityScale,
+        thickness: Math.max(0.7, (0.7 + random() * 2.3) * Math.min(1.4, widthScale) * densityScale),
+        color: this.mixHex(tint, '#ffffff', 0.05 + random() * 0.18),
+        alpha: opacity * (0.35 + random() * 0.65) * (1 - density * 0.003),
+        pulse: 0.1 + random() * 0.22,
+        pulsePhase: random(),
       });
     }
 
-    return marks;
+    this.flowCache.set(key, particles);
+    if (this.flowCache.size > 64) {
+      const oldest = this.flowCache.keys().next().value;
+      if (oldest !== undefined) this.flowCache.delete(oldest);
+    }
+
+    return particles;
+  }
+
+  /**
+   * Блики на момент времени: позиция вдоль дуги, касательная и текущая непрозрачность.
+   *
+   * Каждая частица медленно едет по течению и независимо мерцает.
+   */
+  flowGlints(
+    particles: FlowParticle[],
+    flat: RibbonFlat,
+    timeMs: number,
+    speed: number,
+    direction: number,
+    reducedMotion = false,
+  ): FlowGlint[] {
+    if (particles.length === 0 || flat.totalLength < 1) return [];
+
+    const elapsed = reducedMotion ? 0 : timeMs / 1000;
+    const travel = (elapsed * speed * direction) / flat.totalLength;
+    const glints: FlowGlint[] = [];
+
+    for (const particle of particles) {
+      const progress = ((particle.phase + travel) % 1 + 1) % 1;
+      const position = this.positionAtDistance(flat, progress * flat.totalLength);
+      const center = this.centerPoint(flat, position);
+      const tangent = this.tangentAt(flat, position);
+      const normal: MapPoint = [-tangent[1], tangent[0]];
+      const halfWidth = this.interpolateValue(flat.widths, position) / 2;
+      const shift = particle.lateral * halfWidth * 0.9;
+      const pulse = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (particle.pulsePhase + elapsed * particle.pulse));
+      const alpha = particle.alpha * pulse;
+      if (alpha <= 0.004) continue;
+
+      glints.push({
+        center: [center[0] + normal[0] * shift, center[1] + normal[1] * shift],
+        tangent,
+        halfLength: particle.length / 2,
+        halfThickness: Math.max(0.4, particle.thickness / 2),
+        alpha,
+        color: particle.color,
+      });
+    }
+
+    return glints;
+  }
+
+  /** Цвет воды под точкой развёрнутой ленты. */
+  private waterColorAt(line: MapLine, flat: RibbonFlat, position: number): string {
+    const index = Math.max(0, Math.min(flat.segmentIndices.length - 1, Math.round(position)));
+
+    return this.segmentColor(line, flat.segmentIndices[index] ?? 0);
+  }
+
+  /** Подпись ленты для кэша частиц: геометрия и параметры течения. */
+  private flowSignature(line: MapLine, flat: RibbonFlat): string {
+    let widthSum = 0;
+    for (const width of flat.widths) widthSum += width;
+    const colors = line.segments.map((segment) => segment.color ?? '').join(',');
+
+    return [
+      line.id,
+      line.color,
+      flat.totalLength.toFixed(1),
+      flat.widths.length,
+      widthSum.toFixed(1),
+      colors,
+      JSON.stringify(line.decor ?? {}),
+    ].join('|');
+  }
+
+  /** Смешивает два цвета `#rrggbb`; ratio 0 — from, 1 — to. */
+  private mixHex(from: string, to: string, ratio: number): string {
+    const start = this.parseHex(from) ?? [0, 0, 0];
+    const end = this.parseHex(to) ?? [255, 255, 255];
+    const t = Math.max(0, Math.min(1, ratio));
+    const channels = start.map((channel, index) =>
+      Math.round(channel + (end[index] - channel) * t)
+        .toString(16)
+        .padStart(2, '0'),
+    );
+
+    return `#${channels.join('')}`;
+  }
+
+  /** Разбирает `#rrggbb`. */
+  private parseHex(color: string): [number, number, number] | null {
+    const match = /^#([0-9a-fA-F]{6})$/.exec(color.trim());
+    if (!match) return null;
+    const value = Number.parseInt(match[1], 16);
+
+    return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
   }
 
   /** Эффективный цвет сегмента: свой или цвет ленты. */

@@ -102,7 +102,7 @@ describe('MapRibbonService', () => {
     expect(service.edgePoint(edge, 1.25)).toEqual([12.5, 0]);
   });
 
-  it('makes flow marks deterministic and moves them over time', () => {
+  it('lays out deterministic ripple particles and reuses the cache', () => {
     const source = line({
       decor: {
         flow: {
@@ -117,22 +117,98 @@ describe('MapRibbonService', () => {
       },
     });
     const layout = service.layout(source, 8);
-    const first = service.flowMarks(source, layout, 1000, false, 1);
-    const again = service.flowMarks(source, layout, 1000, false, 1);
-    const later = service.flowMarks(source, layout, 1500, false, 1);
-    const atZero = service.flowMarks(source, layout, 0, false, 1);
-    const still = service.flowMarks(source, layout, 1000, true, 1);
+    const particles = service.flowParticles(source, layout);
+    const again = service.flowParticles(source, layout);
+
+    expect(particles.length).toBeGreaterThan(0);
+    expect(again).toBe(particles);
+    expect(new Set(particles.map((particle) => particle.color)).size).toBeGreaterThan(1);
+    expect(particles.every((particle) => particle.color !== '#ffffff')).toBe(true);
+  });
+
+  it('moves glints over time and freezes them under reduced motion', () => {
+    const source = line({
+      decor: {
+        flow: {
+          enabled: true,
+          speed: 40,
+          density: 50,
+          opacity: 20,
+          color: '#ffffff',
+          direction: 1,
+          seed: 7,
+        },
+      },
+    });
+    const layout = service.layout(source, 8);
+    const particles = service.flowParticles(source, layout);
+    const first = service.flowGlints(particles, layout.flat, 1000, 40, 1);
+    const again = service.flowGlints(particles, layout.flat, 1000, 40, 1);
+    const later = service.flowGlints(particles, layout.flat, 3000, 40, 1);
+    const atZero = service.flowGlints(particles, layout.flat, 0, 40, 1);
+    const still = service.flowGlints(particles, layout.flat, 1000, 40, 1, true);
 
     expect(first.length).toBeGreaterThan(0);
     expect(again).toEqual(first);
-    expect(later[0]).not.toEqual(first[0]);
+    expect(later).not.toEqual(first);
     expect(still).toEqual(atZero);
+  });
+
+  it('fades each glint in and out while the position stays put', () => {
+    const source = line({
+      decor: {
+        flow: {
+          enabled: true,
+          speed: 40,
+          density: 50,
+          opacity: 20,
+          color: '#ffffff',
+          direction: 1,
+          seed: 7,
+        },
+      },
+    });
+    const layout = service.layout(source, 8);
+    const particles = service.flowParticles(source, layout);
+    const frames = [0, 700, 1400, 2100].map((time) =>
+      service.flowGlints(particles, layout.flat, time, 0, 1).map((glint) => glint.alpha),
+    );
+    const flat = frames.flat();
+    const sums = frames.map((frame) => Number(frame.reduce((sum, alpha) => sum + alpha, 0).toFixed(6)));
+
+    expect(flat.length).toBeGreaterThan(0);
+    expect(Math.min(...flat)).toBeLessThan(Math.max(...flat));
+    expect(new Set(sums).size).toBeGreaterThan(1);
+  });
+
+  it('adds more particles as density grows', () => {
+    const make = (density: number) =>
+      line({
+        decor: {
+          flow: {
+            enabled: true,
+            speed: 40,
+            density,
+            opacity: 20,
+            color: '#ffffff',
+            direction: 1,
+            seed: 7,
+          },
+        },
+      });
+    const sparse = service.layout(make(0), 8);
+    const dense = service.layout(make(100), 8);
+
+    expect(service.flowParticles(make(100), dense).length).toBeGreaterThan(
+      service.flowParticles(make(0), sparse).length,
+    );
   });
 
   it('draws no flow when the decor is disabled', () => {
     const source = line();
     const layout = service.layout(source, 8);
 
-    expect(service.flowMarks(source, layout, 0, false, 1)).toEqual([]);
+    expect(service.flowParticles(source, layout)).toEqual([]);
+    expect(service.flowGlints([], layout.flat, 0, 40, 1)).toEqual([]);
   });
 });

@@ -13,7 +13,7 @@ import type { MapSize } from '@/modules/Roleplay/Map/Dto/MapSize';
 import type { MapVariant } from '@/modules/Roleplay/Map/Dto/MapVariant';
 import type { MapViewport } from '@/modules/Roleplay/Map/Dto/MapViewport';
 import type { MapToolMode } from '@/modules/Roleplay/Map/Enum/MapToolMode';
-import type { RibbonEdges, RibbonLayout } from '@/modules/Roleplay/Map/Service/MapRibbonService';
+import type { FlowGlint, RibbonEdges, RibbonLayout } from '@/modules/Roleplay/Map/Service/MapRibbonService';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
 import { mapGeometryService, mapRibbonService } from '@/modules/Roleplay/Map/init';
 import { getFileApi } from '@/modules/Core/File/init';
@@ -299,29 +299,8 @@ function fillRibbonRange(
   fill: string | CanvasGradient,
 ): void {
   traceRibbonRange(context, layout.edges, from, to);
-  traceJoinCircles(context, layout, from, to);
   context.fillStyle = fill;
   context.fill();
-}
-
-/** Круглые вставки в острых вершинах: заливка без клиньев и петель. */
-function traceJoinCircles(
-  context: CanvasRenderingContext2D,
-  layout: RibbonLayout,
-  from: number,
-  to: number,
-): void {
-  const flat = layout.flat;
-  const first = Math.max(1, Math.ceil(from));
-  const last = Math.min(flat.points.length - 1, Math.floor(to));
-  for (let index = first; index <= last; index += 1) {
-    if (index <= from || index >= to) continue;
-    if (flat.segmentIndices[index] === flat.segmentIndices[index - 1]) continue;
-    const radius = Math.max(1, flat.widths[index] ?? 1) / 2;
-    const point = flat.points[index];
-    context.moveTo(point[0] + radius, point[1]);
-    context.arc(point[0], point[1], radius, 0, Math.PI * 2);
-  }
 }
 
 function fillRibbonTransition(
@@ -389,28 +368,52 @@ function sliceEdge(edge: MapPoint[], from: number, to: number): MapPoint[] {
   return points;
 }
 
-/** Декоративное течение внутри клипа ленты. */
+/** Рябь внутри клипа ленты: мягкие линзы, которые едут и мерцают. */
 function drawLineFlow(context: CanvasRenderingContext2D, line: MapLine, layout: RibbonLayout): void {
   const flow = line.decor?.flow;
   if (!flow?.enabled || layout.flat.points.length < 2) return;
-  const marks = mapRibbonService.flowMarks(line, layout, drawTime, reducedMotion, props.viewport.scale);
-  if (marks.length === 0) return;
+  const particles = mapRibbonService.flowParticles(line, layout);
+  if (particles.length === 0) return;
+  const glints = mapRibbonService.flowGlints(
+    particles,
+    layout.flat,
+    drawTime,
+    flow.speed,
+    flow.direction,
+    reducedMotion,
+  );
+  if (glints.length === 0) return;
 
   context.save();
   traceRibbonRange(context, layout.edges, 0, layout.flat.points.length - 1);
   context.clip();
-  context.strokeStyle = flow.color;
-  context.lineCap = 'round';
-  for (const mark of marks) {
-    context.globalAlpha = mark.alpha;
-    context.lineWidth = mark.width;
-    context.beginPath();
-    context.moveTo(mark.start[0], mark.start[1]);
-    context.lineTo(mark.end[0], mark.end[1]);
-    context.stroke();
+  for (const glint of glints) {
+    context.globalAlpha = glint.alpha;
+    context.fillStyle = glint.color;
+    traceGlint(context, glint);
+    context.fill();
   }
   context.restore();
   context.globalAlpha = 1;
+}
+
+/** Линза блика: острые концы и максимум толщины в середине. */
+function traceGlint(context: CanvasRenderingContext2D, glint: FlowGlint): void {
+  const [centerX, centerY] = glint.center;
+  const [tangentX, tangentY] = glint.tangent;
+  const normalX = -tangentY;
+  const normalY = tangentX;
+  const aheadX = centerX + tangentX * glint.halfLength;
+  const aheadY = centerY + tangentY * glint.halfLength;
+  const backX = centerX - tangentX * glint.halfLength;
+  const backY = centerY - tangentY * glint.halfLength;
+  const bulge = glint.halfThickness * 2;
+
+  context.beginPath();
+  context.moveTo(backX, backY);
+  context.quadraticCurveTo(centerX + normalX * bulge, centerY + normalY * bulge, aheadX, aheadY);
+  context.quadraticCurveTo(centerX - normalX * bulge, centerY - normalY * bulge, backX, backY);
+  context.closePath();
 }
 
 /** Обводка только берегов; торцевые сечения не рисуются. */
