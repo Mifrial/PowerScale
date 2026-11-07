@@ -119,7 +119,7 @@ final class GameStrikeSingleLoad
         $run->packets = $run->sequential ? 1 : max(1, count($run->strikes));
         $run->target = $this->rows->rowTarget($row);
         $run->targetKey = $this->rows->targetKey($run->target);
-        $run->process = $this->processes->strike($run->input->game, $run->open, $this->abilityLevels($run));
+        $run->process = $this->processes->strike->strike($run->input->game, $run->open, $this->abilityLevels($run));
         $run->targetOpen = $this->rows->targetOpen($run->open, $run->target);
         $run->hitCode = $this->hitCode($run);
     }

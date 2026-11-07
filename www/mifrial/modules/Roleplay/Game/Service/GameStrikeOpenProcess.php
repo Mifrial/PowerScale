@@ -88,7 +88,7 @@ final class GameStrikeOpenProcess
         $sheet = is_array($snapshot['sheet']['sheet'] ?? null) ? $snapshot['sheet']['sheet'] : [];
         $levels = is_array($sheet['abilityLevels'] ?? null) ? $sheet['abilityLevels'] : [];
 
-        return $this->processes->closingFor($game, $battle, $attacker, $defender, $actionCode, $levels);
+        return $this->processes->view->closingFor($game, $battle, $attacker, $defender, $actionCode, $levels);
     }
 
     /**

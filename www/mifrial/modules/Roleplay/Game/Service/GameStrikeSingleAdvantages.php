@@ -89,7 +89,7 @@ final class GameStrikeSingleAdvantages
      */
     private function package(GameStrikeSingleRun $run, array $advantages): array
     {
-        $run->strikePackage = $this->processes->strikePackage($run->process);
+        $run->strikePackage = $this->processes->strike->strikePackage($run->process);
         if ($run->strikePackage['advantage'] !== 0) {
             $advantages[] = new RollAdvantage(
                 'action',

@@ -181,7 +181,7 @@ final class GameProjections implements IGameProjections
         foreach ($this->battles->participants->find($battleId) as $participant) {
             $type = $participant['type'];
             $id = $participant['id'];
-            $view = $this->processes->view(
+            $view = $this->processes->view->view(
                 $game,
                 $battle,
                 ['type' => $type, 'id' => $id],
