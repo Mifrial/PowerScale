@@ -32,7 +32,7 @@ final class ActionNamedParameterBinder
     /**
      * Биндит имена параметров метода к JSON.
      *
-     * @param ReflectionMethod $method handle или конструктор DTO.
+     * @param ReflectionMethod $method Метод handle или конструктор DTO.
      * @param array<mixed> $payloadMap Поля JSON.
      *
      * @return ParameterBindResult Аргументы или ошибка.

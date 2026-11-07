@@ -22,7 +22,7 @@ final class RuleSpaceCatalogDraftComposer
      * @param array<int, RuleCommitEntry> $puts Put.
      * @param array<int, array<string|int, mixed>> $putRows JSON put в том же порядке.
      * @param RuleSpaceCatalog $latestCatalog Latest.
-     * @param array<string, true> $omitKeepCodes omit-keep и tombstone.
+     * @param array<string, true> $omitKeepCodes Коды omit-keep и tombstone.
      *
      * @return RuleSpaceCatalog Снимок.
      *

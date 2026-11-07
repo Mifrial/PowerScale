@@ -53,7 +53,7 @@ final class AuthSessionRepository
      * @param int|null $userId Учётка или null у гостя.
      * @param string $tokenHash Хеш токена.
      * @param DateTime $expiresAt Срок.
-     * @param string $kind `user` или `guest`.
+     * @param string $kind Вид: `user` или `guest`.
      *
      * @return int Новый id.
      *

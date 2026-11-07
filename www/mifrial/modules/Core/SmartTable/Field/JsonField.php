@@ -22,7 +22,7 @@ final class JsonField extends BaseField
      * @param string $fieldName Имя поля.
      * @param FieldSettings $fieldSettings Настройки.
      * @param IFieldHydrator|null $fieldHydrator Опциональный hydrator объекта.
-     * @param bool $preserveObjectMaps true — JSON-объект не схлопывается в список.
+     * @param bool $preserveObjectMaps Флаг: JSON-объект не схлопывается в список.
      *
      * @return void
      */

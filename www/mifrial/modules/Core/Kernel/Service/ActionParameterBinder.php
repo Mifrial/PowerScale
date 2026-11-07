@@ -208,7 +208,7 @@ final class ActionParameterBinder
 
         $constructor = $inputReflection->getConstructor();
         if ($constructor === null) {
-            return $this->emptyConstructorInput($inputReflection, $payloadMap);
+            return $this->emptyConstructorInput($payloadMap);
         }
 
         return $this->namedBinder->bind($constructor, $payloadMap);
@@ -217,12 +217,11 @@ final class ActionParameterBinder
     /**
      * DTO без конструктора: только пустое тело.
      *
-     * @param ReflectionClass $inputReflection Класс DTO.
      * @param array<mixed> $payloadMap Поля JSON.
      *
      * @return ParameterBindResult DTO или extra key.
      */
-    private function emptyConstructorInput(ReflectionClass $inputReflection, array $payloadMap): ParameterBindResult
+    private function emptyConstructorInput(array $payloadMap): ParameterBindResult
     {
         if ($payloadMap === []) {
             return ParameterBindResult::ok([]);
