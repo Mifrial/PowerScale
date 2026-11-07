@@ -15,6 +15,13 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameCombatNotices
 {
+    /**
+     * Создаёт системные сообщения боя.
+     *
+     * @param IChats $chats Фасад чата.
+     *
+     * @return void
+     */
     public function __construct(
         private readonly IChats $chats,
     ) {
@@ -26,6 +33,8 @@ final class GameCombatNotices
      * @param GameRecord $game Игра.
      * @param int $actorUserId Автор сообщения.
      * @param int $sessionId Сессия.
+     *
+     * @return void
      */
     public function sessionOpened(GameRecord $game, int $actorUserId, int $sessionId): void
     {
@@ -41,6 +50,8 @@ final class GameCombatNotices
      * @param int $sessionId Сессия.
      * @param int $battleId Бой.
      * @param list<array<string, mixed>> $order Порядок.
+     *
+     * @return void
      */
     public function opened(GameRecord $game, int $actorUserId, int $sessionId, int $battleId, array $order): void
     {
@@ -75,6 +86,8 @@ final class GameCombatNotices
      * @param int $round Раунд.
      * @param int $index Индекс хода.
      * @param string $name Имя текущего.
+     *
+     * @return void
      */
     public function passed(
         GameRecord $game,
@@ -94,8 +107,18 @@ final class GameCombatNotices
     }
 
     /**
+     * Шлёт системное сообщение в чат игры.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор сообщения.
+     * @param string $text Текст.
      * @param list<array<string, mixed>> $attachments Вложения.
      * @param array{id: string, kind: string, parentId?: string} $thread Тред.
+     * @param string|null $kind Вид сообщения.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чата игры нет или автор чужой.
      */
     private function send(
         GameRecord $game,
@@ -128,7 +151,11 @@ final class GameCombatNotices
     }
 
     /**
+     * Строка порядка инициативы.
+     *
      * @param list<array<string, mixed>> $order Порядок.
+     *
+     * @return string Текст.
      */
     private function orderText(array $order): string
     {
@@ -141,7 +168,11 @@ final class GameCombatNotices
     }
 
     /**
+     * Имя участника порядка.
+     *
      * @param array<string, mixed> $entry Запись.
+     *
+     * @return string Имя.
      */
     private function nameOf(array $entry): string
     {
@@ -151,7 +182,11 @@ final class GameCombatNotices
     }
 
     /**
+     * Счёт инициативы участника.
+     *
      * @param array<string, mixed> $entry Запись.
+     *
+     * @return string Счёт.
      */
     private function scoreOf(array $entry): string
     {
@@ -168,6 +203,8 @@ final class GameCombatNotices
     }
 
     /**
+     * Вложение броска из записи порядка.
+     *
      * @param array<string, mixed> $entry Запись порядка.
      *
      * @return array<string, mixed> Вложение броска.

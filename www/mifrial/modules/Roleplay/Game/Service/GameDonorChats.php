@@ -152,7 +152,17 @@ final class GameDonorChats
     }
 
     /**
+     * Создаёт типизированный групповой чат.
+     *
+     * @param string $type Тип чата.
+     * @param string $name Имя чата.
+     * @param int $ownerUserId Владелец.
      * @param array<int, int> $memberIds Прочие члены.
+     *
+     * @return int Id чата.
+     *
+     * @throws GameNotFoundException Если учётки нет.
+     * @throws GameInvalidException Если тип или имя битые.
      */
     private function openTyped(string $type, string $name, int $ownerUserId, array $memberIds): int
     {
@@ -166,7 +176,13 @@ final class GameDonorChats
     }
 
     /**
+     * Сажает или снимает gm во всех чатах строк игры.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $userId Учётка.
      * @param bool $grant Посадить, если true.
+     *
+     * @return void
      */
     private function changeCharacterSeats(GameRecord $game, int $userId, bool $grant): void
     {
@@ -180,7 +196,13 @@ final class GameDonorChats
     }
 
     /**
+     * Сажает или снимает участника в чате одной строки.
+     *
+     * @param GameCharacterRecord $row Строка персонажа.
+     * @param int $userId Учётка.
      * @param bool $grant Посадить, если true.
+     *
+     * @return void
      */
     private function changeCharacterSeat(GameCharacterRecord $row, int $userId, bool $grant): void
     {
@@ -198,6 +220,17 @@ final class GameDonorChats
         $this->removeSeat($chatId, $userId);
     }
 
+    /**
+     * Сажает участника в чат, если чат есть.
+     *
+     * @param int|null $chatId Чат.
+     * @param int $userId Учётка.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если чата нет.
+     * @throws GameInvalidException Если значения чата битые.
+     */
     private function addSeatIfPresent(?int $chatId, int $userId): void
     {
         if ($chatId !== null) {
@@ -205,6 +238,17 @@ final class GameDonorChats
         }
     }
 
+    /**
+     * Снимает участника с чата, если чат есть.
+     *
+     * @param int|null $chatId Чат.
+     * @param int $userId Учётка.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если чата нет.
+     * @throws GameInvalidException Если значения чата битые.
+     */
     private function removeSeatIfPresent(?int $chatId, int $userId): void
     {
         if ($chatId !== null) {
@@ -212,6 +256,17 @@ final class GameDonorChats
         }
     }
 
+    /**
+     * Сажает участника, пропуская дубль.
+     *
+     * @param int $chatId Чат.
+     * @param int $userId Учётка.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если чата нет.
+     * @throws GameInvalidException Если значения чата битые.
+     */
     private function addSeat(int $chatId, int $userId): void
     {
         try {
@@ -225,6 +280,17 @@ final class GameDonorChats
         }
     }
 
+    /**
+     * Снимает участника из чата.
+     *
+     * @param int $chatId Чат.
+     * @param int $userId Учётка.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если чата нет.
+     * @throws GameInvalidException Если значения чата битые.
+     */
     private function removeSeat(int $chatId, int $userId): void
     {
         $this->guard(function () use ($chatId, $userId): void {
@@ -238,6 +304,9 @@ final class GameDonorChats
      * @param callable $work Вызов чата.
      *
      * @return mixed Результат.
+     *
+     * @throws GameNotFoundException Если чата нет.
+     * @throws GameInvalidException Если значения чата битые.
      */
     private function guard(callable $work): mixed
     {
