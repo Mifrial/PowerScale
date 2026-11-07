@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// Геттеры контекста формулы, не порты DI.
+
 namespace Mifrial\Roleplay\Rule\Dto;
 
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;

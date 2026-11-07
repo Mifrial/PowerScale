@@ -8,7 +8,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CoverAlly;
-use Mifrial\Roleplay\Rule\Spec\AbilityCombat;
+use Mifrial\Roleplay\Rule\Spec\AbilityTactics;
 
 /**
  * Помехи защите прикрывающего из карточки прикрытия.
@@ -30,7 +30,7 @@ final class GameStrikeCoverAdvantages
             return [];
         }
 
-        $cover = AbilityCombat::cover($rule->getSpecDocument());
+        $cover = AbilityTactics::cover($rule->getSpecDocument());
         if (!$cover instanceof CoverAlly) {
             return [];
         }

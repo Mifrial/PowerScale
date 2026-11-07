@@ -9,7 +9,7 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
-use Mifrial\Roleplay\Rule\Spec\AbilityCombat;
+use Mifrial\Roleplay\Rule\Spec\AbilityTactics;
 
 /**
  * Проверки выбора удара до записи.
@@ -111,7 +111,7 @@ final class GameStrikeOpenChecks
         $this->availability->assertAvailable($game, $actor['type'], $actor['id'], $code);
         $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $rule = $slice->findLive($code);
-        $spec = $rule === null || $rule->isSpecBroken() ? null : AbilityCombat::maneuver($rule->getSpecDocument());
+        $spec = $rule === null || $rule->isSpecBroken() ? null : AbilityTactics::maneuver($rule->getSpecDocument());
         if ($spec === null) {
             throw new GameInvalidException('Game maneuver card is invalid');
         }

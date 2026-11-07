@@ -8,6 +8,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierApplies;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierOperation;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\CharacteristicLimitOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\CharacteristicModifyOp;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\ItemModifierOp;
 
 /**
  * Условие операции и блоки spec, которые она выбирает.
@@ -61,16 +62,9 @@ final class ItemModifierOperationWhen
             return [];
         }
 
-        if ($op instanceof CharacteristicModifyOp) {
-            return ['grants.characteristic_modify.' . $op->getCharacteristicCode()];
-        }
-
-        if ($op instanceof CharacteristicLimitOp) {
-            return self::namedTargets(self::parts($operation->getWhen()), 'characteristic_limit.' . $op->getCharacteristicCode());
-        }
-
-        if ($type === 'weight' || $type === 'block' || $type === 'action_strength') {
-            return self::itemTarget($type);
+        $special = self::specialTargets($operation, $op, $type);
+        if ($special !== null) {
+            return $special;
         }
 
         return self::namedTargets(self::parts($operation->getWhen()), $type);
@@ -157,6 +151,28 @@ final class ItemModifierOperationWhen
         }
 
         return false;
+    }
+
+    /**
+     * Цель операции с собственным блоком spec.
+     *
+     * @param ItemModifierOperation $operation Операция.
+     * @param ItemModifierOp $op Ветка стата.
+     * @param string $type Тип операции.
+     *
+     * @return array<int, string>|null Ключи или null, если цель обычная.
+     */
+    private static function specialTargets(ItemModifierOperation $operation, ItemModifierOp $op, string $type): ?array
+    {
+        if ($op instanceof CharacteristicModifyOp) {
+            return ['grants.characteristic_modify.' . $op->getCharacteristicCode()];
+        }
+
+        if ($op instanceof CharacteristicLimitOp) {
+            return self::namedTargets(self::parts($operation->getWhen()), 'characteristic_limit.' . $op->getCharacteristicCode());
+        }
+
+        return in_array($type, ['weight', 'block', 'action_strength'], true) ? self::itemTarget($type) : null;
     }
 
     /**

@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// Операции размерного числа; дробление класса на части хуже.
+
 namespace Mifrial\Roleplay\Rule\Value;
 
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;

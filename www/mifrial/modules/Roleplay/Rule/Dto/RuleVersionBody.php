@@ -161,18 +161,32 @@ final class RuleVersionBody
         }
 
         foreach ($mechanics as $row) {
-            if (
-                !is_array($row)
-                || !isset($row['mechanic_id'])
-                || !is_int($row['mechanic_id'])
-                || $row['mechanic_id'] < 1
-            ) {
-                throw new RuleInvalidException('Mechanic id is invalid');
-            }
+            self::assertMechanicRow($row);
+        }
+    }
 
-            if (!isset($row['mechanic_payload']) || !is_array($row['mechanic_payload'])) {
-                throw new RuleInvalidException('Mechanic payload requires mechanic id');
-            }
+    /**
+     * Форма одной строки механик.
+     *
+     * @param mixed $row Строка.
+     *
+     * @return void
+     *
+     * @throws RuleInvalidException Если id или payload неверны.
+     */
+    private static function assertMechanicRow(mixed $row): void
+    {
+        if (
+            !is_array($row)
+            || !isset($row['mechanic_id'])
+            || !is_int($row['mechanic_id'])
+            || $row['mechanic_id'] < 1
+        ) {
+            throw new RuleInvalidException('Mechanic id is invalid');
+        }
+
+        if (!isset($row['mechanic_payload']) || !is_array($row['mechanic_payload'])) {
+            throw new RuleInvalidException('Mechanic payload requires mechanic id');
         }
     }
 

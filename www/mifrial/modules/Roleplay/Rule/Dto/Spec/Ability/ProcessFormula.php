@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// Поля формулы процесса, не порты DI.
+
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability;
 
 /**

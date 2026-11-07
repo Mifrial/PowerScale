@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassTooLong
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh
+// Поля базы способности, не порты DI; сложность — сумма геттеров.
+
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionEffect;
@@ -63,7 +69,7 @@ final class AbilityBase
      *
      * @return void
      */
-    public function __construct(
+    public function __construct( // phpcs:ignore MifrialCodingStandard.Metrics.MethodQuality.MethodTooLong -- конструктор перечисляет 44 поля спеки.
         private readonly array $zones,
         private readonly array $requirements,
         private readonly array $grantBlocks,

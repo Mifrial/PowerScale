@@ -290,17 +290,31 @@ final class Rules implements IRules
             }
 
             foreach ($body->getMechanics() as $row) {
-                $mechanicId = $row['mechanic_id'] ?? null;
-                if (!is_int($mechanicId)) {
-                    throw new RuleInvalidException('Mechanic id is invalid');
-                }
-
-                try {
-                    $this->mechanics->get($mechanicId);
-                } catch (MechanicNotFoundException) {
-                    throw new RuleInvalidException('Mechanic id is unknown');
-                }
+                $this->assertKnownMechanic($row);
             }
+        }
+    }
+
+    /**
+     * Проверяет одну строку механики.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return void
+     *
+     * @throws RuleInvalidException Если id неизвестен.
+     */
+    private function assertKnownMechanic(array $row): void
+    {
+        $mechanicId = $row['mechanic_id'] ?? null;
+        if (!is_int($mechanicId)) {
+            throw new RuleInvalidException('Mechanic id is invalid');
+        }
+
+        try {
+            $this->mechanics->get($mechanicId);
+        } catch (MechanicNotFoundException) {
+            throw new RuleInvalidException('Mechanic id is unknown');
         }
     }
 }

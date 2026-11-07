@@ -42,6 +42,32 @@ final class SupportSpecs
             return null;
         }
 
+        $sides = self::uniqueSides($row);
+        $advantage = SpecShape::int($row, 'advantage');
+        if ($advantage < 0) {
+            throw new RuleSpecShapeException('support.advantage');
+        }
+
+        return new SupportModifier(
+            $sides,
+            $advantage,
+            self::profileOf($row),
+            DimensionalNumbers::optional($row, 'min_mastery'),
+            self::sourceOf($row),
+        );
+    }
+
+    /**
+     * Разрешённые стороны без дублей.
+     *
+     * @param array<string, mixed> $row Узел support.
+     *
+     * @return array<int, string> Стороны.
+     *
+     * @throws RuleSpecShapeException Если сторона неизвестна или список пуст.
+     */
+    private static function uniqueSides(array $row): array
+    {
         $sides = SpecShape::stringList($row, 'sides');
         if ($sides === []) {
             throw new RuleSpecShapeException('support.sides');
@@ -56,29 +82,44 @@ final class SupportSpecs
             $unique[$side] = true;
         }
 
-        $advantage = SpecShape::int($row, 'advantage');
-        if ($advantage < 0) {
-            throw new RuleSpecShapeException('support.advantage');
-        }
+        return array_keys($unique);
+    }
 
+    /**
+     * Профиль оружия или null.
+     *
+     * @param array<string, mixed> $row Узел support.
+     *
+     * @return string|null Профиль.
+     *
+     * @throws RuleSpecShapeException Если профиль неизвестен.
+     */
+    private static function profileOf(array $row): ?string
+    {
         $profile = SpecShape::optionalString($row, 'profile');
         if ($profile !== null && !in_array($profile, self::PROFILES, true)) {
             throw new RuleSpecShapeException('support.profile');
         }
 
-        $minMastery = DimensionalNumbers::optional($row, 'min_mastery');
+        return $profile;
+    }
 
+    /**
+     * Источник преимущества.
+     *
+     * @param array<string, mixed> $row Узел support.
+     *
+     * @return string Источник.
+     *
+     * @throws RuleSpecShapeException Если источник пустой.
+     */
+    private static function sourceOf(array $row): string
+    {
         $source = SpecShape::optionalString($row, 'source');
         if ($source !== null && trim($source) === '') {
             throw new RuleSpecShapeException('support.source');
         }
 
-        return new SupportModifier(
-            array_keys($unique),
-            $advantage,
-            $profile,
-            $minMastery,
-            $source ?? 'circumstances',
-        );
+        return $source ?? 'circumstances';
     }
 }

@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// Поля профиля оружия, не порты DI.
+
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Item;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;

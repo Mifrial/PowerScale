@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Tests;
 
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
-use Mifrial\Roleplay\Rule\Spec\AbilityCombat;
+use Mifrial\Roleplay\Rule\Spec\AbilityTactics;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -20,7 +20,7 @@ final class ManeuverSpecTest extends TestCase
      */
     public function testReadsManeuver(): void
     {
-        $maneuver = AbilityCombat::maneuver($this->document());
+        $maneuver = AbilityTactics::maneuver($this->document());
 
         self::assertNotNull($maneuver);
         self::assertSame('strike', $maneuver->getTrigger());
@@ -46,7 +46,7 @@ final class ManeuverSpecTest extends TestCase
         unset($document['maneuver']['outcome']['on_target_failed'][0]['source_code']);
 
         $this->expectException(RuleSpecShapeException::class);
-        AbilityCombat::maneuver($document);
+        AbilityTactics::maneuver($document);
     }
 
     /**
@@ -60,7 +60,7 @@ final class ManeuverSpecTest extends TestCase
         $document['maneuver']['window'] = 'before_defense';
 
         $this->expectException(RuleSpecShapeException::class);
-        AbilityCombat::maneuver($document);
+        AbilityTactics::maneuver($document);
     }
 
     /**

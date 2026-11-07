@@ -78,6 +78,26 @@ final class AbilityRequirements
      */
     private static function byType(string $type, array $row): AbilityRequirement
     {
+        $requirement = self::keywordByType($type, $row) ?? self::valueByType($type, $row);
+        if ($requirement === null) {
+            throw new RuleSpecShapeException('requirements');
+        }
+
+        return $requirement;
+    }
+
+    /**
+     * Требования по ключевым словам.
+     *
+     * @param string $type Вид.
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return AbilityRequirement|null Требование или null, если вид не отсюда.
+     *
+     * @throws RuleSpecShapeException Если поля чужие.
+     */
+    private static function keywordByType(string $type, array $row): ?AbilityRequirement
+    {
         return match ($type) {
             'has_ability' => new HasAbilityRequirement(
                 SpecShape::string($row, 'ability_code'),
@@ -93,6 +113,23 @@ final class AbilityRequirements
                 SpecShape::string($row, 'keyword_code'),
                 SpecShape::int($row, 'min_level'),
             ),
+            default => null,
+        };
+    }
+
+    /**
+     * Требования по значениям и составу.
+     *
+     * @param string $type Вид.
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return AbilityRequirement|null Требование или null, если вид не отсюда.
+     *
+     * @throws RuleSpecShapeException Если поля чужие.
+     */
+    private static function valueByType(string $type, array $row): ?AbilityRequirement
+    {
+        return match ($type) {
             'characteristic_value' => new CharacteristicValueRequirement(
                 SpecShape::string($row, 'characteristic_code'),
                 DimensionalNumbers::required($row, 'min'),
@@ -110,7 +147,7 @@ final class AbilityRequirements
             ),
             'and' => new AndRequirement(self::children($row)),
             'or' => new OrRequirement(self::children($row)),
-            default => throw new RuleSpecShapeException('requirements'),
+            default => null,
         };
     }
 

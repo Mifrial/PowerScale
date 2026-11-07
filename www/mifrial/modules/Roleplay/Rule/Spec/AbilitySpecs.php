@@ -53,23 +53,17 @@ final class AbilitySpecs
         }
 
         $base = AbilityBases::read($document);
-        if ($type === 'action') {
-            return new AbilityActionSpec($base, ActionComponents::read($document), ProcessSpecs::readOperations($document));
-        }
 
-        if ($type === 'process') {
-            return new AbilityProcessSpec($base, ProcessSpecs::read($document));
-        }
-
-        if ($type === 'spell') {
-            return new AbilitySpellSpec(
+        return match ($type) {
+            'action' => new AbilityActionSpec($base, ActionComponents::read($document), ProcessSpecs::readOperations($document)),
+            'process' => new AbilityProcessSpec($base, ProcessSpecs::read($document)),
+            'spell' => new AbilitySpellSpec(
                 $base,
                 SpellSpecs::read($document),
                 ActionComponents::read($document),
                 ProcessSpecs::readOperations($document),
-            );
-        }
-
-        throw new RuleSpecShapeException('type');
+            ),
+            default => throw new RuleSpecShapeException('type'),
+        };
     }
 }

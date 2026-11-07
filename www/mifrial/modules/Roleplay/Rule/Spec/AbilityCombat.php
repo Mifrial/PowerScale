@@ -4,17 +4,12 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Spec;
 
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CoverAlly;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DefenseAdvantage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DodgeRangedPenalty;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\AttackHit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\AutoHit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\HitResolution;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\NoneHit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\KnownAttackDefense;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ManeuverCheck;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ManeuverMark;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ManeuverModifier;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\NextCastDifficulty;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\PushSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellChain;
@@ -152,171 +147,6 @@ final class AbilityCombat
     }
 
     /**
-     * Прикрытие.
-     *
-     * Старая форма `circumstance_delta` отклоняется: источник и величина
-     * должны быть раздельными полями.
-     *
-     * @param array<string|int, mixed> $document Документ.
-     *
-     * @return CoverAlly|null Прикрытие или null.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    public static function cover(array $document): ?CoverAlly
-    {
-        $row = SpecShape::object($document, 'cover_ally');
-        if ($row === null) {
-            return null;
-        }
-
-        if (array_key_exists('circumstance_delta', $row)) {
-            throw new RuleSpecShapeException('cover_ally.circumstance_delta');
-        }
-
-        $advantages = [];
-        foreach (SpecShape::list($row, 'defense_advantages') as $entry) {
-            $entry = SpecShape::requireMap($entry, 'cover_ally.defense_advantages');
-            $source = SpecShape::optionalString($entry, 'source_code');
-            if ($source === null || trim($source) === '') {
-                throw new RuleSpecShapeException('cover_ally.defense_advantages.source_code');
-            }
-
-            $advantages[] = new DefenseAdvantage(SpecShape::int($entry, 'delta'), $source);
-        }
-
-        $reactions = SpecShape::stringList($row, 'reactions');
-        if ($reactions === [] || in_array('', $reactions, true)) {
-            throw new RuleSpecShapeException('cover_ally.reactions');
-        }
-
-        $resolution = SpecShape::requireMap($row['resolution'] ?? null, 'cover_ally.resolution');
-        $success = SpecShape::optionalString($resolution, 'success');
-        $failure = SpecShape::optionalString($resolution, 'failure');
-        $becomes = SpecShape::optionalString($resolution, 'becomes');
-        if (
-            $success !== CoverAlly::SUCCESS_HIGHEST_RATING
-            || $failure !== CoverAlly::FAILURE_ATTACKER_CHOICE
-            || $becomes !== CoverAlly::BECOMES_ACTUAL_TARGET
-        ) {
-            throw new RuleSpecShapeException('cover_ally.resolution');
-        }
-
-        return new CoverAlly(
-            $advantages,
-            $reactions,
-            [
-                'success' => (string) $success,
-                'failure' => (string) $failure,
-                'becomes' => (string) $becomes,
-            ],
-            SpecShape::optionalString($row, 'distance'),
-        );
-    }
-
-    /**
-     * Обманный манёвр.
-     *
-     * @param array<string|int, mixed> $document Документ.
-     *
-     * @return ManeuverModifier|null Манёвр или null.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    public static function maneuver(array $document): ?ManeuverModifier
-    {
-        $row = SpecShape::object($document, 'maneuver');
-        if ($row === null) {
-            return null;
-        }
-
-        if (SpecShape::string($row, 'trigger') !== ManeuverModifier::TRIGGER_STRIKE) {
-            throw new RuleSpecShapeException('maneuver.trigger');
-        }
-
-        if (SpecShape::string($row, 'window') !== ManeuverModifier::WINDOW_AFTER_DEFENSE_BEFORE_CHECK) {
-            throw new RuleSpecShapeException('maneuver.window');
-        }
-
-        if (SpecShape::string($row, 'attack') !== ManeuverModifier::ATTACK_AUTO_FAIL) {
-            throw new RuleSpecShapeException('maneuver.attack');
-        }
-
-        $checks = SpecShape::object($row, 'check');
-        if ($checks === null) {
-            throw new RuleSpecShapeException('maneuver.check');
-        }
-
-        $attacker = self::maneuverChecks($checks, 'attacker');
-        $target = self::maneuverChecks($checks, 'target');
-        if ($attacker === [] || $target === []) {
-            throw new RuleSpecShapeException('maneuver.check');
-        }
-
-        $outcome = SpecShape::object($row, 'outcome');
-        if ($outcome === null) {
-            throw new RuleSpecShapeException('maneuver.outcome');
-        }
-
-        if (SpecShape::string($outcome, 'on_target_passed') !== ManeuverModifier::OUTCOME_MAY_IGNORE) {
-            throw new RuleSpecShapeException('maneuver.outcome.on_target_passed');
-        }
-
-        $marks = [];
-        foreach (SpecShape::list($outcome, 'on_target_failed') as $entry) {
-            $entry = SpecShape::requireMap($entry, 'maneuver.outcome.on_target_failed');
-            if (SpecShape::string($entry, 'kind') !== ManeuverModifier::MARK_KIND_ADVANTAGE) {
-                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.kind');
-            }
-
-            $value = SpecShape::int($entry, 'value');
-            if ($value === 0) {
-                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.value');
-            }
-
-            $source = SpecShape::string($entry, 'source_code');
-            if ($source === '') {
-                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.source_code');
-            }
-
-            if (SpecShape::string($entry, 'scope') !== ManeuverModifier::SCOPE_DEFENSE_AGAINST_ATTACKER) {
-                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.scope');
-            }
-
-            if (SpecShape::string($entry, 'consumes') !== ManeuverModifier::CONSUMES_FIRST_DEFENSE) {
-                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.consumes');
-            }
-
-            if (SpecShape::string($entry, 'expires') !== ManeuverModifier::EXPIRES_ATTACKER_TURN) {
-                throw new RuleSpecShapeException('maneuver.outcome.on_target_failed.expires');
-            }
-
-            $marks[] = new ManeuverMark(
-                ManeuverModifier::MARK_KIND_ADVANTAGE,
-                $value,
-                $source,
-                ManeuverModifier::SCOPE_DEFENSE_AGAINST_ATTACKER,
-                ManeuverModifier::CONSUMES_FIRST_DEFENSE,
-                ManeuverModifier::EXPIRES_ATTACKER_TURN,
-            );
-        }
-
-        if ($marks === []) {
-            throw new RuleSpecShapeException('maneuver.outcome.on_target_failed');
-        }
-
-        return new ManeuverModifier(
-            ManeuverModifier::TRIGGER_STRIKE,
-            ManeuverModifier::WINDOW_AFTER_DEFENSE_BEFORE_CHECK,
-            ManeuverModifier::ATTACK_AUTO_FAIL,
-            $attacker,
-            $target,
-            true,
-            $marks,
-        );
-    }
-
-    /**
      * Защита от известной атаки.
      *
      * @param array<string|int, mixed> $document Документ.
@@ -414,33 +244,6 @@ final class AbilityCombat
         }
 
         return new StrikeUpgrade(SpecShape::string($row, 'exclusive_group'), $modes, SpecShape::bool($row, 'requires_physiology'));
-    }
-
-    /**
-     * Пары проверок одной стороны манёвра.
-     *
-     * @param array<string, mixed> $checks Узел check.
-     * @param string $side Сторона.
-     *
-     * @return array<int, ManeuverCheck> Пары.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    private static function maneuverChecks(array $checks, string $side): array
-    {
-        $rows = [];
-        foreach (SpecShape::list($checks, $side) as $entry) {
-            $entry = SpecShape::requireMap($entry, 'maneuver.check.' . $side);
-            $check = SpecShape::string($entry, 'check');
-            $characteristic = SpecShape::string($entry, 'characteristic');
-            if ($check === '' || $characteristic === '') {
-                throw new RuleSpecShapeException('maneuver.check.' . $side);
-            }
-
-            $rows[] = new ManeuverCheck($check, $characteristic);
-        }
-
-        return $rows;
     }
 
     /**

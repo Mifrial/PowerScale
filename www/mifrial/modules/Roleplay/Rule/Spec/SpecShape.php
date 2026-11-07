@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// Фасад чтения формы: по методу на тип значения, дробить нечего.
+
 namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Core\Kernel\Value\JsonObject;

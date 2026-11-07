@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// Поля шага процесса, не порты DI.
+
 namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionEffect;

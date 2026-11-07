@@ -24,7 +24,7 @@ final class AbilityBases
      *
      * @throws RuleSpecShapeException Если grants чужой формы.
      */
-    public static function read(array $document): AbilityBase
+    public static function read(array $document): AbilityBase // phpcs:ignore MifrialCodingStandard.Metrics.MethodQuality.MethodTooLong -- конструктор AbilityBase перечисляет 44 поля.
     {
         return new AbilityBase(
             AbilityZones::read($document),
@@ -60,7 +60,7 @@ final class AbilityBases
             AbilityCombat::saturation($document),
             AbilityCombat::nextDifficulty($document),
             AbilityCombat::touch($document),
-            AbilityCombat::cover($document),
+            AbilityTactics::cover($document),
             AbilityCombat::knownDefense($document),
             AbilityCombat::strikeUpgrade($document),
             self::aggregate($document),
@@ -70,7 +70,7 @@ final class AbilityBases
             SpecShape::optionalString($document, 'dodge_soak'),
             self::closesParentProcess($document),
             ReactionSpecs::read($document),
-            AbilityCombat::maneuver($document),
+            AbilityTactics::maneuver($document),
         );
     }
 

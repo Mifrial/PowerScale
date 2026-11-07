@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Tests;
 
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
-use Mifrial\Roleplay\Rule\Spec\AbilityCombat;
+use Mifrial\Roleplay\Rule\Spec\AbilityTactics;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Прикрытие: помехи, разрешённые защиты и стратегии переноса цели.
  */
-final class AbilityCombatCoverTest extends TestCase
+final class AbilityTacticsCoverTest extends TestCase
 {
     /**
      * Собирает узел прикрытия.
@@ -46,7 +46,7 @@ final class AbilityCombatCoverTest extends TestCase
      */
     public function testReadsDefenseAdvantages(): void
     {
-        $cover = AbilityCombat::cover($this->document([
+        $cover = AbilityTactics::cover($this->document([
             'defense_advantages' => [
                 ['delta' => -1, 'source_code' => 'circumstances'],
                 ['delta' => 1, 'source_code' => 'training'],
@@ -69,7 +69,7 @@ final class AbilityCombatCoverTest extends TestCase
      */
     public function testEmptyDefenseAdvantages(): void
     {
-        $cover = AbilityCombat::cover($this->document(['defense_advantages' => []]));
+        $cover = AbilityTactics::cover($this->document(['defense_advantages' => []]));
 
         self::assertNotNull($cover);
         self::assertSame([], $cover->getDefenseAdvantages());
@@ -84,7 +84,7 @@ final class AbilityCombatCoverTest extends TestCase
      */
     public function testReadsReactionsAndResolution(): void
     {
-        $cover = AbilityCombat::cover($this->document(['reactions' => ['block', 'parry']]));
+        $cover = AbilityTactics::cover($this->document(['reactions' => ['block', 'parry']]));
 
         self::assertNotNull($cover);
         self::assertSame(['block', 'parry'], $cover->getReactions());
@@ -103,7 +103,7 @@ final class AbilityCombatCoverTest extends TestCase
     public function testRejectsLegacyForm(): void
     {
         $this->expectException(RuleSpecShapeException::class);
-        AbilityCombat::cover([
+        AbilityTactics::cover([
             'type' => 'action',
             'cover_ally' => ['circumstance_delta' => -1],
         ]);
@@ -117,7 +117,7 @@ final class AbilityCombatCoverTest extends TestCase
     public function testRejectsMissingSource(): void
     {
         $this->expectException(RuleSpecShapeException::class);
-        AbilityCombat::cover($this->document([
+        AbilityTactics::cover($this->document([
             'defense_advantages' => [['delta' => -1]],
         ]));
     }
@@ -130,7 +130,7 @@ final class AbilityCombatCoverTest extends TestCase
     public function testRejectsEmptyReactions(): void
     {
         $this->expectException(RuleSpecShapeException::class);
-        AbilityCombat::cover($this->document(['reactions' => []]));
+        AbilityTactics::cover($this->document(['reactions' => []]));
     }
 
     /**
@@ -141,7 +141,7 @@ final class AbilityCombatCoverTest extends TestCase
     public function testRejectsUnknownResolution(): void
     {
         $this->expectException(RuleSpecShapeException::class);
-        AbilityCombat::cover($this->document([
+        AbilityTactics::cover($this->document([
             'resolution' => [
                 'success' => 'highest_rating',
                 'failure' => 'nobody',
@@ -157,7 +157,7 @@ final class AbilityCombatCoverTest extends TestCase
      */
     public function testKeepsUnknownSource(): void
     {
-        $cover = AbilityCombat::cover($this->document([
+        $cover = AbilityTactics::cover($this->document([
             'defense_advantages' => [['delta' => -1, 'source_code' => 'unknown']],
         ]));
 
@@ -172,6 +172,6 @@ final class AbilityCombatCoverTest extends TestCase
      */
     public function testAbsentNodeIsNull(): void
     {
-        self::assertNull(AbilityCombat::cover(['type' => 'action']));
+        self::assertNull(AbilityTactics::cover(['type' => 'action']));
     }
 }

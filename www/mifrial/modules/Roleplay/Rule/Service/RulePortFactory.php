@@ -38,24 +38,13 @@ final class RulePortFactory
      */
     public function create(IServiceLocator $serviceLocator): IRules
     {
-        $catalog = $serviceLocator->get(ISpaceContainer::class)->get(IVersionedCatalog::class);
-        if (!$catalog instanceof IVersionedCatalog) {
-            throw new KernelException('PORT_TYPE', 'Rule requires IVersionedCatalog');
-        }
-
-        $smartTableGateway = $serviceLocator->get(ISmartTableContainer::class)->get(ISmartTableGateway::class);
-        if (!$smartTableGateway instanceof ISmartTableGateway) {
-            throw new KernelException('PORT_TYPE', 'Rule requires ISmartTableGateway');
-        }
+        $catalog = $this->catalog($serviceLocator);
+        $smartTableGateway = $this->smartTableGateway($serviceLocator);
+        $mechanics = $this->mechanics($serviceLocator);
 
         $identityRepository = new RuleIdentityRepository(
             $smartTableGateway->open(RuleTable::class)->records(),
         );
-
-        $mechanics = $serviceLocator->get(IMechanicContainer::class)->get(IMechanics::class);
-        if (!$mechanics instanceof IMechanics) {
-            throw new KernelException('PORT_TYPE', 'Rule requires IMechanics');
-        }
 
         return new Rules(
             $catalog->openCluster(new ClusterSpec(
@@ -68,5 +57,62 @@ final class RulePortFactory
             new RuleClockMapper($identityRepository),
             $mechanics,
         );
+    }
+
+    /**
+     * Каталог версий из локатора.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return IVersionedCatalog Каталог.
+     *
+     * @throws KernelException Если порт чужого типа.
+     */
+    private function catalog(IServiceLocator $serviceLocator): IVersionedCatalog
+    {
+        $catalog = $serviceLocator->get(ISpaceContainer::class)->get(IVersionedCatalog::class);
+        if (!$catalog instanceof IVersionedCatalog) {
+            throw new KernelException('PORT_TYPE', 'Rule requires IVersionedCatalog');
+        }
+
+        return $catalog;
+    }
+
+    /**
+     * Шлюз SmartTable из локатора.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return ISmartTableGateway Шлюз.
+     *
+     * @throws KernelException Если порт чужого типа.
+     */
+    private function smartTableGateway(IServiceLocator $serviceLocator): ISmartTableGateway
+    {
+        $gateway = $serviceLocator->get(ISmartTableContainer::class)->get(ISmartTableGateway::class);
+        if (!$gateway instanceof ISmartTableGateway) {
+            throw new KernelException('PORT_TYPE', 'Rule requires ISmartTableGateway');
+        }
+
+        return $gateway;
+    }
+
+    /**
+     * Механики из локатора.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return IMechanics Механики.
+     *
+     * @throws KernelException Если порт чужого типа.
+     */
+    private function mechanics(IServiceLocator $serviceLocator): IMechanics
+    {
+        $mechanics = $serviceLocator->get(IMechanicContainer::class)->get(IMechanics::class);
+        if (!$mechanics instanceof IMechanics) {
+            throw new KernelException('PORT_TYPE', 'Rule requires IMechanics');
+        }
+
+        return $mechanics;
     }
 }

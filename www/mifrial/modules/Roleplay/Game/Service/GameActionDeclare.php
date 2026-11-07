@@ -29,7 +29,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CoverAlly;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ReactionModifier;
-use Mifrial\Roleplay\Rule\Spec\AbilityCombat;
+use Mifrial\Roleplay\Rule\Spec\AbilityTactics;
 use Mifrial\Roleplay\Rule\Spec\SupportSpecs;
 
 /**
@@ -325,7 +325,7 @@ final class GameActionDeclare
         }
 
         $support = SupportSpecs::read($rule->getSpecDocument());
-        $cover = AbilityCombat::cover($rule->getSpecDocument());
+        $cover = AbilityTactics::cover($rule->getSpecDocument());
         if ($support === null && $cover === null) {
             throw new GameInvalidException('Game strike reaction has no executable effect');
         }

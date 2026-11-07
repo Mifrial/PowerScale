@@ -342,11 +342,10 @@ final class AbilityGrants
         }
 
         $type = SpecShape::string($value, 'type');
-        if (in_array($type, ['dimensional', 'characteristic', 'actionCharacteristic'], true)) {
-            return Formulas::dimensionalNode($value);
-        }
 
-        return Formulas::scalarNode($value);
+        return in_array($type, ['dimensional', 'characteristic', 'actionCharacteristic'], true)
+            ? Formulas::dimensionalNode($value)
+            : Formulas::scalarNode($value);
     }
 
     /**

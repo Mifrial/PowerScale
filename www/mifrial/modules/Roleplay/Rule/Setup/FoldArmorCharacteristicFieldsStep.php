@@ -159,6 +159,27 @@ final class FoldArmorCharacteristicFieldsStep implements ISetupStep
             return null;
         }
 
+        $changed = $this->foldArmorFields($spec, $armor, $versionId);
+        if (!$changed) {
+            return null;
+        }
+
+        $spec['armor'] = $armor;
+
+        return $spec;
+    }
+
+    /**
+     * Переносит strength_penalty в grants и max_agility в characteristic_limits.
+     *
+     * @param array<string, mixed> $spec Документ.
+     * @param array<string, mixed> $armor Узел armor.
+     * @param int $versionId Id версии.
+     *
+     * @return bool true, если снят хотя бы один ключ.
+     */
+    private function foldArmorFields(array &$spec, array &$armor, int $versionId): bool
+    {
         $changed = false;
         if (array_key_exists('strength_penalty', $armor)) {
             $penalty = $armor['strength_penalty'];
@@ -173,22 +194,18 @@ final class FoldArmorCharacteristicFieldsStep implements ISetupStep
             $cap = $armor['max_agility'];
             unset($armor['max_agility']);
             $changed = true;
-            if (is_array($cap) && is_int($cap['base'] ?? null) && is_int($cap['size'] ?? null)) {
+            $base = is_array($cap) ? ($cap['base'] ?? null) : null;
+            $size = is_array($cap) ? ($cap['size'] ?? null) : null;
+            if (is_int($base) && is_int($size)) {
                 $armor['characteristic_limits'] = $this->withLimit(
                     is_array($armor['characteristic_limits'] ?? null) ? $armor['characteristic_limits'] : [],
-                    $cap,
+                    ['base' => $base, 'size' => $size],
                     $versionId,
                 );
             }
         }
 
-        if (!$changed) {
-            return null;
-        }
-
-        $spec['armor'] = $armor;
-
-        return $spec;
+        return $changed;
     }
 
     /**
@@ -209,24 +226,42 @@ final class FoldArmorCharacteristicFieldsStep implements ISetupStep
             }
         }
 
-        $effects = $spec['effects'] ?? null;
-        if (is_array($effects)) {
-            foreach ($effects as $index => $effect) {
-                if (!is_array($effect) || !isset($effect['ops']) || !is_array($effect['ops'])) {
-                    continue;
-                }
-
-                $folded = $this->foldOps($effect['ops']);
-                if ($folded !== $effect['ops']) {
-                    $effects[$index]['ops'] = $folded;
-                    $changed = true;
-                }
-            }
-
+        $effects = $this->foldEffects($spec['effects'] ?? null);
+        if ($effects !== null) {
             $spec['effects'] = $effects;
+            $changed = true;
         }
 
         return $changed ? $spec : null;
+    }
+
+    /**
+     * Сворачивает ops внутри effects.
+     *
+     * @param mixed $effects Значение ключа effects.
+     *
+     * @return array<mixed>|null Новый список или null, если менять нечего.
+     */
+    private function foldEffects(mixed $effects): ?array
+    {
+        if (!is_array($effects)) {
+            return null;
+        }
+
+        $changed = false;
+        foreach ($effects as $index => $effect) {
+            if (!is_array($effect) || !isset($effect['ops']) || !is_array($effect['ops'])) {
+                continue;
+            }
+
+            $folded = $this->foldOps($effect['ops']);
+            if ($folded !== $effect['ops']) {
+                $effects[$index]['ops'] = $folded;
+                $changed = true;
+            }
+        }
+
+        return $changed ? $effects : null;
     }
 
     /**

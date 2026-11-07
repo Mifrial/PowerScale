@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ActionCharacteristicBase;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\DistanceRange;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\DistanceValue;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponAmmunition;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponDamage;
@@ -99,28 +101,10 @@ final class ItemWeapons
     {
         $row = SpecShape::requireMap($row, 'weapon_profiles');
 
-        $type = SpecShape::string($row, 'type');
-        if (!in_array($type, ['strike', 'throw', 'shoot'], true)) {
-            throw new RuleSpecShapeException('type');
-        }
-
+        $type = self::profileType($row);
         $distance = DistanceValues::range($row);
         $falloff = DistanceValues::optionalValue($row, 'falloff');
-        if ($type === 'throw' && $distance->getMax() !== null) {
-            throw new RuleSpecShapeException('distance.max');
-        }
-
-        if ($type !== 'throw' && $distance->getMax() === null) {
-            throw new RuleSpecShapeException('distance.max');
-        }
-
-        if ($type === 'strike' && $falloff !== null) {
-            throw new RuleSpecShapeException('falloff');
-        }
-
-        if ($type !== 'strike' && $falloff === null) {
-            throw new RuleSpecShapeException('falloff');
-        }
+        self::assertDistance($type, $distance, $falloff);
 
         return new WeaponProfile(
             $type,
@@ -134,6 +118,56 @@ final class ItemWeapons
             self::ammunition($row, $type),
             SpecShape::optionalInt($row, 'extra_hands'),
         );
+    }
+
+    /**
+     * Вид профиля.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return string Вид.
+     *
+     * @throws RuleSpecShapeException Если вид неизвестен.
+     */
+    private static function profileType(array $row): string
+    {
+        $type = SpecShape::string($row, 'type');
+        if (!in_array($type, ['strike', 'throw', 'shoot'], true)) {
+            throw new RuleSpecShapeException('type');
+        }
+
+        return $type;
+    }
+
+    /**
+     * Дистанция и спад обязательны по виду профиля.
+     *
+     * @param string $type Вид.
+     * @param DistanceRange $distance Дистанция.
+     * @param DistanceValue|null $falloff Спад.
+     *
+     * @return void
+     *
+     * @throws RuleSpecShapeException Если дистанция или спад не по виду.
+     */
+    private static function assertDistance(string $type, DistanceRange $distance, ?DistanceValue $falloff): void
+    {
+        $max = $distance->getMax();
+        if ($type === 'throw') {
+            if ($max !== null) {
+                throw new RuleSpecShapeException('distance.max');
+            }
+        } elseif ($max === null) {
+            throw new RuleSpecShapeException('distance.max');
+        }
+
+        if ($type === 'strike') {
+            if ($falloff !== null) {
+                throw new RuleSpecShapeException('falloff');
+            }
+        } elseif ($falloff === null) {
+            throw new RuleSpecShapeException('falloff');
+        }
     }
 
     /**

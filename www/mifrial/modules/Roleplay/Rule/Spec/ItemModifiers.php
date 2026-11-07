@@ -264,6 +264,59 @@ final class ItemModifiers
      */
     private static function rest(string $type, array $row): ItemModifierOp
     {
+        $op = self::characteristicRest($type, $row) ?? self::otherRest($type, $row);
+        if ($op === null) {
+            throw new RuleSpecShapeException('ops');
+        }
+
+        return $op;
+    }
+
+    /**
+     * Ветки характеристик.
+     *
+     * @param string $type Тип.
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return ItemModifierOp|null Операция или null, если тип не отсюда.
+     *
+     * @throws RuleSpecShapeException Если поля чужие.
+     */
+    private static function characteristicRest(string $type, array $row): ?ItemModifierOp
+    {
+        return match ($type) {
+            'characteristic_modify' => new CharacteristicModifyOp(
+                SpecShape::string($row, 'characteristic_code'),
+                SpecShape::optionalInt($row, 'add'),
+                SpecShape::optionalInt($row, 'set'),
+            ),
+            'characteristic_limit' => new CharacteristicLimitOp(
+                SpecShape::string($row, 'characteristic_code'),
+                SpecShape::optionalInt($row, 'delta'),
+                SpecShape::optionalInt($row, 'add_size'),
+            ),
+            'advantage' => new AdvantageOp(SpecShape::int($row, 'delta'), SpecShape::string($row, 'source_code')),
+            'check_advantage' => new CheckAdvantageOp(
+                SpecShape::int($row, 'delta'),
+                SpecShape::stringList($row, 'characteristic_codes'),
+                SpecShape::bool($row, 'includes_hit'),
+            ),
+            default => null,
+        };
+    }
+
+    /**
+     * Прочие ветки.
+     *
+     * @param string $type Тип.
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return ItemModifierOp|null Операция или null, если тип не отсюда.
+     *
+     * @throws RuleSpecShapeException Если поля чужие.
+     */
+    private static function otherRest(string $type, array $row): ?ItemModifierOp
+    {
         return match ($type) {
             'action_strength' => new ActionStrengthOp(
                 SpecShape::string($row, 'field'),
@@ -283,23 +336,7 @@ final class ItemModifiers
                 self::nativeNumber($row, 'minimum'),
             ),
             'magic_conductor' => new MagicConductorOp(SpecShape::int($row, 'value')),
-            'characteristic_modify' => new CharacteristicModifyOp(
-                SpecShape::string($row, 'characteristic_code'),
-                SpecShape::optionalInt($row, 'add'),
-                SpecShape::optionalInt($row, 'set'),
-            ),
-            'characteristic_limit' => new CharacteristicLimitOp(
-                SpecShape::string($row, 'characteristic_code'),
-                SpecShape::optionalInt($row, 'delta'),
-                SpecShape::optionalInt($row, 'add_size'),
-            ),
-            'advantage' => new AdvantageOp(SpecShape::int($row, 'delta'), SpecShape::string($row, 'source_code')),
-            'check_advantage' => new CheckAdvantageOp(
-                SpecShape::int($row, 'delta'),
-                SpecShape::stringList($row, 'characteristic_codes'),
-                SpecShape::bool($row, 'includes_hit'),
-            ),
-            default => throw new RuleSpecShapeException('ops'),
+            default => null,
         };
     }
 
