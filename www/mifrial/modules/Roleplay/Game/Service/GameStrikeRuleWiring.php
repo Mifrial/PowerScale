@@ -143,8 +143,7 @@ final class GameStrikeRuleWiring
     private function states(): GameStrikeConsequenceStates
     {
         return new GameStrikeConsequenceStates(
-            $this->mechanics->mechanics(),
-            $this->mechanics->engine(),
+            new GameMechanicResolver($this->mechanics->mechanics(), $this->mechanics->engine()),
         );
     }
 

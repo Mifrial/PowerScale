@@ -12,12 +12,16 @@ use Mifrial\Core\Kernel\Interface\Action\IActionInput;
 final class GameTurnInput implements IActionInput
 {
     /**
+     * Создаёт вход.
+     *
      * @param int $gameId Игра.
      * @param string $idempotencyKey Ключ.
      * @param int $battleId Бой.
      * @param int $expectedBattleVersion Версия боя.
      * @param int $expectedSheetVersion Версия листа текущего.
      * @param string|null $mode Режим прерывания процесса.
+     *
+     * @return void
      */
     public function __construct(
         public readonly int $gameId,
@@ -30,6 +34,8 @@ final class GameTurnInput implements IActionInput
     }
 
     /**
+     * Тело replay.
+     *
      * @return array<string, mixed> Тело replay.
      */
     public function body(): array

@@ -7,8 +7,13 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
+use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
+use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
+use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
 /**
  * HTTP-сценарии ударного домена.
@@ -134,27 +139,160 @@ final class GameStrikeHttpFactory
      */
     private function turns(IServiceLocator $serviceLocator): GameTurns
     {
-        $ports = new GameStrikePorts($serviceLocator);
+        $gateway = (new GameStrikePorts($serviceLocator))->gateway();
         $rules = (new GameStrikeRuleWiring($serviceLocator))->rules();
         $write = new GameStrikeWriteWiring($serviceLocator);
-        $chats = $ports->chats();
+        $access = $this->turnAccess($serviceLocator, $gateway);
+        $battles = new GameBattleRepository($gateway);
+        $cursor = new GameTurnCursor();
+        $snapshot = new GameTurnSnapshot($rules, $this->npcs($gateway));
 
         return new GameTurns(
-            $ports->gateway(),
-            $ports->games(),
+            $this->turnEnvelope($serviceLocator, $gateway, $access),
+            new GameTurnScenario(new GameBattleLookup($battles), $access, $cursor),
+            $this->turnEnd($serviceLocator, $rules, $write, $gateway, $access, $snapshot, $battles, $cursor),
+            $this->turnContinue($serviceLocator, $rules, $write, $snapshot, $battles),
+            new GameTurnAbort($battles),
+            $this->turnProcessAbort($serviceLocator, $rules, $write, $gateway, $access, $battles),
+        );
+    }
+
+    /**
+     * Проверки доступа хода.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param ISmartTableGateway $gateway Шлюз.
+     *
+     * @return GameTurnAccess Проверки.
+     */
+    private function turnAccess(IServiceLocator $serviceLocator, ISmartTableGateway $gateway): GameTurnAccess
+    {
+        return new GameTurnAccess(
+            (new GameStrikePorts($serviceLocator))->games(),
             (new GameStrikeCardWiring())->card($serviceLocator),
-            $rules,
-            $ports->mutations(),
-            $chats,
-            $this->ticks($serviceLocator, $rules),
-            $write->open($rules),
-            $ports->events(),
+            new GameSessionRepository($gateway),
+            new GameCharacterRepository($gateway),
+            new GameMemberRepository($gateway),
+        );
+    }
+
+    /**
+     * Конверт команды хода.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param ISmartTableGateway $gateway Шлюз.
+     * @param GameTurnAccess $access Проверки.
+     *
+     * @return GameTurnEnvelope Конверт.
+     */
+    private function turnEnvelope(
+        IServiceLocator $serviceLocator,
+        ISmartTableGateway $gateway,
+        GameTurnAccess $access,
+    ): GameTurnEnvelope {
+        return new GameTurnEnvelope(
+            $access,
+            new GameCommandRepository($gateway),
+            new GameReplayTransaction($gateway),
+            new GameDeliverySignal((new GameStrikePorts($serviceLocator))->events()),
+        );
+    }
+
+    /**
+     * Сценарий конца хода.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param GameStrikeRules $rules Правила.
+     * @param GameStrikeWriteWiring $write Запись.
+     * @param ISmartTableGateway $gateway Шлюз.
+     * @param GameTurnAccess $access Проверки.
+     * @param GameTurnSnapshot $snapshot Снимок.
+     * @param GameBattleRepository $battles Бои.
+     * @param GameTurnCursor $cursor Курсор.
+     *
+     * @return GameTurnEnd Сценарий.
+     */
+    private function turnEnd(
+        IServiceLocator $serviceLocator,
+        GameStrikeRules $rules,
+        GameStrikeWriteWiring $write,
+        ISmartTableGateway $gateway,
+        GameTurnAccess $access,
+        GameTurnSnapshot $snapshot,
+        GameBattleRepository $battles,
+        GameTurnCursor $cursor,
+    ): GameTurnEnd {
+        $chats = (new GameStrikePorts($serviceLocator))->chats();
+        $announce = new GameTurnAnnounce(
             new GameCombatNotices($chats),
-            $write->availability($rules),
-            (new GameStrikeRuleWiring($serviceLocator))->checks(),
+            new GameActionChat($chats, new GameStrikeChat($this->npcs($gateway), $rules)),
+            $chats,
+        );
+
+        return new GameTurnEnd(
+            new GameTurnWait(new GameActionRepository($gateway), $rules, new GameActionCards(), $write->perform($rules)),
+            new GameTurnEndSheet($snapshot, $this->ticks($serviceLocator, $rules), $write->writes()),
+            $battles,
+            new GameBattleMarks(),
+            $cursor,
+            $announce,
+        );
+    }
+
+    /**
+     * Сценарий доплаты долга.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param GameStrikeRules $rules Правила.
+     * @param GameStrikeWriteWiring $write Запись.
+     * @param GameTurnSnapshot $snapshot Снимок.
+     * @param GameBattleRepository $battles Бои.
+     *
+     * @return GameTurnContinue Сценарий.
+     */
+    private function turnContinue(
+        IServiceLocator $serviceLocator,
+        GameStrikeRules $rules,
+        GameStrikeWriteWiring $write,
+        GameTurnSnapshot $snapshot,
+        GameBattleRepository $battles,
+    ): GameTurnContinue {
+        return new GameTurnContinue(
+            $snapshot,
+            $write->writes(),
+            $battles,
             $this->actionDomain($serviceLocator),
-            $write->processes($rules),
             (new GameWoundPortFactory())->createActions($serviceLocator),
+            $write->open($rules),
+        );
+    }
+
+    /**
+     * Сценарий прерывания процесса.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param GameStrikeRules $rules Правила.
+     * @param GameStrikeWriteWiring $write Запись.
+     * @param ISmartTableGateway $gateway Шлюз.
+     * @param GameTurnAccess $access Проверки.
+     * @param GameBattleRepository $battles Бои.
+     *
+     * @return GameTurnProcessAbort Сценарий.
+     */
+    private function turnProcessAbort(
+        IServiceLocator $serviceLocator,
+        GameStrikeRules $rules,
+        GameStrikeWriteWiring $write,
+        ISmartTableGateway $gateway,
+        GameTurnAccess $access,
+        GameBattleRepository $battles,
+    ): GameTurnProcessAbort {
+        return new GameTurnProcessAbort(
+            $access,
+            $battles,
+            new GameActionRepository($gateway),
+            $write->processes($rules),
+            new GameProcessRepository($gateway),
         );
     }
 
@@ -169,14 +307,24 @@ final class GameStrikeHttpFactory
     private function ticks(IServiceLocator $serviceLocator, GameStrikeRules $rules): GameTurnTicks
     {
         $rulesWiring = new GameStrikeRuleWiring($serviceLocator);
+        $mechanics = (new GameStrikeMechanicPorts($serviceLocator))->mechanics();
+        $consequences = $rulesWiring->consequences($rules);
+        $states = new GameTurnSheetStates();
 
         return new GameTurnTicks(
-            $rulesWiring->checkRoll(),
-            $rulesWiring->consequences($rules),
-            new GameStrikeSplits(),
-            (new GameStrikeCharacterPorts($serviceLocator))->formulaContexts(),
-            (new GameStrikeMechanicPorts($serviceLocator))->mechanics(),
-            (new GameStrikeMechanicPorts($serviceLocator))->engine(),
+            new GameTurnTickWound(
+                $rulesWiring->checkRoll(),
+                new GameMechanicResolver($mechanics, (new GameStrikeMechanicPorts($serviceLocator))->engine()),
+                $states,
+            ),
+            new GameTurnTickBlood($consequences, $states),
+            new GameTurnTickDot(
+                new GameStrikeSplits(),
+                (new GameStrikeCharacterPorts($serviceLocator))->formulaContexts(),
+                $consequences,
+                $states,
+            ),
+            $states,
         );
     }
 

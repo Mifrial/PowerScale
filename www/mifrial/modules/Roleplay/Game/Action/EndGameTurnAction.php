@@ -13,11 +13,22 @@ use Mifrial\Roleplay\Game\Service\GameTurnHttp;
  */
 final class EndGameTurnAction implements IActionHandler
 {
+    /**
+     * Создаёт действие.
+     *
+     * @param GameTurnHttp $turns Сценарий хода.
+     *
+     * @return void
+     */
     public function __construct(private readonly GameTurnHttp $turns)
     {
     }
 
     /**
+     * Передаёт ход.
+     *
+     * @param GameTurnInput $input Вход.
+     *
      * @return array<string, mixed> Итог.
      */
     public function handle(GameTurnInput $input): array

@@ -18,6 +18,8 @@ use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
  */
 final class GameBattleInitiatives
 {
+    private readonly GameBattleLookup $lookup;
+
     private const ORDER_KEYS = [
         'name',
         'difficulty',
@@ -51,6 +53,7 @@ final class GameBattleInitiatives
         private readonly GameBattleAccess $access,
         private readonly GameBattleLedger $ledger,
     ) {
+        $this->lookup = new GameBattleLookup($battles);
     }
 
     /**
@@ -187,7 +190,7 @@ final class GameBattleInitiatives
         int $expectedVersion,
         ?array $rolls,
     ): array {
-        $battle = $this->battle($battleId, $sessionId);
+        $battle = $this->lookup->find($battleId, $sessionId);
         if ($battle->getStateVersion() !== $expectedVersion) {
             throw new GameBattleConflictException($battle->getStateVersion());
         }
@@ -200,27 +203,6 @@ final class GameBattleInitiatives
         );
 
         return $this->save($game, $sessionId, $battleId, $idempotencyKey, $expectedVersion, $rolls, $order);
-    }
-
-    /**
-     * Бой открытой сессии.
-     *
-     * @param int $battleId Бой.
-     * @param int $sessionId Сессия.
-     *
-     * @return GameBattleRecord Строка.
-     *
-     * @throws GameNotFoundException Если боя нет или он чужой.
-     * @throws GameInvalidException Если строка битая.
-     */
-    private function battle(int $battleId, int $sessionId): GameBattleRecord
-    {
-        $battle = $this->battles->find($battleId);
-        if ($battle === null || $battle->getSessionId() !== $sessionId) {
-            throw new GameNotFoundException('Game battle was not found');
-        }
-
-        return $battle;
     }
 
     /**

@@ -19,6 +19,8 @@ use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
  */
 final class GameBattleMutator
 {
+    private readonly GameBattleLookup $lookup;
+
     /**
      * Создаёт запись.
      *
@@ -39,6 +41,7 @@ final class GameBattleMutator
         private readonly GameProcessRepository $processes,
         private readonly GameBattleOrder $order,
     ) {
+        $this->lookup = new GameBattleLookup($battles);
     }
 
     /**
@@ -116,7 +119,7 @@ final class GameBattleMutator
         int $spaceId,
         int $rulesRevision,
     ): array {
-        $current = $this->requireBattle($sessionId, $battleId);
+        $current = $this->lookup->find($battleId, $sessionId);
         $this->assertMembers($gameId, $participants);
         $turnOrder = $this->nextOrder($current, $participants, $spaceId, $rulesRevision, $expectedVersion);
         $battle = $this->battles->advanceVersion($battleId, $expectedVersion);
@@ -153,7 +156,7 @@ final class GameBattleMutator
         string $idempotencyKey,
         int $expectedVersion,
     ): array {
-        $battle = $this->requireBattle($sessionId, $battleId);
+        $battle = $this->lookup->find($battleId, $sessionId);
         if ($battle->getStateVersion() !== $expectedVersion) {
             throw new GameBattleConflictException($battle->getStateVersion());
         }
@@ -268,27 +271,6 @@ final class GameBattleMutator
             'participants' => $participants,
             'expectedVersion' => $expectedVersion,
         ];
-    }
-
-    /**
-     * Бой этой сессии.
-     *
-     * @param int $sessionId Сессия.
-     * @param int $battleId Бой.
-     *
-     * @return GameBattleRecord Строка.
-     *
-     * @throws GameNotFoundException Если боя нет в этой сессии.
-     * @throws GameInvalidException Если строка битая.
-     */
-    private function requireBattle(int $sessionId, int $battleId): GameBattleRecord
-    {
-        $battle = $this->battles->find($battleId);
-        if ($battle === null || $battle->getSessionId() !== $sessionId) {
-            throw new GameNotFoundException('Game battle was not found');
-        }
-
-        return $battle;
     }
 
     /**

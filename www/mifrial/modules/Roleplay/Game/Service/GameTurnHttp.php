@@ -14,8 +14,12 @@ use Mifrial\Roleplay\Game\Dto\Action\GameTurnInput;
 final class GameTurnHttp
 {
     /**
+     * Создаёт сценарий.
+     *
      * @param IUserAccess $userAccess Актор.
      * @param GameTurns $turns Сценарий.
+     *
+     * @return void
      */
     public function __construct(
         private readonly IUserAccess $userAccess,
@@ -24,6 +28,8 @@ final class GameTurnHttp
     }
 
     /**
+     * Конец хода текущего.
+     *
      * @param GameTurnInput $input Вход.
      *
      * @return array<string, mixed> Итог.
@@ -36,9 +42,13 @@ final class GameTurnHttp
     }
 
     /**
+     * Доплата долга текущего.
+     *
      * @param GameTurnInput $input Вход.
      *
      * @return array<string, mixed> Итог.
+     *
+     * @throws ActionException AUTH_REQUIRED.
      */
     public function continueAction(GameTurnInput $input): array
     {
@@ -46,9 +56,13 @@ final class GameTurnHttp
     }
 
     /**
+     * Снимает долг текущего.
+     *
      * @param GameTurnInput $input Вход.
      *
      * @return array<string, mixed> Итог.
+     *
+     * @throws ActionException AUTH_REQUIRED.
      */
     public function abort(GameTurnInput $input): array
     {
@@ -56,9 +70,13 @@ final class GameTurnHttp
     }
 
     /**
+     * Прерывает процесс текущего.
+     *
      * @param GameTurnInput $input Вход.
      *
      * @return array<string, mixed> Итог.
+     *
+     * @throws ActionException AUTH_REQUIRED.
      */
     public function abortProcess(GameTurnInput $input): array
     {
@@ -66,28 +84,28 @@ final class GameTurnHttp
     }
 
     /**
+     * Выбирает команду хода.
+     *
      * @param GameTurnInput $input Вход.
      * @param string $command Команда.
      *
      * @return array<string, mixed> Итог.
+     *
+     * @throws ActionException AUTH_REQUIRED.
      */
     private function call(GameTurnInput $input, string $command): array
     {
         $actor = $this->userAccess->requireActor();
+        $userId = $actor->getUserId();
         $editAll = $actor->hasKey(GamePermissionKeys::EDIT_ALL);
         $viewAll = $actor->hasKey(GamePermissionKeys::VIEW_ALL);
-        if ($command === 'continue') {
-            return $this->turns->continueAction($input->gameId, $actor->getUserId(), $editAll, $viewAll, $input->body());
-        }
+        $body = $input->body();
 
-        if ($command === 'abort') {
-            return $this->turns->abort($input->gameId, $actor->getUserId(), $editAll, $viewAll, $input->body());
-        }
-
-        if ($command === 'abort_process') {
-            return $this->turns->abortProcess($input->gameId, $actor->getUserId(), $editAll, $viewAll, $input->body());
-        }
-
-        return $this->turns->end($input->gameId, $actor->getUserId(), $editAll, $viewAll, $input->body());
+        return match ($command) {
+            'continue' => $this->turns->continueAction($input->gameId, $userId, $editAll, $viewAll, $body),
+            'abort' => $this->turns->abort($input->gameId, $userId, $editAll, $viewAll, $body),
+            'abort_process' => $this->turns->abortProcess($input->gameId, $userId, $editAll, $viewAll, $body),
+            default => $this->turns->end($input->gameId, $userId, $editAll, $viewAll, $body),
+        };
     }
 }

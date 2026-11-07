@@ -7,14 +7,9 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
-use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
-use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
-use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
 use Mifrial\Roleplay\Mechanic\Interface\IExhaustionAmount;
 use Mifrial\Roleplay\Mechanic\Interface\IExhaustionWound;
 use Mifrial\Roleplay\Mechanic\Interface\IMechanicHandler;
-use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
-use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 
 /**
@@ -25,14 +20,12 @@ final class GameStrikeConsequenceStates
     /**
      * Создаёт поиск состояний.
      *
-     * @param IMechanics $mechanics Каталог.
-     * @param IMechanicEngine $engine Резолв хендлеров.
+     * @param GameMechanicResolver $resolver Резолв хендлеров.
      *
      * @return void
      */
     public function __construct(
-        private readonly IMechanics $mechanics,
-        private readonly IMechanicEngine $engine,
+        private readonly GameMechanicResolver $resolver,
     ) {
     }
 
@@ -236,17 +229,7 @@ final class GameStrikeConsequenceStates
      */
     private function handler(string $ruleCode, int $mechanicId): IMechanicHandler
     {
-        try {
-            $resolved = $this->engine->resolveActive(
-                [new MechanicBinding($ruleCode, $mechanicId, null)],
-                $this->mechanics->getList(),
-                new ResolveActiveOptions(),
-            );
-        } catch (MechanicInvalidException $exception) {
-            throw new GameInvalidException('Game strike hook is invalid', $exception);
-        }
-
-        return $resolved[0]->getHandler();
+        return $this->resolver->handler($ruleCode, $mechanicId, 'Game strike hook is invalid');
     }
 
     /**
