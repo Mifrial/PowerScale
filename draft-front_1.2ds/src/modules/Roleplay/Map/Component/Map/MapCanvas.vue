@@ -15,6 +15,7 @@ import type { MapVariant } from '@/modules/Roleplay/Map/Dto/MapVariant';
 import type { MapViewport } from '@/modules/Roleplay/Map/Dto/MapViewport';
 import type { MapToolMode } from '@/modules/Roleplay/Map/Enum/MapToolMode';
 import type { RibbonEdges, RibbonLayout } from '@/modules/Roleplay/Map/Service/MapRibbonService';
+import type { MapDecorPoint } from '@/modules/Roleplay/Map/Service/MapDecorService';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
 import { MAP_LINE_DEPTH } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DEPTH';
 import {
@@ -65,6 +66,7 @@ let drawTime = 0;
 let lastSize: MapSize = { width: 0, height: 0 };
 let staticCanvas: HTMLCanvasElement | null = null;
 let labelCanvas: HTMLCanvasElement | null = null;
+let decorCanvas: HTMLCanvasElement | null = null;
 let staticDirty = true;
 const areaPathCache = new Map<number, MapPoint[] | null>();
 const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -259,6 +261,24 @@ function ensureLayer(
   return layer;
 }
 
+/** Меняет размер слоя под текущий кадр, не помечая статичный слой устаревшим. */
+function resizeLayer(
+  existing: HTMLCanvasElement | null,
+  width: number,
+  height: number,
+  dpr: number,
+): HTMLCanvasElement {
+  const layer = existing ?? document.createElement('canvas');
+  const pixelWidth = Math.max(1, Math.round(width * dpr));
+  const pixelHeight = Math.max(1, Math.round(height * dpr));
+  if (layer.width !== pixelWidth || layer.height !== pixelHeight) {
+    layer.width = pixelWidth;
+    layer.height = pixelHeight;
+  }
+
+  return layer;
+}
+
 function paintStaticLayer(width: number, height: number, dpr: number): void {
   const layer = ensureStaticLayer(width, height, dpr);
   const context = layer.getContext('2d');
@@ -282,8 +302,10 @@ function paintStaticLayer(width: number, height: number, dpr: number): void {
 
   drawGrid(context);
   drawAreas(context, 'surface');
+  drawDecor(context, 'surface', width, height, dpr);
   drawLineBodies(context);
   drawAreas(context, 'object');
+  drawDecor(context, 'object', width, height, dpr);
   drawRoute(context);
   context.restore();
 }
@@ -334,25 +356,96 @@ function drawAreas(context: CanvasRenderingContext2D, layer: 'surface' | 'object
     context.fillStyle = color;
     context.fill();
     context.globalAlpha = 1;
-    drawAreaDecor(context, area, path, fillOpacity);
     context.strokeStyle = color;
     context.lineWidth = MAP_CANVAS_CONFIG.areaStrokeWidth / props.viewport.scale;
     context.stroke();
   }
 }
 
-/** Декор области: символы рассыпаются по полигону и могут выходить за контур. */
-function drawAreaDecor(context: CanvasRenderingContext2D, area: MapArea, path: MapPoint[], fillOpacity: number): void {
-  if (!area.decor?.set) return;
-  const points = mapDecorService.layout(area.id, path, area.decor);
-  if (points.length === 0) return;
+/**
+ * Декор слоя: символы рассыпаются по полигонам и могут выходить за контур.
+ *
+ * Рисуется в отдельный слой, потому что под реками, дорогами и объектами его
+ * надо вырезать. Прямой клип тут не годится: пересекающиеся маски при even-odd
+ * снова открывают дырку, поэтому маски стираются `destination-out`.
+ */
+function drawDecor(
+  context: CanvasRenderingContext2D,
+  layer: 'surface' | 'object',
+  width: number,
+  height: number,
+  dpr: number,
+): void {
+  if (!props.map) return;
 
-  mapDecorPainter.paint(context, {
-    points,
-    color: area.color,
-    alpha: Math.min(0.95, 0.18 + (fillOpacity / 100) * 0.7),
-    minSize: 3 / props.viewport.scale,
-  });
+  const drawings: { area: MapArea; points: MapDecorPoint[] }[] = [];
+  for (const area of sortedAreas(layer)) {
+    if (!area.decor?.set) continue;
+    const path = flatShapeOf(area.id);
+    if (!path || path.length < 3) continue;
+    const points = mapDecorService.layout(area.id, path, area.decor);
+    if (points.length > 0) drawings.push({ area, points });
+  }
+  if (drawings.length === 0) return;
+
+  const decor = resizeLayer(decorCanvas, width, height, dpr);
+  decorCanvas = decor;
+  const target = decor.getContext('2d');
+  if (!target) return;
+
+  target.setTransform(dpr, 0, 0, dpr, 0, 0);
+  target.clearRect(0, 0, width, height);
+  target.save();
+  target.translate(props.viewport.offsetX, props.viewport.offsetY);
+  target.scale(props.viewport.scale, props.viewport.scale);
+
+  for (const { area, points } of drawings) {
+    mapDecorPainter.paint(target, {
+      points,
+      color: area.color,
+      minSize: 3 / props.viewport.scale,
+    });
+  }
+
+  target.restore();
+  if (layer === 'surface') eraseDecorMask(target);
+
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.drawImage(decor, 0, 0);
+  context.restore();
+}
+
+/** Полигоны, под которыми декор поверхностей не виден: русла, дороги и объекты. */
+function decorMask(): MapPoint[][] {
+  const mask: MapPoint[][] = [];
+  for (const line of sortedLines()) {
+    const band = mapRibbonService.ribbonBand(mapRibbonService.layout(line).flat, -1, 1);
+    if (band.length >= 3) mask.push(band);
+  }
+  for (const area of sortedAreas('object')) {
+    const path = flatShapeOf(area.id);
+    if (path && path.length >= 3) mask.push(path);
+  }
+
+  return mask;
+}
+
+/** Стирает из готового декора всё, что перекроют полупрозрачные ленты и объекты. */
+function eraseDecorMask(context: CanvasRenderingContext2D): void {
+  const mask = decorMask();
+  if (mask.length === 0) return;
+
+  context.save();
+  context.translate(props.viewport.offsetX, props.viewport.offsetY);
+  context.scale(props.viewport.scale, props.viewport.scale);
+  context.globalCompositeOperation = 'destination-out';
+  context.fillStyle = '#000';
+  for (const polygon of mask) {
+    tracePolygon(context, polygon);
+    context.fill();
+  }
+  context.restore();
 }
 
 /** Заливка и берега лент — часть статичного слоя. */
