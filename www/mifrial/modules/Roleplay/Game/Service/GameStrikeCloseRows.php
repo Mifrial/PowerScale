@@ -43,58 +43,22 @@ final class GameStrikeCloseRows
      * @param bool $editAll Ключ.
      *
      * @return array<string, mixed> Строка.
+     *
+     * @throws GameInvalidException Если удар не открыт или строка битая.
+     * @throws ActionException Если у актора нет прав.
      */
     public function openSingle(int $battleId, GameRecord $game, int $actorUserId, bool $editAll): array
     {
         $open = $this->actions->findOpenWithStrikes($battleId, 'strike');
         if ($open !== null) {
-            $this->access->assertTarget($game, $actorUserId, $editAll, $this->defenderOfRow($open));
-            $strikeId = $open['id'] ?? null;
-            if (!is_int($strikeId)) {
-                throw new GameInvalidException('Game strike row is invalid');
-            }
-
-            $locked = $this->actions->lockById($strikeId);
-            if (
-                !is_array($locked)
-                || ($locked['open'] ?? null) !== true
-                || ($locked['kind'] ?? null) !== 'strike'
-            ) {
-                throw new GameInvalidException('Game strike is not open');
-            }
-
-            return $open;
+            return $this->openExisting($game, $actorUserId, $editAll, $open);
         }
 
         if ($this->access->isWriter($game, $actorUserId, $editAll)) {
             throw new GameInvalidException('Game strike is not open');
         }
 
-        $latest = $this->actions->findLatestWithStrikes($battleId, 'strike');
-        if ($latest === null) {
-            throw new ActionException('AUTH_DENIED', 'Permission denied');
-        }
-
-        $this->access->assertTarget($game, $actorUserId, $editAll, $this->defenderOfRow($latest));
-        throw new GameInvalidException('Game strike is not open');
-    }
-
-    /**
-     * Защитник из строки с ударами.
-     *
-     * @param array<string, mixed> $open Строка.
-     *
-     * @return array{type: string, id: int} Пара.
-     */
-    private function defenderOfRow(array $open): array
-    {
-        $strikes = is_array($open['strikes'] ?? null) ? $open['strikes'] : [];
-        $row = is_array($strikes[0] ?? null) ? $strikes[0] : null;
-        if ($row === null) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        return $this->defender($row);
+        return $this->latestDenied($battleId, $game, $actorUserId, $editAll);
     }
 
     /**
@@ -105,6 +69,9 @@ final class GameStrikeCloseRows
      * @param int $expectedBattleVersion Версия.
      *
      * @return GameBattleRecord Строка.
+     *
+     * @throws GameNotFoundException Если бой не найден.
+     * @throws GameBattleConflictException Если версия боя устарела.
      */
     public function battleOf(int $sessionId, int $battleId, int $expectedBattleVersion): GameBattleRecord
     {
@@ -127,6 +94,8 @@ final class GameStrikeCloseRows
      * @param string $kind Вид.
      *
      * @return array<string, mixed> Строка.
+     *
+     * @throws GameInvalidException Если удар не открыт или строка битая.
      */
     public function requireOpen(int $battleId, string $kind): array
     {
@@ -151,36 +120,13 @@ final class GameStrikeCloseRows
     }
 
     /**
-     * Действие с полями первого удара.
-     *
-     * @param array<string, mixed> $open Колонки действия.
-     *
-     * @return array<string, mixed> Колонки действия и `strikes`.
-     *
-     * @throws GameInvalidException Если строка битая.
-     */
-    private function withFirstStrike(array $open): array
-    {
-        $strikeId = $open['id'] ?? null;
-        $strikes = is_int($strikeId) ? $this->actions->getStrikes($strikeId) : [];
-        $first = $strikes[0] ?? [];
-
-        return array_merge($open, [
-            'item_inventory_id' => $first['item_inventory_id'] ?? null,
-            'item_rule_code' => $first['item_rule_code'] ?? null,
-            'profile_type' => $first['profile_type'] ?? null,
-            'profile_index' => $first['profile_index'] ?? null,
-            'instance_index' => $first['instance_index'] ?? null,
-            'strikes' => $strikes,
-        ]);
-    }
-
-    /**
      * Цели без ответа.
      *
      * @param list<array<string, mixed>> $rows Цели.
      *
      * @return list<array{type: string, id: int}> Ожидание.
+     *
+     * @throws GameInvalidException Если строка цели битая.
      */
     public function pendingTargets(array $rows): array
     {
@@ -202,35 +148,24 @@ final class GameStrikeCloseRows
      * @param array<string, mixed> $row Цель.
      *
      * @return array<string, mixed> Ответ.
+     *
+     * @throws GameInvalidException Если поля ответа битые.
      */
     public function answerOfRow(array $row): array
     {
-        $reaction = $row['reaction'] ?? null;
-        $expectedSheetVersion = $row['expected_sheet_version'] ?? null;
-        $inventoryId = $row['block_item_inventory_id'] ?? null;
-        $profileIndex = $row['block_item_profile_index'] ?? null;
-        $ruleCode = $row['block_item_rule_code'] ?? null;
-        $spendConcentration = $row['spend_concentration'] ?? 0;
-        if (
-            !is_string($reaction)
-            || !is_int($expectedSheetVersion)
-            || ($inventoryId !== null && !is_int($inventoryId))
-            || ($profileIndex !== null && !is_int($profileIndex))
-            || ($ruleCode !== null && !is_string($ruleCode))
-            || !is_int($spendConcentration)
-            || $spendConcentration < 0
-        ) {
+        $choice = [
+            'reaction' => $this->rowString($row, 'reaction'),
+            'blockItemInventoryId' => $this->optionalInt($row, 'block_item_inventory_id'),
+            'blockItemProfileIndex' => $this->optionalInt($row, 'block_item_profile_index'),
+            'blockItemRuleCode' => $this->optionalString($row, 'block_item_rule_code'),
+            'expectedSheetVersion' => $this->rowInt($row, 'expected_sheet_version'),
+            'conditions' => GameStrikeTargetRow::conditions($row),
+        ];
+        $spendConcentration = $this->rowInt($row, 'spend_concentration', 0);
+        if ($spendConcentration < 0) {
             throw new GameInvalidException('Game wide strike target row is invalid');
         }
 
-        $choice = [
-            'reaction' => $reaction,
-            'blockItemInventoryId' => $inventoryId,
-            'blockItemProfileIndex' => $profileIndex,
-            'blockItemRuleCode' => $ruleCode,
-            'expectedSheetVersion' => $expectedSheetVersion,
-            'conditions' => GameStrikeTargetRow::conditions($row),
-        ];
         if ($spendConcentration > 0) {
             $choice['spendConcentration'] = $spendConcentration;
         }
@@ -244,6 +179,8 @@ final class GameStrikeCloseRows
      * @param array<string, mixed> $row Цель.
      *
      * @return array{type: string, id: int} Пара.
+     *
+     * @throws GameInvalidException Если строка цели битая.
      */
     public function rowTarget(array $row): array
     {
@@ -291,6 +228,9 @@ final class GameStrikeCloseRows
      * @param array{type: string, id: int} $target Цель.
      *
      * @return void
+     *
+     * @throws GameInvalidException Если вид участника битый.
+     * @throws GameNotFoundException Если участника нет в бою.
      */
     public function assertDefender(int $battleId, array $target): void
     {
@@ -301,21 +241,183 @@ final class GameStrikeCloseRows
     }
 
     /**
-     * Пара защитника из строки.
+     * Открытый удар с проверкой прав актора.
      *
-     * @param array<string, mixed> $row Цель.
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ.
+     * @param array<string, mixed> $open Строка.
+     *
+     * @return array<string, mixed> Строка.
+     *
+     * @throws GameInvalidException Если удар не открыт или строка битая.
+     */
+    private function openExisting(GameRecord $game, int $actorUserId, bool $editAll, array $open): array
+    {
+        $this->access->assertTarget($game, $actorUserId, $editAll, $this->defenderOfRow($open));
+        $strikeId = $open['id'] ?? null;
+        if (!is_int($strikeId)) {
+            throw new GameInvalidException('Game strike row is invalid');
+        }
+
+        $locked = $this->actions->lockById($strikeId);
+        if (
+            !is_array($locked)
+            || ($locked['open'] ?? null) !== true
+            || ($locked['kind'] ?? null) !== 'strike'
+        ) {
+            throw new GameInvalidException('Game strike is not open');
+        }
+
+        return $open;
+    }
+
+    /**
+     * Отказ последнему удару без прав записи.
+     *
+     * @param int $battleId Бой.
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ.
+     *
+     * @return array<string, mixed> Строка.
+     *
+     * @throws GameInvalidException Если удар не открыт.
+     * @throws ActionException Если у актора нет прав.
+     */
+    private function latestDenied(int $battleId, GameRecord $game, int $actorUserId, bool $editAll): array
+    {
+        $latest = $this->actions->findLatestWithStrikes($battleId, 'strike');
+        if ($latest === null) {
+            throw new ActionException('AUTH_DENIED', 'Permission denied');
+        }
+
+        $this->access->assertTarget($game, $actorUserId, $editAll, $this->defenderOfRow($latest));
+        throw new GameInvalidException('Game strike is not open');
+    }
+
+    /**
+     * Защитник из строки с ударами.
+     *
+     * @param array<string, mixed> $open Строка.
      *
      * @return array{type: string, id: int} Пара.
+     *
+     * @throws GameInvalidException Если строка битая.
      */
-    public function defender(array $row): array
+    private function defenderOfRow(array $open): array
     {
-        $kind = $row['target_type'] ?? null;
-        $defenderId = $row['target_id'] ?? null;
-        if (!is_string($kind) || !is_int($defenderId)) {
+        $strikes = is_array($open['strikes'] ?? null) ? $open['strikes'] : [];
+        $row = is_array($strikes[0] ?? null) ? $strikes[0] : null;
+        if ($row === null) {
+            throw new GameInvalidException('Game strike row is invalid');
+        }
+
+        return $this->rowTarget($row);
+    }
+
+    /**
+     * Действие с полями первого удара.
+     *
+     * @param array<string, mixed> $open Колонки действия.
+     *
+     * @return array<string, mixed> Колонки действия и `strikes`.
+     */
+    private function withFirstStrike(array $open): array
+    {
+        $strikeId = $open['id'] ?? null;
+        $strikes = is_int($strikeId) ? $this->actions->getStrikes($strikeId) : [];
+        $first = $strikes[0] ?? [];
+
+        return array_merge($open, [
+            'item_inventory_id' => $first['item_inventory_id'] ?? null,
+            'item_rule_code' => $first['item_rule_code'] ?? null,
+            'profile_type' => $first['profile_type'] ?? null,
+            'profile_index' => $first['profile_index'] ?? null,
+            'instance_index' => $first['instance_index'] ?? null,
+            'strikes' => $strikes,
+        ]);
+    }
+
+    /**
+     * Строковое поле строки.
+     *
+     * @param array<string, mixed> $row Строка.
+     * @param string $key Поле.
+     *
+     * @return string Значение.
+     *
+     * @throws GameInvalidException Если значение не строка.
+     */
+    private function rowString(array $row, string $key): string
+    {
+        $value = $row[$key] ?? null;
+        if (!is_string($value)) {
             throw new GameInvalidException('Game wide strike target row is invalid');
         }
 
-        return ['type' => $kind, 'id' => $defenderId];
+        return $value;
+    }
+
+    /**
+     * Целое поле строки.
+     *
+     * @param array<string, mixed> $row Строка.
+     * @param string $key Поле.
+     * @param int|null $default Значение по умолчанию.
+     *
+     * @return int Значение.
+     *
+     * @throws GameInvalidException Если значение не целое.
+     */
+    private function rowInt(array $row, string $key, ?int $default = null): int
+    {
+        $value = $row[$key] ?? $default;
+        if (!is_int($value)) {
+            throw new GameInvalidException('Game wide strike target row is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Необязательное целое поле строки.
+     *
+     * @param array<string, mixed> $row Строка.
+     * @param string $key Поле.
+     *
+     * @return int|null Значение.
+     *
+     * @throws GameInvalidException Если значение задано и не целое.
+     */
+    private function optionalInt(array $row, string $key): ?int
+    {
+        $value = $row[$key] ?? null;
+        if ($value !== null && !is_int($value)) {
+            throw new GameInvalidException('Game wide strike target row is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Необязательное строковое поле строки.
+     *
+     * @param array<string, mixed> $row Строка.
+     * @param string $key Поле.
+     *
+     * @return string|null Значение.
+     *
+     * @throws GameInvalidException Если значение задано и не строка.
+     */
+    private function optionalString(array $row, string $key): ?string
+    {
+        $value = $row[$key] ?? null;
+        if ($value !== null && !is_string($value)) {
+            throw new GameInvalidException('Game wide strike target row is invalid');
+        }
+
+        return $value;
     }
 
     /**
@@ -324,6 +426,8 @@ final class GameStrikeCloseRows
      * @param string $kind Вид.
      *
      * @return void
+     *
+     * @throws GameInvalidException Если вид не character и не npc.
      */
     private function assertKind(string $kind): void
     {

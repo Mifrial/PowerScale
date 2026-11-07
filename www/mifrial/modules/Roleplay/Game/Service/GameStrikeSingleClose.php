@@ -163,7 +163,7 @@ final class GameStrikeSingleClose
             'conditions' => GameStrikeTargetRow::conditions($row),
         ]);
         $packets = $sequential ? 1 : max(1, count($strikes));
-        $target = $this->rows->defender($row);
+        $target = $this->rows->rowTarget($row);
         $targetKey = $this->rows->targetKey($target);
         $attackerKind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;

@@ -247,7 +247,7 @@ final class GameStrikeWideClose
 
             $prepared[$rowId] = $this->targets->prepare(
                 $game,
-                $this->rows->targetOpen($open, $this->rows->defender($row)),
+                $this->rows->targetOpen($open, $this->rows->rowTarget($row)),
                 $row,
                 $choices[$index],
                 $hitCode,
@@ -262,7 +262,7 @@ final class GameStrikeWideClose
                 continue;
             }
 
-            $primaryKey = $this->rows->targetKey($this->rows->defender($row));
+            $primaryKey = $this->rows->targetKey($this->rows->rowTarget($row));
             $winner = is_array($cover['winner'] ?? null) ? $cover['winner'] : null;
             $winnerKey = $winner === null ? null : $this->rows->targetKey($winner['actor']);
             $covers[$rowId] = $this->cover->info($cover['candidates'], $primaryKey, $winnerKey);
@@ -277,7 +277,7 @@ final class GameStrikeWideClose
             $pauses[$rowId] = [
                 'candidates' => $cover['candidates'],
                 'primaryKey' => $primaryKey,
-                'target' => $this->rows->defender($row),
+                'target' => $this->rows->rowTarget($row),
                 'choice' => $choices[$index],
                 'prepared' => $prepared[$rowId],
             ];
@@ -745,7 +745,7 @@ final class GameStrikeWideClose
     ): array {
         $refusals = [];
         foreach ($rows as $index => $row) {
-            $target = $this->rows->defender($row);
+            $target = $this->rows->rowTarget($row);
             $refusals[$index] = $this->assertTargetSheet(
                 $game,
                 $battleId,
@@ -816,7 +816,7 @@ final class GameStrikeWideClose
                 continue;
             }
 
-            $target = $this->rows->defender($row);
+            $target = $this->rows->rowTarget($row);
             $inventoryId = $choices[$index]['blockItemInventoryId'] ?? null;
             if (!is_int($inventoryId)) {
                 throw new GameInvalidException('Game wide strike block item is invalid');

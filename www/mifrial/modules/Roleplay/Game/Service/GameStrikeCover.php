@@ -78,7 +78,7 @@ final class GameStrikeCover
         int $targetSheetVersion = 0,
         array $marks = [],
     ): array {
-        $target = $this->rows->defender($row);
+        $target = $this->rows->rowTarget($row);
         $targetOpen = $this->rows->targetOpen($open, $target);
         $attacker = $this->attackerOf($open);
         $targetMarks = $choice['reaction'] === 'ignore' || $attacker === null
