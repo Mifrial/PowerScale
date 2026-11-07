@@ -90,7 +90,7 @@ onMounted(async () => {
 
 <template>
   <v-container fluid>
-    <Teleport to="#editor-actions">
+    <Teleport to="#editor-actions" defer>
       <v-btn variant="tonal" size="small" @click="cancel">Отмена</v-btn>
       <v-btn
         color="primary"

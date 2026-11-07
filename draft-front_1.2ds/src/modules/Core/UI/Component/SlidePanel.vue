@@ -77,7 +77,7 @@ onUnmounted(() => {
 
 <template>
   <!-- Внутри .v-application: иначе оверлеи Vuetify (v-menu) снаружи VApp ломают patch. -->
-  <Teleport to=".v-application">
+  <Teleport to=".v-application" defer>
     <Transition name="slide">
       <div v-if="open" class="slide-wrapper" @keydown.esc="close">
         <div

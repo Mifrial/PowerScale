@@ -277,7 +277,7 @@ onMounted(() => {
       @update:active-tab="(tab) => (activeTab = tab)"
     >
       <div class="editor-content">
-        <Teleport v-if="actionsReady" :to="props.actionsTarget">
+        <Teleport v-if="actionsReady" :to="props.actionsTarget" defer>
           <div class="d-flex align-center ga-2">
             <v-btn
               variant="outlined"

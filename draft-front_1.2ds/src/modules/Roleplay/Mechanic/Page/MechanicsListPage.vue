@@ -30,7 +30,7 @@ onMounted(load);
 
 <template>
   <v-container>
-    <Teleport to="#editor-actions">
+    <Teleport to="#editor-actions" defer>
       <v-btn v-if="canCreate" variant="tonal" color="primary" size="small" prepend-icon="mdi-plus" @click="goCreate">
         Создать
       </v-btn>

@@ -31,7 +31,7 @@ function onRowAction(payload: { action: string; row: Record<string, unknown> }) 
 
 <template>
   <v-container>
-    <Teleport to="#editor-actions">
+    <Teleport to="#editor-actions" defer>
       <v-btn
         variant="tonal"
         color="primary"

@@ -2173,7 +2173,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Teleport to="#editor-actions">
+  <Teleport to="#editor-actions" defer>
     <v-btn
       v-if="showStartGame"
       variant="tonal"

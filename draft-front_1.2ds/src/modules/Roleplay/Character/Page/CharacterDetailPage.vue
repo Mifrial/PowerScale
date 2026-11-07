@@ -241,7 +241,7 @@ watch(detail, (value) => {
     </div>
 
     <template v-else-if="canView && detail">
-      <Teleport to="#editor-actions">
+      <Teleport to="#editor-actions" defer>
         <v-btn
           v-if="canEdit"
           variant="tonal"

@@ -123,7 +123,7 @@ onMounted(loadUser);
 <template>
   <v-container fluid>
     <div v-if="user">
-      <Teleport to="#editor-actions">
+      <Teleport to="#editor-actions" defer>
         <v-btn
           v-if="canEdit"
           variant="tonal"

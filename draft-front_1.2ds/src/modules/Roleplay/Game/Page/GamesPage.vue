@@ -45,7 +45,7 @@ onMounted(() => store.fetchGames(signal.value));
 
 <template>
   <v-container>
-    <Teleport to="#editor-actions">
+    <Teleport to="#editor-actions" defer>
       <v-btn
         v-if="canCreate"
         variant="tonal"

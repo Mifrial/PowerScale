@@ -236,7 +236,7 @@ function discardRule() {
 <template>
   <div v-if="space" class="space-detail-page">
     <v-container>
-      <Teleport to="#editor-actions">
+      <Teleport to="#editor-actions" defer>
         <v-btn
           variant="tonal"
           size="small"

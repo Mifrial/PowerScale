@@ -161,7 +161,7 @@ function onPublishError(message: string): void {
 
 <template>
   <v-container>
-    <Teleport to="#editor-actions">
+    <Teleport to="#editor-actions" defer>
       <v-btn v-if="canManageCatalog && !isDraftContext" variant="tonal" size="small" @click="goToDraft">
         К черновику
       </v-btn>
