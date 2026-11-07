@@ -103,7 +103,7 @@ final class GameBattleOrder
      */
     private function rolled(int $spaceId, int $rulesRevision, array $participants): array
     {
-        $ruleCode = $this->roll->findInitiativeCode($spaceId, $rulesRevision);
+        $ruleCode = $this->roll->specs->findInitiativeCode($spaceId, $rulesRevision);
         $rows = [];
         foreach ($participants as $participant) {
             $thrown = $this->roll->throwCheck(
@@ -141,8 +141,8 @@ final class GameBattleOrder
     {
         $parsed = $this->rolls->parse($rolls);
         $this->roster->assertSame($participants, $parsed);
-        $check = $this->roll->initiativeCheck($spaceId, $rulesRevision);
-        $ruleCode = $this->roll->findInitiativeCode($spaceId, $rulesRevision);
+        $check = $this->roll->specs->initiativeCheck($spaceId, $rulesRevision);
+        $ruleCode = $this->roll->specs->findInitiativeCode($spaceId, $rulesRevision);
         $byKey = [];
         foreach ($parsed as $item) {
             $byKey[$this->key($item['type'], $item['id'])] = $item;
@@ -353,7 +353,7 @@ final class GameBattleOrder
     private function sheet(array $participant): array
     {
         if ($participant['type'] === 'character') {
-            return $this->roll->characterSheet($participant['id'])['sheet'];
+            return $this->roll->specs->characterSheet($participant['id'])['sheet'];
         }
 
         $sheet = $this->npcs->getById($participant['id'])->getVersion()['sheet'] ?? null;
@@ -383,7 +383,7 @@ final class GameBattleOrder
             return $this->npcs->getById($id)->getName();
         }
 
-        return $this->roll->characterName($id);
+        return $this->roll->specs->characterName($id);
     }
 
     /**

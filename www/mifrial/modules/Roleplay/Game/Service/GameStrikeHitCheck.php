@@ -39,7 +39,7 @@ final class GameStrikeHitCheck
      */
     public function findHitCode(int $spaceId, int $rulesRevision): string
     {
-        return $this->hitRoll->findHitCode($spaceId, $rulesRevision);
+        return $this->hitRoll->specs->findHitCode($spaceId, $rulesRevision);
     }
 
     /**

@@ -60,26 +60,13 @@ final class GameCheckPortFactory
 
         return new GameChecks(
             $gateway,
-            $this->games($serviceLocator),
-            $card,
-            $this->processes($serviceLocator),
-            $this->port($serviceLocator, ICharacterContainer::class, ICharacterActualMutations::class, 'ICharacterActualMutations'),
-            new GameCheckRoll(
-                $this->port($serviceLocator, ICharacterContainer::class, ICharacterRuleSlices::class, 'ICharacterRuleSlices'),
-                $characters,
-                $this->port($serviceLocator, IMechanicContainer::class, IMechanics::class, 'IMechanics'),
-                $this->port($serviceLocator, IMechanicContainer::class, IMechanicRolls::class, 'IMechanicRolls'),
-                $this->port($serviceLocator, ICharacterContainer::class, ICharacterFormulaContexts::class, 'ICharacterFormulaContexts'),
-                $this->port($serviceLocator, ICharacterContainer::class, ICharacterSheets::class, 'ICharacterSheets'),
+            new GameCheckScope(
+                $this->games($serviceLocator),
+                $card,
+                $this->processes($serviceLocator),
             ),
-            new GameCheckChat(
-                $this->chats($serviceLocator),
-                $characters,
-                new GameNpcRepository($gateway),
-            ),
-            new GameConcentration(),
-            new GameConcentrationCycle(),
-            new GameDeliverySignal($events),
+            $this->checkRoll($serviceLocator, $characters),
+            $this->checkWrite($serviceLocator, $gateway, $characters, $events),
         );
     }
 
@@ -101,6 +88,61 @@ final class GameCheckPortFactory
 
         return new GameCheckHttp($access, $this->create($serviceLocator));
     }
+
+    /**
+     * Расчёт проверки.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param ICharacters $characters Персонажи.
+     *
+     * @return GameCheckRoll Расчёт.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function checkRoll(IServiceLocator $serviceLocator, ICharacters $characters): GameCheckRoll
+    {
+        return new GameCheckRoll(
+            $this->port($serviceLocator, ICharacterContainer::class, ICharacterRuleSlices::class, 'ICharacterRuleSlices'),
+            $characters,
+            $this->port($serviceLocator, IMechanicContainer::class, IMechanics::class, 'IMechanics'),
+            $this->port($serviceLocator, IMechanicContainer::class, IMechanicRolls::class, 'IMechanicRolls'),
+            $this->port($serviceLocator, ICharacterContainer::class, ICharacterFormulaContexts::class, 'ICharacterFormulaContexts'),
+            $this->port($serviceLocator, ICharacterContainer::class, ICharacterSheets::class, 'ICharacterSheets'),
+        );
+    }
+
+    /**
+     * Запись, чат и доставка проверки.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param ISmartTableGateway $gateway Шлюз.
+     * @param ICharacters $characters Персонажи.
+     * @param IEventManager $events События.
+     *
+     * @return GameCheckWrite Порты записи.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function checkWrite(
+        IServiceLocator $serviceLocator,
+        ISmartTableGateway $gateway,
+        ICharacters $characters,
+        IEventManager $events,
+    ): GameCheckWrite {
+        return new GameCheckWrite(
+            $this->port($serviceLocator, ICharacterContainer::class, ICharacterActualMutations::class, 'ICharacterActualMutations'),
+            new GameCheckChat(
+                $this->chats($serviceLocator),
+                $characters,
+                new GameNpcRepository($gateway),
+            ),
+            new GameConcentration(),
+            new GameConcentrationCycle(),
+            new GameDeliverySignal($events),
+        );
+    }
+
+
 
     /**
      * Шлюз.
