@@ -15,7 +15,6 @@ use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
-use Mifrial\Roleplay\Character\Service\Read\CharacterSectionMask;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGameEconomy;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
@@ -41,35 +40,20 @@ final class GameEconomyPortFactory
     public function create(IServiceLocator $serviceLocator): IGameEconomy
     {
         $gateway = $this->smartTableGateway($serviceLocator);
+        $games = $this->games($serviceLocator);
         $events = $this->events($serviceLocator);
-        GameDeliveryListener::register($events, new GameDelivery(
-            $gateway,
-            $this->games($serviceLocator),
-            new GameCardAccess(
-                new GameRepository($gateway),
-                new GameMemberRepository($gateway),
-                new GameInvitationRepository($gateway),
-            ),
-        ));
+        $cardAccess = $this->cardAccess($gateway);
+        GameDeliveryListener::register($events, new GameDelivery($gateway, $games, $cardAccess));
 
         return new GameEconomy(
-            $gateway,
-            $this->games($serviceLocator),
-            $this->memberships($serviceLocator),
-            new GameMemberRepository($gateway),
-            new GameCardAccess(
-                new GameRepository($gateway),
-                new GameMemberRepository($gateway),
-                new GameInvitationRepository($gateway),
-            ),
-            $this->mutations($serviceLocator),
-            $this->characters($serviceLocator),
-            new ConflictSheetProjection(
-                new CharacterSectionMask(),
-                new GameCharacterProjectionMask(),
-                new GameNpcVisibility(),
-            ),
             $events,
+            new GameEconomyAccess($games, new GameMemberRepository($gateway), $cardAccess),
+            new GameEconomyPorts(
+                $gateway,
+                $this->mutations($serviceLocator),
+                $this->characters($serviceLocator),
+                $this->memberships($serviceLocator),
+            ),
         );
     }
 
@@ -85,6 +69,22 @@ final class GameEconomyPortFactory
     public function createHttp(IServiceLocator $serviceLocator): GameEconomyHttp
     {
         return new GameEconomyHttp($this->userAccess($serviceLocator), $this->create($serviceLocator));
+    }
+
+    /**
+     * Видимость карточки.
+     *
+     * @param ISmartTableGateway $gateway Шлюз таблиц.
+     *
+     * @return GameCardAccess Фильтр.
+     */
+    private function cardAccess(ISmartTableGateway $gateway): GameCardAccess
+    {
+        return new GameCardAccess(
+            new GameRepository($gateway),
+            new GameMemberRepository($gateway),
+            new GameInvitationRepository($gateway),
+        );
     }
 
     /**
@@ -126,7 +126,7 @@ final class GameEconomyPortFactory
     }
 
     /**
-     * Membership.
+     * Членство в игре.
      *
      * @param IServiceLocator $serviceLocator Каталог.
      *
@@ -183,7 +183,7 @@ final class GameEconomyPortFactory
     }
 
     /**
-     * Актор запроса.
+     * Менеджер событий.
      *
      * @param IServiceLocator $serviceLocator Каталог.
      *
