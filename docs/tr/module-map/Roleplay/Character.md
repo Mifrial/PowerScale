@@ -71,9 +71,10 @@
 | Документ | Тип | Состояние | Дата |
 |---|---|---|---|
 | [character-actual-session-source-plan.md](../../../specs/character-actual-session-source-plan.md) | план | `~ПЛАН~` | — |
-| [character-plan-01.md](../../character-plan-01.md) | план | `~ПЛАН~` | 2026-09-09 |
 | [character-plan-02.md](../../character-plan-02.md) | план | `~ЧАСТИЧНО~` | 2026-09-10 |
 | [character-plan-03.md](../../character-plan-03.md) | план | `~ЧАСТИЧНО~` | 2026-09-10 |
+| [character-roadmap.md](../../character-roadmap.md) | план | `~ЧАСТИЧНО~` | 2026-10-05 |
+| [character-plan-01.md](../../character-plan-01.md) | план | `~СДЕЛАНО~` | 2026-09-09 |
 | [character-plan-04.md](../../character-plan-04.md) | план | `~СДЕЛАНО~` | — |
 | [character-plan-05.md](../../character-plan-05.md) | план | `~СДЕЛАНО~` | — |
 | [character-plan-06.md](../../character-plan-06.md) | план | `~СДЕЛАНО~` | — |
@@ -83,7 +84,6 @@
 | [character-plan-10.md](../../character-plan-10.md) | план | `~СДЕЛАНО~` | — |
 | [character-plan-11.md](../../character-plan-11.md) | план | `~СДЕЛАНО~` | 2026-10-28 |
 | [character-plan-12.md](../../character-plan-12.md) | план | `~СДЕЛАНО~` | 2026-10-07 |
-| [character-roadmap.md](../../character-roadmap.md) | план | `~СДЕЛАНО~` | 2026-10-05 |
 | [character-actual-session-source-roadmap.md](../../../specs/character-actual-session-source-roadmap.md) | план | ? | 2026-09-28 |
 | [character-system.md](../../character-system.md) | канон | ? | 2026-08-30 |
 

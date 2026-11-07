@@ -1,6 +1,6 @@
 # План User 3 — HTTP учётки и актор запроса
 
-**Статус:** сделано, 2026-09-03. Канон учётки — [`user.md`](user.md). UI — [`auth-system.md`](auth-system.md). Нарезка — [`user-roadmap.md`](user-roadmap.md). Сессия — [`auth-plan-01-session.md`](auth-plan-01-session.md). Конвейер — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Список HTTP — [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md): `user.findPage`, не `user.getList`.
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-03. Канон учётки — [`user.md`](user.md). UI — [`auth-system.md`](auth-system.md). Нарезка — [`user-roadmap.md`](user-roadmap.md). Сессия — [`auth-plan-01-session.md`](auth-plan-01-session.md). Конвейер — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Список HTTP — [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md): `user.findPage`, не `user.getList`.
 
 Цель: фронтовый `IUserApi` ходит в боевые `user.*`. Guards смотрят **актора сессии**, не mock. User **по-прежнему не импортирует Auth**. Пароль на создании учётки пишет Auth. Не `user_group.*`, не object-ACL, не смена пароля профиля, не Vue.
 

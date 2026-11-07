@@ -1,6 +1,6 @@
 # План Character 3 — контекст ревизии (C2)
 
-**Статус:** PHP сделан, 2026-09-10. `BACKEND_OPEN`. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт save — [`character-plan-01.md`](character-plan-01.md). Каркас persist — [`character-plan-02.md`](character-plan-02.md) (**`ICharacters` не менялся**). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Границы — [`architecture.md`](architecture.md).
+**Статус:** ~ЧАСТИЧНО~ — PHP сделан, 2026-09-10. `BACKEND_OPEN`. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт save — [`character-plan-01.md`](character-plan-01.md). Каркас persist — [`character-plan-02.md`](character-plan-02.md) (**`ICharacters` не менялся**). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Границы — [`architecture.md`](architecture.md).
 
 Цель: один загрузчик **`(spaceId, revision)`** для C4/C5. Character ходит в **`IRuleSpaces`**, не в `IRules` и не в Versioning. Снимок правил индексируется по `code`; признаки — **коды**, не PHP-ids. Tombstone не живое правило. Спеки не парсить и не замораживать.
 

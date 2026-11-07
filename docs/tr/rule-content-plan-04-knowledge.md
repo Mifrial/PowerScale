@@ -1,6 +1,6 @@
 # C1/C2 — план: система знаний
 
-**Статус:** `READY`, 2026-09-13. Срез 5.1 — каталог и лист. Game 5.2 — [`rule-content-plan-05-knowledge-game.md`](rule-content-plan-05-knowledge-game.md). Game ран 5.3 — [`rule-content-plan-06-wounds.md`](rule-content-plan-06-wounds.md).  
+**Статус:** ~ПЛАН~ — `READY`, 2026-09-13. Срез 5.1 — каталог и лист. Game 5.2 — [`rule-content-plan-05-knowledge-game.md`](rule-content-plan-05-knowledge-game.md). Game ран 5.3 — [`rule-content-plan-06-wounds.md`](rule-content-plan-06-wounds.md).
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).  
 **Карточки-шаблоны знания:** `znanie-zakonov`, `znanie-o-zhivotnykh`, `znanie-o-rasteniyakh`, `znanie-o-istorii`, `znanie-bolezney`, **`fiziologiya`**.  

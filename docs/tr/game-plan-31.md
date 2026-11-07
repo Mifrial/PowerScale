@@ -1,6 +1,6 @@
 # План Game 31 — wounds
 
-**Статус:** `APPROVED` для backend принятого scope Game 31, 2026-10-12.
+**Статус:** ~СДЕЛАНО~ — принятый backend scope Game 31, 2026-10-12.
 Приняты экземпляры ран внутри уже принятого close `1 → 1` и `1 → N`:
 уникальный `id` строки `sheet.states`, sidecar, `heldBy`, команды
 `game.woundAction`, `next_action_cost`, карта `pending_action_effects` на

@@ -1,6 +1,6 @@
 # План Mechanic 1 — каркас справочника для Rule
 
-**Статус:** каркас PHP сделан, 2026-09-05. HTTP справочника — [`mechanic-plan-02.md`](mechanic-plan-02.md). **Не закрывает модуль** (нет Engine). Нарезка — [`rule-roadmap.md`](rule-roadmap.md). Канон — [`rule-system.md`](rule-system.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-09-05. HTTP справочника — [`mechanic-plan-02.md`](mechanic-plan-02.md). **Не закрывает модуль** (нет Engine). Нарезка — [`rule-roadmap.md`](rule-roadmap.md). Канон — [`rule-system.md`](rule-system.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель захода: ленивый **`Roleplay/Mechanic`** как **каркас под `Reference` у Rule** — строка справочника, без которой нет `mechanic_id`. Это не полноценный модуль механик.
 

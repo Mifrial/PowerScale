@@ -1,6 +1,6 @@
 # План Character 6 — authoritative create/update (C5)
 
-**Статус:** PHP сделан. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт входа — [`character-plan-01.md`](character-plan-01.md). Хранение — [`character-plan-02.md`](character-plan-02.md). Срез — [`character-plan-03.md`](character-plan-03.md). Валидатор — [`character-plan-05.md`](character-plan-05.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — PHP сделан. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт входа — [`character-plan-01.md`](character-plan-01.md). Хранение — [`character-plan-02.md`](character-plan-02.md). Срез — [`character-plan-03.md`](character-plan-03.md). Валидатор — [`character-plan-05.md`](character-plan-05.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: HTTP `character.create`, `character.update`, `character.validate` пишут actual только после того же `ICharacterSheets::validate`. Пустые `problems` — лист сервера и `actual_version`. Иначе записи нет.
 

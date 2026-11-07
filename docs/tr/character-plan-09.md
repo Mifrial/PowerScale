@@ -1,6 +1,6 @@
 # План Character 9 — контекст формулы (C10)
 
-**Статус:** PHP сделан. Нарезка — [`character-roadmap.md`](character-roadmap.md) шаг C10. Форма контекста — [`rule-plan-03.md`](rule-plan-03.md), класс `FormulaContext`. Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Лист — [`character-plan-06.md`](character-plan-06.md).
+**Статус:** ~СДЕЛАНО~ — PHP сделан. Нарезка — [`character-roadmap.md`](character-roadmap.md) шаг C10. Форма контекста — [`rule-plan-03.md`](rule-plan-03.md), класс `FormulaContext`. Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Лист — [`character-plan-06.md`](character-plan-06.md).
 
 Цель: порт `Roleplay/Character` из уже записанного листа собирает `FormulaContext`. Обход `IFormulaEvaluations` не вызывается. G20 не начинается. Код Game и Rule не меняется. HTTP нет. Удар, проверка и урон не считаются.
 

@@ -1,6 +1,6 @@
 # План Game 9 — летопись
 
-**Статус:** летопись в PHP сделана, 2026-10-04. `BACKEND_OPEN`. Suite `game` по `GameChronicleMysqlTest` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G9. Строка игры — [`game-plan-01.md`](game-plan-01.md): летописи на ней нет. Границы — [`game-system.md`](game-system.md) (GameTime и летопись; persistence и права `OPEN`), индекс [`TR.md`](TR.md), [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — летопись в PHP сделана, 2026-10-04. `BACKEND_OPEN`. Suite `game` по `GameChronicleMysqlTest` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G9. Строка игры — [`game-plan-01.md`](game-plan-01.md): летописи на ней нет. Границы — [`game-system.md`](game-system.md) (GameTime и летопись; persistence и права `OPEN`), индекс [`TR.md`](TR.md), [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: один заход, который G1 не хранил. У игры появляется список записей со структурным `GameTime`. Порядок списка — смещение от эпохи в минутах, не `created_at` и не ручной `sort_order`. Создание записи не пишет лист, сессию и бой.
 

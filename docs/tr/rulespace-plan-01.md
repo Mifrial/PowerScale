@@ -1,6 +1,6 @@
 # План RuleSpace 1 — оператор миров правил
 
-**Статус:** каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md). Канон — [`rule-system.md`](rule-system.md). Кластер — [`rule-plan-01.md`](rule-plan-01.md). Часы — [`versioning-plan-01.md`](versioning-plan-01.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-080`. Наследование состава — snapshot-copy (`rule-system`, не путать с `DEC-002` про ресурс).
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md). Канон — [`rule-system.md`](rule-system.md). Кластер — [`rule-plan-01.md`](rule-plan-01.md). Часы — [`versioning-plan-01.md`](versioning-plan-01.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-080`. Наследование состава — snapshot-copy (`rule-system`, не путать с `DEC-002` про ресурс).
 
 Цель: ленивый **`Roleplay/RuleSpace`**. Продуктовая мета пространства (`code`, имя, описание, active) **поверх** `id` часов `rule_space`, не колонки универсального `{t}_space`. Состав и COW — только `IRules`. Без HTTP, Vue, прав User, секций каталога, файла ревизии.
 

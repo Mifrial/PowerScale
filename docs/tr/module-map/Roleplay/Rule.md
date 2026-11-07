@@ -47,29 +47,29 @@
 | [rule-content-plan-09-melee-speed.md](../../rule-content-plan-09-melee-speed.md) | план | `~ПЛАН~` | 2026-09-16 |
 | [rule-content-plan-11-melee-accuracy.md](../../rule-content-plan-11-melee-accuracy.md) | план | `~ПЛАН~` | 2026-09-20 |
 | [rule-content-plan-12-dodge-benefit.md](../../rule-content-plan-12-dodge-benefit.md) | план | `~ПЛАН~` | 2026-09-19 |
-| [rule-content-plan-13-melee-quantity.md](../../rule-content-plan-13-melee-quantity.md) | план | `~ПЛАН~` | 2026-09-20 |
-| [rule-content-plan-14-future-ability-ideas.md](../../rule-content-plan-14-future-ability-ideas.md) | план | `~ПЛАН~` | — |
-| [rule-roadmap.md](../../rule-roadmap.md) | план | `~ПЛАН~` | 2026-10-05 |
 | [spell-review-01.md](../../spell-review-01.md) | канон | `~ПЛАН~` | 2026-09-07 |
-| [spell-roadmap.md](../../spell-roadmap.md) | план | `~ПЛАН~` | 2026-09-07 |
 | [rule-content-plan-07-languages.md](../../rule-content-plan-07-languages.md) | план | `~В РАБОТЕ~` | 2026-09-15 |
 | [rule-content-plan-10-melee-power.md](../../rule-content-plan-10-melee-power.md) | план | `~В РАБОТЕ~` | 2026-10-25 |
 | [rule-content-plan-15-melee-tactics-design.md](../../rule-content-plan-15-melee-tactics-design.md) | план | `~В РАБОТЕ~` | — |
 | [rule-content-plan-16-melee-tactics.md](../../rule-content-plan-16-melee-tactics.md) | план | `~В РАБОТЕ~` | — |
 | [rule-content-roadmap.md](../../rule-content-roadmap.md) | план | `~В РАБОТЕ~` | 2026-09-16 |
-| [rule-plan-05.md](../../rule-plan-05.md) | план | `~В РАБОТЕ~` | 2026-10-05 |
 | [spell-inventory-01.md](../../spell-inventory-01.md) | канон | `~В РАБОТЕ~` | 2026-09-07 |
 | [spell-plan-02-slice.md](../../spell-plan-02-slice.md) | план | `~В РАБОТЕ~` | 2026-09-07 |
 | [rule-content-plan-02-concentration.md](../../rule-content-plan-02-concentration.md) | план | `~ЧАСТИЧНО~` | 2026-09-13 |
+| [rule-content-plan-13-melee-quantity.md](../../rule-content-plan-13-melee-quantity.md) | план | `~ЧАСТИЧНО~` | 2026-09-20 |
 | [rule-plan-01.md](../../rule-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-09-05 |
 | [rule-plan-03.md](../../rule-plan-03.md) | план | `~ЧАСТИЧНО~` | 2026-10-05 |
 | [rule-plan-04.md](../../rule-plan-04.md) | план | `~ЧАСТИЧНО~` | 2026-10-05 |
-| [rule-plan-07.md](../../rule-plan-07.md) | план | `~ОТМЕНЁН~` | 2026-10-06 |
+| [rule-roadmap.md](../../rule-roadmap.md) | план | `~ЧАСТИЧНО~` | 2026-10-05 |
+| [spell-roadmap.md](../../spell-roadmap.md) | план | `~ЧАСТИЧНО~` | 2026-09-07 |
 | [rule-content-plan-03-senses.md](../../rule-content-plan-03-senses.md) | план | `~ОТЛОЖЕН~` | — |
+| [rule-content-plan-14-future-ability-ideas.md](../../rule-content-plan-14-future-ability-ideas.md) | план | `~ОТЛОЖЕН~` | — |
+| [rule-plan-07.md](../../rule-plan-07.md) | план | `~ОТЛОЖЕН~` | 2026-10-06 |
 | [rule-content-plan-01-editorial.md](../../rule-content-plan-01-editorial.md) | план | `~СДЕЛАНО~` | — |
 | [rule-content-plan-05-knowledge-game.md](../../rule-content-plan-05-knowledge-game.md) | план | `~СДЕЛАНО~` | 2026-09-13 |
 | [rule-content-plan-06-wounds.md](../../rule-content-plan-06-wounds.md) | план | `~СДЕЛАНО~` | 2026-09-13 |
 | [rule-plan-02-init-surface.md](../../rule-plan-02-init-surface.md) | план | `~СДЕЛАНО~` | 2026-09-07 |
+| [rule-plan-05.md](../../rule-plan-05.md) | план | `~СДЕЛАНО~` | 2026-10-05 |
 | [rule-plan-06.md](../../rule-plan-06.md) | план | `~СДЕЛАНО~` | 2026-10-06 |
 | [rule-plan-08.md](../../rule-plan-08.md) | план | `~СДЕЛАНО~` | 2026-10-06 |
 | [rule-plan-09.md](../../rule-plan-09.md) | план | `~СДЕЛАНО~` | 2026-10-06 |

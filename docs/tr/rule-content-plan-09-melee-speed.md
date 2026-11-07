@@ -1,6 +1,6 @@
 # C2 — аудит ветки ближнего боя «Скорость»
 
-**Статус:** `READY` (первая пачка), 2026-09-16.  
+**Статус:** ~ПЛАН~ — `READY` (первая пачка), 2026-09-16.
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).  
 **Предыдущие срезы:** [`rule-content-plan-08-strike-upgrades.md`](rule-content-plan-08-strike-upgrades.md).

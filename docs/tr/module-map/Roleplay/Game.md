@@ -189,18 +189,9 @@
 
 | Документ | Тип | Состояние | Дата |
 |---|---|---|---|
-| [game-plan-29.md](../../game-plan-29.md) | план | `~ПЛАН~` | 2026-10-11 |
-| [game-plan-30.md](../../game-plan-30.md) | план | `~ПЛАН~` | 2026-10-11 |
-| [game-plan-31.md](../../game-plan-31.md) | план | `~ПЛАН~` | 2026-10-12 |
-| [game-plan-32.md](../../game-plan-32.md) | план | `~ПЛАН~` | 2026-10-12 |
-| [game-plan-34.md](../../game-plan-34.md) | план | `~ПЛАН~` | 2026-10-16 |
-| [game-plan-35.md](../../game-plan-35.md) | план | `~ПЛАН~` | 2026-10-16 |
-| [game-roadmap.md](../../game-roadmap.md) | план | `~ПЛАН~` | 2026-10-05 |
+| [game-roadmap.md](../../game-roadmap.md) | план | `~В РАБОТЕ~` | 2026-10-05 |
 | [game-plan-01.md](../../game-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
-| [game-plan-13.md](../../game-plan-13.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
 | [game-plan-43-processes.md](../../game-plan-43-processes.md) | план | `~ЧАСТИЧНО~` | — |
-| [game-plan-16.md](../../game-plan-16.md) | план | `~ОТМЕНЁН~` | 2026-10-04 |
-| [game-plan-17.md](../../game-plan-17.md) | план | `~ОТМЕНЁН~` | 2026-10-04 |
 | [game-plan-19.md](../../game-plan-19.md) | план | `~ОТМЕНЁН~` | — |
 | [game-plan-02.md](../../game-plan-02.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
 | [game-plan-03.md](../../game-plan-03.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
@@ -213,8 +204,11 @@
 | [game-plan-10.md](../../game-plan-10.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
 | [game-plan-11.md](../../game-plan-11.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
 | [game-plan-12.md](../../game-plan-12.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
+| [game-plan-13.md](../../game-plan-13.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
 | [game-plan-14.md](../../game-plan-14.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
 | [game-plan-15.md](../../game-plan-15.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
+| [game-plan-16.md](../../game-plan-16.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
+| [game-plan-17.md](../../game-plan-17.md) | план | `~СДЕЛАНО~` | 2026-10-04 |
 | [game-plan-18.md](../../game-plan-18.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-20.md](../../game-plan-20.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-21.md](../../game-plan-21.md) | план | `~СДЕЛАНО~` | — |
@@ -225,7 +219,13 @@
 | [game-plan-26.md](../../game-plan-26.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-27.md](../../game-plan-27.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-28.md](../../game-plan-28.md) | план | `~СДЕЛАНО~` | 2026-10-11 |
+| [game-plan-29.md](../../game-plan-29.md) | план | `~СДЕЛАНО~` | 2026-10-11 |
+| [game-plan-30.md](../../game-plan-30.md) | план | `~СДЕЛАНО~` | 2026-10-11 |
+| [game-plan-31.md](../../game-plan-31.md) | план | `~СДЕЛАНО~` | 2026-10-12 |
+| [game-plan-32.md](../../game-plan-32.md) | план | `~СДЕЛАНО~` | 2026-10-12 |
 | [game-plan-33.md](../../game-plan-33.md) | план | `~СДЕЛАНО~` | 2026-10-28 |
+| [game-plan-34.md](../../game-plan-34.md) | план | `~СДЕЛАНО~` | 2026-10-16 |
+| [game-plan-35.md](../../game-plan-35.md) | план | `~СДЕЛАНО~` | 2026-10-16 |
 | [game-plan-36-strike-owner-actions.md](../../game-plan-36-strike-owner-actions.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-37-wide-strike-owner-actions.md](../../game-plan-37-wide-strike-owner-actions.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-38-action-states.md](../../game-plan-38-action-states.md) | план | `~СДЕЛАНО~` | — |
@@ -235,6 +235,6 @@
 | [game-plan-42-push-check.md](../../game-plan-42-push-check.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-44-checks-real.md](../../game-plan-44-checks-real.md) | план | `~СДЕЛАНО~` | — |
 | [game-plan-45-strike-phases.md](../../game-plan-45-strike-phases.md) | план | `~СДЕЛАНО~` | 2026-11-06 |
-| [game-system.md](../../game-system.md) | канон | `~СДЕЛАНО~` | 2026-08-30 |
-| [game-combat-readiness.md](../../game-combat-readiness.md) | канон | ? | 2026-11-02 |
+| [game-combat-readiness.md](../../game-combat-readiness.md) | канон | `~СНИМОК~` | 2026-11-02 |
+| [game-system.md](../../game-system.md) | канон | ? | 2026-08-30 |
 

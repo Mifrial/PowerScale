@@ -1,6 +1,6 @@
 # План Cache 1 — драйвер Core/Cache
 
-**Статус:** план, 2026-09-05. Конвейер — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Сейчас store живёт в `SmartTable/Service/Cache`. Потребители: ST (`TableCache`), Versioning ([`versioning-plan-01.md`](versioning-plan-01.md)). `DEC-081`.
+**Статус:** ~СДЕЛАНО~ — план, 2026-09-05. Конвейер — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Сейчас store живёт в `SmartTable/Service/Cache`. Потребители: ST (`TableCache`), Versioning ([`versioning-plan-01.md`](versioning-plan-01.md)). `DEC-081`.
 
 Цель: один драйвер redis/file из `local.php`. Политики сверху разные: ST — теги стола и сброс после записи; Space — ключ среза и TTL **месяц**, не «навсегда».
 

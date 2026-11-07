@@ -1,6 +1,6 @@
 # План Rule — боевые слои
 
-**Статус:** стоп, 2026-10-06. Шаг 16 в [`rule-roadmap.md`](rule-roadmap.md).
+**Статус:** ~ОТЛОЖЕН~ — стоп, 2026-10-06. Шаг 16 в [`rule-roadmap.md`](rule-roadmap.md).
 [`rule-plan-01.md`](rule-plan-01.md) … [`rule-plan-06.md`](rule-plan-06.md) не
 переписываются. Канон — [`rule-system.md`](rule-system.md).
 `game-plan-28` частично закрыт в Game; `GameStrikeRules` не менялся в рамках

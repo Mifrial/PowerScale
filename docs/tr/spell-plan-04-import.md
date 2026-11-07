@@ -1,6 +1,6 @@
 # План M4 — mock catalog и revision fixture среза магии
 
-**Статус:** DONE, 2026-09-08. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Канон среза — [`spell-plan-02-slice.md`](spell-plan-02-slice.md). Контракт DTO — [`spell-plan-03-contract.md`](spell-plan-03-contract.md). Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
+**Статус:** ~СДЕЛАНО~ — DONE, 2026-09-08. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Канон среза — [`spell-plan-02-slice.md`](spell-plan-02-slice.md). Контракт DTO — [`spell-plan-03-contract.md`](spell-plan-03-contract.md). Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
 
 ## Цель
 

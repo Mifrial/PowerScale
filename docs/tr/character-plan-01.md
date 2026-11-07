@@ -1,6 +1,6 @@
 # План Character 1 — серверный контракт
 
-**Статус:** план, 2026-09-09. Нарезка — [`character-roadmap.md`](character-roadmap.md). Канон — [`character-system.md`](character-system.md). DAG — [`architecture.md`](architecture.md). Binding — [`mechanic-plan-03.md`](mechanic-plan-03.md). PHP Engine — OPEN в [`rule-roadmap.md`](rule-roadmap.md).
+**Статус:** ~СДЕЛАНО~ — план, 2026-09-09. Нарезка — [`character-roadmap.md`](character-roadmap.md). Канон — [`character-system.md`](character-system.md). DAG — [`architecture.md`](architecture.md). Binding — [`mechanic-plan-03.md`](mechanic-plan-03.md). PHP Engine — OPEN в [`rule-roadmap.md`](rule-roadmap.md).
 
 Цель: согласовать контракт до модуля на диске. CRUD и DDL нет.
 

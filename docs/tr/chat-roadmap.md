@@ -1,6 +1,6 @@
 # Нарезка Messages/Chat
 
-**Статус:** план, 2026-10-04. Шаги 1–7 сделаны. Канон UI/DTO — [`chat-system.md`](chat-system.md). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). User/Auth закрыты.
+**Статус:** ~СДЕЛАНО~ — план, 2026-10-04. Шаги 1–7 сделаны. Канон UI/DTO — [`chat-system.md`](chat-system.md). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). User/Auth закрыты.
 
 Порядок сверху вниз. PHP-модуль **`Messages/Chat`** (ленивый, не `Core/*`). Хост: не Roleplay, не Auth `Service/`, публично User.
 

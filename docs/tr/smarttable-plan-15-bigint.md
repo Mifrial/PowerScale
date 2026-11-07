@@ -1,6 +1,6 @@
 # План 15 — ширина INT/BIGINT и `onDelete: cascade`
 
-**Статус:** сделано, 2026-09-02. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Поля — [`smarttable-plan-02-fields.md`](smarttable-plan-02-fields.md). Reference — [`smarttable-plan-05-reference.md`](smarttable-plan-05-reference.md). Auth 1 — [`auth-plan-01-session.md`](auth-plan-01-session.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-02. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Поля — [`smarttable-plan-02-fields.md`](smarttable-plan-02-fields.md). Reference — [`smarttable-plan-05-reference.md`](smarttable-plan-05-reference.md). Auth 1 — [`auth-plan-01-session.md`](auth-plan-01-session.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: PHP-карта может объявить широкий системный `id` и широкую целую колонку; словарь — `type: bigint` на поле данных; `reference` умеет `onDelete: cascade` (в т.ч. required). Не отдельные классы `BigIntField` / `BigIdField`. Не ширина ссылки руками. Не флаг таблицы «широкий PK» из UI (план 12).
 

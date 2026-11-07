@@ -1,6 +1,6 @@
 # Нарезка Versioning/Space
 
-**Статус:** план, 2026-09-05. Конвейер — [`architecture.md`](architecture.md). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). SmartTable Basic закрыт; **VersionedSmartTable в ST нет** — [`smarttable.md`](smarttable.md). Домен правил — [`rule-system.md`](rule-system.md), нарезка продукта — [`rule-roadmap.md`](rule-roadmap.md). `DEC-080`.
+**Статус:** ~СДЕЛАНО~ — план, 2026-09-05. Конвейер — [`architecture.md`](architecture.md). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). SmartTable Basic закрыт; **VersionedSmartTable в ST нет** — [`smarttable.md`](smarttable.md). Домен правил — [`rule-system.md`](rule-system.md), нарезка продукта — [`rule-roadmap.md`](rule-roadmap.md). `DEC-080`.
 
 Порядок сверху вниз. PHP-модуль **`Versioning/Space`** (ленивый, не `Core/*`). Не Roleplay, не SQL: только Basic ST.
 

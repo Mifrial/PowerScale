@@ -1,6 +1,6 @@
 # План RuleSpace 2 — мета мира и лента ревизий
 
-**Статус:** каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **5**. Каркас мира — [`rulespace-plan-01.md`](rulespace-plan-01.md). Кластер — [`rule-plan-01.md`](rule-plan-01.md). Часы — [`versioning-plan-01.md`](versioning-plan-01.md). Канон — [`rule-system.md`](rule-system.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-079`, `DEC-080`.
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **5**. Каркас мира — [`rulespace-plan-01.md`](rulespace-plan-01.md). Кластер — [`rule-plan-01.md`](rule-plan-01.md). Часы — [`versioning-plan-01.md`](versioning-plan-01.md). Канон — [`rule-system.md`](rule-system.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-079`, `DEC-080`.
 
 Цель: дописать оператор **`IRuleSpaces`**: правка имени/описания, выключение мира (`active=false`), список ревизий с `publishedAt` и `ruleCount`. Без HTTP, Vue, прав User, секций, выборочного commit, файла ревизии, смены `code`.
 

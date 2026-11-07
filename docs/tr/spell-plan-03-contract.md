@@ -1,6 +1,6 @@
 # План M3 — контракт SpellSpec / Ability
 
-**Статус:** сделано, 2026-09-08. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Канон среза — [`spell-plan-02-slice.md`](spell-plan-02-slice.md) (E1–E4, не E5–E8 runtime). Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-08. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Канон среза — [`spell-plan-02-slice.md`](spell-plan-02-slice.md) (E1–E4, не E5–E8 runtime). Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
 
 ## Цель
 

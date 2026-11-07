@@ -1,6 +1,6 @@
 # План реализации магии 04 — мастерство Арканиста
 
-**Статус:** `READY`, 2026-09-26.
+**Статус:** ~ПЛАН~ — `READY`, 2026-09-26.
 **Дизайн:** [`magic-content-design-03-arcanist-mastery.md`](magic-content-design-03-arcanist-mastery.md).
 **Состав:** `magic-structure-construction`,
 `magic-structure-interaction`.

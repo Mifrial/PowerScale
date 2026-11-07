@@ -1,6 +1,6 @@
 # План 10 — ворота Basic
 
-**Статус:** сделано, 2026-09-02. Канон — [`smarttable.md`](smarttable.md) целиком, кроме § Versioned (только контракт). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 10. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-02. Канон — [`smarttable.md`](smarttable.md) целиком, кроме § Versioned (только контракт). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 10. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: закрыть Basic. **Новых фич нет.** Сверка канона с кодом и тестами; дыры канона чинить точечно; запрещённое (Versioned, UI, fluent `query()`, журнал наката) в дереве не появляется. После ворот прикладные модули открывают таблицы через порты SmartTable.
 

@@ -1,6 +1,6 @@
 # План User 8 — memberCount через aggregate
 
-**Статус:** сделано, 2026-09-05. Хвост User 4 после [`smarttable-plan-17-aggregate.md`](smarttable-plan-17-aggregate.md). HTTP — [`user-plan-04-groups-http.md`](user-plan-04-groups-http.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Chat 5 этот метод **не** трогал.
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-05. Хвост User 4 после [`smarttable-plan-17-aggregate.md`](smarttable-plan-17-aggregate.md). HTTP — [`user-plan-04-groups-http.md`](user-plan-04-groups-http.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Chat 5 этот метод **не** трогал.
 
 Цель: `memberCount` без `getList` страницами по 500 и инкремента в PHP. JSON Group и `IUserGroups` не менять.
 

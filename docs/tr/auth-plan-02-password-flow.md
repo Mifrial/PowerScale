@@ -1,6 +1,6 @@
 # План Auth 2 — политика пароля, remember, сброс и смена
 
-**Статус:** сделано, 2026-09-03. Предыдущий заход — [`auth-plan-01-session.md`](auth-plan-01-session.md) (**сделано**). Канон UI — [`auth-system.md`](auth-system.md). Нарезка User — [`user-roadmap.md`](user-roadmap.md). Контракт User JSON — [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md) (**сделано**). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md). Плагины User — [`architecture.md`](architecture.md) (User — хост профиля/админки).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-03. Предыдущий заход — [`auth-plan-01-session.md`](auth-plan-01-session.md) (**сделано**). Канон UI — [`auth-system.md`](auth-system.md). Нарезка User — [`user-roadmap.md`](user-roadmap.md). Контракт User JSON — [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md) (**сделано**). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md). Плагины User — [`architecture.md`](architecture.md) (User — хост профиля/админки).
 
 Цель: закрыть хвост входа после Auth 1 — политика пароля из БД, `remember` на фронте, forgot/reset на боевом API, смена пароля на `/users/:id/edit` (Auth вставляет блок через плагин User). Сессия, cookie, login/register/logout/getCurrentUser **не переписываем**, только расширяем.
 

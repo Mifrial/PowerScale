@@ -1,6 +1,6 @@
 # План 7b — runtime-словарь
 
-**Статус:** сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § Назначение (класс и словарь — одно физическое имя). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 7. DDL — [`smarttable-plan-07-force-ddl.md`](smarttable-plan-07-force-ddl.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § Назначение (класс и словарь — одно физическое имя). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 7. DDL — [`smarttable-plan-07-force-ddl.md`](smarttable-plan-07-force-ddl.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: словарь как **второй источник карты**, не второй вид хранения. Мета-таблицы — обычные `SmartTableDefinition` в PHP. Пользовательская runtime-таблица: строки словаря → `RuntimeDefinition` → те же `createTable` / `updateTable` / `forceUpdateTable` / `deleteTable` / строка. `ISmartTableGateway::open` по class-string **не** менять. Переименование нет. Права — после Auth (этот заход без ACL). Кэш — план 8.
 

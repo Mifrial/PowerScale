@@ -1,6 +1,6 @@
 # План 18 — срез до 10k и addMany
 
-**Статус:** план, 2026-09-05. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Потребитель — [`versioning-plan-01.md`](versioning-plan-01.md) (состав ревизии ~3k). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — план, 2026-09-05. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Потребитель — [`versioning-plan-01.md`](versioning-plan-01.md) (состав ревизии ~3k). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: один `getList` может отдать **весь** состав ревизии; один `addMany` — записать состав. **Не** поднимать 500 у `aggregate`. **Не** новый SQL-диалект и не `getByIds` как второй SELECT: `IN` уже есть.
 

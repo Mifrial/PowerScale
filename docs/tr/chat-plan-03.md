@@ -1,6 +1,6 @@
 # План Chat 3 — SSE sync
 
-**Статус:** сделано, 2026-09-04. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Канон UI — [`chat-system.md`](chat-system.md) (`sync` action и ISO **не** копировать слепо). HTTP — [`chat-plan-02.md`](chat-plan-02.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md). Актор — [`user-plan-03-http.md`](user-plan-03-http.md). ST `>` — [`smarttable.md`](smarttable.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-04. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Канон UI — [`chat-system.md`](chat-system.md) (`sync` action и ISO **не** копировать слепо). HTTP — [`chat-plan-02.md`](chat-plan-02.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md). Актор — [`user-plan-03-http.md`](user-plan-03-http.md). ST `>` — [`smarttable.md`](smarttable.md).
 
 Цель: живой поток `/api/chat/sync`. Cookie, без CSRF. Кадр тех же Chat/Message, что HTTP. **`chat.sync` не action.** Vue не трогаем (шаг 4). Visibility / unread / preview — шаг 5.
 

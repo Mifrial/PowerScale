@@ -1,6 +1,6 @@
 # План реализации магии 02 — Межструктурные энергопереходы
 
-**Статус:** `IN_PROGRESS`, 2026-09-21.  
+**Статус:** ~В РАБОТЕ~ — `IN_PROGRESS`, 2026-09-21.
 **Дизайн:** [`magic-content-design-01-arcanist-progression.md`](magic-content-design-01-arcanist-progression.md).  
 **Секция:** `Арканист → Образование → Базовое`.  
 **Код:** `interstructure-energy-transfer`.

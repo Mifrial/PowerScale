@@ -1,6 +1,6 @@
 # Нарезка редакционного прохода каталога
 
-**Статус:** план, 2026-09-16. Канон статусов — [`rule-system.md`](rule-system.md). Оси `contentStatus` / runtime — `DEC-053`…`DEC-055`. Фронт — [`../../draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md). Очередь пропусков — [`rule-content-queue.md`](rule-content-queue.md). Магия как отдельная линия — [`spell-roadmap.md`](spell-roadmap.md).
+**Статус:** ~В РАБОТЕ~ — план, 2026-09-16. Канон статусов — [`rule-system.md`](rule-system.md). Оси `contentStatus` / runtime — `DEC-053`…`DEC-055`. Фронт — [`../../draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md). Очередь пропусков — [`rule-content-queue.md`](rule-content-queue.md). Магия как отдельная линия — [`spell-roadmap.md`](spell-roadmap.md).
 
 Цель: пройти уже выгруженные правила так, чтобы карточке можно было верить (текст + spec), не подгоняя Game под сырой дамп и не объявляя «актуальным» то, что врёт.
 

@@ -1,6 +1,6 @@
 # План Core/UI 2 — Users/Groups на `useGridData`
 
-**Статус:** сделано, 2026-09-10. Зависит от [`core-ui-grid-plan-01-server-mode.md`](core-ui-grid-plan-01-server-mode.md). HTTP страниц уже есть: [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md). Следующий потребитель журнала — [`logger-plan-04-view.md`](logger-plan-04-view.md), **после** этого файла. Фронт — `draft-front_1.2ds/frontend-rules.md`.
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-10. Зависит от [`core-ui-grid-plan-01-server-mode.md`](core-ui-grid-plan-01-server-mode.md). HTTP страниц уже есть: [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md). Следующий потребитель журнала — [`logger-plan-04-view.md`](logger-plan-04-view.md), **после** этого файла. Фронт — `draft-front_1.2ds/frontend-rules.md`.
 
 Цель: оставшиеся `SmartGrid` (сейчас только Users и Groups) перевести на тот же `useGridData`, что Keyword/Mechanic/templates после плана 1. Ручной `watch` + локальный sort текущей страницы убрать. PHP `findPage` не расширять.
 

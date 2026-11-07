@@ -1,6 +1,6 @@
 # C2 — аудит ветки ближнего боя «Количество»
 
-**Статус:** `READY` (спец-пачка посажена), 2026-09-20. Первая пачка посажена.  
+**Статус:** ~ЧАСТИЧНО~ — `READY` (спец-пачка посажена), 2026-09-20. Первая пачка посажена.
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).  
 **Скорость:** [`rule-content-plan-09-melee-speed.md`](rule-content-plan-09-melee-speed.md).  

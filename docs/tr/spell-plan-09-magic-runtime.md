@@ -1,6 +1,6 @@
 # План M9 — провал каста: отклонение, аркан, стабильность
 
-**Статус:** `DONE`, 2026-09-11. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Срез E6 — [`spell-plan-02-slice.md`](spell-plan-02-slice.md). Формула сложности — [`spell-plan-06-cast-check.md`](spell-plan-06-cast-check.md). Instant — [`spell-plan-07-runtime-slice.md`](spell-plan-07-runtime-slice.md). Duration — [`spell-plan-08-runtime-expansion.md`](spell-plan-08-runtime-expansion.md). Канон — [`spell-review-01.md`](spell-review-01.md) SR-080…099, SR-128…140, SR-148. Источник формулы взрыва — [`docs/rule/spell/AI.html`](../rule/spell/AI.html) («последствия провала»). Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
+**Статус:** ~СДЕЛАНО~ — `DONE`, 2026-09-11. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Срез E6 — [`spell-plan-02-slice.md`](spell-plan-02-slice.md). Формула сложности — [`spell-plan-06-cast-check.md`](spell-plan-06-cast-check.md). Instant — [`spell-plan-07-runtime-slice.md`](spell-plan-07-runtime-slice.md). Duration — [`spell-plan-08-runtime-expansion.md`](spell-plan-08-runtime-expansion.md). Канон — [`spell-review-01.md`](spell-review-01.md) SR-080…099, SR-128…140, SR-148. Источник формулы взрыва — [`docs/rule/spell/AI.html`](../rule/spell/AI.html) («последствия провала»). Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
 
 ## Цель
 

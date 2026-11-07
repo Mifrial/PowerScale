@@ -1,6 +1,6 @@
 # План 6 — индексы из определения
 
-**Статус:** сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § Индексы и § Ошибки. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Reference — [`smarttable-plan-05-reference.md`](smarttable-plan-05-reference.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § Индексы и § Ошибки. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Reference — [`smarttable-plan-05-reference.md`](smarttable-plan-05-reference.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: флаги `indexed` / `unique` в `FieldSettings` становятся DDL на **одной** колонке основной таблицы. Составные unique — не v1. Fulltext — **хвост** (нет флага, getList по-прежнему `%` / LIKE). Сигнатуры `IOpenedTable` не расширять; `@throws` дополнить. `Service/` не резать на подпапки.
 

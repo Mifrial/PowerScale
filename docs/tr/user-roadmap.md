@@ -1,6 +1,6 @@
 # Нарезка Core/User
 
-**Статус:** план реализации, 2026-09-02. Канон учётки — [`user.md`](user.md). UI/сессия — [`auth-system.md`](auth-system.md). SmartTable Basic закрыт.
+**Статус:** ~СДЕЛАНО~ — план реализации, 2026-09-02. Канон учётки — [`user.md`](user.md). UI/сессия — [`auth-system.md`](auth-system.md). SmartTable Basic закрыт.
 
 Порядок сверху вниз. Auth не стартует раньше плана 1 (нужна учётка с required `login`). Способы входа — таблица Auth, не User.
 

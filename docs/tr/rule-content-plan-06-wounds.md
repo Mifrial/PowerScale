@@ -1,6 +1,6 @@
 # C2 — план реализации: Game ран (5.3)
 
-**Статус:** `DONE`, 2026-09-13. Срез в коде Game.  
+**Статус:** ~СДЕЛАНО~ — `DONE`, 2026-09-13. Срез в коде Game.
 **Канон:** [`rule-content-plan-04-knowledge.md`](rule-content-plan-04-knowledge.md) §4.2–4.5 и срез 5.3.  
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).  

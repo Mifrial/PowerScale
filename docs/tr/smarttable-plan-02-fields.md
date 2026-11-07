@@ -1,6 +1,6 @@
 # План 2 — поля Basic и getMap
 
-**Статус:** план реализации, 2026-09-01, после ревью. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Соединение — [`smarttable-plan-01-connection.md`](smarttable-plan-01-connection.md).
+**Статус:** ~СДЕЛАНО~ — план реализации, 2026-09-01, после ревью. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Соединение — [`smarttable-plan-01-connection.md`](smarttable-plan-01-connection.md).
 
 Цель: наши типы, `getMap()`, cast / extract / hydrate. Без Schema, `open`, CRUD, getList, working multiple, reference.
 

@@ -1,6 +1,6 @@
 # План M5 — отображение и редактирование среза магии
 
-**Статус:** DONE, 2026-09-08. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Контракт — [`spell-plan-03-contract.md`](spell-plan-03-contract.md). Контент — [`spell-plan-04-import.md`](spell-plan-04-import.md). Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
+**Статус:** ~СДЕЛАНО~ — DONE, 2026-09-08. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Контракт — [`spell-plan-03-contract.md`](spell-plan-03-contract.md). Контент — [`spell-plan-04-import.md`](spell-plan-04-import.md). Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
 
 ## Цель
 

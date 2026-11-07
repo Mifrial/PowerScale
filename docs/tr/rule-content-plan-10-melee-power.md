@@ -1,6 +1,6 @@
 # C2 — аудит и посадка ветки ближнего боя «Сила»
 
-**Статус:** `IN_PROGRESS`, 2026-10-25. Срезы A–H в коде: слоты, Удвоенная мощь, Яростный рывок; Силовой удар посажен в PHP Game.  
+**Статус:** ~В РАБОТЕ~ — `IN_PROGRESS`, 2026-10-25. Срезы A–H в коде: слоты, Удвоенная мощь, Яростный рывок; Силовой удар посажен в PHP Game.
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).  
 **Предыдущая ветка:** [`rule-content-plan-09-melee-speed.md`](rule-content-plan-09-melee-speed.md).

@@ -1,6 +1,6 @@
 # План Game 6 — NPC без владельца и без второго листа
 
-**Статус:** NPC в PHP сделан, 2026-10-04. `BACKEND_OPEN`. Suite `game` и `character` зелёные. Нарезка — [`game-roadmap.md`](game-roadmap.md) G6. Сессия — [`game-plan-05.md`](game-plan-05.md). Строка персонажа — [`game-plan-03.md`](game-plan-03.md). NPC и видимость — [`game-system.md`](game-system.md), [`character-system.md`](character-system.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — NPC в PHP сделан, 2026-10-04. `BACKEND_OPEN`. Suite `game` и `character` зелёные. Нарезка — [`game-roadmap.md`](game-roadmap.md) G6. Сессия — [`game-plan-05.md`](game-plan-05.md). Строка персонажа — [`game-plan-03.md`](game-plan-03.md). NPC и видимость — [`game-system.md`](game-system.md), [`character-system.md`](character-system.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: у игры появляется строка NPC. Лист — один, `npc.version`, в таблице Game. Технический `npc.actual_version` — CAS этой строки. Владельца-игрока, `approvedCharacterVersion`, draft, модерации игрока и второй копии листа нет. Обязательной расы и потолков игрока нет. Смена `rulesRevision` игры лист не переводит. Отдельное действие пишет `npc.version` тем же движком миграции по `code`, с `expectedNpcActualVersion`. Это не `character.migrate` и не approve. Создание NPC не кладёт его в сессию G5 и не открывает бой.
 

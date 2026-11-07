@@ -1,6 +1,6 @@
 # План Mail 1 — события, шаблоны, очередь
 
-**Статус:** сделано, 2026-09-03. Транспорт v1 — `LogMailTransport`; SMTP — не этот заход. Нарезка — [`mail-roadmap.md`](mail-roadmap.md). Agent — [`agent-plan-01-tick.md`](agent-plan-01-tick.md) (**блокер**). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Forgot — [`auth-plan-02-password-flow.md`](auth-plan-02-password-flow.md) (SMTP не этот файл).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-03. Транспорт v1 — `LogMailTransport`; SMTP — не этот заход. Нарезка — [`mail-roadmap.md`](mail-roadmap.md). Agent — [`agent-plan-01-tick.md`](agent-plan-01-tick.md) (**блокер**). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Forgot — [`auth-plan-02-password-flow.md`](auth-plan-02-password-flow.md) (SMTP не этот файл).
 
 Цель: модуль `Core/Mail` принимает «событие + поля», пишет очередь, подставляет плейсхолдеры в шаблоны, отдаёт транспорт. Тик очереди — агент `mail.flush`, не cron в Mail. Auth **не** импортирует таблицы Mail; Auth 3 — следующий план.
 

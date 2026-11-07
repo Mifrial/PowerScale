@@ -1,6 +1,6 @@
 # План 7a — forceUpdateTable и deleteTable
 
-**Статус:** сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § Назначение (класс опережает схему) и leftover у индексов/FK. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 7. Индексы — [`smarttable-plan-06-indexes.md`](smarttable-plan-06-indexes.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § Назначение (класс опережает схему) и leftover у индексов/FK. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 7. Индексы — [`smarttable-plan-06-indexes.md`](smarttable-plan-06-indexes.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: деструктивный DDL на **одной** таблице, описанной PHP-классом. `updateTable` по-прежнему только добавляет. Словарь и runtime-создание таблиц — **не** этот заход (7b). Переименование колонок/физического имени — нет.
 

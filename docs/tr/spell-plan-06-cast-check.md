@@ -1,6 +1,6 @@
 # План M6 — контекст сотворения и Сложность сотворения
 
-**Статус:** DONE, 2026-09-09. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Формула — [`spell-inventory-01.md`](spell-inventory-01.md) (213–222), [`spell-review-01.md`](spell-review-01.md) SR-050…056, SR-102, SR-106. Контракт спеки — [`spell-plan-03-contract.md`](spell-plan-03-contract.md). Фикстура — [`spell-plan-04-import.md`](spell-plan-04-import.md). Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
+**Статус:** ~СДЕЛАНО~ — DONE, 2026-09-09. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Формула — [`spell-inventory-01.md`](spell-inventory-01.md) (213–222), [`spell-review-01.md`](spell-review-01.md) SR-050…056, SR-102, SR-106. Контракт спеки — [`spell-plan-03-contract.md`](spell-plan-03-contract.md). Фикстура — [`spell-plan-04-import.md`](spell-plan-04-import.md). Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
 
 ## Цель
 

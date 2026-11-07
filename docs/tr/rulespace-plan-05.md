@@ -1,6 +1,6 @@
 # План RuleSpace 5 — права HTTP
 
-**Статус:** каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **8**. HTTP — [`rulespace-plan-04.md`](rulespace-plan-04.md). Актор — [`user-plan-03-http.md`](user-plan-03-http.md). Vue-категория — `SPACE_PERMISSION_CATEGORY`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **8**. HTTP — [`rulespace-plan-04.md`](rulespace-plan-04.md). Актор — [`user-plan-03-http.md`](user-plan-03-http.md). Vue-категория — `SPACE_PERMISSION_CATEGORY`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: закрыть HTTP оператора **ключами групп** и **владельцем мира**. Без Vue, без object-ACL (`space_moderators` / per-object ключи), без секций. Фасад `IRuleSpaces` без ключей (как `IChats` / `IUserAccounts`: ACL на HTTP). Owner — колонка sidecar, аргумент `add`.
 

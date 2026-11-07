@@ -1,6 +1,6 @@
 # План Logger 3 — class-string логера в конфиге сайта
 
-**Статус:** сделано, 2026-09-05. v1 — [`logger-plan-01.md`](logger-plan-01.md). Куда писать — [`logger-plan-02.md`](logger-plan-02.md). Конвейер — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-05. v1 — [`logger-plan-01.md`](logger-plan-01.md). Куда писать — [`logger-plan-02.md`](logger-plan-02.md). Конвейер — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: сайт выбирает табличный адаптер в `config/local.php` (и `test.php`). Модуль Logger только публикует порт. Kernel не импортирует Logger и не читает ключ `logger` из `module.config`. Соседи по-прежнему `IKernelContainer::get(ILogger::class)`.
 

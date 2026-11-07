@@ -1,6 +1,6 @@
 # План C1 — редакционный проход каталога
 
-**Статус:** `DONE` (пачки 1–23 и очередь runtime собраны). Не закрыто редакцией и **не текущая работа:** дальний бой 382–393, оружейные навыки, расы. Родитель — [`rule-content-roadmap.md`](rule-content-roadmap.md). Очередь — [`rule-content-queue.md`](rule-content-queue.md). Канон — [`rule-system.md`](rule-system.md). UI — `/space/{code}/{ctx}` + FilterBar «Редакционный статус».
+**Статус:** ~СДЕЛАНО~ — `DONE` (пачки 1–23 и очередь runtime собраны). Не закрыто редакцией и **не текущая работа:** дальний бой 382–393, оружейные навыки, расы. Родитель — [`rule-content-roadmap.md`](rule-content-roadmap.md). Очередь — [`rule-content-queue.md`](rule-content-queue.md). Канон — [`rule-system.md`](rule-system.md). UI — `/space/{code}/{ctx}` + FilterBar «Редакционный статус».
 
 ## Цель
 

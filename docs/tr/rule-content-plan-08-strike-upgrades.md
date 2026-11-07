@@ -1,6 +1,6 @@
 # C2 — план: улучшения удара (`strike_upgrade`)
 
-**Статус:** `READY`, 2026-09-15.  
+**Статус:** ~ПЛАН~ — `READY`, 2026-09-15.
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).  
 **Канон знаний (не переписывать):** [`rule-content-plan-04-knowledge.md`](rule-content-plan-04-knowledge.md) §4.4 Смертоносные удары.  

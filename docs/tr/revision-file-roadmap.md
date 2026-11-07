@@ -1,6 +1,6 @@
 # Нарезка: файл ревизии
 
-**Статус:** план, 2026-09-06. Канон — [`rule-system.md`](rule-system.md), [`DEC-060`](decisions.md). Оператор — [`rulespace-plan-04.md`](rulespace-plan-04.md), [`rulespace-plan-06.md`](rulespace-plan-06.md), [`rulespace-plan-10.md`](rulespace-plan-10.md). Справочники — [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Нарезка Rule — [`rule-roadmap.md`](rule-roadmap.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
+**Статус:** ~ЧАСТИЧНО~ — план, 2026-09-06. Канон — [`rule-system.md`](rule-system.md), [`DEC-060`](decisions.md). Оператор — [`rulespace-plan-04.md`](rulespace-plan-04.md), [`rulespace-plan-06.md`](rulespace-plan-06.md), [`rulespace-plan-10.md`](rulespace-plan-10.md). Справочники — [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Нарезка Rule — [`rule-roadmap.md`](rule-roadmap.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
 
 Цель линии: переносный JSON **опубликованной** ревизии мира. На внешней границе — semantic `code` (правила, признаки, механики). Persist и HTTP среза **не** меняют форму: `keywordIds` / `mechanicId` остаются внутренними. Файл собирает и разбирает **клиент** из уже существующих `ruleSpace.getRevision`, `keyword.getList`, `mechanic.getList`, draft и `commitDraft`.
 

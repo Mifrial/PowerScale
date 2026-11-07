@@ -1,6 +1,6 @@
 # План Rule 14 — обход формул
 
-**Статус:** каркас PHP сделан, 2026-10-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг 14. Канон узлов — уже разобранные `ScalarFormula` и `DimensionalFormula`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-10-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг 14. Канон узлов — уже разобранные `ScalarFormula` и `DimensionalFormula`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: один обход в `Roleplay/Rule`. Вход — узел и узкий контекст вызывающего. Выход — число. `to_scalar` переводит размерный узел в скаляр внутри того же обхода. Character, Game и Mechanic не меняются. G20 не начинается.
 

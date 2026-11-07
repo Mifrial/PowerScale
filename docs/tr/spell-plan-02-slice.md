@@ -1,6 +1,6 @@
 # План M2 — representative vertical slice магии
 
-**Статус:** в работе, 2026-09-07. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Входные результаты — [`spell-inventory-01.md`](spell-inventory-01.md), [`spell-review-01.md`](spell-review-01.md), [`spell-plan-01-inventory.md`](spell-plan-01-inventory.md).
+**Статус:** ~В РАБОТЕ~ — в работе, 2026-09-07. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Входные результаты — [`spell-inventory-01.md`](spell-inventory-01.md), [`spell-review-01.md`](spell-review-01.md), [`spell-plan-01-inventory.md`](spell-plan-01-inventory.md).
 
 Канон кода: `AbilitySpec` / `SpellSpec` / `AbilityParameter`, `ActionExecutionService`, `AttackDamageService`, `DamageTypeSpec`, `CheckSuccessRatingService`. Не вводить параллельные имена, если в коде уже есть контракт.
 

@@ -44,9 +44,9 @@
 
 | Документ | Тип | Состояние | Дата |
 |---|---|---|---|
+| [logger-plan-05-vue-datetime.md](../../logger-plan-05-vue-datetime.md) | план | `~ПЛАН~` | 2026-09-10 |
 | [logger-plan-01.md](../../logger-plan-01.md) | план | `~СДЕЛАНО~` | 2026-09-04 |
 | [logger-plan-02.md](../../logger-plan-02.md) | план | `~СДЕЛАНО~` | 2026-09-04 |
 | [logger-plan-03.md](../../logger-plan-03.md) | план | `~СДЕЛАНО~` | 2026-09-05 |
 | [logger-plan-04-view.md](../../logger-plan-04-view.md) | план | `~СДЕЛАНО~` | 2026-09-10 |
-| [logger-plan-05-vue-datetime.md](../../logger-plan-05-vue-datetime.md) | план | `~СДЕЛАНО~` | 2026-09-10 |
 

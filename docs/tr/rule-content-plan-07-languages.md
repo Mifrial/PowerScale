@@ -1,6 +1,6 @@
 # C2 — план: языки, письменность, народность, книжный червь
 
-**Статус:** `DRAFT`, 2026-09-15.  
+**Статус:** ~В РАБОТЕ~ — `DRAFT`, 2026-09-15.
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).  
 **Карточки:** `vladenie-yazykom`, `pismennost`, `pravilnoe-proiznoshenie`, `chtenie-po-gubam`, `gramotnost`, `bookworm`; заглушка `language-native` **убрать**.  

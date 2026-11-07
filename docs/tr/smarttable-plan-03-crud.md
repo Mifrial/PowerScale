@@ -1,6 +1,6 @@
 # План 3 — CRUD одной таблицы с PHP-классом
 
-**Статус:** готов к реализации, 2026-09-01. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Поля — [`smarttable-plan-02-fields.md`](smarttable-plan-02-fields.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md) (KISS/SOLID/DRY/слои).
+**Статус:** ~СДЕЛАНО~ — готов к реализации, 2026-09-01. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Поля — [`smarttable-plan-02-fields.md`](smarttable-plan-02-fields.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md) (KISS/SOLID/DRY/слои).
 
 Цель: DDL из `ColumnMeta`, `open`, строка, транзакция. Schema и Query Builder только во внутренних адаптерах.
 

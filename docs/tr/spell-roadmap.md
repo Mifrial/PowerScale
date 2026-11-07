@@ -1,6 +1,6 @@
 # Нарезка магии и заклинаний
 
-**Статус:** план, 2026-09-07. Источник первого захода — [`docs/rule/spell/AI.html`](../rule/spell/AI.html). Канон границ — [`rule-system.md`](rule-system.md), [`architecture.md`](architecture.md), [`decisions.md`](decisions.md). Параметры — [`../specs/ability-parameters.md`](../specs/ability-parameters.md).
+**Статус:** ~ЧАСТИЧНО~ — план, 2026-09-07. Источник первого захода — [`docs/rule/spell/AI.html`](../rule/spell/AI.html). Канон границ — [`rule-system.md`](rule-system.md), [`architecture.md`](architecture.md), [`decisions.md`](decisions.md). Параметры — [`../specs/ability-parameters.md`](../specs/ability-parameters.md).
 
 Цель линии: выгрузить репрезентативный срез большой системы магии, встроить его в текущую модель `Rule/Ability`, затем по фактам расширять `Character`/`Game` и backend. Roadmap живой: после каждого среза в него добавляются обнаруженные зависимости, противоречия и новые решения.
 

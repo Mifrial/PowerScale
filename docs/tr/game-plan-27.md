@@ -1,6 +1,6 @@
 # План Game 27 — деление повреждения на стойкость при закрытии удара
 
-**Статус:** деление повреждения на стойкость и запись `putDamageSplit` в PHP сделаны. В [`game-roadmap.md`](game-roadmap.md) шаг не вписывается. G22 не начинается. Повреждение в итоге — пара `{base, size}`: [`game-plan-26.md`](game-plan-26.md). Kind — [`character-plan-11.md`](character-plan-11.md): `putDamageSplit`, ключи `kind`, `remainder`, `quotient`. Карточка ищется по срезу, код не зашивается: [`rule-system.md`](rule-system.md), «Экземпляр может отсутствовать». Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — деление повреждения на стойкость и запись `putDamageSplit` в PHP сделаны. В [`game-roadmap.md`](game-roadmap.md) шаг не вписывается. G22 не начинается. Повреждение в итоге — пара `{base, size}`: [`game-plan-26.md`](game-plan-26.md). Kind — [`character-plan-11.md`](character-plan-11.md): `putDamageSplit`, ключи `kind`, `remainder`, `quotient`. Карточка ищется по срезу, код не зашивается: [`rule-system.md`](rule-system.md), «Экземпляр может отсутствовать». Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: один заход. Закрытие `1 → 1` и `1 → N` делит уже посчитанный `injury` на пару единственной живой характеристики с `isDamageEndurance()` и в той же транзакции пишет одну операцию `putDamageSplit`. `damage`, `success`, `resistance`, `S` и `injury` в итоге не переприсваиваются. Новый kind не заводится. Rule и Character не меняются.
 

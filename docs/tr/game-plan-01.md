@@ -1,6 +1,6 @@
 # План Game 1 — каркас модуля и строка игры
 
-**Статус:** каркас PHP сделан, 2026-10-04. `BACKEND_OPEN`. Suite `game` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G1. Канон — [`game-system.md`](game-system.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Устройство lazy-модуля — [`character-plan-02.md`](character-plan-02.md), не образец полей.
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-10-04. `BACKEND_OPEN`. Suite `game` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G1. Канон — [`game-system.md`](game-system.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Устройство lazy-модуля — [`character-plan-02.md`](character-plan-02.md), не образец полей.
 
 Цель: ленивый **`Roleplay/Game`**, одна карта строки игры, фасад и четыре HTTP. Сессии нет: `sessionRunning` в ответе всегда `false`. Character не меняется и Game не импортирует.
 

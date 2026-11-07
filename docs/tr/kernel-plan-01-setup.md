@@ -1,6 +1,6 @@
 # План Kernel 1 — установка и обновление модулей
 
-**Статус:** сделано, 2026-09-02. Канон модулей — [`architecture.md`](architecture.md). SmartTable DDL — [`smarttable.md`](smarttable.md). Решение «не в SmartTable» — [`smarttable-plan-09-migrations.md`](smarttable-plan-09-migrations.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). User `install()` — [`user-plan-01-account.md`](user-plan-01-account.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-02. Канон модулей — [`architecture.md`](architecture.md). SmartTable DDL — [`smarttable.md`](smarttable.md). Решение «не в SmartTable» — [`smarttable-plan-09-migrations.md`](smarttable-plan-09-migrations.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). User `install()` — [`user-plan-01-account.md`](user-plan-01-account.md).
 
 Цель: CLI приводит физику **всех** модулей каталога к текущим картам SmartTable и прогоняет ещё не применённые **шаги данных**. Не Laravel migrate, не папка `update/` как в Битриксе, не журнал аудита/проблем.
 

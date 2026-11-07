@@ -1,6 +1,6 @@
 # План реализации магии 01 — вход в Арканиста
 
-**Статус:** `IN_PROGRESS`, 2026-09-20.  
+**Статус:** ~В РАБОТЕ~ — `IN_PROGRESS`, 2026-09-20.
 **Дизайн:** [`magic-content-design-01-arcanist-progression.md`](magic-content-design-01-arcanist-progression.md).  
 **Источник:** [`spell-inventory-01.md`](spell-inventory-01.md), `AI.html`.  
 **Первая группа:** `becoming-arcanist`, `structure-substitution`.

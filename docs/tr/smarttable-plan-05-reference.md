@@ -1,6 +1,6 @@
 # План 5b — reference
 
-**Статус:** сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § типы и § Reference и удаление. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Multiple — [`smarttable-plan-05-multiple.md`](smarttable-plan-05-multiple.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § типы и § Reference и удаление. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Multiple — [`smarttable-plan-05-multiple.md`](smarttable-plan-05-multiple.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 **Дополнение:** `onDelete` + `cascade` и ширина целого — [`smarttable-plan-15-bigint.md`](smarttable-plan-15-bigint.md). Канон — актуальный [`smarttable.md`](smarttable.md), не «CASCADE нет» ниже как запрет навсегда.
 

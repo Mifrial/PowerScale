@@ -1,6 +1,6 @@
 # План Core/UI 1 — режимы client/server для грида
 
-**Статус:** сделано, 2026-09-09. Дальше — [`core-ui-grid-plan-02-user-lists.md`](core-ui-grid-plan-02-user-lists.md), затем [`logger-plan-04-view.md`](logger-plan-04-view.md). Канон фронта — `draft-front_1.2ds/frontend-rules.md`. Общая архитектура — [`architecture.md`](architecture.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-09. Дальше — [`core-ui-grid-plan-02-user-lists.md`](core-ui-grid-plan-02-user-lists.md), затем [`logger-plan-04-view.md`](logger-plan-04-view.md). Канон фронта — `draft-front_1.2ds/frontend-rules.md`. Общая архитектура — [`architecture.md`](architecture.md).
 
 Цель: общий data-layer для `FilterBar` + `SmartGrid` с режимом `client | server`. Компоненты остаются controlled UI и не знают HTTP. Переключение — параметр composable, не проп `SmartGrid`.
 

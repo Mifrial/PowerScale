@@ -1,6 +1,6 @@
 # План — Vue: Keyword и Mechanic из папки Rule
 
-**Статус:** сделано, 2026-09-07. Нарезка — [`rule-roadmap.md`](rule-roadmap.md). Эталон переезда папки — [`rulespace-plan-10.md`](rulespace-plan-10.md). HTTP справочников: [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Канон рёбер — [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-062`, `DEC-064`.
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-07. Нарезка — [`rule-roadmap.md`](rule-roadmap.md). Эталон переезда папки — [`rulespace-plan-10.md`](rulespace-plan-10.md). HTTP справочников: [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Канон рёбер — [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-062`, `DEC-064`.
 
 Цель: закрыть `CODE_GAP` дерева Vue, чтобы **новый** код справочника и Engine не оседали в `Roleplay/Rule`. Не PHP. Не HTTP правил. Не смена URL `/admin/keywords` и `/admin/mechanics`. Не seed.
 

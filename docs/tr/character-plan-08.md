@@ -1,6 +1,6 @@
 # План Character 8 — миграция ревизии (C7)
 
-**Статус:** PHP сделан. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт входа — [`character-plan-01.md`](character-plan-01.md). Хранение — [`character-plan-02.md`](character-plan-02.md). Валидатор и save — [`character-plan-05.md`](character-plan-05.md), [`character-plan-06.md`](character-plan-06.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — PHP сделан. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт входа — [`character-plan-01.md`](character-plan-01.md). Хранение — [`character-plan-02.md`](character-plan-02.md). Валидатор и save — [`character-plan-05.md`](character-plan-05.md), [`character-plan-06.md`](character-plan-06.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: HTTP `character.migrate` переводит лист на другую ревизию того же мира. Пишет actual только после того же `CharacterSaveAssembly`, что update, с `shopCreate=false`. Game, бонусы мастера, смена мира, история `CharacterVersion` и runtime вне create не входят.
 

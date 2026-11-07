@@ -1,6 +1,6 @@
 # План 3 — импорт файла в черновик
 
-**Статус:** каркас Vue сделан, 2026-09-06. Нарезка — [`revision-file-roadmap.md`](revision-file-roadmap.md) шаг **3**. Формат — [`revision-file-plan-01.md`](revision-file-plan-01.md). Экспорт — [`revision-file-plan-02.md`](revision-file-plan-02.md). Срез — [`rulespace-plan-04.md`](rulespace-plan-04.md), секции — [`rulespace-plan-06.md`](rulespace-plan-06.md). Diff/publish — [`DEC-015`](decisions.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
+**Статус:** ~ЧАСТИЧНО~ — каркас Vue сделан, 2026-09-06. Нарезка — [`revision-file-roadmap.md`](revision-file-roadmap.md) шаг **3**. Формат — [`revision-file-plan-01.md`](revision-file-plan-01.md). Экспорт — [`revision-file-plan-02.md`](revision-file-plan-02.md). Срез — [`rulespace-plan-04.md`](rulespace-plan-04.md), секции — [`rulespace-plan-06.md`](rulespace-plan-06.md). Diff/publish — [`DEC-015`](decisions.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
 
 Цель: JSON v3 становится **черновиком** целевого мира: preview (added/changed/unchanged/`removedCodes` + warnings + секции) → apply в `useRuleDrafts` и `sectionCatalog.saveDraft`. Не `commitDraft`. Не HTTP файла. Не создание keyword/mechanic. Публикация остаётся PublishDialog / selective commit.
 

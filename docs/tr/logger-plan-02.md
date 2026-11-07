@@ -1,6 +1,6 @@
 # План Logger 2 — куда писать
 
-**Статус:** сделано, 2026-09-04. Конвейер — [`architecture.md`](architecture.md). v1 — [`logger-plan-01.md`](logger-plan-01.md). Проводка extra `ILogger` / site config — [`logger-plan-03.md`](logger-plan-03.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-04. Конвейер — [`architecture.md`](architecture.md). v1 — [`logger-plan-01.md`](logger-plan-01.md). Проводка extra `ILogger` / site config — [`logger-plan-03.md`](logger-plan-03.md).
 
 Тот же `ILogger` и таблица `log`. Сосед — extra Kernel, не модуль Logger.
 

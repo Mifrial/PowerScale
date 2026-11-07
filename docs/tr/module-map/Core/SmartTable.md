@@ -51,11 +51,9 @@
 
 | Документ | Тип | Состояние | Дата |
 |---|---|---|---|
-| [smarttable-plan-01-connection.md](../../smarttable-plan-01-connection.md) | план | `~ПЛАН~` | 2026-09-01 |
-| [smarttable-plan-02-fields.md](../../smarttable-plan-02-fields.md) | план | `~ПЛАН~` | 2026-09-01 |
-| [smarttable-plan-09-migrations.md](../../smarttable-plan-09-migrations.md) | план | `~ПЛАН~` | 2026-09-02 |
-| [smarttable-plan-18-slice-batch.md](../../smarttable-plan-18-slice-batch.md) | план | `~ПЛАН~` | 2026-09-05 |
-| [smarttable-roadmap.md](../../smarttable-roadmap.md) | план | `~ПЛАН~` | 2026-09-02 |
+| [smarttable-roadmap.md](../../smarttable-roadmap.md) | план | `~ЧАСТИЧНО~` | 2026-09-02 |
+| [smarttable-plan-01-connection.md](../../smarttable-plan-01-connection.md) | план | `~СДЕЛАНО~` | 2026-09-01 |
+| [smarttable-plan-02-fields.md](../../smarttable-plan-02-fields.md) | план | `~СДЕЛАНО~` | 2026-09-01 |
 | [smarttable-plan-03-crud.md](../../smarttable-plan-03-crud.md) | план | `~СДЕЛАНО~` | 2026-09-01 |
 | [smarttable-plan-04-getlist.md](../../smarttable-plan-04-getlist.md) | план | `~СДЕЛАНО~` | 2026-09-01 |
 | [smarttable-plan-05-multiple.md](../../smarttable-plan-05-multiple.md) | план | `~СДЕЛАНО~` | 2026-09-01 |
@@ -64,13 +62,15 @@
 | [smarttable-plan-07-dictionary.md](../../smarttable-plan-07-dictionary.md) | план | `~СДЕЛАНО~` | 2026-09-01 |
 | [smarttable-plan-07-force-ddl.md](../../smarttable-plan-07-force-ddl.md) | план | `~СДЕЛАНО~` | 2026-09-01 |
 | [smarttable-plan-08-cache.md](../../smarttable-plan-08-cache.md) | план | `~СДЕЛАНО~` | 2026-09-02 |
+| [smarttable-plan-09-migrations.md](../../smarttable-plan-09-migrations.md) | план | `~СДЕЛАНО~` | 2026-09-02 |
 | [smarttable-plan-10-gates.md](../../smarttable-plan-10-gates.md) | план | `~СДЕЛАНО~` | 2026-09-02 |
 | [smarttable-plan-13-datetime-now.md](../../smarttable-plan-13-datetime-now.md) | план | `~СДЕЛАНО~` | 2026-09-02 |
 | [smarttable-plan-14-reference-path.md](../../smarttable-plan-14-reference-path.md) | план | `~СДЕЛАНО~` | 2026-09-02 |
 | [smarttable-plan-15-bigint.md](../../smarttable-plan-15-bigint.md) | план | `~СДЕЛАНО~` | 2026-09-02 |
 | [smarttable-plan-16-composite-unique.md](../../smarttable-plan-16-composite-unique.md) | план | `~СДЕЛАНО~` | 2026-09-04 |
 | [smarttable-plan-17-aggregate.md](../../smarttable-plan-17-aggregate.md) | план | `~СДЕЛАНО~` | 2026-09-04 |
+| [smarttable-plan-18-slice-batch.md](../../smarttable-plan-18-slice-batch.md) | план | `~СДЕЛАНО~` | 2026-09-05 |
 | [smarttable-plan-19-addmany-mfv.md](../../smarttable-plan-19-addmany-mfv.md) | план | `~СДЕЛАНО~` | 2026-09-05 |
 | [smarttable-plan-20-linkset.md](../../smarttable-plan-20-linkset.md) | план | `~СДЕЛАНО~` | 2026-09-05 |
-| [smarttable.md](../../smarttable.md) | канон | `~СДЕЛАНО~` | 2026-09-02 |
+| [smarttable.md](../../smarttable.md) | канон | ? | 2026-09-02 |
 

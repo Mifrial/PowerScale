@@ -1,6 +1,6 @@
 # План Rule 15 — признак инициативы на проверке
 
-**Статус:** каркас PHP сделан, 2026-10-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг 15. Канон — [`rule-system.md`](rule-system.md), «Экземпляр может отсутствовать». Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Потребитель — Game G21; план G21 этим заходом не пишется.
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-10-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг 15. Канон — [`rule-system.md`](rule-system.md), «Экземпляр может отсутствовать». Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Потребитель — Game G21; план G21 этим заходом не пишется.
 
 Цель: на `CheckSpec` появляется bool того же рода, что `willpower` и `hitCheck`. Истина значит: эта проверка задаёт инициативу. Character и Game не меняются и не импортируются. Каталог карточек не наполняется. Бросок и порядок хода не считаются.
 

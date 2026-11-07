@@ -1,6 +1,6 @@
 # План Keyword 1 — каркас справочника для Rule
 
-**Статус:** каркас PHP сделан, 2026-09-05. **Не закрывает модуль.** Нарезка — [`rule-roadmap.md`](rule-roadmap.md). Канон — [`rule-system.md`](rule-system.md) (`DEC-017`, `DEC-022`, `DEC-062`). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-09-05. **Не закрывает модуль.** Нарезка — [`rule-roadmap.md`](rule-roadmap.md). Канон — [`rule-system.md`](rule-system.md) (`DEC-017`, `DEC-022`, `DEC-062`). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель захода: ленивый **`Roleplay/Keyword`** как **каркас цели `linkset` у Rule** — таблица и узкий PHP-фасад, чтобы коммит правила мог указать id признака. Это не полноценный модуль признаков.
 

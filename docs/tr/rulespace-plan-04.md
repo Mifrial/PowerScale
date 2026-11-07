@@ -1,6 +1,6 @@
 # План RuleSpace 4 — HTTP `ruleSpace.*`
 
-**Статус:** каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **7**. Оператор — планы 1–3. Input-DTO — [`kernel-plan-02-action-input.md`](kernel-plan-02-action-input.md). Актор — [`user-plan-03-http.md`](user-plan-03-http.md). JSON-вид — `DEC-079`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md).
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **7**. Оператор — планы 1–3. Input-DTO — [`kernel-plan-02-action-input.md`](kernel-plan-02-action-input.md). Актор — [`user-plan-03-http.md`](user-plan-03-http.md). JSON-вид — `DEC-079`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md).
 
 Цель: actions в **`Roleplay/RuleSpace`**, префикс **`ruleSpace.*`** (как `userGroup.*`; не `space.*` часов Versioning и не URL `/space/...`). Набросок Vue `space.getList` — эскиз, шаг 10 переименует клиент. Без Vue, без ключей прав `space.create` / `view_all` / `edit_all` (шаг 8; action ≠ permission), без секций, без файла ревизии, без `changedCount`. Не actions в `Roleplay/Rule`.
 

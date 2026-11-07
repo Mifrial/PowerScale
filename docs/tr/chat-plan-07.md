@@ -1,6 +1,6 @@
 # План Chat 7 — непрозрачный тип донора
 
-**Статус:** сделано, 2026-10-04; inbox/SSE обновлены 2026-10-25. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Inbox/SSE — [`chat-plan-06.md`](chat-plan-06.md). Хост плагинов — [`chat-system.md`](chat-system.md). Рёбра — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-10-04; inbox/SSE обновлены 2026-10-25. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Inbox/SSE — [`chat-plan-06.md`](chat-plan-06.md). Хост плагинов — [`chat-system.md`](chat-system.md). Рёбра — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: хост принимает регистрацию непрозрачной строки типа и создание чата этого типа через `IChats`. Не через `chat.addPrivate` и `chat.addGroup`. Inbox `/messenger` и кадр `/api/chat/sync` показывают все чаты членства; `type` не является фильтром.
 

@@ -1,6 +1,6 @@
 # План Mechanic 6 — бросок
 
-**Статус:** порт броска, сессия 4 [`mechanic-roadmap.md`](mechanic-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Фасад — [`mechanic-plan-05.md`](mechanic-plan-05.md). Реестр и `runEvent` — [`mechanic-plan-04.md`](mechanic-plan-04.md). Vue-контракт — [`mechanic-plan-03.md`](mechanic-plan-03.md). Формула — `draft-front_1.2ds` `Game/Service/Roll/RollEngine.ts` и `Rule/Service/CheckSuccessRatingService.ts`. Потребитель — Game G18, [`game-plan-18.md`](game-plan-18.md): он зовёт этот порт и сохраняет итог.
+**Статус:** ~СДЕЛАНО~ — порт броска, сессия 4 [`mechanic-roadmap.md`](mechanic-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Фасад — [`mechanic-plan-05.md`](mechanic-plan-05.md). Реестр и `runEvent` — [`mechanic-plan-04.md`](mechanic-plan-04.md). Vue-контракт — [`mechanic-plan-03.md`](mechanic-plan-03.md). Формула — `draft-front_1.2ds` `Game/Service/Roll/RollEngine.ts` и `Rule/Service/CheckSuccessRatingService.ts`. Потребитель — Game G18, [`game-plan-18.md`](game-plan-18.md): он зовёт этот порт и сохраняет итог.
 
 Цель: бросок на уже существующем `runEvent`. Сосед по-прежнему берёт `IMechanicEngine` из контейнера и хендлеры не регистрирует. Отдельного движка нет.
 

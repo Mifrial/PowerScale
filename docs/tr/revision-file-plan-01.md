@@ -1,6 +1,6 @@
 # План 1 — формат файла ревизии v3
 
-**Статус:** каркас Vue сделан, 2026-09-06. Нарезка — [`revision-file-roadmap.md`](revision-file-roadmap.md) шаг **1**. Канон ссылок — [`rule-system.md`](rule-system.md) (`DEC-060`). Срез HTTP — [`rulespace-plan-04.md`](rulespace-plan-04.md), секции — [`rulespace-plan-06.md`](rulespace-plan-06.md). JSON справочников — [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
+**Статус:** ~ЧАСТИЧНО~ — каркас Vue сделан, 2026-09-06. Нарезка — [`revision-file-roadmap.md`](revision-file-roadmap.md) шаг **1**. Канон ссылок — [`rule-system.md`](rule-system.md) (`DEC-060`). Срез HTTP — [`rulespace-plan-04.md`](rulespace-plan-04.md), секции — [`rulespace-plan-06.md`](rulespace-plan-06.md). JSON справочников — [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
 
 Цель: заменить текущий JSON `powerscale.revision` на **внешний** вид v3: без `id` / `spaceId` / `keywordIds` / `mechanicId` / `createdAt` на правиле. `RevisionFileService` parse/serialize и ошибки с `code`/`path`/`stage`. Живые кнопки Экспорт/Импорт в этом заходе **подключают v3 только если** round-trip на фикстуре зелёный; потоки apply/резолв справочников — шаг 2–3. Не PHP. Не HTTP файла. Не `commitDraft`. Не Engine.
 

@@ -1,6 +1,6 @@
 # План Mechanic 3 — Vue-модуль `Roleplay/Mechanic`
 
-**Статус:** сделано, 2026-09-07. Нарезка Vue — [`vue-rule-split-plan-01.md`](vue-rule-split-plan-01.md) заход 2. HTTP уже в PHP Mechanic ([`mechanic-plan-02.md`](mechanic-plan-02.md)). Эталон переезда каталога — [`keyword-plan-03.md`](keyword-plan-03.md). Канон рёбер — [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-062`, `DEC-064`.
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-07. Нарезка Vue — [`vue-rule-split-plan-01.md`](vue-rule-split-plan-01.md) заход 2. HTTP уже в PHP Mechanic ([`mechanic-plan-02.md`](mechanic-plan-02.md)). Эталон переезда каталога — [`keyword-plan-03.md`](keyword-plan-03.md). Канон рёбер — [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-062`, `DEC-064`.
 
 Цель: каталог механик, админка `/admin/mechanics` и Vue-Engine живут в **`src/modules/Roleplay/Mechanic/`**. Rule хранит `mechanicId` / `mechanicPayload` и валидирует ссылки, но не владеет HTTP, стором, страницами и шиной событий. **Mechanic ↛ Rule** (как PHP). Не PHP Engine. Не HTTP правил. Не смена URL. Не seed. Не сужение публички спек Rule.
 

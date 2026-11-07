@@ -1,6 +1,6 @@
 # Нарезка Roleplay/Character
 
-**Статус:** план, 2026-10-05. Канон — [`character-system.md`](character-system.md). Границы — [`architecture.md`](architecture.md). Стык Game — [`game-roadmap.md`](game-roadmap.md) (G1–G19 `DONE`, G20 ждёт шаг C10). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md). Engine справочника — [`rule-roadmap.md`](rule-roadmap.md) (блок «Позже»), Vue-контракт Binding — [`mechanic-plan-03.md`](mechanic-plan-03.md). Обход формулы — [`rule-plan-03.md`](rule-plan-03.md).
+**Статус:** ~ЧАСТИЧНО~ — план, 2026-10-05. Канон — [`character-system.md`](character-system.md). Границы — [`architecture.md`](architecture.md). Стык Game — [`game-roadmap.md`](game-roadmap.md) (G1–G19 `DONE`, G20 ждёт шаг C10). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md). Engine справочника — [`rule-roadmap.md`](rule-roadmap.md) (блок «Позже»), Vue-контракт Binding — [`mechanic-plan-03.md`](mechanic-plan-03.md). Обход формулы — [`rule-plan-03.md`](rule-plan-03.md).
 
 Цель линии: серверный модуль **`Roleplay/Character`**. Create/update actual state — только после серверного построения листа и полной validation. Таблицы, HTTP и mock сами по себе save не закрывают.
 

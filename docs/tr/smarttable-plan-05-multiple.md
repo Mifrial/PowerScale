@@ -1,6 +1,6 @@
 # План 5 — multiple (mfv)
 
-**Статус:** сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § Multiple и § getList. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Список — [`smarttable-plan-04-getlist.md`](smarttable-plan-04-getlist.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § Multiple и § getList. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Список — [`smarttable-plan-04-getlist.md`](smarttable-plan-04-getlist.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: значение `multiple` — всегда PHP-list; хранение в `{table}_mfv_{field}`; `@` = contains (`S ⊆ M`); `=` без `@` = **равенство множеств** (`S = M`). Публичный фасад `IOpenedTable` не менять. `Service/` **не** резать на подпапки.
 

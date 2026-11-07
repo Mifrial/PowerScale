@@ -1,6 +1,6 @@
 # План 8 — тегированный кэш
 
-**Статус:** сделано, 2026-09-02. Канон — [`smarttable.md`](smarttable.md) § Кэш. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 8. Список — [`smarttable-plan-04-getlist.md`](smarttable-plan-04-getlist.md). Транзакция — план 3. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-02. Канон — [`smarttable.md`](smarttable.md) § Кэш. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 8. Список — [`smarttable-plan-04-getlist.md`](smarttable-plan-04-getlist.md). Транзакция — план 3. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: `getById` / `getList` кэшируются **только** при явном TTL. Без TTL — всегда БД. Инвалидация **после успешного commit** (автокоммит записи — сразу после успеха). Внутри открытой транзакции не читать и не писать кэш. Подпапки `Service/` нет. `IOpenedTable` не расширять новыми методами (10 public у handle): TTL — опциональный 2-й аргумент `getById` и `getList`.
 

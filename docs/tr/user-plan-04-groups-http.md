@@ -1,6 +1,6 @@
 # План User 4 — HTTP групп
 
-**Статус:** сделано, 2026-09-03. Канон — [`user.md`](user.md). UI — [`auth-system.md`](auth-system.md). Нарезка — [`user-roadmap.md`](user-roadmap.md). Актор — [`user-plan-03-http.md`](user-plan-03-http.md). Список — [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md): `userGroup.findPage`, не `userGroup.getList`. Input-DTO — [`kernel-plan-02-action-input.md`](kernel-plan-02-action-input.md) (**сделано**). Record — [`php-coding-standards.md`](php-coding-standards.md) (`DEC-079`). Конвейер — [`architecture.md`](architecture.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-03. Канон — [`user.md`](user.md). UI — [`auth-system.md`](auth-system.md). Нарезка — [`user-roadmap.md`](user-roadmap.md). Актор — [`user-plan-03-http.md`](user-plan-03-http.md). Список — [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md): `userGroup.findPage`, не `userGroup.getList`. Input-DTO — [`kernel-plan-02-action-input.md`](kernel-plan-02-action-input.md) (**сделано**). Record — [`php-coding-standards.md`](php-coding-standards.md) (`DEC-079`). Конвейер — [`architecture.md`](architecture.md).
 
 Цель: фронтовый `IGroupApi` ходит в боевые action. Guards — актор сессии (`IRequestContext`), User **не** импортирует Auth. Не Vue, не политика пароля. Create/update сразу на `IActionInput`.
 

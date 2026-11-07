@@ -1,6 +1,6 @@
 # План Mechanic 4 — ядро Engine
 
-**Статус:** ядро PHP, сессия 2 [`mechanic-roadmap.md`](mechanic-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Контракт Binding и `runEvent` — [`mechanic-plan-03.md`](mechanic-plan-03.md). Образец поведения — Vue `Roleplay/Mechanic/Service/MechanicEngine.ts`, не переписывать.
+**Статус:** ~СДЕЛАНО~ — ядро PHP, сессия 2 [`mechanic-roadmap.md`](mechanic-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Контракт Binding и `runEvent` — [`mechanic-plan-03.md`](mechanic-plan-03.md). Образец поведения — Vue `Roleplay/Mechanic/Service/MechanicEngine.ts`, не переписывать.
 
 Цель: `resolveActive` и `runEvent` в процессе. Реестр `code@version`. Binding и узкий снимок. Хендлер `purchase_surcharge` на `character.osSteps`.
 

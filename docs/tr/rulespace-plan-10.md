@@ -1,6 +1,6 @@
 # План RuleSpace 10 — Vue: Space → RuleSpace
 
-**Статус:** каркас Vue сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **10**. HTTP — [`rulespace-plan-04.md`](rulespace-plan-04.md), права — [`rulespace-plan-05.md`](rulespace-plan-05.md), секции — [`rulespace-plan-06.md`](rulespace-plan-06.md). Канон — [`rule-system.md`](rule-system.md), [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-079`.
+**Статус:** ~ЧАСТИЧНО~ — каркас Vue сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **10**. HTTP — [`rulespace-plan-04.md`](rulespace-plan-04.md), права — [`rulespace-plan-05.md`](rulespace-plan-05.md), секции — [`rulespace-plan-06.md`](rulespace-plan-06.md). Канон — [`rule-system.md`](rule-system.md), [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-079`.
 
 Цель: продуктовый Vue-модуль мира правил живёт в **`Roleplay/RuleSpace`**, клиент бьёт в **`ruleSpace.*`**, JSON как PHP (unix, `ownerId`, `sections`). URL `/spaces` и `/space/:code/...` **не** менять. Rule по-прежнему **не** импортирует RuleSpace; RuleSpace только `provide` / `registerRevisionRulesFetcher`. Не PHP (кроме явного бага контракта). Не вынос Keyword/Mechanic из папки Rule. Не HTTP файла ревизии.
 

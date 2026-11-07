@@ -1,6 +1,6 @@
 # План Chat 2 — HTTP commands
 
-**Статус:** сделано, 2026-09-04. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Канон UI — [`chat-system.md`](chat-system.md) (имена `IChatApi` / `sync` **не** копировать слепо). Актор — [`user-plan-03-http.md`](user-plan-03-http.md). Input-DTO — [`kernel-plan-02-action-input.md`](kernel-plan-02-action-input.md). Список не dump — [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md). Фасад — [`chat-plan-01.md`](chat-plan-01.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-04. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Канон UI — [`chat-system.md`](chat-system.md) (имена `IChatApi` / `sync` **не** копировать слепо). Актор — [`user-plan-03-http.md`](user-plan-03-http.md). Input-DTO — [`kernel-plan-02-action-input.md`](kernel-plan-02-action-input.md). Список не dump — [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md). Фасад — [`chat-plan-01.md`](chat-plan-01.md).
 
 Цель: четыре action чата на `action.php`. CSRF, актор, `AUTH_REQUIRED`. Вложения opaque json, без Files. **`chat.sync` не action.** Vue не трогаем (шаг 4).
 

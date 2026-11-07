@@ -1,6 +1,6 @@
 # План RuleSpace 11 — Vue: редактор секций каталога
 
-**Статус:** каркас Vue сделан, 2026-09-08. Следующий шаг после [`rulespace-plan-10.md`](rulespace-plan-10.md). Канон секций — [`rulespace-plan-06.md`](rulespace-plan-06.md), [`rule-system.md`](rule-system.md), [`architecture.md`](architecture.md). Правила фронтенда — [`../../draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
+**Статус:** ~ЧАСТИЧНО~ — каркас Vue сделан, 2026-09-08. Следующий шаг после [`rulespace-plan-10.md`](rulespace-plan-10.md). Канон секций — [`rulespace-plan-06.md`](rulespace-plan-06.md), [`rule-system.md`](rule-system.md), [`architecture.md`](architecture.md). Правила фронтенда — [`../../draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
 
 Цель: добавить страницу редактирования дерева секций каталога в существующий Vue-модуль **`Roleplay/RuleSpace`**. Отдельный модуль `Roleplay/RuleSection` не создаётся: секции принадлежат пространству, входят в снимок его ревизии, а их черновик публикуется через `ruleSpace.commitDraft`.
 

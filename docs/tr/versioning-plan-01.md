@@ -1,6 +1,6 @@
 # План Versioning 1 — кластер и фасад Space
 
-**Статус:** сделано, 2026-09-05. Нарезка — [`versioning-roadmap.md`](versioning-roadmap.md). Конвейер — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-080`. ST 18 и Cache 1 **сделаны**. Этот заход — код кластера.
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-05. Нарезка — [`versioning-roadmap.md`](versioning-roadmap.md). Конвейер — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-080`. ST 18 и Cache 1 **сделаны**. Этот заход — код кластера.
 
 Цель: ленивый **`Versioning/Space`** — репозиторий одной сущности со своими часами. Фикстура `vt_note`, не Rule. Без HTTP и Vue.
 

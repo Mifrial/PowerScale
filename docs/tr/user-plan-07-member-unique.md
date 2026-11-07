@@ -1,6 +1,6 @@
 # План User 7 — unique членства без member_key
 
-**Статус:** сделано, 2026-09-04. Блокер ST 16 **сделан**. Канон — [`user.md`](user.md). Группы — [`user-plan-02-groups.md`](user-plan-02-groups.md) (история: unique одной колонкой). Force leftover — [`smarttable-plan-07-force-ddl.md`](smarttable-plan-07-force-ddl.md). CLI — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md): `updateTable`, **не** force. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-04. Блокер ST 16 **сделан**. Канон — [`user.md`](user.md). Группы — [`user-plan-02-groups.md`](user-plan-02-groups.md) (история: unique одной колонкой). Force leftover — [`smarttable-plan-07-force-ddl.md`](smarttable-plan-07-force-ddl.md). CLI — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md): `updateTable`, **не** force. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: `UNIQUE (user_id, group_id)` на `user_group_member`. Колонка **`member_key` уходит**. Фасад `IUserGroups` / HTTP / LAST_BYPASS / Auth — без смены смысла.
 

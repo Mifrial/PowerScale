@@ -1,6 +1,6 @@
 # План 16 — составной unique
 
-**Статус:** сделано, 2026-09-04. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Одноколоночный unique — [`smarttable-plan-06-indexes.md`](smarttable-plan-06-indexes.md) (**не** ломать). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Force leftover — [`smarttable-plan-07-force-ddl.md`](smarttable-plan-07-force-ddl.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-04. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Одноколоночный unique — [`smarttable-plan-06-indexes.md`](smarttable-plan-06-indexes.md) (**не** ломать). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Force leftover — [`smarttable-plan-07-force-ddl.md`](smarttable-plan-07-force-ddl.md).
 
 Цель: unique по **двум и более колонкам основной таблицы**. Один контракт для PHP-класса и словаря. Не флаг поля. Не составной неуникальный INDEX. Не fulltext.
 

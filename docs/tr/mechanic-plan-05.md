@@ -1,6 +1,6 @@
 # План Mechanic 5 — публичный вызов Engine
 
-**Статус:** публичный порт, сессия 3 [`mechanic-roadmap.md`](mechanic-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Ядро — [`mechanic-plan-04.md`](mechanic-plan-04.md).
+**Статус:** ~СДЕЛАНО~ — публичный порт, сессия 3 [`mechanic-roadmap.md`](mechanic-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Ядро — [`mechanic-plan-04.md`](mechanic-plan-04.md).
 
 Цель: сосед получает движок из контейнера. Реестр уже содержит `purchase_surcharge` на `character.osSteps`. Сосед хендлер не регистрирует.
 

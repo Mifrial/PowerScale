@@ -1,6 +1,6 @@
 # План Kernel 2 — DTO входа action
 
-**Статус:** сделано, 2026-09-03. Канон конвейера — [`architecture.md`](architecture.md) (`DEC-074`). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Актор — не этот план ([`user-plan-03-http.md`](user-plan-03-http.md)). HTTP групп — не этот план ([`user-plan-04-groups-http.md`](user-plan-04-groups-http.md)).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-03. Канон конвейера — [`architecture.md`](architecture.md) (`DEC-074`). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Актор — не этот план ([`user-plan-03-http.md`](user-plan-03-http.md)). HTTP групп — не этот план ([`user-plan-04-groups-http.md`](user-plan-04-groups-http.md)).
 
 Цель: `ActionParameterBinder` собирает **входной DTO** из JSON. Толстый `handle` с семью `?T = null` уходит. Скалярный `handle(int $id)` остаётся. `handle(mixed $payload)` по-прежнему запрещён.
 

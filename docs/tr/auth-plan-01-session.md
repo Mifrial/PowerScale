@@ -1,6 +1,6 @@
 # План Auth 1 — сессия, пароль, seed
 
-**Статус:** сделано, 2026-09-02. Канон учётки — [`user.md`](user.md). UI — [`auth-system.md`](auth-system.md). Нарезка User — [`user-roadmap.md`](user-roadmap.md). Setup CLI — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер HTTP — [`architecture.md`](architecture.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-02. Канон учётки — [`user.md`](user.md). UI — [`auth-system.md`](auth-system.md). Нарезка User — [`user-roadmap.md`](user-roadmap.md). Setup CLI — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер HTTP — [`architecture.md`](architecture.md).
 
 Цель: модуль `Core/Auth` принимает login/logout/register и «кто я» по httpOnly cookie. Способы входа и сессия — таблицы Auth. Профиль и группы — клиент `IUserAccounts` / `IUserGroups`. User **не** импортирует Auth. Не object-ACL, не HTTP `user.*`, не guest, не VK.
 

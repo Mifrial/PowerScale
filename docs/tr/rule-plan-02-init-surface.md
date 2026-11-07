@@ -1,6 +1,6 @@
 # План Rule 2 — поверхность Vue `Rule/init`
 
-**Статус:** сделано, 2026-09-07. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) «Позже» (не шаги 1–12). Сплит справочников закрыт ([`vue-rule-split-plan-01.md`](vue-rule-split-plan-01.md), [`keyword-plan-03.md`](keyword-plan-03.md), [`mechanic-plan-03.md`](mechanic-plan-03.md)). Канон рёбер — [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-064`, `DEC-065`; в заходе — `DEC-082`.
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-07. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) «Позже» (не шаги 1–12). Сплит справочников закрыт ([`vue-rule-split-plan-01.md`](vue-rule-split-plan-01.md), [`keyword-plan-03.md`](keyword-plan-03.md), [`mechanic-plan-03.md`](mechanic-plan-03.md)). Канон рёбер — [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-064`, `DEC-065`; в заходе — `DEC-082`.
 
 Цель: Character/Game по-прежнему зависят от Rule (спека и её интерпретатор — хозяин Rule). Узкое место — **баррель `Rule/init.ts`**: константы, value-класс, синглтоны, мёртвый Vue-экспорт и `import 'vue'` на верхнем уровне. Не PHP. Не HTTP `rule.*`. Не перенос интерпретации в Character/Game. Не модуль `RuleRuntime`. Не открывать `Service/` / `Utils/` / `Component/` целиком.
 

@@ -1,6 +1,6 @@
 # План Game 3 — строка персонажа в игре
 
-**Статус:** строка персонажа в PHP сделана, 2026-10-04. `BACKEND_OPEN`. Suite `game` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G3. Участник — [`game-plan-02.md`](game-plan-02.md). Строка игры — [`game-plan-01.md`](game-plan-01.md). Лист — [`character-system.md`](character-system.md). Гейт «C8 без Game» — [`character-roadmap.md`](character-roadmap.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — строка персонажа в PHP сделана, 2026-10-04. `BACKEND_OPEN`. Suite `game` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G3. Участник — [`game-plan-02.md`](game-plan-02.md). Строка игры — [`game-plan-01.md`](game-plan-01.md). Лист — [`character-system.md`](character-system.md). Гейт «C8 без Game» — [`character-roadmap.md`](character-roadmap.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: строка `(gameId, characterId)` отдельно от `game_member`. Заявка, неизменяемый snapshot, бонус этого персонажа и видимость секций в игре. Character этим заходом не меняется и Game не пишет таблицу `character`.
 

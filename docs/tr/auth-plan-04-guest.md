@@ -1,6 +1,6 @@
 # План Auth 4 — гостевая сессия
 
-**Статус:** сделано, 2026-09-04. Стенд `powerscale` на момент сверки: база есть, **таблиц 0** (`setup.php` не гоняли). Нарезка — [`core-tails-roadmap.md`](core-tails-roadmap.md). Канон — [`auth-system.md`](auth-system.md) § Guest. Сессия пользователя — [`auth-plan-01-session.md`](auth-plan-01-session.md) (**сделано**). Vue: `Session.kind`, `guestLogin()` → `auth.guest`, `currentUser === null`, `guestActor` в User store, `guestAllowed`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-04. Стенд `powerscale` на момент сверки: база есть, **таблиц 0** (`setup.php` не гоняли). Нарезка — [`core-tails-roadmap.md`](core-tails-roadmap.md). Канон — [`auth-system.md`](auth-system.md) § Guest. Сессия пользователя — [`auth-plan-01-session.md`](auth-plan-01-session.md) (**сделано**). Vue: `Session.kind`, `guestLogin()` → `auth.guest`, `currentUser === null`, `guestActor` в User store, `guestAllowed`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: гость — живая cookie Auth **без** учётки. Reload не сбрасывает в anon. Защищённые action по-прежнему `AUTH_REQUIRED` (нет `RequestActor`).
 

@@ -1,6 +1,6 @@
 # План Agent 1 — тик по расписанию
 
-**Статус:** сделано, 2026-09-03. Нарезка — [`mail-roadmap.md`](mail-roadmap.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-03. Нарезка — [`mail-roadmap.md`](mail-roadmap.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md).
 
 Цель: модуль `Core/Agent` хранит расписание и по CLI вызывает обработчики, которые **зарегистрировали** другие модули. Не почта, не cron-демон, не HTTP action, не Vue Engine.
 

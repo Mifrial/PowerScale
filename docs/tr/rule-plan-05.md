@@ -1,6 +1,6 @@
 # План Rule — разделить уже существующий evaluate
 
-**Статус:** правка в коде, 2026-10-05. Нарезка в roadmap по-прежнему не вписана. Нарезка в [`rule-roadmap.md`](rule-roadmap.md) не вписывается. [`rule-plan-03.md`](rule-plan-03.md) и [`game-plan-20.md`](game-plan-20.md) не переписываются. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — правка в коде, 2026-10-05. Нарезка в roadmap по-прежнему не вписана. Нарезка в [`rule-roadmap.md`](rule-roadmap.md) не вписывается. [`rule-plan-03.md`](rule-plan-03.md) и [`game-plan-20.md`](game-plan-20.md) не переписываются. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Сейчас `IFormulaEvaluations::evaluate(ScalarFormula|DimensionalFormula, FormulaContext): int` в `FormulaEvaluations` делает две разные вещи. Скаляр считает `int` в `evaluateScalar`. Размерный узел считает пару в `walkDimensional` и тут же теряет её через `toInteger()`. Единственный вызов снаружи — `GameStrikeRules::evaluateDamage`, строка с `->evaluate(...)`: формула урона уже `DimensionalFormula`, метод возвращает `int`.
 

@@ -1,6 +1,6 @@
 # C2 — план реализации: Game знаний (5.2)
 
-**Статус:** сделано, 2026-09-13. Канон не переписывался.  
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-13. Канон не переписывался.
 **Канон:** [`rule-content-plan-04-knowledge.md`](rule-content-plan-04-knowledge.md) (срез 5.2).  
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).  

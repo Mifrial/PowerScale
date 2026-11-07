@@ -1,6 +1,6 @@
 # План Rule 1 — кластер на часы
 
-**Статус:** каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md). Канон — [`rule-system.md`](rule-system.md). Часы — [`versioning-plan-01.md`](versioning-plan-01.md). Справочники — [`keyword-plan-01.md`](keyword-plan-01.md), [`mechanic-plan-01.md`](mechanic-plan-01.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-080`, `DEC-060`.
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md). Канон — [`rule-system.md`](rule-system.md). Часы — [`versioning-plan-01.md`](versioning-plan-01.md). Справочники — [`keyword-plan-01.md`](keyword-plan-01.md), [`mechanic-plan-01.md`](mechanic-plan-01.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-080`, `DEC-060`.
 
 Цель: ленивый **`Roleplay/Rule`**. Identity/экземпляр правила на Versioning. Ссылки на **чужие** таблицы Keyword и Mechanic. Без HTTP, Vue, Engine, RuleSpace. Без карт `keyword`/`mechanic` в этом модуле.
 

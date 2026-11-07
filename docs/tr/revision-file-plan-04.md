@@ -1,6 +1,6 @@
 # План 4 — upsert справочника из снимков файла
 
-**Статус:** каркас Vue сделан, 2026-09-06. Нарезка — [`revision-file-roadmap.md`](revision-file-roadmap.md) шаг **4**. Импорт черновика — [`revision-file-plan-03.md`](revision-file-plan-03.md). Формат — [`revision-file-plan-01.md`](revision-file-plan-01.md). HTTP справочников — [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
+**Статус:** ~ЧАСТИЧНО~ — каркас Vue сделан, 2026-09-06. Нарезка — [`revision-file-roadmap.md`](revision-file-roadmap.md) шаг **4**. Импорт черновика — [`revision-file-plan-03.md`](revision-file-plan-03.md). Формат — [`revision-file-plan-01.md`](revision-file-plan-01.md). HTTP справочников — [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
 
 Цель: импорт ревизии **сам заводит и подтягивает** used-снимки `file.keywords` / `file.mechanics` в глобальный каталог (`keyword.create|update|deactivate`, `mechanic.create|update`), затем прежний overlay в черновик. Не отдельный файл «всего справочника». Не HTTP `ruleSpace.import*`. Не реактивация keyword (её нет в API). Не DELETE лишних mechanic. Не админка `/admin/mechanics`. Не Vue-сплит.
 

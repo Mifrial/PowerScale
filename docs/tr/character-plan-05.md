@@ -1,6 +1,6 @@
 # План Character 5 — сборка листа и валидатор (C4)
 
-**Статус:** PHP сделан. `BACKEND_OPEN`. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт входа — [`character-plan-01.md`](character-plan-01.md). Доплата — [`character-plan-04.md`](character-plan-04.md). Поля spec — [`decisions.md`](decisions.md) `DEC-086`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — PHP сделан. `BACKEND_OPEN`. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт входа — [`character-plan-01.md`](character-plan-01.md). Доплата — [`character-plan-04.md`](character-plan-04.md). Поля spec — [`decisions.md`](decisions.md) `DEC-086`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: один валидатор `ICharacterSheets::validate` строит снимок и `problems` формы C0. Его позже вызовут create, update и validate-only. Записи персонажа нет.
 

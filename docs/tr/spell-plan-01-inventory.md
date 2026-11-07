@@ -1,6 +1,6 @@
 # План M1 — inventory магии из AI.html
 
-**Статус:** завершён, 2026-09-07. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Источник — [`docs/rule/spell/AI.html`](../rule/spell/AI.html). Канон текущей модели — [`rule-system.md`](rule-system.md), [`decisions.md`](decisions.md), [`../specs/ability-parameters.md`](../specs/ability-parameters.md).
+**Статус:** ~СДЕЛАНО~ — завершён, 2026-09-07. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Источник — [`docs/rule/spell/AI.html`](../rule/spell/AI.html). Канон текущей модели — [`rule-system.md`](rule-system.md), [`decisions.md`](decisions.md), [`../specs/ability-parameters.md`](../specs/ability-parameters.md).
 
 ## Цель
 

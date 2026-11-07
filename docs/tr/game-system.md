@@ -1,6 +1,6 @@
 # Система игр
 
-**Статус:** текущий frontend/domain канон, 2026-08-30. Незавершённые backend-контракты явно помечены. Battleground — [`battleground-system.md`](battleground-system.md), не этот файл.
+**Статус:** текущий frontend/domain канон, 2026-08-30. Backend-контракты, не подтверждённые кодом, явно помечены. Battleground — [`battleground-system.md`](battleground-system.md), не этот файл.
 
 ## Контекст и lifecycle
 

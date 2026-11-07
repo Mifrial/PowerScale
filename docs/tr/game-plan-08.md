@@ -1,6 +1,6 @@
 # План Game 8 — фильтр карточки и вступление
 
-**Статус:** фильтр карточки и вступление в PHP сделаны, 2026-10-04. `BACKEND_OPEN`. Suite `game` по `GameAdmissionMysqlTest` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G8. Строка игры — [`game-plan-01.md`](game-plan-01.md). Участник — [`game-plan-02.md`](game-plan-02.md). Роли — [`auth-system.md`](auth-system.md). Границы — [`game-system.md`](game-system.md), [`architecture.md`](architecture.md), индекс [`TR.md`](TR.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — фильтр карточки и вступление в PHP сделаны, 2026-10-04. `BACKEND_OPEN`. Suite `game` по `GameAdmissionMysqlTest` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G8. Строка игры — [`game-plan-01.md`](game-plan-01.md). Участник — [`game-plan-02.md`](game-plan-02.md). Роли — [`auth-system.md`](auth-system.md). Границы — [`game-system.md`](game-system.md), [`architecture.md`](architecture.md), индекс [`TR.md`](TR.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: один заход, который G1 отложил. `game.get` и `game.getList` начинают толковать `visibility`. Вступление идёт двумя потоками — приглашение и заявка — и только при подходящем `join_policy` создаёт строку `game_member`. Владелец остаётся колонкой `game.owner_id`.
 

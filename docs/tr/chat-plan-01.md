@@ -1,6 +1,6 @@
 # План Chat 1 — таблицы и фасад
 
-**Статус:** план, сверено с Kernel/ST/User 2026-09-04. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Канон UI — [`chat-system.md`](chat-system.md) (имена `IChatApi` / `sync` **не** копировать в фасад). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). User — [`user-plan-01-account.md`](user-plan-01-account.md). Unique членства — [`user-plan-07-member-unique.md`](user-plan-07-member-unique.md). Составной unique — [`smarttable-plan-16-composite-unique.md`](smarttable-plan-16-composite-unique.md).
+**Статус:** ~СДЕЛАНО~ — план, сверено с Kernel/ST/User 2026-09-04. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Канон UI — [`chat-system.md`](chat-system.md) (имена `IChatApi` / `sync` **не** копировать в фасад). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). User — [`user-plan-01-account.md`](user-plan-01-account.md). Unique членства — [`user-plan-07-member-unique.md`](user-plan-07-member-unique.md). Составной unique — [`smarttable-plan-16-composite-unique.md`](smarttable-plan-16-composite-unique.md).
 
 Цель: модуль **`Messages/Chat`** (ленивый), три карты, публичный фасад `IChats`. **Нет** HTTP, SSE, Vue, visibility, Files, Roleplay.
 

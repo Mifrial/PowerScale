@@ -1,6 +1,6 @@
 # План Game 4 — смена ревизии и допуск
 
-**Статус:** смена ревизии и предикаты в PHP сделаны, 2026-10-04. `BACKEND_OPEN`. Suite `game` и `character` зелёные. Нарезка — [`game-roadmap.md`](game-roadmap.md) G4. Строка персонажа — [`game-plan-03.md`](game-plan-03.md). Участник — [`game-plan-02.md`](game-plan-02.md). Строка игры — [`game-plan-01.md`](game-plan-01.md). Лист и миграция — [`character-system.md`](character-system.md). C7 есть, C8 этим шагом не закрывается — [`character-roadmap.md`](character-roadmap.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — смена ревизии и предикаты в PHP сделаны, 2026-10-04. `BACKEND_OPEN`. Suite `game` и `character` зелёные. Нарезка — [`game-roadmap.md`](game-roadmap.md) G4. Строка персонажа — [`game-plan-03.md`](game-plan-03.md). Участник — [`game-plan-02.md`](game-plan-02.md). Строка игры — [`game-plan-01.md`](game-plan-01.md). Лист и миграция — [`character-system.md`](character-system.md). C7 есть, C8 этим шагом не закрывается — [`character-roadmap.md`](character-roadmap.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: `rulesRevision` игры можно сменить, пока сессии нет, и по строке персонажа посчитать допуск. Game не мигрирует лист. Character не начинает импортировать Game и не получает запрет migrate.
 

@@ -1,6 +1,6 @@
 # План Mechanic — capability среза надёжности
 
-**Статус:** сделан, 2026-10-07. Метод `IMechanicEngine::hasReliabilityCut`
+**Статус:** ~СДЕЛАНО~ — сделан, 2026-10-07. Метод `IMechanicEngine::hasReliabilityCut`
 и marker `IReliabilityCut` готовы как `BACKEND_OPEN`. Production handler/content
 для реального среза этим планом не добавлены. [`mechanic-roadmap.md`](mechanic-roadmap.md)
 включает сессию 5. `game-plan-28` закрыт только частично.

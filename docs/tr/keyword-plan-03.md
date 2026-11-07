@@ -1,6 +1,6 @@
 # План Keyword 3 — Vue-модуль `Roleplay/Keyword`
 
-**Статус:** каркас Vue сделан, 2026-09-06. Нарезка Vue — [`vue-rule-split-plan-01.md`](vue-rule-split-plan-01.md) заход 1. HTTP уже в PHP Keyword ([`keyword-plan-02.md`](keyword-plan-02.md)). Эталон переезда папки — [`rulespace-plan-10.md`](rulespace-plan-10.md). Канон рёбер — [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-062`, `DEC-064`.
+**Статус:** ~ЧАСТИЧНО~ — каркас Vue сделан, 2026-09-06. Нарезка Vue — [`vue-rule-split-plan-01.md`](vue-rule-split-plan-01.md) заход 1. HTTP уже в PHP Keyword ([`keyword-plan-02.md`](keyword-plan-02.md)). Эталон переезда папки — [`rulespace-plan-10.md`](rulespace-plan-10.md). Канон рёбер — [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-062`, `DEC-064`.
 
 Цель: справочник признаков живёт в **`src/modules/Roleplay/Keyword/`**. Locator, `init`, админ-роуты `/admin/keywords`, CRUD UI, мок и `useKeywords` — этот модуль. Rule хранит `keywordIds` и валидирует ссылки, но не владеет HTTP/стором/страницами. Не PHP. Не Mechanic. Не смена URL. Не seed. Не переименование `fetchTags` / `*Tag` в сторе (хвост эскиза, не этот заход).
 

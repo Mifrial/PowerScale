@@ -1,6 +1,6 @@
 # План 2 — группы и членство
 
-**Статус:** сделано, 2026-09-02. Канон — [`user.md`](user.md). Нарезка — [`user-roadmap.md`](user-roadmap.md). SmartTable — [`smarttable.md`](smarttable.md). Права UI — [`auth-system.md`](auth-system.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). План 1 — [`user-plan-01-account.md`](user-plan-01-account.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-02. Канон — [`user.md`](user.md). Нарезка — [`user-roadmap.md`](user-roadmap.md). SmartTable — [`smarttable.md`](smarttable.md). Права UI — [`auth-system.md`](auth-system.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). План 1 — [`user-plan-01-account.md`](user-plan-01-account.md).
 
 Цель: в том же `Core/User` — группы, членство, глобальные ключи прав, bypass и «нельзя снять последнего». **Нет** HTTP, Auth/cookie, object-ACL, seed «Администраторы»/«Игрок» в проде.
 

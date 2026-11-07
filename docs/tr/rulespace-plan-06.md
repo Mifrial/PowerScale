@@ -1,6 +1,6 @@
 # План RuleSpace 6 — секции каталога
 
-**Статус:** каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **9**. Оператор — планы 1–3. HTTP/права — [`rulespace-plan-04.md`](rulespace-plan-04.md), [`rulespace-plan-05.md`](rulespace-plan-05.md). Канон — [`rule-system.md`](rule-system.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-079`.
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **9**. Оператор — планы 1–3. HTTP/права — [`rulespace-plan-04.md`](rulespace-plan-04.md), [`rulespace-plan-05.md`](rulespace-plan-05.md). Канон — [`rule-system.md`](rule-system.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-079`.
 
 Цель: дерево секций и порядок карточек **версионируются отдельно от тел правил**, но **замораживаются на ревизии мира** указателем. Ревизию не update. Черновик секций **не в БД** (клиент / шаг 10). Можно опубликовать **только каталог** (новый номер ревизии, тот же состав `version_id`). Не колонки `rule_version`. Не seed (`parent_ability_code` ≠ секция). Не `changedCount`. Не Vue.
 

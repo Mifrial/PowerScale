@@ -1,6 +1,6 @@
 # План 13 — DateTime default «сейчас»
 
-**Статус:** сделано, 2026-09-02. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Поля — [`smarttable-plan-02-fields.md`](smarttable-plan-02-fields.md) (`default`, если ключа нет). User — [`user.md`](user.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-02. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Поля — [`smarttable-plan-02-fields.md`](smarttable-plan-02-fields.md) (`default`, если ключа нет). User — [`user.md`](user.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: на add без ключа datetime-поле может получить **текущий** момент. Не SQL `DEFAULT` / `CURRENT_TIMESTAMP`. Не clock-порт. Не `updated_at`.
 

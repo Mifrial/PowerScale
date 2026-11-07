@@ -1,6 +1,6 @@
 # План Chat 6 — создать host private/group
 
-**Статус:** сделано, 2026-09-05; inbox/SSE обновлены 2026-10-25. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). HTTP — [`chat-plan-02.md`](chat-plan-02.md) (create там **не** входило). Vue real — [`chat-plan-04.md`](chat-plan-04.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-05; inbox/SSE обновлены 2026-10-25. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). HTTP — [`chat-plan-02.md`](chat-plan-02.md) (create там **не** входило). Vue real — [`chat-plan-04.md`](chat-plan-04.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
 
 Цель: актор сам заводит **обычный** (`private`) и **групповой** (`group`) чат с UI и HTTP. Список мессенджера — все чаты, где пользователь член; этот план создаёт только `private`/`group`, а чаты игры / обсуждения игры / обсуждения персонажа заводят доноры своим типом.
 

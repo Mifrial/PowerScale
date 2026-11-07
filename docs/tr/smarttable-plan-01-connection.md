@@ -1,6 +1,6 @@
 # План 1 — соединение SmartTable
 
-**Статус:** план реализации, 2026-09-01. Канон требований — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — план реализации, 2026-09-01. Канон требований — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Кнопка Build в Cursor — у файла [`.cursor/plans`](../../.cursor/plans) / пользовательского plan, не у этого markdown. Чеклист здесь — чтобы план был исполняемым и без UI.
 

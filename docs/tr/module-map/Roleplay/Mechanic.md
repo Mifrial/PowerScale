@@ -62,12 +62,12 @@
 
 | Документ | Тип | Состояние | Дата |
 |---|---|---|---|
-| [mechanic-plan-05.md](../../mechanic-plan-05.md) | план | `~ПЛАН~` | — |
-| [mechanic-plan-06.md](../../mechanic-plan-06.md) | план | `~В РАБОТЕ~` | — |
 | [mechanic-plan-01.md](../../mechanic-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-09-05 |
 | [mechanic-plan-02.md](../../mechanic-plan-02.md) | план | `~ЧАСТИЧНО~` | 2026-09-06 |
-| [mechanic-plan-04.md](../../mechanic-plan-04.md) | план | `~ЧАСТИЧНО~` | — |
 | [mechanic-plan-03.md](../../mechanic-plan-03.md) | план | `~СДЕЛАНО~` | 2026-09-07 |
+| [mechanic-plan-04.md](../../mechanic-plan-04.md) | план | `~СДЕЛАНО~` | — |
+| [mechanic-plan-05.md](../../mechanic-plan-05.md) | план | `~СДЕЛАНО~` | — |
+| [mechanic-plan-06.md](../../mechanic-plan-06.md) | план | `~СДЕЛАНО~` | — |
 | [mechanic-plan-07.md](../../mechanic-plan-07.md) | план | `~СДЕЛАНО~` | 2026-10-07 |
 | [mechanic-roadmap.md](../../mechanic-roadmap.md) | план | `~СДЕЛАНО~` | 2026-10-07 |
 

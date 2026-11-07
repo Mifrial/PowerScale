@@ -1,6 +1,6 @@
 # План Chat 4 — Vue real
 
-**Статус:** сделано, 2026-09-04. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Канон UI — [`chat-system.md`](chat-system.md). HTTP — [`chat-plan-02.md`](chat-plan-02.md). SSE — [`chat-plan-03.md`](chat-plan-03.md) §9 (контракт транспорта; код Vue — этот файл). Правила фронта — `draft-front_1.2ds/frontend-rules.md`. Конвейер — [`architecture.md`](architecture.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-04. Нарезка — [`chat-roadmap.md`](chat-roadmap.md). Канон UI — [`chat-system.md`](chat-system.md). HTTP — [`chat-plan-02.md`](chat-plan-02.md). SSE — [`chat-plan-03.md`](chat-plan-03.md) §9 (контракт транспорта; код Vue — этот файл). Правила фронта — `draft-front_1.2ds/frontend-rules.md`. Конвейер — [`architecture.md`](architecture.md).
 
 Цель: при `VITE_API_MODE=real` чат ходит в четыре action и в `GET /api/chat/sync`. Mock poll не удалять. PHP не трогаем. Плагины Game / visibility / unread — не этот заход.
 

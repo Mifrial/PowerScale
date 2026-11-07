@@ -1,6 +1,6 @@
 # План 14 — путь через `reference` в getList
 
-**Статус:** сделано, 2026-09-02. Канон — [`smarttable.md`](smarttable.md) § getList / типы / Reference. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Reference — [`smarttable-plan-05-reference.md`](smarttable-plan-05-reference.md). Multiple — [`smarttable-plan-05-multiple.md`](smarttable-plan-05-multiple.md). Кэш — [`smarttable-plan-08-cache.md`](smarttable-plan-08-cache.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Потребитель-пример — [`user-plan-02-groups.md`](user-plan-02-groups.md) (`hasBypass` / LAST_BYPASS).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-02. Канон — [`smarttable.md`](smarttable.md) § getList / типы / Reference. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Reference — [`smarttable-plan-05-reference.md`](smarttable-plan-05-reference.md). Multiple — [`smarttable-plan-05-multiple.md`](smarttable-plan-05-multiple.md). Кэш — [`smarttable-plan-08-cache.md`](smarttable-plan-08-cache.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Потребитель-пример — [`user-plan-02-groups.md`](user-plan-02-groups.md) (`hasBypass` / LAST_BYPASS).
 
 Цель: в `getList` / `getUnique` / `getFirst` ключ может быть путём через свои `reference` к полям достигнутой карты. Не полный Bitrix JOIN, не fluent `query()`, не гидрация родителя объектом.
 

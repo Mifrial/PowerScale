@@ -1,6 +1,6 @@
 # План Character 7 — чтение, видимость, заметки (C6)
 
-**Статус:** PHP сделан. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт — [`character-plan-01.md`](character-plan-01.md) §6–7. Хранение — [`character-plan-02.md`](character-plan-02.md). Save — [`character-plan-06.md`](character-plan-06.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — PHP сделан. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт — [`character-plan-01.md`](character-plan-01.md) §6–7. Хранение — [`character-plan-02.md`](character-plan-02.md). Save — [`character-plan-06.md`](character-plan-06.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: публичные list и detail, отдельные операции заметок и видимости. Create, update, validate, снимок и spec не переписываются. Миграция ревизии, Game и runtime вне create не входят. `customRules` остаются во входе save.
 

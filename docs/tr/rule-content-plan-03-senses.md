@@ -1,6 +1,6 @@
 # C2 — обсуждение: чувства и освещение
 
-**Статус:** `DEFERRED`. Спека и лист есть; **Game чувства не читает, в текущий релиз не входит.**  
+**Статус:** ~ОТЛОЖЕН~ — `DEFERRED`. Спека и лист есть; **Game чувства не читает, в текущий релиз не входит.**
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).  
 **Карточки:** `sense-hearing`, `sense-vision`, `dark-vision`.

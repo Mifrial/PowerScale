@@ -1,6 +1,6 @@
 # План Game 7 — секции видимости строки персонажа
 
-**Статус:** запись секций в PHP сделана, 2026-10-04. `BACKEND_OPEN`. Suite `game` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G7. Строка персонажа — [`game-plan-03.md`](game-plan-03.md). NPC — [`game-plan-06.md`](game-plan-06.md). Границы — [`game-system.md`](game-system.md), [`architecture.md`](architecture.md), индекс [`TR.md`](TR.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — запись секций в PHP сделана, 2026-10-04. `BACKEND_OPEN`. Suite `game` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G7. Строка персонажа — [`game-plan-03.md`](game-plan-03.md). NPC — [`game-plan-06.md`](game-plan-06.md). Границы — [`game-system.md`](game-system.md), [`architecture.md`](architecture.md), индекс [`TR.md`](TR.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: отдельное действие пишет список кодов секций в уже существующую колонку `game_character.section_visibility`. Подача по-прежнему пишет `[]`. Запись не меняет лист персонажа, snapshot и публичную видимость Character. Это не `character.visibility_fields`, не `CharacterSheetAccess` и не объект видимости NPC из G6.
 

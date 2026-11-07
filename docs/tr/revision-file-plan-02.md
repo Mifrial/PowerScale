@@ -1,6 +1,6 @@
 # План 2 — экспорт опубликованной ревизии
 
-**Статус:** каркас Vue сделан, 2026-09-06. Нарезка — [`revision-file-roadmap.md`](revision-file-roadmap.md) шаг **2**. Формат — [`revision-file-plan-01.md`](revision-file-plan-01.md). Срез — [`rulespace-plan-04.md`](rulespace-plan-04.md), секции — [`rulespace-plan-06.md`](rulespace-plan-06.md). Справочники — [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
+**Статус:** ~ЧАСТИЧНО~ — каркас Vue сделан, 2026-09-06. Нарезка — [`revision-file-roadmap.md`](revision-file-roadmap.md) шаг **2**. Формат — [`revision-file-plan-01.md`](revision-file-plan-01.md). Срез — [`rulespace-plan-04.md`](rulespace-plan-04.md), секции — [`rulespace-plan-06.md`](rulespace-plan-06.md). Справочники — [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
 
 Цель: кнопка **Экспорт** на опубликованном срезе даёт файл v3, достаточный для переноса: все пункты состава (включая tombstone), секции этой ревизии, снимки **использованных** keyword/mechanic по code. Каталоги читаются **свежим** `getList`, ошибка справочника не маскируется пустым store. Не импорт-preview, не `commitDraft`, не создание строк справочника, не PHP, не HTTP файла.
 

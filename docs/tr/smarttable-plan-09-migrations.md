@@ -1,6 +1,6 @@
 # План 9 — DDL одной таблицы в SmartTable; прогон модулей не здесь
 
-**Статус:** решение, 2026-09-02, уточнение терминов 2026-09-02. Канон — [`smarttable.md`](smarttable.md) § Назначение. Прогон модулей — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Нарезка ST — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 9.
+**Статус:** ~СДЕЛАНО~ — решение, 2026-09-02, уточнение терминов 2026-09-02. Канон — [`smarttable.md`](smarttable.md) § Назначение. Прогон модулей — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Нарезка ST — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 9.
 
 Код прогона в `Core/SmartTable` **не пишем**. Ворота Basic (план 10) этот код не ждут.
 

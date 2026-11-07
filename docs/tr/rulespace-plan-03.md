@@ -1,6 +1,6 @@
 # План RuleSpace 3 — выборочный commit
 
-**Статус:** каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **6**. Мир — [`rulespace-plan-01.md`](rulespace-plan-01.md). Мета/лента — [`rulespace-plan-02.md`](rulespace-plan-02.md). Кластер — [`rule-plan-01.md`](rule-plan-01.md). Канон — [`rule-system.md`](rule-system.md), `DEC-015`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-079`.
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-09-05. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **6**. Мир — [`rulespace-plan-01.md`](rulespace-plan-01.md). Мета/лента — [`rulespace-plan-02.md`](rulespace-plan-02.md). Кластер — [`rule-plan-01.md`](rule-plan-01.md). Канон — [`rule-system.md`](rule-system.md), `DEC-015`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-079`.
 
 Цель: оператор собирает **полный** list `RuleCommitEntry` из базовой ревизии + выбранных `put` и tombstone. Часы по-прежнему принимают только полный состав. Без HTTP, Vue, прав, секций, файла ревизии. Draft не в БД: тела выбранных правил приходят во входе.
 

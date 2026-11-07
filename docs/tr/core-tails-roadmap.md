@@ -1,6 +1,6 @@
 # Нарезка хвостов Core: Guest и страница членов
 
-**Статус:** 2026-09-04. Guest и страница членов **сделаны**. Канон гостя — [`auth-system.md`](auth-system.md) § Guest. Члены — [`user-plan-06-members-page.md`](user-plan-06-members-page.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — 2026-09-04. Guest и страница членов **сделаны**. Канон гостя — [`auth-system.md`](auth-system.md) § Guest. Члены — [`user-plan-06-members-page.md`](user-plan-06-members-page.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Два независимых захода (нет FK друг на друга). Guest сделан. Дальше — страница членов.
 

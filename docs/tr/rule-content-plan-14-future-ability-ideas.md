@@ -1,6 +1,6 @@
 # Идеи по навыкам на будущее
 
-**Статус:** `BACKLOG`. Не текущая пачка C2.  
+**Статус:** ~ОТЛОЖЕН~ — `BACKLOG`. Не текущая пачка C2.
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** не ставить в [`rule-content-queue.md`](rule-content-queue.md), пока не выполнено «когда сделать».
 

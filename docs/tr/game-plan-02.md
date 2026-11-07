@@ -1,6 +1,6 @@
 # План Game 2 — участники-люди и права
 
-**Статус:** участники PHP сделаны, 2026-10-04. `BACKEND_OPEN`. Suite `game` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G2. Строка игры — [`game-plan-01.md`](game-plan-01.md), код `Roleplay/Game` с ней совпадает. Канон ролей — [`auth-system.md`](auth-system.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — участники PHP сделаны, 2026-10-04. `BACKEND_OPEN`. Suite `game` зелёный. Нарезка — [`game-roadmap.md`](game-roadmap.md) G2. Строка игры — [`game-plan-01.md`](game-plan-01.md), код `Roleplay/Game` с ней совпадает. Канон ролей — [`auth-system.md`](auth-system.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: строка участника `(gameId, userId)` для человека, который не владелец. Роль этой строки настраивается: `gm` или `player`. Владелец остаётся колонкой `game.owner_id` и этим заходом не становится строкой участника.
 

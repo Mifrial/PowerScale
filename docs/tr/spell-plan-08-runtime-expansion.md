@@ -1,6 +1,6 @@
 # План M8 — duration, `spell_upgrade` на каст, параметры активации
 
-**Статус:** DONE, 2026-09-11. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Срез — [`spell-plan-02-slice.md`](spell-plan-02-slice.md) E7. Контракт — [`spell-plan-03-contract.md`](spell-plan-03-contract.md). Check — [`spell-plan-06-cast-check.md`](spell-plan-06-cast-check.md). Эффект instant — [`spell-plan-07-runtime-slice.md`](spell-plan-07-runtime-slice.md). Канон — [`spell-review-01.md`](spell-review-01.md) SR-004, SR-076, SR-084, SR-130, SR-133, SR-135, SR-160. Правило поддержания — `spell-sustaining`. Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
+**Статус:** ~СДЕЛАНО~ — DONE, 2026-09-11. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Срез — [`spell-plan-02-slice.md`](spell-plan-02-slice.md) E7. Контракт — [`spell-plan-03-contract.md`](spell-plan-03-contract.md). Check — [`spell-plan-06-cast-check.md`](spell-plan-06-cast-check.md). Эффект instant — [`spell-plan-07-runtime-slice.md`](spell-plan-07-runtime-slice.md). Канон — [`spell-review-01.md`](spell-review-01.md) SR-004, SR-076, SR-084, SR-130, SR-133, SR-135, SR-160. Правило поддержания — `spell-sustaining`. Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
 
 ## Цель
 

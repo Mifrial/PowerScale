@@ -1,6 +1,6 @@
 # План Logger 5 — даты на экране журнала
 
-**Статус:** TODO, 2026-09-10. Предыдущий заход: [`logger-plan-04-view.md`](logger-plan-04-view.md) (HTTP и `/admin/logs` сделаны). Фронт — `draft-front_1.2ds/frontend-rules.md`. Канон HTTP не менять.
+**Статус:** ~ПЛАН~ — TODO, 2026-09-10. Предыдущий заход: [`logger-plan-04-view.md`](logger-plan-04-view.md) (HTTP и `/admin/logs` сделаны). Фронт — `draft-front_1.2ds/frontend-rules.md`. Канон HTTP не менять.
 
 Цель: оператор видит `createdAt` как дату/время и может отфильтровать журнал по периоду так, чтобы это было понятно с экрана. JSON по-прежнему unix UTC (`int`). Колонка «Время» уже локальная: `formatDatetime` принимает строку из цифр короче `1e12` как unix-секунды (2026-10-18). Фильтр периода в FilterBar подключён, но связан с тем же datetime-слоем UI и в этот заход не менялся.
 

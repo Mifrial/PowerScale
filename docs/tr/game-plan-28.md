@@ -1,6 +1,6 @@
 # План Game 28 — слои цели на закрытии удара
 
-**Статус:** `CLOSED` для backend Game 28, 2026-10-11. Финальный
+**Статус:** ~СДЕЛАНО~ — `CLOSED` для backend Game 28, 2026-10-11. Финальный
 read-only gap-аудит подтвердил projection/resistance, defender/block,
 размерный auto-fail, resource/action contract, reliability capability,
 penetration и persistence/delivery acceptance для `1 → 1` и `1 → N`.

@@ -1,6 +1,6 @@
 # План M7 — первый эффект каста: компоненты, касание, урон
 
-**Статус:** DONE, 2026-09-10. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Контракт — [`spell-plan-03-contract.md`](spell-plan-03-contract.md). Check — [`spell-plan-06-cast-check.md`](spell-plan-06-cast-check.md). Канон касания — [`spell-review-01.md`](spell-review-01.md) SR-161…165. Срез — `discharge` / `lightning-strike`. Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
+**Статус:** ~СДЕЛАНО~ — DONE, 2026-09-10. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Контракт — [`spell-plan-03-contract.md`](spell-plan-03-contract.md). Check — [`spell-plan-06-cast-check.md`](spell-plan-06-cast-check.md). Канон касания — [`spell-review-01.md`](spell-review-01.md) SR-161…165. Срез — `discharge` / `lightning-strike`. Правила фронта — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md).
 
 ## Цель
 

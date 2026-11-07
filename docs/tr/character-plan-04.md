@@ -1,6 +1,6 @@
 # План Character 4 — порт Mechanic Engine (C3)
 
-**Статус:** PHP сделан. `BACKEND_OPEN`. Нарезка — [`character-roadmap.md`](character-roadmap.md). Срез — [`character-plan-03.md`](character-plan-03.md). Движок — [`mechanic-plan-04.md`](mechanic-plan-04.md), порт — [`mechanic-plan-05.md`](mechanic-plan-05.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — PHP сделан. `BACKEND_OPEN`. Нарезка — [`character-roadmap.md`](character-roadmap.md). Срез — [`character-plan-03.md`](character-plan-03.md). Движок — [`mechanic-plan-04.md`](mechanic-plan-04.md), порт — [`mechanic-plan-05.md`](mechanic-plan-05.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: Character собирает `MechanicBinding` и узкий снимок и вызывает `IMechanicEngine` на `character.osSteps`. Доплата остаётся в аккумуляторах контекста. Записи персонажа нет.
 

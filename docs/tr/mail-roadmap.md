@@ -1,6 +1,6 @@
 # Нарезка Core/Mail и Core/Agent
 
-**Статус:** план, 2026-09-03. Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Setup CLI — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Конвейер — [`architecture.md`](architecture.md). Forgot без SMTP — [`auth-plan-02-password-flow.md`](auth-plan-02-password-flow.md).
+**Статус:** ~СДЕЛАНО~ — план, 2026-09-03. Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Setup CLI — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Конвейер — [`architecture.md`](architecture.md). Forgot без SMTP — [`auth-plan-02-password-flow.md`](auth-plan-02-password-flow.md).
 
 Порядок сверху вниз. Почта не стартует раньше Agent 1 (очередь крутит агент). Auth 3 не стартует раньше Mail 1 (notifier зовёт фасад Mail).
 

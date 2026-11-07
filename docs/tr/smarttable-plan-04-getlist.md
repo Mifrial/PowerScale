@@ -1,6 +1,6 @@
 # План 4 — getList
 
-**Статус:** сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § getList. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). CRUD — [`smarttable-plan-03-crud.md`](smarttable-plan-03-crud.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § getList. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). CRUD — [`smarttable-plan-03-crud.md`](smarttable-plan-03-crud.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: список строк с filter / sort / page / select на том же фасаде `IOpenedTable`. Fluent `query()` нет. Кэш (план 8) и contains/mfv (план 5) не писать.
 

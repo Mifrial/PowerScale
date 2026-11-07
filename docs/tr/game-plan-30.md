@@ -1,6 +1,6 @@
 # План Game 30 — immediate consequences
 
-**Статус:** `APPROVED` для backend принятого scope Game 30, 2026-10-11.
+**Статус:** ~СДЕЛАНО~ — принятый backend scope Game 30, 2026-10-11.
 Принят единый атомарный pipeline immediate consequences внутри уже
 закрытого close `1 → 1` и `1 → N`: ordinary injury и `putDamageSplit`,
 state hooks, stun/shock/knockout и проверки Воли/увечья для игрока и NPC,

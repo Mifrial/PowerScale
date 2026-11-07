@@ -1,6 +1,6 @@
 # План User 5 — выправить контракт (бэк + Vue)
 
-**Статус:** сделано, 2026-09-03. **Следующий продукт** (таблица политики пароля, `remember`, чужие модули) не стартуем, пока этот трек закрыт. Канон — [`user.md`](user.md), [`auth-system.md`](auth-system.md). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md) (§ эскиз Vue). Фронт — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md). Предыдущие HTTP — [`user-plan-03-http.md`](user-plan-03-http.md), [`user-plan-04-groups-http.md`](user-plan-04-groups-http.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-03. **Следующий продукт** (таблица политики пароля, `remember`, чужие модули) не стартуем, пока этот трек закрыт. Канон — [`user.md`](user.md), [`auth-system.md`](auth-system.md). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md) (§ эскиз Vue). Фронт — [`draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md). Предыдущие HTTP — [`user-plan-03-http.md`](user-plan-03-http.md), [`user-plan-04-groups-http.md`](user-plan-04-groups-http.md).
 
 Цель: один контракт API. Эскиз подтягивается к серверу, не наоборот. Каждый этап — **PHP + Vue + mock + тесты** в одном заходе, без окна «бэк уже другой, UI ещё dump».
 

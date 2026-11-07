@@ -1,6 +1,6 @@
 # План 19 — addMany пишет mfv; вложенная TX
 
-**Статус:** сделано, 2026-09-05. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). План 18 оставил mfv вне `addMany`. Потребитель — [`rule-plan-01.md`](rule-plan-01.md): признаки снимка — множество id на строке версии, не отдельная join-таблица. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-05. Канон — [`smarttable.md`](smarttable.md). Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). План 18 оставил mfv вне `addMany`. Потребитель — [`rule-plan-01.md`](rule-plan-01.md): признаки снимка — множество id на строке версии, не отдельная join-таблица. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: `addMany` пишет sidecar **так же, как `add`**. Вызов из уже открытой `gateway.transaction()` **не** `TRANSACTION_OPEN`. **Не** новый тип поля (это план 20). **Не** `updateMany`.
 

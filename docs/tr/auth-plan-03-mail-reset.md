@@ -1,6 +1,6 @@
 # План Auth 3 — сброс пароля через Mail
 
-**Статус:** сделано, 2026-09-03. Предыдущий заход — [`auth-plan-02-password-flow.md`](auth-plan-02-password-flow.md) (**сделано**). Очередь — [`mail-plan-01-queue.md`](mail-plan-01-queue.md) (**сделано**). Нарезка — [`mail-roadmap.md`](mail-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-03. Предыдущий заход — [`auth-plan-02-password-flow.md`](auth-plan-02-password-flow.md) (**сделано**). Очередь — [`mail-plan-01-queue.md`](mail-plan-01-queue.md) (**сделано**). Нарезка — [`mail-roadmap.md`](mail-roadmap.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: forgot кладёт письмо в очередь Mail, а не только в `error_log` Auth. JSON `startPasswordReset` / `finalPasswordReset`, Vue, таблица `auth_password_reset`, политика пароля **не** меняются.
 

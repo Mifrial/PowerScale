@@ -1,6 +1,6 @@
 # План 1 — учётка User
 
-**Статус:** сделано, 2026-09-02. Канон — [`user.md`](user.md). Нарезка — [`user-roadmap.md`](user-roadmap.md). SmartTable — [`smarttable.md`](smarttable.md). Накат схемы — [`smarttable-plan-09-migrations.md`](smarttable-plan-09-migrations.md) (не этот модуль). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). UI-сессия — не этот заход.
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-02. Канон — [`user.md`](user.md). Нарезка — [`user-roadmap.md`](user-roadmap.md). SmartTable — [`smarttable.md`](smarttable.md). Накат схемы — [`smarttable-plan-09-migrations.md`](smarttable-plan-09-migrations.md) (не этот модуль). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). UI-сессия — не этот заход.
 
 Цель: модуль `Core/User`, таблица `user`, публичный фасад учётки. **Нет** HTTP, Auth/cookie, групп, identity/пароля. `loadCore()` подхватит каталог сам (код, не схему).
 

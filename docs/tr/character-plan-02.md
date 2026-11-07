@@ -1,6 +1,6 @@
 # План Character 2 — каркас модуля и actual storage
 
-**Статус:** каркас PHP сделан, 2026-09-10. `BACKEND_OPEN`. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт save — [`character-plan-01.md`](character-plan-01.md) (**здесь не реализуется**). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Unique user / часы: `ReferenceField::forTable`, не class чужого `Table`.
+**Статус:** ~ЧАСТИЧНО~ — каркас PHP сделан, 2026-09-10. `BACKEND_OPEN`. Нарезка — [`character-roadmap.md`](character-roadmap.md). Контракт save — [`character-plan-01.md`](character-plan-01.md) (**здесь не реализуется**). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Unique user / часы: `ReferenceField::forTable`, не class чужого `Table`.
 
 Цель: ленивый **`Roleplay/Character`**, две карты, фасад записи/чтения **без** валидатора, `IRuleSpaces`, Mechanic, HTTP. После зелёного suite: **`BACKEND_OPEN`**. add/replace не называть save; C5 не закрывать.
 

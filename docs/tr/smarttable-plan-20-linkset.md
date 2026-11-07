@@ -1,6 +1,6 @@
 # План 20 — тип `linkset` (`LinkSetField`, не hop)
 
-**Статус:** сделано, 2026-09-05. Канон — [`smarttable.md`](smarttable.md). После [`smarttable-plan-19-addmany-mfv.md`](smarttable-plan-19-addmany-mfv.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Потребитель — [`rule-plan-01.md`](rule-plan-01.md) (`keywords` на снимке правила).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-05. Канон — [`smarttable.md`](smarttable.md). После [`smarttable-plan-19-addmany-mfv.md`](smarttable-plan-19-addmany-mfv.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Потребитель — [`rule-plan-01.md`](rule-plan-01.md) (`keywords` на снимке правила).
 
 Цель: тип поля для **1:N связей с другой таблицей**. Хранение — mfv. **Не** hop. Класс **`LinkSetField`**, `type()` = **`linkset`**. Не `reference`, не `LinkField` (это звучит как N:1).
 

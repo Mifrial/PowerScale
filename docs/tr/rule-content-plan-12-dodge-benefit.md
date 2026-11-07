@@ -1,6 +1,6 @@
 # C2 — Польза уклонения в профилях оружия
 
-**Статус:** план, 2026-09-19.  
+**Статус:** ~ПЛАН~ — план, 2026-09-19.
 **Родитель:** [`rule-content-plan-11-melee-accuracy.md`](rule-content-plan-11-melee-accuracy.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).
 

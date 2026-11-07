@@ -1,6 +1,6 @@
 # План Rule — деление размерного числа на размерное
 
-**Статус:** сделано, 2026-10-06. В [`rule-roadmap.md`](rule-roadmap.md) шаг не вписывается. [`rule-plan-01.md`](rule-plan-01.md) … [`rule-plan-04.md`](rule-plan-04.md) не переписываются. Канон чисел — [`rule-system.md`](rule-system.md): размер считает домен, не строковая арифметика. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-10-06. В [`rule-roadmap.md`](rule-roadmap.md) шаг не вписывается. [`rule-plan-01.md`](rule-plan-01.md) … [`rule-plan-04.md`](rule-plan-04.md) не переписываются. Канон чисел — [`rule-system.md`](rule-system.md): размер считает домен, не строковая арифметика. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Сейчас у `DimensionalNumber` есть `toInteger()` и `shift()`. Метода, который делит пару `{base, size}` на другую пару и возвращает частное вместе с остатком-парой, нет. Vue `divideFloor` отдаёт только целое и в этот шаг не копируется.
 

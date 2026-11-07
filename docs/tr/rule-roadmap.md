@@ -1,6 +1,6 @@
 # Нарезка Roleplay/Rule
 
-**Статус:** план, 2026-10-05. Канон — [`rule-system.md`](rule-system.md). Часы — [`versioning-roadmap.md`](versioning-roadmap.md), [`versioning-plan-01.md`](versioning-plan-01.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-080`, `DEC-060`, `DEC-062`.
+**Статус:** ~ЧАСТИЧНО~ — план, 2026-10-05. Канон — [`rule-system.md`](rule-system.md). Часы — [`versioning-roadmap.md`](versioning-roadmap.md), [`versioning-plan-01.md`](versioning-plan-01.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-080`, `DEC-060`, `DEC-062`.
 
 Цель линии: отдельные PHP-модули **`Roleplay/Keyword`**, **`Roleplay/Mechanic`**, **`Roleplay/Rule`**, затем оператор **`Roleplay/RuleSpace`**. Колонка и `Reference` появляются вместе с целевым модулем. В `OPEN` — только то, без чего persist уже живёт (валидация spec по типам, хендлеры Engine).
 

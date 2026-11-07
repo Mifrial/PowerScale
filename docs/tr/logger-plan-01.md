@@ -1,6 +1,6 @@
 # План Logger 1 — узкий логер ошибок
 
-**Статус:** сделано, 2026-09-04. Выбор адаптера в `module.config` **снят** — [`logger-plan-03.md`](logger-plan-03.md). Конвейер — [`architecture.md`](architecture.md). DEC-076 / [`decisions.md`](decisions.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Тик — [`agent-plan-01-tick.md`](agent-plan-01-tick.md).
+**Статус:** ~СДЕЛАНО~ — сделано, 2026-09-04. Выбор адаптера в `module.config` **снят** — [`logger-plan-03.md`](logger-plan-03.md). Конвейер — [`architecture.md`](architecture.md). DEC-076 / [`decisions.md`](decisions.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Тик — [`agent-plan-01-tick.md`](agent-plan-01-tick.md).
 
 Цель: модуль `Core/Logger` пишет технические записи в SmartTable и становится адаптером уже существующего `ILogger`. Не журнал безопасности, не экономика, не EventManager, не PSR-3 (восемь уровней syslog не копируем).
 

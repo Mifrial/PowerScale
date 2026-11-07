@@ -1,6 +1,6 @@
 # План Character — проекция боевых слоёв
 
-**Статус:** сделан, 2026-10-07. Порт `ICharacterCombatLayers` и базовая
+**Статус:** ~СДЕЛАНО~ — сделан, 2026-10-07. Порт `ICharacterCombatLayers` и базовая
 projection готовы (`BACKEND_OPEN`). C10 и порт мутации actual не заменяет.
 Они разблокировали базовый resistance path `game-plan-28`; полная block-ветка
 и P1 ещё не закрыты.

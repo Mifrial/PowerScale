@@ -1,6 +1,6 @@
 # План Game 5 — одна текущая сессия без боя
 
-**Статус:** сессия без боя в PHP сделана, 2026-10-04. `BACKEND_OPEN`. Suite `game` и `character` зелёные. Нарезка — [`game-roadmap.md`](game-roadmap.md) G5. Допуск — [`game-plan-04.md`](game-plan-04.md). Строка персонажа — [`game-plan-03.md`](game-plan-03.md). Участник — [`game-plan-02.md`](game-plan-02.md). Строка игры — [`game-plan-01.md`](game-plan-01.md). Сессия и migrate — [`game-system.md`](game-system.md), [`character-system.md`](character-system.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** ~СДЕЛАНО~ — сессия без боя в PHP сделана, 2026-10-04. `BACKEND_OPEN`. Suite `game` и `character` зелёные. Нарезка — [`game-roadmap.md`](game-roadmap.md) G5. Допуск — [`game-plan-04.md`](game-plan-04.md). Строка персонажа — [`game-plan-03.md`](game-plan-03.md). Участник — [`game-plan-02.md`](game-plan-02.md). Строка игры — [`game-plan-01.md`](game-plan-01.md). Сессия и migrate — [`game-system.md`](game-system.md), [`character-system.md`](character-system.md). Границы — [`architecture.md`](architecture.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
 Цель: у игры появляется одна текущая сессия и снимок персонажей, вошедших на старте. Старт и `game.stopSession` не меняют статус кампании. Пока сессия есть, `spaceId`, `spaceCode` и `rulesRevision` не меняются. `isActiveSessionParticipant` читает этот снимок. `character.migrate` участника снимка отклоняется портом Character, который реализует Game.
 

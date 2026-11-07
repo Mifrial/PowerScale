@@ -1,6 +1,6 @@
 # План Core/UI 3 — вложенная навигация
 
-**Статус:** план, 2026-09-10. Канон текущего shell — [`ui-system.md`](ui-system.md). Архитектура — [`architecture.md`](architecture.md). Фронт — [`../../draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md). Соседние заходы UI: [`core-ui-grid-plan-01-server-mode.md`](core-ui-grid-plan-01-server-mode.md), [`core-ui-grid-plan-02-user-lists.md`](core-ui-grid-plan-02-user-lists.md).
+**Статус:** ~СДЕЛАНО~ — план, 2026-09-10. Канон текущего shell — [`ui-system.md`](ui-system.md). Архитектура — [`architecture.md`](architecture.md). Фронт — [`../../draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md). Соседние заходы UI: [`core-ui-grid-plan-01-server-mode.md`](core-ui-grid-plan-01-server-mode.md), [`core-ui-grid-plan-02-user-lists.md`](core-ui-grid-plan-02-user-lists.md).
 
 Цель: одно дерево левого меню. Меню — структура. Кто видит пункт, решает модуль, который его кладёт. Роли, `isAdmin` и route guard в меню не входят.
 
