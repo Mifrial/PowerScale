@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Tests;
 
-use Mifrial\Roleplay\Game\Service\GameStrikeConsequences;
+use Mifrial\Roleplay\Game\Service\GameStrikeConsequenceRules;
 use Mifrial\Roleplay\Mechanic\Service\Handler\InjuryEfficiencyHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\InjuryExtraDiceHandler;
 use PHPUnit\Framework\TestCase;
@@ -23,8 +23,8 @@ final class GameStrikeConsequencesPiercingTest extends TestCase
      */
     public function testInjuryExtraHalvesSuccessRating(): void
     {
-        $subject = (new ReflectionClass(GameStrikeConsequences::class))->newInstanceWithoutConstructor();
-        $method = new ReflectionMethod(GameStrikeConsequences::class, 'getInjuryExtra');
+        $subject = (new ReflectionClass(GameStrikeConsequenceRules::class))->newInstanceWithoutConstructor();
+        $method = new ReflectionMethod(GameStrikeConsequenceRules::class, 'getInjuryExtra');
         $method->setAccessible(true);
         $marked = [['handler' => new InjuryExtraDiceHandler(), 'payload' => []]];
         $plain = [['handler' => new InjuryEfficiencyHandler(), 'payload' => ['delta' => -1]]];

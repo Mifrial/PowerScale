@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Tests;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
-use Mifrial\Roleplay\Game\Service\GameStrikeConsequences;
+use Mifrial\Roleplay\Game\Service\GameStrikeConsequenceRules;
 use Mifrial\Roleplay\Mechanic\Service\Handler\BluntUnconsciousHandler;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use PHPUnit\Framework\TestCase;
@@ -24,8 +24,8 @@ final class GameStrikeConsequencesBluntTest extends TestCase
      */
     public function testBluntKnockoutRequiresRatingAndInjury(): void
     {
-        $subject = (new ReflectionClass(GameStrikeConsequences::class))->newInstanceWithoutConstructor();
-        $method = new ReflectionMethod(GameStrikeConsequences::class, 'blunt');
+        $subject = (new ReflectionClass(GameStrikeConsequenceRules::class))->newInstanceWithoutConstructor();
+        $method = new ReflectionMethod(GameStrikeConsequenceRules::class, 'blunt');
         $method->setAccessible(true);
         $slice = new CharacterRuleSlice(1, 1, 'test', [], []);
         $hooks = [[

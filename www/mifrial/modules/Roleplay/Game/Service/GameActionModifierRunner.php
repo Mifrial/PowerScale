@@ -105,10 +105,10 @@ final class GameActionModifierRunner
             $roll = $this->rollOf($game, $sheet, $effect);
             $success = $roll === null || ($roll['success'] ?? false) === true;
             if ($roll !== null) {
-                $this->consequences->postRolls($game, $actorUserId, $threadId, [$roll], $speaker, $parentId);
+                $this->consequences->chat->postRolls($game, $actorUserId, $threadId, [$roll], $speaker, $parentId);
             }
 
-            $this->consequences->postLines(
+            $this->consequences->chat->postLines(
                 $game,
                 $actorUserId,
                 $threadId,

@@ -329,7 +329,7 @@ final class GameStrikeSingleChat
         }
 
         if ($extraLines !== []) {
-            $this->consequences->postLines(
+            $this->consequences->chat->postLines(
                 $game,
                 $actorUserId,
                 $threadId,
@@ -366,7 +366,7 @@ final class GameStrikeSingleChat
         $speaker = $this->chat->getSpeakerOf($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
         foreach ($checks as $entry) {
             $text = $entry['text'];
-            $this->consequences->postCheck(
+            $this->consequences->chat->postCheck(
                 $game,
                 $actorUserId,
                 $threadId,
@@ -377,7 +377,7 @@ final class GameStrikeSingleChat
             );
             $verdict = is_string($entry['verdict'] ?? null) ? $entry['verdict'] : '';
             if ($verdict !== '') {
-                $this->consequences->postLines(
+                $this->consequences->chat->postLines(
                     $game,
                     $actorUserId,
                     $threadId,
@@ -508,7 +508,7 @@ final class GameStrikeSingleChat
         $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
         $defender = $this->chat->getEntityToken($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
         $injury = $this->integerOf($result['injury'] ?? null);
-        $this->consequences->postOutcome(
+        $this->consequences->chat->postOutcome(
             $game,
             $actorUserId,
             $threadId,

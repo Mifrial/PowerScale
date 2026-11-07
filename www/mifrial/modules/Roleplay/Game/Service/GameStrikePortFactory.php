@@ -615,15 +615,32 @@ final class GameStrikePortFactory
             throw new KernelException('PORT_TYPE', 'Chat service has a wrong type');
         }
 
-        return new GameStrikeConsequences(
-            $rules,
-            $this->checkRoll($serviceLocator),
-            new GameStateCheck($this->checkRoll($serviceLocator), new GameStateIncreaseRule()),
-            new GameStateDecline(),
-            $this->formulaContexts($serviceLocator),
+        $states = new GameStrikeConsequenceStates(
             $this->mechanics($serviceLocator),
             $this->engine($serviceLocator),
-            $chats,
+        );
+        $checkRoll = $this->checkRoll($serviceLocator);
+        $decline = new GameStateDecline();
+        $will = new GameStrikeConsequenceWill(
+            $states,
+            new GameStateCheck($checkRoll, new GameStateIncreaseRule()),
+            $decline,
+            $checkRoll,
+        );
+        $effect = new GameStrikeConsequenceEffects(
+            $rules,
+            $states,
+            new GameStrikeConsequenceRules($this->formulaContexts($serviceLocator), $states),
+            $will,
+            $decline,
+        );
+
+        return new GameStrikeConsequences(
+            $rules,
+            $states,
+            $will,
+            $effect,
+            new GameStrikeConsequenceChat($chats),
         );
     }
 

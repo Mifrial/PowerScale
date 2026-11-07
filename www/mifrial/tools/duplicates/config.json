@@ -15,5 +15,14 @@
     ],
     "maxDuplicatedLines": 11606
   },
-  "allow": []
+  "allow": [
+    {
+      "paths": [
+        "modules/Roleplay/Game/Service/GameStrikeConsequenceChat.php",
+        "modules/Roleplay/Game/Service/GameStrikeConsequences.php"
+      ],
+      "reason": "Фасад удара повторяет публичную подпись post, чтобы сохранить API потребителей",
+      "review": "2026-11-07"
+    }
+  ]
 }

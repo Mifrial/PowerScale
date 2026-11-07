@@ -172,7 +172,7 @@ final class GameStrikeWideChat
         }
 
         $actionAp = $this->spend->getActionAp($slice, $actionCode, true);
-        $this->consequences->postLines($game, $actorUserId, $threadId, [
+        $this->consequences->chat->postLines($game, $actorUserId, $threadId, [
             $attacker . ' совершает действие ' . $action . ' за ' . $actionAp . 'ОД.',
             $narrative,
         ], $speaker, $parentId);
@@ -186,7 +186,7 @@ final class GameStrikeWideChat
             $this->postCoverChecks($game, $actorUserId, $threadId, $slice, $cover, $speaker, $parentId);
         }
 
-        $this->consequences->postRolls($game, $actorUserId, $threadId, $rolls, $speaker, $parentId);
+        $this->consequences->chat->postRolls($game, $actorUserId, $threadId, $rolls, $speaker, $parentId);
         foreach ($shown as $item) {
             $this->outcome(
                 $game,
@@ -311,7 +311,7 @@ final class GameStrikeWideChat
             $code = is_string($cover['targetReactionRuleCode'] ?? null)
                 ? $cover['targetReactionRuleCode']
                 : null;
-            $this->consequences->postCheck(
+            $this->consequences->chat->postCheck(
                 $game,
                 $actorUserId,
                 $threadId,
@@ -342,7 +342,7 @@ final class GameStrikeWideChat
             $block = is_string($attempt['blockItemRuleCode'] ?? null) && $attempt['blockItemRuleCode'] !== ''
                 ? ' с [[rule:' . $attempt['blockItemRuleCode'] . ']]'
                 : '';
-            $this->consequences->postCheck(
+            $this->consequences->chat->postCheck(
                 $game,
                 $actorUserId,
                 $threadId,
@@ -412,7 +412,7 @@ final class GameStrikeWideChat
             $bits[] = $wound . ' рану';
         }
 
-        $this->consequences->postOutcome(
+        $this->consequences->chat->postOutcome(
             $game,
             $actorUserId,
             $threadId,

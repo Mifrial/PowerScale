@@ -1101,7 +1101,7 @@ final class GameStrikes implements IGameStrikes
             : ($this->spend->getSpendAmounts($contextCosts)['action-points'] ?? 0);
         $line = $this->chat->getEntityToken($attacker['type'], $attacker['id'])
             . ' совершает действие [[rule:' . $actionCode . ']] за ' . $actionAp . 'ОД.';
-        $this->consequences->postLines(
+        $this->consequences->chat->postLines(
             $game,
             $actorUserId,
             $threadId,
