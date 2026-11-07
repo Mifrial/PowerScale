@@ -68,11 +68,7 @@ final class ActionParameterBinder
      */
     private function isObjectPayload(mixed $payload): bool
     {
-        if ($payload === null) {
-            return true;
-        }
-
-        if ($payload instanceof JsonObject) {
+        if ($payload === null || $payload instanceof JsonObject) {
             return true;
         }
 

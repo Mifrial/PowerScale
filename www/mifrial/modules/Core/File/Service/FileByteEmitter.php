@@ -95,21 +95,33 @@ final class FileByteEmitter
         }
 
         foreach (explode(',', $ifNoneMatch) as $candidate) {
-            $trimmed = trim($candidate);
-            if ($trimmed === '*') {
-                return true;
-            }
-
-            if (str_starts_with($trimmed, 'W/')) {
-                $trimmed = substr($trimmed, 2);
-            }
-
-            if ($trimmed === $etag) {
+            if ($this->etagCandidateMatches(trim($candidate), $etag)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Совпал ли один кандидат If-None-Match с ETag.
+     *
+     * @param string $candidate Кандидат без пробелов.
+     * @param string $etag Наш ETag в кавычках.
+     *
+     * @return bool true, если совпал.
+     */
+    private function etagCandidateMatches(string $candidate, string $etag): bool
+    {
+        if ($candidate === '*') {
+            return true;
+        }
+
+        if (str_starts_with($candidate, 'W/')) {
+            $candidate = substr($candidate, 2);
+        }
+
+        return $candidate === $etag;
     }
 
     /**

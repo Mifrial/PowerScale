@@ -197,17 +197,26 @@ final class AggregateQueryOptionsParser
      */
     private function normalizedSelectItem(mixed $selectItem): string|CountField|MaxField|MinField|SumField
     {
-        if (
-            is_string($selectItem)
-            || $selectItem instanceof CountField
-            || $selectItem instanceof MaxField
-            || $selectItem instanceof MinField
-            || $selectItem instanceof SumField
-        ) {
+        if (is_string($selectItem) || $this->isMeasureField($selectItem)) {
             return $selectItem;
         }
 
         throw new MapInvalidException('Aggregate select item is invalid');
+    }
+
+    /**
+     * Элемент select — агрегатная мера.
+     *
+     * @param mixed $selectItem Кандидат.
+     *
+     * @return bool true для Count/Max/Min/Sum.
+     */
+    private function isMeasureField(mixed $selectItem): bool
+    {
+        return $selectItem instanceof CountField
+            || $selectItem instanceof MaxField
+            || $selectItem instanceof MinField
+            || $selectItem instanceof SumField;
     }
 
     /**

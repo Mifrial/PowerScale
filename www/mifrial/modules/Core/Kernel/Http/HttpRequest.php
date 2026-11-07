@@ -9,6 +9,13 @@ use Mifrial\Core\Kernel\Interface\Http\IHttpRequest;
 
 /**
  * Неизменяемый снимок входящего HTTP-запроса.
+ *
+ * @phpstan-type InputBags array{
+ *     query: array<string, mixed>,
+ *     post: array<string, mixed>,
+ *     cookies: array<string, mixed>,
+ *     files: array<string, mixed>
+ * }
  */
 final readonly class HttpRequest implements IHttpRequest
 {
@@ -17,12 +24,7 @@ final readonly class HttpRequest implements IHttpRequest
      *
      * @param string $method HTTP-метод запроса.
      * @param string $path Путь запроса.
-     * @param array{
-     *     query: array<string, mixed>,
-     *     post: array<string, mixed>,
-     *     cookies: array<string, mixed>,
-     *     files: array<string, mixed>
-     * } $inputBags Query, POST, cookie и files запроса.
+     * @param InputBags $inputBags Query, POST, cookie и files запроса.
      * @param array<string, string> $headers HTTP-заголовки.
      * @param string|null $rawBody Необработанное тело запроса.
      *

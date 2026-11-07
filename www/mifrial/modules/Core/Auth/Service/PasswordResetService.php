@@ -74,21 +74,9 @@ final class PasswordResetService
         }
 
         $rawToken = $this->newRawToken();
-        $login = $userRecord->getLogin();
-        $email = (string) $userRecord->getEmail();
-        $userId = $userRecord->getId();
-        $jobId = $this->transactionRunner->run(function () use ($userId, $rawToken, $login, $email): int {
-            $this->storeToken($userId, $rawToken);
+        $this->queueResetNotification($userRecord, $rawToken);
 
-            return $this->resetNotifier->enqueue($login, $rawToken, $email);
-        });
-        $this->resetNotifier->deliver($jobId);
-        $payload = ['status' => 'sent', 'login' => $userRecord->getLogin()];
-        if ($this->resetNotifier->shouldExposeRawToken()) {
-            $payload['resetToken'] = $rawToken;
-        }
-
-        return $payload;
+        return $this->sentPayload($userRecord, $rawToken);
     }
 
     /**
@@ -239,5 +227,44 @@ final class PasswordResetService
             hash('sha256', $rawToken),
             DateTime::fromUnix(time() + self::TOKEN_TTL_SECONDS),
         );
+    }
+
+    /**
+     * Кладёт токен и задание письма, затем отдаёт задание в доставку.
+     *
+     * @param UserRecord $userRecord Учётка с почтой.
+     * @param string $rawToken Сырой токен.
+     *
+     * @return void
+     */
+    private function queueResetNotification(UserRecord $userRecord, string $rawToken): void
+    {
+        $userId = $userRecord->getId();
+        $login = $userRecord->getLogin();
+        $email = (string) $userRecord->getEmail();
+        $jobId = $this->transactionRunner->run(function () use ($userId, $rawToken, $login, $email): int {
+            $this->storeToken($userId, $rawToken);
+
+            return $this->resetNotifier->enqueue($login, $rawToken, $email);
+        });
+        $this->resetNotifier->deliver($jobId);
+    }
+
+    /**
+     * Ответ «письмо отправлено».
+     *
+     * @param UserRecord $userRecord Учётка.
+     * @param string $rawToken Сырой токен.
+     *
+     * @return array{status: string, login: string, resetToken?: string} Исход.
+     */
+    private function sentPayload(UserRecord $userRecord, string $rawToken): array
+    {
+        $payload = ['status' => 'sent', 'login' => $userRecord->getLogin()];
+        if ($this->resetNotifier->shouldExposeRawToken()) {
+            $payload['resetToken'] = $rawToken;
+        }
+
+        return $payload;
     }
 }

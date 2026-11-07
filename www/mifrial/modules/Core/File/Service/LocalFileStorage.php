@@ -38,6 +38,8 @@ final class LocalFileStorage implements IFileStorage
      * @param string $sourcePath Абсолютный путь.
      *
      * @return string Hex.
+     *
+     * @throws FileStorageException Если файл не читается.
      */
     public function hash(string $sourcePath): string
     {
@@ -55,6 +57,8 @@ final class LocalFileStorage implements IFileStorage
      * @param string $sourcePath Абсолютный путь.
      *
      * @return string type/subtype.
+     *
+     * @throws FileStorageException Если fileinfo недоступен или тип не определён.
      */
     public function mimeType(string $sourcePath): string
     {
@@ -106,6 +110,8 @@ final class LocalFileStorage implements IFileStorage
      * @param string $sha256 Hex.
      *
      * @return string Путь.
+     *
+     * @throws FileStorageException Если ключ шарда недопустим.
      */
     public function storagePath(string $publicId, string $sha256): string
     {
@@ -123,6 +129,8 @@ final class LocalFileStorage implements IFileStorage
      * @param string $storagePath Относительный путь.
      *
      * @return void
+     *
+     * @throws FileStorageException Если путь занят, каталог не создан или перенос не удался.
      */
     public function store(string $sourcePath, string $storagePath): void
     {
@@ -155,6 +163,8 @@ final class LocalFileStorage implements IFileStorage
      * @param string $storagePath Относительный путь.
      *
      * @return void
+     *
+     * @throws FileStorageException Если файл не удаляется.
      */
     public function delete(string $storagePath): void
     {
@@ -172,6 +182,8 @@ final class LocalFileStorage implements IFileStorage
      * @param int $chunkSize Размер порции.
      *
      * @return iterable<string> Порции байт.
+     *
+     * @throws FileStorageException Если файл не открывается или не читается.
      */
     public function chunks(string $storagePath, int $chunkSize): iterable
     {
@@ -234,6 +246,8 @@ final class LocalFileStorage implements IFileStorage
      * @param string $storagePath Относительный путь.
      *
      * @return string Абсолютный путь.
+     *
+     * @throws FileStorageException Если путь выходит из корня.
      */
     private function absolutePath(string $storagePath): string
     {
@@ -271,6 +285,8 @@ final class LocalFileStorage implements IFileStorage
      * @param string $directoryPath Абсолютный путь.
      *
      * @return void
+     *
+     * @throws FileStorageException Если каталог не создаётся.
      */
     private function ensureDirectory(string $directoryPath): void
     {
