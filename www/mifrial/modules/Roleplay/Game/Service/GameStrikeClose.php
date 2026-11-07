@@ -118,35 +118,62 @@ final class GameStrikeClose
             new GameStrikeTargetFlow($this->rules, $this->amounts, $targetReaction, $targetWrite, $targetRolls),
             $targetRolls,
         );
-        $this->single = new GameStrikeSingleClose(
+        $modifierRunner = new GameActionModifierRunner(
             $this->rules,
-            $this->actions,
-            $this->battles,
             $this->sheets,
             $this->sheetWrites,
             $this->resolution,
-            $this->spend,
+            $this->consequences,
+            $this->chat,
             $this->amounts,
-            $this->rows,
-            $choices,
-            $this->singleChat,
-            new GameActionModifierRunner(
-                $this->rules,
-                $this->sheets,
-                $this->sheetWrites,
-                $this->resolution,
-                $this->consequences,
-                $this->chat,
-                $this->amounts,
-                new GameActionModifiers(),
-                new GameActionModifierPresenter(),
+            new GameActionModifiers(),
+            new GameActionModifierPresenter(),
+        );
+        $this->single = new GameStrikeSingleClose(
+            new GameStrikeSinglePrepare(
+                new GameStrikeSingleLoad(
+                    $this->rows,
+                    $this->rules,
+                    $this->push,
+                    $cover,
+                    $this->processes,
+                    $this->sheets,
+                ),
+                new GameStrikeSingleStart(
+                    new GameStrikeManeuver($this->actions, $this->battles, $this->sheets),
+                    $choices,
+                    $this->rules,
+                ),
+                new GameStrikeSingleDefender($this->rules, $this->sheets, $this->spend, $choices, $declaredSpend),
+                new GameStrikeSingleAdvantages($support, $this->resolution, $this->processes),
             ),
-            $this->push,
-            $this->stateChecks,
-            $this->processes,
-            $support,
-            $cover,
-            $declaredSpend,
+            new GameStrikeSingleResolve(
+                new GameStrikeSingleCoverPhase(
+                    $cover,
+                    $this->rows,
+                    $this->sheetWrites,
+                    $choices,
+                    $this->actions,
+                    $this->battles,
+                ),
+                new GameStrikeSingleRound($this->rules, $this->sheets, $this->resolution, $this->amounts),
+                new GameStrikeSingleHits(
+                    $this->rules,
+                    $this->sheets,
+                    $this->resolution,
+                    $this->amounts,
+                    $this->push,
+                    new GameStrikeSingleUnstable($this->sheets, $this->sheetWrites, $this->stateChecks),
+                ),
+            ),
+            new GameStrikeSingleWrite(
+                $this->sheetWrites,
+                $this->sheets,
+                $this->singleChat,
+                $this->actions,
+                $this->battles,
+                new GameStrikeSingleTrail($this->rules, $modifierRunner, $this->processes, $this->spend),
+            ),
         );
         $wideChecks = new GameStrikeWideChecks($this->rules, $this->rows, $this->sheets, $choices);
         $wideResume = new GameStrikeWideResume($this->actions, $cover);
