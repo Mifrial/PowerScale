@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter.FoundInImplementedInterfaceBeforeLastUsed
+// Подпись реализует интерфейс: payload не используется.
+
 namespace Mifrial\Roleplay\Mechanic\Service\Handler;
 
 use Mifrial\Roleplay\Mechanic\Interface\IMechanicHandler;
@@ -51,7 +54,7 @@ final class PlainRollHandler implements IMechanicHandler
      *
      * @return void
      */
-    public function run(?MechanicPayload $payload, object $context, string $event): void // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundInImplementedInterfaceBeforeLastUsed
+    public function run(?MechanicPayload $payload, object $context, string $event): void
     {
     }
 }

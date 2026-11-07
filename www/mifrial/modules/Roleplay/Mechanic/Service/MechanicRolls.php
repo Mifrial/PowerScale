@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Mechanic\Dto\CheckRating;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicRecord;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
+use Mifrial\Roleplay\Mechanic\Dto\ResolvedMechanic;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdjustment;
 use Mifrial\Roleplay\Mechanic\Dto\RollMechanicContext;
 use Mifrial\Roleplay\Mechanic\Dto\RollMechanicPayload;
@@ -60,21 +61,9 @@ final class MechanicRolls implements IMechanicRolls
         $resolved = $spec->withRollDefaults($this->rollPayload($bindings) ?? $this->emptyPayload());
         $context = RollMechanicContext::open($resolved);
         $active = $this->engine->resolveActive($bindings, $mechanics, $this->options($options, $bindings));
-        $this->engine->runEvent(RollEvent::POOL, $context, $active);
-        $context->setRolls($this->faces($rng, $context));
-        $this->engine->runEvent(RollEvent::DROP, $context, $active);
         $adjustment = $resolved->getAdjustment();
-        if ($adjustment instanceof RollAdjustment) {
-            $context->remapFaces($adjustment->getRemap());
-        }
-
-        $context->scoreBase();
-        $this->engine->runEvent(RollEvent::SCORE, $context, $active);
-        if ($adjustment instanceof RollAdjustment) {
-            $this->applyScoreDeltas($context, $adjustment);
-        }
-
-        $context->sumSuccesses();
+        $this->rollFaces($context, $rng, $active, $adjustment);
+        $this->scoreFaces($context, $active, $adjustment);
 
         return new RollResult(
             $resolved,
@@ -108,6 +97,53 @@ final class MechanicRolls implements IMechanicRolls
     }
 
     /**
+     * Проводит пул и сброс граней, затем применяет перестановку карточки.
+     *
+     * @param RollMechanicContext $context Контекст броска.
+     * @param Closure $rng Источник float в [0, 1).
+     * @param array<int, ResolvedMechanic> $active Активные механики.
+     * @param RollAdjustment|null $adjustment Настройка карточки.
+     *
+     * @return void
+     */
+    private function rollFaces(
+        RollMechanicContext $context,
+        Closure $rng,
+        array $active,
+        ?RollAdjustment $adjustment,
+    ): void {
+        $this->engine->runEvent(RollEvent::POOL, $context, $active);
+        $context->setRolls($this->faces($rng, $context));
+        $this->engine->runEvent(RollEvent::DROP, $context, $active);
+        if ($adjustment instanceof RollAdjustment) {
+            $context->remapFaces($adjustment->getRemap());
+        }
+    }
+
+    /**
+     * Считает базовые успехи, проводит roll.score и дельты карточки.
+     *
+     * @param RollMechanicContext $context Контекст броска.
+     * @param array<int, ResolvedMechanic> $active Активные механики.
+     * @param RollAdjustment|null $adjustment Настройка карточки.
+     *
+     * @return void
+     */
+    private function scoreFaces(
+        RollMechanicContext $context,
+        array $active,
+        ?RollAdjustment $adjustment,
+    ): void {
+        $context->scoreBase();
+        $this->engine->runEvent(RollEvent::SCORE, $context, $active);
+        if ($adjustment instanceof RollAdjustment) {
+            $this->applyScoreDeltas($context, $adjustment);
+        }
+
+        $context->sumSuccesses();
+    }
+
+    /**
      * Дельты успехов карточки поверх правила 6 и 1.
      *
      * Единица даёт oneDelta, максимальная грань — faceDelta, но только если она
@@ -126,22 +162,40 @@ final class MechanicRolls implements IMechanicRolls
             return;
         }
 
-        $dieFaces = $context->getDieFaces();
-        $efficiency = $context->getEfficiency();
         foreach ($context->getAdjustedRolls() as $index => $face) {
-            $delta = 0;
-            if ($face === 1) {
-                $delta += $oneDelta;
-            }
-
-            if ($face === $dieFaces && $face > $efficiency) {
-                $delta += $faceDelta;
-            }
-
+            $delta = $this->faceDelta($context, $face, $oneDelta, $faceDelta);
             if ($delta !== 0) {
                 $context->addSuccess($index, $delta);
             }
         }
+    }
+
+    /**
+     * Дельта одной грани поверх правила 6 и 1.
+     *
+     * @param RollMechanicContext $context Контекст броска.
+     * @param int $face Выпавшая грань.
+     * @param int $oneDelta Дельта за единицу.
+     * @param int $faceDelta Дельта за максимальную грань.
+     *
+     * @return int Суммарная дельта.
+     */
+    private function faceDelta(
+        RollMechanicContext $context,
+        int $face,
+        int $oneDelta,
+        int $faceDelta,
+    ): int {
+        $delta = 0;
+        if ($face === 1) {
+            $delta += $oneDelta;
+        }
+
+        if ($face === $context->getDieFaces() && $face > $context->getEfficiency()) {
+            $delta += $faceDelta;
+        }
+
+        return $delta;
     }
 
     /**
