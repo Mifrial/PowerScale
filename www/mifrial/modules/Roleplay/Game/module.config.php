@@ -92,6 +92,7 @@ use Mifrial\Roleplay\Game\Service\GameManualSheetPortFactory;
 use Mifrial\Roleplay\Game\Service\GamePortFactory;
 use Mifrial\Roleplay\Game\Service\GameProcessPortFactory;
 use Mifrial\Roleplay\Game\Service\GameProjectionPortFactory;
+use Mifrial\Roleplay\Game\Service\GameStrikeHttpFactory;
 use Mifrial\Roleplay\Game\Service\GameStrikePortFactory;
 use Mifrial\Roleplay\Game\Setup\GameModuleSetup;
 
@@ -151,7 +152,7 @@ return [
         },
         GetGameActionOptionsAction::class => static function (IServiceLocator $serviceLocator): GetGameActionOptionsAction {
             return new GetGameActionOptionsAction(
-                (new GameStrikePortFactory())->createActionOptionsHttp($serviceLocator),
+                (new GameStrikeHttpFactory())->createActionOptionsHttp($serviceLocator),
             );
         },
         DeclareGameCheckAction::class => static function (IServiceLocator $serviceLocator): DeclareGameCheckAction {
@@ -176,25 +177,25 @@ return [
             return new GameManualSheetAction((new GameManualSheetPortFactory())->createHttp($serviceLocator));
         },
         EndGameTurnAction::class => static function (IServiceLocator $serviceLocator): EndGameTurnAction {
-            return new EndGameTurnAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
+            return new EndGameTurnAction((new GameStrikeHttpFactory())->createTurnHttp($serviceLocator));
         },
         ContinueGameAction::class => static function (IServiceLocator $serviceLocator): ContinueGameAction {
-            return new ContinueGameAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
+            return new ContinueGameAction((new GameStrikeHttpFactory())->createTurnHttp($serviceLocator));
         },
         AbortGameAction::class => static function (IServiceLocator $serviceLocator): AbortGameAction {
-            return new AbortGameAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
+            return new AbortGameAction((new GameStrikeHttpFactory())->createTurnHttp($serviceLocator));
         },
         AbortProcessGameAction::class => static function (IServiceLocator $serviceLocator): AbortProcessGameAction {
-            return new AbortProcessGameAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
+            return new AbortProcessGameAction((new GameStrikeHttpFactory())->createTurnHttp($serviceLocator));
         },
         RunGameActionAction::class => static function (IServiceLocator $serviceLocator): RunGameActionAction {
-            return new RunGameActionAction((new GameStrikePortFactory())->createRunActionHttp($serviceLocator));
+            return new RunGameActionAction((new GameStrikeHttpFactory())->createRunActionHttp($serviceLocator));
         },
         ResolveGameStrikeWindowAction::class => static function (
             IServiceLocator $serviceLocator,
         ): ResolveGameStrikeWindowAction {
             return new ResolveGameStrikeWindowAction(
-                (new GameStrikePortFactory())->createWindowHttp($serviceLocator),
+                (new GameStrikeHttpFactory())->createWindowHttp($serviceLocator),
             );
         },
         StartGameBattleAction::class => static function (IServiceLocator $serviceLocator): StartGameBattleAction {

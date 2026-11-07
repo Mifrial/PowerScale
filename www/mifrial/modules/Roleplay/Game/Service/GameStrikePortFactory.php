@@ -4,54 +4,18 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
-use Mifrial\Core\Event\Interface\Container\IEventContainer;
-use Mifrial\Core\Event\Interface\Service\IEventManager;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
-use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
-use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
-use Mifrial\Core\User\Interface\Container\IUserContainer;
-use Mifrial\Core\User\Interface\Service\IUserAccess;
-use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
-use Mifrial\Messages\Chat\Interface\Service\IChats;
-use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterCombatLayers;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
-use Mifrial\Roleplay\Character\Service\Read\CharacterSectionMask;
-use Mifrial\Roleplay\Character\Service\Sheet\CharacterRequirementFacts;
-use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
-use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameStrikes;
 use Mifrial\Roleplay\Game\Interface\Service\IGameWideStrikes;
-use Mifrial\Roleplay\Game\Repository\GameActionRepository;
-use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
-use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
-use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
-use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
-use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
-use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
-use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
-use Mifrial\Roleplay\Game\Repository\GameRepository;
-use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
-use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
-use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
-use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
-use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
-use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
-use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
-use Mifrial\Roleplay\Rule\Service\AbilityRequirementCheck;
 
 /**
- * Сборка удара. Не метод GamePortFactory.
+ * Сборка доменных портов удара.
  */
 final class GameStrikePortFactory
 {
     /**
-     * Создаёт порт.
+     * Создаёт порт одиночного удара.
      *
      * @param IServiceLocator $serviceLocator Каталог контейнеров.
      *
@@ -61,20 +25,13 @@ final class GameStrikePortFactory
      */
     public function create(IServiceLocator $serviceLocator): IGameStrikes
     {
-        $gateway = $this->smartTableGateway($serviceLocator);
-        $events = $this->events($serviceLocator);
-        $card = new GameCardAccess(
-            new GameRepository($gateway),
-            new GameMemberRepository($gateway),
-            new GameInvitationRepository($gateway),
-        );
-        GameDeliveryListener::register(
-            $events,
-            new GameDelivery($gateway, $this->games($serviceLocator), $card),
-        );
-        $rules = $this->strikeRules($serviceLocator);
+        $ports = new GameStrikePorts($serviceLocator);
+        $cardWiring = new GameStrikeCardWiring();
+        $card = $cardWiring->card($serviceLocator);
+        $cardWiring->delivery($serviceLocator, $card);
+        $rules = (new GameStrikeRuleWiring($serviceLocator))->rules();
 
-        return $this->composeStrikes($serviceLocator, $gateway, $events, $card, $rules);
+        return $this->composeStrikes($serviceLocator, $ports, $card, $rules);
     }
 
     /**
@@ -88,233 +45,26 @@ final class GameStrikePortFactory
      */
     public function createWide(IServiceLocator $serviceLocator): IGameWideStrikes
     {
-        $gateway = $this->smartTableGateway($serviceLocator);
-        $events = $this->events($serviceLocator);
-        $card = new GameCardAccess(
-            new GameRepository($gateway),
-            new GameMemberRepository($gateway),
-            new GameInvitationRepository($gateway),
-        );
-        GameDeliveryListener::register(
-            $events,
-            new GameDelivery($gateway, $this->games($serviceLocator), $card),
-        );
-        $rules = $this->strikeRules($serviceLocator);
+        $ports = new GameStrikePorts($serviceLocator);
+        $cardWiring = new GameStrikeCardWiring();
+        $card = $cardWiring->card($serviceLocator);
+        $cardWiring->delivery($serviceLocator, $card);
+        $rulesWiring = new GameStrikeRuleWiring($serviceLocator);
+        $rules = $rulesWiring->rules();
+        $write = new GameStrikeWriteWiring($serviceLocator);
 
         return (new GameWideFactory())->create(
-            $gateway,
-            $this->games($serviceLocator),
-            $this->mutations($serviceLocator),
+            $ports->gateway(),
+            $ports->games(),
+            $ports->mutations(),
             $rules,
             $card,
-            $events,
-            $this->consequences($serviceLocator, $rules),
-            $this->cardAvailability($serviceLocator, $gateway, $rules),
-            $this->createStateIncreaseChecks($serviceLocator),
-            $this->processFlow($serviceLocator, $gateway, $rules),
+            $ports->events(),
+            $rulesWiring->consequences($rules),
+            $write->availability($rules),
+            $rulesWiring->checks(),
+            $write->processes($rules),
         );
-    }
-
-    /**
-     * HTTP единого входа действий.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return GameRunActionHttp Сценарий.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    public function createRunActionHttp(IServiceLocator $serviceLocator): GameRunActionHttp
-    {
-        $gateway = $this->smartTableGateway($serviceLocator);
-
-        return new GameRunActionHttp(
-            $this->userAccess($serviceLocator),
-            new GameRunAction(
-                new GameRunActionBody(),
-                $this->create($serviceLocator),
-                $this->createWide($serviceLocator),
-                $this->createActionDomain($serviceLocator),
-                (new GameWoundPortFactory())->createActions($serviceLocator),
-                new GameActionRepository($gateway),
-                new GameCommandRepository($gateway),
-                $this->games($serviceLocator),
-                $this->strikeRules($serviceLocator),
-            ),
-        );
-    }
-
-    /**
-     * HTTP решения окна удара.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return GameStrikeWindowHttp Сценарий.
-     */
-    public function createWindowHttp(IServiceLocator $serviceLocator): GameStrikeWindowHttp
-    {
-        return new GameStrikeWindowHttp(
-            $this->userAccess($serviceLocator),
-            $this->create($serviceLocator),
-        );
-    }
-
-    /**
-     * HTTP опций действий участника.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return GameActionOptionsHttp Сценарий.
-     *
-     * @throws KernelException Если нет шлюза.
-     */
-    public function createActionOptionsHttp(IServiceLocator $serviceLocator): GameActionOptionsHttp
-    {
-        $gateway = $this->smartTableGateway($serviceLocator);
-        $rules = $this->strikeRules($serviceLocator);
-
-        return new GameActionOptionsHttp(
-            $this->userAccess($serviceLocator),
-            $this->games($serviceLocator),
-            new GameCardAccess(
-                new GameRepository($gateway),
-                new GameMemberRepository($gateway),
-                new GameInvitationRepository($gateway),
-            ),
-            $rules,
-            new GameStrikeSheets(
-                $rules,
-                new GameNpcRepository($gateway),
-                new GameCharacterRepository($gateway),
-                new GameMemberRepository($gateway),
-                new ConflictSheetProjection(
-                    new CharacterSectionMask(),
-                    new GameCharacterProjectionMask(),
-                    new GameNpcVisibility(),
-                ),
-            ),
-        );
-    }
-
-    /**
-     * Доменная команда карточки действия.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return GameActionDeclare Команда.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    public function createActionDomain(IServiceLocator $serviceLocator): GameActionDeclare
-    {
-        $gateway = $this->smartTableGateway($serviceLocator);
-        $events = $this->events($serviceLocator);
-        $card = new GameCardAccess(
-            new GameRepository($gateway),
-            new GameMemberRepository($gateway),
-            new GameInvitationRepository($gateway),
-        );
-        GameDeliveryListener::register(
-            $events,
-            new GameDelivery($gateway, $this->games($serviceLocator), $card),
-        );
-
-        $chatContainer = $serviceLocator->get(IChatContainer::class);
-        $chats = $chatContainer->get(IChats::class);
-        if (!$chats instanceof IChats) {
-            throw new KernelException('PORT_TYPE', 'Chat service has a wrong type');
-        }
-
-        $rules = $this->strikeRules($serviceLocator);
-        $npcs = new GameNpcRepository($gateway);
-        $writes = new GameStrikeSheetWrites($this->mutations($serviceLocator), $npcs);
-        $perform = new GameActionPerform(
-            $rules,
-            $npcs,
-            $writes,
-            new GameActionCards(),
-            new GamePendingActionCosts(),
-            $this->cardAvailability($serviceLocator, $gateway, $rules),
-            $this->createStateIncreaseChecks($serviceLocator),
-        );
-        $strikeChat = new GameStrikeChat($npcs, $rules);
-        $sheets = new GameStrikeSheets(
-            $rules,
-            $npcs,
-            new GameCharacterRepository($gateway),
-            new GameMemberRepository($gateway),
-            new ConflictSheetProjection(
-                new CharacterSectionMask(),
-                new GameCharacterProjectionMask(),
-                new GameNpcVisibility(),
-            ),
-        );
-
-        return new GameActionDeclare(
-            $gateway,
-            $this->games($serviceLocator),
-            $card,
-            $perform,
-            new GamePreparedDefense(),
-            new GameActionChat($chats, $strikeChat),
-            $sheets,
-            $events,
-            $this->processFlow($serviceLocator, $gateway, $rules),
-            $rules,
-        );
-    }
-
-    /**
-     * HTTP конца хода. Тот же состав портов, что у удара.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return GameTurnHttp Сценарий.
-     *
-     * @throws KernelException Если порт чужой.
-     */
-    public function createTurnHttp(IServiceLocator $serviceLocator): GameTurnHttp
-    {
-        $gateway = $this->smartTableGateway($serviceLocator);
-        $rules = $this->strikeRules($serviceLocator);
-
-        $chatContainer = $serviceLocator->get(IChatContainer::class);
-        $chats = $chatContainer->get(IChats::class);
-        if (!$chats instanceof IChats) {
-            throw new KernelException('PORT_TYPE', 'Chat service has a wrong type');
-        }
-
-        $card = new GameCardAccess(
-            new GameRepository($gateway),
-            new GameMemberRepository($gateway),
-            new GameInvitationRepository($gateway),
-        );
-        $ticks = new GameTurnTicks(
-            $this->checkRoll($serviceLocator),
-            $this->consequences($serviceLocator, $rules),
-            new GameStrikeSplits(),
-            $this->formulaContexts($serviceLocator),
-            $this->mechanics($serviceLocator),
-            $this->engine($serviceLocator),
-        );
-
-        return new GameTurnHttp($this->userAccess($serviceLocator), new GameTurns(
-            $gateway,
-            $this->games($serviceLocator),
-            $card,
-            $rules,
-            $this->mutations($serviceLocator),
-            $chats,
-            $ticks,
-            $this->strikeOpen($serviceLocator, $gateway, $rules),
-            $this->events($serviceLocator),
-            new GameCombatNotices($chats),
-            $this->cardAvailability($serviceLocator, $gateway, $rules),
-            $this->createStateIncreaseChecks($serviceLocator),
-            $this->createActionDomain($serviceLocator),
-            $this->processFlow($serviceLocator, $gateway, $rules),
-            (new GameWoundPortFactory())->createActions($serviceLocator),
-        ));
     }
 
     /**
@@ -328,366 +78,9 @@ final class GameStrikePortFactory
      */
     public function createProcessFlow(IServiceLocator $serviceLocator): GameProcessFlow
     {
-        $gateway = $this->smartTableGateway($serviceLocator);
+        $rules = (new GameStrikeRuleWiring($serviceLocator))->rules();
 
-        return $this->processFlow($serviceLocator, $gateway, $this->strikeRules($serviceLocator));
-    }
-
-    /**
-     * Собирает роли одиночного удара.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     * @param ISmartTableGateway $gateway Шлюз.
-     * @param IEventManager $events Доставка.
-     * @param GameCardAccess $card Фильтр карточки.
-     * @param GameStrikeRules $rules Правила.
-     *
-     * @return GameStrikes Фасад.
-     */
-    private function composeStrikes(
-        IServiceLocator $serviceLocator,
-        ISmartTableGateway $gateway,
-        IEventManager $events,
-        GameCardAccess $card,
-        GameStrikeRules $rules,
-    ): GameStrikes {
-        $shared = new GameStrikeShared(
-            $gateway,
-            $this->games($serviceLocator),
-            $this->mutations($serviceLocator),
-            $rules,
-            $card,
-            $events,
-        );
-        $consequences = $this->consequences($serviceLocator, $rules);
-        $processes = $this->processFlow($serviceLocator, $gateway, $rules);
-        $close = $this->strikeClose($serviceLocator, $rules, $shared, $consequences, $processes);
-        $roles = new GameStrikeRoleFactory($rules, $shared);
-        $body = new GameStrikeBody();
-
-        return new GameStrikes(
-            $roles->declare($body, $consequences, $this->cardAvailability($serviceLocator, $gateway, $rules), $processes),
-            $roles->window($this->checkRoll($serviceLocator), $close),
-            $roles->closeRunner($body, $close),
-        );
-    }
-
-    /**
-     * Собирает закрытие удара.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     * @param GameStrikeRules $rules Правила.
-     * @param GameStrikeShared $shared Общие сервисы.
-     * @param GameStrikeConsequences $consequences Последствия.
-     * @param GameProcessFlow $processes Сессия процесса.
-     *
-     * @return GameStrikeClose Закрытие.
-     */
-    private function strikeClose(
-        IServiceLocator $serviceLocator,
-        GameStrikeRules $rules,
-        GameStrikeShared $shared,
-        GameStrikeConsequences $consequences,
-        GameProcessFlow $processes,
-    ): GameStrikeClose {
-        return (new GameStrikeCloseFactory())->create(
-            $rules,
-            $shared,
-            $consequences,
-            $this->createStateIncreaseChecks($serviceLocator),
-            $processes,
-        );
-    }
-
-    /**
-     * Сессия процесса.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     * @param ISmartTableGateway $gateway Шлюз.
-     * @param GameStrikeRules $rules Срез.
-     *
-     * @return GameProcessFlow Сценарий.
-     *
-     * @throws KernelException Если нет порта.
-     */
-    private function processFlow(
-        IServiceLocator $serviceLocator,
-        ISmartTableGateway $gateway,
-        GameStrikeRules $rules,
-    ): GameProcessFlow {
-        return new GameProcessFlow(
-            new GameProcessRepository($gateway),
-            new GameProcessRules(),
-            $rules,
-            $this->cardAvailability($serviceLocator, $gateway, $rules),
-            new GamePendingActionCosts(),
-        );
-    }
-
-    /**
-     * Гейт принадлежности и требований карточки действия.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     * @param ISmartTableGateway $gateway Шлюз.
-     * @param GameStrikeRules $rules Срез.
-     *
-     * @return GameCardAvailability Сервис.
-     *
-     * @throws KernelException Если нет порта листов.
-     */
-    private function cardAvailability(
-        IServiceLocator $serviceLocator,
-        ISmartTableGateway $gateway,
-        GameStrikeRules $rules,
-    ): GameCardAvailability {
-        return new GameCardAvailability(
-            $rules,
-            $this->strikeSheets($gateway, $rules),
-            $this->characterSheets($serviceLocator),
-            new CharacterRequirementFacts(),
-            new AbilityRequirementCheck(),
-        );
-    }
-
-    /**
-     * Снимки листов удара.
-     *
-     * @param ISmartTableGateway $gateway Шлюз.
-     * @param GameStrikeRules $rules Срез.
-     *
-     * @return GameStrikeSheets Снимки.
-     */
-    private function strikeSheets(ISmartTableGateway $gateway, GameStrikeRules $rules): GameStrikeSheets
-    {
-        return new GameStrikeSheets(
-            $rules,
-            new GameNpcRepository($gateway),
-            new GameCharacterRepository($gateway),
-            new GameMemberRepository($gateway),
-            new ConflictSheetProjection(
-                new CharacterSectionMask(),
-                new GameCharacterProjectionMask(),
-                new GameNpcVisibility(),
-            ),
-        );
-    }
-
-    /**
-     * Открытие удара для конца хода: только порты записи.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     * @param ISmartTableGateway $gateway Шлюз.
-     * @param GameStrikeRules $rules Срез.
-     *
-     * @return GameStrikeOpen Сервис открытия.
-     */
-    private function strikeOpen(
-        IServiceLocator $serviceLocator,
-        ISmartTableGateway $gateway,
-        GameStrikeRules $rules,
-    ): GameStrikeOpen {
-        $npcs = new GameNpcRepository($gateway);
-        $sheetWrites = new GameStrikeSheetWrites($this->mutations($serviceLocator), $npcs);
-        $sheets = new GameStrikeSheets(
-            $rules,
-            $npcs,
-            new GameCharacterRepository($gateway),
-            new GameMemberRepository($gateway),
-            new ConflictSheetProjection(
-                new CharacterSectionMask(),
-                new GameCharacterProjectionMask(),
-                new GameNpcVisibility(),
-            ),
-        );
-
-        return (new GameStrikeOpenFactory())->create(
-            $rules,
-            new GameBattleRepository($gateway),
-            new GameActionRepository($gateway),
-            new GameStrikeSpend($rules, $sheetWrites),
-            $sheets,
-            $sheetWrites,
-            $this->processFlow($serviceLocator, $gateway, $rules),
-        );
-    }
-
-    /**
-     * Шлюз таблиц.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return ISmartTableGateway Шлюз.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function smartTableGateway(IServiceLocator $serviceLocator): ISmartTableGateway
-    {
-        $gateway = $serviceLocator->get(ISmartTableContainer::class)->get(ISmartTableGateway::class);
-        if (!$gateway instanceof ISmartTableGateway) {
-            throw new KernelException('PORT_TYPE', 'Game requires ISmartTableGateway');
-        }
-
-        return $gateway;
-    }
-
-    /**
-     * Строка игры.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return IGames Фасад.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function games(IServiceLocator $serviceLocator): IGames
-    {
-        $games = $serviceLocator->get(IGameContainer::class)->get(IGames::class);
-        if (!$games instanceof IGames) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires IGames');
-        }
-
-        return $games;
-    }
-
-    /**
-     * Порт листа.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return ICharacterActualMutations Порт.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function mutations(IServiceLocator $serviceLocator): ICharacterActualMutations
-    {
-        $mutations = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterActualMutations::class);
-        if (!$mutations instanceof ICharacterActualMutations) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires ICharacterActualMutations');
-        }
-
-        return $mutations;
-    }
-
-    /**
-     * Срез правил.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return ICharacterRuleSlices Срез.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function ruleSlices(IServiceLocator $serviceLocator): ICharacterRuleSlices
-    {
-        $ruleSlices = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterRuleSlices::class);
-        if (!$ruleSlices instanceof ICharacterRuleSlices) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires ICharacterRuleSlices');
-        }
-
-        return $ruleSlices;
-    }
-
-    /**
-     * Строки персонажа.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return ICharacters Фасад.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function characters(IServiceLocator $serviceLocator): ICharacters
-    {
-        $characters = $serviceLocator->get(ICharacterContainer::class)->get(ICharacters::class);
-        if (!$characters instanceof ICharacters) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires ICharacters');
-        }
-
-        return $characters;
-    }
-
-    /**
-     * Контекст формулы из листа.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return ICharacterFormulaContexts Порт.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function formulaContexts(IServiceLocator $serviceLocator): ICharacterFormulaContexts
-    {
-        $contexts = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterFormulaContexts::class);
-        if (!$contexts instanceof ICharacterFormulaContexts) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires ICharacterFormulaContexts');
-        }
-
-        return $contexts;
-    }
-
-    /**
-     * Полный пересчёт листа.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return ICharacterSheets Порт.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function characterSheets(IServiceLocator $serviceLocator): ICharacterSheets
-    {
-        $sheets = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterSheets::class);
-        if (!$sheets instanceof ICharacterSheets) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires ICharacterSheets');
-        }
-
-        return $sheets;
-    }
-
-    /**
-     * Правила удара со слоями.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return GameStrikeConsequences Последствия.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function consequences(IServiceLocator $serviceLocator, GameStrikeRules $rules): GameStrikeConsequences
-    {
-        $chatContainer = $serviceLocator->get(IChatContainer::class);
-        $chats = $chatContainer->get(IChats::class);
-        if (!$chats instanceof IChats) {
-            throw new KernelException('PORT_TYPE', 'Chat service has a wrong type');
-        }
-
-        $states = new GameStrikeConsequenceStates(
-            $this->mechanics($serviceLocator),
-            $this->engine($serviceLocator),
-        );
-        $checkRoll = $this->checkRoll($serviceLocator);
-        $decline = new GameStateDecline();
-        $will = new GameStrikeConsequenceWill(
-            $states,
-            new GameStateCheck($checkRoll, new GameStateIncreaseRule()),
-            $decline,
-            $checkRoll,
-        );
-        $effect = new GameStrikeConsequenceEffects(
-            $rules,
-            $states,
-            new GameStrikeConsequenceRules($this->formulaContexts($serviceLocator), $states),
-            $will,
-            $decline,
-        );
-
-        return new GameStrikeConsequences(
-            $rules,
-            $states,
-            $will,
-            $effect,
-            new GameStrikeConsequenceChat($chats),
-        );
+        return (new GameStrikeWriteWiring($serviceLocator))->processes($rules);
     }
 
     /**
@@ -701,9 +94,9 @@ final class GameStrikePortFactory
      */
     public function createSheets(IServiceLocator $serviceLocator): GameStrikeSheets
     {
-        $gateway = $this->smartTableGateway($serviceLocator);
+        $rules = (new GameStrikeRuleWiring($serviceLocator))->rules();
 
-        return $this->strikeSheets($gateway, $this->strikeRules($serviceLocator));
+        return (new GameStrikeWriteWiring($serviceLocator))->sheets($rules);
     }
 
     /**
@@ -717,108 +110,7 @@ final class GameStrikePortFactory
      */
     public function strikeRulesForWound(IServiceLocator $serviceLocator): GameStrikeRules
     {
-        return $this->strikeRules($serviceLocator);
-    }
-
-    /**
-     * Правила удара со слоями.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return GameStrikeRules Правила.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function strikeRules(IServiceLocator $serviceLocator): GameStrikeRules
-    {
-        $slices = $this->strikeSlices($serviceLocator);
-        $characters = $this->characters($serviceLocator);
-        $participants = new GameStrikeParticipants(
-            $characters,
-            $this->formulaContexts($serviceLocator),
-            $this->characterSheets($serviceLocator),
-            $slices,
-        );
-
-        return new GameStrikeRules(
-            $this->formulaEvaluations($serviceLocator),
-            $this->checkRoll($serviceLocator),
-            $this->layers($serviceLocator),
-            $slices,
-            $characters,
-            $participants,
-        );
-    }
-
-    /**
-     * Срезы ревизии для удара.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return GameStrikeSlices Срезы.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function strikeSlices(IServiceLocator $serviceLocator): GameStrikeSlices
-    {
-        return new GameStrikeSlices($this->ruleSlices($serviceLocator));
-    }
-
-    /**
-     * Сопротивление слоёв.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return GameStrikeLayers Расчёт.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function layers(IServiceLocator $serviceLocator): GameStrikeLayers
-    {
-        return new GameStrikeLayers(
-            $this->combatLayers($serviceLocator),
-            $this->engine($serviceLocator),
-            $this->mechanics($serviceLocator),
-            new GameStrikeAmounts(),
-        );
-    }
-
-    /**
-     * Проекция слоёв.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return ICharacterCombatLayers Порт.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function combatLayers(IServiceLocator $serviceLocator): ICharacterCombatLayers
-    {
-        $layers = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterCombatLayers::class);
-        if (!$layers instanceof ICharacterCombatLayers) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires ICharacterCombatLayers');
-        }
-
-        return $layers;
-    }
-
-    /**
-     * Движок механик.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return IMechanicEngine Порт.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function engine(IServiceLocator $serviceLocator): IMechanicEngine
-    {
-        $engine = $serviceLocator->get(IMechanicContainer::class)->get(IMechanicEngine::class);
-        if (!$engine instanceof IMechanicEngine) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires IMechanicEngine');
-        }
-
-        return $engine;
+        return (new GameStrikeRuleWiring($serviceLocator))->rules();
     }
 
     /**
@@ -832,126 +124,65 @@ final class GameStrikePortFactory
      */
     public function createStateIncreaseChecks(IServiceLocator $serviceLocator): GameStateIncreaseChecks
     {
-        return new GameStateIncreaseChecks(
-            $this->strikeRules($serviceLocator),
-            new GameStateCheck($this->checkRoll($serviceLocator), new GameStateIncreaseRule()),
-            new GameStateDecline(),
+        return (new GameStrikeRuleWiring($serviceLocator))->checks();
+    }
+
+    /**
+     * Собирает роли одиночного удара.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param GameStrikePorts $ports Порты.
+     * @param GameCardAccess $card Фильтр карточки.
+     * @param GameStrikeRules $rules Правила.
+     *
+     * @return GameStrikes Фасад.
+     */
+    private function composeStrikes(
+        IServiceLocator $serviceLocator,
+        GameStrikePorts $ports,
+        GameCardAccess $card,
+        GameStrikeRules $rules,
+    ): GameStrikes {
+        $rulesWiring = new GameStrikeRuleWiring($serviceLocator);
+        $write = new GameStrikeWriteWiring($serviceLocator);
+        $processes = $write->processes($rules);
+        $consequences = $rulesWiring->consequences($rules);
+        $shared = $this->shared($ports, $card, $rules);
+        $close = (new GameStrikeCloseFactory())->create(
+            $rules,
+            $shared,
+            $consequences,
+            $rulesWiring->checks(),
+            $processes,
+        );
+        $roles = new GameStrikeRoleFactory($rules, $shared);
+        $body = new GameStrikeBody();
+
+        return new GameStrikes(
+            $roles->declare($body, $consequences, $write->availability($rules), $processes),
+            $roles->window($rulesWiring->checkRoll(), $close),
+            $roles->closeRunner($body, $close),
         );
     }
 
     /**
-     * Бросок попадания.
+     * Общие сервисы ударного домена.
      *
-     * @param IServiceLocator $serviceLocator Каталог.
+     * @param GameStrikePorts $ports Порты.
+     * @param GameCardAccess $card Фильтр карточки.
+     * @param GameStrikeRules $rules Правила.
      *
-     * @return GameCheckRoll Расчёт.
-     *
-     * @throws KernelException Если порта нет.
+     * @return GameStrikeShared Общие сервисы.
      */
-    private function checkRoll(IServiceLocator $serviceLocator): GameCheckRoll
+    private function shared(GameStrikePorts $ports, GameCardAccess $card, GameStrikeRules $rules): GameStrikeShared
     {
-        return new GameCheckRoll(
-            $this->ruleSlices($serviceLocator),
-            $this->characters($serviceLocator),
-            $this->mechanics($serviceLocator),
-            $this->rolls($serviceLocator),
-            $this->formulaContexts($serviceLocator),
-            $this->characterSheets($serviceLocator),
+        return new GameStrikeShared(
+            $ports->gateway(),
+            $ports->games(),
+            $ports->mutations(),
+            $rules,
+            $card,
+            $ports->events(),
         );
-    }
-
-    /**
-     * Каталог механик.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return IMechanics Порт.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function mechanics(IServiceLocator $serviceLocator): IMechanics
-    {
-        $mechanics = $serviceLocator->get(IMechanicContainer::class)->get(IMechanics::class);
-        if (!$mechanics instanceof IMechanics) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires IMechanics');
-        }
-
-        return $mechanics;
-    }
-
-    /**
-     * Порт броска.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return IMechanicRolls Порт.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function rolls(IServiceLocator $serviceLocator): IMechanicRolls
-    {
-        $rolls = $serviceLocator->get(IMechanicContainer::class)->get(IMechanicRolls::class);
-        if (!$rolls instanceof IMechanicRolls) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires IMechanicRolls');
-        }
-
-        return $rolls;
-    }
-
-    /**
-     * Обход формулы.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return IFormulaEvaluations Порт.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function formulaEvaluations(IServiceLocator $serviceLocator): IFormulaEvaluations
-    {
-        $evaluations = $serviceLocator->get(IRuleContainer::class)->get(IFormulaEvaluations::class);
-        if (!$evaluations instanceof IFormulaEvaluations) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires IFormulaEvaluations');
-        }
-
-        return $evaluations;
-    }
-
-    /**
-     * Актор запроса.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return IEventManager Менеджер событий.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function events(IServiceLocator $serviceLocator): IEventManager
-    {
-        $events = $serviceLocator->get(IEventContainer::class)->get(IEventManager::class);
-        if (!$events instanceof IEventManager) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires IEventManager');
-        }
-
-        return $events;
-    }
-
-    /**
-     * Актор запроса.
-     *
-     * @param IServiceLocator $serviceLocator Каталог.
-     *
-     * @return IUserAccess Доступ.
-     *
-     * @throws KernelException Если порта нет.
-     */
-    private function userAccess(IServiceLocator $serviceLocator): IUserAccess
-    {
-        $userAccess = $serviceLocator->get(IUserContainer::class)->get(IUserAccess::class);
-        if (!$userAccess instanceof IUserAccess) {
-            throw new KernelException('PORT_TYPE', 'Game strike requires IUserAccess');
-        }
-
-        return $userAccess;
     }
 }
