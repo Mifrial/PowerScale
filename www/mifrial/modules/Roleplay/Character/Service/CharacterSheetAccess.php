@@ -16,7 +16,7 @@ use Mifrial\Roleplay\Character\Service\Read\CharacterSectionCodes;
 use Mifrial\Roleplay\Character\Service\Read\CharacterViewerParser;
 
 /**
- * Право на лист: владелец, character.view и секции. Единственный вызывающий репозиторий видимости.
+ * Право на лист: владелец, bypass, character.view и секции. Единственный вызывающий репозиторий видимости.
  */
 final class CharacterSheetAccess
 {
@@ -49,6 +49,10 @@ final class CharacterSheetAccess
      */
     public function visibleList(RequestActor $actor): array
     {
+        if ($actor->hasBypass()) {
+            return $this->visibilityRepository->findAll();
+        }
+
         $sharedCharacterIds = null;
         if ($actor->hasKey(self::VIEW)) {
             $sharedCharacterIds = $this->visibilityRepository->findViewerCharacterIds($actor->getUserId());
@@ -76,6 +80,10 @@ final class CharacterSheetAccess
         $record = $this->visibilityRepository->getById($characterId);
         if ($record->getOwnerId() === $actor->getUserId()) {
             return $this->ownerOpening($record);
+        }
+
+        if ($actor->hasBypass()) {
+            return $this->bypassOpening($record);
         }
 
         return $this->strangerOpening($actor, $record);
@@ -151,6 +159,24 @@ final class CharacterSheetAccess
             true,
             CharacterSheetSection::codes(),
             $this->visibilityRepository->findViewers($record->getId()),
+        );
+    }
+
+    /**
+     * Полный лист по bypass: все секции, но без личных полей владельца.
+     *
+     * @param CharacterRecord $record Строка.
+     *
+     * @return CharacterOpening Доступ.
+     */
+    private function bypassOpening(CharacterRecord $record): CharacterOpening
+    {
+        return new CharacterOpening(
+            $record,
+            false,
+            CharacterSheetSection::codes(),
+            [],
+            true,
         );
     }
 

@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterOpening;
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\CharacterValidation;
+use Mifrial\Roleplay\Character\Enum\CharacterSheetSection;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\Read\CharacterSectionMask;
@@ -97,5 +98,48 @@ final class CharacterSectionMaskTest extends TestCase
         self::assertArrayNotHasKey('actualVersion', $view);
         self::assertArrayNotHasKey('limits', $view['choices']);
         self::assertArrayNotHasKey('name', $view['choices']);
+    }
+
+    /**
+     * Bypass получает полный лист, но без личных полей владельца.
+     *
+     * @return void
+     */
+    public function testFullSheetDetailOmitsOwnerFields(): void
+    {
+        $slices = $this->createMock(ICharacterRuleSlices::class);
+        $slices->method('get')->willReturn(new CharacterRuleSlice(2, 3, 'world', [], []));
+        $sheets = $this->createMock(ICharacterSheets::class);
+        $sheets->method('validate')->willReturn(new CharacterValidation([], [], [], 0, [], [], [], true));
+        $assembler = new CharacterViewAssembler(new CharacterSectionMask(), $slices, $sheets);
+        $record = CharacterRecord::fromNormalized([
+            'id' => 4,
+            'owner_id' => 1,
+            'space_id' => 2,
+            'rules_revision' => 3,
+            'name' => 'Hero',
+            'active' => true,
+            'actual_version' => 2,
+            'choices' => [
+                'name' => 'Hero',
+                'customRules' => [['id' => 1]],
+                'inventory' => [],
+            ],
+            'sheet' => ['active' => true, 'money' => 1, 'states' => []],
+            'visibility_fields' => [],
+            'is_public' => false,
+            'owner_notes' => 'secret',
+            'created_at' => DateTime::now(),
+            'updated_at' => DateTime::now(),
+        ]);
+        $view = $assembler->detail(
+            new CharacterOpening($record, false, CharacterSheetSection::codes(), [], true),
+        );
+
+        self::assertSame(CharacterSheetSection::codes(), $view['visibleSections']);
+        self::assertSame($record->getChoices(), $view['choices']);
+        self::assertArrayNotHasKey('ownerNotes', $view);
+        self::assertArrayNotHasKey('viewers', $view);
+        self::assertArrayNotHasKey('actualVersion', $view);
     }
 }

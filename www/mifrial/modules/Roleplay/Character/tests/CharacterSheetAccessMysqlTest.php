@@ -20,6 +20,7 @@ use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
+use Mifrial\Roleplay\Character\Enum\CharacterSheetSection;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
@@ -98,6 +99,37 @@ final class CharacterSheetAccessMysqlTest extends TestCase
         }
 
         self::assertSame([], $this->sheetAccess()->visibleList($stranger));
+    }
+
+    /**
+     * Bypass видит скрытый чужой лист и получает полный лист без заметок владельца.
+     *
+     * @return void
+     */
+    public function testBypassSeesAllSheetsWithoutOwnerNotes(): void
+    {
+        $ownerId = $this->addUser('owner-bypass');
+        $adminId = $this->addUser('admin-bypass');
+        $characterId = $this->characters()->add($this->newCharacter($ownerId, $this->addSpace(), [
+            'choices' => [
+                'name' => 'Hidden',
+                'inventory' => [['ruleCode' => 'sword']],
+                'customRules' => [['id' => 1]],
+            ],
+            'ownerNotes' => 'secret',
+        ]));
+        $owner = new RequestActor($ownerId, [], false);
+        $admin = new RequestActor($adminId, [], true);
+
+        self::assertSame([$characterId], $this->ids($this->sheetAccess()->visibleList($admin)));
+        self::assertSame([$characterId], $this->ids($this->sheetAccess()->visibleList($owner)));
+
+        $opening = $this->sheetAccess()->open($admin, $characterId);
+        self::assertFalse($opening->isForOwner());
+        self::assertTrue($opening->hasFullSheet());
+        self::assertSame(CharacterSheetSection::codes(), $opening->getSections());
+        self::assertSame([], $opening->getViewers());
+        self::assertSame('secret', $opening->getRecord()->getOwnerNotes());
     }
 
     /**

@@ -71,8 +71,15 @@ final class CharacterViewAssembler
             return $view + $this->ownerFields($opening, $record, $sheet);
         }
 
-        $masked = $this->sectionMask->apply($record->getChoices(), $sheet, $opening->getSections());
         $view['visibleSections'] = $opening->getSections();
+        if ($opening->hasFullSheet()) {
+            $view['choices'] = $record->getChoices();
+            $view['sheet'] = $sheet;
+
+            return $view;
+        }
+
+        $masked = $this->sectionMask->apply($record->getChoices(), $sheet, $opening->getSections());
         $view['choices'] = $masked['choices'];
         $view['sheet'] = $masked['sheet'];
 

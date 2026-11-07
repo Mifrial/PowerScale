@@ -16,6 +16,7 @@ final class CharacterOpening
      * @param bool $forOwner Актор — владелец.
      * @param array $sections Разрешённые коды.
      * @param array $viewers Зрители или пусто.
+     * @param bool $fullSheet Полный лист без личных полей владельца.
      *
      * @return void
      */
@@ -24,6 +25,7 @@ final class CharacterOpening
         private readonly bool $forOwner,
         private readonly array $sections,
         private readonly array $viewers,
+        private readonly bool $fullSheet = false,
     ) {
     }
 
@@ -65,5 +67,15 @@ final class CharacterOpening
     public function getViewers(): array
     {
         return $this->viewers;
+    }
+
+    /**
+     * Полный лист без личных полей владельца (bypass).
+     *
+     * @return bool true, если доступ выдан обходом ACL.
+     */
+    public function hasFullSheet(): bool
+    {
+        return $this->fullSheet;
     }
 }

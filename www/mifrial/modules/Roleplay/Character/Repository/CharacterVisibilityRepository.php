@@ -93,6 +93,27 @@ final class CharacterVisibilityRepository
     }
 
     /**
+     * Все строки без фильтра владельца. Только для bypass.
+     *
+     * @return list<CharacterRecord> Строки.
+     *
+     * @throws CharacterInvalidException Если выборка битая.
+     */
+    public function findAll(): array
+    {
+        $rows = $this->rows(ListQuery::fromOptions([
+            'sort' => ['id' => 'asc'],
+            'limit' => ListQuery::MAX_LIMIT,
+        ]));
+        $records = [];
+        foreach ($rows as $row) {
+            $records[] = CharacterRecord::fromNormalized($row);
+        }
+
+        return $records;
+    }
+
+    /**
      * Id персонажей, где user — зритель.
      *
      * @param int $userId Зритель.
