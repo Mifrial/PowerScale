@@ -59,33 +59,10 @@ final class GameProcessRepository
         int $participantId,
         array $state = [],
     ): GameProcessRecord {
-        $fields = [
-            'session_id' => $sessionId,
-            'participant_type' => $participantType,
-            'participant_id' => $participantId,
-            'status' => 'open',
-        ];
-        if ($battleId !== null) {
-            $fields['battle_id'] = $battleId;
-        }
-
-        $stateFields = [
-            'process_rule_code',
-            'current_step_code',
-            'step_status',
-            'counters',
-            'weapon_use_counts',
-            'last_target_type',
-            'last_target_id',
-        ];
-        foreach ($stateFields as $name) {
-            if (array_key_exists($name, $state)) {
-                $fields[$name] = $state[$name];
-            }
-        }
-
         try {
-            $processId = $this->processRecords->add($fields);
+            $processId = $this->processRecords->add(
+                $this->fields($sessionId, $battleId, $participantType, $participantId, $state),
+            );
         } catch (
             FieldRequiredException
             | FieldInvalidException
@@ -199,36 +176,6 @@ final class GameProcessRepository
     }
 
     /**
-     * Ставит resolved.
-     *
-     * @param int $processId Process.
-     *
-     * @return void
-     *
-     * @throws GameNotFoundException Если строки нет.
-     * @throws GameInvalidException Если поле.
-     */
-    public function markResolved(int $processId): void
-    {
-        $this->update($processId, ['status' => 'resolved']);
-    }
-
-    /**
-     * Ставит cancelled.
-     *
-     * @param int $processId Process.
-     *
-     * @return void
-     *
-     * @throws GameNotFoundException Если строки нет.
-     * @throws GameInvalidException Если поле.
-     */
-    public function markCancelled(int $processId): void
-    {
-        $this->update($processId, ['status' => 'cancelled']);
-    }
-
-    /**
      * Гасит open персонажа одной сессии.
      *
      * @param int|null $sessionId Сессия или null.
@@ -284,6 +231,66 @@ final class GameProcessRepository
         $this->cancelOpen([
             new FilterCondition('session_id', '=', $sessionId),
         ]);
+    }
+
+    /**
+     * Поля вставки open.
+     *
+     * @param int $sessionId Сессия.
+     * @param int|null $battleId Бой или null.
+     * @param string $participantType Тип character или npc.
+     * @param int $participantId Участник.
+     * @param array<string, mixed> $state Поля процесса.
+     *
+     * @return array<string, mixed> Поля.
+     */
+    private function fields(
+        int $sessionId,
+        ?int $battleId,
+        string $participantType,
+        int $participantId,
+        array $state,
+    ): array {
+        $fields = [
+            'session_id' => $sessionId,
+            'participant_type' => $participantType,
+            'participant_id' => $participantId,
+            'status' => 'open',
+        ];
+        if ($battleId !== null) {
+            $fields['battle_id'] = $battleId;
+        }
+
+        return $this->stateFields($fields, $state);
+    }
+
+    /**
+     * Добавляет поля состояния процесса.
+     *
+     * @param array<string, mixed> $fields Поля вставки.
+     * @param array<string, mixed> $state Поля процесса.
+     *
+     * @return array<string, mixed> Поля.
+     */
+    private function stateFields(array $fields, array $state): array
+    {
+        foreach (
+            [
+                'process_rule_code',
+                'current_step_code',
+                'step_status',
+                'counters',
+                'weapon_use_counts',
+                'last_target_type',
+                'last_target_id',
+            ] as $name
+        ) {
+            if (array_key_exists($name, $state)) {
+                $fields[$name] = $state[$name];
+            }
+        }
+
+        return $fields;
     }
 
     /**

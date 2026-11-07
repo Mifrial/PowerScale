@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// Геттеры строки — публичный смысл Record; параметры ctor — колонки, не порты.
+
 namespace Mifrial\Roleplay\Game\Dto;
 
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -58,57 +62,20 @@ final class GameProcessRecord
      */
     public static function fromNormalized(array $fields): self
     {
-        $id = $fields['id'] ?? null;
-        $sessionId = $fields['session_id'] ?? null;
-        $battleId = $fields['battle_id'] ?? null;
-        $participantType = $fields['participant_type'] ?? null;
-        $participantId = $fields['participant_id'] ?? null;
-        $status = $fields['status'] ?? null;
-        $processRuleCode = $fields['process_rule_code'] ?? null;
-        $currentStepCode = $fields['current_step_code'] ?? null;
-        $stepStatus = $fields['step_status'] ?? null;
-        $counters = $fields['counters'] ?? [];
-        $weaponUseCounts = $fields['weapon_use_counts'] ?? [];
-        $lastTargetType = $fields['last_target_type'] ?? null;
-        $lastTargetId = $fields['last_target_id'] ?? null;
-        if (!is_int($id) || !is_int($sessionId) || !is_int($participantId)) {
-            throw new GameInvalidException('Game process row is invalid');
-        }
-
-        if (!is_string($participantType) || !is_string($status)) {
-            throw new GameInvalidException('Game process row is invalid');
-        }
-
-        if ($battleId !== null && !is_int($battleId)) {
-            throw new GameInvalidException('Game process row is invalid');
-        }
-
-        if (
-            ($processRuleCode !== null && !is_string($processRuleCode))
-            || ($currentStepCode !== null && !is_string($currentStepCode))
-            || ($stepStatus !== null && !is_string($stepStatus))
-            || !is_array($counters)
-            || !is_array($weaponUseCounts)
-            || ($lastTargetType !== null && !is_string($lastTargetType))
-            || ($lastTargetId !== null && !is_int($lastTargetId))
-        ) {
-            throw new GameInvalidException('Game process row is invalid');
-        }
-
         return new self(
-            $id,
-            $sessionId,
-            $battleId,
-            $participantType,
-            $participantId,
-            $status,
-            $processRuleCode,
-            $currentStepCode,
-            $stepStatus,
-            $counters,
-            self::counts($weaponUseCounts),
-            $lastTargetType,
-            $lastTargetId,
+            self::int($fields, 'id'),
+            self::int($fields, 'session_id'),
+            self::optionalInt($fields, 'battle_id'),
+            self::string($fields, 'participant_type'),
+            self::int($fields, 'participant_id'),
+            self::string($fields, 'status'),
+            self::optionalString($fields, 'process_rule_code'),
+            self::optionalString($fields, 'current_step_code'),
+            self::optionalString($fields, 'step_status'),
+            self::rows($fields, 'counters'),
+            self::counts(self::rows($fields, 'weapon_use_counts')),
+            self::optionalString($fields, 'last_target_type'),
+            self::optionalInt($fields, 'last_target_id'),
         );
     }
 
@@ -240,6 +207,106 @@ final class GameProcessRecord
     public function getLastTargetId(): ?int
     {
         return $this->lastTargetId;
+    }
+
+    /**
+     * Обязательное целое поле.
+     *
+     * @param array<string, mixed> $fields Колонки.
+     * @param string $key Имя.
+     *
+     * @return int Значение.
+     *
+     * @throws GameInvalidException Если поле битое.
+     */
+    private static function int(array $fields, string $key): int
+    {
+        $value = $fields[$key] ?? null;
+        if (!is_int($value)) {
+            throw new GameInvalidException('Game process row is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Обязательная строка.
+     *
+     * @param array<string, mixed> $fields Колонки.
+     * @param string $key Имя.
+     *
+     * @return string Значение.
+     *
+     * @throws GameInvalidException Если поле битое.
+     */
+    private static function string(array $fields, string $key): string
+    {
+        $value = $fields[$key] ?? null;
+        if (!is_string($value)) {
+            throw new GameInvalidException('Game process row is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Необязательное целое.
+     *
+     * @param array<string, mixed> $fields Колонки.
+     * @param string $key Имя.
+     *
+     * @return int|null Значение или null.
+     *
+     * @throws GameInvalidException Если поле битое.
+     */
+    private static function optionalInt(array $fields, string $key): ?int
+    {
+        $value = $fields[$key] ?? null;
+        if ($value !== null && !is_int($value)) {
+            throw new GameInvalidException('Game process row is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Необязательная строка.
+     *
+     * @param array<string, mixed> $fields Колонки.
+     * @param string $key Имя.
+     *
+     * @return string|null Значение или null.
+     *
+     * @throws GameInvalidException Если поле битое.
+     */
+    private static function optionalString(array $fields, string $key): ?string
+    {
+        $value = $fields[$key] ?? null;
+        if ($value !== null && !is_string($value)) {
+            throw new GameInvalidException('Game process row is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * JSON-объект колонки или пустой массив.
+     *
+     * @param array<string, mixed> $fields Колонки.
+     * @param string $key Имя.
+     *
+     * @return array<string|int, mixed> Значения.
+     *
+     * @throws GameInvalidException Если поле битое.
+     */
+    private static function rows(array $fields, string $key): array
+    {
+        $value = $fields[$key] ?? [];
+        if (!is_array($value)) {
+            throw new GameInvalidException('Game process row is invalid');
+        }
+
+        return $value;
     }
 
     /**

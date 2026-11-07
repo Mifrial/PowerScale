@@ -85,7 +85,7 @@ final class GameProcesses implements IGameProcesses
             throw new GameInvalidException('Game process is not open');
         }
 
-        $this->processes->markResolved($processId);
+        $this->processes->updateState($processId, ['status' => 'resolved']);
 
         return $this->view($this->processes->getById($processId));
     }
@@ -107,7 +107,7 @@ final class GameProcesses implements IGameProcesses
             throw new GameInvalidException('Game process is not open');
         }
 
-        $this->processes->markCancelled($processId);
+        $this->processes->updateState($processId, ['status' => 'cancelled']);
 
         return $this->view($this->processes->getById($processId));
     }

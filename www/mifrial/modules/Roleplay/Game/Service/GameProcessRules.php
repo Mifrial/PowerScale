@@ -15,6 +15,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StepCost;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\ChainTransition;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\CustomTransition;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Transition\TransitionEdge;
 
 /**
  * Чистые правила процесса: шаги, переходы и цена шага.
@@ -54,13 +55,9 @@ final class GameProcessRules
      */
     public function step(ProcessSpec $spec, string $code): ProcessStep
     {
-        foreach ($spec->getSteps() as $step) {
-            if ($step->getCode() === $code) {
-                return $step;
-            }
-        }
+        $steps = $spec->getSteps();
 
-        throw new GameInvalidException('Game process step is invalid');
+        return $steps[$this->currentIndex($steps, $code)];
     }
 
     /**
@@ -90,35 +87,8 @@ final class GameProcessRules
         }
 
         $steps = $spec->getSteps();
-        $index = null;
-        foreach ($steps as $offset => $step) {
-            if ($step->getCode() === $current) {
-                $index = $offset;
-                break;
-            }
-        }
-
-        if ($index === null) {
-            throw new GameInvalidException('Game process step is invalid');
-        }
-
-        $transition = $spec->getTransition();
-        $codes = [];
-        if ($transition instanceof ChainTransition) {
-            $codes = $this->chainSteps($steps, $index, $transition);
-        } elseif ($transition instanceof CustomTransition) {
-            foreach ($transition->getEdges() as $edge) {
-                if ($edge->getFrom() === $current) {
-                    $codes[] = $edge->getTo();
-                }
-            }
-        } else {
-            foreach ($steps as $step) {
-                if ($step->getCode() !== $current) {
-                    $codes[] = $step->getCode();
-                }
-            }
-        }
+        $index = $this->currentIndex($steps, $current);
+        $codes = $this->transitionCodes($spec, $steps, $index, $current);
 
         return $this->filterByCounters($spec, array_values(array_unique($codes)), $counters);
     }
@@ -174,32 +144,7 @@ final class GameProcessRules
         return $counters;
     }
 
-    /**
-     * Отбрасывает шаги с невыполненным порогом.
-     *
-     * @param ProcessSpec $spec Тело.
-     * @param array<int, string> $codes Коды.
-     * @param array<string, mixed> $counters Счётчики.
-     *
-     * @return array<int, string> Доступные коды.
-     */
-    private function filterByCounters(ProcessSpec $spec, array $codes, array $counters): array
-    {
-        $steps = [];
-        foreach ($spec->getSteps() as $step) {
-            $steps[$step->getCode()] = $step;
-        }
 
-        $kept = [];
-        foreach ($codes as $code) {
-            $step = $steps[$code] ?? null;
-            if ($step === null || CounterThreshold::areMet($step->getRequiresCounters(), $counters)) {
-                $kept[] = $code;
-            }
-        }
-
-        return $kept;
-    }
 
     /**
      * Цена шага в ресурсах.
@@ -212,15 +157,13 @@ final class GameProcessRules
      */
     public function costs(ProcessStep $step): array
     {
-        $spends = [];
-        foreach ($step->getCosts() as $cost) {
-            $spends[] = new ResourceSpend(
+        return array_map(
+            fn (StepCost $cost): ResourceSpend => new ResourceSpend(
                 $cost->getResourceCode(),
                 new ScalarResourceValue($this->amount($cost)),
-            );
-        }
-
-        return $spends;
+            ),
+            $step->getCosts(),
+        );
     }
 
     /**
@@ -259,14 +202,117 @@ final class GameProcessRules
      */
     public function actionPoints(ProcessStep $step): int
     {
-        $sum = 0;
-        foreach ($step->getCosts() as $cost) {
-            if ($cost->getResourceCode() === 'action-points') {
-                $sum += $this->amount($cost);
+        $costs = array_filter(
+            $step->getCosts(),
+            static fn (StepCost $cost): bool => $cost->getResourceCode() === 'action-points',
+        );
+
+        return array_sum(array_map(fn (StepCost $cost): int => $this->amount($cost), $costs));
+    }
+
+    /**
+     * Индекс текущего шага.
+     *
+     * @param array<int, ProcessStep> $steps Шаги.
+     * @param string $current Текущий код.
+     *
+     * @return int Индекс.
+     *
+     * @throws GameInvalidException Если шага нет.
+     */
+    private function currentIndex(array $steps, string $current): int
+    {
+        $codes = array_map(static fn (ProcessStep $step): string => $step->getCode(), $steps);
+        $index = array_search($current, $codes, true);
+        if ($index === false) {
+            throw new GameInvalidException('Game process step is invalid');
+        }
+
+        return (int) $index;
+    }
+
+    /**
+     * Коды перехода из текущего шага.
+     *
+     * @param ProcessSpec $spec Тело.
+     * @param array<int, ProcessStep> $steps Шаги.
+     * @param int $index Текущий индекс.
+     * @param string $current Текущий код.
+     *
+     * @return array<int, string> Коды.
+     */
+    private function transitionCodes(ProcessSpec $spec, array $steps, int $index, string $current): array
+    {
+        $transition = $spec->getTransition();
+        if ($transition instanceof ChainTransition) {
+            return $this->chainSteps($steps, $index, $transition);
+        }
+
+        if ($transition instanceof CustomTransition) {
+            return $this->customSteps($transition, $current);
+        }
+
+        return $this->otherSteps($steps, $current);
+    }
+
+    /**
+     * Коды рёбер произвольного перехода.
+     *
+     * @param CustomTransition $transition Переход.
+     * @param string $current Текущий код.
+     *
+     * @return array<int, string> Коды.
+     */
+    private function customSteps(CustomTransition $transition, string $current): array
+    {
+        $edges = array_filter(
+            $transition->getEdges(),
+            static fn (TransitionEdge $edge): bool => $edge->getFrom() === $current,
+        );
+
+        return array_values(array_map(static fn (TransitionEdge $edge): string => $edge->getTo(), $edges));
+    }
+
+    /**
+     * Коды остальных шагов при переходе any.
+     *
+     * @param array<int, ProcessStep> $steps Шаги.
+     * @param string $current Текущий код.
+     *
+     * @return array<int, string> Коды.
+     */
+    private function otherSteps(array $steps, string $current): array
+    {
+        $others = array_filter($steps, static fn (ProcessStep $step): bool => $step->getCode() !== $current);
+
+        return array_values(array_map(static fn (ProcessStep $step): string => $step->getCode(), $others));
+    }
+
+    /**
+     * Отбрасывает шаги с невыполненным порогом.
+     *
+     * @param ProcessSpec $spec Тело.
+     * @param array<int, string> $codes Коды.
+     * @param array<string, mixed> $counters Счётчики.
+     *
+     * @return array<int, string> Доступные коды.
+     */
+    private function filterByCounters(ProcessSpec $spec, array $codes, array $counters): array
+    {
+        $steps = [];
+        foreach ($spec->getSteps() as $step) {
+            $steps[$step->getCode()] = $step;
+        }
+
+        $kept = [];
+        foreach ($codes as $code) {
+            $step = $steps[$code] ?? null;
+            if ($step === null || CounterThreshold::areMet($step->getRequiresCounters(), $counters)) {
+                $kept[] = $code;
             }
         }
 
-        return $sum;
+        return $kept;
     }
 
     /**
@@ -280,25 +326,46 @@ final class GameProcessRules
      */
     private function chainSteps(array $steps, int $index, ChainTransition $transition): array
     {
-        $codes = [];
         $shift = max(1, $transition->getMaxShift());
-        for ($offset = 1; $offset <= $shift; ++$offset) {
-            $next = $index + $offset;
-            if (array_key_exists($next, $steps)) {
-                $codes[] = $steps[$next]->getCode();
-            }
+        $codes = $this->forwardSteps($steps, $index, $shift);
+        if ($transition->getDirection() !== 'both') {
+            return $codes;
         }
 
-        if ($transition->getDirection() === 'both') {
-            for ($offset = 1; $offset <= $shift; ++$offset) {
-                $previous = $index - $offset;
-                if (array_key_exists($previous, $steps)) {
-                    $codes[] = $steps[$previous]->getCode();
-                }
-            }
-        }
+        return [...$codes, ...$this->backwardSteps($steps, $index, $shift)];
+    }
 
-        return $codes;
+    /**
+     * Шаги вперёд по цепочке.
+     *
+     * @param array<int, ProcessStep> $steps Шаги.
+     * @param int $index Текущий индекс.
+     * @param int $shift Сдвиг.
+     *
+     * @return array<int, string> Коды.
+     */
+    private function forwardSteps(array $steps, int $index, int $shift): array
+    {
+        return array_map(
+            static fn (ProcessStep $step): string => $step->getCode(),
+            array_slice($steps, $index + 1, $shift),
+        );
+    }
+
+    /**
+     * Шаги назад по цепочке.
+     *
+     * @param array<int, ProcessStep> $steps Шаги.
+     * @param int $index Текущий индекс.
+     * @param int $shift Сдвиг.
+     *
+     * @return array<int, string> Коды.
+     */
+    private function backwardSteps(array $steps, int $index, int $shift): array
+    {
+        $slice = array_slice($steps, max(0, $index - $shift), min($shift, $index));
+
+        return array_map(static fn (ProcessStep $step): string => $step->getCode(), array_reverse($slice));
     }
 
     /**
