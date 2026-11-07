@@ -67,6 +67,70 @@ final class ProcessSpecs
     }
 
     /**
+     * Пакет удара: advantage и extra_successes.
+     *
+     * @param array<string, mixed> $document Документ.
+     * @param string $key Ключ пакета.
+     *
+     * @return StrikeModifier|null Пакет или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    public static function readStrikeModifier(array $document, string $key): ?StrikeModifier
+    {
+        $row = SpecShape::object($document, $key);
+        if ($row === null) {
+            return null;
+        }
+
+        return new StrikeModifier(
+            self::formula($row, 'advantage'),
+            self::formula($row, 'extra_successes'),
+        );
+    }
+
+    /**
+     * Пороги счётчиков. Пустой список — без порога.
+     *
+     * @param array<string, mixed> $document Документ.
+     * @param string $key Ключ списка.
+     * @param array<int, string>|null $counterCodes Объявленные счётчики или null без проверки.
+     *
+     * @return array<int, CounterThreshold> Пороги.
+     *
+     * @throws RuleSpecShapeException Если форма чужая или счётчик не объявлен.
+     */
+    public static function readThresholds(array $document, string $key, ?array $counterCodes = null): array
+    {
+        $thresholds = [];
+        foreach (SpecShape::list($document, $key) as $row) {
+            $row = SpecShape::requireMap($row, $key);
+            $code = self::requiredString($row, 'counter_code', $key);
+            if ($counterCodes !== null && !in_array($code, $counterCodes, true)) {
+                throw new RuleSpecShapeException($key);
+            }
+
+            $thresholds[] = new CounterThreshold($code, self::requiredInt($row, 'min', $key));
+        }
+
+        return $thresholds;
+    }
+
+    /**
+     * Операции действия или заклинания.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return array<int, ProcessOperation> Операции.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    public static function readOperations(array $document): array
+    {
+        return self::operations($document);
+    }
+
+    /**
      * Счётчики процесса. Нет ключа — пустой список, дубль кода — отказ.
      *
      * @param array<string, mixed> $process Тело.
@@ -193,29 +257,6 @@ final class ProcessSpecs
     }
 
     /**
-     * Пакет удара: advantage и extra_successes.
-     *
-     * @param array<string, mixed> $document Документ.
-     * @param string $key Ключ пакета.
-     *
-     * @return StrikeModifier|null Пакет или null.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    public static function readStrikeModifier(array $document, string $key): ?StrikeModifier
-    {
-        $row = SpecShape::object($document, $key);
-        if ($row === null) {
-            return null;
-        }
-
-        return new StrikeModifier(
-            self::formula($row, 'advantage'),
-            self::formula($row, 'extra_successes'),
-        );
-    }
-
-    /**
      * Формула процесса.
      *
      * @param array<string, mixed> $row Объект.
@@ -253,33 +294,6 @@ final class ProcessSpecs
             SpecShape::optionalInt($formula, 'min_value'),
             SpecShape::optionalInt($formula, 'max_value'),
         );
-    }
-
-    /**
-     * Пороги счётчиков. Пустой список — без порога.
-     *
-     * @param array<string, mixed> $document Документ.
-     * @param string $key Ключ списка.
-     * @param array<int, string>|null $counterCodes Объявленные счётчики или null без проверки.
-     *
-     * @return array<int, CounterThreshold> Пороги.
-     *
-     * @throws RuleSpecShapeException Если форма чужая или счётчик не объявлен.
-     */
-    public static function readThresholds(array $document, string $key, ?array $counterCodes = null): array
-    {
-        $thresholds = [];
-        foreach (SpecShape::list($document, $key) as $row) {
-            $row = SpecShape::requireMap($row, $key);
-            $code = self::requiredString($row, 'counter_code', $key);
-            if ($counterCodes !== null && !in_array($code, $counterCodes, true)) {
-                throw new RuleSpecShapeException($key);
-            }
-
-            $thresholds[] = new CounterThreshold($code, self::requiredInt($row, 'min', $key));
-        }
-
-        return $thresholds;
     }
 
     /**
@@ -450,20 +464,6 @@ final class ProcessSpecs
         }
 
         return $operations;
-    }
-
-    /**
-     * Операции действия или заклинания.
-     *
-     * @param array<string|int, mixed> $document Документ.
-     *
-     * @return array<int, ProcessOperation> Операции.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    public static function readOperations(array $document): array
-    {
-        return self::operations($document);
     }
 
     /**

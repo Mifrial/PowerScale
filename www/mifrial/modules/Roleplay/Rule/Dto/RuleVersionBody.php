@@ -146,33 +146,6 @@ final class RuleVersionBody
     }
 
     /**
-     * Проверяет list id без дублей.
-     *
-     * @param array<int, int> $keywordIds Вход.
-     *
-     * @return array<int, int> Множество.
-     *
-     * @throws RuleInvalidException Если форма или дубль.
-     */
-    private function uniqueKeywordIds(array $keywordIds): array
-    {
-        if (!array_is_list($keywordIds)) {
-            throw new RuleInvalidException('Keyword ids must be a list');
-        }
-
-        $seenIds = [];
-        foreach ($keywordIds as $keywordId) {
-            if ($keywordId < 1 || isset($seenIds[$keywordId])) {
-                throw new RuleInvalidException('Keyword ids are invalid');
-            }
-
-            $seenIds[$keywordId] = true;
-        }
-
-        return $keywordIds;
-    }
-
-    /**
      * Проверяет список пар механика и payload.
      *
      * @param array<int, mixed> $mechanics Вход.
@@ -201,5 +174,32 @@ final class RuleVersionBody
                 throw new RuleInvalidException('Mechanic payload requires mechanic id');
             }
         }
+    }
+
+    /**
+     * Проверяет list id без дублей.
+     *
+     * @param array<int, int> $keywordIds Вход.
+     *
+     * @return array<int, int> Множество.
+     *
+     * @throws RuleInvalidException Если форма или дубль.
+     */
+    private function uniqueKeywordIds(array $keywordIds): array
+    {
+        if (!array_is_list($keywordIds)) {
+            throw new RuleInvalidException('Keyword ids must be a list');
+        }
+
+        $seenIds = [];
+        foreach ($keywordIds as $keywordId) {
+            if ($keywordId < 1 || isset($seenIds[$keywordId])) {
+                throw new RuleInvalidException('Keyword ids are invalid');
+            }
+
+            $seenIds[$keywordId] = true;
+        }
+
+        return $keywordIds;
     }
 }

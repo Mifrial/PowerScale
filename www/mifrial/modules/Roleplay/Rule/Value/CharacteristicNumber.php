@@ -63,6 +63,14 @@ final class CharacteristicNumber extends DimensionalNumber
         throw new RuleInvalidException('Для шкалы характеристик используйте modify, а не размер ' . $targetSize);
     }
 
+    /**
+     * Копия с новой базой и размером.
+     *
+     * @param int $base База.
+     * @param int $size Размер.
+     *
+     * @return static Копия.
+     */
     protected function copyWithBaseSize(int $base, int $size): static
     {
         return new static($base, $size);

@@ -73,6 +73,49 @@ final class AbilityGrants
     }
 
     /**
+     * Один грант.
+     *
+     * @param mixed $row Строка.
+     *
+     * @return AbilityGrant Грант.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    public static function one(mixed $row): AbilityGrant
+    {
+        $row = SpecShape::requireMap($row, 'grants');
+
+        $type = SpecShape::string($row, 'type');
+        $permanent = SpecShape::bool($row, 'permanent');
+
+        return self::branch($type, $row, $permanent);
+    }
+
+    /**
+     * Целое или размерное число.
+     *
+     * @param array<string, mixed> $row Объект.
+     * @param string $key Ключ.
+     *
+     * @return int|DimensionalNumber Значение.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    public static function intOrNumber(array $row, string $key): int|DimensionalNumber
+    {
+        if (!array_key_exists($key, $row) || $row[$key] === null) {
+            return 0;
+        }
+
+        $value = $row[$key];
+        if (is_int($value)) {
+            return $value;
+        }
+
+        return DimensionalNumbers::pair(SpecShape::requireMap($value, $key), $key);
+    }
+
+    /**
      * Один блок уровня.
      *
      * @param mixed $row Строка.
@@ -105,25 +148,6 @@ final class AbilityGrants
         }
 
         return $grants;
-    }
-
-    /**
-     * Один грант.
-     *
-     * @param mixed $row Строка.
-     *
-     * @return AbilityGrant Грант.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    public static function one(mixed $row): AbilityGrant
-    {
-        $row = SpecShape::requireMap($row, 'grants');
-
-        $type = SpecShape::string($row, 'type');
-        $permanent = SpecShape::bool($row, 'permanent');
-
-        return self::branch($type, $row, $permanent);
     }
 
     /**
@@ -508,29 +532,5 @@ final class AbilityGrants
             SpecShape::optionalString($row, 'source_code'),
             $permanent,
         );
-    }
-
-    /**
-     * Целое или размерное число.
-     *
-     * @param array<string, mixed> $row Объект.
-     * @param string $key Ключ.
-     *
-     * @return int|DimensionalNumber Значение.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    public static function intOrNumber(array $row, string $key): int|DimensionalNumber
-    {
-        if (!array_key_exists($key, $row) || $row[$key] === null) {
-            return 0;
-        }
-
-        $value = $row[$key];
-        if (is_int($value)) {
-            return $value;
-        }
-
-        return DimensionalNumbers::pair(SpecShape::requireMap($value, $key), $key);
     }
 }

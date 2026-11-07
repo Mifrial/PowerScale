@@ -56,6 +56,45 @@ final class ItemSpecs
     }
 
     /**
+     * Список лимитов.
+     *
+     * @param array<string, mixed> $part Броня или щит.
+     *
+     * @return array<int, CharacteristicLimit> Лимиты.
+     *
+     * @throws RuleSpecShapeException Если строка чужая.
+     */
+    public static function limits(array $part): array
+    {
+        $limits = [];
+        foreach (SpecShape::list($part, 'characteristic_limits') as $row) {
+            $limits[] = self::one($row);
+        }
+
+        return $limits;
+    }
+
+    /**
+     * Сопротивления.
+     *
+     * @param array<string, mixed> $part Блок.
+     * @param string $key Ключ списка.
+     *
+     * @return array<int, ResistanceSlot> Слоты.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    public static function resistances(array $part, string $key): array
+    {
+        $slots = [];
+        foreach (SpecShape::list($part, $key) as $row) {
+            $slots[] = self::resistance($row);
+        }
+
+        return $slots;
+    }
+
+    /**
      * Броня, если ключ есть.
      *
      * @param array<string|int, mixed> $document Документ.
@@ -102,25 +141,6 @@ final class ItemSpecs
             ItemWeapons::profiles($part, 'weapon_profiles'),
             self::limits($part),
         );
-    }
-
-    /**
-     * Список лимитов.
-     *
-     * @param array<string, mixed> $part Броня или щит.
-     *
-     * @return array<int, CharacteristicLimit> Лимиты.
-     *
-     * @throws RuleSpecShapeException Если строка чужая.
-     */
-    public static function limits(array $part): array
-    {
-        $limits = [];
-        foreach (SpecShape::list($part, 'characteristic_limits') as $row) {
-            $limits[] = self::one($row);
-        }
-
-        return $limits;
     }
 
     /**
@@ -219,26 +239,6 @@ final class ItemSpecs
             SpecShape::optionalInt($row, 'durability'),
             SpecShape::optionalString($row, 'source_code'),
         );
-    }
-
-    /**
-     * Сопротивления.
-     *
-     * @param array<string, mixed> $part Блок.
-     * @param string $key Ключ списка.
-     *
-     * @return array<int, ResistanceSlot> Слоты.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    public static function resistances(array $part, string $key): array
-    {
-        $slots = [];
-        foreach (SpecShape::list($part, $key) as $row) {
-            $slots[] = self::resistance($row);
-        }
-
-        return $slots;
     }
 
     /**

@@ -191,44 +191,6 @@ final class RootSpecs
     }
 
     /**
-     * Исходы проверки по рейтингу.
-     *
-     * @param array<string|int, mixed> $document Документ.
-     *
-     * @return array<int, CheckOutcome> Список.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    private static function outcomes(array $document): array
-    {
-        $outcomes = [];
-        $seen = [];
-        foreach (SpecShape::list($document, 'outcomes') as $row) {
-            $row = SpecShape::requireMap($row, 'outcomes');
-            $rating = SpecShape::optionalInt($row, 'rating');
-            $maxRating = SpecShape::optionalInt($row, 'max_rating');
-            $state = SpecShape::optionalString($row, 'state_rule_code');
-            if (($rating === null) === ($maxRating === null)) {
-                throw new RuleSpecShapeException('outcomes');
-            }
-
-            if ($state === '') {
-                throw new RuleSpecShapeException('outcomes');
-            }
-
-            $key = $rating !== null ? 'rating:' . $rating : 'max:' . $maxRating;
-            if (isset($seen[$key])) {
-                throw new RuleSpecShapeException('outcomes');
-            }
-
-            $seen[$key] = true;
-            $outcomes[] = new CheckOutcome($rating, $maxRating, $state);
-        }
-
-        return $outcomes;
-    }
-
-    /**
      * Состояние.
      *
      * @param array<string|int, mixed> $document Документ.
@@ -341,6 +303,44 @@ final class RootSpecs
     public static function modifierType(array $document): ItemModifierTypeSpec
     {
         return new ItemModifierTypeSpec(SpecShape::bool($document, 'exclusive'));
+    }
+
+    /**
+     * Исходы проверки по рейтингу.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return array<int, CheckOutcome> Список.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function outcomes(array $document): array
+    {
+        $outcomes = [];
+        $seen = [];
+        foreach (SpecShape::list($document, 'outcomes') as $row) {
+            $row = SpecShape::requireMap($row, 'outcomes');
+            $rating = SpecShape::optionalInt($row, 'rating');
+            $maxRating = SpecShape::optionalInt($row, 'max_rating');
+            $state = SpecShape::optionalString($row, 'state_rule_code');
+            if (($rating === null) === ($maxRating === null)) {
+                throw new RuleSpecShapeException('outcomes');
+            }
+
+            if ($state === '') {
+                throw new RuleSpecShapeException('outcomes');
+            }
+
+            $key = $rating !== null ? 'rating:' . $rating : 'max:' . $maxRating;
+            if (isset($seen[$key])) {
+                throw new RuleSpecShapeException('outcomes');
+            }
+
+            $seen[$key] = true;
+            $outcomes[] = new CheckOutcome($rating, $maxRating, $state);
+        }
+
+        return $outcomes;
     }
 
     /**

@@ -42,6 +42,26 @@ final class ItemWeapons
     }
 
     /**
+     * Профили атаки.
+     *
+     * @param array<string, mixed> $part Блок.
+     * @param string $key Ключ списка.
+     *
+     * @return array<int, WeaponProfile> Профили.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    public static function profiles(array $part, string $key): array
+    {
+        $profiles = [];
+        foreach (SpecShape::list($part, $key) as $row) {
+            $profiles[] = self::profile($row);
+        }
+
+        return $profiles;
+    }
+
+    /**
      * Наборы кодов ключевых слов боеприпасов.
      *
      * @param array<string, mixed> $part Блок.
@@ -64,26 +84,6 @@ final class ItemWeapons
         }
 
         return $requirements;
-    }
-
-    /**
-     * Профили атаки.
-     *
-     * @param array<string, mixed> $part Блок.
-     * @param string $key Ключ списка.
-     *
-     * @return array<int, WeaponProfile> Профили.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    public static function profiles(array $part, string $key): array
-    {
-        $profiles = [];
-        foreach (SpecShape::list($part, $key) as $row) {
-            $profiles[] = self::profile($row);
-        }
-
-        return $profiles;
     }
 
     /**

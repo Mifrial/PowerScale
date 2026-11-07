@@ -84,24 +84,6 @@ class DimensionalNumber
     }
 
     /**
-     * База, приведённая к размеру не больше собственного.
-     *
-     * @param int $size Целевой размер.
-     *
-     * @return int База.
-     */
-    private function baseAt(int $size): int
-    {
-        $base = $this->base;
-        $steps = $this->size - $size;
-        for ($step = 0; $step < $steps; $step++) {
-            $base *= 2;
-        }
-
-        return $base;
-    }
-
-    /**
      * Складывает с другим числом к меньшему размеру. Только числа без шкалы.
      *
      * @param self $other Второе число.
@@ -112,12 +94,7 @@ class DimensionalNumber
      */
     public function add(self $other): static
     {
-        if (
-            $this->baseMin !== null || $this->baseMax !== null
-            || $other->baseMin !== null || $other->baseMax !== null
-        ) {
-            throw new RuleInvalidException('Размерное число со шкалой нельзя складывать');
-        }
+        $this->assertNoScale($other, 'складывать');
 
         $size = min($this->size, $other->size);
 
@@ -138,12 +115,7 @@ class DimensionalNumber
      */
     public function subtract(self $other): static
     {
-        if (
-            $this->baseMin !== null || $this->baseMax !== null
-            || $other->baseMin !== null || $other->baseMax !== null
-        ) {
-            throw new RuleInvalidException('Размерное число со шкалой нельзя вычитать');
-        }
+        $this->assertNoScale($other, 'вычитать');
 
         $size = min($this->size, $other->size);
 
@@ -220,19 +192,6 @@ class DimensionalNumber
     }
 
     /**
-     * Создаёт immutable-копию с новой базой и размером.
-     *
-     * @param int $base База копии.
-     * @param int $size Размер копии.
-     *
-     * @return static Копия того же фактического класса.
-     */
-    protected function copyWithBaseSize(int $base, int $size): static
-    {
-        return new static($base, $size, $this->baseMin, $this->baseMax);
-    }
-
-    /**
      * Делит на другую пару. Остаток лежит на меньшем размере.
      *
      * @param self $divisor Делитель.
@@ -259,6 +218,37 @@ class DimensionalNumber
             intdiv($dividendBase, $divisorBase),
             new self($dividendBase % $divisorBase, $commonSize),
         );
+    }
+
+    /**
+     * Создаёт immutable-копию с новой базой и размером.
+     *
+     * @param int $base База копии.
+     * @param int $size Размер копии.
+     *
+     * @return static Копия того же фактического класса.
+     */
+    protected function copyWithBaseSize(int $base, int $size): static
+    {
+        return new static($base, $size, $this->baseMin, $this->baseMax);
+    }
+
+    /**
+     * База, приведённая к размеру не больше собственного.
+     *
+     * @param int $size Целевой размер.
+     *
+     * @return int База.
+     */
+    private function baseAt(int $size): int
+    {
+        $base = $this->base;
+        $steps = $this->size - $size;
+        for ($step = 0; $step < $steps; $step++) {
+            $base *= 2;
+        }
+
+        return $base;
     }
 
     /**
@@ -310,5 +300,25 @@ class DimensionalNumber
         }
 
         return $shifted;
+    }
+
+    /**
+     * Запрещает операцию, если у любого числа есть шкала базы.
+     *
+     * @param self $other Второе число.
+     * @param string $operation Глагол для текста ошибки.
+     *
+     * @return void
+     *
+     * @throws RuleInvalidException Если у числа есть шкала базы.
+     */
+    private function assertNoScale(self $other, string $operation): void
+    {
+        if (
+            $this->baseMin !== null || $this->baseMax !== null
+            || $other->baseMin !== null || $other->baseMax !== null
+        ) {
+            throw new RuleInvalidException('Размерное число со шкалой нельзя ' . $operation);
+        }
     }
 }

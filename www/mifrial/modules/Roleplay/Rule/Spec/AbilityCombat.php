@@ -317,33 +317,6 @@ final class AbilityCombat
     }
 
     /**
-     * Пары проверок одной стороны манёвра.
-     *
-     * @param array<string, mixed> $checks Узел check.
-     * @param string $side Сторона.
-     *
-     * @return array<int, ManeuverCheck> Пары.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    private static function maneuverChecks(array $checks, string $side): array
-    {
-        $rows = [];
-        foreach (SpecShape::list($checks, $side) as $entry) {
-            $entry = SpecShape::requireMap($entry, 'maneuver.check.' . $side);
-            $check = SpecShape::string($entry, 'check');
-            $characteristic = SpecShape::string($entry, 'characteristic');
-            if ($check === '' || $characteristic === '') {
-                throw new RuleSpecShapeException('maneuver.check.' . $side);
-            }
-
-            $rows[] = new ManeuverCheck($check, $characteristic);
-        }
-
-        return $rows;
-    }
-
-    /**
      * Защита от известной атаки.
      *
      * @param array<string|int, mixed> $document Документ.
@@ -441,6 +414,33 @@ final class AbilityCombat
         }
 
         return new StrikeUpgrade(SpecShape::string($row, 'exclusive_group'), $modes, SpecShape::bool($row, 'requires_physiology'));
+    }
+
+    /**
+     * Пары проверок одной стороны манёвра.
+     *
+     * @param array<string, mixed> $checks Узел check.
+     * @param string $side Сторона.
+     *
+     * @return array<int, ManeuverCheck> Пары.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function maneuverChecks(array $checks, string $side): array
+    {
+        $rows = [];
+        foreach (SpecShape::list($checks, $side) as $entry) {
+            $entry = SpecShape::requireMap($entry, 'maneuver.check.' . $side);
+            $check = SpecShape::string($entry, 'check');
+            $characteristic = SpecShape::string($entry, 'characteristic');
+            if ($check === '' || $characteristic === '') {
+                throw new RuleSpecShapeException('maneuver.check.' . $side);
+            }
+
+            $rows[] = new ManeuverCheck($check, $characteristic);
+        }
+
+        return $rows;
     }
 
     /**

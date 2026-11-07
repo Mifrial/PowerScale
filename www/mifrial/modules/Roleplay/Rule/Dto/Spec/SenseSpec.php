@@ -16,6 +16,7 @@ final class SenseSpec implements RuleSpec
      *
      * @param string $status Статус.
      * @param DimensionalNumber $radius Радиус.
+     * @param bool $autoAdd Добавлять автоматически.
      *
      * @return void
      */
