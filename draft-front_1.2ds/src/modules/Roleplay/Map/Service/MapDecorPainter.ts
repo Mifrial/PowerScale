@@ -12,15 +12,6 @@ const TREE_TRUNK = mixHex('#7a5a3c', '#2c211a', 0.45);
 const TREE_DEPTHS = [0.28, 0.42, 0.56, 0.7];
 const PINE_DEPTHS = [0.3, 0.44, 0.58, 0.72];
 
-/**
- * До этого числа деревьев порядок отрисовки точный — по одному. Выше — полосы
- * по глубине: плотный лес иначе перерисовывается слишком долго при панораме.
- */
-const EXACT_TREE_LIMIT = 160;
-
-/** Высота полосы глубины в размерах символа: в ней деревья уже почти в ряд. */
-const BAND_FACTOR = 1.3;
-
 /** Всё, что нужно painter'у для одного прохода декора. */
 export interface MapDecorPaintOptions {
   points: MapDecorPoint[];
@@ -69,100 +60,18 @@ export class MapDecorPainter {
     const trees = [...(groups.get('pine') ?? []), ...(groups.get('tree') ?? [])].sort(
       (left, right) => left.y - right.y,
     );
-    if (trees.length <= EXACT_TREE_LIMIT) {
-      for (const point of trees) {
-        const layer = { ...options, points: [point] };
-        if (point.kind === 'pine') {
-          this.pine(context, layer, pineTones);
-        } else {
-          this.tree(context, layer, treeTones);
-        }
+    // Каждое дерево целиком: ствол, затем крона. Так ближнее (больший `y`)
+    // перекрывает дальнее, включая стволы, — без исключений по типу символа.
+    for (const point of trees) {
+      const layer = { ...options, points: [point] };
+      if (point.kind === 'pine') {
+        this.pine(context, layer, pineTones);
+      } else {
+        this.tree(context, layer, treeTones);
       }
-    } else {
-      this.bandedTrees(context, options, trees, treeTones, pineTones);
     }
 
     context.restore();
-  }
-
-  /**
-   * Плотный лес: полосы по глубине, внутри полосы — пачки по тону.
-   * Деревья одной полосы почти на одной глубине, поэтому порядок между ними
-   * почти не читается, зато отрисовки на порядок меньше.
-   */
-  private bandedTrees(
-    context: CanvasRenderingContext2D,
-    options: MapDecorPaintOptions,
-    points: MapDecorPoint[],
-    treeTones: string[],
-    pineTones: string[],
-  ): void {
-    let tallest = 0;
-    for (const point of points) tallest = Math.max(tallest, this.unit(options, point));
-    const height = Math.max(24, tallest * BAND_FACTOR);
-
-    let start = 0;
-    let band = 0;
-    while (start < points.length) {
-      const limit = points[start].y + height;
-      let end = start;
-      while (end < points.length && points[end].y <= limit) end += 1;
-      this.treeBand(context, options, points.slice(start, end), band, treeTones, pineTones);
-      start = end;
-      band += 1;
-    }
-  }
-
-  /** Одна полоса: стволы одной пачкой, кроны и ели — по пачке на оттенок. */
-  private treeBand(
-    context: CanvasRenderingContext2D,
-    options: MapDecorPaintOptions,
-    band: MapDecorPoint[],
-    bandIndex: number,
-    treeTones: string[],
-    pineTones: string[],
-  ): void {
-    context.strokeStyle = TREE_TRUNK;
-    context.lineWidth = Math.max(0.5, this.unit(options, band[0]) * 0.07);
-    context.beginPath();
-    for (const point of band) {
-      const unit = this.unit(options, point);
-      context.moveTo(point.x, point.y);
-      context.lineTo(point.x, point.y - unit * (point.kind === 'pine' ? 0.24 : 0.45));
-    }
-    context.stroke();
-
-    // Кто в полосе рисуется первым, чередуется: иначе ели всегда оказывались бы
-    // под кронами независимо от глубины.
-    if (bandIndex % 2 === 0) {
-      this.fillKind(context, options, band, 'pine', pineTones, bandIndex, pinePath);
-      this.fillKind(context, options, band, 'tree', treeTones, bandIndex, treePath);
-    } else {
-      this.fillKind(context, options, band, 'tree', treeTones, bandIndex, treePath);
-      this.fillKind(context, options, band, 'pine', pineTones, bandIndex, pinePath);
-    }
-  }
-
-  /** Пачка одного символа: по заливке на оттенок. */
-  private fillKind(
-    context: CanvasRenderingContext2D,
-    options: MapDecorPaintOptions,
-    band: MapDecorPoint[],
-    kind: MapDecorSymbol,
-    tones: string[],
-    bandIndex: number,
-    shape: (context: CanvasRenderingContext2D, x: number, y: number, unit: number, variant: number) => void,
-  ): void {
-    for (let step = 0; step < tones.length; step += 1) {
-      const tone = (step + bandIndex) % tones.length;
-      context.fillStyle = tones[tone];
-      context.beginPath();
-      for (const point of band) {
-        if (point.kind !== kind || point.variant % tones.length !== tone) continue;
-        shape(context, point.x, point.y, this.unit(options, point), point.variant);
-      }
-      context.fill();
-    }
   }
 
   private grass(context: CanvasRenderingContext2D, options: MapDecorPaintOptions): void {
