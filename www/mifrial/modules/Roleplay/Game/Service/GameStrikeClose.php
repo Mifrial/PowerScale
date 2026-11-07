@@ -139,23 +139,29 @@ final class GameStrikeClose
             $cover,
             $declaredSpend,
         );
+        $wideChecks = new GameStrikeWideChecks($this->rules, $this->rows, $this->sheets, $choices);
+        $wideResume = new GameStrikeWideResume($this->actions, $cover);
+        $widePause = new GameStrikeWidePause($this->sheetWrites, $this->actions, $this->battles);
         $this->wide = new GameStrikeWideClose(
-            $this->rules,
-            $this->battles,
-            $this->actions,
-            $this->access,
-            $this->sheets,
-            $this->rows,
-            $this->targets,
-            $choices,
-            $this->wideChat,
-            $this->spend,
-            $this->amounts,
-            $this->resolution,
-            $support,
-            $cover,
-            $declaredSpend,
-            $this->sheetWrites,
+            new GameStrikeWideRequest($this->rows, $this->access, $this->actions, $wideChecks, $wideResume),
+            new GameStrikeWideOpening(
+                $this->rules,
+                $declaredSpend,
+                $support,
+                $this->targets,
+                $wideResume,
+            ),
+            new GameStrikeWidePrepare(
+                $this->targets,
+                $cover,
+                $wideChecks,
+                $wideResume,
+                $widePause,
+                $this->rows,
+            ),
+            new GameStrikeWideHits($this->rules, $this->amounts, $this->resolution, $support, $this->targets),
+            new GameStrikeWidePending($choices, $this->spend, $this->targets),
+            new GameStrikeWideFinalize($this->wideChat, $this->actions, $this->battles, $this->targets),
         );
     }
 
