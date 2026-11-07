@@ -73,11 +73,15 @@ final class GameStrikeClose
             $this->spend,
             $this->rules,
         );
+        $wideCoverText = new GameStrikeWideCoverText($this->chat, $this->consequences, $this->spend);
+        $wideNarrative = new GameStrikeWideNarrative($this->chat, $this->rules, $this->spend, $wideCoverText);
         $this->wideChat = new GameStrikeWideChat(
+            $wideNarrative,
+            $wideCoverText,
+            new GameStrikeWideOutcome($this->chat, $this->consequences),
             $this->chat,
             $this->consequences,
             $this->spend,
-            $this->rules,
         );
         $this->rows = new GameStrikeCloseRows($this->battles, $this->actions, $this->access);
         $choices = new GameStrikeTargetChoices($this->rules, $this->sheets);
