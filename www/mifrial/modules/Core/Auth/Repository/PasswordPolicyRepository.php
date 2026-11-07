@@ -4,16 +4,11 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Auth\Repository;
 
-use Closure;
 use Mifrial\Core\Auth\Dto\PasswordPolicy;
 use Mifrial\Core\Auth\Exception\AuthDuplicateException;
 use Mifrial\Core\Auth\Exception\AuthInvalidException;
+use Mifrial\Core\Auth\Repository\Support\AuthWriteGuard;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
-use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
-use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
-use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
-use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
-use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 
 /**
@@ -21,6 +16,8 @@ use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
  */
 final class PasswordPolicyRepository
 {
+    private readonly AuthWriteGuard $writeGuard;
+
     /**
      * Создаёт репозиторий.
      *
@@ -31,6 +28,7 @@ final class PasswordPolicyRepository
     public function __construct(
         private readonly IOpenedRecords $policyRecords,
     ) {
+        $this->writeGuard = new AuthWriteGuard();
     }
 
     /**
@@ -76,7 +74,7 @@ final class PasswordPolicyRepository
 
         $defaults = PasswordPolicy::defaults()->toJson();
 
-        return $this->write(function () use ($defaults): int {
+        return $this->writeGuard->run(function () use ($defaults): int {
             return $this->policyRecords->add([
                 'name' => 'По умолчанию',
                 'min_length' => $defaults['minLength'],
@@ -86,32 +84,5 @@ final class PasswordPolicyRepository
                 'is_default' => true,
             ]);
         });
-    }
-
-    /**
-     * Мапит ошибки строки.
-     *
-     * @param Closure $work Запись.
-     *
-     * @return mixed Результат.
-     *
-     * @throws AuthDuplicateException Если unique.
-     * @throws AuthInvalidException Если поле/карта/нет строки.
-     */
-    private function write(Closure $work): mixed
-    {
-        try {
-            return $work();
-        } catch (UniqueConstraintException $exception) {
-            throw new AuthDuplicateException($exception);
-        } catch (RowNotFoundException $exception) {
-            throw new AuthInvalidException('Authentication failed', $exception);
-        } catch (FieldRequiredException $exception) {
-            throw new AuthInvalidException('Authentication failed', $exception);
-        } catch (FieldInvalidException $exception) {
-            throw new AuthInvalidException('Authentication failed', $exception);
-        } catch (MapInvalidException $exception) {
-            throw new AuthInvalidException('Authentication failed', $exception);
-        }
     }
 }

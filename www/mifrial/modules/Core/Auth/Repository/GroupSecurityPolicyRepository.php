@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Auth\Repository;
 
-use Closure;
 use Mifrial\Core\Auth\Exception\AuthDuplicateException;
 use Mifrial\Core\Auth\Exception\AuthInvalidException;
+use Mifrial\Core\Auth\Repository\Support\AuthWriteGuard;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
-use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
-use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
-use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
-use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
-use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 
 /**
@@ -20,6 +15,8 @@ use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
  */
 final class GroupSecurityPolicyRepository
 {
+    private readonly AuthWriteGuard $writeGuard;
+
     /**
      * Создаёт репозиторий.
      *
@@ -30,6 +27,7 @@ final class GroupSecurityPolicyRepository
     public function __construct(
         private readonly IOpenedRecords $bindingRecords,
     ) {
+        $this->writeGuard = new AuthWriteGuard();
     }
 
     /**
@@ -85,7 +83,7 @@ final class GroupSecurityPolicyRepository
             return;
         }
 
-        $this->write(function () use ($groupId, $policyId): mixed {
+        $this->writeGuard->run(function () use ($groupId, $policyId): mixed {
             $this->bindingRecords->add([
                 'group_id' => $groupId,
                 'policy_id' => $policyId,
@@ -93,32 +91,5 @@ final class GroupSecurityPolicyRepository
 
             return null;
         });
-    }
-
-    /**
-     * Мапит ошибки строки.
-     *
-     * @param Closure $work Запись.
-     *
-     * @return mixed Результат.
-     *
-     * @throws AuthDuplicateException Если unique.
-     * @throws AuthInvalidException Если поле/карта/нет строки.
-     */
-    private function write(Closure $work): mixed
-    {
-        try {
-            return $work();
-        } catch (UniqueConstraintException $exception) {
-            throw new AuthDuplicateException($exception);
-        } catch (RowNotFoundException $exception) {
-            throw new AuthInvalidException('Authentication failed', $exception);
-        } catch (FieldRequiredException $exception) {
-            throw new AuthInvalidException('Authentication failed', $exception);
-        } catch (FieldInvalidException $exception) {
-            throw new AuthInvalidException('Authentication failed', $exception);
-        } catch (MapInvalidException $exception) {
-            throw new AuthInvalidException('Authentication failed', $exception);
-        }
     }
 }
