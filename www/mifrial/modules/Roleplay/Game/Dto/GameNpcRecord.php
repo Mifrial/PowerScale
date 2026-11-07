@@ -11,6 +11,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameNpcRecord
 {
+    private const INVALID = 'NPC row is invalid';
+
     /**
      * Собирает строку.
      *
@@ -47,21 +49,21 @@ final class GameNpcRecord
         $version = $fields['version'] ?? null;
         $visibility = $fields['visibility'] ?? null;
         if (!is_array($version) || !is_array($visibility)) {
-            throw new GameInvalidException('NPC row is invalid');
+            throw new GameInvalidException(self::INVALID);
         }
 
         return new self(
-            self::intOf($fields, 'id'),
-            self::intOf($fields, 'game_id'),
-            self::stringOf($fields, 'name'),
+            GameRowFields::int($fields, 'id', self::INVALID),
+            GameRowFields::int($fields, 'game_id', self::INVALID),
+            GameRowFields::nonEmptyString($fields, 'name', self::INVALID),
             $version,
-            self::intOf($fields, 'actual_version'),
+            GameRowFields::int($fields, 'actual_version', self::INVALID),
             $visibility,
         );
     }
 
     /**
-     * Id NPC.
+     * Id строки NPC.
      *
      * @return int Id.
      */
@@ -120,43 +122,7 @@ final class GameNpcRecord
         return $this->visibility;
     }
 
-    /**
-     * Целое поле.
-     *
-     * @param array<string, mixed> $fields Колонки.
-     * @param string $key Ключ.
-     *
-     * @return int Значение.
-     *
-     * @throws GameInvalidException Если не целое.
-     */
-    private static function intOf(array $fields, string $key): int
-    {
-        $value = $fields[$key] ?? null;
-        if (!is_int($value)) {
-            throw new GameInvalidException('NPC row is invalid');
-        }
 
-        return $value;
-    }
 
-    /**
-     * Строковое поле.
-     *
-     * @param array<string, mixed> $fields Колонки.
-     * @param string $key Ключ.
-     *
-     * @return string Значение.
-     *
-     * @throws GameInvalidException Если не строка.
-     */
-    private static function stringOf(array $fields, string $key): string
-    {
-        $value = $fields[$key] ?? null;
-        if (!is_string($value) || $value === '') {
-            throw new GameInvalidException('NPC row is invalid');
-        }
 
-        return $value;
-    }
 }

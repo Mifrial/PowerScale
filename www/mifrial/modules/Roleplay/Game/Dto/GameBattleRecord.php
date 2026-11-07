@@ -15,6 +15,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameBattleRecord
 {
+    private const INVALID = 'Game battle row is invalid';
+
     /**
      * Создаёт запись.
      *
@@ -57,9 +59,9 @@ final class GameBattleRecord
     public static function fromNormalized(array $fields): self
     {
         return new self(
-            self::requiredInt($fields, 'id'),
-            self::requiredInt($fields, 'session_id'),
-            self::requiredInt($fields, 'state_version'),
+            GameRowFields::int($fields, 'id', self::INVALID),
+            GameRowFields::int($fields, 'session_id', self::INVALID),
+            GameRowFields::int($fields, 'state_version', self::INVALID),
             self::turnOrder($fields['turn_order'] ?? null),
             self::map($fields, 'pending_action_effects'),
             self::optionalInt($fields, 'active_index'),
@@ -186,37 +188,19 @@ final class GameBattleRecord
         }
 
         if (!is_array($turnOrder) || !array_is_list($turnOrder)) {
-            throw new GameInvalidException('Game battle row is invalid');
+            throw new GameInvalidException(self::INVALID);
         }
 
         foreach ($turnOrder as $entry) {
             if (!is_array($entry)) {
-                throw new GameInvalidException('Game battle row is invalid');
+                throw new GameInvalidException(self::INVALID);
             }
         }
 
         return $turnOrder;
     }
 
-    /**
-     * Обязательная целочисленная колонка.
-     *
-     * @param array<string, mixed> $fields Колонки.
-     * @param string $key Колонка.
-     *
-     * @return int Значение.
-     *
-     * @throws GameInvalidException Если поля нет или оно не int.
-     */
-    private static function requiredInt(array $fields, string $key): int
-    {
-        $value = $fields[$key] ?? null;
-        if (!is_int($value)) {
-            throw new GameInvalidException('Game battle row is invalid');
-        }
 
-        return $value;
-    }
 
     /**
      * Необязательная целочисленная колонка.
@@ -232,7 +216,7 @@ final class GameBattleRecord
     {
         $value = $fields[$key] ?? 0;
         if (!is_int($value)) {
-            throw new GameInvalidException('Game battle row is invalid');
+            throw new GameInvalidException(self::INVALID);
         }
 
         return $value;
@@ -252,7 +236,7 @@ final class GameBattleRecord
     {
         $value = $fields[$key] ?? [];
         if (!is_array($value)) {
-            throw new GameInvalidException('Game battle row is invalid');
+            throw new GameInvalidException(self::INVALID);
         }
 
         return $value;
@@ -270,12 +254,12 @@ final class GameBattleRecord
     private static function marks(mixed $marks): array
     {
         if (!is_array($marks) || !array_is_list($marks)) {
-            throw new GameInvalidException('Game battle row is invalid');
+            throw new GameInvalidException(self::INVALID);
         }
 
         foreach ($marks as $mark) {
             if (!is_array($mark)) {
-                throw new GameInvalidException('Game battle row is invalid');
+                throw new GameInvalidException(self::INVALID);
             }
         }
 

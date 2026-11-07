@@ -11,6 +11,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameDeliveryRecord
 {
+    private const INVALID = 'Game delivery row is invalid';
+
     /**
      * Создаёт запись.
      *
@@ -43,15 +45,17 @@ final class GameDeliveryRecord
     public static function fromNormalized(array $fields): self
     {
         $keys = $fields['keys'] ?? null;
-        $id = $fields['id'] ?? null;
-        $gameId = $fields['game_id'] ?? null;
-        $sourceId = $fields['source_id'] ?? null;
-        $source = $fields['source'] ?? null;
-        if (!is_array($keys) || !is_int($id) || !is_int($gameId) || !is_int($sourceId) || !is_string($source)) {
-            throw new GameInvalidException('Game delivery row is invalid');
+        if (!is_array($keys)) {
+            throw new GameInvalidException(self::INVALID);
         }
 
-        return new self($id, $gameId, $source, $sourceId, $keys);
+        return new self(
+            GameRowFields::int($fields, 'id', self::INVALID),
+            GameRowFields::int($fields, 'game_id', self::INVALID),
+            GameRowFields::string($fields, 'source', self::INVALID),
+            GameRowFields::int($fields, 'source_id', self::INVALID),
+            $keys,
+        );
     }
 
     /**

@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// Семь колонок строки магазина — поля строки, не порты DI.
+
 namespace Mifrial\Roleplay\Game\Dto;
 
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -11,6 +14,10 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameShopPositionRecord
 {
+    private const INVALID = 'Shop field is invalid';
+
+    private const SELL_INVALID = 'Shop sell price is invalid';
+
     /**
      * Создаёт запись.
      *
@@ -46,19 +53,16 @@ final class GameShopPositionRecord
      */
     public static function fromNormalized(array $fields): self
     {
-        $sellPrice = $fields['sell_price'] ?? null;
-        if ($sellPrice !== null && !is_int($sellPrice)) {
-            throw new GameInvalidException('Shop sell price is invalid');
-        }
+        $sellPrice = GameRowFields::nullableInt($fields, 'sell_price', self::SELL_INVALID);
 
         return new self(
-            self::intOf($fields, 'id'),
-            self::intOf($fields, 'game_id'),
-            self::stringOf($fields, 'rule_code'),
-            self::intOf($fields, 'buy_price'),
+            GameRowFields::int($fields, 'id', self::INVALID),
+            GameRowFields::int($fields, 'game_id', self::INVALID),
+            GameRowFields::nonEmptyString($fields, 'rule_code', self::INVALID),
+            GameRowFields::int($fields, 'buy_price', self::INVALID),
             $sellPrice,
-            self::intOf($fields, 'quantity'),
-            self::intOf($fields, 'version'),
+            GameRowFields::int($fields, 'quantity', self::INVALID),
+            GameRowFields::int($fields, 'version', self::INVALID),
         );
     }
 
@@ -132,43 +136,7 @@ final class GameShopPositionRecord
         return $this->version;
     }
 
-    /**
-     * Целое поле.
-     *
-     * @param array<string, mixed> $fields Строка.
-     * @param string $key Колонка.
-     *
-     * @return int Значение.
-     *
-     * @throws GameInvalidException Если не int.
-     */
-    private static function intOf(array $fields, string $key): int
-    {
-        $value = $fields[$key] ?? null;
-        if (!is_int($value)) {
-            throw new GameInvalidException('Shop field is invalid');
-        }
 
-        return $value;
-    }
 
-    /**
-     * Строковое поле.
-     *
-     * @param array<string, mixed> $fields Строка.
-     * @param string $key Колонка.
-     *
-     * @return string Значение.
-     *
-     * @throws GameInvalidException Если не строка.
-     */
-    private static function stringOf(array $fields, string $key): string
-    {
-        $value = $fields[$key] ?? null;
-        if (!is_string($value) || $value === '') {
-            throw new GameInvalidException('Shop field is invalid');
-        }
 
-        return $value;
-    }
 }

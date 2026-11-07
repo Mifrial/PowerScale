@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// Поля JSON game.translateNpc — вход действия, не порты DI.
+
 namespace Mifrial\Roleplay\Game\Dto\Action;
 
 use Mifrial\Core\Kernel\Interface\Action\IActionInput;

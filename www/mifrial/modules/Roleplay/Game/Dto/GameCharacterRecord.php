@@ -16,6 +16,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameCharacterRecord
 {
+    private const INVALID = 'Game character row is invalid';
+
     /**
      * Создаёт запись.
      *
@@ -76,20 +78,20 @@ final class GameCharacterRecord
     public static function fromNormalized(array $fields): self
     {
         return new self(
-            self::requireInt($fields['id'] ?? null),
-            self::requireInt($fields['game_id'] ?? null),
-            self::requireInt($fields['character_id'] ?? null),
-            self::requireInt($fields['character_owner_id'] ?? null),
-            self::requireString($fields['status'] ?? null),
+            GameRowFields::int($fields, 'id', self::INVALID),
+            GameRowFields::int($fields, 'game_id', self::INVALID),
+            GameRowFields::int($fields, 'character_id', self::INVALID),
+            GameRowFields::int($fields, 'character_owner_id', self::INVALID),
+            GameRowFields::string($fields, 'status', self::INVALID),
             self::requireSnapshot($fields['approved_character_version'] ?? null),
-            self::requireInt($fields['membership_revision'] ?? null),
+            GameRowFields::int($fields, 'membership_revision', self::INVALID),
             self::requireNullableDateTime($fields['returned_at'] ?? null),
-            self::requireNullableString($fields['return_reason'] ?? null),
-            self::requireNullableInt($fields['discussion_chat_id'] ?? null),
-            self::requireNullableInt($fields['return_message_id'] ?? null),
-            self::requireInt($fields['os_bonus'] ?? null),
-            self::requireInt($fields['or_bonus'] ?? null),
-            self::requireInt($fields['ol_bonus'] ?? null),
+            GameRowFields::nullableString($fields, 'return_reason', self::INVALID),
+            GameRowFields::nullableInt($fields, 'discussion_chat_id', self::INVALID),
+            GameRowFields::nullableInt($fields, 'return_message_id', self::INVALID),
+            GameRowFields::int($fields, 'os_bonus', self::INVALID),
+            GameRowFields::int($fields, 'or_bonus', self::INVALID),
+            GameRowFields::int($fields, 'ol_bonus', self::INVALID),
             self::requireStringList($fields['section_visibility'] ?? null),
             null,
             null,
@@ -358,78 +360,6 @@ final class GameCharacterRecord
     }
 
     /**
-     * Целое.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return int Число.
-     *
-     * @throws GameInvalidException Если не int.
-     */
-    private static function requireInt(mixed $value): int
-    {
-        if (!is_int($value)) {
-            throw new GameInvalidException('Game character row is invalid');
-        }
-
-        return $value;
-    }
-
-    /**
-     * Строка.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return string Текст.
-     *
-     * @throws GameInvalidException Если не string.
-     */
-    private static function requireString(mixed $value): string
-    {
-        if (!is_string($value)) {
-            throw new GameInvalidException('Game character row is invalid');
-        }
-
-        return $value;
-    }
-
-    /**
-     * Целое или null.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return int|null Число.
-     *
-     * @throws GameInvalidException Если тип не тот.
-     */
-    private static function requireNullableInt(mixed $value): ?int
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        return self::requireInt($value);
-    }
-
-    /**
-     * Строка или null.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return string|null Текст.
-     *
-     * @throws GameInvalidException Если тип не тот.
-     */
-    private static function requireNullableString(mixed $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        return self::requireString($value);
-    }
-
-    /**
      * Момент или null.
      *
      * @param mixed $value Значение.
@@ -445,7 +375,7 @@ final class GameCharacterRecord
         }
 
         if (!$value instanceof DateTime) {
-            throw new GameInvalidException('Game character row is invalid');
+            throw new GameInvalidException(self::INVALID);
         }
 
         return $value;
@@ -467,7 +397,7 @@ final class GameCharacterRecord
         }
 
         if (!is_array($value)) {
-            throw new GameInvalidException('Game character row is invalid');
+            throw new GameInvalidException(self::INVALID);
         }
 
         return $value;
@@ -485,13 +415,13 @@ final class GameCharacterRecord
     private static function requireStringList(mixed $value): array
     {
         if (!is_array($value)) {
-            throw new GameInvalidException('Game character row is invalid');
+            throw new GameInvalidException(self::INVALID);
         }
 
         $codes = [];
         foreach ($value as $code) {
             if (!is_string($code)) {
-                throw new GameInvalidException('Game character row is invalid');
+                throw new GameInvalidException(self::INVALID);
             }
 
             $codes[] = $code;

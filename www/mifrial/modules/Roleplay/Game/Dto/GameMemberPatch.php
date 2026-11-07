@@ -11,6 +11,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameMemberPatch
 {
+    private const INVALID = 'Game member field is invalid';
+
     /**
      * Создаёт patch.
      *
@@ -34,12 +36,7 @@ final class GameMemberPatch
      */
     public static function fromNormalized(array $values): self
     {
-        $role = $values['role'] ?? null;
-        if (!is_string($role)) {
-            throw new GameInvalidException('Game member field is invalid');
-        }
-
-        return new self($role);
+        return new self(GameRowFields::string($values, 'role', self::INVALID));
     }
 
     /**

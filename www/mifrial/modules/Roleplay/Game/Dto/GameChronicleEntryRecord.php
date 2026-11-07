@@ -14,6 +14,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameChronicleEntryRecord
 {
+    private const INVALID = 'Game chronicle entry row is invalid';
+
     /**
      * Создаёт запись.
      *
@@ -52,14 +54,14 @@ final class GameChronicleEntryRecord
     public static function fromNormalized(array $fields): self
     {
         return new self(
-            self::requireInt($fields['id'] ?? null),
-            self::requireInt($fields['game_id'] ?? null),
-            self::requireString($fields['title'] ?? null),
-            self::requireString($fields['content'] ?? null),
-            self::requireInt($fields['offset_minutes'] ?? null),
-            self::requireInt($fields['created_by'] ?? null),
-            self::requireDateTime($fields['created_at'] ?? null),
-            self::requireDateTime($fields['updated_at'] ?? null),
+            GameRowFields::int($fields, 'id', self::INVALID),
+            GameRowFields::int($fields, 'game_id', self::INVALID),
+            GameRowFields::string($fields, 'title', self::INVALID),
+            GameRowFields::string($fields, 'content', self::INVALID),
+            GameRowFields::int($fields, 'offset_minutes', self::INVALID),
+            GameRowFields::int($fields, 'created_by', self::INVALID),
+            GameRowFields::dateTime($fields, 'created_at', self::INVALID),
+            GameRowFields::dateTime($fields, 'updated_at', self::INVALID),
         );
     }
 
@@ -143,57 +145,9 @@ final class GameChronicleEntryRecord
         return $this->updatedAt;
     }
 
-    /**
-     * Требует int.
-     *
-     * @param mixed $value Кандидат.
-     *
-     * @return int Значение.
-     *
-     * @throws GameInvalidException Если тип неверен.
-     */
-    private static function requireInt(mixed $value): int
-    {
-        if (!is_int($value)) {
-            throw new GameInvalidException('Game chronicle entry row is invalid');
-        }
 
-        return $value;
-    }
 
-    /**
-     * Требует строку.
-     *
-     * @param mixed $value Кандидат.
-     *
-     * @return string Значение.
-     *
-     * @throws GameInvalidException Если тип неверен.
-     */
-    private static function requireString(mixed $value): string
-    {
-        if (!is_string($value)) {
-            throw new GameInvalidException('Game chronicle entry row is invalid');
-        }
 
-        return $value;
-    }
 
-    /**
-     * Требует момент.
-     *
-     * @param mixed $value Кандидат.
-     *
-     * @return DateTime Момент.
-     *
-     * @throws GameInvalidException Если тип неверен.
-     */
-    private static function requireDateTime(mixed $value): DateTime
-    {
-        if (!$value instanceof DateTime) {
-            throw new GameInvalidException('Game chronicle entry row is invalid');
-        }
 
-        return $value;
-    }
 }

@@ -11,6 +11,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameInvitationRecord
 {
+    private const INVALID = 'Game invitation row is invalid';
+
     /**
      * Создаёт запись.
      *
@@ -42,20 +44,17 @@ final class GameInvitationRecord
      */
     public static function fromNormalized(array $fields): self
     {
-        $id = $fields['id'] ?? null;
-        $gameId = $fields['game_id'] ?? null;
-        $inviterId = $fields['inviter_id'] ?? null;
-        $inviteeId = $fields['invitee_id'] ?? null;
-        $status = $fields['status'] ?? null;
-        if (!is_int($id) || !is_int($gameId) || !is_int($inviterId) || !is_int($inviteeId) || !is_string($status)) {
-            throw new GameInvalidException('Game invitation row is invalid');
-        }
-
-        return new self($id, $gameId, $inviterId, $inviteeId, $status);
+        return new self(
+            GameRowFields::int($fields, 'id', self::INVALID),
+            GameRowFields::int($fields, 'game_id', self::INVALID),
+            GameRowFields::int($fields, 'inviter_id', self::INVALID),
+            GameRowFields::int($fields, 'invitee_id', self::INVALID),
+            GameRowFields::string($fields, 'status', self::INVALID),
+        );
     }
 
     /**
-     * Id.
+     * Id строки.
      *
      * @return int Id.
      */

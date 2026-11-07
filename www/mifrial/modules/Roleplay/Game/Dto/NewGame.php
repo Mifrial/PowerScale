@@ -15,6 +15,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class NewGame
 {
+    private const INVALID = 'Game field is invalid';
+
     /**
      * Создаёт DTO из уже проверенных типов.
      *
@@ -63,19 +65,19 @@ final class NewGame
     public static function fromNormalized(array $values): self
     {
         return new self(
-            self::requireInt($values['ownerUserId'] ?? null),
-            self::requireString($values['name'] ?? null),
-            self::text($values['shortDescription'] ?? null),
-            self::text($values['description'] ?? null),
-            self::requireString($values['status'] ?? null),
-            self::requireString($values['visibility'] ?? null),
-            self::requireString($values['joinPolicy'] ?? null),
-            self::requireInt($values['spaceId'] ?? null),
-            self::requireInt($values['rulesRevision'] ?? null),
-            self::requireNullableInt($values['osPointsLimit'] ?? null),
-            self::requireNullableInt($values['olPointsLimit'] ?? null),
-            self::requireNullableInt($values['orPointsLimit'] ?? null),
-            self::requireNullableInt($values['moneyLimit'] ?? null),
+            GameRowFields::int($values, 'ownerUserId', self::INVALID),
+            GameRowFields::string($values, 'name', self::INVALID),
+            GameRowFields::text($values, 'shortDescription', self::INVALID),
+            GameRowFields::text($values, 'description', self::INVALID),
+            GameRowFields::string($values, 'status', self::INVALID),
+            GameRowFields::string($values, 'visibility', self::INVALID),
+            GameRowFields::string($values, 'joinPolicy', self::INVALID),
+            GameRowFields::int($values, 'spaceId', self::INVALID),
+            GameRowFields::int($values, 'rulesRevision', self::INVALID),
+            GameRowFields::nullableInt($values, 'osPointsLimit', self::INVALID),
+            GameRowFields::nullableInt($values, 'olPointsLimit', self::INVALID),
+            GameRowFields::nullableInt($values, 'orPointsLimit', self::INVALID),
+            GameRowFields::nullableInt($values, 'moneyLimit', self::INVALID),
         );
     }
 
@@ -207,87 +209,5 @@ final class NewGame
     public function getMoneyLimit(): ?int
     {
         return $this->moneyLimit;
-    }
-
-    /**
-     * Целое.
-     *
-     * @param mixed $value Вход.
-     *
-     * @return int Число.
-     *
-     * @throws GameInvalidException Если не int.
-     */
-    private static function requireInt(mixed $value): int
-    {
-        if (!is_int($value)) {
-            throw new GameInvalidException('Game field is invalid');
-        }
-
-        return $value;
-    }
-
-    /**
-     * Строка.
-     *
-     * @param mixed $value Вход.
-     *
-     * @return string Текст.
-     *
-     * @throws GameInvalidException Если не string.
-     */
-    private static function requireString(mixed $value): string
-    {
-        if (!is_string($value)) {
-            throw new GameInvalidException('Game field is invalid');
-        }
-
-        return $value;
-    }
-
-    /**
-     * Потолок или null.
-     *
-     * @param mixed $value Вход.
-     *
-     * @return int|null Число или null.
-     *
-     * @throws GameInvalidException Если не int и не null.
-     */
-
-    /**
-     * Текст или пустая строка из null.
-     *
-     * @param mixed $value Вход.
-     *
-     * @return string Текст.
-     *
-     * @throws GameInvalidException Если не string и не null.
-     */
-    private static function text(mixed $value): string
-    {
-        if ($value === null) {
-            return '';
-        }
-
-        return self::requireString($value);
-    }
-
-    /**
-     * Потолок или null.
-     *
-     * @param mixed $value Вход.
-     *
-     * @return int|null Число или null.
-     *
-     * @throws GameInvalidException Если не int и не null.
-     */
-    private static function requireNullableInt(mixed $value): ?int
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        return self::requireInt($value);
     }
 }

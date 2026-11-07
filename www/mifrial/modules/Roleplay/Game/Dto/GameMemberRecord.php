@@ -11,6 +11,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameMemberRecord
 {
+    private const INVALID = 'Game member row is invalid';
+
     /**
      * Создаёт запись.
      *
@@ -41,10 +43,10 @@ final class GameMemberRecord
     public static function fromNormalized(array $fields): self
     {
         return new self(
-            self::requireInt($fields['id'] ?? null),
-            self::requireInt($fields['game_id'] ?? null),
-            self::requireInt($fields['user_id'] ?? null),
-            self::requireString($fields['role'] ?? null),
+            GameRowFields::int($fields, 'id', self::INVALID),
+            GameRowFields::int($fields, 'game_id', self::INVALID),
+            GameRowFields::int($fields, 'user_id', self::INVALID),
+            GameRowFields::string($fields, 'role', self::INVALID),
         );
     }
 
@@ -88,39 +90,7 @@ final class GameMemberRecord
         return $this->role;
     }
 
-    /**
-     * Целое из колонки.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return int Число.
-     *
-     * @throws GameInvalidException Если не int.
-     */
-    private static function requireInt(mixed $value): int
-    {
-        if (is_int($value)) {
-            return $value;
-        }
 
-        throw new GameInvalidException('Game member row is invalid');
-    }
 
-    /**
-     * Строка из колонки.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return string Текст.
-     *
-     * @throws GameInvalidException Если не string.
-     */
-    private static function requireString(mixed $value): string
-    {
-        if (is_string($value)) {
-            return $value;
-        }
 
-        throw new GameInvalidException('Game member row is invalid');
-    }
 }

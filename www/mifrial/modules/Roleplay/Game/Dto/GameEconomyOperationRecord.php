@@ -11,6 +11,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameEconomyOperationRecord
 {
+    private const INVALID = 'Economy operation row is invalid';
+
     /**
      * Создаёт запись.
      *
@@ -44,17 +46,17 @@ final class GameEconomyOperationRecord
     {
         $body = $fields['body'] ?? null;
         $result = $fields['result'] ?? null;
-        if (!is_array($body) || !is_array($result) || !is_string($fields['idempotency_key'] ?? null)) {
-            throw new GameInvalidException('Economy operation row is invalid');
+        if (!is_array($body) || !is_array($result)) {
+            throw new GameInvalidException(self::INVALID);
         }
 
-        $id = $fields['id'] ?? null;
-        $gameId = $fields['game_id'] ?? null;
-        if (!is_int($id) || !is_int($gameId)) {
-            throw new GameInvalidException('Economy operation row is invalid');
-        }
-
-        return new self($id, $gameId, $fields['idempotency_key'], $body, $result);
+        return new self(
+            GameRowFields::int($fields, 'id', self::INVALID),
+            GameRowFields::int($fields, 'game_id', self::INVALID),
+            GameRowFields::string($fields, 'idempotency_key', self::INVALID),
+            $body,
+            $result,
+        );
     }
 
     /**

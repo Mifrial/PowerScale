@@ -11,6 +11,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameJoinRequestRecord
 {
+    private const INVALID = 'Game join request row is invalid';
+
     /**
      * Создаёт запись.
      *
@@ -40,19 +42,16 @@ final class GameJoinRequestRecord
      */
     public static function fromNormalized(array $fields): self
     {
-        $id = $fields['id'] ?? null;
-        $gameId = $fields['game_id'] ?? null;
-        $userId = $fields['user_id'] ?? null;
-        $status = $fields['status'] ?? null;
-        if (!is_int($id) || !is_int($gameId) || !is_int($userId) || !is_string($status)) {
-            throw new GameInvalidException('Game join request row is invalid');
-        }
-
-        return new self($id, $gameId, $userId, $status);
+        return new self(
+            GameRowFields::int($fields, 'id', self::INVALID),
+            GameRowFields::int($fields, 'game_id', self::INVALID),
+            GameRowFields::int($fields, 'user_id', self::INVALID),
+            GameRowFields::string($fields, 'status', self::INVALID),
+        );
     }
 
     /**
-     * Id.
+     * Id строки.
      *
      * @return int Id.
      */

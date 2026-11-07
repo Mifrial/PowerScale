@@ -16,6 +16,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class GameRecord
 {
+    private const INVALID = 'Game row is invalid';
+
     /**
      * Создаёт запись.
      *
@@ -78,26 +80,26 @@ final class GameRecord
     public static function fromNormalized(array $fields): self
     {
         return new self(
-            self::requireInt($fields['id'] ?? null),
-            self::requireInt($fields['owner_id'] ?? null),
-            self::requireString($fields['name'] ?? null),
-            self::requireString($fields['short_description'] ?? null),
-            self::requireString($fields['description'] ?? null),
-            self::requireString($fields['status'] ?? null),
-            self::requireString($fields['visibility'] ?? null),
-            self::requireString($fields['join_policy'] ?? null),
-            self::requireInt($fields['space_id'] ?? null),
-            self::requireString($fields['space_code'] ?? null),
-            self::requireInt($fields['rules_revision'] ?? null),
-            self::requireNullableInt($fields['os_points_limit'] ?? null),
-            self::requireNullableInt($fields['ol_points_limit'] ?? null),
-            self::requireNullableInt($fields['or_points_limit'] ?? null),
-            self::requireNullableInt($fields['money_limit'] ?? null),
+            GameRowFields::int($fields, 'id', self::INVALID),
+            GameRowFields::int($fields, 'owner_id', self::INVALID),
+            GameRowFields::string($fields, 'name', self::INVALID),
+            GameRowFields::string($fields, 'short_description', self::INVALID),
+            GameRowFields::string($fields, 'description', self::INVALID),
+            GameRowFields::string($fields, 'status', self::INVALID),
+            GameRowFields::string($fields, 'visibility', self::INVALID),
+            GameRowFields::string($fields, 'join_policy', self::INVALID),
+            GameRowFields::int($fields, 'space_id', self::INVALID),
+            GameRowFields::string($fields, 'space_code', self::INVALID),
+            GameRowFields::int($fields, 'rules_revision', self::INVALID),
+            GameRowFields::nullableInt($fields, 'os_points_limit', self::INVALID),
+            GameRowFields::nullableInt($fields, 'ol_points_limit', self::INVALID),
+            GameRowFields::nullableInt($fields, 'or_points_limit', self::INVALID),
+            GameRowFields::nullableInt($fields, 'money_limit', self::INVALID),
             self::requireIntList($fields['whitelist'] ?? null),
-            self::requireDateTime($fields['created_at'] ?? null),
-            self::requireDateTime($fields['updated_at'] ?? null),
-            self::requireNullableInt($fields['game_chat_id'] ?? null),
-            self::requireNullableInt($fields['discussion_chat_id'] ?? null),
+            GameRowFields::dateTime($fields, 'created_at', self::INVALID),
+            GameRowFields::dateTime($fields, 'updated_at', self::INVALID),
+            GameRowFields::nullableInt($fields, 'game_chat_id', self::INVALID),
+            GameRowFields::nullableInt($fields, 'discussion_chat_id', self::INVALID),
         );
     }
 
@@ -323,13 +325,13 @@ final class GameRecord
     private static function requireIntList(mixed $value): array
     {
         if (!is_array($value)) {
-            throw new GameInvalidException('Game row is invalid');
+            throw new GameInvalidException(self::INVALID);
         }
 
         $ids = [];
         foreach ($value as $item) {
             if (!is_int($item)) {
-                throw new GameInvalidException('Game row is invalid');
+                throw new GameInvalidException(self::INVALID);
             }
 
             $ids[] = $item;
@@ -338,75 +340,11 @@ final class GameRecord
         return $ids;
     }
 
-    /**
-     * Целое.
-     *
-     * @param mixed $value Вход.
-     *
-     * @return int Число.
-     *
-     * @throws GameInvalidException Если не int.
-     */
-    private static function requireInt(mixed $value): int
-    {
-        if (!is_int($value)) {
-            throw new GameInvalidException('Game row is invalid');
-        }
 
-        return $value;
-    }
 
-    /**
-     * Строка.
-     *
-     * @param mixed $value Вход.
-     *
-     * @return string Текст.
-     *
-     * @throws GameInvalidException Если не string.
-     */
-    private static function requireString(mixed $value): string
-    {
-        if (!is_string($value)) {
-            throw new GameInvalidException('Game row is invalid');
-        }
 
-        return $value;
-    }
 
-    /**
-     * Потолок или null.
-     *
-     * @param mixed $value Вход.
-     *
-     * @return int|null Число или null.
-     *
-     * @throws GameInvalidException Если не int и не null.
-     */
-    private static function requireNullableInt(mixed $value): ?int
-    {
-        if ($value === null) {
-            return null;
-        }
 
-        return self::requireInt($value);
-    }
 
-    /**
-     * Момент.
-     *
-     * @param mixed $value Вход.
-     *
-     * @return DateTime UTC.
-     *
-     * @throws GameInvalidException Если не DateTime.
-     */
-    private static function requireDateTime(mixed $value): DateTime
-    {
-        if (!$value instanceof DateTime) {
-            throw new GameInvalidException('Game row is invalid');
-        }
 
-        return $value;
-    }
 }

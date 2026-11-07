@@ -11,6 +11,8 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
  */
 final class NewGameMember
 {
+    private const INVALID = 'Game member field is invalid';
+
     /**
      * Создаёт DTO.
      *
@@ -39,9 +41,9 @@ final class NewGameMember
     public static function fromNormalized(array $values): self
     {
         return new self(
-            self::requireInt($values['gameId'] ?? null),
-            self::requireInt($values['userId'] ?? null),
-            self::requireString($values['role'] ?? null),
+            GameRowFields::int($values, 'gameId', self::INVALID),
+            GameRowFields::int($values, 'userId', self::INVALID),
+            GameRowFields::string($values, 'role', self::INVALID),
         );
     }
 
@@ -75,39 +77,7 @@ final class NewGameMember
         return $this->role;
     }
 
-    /**
-     * Целое.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return int Число.
-     *
-     * @throws GameInvalidException Если не int.
-     */
-    private static function requireInt(mixed $value): int
-    {
-        if (is_int($value)) {
-            return $value;
-        }
 
-        throw new GameInvalidException('Game member field is invalid');
-    }
 
-    /**
-     * Строка.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return string Текст.
-     *
-     * @throws GameInvalidException Если не string.
-     */
-    private static function requireString(mixed $value): string
-    {
-        if (is_string($value)) {
-            return $value;
-        }
 
-        throw new GameInvalidException('Game member field is invalid');
-    }
 }
