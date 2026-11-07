@@ -37,6 +37,8 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 final class GameStrikeConsequences
 {
     /**
+     * Операции последствий удара и записи в чат.
+     *
      * @param GameStrikeRules $rules Срез удара.
      * @param GameCheckRoll $checks Бросок с заданной трудностью.
      * @param GameStateCheck $stateCheck Проверка прироста состояния.
@@ -45,6 +47,8 @@ final class GameStrikeConsequences
      * @param IMechanics $mechanics Каталог.
      * @param IMechanicEngine $engine Резолв хендлеров.
      * @param IChats $chats Чат игры.
+     *
+     * @return void
      */
     public function __construct(
         private readonly GameStrikeRules $rules,
@@ -292,6 +296,8 @@ final class GameStrikeConsequences
      * @param list<array{text: string, roll: array<string, mixed>}> $preRollChecks Проверки перед общими бросками.
      *
      * @return void
+     *
+     * @throws GameInvalidException Если чат игры или его участник недоступен.
      */
     public function post(
         GameRecord $game,
@@ -349,12 +355,18 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Пишет набор текстовых строк в чат игры одной нитью.
+     *
      * @param GameRecord $game Игра.
      * @param int $actorUserId Актор.
      * @param string $threadId Нить.
      * @param array<int, string> $lines Тексты.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
      * @param string|null $parentId Родительский ход.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чат игры или его участник недоступен.
      */
     public function postLines(GameRecord $game, int $actorUserId, string $threadId, array $lines, ?array $speaker = null, ?string $parentId = null): void
     {
@@ -370,12 +382,18 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Пишет набор бросков в чат игры одной нитью.
+     *
      * @param GameRecord $game Игра.
      * @param int $actorUserId Актор.
      * @param string $threadId Нить.
      * @param list<array<string, mixed>> $rolls Броски одной строкой.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
      * @param string|null $parentId Родительский ход.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чат игры или его участник недоступен.
      */
     public function postRolls(GameRecord $game, int $actorUserId, string $threadId, array $rolls, ?array $speaker = null, ?string $parentId = null): void
     {
@@ -397,6 +415,10 @@ final class GameStrikeConsequences
      * @param array<string, mixed> $roll Бросок.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
      * @param string|null $parentId Родительский ход.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чат игры или его участник недоступен.
      */
     public function postCheck(
         GameRecord $game,
@@ -422,6 +444,8 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Пишет итог удара, проверку истощения и увечье в чат игры.
+     *
      * @param GameRecord $game Игра.
      * @param int $actorUserId Актор.
      * @param string $threadId Нить.
@@ -431,6 +455,10 @@ final class GameStrikeConsequences
      * @param array{roll: array<string, mixed>, text: string, details: array<string, mixed>}|null $maim Увечье.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
      * @param string|null $parentId Родительский ход.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чат игры или его участник недоступен.
      */
     public function postOutcome(
         GameRecord $game,
@@ -460,6 +488,15 @@ final class GameStrikeConsequences
         }
     }
 
+    /**
+     * Идентификатор чата игры.
+     *
+     * @param GameRecord $game Игра.
+     *
+     * @return int Идентификатор чата.
+     *
+     * @throws GameInvalidException Если чат игры не задан.
+     */
     private function chatId(GameRecord $game): int
     {
         $chatId = $game->getGameChatId();
@@ -489,8 +526,15 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Отправляет текст в чат игры в нити атаки.
+     *
+     * @param int $chatId Чат.
+     * @param int $actorUserId Актор.
+     * @param string $text Текст.
      * @param array{id: string, kind: string} $thread Нить.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     *
+     * @return void
      */
     private function sendText(int $chatId, int $actorUserId, string $text, array $thread, ?array $speaker): void
     {
@@ -498,9 +542,15 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Отправляет броски одним сообщением.
+     *
+     * @param int $chatId Чат.
+     * @param int $actorUserId Актор.
      * @param list<array<string, mixed>> $rolls Броски.
      * @param array{id: string, kind: string} $thread Нить.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     *
+     * @return void
      */
     private function sendRolls(int $chatId, int $actorUserId, array $rolls, array $thread, ?array $speaker): void
     {
@@ -513,11 +563,15 @@ final class GameStrikeConsequences
     }
 
     /**
-     * Проверка с текстом в одном сообщении.
+     * Отправляет проверку с текстом одним сообщением.
      *
+     * @param int $chatId Чат.
+     * @param int $actorUserId Актор.
      * @param array{text: string, roll: array<string, mixed>} $check Проверка.
      * @param array{id: string, kind: string} $thread Нить.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     *
+     * @return void
      */
     private function sendCheck(int $chatId, int $actorUserId, array $check, array $thread, ?array $speaker): void
     {
@@ -528,11 +582,18 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Отправляет итог удара и приложенные проверки в чат.
+     *
+     * @param int $chatId Чат.
+     * @param int $actorUserId Актор.
+     * @param string $result Итог.
      * @param array<string, mixed> $calc Payload.
      * @param array{roll: array<string, mixed>, text: string}|null $will Воля.
      * @param array{roll: array<string, mixed>, text: string, details: array<string, mixed>}|null $maim Увечье.
      * @param array{id: string, kind: string} $thread Нить.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
+     *
+     * @return void
      */
     private function sendOutcome(
         int $chatId,
@@ -565,6 +626,8 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Код раны, если среди хуков есть превращение урона в раны.
+     *
      * @param list<array{handler: IMechanicHandler, payload: array<string, mixed>}> $hooks Хуки.
      *
      * @return string|null Код раны или null.
@@ -581,7 +644,13 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Код состояния из payload хука.
+     *
      * @param array<string, mixed> $payload Payload.
+     *
+     * @return string Код состояния.
+     *
+     * @throws GameInvalidException Если код состояния не задан.
      */
     private function stateCode(array $payload): string
     {
@@ -594,7 +663,14 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Хуки механик типа урона из среза правил.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
+     * @param string $damageTypeCode Тип урона.
+     *
      * @return list<array{handler: IMechanicHandler, payload: array<string, mixed>}>
+     *
+     * @throws GameInvalidException Если тип урона или хук битый.
      */
     private function hooks(CharacterRuleSlice $slice, string $damageTypeCode): array
     {
@@ -618,6 +694,16 @@ final class GameStrikeConsequences
         return $hooks;
     }
 
+    /**
+     * Резолвит хендлер механики по коду правила и идентификатору.
+     *
+     * @param string $ruleCode Код правила.
+     * @param int $mechanicId Идентификатор механики.
+     *
+     * @return IMechanicHandler Хендлер.
+     *
+     * @throws GameInvalidException Если механика не резолвится.
+     */
     private function handler(string $ruleCode, int $mechanicId): IMechanicHandler
     {
         try {
@@ -634,7 +720,15 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Прирост истощения по хуку и частному урона.
+     *
+     * @param IMechanicHandler $handler Хендлер.
      * @param array<string, mixed> $payload Payload.
+     * @param int $quotient Частное урона.
+     *
+     * @return int|null Прирост или null, если хук не про истощение.
+     *
+     * @throws GameInvalidException Если множитель или состояние битые.
      */
     private function exhaustionAmount(IMechanicHandler $handler, array $payload, int $quotient): ?int
     {
@@ -663,8 +757,16 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Проверяет нокаут от тупого урона по порогу РУ и стойкости.
+     *
      * @param list<array{handler: IMechanicHandler, payload: array<string, mixed>}> $hooks Хуки.
+     * @param int $success РУ.
+     * @param DimensionalNumber $injury Повреждение.
+     * @param CharacterRuleSlice $slice Срез правил.
      * @param array<string, mixed> $sheet Лист.
+     * @param DimensionalNumber|null $endurance Стойкость.
+     *
+     * @return bool Признак нокаута.
      */
     private function blunt(
         array $hooks,
@@ -694,7 +796,15 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Сила раны как частное урона и стойкости.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
      * @param array<string, mixed> $sheet Лист.
+     * @param DimensionalNumber $injury Повреждение.
+     *
+     * @return int Сила раны.
+     *
+     * @throws GameInvalidException Если деление размерностей невозможно.
      */
     private function woundStrength(CharacterRuleSlice $slice, array $sheet, DimensionalNumber $injury): int
     {
@@ -708,7 +818,14 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Стойкость персонажа из его листа.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
      * @param array<string, mixed> $sheet Лист.
+     *
+     * @return DimensionalNumber Стойкость.
+     *
+     * @throws GameInvalidException Если характеристика стойкости не найдена.
      */
     private function endurance(CharacterRuleSlice $slice, array $sheet): DimensionalNumber
     {
@@ -727,7 +844,12 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Проверка Воли при изменении истощения и операция decline.
+     *
+     * @param GameRecord $game Игра.
+     * @param CharacterRuleSlice $slice Срез правил.
      * @param array<string, mixed> $sheet Лист.
+     * @param int $quotient Частное урона.
      *
      * @return array{
      *     roll: array<string, mixed>,
@@ -735,6 +857,8 @@ final class GameStrikeConsequences
      *     outcome: string,
      *     declineCodes: list<string>
      * }
+     *
+     * @throws GameInvalidException Если карточка Воли или состояние битые.
      */
     private function will(GameRecord $game, CharacterRuleSlice $slice, array $sheet, int $quotient): array
     {
@@ -776,10 +900,17 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Бросок увечья по коду состояния и трудности.
+     *
+     * @param GameRecord $game Игра.
+     * @param CharacterRuleSlice $slice Срез правил.
      * @param array<string, mixed> $sheet Лист.
+     * @param int $difficulty Трудность.
      * @param list<array{handler: IMechanicHandler, payload: array<string, mixed>}> $hooks Хуки.
      *
      * @return array<string, mixed> Бросок.
+     *
+     * @throws GameInvalidException Если карточка увечья битая.
      */
     private function maim(GameRecord $game, CharacterRuleSlice $slice, array $sheet, int $difficulty, array $hooks): array
     {
@@ -808,15 +939,9 @@ final class GameStrikeConsequences
     }
 
     /**
-     * Сумма помех injury_efficiency. Нет delta в payload — −1.
-     *
-     * @param list<array{handler: IMechanicHandler, payload: array<string, mixed>}> $hooks Хуки.
-     *
-     * @return int Сумма delta.
-     */
-
-    /**
      * Срок увечья по силе. Та же карта, что у проверки увечья на фронте.
+     *
+     * @param int $strength Сила увечья.
      *
      * @return array{permanent: bool, healTotal: int, healUnit: string}
      */
@@ -857,6 +982,15 @@ final class GameStrikeConsequences
         return 0;
     }
 
+    /**
+     * Сумма помех injury_efficiency. Нет delta в payload — −1.
+     *
+     * @param list<array{handler: IMechanicHandler, payload: array<string, mixed>}> $hooks Хуки.
+     *
+     * @return int Сумма delta.
+     *
+     * @throws GameInvalidException Если delta не число.
+     */
     private function injuryAdvantage(array $hooks): int
     {
         $delta = 0;
@@ -876,6 +1010,13 @@ final class GameStrikeConsequences
         return $delta;
     }
 
+    /**
+     * Код проверки увечья `check-injury` из среза правил.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
+     *
+     * @return string|null Код проверки или null.
+     */
     private function injuryCheckCode(CharacterRuleSlice $slice): ?string
     {
         $rule = $slice->findLive('check-injury');
@@ -887,6 +1028,15 @@ final class GameStrikeConsequences
         return $rule->getCode();
     }
 
+    /**
+     * Требует ровно одну характеристику Воли в срезе.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если Воля не найдена или неоднозначна.
+     */
     private function requireWillpower(CharacterRuleSlice $slice): void
     {
         $matched = 0;
@@ -905,7 +1055,12 @@ final class GameStrikeConsequences
     /**
      * Старый исход по флагам decline_* для ревизий без outcomes.
      *
+     * @param CharacterRuleSlice $slice Срез правил.
+     * @param int $rating Рейтинг броска.
+     *
      * @return array{code: string, rank: int}|null
+     *
+     * @throws GameInvalidException Если исход неоднозначен или битый.
      */
     private function legacyOutcomeCode(CharacterRuleSlice $slice, int $rating): ?array
     {
@@ -950,6 +1105,13 @@ final class GameStrikeConsequences
         return ['code' => $matched, 'rank' => $rank];
     }
 
+    /**
+     * Ранг флага decline: слабость, недееспособность или без сознания.
+     *
+     * @param StateSpec $spec Спека состояния.
+     *
+     * @return int|null Ранг или null, если флаг не decline.
+     */
     private function rank(StateSpec $spec): ?int
     {
         $flags = [$spec->isDeclineWeakness(), $spec->isDeclineDisabled(), $spec->isDeclineUnconscious()];
@@ -965,7 +1127,13 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Есть ли на листе состояние с заданным флагом.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
      * @param array<string, mixed> $sheet Лист.
+     * @param string $flag Флаг.
+     *
+     * @return bool Признак наличия флага.
      */
     private function hasFlag(CharacterRuleSlice $slice, array $sheet, string $flag): bool
     {
@@ -979,6 +1147,14 @@ final class GameStrikeConsequences
         return false;
     }
 
+    /**
+     * Соответствует ли состояние заданному флагу.
+     *
+     * @param StateSpec $spec Спека состояния.
+     * @param string $flag Флаг.
+     *
+     * @return bool Признак соответствия.
+     */
     private function flag(StateSpec $spec, string $flag): bool
     {
         if ($flag === 'unconscious') {
@@ -992,6 +1168,16 @@ final class GameStrikeConsequences
         return $spec->isMaim();
     }
 
+    /**
+     * Единственный код состояния с заданным флагом.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
+     * @param string $flag Флаг.
+     *
+     * @return string Код состояния.
+     *
+     * @throws GameInvalidException Если подходящих состояний не одно.
+     */
     private function singleFlag(CharacterRuleSlice $slice, string $flag): string
     {
         $matched = [];
@@ -1009,6 +1195,16 @@ final class GameStrikeConsequences
         return $matched[0];
     }
 
+    /**
+     * Спека состояния по коду, обязательная.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
+     * @param string $code Код состояния.
+     *
+     * @return StateSpec Спека состояния.
+     *
+     * @throws GameInvalidException Если состояние не найдено.
+     */
     private function stateSpec(CharacterRuleSlice $slice, string $code): StateSpec
     {
         $spec = $this->optionalState($slice, $code);
@@ -1019,6 +1215,14 @@ final class GameStrikeConsequences
         return $spec;
     }
 
+    /**
+     * Спека состояния по коду, если он есть и не битый.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
+     * @param string $code Код состояния.
+     *
+     * @return StateSpec|null Спека или null.
+     */
     private function optionalState(CharacterRuleSlice $slice, string $code): ?StateSpec
     {
         $rule = $slice->findLive($code);
@@ -1028,7 +1232,14 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Сохранённое значение истощения по коду состояния.
+     *
      * @param array<string, mixed> $sheet Лист.
+     * @param string $code Код состояния.
+     *
+     * @return int Значение истощения.
+     *
+     * @throws GameInvalidException Если строки состояний или значение битые.
      */
     private function storedExhaustion(array $sheet, string $code): int
     {
@@ -1054,9 +1265,13 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Коды состояний всех строк листа.
+     *
      * @param array<string, mixed> $sheet Лист.
      *
      * @return array<int, string> Коды строк.
+     *
+     * @throws GameInvalidException Если список состояний битый.
      */
     private function stateRows(array $sheet): array
     {
@@ -1077,6 +1292,8 @@ final class GameStrikeConsequences
     }
 
     /**
+     * Добавляет к вложениям нить атаки и спикера.
+     *
      * @param list<array<string, mixed>> $attachments Вложения.
      * @param array{id: string, kind: string, parentId?: string} $thread Тред атаки.
      * @param array<string, mixed>|null $speaker Говорящий персонаж или NPC.
