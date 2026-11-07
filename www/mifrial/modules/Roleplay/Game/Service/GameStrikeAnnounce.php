@@ -31,12 +31,13 @@ final class GameStrikeAnnounce
      *
      * @param int $gameId Игра.
      * @param string $idempotencyKey Ключ.
+     * @param string $source Источник команды.
      *
      * @return void
      */
-    public function recorded(int $gameId, string $idempotencyKey): void
+    public function recorded(int $gameId, string $idempotencyKey, string $source = 'strike'): void
     {
-        $stored = $this->commands->findByKey($gameId, 'strike', $idempotencyKey);
+        $stored = $this->commands->findByKey($gameId, $source, $idempotencyKey);
         if ($stored === null) {
             return;
         }

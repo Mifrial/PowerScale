@@ -165,11 +165,11 @@ final class GameStrikeRoleFactory
      */
     private function openService(GameProcessFlow $processes): GameStrikeOpen
     {
-        return new GameStrikeOpen(
+        return (new GameStrikeOpenFactory())->create(
+            $this->rules,
             $this->shared->repos->battles,
             $this->shared->repos->actions,
             $this->shared->spend,
-            $this->rules,
             $this->shared->sheets,
             $this->shared->sheetWrites,
             $processes,

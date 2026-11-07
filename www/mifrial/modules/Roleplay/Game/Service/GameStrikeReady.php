@@ -48,6 +48,8 @@ final class GameStrikeReady
      * @param string $idempotencyKey Ключ.
      * @param array<string, mixed> $requestBody Тело.
      * @param array<string, mixed>|null $actingEntity Действующий персонаж или NPC.
+     * @param string $source Источник команды.
+     * @param string $invalid Текст ошибки невалидного запроса.
      *
      * @return array{game: GameRecord, sessionId: int, replay: array<string, mixed>|null} Ход.
      *
@@ -64,16 +66,18 @@ final class GameStrikeReady
         string $idempotencyKey,
         array $requestBody,
         ?array $actingEntity = null,
+        string $source = 'strike',
+        string $invalid = 'Game strike is invalid',
     ): array {
         $game = $this->games->get($gameId);
         $this->access->assertVisible($game, $actorUserId, $viewAll);
 
-        $replay = $this->findReplay($gameId, $idempotencyKey, $requestBody);
+        $replay = $this->findReplay($gameId, $idempotencyKey, $requestBody, $source);
         if ($replay !== null) {
             return ['game' => $game, 'sessionId' => 0, 'replay' => $replay];
         }
 
-        $this->assertKey($game, $idempotencyKey);
+        $this->assertKey($game, $idempotencyKey, $invalid);
         if ($actingEntity !== null) {
             $this->access->assertAttacker($game, $actorUserId, $editAll, $actingEntity);
         }
@@ -86,15 +90,16 @@ final class GameStrikeReady
      *
      * @param GameRecord $game Игра.
      * @param string $idempotencyKey Ключ.
+     * @param string $invalid Текст ошибки.
      *
      * @return void
      *
      * @throws GameInvalidException Если ключ пуст или игра завершена.
      */
-    private function assertKey(GameRecord $game, string $idempotencyKey): void
+    private function assertKey(GameRecord $game, string $idempotencyKey, string $invalid): void
     {
         if ($idempotencyKey === '' || $game->getStatus() === 'completed') {
-            throw new GameInvalidException('Game strike is invalid');
+            throw new GameInvalidException($invalid);
         }
     }
 
@@ -123,16 +128,17 @@ final class GameStrikeReady
      * @param int $gameId Игра.
      * @param string $idempotencyKey Ключ.
      * @param array<string, mixed> $requestBody Тело.
+     * @param string $source Источник команды.
      *
      * @return array<string, mixed>|null Итог или null.
      *
      * @throws GameBattleConflictException Если тело отличается.
      * @throws GameInvalidException Если тело битое.
      */
-    private function findReplay(int $gameId, string $idempotencyKey, array $requestBody): ?array
+    private function findReplay(int $gameId, string $idempotencyKey, array $requestBody, string $source): ?array
     {
         return $this->replayTransaction->find(
-            fn (): ?array => $this->commands->findByKey($gameId, 'strike', $idempotencyKey),
+            fn (): ?array => $this->commands->findByKey($gameId, $source, $idempotencyKey),
             $requestBody,
         );
     }

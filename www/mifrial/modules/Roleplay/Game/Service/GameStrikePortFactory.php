@@ -101,17 +101,15 @@ final class GameStrikePortFactory
         );
         $rules = $this->strikeRules($serviceLocator);
 
-        return new GameWideStrikes(
+        return (new GameWideFactory())->create(
             $gateway,
             $this->games($serviceLocator),
-            $card,
-            new GameSessionRepository($gateway),
             $this->mutations($serviceLocator),
             $rules,
+            $card,
             $events,
             $this->consequences($serviceLocator, $rules),
             $this->cardAvailability($serviceLocator, $gateway, $rules),
-            new GamePushRules($rules),
             $this->createStateIncreaseChecks($serviceLocator),
             $this->processFlow($serviceLocator, $gateway, $rules),
         );
@@ -490,23 +488,24 @@ final class GameStrikePortFactory
     ): GameStrikeOpen {
         $npcs = new GameNpcRepository($gateway);
         $sheetWrites = new GameStrikeSheetWrites($this->mutations($serviceLocator), $npcs);
+        $sheets = new GameStrikeSheets(
+            $rules,
+            $npcs,
+            new GameCharacterRepository($gateway),
+            new GameMemberRepository($gateway),
+            new ConflictSheetProjection(
+                new CharacterSectionMask(),
+                new GameCharacterProjectionMask(),
+                new GameNpcVisibility(),
+            ),
+        );
 
-        return new GameStrikeOpen(
+        return (new GameStrikeOpenFactory())->create(
+            $rules,
             new GameBattleRepository($gateway),
             new GameActionRepository($gateway),
             new GameStrikeSpend($rules, $sheetWrites),
-            $rules,
-            new GameStrikeSheets(
-                $rules,
-                $npcs,
-                new GameCharacterRepository($gateway),
-                new GameMemberRepository($gateway),
-                new ConflictSheetProjection(
-                    new CharacterSectionMask(),
-                    new GameCharacterProjectionMask(),
-                    new GameNpcVisibility(),
-                ),
-            ),
+            $sheets,
             $sheetWrites,
             $this->processFlow($serviceLocator, $gateway, $rules),
         );

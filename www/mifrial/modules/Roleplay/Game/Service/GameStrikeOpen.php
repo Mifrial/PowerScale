@@ -6,10 +6,8 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
-use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
+use Mifrial\Roleplay\Game\Dto\GameStrikeOpenRun;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
-use Mifrial\Roleplay\Game\Repository\GameActionRepository;
-use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 
 /**
  * Запись открытого удара: списание, долг, строка и цели.
@@ -19,187 +17,21 @@ final class GameStrikeOpen
     /**
      * Создаёт запись открытия.
      *
-     * @param GameBattleRepository $battles Бои.
-     * @param GameActionRepository $actions Действия и цели.
-     * @param GameStrikeSpend $spend Списание атакующего.
-     * @param GameStrikeRules $rules Правила.
-     * @param GameStrikeSheets $sheets Снимки листов.
-     * @param GameStrikeSheetWrites $sheetWrites Запись листа.
-     * @param GameProcessFlow $processes Сессия процесса.
+     * @param GameStrikeOpenProcess $process Шаг процесса.
+     * @param GameStrikeOpenView $view Снимок и жетон.
+     * @param GameStrikeOpenRows $rows Строки удара.
+     * @param GameStrikeOpenLedger $ledger Списание и запись.
+     * @param GameStrikeOpenPaid $paid Оплаченный удар.
      *
      * @return void
      */
     public function __construct(
-        private readonly GameBattleRepository $battles,
-        private readonly GameActionRepository $actions,
-        private readonly GameStrikeSpend $spend,
-        private readonly GameStrikeRules $rules,
-        private readonly GameStrikeSheets $sheets,
-        private readonly GameStrikeSheetWrites $sheetWrites,
-        private readonly GameProcessFlow $processes,
+        private readonly GameStrikeOpenProcess $process,
+        private readonly GameStrikeOpenView $view,
+        private readonly GameStrikeOpenRows $rows,
+        private readonly GameStrikeOpenLedger $ledger,
+        private readonly GameStrikeOpenPaid $paid,
     ) {
-    }
-
-    /**
-     * Списывает стоимость и пишет открытый удар или удержанный долг.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $choice Выбор.
-     * @param GameBattleRecord $battle Бой.
-     * @param int $expectedBattleVersion Ожидаемая версия.
-     * @param array<string, mixed> $snapshot Снимок атакующего.
-     * @param array<string, mixed> $action Строка действия.
-     * @param list<array<string, mixed>> $targets Строки ударов.
-     * @param string $lane Полоса долга.
-     * @param string $subject Подлежащее сообщений об ошибке.
-     *
-     * @return array{debt: bool, strikeId: int, version: int} Итог.
-     */
-    public function open(
-        GameRecord $game,
-        array $choice,
-        GameBattleRecord $battle,
-        int $expectedBattleVersion,
-        array $snapshot,
-        array $action,
-        array $targets,
-        string $lane,
-        string $subject,
-    ): array {
-        $attacker = $choice['attacker'] ?? null;
-        $attackerKind = is_array($attacker) ? ($attacker['type'] ?? null) : null;
-        $attackerId = is_array($attacker) ? ($attacker['id'] ?? null) : null;
-        if (!is_string($attackerKind) || !is_int($attackerId)) {
-            throw new GameInvalidException('Game strike attacker is invalid');
-        }
-
-        if (($choice['tokenSpend'] ?? null) !== null && count($targets) > 1) {
-            throw new GameInvalidException('Game concentration supports a single strike');
-        }
-
-        $context = $this->processOf($game, $battle, $choice);
-        $actionCode = is_string($action['action_rule_code'] ?? null) ? $action['action_rule_code'] : '';
-        if ($context !== null) {
-            $actionCode = $context['actionCode'];
-        }
-
-        $action['action_rule_code'] = $actionCode;
-
-        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $push = $this->rules->cards->pushOf($game->getSpaceId(), $game->getRulesRevision(), $actionCode);
-        $npcSheet = $attackerKind === 'npc' && is_array($snapshot['sheet']['sheet'] ?? null)
-            ? $snapshot['sheet']['sheet']
-            : null;
-        $npcChoices = $attackerKind === 'npc' && is_array($snapshot['sheet']['choices'] ?? null)
-            ? $snapshot['sheet']['choices']
-            : null;
-        $attackerChoices = is_array($snapshot['sheet']['choices'] ?? null) ? $snapshot['sheet']['choices'] : [];
-        $attackerSheet = is_array($snapshot['sheet']['sheet'] ?? null) ? $snapshot['sheet']['sheet'] : [];
-        $abilityLevels = is_array($attackerSheet['abilityLevels'] ?? null) ? $attackerSheet['abilityLevels'] : [];
-        $defender = $choice['defender'] ?? null;
-        $closingProcessId = null;
-        if (
-            $context === null
-            && is_array($defender)
-            && is_string($defender['type'] ?? null)
-            && is_int($defender['id'] ?? null)
-        ) {
-            $closingProcessId = $this->processes->closingFor(
-                $game,
-                $battle,
-                ['type' => $attackerKind, 'id' => $attackerId],
-                ['type' => $defender['type'], 'id' => $defender['id']],
-                $actionCode,
-                $abilityLevels,
-            );
-        }
-
-        foreach ($targets as $target) {
-            $profileType = $target['profile_type'] ?? null;
-            $profileIndex = $target['profile_index'] ?? null;
-            $itemInventoryId = $target['item_inventory_id'] ?? null;
-            $itemRuleCode = $target['item_rule_code'] ?? null;
-            if (
-                !is_string($profileType)
-                || !is_int($profileIndex)
-                || !is_int($itemInventoryId)
-                || !is_string($itemRuleCode)
-            ) {
-                throw new GameInvalidException('Game strike row is invalid');
-            }
-
-            if ($push === null) {
-                $strikeTarget = GameStrikeTarget::of(
-                    $game->getSpaceId(),
-                    $game->getRulesRevision(),
-                    $itemRuleCode,
-                    $profileType,
-                    $profileIndex,
-                    $itemInventoryId,
-                    $attackerKind,
-                    $attackerId,
-                    $npcSheet,
-                    $npcChoices,
-                    is_int($snapshot['actualVersion'] ?? null) ? $snapshot['actualVersion'] : null,
-                    $this->rules->modifiers->actionCharacteristicModifier(
-                        $slice,
-                        $actionCode,
-                        $profileType,
-                        1,
-                        $this->rules->outcome->attackFilterContext(
-                            $game->getSpaceId(),
-                            $game->getRulesRevision(),
-                            $itemRuleCode,
-                            $profileType,
-                            $profileIndex,
-                            $attackerChoices,
-                            $itemInventoryId,
-                        ),
-                        $abilityLevels,
-                    ),
-                    0,
-                    0,
-                );
-                $this->rules->distance->assertConditions(
-                    $this->rules->damage->attack($strikeTarget),
-                    is_array($target['conditions'] ?? null)
-                        ? $target['conditions']
-                        : (new GameStrikeConditions())->defaults(),
-                    $actionCode,
-                );
-            }
-        }
-
-        $hold = $this->spend->spendAttacker($game, $choice, $battle, $snapshot, $lane, $subject);
-        $choice['tokenSpendInfo'] = $hold['tokenSpend'];
-        if ($hold['debtHold'] !== null) {
-            $saved = $this->battles->replaceTracked(
-                $battle->getId(),
-                $expectedBattleVersion,
-                $hold['pending'],
-                $hold['debtHold'],
-                null,
-                null,
-                $hold['cycle'],
-            );
-
-            return ['debt' => true, 'strikeId' => 0, 'version' => $saved->getStateVersion()];
-        }
-
-        if ($context !== null) {
-            $processId = $this->processes->begin($battle, ['type' => $attackerKind, 'id' => $attackerId], $context);
-            $action['process_id'] = $processId;
-            $action['process_step_code'] = $context['processStepCode'];
-            $targets = $this->withProcessTargets($targets, $choice);
-        } elseif ($closingProcessId !== null) {
-            $action['process_id'] = $closingProcessId;
-            $action['process_step_code'] = '';
-        }
-
-        $strikeId = $this->actions->addWithStrikes($action, $targets);
-        $this->battles->replacePending($battle->getId(), $expectedBattleVersion, $hold['pending']);
-
-        return ['debt' => false, 'strikeId' => $strikeId, 'version' => $expectedBattleVersion + 1];
     }
 
     /**
@@ -215,6 +47,8 @@ final class GameStrikeOpen
      * @param string $subject Подлежащее.
      *
      * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если выбор или строка невалидны.
      */
     public function openAction(
         GameRecord $game,
@@ -226,22 +60,148 @@ final class GameStrikeOpen
         string $lane,
         string $subject,
     ): array {
-        $this->assertFollowUp($game, $battle, $choice);
-        $snapshot = $this->snapshot($game, $choice);
-        $choice['tokenSpendInfo'] = $this->tokenInfo($game, $choice, $snapshot);
-        $row = $this->action($battle, $sessionId, $choice, $kind);
-        $opened = $this->open(
-            $game,
-            $choice,
-            $battle,
-            $expectedBattleVersion,
-            $snapshot,
-            $row['action'],
-            $row['strikes'],
-            $lane,
-            $subject,
-        );
+        $this->view->assertFollowUp($game, $battle, $choice);
+        $snapshot = $this->view->snapshot($game, $choice);
+        $choice['tokenSpendInfo'] = $this->view->tokenInfo($game, $choice, $snapshot);
+        $row = $this->rows->action($battle, $sessionId, $choice, $kind);
+        $run = $this->run($game, $sessionId, $battle, $expectedBattleVersion, $choice, $snapshot, $kind, $lane, $subject);
+        $run->action = $row['action'];
+        $run->targets = $row['strikes'];
+        $opened = $this->open($run);
 
+        return $this->result($battle, $kind, $opened);
+    }
+
+    /**
+     * Открывает удар, когда F1 уже уплачены.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param GameBattleRecord $battle Бой.
+     * @param int $expectedBattleVersion Версия.
+     * @param array<string, mixed> $choice Выбор.
+     * @param string $kind Вид удара.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если выбор или строка невалидны.
+     */
+    public function openPaidAction(
+        GameRecord $game,
+        int $sessionId,
+        GameBattleRecord $battle,
+        int $expectedBattleVersion,
+        array $choice,
+        string $kind,
+    ): array {
+        $this->view->assertFollowUp($game, $battle, $choice);
+        $context = $this->process->context($game, $battle, $choice);
+        $snapshot = $this->view->snapshot($game, $choice);
+        $run = $this->run($game, $sessionId, $battle, $expectedBattleVersion, $choice, $snapshot, $kind);
+        [$run->attackerKind, $run->attackerId] = $this->attacker($choice);
+        $run->context = $context;
+        $written = $this->paid->paid($run);
+
+        return [
+            'battleId' => $battle->getId(),
+            'strikeId' => $written['strikeId'],
+            'version' => $written['version'],
+        ];
+    }
+
+    /**
+     * Списывает стоимость и пишет открытый удар или удержанный долг.
+     *
+     * @param GameStrikeOpenRun $run Контекст записи.
+     *
+     * @return array{debt: bool, strikeId: int, version: int} Итог.
+     *
+     * @throws GameInvalidException Если выбор, строка или ресурс невалидны.
+     */
+    private function open(GameStrikeOpenRun $run): array
+    {
+        $this->prepare($run);
+
+        return $this->ledger->open($run);
+    }
+
+    /**
+     * Проверяет атакующего, процесс и добивание.
+     *
+     * @param GameStrikeOpenRun $run Контекст записи.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если выбор невалиден.
+     */
+    private function prepare(GameStrikeOpenRun $run): void
+    {
+        [$run->attackerKind, $run->attackerId] = $this->attacker($run->choice);
+        if (($run->choice['tokenSpend'] ?? null) !== null && count($run->targets) > 1) {
+            throw new GameInvalidException('Game concentration supports a single strike');
+        }
+
+        $run->context = $this->process->context($run->game, $run->battle, $run->choice);
+        $actionCode = $run->context !== null
+            ? $run->context['actionCode']
+            : (is_string($run->action['action_rule_code'] ?? null) ? $run->action['action_rule_code'] : '');
+        $run->action['action_rule_code'] = $actionCode;
+        $run->closingProcessId = $run->context === null
+            ? $this->process->closing($run->game, $run->battle, $run->choice, $actionCode, $run->snapshot)
+            : null;
+    }
+
+    /**
+     * Контекст записи из аргументов вызова.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param GameBattleRecord $battle Бой.
+     * @param int $expectedBattleVersion Версия.
+     * @param array<string, mixed> $choice Выбор.
+     * @param array<string, mixed> $snapshot Снимок.
+     * @param string $kind Вид удара.
+     * @param string $lane Полоса долга.
+     * @param string $subject Подлежащее.
+     *
+     * @return GameStrikeOpenRun Контекст.
+     */
+    private function run(
+        GameRecord $game,
+        int $sessionId,
+        GameBattleRecord $battle,
+        int $expectedBattleVersion,
+        array $choice,
+        array $snapshot,
+        string $kind,
+        string $lane = '',
+        string $subject = '',
+    ): GameStrikeOpenRun {
+        $run = new GameStrikeOpenRun();
+        $run->game = $game;
+        $run->sessionId = $sessionId;
+        $run->battle = $battle;
+        $run->expectedBattleVersion = $expectedBattleVersion;
+        $run->choice = $choice;
+        $run->snapshot = $snapshot;
+        $run->kind = $kind;
+        $run->lane = $lane;
+        $run->subject = $subject;
+
+        return $run;
+    }
+
+    /**
+     * Итог открытия для HTTP-контура.
+     *
+     * @param GameBattleRecord $battle Бой.
+     * @param string $kind Вид удара.
+     * @param array{debt: bool, strikeId: int, version: int} $opened Итог записи.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    private function result(GameBattleRecord $battle, string $kind, array $opened): array
+    {
         $result = [
             'battleId' => $battle->getId(),
             'strikeId' => $opened['strikeId'],
@@ -261,389 +221,23 @@ final class GameStrikeOpen
     }
 
     /**
-     * Открывает удар, когда F1 уже уплачены.
+     * Атакующий объявления.
      *
-     * @param GameRecord $game Игра.
-     * @param int $sessionId Сессия.
-     * @param GameBattleRecord $battle Бой.
-     * @param int $expectedBattleVersion Версия.
-     * @param array<string, mixed> $choice Выбор.
-     * @param string $kind Вид удара.
-     *
-     * @return array<string, mixed> Итог.
-     */
-    public function openPaidAction(
-        GameRecord $game,
-        int $sessionId,
-        GameBattleRecord $battle,
-        int $expectedBattleVersion,
-        array $choice,
-        string $kind,
-    ): array {
-        $this->assertFollowUp($game, $battle, $choice);
-        $context = $this->processOf($game, $battle, $choice);
-        $snapshot = $this->snapshot($game, $choice);
-        $attacker = $choice['attacker'];
-        $inventorySpend = $this->rules->cards->pushOf(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['actionRuleCode'],
-        ) !== null ? null : $this->rules->spends->resolveInventorySpend(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['itemRuleCode'],
-            $choice['profileType'],
-            $choice['profileIndex'],
-            $choice['itemInventoryId'],
-            $choice['ammunitionInventoryId'] ?? null,
-            $attacker['type'],
-            $attacker['id'],
-            $attacker['type'] === 'npc' ? $snapshot['sheet']['choices'] : null,
-        );
-        if ($inventorySpend !== null) {
-            $this->sheetWrites->write(
-                $game,
-                $attacker['type'],
-                $attacker['id'],
-                $snapshot['actualVersion'],
-                [],
-                null,
-                null,
-                [],
-                $inventorySpend,
-            );
-        }
-
-        $debt = $this->spend->releaseDebt($battle, $attacker['type'], $attacker['id']);
-        $saved = $this->battles->replaceTracked(
-            $battle->getId(),
-            $expectedBattleVersion,
-            $battle->getPendingActionEffects(),
-            $debt,
-            null,
-            null,
-        );
-
-        $choice['tokenSpendInfo'] = $this->tokenInfo($game, $choice, $snapshot);
-        $row = $this->action($battle, $sessionId, $choice, $kind);
-        if ($context !== null) {
-            $attackerKey = ['type' => $attacker['type'], 'id' => $attacker['id']];
-            $processId = $this->processes->begin($battle, $attackerKey, $context);
-            $row['action']['process_id'] = $processId;
-            $row['action']['process_step_code'] = $context['processStepCode'];
-            $row['strikes'] = $this->withProcessTargets($row['strikes'], $choice);
-        }
-
-        $strikeId = $this->actions->addWithStrikes($row['action'], $row['strikes']);
-
-        return [
-            'battleId' => $battle->getId(),
-            'strikeId' => $strikeId,
-            'version' => $saved->getStateVersion(),
-        ];
-    }
-
-    /**
-     * Гейт добивания по снимку прошлого удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param GameBattleRecord $battle Бой.
      * @param array<string, mixed> $choice Выбор.
      *
-     * @return void
+     * @return array{0: string, 1: int} Вид и id.
      *
-     * @throws GameInvalidException Если добивание не разрешено.
+     * @throws GameInvalidException Если атакующий невалиден.
      */
-    private function assertFollowUp(GameRecord $game, GameBattleRecord $battle, array $choice): void
+    private function attacker(array $choice): array
     {
         $attacker = $choice['attacker'] ?? null;
-        $actionRuleCode = $choice['actionRuleCode'] ?? null;
-        if (
-            !is_array($attacker)
-            || !is_string($attacker['type'] ?? null)
-            || !is_int($attacker['id'] ?? null)
-            || !is_string($actionRuleCode)
-        ) {
-            return;
-        }
-
-        (new GameLastStrikeSnapshot())->assertFollowUp(
-            $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
-            $actionRuleCode,
-            $battle->getPendingActionEffects(),
-            $attacker['type'],
-            $attacker['id'],
-            $this->targetKeys($choice),
-        );
-    }
-
-    /**
-     * Ключи целей выбора.
-     *
-     * @param array<string, mixed> $choice Выбор.
-     *
-     * @return array<int, string> Ключи.
-     */
-    private function targetKeys(array $choice): array
-    {
-        $targets = is_array($choice['targets'] ?? null) ? $choice['targets'] : [$choice['defender'] ?? null];
-        $keys = [];
-        foreach ($targets as $target) {
-            if (is_array($target) && is_string($target['type'] ?? null) && is_int($target['id'] ?? null)) {
-                $keys[] = $target['type'] . ':' . $target['id'];
-            }
-        }
-
-        return $keys;
-    }
-
-    /**
-     * Снимок атакующего.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $choice Выбор.
-     *
-     * @return array<string, mixed> Снимок.
-     *
-     * @throws GameInvalidException Если вид атакующего битый.
-     */
-    private function snapshot(GameRecord $game, array $choice): array
-    {
-        $kind = $choice['attacker']['type'] ?? null;
-        $id = $choice['attacker']['id'] ?? null;
+        $kind = is_array($attacker) ? ($attacker['type'] ?? null) : null;
+        $id = is_array($attacker) ? ($attacker['id'] ?? null) : null;
         if (!is_string($kind) || !is_int($id)) {
             throw new GameInvalidException('Game strike attacker is invalid');
         }
 
-        return $kind === 'character'
-            ? $this->sheets->getCharacterSnapshot($id)
-            : $this->sheets->getNpcSnapshot($game->getId(), $id);
-    }
-
-    /**
-     * Проверяет шаг процесса и подставляет его действие.
-     *
-     * @param GameRecord $game Игра.
-     * @param GameBattleRecord $battle Бой.
-     * @param array<string, mixed> $choice Выбор удара.
-     *
-     * @return array<string, mixed>|null Контекст шага или null.
-     *
-     * @throws GameInvalidException Если шаг недоступен.
-     */
-    private function processOf(GameRecord $game, GameBattleRecord $battle, array &$choice): ?array
-    {
-        $code = $choice['processRuleCode'] ?? null;
-        if (!is_string($code) || $code === '') {
-            return null;
-        }
-
-        $attacker = $choice['attacker'] ?? null;
-        if (!is_array($attacker) || !is_string($attacker['type'] ?? null) || !is_int($attacker['id'] ?? null)) {
-            throw new GameInvalidException('Game strike attacker is invalid');
-        }
-
-        $context = $this->processes->prepare(
-            $game,
-            $battle,
-            ['type' => $attacker['type'], 'id' => $attacker['id']],
-            $code,
-            is_string($choice['processStepCode'] ?? null) ? $choice['processStepCode'] : null,
-            'strike',
-            is_array($choice['defender'] ?? null) ? $choice['defender'] : null,
-        );
-        if ($context === null) {
-            return null;
-        }
-
-        $choice['actionRuleCode'] = $context['actionCode'];
-        $choice['processContext'] = $context;
-        $choice['processStepCosts'] = $context['costs'];
-        $choice['repeatWeaponUses'] = $this->processes->priorWeaponUses(
-            $context['session'] ?? null,
-            $context['spec'],
-            $this->processes->weaponKey($choice),
-        );
-
-        return $context;
-    }
-
-    /**
-     * Проставляет повтор оружия в строки удара.
-     *
-     * @param list<array<string, mixed>> $targets Строки.
-     * @param array<string, mixed> $choice Выбор.
-     *
-     * @return list<array<string, mixed>> Строки.
-     */
-    private function withProcessTargets(array $targets, array $choice): array
-    {
-        $prior = is_int($choice['repeatWeaponUses'] ?? null) ? $choice['repeatWeaponUses'] : 0;
-        foreach ($targets as $index => $target) {
-            $targets[$index]['repeat_weapon_uses'] = $prior;
-        }
-
-        return $targets;
-    }
-
-    /**
-     * Данные жетона для строки удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $choice Выбор.
-     * @param array<string, mixed> $snapshot Снимок атакующего.
-     *
-     * @return array<string, mixed> Данные.
-     */
-    private function tokenInfo(GameRecord $game, array $choice, array $snapshot): array
-    {
-        $raw = $choice['tokenSpend'] ?? null;
-        if ($raw === null) {
-            return [];
-        }
-
-        $amount = is_array($raw) ? ($raw['amount'] ?? 0) : $raw;
-        if (!is_int($amount) || $amount < 1) {
-            return [];
-        }
-
-        $sheet = is_array($snapshot['sheet']['sheet'] ?? null) ? $snapshot['sheet']['sheet'] : [];
-        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $resource = (new GameConcentration())->resourceCode($slice, $sheet) ?? '';
-
-        return [
-            'resource' => $resource,
-            'amount' => $amount,
-            'source' => is_array($raw) && is_string($raw['source'] ?? null) ? $raw['source'] : $resource,
-            'mode' => is_array($raw) && is_string($raw['mode'] ?? null) ? $raw['mode'] : 'advantage',
-        ];
-    }
-
-    /**
-     * Строка действия и цели.
-     *
-     * @param GameBattleRecord $battle Бой.
-     * @param int $sessionId Сессия.
-     * @param array<string, mixed> $choice Выбор.
-     * @param string $kind Вид удара.
-     *
-     * @return array{action: array<string, mixed>, strikes: list<array<string, mixed>>} Строки.
-     *
-     * @throws GameInvalidException Если вид или профиль битый.
-     */
-    private function action(
-        GameBattleRecord $battle,
-        int $sessionId,
-        array $choice,
-        string $kind,
-    ): array {
-        if ($kind !== 'strike' && $kind !== 'wide_strike') {
-            throw new GameInvalidException('Game strike kind is invalid');
-        }
-
-        if ($kind === 'strike' && !in_array($choice['profileType'], ['strike', 'throw', 'shoot'], true)) {
-            throw new GameInvalidException('Game strike profile is invalid');
-        }
-
-        $action = [
-            'kind' => $kind,
-            'battle_id' => $battle->getId(),
-            'session_id' => $sessionId,
-            'attacker_kind' => $choice['attacker']['type'],
-            'attacker_id' => $choice['attacker']['id'],
-            'action_rule_code' => $choice['actionRuleCode'],
-            'open' => true,
-        ];
-
-        $targets = $kind === 'strike'
-            ? [$choice['defender']]
-            : $choice['targets'];
-
-        $strikes = is_array($choice['strikes'] ?? null) && $choice['strikes'] !== []
-            ? $this->strikeRows(
-                $choice['strikes'],
-                is_array($choice['maneuver'] ?? null) ? $choice['maneuver'] : [],
-            )
-            : $this->strikes($targets, $choice);
-
-        return [
-            'action' => $action,
-            'strikes' => $strikes,
-        ];
-    }
-
-    /**
-     * Строки ударов из разобранного выбора.
-     *
-     * @param list<array<string, mixed>> $strikes Строки.
-     * @param array<string, mixed> $maneuver Манёвр строки.
-     *
-     * @return list<array<string, mixed>> Строки.
-     */
-    private function strikeRows(array $strikes, array $maneuver = []): array
-    {
-        $rows = [];
-        foreach ($strikes as $strike) {
-            $rows[] = [
-                'instance_index' => $strike['instanceIndex'],
-                'item_inventory_id' => $strike['itemInventoryId'],
-                'item_rule_code' => $strike['itemRuleCode'],
-                'profile_type' => $strike['profileType'],
-                'profile_index' => $strike['profileIndex'],
-                'target_type' => $strike['target']['type'],
-                'target_id' => $strike['target']['id'],
-                'conditions' => $strike['conditions'] ?? (new GameStrikeConditions())->defaults(),
-                'maneuver' => $maneuver,
-                'reaction' => null,
-                'block_item_inventory_id' => null,
-                'block_item_profile_index' => null,
-                'block_item_rule_code' => null,
-            ];
-        }
-
-        return $rows;
-    }
-
-    /**
-     * Строки ударов.
-     *
-     * @param list<array{type: string, id: int}> $targets Цели.
-     * @param array<string, mixed> $choice Выбор.
-     *
-     * @return list<array<string, mixed>> Строки.
-     */
-    private function strikes(array $targets, array $choice): array
-    {
-        $instanceIndex = is_int($choice['instanceIndex'] ?? null) ? $choice['instanceIndex'] : 0;
-        $rows = [];
-        foreach ($targets as $target) {
-            $key = $target['type'] . ':' . $target['id'];
-            $conditions = $choice['conditions'][$key] ?? $choice['conditions'] ?? null;
-            $rows[] = [
-                'instance_index' => $instanceIndex,
-                'item_inventory_id' => $choice['itemInventoryId'],
-                'item_rule_code' => $choice['itemRuleCode'],
-                'profile_type' => $choice['profileType'],
-                'profile_index' => $choice['profileIndex'],
-                'target_type' => $target['type'],
-                'target_id' => $target['id'],
-                'conditions' => is_array($conditions)
-                    ? $conditions
-                    : (new GameStrikeConditions())->defaults(),
-                'maneuver' => is_array($choice['maneuver'] ?? null) ? $choice['maneuver'] : [],
-                'action_modifiers' => is_array($choice['modifiers'] ?? null)
-                    ? array_values($choice['modifiers'])
-                    : [],
-                'token_spend' => is_array($choice['tokenSpendInfo'] ?? null)
-                    ? $choice['tokenSpendInfo']
-                    : [],
-                'reaction' => null,
-                'block_item_inventory_id' => null,
-                'block_item_profile_index' => null,
-                'block_item_rule_code' => null,
-            ];
-        }
-
-        return $rows;
+        return [$kind, $id];
     }
 }
