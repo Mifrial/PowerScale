@@ -32,19 +32,20 @@ final class GameStrikeHttpFactory
         $ports = new GameStrikePorts($serviceLocator);
         $gateway = $ports->gateway();
         $domain = new GameStrikePortFactory();
+        $strikes = $domain->create($serviceLocator);
+        $wideStrikes = $domain->createWide($serviceLocator);
+        $rules = (new GameStrikeRuleWiring($serviceLocator))->rules();
+        $wounds = (new GameWoundPortFactory())->createActions($serviceLocator);
+        $repository = new GameActionRepository($gateway);
+        $commands = new GameCommandRepository($gateway);
 
         return new GameRunActionHttp(
             $ports->userAccess(),
             new GameRunAction(
                 new GameRunActionBody(),
-                $domain->create($serviceLocator),
-                $domain->createWide($serviceLocator),
-                $this->actionDomain($serviceLocator),
-                (new GameWoundPortFactory())->createActions($serviceLocator),
-                new GameActionRepository($gateway),
-                new GameCommandRepository($gateway),
-                $ports->games(),
-                (new GameStrikeRuleWiring($serviceLocator))->rules(),
+                new GameRunActionDeclare($this->actionDomain($serviceLocator), $wounds),
+                new GameRunActionStrikeDeclare($strikes, $wideStrikes, $ports->games(), $rules),
+                new GameRunActionRespond($strikes, $wideStrikes, $repository, $commands),
             ),
         );
     }

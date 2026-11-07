@@ -15,7 +15,29 @@ final class GameRunActionBody
 
     private const KINDS = ['action', 'strike', 'reaction', 'wound'];
 
-    private const OPERATIONS = ['hold', 'release', 'bandage'];
+    private readonly GameRunActionFields $fields;
+
+    private readonly GameRunActionActionBody $actions;
+
+    private readonly GameRunActionStrikeBody $strikes;
+
+    private readonly GameRunActionDefenseBody $defenses;
+
+    private readonly GameRunActionWoundBody $wounds;
+
+    /**
+     * Создаёт разбор конверта.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->fields = new GameRunActionFields();
+        $this->actions = new GameRunActionActionBody($this->fields);
+        $this->strikes = new GameRunActionStrikeBody($this->fields);
+        $this->defenses = new GameRunActionDefenseBody($this->fields);
+        $this->wounds = new GameRunActionWoundBody($this->fields);
+    }
 
     /**
      * Разбирает действие.
@@ -25,7 +47,7 @@ final class GameRunActionBody
      * @return array{
      *     phase: string,
      *     kind: string,
-     *     code: string,
+     *     code: string|null,
      *     actor: array{type: string, id: int}|null,
      *     context: array<string, mixed>
      * } Действие.
@@ -34,27 +56,136 @@ final class GameRunActionBody
      */
     public function parse(array $action): array
     {
+        $envelope = $this->envelope($action);
+
+        return [
+            'phase' => $envelope['phase'],
+            'kind' => $envelope['kind'],
+            'code' => $envelope['code'],
+            'actor' => $this->actor($action, $envelope['phase'], $envelope['kind']),
+            'context' => $this->context($envelope['kind'], $envelope['phase'], $envelope['context']),
+        ];
+    }
+
+    /**
+     * Проверяет конверт и достаёт обязательные поля.
+     *
+     * @param array<string, mixed> $action Конверт.
+     *
+     * @return array{phase: string, kind: string, code: string|null, context: array<string, mixed>} Поля.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function envelope(array $action): array
+    {
+        $phase = $this->phase($action);
+
+        return [
+            'phase' => $phase,
+            'kind' => $this->kind($action),
+            'code' => $this->code($action, $phase),
+            'context' => $this->contextBody($action),
+        ];
+    }
+
+    /**
+     * Фаза и её ключи.
+     *
+     * @param array<string, mixed> $action Конверт.
+     *
+     * @return string Фаза.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function phase(array $action): string
+    {
         $phase = $action['phase'] ?? null;
-        $allowed = ['context', 'kind', 'phase'];
+        $keys = ['context', 'kind', 'phase'];
         if ($phase === 'declare') {
-            $allowed[] = 'actor';
-            $allowed[] = 'code';
+            $keys[] = 'actor';
+            $keys[] = 'code';
         }
 
-        $this->assertKeys($action, $allowed);
-        $kind = $action['kind'] ?? null;
-        $code = $action['code'] ?? null;
-        $context = $action['context'] ?? null;
-        if (
-            !is_string($phase) || !in_array($phase, self::PHASES, true)
-            || !is_string($kind) || !in_array($kind, self::KINDS, true)
-            || !is_array($context)
-            || ($phase === 'declare' && (!is_string($code) || $code === ''))
-        ) {
+        $this->fields->assertKeys($action, $keys);
+        if (!is_string($phase) || !in_array($phase, self::PHASES, true)) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action');
         }
 
-        $actor = array_key_exists('actor', $action) ? $this->side($action['actor']) : null;
+        return $phase;
+    }
+
+    /**
+     * Вид действия.
+     *
+     * @param array<string, mixed> $action Конверт.
+     *
+     * @return string Вид.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function kind(array $action): string
+    {
+        $kind = $action['kind'] ?? null;
+        if (!is_string($kind) || !in_array($kind, self::KINDS, true)) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action');
+        }
+
+        return $kind;
+    }
+
+    /**
+     * Код объявления.
+     *
+     * @param array<string, mixed> $action Конверт.
+     * @param string $phase Фаза.
+     *
+     * @return string|null Код или null.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function code(array $action, string $phase): ?string
+    {
+        $code = $action['code'] ?? null;
+        if ($phase === 'declare' && (!is_string($code) || $code === '')) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action');
+        }
+
+        return is_string($code) ? $code : null;
+    }
+
+    /**
+     * Тело контекста.
+     *
+     * @param array<string, mixed> $action Конверт.
+     *
+     * @return array<string, mixed> Контекст.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function contextBody(array $action): array
+    {
+        $context = $action['context'] ?? null;
+        if (!is_array($context)) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action');
+        }
+
+        return $context;
+    }
+
+    /**
+     * Актор объявления.
+     *
+     * @param array<string, mixed> $action Конверт.
+     * @param string $phase Фаза.
+     * @param string $kind Вид.
+     *
+     * @return array{type: string, id: int}|null Пара.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function actor(array $action, string $phase, string $kind): ?array
+    {
+        $actor = array_key_exists('actor', $action) ? $this->fields->side($action['actor']) : null;
         if ($phase === 'respond' && $actor !== null) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action actor');
         }
@@ -63,13 +194,7 @@ final class GameRunActionBody
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action respond');
         }
 
-        return [
-            'phase' => $phase,
-            'kind' => $kind,
-            'code' => $code,
-            'actor' => $actor,
-            'context' => $this->context($kind, $phase, $context),
-        ];
+        return $actor;
     }
 
     /**
@@ -85,552 +210,11 @@ final class GameRunActionBody
      */
     private function context(string $kind, string $phase, array $context): array
     {
-        if ($kind === 'action') {
-            return $this->actionContext($context);
-        }
-
-        if ($kind === 'wound') {
-            return $this->woundContext($context);
-        }
-
-        if ($kind === 'reaction') {
-            return $this->reactionContext($context);
-        }
-
-        return $phase === 'declare' ? $this->strikeContext($context) : $this->defenseContext($context);
-    }
-
-    /**
-     * Контекст карточки действия.
-     *
-     * @param array<string, mixed> $context Контекст.
-     *
-     * @return array<string, mixed> Контекст.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function actionContext(array $context): array
-    {
-        $allowed = ['expectedSheetVersion', 'followUpTargetKey'];
-        if (array_key_exists('chosenAmounts', $context)) {
-            $allowed[] = 'chosenAmounts';
-        }
-
-        if (array_key_exists('processRuleCode', $context)) {
-            $allowed[] = 'processRuleCode';
-        }
-
-        if (array_key_exists('processStepCode', $context)) {
-            $allowed[] = 'processStepCode';
-        }
-
-        $this->assertKeys($context, $allowed, 'action context');
-        $expected = $context['expectedSheetVersion'] ?? null;
-        $followUp = $context['followUpTargetKey'] ?? null;
-        $chosen = $context['chosenAmounts'] ?? [];
-        $process = $this->process($context);
-        if (
-            !is_int($expected)
-            || ($followUp !== null && !is_string($followUp))
-            || !is_array($chosen)
-        ) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action context');
-        }
-
-        return [
-            'expectedSheetVersion' => $expected,
-            'followUpTargetKey' => $followUp,
-            'chosenAmounts' => $chosen,
-            'processRuleCode' => $process['processRuleCode'],
-            'processStepCode' => $process['processStepCode'],
-        ];
-    }
-
-    /**
-     * Трата жетонов концентрации или null.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return int|array{amount: int, source?: string, mode?: string}|null Трата.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function tokenSpend(mixed $value): int|array|null
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        if (is_int($value)) {
-            if ($value < 0) {
-                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
-            }
-
-            return $value;
-        }
-
-        if (!is_array($value)) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
-        }
-
-        $amount = $value['amount'] ?? null;
-        if (!is_int($amount) || $amount < 0) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
-        }
-
-        $spend = ['amount' => $amount];
-        if (array_key_exists('source', $value)) {
-            if (!is_string($value['source']) || $value['source'] === '') {
-                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
-            }
-
-            $spend['source'] = $value['source'];
-        }
-
-        if (array_key_exists('mode', $value)) {
-            if (!in_array($value['mode'], ['advantage', 'accuracy'], true)) {
-                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: token spend');
-            }
-
-            $spend['mode'] = $value['mode'];
-        }
-
-        return $spend;
-    }
-
-    /**
-     * Контекст раны.
-     *
-     * @param array<string, mixed> $context Контекст.
-     *
-     * @return array<string, mixed> Контекст.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function woundContext(array $context): array
-    {
-        $this->assertKeys(
-            $context,
-            ['expectedSheetVersion', 'operation', 'stateId', 'target'],
-            'wound context',
-        );
-        $operation = $context['operation'] ?? null;
-        $stateId = $context['stateId'] ?? null;
-        $expected = $context['expectedSheetVersion'] ?? null;
-        $target = $this->pair($context['target'] ?? null);
-        if (
-            !is_string($operation) || !in_array($operation, self::OPERATIONS, true)
-            || !is_int($stateId) || $stateId < 1
-            || !is_int($expected)
-        ) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: wound context');
-        }
-
-        return [
-            'operation' => $operation,
-            'stateId' => $stateId,
-            'expectedSheetVersion' => $expected,
-            'target' => $target,
-        ];
-    }
-
-    /**
-     * Контекст реакции. Общая часть проверяется здесь, поля эффекта — тем,
-     * кто этот эффект исполняет: транспорт не знает конкретных карточек.
-     *
-     * @param array<string, mixed> $context Контекст.
-     *
-     * @return array<string, mixed> Контекст.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function reactionContext(array $context): array
-    {
-        $expected = $context['expectedSheetVersion'] ?? null;
-        if (!is_int($expected)) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: reaction context');
-        }
-
-        return $context;
-    }
-
-    /**
-     * Контекст удара.
-     *
-     * @param array<string, mixed> $context Контекст.
-     *
-     * @return array<string, mixed> Контекст.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function strikeContext(array $context): array
-    {
-        $allowed = ['strikes'];
-        if (array_key_exists('chosenAmounts', $context)) {
-            $allowed[] = 'chosenAmounts';
-        }
-
-        if (array_key_exists('processRuleCode', $context)) {
-            $allowed[] = 'processRuleCode';
-        }
-
-        if (array_key_exists('processStepCode', $context)) {
-            $allowed[] = 'processStepCode';
-        }
-
-        if (array_key_exists('tokenSpend', $context)) {
-            $allowed[] = 'tokenSpend';
-        }
-
-        if (array_key_exists('maneuverRuleCode', $context)) {
-            $allowed[] = 'maneuverRuleCode';
-        }
-
-        $this->assertKeys($context, $allowed, 'strike context');
-        $rows = $context['strikes'] ?? null;
-        $chosen = $context['chosenAmounts'] ?? [];
-        $token = $this->tokenSpend($context['tokenSpend'] ?? null);
-        $maneuver = $context['maneuverRuleCode'] ?? null;
-        if ($maneuver !== null && (!is_string($maneuver) || $maneuver === '')) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike context');
-        }
-
-        $process = $this->process($context);
-        if (!is_array($rows) || $rows === [] || !array_is_list($rows) || !is_array($chosen)) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike context');
-        }
-
-        $strikes = [];
-        foreach ($rows as $row) {
-            $strikes[] = $this->strikeRow($row);
-        }
-
-        return [
-            'strikes' => $strikes,
-            'chosenAmounts' => $chosen,
-            'tokenSpend' => $token,
-            'maneuverRuleCode' => $maneuver,
-            'processRuleCode' => $process['processRuleCode'],
-            'processStepCode' => $process['processStepCode'],
-        ];
-    }
-
-    /**
-     * Контекст процесса.
-     *
-     * @param array<string, mixed> $context Контекст.
-     *
-     * @return array{processRuleCode: string|null, processStepCode: string|null} Пара.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function process(array $context): array
-    {
-        $code = $context['processRuleCode'] ?? null;
-        $step = $context['processStepCode'] ?? null;
-        if (
-            ($code !== null && (!is_string($code) || $code === ''))
-            || ($step !== null && (!is_string($step) || $step === ''))
-            || ($code === null && $step !== null)
-        ) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: process context');
-        }
-
-        return ['processRuleCode' => $code, 'processStepCode' => $step];
-    }
-
-    /**
-     * Строка удара.
-     *
-     * @param mixed $row Элемент.
-     *
-     * @return array<string, mixed> Строка.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function strikeRow(mixed $row): array
-    {
-        if (!is_array($row)) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike row');
-        }
-
-        $allowed = [
-            'itemInventoryId',
-            'itemRuleCode',
-            'profileIndex',
-            'profileType',
-            'target',
-        ];
-        foreach (['modifiers', 'ammunitionInventoryId', 'conditions', 'instanceIndex'] as $key) {
-            if (array_key_exists($key, $row)) {
-                $allowed[] = $key;
-            }
-        }
-
-        $this->assertKeys($row, $allowed, 'strike row');
-        $itemInventoryId = $row['itemInventoryId'] ?? null;
-        $itemRuleCode = $row['itemRuleCode'] ?? null;
-        $profileType = $row['profileType'] ?? null;
-        $profileIndex = $row['profileIndex'] ?? null;
-        $ammunitionInventoryId = $row['ammunitionInventoryId'] ?? null;
-        $instanceIndex = $row['instanceIndex'] ?? 0;
-        $conditions = (new GameStrikeConditions())->parse(
-            $row['conditions'] ?? null,
-            $profileType === 'shoot' || $profileType === 'throw',
-        );
-        $target = $this->side($row['target'] ?? null);
-        if (
-            !is_int($itemInventoryId)
-            || !is_string($itemRuleCode) || $itemRuleCode === ''
-            || !is_string($profileType) || $profileType === ''
-            || !is_int($profileIndex)
-            || !is_int($instanceIndex) || $instanceIndex < 0
-            || !is_int($ammunitionInventoryId) && $ammunitionInventoryId !== null
-        ) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike row');
-        }
-
-        if ($conditions['turn'] === true) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: strike row');
-        }
-
-        return [
-            'itemInventoryId' => $itemInventoryId,
-            'itemRuleCode' => $itemRuleCode,
-            'profileType' => $profileType,
-            'profileIndex' => $profileIndex,
-            'instanceIndex' => $instanceIndex,
-            'target' => $target,
-            'ammunitionInventoryId' => $ammunitionInventoryId,
-            'conditions' => $conditions,
-            'modifiers' => $this->modifiers($row['modifiers'] ?? null),
-        ];
-    }
-
-    /**
-     * Коды модификаторов действия.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return list<string> Коды.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function modifiers(mixed $value): array
-    {
-        if ($value === null) {
-            return [];
-        }
-
-        if (!is_array($value) || !array_is_list($value)) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action modifiers');
-        }
-
-        $codes = [];
-        foreach ($value as $code) {
-            if (!is_string($code) || $code === '' || in_array($code, $codes, true)) {
-                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action modifiers');
-            }
-
-            $codes[] = $code;
-        }
-
-        return $codes;
-    }
-
-    /**
-     * Контекст защиты.
-     *
-     * @param array<string, mixed> $context Контекст.
-     *
-     * @return array<string, mixed> Контекст.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function defenseContext(array $context): array
-    {
-        $this->assertKeys($context, ['defenses'], 'defense context');
-        $rows = $context['defenses'] ?? null;
-        if (!is_array($rows) || $rows === [] || !array_is_list($rows)) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense context');
-        }
-
-        $defenses = [];
-        $seen = [];
-        foreach ($rows as $row) {
-            $defense = $this->defenseRow($row);
-            $target = $defense['target'];
-            $key = $target === null ? '' : $target['type'] . ':' . $target['id'];
-            if ($key !== '' && isset($seen[$key])) {
-                throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense target');
-            }
-
-            if ($key !== '') {
-                $seen[$key] = true;
-            }
-
-            $defenses[] = $defense;
-        }
-
-        return ['defenses' => $defenses];
-    }
-
-    /**
-     * Строка защиты.
-     *
-     * @param mixed $row Элемент.
-     *
-     * @return array<string, mixed> Строка.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function defenseRow(mixed $row): array
-    {
-        if (!is_array($row)) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense row');
-        }
-
-        $allowed = ['expectedSheetVersion', 'reaction'];
-        if (array_key_exists('target', $row)) {
-            $allowed[] = 'target';
-        }
-
-        if (array_key_exists('turn', $row)) {
-            $allowed[] = 'turn';
-        }
-
-        if (array_key_exists('spendConcentration', $row)) {
-            $allowed[] = 'spendConcentration';
-        }
-
-        if (
-            array_key_exists('blockItemInventoryId', $row)
-            || array_key_exists('blockItemProfileIndex', $row)
-        ) {
-            $allowed[] = 'blockItemInventoryId';
-            $allowed[] = 'blockItemProfileIndex';
-            if (array_key_exists('blockItemRuleCode', $row)) {
-                $allowed[] = 'blockItemRuleCode';
-            }
-        } elseif (array_key_exists('blockItemRuleCode', $row)) {
-            $allowed[] = 'blockItemRuleCode';
-        }
-
-        $this->assertKeys($row, $allowed, 'defense row');
-        $reaction = $row['reaction'] ?? null;
-        $expected = $row['expectedSheetVersion'] ?? null;
-        $inventoryId = $row['blockItemInventoryId'] ?? null;
-        $profileIndex = $row['blockItemProfileIndex'] ?? null;
-        $ruleCode = $row['blockItemRuleCode'] ?? null;
-        $turn = $row['turn'] ?? false;
-        $spendConcentration = $row['spendConcentration'] ?? 0;
-        $target = array_key_exists('target', $row) ? $this->side($row['target']) : null;
-        $block = ($inventoryId === null || is_int($inventoryId))
-            && ($profileIndex === null || is_int($profileIndex))
-            && ($ruleCode === null || is_string($ruleCode));
-        if (
-            !is_string($reaction) || $reaction === ''
-            || !is_bool($turn)
-            || ($turn && $reaction === 'ignore')
-            || !is_int($expected)
-            || !is_int($spendConcentration)
-            || $spendConcentration < 0
-            || !$block
-            || ($reaction === 'block' && (!is_int($inventoryId) || !is_int($profileIndex)))
-        ) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense row');
-        }
-
-        $choice = [
-            'target' => $target,
-            'reaction' => $reaction,
-            'blockItemInventoryId' => $inventoryId,
-            'blockItemProfileIndex' => $profileIndex,
-            'blockItemRuleCode' => $ruleCode,
-            'expectedSheetVersion' => $expected,
-            'turn' => $turn,
-        ];
-        if (array_key_exists('spendConcentration', $row)) {
-            $choice['spendConcentration'] = $spendConcentration;
-        }
-
-        return $choice;
-    }
-
-    /**
-     * Участник с ключом type.
-     *
-     * @param mixed $side Объект.
-     *
-     * @return array{type: string, id: int} Пара.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function side(mixed $side): array
-    {
-        if (!is_array($side)) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: side');
-        }
-
-        $keys = array_keys($side);
-        sort($keys);
-        $type = $side['type'] ?? null;
-        $id = $side['id'] ?? null;
-        if ($keys !== ['id', 'type'] || !is_string($type) || $type === '' || !is_int($id) || $id < 1) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: side');
-        }
-
-        return ['type' => $type, 'id' => $id];
-    }
-
-    /**
-     * Участник с ключом kind.
-     *
-     * @param mixed $pair Объект.
-     *
-     * @return array{kind: string, id: int} Пара.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function pair(mixed $pair): array
-    {
-        if (!is_array($pair)) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: pair');
-        }
-
-        $keys = array_keys($pair);
-        sort($keys);
-        $kind = $pair['kind'] ?? null;
-        $id = $pair['id'] ?? null;
-        if (
-            $keys !== ['id', 'kind']
-            || ($kind !== 'character' && $kind !== 'npc')
-            || !is_int($id) || $id < 1
-        ) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: pair');
-        }
-
-        return ['kind' => $kind, 'id' => $id];
-    }
-
-    /**
-     * Ровно названные ключи.
-     *
-     * @param array<string, mixed> $body Тело.
-     * @param list<string> $allowed Ключи.
-     * @param string $subject Подлежащее.
-     *
-     * @return void
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function assertKeys(array $body, array $allowed, string $subject = 'action'): void
-    {
-        $keys = array_keys($body);
-        sort($keys);
-        sort($allowed);
-        if ($keys !== $allowed) {
-            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: ' . $subject);
-        }
+        return match ($kind) {
+            'action' => $this->actions->parse($context),
+            'wound' => $this->wounds->parse($context),
+            'reaction' => $this->actions->reaction($context),
+            default => $phase === 'declare' ? $this->strikes->parse($context) : $this->defenses->parse($context),
+        };
     }
 }
