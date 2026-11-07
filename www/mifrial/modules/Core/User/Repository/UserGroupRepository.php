@@ -4,13 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\User\Repository;
 
-use Closure;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
-use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
-use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
-use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
-use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
-use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\User\Dto\GroupPatch;
 use Mifrial\Core\User\Dto\GroupRecord;
@@ -20,6 +14,7 @@ use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserNotFoundException;
 use Mifrial\Core\User\Repository\Query\UserPageQuery;
+use Mifrial\Core\User\Repository\Support\UserWriteGuard;
 
 /**
  * Коллекция групп: SmartTable внутри, снаружи GroupRecord и USER_*.
@@ -27,6 +22,7 @@ use Mifrial\Core\User\Repository\Query\UserPageQuery;
 final class UserGroupRepository
 {
     private readonly UserPageQuery $pageQuery;
+    private readonly UserWriteGuard $writeGuard;
 
     /**
      * Создаёт репозиторий.
@@ -39,6 +35,7 @@ final class UserGroupRepository
         private readonly IOpenedRecords $groupRecords,
     ) {
         $this->pageQuery = new UserPageQuery('Group');
+        $this->writeGuard = new UserWriteGuard('Group');
     }
 
     /**
@@ -72,7 +69,7 @@ final class UserGroupRepository
      */
     public function add(NewGroup $newGroup): int
     {
-        return $this->write(function () use ($newGroup): int {
+        return $this->writeGuard->run(function () use ($newGroup): int {
             return $this->groupRecords->add($newGroup->fields());
         });
     }
@@ -91,7 +88,7 @@ final class UserGroupRepository
      */
     public function update(int $groupId, GroupPatch $groupPatch): void
     {
-        $this->write(function () use ($groupId, $groupPatch): mixed {
+        $this->writeGuard->run(function () use ($groupId, $groupPatch): mixed {
             $this->groupRecords->update($groupId, $groupPatch->fields());
 
             return null;
@@ -219,34 +216,6 @@ final class UserGroupRepository
         }
 
         return new GroupRecordPage($groupRecords, $listResult->total() ?? 0);
-    }
-
-    /**
-     * Выполняет запись и мапит ошибки строки в User.
-     *
-     * @param Closure $work Запись.
-     *
-     * @return mixed Результат $work.
-     *
-     * @throws UserDuplicateException Если unique.
-     * @throws UserInvalidException Если поле/карта.
-     * @throws UserNotFoundException Если строки нет.
-     */
-    private function write(Closure $work): mixed
-    {
-        try {
-            return $work();
-        } catch (UniqueConstraintException $exception) {
-            throw new UserDuplicateException($exception);
-        } catch (RowNotFoundException $exception) {
-            throw new UserNotFoundException($exception);
-        } catch (FieldRequiredException $exception) {
-            throw new UserInvalidException('Group field is required', $exception);
-        } catch (FieldInvalidException $exception) {
-            throw new UserInvalidException('Group field is invalid', $exception);
-        } catch (MapInvalidException $exception) {
-            throw new UserInvalidException('Group map is invalid', $exception);
-        }
     }
 
     /**

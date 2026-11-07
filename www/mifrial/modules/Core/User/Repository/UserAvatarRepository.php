@@ -4,25 +4,23 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\User\Repository;
 
-use Closure;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Dto\ListResult;
-use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
-use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
-use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
-use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\User\Dto\UserAvatarRecord;
 use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserNotFoundException;
+use Mifrial\Core\User\Repository\Support\UserWriteGuard;
 
 /**
  * Ссылка учётка → файл аватара (`user_avatar`), без публичного порта.
  */
 final class UserAvatarRepository
 {
+    private readonly UserWriteGuard $writeGuard;
+
     /**
      * Создаёт репозиторий.
      *
@@ -33,6 +31,7 @@ final class UserAvatarRepository
     public function __construct(
         private readonly IOpenedRecords $avatarRecords,
     ) {
+        $this->writeGuard = new UserWriteGuard('Avatar');
     }
 
     /**
@@ -127,12 +126,12 @@ final class UserAvatarRepository
         ];
         $rowId = $this->findRowId($userId);
         if ($rowId === null) {
-            $this->write(fn (): int => $this->avatarRecords->add(['user_id' => $userId] + $fields));
+            $this->writeGuard->run(fn (): int => $this->avatarRecords->add(['user_id' => $userId] + $fields));
 
             return;
         }
 
-        $this->write(function () use ($rowId, $fields): mixed {
+        $this->writeGuard->run(function () use ($rowId, $fields): mixed {
             $this->avatarRecords->update($rowId, $fields);
 
             return null;
@@ -156,7 +155,7 @@ final class UserAvatarRepository
             return;
         }
 
-        $this->write(function () use ($rowId): mixed {
+        $this->writeGuard->run(function () use ($rowId): mixed {
             $this->avatarRecords->delete($rowId);
 
             return null;
@@ -219,34 +218,6 @@ final class UserAvatarRepository
             return $this->avatarRecords->getList($listQuery);
         } catch (MapInvalidException $exception) {
             throw new UserInvalidException('Avatar list query is invalid', $exception);
-        }
-    }
-
-    /**
-     * Выполняет запись и мапит ошибки строки в User.
-     *
-     * @param Closure $work Запись.
-     *
-     * @return mixed Результат $work.
-     *
-     * @throws UserDuplicateException Если unique.
-     * @throws UserInvalidException Если поле/карта.
-     * @throws UserNotFoundException Если строки нет.
-     */
-    private function write(Closure $work): mixed
-    {
-        try {
-            return $work();
-        } catch (UniqueConstraintException $exception) {
-            throw new UserDuplicateException($exception);
-        } catch (RowNotFoundException $exception) {
-            throw new UserNotFoundException($exception);
-        } catch (FieldRequiredException $exception) {
-            throw new UserInvalidException('Avatar field is required', $exception);
-        } catch (FieldInvalidException $exception) {
-            throw new UserInvalidException('Avatar field is invalid', $exception);
-        } catch (MapInvalidException $exception) {
-            throw new UserInvalidException('Avatar map is invalid', $exception);
         }
     }
 }

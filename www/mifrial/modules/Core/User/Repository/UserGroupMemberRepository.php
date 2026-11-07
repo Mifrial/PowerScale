@@ -3,31 +3,28 @@
 declare(strict_types=1);
 
 // phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
-// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh
 // Списки id, страница членств и COUNT — одна коллекция, не второй репозиторий.
 
 namespace Mifrial\Core\User\Repository;
 
-use Closure;
 use Mifrial\Core\SmartTable\Dto\AggregateQuery;
 use Mifrial\Core\SmartTable\Dto\CountField;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
-use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
-use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
-use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
-use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\User\Dto\MemberIdPage;
 use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserNotFoundException;
+use Mifrial\Core\User\Repository\Support\UserWriteGuard;
 
 /**
  * Членство: пара user+group и списки id, без публичного порта.
  */
 final class UserGroupMemberRepository
 {
+    private readonly UserWriteGuard $writeGuard;
+
     /**
      * Создаёт репозиторий.
      *
@@ -38,6 +35,7 @@ final class UserGroupMemberRepository
     public function __construct(
         private readonly IOpenedRecords $memberRecords,
     ) {
+        $this->writeGuard = new UserWriteGuard('Member');
     }
 
     /**
@@ -53,7 +51,7 @@ final class UserGroupMemberRepository
      */
     public function add(int $userId, int $groupId): int
     {
-        return $this->write(function () use ($userId, $groupId): int {
+        return $this->writeGuard->run(function () use ($userId, $groupId): int {
             return $this->memberRecords->add([
                 'user_id' => $userId,
                 'group_id' => $groupId,
@@ -72,7 +70,7 @@ final class UserGroupMemberRepository
      */
     public function deleteById(int $memberId): void
     {
-        $this->write(function () use ($memberId): mixed {
+        $this->writeGuard->run(function () use ($memberId): mixed {
             $this->memberRecords->delete($memberId);
 
             return null;
@@ -401,33 +399,5 @@ final class UserGroupMemberRepository
         }
 
         return $values;
-    }
-
-    /**
-     * Выполняет запись и мапит ошибки строки в User.
-     *
-     * @param Closure $work Запись.
-     *
-     * @return mixed Результат $work.
-     *
-     * @throws UserDuplicateException Если unique.
-     * @throws UserInvalidException Если поле/карта.
-     * @throws UserNotFoundException Если строки нет.
-     */
-    private function write(Closure $work): mixed
-    {
-        try {
-            return $work();
-        } catch (UniqueConstraintException $exception) {
-            throw new UserDuplicateException($exception);
-        } catch (RowNotFoundException $exception) {
-            throw new UserNotFoundException($exception);
-        } catch (FieldRequiredException $exception) {
-            throw new UserInvalidException('Member field is required', $exception);
-        } catch (FieldInvalidException $exception) {
-            throw new UserInvalidException('Member field is invalid', $exception);
-        } catch (MapInvalidException $exception) {
-            throw new UserInvalidException('Member map is invalid', $exception);
-        }
     }
 }
