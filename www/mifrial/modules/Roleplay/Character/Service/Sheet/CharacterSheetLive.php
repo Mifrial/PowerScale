@@ -15,7 +15,9 @@ use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceGrantReader;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceLimits;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceStorage;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityGrantReader;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterGrantParameters;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterRaceAbilityCodes;
 use Mifrial\Roleplay\Rule\Dto\Spec\State\ResourceLimitModifyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\State\ResourceLimitSetEffect;
@@ -57,12 +59,17 @@ final class CharacterSheetLive
     ) {
         $evaluations = new FormulaEvaluations();
         $donorGrants = new CharacterDonorGrants();
+        $raceCodes = new CharacterRaceAbilityCodes();
         $equipped = new CharacterEquippedLive();
+        $grantReader = new CharacterAbilityGrantReader($donorGrants, $raceCodes);
+        $parameters = new CharacterGrantParameters($raceCodes);
+        $senses = new CharacterLiveSenses($evaluations, $grantReader, $parameters);
         $this->choiceAssembler = new CharacterChoiceAssembler();
         $this->characteristics = new CharacterLiveCharacteristics(
             $evaluations,
-            $donorGrants,
-            new CharacterRaceAbilityCodes(),
+            new CharacterLiveBases($grantReader),
+            new CharacterLiveDeltas($evaluations, $grantReader, $parameters, $equipped, new CharacterStateDeltas()),
+            $senses,
             $equipped,
         );
         $this->activity = new CharacterAbilityActivity();
