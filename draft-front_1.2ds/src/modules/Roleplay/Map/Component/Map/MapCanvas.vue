@@ -13,7 +13,7 @@ import type { MapSize } from '@/modules/Roleplay/Map/Dto/MapSize';
 import type { MapVariant } from '@/modules/Roleplay/Map/Dto/MapVariant';
 import type { MapViewport } from '@/modules/Roleplay/Map/Dto/MapViewport';
 import type { MapToolMode } from '@/modules/Roleplay/Map/Enum/MapToolMode';
-import type { FlowGlint, RibbonEdges, RibbonLayout } from '@/modules/Roleplay/Map/Service/MapRibbonService';
+import type { RibbonEdges, RibbonLayout } from '@/modules/Roleplay/Map/Service/MapRibbonService';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
 import { mapGeometryService, mapRibbonService } from '@/modules/Roleplay/Map/init';
 import { getFileApi } from '@/modules/Core/File/init';
@@ -55,6 +55,10 @@ let flowFrame = 0;
 let lastFlowDraw = 0;
 let drawTime = 0;
 let lastSize: MapSize = { width: 0, height: 0 };
+let staticCanvas: HTMLCanvasElement | null = null;
+let labelCanvas: HTMLCanvasElement | null = null;
+let staticDirty = true;
+const areaPathCache = new Map<number, MapPoint[] | null>();
 const reducedMotion =
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -123,9 +127,12 @@ const areaShapeOf = (areaId: number): MapAreaShape | null => {
 };
 
 const flatShapeOf = (areaId: number): MapPoint[] | null => {
+  if (areaPathCache.has(areaId)) return areaPathCache.get(areaId) ?? null;
   const shape = areaShapeOf(areaId);
+  const path = shape ? mapGeometryService.flattenContour(shape.path, shape.handles ?? []) : null;
+  areaPathCache.set(areaId, path);
 
-  return shape ? mapGeometryService.flattenContour(shape.path, shape.handles ?? []) : null;
+  return path;
 };
 
 const selectedArea = (): { id: number; path: MapPoint[]; handles: MapHandle[] } | null => {
@@ -150,6 +157,13 @@ function scheduleDraw(): void {
   });
 }
 
+/** Помечает статичный слой устаревшим и перерисовывает сцену. */
+function invalidateStatic(): void {
+  staticDirty = true;
+  areaPathCache.clear();
+  scheduleDraw();
+}
+
 function startFlow(): void {
   if (flowFrame !== 0 || !flowAvailable.value) return;
   lastFlowDraw = 0;
@@ -165,7 +179,8 @@ function stopFlow(): void {
 function flowTick(timestamp: number): void {
   flowFrame = 0;
   if (!flowAvailable.value || document.hidden) return;
-  if (timestamp - lastFlowDraw >= 1000 / 30) {
+  // Ограничение ~66 fps: на 120-Гц экране не удваиваем нагрузку.
+  if (timestamp - lastFlowDraw >= 15) {
     lastFlowDraw = timestamp;
     draw(timestamp);
   }
@@ -186,10 +201,64 @@ function draw(timestamp = performance.now()): void {
   if (!element) return;
   const context = element.getContext('2d');
   if (!context) return;
-  const width = lastSize.width;
-  const height = lastSize.height;
+  const { width, height } = lastSize;
   if (width === 0 || height === 0) return;
   const dpr = window.devicePixelRatio || 1;
+
+  ensureStaticLayer(width, height, dpr);
+  labelCanvas = ensureLayer(labelCanvas, width, height, dpr);
+  if (staticDirty) {
+    paintStaticLayer(width, height, dpr);
+    paintLabelLayer(width, height, dpr);
+    staticDirty = false;
+  }
+
+  context.setTransform(dpr, 0, 0, dpr, 0, 0);
+  context.clearRect(0, 0, width, height);
+  if (staticCanvas) context.drawImage(staticCanvas, 0, 0, width, height);
+
+  context.save();
+  context.translate(props.viewport.offsetX, props.viewport.offsetY);
+  context.scale(props.viewport.scale, props.viewport.scale);
+  drawFlow(context);
+  drawSelection(context);
+  context.restore();
+
+  if (labelCanvas) context.drawImage(labelCanvas, 0, 0, width, height);
+  drawNodes(context);
+  drawEditorHandles(context);
+  drawDraft(context);
+}
+
+/** Статичный слой подложки: пересобирается только при изменении сцены. */
+function ensureStaticLayer(width: number, height: number, dpr: number): HTMLCanvasElement {
+  staticCanvas = ensureLayer(staticCanvas, width, height, dpr);
+
+  return staticCanvas;
+}
+
+function ensureLayer(
+  existing: HTMLCanvasElement | null,
+  width: number,
+  height: number,
+  dpr: number,
+): HTMLCanvasElement {
+  const layer = existing ?? document.createElement('canvas');
+  const pixelWidth = Math.max(1, Math.round(width * dpr));
+  const pixelHeight = Math.max(1, Math.round(height * dpr));
+  if (layer.width !== pixelWidth || layer.height !== pixelHeight) {
+    layer.width = pixelWidth;
+    layer.height = pixelHeight;
+    staticDirty = true;
+  }
+
+  return layer;
+}
+
+function paintStaticLayer(width: number, height: number, dpr: number): void {
+  const layer = ensureStaticLayer(width, height, dpr);
+  const context = layer.getContext('2d');
+  if (!context) return;
 
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
   context.clearRect(0, 0, width, height);
@@ -209,15 +278,20 @@ function draw(timestamp = performance.now()): void {
 
   drawGrid(context);
   drawAreas(context, 'surface');
-  drawLines(context);
+  drawLineBodies(context);
   drawAreas(context, 'object');
   drawRoute(context);
   context.restore();
+}
 
+/** Подписи областей в экранных координатах: свой слой поверх ряби. */
+function paintLabelLayer(width: number, height: number, dpr: number): void {
+  if (!labelCanvas) return;
+  const context = labelCanvas.getContext('2d');
+  if (!context) return;
+  context.setTransform(dpr, 0, 0, dpr, 0, 0);
+  context.clearRect(0, 0, width, height);
   drawAreaLabels(context);
-  drawNodes(context);
-  drawEditorHandles(context);
-  drawDraft(context);
 }
 
 function drawGrid(context: CanvasRenderingContext2D): void {
@@ -258,24 +332,61 @@ function drawAreas(context: CanvasRenderingContext2D, layer: 'surface' | 'object
     context.strokeStyle = color;
     context.lineWidth = MAP_CANVAS_CONFIG.areaStrokeWidth / props.viewport.scale;
     context.stroke();
-    if (props.selected?.kind === 'area' && props.selected.id === area.id) {
-      context.strokeStyle = '#1e88e5';
-      context.lineWidth = (MAP_CANVAS_CONFIG.areaStrokeWidth + 2) / props.viewport.scale;
-      context.stroke();
-    }
   }
 }
 
-function drawLines(context: CanvasRenderingContext2D): void {
+/** Заливка и берега лент — часть статичного слоя. */
+function drawLineBodies(context: CanvasRenderingContext2D): void {
   if (!props.map || !props.variant) return;
   for (const line of sortedLines()) {
     const layout = mapRibbonService.layout(line);
     drawLineFill(context, layout);
-    drawLineFlow(context, line, layout);
     drawLineEdges(context, layout);
-    if (props.selected?.kind === 'line' && props.selected.id === line.id) {
-      drawPolyline(context, layout.flat.points, '#1e88e5', 2 / props.viewport.scale);
-    }
+  }
+}
+
+/** Рябь: единственная часть лент, которая перерисовывается каждый кадр. */
+function drawFlow(context: CanvasRenderingContext2D): void {
+  if (!props.map || !props.variant) return;
+  for (const line of sortedLines()) {
+    if (line.decor?.flow?.enabled !== true) continue;
+    drawLineFlow(context, line, mapRibbonService.layout(line));
+  }
+}
+
+/** Подсветка выбранного элемента поверх статичного слоя. */
+function drawSelection(context: CanvasRenderingContext2D): void {
+  const selected = props.selected;
+  if (!selected) return;
+
+  if (selected.kind === 'area') {
+    const path = flatShapeOf(selected.id);
+    if (!path || path.length < 3) return;
+    context.beginPath();
+    path.forEach((point, index) => {
+      if (index === 0) {
+        context.moveTo(point[0], point[1]);
+      } else {
+        context.lineTo(point[0], point[1]);
+      }
+    });
+    context.closePath();
+    context.strokeStyle = '#1e88e5';
+    context.lineWidth = (MAP_CANVAS_CONFIG.areaStrokeWidth + 2) / props.viewport.scale;
+    context.stroke();
+
+    return;
+  }
+
+  if (selected.kind === 'line') {
+    const line = sortedLines().find((candidate) => candidate.id === selected.id);
+    if (!line) return;
+    drawPolyline(
+      context,
+      mapRibbonService.layout(line).flat.points,
+      '#1e88e5',
+      2 / props.viewport.scale,
+    );
   }
 }
 
@@ -388,31 +499,29 @@ function drawLineFlow(context: CanvasRenderingContext2D, line: MapLine, layout: 
   traceRibbonRange(context, layout.edges, 0, layout.flat.points.length - 1);
   context.clip();
   for (const glint of glints) {
-    context.globalAlpha = glint.alpha;
     context.fillStyle = glint.color;
-    traceGlint(context, glint);
+    context.globalAlpha = glint.alpha * 0.4;
+    tracePolygon(context, glint.halo);
+    context.fill();
+    context.globalAlpha = glint.alpha * 0.7;
+    tracePolygon(context, glint.points);
     context.fill();
   }
   context.restore();
   context.globalAlpha = 1;
 }
 
-/** Линза блика: острые концы и максимум толщины в середине. */
-function traceGlint(context: CanvasRenderingContext2D, glint: FlowGlint): void {
-  const [centerX, centerY] = glint.center;
-  const [tangentX, tangentY] = glint.tangent;
-  const normalX = -tangentY;
-  const normalY = tangentX;
-  const aheadX = centerX + tangentX * glint.halfLength;
-  const aheadY = centerY + tangentY * glint.halfLength;
-  const backX = centerX - tangentX * glint.halfLength;
-  const backY = centerY - tangentY * glint.halfLength;
-  const bulge = glint.halfThickness * 2;
-
+/** Замыкает полигон по точкам. */
+function tracePolygon(context: CanvasRenderingContext2D, points: MapPoint[]): void {
+  if (points.length < 3) return;
   context.beginPath();
-  context.moveTo(backX, backY);
-  context.quadraticCurveTo(centerX + normalX * bulge, centerY + normalY * bulge, aheadX, aheadY);
-  context.quadraticCurveTo(centerX - normalX * bulge, centerY - normalY * bulge, backX, backY);
+  points.forEach((point, index) => {
+    if (index === 0) {
+      context.moveTo(point[0], point[1]);
+    } else {
+      context.lineTo(point[0], point[1]);
+    }
+  });
   context.closePath();
 }
 
@@ -924,13 +1033,17 @@ function loadBaseImage(publicId: string | null | undefined): void {
 }
 
 watch(
+  () => [props.map, props.variant, props.viewport, props.route],
+  invalidateStatic,
+  { deep: true },
+);
+
+watch(baseImage, invalidateStatic);
+
+watch(
   () => [
-    props.map,
-    props.variant,
-    props.viewport,
     props.selected,
     props.selectedTarget,
-    props.route,
     props.draftArea,
     props.draftLine,
     props.rectPoints,

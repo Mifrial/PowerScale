@@ -2,10 +2,12 @@ import type { MapLine } from '@/modules/Roleplay/Map/Dto/MapLine';
 import type { MapPoint } from '@/modules/Roleplay/Map/Dto/MapPoint';
 import type { MapGeometryService } from '@/modules/Roleplay/Map/Service/MapGeometryService';
 
-/** Развёрнутая лента: точки, ширины и номер сегмента у каждого сэмпла. */
+/** Развёрнутая лента: точки, ширины, единичные касательные и номер сегмента у каждого сэмпла. */
 export interface RibbonFlat {
   points: MapPoint[];
   widths: number[];
+  /** Единичная касательная в каждом сэмпле: непрерывна внутри кривой Безье. */
+  tangents: MapPoint[];
   segmentIndices: number[];
   /** Накопленная длина по дуге, начиная с 0. */
   lengths: number[];
@@ -59,14 +61,16 @@ export interface FlowParticle {
   pulse: number;
   /** Фаза мерцания, доля 0..1. */
   pulsePhase: number;
+  /** Множитель скорости: центр русла течёт быстрее берегов. */
+  speedScale: number;
 }
 
-/** Блик ряби на текущий кадр. */
+/** Блик ряби на текущий кадр: изогнутая полоса и её бледный ореол. */
 export interface FlowGlint {
-  center: MapPoint;
-  tangent: MapPoint;
-  halfLength: number;
-  halfThickness: number;
+  /** Основная полоса: одна кромка вперёд, вторая назад. */
+  points: MapPoint[];
+  /** Широкий бледный ореол вокруг основной полосы. */
+  halo: MapPoint[];
   alpha: number;
   color: string;
 }
@@ -74,24 +78,39 @@ export interface FlowGlint {
 /** Геометрия ленты: непрерывные участки цвета, градиенты и рябь течения. */
 export class MapRibbonService {
   private readonly flowCache = new Map<string, FlowParticle[]>();
+  private readonly layoutCache = new Map<string, RibbonLayout>();
 
   constructor(private readonly geometry: MapGeometryService) {}
 
   /**
    * Разворачивает ленту, режет её на участки цвета и считает зоны переходов.
+   *
+   * Раскладка кэшируется по подписи геометрии: анимация ряби не пересчитывает
+   * разворот и края каждый кадр.
    */
   layout(line: MapLine, samples = 16): RibbonLayout {
+    const key = this.layoutSignature(line, samples);
+    const cached = this.layoutCache.get(key);
+    if (cached) return cached;
+
     const flat = this.flatten(line, samples);
     const runs = this.colorRuns(flat, line);
     const transitions: RibbonTransition[] = [];
     const edges = this.ribbonEdges(flat.points, flat.widths);
-
-    return {
+    const result: RibbonLayout = {
       flat,
       edges,
       runs: this.cutTransitions(runs, flat, line.colorBlend ?? 16, transitions),
       transitions,
     };
+
+    this.layoutCache.set(key, result);
+    if (this.layoutCache.size > 64) {
+      const oldest = this.layoutCache.keys().next().value;
+      if (oldest !== undefined) this.layoutCache.delete(oldest);
+    }
+
+    return result;
   }
 
   /** Разворачивает осевую линию в сэмплы с ширинами и номером сегмента. */
@@ -103,6 +122,7 @@ export class MapRibbonService {
       return {
         points: points.map((point) => [point[0], point[1]] as MapPoint),
         widths: points.map((_, index) => Math.max(1, widths[index] ?? 1)),
+        tangents: points.map(() => [1, 0] as MapPoint),
         segmentIndices: points.map((_, index) => Math.max(0, index - 1)),
         lengths: points.map(() => 0),
         totalLength: 0,
@@ -112,6 +132,7 @@ export class MapRibbonService {
     const steps = Math.max(1, samples);
     const flatPoints: MapPoint[] = [];
     const flatWidths: number[] = [];
+    const flatTangents: MapPoint[] = [];
     const segmentIndices: number[] = [];
     for (let index = 1; index < points.length; index += 1) {
       const start = points[index - 1];
@@ -126,11 +147,39 @@ export class MapRibbonService {
         const t = step / steps;
         flatPoints.push(this.geometry.cubicPoint(start, controlOne, controlTwo, end, t));
         flatWidths.push(startWidth + (endWidth - startWidth) * t);
+        flatTangents.push(this.cubicTangent(start, controlOne, controlTwo, end, t));
         segmentIndices.push(index - 1);
       }
     }
 
-    return this.withLengths(this.dedupe(flatPoints, flatWidths, segmentIndices));
+    return this.withLengths(this.dedupe(flatPoints, flatWidths, flatTangents, segmentIndices));
+  }
+
+  /** Единичная касательная кубической кривой Безье. */
+  private cubicTangent(
+    start: MapPoint,
+    controlOne: MapPoint,
+    controlTwo: MapPoint,
+    end: MapPoint,
+    t: number,
+  ): MapPoint {
+    const inverse = 1 - t;
+    const a = 3 * inverse * inverse;
+    const b = 6 * inverse * t;
+    const c = 3 * t * t;
+    const x = a * (controlOne[0] - start[0]) + b * (controlTwo[0] - controlOne[0]) + c * (end[0] - controlTwo[0]);
+    const y = a * (controlOne[1] - start[1]) + b * (controlTwo[1] - controlOne[1]) + c * (end[1] - controlTwo[1]);
+    const length = Math.hypot(x, y);
+    if (length < 1e-9) {
+      const fallbackX = end[0] - start[0];
+      const fallbackY = end[1] - start[1];
+      const fallbackLength = Math.hypot(fallbackX, fallbackY);
+      if (fallbackLength < 1e-9) return [1, 0];
+
+      return [fallbackX / fallbackLength, fallbackY / fallbackLength];
+    }
+
+    return [x / length, y / length];
   }
 
   /** Максимальные участки одинакового эффективного цвета. */
@@ -222,9 +271,7 @@ export class MapRibbonService {
     const density = Math.max(0, Math.min(100, flow.density));
     const opacity = Math.max(0, Math.min(1, flow.opacity / 100));
     const spacing = Math.max(8, 24 - density * 0.16);
-    const count = Math.max(2, Math.min(400, Math.ceil(flat.totalLength / spacing)));
-    const averageWidth = flat.widths.reduce((sum, width) => sum + width, 0) / flat.widths.length;
-    const widthScale = Math.max(0.6, Math.min(1.8, averageWidth / 24));
+    const count = Math.max(2, Math.min(320, Math.ceil(flat.totalLength / spacing)));
     const densityScale = 1.15 - density * 0.0045;
     const particles: FlowParticle[] = [];
 
@@ -234,15 +281,18 @@ export class MapRibbonService {
       const position = this.positionAtDistance(flat, phase * flat.totalLength);
       const water = this.waterColorAt(line, flat, position);
       const tint = this.mixHex(water, flow.color, 0.3 + random() * 0.55);
+      const localWidth = this.interpolateValue(flat.widths, position);
+      const localScale = Math.max(0.55, Math.min(1.6, localWidth / 24));
       particles.push({
         phase,
         lateral,
-        length: (16 + random() * 48) * widthScale * densityScale,
-        thickness: Math.max(0.7, (0.7 + random() * 2.3) * Math.min(1.4, widthScale) * densityScale),
+        length: (16 + random() * 48) * localScale * densityScale,
+        thickness: Math.max(0.7, (0.7 + random() * 2.3) * Math.min(1.4, localScale) * densityScale),
         color: this.mixHex(tint, '#ffffff', 0.05 + random() * 0.18),
         alpha: opacity * (0.35 + random() * 0.65) * (1 - density * 0.003),
         pulse: 0.1 + random() * 0.22,
         pulsePhase: random(),
+        speedScale: (0.72 + (1 - Math.abs(lateral)) * 0.5) * (0.85 + random() * 0.3),
       });
     }
 
@@ -256,9 +306,10 @@ export class MapRibbonService {
   }
 
   /**
-   * Блики на момент времени: позиция вдоль дуги, касательная и текущая непрозрачность.
+   * Блики на момент времени: изогнутые полосы вдоль русла и текущая непрозрачность.
    *
-   * Каждая частица медленно едет по течению и независимо мерцает.
+   * Каждая частица едет по течению со своей скоростью, независимо мерцает и
+   * гаснет у берегов и на концах русла.
    */
   flowGlints(
     particles: FlowParticle[],
@@ -271,32 +322,102 @@ export class MapRibbonService {
     if (particles.length === 0 || flat.totalLength < 1) return [];
 
     const elapsed = reducedMotion ? 0 : timeMs / 1000;
-    const travel = (elapsed * speed * direction) / flat.totalLength;
+    const fadeZone = Math.min(0.08, 60 / flat.totalLength);
     const glints: FlowGlint[] = [];
 
     for (const particle of particles) {
+      const travel = (elapsed * speed * particle.speedScale * direction) / flat.totalLength;
       const progress = ((particle.phase + travel) % 1 + 1) % 1;
-      const position = this.positionAtDistance(flat, progress * flat.totalLength);
+      const pulse = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (particle.pulsePhase + elapsed * particle.pulse));
+      const endFade = Math.min(
+        this.smoothStep(0, fadeZone, progress),
+        1 - this.smoothStep(1 - fadeZone, 1, progress),
+      );
+      const distance = progress * flat.totalLength;
+      const alpha = particle.alpha * pulse * endFade * this.bankFade(flat, distance, particle);
+      if (alpha <= 0.004) continue;
+
+      const band = this.glintBand(flat, distance, particle);
+      if (!band) continue;
+      glints.push({ points: band.core, halo: band.halo, alpha, color: particle.color });
+    }
+
+    return glints;
+  }
+
+  /** Изогнутая полоса блика: кромки идут по дуге, толщина тает к концам. */
+  private glintBand(
+    flat: RibbonFlat,
+    distance: number,
+    particle: FlowParticle,
+  ): { core: MapPoint[]; halo: MapPoint[] } | null {
+    const steps = 6;
+    const halfLength = particle.length / 2;
+    const coreInner: MapPoint[] = [];
+    const coreOuter: MapPoint[] = [];
+    const haloInner: MapPoint[] = [];
+    const haloOuter: MapPoint[] = [];
+    const shiftRatio = Math.max(-1, Math.min(1, particle.lateral)) * 0.9;
+
+    for (let step = 0; step <= steps; step += 1) {
+      const t = step / steps;
+      const clamped = Math.max(0, Math.min(flat.totalLength, distance - halfLength + particle.length * t));
+      const position = this.positionAtDistance(flat, clamped);
       const center = this.centerPoint(flat, position);
       const tangent = this.tangentAt(flat, position);
       const normal: MapPoint = [-tangent[1], tangent[0]];
       const halfWidth = this.interpolateValue(flat.widths, position) / 2;
-      const shift = particle.lateral * halfWidth * 0.9;
-      const pulse = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (particle.pulsePhase + elapsed * particle.pulse));
-      const alpha = particle.alpha * pulse;
-      if (alpha <= 0.004) continue;
+      if (halfWidth < 1) return null;
 
-      glints.push({
-        center: [center[0] + normal[0] * shift, center[1] + normal[1] * shift],
-        tangent,
-        halfLength: particle.length / 2,
-        halfThickness: Math.max(0.4, particle.thickness / 2),
-        alpha,
-        color: particle.color,
-      });
+      const taper = Math.sin(Math.PI * t);
+      const maxHalf = Math.max(0.2, halfWidth * 0.92);
+      let coreHalf = (particle.thickness * taper) / 2;
+      let haloHalf = coreHalf * 2.2 + 0.35 * taper;
+      if (haloHalf > maxHalf) {
+        const scale = maxHalf / haloHalf;
+        haloHalf = maxHalf;
+        coreHalf = Math.min(coreHalf * scale, maxHalf * 0.7);
+      }
+      const limit = Math.max(0, halfWidth - haloHalf - 0.2);
+      const shift = Math.max(-limit, Math.min(limit, shiftRatio * halfWidth));
+      this.pushBandPoint(coreInner, coreOuter, center, normal, shift, coreHalf);
+      this.pushBandPoint(haloInner, haloOuter, center, normal, shift, haloHalf);
     }
 
-    return glints;
+    return {
+      core: [...coreInner, ...[...coreOuter].reverse()],
+      halo: [...haloInner, ...[...haloOuter].reverse()],
+    };
+  }
+
+  /** Пара кромок полосы на одном сэмпле. */
+  private pushBandPoint(
+    inner: MapPoint[],
+    outer: MapPoint[],
+    center: MapPoint,
+    normal: MapPoint,
+    shift: number,
+    half: number,
+  ): void {
+    inner.push([center[0] + normal[0] * (shift + half), center[1] + normal[1] * (shift + half)]);
+    outer.push([center[0] + normal[0] * (shift - half), center[1] + normal[1] * (shift - half)]);
+  }
+
+  /** Мягкое затухание блика у берега. */
+  private bankFade(flat: RibbonFlat, distance: number, particle: FlowParticle): number {
+    const position = this.positionAtDistance(flat, distance);
+    const halfWidth = this.interpolateValue(flat.widths, position) / 2;
+    const room = halfWidth - Math.abs(particle.lateral) * halfWidth * 0.9 - particle.thickness * 1.1;
+
+    return this.smoothStep(0, Math.max(1.5, halfWidth * 0.2), room);
+  }
+
+  /** Плавный переход 0..1 между двумя границами. */
+  private smoothStep(edge0: number, edge1: number, value: number): number {
+    if (edge1 <= edge0) return value < edge0 ? 0 : 1;
+    const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
+
+    return t * t * (3 - 2 * t);
   }
 
   /** Цвет воды под точкой развёрнутой ленты. */
@@ -431,20 +552,62 @@ export class MapRibbonService {
   private dedupe(
     points: MapPoint[],
     widths: number[],
+    tangents: MapPoint[],
     segmentIndices: number[],
   ): Omit<RibbonFlat, 'lengths' | 'totalLength'> {
     const keptPoints: MapPoint[] = [];
     const keptWidths: number[] = [];
+    const keptTangents: MapPoint[] = [];
     const keptSegments: number[] = [];
     points.forEach((point, index) => {
       const previous = keptPoints[keptPoints.length - 1];
       if (previous && Math.hypot(point[0] - previous[0], point[1] - previous[1]) < 1e-6) return;
       keptPoints.push([point[0], point[1]]);
       keptWidths.push(widths[index]);
+      keptTangents.push(tangents[index]);
       keptSegments.push(segmentIndices[index]);
     });
 
-    return { points: keptPoints, widths: keptWidths, segmentIndices: keptSegments };
+    return {
+      points: keptPoints,
+      widths: keptWidths,
+      tangents: keptTangents,
+      segmentIndices: keptSegments,
+    };
+  }
+
+  /** Подпись геометрии для кэша раскладки. */
+  private layoutSignature(line: MapLine, samples: number): string {
+    let hash = 2166136261;
+    const mix = (value: number): void => {
+      hash ^= Math.round(value * 4) & 0xffffffff;
+      hash = Math.imul(hash, 16777619);
+    };
+    mix(line.points.length);
+    mix(samples);
+    for (const point of line.points) {
+      mix(point[0]);
+      mix(point[1]);
+    }
+    for (const width of line.widths) mix(width);
+    for (const handle of line.handles ?? []) {
+      mix(handle.in[0]);
+      mix(handle.in[1]);
+      mix(handle.out[0]);
+      mix(handle.out[1]);
+    }
+    for (const segment of line.segments) {
+      mix(segment.speed);
+      mix(segment.color === null ? 1 : 0);
+    }
+
+    return [
+      line.id,
+      hash >>> 0,
+      line.color,
+      line.colorBlend ?? 16,
+      line.segments.map((segment) => segment.color ?? '').join(','),
+    ].join('|');
   }
 
   private interpolateValue(values: number[], position: number): number {
@@ -455,16 +618,21 @@ export class MapRibbonService {
     return values[Math.max(0, index)] + (values[next] - values[Math.max(0, index)]) * t;
   }
 
+  /** Касательная на дробном индексе сэмпла: интерполяция единичных касательных. */
   private tangentAt(flat: RibbonFlat, position: number): MapPoint {
-    const index = Math.max(0, Math.min(flat.points.length - 1, Math.floor(position)));
-    const start = flat.points[Math.max(0, index - 1)];
-    const end = flat.points[Math.min(flat.points.length - 1, index + 1)];
-    const deltaX = end[0] - start[0];
-    const deltaY = end[1] - start[1];
-    const length = Math.hypot(deltaX, deltaY);
-    if (length < 1e-9) return [1, 0];
+    const last = flat.tangents.length - 1;
+    if (last < 0) return [1, 0];
+    const index = Math.max(0, Math.min(last, Math.floor(position)));
+    const next = Math.min(last, index + 1);
+    const t = Math.max(0, Math.min(1, position - index));
+    const start = flat.tangents[index];
+    const end = flat.tangents[next];
+    const x = start[0] + (end[0] - start[0]) * t;
+    const y = start[1] + (end[1] - start[1]) * t;
+    const length = Math.hypot(x, y);
+    if (length < 1e-9) return start;
 
-    return [deltaX / length, deltaY / length];
+    return [x / length, y / length];
   }
 
   private segmentNormal(start: MapPoint, end: MapPoint): MapPoint {

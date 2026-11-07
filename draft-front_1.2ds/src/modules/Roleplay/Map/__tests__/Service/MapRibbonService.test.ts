@@ -28,6 +28,23 @@ function line(overrides: Partial<MapLine> = {}): MapLine {
 
 const service = new MapRibbonService(new MapGeometryService());
 
+function flowing(overrides: Partial<MapLine> = {}): MapLine {
+  return line({
+    decor: {
+      flow: {
+        enabled: true,
+        speed: 40,
+        density: 50,
+        opacity: 20,
+        color: '#ffffff',
+        direction: 1,
+        seed: 7,
+      },
+    },
+    ...overrides,
+  });
+}
+
 describe('MapRibbonService', () => {
   it('flattens a polyline and keeps the segment index of every sample', () => {
     const flat = service.flatten(line(), 4);
@@ -37,6 +54,40 @@ describe('MapRibbonService', () => {
     expect(flat.segmentIndices[0]).toBe(0);
     expect(flat.segmentIndices.at(-1)).toBe(1);
     expect(flat.totalLength).toBeGreaterThan(190);
+  });
+
+  it('keeps unit tangents continuous along a Bezier piece', () => {
+    const flat = service.flatten(
+      line({
+        points: [
+          [0, 0],
+          [100, 0],
+        ],
+        widths: [20, 20],
+        handles: [
+          { in: [0, 0], out: [40, 40] },
+          { in: [-40, 40], out: [0, 0] },
+        ],
+      }),
+      16,
+    );
+
+    expect(flat.tangents).toHaveLength(flat.points.length);
+    for (const tangent of flat.tangents) {
+      expect(Math.hypot(tangent[0], tangent[1])).toBeCloseTo(1, 6);
+    }
+
+    let maxTurn = 0;
+    for (let index = 1; index < flat.tangents.length; index += 1) {
+      const previous = flat.tangents[index - 1];
+      const current = flat.tangents[index];
+      const dot = Math.min(1, Math.max(-1, previous[0] * current[0] + previous[1] * current[1]));
+      maxTurn = Math.max(maxTurn, Math.acos(dot));
+    }
+
+    // Касательная интерполируется между сэмплами, поэтому на границе сэмплов
+    // направление непрерывно; здесь проверяем, что нет переворотов и рывков.
+    expect(maxTurn).toBeLessThan(0.35);
   });
 
   it('merges equal neighbouring colours into one continuous run', () => {
@@ -103,19 +154,7 @@ describe('MapRibbonService', () => {
   });
 
   it('lays out deterministic ripple particles and reuses the cache', () => {
-    const source = line({
-      decor: {
-        flow: {
-          enabled: true,
-          speed: 40,
-          density: 50,
-          opacity: 20,
-          color: '#ffffff',
-          direction: 1,
-          seed: 7,
-        },
-      },
-    });
+    const source = flowing();
     const layout = service.layout(source, 8);
     const particles = service.flowParticles(source, layout);
     const again = service.flowParticles(source, layout);
@@ -126,20 +165,43 @@ describe('MapRibbonService', () => {
     expect(particles.every((particle) => particle.color !== '#ffffff')).toBe(true);
   });
 
+  it('builds a curved band with a halo for every glint', () => {
+    const source = flowing();
+    const layout = service.layout(source, 8);
+    const particles = service.flowParticles(source, layout);
+    const glints = service.flowGlints(particles, layout.flat, 1000, 40, 1);
+
+    expect(glints.length).toBeGreaterThan(0);
+    for (const glint of glints) {
+      expect(glint.points).toHaveLength(14);
+      expect(glint.halo).toHaveLength(14);
+      expect(glint.points.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y))).toBe(true);
+      expect(glint.alpha).toBeGreaterThan(0);
+    }
+  });
+
+  it('fades glints out near the ends of the channel', () => {
+    const source = flowing();
+    const flat = service.layout(source, 8).flat;
+    const base = {
+      lateral: 0,
+      length: 30,
+      thickness: 2,
+      color: '#ffffff',
+      alpha: 1,
+      pulse: 0,
+      pulsePhase: 0.5,
+      speedScale: 1,
+    };
+    const nearStart = service.flowGlints([{ ...base, phase: 0.01 }], flat, 0, 0, 1);
+    const middle = service.flowGlints([{ ...base, phase: 0.5 }], flat, 0, 0, 1);
+
+    expect(middle).toHaveLength(1);
+    expect(nearStart.length === 0 || nearStart[0].alpha < middle[0].alpha * 0.6).toBe(true);
+  });
+
   it('moves glints over time and freezes them under reduced motion', () => {
-    const source = line({
-      decor: {
-        flow: {
-          enabled: true,
-          speed: 40,
-          density: 50,
-          opacity: 20,
-          color: '#ffffff',
-          direction: 1,
-          seed: 7,
-        },
-      },
-    });
+    const source = flowing();
     const layout = service.layout(source, 8);
     const particles = service.flowParticles(source, layout);
     const first = service.flowGlints(particles, layout.flat, 1000, 40, 1);
@@ -155,19 +217,7 @@ describe('MapRibbonService', () => {
   });
 
   it('fades each glint in and out while the position stays put', () => {
-    const source = line({
-      decor: {
-        flow: {
-          enabled: true,
-          speed: 40,
-          density: 50,
-          opacity: 20,
-          color: '#ffffff',
-          direction: 1,
-          seed: 7,
-        },
-      },
-    });
+    const source = flowing();
     const layout = service.layout(source, 8);
     const particles = service.flowParticles(source, layout);
     const frames = [0, 700, 1400, 2100].map((time) =>
