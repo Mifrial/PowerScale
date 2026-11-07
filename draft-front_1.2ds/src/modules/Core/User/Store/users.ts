@@ -36,6 +36,7 @@ export const useUserStore = defineStore('users', () => {
   function setCurrent(user: User): void {
     guestActor.value = false;
     currentUser.value = user;
+    rememberUsers([user]);
   }
 
   function setGuest(): void {
@@ -56,7 +57,7 @@ export const useUserStore = defineStore('users', () => {
     loading.value = true;
     try {
       const page = await getUserApi().findPage(query, signal);
-      users.value = page.items;
+      rememberUsers(page.items);
       total.value = page.total;
 
       return page;
@@ -67,6 +68,15 @@ export const useUserStore = defineStore('users', () => {
     } finally {
       loading.value = false;
     }
+  }
+
+  /**
+   * Дополняет каталог известными профилями, не затирая уже загруженные.
+   */
+  function rememberUsers(list: User[]): void {
+    const byId = new Map(users.value.map((user) => [user.id, user]));
+    for (const user of list) byId.set(user.id, user);
+    users.value = [...byId.values()];
   }
 
   async function getUser(id: number, signal?: AbortSignal): Promise<User> {
@@ -90,9 +100,7 @@ export const useUserStore = defineStore('users', () => {
       request = (async () => {
         try {
           const fetched = await getUsersByIds(missing);
-          for (const user of fetched) {
-            if (!users.value.some((existing) => existing.id === user.id)) users.value.push(user);
-          }
+          rememberUsers(fetched);
         } catch {
           // Best-effort прогрев каталога: профили догрузятся при следующем обращении (плейсхолдер аватара/имени).
         }
@@ -165,6 +173,7 @@ export const useUserStore = defineStore('users', () => {
     clearCurrent,
     setProfileUser,
     findPage,
+    rememberUsers,
     getUser,
     getUsersByIds,
     ensureUsers,

@@ -3,9 +3,8 @@ import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
-import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { accessService, useCurrentUser } from '@/modules/Core/User/init';
+import { accessService, displayName, useCurrentUser, useUserCatalog } from '@/modules/Core/User/init';
 import { useFilteredRows } from '@/modules/Core/UI/Composables/useFilteredRows';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import { filterFields } from '@/modules/Roleplay/Character/Constant/charactersGridManifest';
@@ -17,18 +16,27 @@ import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/Characte
 const router = useRouter();
 const store = useCharacterStore();
 const { currentUser } = useCurrentUser();
+const { users, ensureUsers } = useUserCatalog();
 const { loading } = storeToRefs(store);
 const { signal } = useAbortable();
 
 const canCreate = computed(() => accessService.hasAnyPermission(currentUser.value, ['character.create']));
 
-// «Полностью невидим»: персонажи, к которым у текущего пользователя нет доступа по зонам, не в списке.
-const visibleCharacters = computed(() =>
-  store.characters.filter((character) => characterAccessService.canViewCharacter(currentUser.value, character)),
-);
+const ownerLabels = computed(() => {
+  const labels = new Map<number, string>();
+  for (const user of users.value) {
+    labels.set(user.id, displayName(user.name, user.surname, user.login) || user.login);
+  }
+
+  return labels;
+});
 
 const rows = computed(() =>
-  visibleCharacters.value.map((character) => ({ ...character, inGame: character.gameId !== null })),
+  store.characters.map((character) => ({
+    ...character,
+    ownerName: ownerLabels.value.get(character.ownerId) ?? character.ownerName,
+    inGame: character.gameId !== null,
+  })),
 );
 
 const { appliedFilters, filteredRows, onFilterChange } = useFilteredRows({
@@ -36,6 +44,14 @@ const { appliedFilters, filteredRows, onFilterChange } = useFilteredRows({
   fields: filterFields,
   searchFields: ['name', 'raceLabel', 'ownerName', 'gameName'],
 });
+
+const hasOwnerFilter = computed(() => appliedFilters.value.ownerId !== undefined);
+
+function showAllOwners(): void {
+  const next = { ...appliedFilters.value };
+  delete next.ownerId;
+  onFilterChange(next);
+}
 
 function statusLabel(status: CharacterStatus): string {
   return CHARACTER_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
@@ -53,12 +69,17 @@ function pointsSummary(character: Character): string {
   return parts.join(' · ');
 }
 
-onMounted(() => store.fetchCharacters(signal.value));
+onMounted(async () => {
+  const id = currentUser.value?.id;
+  if (id !== undefined) onFilterChange({ ownerId: id });
+  await store.fetchCharacters(signal.value);
+  await ensureUsers(store.characters.map((character) => character.ownerId));
+});
 </script>
 
 <template>
   <v-container>
-    <Teleport to="#editor-actions">
+    <Teleport to="#editor-actions" defer>
       <v-btn
         v-if="canCreate"
         variant="tonal"
@@ -113,7 +134,7 @@ onMounted(() => store.fetchCharacters(signal.value));
               {{ character.shortDescription ?? '—' }}
             </div>
             <div class="text-caption text-medium-emphasis">
-              Владелец: {{ character.ownerName }} · {{ pointsSummary(character) }}
+              Владелец: {{ character.ownerName || '—' }} · {{ pointsSummary(character) }}
             </div>
           </v-card-text>
         </v-card>
@@ -121,7 +142,10 @@ onMounted(() => store.fetchCharacters(signal.value));
     </v-row>
 
     <div v-if="filteredRows.length === 0 && !loading" class="text-center text-medium-emphasis pa-8">
-      Персонажи не найдены
+      <div>Персонажи не найдены</div>
+      <v-btn v-if="hasOwnerFilter" variant="text" size="small" class="mt-2" @click="showAllOwners">
+        Показать всех
+      </v-btn>
     </div>
   </v-container>
 </template>

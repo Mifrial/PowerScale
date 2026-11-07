@@ -15,6 +15,12 @@ import { ADMINISTRATION_MENU_SECTION } from '@/modules/Core/User/Constant/Naviga
 import { USERS_MENU_ITEM } from '@/modules/Core/User/Constant/Navigation/USERS_MENU_ITEM';
 import { GROUPS_MENU_ITEM } from '@/modules/Core/User/Constant/Navigation/GROUPS_MENU_ITEM';
 import { registerMenuContribution, registerMenuItem, registerMenuSection } from '@/modules/Core/UI/init';
+import { fieldTypeRegistry } from '@/modules/Core/UI/Service/Instance/fieldTypeRegistry';
+import { UserFieldTypeInterpreter } from '@/modules/Core/User/Service/Field/UserFieldTypeInterpreter';
+
+const UserSelectFilter = defineAsyncComponent(
+  () => import('@/modules/Core/User/Component/Filter/UserSelectFilter.vue'),
+);
 
 export { accessService } from '@/modules/Core/User/Service/Instance/accessService';
 export { useUserStore } from '@/modules/Core/User/Store/users';
@@ -111,6 +117,10 @@ export function resetPermissionRegistries(): void {
 }
 
 export function registerUserModule(): void {
+  fieldTypeRegistry.register('user', {
+    interpreter: new UserFieldTypeInterpreter(),
+    filterWidget: UserSelectFilter,
+  });
   registerPermissionCategory(USER_PERMISSION_CATEGORY);
   registerPermissionCategory(USER_GROUP_PERMISSION_CATEGORY);
   registerAdminSection(GROUPS_ADMIN_SECTION);

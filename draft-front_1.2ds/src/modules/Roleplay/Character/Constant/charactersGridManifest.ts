@@ -10,7 +10,7 @@ export const filterFields: FilterField[] = [
     options: CHARACTER_STATUS_OPTIONS,
   },
   { key: 'raceLabel', label: 'Раса', type: 'string' },
-  { key: 'ownerName', label: 'Владелец', type: 'string' },
+  { key: 'ownerId', label: 'Владелец', type: 'user' },
   { key: 'gameName', label: 'Игра', type: 'string' },
   {
     key: 'inGame',
