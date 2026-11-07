@@ -7,12 +7,8 @@ namespace Mifrial\Roleplay\Character\Service\Sheet;
 use Mifrial\Roleplay\Character\Dto\CharacterAbilityChoice;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityBase;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityProcessSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 
@@ -171,7 +167,7 @@ final class CharacterWeaponFamilyMastery
     {
         $rule = $slice->findLive($ability->getRuleCode());
         $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        $base = $this->abilityBase($spec);
+        $base = CharacterAbilityBase::of($spec);
         if ($base === null || $base->getDomainRef() !== 'weapon-family') {
             return false;
         }
@@ -179,26 +175,5 @@ final class CharacterWeaponFamilyMastery
         $domain = $ability->getDomainCode() !== '' ? $ability->getDomainCode() : $ability->getDomain();
 
         return $domain === $familyCode;
-    }
-
-    /**
-     * Общая база способности.
-     *
-     * @param mixed $spec Спека.
-     *
-     * @return AbilityBase|null База или null.
-     */
-    private function abilityBase(mixed $spec): ?AbilityBase
-    {
-        if (
-            $spec instanceof AbilityActionSpec
-            || $spec instanceof AbilityPlainSpec
-            || $spec instanceof AbilityProcessSpec
-            || $spec instanceof AbilitySpellSpec
-        ) {
-            return $spec->getBase();
-        }
-
-        return null;
     }
 }

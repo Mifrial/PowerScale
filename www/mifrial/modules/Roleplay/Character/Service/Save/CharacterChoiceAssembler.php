@@ -136,17 +136,33 @@ final class CharacterChoiceAssembler
                 continue;
             }
 
-            if (is_int($value)) {
-                $values[$code] = $value;
-                continue;
-            }
-
-            if (is_array($value) && is_int($value['base'] ?? null) && (int) ($value['size'] ?? 0) === 0) {
-                $values[$code] = $value['base'];
+            $scalar = $this->parameterValue($value);
+            if ($scalar !== null) {
+                $values[$code] = $scalar;
             }
         }
 
         return $values;
+    }
+
+    /**
+     * Скаляр параметра. Размерный объект с size ≠ 0 — null.
+     *
+     * @param mixed $value Карта или значение.
+     *
+     * @return int|null Скаляр или null.
+     */
+    private function parameterValue(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_array($value) && is_int($value['base'] ?? null) && (int) ($value['size'] ?? 0) === 0) {
+            return $value['base'];
+        }
+
+        return null;
     }
 
     /**

@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Character\Service\Sheet;
 
+use Mifrial\Roleplay\Character\Dto\CharacterAbilityChoice;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
+use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityProcessSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityZone;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Zone\ArrayZone;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Zone\AutomaticZone;
@@ -34,26 +33,41 @@ final class CharacterDerivedLevels
     {
         $levels = [];
         foreach ($slice->getLiveRules() as $rule) {
-            $base = $this->abilityBase($rule->isSpecBroken() ? null : $rule->getSpec());
-            $derived = $base?->getDerivedLevel();
-            if ($base === null || $derived === null) {
-                continue;
-            }
-
-            $experience = $this->experience($slice, $choices, $derived->getSourceKeyword());
-            $level = 0;
-            foreach ($derived->getThresholds() as $threshold) {
-                if ($experience >= $threshold) {
-                    $level++;
-                }
-            }
-
+            $level = $this->ruleLevel($slice, $choices, $rule);
             if ($level > 0) {
                 $levels[$rule->getCode()] = $level;
             }
         }
 
         return $levels;
+    }
+
+    /**
+     * Производный уровень одного правила.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $choices Выборы.
+     * @param CharacterResolvedRule $rule Правило.
+     *
+     * @return int Уровень.
+     */
+    private function ruleLevel(CharacterRuleSlice $slice, CharacterChoices $choices, CharacterResolvedRule $rule): int
+    {
+        $base = CharacterAbilityBase::of($rule->isSpecBroken() ? null : $rule->getSpec());
+        $derived = $base?->getDerivedLevel();
+        if ($base === null || $derived === null) {
+            return 0;
+        }
+
+        $experience = $this->experience($slice, $choices, $derived->getSourceKeyword());
+        $level = 0;
+        foreach ($derived->getThresholds() as $threshold) {
+            if ($experience >= $threshold) {
+                $level++;
+            }
+        }
+
+        return $level;
     }
 
     /**
@@ -69,24 +83,40 @@ final class CharacterDerivedLevels
     {
         $sum = 0;
         foreach ($choices->getAbilities() as $ability) {
-            if ($ability->getLevel() < 1) {
-                continue;
-            }
-
-            $rule = $slice->findLive($ability->getRuleCode());
-            if ($rule === null || $rule->isSpecBroken() || !in_array($keyword, $rule->getKeywordCodes(), true)) {
-                continue;
-            }
-
-            $base = $this->abilityBase($rule->getSpec());
-            if ($base === null) {
-                continue;
-            }
-
-            $sum += $this->cost($base, $ability->getLevel(), $ability->getParameters());
+            $sum += $this->abilityExperience($slice, $ability, $keyword);
         }
 
         return $sum;
+    }
+
+    /**
+     * Опыт одной взятой способности с признаком.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterAbilityChoice $ability Выбор.
+     * @param string $keyword Код признака.
+     *
+     * @return int Опыт.
+     */
+    private function abilityExperience(CharacterRuleSlice $slice, CharacterAbilityChoice $ability, string $keyword): int
+    {
+        $level = $ability->getLevel();
+        $rule = $slice->findLive($ability->getRuleCode());
+        if (
+            $level < 1
+            || $rule === null
+            || $rule->isSpecBroken()
+            || !in_array($keyword, $rule->getKeywordCodes(), true)
+        ) {
+            return 0;
+        }
+
+        $base = CharacterAbilityBase::of($rule->getSpec());
+        if ($base === null) {
+            return 0;
+        }
+
+        return $this->cost($base, $level, $ability->getParameters());
     }
 
     /**
@@ -122,50 +152,48 @@ final class CharacterDerivedLevels
      */
     private function zoneCost(AbilityZone $zone, int $level, array $parameters): int
     {
-        if ($zone instanceof ArrayZone) {
-            $sum = 0;
-            foreach (array_slice($zone->getLevelsCost(), 0, $level) as $price) {
-                $sum += $price;
-            }
-
-            return $sum;
-        }
-
-        if ($zone instanceof ProgressionZone) {
-            $sum = 0;
-            $steps = min($level, $zone->getMaxLevel());
-            for ($index = 0; $index < $steps; $index++) {
-                $sum += $zone->getBaseCost() + $index * $zone->getStep();
-            }
-
-            return $sum;
-        }
-
-        if ($zone instanceof ParameterZone) {
-            return ($parameters[$zone->getParameterCode()] ?? 1) * $zone->getPerUnit();
-        }
-
-        return 0;
+        return match (true) {
+            $zone instanceof ArrayZone => $this->arrayCost($zone, $level),
+            $zone instanceof ProgressionZone => $this->progressionCost($zone, $level),
+            $zone instanceof ParameterZone => ($parameters[$zone->getParameterCode()] ?? 1) * $zone->getPerUnit(),
+            default => 0,
+        };
     }
 
     /**
-     * Общая база способности.
+     * Цена массива цен до уровня.
      *
-     * @param mixed $spec Спека.
+     * @param ArrayZone $zone Зона.
+     * @param int $level Уровень.
      *
-     * @return AbilityBase|null База или null.
+     * @return int Цена.
      */
-    private function abilityBase(mixed $spec): ?AbilityBase
+    private function arrayCost(ArrayZone $zone, int $level): int
     {
-        if (
-            $spec instanceof AbilityActionSpec
-            || $spec instanceof AbilityPlainSpec
-            || $spec instanceof AbilityProcessSpec
-            || $spec instanceof AbilitySpellSpec
-        ) {
-            return $spec->getBase();
+        $sum = 0;
+        foreach (array_slice($zone->getLevelsCost(), 0, $level) as $price) {
+            $sum += $price;
         }
 
-        return null;
+        return $sum;
+    }
+
+    /**
+     * Цена прогрессии до уровня.
+     *
+     * @param ProgressionZone $zone Зона.
+     * @param int $level Уровень.
+     *
+     * @return int Цена.
+     */
+    private function progressionCost(ProgressionZone $zone, int $level): int
+    {
+        $sum = 0;
+        $steps = min($level, $zone->getMaxLevel());
+        for ($index = 0; $index < $steps; $index++) {
+            $sum += $zone->getBaseCost() + $index * $zone->getStep();
+        }
+
+        return $sum;
     }
 }

@@ -99,23 +99,14 @@ final class CharacterSheetLive
         $validation = $this->sheets->validate($slice, $model);
         $chosen = $validation->getAbilityLevels();
         $requirementLevels = $this->withDerived($slice, $model, $chosen);
-        $levels = $requirementLevels;
-        $live = [];
-        $resourceLimits = [];
-        for ($pass = 0; $pass < 3; $pass++) {
-            $rows = $this->characteristics->compute($slice, $model, $validation, $sheet, $levels);
-            $live = $this->indexCharacteristics($rows);
-            $levels = $this->withDerived(
-                $slice,
-                $model,
-                $this->activity->effectiveLevels($slice, $model, $chosen, $live, $resourceLimits, $requirementLevels),
-            );
-            $resourceRows = $this->resources($slice, $validation, $model, $sheet, $live);
-            $resourceLimits = $this->indexLimits($resourceRows);
-            $sheet['characteristics'] = $rows;
-            $sheet['resources'] = $this->resourceStorage->serializeRows($resourceRows);
-            $sheet['abilityLevels'] = $levels;
-        }
+        [$sheet, $levels, $live] = $this->livePasses(
+            $slice,
+            $model,
+            $validation,
+            $sheet,
+            $chosen,
+            $requirementLevels,
+        );
 
         $sheet['senses'] = $this->characteristics->activeSenses($slice, $model, $validation, $levels);
         $sheet['weaponFamilyMastery'] = $this->weaponFamilies->compute($slice, $model, $live);
@@ -151,6 +142,48 @@ final class CharacterSheetLive
             is_array($choices['customRules'] ?? null) ? $choices['customRules'] : [],
             is_bool($choices['active'] ?? null) ? $choices['active'] : null,
         );
+    }
+
+    /**
+     * Три прохода фиксированной точки по характеристикам и ресурсам.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $model Выборы.
+     * @param CharacterValidation $validation Снимок C4.
+     * @param array<string, mixed> $sheet Документ sheet.
+     * @param array<string, int> $chosen Купленные уровни.
+     * @param array<string, int> $requirementLevels Уровни с производными.
+     *
+     * @return array{0: array<string, mixed>, 1: array<string, int>, 2: array<string, CharacteristicNumber>}
+     *         Sheet, уровни и живые характеристики.
+     */
+    private function livePasses(
+        CharacterRuleSlice $slice,
+        CharacterChoices $model,
+        CharacterValidation $validation,
+        array $sheet,
+        array $chosen,
+        array $requirementLevels,
+    ): array {
+        $levels = $requirementLevels;
+        $live = [];
+        $resourceLimits = [];
+        for ($pass = 0; $pass < 3; $pass++) {
+            $rows = $this->characteristics->compute($slice, $model, $validation, $sheet, $levels);
+            $live = $this->indexCharacteristics($rows);
+            $levels = $this->withDerived(
+                $slice,
+                $model,
+                $this->activity->effectiveLevels($slice, $model, $chosen, $live, $resourceLimits, $requirementLevels),
+            );
+            $resourceRows = $this->resources($slice, $validation, $model, $sheet, $live);
+            $resourceLimits = $this->indexLimits($resourceRows);
+            $sheet['characteristics'] = $rows;
+            $sheet['resources'] = $this->resourceStorage->serializeRows($resourceRows);
+            $sheet['abilityLevels'] = $levels;
+        }
+
+        return [$sheet, $levels, $live];
     }
 
     /**
@@ -217,13 +250,27 @@ final class CharacterSheetLive
 
         $next = [];
         foreach ($rows as $row) {
-            $base = $row->getBase();
-            $bonuses = $row->getBonuses();
-            foreach ($states as $state) {
-                if (!is_array($state)) {
-                    continue;
-                }
+            $next[] = $this->stateRow($slice, $states, $row);
+        }
 
+        return $next;
+    }
+
+    /**
+     * Эффекты состояний на одну строку ресурса.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<int, mixed> $states Строки состояний.
+     * @param ResourceRow $row Строка.
+     *
+     * @return ResourceRow Строка.
+     */
+    private function stateRow(CharacterRuleSlice $slice, array $states, ResourceRow $row): ResourceRow
+    {
+        $base = $row->getBase();
+        $bonuses = $row->getBonuses();
+        foreach ($states as $state) {
+            if (is_array($state)) {
                 $bonuses = $this->applyStateBonuses(
                     $slice,
                     $state,
@@ -232,18 +279,16 @@ final class CharacterSheetLive
                     $bonuses,
                 );
             }
-
-            if ($base === null) {
-                $next[] = $row;
-                continue;
-            }
-
-            $limit = $this->arithmetic->effective($base, $bonuses);
-            $current = $this->arithmetic->clamp($row->getCurrent(), $limit);
-            $next[] = new ResourceRow($row->getRuleCode(), $current, $base, $bonuses);
         }
 
-        return $next;
+        if ($base === null) {
+            return $row;
+        }
+
+        $limit = $this->arithmetic->effective($base, $bonuses);
+        $current = $this->arithmetic->clamp($row->getCurrent(), $limit);
+
+        return new ResourceRow($row->getRuleCode(), $current, $base, $bonuses);
     }
 
     /**

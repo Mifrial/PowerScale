@@ -65,26 +65,10 @@ final class CharacterResourceLimits
         array $liveCharacteristics = [],
     ): array {
         $previous = $this->indexPrevious($previousRows);
-        $fallback = $liveCharacteristics === [];
-        $context = $fallback ? $this->context($validation) : new FormulaContext(
-            $liveCharacteristics,
-            $validation->getAbilityLevels(),
-        );
+        $context = $this->buildContext($validation, $liveCharacteristics);
         $grants = $this->grantReader->getByResource($slice, $choices);
-        $rows = [];
-
-        foreach ($slice->getLiveRules() as $rule) {
-            $row = $this->buildRow($rule->getCode(), $rule->getSpec(), $grants, $context, $previous);
-            if ($row instanceof ResourceRow) {
-                $rows[] = $row;
-            }
-        }
-
-        foreach ($previous as $code => $_row) {
-            if ($slice->findLive($code) === null) {
-                throw new CharacterInvalidException('Resource rule was removed');
-            }
-        }
+        $rows = $this->rowsFromRules($slice, $grants, $context, $previous);
+        $this->assertPreviousLive($slice, $previous);
 
         return $rows;
     }
@@ -125,6 +109,69 @@ final class CharacterResourceLimits
         }
 
         return $this->limit($spec, $this->grantReader->getByResource($slice, $choices)[$code] ?? [], $context);
+    }
+
+    /**
+     * Контекст формул: живые характеристики или снимок валидации.
+     *
+     * @param CharacterValidation $validation Снимок.
+     * @param array<string, DimensionalNumber> $liveCharacteristics Живые характеристики.
+     *
+     * @return FormulaContext Контекст.
+     */
+    private function buildContext(CharacterValidation $validation, array $liveCharacteristics): FormulaContext
+    {
+        if ($liveCharacteristics === []) {
+            return $this->context($validation);
+        }
+
+        return new FormulaContext($liveCharacteristics, $validation->getAbilityLevels());
+    }
+
+    /**
+     * Строки по live-правилам.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, array<int, ResourceGrant|ResourceLimitChangeGrant>> $grants Гранты по ресурсам.
+     * @param FormulaContext $context Контекст.
+     * @param array<string, ResourceRow> $previous Предыдущие строки.
+     *
+     * @return array<int, ResourceRow> Строки.
+     */
+    private function rowsFromRules(
+        CharacterRuleSlice $slice,
+        array $grants,
+        FormulaContext $context,
+        array $previous,
+    ): array {
+        $rows = [];
+        foreach ($slice->getLiveRules() as $rule) {
+            $row = $this->buildRow($rule->getCode(), $rule->getSpec(), $grants, $context, $previous);
+            if ($row instanceof ResourceRow) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Прежняя строка не должна пережить своё правило.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, ResourceRow> $previous Предыдущие строки.
+     *
+     * @return void
+     *
+     * @throws CharacterInvalidException Если правило снято.
+     */
+    private function assertPreviousLive(CharacterRuleSlice $slice, array $previous): void
+    {
+        foreach ($previous as $code => $_row) {
+            if ($slice->findLive($code) === null) {
+                throw new CharacterInvalidException('Resource rule was removed');
+            }
+        }
     }
 
     /**
@@ -262,18 +309,13 @@ final class CharacterResourceLimits
         }
 
         $node = $adjustment->getValue();
-        if (
-            $node instanceof CharacteristicSizeScalar
-            || $node instanceof CharacteristicSizePositiveScalar
-        ) {
-            return $node->getCharacteristicCode();
-        }
 
-        if ($node instanceof CharacteristicSizeGapScalar) {
-            return $node->getCharacteristicCodeFrom();
-        }
-
-        return null;
+        return match (true) {
+            $node instanceof CharacteristicSizeScalar,
+            $node instanceof CharacteristicSizePositiveScalar => $node->getCharacteristicCode(),
+            $node instanceof CharacteristicSizeGapScalar => $node->getCharacteristicCodeFrom(),
+            default => null,
+        };
     }
 
     /**
