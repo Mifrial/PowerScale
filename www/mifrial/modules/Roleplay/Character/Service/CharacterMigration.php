@@ -100,25 +100,11 @@ final class CharacterMigration
      */
     private function build(CharacterRecord $record, MigrateCharacterInput $input, array $prepared): array
     {
-        $this->keys->assertLimits($prepared['limits'], false);
-        $this->keys->assertLists(
-            $prepared['abilities'],
-            $prepared['inventory'],
-            $prepared['characteristicPurchases'],
-            $prepared['customRules'],
-        );
-        $this->keys->assertExpectedSheet($prepared['expectedSheet']);
+        $this->assertPrepared($prepared);
         $built = $this->assembly->build(
             $record->getSpaceId(),
             $input->revision,
-            $prepared['name'],
-            $prepared['raceCode'],
-            $prepared['abilities'],
-            $prepared['inventory'],
-            $prepared['characteristicPurchases'],
-            $prepared['customRules'],
             $prepared['active'],
-            $prepared['limits'],
             $prepared['money'],
             false,
             $prepared['expectedSheet'],
@@ -128,6 +114,27 @@ final class CharacterMigration
         $built['problems'] = $this->assembly->withClientCash($built['problems'], $input->money);
 
         return $built;
+    }
+
+    /**
+     * Проверка ключей подготовленных полей.
+     *
+     * @param array{limits: array<mixed>, abilities: array<mixed>, inventory: array<mixed>, characteristicPurchases: array<mixed>, customRules: array<mixed>, expectedSheet: array<mixed>|null} $prepared Поля.
+     *
+     * @return void
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function assertPrepared(array $prepared): void
+    {
+        $this->keys->assertLimits($prepared['limits'], false);
+        $this->keys->assertLists(
+            $prepared['abilities'],
+            $prepared['inventory'],
+            $prepared['characteristicPurchases'],
+            $prepared['customRules'],
+        );
+        $this->keys->assertExpectedSheet($prepared['expectedSheet']);
     }
 
     /**

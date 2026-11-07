@@ -62,14 +62,7 @@ final class CharacterSaveAssembly
      *
      * @param int $spaceId Мир.
      * @param int $revision Ревизия.
-     * @param string $name Имя.
-     * @param string $raceCode Раса.
-     * @param array<mixed> $abilities Способности.
-     * @param array<mixed> $inventory Инвентарь.
-     * @param array<mixed> $characteristicPurchases Закупки.
-     * @param array<mixed> $customRules Свои правила.
      * @param bool|null $active Флаг.
-     * @param array<mixed> $limits Лимиты.
      * @param int|null $updateMoney Наличные update или null на create.
      * @param bool $shopCreate Считать шоп.
      * @param array<mixed>|null $expectedSheet Сверка.
@@ -82,14 +75,7 @@ final class CharacterSaveAssembly
     public function build(
         int $spaceId,
         int $revision,
-        string $name,
-        string $raceCode,
-        array $abilities,
-        array $inventory,
-        array $characteristicPurchases,
-        array $customRules,
         ?bool $active,
-        array $limits,
         ?int $updateMoney,
         bool $shopCreate,
         ?array $expectedSheet,
@@ -97,20 +83,14 @@ final class CharacterSaveAssembly
         ?array $previousSheet = null,
     ): array {
         $slice = $this->ruleSlices->get($spaceId, $revision);
-        $model = $this->choiceAssembler->assemble(
-            $name,
-            $raceCode,
-            $abilities,
-            $inventory,
-            $characteristicPurchases,
-            $customRules,
-            $active,
-        );
+        $model = $this->assembleModel($choices, $active);
         $validation = $this->sheets->validate($slice, $model);
+        $limits = $this->listOf($choices, 'limits');
         $money = $this->moneyOf($slice, $model, $limits, $updateMoney, $shopCreate);
-        $sheet = $this->buildSheet($slice, $validation, $model, $money['money'], $choices, $previousSheet);
+        $sheet = $this->buildSheet($slice, $validation, $model, $money['money'], $previousSheet);
         $choices['money'] = $money['money'];
         $sheet = Character::fromDocument($slice, $choices, $sheet, $this->sheets)->getSheet();
+        $name = $this->stringOf($choices, 'name');
 
         return $this->result($validation, $limits, $money['problems'], $sheet, $expectedSheet, $choices, $name);
     }
@@ -132,6 +112,57 @@ final class CharacterSaveAssembly
         $problems[] = new CharacterProblem('CHARACTER_MONEY', 'Money must not be negative', 'input', 'money');
 
         return $problems;
+    }
+
+    /**
+     * Выборы из документа choices.
+     *
+     * @param array<string, mixed> $choices Документ.
+     * @param bool|null $active Флаг. null — ключа во входе не было.
+     *
+     * @return CharacterChoices Выборы.
+     */
+    private function assembleModel(array $choices, ?bool $active): CharacterChoices
+    {
+        return $this->choiceAssembler->assemble(
+            $this->stringOf($choices, 'name'),
+            $this->stringOf($choices, 'raceCode'),
+            $this->listOf($choices, 'abilities'),
+            $this->listOf($choices, 'inventory'),
+            $this->listOf($choices, 'characteristicPurchases'),
+            $this->listOf($choices, 'customRules'),
+            $active,
+        );
+    }
+
+    /**
+     * Строка документа choices.
+     *
+     * @param array<string, mixed> $document Документ.
+     * @param string $key Ключ.
+     *
+     * @return string Значение или пустая строка.
+     */
+    private function stringOf(array $document, string $key): string
+    {
+        $value = $document[$key] ?? null;
+
+        return is_string($value) ? $value : '';
+    }
+
+    /**
+     * Список документа choices.
+     *
+     * @param array<string, mixed> $document Документ.
+     * @param string $key Ключ.
+     *
+     * @return array<mixed> Список или пустой массив.
+     */
+    private function listOf(array $document, string $key): array
+    {
+        $value = $document[$key] ?? null;
+
+        return is_array($value) ? $value : [];
     }
 
     /**
@@ -260,7 +291,6 @@ final class CharacterSaveAssembly
      * @param CharacterValidation $validation Validation result.
      * @param CharacterChoices $model Typed choices.
      * @param int $money Current money.
-     * @param array<string, mixed> $choices Выборы клиента.
      * @param array<string, mixed>|null $previousSheet Previous sheet.
      *
      * @return array<string, mixed> Sheet document.
@@ -272,7 +302,6 @@ final class CharacterSaveAssembly
         CharacterValidation $validation,
         CharacterChoices $model,
         int $money,
-        array $choices,
         ?array $previousSheet,
     ): array {
         $previousRows = $this->previousRows($previousSheet, $slice);

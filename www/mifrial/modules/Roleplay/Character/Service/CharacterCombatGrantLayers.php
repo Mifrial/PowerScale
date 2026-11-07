@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Character\Service;
 use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Roleplay\Character\Dto\CharacterCombatLayer;
 use Mifrial\Roleplay\Character\Dto\CharacterDonorGrant;
+use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
@@ -96,9 +97,7 @@ final class CharacterCombatGrantLayers
         }
 
         if ($rule->isSpecBroken()) {
-            if ($this->grantsResistance($rule->getSpecDocument())) {
-                $this->reject();
-            }
+            $this->assertBrokenSpecAllowed($rule);
 
             // Битая spec без resistance не блокирует удар: слой пропускается, как у предметов.
             return [];
@@ -108,6 +107,22 @@ final class CharacterCombatGrantLayers
             $donors->getForLevel($rule, $code, $level),
             $this->contexts->build($sheet, $this->parameters($choices, $code)),
         );
+    }
+
+    /**
+     * Битая spec допустима, только если в ней нет resistance.
+     *
+     * @param CharacterResolvedRule $rule Правило.
+     *
+     * @return void
+     *
+     * @throws CharacterInvalidException Если resistance нужно исполнить.
+     */
+    private function assertBrokenSpecAllowed(CharacterResolvedRule $rule): void
+    {
+        if ($this->grantsResistance($rule->getSpecDocument())) {
+            $this->reject();
+        }
     }
 
     /**
@@ -265,10 +280,18 @@ final class CharacterCombatGrantLayers
             $value = $value->getMembers();
         }
 
-        if (!is_array($value)) {
-            return false;
-        }
+        return is_array($value) && $this->containsResistance($value);
+    }
 
+    /**
+     * Есть ли тип resistance в разобранном узле.
+     *
+     * @param array<mixed> $value Узел spec.
+     *
+     * @return bool true, если грант найден.
+     */
+    private function containsResistance(array $value): bool
+    {
         if (($value['type'] ?? null) === 'resistance') {
             return true;
         }

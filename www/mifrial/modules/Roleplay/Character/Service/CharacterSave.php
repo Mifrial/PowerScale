@@ -74,22 +74,7 @@ final class CharacterSave
     {
         $actor = $this->userAccess->requireKey(self::CREATE);
         $this->assertShape($input->limits, $input->abilities, $input->inventory, $input->characteristicPurchases, $input->customRules, $input->expectedSheet, true);
-        $built = $this->assembly->build(
-            $input->spaceId,
-            $input->revision,
-            $input->name,
-            $input->raceCode,
-            $input->abilities,
-            $input->inventory,
-            $input->characteristicPurchases,
-            $input->customRules,
-            $input->active,
-            $input->limits,
-            null,
-            true,
-            $input->expectedSheet,
-            $this->choiceAssembler->buildDocument($input),
-        );
+        $built = $this->assemble($input, $input->spaceId, $input->revision, null, true);
         $this->guard($built['problems']);
         $characterId = $this->characters->add($this->newCharacter($actor->getUserId(), $input, $built));
 
@@ -151,27 +136,51 @@ final class CharacterSave
     private function builtUpdate(UpdateCharacterInput $input, CharacterRecord $record): array
     {
         $this->assertShape($input->limits, $input->abilities, $input->inventory, $input->characteristicPurchases, $input->customRules, $input->expectedSheet, false);
-        $built = $this->assembly->build(
+        $built = $this->assemble(
+            $input,
             $record->getSpaceId(),
             $record->getRulesRevision(),
-            $input->name,
-            $input->raceCode,
-            $input->abilities,
-            $input->inventory,
-            $input->characteristicPurchases,
-            $input->customRules,
-            $input->active,
-            $input->limits,
             $this->updateMoney($input, $record),
             false,
-            $input->expectedSheet,
-            $this->choiceAssembler->buildDocument($input),
             $record->getSheet(),
         );
         $built['problems'] = $this->assembly->withClientCash($built['problems'], $input->money);
         $this->guard($built['problems']);
 
         return $built;
+    }
+
+    /**
+     * Прогон сборки на заданных мире, ревизии и остатке наличных.
+     *
+     * @param CreateCharacterInput|UpdateCharacterInput|ValidateCharacterInput $input JSON.
+     * @param int $spaceId Мир.
+     * @param int $revision Ревизия.
+     * @param int|null $money Наличные или null на create.
+     * @param bool $shopCreate Считать шоп.
+     * @param array<string, mixed>|null $previousSheet Прошлый лист сервера.
+     *
+     * @return array{problems: array<int, CharacterProblem>, choices: array<string, mixed>, sheet: array<string, mixed>, name: string, active: bool}
+     *         Сборка.
+     */
+    private function assemble(
+        CreateCharacterInput|UpdateCharacterInput|ValidateCharacterInput $input,
+        int $spaceId,
+        int $revision,
+        ?int $money,
+        bool $shopCreate,
+        ?array $previousSheet = null,
+    ): array {
+        return $this->assembly->build(
+            $spaceId,
+            $revision,
+            $input->active,
+            $money,
+            $shopCreate,
+            $input->expectedSheet,
+            $this->choiceAssembler->buildDocument($input),
+            $previousSheet,
+        );
     }
 
     /**
@@ -214,22 +223,7 @@ final class CharacterSave
         $this->rejectCash($input);
         $this->assertShape($input->limits, $input->abilities, $input->inventory, $input->characteristicPurchases, $input->customRules, $input->expectedSheet, true);
 
-        return $this->report($this->assembly->build(
-            $input->spaceId,
-            $input->revision,
-            $input->name,
-            $input->raceCode,
-            $input->abilities,
-            $input->inventory,
-            $input->characteristicPurchases,
-            $input->customRules,
-            $input->active,
-            $input->limits,
-            null,
-            true,
-            $input->expectedSheet,
-            $this->choiceAssembler->buildDocument($input),
-        ));
+        return $this->report($this->assemble($input, $input->spaceId, $input->revision, null, true));
     }
 
     /**
@@ -254,21 +248,12 @@ final class CharacterSave
         $this->assertSameRevision($input->spaceId, $input->revision, $record);
         $this->assertShape($input->limits, $input->abilities, $input->inventory, $input->characteristicPurchases, $input->customRules, $input->expectedSheet, false);
 
-        $built = $this->assembly->build(
+        $built = $this->assemble(
+            $input,
             $record->getSpaceId(),
             $record->getRulesRevision(),
-            $input->name,
-            $input->raceCode,
-            $input->abilities,
-            $input->inventory,
-            $input->characteristicPurchases,
-            $input->customRules,
-            $input->active,
-            $input->limits,
             $this->keptMoney($input->money->isPresent() ? $input->money->getValue() : null, $record),
             false,
-            $input->expectedSheet,
-            $this->choiceAssembler->buildDocument($input),
             $record->getSheet(),
         );
         $built['problems'] = $this->assembly->withClientCash($built['problems'], $input->money);

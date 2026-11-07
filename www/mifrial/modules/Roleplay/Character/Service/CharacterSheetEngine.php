@@ -111,26 +111,12 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
         ?array $expectedSheet,
         ?array $previousSheet,
     ): array {
-        $limits = $this->listOf($choices, 'limits');
-        $abilities = $this->listOf($choices, 'abilities');
-        $inventory = $this->listOf($choices, 'inventory');
-        $purchases = $this->listOf($choices, 'characteristicPurchases');
-        $customRules = $this->listOf($choices, 'customRules');
-        $this->keys->assertLimits($limits, false);
-        $this->keys->assertLists($abilities, $inventory, $purchases, $customRules);
-        $this->keys->assertExpectedSheet($expectedSheet);
+        $this->assertInputs($choices, $expectedSheet);
         $raceCode = $this->stringOf($choices, 'raceCode');
         $built = $this->assembly->build(
             $spaceId,
             $revision,
-            $this->stringOf($choices, 'name'),
-            $raceCode,
-            $abilities,
-            $inventory,
-            $purchases,
-            $customRules,
             $this->activeOf($choices),
-            $limits,
             $this->moneyOf($choices),
             false,
             $expectedSheet,
@@ -140,6 +126,28 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
         $problems = $this->withoutEmptyRace($built['problems'], $raceCode);
 
         return $this->report($revision, $problems, $built['choices'], $built['sheet'], $built['name']);
+    }
+
+    /**
+     * Проверка списков выбора и их ключей.
+     *
+     * @param array<string, mixed> $choices Документ.
+     * @param array<string, mixed>|null $expectedSheet Сверка.
+     *
+     * @return void
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function assertInputs(array $choices, ?array $expectedSheet): void
+    {
+        $limits = $this->listOf($choices, 'limits');
+        $abilities = $this->listOf($choices, 'abilities');
+        $inventory = $this->listOf($choices, 'inventory');
+        $purchases = $this->listOf($choices, 'characteristicPurchases');
+        $customRules = $this->listOf($choices, 'customRules');
+        $this->keys->assertLimits($limits, false);
+        $this->keys->assertLists($abilities, $inventory, $purchases, $customRules);
+        $this->keys->assertExpectedSheet($expectedSheet);
     }
 
     /**

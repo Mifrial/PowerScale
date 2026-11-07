@@ -99,20 +99,16 @@ final class CharacterResourceArithmetic
      */
     public function clamp(ResourceValue $current, int|DimensionalNumber $limit): ResourceValue
     {
-        if ($current instanceof ScalarResourceValue && is_int($limit)) {
-            return new ScalarResourceValue(min($current->getValue(), $limit));
-        }
-
-        if ($current instanceof DimensionalResourceValue && $limit instanceof DimensionalNumber) {
-            $value = $current->getValue();
-            if (!$this->isGreater($value, $limit)) {
-                return $current;
-            }
-
-            return $this->value($limit);
-        }
-
-        throw new CharacterInvalidException('Resource current and limit variants differ');
+        return match (true) {
+            $current instanceof ScalarResourceValue && is_int($limit) => new ScalarResourceValue(
+                min($current->getValue(), $limit),
+            ),
+            $current instanceof DimensionalResourceValue && $limit instanceof DimensionalNumber => $this->clampDimensional(
+                $current,
+                $limit,
+            ),
+            default => throw new CharacterInvalidException('Resource current and limit variants differ'),
+        };
     }
 
     /**
@@ -192,6 +188,19 @@ final class CharacterResourceArithmetic
         }
 
         throw new CharacterInvalidException('Resource values variants differ');
+    }
+
+    /**
+     * Ограничивает dimensional current размерным лимитом.
+     *
+     * @param DimensionalResourceValue $current Current.
+     * @param DimensionalNumber $limit Effective limit.
+     *
+     * @return ResourceValue Clamped current.
+     */
+    private function clampDimensional(DimensionalResourceValue $current, DimensionalNumber $limit): ResourceValue
+    {
+        return $this->isGreater($current->getValue(), $limit) ? $this->value($limit) : $current;
     }
 
     /**

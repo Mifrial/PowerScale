@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Character\Service\Sheet;
 
 use Mifrial\Roleplay\Character\Dto\CharacterAbilityChoice;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
+use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityBase;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
@@ -77,26 +78,56 @@ final class CharacterWeaponFamilyMastery
     {
         $profiles = [];
         foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if (!$spec instanceof CharacteristicSpec) {
-                continue;
-            }
-
+            $spec = $this->masterySpec($rule);
             $value = $characteristics[$rule->getCode()] ?? null;
-            if (!$value instanceof CharacteristicNumber) {
+            if ($spec === null || !$value instanceof CharacteristicNumber) {
                 continue;
             }
 
-            foreach ($spec->getWeaponMasteryProfiles() as $profileType) {
-                if (isset($profiles[$profileType])) {
-                    throw new CharacterInvalidException('Character weapon mastery profile is ambiguous');
-                }
-
-                $profiles[$profileType] = $value;
-            }
+            $this->addProfiles($profiles, $spec, $value);
         }
 
         return $profiles;
+    }
+
+    /**
+     * Спека с профилями мастерства.
+     *
+     * @param CharacterResolvedRule $rule Правило.
+     *
+     * @return CharacteristicSpec|null Спека или null.
+     */
+    private function masterySpec(CharacterResolvedRule $rule): ?CharacteristicSpec
+    {
+        if ($rule->isSpecBroken()) {
+            return null;
+        }
+
+        $spec = $rule->getSpec();
+
+        return $spec instanceof CharacteristicSpec ? $spec : null;
+    }
+
+    /**
+     * Раскладывает профили одной характеристики.
+     *
+     * @param array<string, CharacteristicNumber> $profiles Профиль → значение.
+     * @param CharacteristicSpec $spec Спека.
+     * @param CharacteristicNumber $value Значение.
+     *
+     * @return void
+     *
+     * @throws CharacterInvalidException Если профиль уже занят.
+     */
+    private function addProfiles(array &$profiles, CharacteristicSpec $spec, CharacteristicNumber $value): void
+    {
+        foreach ($spec->getWeaponMasteryProfiles() as $profileType) {
+            if (isset($profiles[$profileType])) {
+                throw new CharacterInvalidException('Character weapon mastery profile is ambiguous');
+            }
+
+            $profiles[$profileType] = $value;
+        }
     }
 
     /**

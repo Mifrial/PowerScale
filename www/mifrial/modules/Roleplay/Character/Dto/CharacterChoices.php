@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// Поля выбора, не порты DI: имя, раса, четыре списка и флаг.
+
 namespace Mifrial\Roleplay\Character\Dto;
 
 /**

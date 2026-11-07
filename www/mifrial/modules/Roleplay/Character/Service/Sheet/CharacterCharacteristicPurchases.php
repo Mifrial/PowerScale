@@ -113,16 +113,41 @@ final class CharacterCharacteristicPurchases
      */
     private function characteristic(CharacterRuleSlice $slice, ?string $raceCode, string $characteristicCode): ?RaceCharacteristic
     {
+        $spec = $this->raceSpec($slice, $raceCode);
+
+        return $spec === null ? null : $this->findCharacteristic($spec, $characteristicCode);
+    }
+
+    /**
+     * Живая спека расы.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string|null $raceCode Код расы.
+     *
+     * @return RaceSpec|null Спека или null.
+     */
+    private function raceSpec(CharacterRuleSlice $slice, ?string $raceCode): ?RaceSpec
+    {
         if ($raceCode === null) {
             return null;
         }
 
         $rule = $slice->findLive($raceCode);
         $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        if (!$spec instanceof RaceSpec) {
-            return null;
-        }
 
+        return $spec instanceof RaceSpec ? $spec : null;
+    }
+
+    /**
+     * Строка характеристики в спеке расы.
+     *
+     * @param RaceSpec $spec Спека.
+     * @param string $characteristicCode Код характеристики.
+     *
+     * @return RaceCharacteristic|null Строка или null.
+     */
+    private function findCharacteristic(RaceSpec $spec, string $characteristicCode): ?RaceCharacteristic
+    {
         foreach ($spec->getCharacteristics() as $row) {
             if ($row->getCharacteristicCode() === $characteristicCode) {
                 return $row;

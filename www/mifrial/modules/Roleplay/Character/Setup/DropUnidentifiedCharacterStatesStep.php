@@ -97,31 +97,55 @@ final class DropUnidentifiedCharacterStatesStep implements ISetupStep
      */
     private function cleanOne(IOpenedRecords $records, array $row): void
     {
-        $sheet = $row['sheet'] ?? null;
-        if (!is_array($sheet)) {
+        $update = $this->updateOf($row);
+        if ($update === null) {
             return;
         }
 
         try {
-            $next = (new CharacterActualStateRows())->withoutUnidentified($sheet);
-        } catch (CharacterInvalidException) {
-            return;
-        }
-
-        if ($next === $sheet) {
-            return;
-        }
-
-        $id = $row['id'] ?? null;
-        $version = $row['actual_version'] ?? null;
-        if (!is_int($id) || !is_int($version)) {
-            return;
-        }
-
-        try {
-            $records->update($id, ['sheet' => $next, 'actual_version' => $version + 1]);
+            $records->update($update['id'], ['sheet' => $update['sheet'], 'actual_version' => $update['version'] + 1]);
         } catch (RowWriteFailedException $exception) {
             throw new KernelException('SETUP_FAILED', 'Character unidentified states drop failed', $exception);
+        }
+    }
+
+    /**
+     * Что и куда писать, если строку нужно очистить.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return array{id: int, sheet: array<string, mixed>, version: int}|null Правка или null.
+     */
+    private function updateOf(array $row): ?array
+    {
+        $sheet = $row['sheet'] ?? null;
+        $id = $row['id'] ?? null;
+        $version = $row['actual_version'] ?? null;
+        if (!is_array($sheet) || !is_int($id) || !is_int($version)) {
+            return null;
+        }
+
+        $next = $this->cleaned($sheet);
+        if ($next === null || $next === $sheet) {
+            return null;
+        }
+
+        return ['id' => $id, 'sheet' => $next, 'version' => $version];
+    }
+
+    /**
+     * Лист без неизвестных состояний. Битая строка — null.
+     *
+     * @param array<string, mixed> $sheet Лист.
+     *
+     * @return array<string, mixed>|null Лист или null.
+     */
+    private function cleaned(array $sheet): ?array
+    {
+        try {
+            return (new CharacterActualStateRows())->withoutUnidentified($sheet);
+        } catch (CharacterInvalidException) {
+            return null;
         }
     }
 }
