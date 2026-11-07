@@ -67,11 +67,16 @@ final class GameStrikeClose
         private readonly GameStateIncreaseChecks $stateChecks,
         private readonly GameProcessFlow $processes,
     ) {
+        $singleView = new GameStrikeSingleView($this->chat, $this->rules);
         $this->singleChat = new GameStrikeSingleChat(
-            $this->chat,
-            $this->consequences,
-            $this->spend,
-            $this->rules,
+            $singleView,
+            new GameStrikeSingleNarrative($this->chat, $this->rules, $this->spend),
+            new GameStrikeSingleChecks($this->chat, $this->spend, $this->consequences, $singleView),
+            new GameStrikeSingleOutcome(
+                $this->chat,
+                $this->consequences,
+                new GameStrikeSinglePush($this->chat),
+            ),
         );
         $wideCoverText = new GameStrikeWideCoverText($this->chat, $this->consequences, $this->spend);
         $wideNarrative = new GameStrikeWideNarrative($this->chat, $this->rules, $this->spend, $wideCoverText);
