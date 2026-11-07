@@ -96,8 +96,8 @@ final class AbilityBases
         }
 
         return new ProcessCloseSpec(
-            ProcessSpecs::readThresholds($row, 'requires_counters'),
-            ProcessSpecs::readStrikeModifier($row, 'strike'),
+            ProcessCounters::readThresholds($row, 'requires_counters'),
+            ProcessCounters::readStrikeModifier($row, 'strike'),
         );
     }
 

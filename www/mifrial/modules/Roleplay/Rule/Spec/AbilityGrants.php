@@ -24,10 +24,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ResourceLimitChangeGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SenseModifyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SkillStudyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StateModifyGrant;
-use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;
-use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ScalarFormula;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
-use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Разбор блоков грантов способности.
@@ -89,30 +86,6 @@ final class AbilityGrants
         $permanent = SpecShape::bool($row, 'permanent');
 
         return self::branch($type, $row, $permanent);
-    }
-
-    /**
-     * Целое или размерное число.
-     *
-     * @param array<string, mixed> $row Объект.
-     * @param string $key Ключ.
-     *
-     * @return int|DimensionalNumber Значение.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    public static function intOrNumber(array $row, string $key): int|DimensionalNumber
-    {
-        if (!array_key_exists($key, $row) || $row[$key] === null) {
-            return 0;
-        }
-
-        $value = $row[$key];
-        if (is_int($value)) {
-            return $value;
-        }
-
-        return DimensionalNumbers::pair(SpecShape::requireMap($value, $key), $key);
     }
 
     /**
@@ -278,7 +251,7 @@ final class AbilityGrants
      */
     private static function resource(array $row, bool $permanent): ResourceGrant
     {
-        return new ResourceGrant(SpecShape::string($row, 'resource_code'), self::intOrNumber($row, 'limit'), $permanent);
+        return new ResourceGrant(SpecShape::string($row, 'resource_code'), AbilityGrantValues::intOrNumber($row, 'limit'), $permanent);
     }
 
     /**
@@ -316,36 +289,9 @@ final class AbilityGrants
         return new ResistanceGrant(
             SpecShape::string($row, 'damage_type_code'),
             SpecShape::string($row, 'source_code'),
-            self::resistanceValue($row),
+            AbilityGrantValues::resistanceValue($row),
             $permanent,
         );
-    }
-
-    /**
-     * Величина сопротивления.
-     *
-     * @param array<string, mixed> $row Объект.
-     *
-     * @return DimensionalNumber|DimensionalFormula|ScalarFormula Величина.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    private static function resistanceValue(array $row): DimensionalNumber|DimensionalFormula|ScalarFormula
-    {
-        $value = SpecShape::object($row, 'value');
-        if ($value === null) {
-            return new DimensionalNumber(0, 0);
-        }
-
-        if (!array_key_exists('type', $value)) {
-            return DimensionalNumbers::pair($value, 'value');
-        }
-
-        $type = SpecShape::string($value, 'type');
-
-        return in_array($type, ['dimensional', 'characteristic', 'actionCharacteristic'], true)
-            ? Formulas::dimensionalNode($value)
-            : Formulas::scalarNode($value);
     }
 
     /**

@@ -4,16 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Spec;
 
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CounterOp;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CounterThreshold;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\MovementAxisDistance;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\MovementOperation;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\PostureOperation;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\ProcessOperation;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\TurnOperation;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessCounter;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessExecution;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessFormula;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StepCost;
@@ -67,70 +59,6 @@ final class ProcessSpecs
     }
 
     /**
-     * Пакет удара: advantage и extra_successes.
-     *
-     * @param array<string, mixed> $document Документ.
-     * @param string $key Ключ пакета.
-     *
-     * @return StrikeModifier|null Пакет или null.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    public static function readStrikeModifier(array $document, string $key): ?StrikeModifier
-    {
-        $row = SpecShape::object($document, $key);
-        if ($row === null) {
-            return null;
-        }
-
-        return new StrikeModifier(
-            self::formula($row, 'advantage'),
-            self::formula($row, 'extra_successes'),
-        );
-    }
-
-    /**
-     * Пороги счётчиков. Пустой список — без порога.
-     *
-     * @param array<string, mixed> $document Документ.
-     * @param string $key Ключ списка.
-     * @param array<int, string>|null $counterCodes Объявленные счётчики или null без проверки.
-     *
-     * @return array<int, CounterThreshold> Пороги.
-     *
-     * @throws RuleSpecShapeException Если форма чужая или счётчик не объявлен.
-     */
-    public static function readThresholds(array $document, string $key, ?array $counterCodes = null): array
-    {
-        $thresholds = [];
-        foreach (SpecShape::list($document, $key) as $row) {
-            $row = SpecShape::requireMap($row, $key);
-            $code = self::requiredString($row, 'counter_code', $key);
-            if ($counterCodes !== null && !in_array($code, $counterCodes, true)) {
-                throw new RuleSpecShapeException($key);
-            }
-
-            $thresholds[] = new CounterThreshold($code, self::requiredInt($row, 'min', $key));
-        }
-
-        return $thresholds;
-    }
-
-    /**
-     * Операции действия или заклинания.
-     *
-     * @param array<string|int, mixed> $document Документ.
-     *
-     * @return array<int, ProcessOperation> Операции.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    public static function readOperations(array $document): array
-    {
-        return self::operations($document);
-    }
-
-    /**
      * Счётчики процесса. Нет ключа — пустой список, дубль кода — отказ.
      *
      * @param array<string, mixed> $process Тело.
@@ -145,7 +73,7 @@ final class ProcessSpecs
         $codes = [];
         foreach (SpecShape::list($process, 'counters') as $row) {
             $row = SpecShape::requireMap($row, 'counters');
-            $code = self::requiredString($row, 'counter_code', 'counters');
+            $code = ProcessShape::requiredString($row, 'counter_code', 'counters');
             if (isset($codes[$code])) {
                 throw new RuleSpecShapeException('counters');
             }
@@ -224,12 +152,12 @@ final class ProcessSpecs
             self::costs($row),
             $interruption === null ? 'normal' : SpecShape::string($interruption, 'mode'),
             $interruption === null ? [] : ActionEffects::list($interruption, 'effects'),
-            self::operations($row),
+            ProcessOperations::read($row),
             $execution,
             self::strike($row, $execution),
-            self::readThresholds($row, 'requires_counters', $counterCodes),
-            self::counterOps($row, 'counter_on_success', $counterCodes),
-            self::counterOps($row, 'counter_on_failure', $counterCodes),
+            ProcessCounters::readThresholds($row, 'requires_counters', $counterCodes),
+            ProcessCounters::counterOps($row, 'counter_on_success', $counterCodes),
+            ProcessCounters::counterOps($row, 'counter_on_failure', $counterCodes),
         );
     }
 
@@ -253,121 +181,7 @@ final class ProcessSpecs
             throw new RuleSpecShapeException('strike');
         }
 
-        return self::readStrikeModifier($row, 'strike');
-    }
-
-    /**
-     * Формула процесса.
-     *
-     * @param array<string, mixed> $row Объект.
-     * @param string $key Ключ формулы.
-     *
-     * @return ProcessFormula|null Формула или null.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    private static function formula(array $row, string $key): ?ProcessFormula
-    {
-        $formula = SpecShape::object($row, $key);
-        if ($formula === null) {
-            return null;
-        }
-
-        $type = SpecShape::string($formula, 'type');
-        if ($type === ProcessFormula::TYPE_FIXED) {
-            return ProcessFormula::fixed(self::requiredInt($formula, 'value', $key));
-        }
-
-        if ($type !== ProcessFormula::TYPE_COUNTER) {
-            throw new RuleSpecShapeException($key);
-        }
-
-        $divisor = SpecShape::optionalInt($formula, 'divisor') ?? 1;
-        if ($divisor <= 0) {
-            throw new RuleSpecShapeException($key);
-        }
-
-        return ProcessFormula::counter(
-            self::requiredString($formula, 'counter_code', $key),
-            SpecShape::optionalInt($formula, 'factor') ?? 1,
-            $divisor,
-            SpecShape::optionalInt($formula, 'min_value'),
-            SpecShape::optionalInt($formula, 'max_value'),
-        );
-    }
-
-    /**
-     * Изменения счётчиков: delta или set, ровно одно.
-     *
-     * @param array<string, mixed> $document Документ.
-     * @param string $key Ключ списка.
-     * @param array<int, string> $counterCodes Объявленные счётчики.
-     *
-     * @return array<int, CounterOp> Операции.
-     *
-     * @throws RuleSpecShapeException Если форма чужая или счётчик не объявлен.
-     */
-    private static function counterOps(array $document, string $key, array $counterCodes): array
-    {
-        $ops = [];
-        foreach (SpecShape::list($document, $key) as $row) {
-            $row = SpecShape::requireMap($row, $key);
-            $code = self::requiredString($row, 'counter_code', $key);
-            if (!in_array($code, $counterCodes, true)) {
-                throw new RuleSpecShapeException($key);
-            }
-
-            $delta = SpecShape::optionalInt($row, 'delta');
-            $set = SpecShape::optionalInt($row, 'set');
-            if (($delta === null) === ($set === null)) {
-                throw new RuleSpecShapeException($key);
-            }
-
-            $ops[] = $delta !== null ? CounterOp::delta($code, $delta) : CounterOp::set($code, (int) $set);
-        }
-
-        return $ops;
-    }
-
-    /**
-     * Обязательная строка.
-     *
-     * @param array<string, mixed> $row Объект.
-     * @param string $key Ключ.
-     * @param string $shapeKey Ключ формы для ошибки.
-     *
-     * @return string Значение.
-     *
-     * @throws RuleSpecShapeException Если ключа нет или он пустой.
-     */
-    private static function requiredString(array $row, string $key, string $shapeKey): string
-    {
-        $value = SpecShape::string($row, $key);
-        if ($value === '') {
-            throw new RuleSpecShapeException($shapeKey);
-        }
-
-        return $value;
-    }
-
-    /**
-     * Обязательное целое.
-     *
-     * @param array<string, mixed> $row Объект.
-     * @param string $key Ключ.
-     * @param string $shapeKey Ключ формы для ошибки.
-     *
-     * @return int Значение.
-     *
-     * @throws RuleSpecShapeException Если ключа нет или он не целое.
-     */
-    private static function requiredInt(array $row, string $key, string $shapeKey): int
-    {
-        if (!array_key_exists($key, $row) || !is_int($row[$key])) {
-            throw new RuleSpecShapeException($shapeKey);
-        }
-
-        return $row[$key];
+        return ProcessCounters::readStrikeModifier($row, 'strike');
     }
 
     /**
@@ -443,98 +257,6 @@ final class ProcessSpecs
         $amount = SpecShape::requireMap($amount, 'amount');
 
         return DimensionalNumbers::pair($amount, 'amount');
-    }
-
-    /**
-     * Операции шага.
-     *
-     * @param array<string, mixed> $row Шаг.
-     *
-     * @return array<int, ProcessOperation> Операции.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    private static function operations(array $row): array
-    {
-        $operations = [];
-        foreach (SpecShape::list($row, 'operations') as $operation) {
-            $operation = SpecShape::requireMap($operation, 'operations');
-
-            $operations[] = self::operation($operation);
-        }
-
-        return $operations;
-    }
-
-    /**
-     * Одна операция.
-     *
-     * @param array<string, mixed> $operation Строка.
-     *
-     * @return ProcessOperation Операция.
-     *
-     * @throws RuleSpecShapeException Если тип неизвестен.
-     */
-    private static function operation(array $operation): ProcessOperation
-    {
-        $type = SpecShape::string($operation, 'type');
-
-        return match ($type) {
-            'movement' => self::movement($operation),
-            'turn' => new TurnOperation(SpecShape::int($operation, 'max_degrees')),
-            'posture' => new PostureOperation(SpecShape::string($operation, 'posture')),
-            default => throw new RuleSpecShapeException('operations'),
-        };
-    }
-
-    /**
-     * Операция movement: направления и вилка DimensionalFormula по осям.
-     *
-     * @param array<string, mixed> $operation Строка.
-     *
-     * @return MovementOperation Операция.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    private static function movement(array $operation): MovementOperation
-    {
-        $directions = SpecShape::object($operation, 'allowedDirections') ?? [];
-        $distance = SpecShape::object($operation, 'distance') ?? [];
-        $turn = SpecShape::object($operation, 'freeTurn') ?? [];
-
-        return new MovementOperation(
-            SpecShape::stringList($directions, 'horizontal'),
-            SpecShape::stringList($directions, 'vertical'),
-            self::axis($distance, 'horizontal'),
-            self::axis($distance, 'vertical'),
-            SpecShape::optionalInt($turn, 'maxDegrees'),
-            SpecShape::bool($turn, 'free'),
-        );
-    }
-
-    /**
-     * Вилка дистанции по оси.
-     *
-     * @param array<string, mixed> $document Объект distance.
-     * @param string $key Ось.
-     *
-     * @return MovementAxisDistance|null Вилка или null.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    private static function axis(array $document, string $key): ?MovementAxisDistance
-    {
-        $row = SpecShape::object($document, $key);
-        if ($row === null) {
-            return null;
-        }
-
-        return new MovementAxisDistance(
-            Formulas::dimensional($row, 'min'),
-            Formulas::dimensional($row, 'max'),
-            SpecShape::bool($row, 'minInclusive'),
-            SpecShape::bool($row, 'maxInclusive'),
-        );
     }
 
     /**

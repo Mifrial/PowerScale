@@ -55,13 +55,13 @@ final class AbilitySpecs
         $base = AbilityBases::read($document);
 
         return match ($type) {
-            'action' => new AbilityActionSpec($base, ActionComponents::read($document), ProcessSpecs::readOperations($document)),
+            'action' => new AbilityActionSpec($base, ActionComponents::read($document), ProcessOperations::read($document)),
             'process' => new AbilityProcessSpec($base, ProcessSpecs::read($document)),
             'spell' => new AbilitySpellSpec(
                 $base,
                 SpellSpecs::read($document),
                 ActionComponents::read($document),
-                ProcessSpecs::readOperations($document),
+                ProcessOperations::read($document),
             ),
             default => throw new RuleSpecShapeException('type'),
         };

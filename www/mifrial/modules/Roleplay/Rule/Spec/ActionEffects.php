@@ -92,33 +92,28 @@ final class ActionEffects
      */
     private static function byType(string $type, array $row, string $key): ActionEffect
     {
-        $attack = self::attack($type, $row);
-        if ($attack !== null) {
-            return $attack;
-        }
+        $scope = self::scope($row);
 
-        $follow = self::follow($type, $row);
-        if ($follow !== null) {
-            return $follow;
-        }
-
-        return self::rest($type, $row, $key);
+        return self::attack($type, $row, $scope)
+            ?? self::attackRoll($type, $row, $scope)
+            ?? self::follow($type, $row, $scope)
+            ?? self::followAfter($type, $row, $scope)
+            ?? self::rest($type, $row, $key);
     }
 
     /**
-     * Эффекты текущего удара.
+     * Эффекты текущего удара: точность и дистанция.
      *
      * @param string $type Тип.
      * @param array<string, mixed> $row Строка.
+     * @param AttackScope $scope Область действия.
      *
      * @return ActionEffect|null Эффект или null.
      *
      * @throws RuleSpecShapeException Если форма чужая.
      */
-    private static function attack(string $type, array $row): ?ActionEffect
+    private static function attack(string $type, array $row, AttackScope $scope): ?ActionEffect
     {
-        $scope = self::scope($row);
-
         return match ($type) {
             'current_action_attack_accuracy' => new CurrentActionAttackAccuracyEffect(SpecShape::int($row, 'delta'), $scope),
             'current_action_attack_reach' => new CurrentActionAttackReachEffect(self::fraction($row), $scope),
@@ -135,6 +130,24 @@ final class ActionEffects
                 $scope,
                 SpecShape::optionalString($row, 'source_code'),
             ),
+            default => null,
+        };
+    }
+
+    /**
+     * Эффекты текущего удара: бросок, защита и износ.
+     *
+     * @param string $type Тип.
+     * @param array<string, mixed> $row Строка.
+     * @param AttackScope $scope Область действия.
+     *
+     * @return ActionEffect|null Эффект или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function attackRoll(string $type, array $row, AttackScope $scope): ?ActionEffect
+    {
+        return match ($type) {
             'current_action_attack_dodge_soak' => new CurrentActionAttackDodgeSoakEffect(
                 SpecShape::int($row, 'size_delta'),
                 SpecShape::optionalInt($row, 'ignore_at_sr'),
@@ -160,16 +173,17 @@ final class ActionEffects
     }
 
     /**
-     * Эффекты следующего действия.
+     * Эффекты следующего действия: проверки и атака.
      *
      * @param string $type Тип.
      * @param array<string, mixed> $row Строка.
+     * @param AttackScope $scope Область действия.
      *
      * @return ActionEffect|null Эффект или null.
      *
      * @throws RuleSpecShapeException Если форма чужая.
      */
-    private static function follow(string $type, array $row): ?ActionEffect
+    private static function follow(string $type, array $row, AttackScope $scope): ?ActionEffect
     {
         return match ($type) {
             'current_action_check_modifier' => new CurrentActionCheckModifierEffect(
@@ -185,12 +199,30 @@ final class ActionEffects
                 SpecShape::int($row, 'delta'),
                 SpecShape::bool($row, 'same_target'),
                 SpecShape::optionalString($row, 'targetKey'),
-                self::scope($row),
+                $scope,
             ),
             'next_action_attack_dodge_soak_from_reaction' => new NextActionAttackDodgeSoakFromReactionEffect(
                 SpecShape::optionalInt($row, 'max_total_action_cost'),
-                self::scope($row),
+                $scope,
             ),
+            default => null,
+        };
+    }
+
+    /**
+     * Эффекты следующего действия: расход ресурса и заклинания.
+     *
+     * @param string $type Тип.
+     * @param array<string, mixed> $row Строка.
+     * @param AttackScope $scope Область действия.
+     *
+     * @return ActionEffect|null Эффект или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function followAfter(string $type, array $row, AttackScope $scope): ?ActionEffect
+    {
+        return match ($type) {
             'after_action_until_resource_spent_check_modifier' => new AfterActionUntilResourceSpentCheckModifierEffect(
                 SpecShape::string($row, 'resource_code'),
                 SpecShape::int($row, 'amount'),
