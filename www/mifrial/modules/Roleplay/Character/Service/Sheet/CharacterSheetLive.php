@@ -127,24 +127,6 @@ final class CharacterSheetLive
     }
 
     /**
-     * Поднимает уровни до производных по порогам опыта.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param CharacterChoices $model Выборы.
-     * @param array<string, int> $levels Уровни.
-     *
-     * @return array<string, int> Уровни.
-     */
-    private function withDerived(CharacterRuleSlice $slice, CharacterChoices $model, array $levels): array
-    {
-        foreach ($this->derivedLevels->levels($slice, $model) as $code => $level) {
-            $levels[$code] = max($levels[$code] ?? 0, $level);
-        }
-
-        return $levels;
-    }
-
-    /**
      * Выборы из документа. Неполный документ — пустая раса.
      *
      * @param array<string, mixed> $choices Документ.
@@ -162,6 +144,24 @@ final class CharacterSheetLive
             is_array($choices['customRules'] ?? null) ? $choices['customRules'] : [],
             is_bool($choices['active'] ?? null) ? $choices['active'] : null,
         );
+    }
+
+    /**
+     * Поднимает уровни до производных по порогам опыта.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $model Выборы.
+     * @param array<string, int> $levels Уровни.
+     *
+     * @return array<string, int> Уровни.
+     */
+    private function withDerived(CharacterRuleSlice $slice, CharacterChoices $model, array $levels): array
+    {
+        foreach ($this->derivedLevels->levels($slice, $model) as $code => $level) {
+            $levels[$code] = max($levels[$code] ?? 0, $level);
+        }
+
+        return $levels;
     }
 
     /**

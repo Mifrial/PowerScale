@@ -27,6 +27,7 @@ final class CharacterOsSteps implements ICharacterOsSteps
      *
      * @param IMechanicEngine $engine Движок с уже зарегистрированным purchase_surcharge.
      * @param IMechanics $mechanics Каталог поставок.
+     * @param CharacterMechanicBindings $bindings Привязки механик по умолчанию.
      *
      * @return void
      */

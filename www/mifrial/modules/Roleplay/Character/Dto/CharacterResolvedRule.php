@@ -80,6 +80,8 @@ final class CharacterResolvedRule
     }
 
     /**
+     * Сырой spec документа.
+     *
      * @return array<string|int, mixed> Сырой spec.
      */
     public function getSpecDocument(): array

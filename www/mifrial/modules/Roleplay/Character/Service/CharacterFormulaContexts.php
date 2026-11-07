@@ -24,6 +24,8 @@ final class CharacterFormulaContexts implements ICharacterFormulaContexts
      * Создаёт разбор.
      *
      * @param ICharacters $characters Строка персонажа.
+     * @param ?ICharacterRuleSlices $slices Срезы правил или null.
+     * @param ?ICharacterSheets $sheets Листы или null.
      *
      * @return void
      */

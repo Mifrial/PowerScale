@@ -260,6 +260,7 @@ final class CharacterSaveAssembly
      * @param CharacterValidation $validation Validation result.
      * @param CharacterChoices $model Typed choices.
      * @param int $money Current money.
+     * @param array<string, mixed> $choices Выборы клиента.
      * @param array<string, mixed>|null $previousSheet Previous sheet.
      *
      * @return array<string, mixed> Sheet document.

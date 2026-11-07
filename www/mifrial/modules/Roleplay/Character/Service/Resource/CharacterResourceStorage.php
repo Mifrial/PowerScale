@@ -181,27 +181,6 @@ final class CharacterResourceStorage
     }
 
     /**
-     * Нижняя граница 0 до разбора native.
-     *
-     * @param mixed $current Native.
-     * @param ResourceSpec $spec Карточка.
-     *
-     * @return mixed Native ≥ 0.
-     */
-    private function floorNative(mixed $current, ResourceSpec $spec): mixed
-    {
-        if (!$spec->isDimensional() && is_int($current)) {
-            return max(0, $current);
-        }
-
-        if (is_array($current) && is_int($current['base'] ?? null)) {
-            return [...$current, 'base' => max(0, $current['base'])];
-        }
-
-        return $current;
-    }
-
-    /**
      * Проверяет достаточность всех подготовленных трат без записи.
      *
      * @param array<int, ResourceRow> $rows Проверенные строки.
@@ -228,6 +207,27 @@ final class CharacterResourceStorage
         }
 
         return true;
+    }
+
+    /**
+     * Нижняя граница 0 до разбора native.
+     *
+     * @param mixed $current Native.
+     * @param ResourceSpec $spec Карточка.
+     *
+     * @return mixed Native ≥ 0.
+     */
+    private function floorNative(mixed $current, ResourceSpec $spec): mixed
+    {
+        if (!$spec->isDimensional() && is_int($current)) {
+            return max(0, $current);
+        }
+
+        if (is_array($current) && is_int($current['base'] ?? null)) {
+            return [...$current, 'base' => max(0, $current['base'])];
+        }
+
+        return $current;
     }
 
     /**

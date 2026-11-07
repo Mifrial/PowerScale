@@ -16,7 +16,7 @@ final class CharacterCustomRule
      * @param string $kind Тип: item или ability.
      * @param string $name Имя.
      * @param string $description Описание.
-     * @param string $status active или deprecated.
+     * @param string $status Статус: active или deprecated.
      * @param string|null $replacedWithRuleCode Код замены или null.
      *
      * @return void
@@ -32,7 +32,7 @@ final class CharacterCustomRule
     }
 
     /**
-     * Id.
+     * Идентификатор записи.
      *
      * @return int|null Id или null.
      */

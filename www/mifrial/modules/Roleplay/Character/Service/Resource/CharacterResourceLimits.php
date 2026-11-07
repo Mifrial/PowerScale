@@ -90,6 +90,44 @@ final class CharacterResourceLimits
     }
 
     /**
+     * Тот же FormulaContext, что у сборки лимита.
+     *
+     * @param CharacterValidation $validation Снимок.
+     *
+     * @return FormulaContext Контекст.
+     */
+    public function contextOf(CharacterValidation $validation): FormulaContext
+    {
+        return $this->context($validation);
+    }
+
+    /**
+     * Effective native limit карточки, как в обзоре листа.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $code Код ресурса.
+     * @param CharacterChoices $choices Выборы.
+     * @param FormulaContext $context Формулы.
+     *
+     * @return int|DimensionalNumber Лимит.
+     *
+     * @throws CharacterInvalidException Если карточки нет или грант.
+     */
+    public function nativeLimit(
+        CharacterRuleSlice $slice,
+        string $code,
+        CharacterChoices $choices,
+        FormulaContext $context,
+    ): int|DimensionalNumber {
+        $spec = $slice->findLive($code)?->getSpec();
+        if (!$spec instanceof ResourceSpec) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        return $this->limit($spec, $this->grantReader->getByResource($slice, $choices)[$code] ?? [], $context);
+    }
+
+    /**
      * Собирает одну строку ресурса.
      *
      * @param string $code Resource code.
@@ -146,18 +184,6 @@ final class CharacterResourceLimits
         }
 
         return new FormulaContext($characteristics, $validation->getAbilityLevels());
-    }
-
-    /**
-     * Тот же FormulaContext, что у сборки лимита.
-     *
-     * @param CharacterValidation $validation Снимок.
-     *
-     * @return FormulaContext Контекст.
-     */
-    public function contextOf(CharacterValidation $validation): FormulaContext
-    {
-        return $this->context($validation);
     }
 
     /**
@@ -248,32 +274,6 @@ final class CharacterResourceLimits
         }
 
         return null;
-    }
-
-    /**
-     * Effective native limit карточки, как в обзоре листа.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $code Код ресурса.
-     * @param CharacterChoices $choices Выборы.
-     * @param FormulaContext $context Формулы.
-     *
-     * @return int|DimensionalNumber Лимит.
-     *
-     * @throws CharacterInvalidException Если карточки нет или грант.
-     */
-    public function nativeLimit(
-        CharacterRuleSlice $slice,
-        string $code,
-        CharacterChoices $choices,
-        FormulaContext $context,
-    ): int|DimensionalNumber {
-        $spec = $slice->findLive($code)?->getSpec();
-        if (!$spec instanceof ResourceSpec) {
-            throw new CharacterInvalidException('Character patch operation is invalid');
-        }
-
-        return $this->limit($spec, $this->grantReader->getByResource($slice, $choices)[$code] ?? [], $context);
     }
 
     /**

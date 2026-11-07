@@ -81,6 +81,40 @@ final class CharacterLiveCharacteristics
     }
 
     /**
+     * Активные чувства листа: auto_add и выданные грантом, без статуса «отсутствует».
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $choices Выборы.
+     * @param CharacterValidation $validation Снимок.
+     * @param array<string, int> $abilityLevels Уровни.
+     *
+     * @return array<int, array<string, mixed>> Строки.
+     */
+    public function activeSenses(
+        CharacterRuleSlice $slice,
+        CharacterChoices $choices,
+        CharacterValidation $validation,
+        array $abilityLevels,
+    ): array {
+        $rows = $this->senseRows(
+            $slice,
+            $choices,
+            $abilityLevels,
+            $this->bases($slice, $choices, $validation, $abilityLevels),
+        );
+        $active = [];
+        foreach ($rows as $row) {
+            if ($row['status'] === 'absent') {
+                continue;
+            }
+
+            $active[] = $row;
+        }
+
+        return $active;
+    }
+
+    /**
      * Базы расы, закупок, грантов characteristic и automatic.
      *
      * @param CharacterRuleSlice $slice Срез.
@@ -260,40 +294,6 @@ final class CharacterLiveCharacteristics
         }
 
         return $this->aggregate($raw);
-    }
-
-    /**
-     * Активные чувства листа: auto_add и выданные грантом, без статуса «отсутствует».
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param CharacterChoices $choices Выборы.
-     * @param CharacterValidation $validation Снимок.
-     * @param array<string, int> $abilityLevels Уровни.
-     *
-     * @return array<int, array<string, mixed>> Строки.
-     */
-    public function activeSenses(
-        CharacterRuleSlice $slice,
-        CharacterChoices $choices,
-        CharacterValidation $validation,
-        array $abilityLevels,
-    ): array {
-        $rows = $this->senseRows(
-            $slice,
-            $choices,
-            $abilityLevels,
-            $this->bases($slice, $choices, $validation, $abilityLevels),
-        );
-        $active = [];
-        foreach ($rows as $row) {
-            if ($row['status'] === 'absent') {
-                continue;
-            }
-
-            $active[] = $row;
-        }
-
-        return $active;
     }
 
     /**

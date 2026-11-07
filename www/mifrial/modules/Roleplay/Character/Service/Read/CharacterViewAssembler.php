@@ -20,6 +20,8 @@ final class CharacterViewAssembler
      * Создаёт сборщик.
      *
      * @param CharacterSectionMask $sectionMask Маска ключей.
+     * @param ICharacterRuleSlices $ruleSlices Срезы правил.
+     * @param ICharacterSheets $sheets Листы персонажа.
      *
      * @return void
      */
