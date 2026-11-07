@@ -283,7 +283,7 @@ function drawLines(context: CanvasRenderingContext2D): void {
 function drawLineFill(context: CanvasRenderingContext2D, layout: RibbonLayout): void {
   context.globalAlpha = 0.55;
   for (const run of layout.runs) {
-    fillRibbonRange(context, layout.edges, run.from, run.to, run.color);
+    fillRibbonRange(context, layout, run.from, run.to, run.color);
   }
   for (const transition of layout.transitions) {
     fillRibbonTransition(context, layout, transition);
@@ -293,14 +293,35 @@ function drawLineFill(context: CanvasRenderingContext2D, layout: RibbonLayout): 
 
 function fillRibbonRange(
   context: CanvasRenderingContext2D,
-  edges: RibbonEdges,
+  layout: RibbonLayout,
   from: number,
   to: number,
   fill: string | CanvasGradient,
 ): void {
-  traceRibbonRange(context, edges, from, to);
+  traceRibbonRange(context, layout.edges, from, to);
+  traceJoinCircles(context, layout, from, to);
   context.fillStyle = fill;
   context.fill();
+}
+
+/** Круглые вставки в острых вершинах: заливка без клиньев и петель. */
+function traceJoinCircles(
+  context: CanvasRenderingContext2D,
+  layout: RibbonLayout,
+  from: number,
+  to: number,
+): void {
+  const flat = layout.flat;
+  const first = Math.max(1, Math.ceil(from));
+  const last = Math.min(flat.points.length - 1, Math.floor(to));
+  for (let index = first; index <= last; index += 1) {
+    if (index <= from || index >= to) continue;
+    if (flat.segmentIndices[index] === flat.segmentIndices[index - 1]) continue;
+    const radius = Math.max(1, flat.widths[index] ?? 1) / 2;
+    const point = flat.points[index];
+    context.moveTo(point[0] + radius, point[1]);
+    context.arc(point[0], point[1], radius, 0, Math.PI * 2);
+  }
 }
 
 function fillRibbonTransition(
@@ -310,7 +331,7 @@ function fillRibbonTransition(
 ): void {
   const gradient = transitionGradient(context, layout, transition);
   if (!gradient) return;
-  fillRibbonRange(context, layout.edges, transition.from, transition.to, gradient);
+  fillRibbonRange(context, layout, transition.from, transition.to, gradient);
 }
 
 function transitionGradient(

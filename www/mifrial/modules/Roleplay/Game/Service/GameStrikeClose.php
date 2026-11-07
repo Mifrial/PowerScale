@@ -90,15 +90,24 @@ final class GameStrikeClose
             $this->sheetWrites,
             $this->spend,
         );
-        $this->targets = new GameStrikeTargetClose(
+        $targetReaction = new GameStrikeTargetReaction(
             $this->rules,
+            $this->sheets,
+            $this->spend,
+            $choices,
+        );
+        $targetWrite = new GameStrikeTargetWrite(
             $this->sheets,
             $this->sheetWrites,
             $this->resolution,
-            $this->spend,
-            $this->amounts,
-            $choices,
+        );
+        $targetRolls = new GameStrikeTargetRolls($this->rules, $this->resolution, $this->amounts);
+        $this->targets = new GameStrikeTargetClose(
+            $this->rules,
+            $targetReaction,
             $cover,
+            new GameStrikeTargetFlow($this->rules, $this->amounts, $targetReaction, $targetWrite, $targetRolls),
+            $targetRolls,
         );
         $this->single = new GameStrikeSingleClose(
             $this->rules,

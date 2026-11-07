@@ -6,6 +6,8 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Game\Dto\GameStrikeTargetOptions;
+use Mifrial\Roleplay\Game\Dto\GameStrikeWriteScope;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
@@ -187,7 +189,7 @@ final class GameStrikeWideClose
                 array_push($attackerSupports, ...$this->support->advantages($row)['attacker']);
             }
 
-            $attackerRoll = $this->targets->rollOf(
+            $attackerRoll = $this->targets->rolls->rollOf(
                 $game,
                 $open,
                 $battle,
@@ -326,12 +328,13 @@ final class GameStrikeWideClose
                 is_array($state['attackerRoll'] ?? null) ? $state['attackerRoll'] : $attackerRoll,
                 $hitCode,
                 $penetrationFactory,
-                $actorUserId,
-                $viewAll,
-                $supports['defender'],
-                $state === null ? ($prepared[$rowId] ?? null) : null,
-                $state,
-                $battle->getMarks(),
+                new GameStrikeWriteScope($actorUserId, $viewAll),
+                new GameStrikeTargetOptions(
+                    $supports['defender'],
+                    $state === null ? ($prepared[$rowId] ?? null) : null,
+                    $state,
+                    $battle->getMarks(),
+                ),
             );
         }
 
