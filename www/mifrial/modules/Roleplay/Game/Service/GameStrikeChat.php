@@ -80,11 +80,9 @@ final class GameStrikeChat
         }
 
         try {
-            if ($kind === 'npc') {
-                return $this->npcs->getById($id)->getName();
-            }
-
-            return $this->rules->data->characterName($id);
+            return $kind === 'npc'
+                ? $this->npcs->getById($id)->getName()
+                : $this->rules->data->characterName($id);
         } catch (GameNotFoundException | CharacterNotFoundException) {
             return (string) $id;
         }
@@ -131,7 +129,7 @@ final class GameStrikeChat
 
         return [
             'roll' => $roll,
-            'text' => $this->getMaimText($target, $rating),
+            'text' => $this->maimText($target, $rating),
             'details' => [
                 'injury' => [
                     'strength' => $rating < 0 ? -$rating : 0,
@@ -150,23 +148,6 @@ final class GameStrikeChat
     }
 
     /**
-     * Текст проверки на увечье.
-     *
-     * @param string $target Цель.
-     * @param int $rating Рейтинг.
-     *
-     * @return string Текст.
-     */
-    public function getMaimText(string $target, int $rating): string
-    {
-        if ($rating >= 0) {
-            return $target . ' не получает увечье.';
-        }
-
-        return $target . ' получает временное увечье с силой ' . (-$rating) . '.';
-    }
-
-    /**
      * Строка условий дальнего боя из пересчитанного броска.
      *
      * @param array<string, mixed> $roll Бросок атаки.
@@ -180,11 +161,11 @@ final class GameStrikeChat
             return null;
         }
 
-        $distance = $this->dimensionalText($detail['distance_value'] ?? null);
-        $falloff = $this->dimensionalText($detail['falloff_value'] ?? null);
-        $cover = $this->dimensionalText($detail['cover_value'] ?? null);
-        $defense = $this->dimensionalText($detail['defense_value'] ?? null);
-        $difficulty = $this->dimensionalText($detail['difficulty'] ?? null);
+        $distance = $this->getDimensionalText($detail['distance_value'] ?? null);
+        $falloff = $this->getDimensionalText($detail['falloff_value'] ?? null);
+        $cover = $this->getDimensionalText($detail['cover_value'] ?? null);
+        $defense = $this->getDimensionalText($detail['defense_value'] ?? null);
+        $difficulty = $this->getDimensionalText($detail['difficulty'] ?? null);
         $rangeSize = is_int($detail['range_size'] ?? null) ? $detail['range_size'] : 1;
         $extra = max(0, $rangeSize - 1);
         $falloffText = $falloff === '?' ? 'без дальнобойности' : 'дальнобойность ' . $falloff;
@@ -205,44 +186,6 @@ final class GameStrikeChat
      */
     public function getDimensionalText(mixed $value): string
     {
-        return $this->dimensionalText($value);
-    }
-
-    /**
-     * Слово «размер» в нужном числе.
-     *
-     * @param int $count Количество.
-     *
-     * @return string Слово.
-     */
-    private function sizeWord(int $count): string
-    {
-        $mod100 = $count % 100;
-        $mod10 = $count % 10;
-        if ($mod100 >= 11 && $mod100 <= 14) {
-            return 'размеров';
-        }
-
-        if ($mod10 === 1) {
-            return 'размер';
-        }
-
-        if ($mod10 >= 2 && $mod10 <= 4) {
-            return 'размера';
-        }
-
-        return 'размеров';
-    }
-
-    /**
-     * Размерное число для текста.
-     *
-     * @param mixed $value Пара base/size.
-     *
-     * @return string Текст.
-     */
-    private function dimensionalText(mixed $value): string
-    {
         if (!is_array($value) || !is_int($value['base'] ?? null) || !is_int($value['size'] ?? null)) {
             return '?';
         }
@@ -257,24 +200,6 @@ final class GameStrikeChat
         $power = abs($size);
 
         return $base . $arrow . ($power > 1 ? (string) $power : '');
-    }
-
-    /**
-     * Перечисление имён.
-     *
-     * @param array<int, string> $names Имена.
-     *
-     * @return string Текст.
-     */
-    public function getJoinNames(array $names): string
-    {
-        if (count($names) < 2) {
-            return $names[0] ?? '';
-        }
-
-        $last = array_pop($names);
-
-        return implode(', ', $names) . ' и ' . $last;
     }
 
     /**
@@ -340,5 +265,43 @@ final class GameStrikeChat
         $name = $code === null ? null : $slice->findLive($code)?->getName();
 
         return is_string($name) && $name !== '' ? mb_strtolower($name) : 'безымянный';
+    }
+
+    /**
+     * Текст проверки на увечье.
+     *
+     * @param string $target Цель.
+     * @param int $rating Рейтинг.
+     *
+     * @return string Текст.
+     */
+    private function maimText(string $target, int $rating): string
+    {
+        if ($rating >= 0) {
+            return $target . ' не получает увечье.';
+        }
+
+        return $target . ' получает временное увечье с силой ' . (-$rating) . '.';
+    }
+
+    /**
+     * Слово «размер» в нужном числе.
+     *
+     * @param int $count Количество.
+     *
+     * @return string Слово.
+     */
+    private function sizeWord(int $count): string
+    {
+        $mod100 = $count % 100;
+        if ($mod100 >= 11 && $mod100 <= 14) {
+            return 'размеров';
+        }
+
+        return match ($count % 10) {
+            1 => 'размер',
+            2, 3, 4 => 'размера',
+            default => 'размеров',
+        };
     }
 }

@@ -127,7 +127,7 @@ final class GameStrikeWideChecks
             return $code;
         }
 
-        $this->sheets->assertTargetSheet(
+        $this->sheets->conflicts->assertTargetSheet(
             $game,
             $target,
             $choice['expectedSheetVersion'],

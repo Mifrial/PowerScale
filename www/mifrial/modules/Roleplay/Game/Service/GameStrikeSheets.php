@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
-use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
-use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
-use Mifrial\Roleplay\Game\Exception\GameEconomyConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
@@ -15,10 +12,12 @@ use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 
 /**
- * Снимки листов, проверка версии и проекция конфликтов удара.
+ * Снимки листов удара и проверка их версий.
  */
 final class GameStrikeSheets
 {
+    public readonly GameStrikeSheetConflicts $conflicts;
+
     /**
      * Создаёт чтение листов.
      *
@@ -37,6 +36,13 @@ final class GameStrikeSheets
         private readonly GameMemberRepository $members,
         private readonly ConflictSheetProjection $conflictProjection,
     ) {
+        $this->conflicts = new GameStrikeSheetConflicts(
+            $this,
+            $this->characters,
+            $this->members,
+            $this->npcs,
+            $this->conflictProjection,
+        );
     }
 
     /**
@@ -246,216 +252,5 @@ final class GameStrikeSheets
         }
 
         return $npc->getActualVersion();
-    }
-
-    /**
-     * Версия листа NPC широкого удара.
-     *
-     * @param int $gameId Игра.
-     * @param int $npcId NPC.
-     *
-     * @return int Версия.
-     *
-     * @throws GameInvalidException Если строка чужая.
-     * @throws GameNotFoundException Если строки нет.
-     */
-    public function getTargetNpcVersion(int $gameId, int $npcId): int
-    {
-        $npc = $this->npcs->getById($npcId);
-        if ($npc->getGameId() !== $gameId) {
-            throw new GameInvalidException('Game wide strike npc sheet is missing');
-        }
-
-        return $npc->getActualVersion();
-    }
-
-    /**
-     * Версия листа защитника одиночного удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Строка удара.
-     * @param int $expectedSheetVersion Ожидание.
-     * @param int $actorUserId Актор.
-     * @param bool $viewAll Полный просмотр.
-     *
-     * @return void
-     *
-     * @throws GameBattleConflictException Если версия другая.
-     * @throws GameInvalidException Если строка битая.
-     * @throws GameNotFoundException Если листа нет.
-     */
-    public function assertDefenderSheet(
-        GameRecord $game,
-        array $open,
-        int $expectedSheetVersion,
-        int $actorUserId,
-        bool $viewAll,
-    ): void {
-        $kind = $open['defender_kind'] ?? null;
-        $id = $open['defender_id'] ?? null;
-        if (($kind !== 'character' && $kind !== 'npc') || !is_int($id)) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        $snapshot = $kind === 'character'
-            ? $this->getCharacterSnapshot($id)
-            : $this->getNpcSnapshot($game->getId(), $id);
-        if ($snapshot['actualVersion'] === $expectedSheetVersion) {
-            return;
-        }
-
-        $sheet = $this->projectTargetSheet(
-            $game,
-            ['type' => $kind, 'id' => $id],
-            $snapshot['sheet'],
-            $actorUserId,
-            $viewAll,
-        );
-        throw new GameBattleConflictException($snapshot['actualVersion'], currentSheet: $sheet);
-    }
-
-    /**
-     * Версия листа цели широкого удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param array{type: string, id: int} $target Цель.
-     * @param int $expectedSheetVersion Ожидание.
-     * @param int $actorUserId Актор.
-     * @param bool $viewAll Полный просмотр.
-     *
-     * @return void
-     *
-     * @throws GameBattleConflictException Если версия другая.
-     * @throws GameInvalidException Если документ битый.
-     * @throws GameNotFoundException Если цели нет.
-     */
-    public function assertTargetSheet(
-        GameRecord $game,
-        array $target,
-        int $expectedSheetVersion,
-        int $actorUserId,
-        bool $viewAll,
-    ): void {
-        $snapshot = $target['type'] === 'character'
-            ? $this->getCharacterSnapshot($target['id'])
-            : $this->getNpcSnapshot($game->getId(), $target['id']);
-        $sheet = $this->projectTargetSheet($game, $target, $snapshot['sheet'], $actorUserId, $viewAll);
-        if ($snapshot['actualVersion'] === $expectedSheetVersion) {
-            return;
-        }
-
-        throw new GameBattleConflictException(
-            $snapshot['actualVersion'],
-            currentSheet: $sheet,
-            target: ['type' => $target['type'], 'id' => $target['id']],
-        );
-    }
-
-    /**
-     * Проецирует race-конфликт записи цели.
-     *
-     * @param GameRecord $game Игра.
-     * @param array{type: string, id: int} $target Цель.
-     * @param CharacterConflictException|GameEconomyConflictException $exception Исходный конфликт.
-     * @param int $actorUserId Актор.
-     * @param bool $viewAll Полный просмотр.
-     *
-     * @return array{choices: array<string, mixed>, sheet: array<string, mixed>} Проекция.
-     *
-     * @throws GameInvalidException Если снимок листа битый.
-     * @throws GameNotFoundException Если цель или membership отсутствуют.
-     */
-    public function projectWriteConflict(
-        GameRecord $game,
-        array $target,
-        CharacterConflictException|GameEconomyConflictException $exception,
-        int $actorUserId,
-        bool $viewAll,
-    ): array {
-        $current = $exception->getCurrentSheet();
-        if ($current === null) {
-            throw new GameInvalidException('Game strike conflict sheet is missing');
-        }
-
-        return $this->projectTargetSheet($game, $target, $current, $actorUserId, $viewAll);
-    }
-
-    /**
-     * Проецирует снимок листа цели.
-     *
-     * @param GameRecord $game Игра.
-     * @param array{type: string, id: int} $target Цель.
-     * @param array<string, mixed> $currentSheet Снимок.
-     * @param int $actorUserId Актор.
-     * @param bool $viewAll Полный просмотр.
-     *
-     * @return array{choices: array<string, mixed>, sheet: array<string, mixed>} Проекция.
-     *
-     * @throws GameInvalidException Если снимок битый.
-     * @throws GameNotFoundException Если цель или membership отсутствуют.
-     */
-    private function projectTargetSheet(
-        GameRecord $game,
-        array $target,
-        array $currentSheet,
-        int $actorUserId,
-        bool $viewAll,
-    ): array {
-        $choices = $currentSheet['choices'] ?? null;
-        $sheet = $currentSheet['sheet'] ?? null;
-        if (!is_array($choices) || !is_array($sheet)) {
-            throw new GameInvalidException('Game strike sheet is invalid');
-        }
-
-        if ($target['type'] === 'character') {
-            $membership = $this->characters->getByPair($game->getId(), $target['id']);
-            $full = $viewAll
-                || $game->getOwnerId() === $actorUserId
-                || $membership->getCharacterOwnerId() === $actorUserId
-                || $this->isGm($game->getId(), $actorUserId);
-
-            return $this->conflictProjection->projectGameCharacter(
-                $choices,
-                $sheet,
-                $membership->getSectionVisibility(),
-                $full,
-            );
-        }
-
-        $npc = $this->npcs->getById($target['id']);
-        if ($npc->getGameId() !== $game->getId()) {
-            throw new GameNotFoundException('Game strike npc was not found');
-        }
-
-        $full = $viewAll
-            || $game->getOwnerId() === $actorUserId
-            || $this->isGm($game->getId(), $actorUserId);
-        $version = $this->conflictProjection->projectNpc(
-            ['choices' => $choices, 'sheet' => $sheet],
-            $npc->getVisibility(),
-            $full,
-        );
-
-        return [
-            'choices' => is_array($version['choices'] ?? null) ? $version['choices'] : [],
-            'sheet' => is_array($version['sheet'] ?? null) ? $version['sheet'] : [],
-        ];
-    }
-
-    /**
-     * Роль gm.
-     *
-     * @param int $gameId Игра.
-     * @param int $actorUserId Актор.
-     *
-     * @return bool Да, если gm.
-     */
-    private function isGm(int $gameId, int $actorUserId): bool
-    {
-        try {
-            return $this->members->getByPair($gameId, $actorUserId)->getRole() === 'gm';
-        } catch (GameNotFoundException) {
-            return false;
-        }
     }
 }

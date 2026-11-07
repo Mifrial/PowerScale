@@ -71,23 +71,23 @@ final class GameStrikeSingleCoverPhase
      */
     private function resolveCover(GameStrikeSingleRun $run): array
     {
-        return $this->cover->resolve(
-            $run->input->game,
-            $run->open,
-            $run->row,
-            $run->conditions,
-            $run->choice,
-            $run->attackerRoll,
-            $run->hitCode,
-            $run->slice,
-            $run->pending,
-            $run->defenderPending,
-            $run->profileType,
-            $run->isPush,
-            $run->profileType === 'shoot' ? $run->metrics['distance'] : null,
-            $run->input->expectedSheetVersion,
-            $run->battle->getMarks(),
-        );
+        $input = new GameStrikeCoverRun();
+        $input->game = $run->input->game;
+        $input->open = $run->open;
+        $input->conditions = $run->conditions;
+        $input->choice = $run->choice;
+        $input->attackerRoll = $run->attackerRoll;
+        $input->hitCode = $run->hitCode;
+        $input->slice = $run->slice;
+        $input->pending = $run->pending;
+        $input->targetPending = $run->defenderPending;
+        $input->profileType = $run->profileType;
+        $input->isPush = $run->isPush;
+        $input->shotDistance = $run->profileType === 'shoot' ? $run->metrics['distance'] : null;
+        $input->targetSheetVersion = $run->input->expectedSheetVersion;
+        $input->marks = $run->battle->getMarks();
+
+        return $this->cover->resolve($input, $run->row);
     }
 
     /**

@@ -21,37 +21,97 @@ final class GameStrikeSupport
      */
     public function advantages(array $row): array
     {
-        $raw = $row['supporters'] ?? null;
+        $supports = ['attacker' => [], 'defender' => []];
+        foreach ($this->decode($row['supporters'] ?? null) as $entry) {
+            $support = $this->support($entry);
+            if ($support === null) {
+                continue;
+            }
+
+            [$side, $advantage] = $support;
+            $supports[$side][] = $advantage;
+        }
+
+        return $supports;
+    }
+
+    /**
+     * Записи поддержек из строки или JSON.
+     *
+     * @param mixed $raw Сырое значение.
+     *
+     * @return array<int, mixed> Записи.
+     */
+    private function decode(mixed $raw): array
+    {
         if (is_string($raw)) {
             $raw = json_decode($raw, true);
         }
 
-        $supports = ['attacker' => [], 'defender' => []];
-        if (!is_array($raw)) {
-            return $supports;
+        return is_array($raw) ? array_values($raw) : [];
+    }
+
+    /**
+     * Сторона и преимущество одной записи.
+     *
+     * @param mixed $entry Запись.
+     *
+     * @return array{0: string, 1: RollAdvantage}|null Пара или null.
+     */
+    private function support(mixed $entry): ?array
+    {
+        $fields = $this->fields($entry);
+        if ($fields === null) {
+            return null;
         }
 
-        foreach ($raw as $entry) {
-            if (!is_array($entry)) {
-                continue;
-            }
+        return [
+            $fields['side'],
+            new RollAdvantage(
+                $fields['source'],
+                $fields['advantage'],
+                AdvantageSourceLabels::getLabel($fields['source']),
+            ),
+        ];
+    }
 
-            $side = $entry['side'] ?? null;
-            $advantage = $entry['advantage'] ?? null;
-            $source = $entry['source'] ?? null;
-            if (
-                ($side !== 'attacker' && $side !== 'defender')
-                || !is_int($advantage)
-                || $advantage === 0
-                || !is_string($source)
-                || $source === ''
-            ) {
-                continue;
-            }
-
-            $supports[$side][] = new RollAdvantage($source, $advantage, AdvantageSourceLabels::getLabel($source));
+    /**
+     * Проверенные поля одной записи.
+     *
+     * @param mixed $entry Запись.
+     *
+     * @return array{side: string, advantage: int, source: string}|null Поля или null.
+     */
+    private function fields(mixed $entry): ?array
+    {
+        if (!is_array($entry)) {
+            return null;
         }
 
-        return $supports;
+        $side = $entry['side'] ?? null;
+        if ($side !== 'attacker' && $side !== 'defender') {
+            return null;
+        }
+
+        return $this->sideFields($side, $entry);
+    }
+
+    /**
+     * Число и источник записи с уже проверенной стороной.
+     *
+     * @param string $side Сторона.
+     * @param array<string, mixed> $entry Запись.
+     *
+     * @return array{side: string, advantage: int, source: string}|null Поля или null.
+     */
+    private function sideFields(string $side, array $entry): ?array
+    {
+        $advantage = $entry['advantage'] ?? null;
+        $source = $entry['source'] ?? null;
+        if (!is_int($advantage) || $advantage === 0 || !is_string($source) || $source === '') {
+            return null;
+        }
+
+        return ['side' => $side, 'advantage' => $advantage, 'source' => $source];
     }
 }

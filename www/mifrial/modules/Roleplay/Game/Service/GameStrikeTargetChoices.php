@@ -33,6 +33,8 @@ final class GameStrikeTargetChoices
      * @param array{type: string, id: int} $target Цель.
      *
      * @return array<string, mixed> Choices.
+     *
+     * @throws GameInvalidException Если choices NPC битые.
      */
     public function targetChoices(GameRecord $game, array $target): array
     {
@@ -50,6 +52,8 @@ final class GameStrikeTargetChoices
      * @param array<string, mixed> $open Открытый удар.
      *
      * @return array<string, mixed> Choices.
+     *
+     * @throws GameInvalidException Если атакующий или choices NPC битые.
      */
     public function attackerChoices(GameRecord $game, array $open): array
     {
@@ -73,25 +77,6 @@ final class GameStrikeTargetChoices
     }
 
     /**
-     * Документ choices NPC этой игры.
-     *
-     * @param int $gameId Игра.
-     * @param int $npcId NPC.
-     *
-     * @return array<string, mixed> Документ.
-     */
-    private function defenderChoices(int $gameId, int $npcId): array
-    {
-        $snapshot = $this->sheets->getNpcSnapshot($gameId, $npcId);
-        $choices = $snapshot['sheet']['choices'] ?? null;
-        if (!is_array($choices)) {
-            throw new GameInvalidException('Game wide strike npc choices are missing');
-        }
-
-        return $choices;
-    }
-
-    /**
      * Реакция и предмет блока этой цели.
      *
      * @param GameRecord $game Игра.
@@ -99,6 +84,8 @@ final class GameStrikeTargetChoices
      * @param array<string, mixed> $choice Защита.
      *
      * @return void
+     *
+     * @throws GameInvalidException Если реакция или предмет блока битые.
      */
     public function assertReaction(GameRecord $game, array $target, array $choice): void
     {
@@ -124,5 +111,26 @@ final class GameStrikeTargetChoices
                 $choice['blockItemRuleCode'],
             );
         }
+    }
+
+    /**
+     * Документ choices NPC этой игры.
+     *
+     * @param int $gameId Игра.
+     * @param int $npcId NPC.
+     *
+     * @return array<string, mixed> Документ.
+     *
+     * @throws GameInvalidException Если choices NPC битые.
+     */
+    private function defenderChoices(int $gameId, int $npcId): array
+    {
+        $snapshot = $this->sheets->getNpcSnapshot($gameId, $npcId);
+        $choices = $snapshot['sheet']['choices'] ?? null;
+        if (!is_array($choices)) {
+            throw new GameInvalidException('Game wide strike npc choices are missing');
+        }
+
+        return $choices;
     }
 }

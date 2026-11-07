@@ -45,7 +45,7 @@ final class GameStrikeSingleDefender
     public function prepare(GameStrikeSingleRun $run): void
     {
         $game = $run->input->game;
-        $this->sheets->assertDefenderSheet(
+        $this->sheets->conflicts->assertDefenderSheet(
             $game,
             $run->targetOpen,
             $run->input->expectedSheetVersion,

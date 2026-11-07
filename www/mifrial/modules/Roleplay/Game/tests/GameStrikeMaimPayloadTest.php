@@ -22,7 +22,7 @@ final class GameStrikeMaimPayloadTest extends TestCase
     public function testMaimTextSign(): void
     {
         $subject = (new ReflectionClass(GameStrikeChat::class))->newInstanceWithoutConstructor();
-        $method = new ReflectionMethod(GameStrikeChat::class, 'getMaimText');
+        $method = new ReflectionMethod(GameStrikeChat::class, 'maimText');
         $method->setAccessible(true);
 
         self::assertSame('Цель получает временное увечье с силой 2.', $method->invoke($subject, 'Цель', -2));

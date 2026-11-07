@@ -1503,7 +1503,7 @@ final class GameActionDeclare
         bool $viewAll,
     ): Closure {
         return fn (CharacterConflictException|GameEconomyConflictException $exception): array => $this->sheets
-            ->projectWriteConflict($game, $actor, $exception, $actorUserId, $viewAll);
+            ->conflicts->projectWriteConflict($game, $actor, $exception, $actorUserId, $viewAll);
     }
 
     /**

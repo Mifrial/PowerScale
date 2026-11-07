@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameStrikeTargetOptions;
 use Mifrial\Roleplay\Game\Dto\GameStrikeWriteScope;
@@ -182,48 +183,62 @@ final class GameStrikeTargetClose
         array $attackerRoll, string $hitCode, string $profileType, bool $isPush,
         ?DimensionalNumber $shotDistance, array $marks, array $conditions,
     ): ?array {
-        if ($reaction['insufficient'] || $this->jsonRows($row, 'coverers') === []) {
+        if ($reaction['insufficient'] || GameStrikeTargetRow::jsonRows($row, 'coverers') === []) {
             return null;
         }
 
         return $this->cover->resolve(
-            $game,
-            $open,
+            $this->coverRun(
+                $game, $open, $choice, $reaction, $attackerRoll, $hitCode,
+                $profileType, $isPush, $shotDistance, $marks, $conditions,
+            ),
             $row,
-            $conditions,
-            $choice,
-            $attackerRoll,
-            $hitCode,
-            $reaction['slice'] ?? $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
-            $this->reaction->pendingAfter(),
-            $reaction['pending'],
-            $profileType,
-            $isPush,
-            $shotDistance,
-            is_int($choice['expectedSheetVersion'] ?? null) ? $choice['expectedSheetVersion'] : 0,
-            $marks,
         );
     }
 
     /**
-     * Список JSON-записей строки удара.
+     * Вход расчёта прикрытия строки.
      *
-     * @param array<string, mixed> $row Строка удара.
-     * @param string $key Колонка.
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $open Открытый удар.
+     * @param array<string, mixed> $choice Защита.
+     * @param array<string, mixed> $reaction Реакция цели.
+     * @param array<string, mixed> $attackerRoll Бросок атаки.
+     * @param string $hitCode Код проверки.
+     * @param string $profileType Профиль.
+     * @param bool $isPush Толчок.
+     * @param DimensionalNumber|null $shotDistance Дистанция.
+     * @param array<int, array<string, mixed>> $marks Метки боя.
+     * @param array<string, mixed> $conditions Условия цели.
      *
-     * @return list<array<string, mixed>> Записи.
+     * @return GameStrikeCoverRun Вход расчёта.
      */
-    private function jsonRows(array $row, string $key): array
-    {
-        $raw = $row[$key] ?? null;
-        if (is_string($raw)) {
-            $raw = json_decode($raw, true);
-        }
+    private function coverRun(
+        GameRecord $game, array $open, array $choice, array $reaction, array $attackerRoll,
+        string $hitCode, string $profileType, bool $isPush, ?DimensionalNumber $shotDistance,
+        array $marks, array $conditions,
+    ): GameStrikeCoverRun {
+        $run = new GameStrikeCoverRun();
+        $run->game = $game;
+        $run->open = $open;
+        $run->conditions = $conditions;
+        $run->choice = $choice;
+        $run->attackerRoll = $attackerRoll;
+        $run->hitCode = $hitCode;
+        $run->slice = $reaction['slice'] instanceof CharacterRuleSlice
+            ? $reaction['slice']
+            : $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $run->pending = $this->reaction->pendingAfter();
+        $run->targetPending = $reaction['pending'];
+        $run->profileType = $profileType;
+        $run->isPush = $isPush;
+        $run->shotDistance = $shotDistance;
+        $run->targetSheetVersion = is_int($choice['expectedSheetVersion'] ?? null)
+            ? $choice['expectedSheetVersion']
+            : 0;
+        $run->marks = $marks;
 
-        if (!is_array($raw)) {
-            return [];
-        }
-
-        return array_values(array_filter($raw, static fn (mixed $entry): bool => is_array($entry)));
+        return $run;
     }
+
 }

@@ -28,11 +28,51 @@ final class GameStrikeTargetRow
     }
 
     /**
+     * Пара участника из массива.
+     *
+     * @param mixed $value Сырое значение.
+     *
+     * @return array{type: string, id: int}|null Пара или null.
+     */
+    public static function pair(mixed $value): ?array
+    {
+        if (!is_array($value) || !is_string($value['type'] ?? null) || !is_int($value['id'] ?? null)) {
+            return null;
+        }
+
+        return ['type' => $value['type'], 'id' => $value['id']];
+    }
+
+    /**
+     * Список JSON-записей строки удара.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     * @param string $key Колонка.
+     *
+     * @return list<array<string, mixed>> Записи.
+     */
+    public static function jsonRows(array $row, string $key): array
+    {
+        $raw = $row[$key] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter($raw, static fn (mixed $entry): bool => is_array($entry)));
+    }
+
+    /**
      * Пара защитника из строки.
      *
      * @param array<string, mixed> $row Цель.
      *
      * @return array{type: string, id: int} Пара.
+     *
+     * @throws GameInvalidException Если цель в строке битая.
      */
     public static function defender(array $row): array
     {

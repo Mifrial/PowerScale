@@ -143,7 +143,7 @@ final class GameStrikeWideNarrative
     private function sentence(array $view, array $targets, array $reactions, array $failed): string
     {
         $narrative = $view['attacker'] . ' наносит ' . $view['typeBit'] . ' ' . $view['kind']
-            . ' оружием [[rule:' . $view['itemRuleCode'] . ']] по ' . $this->chat->getJoinNames($targets) . '.';
+            . ' оружием [[rule:' . $view['itemRuleCode'] . ']] по ' . $this->joinNames($targets) . '.';
         if ($reactions !== []) {
             $narrative .= ' ' . implode(', ', $reactions) . '!';
         }
@@ -262,5 +262,23 @@ final class GameStrikeWideNarrative
     private function nonEmpty(string $text): ?string
     {
         return $text === '' ? null : $text;
+    }
+
+    /**
+     * Перечисление имён через запятую и «и».
+     *
+     * @param list<string> $names Имена.
+     *
+     * @return string Текст.
+     */
+    private function joinNames(array $names): string
+    {
+        if (count($names) < 2) {
+            return $names[0] ?? '';
+        }
+
+        $last = array_pop($names);
+
+        return implode(', ', $names) . ' и ' . $last;
     }
 }

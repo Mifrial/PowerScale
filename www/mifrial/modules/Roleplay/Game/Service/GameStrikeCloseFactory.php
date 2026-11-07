@@ -27,23 +27,13 @@ final class GameStrikeCloseFactory
         GameStateIncreaseChecks $stateChecks,
         GameProcessFlow $processes,
     ): GameStrikeClose {
+        $wiring = new GameStrikeCloseWiring($rules, $shared, $consequences, $stateChecks, $processes);
+
         return new GameStrikeClose(
-            $rules,
-            $shared->repos->battles,
-            $shared->repos->actions,
             $shared->repos->commands,
-            $shared->access,
-            $shared->sheets,
-            $shared->sheetWrites,
-            new GameStrikeResolution($rules, $shared->sheets, $shared->repos->npcs, $consequences),
-            $shared->spend,
-            $shared->chat,
-            $consequences,
-            new GameStrikeAmounts(),
             $shared->replay,
-            new GamePushRules($rules),
-            $stateChecks,
-            $processes,
+            $wiring->single(),
+            $wiring->wide(),
         );
     }
 }

@@ -93,81 +93,172 @@ final class GameStrikeConditions
      */
     private function normalize(mixed $raw, bool $requireDistance): array
     {
-        $defaults = $this->defaults();
         if ($raw === null) {
             if ($requireDistance) {
                 throw new GameInvalidException('Game strike distance is required');
             }
 
-            return $defaults;
+            return $this->defaults();
         }
 
         if (!is_array($raw) || array_is_list($raw)) {
             throw new GameInvalidException('Game strike conditions are invalid');
         }
 
-        $allowed = ['distance', 'cover', 'flank', 'turn'];
+        $this->assertKeys($raw);
+        $distance = $this->distance($raw['distance'] ?? null, $requireDistance);
+        $cover = $this->cover($raw['cover'] ?? null);
+        [$flank, $turn] = $this->flags($raw);
+
+        return [
+            'distance' => $distance,
+            'cover' => $cover,
+            'flank' => $flank,
+            'turn' => $turn,
+        ];
+    }
+
+    /**
+     * Только известные ключи условий.
+     *
+     * @param array<string, mixed> $raw Сырые условия.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если ключ чужой.
+     */
+    private function assertKeys(array $raw): void
+    {
         foreach (array_keys($raw) as $key) {
-            if (!in_array($key, $allowed, true)) {
+            if (!in_array($key, ['distance', 'cover', 'flank', 'turn'], true)) {
                 throw new GameInvalidException('Game strike conditions are invalid');
             }
         }
+    }
 
-        $distance = $raw['distance'] ?? null;
-        if ($distance === null) {
-            if ($requireDistance) {
-                throw new GameInvalidException('Game strike distance is required');
-            }
-
-            $distance = $defaults['distance'];
-        }
-
-        if (!is_array($distance)) {
-            throw new GameInvalidException('Game strike distance is invalid');
-        }
-
-        $distanceKeys = array_keys($distance);
-        sort($distanceKeys);
-        if ($distanceKeys !== ['type', 'value']) {
-            throw new GameInvalidException('Game strike distance is invalid');
-        }
-
-        $type = $distance['type'] ?? null;
-        $value = $distance['value'] ?? null;
-        if (
-            !is_string($type) || !in_array($type, ['step', 'ipari'], true)
-            || !is_array($value) || !is_string($value['type'] ?? null)
-        ) {
-            throw new GameInvalidException('Game strike distance is invalid');
-        }
-
-        $cover = $raw['cover'] ?? $defaults['cover'];
-        if (!is_array($cover)) {
-            throw new GameInvalidException('Game strike cover is invalid');
-        }
-
-        $coverKeys = array_keys($cover);
-        sort($coverKeys);
-        if (
-            $coverKeys !== ['base', 'size']
-            || !is_int($cover['base'] ?? null)
-            || !is_int($cover['size'] ?? null)
-            || $cover['base'] < 0
-        ) {
-            throw new GameInvalidException('Game strike cover is invalid');
-        }
-
+    /**
+     * Флаги поворота и фланга.
+     *
+     * @param array<string, mixed> $raw Сырые условия.
+     *
+     * @return array{0: bool, 1: bool} Фланг и поворот.
+     *
+     * @throws GameInvalidException Если флаг не bool.
+     */
+    private function flags(array $raw): array
+    {
         $flank = $raw['flank'] ?? false;
         $turn = $raw['turn'] ?? false;
         if (!is_bool($flank) || !is_bool($turn)) {
             throw new GameInvalidException('Game strike conditions are invalid');
         }
 
-        return [
-            'distance' => ['type' => $type, 'value' => $value],
-            'cover' => ['base' => $cover['base'], 'size' => $cover['size']],
-            'flank' => $flank,
-            'turn' => $turn,
-        ];
+        return [$flank, $turn];
+    }
+
+    /**
+     * Дистанция в форме ipari или step.
+     *
+     * @param mixed $distance Сырая дистанция.
+     * @param bool $requireDistance Требовать явную дистанцию.
+     *
+     * @return array<string, mixed> Дистанция.
+     *
+     * @throws GameInvalidException Если дистанция битая.
+     */
+    private function distance(mixed $distance, bool $requireDistance): array
+    {
+        if ($distance === null) {
+            if ($requireDistance) {
+                throw new GameInvalidException('Game strike distance is required');
+            }
+
+            return $this->defaults()['distance'];
+        }
+
+        return $this->distanceValues($distance);
+    }
+
+    /**
+     * Дистанция из формы type/value.
+     *
+     * @param mixed $distance Сырая дистанция.
+     *
+     * @return array<string, mixed> Дистанция.
+     *
+     * @throws GameInvalidException Если дистанция битая.
+     */
+    private function distanceValues(mixed $distance): array
+    {
+        if (!is_array($distance)) {
+            throw new GameInvalidException('Game strike distance is invalid');
+        }
+
+        $keys = array_keys($distance);
+        sort($keys);
+        if ($keys !== ['type', 'value']) {
+            throw new GameInvalidException('Game strike distance is invalid');
+        }
+
+        $type = $distance['type'] ?? null;
+        $value = $distance['value'] ?? null;
+        if (!is_string($type) || !in_array($type, ['step', 'ipari'], true)) {
+            throw new GameInvalidException('Game strike distance is invalid');
+        }
+
+        if (!is_array($value) || !is_string($value['type'] ?? null)) {
+            throw new GameInvalidException('Game strike distance is invalid');
+        }
+
+        return ['type' => $type, 'value' => $value];
+    }
+
+    /**
+     * Укрытие из пары base/size.
+     *
+     * @param mixed $cover Сырое укрытие.
+     *
+     * @return array{base: int, size: int} Укрытие.
+     *
+     * @throws GameInvalidException Если укрытие битое.
+     */
+    private function cover(mixed $cover): array
+    {
+        $shape = $this->coverShape($cover);
+        $base = $shape['base'] ?? null;
+        $size = $shape['size'] ?? null;
+        if (!is_int($base) || !is_int($size) || $base < 0) {
+            throw new GameInvalidException('Game strike cover is invalid');
+        }
+
+        return ['base' => $base, 'size' => $size];
+    }
+
+    /**
+     * Форма укрытия без проверки значений.
+     *
+     * @param mixed $cover Сырое укрытие.
+     *
+     * @return array<string, mixed> Форма.
+     *
+     * @throws GameInvalidException Если форма чужая.
+     */
+    private function coverShape(mixed $cover): array
+    {
+        if ($cover === null) {
+            return $this->defaults()['cover'];
+        }
+
+        if (!is_array($cover)) {
+            throw new GameInvalidException('Game strike cover is invalid');
+        }
+
+        $keys = array_keys($cover);
+        sort($keys);
+        if ($keys !== ['base', 'size']) {
+            throw new GameInvalidException('Game strike cover is invalid');
+        }
+
+        return $cover;
     }
 }

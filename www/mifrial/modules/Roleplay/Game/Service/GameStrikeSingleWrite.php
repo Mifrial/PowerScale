@@ -145,7 +145,7 @@ final class GameStrikeSingleWrite
      */
     private function conflict(GameStrikeSingleRun $run, CharacterConflictException|GameEconomyConflictException $exception): array
     {
-        return $this->sheets->projectWriteConflict(
+        return $this->sheets->conflicts->projectWriteConflict(
             $run->input->game,
             $run->target,
             $exception,

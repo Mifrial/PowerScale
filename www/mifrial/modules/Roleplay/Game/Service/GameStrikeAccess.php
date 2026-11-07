@@ -191,6 +191,23 @@ final class GameStrikeAccess
     }
 
     /**
+     * Роль gm.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     *
+     * @return bool Да, если gm.
+     */
+    public function isGm(int $gameId, int $actorUserId): bool
+    {
+        try {
+            return $this->members->getByPair($gameId, $actorUserId)->getRole() === 'gm';
+        } catch (GameNotFoundException) {
+            return false;
+        }
+    }
+
+    /**
      * Писатель или владелец активного персонажа. NPC — только писатель.
      *
      * @param GameRecord $game Игра.
@@ -242,23 +259,6 @@ final class GameStrikeAccess
     {
         if ($kind !== 'character' && $kind !== 'npc') {
             throw new GameInvalidException('Game strike participant is invalid');
-        }
-    }
-
-    /**
-     * Роль gm.
-     *
-     * @param int $gameId Игра.
-     * @param int $actorUserId Актор.
-     *
-     * @return bool Да, если gm.
-     */
-    public function isGm(int $gameId, int $actorUserId): bool
-    {
-        try {
-            return $this->members->getByPair($gameId, $actorUserId)->getRole() === 'gm';
-        } catch (GameNotFoundException) {
-            return false;
         }
     }
 }

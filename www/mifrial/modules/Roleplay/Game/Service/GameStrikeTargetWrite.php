@@ -153,7 +153,7 @@ final class GameStrikeTargetWrite
     {
         return fn (
             CharacterConflictException|GameEconomyConflictException $exception,
-        ): array => $this->sheets->projectWriteConflict(
+        ): array => $this->sheets->conflicts->projectWriteConflict(
             $game,
             $target,
             $exception,

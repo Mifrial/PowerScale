@@ -71,6 +71,34 @@ final class GameStrikeLayers
         int $durabilityShave = 0,
     ): DimensionalNumber {
         $type = $this->damageType($slice, $damageType);
+        [$projected, $cut] = $this->project($slice, $sheet, $choices, $reaction, $blockItemInventoryId, $type['rule']);
+        $values = $this->kept($projected, $damageType, $type['ignored'], $cut, $rating, $durabilityShave);
+
+        return $this->combine($values['defense'], $values['resistance'], $penetration);
+    }
+
+    /**
+     * Проекция слоёв и признак среза надёжности.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<string, mixed> $choices Выборы.
+     * @param string $reaction Реакция.
+     * @param int|null $blockItemInventoryId Id предмета блока.
+     * @param CharacterResolvedRule $rule Правило типа урона.
+     *
+     * @return array{0: array<int, CharacterCombatLayer>, 1: bool} Слои и срез.
+     *
+     * @throws GameInvalidException Если проекция или механики битые.
+     */
+    private function project(
+        CharacterRuleSlice $slice,
+        array $sheet,
+        array $choices,
+        string $reaction,
+        ?int $blockItemInventoryId,
+        CharacterResolvedRule $rule,
+    ): array {
         try {
             $projected = $this->layers->project(
                 $slice->getSpaceId(),
@@ -80,7 +108,7 @@ final class GameStrikeLayers
                 $this->blockId($reaction, $blockItemInventoryId),
             );
             $cut = $this->engine->hasReliabilityCut(
-                $this->bindings($type['rule']),
+                $this->bindings($rule),
                 $this->mechanics->getList(),
                 new ResolveActiveOptions(),
             );
@@ -88,22 +116,34 @@ final class GameStrikeLayers
             throw new GameInvalidException('Game strike resistance is invalid', $exception);
         }
 
-        $values = $this->kept($projected, $damageType, $type['ignored'], $cut, $rating, $durabilityShave);
-        $defense = $this->amounts->sum($values['defense']);
-        $resistance = $this->amounts->sum($values['resistance']);
+        return [$projected, $cut];
+    }
+
+    /**
+     * Сумма сопротивления и эффективной защиты.
+     *
+     * @param list<DimensionalNumber> $defense Защита.
+     * @param list<DimensionalNumber> $resistance Сопротивление.
+     * @param DimensionalNumber|null $penetration Проникновение.
+     *
+     * @return DimensionalNumber Сумма.
+     */
+    private function combine(array $defense, array $resistance, ?DimensionalNumber $penetration): DimensionalNumber
+    {
         $effectiveDefense = $this->amounts->effectiveDefense(
-            $defense,
+            $this->amounts->sum($defense),
             $penetration ?? $this->amounts->zero(),
         );
+        $total = $this->amounts->sum($resistance);
         if ($effectiveDefense->getBase() === 0) {
-            return $resistance;
+            return $total;
         }
 
-        if ($resistance->getBase() === 0) {
+        if ($total->getBase() === 0) {
             return $effectiveDefense;
         }
 
-        return $this->amounts->sum([$resistance, $effectiveDefense]);
+        return $this->amounts->sum([$total, $effectiveDefense]);
     }
 
     /**
@@ -154,6 +194,8 @@ final class GameStrikeLayers
      * @param CharacterResolvedRule $rule Правило.
      *
      * @return list<MechanicBinding> Срезы.
+     *
+     * @throws MechanicInvalidException Если привязка битая.
      */
     private function bindings(CharacterResolvedRule $rule): array
     {
