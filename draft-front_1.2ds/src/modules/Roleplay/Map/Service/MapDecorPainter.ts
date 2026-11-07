@@ -132,24 +132,34 @@ export class MapDecorPainter {
     }
     context.stroke();
 
-    for (let step = 0; step < pineTones.length; step += 1) {
-      const tone = (step + bandIndex) % pineTones.length;
-      context.fillStyle = pineTones[tone];
-      context.beginPath();
-      for (const point of band) {
-        if (point.kind !== 'pine' || point.variant % pineTones.length !== tone) continue;
-        pinePath(context, point.x, point.y, this.unit(options, point), point.variant);
-      }
-      context.fill();
+    // Кто в полосе рисуется первым, чередуется: иначе ели всегда оказывались бы
+    // под кронами независимо от глубины.
+    if (bandIndex % 2 === 0) {
+      this.fillKind(context, options, band, 'pine', pineTones, bandIndex, pinePath);
+      this.fillKind(context, options, band, 'tree', treeTones, bandIndex, treePath);
+    } else {
+      this.fillKind(context, options, band, 'tree', treeTones, bandIndex, treePath);
+      this.fillKind(context, options, band, 'pine', pineTones, bandIndex, pinePath);
     }
+  }
 
-    for (let step = 0; step < treeTones.length; step += 1) {
-      const tone = (step + bandIndex) % treeTones.length;
-      context.fillStyle = treeTones[tone];
+  /** Пачка одного символа: по заливке на оттенок. */
+  private fillKind(
+    context: CanvasRenderingContext2D,
+    options: MapDecorPaintOptions,
+    band: MapDecorPoint[],
+    kind: MapDecorSymbol,
+    tones: string[],
+    bandIndex: number,
+    shape: (context: CanvasRenderingContext2D, x: number, y: number, unit: number, variant: number) => void,
+  ): void {
+    for (let step = 0; step < tones.length; step += 1) {
+      const tone = (step + bandIndex) % tones.length;
+      context.fillStyle = tones[tone];
       context.beginPath();
       for (const point of band) {
-        if (point.kind !== 'tree' || point.variant % treeTones.length !== tone) continue;
-        treePath(context, point.x, point.y, this.unit(options, point), point.variant);
+        if (point.kind !== kind || point.variant % tones.length !== tone) continue;
+        shape(context, point.x, point.y, this.unit(options, point), point.variant);
       }
       context.fill();
     }
