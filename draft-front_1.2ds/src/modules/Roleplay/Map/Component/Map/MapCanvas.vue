@@ -302,10 +302,12 @@ function paintStaticLayer(width: number, height: number, dpr: number): void {
 
   drawGrid(context);
   drawAreas(context, 'surface');
-  drawDecor(context, 'surface', width, height, dpr);
   drawLineBodies(context);
+  // Декор ложится поверх лент: крона у берега свисает над водой и дорогой,
+  // а не обрезается их краем. Объекты рисуются позже и перекрывают декор.
+  drawDecor(context, 'surface', width, height, dpr, decorBlockers());
   drawAreas(context, 'object');
-  drawDecor(context, 'object', width, height, dpr);
+  drawDecor(context, 'object', width, height, dpr, []);
   drawRoute(context);
   context.restore();
 }
@@ -375,6 +377,7 @@ function drawDecor(
   width: number,
   height: number,
   dpr: number,
+  blockers: DecorBlocker[],
 ): void {
   if (!props.map) return;
 
@@ -383,7 +386,10 @@ function drawDecor(
     if (!area.decor?.set) continue;
     const path = flatShapeOf(area.id);
     if (!path || path.length < 3) continue;
-    const points = mapDecorService.layout(area.id, path, area.decor);
+    // Точка в русле или в доме не даёт дерева: лес не растёт из воды и из стен.
+    const points = mapDecorService
+      .layout(area.id, path, area.decor)
+      .filter((point) => !blockers.some((blocker) => insideBlocker(point.x, point.y, blocker)));
     if (points.length > 0) drawings.push({ area, points });
   }
   if (drawings.length === 0) return;
@@ -408,7 +414,7 @@ function drawDecor(
   }
 
   target.restore();
-  if (layer === 'surface') eraseDecorMask(target);
+  if (layer === 'surface') eraseDecorMask(target, blockers);
 
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
@@ -416,24 +422,57 @@ function drawDecor(
   context.restore();
 }
 
-/** Полигоны, под которыми декор поверхностей не виден: русла, дороги и объекты. */
-function decorMask(): MapPoint[][] {
-  const mask: MapPoint[][] = [];
+/** Полигон, под которым декор не сажается: русло, дорога или объект. */
+interface DecorBlocker {
+  polygon: MapPoint[];
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  /** Объект рисуется поверх декора и полупрозрачен — его полигон надо вырезать. */
+  erase: boolean;
+}
+
+/** Русла, дороги и объекты: под ними деревья не растут. */
+function decorBlockers(): DecorBlocker[] {
+  const blockers: DecorBlocker[] = [];
   for (const line of sortedLines()) {
     const band = mapRibbonService.ribbonBand(mapRibbonService.layout(line).flat, -1, 1);
-    if (band.length >= 3) mask.push(band);
+    if (band.length >= 3) blockers.push(makeBlocker(band, false));
   }
   for (const area of sortedAreas('object')) {
     const path = flatShapeOf(area.id);
-    if (path && path.length >= 3) mask.push(path);
+    if (path && path.length >= 3) blockers.push(makeBlocker(path, true));
   }
 
-  return mask;
+  return blockers;
 }
 
-/** Стирает из готового декора всё, что перекроют полупрозрачные ленты и объекты. */
-function eraseDecorMask(context: CanvasRenderingContext2D): void {
-  const mask = decorMask();
+function makeBlocker(polygon: MapPoint[], erase: boolean): DecorBlocker {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const [x, y] of polygon) {
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+
+  return { polygon, minX, minY, maxX, maxY, erase };
+}
+
+/** Точка внутри блокера; сначала дешёвая проверка по прямоугольнику. */
+function insideBlocker(x: number, y: number, blocker: DecorBlocker): boolean {
+  if (x < blocker.minX || x > blocker.maxX || y < blocker.minY || y > blocker.maxY) return false;
+
+  return mapGeometryService.pointInPolygon([x, y], blocker.polygon);
+}
+
+/** Стирает из готового декора объекты: они выше и полупрозрачны. */
+function eraseDecorMask(context: CanvasRenderingContext2D, blockers: DecorBlocker[]): void {
+  const mask = blockers.filter((blocker) => blocker.erase);
   if (mask.length === 0) return;
 
   context.save();
@@ -441,8 +480,8 @@ function eraseDecorMask(context: CanvasRenderingContext2D): void {
   context.scale(props.viewport.scale, props.viewport.scale);
   context.globalCompositeOperation = 'destination-out';
   context.fillStyle = '#000';
-  for (const polygon of mask) {
-    tracePolygon(context, polygon);
+  for (const blocker of mask) {
+    tracePolygon(context, blocker.polygon);
     context.fill();
   }
   context.restore();
