@@ -138,7 +138,7 @@ final class GameStrikeWriteWiring
      */
     public function perform(GameStrikeRules $rules): GameActionPerform
     {
-        return new GameActionPerform(
+        $ports = new GameActionPerformPorts(
             $rules,
             $this->npcs(),
             $this->writes(),
@@ -146,6 +146,17 @@ final class GameStrikeWriteWiring
             new GamePendingActionCosts(),
             $this->availability($rules),
             $this->rules->checks(),
+        );
+
+        return new GameActionPerform(
+            $rules,
+            $ports->cards,
+            $ports->sheetWrites,
+            new GameActionPerformSteps(
+                $ports,
+                new GameActionPerformDocument($ports),
+                new GameActionPerformPrice($ports),
+            ),
         );
     }
 

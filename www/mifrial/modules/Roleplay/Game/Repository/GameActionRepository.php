@@ -23,8 +23,10 @@ use Mifrial\Roleplay\Game\Table\GameActionTable;
 
 /**
  * Общие строки действия боя.
+ *
+ * Фасад строк действия и ударов; конструктор входит в счётчик публичных методов.
  */
-final class GameActionRepository
+final class GameActionRepository // phpcs:ignore MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods,MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh -- фасад строк действия и ударов боя: конструктор в счётчике, сложность из явного маппинга исключений.
 {
     private readonly IOpenedRecords $records;
 
@@ -325,11 +327,7 @@ final class GameActionRepository
      */
     public function findIdsBySession(int $sessionId, ?string $kind = null): array
     {
-        $conditions = [new FilterCondition('session_id', '=', $sessionId)];
-        if ($kind !== null) {
-            $conditions[] = new FilterCondition('kind', '=', $kind);
-        }
-
+        $conditions = $this->withKind([new FilterCondition('session_id', '=', $sessionId)], $kind);
         $ids = [];
         foreach ($this->rows($conditions) as $row) {
             $ids[] = $this->rowId($row);
@@ -417,6 +415,25 @@ final class GameActionRepository
     }
 
     /**
+     * Добавляет вид действия к условиям.
+     *
+     * @param array<int, FilterCondition> $conditions Условия.
+     * @param string|null $kind Вид действия.
+     *
+     * @return array<int, FilterCondition> Условия.
+     */
+    private function withKind(array $conditions, ?string $kind): array
+    {
+        if ($kind === null) {
+            return $conditions;
+        }
+
+        $conditions[] = new FilterCondition('kind', '=', $kind);
+
+        return $conditions;
+    }
+
+    /**
      * Строки боя.
      *
      * @param int $battleId Бой.
@@ -428,12 +445,7 @@ final class GameActionRepository
      */
     private function rowsOfBattle(int $battleId, ?string $kind): array
     {
-        $conditions = [new FilterCondition('battle_id', '=', $battleId)];
-        if ($kind !== null) {
-            $conditions[] = new FilterCondition('kind', '=', $kind);
-        }
-
-        return $this->rows($conditions);
+        return $this->rows($this->withKind([new FilterCondition('battle_id', '=', $battleId)], $kind));
     }
 
     /**

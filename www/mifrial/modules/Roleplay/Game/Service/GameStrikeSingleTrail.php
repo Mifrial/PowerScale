@@ -43,7 +43,7 @@ final class GameStrikeSingleTrail
         $modifiers = null;
         $skipAfterAction = false;
         if ($modifierCodes !== []) {
-            $modifiers = $this->modifiers->perform(
+            $modifiers = $this->modifiers->perform(new GameActionModifierInput(
                 $run->input->game,
                 $run->battle,
                 $run->open,
@@ -55,7 +55,7 @@ final class GameStrikeSingleTrail
                 $run->modifier,
                 $this->rules->equipment->gripBonus($run->attackContext['occupyHands']),
                 $run->scope->actorUserId,
-            );
+            ));
             $skipAfterAction = ($modifiers['skipped'] ?? false) === true;
         }
 

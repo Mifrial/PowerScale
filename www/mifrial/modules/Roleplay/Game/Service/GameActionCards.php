@@ -96,26 +96,18 @@ final class GameActionCards
     public function assertServerPerformable(CharacterRuleSlice $slice, string $actionRuleCode): AbilityActionSpec
     {
         $spec = $this->assertNonAttackAction($slice, $actionRuleCode);
-        foreach ($spec->getComponents() as $component) {
-            if (!$component instanceof ResourceComponent) {
-                throw new GameInvalidException('Game action component is not supported on the server');
-            }
-        }
-
-        foreach ($spec->getOperations() as $operation) {
-            if (!$operation instanceof PostureOperation) {
-                throw new GameInvalidException('Game action operation is not supported on the server');
-            }
-        }
-
-        foreach ($spec->getBase()->getActionEffects() as $effect) {
-            if (!$this->isServerEffect($effect)) {
-                throw new GameInvalidException('Game action effect is not supported on the server');
-            }
-        }
+        $this->assertComponents($spec->getComponents());
+        $this->assertOperations($spec->getOperations());
+        $this->assertEffects($spec->getBase()->getActionEffects());
 
         return $spec;
     }
+
+
+
+
+
+
 
     /**
      * Нужен ли карточке предыдущий удар.
@@ -133,6 +125,60 @@ final class GameActionCards
         }
 
         return false;
+    }
+
+    /**
+     * Все компоненты карточки ресурсные.
+     *
+     * @param array<int, mixed> $components Компоненты.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если компонент не поддержан сервером.
+     */
+    private function assertComponents(array $components): void
+    {
+        foreach ($components as $component) {
+            if (!$component instanceof ResourceComponent) {
+                throw new GameInvalidException('Game action component is not supported on the server');
+            }
+        }
+    }
+
+    /**
+     * Все операции карточки — posture.
+     *
+     * @param array<int, mixed> $operations Операции.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если операция не поддержана сервером.
+     */
+    private function assertOperations(array $operations): void
+    {
+        foreach ($operations as $operation) {
+            if (!$operation instanceof PostureOperation) {
+                throw new GameInvalidException('Game action operation is not supported on the server');
+            }
+        }
+    }
+
+    /**
+     * Все эффекты карточки поддержаны сервером.
+     *
+     * @param array<int, mixed> $effects Эффекты.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если эффект не поддержан сервером.
+     */
+    private function assertEffects(array $effects): void
+    {
+        foreach ($effects as $effect) {
+            if (!$this->isServerEffect($effect)) {
+                throw new GameInvalidException('Game action effect is not supported on the server');
+            }
+        }
     }
 
     /**

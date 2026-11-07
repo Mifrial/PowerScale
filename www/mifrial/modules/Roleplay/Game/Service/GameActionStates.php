@@ -174,13 +174,11 @@ final class GameActionStates
         $codes = [];
         foreach ($slice->getLiveRules() as $rule) {
             $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if (!$spec instanceof StateSpec) {
+            if (!$spec instanceof StateSpec || !$this->hasFlag($spec, $flag)) {
                 continue;
             }
 
-            if (($flag === 'lying' && $spec->isLying()) || ($flag === 'unstable' && $spec->isUnstable())) {
-                $codes[] = $rule->getCode();
-            }
+            $codes[] = $rule->getCode();
         }
 
         if (count($codes) > 1) {
@@ -188,6 +186,27 @@ final class GameActionStates
         }
 
         return $codes[0] ?? null;
+    }
+
+    /**
+     * Спека несёт запрошенный флаг.
+     *
+     * @param StateSpec $spec Спека состояния.
+     * @param string $flag Флаг: lying или unstable.
+     *
+     * @return bool Истина, если флаг выставлен.
+     */
+    private function hasFlag(StateSpec $spec, string $flag): bool
+    {
+        if ($flag === 'lying') {
+            return $spec->isLying();
+        }
+
+        if ($flag === 'unstable') {
+            return $spec->isUnstable();
+        }
+
+        return false;
     }
 
     /**

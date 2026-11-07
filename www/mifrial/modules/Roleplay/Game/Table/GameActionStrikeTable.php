@@ -34,37 +34,12 @@ final class GameActionStrikeTable extends SmartTableDefinition
      */
     protected function defineFields(): array
     {
-        return [
-            new IdField(),
-            new ReferenceField(
-                'action_id',
-                FieldSettings::fromOptions(['required' => true]),
-                GameActionTable::class,
-                'cascade',
-            ),
-            new IntField('strike_index', FieldSettings::fromOptions(['required' => true]), 0, null),
-            new IntField('instance_index', FieldSettings::fromOptions(['required' => true]), 0, null),
-            new IntField('item_inventory_id', FieldSettings::fromOptions(['required' => true]), 1, null),
-            new StringField('item_rule_code', FieldSettings::fromOptions(['required' => true]), 255),
-            new StringField('profile_type', FieldSettings::fromOptions(['required' => true]), 32),
-            new IntField('profile_index', FieldSettings::fromOptions(['required' => true]), 0, null),
-            new JsonField('conditions', FieldSettings::fromOptions([])),
-            new JsonField('action_modifiers', FieldSettings::fromOptions([])),
-            new JsonField('supporters', FieldSettings::fromOptions([])),
-            new JsonField('coverers', FieldSettings::fromOptions([])),
-            new JsonField('resolution', FieldSettings::fromOptions([])),
-            new JsonField('maneuver', FieldSettings::fromOptions([])),
-            new JsonField('token_spend', FieldSettings::fromOptions([])),
-            new StringField('target_type', FieldSettings::fromOptions(['required' => true]), 32),
-            new IntField('target_id', FieldSettings::fromOptions(['required' => true]), 1, null),
-            new StringField('reaction', FieldSettings::fromOptions([]), 32),
-            new IntField('block_item_inventory_id', FieldSettings::fromOptions([]), 1, null),
-            new IntField('block_item_profile_index', FieldSettings::fromOptions([]), 0, null),
-            new StringField('block_item_rule_code', FieldSettings::fromOptions([]), 255),
-            new IntField('spend_concentration', FieldSettings::fromOptions([]), 0, null),
-            new IntField('expected_sheet_version', FieldSettings::fromOptions([]), 0, null),
-            new IntField('repeat_weapon_uses', FieldSettings::fromOptions([]), 0, null),
-        ];
+        return array_merge(
+            [new IdField(), $this->actionReference()],
+            $this->profileFields(),
+            $this->payloadFields(),
+            $this->targetFields(),
+        );
     }
 
     /**
@@ -78,4 +53,76 @@ final class GameActionStrikeTable extends SmartTableDefinition
             ['action_id', 'strike_index'],
         ];
     }
+
+    /**
+     * Ссылка на действие.
+     *
+     * @return ReferenceField Поле.
+     */
+    private function actionReference(): ReferenceField
+    {
+        return new ReferenceField(
+            'action_id',
+            FieldSettings::fromOptions(['required' => true]),
+            GameActionTable::class,
+            'cascade',
+        );
+    }
+
+    /**
+     * Предмет и профиль строки.
+     *
+     * @return array<int, mixed> Поля.
+     */
+    private function profileFields(): array
+    {
+        return [
+            new IntField('strike_index', FieldSettings::fromOptions(['required' => true]), 0, null),
+            new IntField('instance_index', FieldSettings::fromOptions(['required' => true]), 0, null),
+            new IntField('item_inventory_id', FieldSettings::fromOptions(['required' => true]), 1, null),
+            new StringField('item_rule_code', FieldSettings::fromOptions(['required' => true]), 255),
+            new StringField('profile_type', FieldSettings::fromOptions(['required' => true]), 32),
+            new IntField('profile_index', FieldSettings::fromOptions(['required' => true]), 0, null),
+        ];
+    }
+
+    /**
+     * Вложенные документы строки.
+     *
+     * @return array<int, mixed> Поля.
+     */
+    private function payloadFields(): array
+    {
+        return [
+            new JsonField('conditions', FieldSettings::fromOptions([])),
+            new JsonField('action_modifiers', FieldSettings::fromOptions([])),
+            new JsonField('supporters', FieldSettings::fromOptions([])),
+            new JsonField('coverers', FieldSettings::fromOptions([])),
+            new JsonField('resolution', FieldSettings::fromOptions([])),
+            new JsonField('maneuver', FieldSettings::fromOptions([])),
+            new JsonField('token_spend', FieldSettings::fromOptions([])),
+        ];
+    }
+
+    /**
+     * Цель, реакция и версии строки.
+     *
+     * @return array<int, mixed> Поля.
+     */
+    private function targetFields(): array
+    {
+        return [
+            new StringField('target_type', FieldSettings::fromOptions(['required' => true]), 32),
+            new IntField('target_id', FieldSettings::fromOptions(['required' => true]), 1, null),
+            new StringField('reaction', FieldSettings::fromOptions([]), 32),
+            new IntField('block_item_inventory_id', FieldSettings::fromOptions([]), 1, null),
+            new IntField('block_item_profile_index', FieldSettings::fromOptions([]), 0, null),
+            new StringField('block_item_rule_code', FieldSettings::fromOptions([]), 255),
+            new IntField('spend_concentration', FieldSettings::fromOptions([]), 0, null),
+            new IntField('expected_sheet_version', FieldSettings::fromOptions([]), 0, null),
+            new IntField('repeat_weapon_uses', FieldSettings::fromOptions([]), 0, null),
+        ];
+    }
+
+
 }

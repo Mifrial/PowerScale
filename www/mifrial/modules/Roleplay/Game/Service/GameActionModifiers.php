@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
@@ -105,35 +106,63 @@ final class GameActionModifiers
     {
         $rows = [];
         foreach ($slice->getLiveRules() as $rule) {
-            $level = $abilityLevels[$rule->getCode()] ?? 0;
-            if ($level < 1) {
+            array_push($rows, ...$this->rowsOfRule($slice, $rule, $abilityLevels));
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Строки модификаторов одной карточки.
+     *
+     * @param CharacterRuleSlice $slice Срез правил игры.
+     * @param CharacterResolvedRule $rule Карточка.
+     * @param array<string, int> $abilityLevels Уровни способностей актора.
+     *
+     * @return list<array<string, mixed>> Строки.
+     */
+    private function rowsOfRule(CharacterRuleSlice $slice, CharacterResolvedRule $rule, array $abilityLevels): array
+    {
+        $level = $abilityLevels[$rule->getCode()] ?? 0;
+        $spec = $level < 1 || $rule->isSpecBroken() ? null : $rule->getSpec();
+        if (!$spec instanceof AbilityWithBase) {
+            return [];
+        }
+
+        $base = $spec->getBase();
+        $parent = $base->getParentAbilityCode();
+        if ($parent === null || $parent === '') {
+            return [];
+        }
+
+        return $this->effectRows($slice, $rule, $parent, $base->getActionEffects());
+    }
+
+    /**
+     * Строки эффектов модификатора действия.
+     *
+     * @param CharacterRuleSlice $slice Срез правил игры.
+     * @param CharacterResolvedRule $rule Карточка.
+     * @param string $parent Код карточки-родителя.
+     * @param array<int, mixed> $effects Эффекты.
+     *
+     * @return list<array<string, mixed>> Строки.
+     */
+    private function effectRows(CharacterRuleSlice $slice, CharacterResolvedRule $rule, string $parent, array $effects): array
+    {
+        $rows = [];
+        foreach ($effects as $effect) {
+            if (!$effect instanceof ActionModifierEffect) {
                 continue;
             }
 
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if (!$spec instanceof AbilityWithBase) {
-                continue;
-            }
-
-            $base = $spec->getBase();
-            $parent = $base->getParentAbilityCode();
-            if ($parent === null || $parent === '') {
-                continue;
-            }
-
-            foreach ($base->getActionEffects() as $effect) {
-                if (!$effect instanceof ActionModifierEffect) {
-                    continue;
-                }
-
-                $rows[] = [
-                    'actionCode' => $parent,
-                    'actionName' => $slice->findLive($parent)?->getName() ?? $parent,
-                    'code' => $rule->getCode(),
-                    'name' => $rule->getName(),
-                    'effect' => $effect,
-                ];
-            }
+            $rows[] = [
+                'actionCode' => $parent,
+                'actionName' => $slice->findLive($parent)?->getName() ?? $parent,
+                'code' => $rule->getCode(),
+                'name' => $rule->getName(),
+                'effect' => $effect,
+            ];
         }
 
         return $rows;

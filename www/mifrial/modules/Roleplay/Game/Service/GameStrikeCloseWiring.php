@@ -162,7 +162,24 @@ final class GameStrikeCloseWiring
      */
     private function runner(): GameActionModifierRunner
     {
+        $ports = $this->modifierPorts();
+
         return new GameActionModifierRunner(
+            $ports,
+            new GameActionModifiers(),
+            new GameActionModifierPresenter(),
+            new GameActionModifierOutcome($ports),
+        );
+    }
+
+    /**
+     * Порты исполнения модификаторов.
+     *
+     * @return GameActionModifierPorts Порты.
+     */
+    private function modifierPorts(): GameActionModifierPorts
+    {
+        return new GameActionModifierPorts(
             $this->rules,
             $this->shared->sheets,
             $this->shared->sheetWrites,
@@ -170,8 +187,6 @@ final class GameStrikeCloseWiring
             $this->consequences,
             $this->shared->chat,
             $this->amounts,
-            new GameActionModifiers(),
-            new GameActionModifierPresenter(),
         );
     }
 

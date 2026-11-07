@@ -42,25 +42,22 @@ final class GameActionFloor
             return $spends;
         }
 
-        foreach ($spends as $index => $spend) {
-            if ($spend->getResourceCode() !== $turnCode) {
-                continue;
-            }
-
-            $native = $spend->getAmount()->toNative();
-            if (!is_int($native) || $native >= $floor) {
-                return $spends;
-            }
-
-            $spends[$index] = new ResourceSpend($turnCode, new ScalarResourceValue($floor));
+        $index = $this->indexOf($spends, $turnCode);
+        if ($index === null) {
+            $spends[] = new ResourceSpend($turnCode, new ScalarResourceValue($floor));
 
             return $spends;
         }
 
-        $spends[] = new ResourceSpend($turnCode, new ScalarResourceValue($floor));
+        $native = $spends[$index]->getAmount()->toNative();
+        if (is_int($native) && $native < $floor) {
+            $spends[$index] = new ResourceSpend($turnCode, new ScalarResourceValue($floor));
+        }
 
         return $spends;
     }
+
+
 
     /**
      * Поднимает сумму ОД до пола.
@@ -122,6 +119,24 @@ final class GameActionFloor
             $spec = $rule->getSpec();
             if ($spec instanceof ResourceSpec && $spec->isTurnRefill()) {
                 return $rule->getCode();
+            }
+        }
+
+        return null;
+    }
+    /**
+     * Индекс траты ресурса.
+     *
+     * @param array<int, ResourceSpend> $spends Траты.
+     * @param string $code Код ресурса.
+     *
+     * @return int|null Индекс или null.
+     */
+    private function indexOf(array $spends, string $code): ?int
+    {
+        foreach ($spends as $index => $spend) {
+            if ($spend->getResourceCode() === $code) {
+                return $index;
             }
         }
 

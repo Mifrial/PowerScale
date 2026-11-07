@@ -62,39 +62,17 @@ final class GameActionChat
         array $rolls = [],
         ?string $stepName = null,
     ): void {
-        $chatId = $game->getGameChatId();
-        if ($chatId === null) {
-            throw new GameInvalidException('Game chat is missing');
-        }
-
+        $chatId = $this->chatId($game);
         $token = $this->strikeChat->getEntityToken($actorKind, $actorId);
-        $step = $stepName === null || $stepName === '' ? '' : ' (шаг «' . $stepName . '»)';
-        $text = $token . ' совершает действие [[rule:' . $actionRuleCode . ']]'
-            . $step . ' за ' . $spent . 'ОД.';
-
+        $text = $this->actionText($token, $actionRuleCode, $stepName, $spent);
         $thread = GameCombatThread::buildTurn($battleId, $round, $activeIndex);
-        $attachments = [
-            ['type' => 'chat_system', 'payload' => ['thread' => $thread]],
-            ['type' => 'chat_speaker', 'payload' => $this->strikeChat->getSpeakerOf($actorKind, $actorId)],
-        ];
-        try {
-            $this->chats->send($chatId, $actorUserId, $text, $attachments, null);
-            foreach ($rolls as $entry) {
-                $roll = $entry['roll'];
-                $line = $entry['text'];
-                $this->chats->send(
-                    $chatId,
-                    $actorUserId,
-                    $token . ' ' . $line,
-                    [
-                        ['type' => 'roll', 'payload' => $roll],
-                        ...$attachments,
-                    ],
-                    null,
-                );
-            }
-        } catch (ChatNotFoundException | ChatInvalidException $exception) {
-            throw new GameInvalidException('Game chat member is invalid', $exception);
+        $attachments = $this->attachments($thread, $actorKind, $actorId);
+        $this->send($chatId, $actorUserId, $text, $attachments);
+        foreach ($rolls as $entry) {
+            $this->send($chatId, $actorUserId, $token . ' ' . $entry['text'], [
+                ['type' => 'roll', 'payload' => $entry['roll']],
+                ...$attachments,
+            ]);
         }
     }
 
@@ -130,26 +108,10 @@ final class GameActionChat
         string $blockItemRuleCode,
         int $cost,
     ): void {
-        $chatId = $game->getGameChatId();
-        if ($chatId === null) {
-            throw new GameInvalidException('Game chat is missing');
-        }
-
+        $chatId = $this->chatId($game);
         $thread = GameCombatThread::buildAttack($battle, $threadId);
-        $actor = $this->strikeChat->getEntityToken($actorKind, $actorId);
-        $covered = $this->strikeChat->getEntityToken($target['type'], $target['id']);
-        $block = $blockItemRuleCode !== '' ? ' с [[rule:' . $blockItemRuleCode . ']]' : '';
-        $text = $actor . ' объявляет [[rule:' . $actionRuleCode . ']]: прикрывает '
-            . $covered . ', [[rule:' . $reaction . ']]' . $block . ' за ' . $cost . ' ОД при старте.';
-        $attachments = [
-            ['type' => 'chat_system', 'payload' => ['thread' => $thread]],
-            ['type' => 'chat_speaker', 'payload' => $this->strikeChat->getSpeakerOf($actorKind, $actorId)],
-        ];
-        try {
-            $this->chats->send($chatId, $actorUserId, $text, $attachments, null);
-        } catch (ChatNotFoundException | ChatInvalidException $exception) {
-            throw new GameInvalidException('Game chat member is invalid', $exception);
-        }
+        $text = $this->coverText($actorKind, $actorId, $actionRuleCode, $target, $reaction, $blockItemRuleCode, $cost);
+        $this->send($chatId, $actorUserId, $text, $this->attachments($thread, $actorKind, $actorId));
     }
 
     /**
@@ -184,21 +146,140 @@ final class GameActionChat
         int $spent,
         int $advantage,
     ): void {
+        $chatId = $this->chatId($game);
+        $thread = GameCombatThread::buildAttack($battle, $threadId);
+        $text = $this->reactionText($actorKind, $actorId, $actionRuleCode, $side, $sideActor, $spent, $advantage);
+        $this->send($chatId, $actorUserId, $text, $this->attachments($thread, $actorKind, $actorId));
+    }
+
+    /**
+     * Чат игры.
+     *
+     * @param GameRecord $game Игра.
+     *
+     * @return int Id чата.
+     *
+     * @throws GameInvalidException Если чата нет.
+     */
+    private function chatId(GameRecord $game): int
+    {
         $chatId = $game->getGameChatId();
         if ($chatId === null) {
             throw new GameInvalidException('Game chat is missing');
         }
 
-        $thread = GameCombatThread::buildAttack($battle, $threadId);
+        return $chatId;
+    }
+
+    /**
+     * Текст действия.
+     *
+     * @param string $token Токен актора.
+     * @param string $actionRuleCode Карточка.
+     * @param string|null $stepName Имя шага.
+     * @param int $spent Потрачено ОД.
+     *
+     * @return string Текст.
+     */
+    private function actionText(string $token, string $actionRuleCode, ?string $stepName, int $spent): string
+    {
+        $step = $stepName === null || $stepName === '' ? '' : ' (шаг «' . $stepName . '»)';
+
+        return $token . ' совершает действие [[rule:' . $actionRuleCode . ']]'
+            . $step . ' за ' . $spent . 'ОД.';
+    }
+
+    /**
+     * Текст прикрытия.
+     *
+     * @param string $actorKind Вид актора.
+     * @param int $actorId Актор.
+     * @param string $actionRuleCode Карточка.
+     * @param array{type: string, id: int} $target Прикрываемый.
+     * @param string $reaction Защита.
+     * @param string $blockItemRuleCode Предмет блока.
+     * @param int $cost Цена.
+     *
+     * @return string Текст.
+     */
+    private function coverText(
+        string $actorKind,
+        int $actorId,
+        string $actionRuleCode,
+        array $target,
+        string $reaction,
+        string $blockItemRuleCode,
+        int $cost,
+    ): string {
+        $actor = $this->strikeChat->getEntityToken($actorKind, $actorId);
+        $covered = $this->strikeChat->getEntityToken($target['type'], $target['id']);
+        $block = $blockItemRuleCode !== '' ? ' с [[rule:' . $blockItemRuleCode . ']]' : '';
+
+        return $actor . ' объявляет [[rule:' . $actionRuleCode . ']]: прикрывает '
+            . $covered . ', [[rule:' . $reaction . ']]' . $block . ' за ' . $cost . ' ОД при старте.';
+    }
+
+    /**
+     * Текст реакции.
+     *
+     * @param string $actorKind Вид актора.
+     * @param int $actorId Актор.
+     * @param string $actionRuleCode Карточка.
+     * @param string $side Сторона удара.
+     * @param array{type: string, id: int} $sideActor Участник стороны.
+     * @param int $spent Потрачено ОД.
+     * @param int $advantage Преимущество.
+     *
+     * @return string Текст.
+     */
+    private function reactionText(
+        string $actorKind,
+        int $actorId,
+        string $actionRuleCode,
+        string $side,
+        array $sideActor,
+        int $spent,
+        int $advantage,
+    ): string {
         $actor = $this->strikeChat->getEntityToken($actorKind, $actorId);
         $target = $this->strikeChat->getEntityToken($sideActor['type'], $sideActor['id']);
         $sideText = $side === 'attacker' ? 'атакующего' : 'защищающегося';
-        $text = $actor . ' объявляет реакцию [[rule:' . $actionRuleCode . ']]: поддерживает '
+
+        return $actor . ' объявляет реакцию [[rule:' . $actionRuleCode . ']]: поддерживает '
             . $sideText . ' ' . $target . ' за ' . $spent . ' ОД, +' . $advantage . ' преимущества.';
-        $attachments = [
+    }
+
+    /**
+     * Вложения треда и спикера.
+     *
+     * @param array{id: string, parentId: string, kind: string} $thread Нить.
+     * @param string $actorKind Вид актора.
+     * @param int $actorId Актор.
+     *
+     * @return list<array{type: string, payload: array<string, mixed>}> Вложения.
+     */
+    private function attachments(array $thread, string $actorKind, int $actorId): array
+    {
+        return [
             ['type' => 'chat_system', 'payload' => ['thread' => $thread]],
             ['type' => 'chat_speaker', 'payload' => $this->strikeChat->getSpeakerOf($actorKind, $actorId)],
         ];
+    }
+
+    /**
+     * Отправляет сообщение и переводит ошибки чата.
+     *
+     * @param int $chatId Чат.
+     * @param int $actorUserId Автор.
+     * @param string $text Текст.
+     * @param list<array<string, mixed>> $attachments Вложения.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если участник чата чужой.
+     */
+    private function send(int $chatId, int $actorUserId, string $text, array $attachments): void
+    {
         try {
             $this->chats->send($chatId, $actorUserId, $text, $attachments, null);
         } catch (ChatNotFoundException | ChatInvalidException $exception) {

@@ -7,14 +7,9 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
-use Mifrial\Roleplay\Game\Dto\GameStrikeTarget;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionModifierEffect;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\SelfDamageOutcomeEffect;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\SkipAfterActionOutcomeEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ModifierTrigger;
-use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
-use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Исполнение модификаторов действия по их данным: момент, проверка, последствия.
@@ -24,119 +19,228 @@ final class GameActionModifierRunner
     /**
      * Создаёт исполнитель.
      *
-     * @param GameStrikeRules $rules Правила.
-     * @param GameStrikeSheets $sheets Листы.
-     * @param GameStrikeSheetWrites $sheetWrites Запись листа.
-     * @param GameStrikeResolution $resolution Последствия урона.
-     * @param GameStrikeConsequences $consequences Бросок и чат.
-     * @param GameStrikeChat $chat Подписи участников.
-     * @param GameStrikeAmounts $amounts Пары и нули.
+     * @param GameActionModifierPorts $ports Правила, листы и последствия.
      * @param GameActionModifiers $modifiers Модификаторы карточки.
      * @param GameActionModifierPresenter $presenter Подписи.
+     * @param GameActionModifierOutcome $outcome Последствия.
      *
      * @return void
      */
     public function __construct(
-        private readonly GameStrikeRules $rules,
-        private readonly GameStrikeSheets $sheets,
-        private readonly GameStrikeSheetWrites $sheetWrites,
-        private readonly GameStrikeResolution $resolution,
-        private readonly GameStrikeConsequences $consequences,
-        private readonly GameStrikeChat $chat,
-        private readonly GameStrikeAmounts $amounts,
+        private readonly GameActionModifierPorts $ports,
         private readonly GameActionModifiers $modifiers,
         private readonly GameActionModifierPresenter $presenter,
+        private readonly GameActionModifierOutcome $outcome,
     ) {
     }
 
     /**
      * Выполняет объявленные модификаторы.
      *
-     * @param GameRecord $game Игра.
-     * @param GameBattleRecord $battle Бой.
-     * @param array<string, mixed> $open Открытая строка удара.
-     * @param int $strikeId Удар.
-     * @param string $actionRuleCode Карточка действия.
-     * @param string $attackerKind Вид участника: character или npc.
-     * @param int $attackerId Атакующий.
-     * @param array<int, string> $codes Объявленные коды.
-     * @param int $actionCharacteristicModifier Сдвиг характеристики действия.
-     * @param int $gripBonus Бонус удержания.
-     * @param int $actorUserId Актор чата.
+     * @param GameActionModifierInput $input Снимок удара.
      *
      * @return array<string, mixed> Итог: коды, бросок, успех, урон, пропуск помехи.
      *
      * @throws GameInvalidException Если код, момент, лист или запись битые.
      */
-    public function perform(
-        GameRecord $game,
-        GameBattleRecord $battle,
-        array $open,
-        int $strikeId,
-        string $actionRuleCode,
-        string $attackerKind,
-        int $attackerId,
-        array $codes,
-        int $actionCharacteristicModifier,
-        int $gripBonus,
-        int $actorUserId,
-    ): array {
-        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
-        $levels = $this->sheets->abilityLevels($game, $attackerKind, $attackerId);
-
-        $threadId = 'attack-' . $strikeId;
-        $speaker = $this->chat->getSpeakerOf($attackerKind, $attackerId);
-        $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
-        $attackerName = $this->chat->getEntityName($attackerKind, $attackerId);
-
+    public function perform(GameActionModifierInput $input): array
+    {
+        $game = $input->game;
+        $slice = $this->ports->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $levels = $this->ports->sheets->abilityLevels($game, $input->attackerKind, $input->attackerId);
+        $thread = $this->thread($input);
         $result = ['codes' => [], 'roll' => null, 'success' => false, 'skipped' => false];
-        foreach ($codes as $code) {
-            $modifier = $this->modifiers->find($slice, $actionRuleCode, $levels, $code);
-            $effect = $modifier['effect'];
-            if (!ModifierTrigger::supports($effect->getTrigger())) {
-                throw new GameInvalidException('Game action modifier trigger is invalid');
-            }
-
-            $sheet = $this->sheets->snapshot($game, $attackerKind, $attackerId)['sheet']['sheet'] ?? null;
-            if (!is_array($sheet)) {
-                throw new GameInvalidException('Game strike sheet is invalid');
-            }
-
-            $roll = $this->rollOf($game, $sheet, $effect);
-            $success = $roll === null || ($roll['success'] ?? false) === true;
-            if ($roll !== null) {
-                $this->consequences->chat->postRolls($game, $actorUserId, $threadId, [$roll], $speaker, $parentId);
-            }
-
-            $this->consequences->chat->postLines(
-                $game,
-                $actorUserId,
-                $threadId,
-                [$this->outcomeLine($slice, $attackerName, $modifier['name'], $effect, $roll !== null, $success)],
-                $speaker,
-                $parentId,
-            );
-
-            $result['codes'][] = $modifier['code'];
-            $result['roll'] = $roll;
-            $result['success'] = $success;
-            if (!$success) {
-                continue;
-            }
-
-            $this->apply(
-                $game,
-                $open,
-                $attackerKind,
-                $attackerId,
-                $effect,
-                $actionCharacteristicModifier,
-                $gripBonus,
-                $result,
-            );
+        foreach ($input->codes as $code) {
+            $this->runCode($input, $slice, $levels, $thread, $code, $result);
         }
 
         return $result;
+    }
+
+    /**
+     * Нить удара и подписи актора.
+     *
+     * @param GameActionModifierInput $input Снимок удара.
+     *
+     * @return array{
+     *     threadId: string,
+     *     speaker: array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string},
+     *     parentId: string,
+     *     attackerName: string
+     * } Нить.
+     */
+    private function thread(GameActionModifierInput $input): array
+    {
+        $threadId = 'attack-' . $input->strikeId;
+
+        return [
+            'threadId' => $threadId,
+            'speaker' => $this->ports->chat->getSpeakerOf($input->attackerKind, $input->attackerId),
+            'parentId' => GameCombatThread::buildAttack($input->battle, $threadId)['parentId'],
+            'attackerName' => $this->ports->chat->getEntityName($input->attackerKind, $input->attackerId),
+        ];
+    }
+
+    /**
+     * Один объявленный модификатор.
+     *
+     * @param GameActionModifierInput $input Снимок удара.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, int> $levels Уровни способностей.
+     * @param array<string, mixed> $thread Нить.
+     * @param string $code Код модификатора.
+     * @param array<string, mixed> $result Итог.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если код, момент, лист или запись битые.
+     */
+    private function runCode(
+        GameActionModifierInput $input,
+        CharacterRuleSlice $slice,
+        array $levels,
+        array $thread,
+        string $code,
+        array &$result,
+    ): void {
+        $modifier = $this->modifiers->find($slice, $input->actionRuleCode, $levels, $code);
+        $effect = $modifier['effect'];
+        $this->assertTrigger($effect);
+        $sheet = $this->sheetOf($input);
+        $roll = $this->rollOf($input->game, $sheet, $effect);
+        $success = $roll === null || ($roll['success'] ?? false) === true;
+        $this->announce($input, $thread, $slice, $modifier['name'], $effect, $roll, $success);
+        $this->record($result, $modifier['code'], $roll, $success);
+        if (!$success) {
+            return;
+        }
+
+        $this->outcome->apply($input, $effect, $result);
+    }
+
+    /**
+     * Момент модификатора поддержан.
+     *
+     * @param ActionModifierEffect $effect Модификатор.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если момент чужой.
+     */
+    private function assertTrigger(ActionModifierEffect $effect): void
+    {
+        if (!ModifierTrigger::supports($effect->getTrigger())) {
+            throw new GameInvalidException('Game action modifier trigger is invalid');
+        }
+    }
+
+    /**
+     * Лист атакующего.
+     *
+     * @param GameActionModifierInput $input Снимок удара.
+     *
+     * @return array<string, mixed> Лист.
+     *
+     * @throws GameInvalidException Если лист битый.
+     */
+    private function sheetOf(GameActionModifierInput $input): array
+    {
+        $snapshot = $this->ports->sheets->snapshot($input->game, $input->attackerKind, $input->attackerId);
+        $sheet = $snapshot['sheet']['sheet'] ?? null;
+        if (!is_array($sheet)) {
+            throw new GameInvalidException('Game strike sheet is invalid');
+        }
+
+        return $sheet;
+    }
+
+    /**
+     * Записывает код и бросок в итог.
+     *
+     * @param array<string, mixed> $result Итог.
+     * @param string $code Код модификатора.
+     * @param array<string, mixed>|null $roll Бросок или null.
+     * @param bool $success Успех.
+     *
+     * @return void
+     */
+    private function record(array &$result, string $code, ?array $roll, bool $success): void
+    {
+        $result['codes'][] = $code;
+        $result['roll'] = $roll;
+        $result['success'] = $success;
+    }
+
+    /**
+     * Пишет бросок и строку исхода в чат.
+     *
+     * @param GameActionModifierInput $input Снимок удара.
+     * @param array<string, mixed> $thread Нить.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $modifierName Название модификатора.
+     * @param ActionModifierEffect $effect Модификатор.
+     * @param array<string, mixed>|null $roll Бросок или null.
+     * @param bool $success Успех.
+     *
+     * @return void
+     */
+    private function announce(
+        GameActionModifierInput $input,
+        array $thread,
+        CharacterRuleSlice $slice,
+        string $modifierName,
+        ActionModifierEffect $effect,
+        ?array $roll,
+        bool $success,
+    ): void {
+        if ($roll !== null) {
+            $this->postRolls($input, $thread, $roll);
+        }
+
+        $line = $this->outcomeLine($slice, $thread['attackerName'], $modifierName, $effect, $roll !== null, $success);
+        $this->postLine($input, $thread, $line);
+    }
+
+    /**
+     * Сообщение с броском.
+     *
+     * @param GameActionModifierInput $input Снимок удара.
+     * @param array<string, mixed> $thread Нить.
+     * @param array<string, mixed> $roll Бросок.
+     *
+     * @return void
+     */
+    private function postRolls(GameActionModifierInput $input, array $thread, array $roll): void
+    {
+        $this->ports->consequences->chat->postRolls(
+            $input->game,
+            $input->actorUserId,
+            $thread['threadId'],
+            [$roll],
+            $thread['speaker'],
+            $thread['parentId'],
+        );
+    }
+
+    /**
+     * Сообщение со строкой исхода.
+     *
+     * @param GameActionModifierInput $input Снимок удара.
+     * @param array<string, mixed> $thread Нить.
+     * @param string $line Строка.
+     *
+     * @return void
+     */
+    private function postLine(GameActionModifierInput $input, array $thread, string $line): void
+    {
+        $this->ports->consequences->chat->postLines(
+            $input->game,
+            $input->actorUserId,
+            $thread['threadId'],
+            [$line],
+            $thread['speaker'],
+            $thread['parentId'],
+        );
     }
 
     /**
@@ -155,131 +259,7 @@ final class GameActionModifierRunner
             return null;
         }
 
-        return $this->consequences->optionalCheck($game, $sheet, $check->getCode(), $check->getDifficulty());
-    }
-
-    /**
-     * Применяет последствия к листу атакующего.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Открытая строка удара.
-     * @param string $attackerKind Вид участника.
-     * @param int $attackerId Атакующий.
-     * @param ActionModifierEffect $effect Модификатор.
-     * @param int $actionCharacteristicModifier Сдвиг характеристики действия.
-     * @param int $gripBonus Бонус удержания.
-     * @param array<string, mixed> $result Итог.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если строка или лист битые.
-     */
-    private function apply(
-        GameRecord $game,
-        array $open,
-        string $attackerKind,
-        int $attackerId,
-        ActionModifierEffect $effect,
-        int $actionCharacteristicModifier,
-        int $gripBonus,
-        array &$result,
-    ): void {
-        foreach ($effect->getEffects() as $outcome) {
-            if ($outcome instanceof SkipAfterActionOutcomeEffect) {
-                $result['skipped'] = true;
-                continue;
-            }
-
-            if (!$outcome instanceof SelfDamageOutcomeEffect) {
-                throw new GameInvalidException('Game action modifier outcome is invalid');
-            }
-
-            $injury = $this->injuryOf(
-                $game,
-                $open,
-                $attackerKind,
-                $attackerId,
-                $outcome,
-                $actionCharacteristicModifier,
-                $gripBonus,
-            );
-            $prepared = $this->resolution->damage->selfDamage(
-                $game,
-                $attackerKind,
-                $attackerId,
-                $injury,
-                $outcome->getDamageTypeCode(),
-            );
-            $result['sheetVersion'] = $this->sheetWrites->write(
-                $game,
-                $attackerKind,
-                $attackerId,
-                $prepared['actualVersion'],
-                $prepared['operations'],
-            );
-            $result['injury'] = $this->amounts->view($injury);
-            $result['consequence'] = $prepared['consequence'];
-        }
-    }
-
-    /**
-     * Урон по себе: сила удара, сдвинутая на размер.
-     *
-     * @param GameRecord $game Игра.
-     * @param array<string, mixed> $open Открытая строка удара.
-     * @param string $attackerKind Вид участника: character или npc.
-     * @param int $attackerId Атакующий.
-     * @param SelfDamageOutcomeEffect $effect Последствие.
-     * @param int $actionCharacteristicModifier Сдвиг характеристики действия.
-     * @param int $gripBonus Бонус удержания.
-     *
-     * @return DimensionalNumber Повреждение.
-     *
-     * @throws GameInvalidException Если профиль или лист битые.
-     */
-    private function injuryOf(
-        GameRecord $game,
-        array $open,
-        string $attackerKind,
-        int $attackerId,
-        SelfDamageOutcomeEffect $effect,
-        int $actionCharacteristicModifier,
-        int $gripBonus,
-    ): DimensionalNumber {
-        $itemRuleCode = $open['item_rule_code'] ?? null;
-        $profileType = $open['profile_type'] ?? null;
-        $profileIndex = $open['profile_index'] ?? null;
-        $itemInventoryId = $open['item_inventory_id'] ?? null;
-        if (
-            !is_string($itemRuleCode)
-            || !is_string($profileType)
-            || !is_int($profileIndex)
-            || !is_int($itemInventoryId)
-        ) {
-            throw new GameInvalidException('Game strike row is invalid');
-        }
-
-        $npc = $attackerKind === 'npc';
-        $target = GameStrikeTarget::of(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $itemRuleCode,
-            $profileType,
-            $profileIndex,
-            $itemInventoryId,
-            $attackerKind,
-            $attackerId,
-            $npc ? $this->sheets->getNpcSheet($game->getId(), $attackerId) : null,
-            $npc ? $this->sheets->getNpcChoices($game->getId(), $attackerId) : null,
-            $npc ? $this->sheets->getNpcVersion($game->getId(), $attackerId) : null,
-            $actionCharacteristicModifier,
-            0,
-            $gripBonus,
-        );
-        $number = $this->rules->damage->strikeStrength($target);
-        $shift = $effect->getSizeDelta();
-
-        return $shift === 0 ? $number : $number->modify($shift * CharacteristicNumber::BASE_STEP);
+        return $this->ports->consequences->optionalCheck($game, $sheet, $check->getCode(), $check->getDifficulty());
     }
 
     /**
