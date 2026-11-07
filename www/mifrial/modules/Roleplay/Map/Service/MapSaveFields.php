@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Map\Service;
 
 use Mifrial\Roleplay\Map\Exception\MapInvalidException;
-use Mifrial\Roleplay\Map\Service\MapSpeed;
 
 /**
  * Разбор и проверка полей снимка карты.
@@ -243,7 +242,7 @@ final class MapSaveFields
      * @param string $path Путь.
      *
      * @return array{flow?: array{enabled: bool, speed: int, density: int, opacity: int,
-     *     color: string, direction: int, seed: int}} Декор.
+     *     color: string, direction: int, seed: int}, fillOpacity?: int, depth?: int} Декор.
      *
      * @throws MapInvalidException Если форма неверна.
      */
@@ -258,15 +257,25 @@ final class MapSaveFields
             throw new MapInvalidException($path . ' is invalid');
         }
 
+        $allowed = ['flow', 'fillOpacity', 'depth'];
         foreach (array_keys($value) as $unknown) {
-            if ($unknown !== 'flow') {
+            if (!in_array($unknown, $allowed, true)) {
                 throw new MapInvalidException($path . ' has an unknown key');
             }
         }
 
+        $decor = [];
+        if (array_key_exists('fillOpacity', $value)) {
+            $decor['fillOpacity'] = $this->intValue($value, 'fillOpacity', $path . '.fillOpacity', 0, 100);
+        }
+
+        if (array_key_exists('depth', $value)) {
+            $decor['depth'] = $this->intValue($value, 'depth', $path . '.depth', 0, 100);
+        }
+
         $flow = $value['flow'] ?? null;
         if ($flow === null) {
-            return [];
+            return $decor;
         }
 
         if (!is_array($flow)) {
@@ -274,9 +283,9 @@ final class MapSaveFields
         }
 
         $flowPath = $path . '.flow';
-        $allowed = ['enabled', 'speed', 'density', 'opacity', 'color', 'direction', 'seed'];
+        $flowAllowed = ['enabled', 'speed', 'density', 'opacity', 'color', 'direction', 'seed'];
         foreach (array_keys($flow) as $unknown) {
-            if (!in_array($unknown, $allowed, true)) {
+            if (!in_array($unknown, $flowAllowed, true)) {
                 throw new MapInvalidException($flowPath . ' has an unknown key');
             }
         }
@@ -286,19 +295,52 @@ final class MapSaveFields
             throw new MapInvalidException($flowPath . '.direction is invalid');
         }
 
-        return [
-            'flow' => [
-                'enabled' => $this->flowBool($flow, 'enabled', $flowPath . '.enabled'),
-                'speed' => $this->flowInt($flow, 'speed', $flowPath . '.speed', 1, 600, 40),
-                'density' => $this->flowInt($flow, 'density', $flowPath . '.density', 0, 100, 50),
-                'opacity' => $this->flowInt($flow, 'opacity', $flowPath . '.opacity', 0, 100, 18),
-                'color' => array_key_exists('color', $flow)
-                    ? $this->colorValue($flow, 'color', $flowPath . '.color')
-                    : '#ffffff',
-                'direction' => $direction,
-                'seed' => $this->flowInt($flow, 'seed', $flowPath . '.seed', 0, 1000000, 0),
-            ],
+        $decor['flow'] = [
+            'enabled' => $this->flowBool($flow, 'enabled', $flowPath . '.enabled'),
+            'speed' => $this->flowInt($flow, 'speed', $flowPath . '.speed', 1, 600, 40),
+            'density' => $this->flowInt($flow, 'density', $flowPath . '.density', 0, 100, 50),
+            'opacity' => $this->flowInt($flow, 'opacity', $flowPath . '.opacity', 0, 100, 18),
+            'color' => array_key_exists('color', $flow)
+                ? $this->colorValue($flow, 'color', $flowPath . '.color')
+                : '#ffffff',
+            'direction' => $direction,
+            'seed' => $this->flowInt($flow, 'seed', $flowPath . '.seed', 0, 1000000, 0),
         ];
+
+        return $decor;
+    }
+
+    /**
+     * Декор области: пока только плотность заливки.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return array{fillOpacity?: int} Декор.
+     *
+     * @throws MapInvalidException Если форма неверна.
+     */
+    public function areaDecorValue(array $row, string $key, string $path): array
+    {
+        $value = $row[$key] ?? null;
+        if ($value === null || $value === []) {
+            return [];
+        }
+
+        if (!is_array($value)) {
+            throw new MapInvalidException($path . ' is invalid');
+        }
+
+        foreach (array_keys($value) as $unknown) {
+            if ($unknown !== 'fillOpacity') {
+                throw new MapInvalidException($path . ' has an unknown key');
+            }
+        }
+
+        return array_key_exists('fillOpacity', $value)
+            ? ['fillOpacity' => $this->intValue($value, 'fillOpacity', $path . '.fillOpacity', 0, 100)]
+            : [];
     }
 
     /**

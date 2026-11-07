@@ -99,6 +99,7 @@ function emptySnapshot(meta: MapMeta): MapSnapshot {
     name: meta.name,
     description: meta.description,
     visibility: meta.visibility,
+    fillOpacity: meta.fillOpacity,
     variants: [
       {
         id: -1,

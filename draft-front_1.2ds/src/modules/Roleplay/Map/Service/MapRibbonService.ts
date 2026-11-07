@@ -235,6 +235,30 @@ export class MapRibbonService {
     return { left, right };
   }
 
+  /**
+   * Полоса между двумя долями ширины: -1 — левый берег, 1 — правый.
+   */
+  ribbonBand(flat: RibbonFlat, fromRatio: number, toRatio: number): MapPoint[] {
+    if (flat.points.length < 2) return [];
+
+    const first: MapPoint[] = [];
+    const second: MapPoint[] = [];
+    flat.points.forEach((point, index) => {
+      const tangent = flat.tangents[index] ?? [1, 0];
+      const normal: MapPoint = [-tangent[1], tangent[0]];
+      const halfWidth = Math.max(1, flat.widths[index] ?? 1) / 2;
+      first.push([point[0] + normal[0] * fromRatio * halfWidth, point[1] + normal[1] * fromRatio * halfWidth]);
+      second.push([point[0] + normal[0] * toRatio * halfWidth, point[1] + normal[1] * toRatio * halfWidth]);
+    });
+
+    return [...first, ...second.reverse()];
+  }
+
+  /** Затемняет цвет на долю `ratio`, 0–1. */
+  shade(color: string, ratio: number): string {
+    return this.mixHex(color, '#000000', ratio);
+  }
+
   /** Точка края на дробном индексе сэмпла. */
   edgePoint(edge: MapPoint[], position: number): MapPoint {
     const index = Math.floor(position);
@@ -242,10 +266,7 @@ export class MapRibbonService {
     const t = Math.max(0, Math.min(1, position - index));
     const start = edge[Math.max(0, index)];
 
-    return [
-      start[0] + (edge[next][0] - start[0]) * t,
-      start[1] + (edge[next][1] - start[1]) * t,
-    ];
+    return [start[0] + (edge[next][0] - start[0]) * t, start[1] + (edge[next][1] - start[1]) * t];
   }
 
   /** Точка осевой на дробном индексе сэмпла. */
@@ -327,12 +348,9 @@ export class MapRibbonService {
 
     for (const particle of particles) {
       const travel = (elapsed * speed * particle.speedScale * direction) / flat.totalLength;
-      const progress = ((particle.phase + travel) % 1 + 1) % 1;
+      const progress = (((particle.phase + travel) % 1) + 1) % 1;
       const pulse = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (particle.pulsePhase + elapsed * particle.pulse));
-      const endFade = Math.min(
-        this.smoothStep(0, fadeZone, progress),
-        1 - this.smoothStep(1 - fadeZone, 1, progress),
-      );
+      const endFade = Math.min(this.smoothStep(0, fadeZone, progress), 1 - this.smoothStep(1 - fadeZone, 1, progress));
       const distance = progress * flat.totalLength;
       const alpha = particle.alpha * pulse * endFade * this.bankFade(flat, distance, particle);
       if (alpha <= 0.004) continue;

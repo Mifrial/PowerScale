@@ -1,3 +1,4 @@
+import type { MapAreaDecor } from '@/modules/Roleplay/Map/Dto/MapAreaDecor';
 import type { MapAreaLayer } from '@/modules/Roleplay/Map/Enum/MapAreaLayer';
 import type { MapNodeEdit } from '@/modules/Roleplay/Map/Dto/MapNodeEdit';
 
@@ -5,6 +6,8 @@ import type { MapNodeEdit } from '@/modules/Roleplay/Map/Dto/MapNodeEdit';
 export interface MapAreaEdit {
   layer: MapAreaLayer;
   color: string;
+  /** Визуальный декор; пусто — наследовать настройку карты. */
+  decor: MapAreaDecor;
   /** Проходимость: 0 — непроходимо. */
   speed: number;
   label: string;

@@ -28,6 +28,7 @@ import MapLineDialog from '@/modules/Roleplay/Map/Component/Map/MapLineDialog.vu
 import MapVariantDialog from '@/modules/Roleplay/Map/Component/Map/MapVariantDialog.vue';
 import MapCalibrationDialog from '@/modules/Roleplay/Map/Component/Map/MapCalibrationDialog.vue';
 import MapSettingsDialog from '@/modules/Roleplay/Map/Component/Map/MapSettingsDialog.vue';
+import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
 import MapConflictDialog from '@/modules/Roleplay/Map/Component/Map/MapConflictDialog.vue';
 import MapHelpDialog from '@/modules/Roleplay/Map/Component/Map/MapHelpDialog.vue';
 
@@ -236,13 +237,9 @@ function submitArea(edit: MapAreaEdit): void {
   const currentVariant = variant.value;
   if (!currentVariant) return;
   const target = areaTarget.value;
-  const shape = target
-    ? target.shapes.find((candidate) => candidate.variantId === currentVariant.id)
-    : null;
+  const shape = target ? target.shapes.find((candidate) => candidate.variantId === currentVariant.id) : null;
   const path = shape?.path ?? pendingPath.value ?? [];
-  const contour = shape
-    ? mapGeometryService.flattenContour(shape.path, shape.handles ?? [])
-    : path;
+  const contour = shape ? mapGeometryService.flattenContour(shape.path, shape.handles ?? []) : path;
   const centroid = contour.length >= 3 ? mapGeometryService.polygonCentroid(contour) : null;
   let nodeId = edit.nodeId;
 
@@ -353,13 +350,12 @@ function cancelDrafts(): void {
 }
 
 function branchLine(): void {
-  const line = lineTarget.value ?? (selected.value?.kind === 'line' ? draft.value?.lines.find((item) => item.id === selected.value?.id) : null);
+  const line =
+    lineTarget.value ??
+    (selected.value?.kind === 'line' ? draft.value?.lines.find((item) => item.id === selected.value?.id) : null);
   if (!line || !variant.value) return;
   const target = editor.activeTarget.value;
-  const index =
-    target?.kind === 'line-vertex' && target.id === line.id
-      ? target.index
-      : line.points.length - 1;
+  const index = target?.kind === 'line-vertex' && target.id === line.id ? target.index : line.points.length - 1;
   const point = line.points[index];
   if (!point) return;
   pendingLineDefaults.value = {
@@ -678,7 +674,11 @@ onUnmounted(() => {
           @build="routeState.build"
           @clear="routeState.clear"
         />
-        <v-card v-if="editor.tool.value === 'ruler' && editor.rulerPoints.value.length > 0" variant="outlined" class="mt-3">
+        <v-card
+          v-if="editor.tool.value === 'ruler' && editor.rulerPoints.value.length > 0"
+          variant="outlined"
+          class="mt-3"
+        >
           <v-card-title class="text-body-2">Линейка</v-card-title>
           <v-card-text class="text-body-2">
             <div>Точек: {{ editor.rulerPoints.value.length }}</div>
@@ -725,6 +725,7 @@ onUnmounted(() => {
       :area="areaTarget"
       :node="areaTargetNode"
       :map-options="mapOptions"
+      :map-fill-opacity="draft?.fillOpacity ?? MAP_FILL_OPACITY.default"
       :submitting="saving"
       @submit="submitArea"
       @remove="removeArea"
@@ -734,6 +735,7 @@ onUnmounted(() => {
       v-model:open="lineOpen"
       :line="lineTarget"
       :defaults="lineDefaults"
+      :map-fill-opacity="draft?.fillOpacity ?? MAP_FILL_OPACITY.default"
       :submitting="saving"
       @submit="submitLine"
       @remove="removeLine"

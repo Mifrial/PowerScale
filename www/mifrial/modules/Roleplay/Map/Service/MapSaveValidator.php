@@ -81,6 +81,9 @@ final class MapSaveValidator
             'name' => $name,
             'description' => trim($this->fields->stringValue($payload, 'description', 'map.description')),
             'visibility' => $visibility,
+            'fillOpacity' => array_key_exists('fillOpacity', $payload)
+                ? $this->fields->intValue($payload, 'fillOpacity', 'map.fillOpacity', 0, 100)
+                : 55,
         ];
     }
 

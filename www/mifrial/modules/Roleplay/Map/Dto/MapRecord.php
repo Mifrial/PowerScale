@@ -22,6 +22,7 @@ final class MapRecord
      * @param string $name Имя.
      * @param string $description Описание.
      * @param string $visibility public|private.
+     * @param int $fillOpacity Плотность заливки объектов, 0–100.
      * @param bool $isArchived Архив.
      * @param int $version Версия публикации.
      * @param int|null $updatedBy Кто опубликовал.
@@ -36,6 +37,7 @@ final class MapRecord
         private readonly string $name,
         private readonly string $description,
         private readonly string $visibility,
+        private readonly int $fillOpacity,
         private readonly bool $isArchived,
         private readonly int $version,
         private readonly ?int $updatedBy,
@@ -59,6 +61,7 @@ final class MapRecord
             MapValues::requireString($fields, 'name'),
             MapValues::requireString($fields, 'description'),
             MapValues::requireString($fields, 'visibility'),
+            MapValues::optionalInt($fields, 'fill_opacity') ?? 55,
             MapValues::requireBool($fields, 'is_archived'),
             MapValues::requireInt($fields, 'version'),
             MapValues::optionalInt($fields, 'updated_by'),
@@ -115,6 +118,16 @@ final class MapRecord
     public function getVisibility(): string
     {
         return $this->visibility;
+    }
+
+    /**
+     * Плотность заливки объектов.
+     *
+     * @return int Процент, 0–100.
+     */
+    public function getFillOpacity(): int
+    {
+        return $this->fillOpacity;
     }
 
     /**

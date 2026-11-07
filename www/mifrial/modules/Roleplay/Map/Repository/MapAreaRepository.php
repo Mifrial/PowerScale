@@ -38,6 +38,7 @@ final class MapAreaRepository
      * @param int $mapId Карта.
      * @param string $layer Слой: surface или object.
      * @param string $color Цвет.
+     * @param array<string, mixed> $decor Визуальный декор.
      * @param int $speed Проходимость.
      * @param string $label Подпись.
      * @param int|null $nodeId Место.
@@ -51,6 +52,7 @@ final class MapAreaRepository
         int $mapId,
         string $layer,
         string $color,
+        array $decor,
         int $speed,
         string $label,
         ?int $nodeId,
@@ -61,6 +63,7 @@ final class MapAreaRepository
                 'map_id' => $mapId,
                 'layer' => $layer,
                 'color' => $color,
+                'decor' => $decor,
                 'speed' => $speed,
                 'label' => $label,
                 'node_id' => $nodeId,

@@ -109,6 +109,7 @@ final class MapGraphSaveWriter
         return [
             'layer' => $area['layer'],
             'color' => $area['color'],
+            'decor' => $area['decor'],
             'speed' => $area['speed'],
             'label' => $area['label'],
             'node_id' => $area['nodeId'] === null ? null : $this->mapped($nodeMap, $area['nodeId']),
@@ -135,6 +136,7 @@ final class MapGraphSaveWriter
             $mapId,
             $fields['layer'],
             $fields['color'],
+            $fields['decor'],
             $fields['speed'],
             $fields['label'],
             $fields['node_id'],

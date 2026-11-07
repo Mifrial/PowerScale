@@ -9,6 +9,8 @@ export interface MapSnapshot {
   name: string;
   description: string;
   visibility: MapVisibility;
+  /** Плотность заливки объектов по умолчанию, 0–100. */
+  fillOpacity: number;
   variants: MapSaveVariant[];
   nodes: MapNode[];
   areas: MapArea[];

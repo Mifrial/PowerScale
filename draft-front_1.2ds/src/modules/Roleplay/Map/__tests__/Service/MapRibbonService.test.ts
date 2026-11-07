@@ -153,6 +153,23 @@ describe('MapRibbonService', () => {
     expect(service.edgePoint(edge, 1.25)).toEqual([12.5, 0]);
   });
 
+  it('builds an inner depth band between width ratios', () => {
+    const flat = service.flatten(line(), 4);
+    const full = service.ribbonBand(flat, -1, 1);
+    const core = service.ribbonBand(flat, -0.36, 0.36);
+
+    expect(core).toHaveLength(flat.points.length * 2);
+    const fullWidth = Math.abs(full[0][1] - full[full.length - 1][1]);
+    const coreWidth = Math.abs(core[0][1] - core[core.length - 1][1]);
+    expect(coreWidth).toBeLessThan(fullWidth);
+    expect(coreWidth).toBeGreaterThan(0);
+  });
+
+  it('darkens a colour without changing its format', () => {
+    expect(service.shade('#3f6f8f', 0.12)).toBe('#37627e');
+    expect(service.shade('#3f6f8f', 0)).toBe('#3f6f8f');
+  });
+
   it('lays out deterministic ripple particles and reuses the cache', () => {
     const source = flowing();
     const layout = service.layout(source, 8);

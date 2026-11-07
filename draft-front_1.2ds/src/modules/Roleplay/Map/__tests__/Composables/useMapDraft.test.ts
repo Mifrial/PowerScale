@@ -14,6 +14,7 @@ function detail(overrides: Partial<MapDetail> = {}): MapDetail {
     name: 'Аустан',
     description: '',
     visibility: 'private',
+    fillOpacity: 55,
     isArchived: false,
     version: 1,
     updatedBy: 1,
@@ -68,7 +69,7 @@ describe('useMapDraft', () => {
     state.setBaseline(detail());
 
     expect(state.dirty.value).toBe(false);
-    state.updateMeta({ name: 'Аустан 2', description: '', visibility: 'private' });
+    state.updateMeta({ name: 'Аустан 2', description: '', visibility: 'private', fillOpacity: 55 });
     expect(state.dirty.value).toBe(true);
     state.discard();
     expect(state.dirty.value).toBe(false);
@@ -78,7 +79,7 @@ describe('useMapDraft', () => {
   it('sends the version token and adopts the published snapshot', async () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    state.updateMeta({ name: 'Аустан 2', description: '', visibility: 'private' });
+    state.updateMeta({ name: 'Аустан 2', description: '', visibility: 'private', fillOpacity: 55 });
 
     const result = await state.save();
 
@@ -92,7 +93,7 @@ describe('useMapDraft', () => {
   it('keeps the draft and exposes conflict details', async () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    state.updateMeta({ name: 'Аустан 2', description: '', visibility: 'private' });
+    state.updateMeta({ name: 'Аустан 2', description: '', visibility: 'private', fillOpacity: 55 });
     saveError = new MapApiError('MAP_VERSION_CONFLICT', 'conflict', {
       currentVersion: 3,
       updatedAt: 10,
@@ -109,10 +110,23 @@ describe('useMapDraft', () => {
   it('keeps per-point widths and handles, and supports undo', () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} }, 1, [
-      [0, 0],
-      [10, 0],
-    ]);
+    const lineId = state.addLine(
+      {
+        color: '#3f6f8f',
+        speed: 400,
+        width: 10,
+        widthAll: false,
+        label: 'Река',
+        segments: [],
+        colorBlend: 16,
+        decor: {},
+      },
+      1,
+      [
+        [0, 0],
+        [10, 0],
+      ],
+    );
 
     expect(state.draft.value?.lines[0].widths).toEqual([10, 10]);
     state.setLineWidth(lineId, 1, 24);
@@ -136,11 +150,24 @@ describe('useMapDraft', () => {
   it('creates ribbons with smooth interior handles', () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} }, 1, [
-      [0, 0],
-      [10, 10],
-      [20, 0],
-    ]);
+    state.addLine(
+      {
+        color: '#3f6f8f',
+        speed: 400,
+        width: 10,
+        widthAll: false,
+        label: 'Река',
+        segments: [],
+        colorBlend: 16,
+        decor: {},
+      },
+      1,
+      [
+        [0, 0],
+        [10, 10],
+        [20, 0],
+      ],
+    );
 
     const line = state.draft.value?.lines[0];
     expect(line?.handles[0].out).toEqual([0, 0]);
@@ -152,10 +179,23 @@ describe('useMapDraft', () => {
   it('rounds fractional geometry before map.save', async () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} }, 1, [
-      [0, 0],
-      [10, 0],
-    ]);
+    const lineId = state.addLine(
+      {
+        color: '#3f6f8f',
+        speed: 400,
+        width: 10,
+        widthAll: false,
+        label: 'Река',
+        segments: [],
+        colorBlend: 16,
+        decor: {},
+      },
+      1,
+      [
+        [0, 0],
+        [10, 0],
+      ],
+    );
     state.setLineVertex(lineId, 0, [1.4, 2.6]);
     state.setLineWidth(lineId, 0, 10.6);
     state.setLineHandle(lineId, 0, 'out', [3.2, -4.7]);
@@ -200,6 +240,7 @@ describe('useMapDraft', () => {
       {
         layer: 'object',
         color: '#8d8d8d',
+        decor: {},
         speed: 0,
         label: 'Край',
         nodeId,
@@ -214,7 +255,16 @@ describe('useMapDraft', () => {
       ],
     );
     state.addLine(
-      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} },
+      {
+        color: '#3f6f8f',
+        speed: 400,
+        width: 10,
+        widthAll: false,
+        label: 'Река',
+        segments: [],
+        colorBlend: 16,
+        decor: {},
+      },
       1,
       [
         [-20, 50],
@@ -249,6 +299,7 @@ describe('useMapDraft', () => {
       {
         layer: 'surface',
         color: '#4e7a4e',
+        decor: {},
         speed: 2000,
         label: 'Лес',
         nodeId: null,
@@ -284,6 +335,7 @@ describe('useMapDraft', () => {
       {
         layer: 'object',
         color: '#111111',
+        decor: {},
         speed: 0,
         label: 'Первый',
         nodeId: null,
@@ -301,6 +353,7 @@ describe('useMapDraft', () => {
       {
         layer: 'object',
         color: '#222222',
+        decor: {},
         speed: 0,
         label: 'Второй',
         nodeId: null,
@@ -319,7 +372,16 @@ describe('useMapDraft', () => {
     expect(state.draft.value?.areas.find((area) => area.id === firstArea)?.sortOrder).toBe(1);
 
     const firstLine = state.addLine(
-      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Первая', segments: [], colorBlend: 16, decor: {} },
+      {
+        color: '#3f6f8f',
+        speed: 400,
+        width: 10,
+        widthAll: false,
+        label: 'Первая',
+        segments: [],
+        colorBlend: 16,
+        decor: {},
+      },
       1,
       [
         [0, 0],
@@ -327,7 +389,16 @@ describe('useMapDraft', () => {
       ],
     );
     const secondLine = state.addLine(
-      { color: '#c5c6c6', speed: 10000, width: 10, widthAll: false, label: 'Вторая', segments: [], colorBlend: 16, decor: {} },
+      {
+        color: '#c5c6c6',
+        speed: 10000,
+        width: 10,
+        widthAll: false,
+        label: 'Вторая',
+        segments: [],
+        colorBlend: 16,
+        decor: {},
+      },
       1,
       [
         [0, 20],
@@ -343,7 +414,16 @@ describe('useMapDraft', () => {
     const state = useMapDraft();
     state.setBaseline(detail());
     const lineId = state.addLine(
-      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} },
+      {
+        color: '#3f6f8f',
+        speed: 400,
+        width: 10,
+        widthAll: false,
+        label: 'Река',
+        segments: [],
+        colorBlend: 16,
+        decor: {},
+      },
       1,
       [
         [0, 0],
@@ -362,10 +442,23 @@ describe('useMapDraft', () => {
   it('serializes line widths and handles into map.save', async () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} }, 1, [
-      [0, 0],
-      [10, 0],
-    ]);
+    const lineId = state.addLine(
+      {
+        color: '#3f6f8f',
+        speed: 400,
+        width: 10,
+        widthAll: false,
+        label: 'Река',
+        segments: [],
+        colorBlend: 16,
+        decor: {},
+      },
+      1,
+      [
+        [0, 0],
+        [10, 0],
+      ],
+    );
     state.setLineWidth(lineId, 1, 20);
     state.setLineHandle(lineId, 0, 'out', [4, 2]);
 
@@ -385,7 +478,9 @@ describe('useMapDraft', () => {
         width: 10,
         widthAll: true,
         label: 'Река',
-        segments: [], colorBlend: 16, decor: {},
+        segments: [],
+        colorBlend: 16,
+        decor: {},
       },
       1,
       [
@@ -406,7 +501,9 @@ describe('useMapDraft', () => {
       width: 7,
       widthAll: true,
       label: 'Река',
-      segments: [], colorBlend: 16, decor: {},
+      segments: [],
+      colorBlend: 16,
+      decor: {},
     });
     expect(state.draft.value?.lines[0].widths).toEqual([7, 7, 7]);
   });
@@ -421,7 +518,9 @@ describe('useMapDraft', () => {
         width: 10,
         widthAll: true,
         label: 'Река',
-        segments: [], colorBlend: 16, decor: {},
+        segments: [],
+        colorBlend: 16,
+        decor: {},
       },
       1,
       [
@@ -442,10 +541,57 @@ describe('useMapDraft', () => {
     ]);
   });
 
+  it('keeps map fill opacity and per-object decor overrides, including zero', async () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+    state.updateMeta({ name: 'Аустан', description: '', visibility: 'private', fillOpacity: 30 });
+    state.addArea(
+      {
+        layer: 'surface',
+        color: '#4e7a4e',
+        decor: { fillOpacity: 0 },
+        speed: 2000,
+        label: 'Лес',
+        nodeId: null,
+        sortOrder: 0,
+        place: null,
+      },
+      1,
+      [
+        [0, 0],
+        [10, 0],
+        [10, 10],
+      ],
+    );
+    state.addLine(
+      {
+        color: '#3f6f8f',
+        speed: 400,
+        width: 10,
+        widthAll: true,
+        label: 'Река',
+        segments: [],
+        colorBlend: 16,
+        decor: { fillOpacity: 0, depth: 40 },
+      },
+      1,
+      [
+        [0, 0],
+        [100, 0],
+      ],
+    );
+
+    await state.save();
+
+    expect(savedPayload?.map.fillOpacity).toBe(30);
+    expect(savedPayload?.map.areas[0].decor).toEqual({ fillOpacity: 0 });
+    expect(savedPayload?.map.lines[0].decor).toEqual({ fillOpacity: 0, depth: 40 });
+  });
+
   it('saves a copy without an id and adopts the new map', async () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    state.updateMeta({ name: 'Аустан 2', description: '', visibility: 'public' });
+    state.updateMeta({ name: 'Аустан 2', description: '', visibility: 'public', fillOpacity: 55 });
     saveResponse = { ...detail({ id: 7, version: 1, name: 'Аустан 2 (копия)', visibility: 'private' }), warnings: [] };
 
     const result = await state.saveAsCopy();

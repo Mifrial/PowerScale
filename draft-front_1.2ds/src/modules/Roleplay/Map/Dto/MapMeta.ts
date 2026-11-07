@@ -5,4 +5,6 @@ export interface MapMeta {
   name: string;
   description: string;
   visibility: MapVisibility;
+  /** Плотность заливки объектов по умолчанию, 0–100. */
+  fillOpacity: number;
 }

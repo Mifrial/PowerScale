@@ -6,12 +6,14 @@ import type { MapAreaLayer } from '@/modules/Roleplay/Map/Enum/MapAreaLayer';
 import type { MapNode } from '@/modules/Roleplay/Map/Dto/MapNode';
 import type { MapSummary } from '@/modules/Roleplay/Map/Dto/MapSummary';
 import { MAP_AREA_PRESETS } from '@/modules/Roleplay/Map/Constant/Map/MAP_AREA_PRESETS';
+import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
 import {
   MAP_AREA_DEFAULT_COLOR,
   MAP_SPEED_DEFAULT,
   speedFromInput,
   speedToInput,
 } from '@/modules/Roleplay/Map/Constant/Map/MAP_SPEED';
+import { clampInt } from '@/modules/Roleplay/Map/Utils/clampInt';
 
 const open = defineModel<boolean>('open', { default: false });
 
@@ -19,6 +21,7 @@ const props = defineProps<{
   area: MapArea | null;
   node: MapNode | null;
   mapOptions: MapSummary[];
+  mapFillOpacity: number;
   submitting: boolean;
 }>();
 
@@ -33,6 +36,8 @@ const form = reactive({
   speed: 0,
   label: '',
   sortOrder: 0,
+  fillOpacityOverride: false,
+  fillOpacity: Number(MAP_FILL_OPACITY.default),
   hasPlace: false,
   placeName: '',
   shortInfo: '',
@@ -62,11 +67,11 @@ watch(open, (value) => {
   preset.value = null;
   form.layer = props.area?.layer ?? 'object';
   form.color = props.area?.color ?? MAP_AREA_DEFAULT_COLOR;
-  form.speed = speedToInput(
-    props.area?.speed ?? (form.layer === 'surface' ? MAP_SPEED_DEFAULT : 0),
-  );
+  form.speed = speedToInput(props.area?.speed ?? (form.layer === 'surface' ? MAP_SPEED_DEFAULT : 0));
   form.label = props.area?.label ?? '';
   form.sortOrder = props.area?.sortOrder ?? 0;
+  form.fillOpacityOverride = props.area?.decor?.fillOpacity !== undefined;
+  form.fillOpacity = props.area?.decor?.fillOpacity ?? props.mapFillOpacity;
   form.hasPlace = props.node !== null;
   form.placeName = props.node?.name ?? '';
   form.shortInfo = props.node?.shortInfo ?? '';
@@ -93,6 +98,9 @@ function submit(): void {
     layer: form.layer,
     color: form.color.trim() || MAP_AREA_DEFAULT_COLOR,
     speed: speedFromInput(Number(form.speed)),
+    decor: form.fillOpacityOverride
+      ? { fillOpacity: clampInt(form.fillOpacity, MAP_FILL_OPACITY.min, MAP_FILL_OPACITY.max, props.mapFillOpacity) }
+      : {},
     label: form.label.trim(),
     nodeId: props.area?.nodeId ?? null,
     sortOrder: form.sortOrder,
@@ -161,6 +169,29 @@ function remove(): void {
           50 — обычная земля, 70 — грунтовая дорога, 100 — каменная; лес 20, брод 10, река 4.
         </p>
         <v-text-field v-model="form.label" label="Подпись" variant="outlined" density="comfortable" class="mt-3" />
+
+        <v-divider class="my-4" />
+        <div class="text-body-2 mb-2">Заливка</div>
+        <v-switch
+          v-model="form.fillOpacityOverride"
+          label="Своя плотность заливки"
+          color="primary"
+          density="compact"
+          hide-details
+        />
+        <v-slider
+          v-if="form.fillOpacityOverride"
+          v-model.number="form.fillOpacity"
+          :min="MAP_FILL_OPACITY.min"
+          :max="MAP_FILL_OPACITY.max"
+          :step="1"
+          thumb-label
+          color="primary"
+          label="Плотность, %"
+        />
+        <p v-else class="text-caption text-medium-emphasis mt-1">
+          Наследует плотность карты: {{ props.mapFillOpacity }} %.
+        </p>
 
         <v-divider class="my-4" />
         <v-switch

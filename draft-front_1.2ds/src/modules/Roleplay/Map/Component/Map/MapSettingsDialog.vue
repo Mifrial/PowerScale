@@ -3,6 +3,7 @@ import { reactive, watch } from 'vue';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
 import type { MapMeta } from '@/modules/Roleplay/Map/Dto/MapMeta';
 import type { MapVisibility } from '@/modules/Roleplay/Map/Enum/MapVisibility';
+import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
 import { MAP_VISIBILITY_OPTIONS } from '@/modules/Roleplay/Map/Constant/Map/MAP_VISIBILITY_OPTIONS';
 
 const open = defineModel<boolean>('open', { default: false });
@@ -17,10 +18,16 @@ const emit = defineEmits<{
   archive: [];
 }>();
 
-const form = reactive<{ name: string; description: string; visibility: MapVisibility }>({
+const form = reactive<{
+  name: string;
+  description: string;
+  visibility: MapVisibility;
+  fillOpacity: number;
+}>({
   name: '',
   description: '',
   visibility: 'private',
+  fillOpacity: MAP_FILL_OPACITY.default,
 });
 
 watch(open, (value) => {
@@ -28,6 +35,7 @@ watch(open, (value) => {
   form.name = props.map.name;
   form.description = props.map.description;
   form.visibility = props.map.visibility;
+  form.fillOpacity = props.map.fillOpacity;
 });
 
 function submit(): void {
@@ -37,6 +45,7 @@ function submit(): void {
     name,
     description: form.description.trim(),
     visibility: form.visibility,
+    fillOpacity: form.fillOpacity,
   });
 }
 </script>
@@ -65,6 +74,21 @@ function submit(): void {
           density="comfortable"
           class="mt-3"
         />
+
+        <v-divider class="my-4" />
+        <div class="text-body-2 mb-2">Отображение</div>
+        <v-slider
+          v-model.number="form.fillOpacity"
+          :min="MAP_FILL_OPACITY.min"
+          :max="MAP_FILL_OPACITY.max"
+          :step="1"
+          thumb-label
+          color="primary"
+          label="Плотность заливки объектов, %"
+        />
+        <p class="text-caption text-medium-emphasis">
+          0 — только контур, 100 — плотная заливка. Конкретная лента или область может задать свою плотность.
+        </p>
       </v-card-text>
       <v-card-actions>
         <v-btn

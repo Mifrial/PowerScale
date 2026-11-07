@@ -25,7 +25,6 @@ export const MAP_CANVAS_CONFIG = {
   handleOffset: 14,
   /** Смещение указателя, после которого клик считается перетаскиванием. */
   dragThreshold: 4,
-  areaFillAlpha: 0.28,
   areaStrokeWidth: 2,
   lineStrokeWidth: 1,
   draftLineWidth: 12,

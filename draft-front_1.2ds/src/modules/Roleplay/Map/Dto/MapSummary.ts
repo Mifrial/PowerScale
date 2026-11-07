@@ -6,6 +6,8 @@ export interface MapSummary {
   name: string;
   description: string;
   visibility: MapVisibility;
+  /** Плотность заливки объектов по умолчанию, 0–100. */
+  fillOpacity: number;
   isArchived: boolean;
   version: number;
   updatedBy: number | null;

@@ -101,6 +101,7 @@ use Mifrial\Roleplay\Map\Exception\MapInvalidException;
             'id' => $this->fields->identifier($row, 'id', $path . '.id'),
             'layer' => $layer,
             'color' => $this->fields->colorValue($row, 'color', $path . '.color'),
+            'decor' => $this->fields->areaDecorValue($row, 'decor', $path . '.decor'),
             'speed' => $this->fields->intValue($row, 'speed', $path . '.speed', 0, MapSpeed::MAX),
             'label' => trim((string) $this->fields->optionalStringValue($row, 'label', $path . '.label')),
             'nodeId' => $nodeId,

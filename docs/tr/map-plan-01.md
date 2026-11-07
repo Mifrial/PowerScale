@@ -1,6 +1,6 @@
 # Карты: серверный срез
 
-**Статус:** ~В РАБОТЕ~, 2026-11-07 — непрерывная отрисовка ленты, `colorBlend` и декоративное течение; ждёт ручной проверки.
+**Статус:** ~В РАБОТЕ~, 2026-11-07 — плотность заливки, глубина русла и декоративное течение; ждёт ручной проверки.
 **Реализация:** ~PHP~ — готово, ~VUE~ — [`map-plan-02.md`](map-plan-02.md), ~МОК~ — да.
 **Опираться на:** ~PHP~ (`Core/File`, `Core/User`, `Core/SmartTable`).
 
@@ -69,6 +69,7 @@ owner_id      UserReferenceField, indexed
 name          StringField 255, required
 description   TextField, required, default ''
 visibility    StringField 16, required, default 'private'   // public|private
+fill_opacity  IntField, required, default 55, min 0, max 100  // плотность заливки объектов, %
 is_archived   BoolField, required, default false, indexed
 version       IntField, required, default 1, min 1
 updated_by    UserReferenceField, nullable, onDelete setNull
@@ -142,6 +143,7 @@ id         IdField
 map_id     ReferenceField map, indexed, onDelete cascade
 layer      StringField 16, required, default 'object'   // surface|object
 color      StringField 16, required, default '#8d8d8d'
+decor      JsonField, required, default {}                 // {fillOpacity?: 0..100}, пусто = наследовать карту
 speed      IntField, required, default 5000, min 0, max 10000
 label      StringField 255, required, default ''
 node_id    ReferenceField map_node, nullable, onDelete setNull
@@ -152,6 +154,8 @@ sort_order IntField, required, default 0, min 0
 - `layer = 'object'`: объект; `speed = 0` — непроходим, `speed > 0` — проходим.
 - `node_id` разрешён обоим слоям: лес, озеро, дом и площадь могут быть местом.
 - `sort_order` — порядок внутри слоя; больше — выше.
+- `decor.fillOpacity` — своя плотность заливки области, 0–100. Если ключа нет,
+  используется `map.fill_opacity`. Декор визуальный и не влияет на маршрут.
 
 ### `map_variant_area`
 
@@ -187,7 +191,7 @@ widths     JsonField, required      // [int, ...], по числу точек, �
 handles    JsonField, required      // [{in:[dx,dy], out:[dx,dy]}, ...], пусто = прямые
 segments   JsonField, required      // [{speed, color}, ...], пусто = цвет и скорость ленты
 color_blend IntField, required, default 16, min 0, max 1000  // px, 0 = резкая граница
-decor      JsonField, required, default {}                   // {flow: {...}}, пусто = без декора
+decor      JsonField, required, default {}                   // {fillOpacity?, depth?, flow?}, пусто = наследовать карту
 label      StringField 255, required, default ''
 is_present BoolField, required, default true
 sort_order IntField, required, default 0, min 0
@@ -209,11 +213,12 @@ sort_order IntField, required, default 0, min 0
 переход половиной длины соседних участков, поэтому близкие границы не
 накладываются.
 
-`decor` — визуальный декор ленты. Сейчас единственный вид — спокойное течение
-воды:
+`decor` — визуальный декор ленты:
 
 ```json
 {
+  "fillOpacity": 80,
+  "depth": 45,
   "flow": {
     "enabled": true,
     "speed": 40,
@@ -226,17 +231,22 @@ sort_order IntField, required, default 0, min 0
 }
 ```
 
-- `speed` — 1–600 px подложки в секунду по осевой, по умолчанию 40.
-- `density` — 0–100, по умолчанию 50; сколько бликов ряби на единицу длины:
+- `fillOpacity` — 0–100, плотность заливки ленты. Если ключа нет, используется
+  `map.fill_opacity`; значение `0` допустимо и означает «только контур».
+- `depth` — 0–100, профиль русла: центр темнее, у берегов мелководье светлее.
+  `0` — плоская лента, по умолчанию `0`.
+- `flow.speed` — 1–600 px подложки в секунду по осевой, по умолчанию 40.
+- `flow.density` — 0–100, по умолчанию 50; сколько бликов ряби на единицу длины:
   малое значение — редкие крупные, большое — частая мелкая рябь.
-- `opacity` — 0–100 процентов, по умолчанию 18.
-- `color` — `#rrggbb`, по умолчанию `#ffffff`.
-- `direction` — `1` по порядку точек, `-1` против; по умолчанию `1`.
-- `seed` — 0–1000000, детерминированная раскладка бликов; по умолчанию 0.
+- `flow.opacity` — 0–100, непрозрачность бликов, по умолчанию 18.
+- `flow.color` — `#rrggbb`, по умолчанию `#ffffff`.
+- `flow.direction` — `1` по порядку точек, `-1` против; по умолчанию `1`.
+- `flow.seed` — 0–1000000, детерминированная раскладка бликов; по умолчанию 0.
 
-Пустой объект `decor` означает «без декора». Течение рисуется только на клиенте
-и не участвует в маршруте. Пресет «Спокойная река» заполняет `colorBlend` и
-`decor.flow` стартовыми значениями, но не запрещает их потом менять.
+Пустой объект `decor` означает «наследовать настройки карты, без течения и
+глубины». Декор рисуется только на клиенте и не участвует в маршруте. Пресет
+«Спокойная река» заполняет `colorBlend`, `decor.depth` и `decor.flow` стартовыми
+значениями, но не запрещает их потом менять.
 
 ## Маршрут
 
@@ -296,15 +306,17 @@ sort_order IntField, required, default 0, min 0
 - место: `name` не пустой; `linkedMapId` существует и доступен;
 - размещение: `variantId` из снимка; координаты в границах `width × height`
   варианта (если размеры заданы);
-- область: `layer` из `surface|object`; `color` — `#rrggbb`; `speed` 0–10000;
-  `nodeId` из снимка; полигон ≥ 3 точек; `handles` пуст или ровно по числу
-  вершин; координаты в границах; `sortOrder ≥ 0`;
+- карта: `fillOpacity` 0–100, по умолчанию 55;
+- область: `layer` из `surface|object`; `color` — `#rrggbb`; `decor` пуст или
+  содержит только `fillOpacity` 0–100; `speed` 0–10000; `nodeId` из снимка;
+  полигон ≥ 3 точек; `handles` пуст или ровно по числу вершин; координаты в
+  границах; `sortOrder ≥ 0`;
 - лента: ≥ 2 точек, `widths` и `handles` той же длины, ширина ≥ 1, смещения
   ручек в пределах мира; пустой `handles` допустим; `color` — `#rrggbb`;
   `speed` 0–10000; `segments` пуст или ровно по числу сегментов, у каждого
   `speed` 0–10000 и `color` `null` или `#rrggbb`; `colorBlend` 0–1000;
-  `decor` пуст или содержит только `flow` с полями в допустимых диапазонах;
-  `sortOrder ≥ 0`.
+  `decor` пуст или содержит `fillOpacity` 0–100, `depth` 0–100 и `flow` с
+  полями в допустимых диапазонах; `sortOrder ≥ 0`.
 
 Предупреждений о пересечениях больше нет: маршрут сам обходит блокеры, а мост и
 ворота — это проходимые элементы сверху.
@@ -344,6 +356,7 @@ map.route       { mapId, variantId, fromX, fromY, toX, toY }
     "name": "Аустан",
     "description": "",
     "visibility": "private",
+    "fillOpacity": 55,
     "variants": [
       { "id": 1, "label": "Основная", "fromMinutes": null, "sortOrder": 0,
         "filePublicId": null, "millimetersPerPixel": 1900, "isDefault": true }
@@ -355,7 +368,7 @@ map.route       { mapId, variantId, fromX, fromY, toX, toY }
                          "isPresent": true, "labelOverride": "" }] }
     ],
     "areas": [
-      { "id": 1, "layer": "object", "color": "#9e9e9e", "speed": 0,
+      { "id": 1, "layer": "object", "color": "#9e9e9e", "decor": {}, "speed": 0,
         "label": "Ратуша", "nodeId": null, "sortOrder": 2,
         "shapes": [{ "variantId": 1,
                      "path": [[10,10],[20,10],[20,20]],
@@ -371,7 +384,8 @@ map.route       { mapId, variantId, fromX, fromY, toX, toY }
                     { "in": [-60,0], "out": [0,0] }],
         "segments": [{ "speed": 400, "color": null }, { "speed": 1000, "color": "#B7A98A" }],
         "colorBlend": 16,
-        "decor": { "flow": { "enabled": true, "speed": 40, "density": 50,
+        "decor": { "fillOpacity": 80, "depth": 45,
+                   "flow": { "enabled": true, "speed": 40, "density": 50,
                              "opacity": 18, "color": "#ffffff",
                              "direction": 1, "seed": 7 } },
         "label": "Река", "isPresent": true, "sortOrder": 1 }

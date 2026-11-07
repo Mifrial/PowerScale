@@ -12,7 +12,6 @@ import { mapGeometryService } from '@/modules/Roleplay/Map/Service/Instance/mapG
 
 const CURRENT_USER_ID = 1;
 
-
 let nextId = 100;
 
 const nowSeconds = (): number => Math.floor(Date.now() / 1000);
@@ -24,6 +23,7 @@ const maps: MapDetail[] = [
     name: 'Аустан',
     description: 'Город на перекрёстке трактов. Демонстрационная карта.',
     visibility: 'public',
+    fillOpacity: 55,
     isArchived: false,
     version: 3,
     updatedBy: CURRENT_USER_ID,
@@ -118,6 +118,7 @@ const maps: MapDetail[] = [
         id: 1,
         layer: 'surface',
         color: '#c9b79c',
+        decor: {},
         speed: 8000,
         label: 'Базарная площадь',
         nodeId: 1,
@@ -140,6 +141,7 @@ const maps: MapDetail[] = [
         id: 2,
         layer: 'object',
         color: '#9e9e9e',
+        decor: {},
         speed: 0,
         label: 'Ратуша',
         nodeId: 2,
@@ -162,6 +164,7 @@ const maps: MapDetail[] = [
         id: 3,
         layer: 'object',
         color: '#616161',
+        decor: {},
         speed: 0,
         label: 'Городская стена',
         nodeId: null,
@@ -203,6 +206,7 @@ const maps: MapDetail[] = [
         segments: [{ speed: 1000, color: '#b7a98a' }],
         colorBlend: 16,
         decor: {
+          depth: 45,
           flow: {
             enabled: true,
             speed: 30,
@@ -294,6 +298,7 @@ function mapVariants(map: MapDetail, snapshot: MapSnapshot): void {
   map.name = snapshot.name.trim();
   map.description = snapshot.description.trim();
   map.visibility = snapshot.visibility;
+  map.fillOpacity = snapshot.fillOpacity;
 }
 
 export async function mockFindMapPage(query: MapFindPageQuery): Promise<MapPage> {
@@ -322,6 +327,7 @@ export async function mockSaveMap(data: SaveMapData): Promise<MapSaveResult> {
       name: data.map.name,
       description: data.map.description,
       visibility: data.map.visibility,
+      fillOpacity: data.map.fillOpacity,
       isArchived: false,
       version: 1,
       updatedBy: CURRENT_USER_ID,

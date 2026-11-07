@@ -4,7 +4,13 @@ import type { MapLine } from '@/modules/Roleplay/Map/Dto/MapLine';
 import type { MapLineDecor } from '@/modules/Roleplay/Map/Dto/MapLineDecor';
 import type { MapLineEdit } from '@/modules/Roleplay/Map/Dto/MapLineEdit';
 import type { MapLineSegment } from '@/modules/Roleplay/Map/Dto/MapLineSegment';
-import { MAP_LINE_DEFAULT_COLOR_BLEND, MAP_LINE_FLOW_DEFAULTS, MAP_LINE_FLOW_OFF } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DECOR';
+import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
+import {
+  MAP_LINE_DEFAULT_COLOR_BLEND,
+  MAP_LINE_FLOW_DEFAULTS,
+  MAP_LINE_FLOW_OFF,
+} from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DECOR';
+import { MAP_LINE_DEPTH } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DEPTH';
 import { MAP_LINE_DEFAULT_WIDTH } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DEFAULT_WIDTH';
 import { MAP_LINE_PRESETS } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_PRESETS';
 import { MAP_LINE_SEGMENT_PRESETS } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_SEGMENT_PRESETS';
@@ -14,12 +20,14 @@ import {
   speedFromInput,
   speedToInput,
 } from '@/modules/Roleplay/Map/Constant/Map/MAP_SPEED';
+import { clampInt } from '@/modules/Roleplay/Map/Utils/clampInt';
 
 const open = defineModel<boolean>('open', { default: false });
 
 const props = defineProps<{
   line: MapLine | null;
   submitting: boolean;
+  mapFillOpacity: number;
   defaults?: { color: string; speed: number; width: number; colorBlend?: number; decor?: MapLineDecor } | null;
 }>();
 
@@ -41,6 +49,9 @@ const form = reactive({
   label: '',
   segments: [] as SegmentForm[],
   colorBlend: MAP_LINE_DEFAULT_COLOR_BLEND,
+  depth: 0,
+  fillOpacityOverride: false,
+  fillOpacity: Number(MAP_FILL_OPACITY.default),
   flow: { ...MAP_LINE_FLOW_OFF },
 });
 const preset = ref<string | null>(null);
@@ -80,7 +91,11 @@ watch(open, (value) => {
   form.widthAll = props.line !== null;
   form.label = props.line?.label ?? '';
   form.colorBlend = props.line?.colorBlend ?? props.defaults?.colorBlend ?? MAP_LINE_DEFAULT_COLOR_BLEND;
-  Object.assign(form.flow, props.line?.decor?.flow ?? props.defaults?.decor?.flow ?? MAP_LINE_FLOW_OFF);
+  const decor = props.line?.decor ?? props.defaults?.decor;
+  form.depth = decor?.depth ?? 0;
+  form.fillOpacityOverride = decor?.fillOpacity !== undefined;
+  form.fillOpacity = decor?.fillOpacity ?? props.mapFillOpacity;
+  Object.assign(form.flow, decor?.flow ?? MAP_LINE_FLOW_OFF);
   form.segments = effectiveSegments(props.line, form.speed, form.color);
 });
 
@@ -106,6 +121,7 @@ function applyPreset(code: string | null): void {
   form.speed = speedToInput(found.speed);
   form.width = found.width;
   form.colorBlend = found.colorBlend ?? MAP_LINE_DEFAULT_COLOR_BLEND;
+  form.depth = found.decor?.depth ?? 0;
   Object.assign(form.flow, found.decor?.flow ?? MAP_LINE_FLOW_OFF);
   if (form.label.trim() === '') form.label = found.title;
 }
@@ -145,27 +161,28 @@ function submit(): void {
     // Значение, равное базе на момент открытия, означает «наследовать базу».
     const inherited = segment.speed === openBase.speed && segment.color === openBase.color;
     const speed = inherited ? baseSpeed : speedFromInput(Number(segment.speed));
-    const color = inherited
-      ? form.color
-      : segment.color === form.color
-        ? null
-        : segment.color;
+    const color = inherited ? form.color : segment.color === form.color ? null : segment.color;
     if (speed !== baseSpeed || color !== null) hasOverrides = true;
     segments.push({ speed, color });
   }
-  const decor: MapLineDecor = form.flow.enabled
-    ? {
-        flow: {
-          enabled: true,
-          speed: clampInt(form.flow.speed, 1, 600, MAP_LINE_FLOW_DEFAULTS.speed),
-          density: clampInt(form.flow.density, 0, 100, MAP_LINE_FLOW_DEFAULTS.density),
-          opacity: clampInt(form.flow.opacity, 0, 100, MAP_LINE_FLOW_DEFAULTS.opacity),
-          color: form.flow.color.trim() || MAP_LINE_FLOW_DEFAULTS.color,
-          direction: form.flow.direction === -1 ? -1 : 1,
-          seed: clampInt(form.flow.seed, 0, 1000000, MAP_LINE_FLOW_DEFAULTS.seed),
-        },
-      }
-    : {};
+  const decor: MapLineDecor = {};
+  if (form.fillOpacityOverride) {
+    decor.fillOpacity = clampInt(form.fillOpacity, MAP_FILL_OPACITY.min, MAP_FILL_OPACITY.max, props.mapFillOpacity);
+  }
+  if (form.depth > 0) {
+    decor.depth = clampInt(form.depth, 0, MAP_LINE_DEPTH.max, 0);
+  }
+  if (form.flow.enabled) {
+    decor.flow = {
+      enabled: true,
+      speed: clampInt(form.flow.speed, 1, 600, MAP_LINE_FLOW_DEFAULTS.speed),
+      density: clampInt(form.flow.density, 0, 100, MAP_LINE_FLOW_DEFAULTS.density),
+      opacity: clampInt(form.flow.opacity, 0, 100, MAP_LINE_FLOW_DEFAULTS.opacity),
+      color: form.flow.color.trim() || MAP_LINE_FLOW_DEFAULTS.color,
+      direction: form.flow.direction === -1 ? -1 : 1,
+      seed: clampInt(form.flow.seed, 0, 1000000, MAP_LINE_FLOW_DEFAULTS.seed),
+    };
+  }
   emit('submit', {
     color: form.color.trim() || MAP_LINE_DEFAULT_COLOR,
     speed: baseSpeed,
@@ -176,13 +193,6 @@ function submit(): void {
     colorBlend: clampInt(form.colorBlend, 0, 1000, MAP_LINE_DEFAULT_COLOR_BLEND),
     decor,
   });
-}
-
-function clampInt(value: number, min: number, max: number, fallback: number): number {
-  const number = Math.round(Number(value));
-  if (!Number.isFinite(number)) return fallback;
-
-  return Math.min(max, Math.max(min, number));
 }
 
 function remove(): void {
@@ -243,8 +253,8 @@ function remove(): void {
           />
         </div>
         <div v-if="props.line" class="text-caption text-medium-emphasis mt-1">
-          Сейчас ширина по точкам: {{ widthRange }}. Галочка применяет поле ко всем точкам; без неё ширина не
-          меняется — точечно она правится ромбом на карте.
+          Сейчас ширина по точкам: {{ widthRange }}. Галочка применяет поле ко всем точкам; без неё ширина не меняется —
+          точечно она правится ромбом на карте.
         </div>
 
         <v-divider class="my-4" />
@@ -267,6 +277,41 @@ function remove(): void {
           density="comfortable"
           class="mt-2"
         />
+
+        <v-divider class="my-4" />
+        <div class="text-body-2 mb-2">Заливка и глубина</div>
+        <v-switch
+          v-model="form.fillOpacityOverride"
+          label="Своя плотность заливки"
+          color="primary"
+          density="compact"
+          hide-details
+        />
+        <v-slider
+          v-if="form.fillOpacityOverride"
+          v-model.number="form.fillOpacity"
+          :min="MAP_FILL_OPACITY.min"
+          :max="MAP_FILL_OPACITY.max"
+          :step="1"
+          thumb-label
+          color="primary"
+          label="Плотность, %"
+        />
+        <p v-else class="text-caption text-medium-emphasis mt-1">
+          Наследует плотность карты: {{ props.mapFillOpacity }} %.
+        </p>
+        <v-slider
+          v-model.number="form.depth"
+          :min="0"
+          :max="MAP_LINE_DEPTH.max"
+          :step="1"
+          thumb-label
+          color="primary"
+          label="Глубина русла"
+        />
+        <p class="text-caption text-medium-emphasis">
+          0 — плоская лента; глубина затемняет центр и осветляет мелководье у берегов.
+        </p>
 
         <v-switch
           v-model="form.flow.enabled"
@@ -317,7 +362,7 @@ function remove(): void {
                 type="number"
                 min="0"
                 max="100"
-                label="Прозрачность, %"
+                label="Непрозрачность бликов, %"
                 variant="outlined"
                 density="comfortable"
               />

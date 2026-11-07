@@ -84,6 +84,7 @@ final class MapAreaStore
      * @param int $mapId Карта.
      * @param string $layer Слой: surface или object.
      * @param string $color Цвет.
+     * @param array<string, mixed> $decor Визуальный декор.
      * @param int $speed Проходимость.
      * @param string $label Подпись.
      * @param int|null $nodeId Место.
@@ -95,6 +96,7 @@ final class MapAreaStore
         int $mapId,
         string $layer,
         string $color,
+        array $decor,
         int $speed,
         string $label,
         ?int $nodeId,
@@ -104,6 +106,7 @@ final class MapAreaStore
             $mapId,
             $layer,
             $color,
+            $decor,
             $speed,
             $label,
             $nodeId,

@@ -47,6 +47,10 @@ final class MapTable extends SmartTableDefinition
             new StringField('name', $required, 255),
             new TextField('description', $required),
             new StringField('visibility', FieldSettings::fromOptions(['required' => true, 'default' => 'private']), 16),
+            new IntField('fill_opacity', FieldSettings::fromOptions([
+                'required' => true,
+                'default' => 55,
+            ]), 0, 100),
             new BoolField('is_archived', $archived),
             new IntField('version', FieldSettings::fromOptions(['required' => true, 'default' => 1]), 1, null),
             new UserReferenceField('updated_by', FieldSettings::fromOptions([]), 'setNull'),

@@ -81,6 +81,7 @@ final class MapSaveWriter
             $data['name'],
             $data['description'],
             $data['visibility'],
+            $data['fillOpacity'],
         );
     }
 
@@ -97,6 +98,7 @@ final class MapSaveWriter
             'name' => $data['name'],
             'description' => $data['description'],
             'visibility' => $data['visibility'],
+            'fill_opacity' => $data['fillOpacity'],
         ];
     }
 

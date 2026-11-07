@@ -1,5 +1,6 @@
 import { computed, ref, toRaw } from 'vue';
 import type { MapArea } from '@/modules/Roleplay/Map/Dto/MapArea';
+import type { MapAreaDecor } from '@/modules/Roleplay/Map/Dto/MapAreaDecor';
 import type { MapAreaEdit } from '@/modules/Roleplay/Map/Dto/MapAreaEdit';
 import type { MapAreaShape } from '@/modules/Roleplay/Map/Dto/MapAreaShape';
 import type { MapConflict } from '@/modules/Roleplay/Map/Dto/MapConflict';
@@ -21,7 +22,11 @@ import type { MapVariantEdit } from '@/modules/Roleplay/Map/Dto/MapVariantEdit';
 import type { MapWarning } from '@/modules/Roleplay/Map/Dto/MapWarning';
 import { zeroMapHandle } from '@/modules/Roleplay/Map/Dto/MapHandle';
 import { zeroMapLineHandle } from '@/modules/Roleplay/Map/Dto/MapLineHandle';
-import { MAP_LINE_DEFAULT_COLOR_BLEND, MAP_LINE_FLOW_DEFAULTS } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DECOR';
+import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
+import {
+  MAP_LINE_DEFAULT_COLOR_BLEND,
+  MAP_LINE_FLOW_DEFAULTS,
+} from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DECOR';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
 import { getMapApi } from '@/modules/Roleplay/Map/init';
 import { MapApiError } from '@/modules/Roleplay/Map/Service/MapApiError';
@@ -255,16 +260,17 @@ export function useMapDraft() {
       id: nextTempId(),
       ...areaFields(edit),
       sortOrder: nextSortOrder(current.areas),
-      shapes: path.length >= 3
-        ? [
-            {
-              variantId,
-              path: copyPoints(path),
-              handles: path.map(() => zeroMapHandle()),
-              isPresent: true,
-            },
-          ]
-        : [],
+      shapes:
+        path.length >= 3
+          ? [
+              {
+                variantId,
+                path: copyPoints(path),
+                handles: path.map(() => zeroMapHandle()),
+                isPresent: true,
+              },
+            ]
+          : [],
     };
     current.areas.push(area);
 
@@ -345,13 +351,7 @@ export function useMapDraft() {
   }
 
   /** Ручка Безье вершины контура. */
-  function setAreaHandle(
-    areaId: number,
-    variantId: number,
-    index: number,
-    side: 'in' | 'out',
-    offset: MapPoint,
-  ): void {
+  function setAreaHandle(areaId: number, variantId: number, index: number, side: 'in' | 'out', offset: MapPoint): void {
     const shape = findAreaShape(areaId, variantId);
     if (!shape || index < 0 || index >= shape.path.length) return;
     record();
@@ -520,7 +520,13 @@ export function useMapDraft() {
     line.widths[index] = target;
   }
 
-  function insertLineVertex(lineId: number, index: number, point: MapPoint, width: number, handle: MapLineHandle): void {
+  function insertLineVertex(
+    lineId: number,
+    index: number,
+    point: MapPoint,
+    width: number,
+    handle: MapLineHandle,
+  ): void {
     const line = findLine(lineId);
     if (!line) return;
     record();
@@ -561,13 +567,14 @@ export function useMapDraft() {
     variant.millimetersPerPixel = edit.millimetersPerPixel === null ? null : Math.round(edit.millimetersPerPixel);
     variant.isDefault = edit.isDefault;
     if (edit.isBaseFileTouched) {
-      variant.baseFile = edit.filePublicId === null
-        ? null
-        : {
-            publicId: edit.filePublicId,
-            width: edit.fileWidth ?? null,
-            height: edit.fileHeight ?? null,
-          };
+      variant.baseFile =
+        edit.filePublicId === null
+          ? null
+          : {
+              publicId: edit.filePublicId,
+              width: edit.fileWidth ?? null,
+              height: edit.fileHeight ?? null,
+            };
     }
     applyDefaults(variantId, edit.isDefault);
   }
@@ -588,13 +595,14 @@ export function useMapDraft() {
       label: edit.label,
       fromMinutes: edit.fromMinutes === null ? null : Math.round(edit.fromMinutes),
       sortOrder: Math.round(edit.sortOrder),
-      baseFile: edit.filePublicId === null
-        ? null
-        : {
-            publicId: edit.filePublicId,
-            width: edit.fileWidth ?? null,
-            height: edit.fileHeight ?? null,
-          },
+      baseFile:
+        edit.filePublicId === null
+          ? null
+          : {
+              publicId: edit.filePublicId,
+              width: edit.fileWidth ?? null,
+              height: edit.fileHeight ?? null,
+            },
       millimetersPerPixel: edit.millimetersPerPixel === null ? null : Math.round(edit.millimetersPerPixel),
       isDefault: edit.isDefault,
     };
@@ -631,6 +639,7 @@ export function useMapDraft() {
     current.name = meta.name;
     current.description = meta.description;
     current.visibility = meta.visibility;
+    current.fillOpacity = meta.fillOpacity;
   }
 
   function accept(result: MapSaveResult): void {
@@ -805,6 +814,7 @@ function snapshotOf(detail: MapDetail): MapSnapshot {
     name: detail.name,
     description: detail.description,
     visibility: detail.visibility,
+    fillOpacity: detail.fillOpacity,
     variants: detail.variants.map((variant) => ({
       id: variant.id,
       label: variant.label,
@@ -824,6 +834,7 @@ function snapshotOf(detail: MapDetail): MapSnapshot {
     })),
     areas: raw.areas.map((area) => ({
       ...area,
+      decor: normalizeAreaDecor(area.decor),
       shapes: area.shapes.map((shape) => {
         const path = clampPoints(shape.path, boundsFor(bounds, shape.variantId));
         const handles = (shape.handles ?? []).map((handle) => ({
@@ -949,6 +960,7 @@ function areaFields(edit: MapAreaEdit): Omit<MapArea, 'id' | 'shapes'> {
   return {
     layer: edit.layer,
     color: edit.color,
+    decor: normalizeAreaDecor(edit.decor),
     speed: clampSpeed(edit.speed),
     label: edit.label,
     nodeId: edit.nodeId,
@@ -1004,20 +1016,33 @@ function clampRange(value: number, min: number, max: number, fallback: number): 
 }
 
 function normalizeDecor(decor: MapLineDecor | null | undefined): MapLineDecor {
-  const flow = decor?.flow;
-  if (!flow?.enabled) return {};
+  const result: MapLineDecor = {};
+  if (decor?.fillOpacity !== undefined) {
+    result.fillOpacity = clampRange(decor.fillOpacity, 0, 100, MAP_FILL_OPACITY.default);
+  }
+  if (decor?.depth !== undefined && decor.depth > 0) {
+    result.depth = clampRange(decor.depth, 0, 100, 0);
+  }
 
-  return {
-    flow: {
-      enabled: true,
-      speed: clampRange(flow.speed, 1, 600, MAP_LINE_FLOW_DEFAULTS.speed),
-      density: clampRange(flow.density, 0, 100, MAP_LINE_FLOW_DEFAULTS.density),
-      opacity: clampRange(flow.opacity, 0, 100, MAP_LINE_FLOW_DEFAULTS.opacity),
-      color: /^#[0-9a-fA-F]{6}$/.test(flow.color) ? flow.color : MAP_LINE_FLOW_DEFAULTS.color,
-      direction: flow.direction === -1 ? -1 : 1,
-      seed: clampRange(flow.seed, 0, 1000000, MAP_LINE_FLOW_DEFAULTS.seed),
-    },
+  const flow = decor?.flow;
+  if (!flow?.enabled) return result;
+  result.flow = {
+    enabled: true,
+    speed: clampRange(flow.speed, 1, 600, MAP_LINE_FLOW_DEFAULTS.speed),
+    density: clampRange(flow.density, 0, 100, MAP_LINE_FLOW_DEFAULTS.density),
+    opacity: clampRange(flow.opacity, 0, 100, MAP_LINE_FLOW_DEFAULTS.opacity),
+    color: /^#[0-9a-fA-F]{6}$/.test(flow.color) ? flow.color : MAP_LINE_FLOW_DEFAULTS.color,
+    direction: flow.direction === -1 ? -1 : 1,
+    seed: clampRange(flow.seed, 0, 1000000, MAP_LINE_FLOW_DEFAULTS.seed),
   };
+
+  return result;
+}
+
+function normalizeAreaDecor(decor: MapAreaDecor | null | undefined): MapAreaDecor {
+  if (decor?.fillOpacity === undefined) return {};
+
+  return { fillOpacity: clampRange(decor.fillOpacity, 0, 100, MAP_FILL_OPACITY.default) };
 }
 
 function nextSortOrder(items: { sortOrder: number }[]): number {

@@ -15,7 +15,9 @@ import type { MapViewport } from '@/modules/Roleplay/Map/Dto/MapViewport';
 import type { MapToolMode } from '@/modules/Roleplay/Map/Enum/MapToolMode';
 import type { RibbonEdges, RibbonLayout } from '@/modules/Roleplay/Map/Service/MapRibbonService';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
-import { mapGeometryService, mapRibbonService } from '@/modules/Roleplay/Map/init';
+import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
+import { MAP_LINE_DEPTH } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DEPTH';
+import { mapGeometryService, mapRenderService, mapRibbonService } from '@/modules/Roleplay/Map/init';
 import { getFileApi } from '@/modules/Core/File/init';
 
 const props = defineProps<{
@@ -59,17 +61,13 @@ let staticCanvas: HTMLCanvasElement | null = null;
 let labelCanvas: HTMLCanvasElement | null = null;
 let staticDirty = true;
 const areaPathCache = new Map<number, MapPoint[] | null>();
-const reducedMotion =
-  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const flowAvailable = computed(
   () =>
     !reducedMotion &&
     (props.map?.lines ?? []).some(
-      (line) =>
-        line.variantId === props.variant?.id &&
-        line.isPresent &&
-        line.decor?.flow?.enabled === true,
+      (line) => line.variantId === props.variant?.id && line.isPresent && line.decor?.flow?.enabled === true,
     ),
 );
 
@@ -325,7 +323,7 @@ function drawAreas(context: CanvasRenderingContext2D, layer: 'surface' | 'object
       }
     });
     context.closePath();
-    context.globalAlpha = MAP_CANVAS_CONFIG.areaFillAlpha;
+    context.globalAlpha = mapRenderService.areaFillOpacity(area, props.map.fillOpacity) / 100;
     context.fillStyle = color;
     context.fill();
     context.globalAlpha = 1;
@@ -340,7 +338,9 @@ function drawLineBodies(context: CanvasRenderingContext2D): void {
   if (!props.map || !props.variant) return;
   for (const line of sortedLines()) {
     const layout = mapRibbonService.layout(line);
-    drawLineFill(context, layout);
+    const fillOpacity = mapRenderService.lineFillOpacity(line, props.map.fillOpacity);
+    drawLineFill(context, line, layout, props.map.fillOpacity);
+    drawLineDepth(context, layout, mapRenderService.lineDepth(line), fillOpacity);
     drawLineEdges(context, layout);
   }
 }
@@ -381,18 +381,18 @@ function drawSelection(context: CanvasRenderingContext2D): void {
   if (selected.kind === 'line') {
     const line = sortedLines().find((candidate) => candidate.id === selected.id);
     if (!line) return;
-    drawPolyline(
-      context,
-      mapRibbonService.layout(line).flat.points,
-      '#1e88e5',
-      2 / props.viewport.scale,
-    );
+    drawPolyline(context, mapRibbonService.layout(line).flat.points, '#1e88e5', 2 / props.viewport.scale);
   }
 }
 
 /** Заливка непрерывных участков цвета и градиентных переходов. */
-function drawLineFill(context: CanvasRenderingContext2D, layout: RibbonLayout): void {
-  context.globalAlpha = 0.55;
+function drawLineFill(
+  context: CanvasRenderingContext2D,
+  line: MapLine,
+  layout: RibbonLayout,
+  mapOpacity: number,
+): void {
+  context.globalAlpha = mapRenderService.lineFillOpacity(line, mapOpacity) / 100;
   for (const run of layout.runs) {
     fillRibbonRange(context, layout, run.from, run.to, run.color);
   }
@@ -400,6 +400,38 @@ function drawLineFill(context: CanvasRenderingContext2D, layout: RibbonLayout): 
     fillRibbonTransition(context, layout, transition);
   }
   context.globalAlpha = 1;
+}
+
+/** Профиль русла: затемнение к центру и мелководье у берегов. */
+function drawLineDepth(
+  context: CanvasRenderingContext2D,
+  layout: RibbonLayout,
+  depth: number,
+  fillOpacity: number,
+): void {
+  if (depth <= 0 || fillOpacity <= 0) return;
+  const widthSum = layout.flat.widths.reduce((sum, width) => sum + width, 0);
+  if (widthSum / Math.max(1, layout.flat.widths.length) < MAP_LINE_DEPTH.minWidth) return;
+  const strength = (depth / MAP_LINE_DEPTH.max) * (fillOpacity / MAP_FILL_OPACITY.max);
+  for (const band of MAP_LINE_DEPTH.centerBands) {
+    fillRibbonBand(context, layout, band, `rgba(0, 0, 0, ${band.alpha * strength})`);
+  }
+  for (const band of MAP_LINE_DEPTH.shallowBands) {
+    fillRibbonBand(context, layout, band, `rgba(255, 255, 255, ${band.alpha * strength})`);
+  }
+}
+
+function fillRibbonBand(
+  context: CanvasRenderingContext2D,
+  layout: RibbonLayout,
+  band: { from: number; to: number },
+  color: string,
+): void {
+  const points = mapRibbonService.ribbonBand(layout.flat, band.from, band.to);
+  if (points.length < 3) return;
+  tracePolygon(context, points);
+  context.fillStyle = color;
+  context.fill();
 }
 
 function fillRibbonRange(
@@ -428,24 +460,22 @@ function transitionGradient(
   context: CanvasRenderingContext2D,
   layout: RibbonLayout,
   transition: { from: number; to: number; fromColor: string; toColor: string },
+  shadeRatio = 0,
 ): CanvasGradient | null {
   const start = mapRibbonService.centerPoint(layout.flat, transition.from);
   const end = mapRibbonService.centerPoint(layout.flat, transition.to);
   if (Math.hypot(end[0] - start[0], end[1] - start[1]) < 1e-6) return null;
   const gradient = context.createLinearGradient(start[0], start[1], end[0], end[1]);
-  gradient.addColorStop(0, transition.fromColor);
-  gradient.addColorStop(1, transition.toColor);
+  const from = shadeRatio > 0 ? mapRibbonService.shade(transition.fromColor, shadeRatio) : transition.fromColor;
+  const to = shadeRatio > 0 ? mapRibbonService.shade(transition.toColor, shadeRatio) : transition.toColor;
+  gradient.addColorStop(0, from);
+  gradient.addColorStop(1, to);
 
   return gradient;
 }
 
 /** Контур ленты: левый край вперёд, правый назад. */
-function traceRibbonRange(
-  context: CanvasRenderingContext2D,
-  edges: RibbonEdges,
-  from: number,
-  to: number,
-): void {
+function traceRibbonRange(context: CanvasRenderingContext2D, edges: RibbonEdges, from: number, to: number): void {
   const left = sliceEdge(edges.left, from, to);
   const right = sliceEdge(edges.right, from, to);
   context.beginPath();
@@ -531,11 +561,12 @@ function drawLineEdges(context: CanvasRenderingContext2D, layout: RibbonLayout):
   context.lineJoin = 'round';
   context.lineCap = 'round';
   for (const run of layout.runs) {
-    strokeEdgeRange(context, layout.edges.left, run.from, run.to, run.color);
-    strokeEdgeRange(context, layout.edges.right, run.from, run.to, run.color);
+    const color = mapRibbonService.shade(run.color, MAP_LINE_DEPTH.edgeShade);
+    strokeEdgeRange(context, layout.edges.left, run.from, run.to, color);
+    strokeEdgeRange(context, layout.edges.right, run.from, run.to, color);
   }
   for (const transition of layout.transitions) {
-    const gradient = transitionGradient(context, layout, transition);
+    const gradient = transitionGradient(context, layout, transition, MAP_LINE_DEPTH.edgeShade);
     if (!gradient) continue;
     strokeEdgeRange(context, layout.edges.left, transition.from, transition.to, gradient);
     strokeEdgeRange(context, layout.edges.right, transition.from, transition.to, gradient);
@@ -584,12 +615,7 @@ function drawRoute(context: CanvasRenderingContext2D): void {
   if (!props.route || props.route.points.length < 2) return;
   const simplified = mapGeometryService.simplifyPath(props.route.points, routeTolerance(props.route.points));
   const smooth = mapGeometryService.smoothPath(simplified);
-  drawPolyline(
-    context,
-    smooth,
-    '#d81b60',
-    MAP_CANVAS_CONFIG.routeWidth / props.viewport.scale,
-  );
+  drawPolyline(context, smooth, '#d81b60', MAP_CANVAS_CONFIG.routeWidth / props.viewport.scale);
 }
 
 /** Допуск упрощения по медианному шагу точек сетки. */
@@ -682,7 +708,14 @@ function drawEditorHandles(context: CanvasRenderingContext2D): void {
           drawBezierHandle(context, point, [point[0] + handle.in[0], point[1] + handle.in[1]], '#b39ddb', false, false);
         }
         if (Math.hypot(handle.out[0], handle.out[1]) > 1) {
-          drawBezierHandle(context, point, [point[0] + handle.out[0], point[1] + handle.out[1]], '#b39ddb', false, false);
+          drawBezierHandle(
+            context,
+            point,
+            [point[0] + handle.out[0], point[1] + handle.out[1]],
+            '#b39ddb',
+            false,
+            false,
+          );
         }
       }
     });
@@ -731,20 +764,22 @@ function drawEditorHandles(context: CanvasRenderingContext2D): void {
           drawBezierHandle(context, point, [point[0] + handle.in[0], point[1] + handle.in[1]], '#b39ddb', false, false);
         }
         if (Math.hypot(handle.out[0], handle.out[1]) > 1) {
-          drawBezierHandle(context, point, [point[0] + handle.out[0], point[1] + handle.out[1]], '#b39ddb', false, false);
+          drawBezierHandle(
+            context,
+            point,
+            [point[0] + handle.out[0], point[1] + handle.out[1]],
+            '#b39ddb',
+            false,
+            false,
+          );
         }
       }
     });
 
     line.points.forEach((point, index) => {
-      drawVertex(
-        context,
-        point,
-        target?.kind === 'line-vertex' && target.id === line.id && target.index === index,
-      );
+      drawVertex(context, point, target?.kind === 'line-vertex' && target.id === line.id && target.index === index);
     });
   }
-
 }
 
 function isActive(kind: MapEditTarget['kind'], id: number, index: number): boolean {
@@ -798,12 +833,7 @@ function drawBezierHandle(
 }
 
 /** Ручка ширины: ромб на краю полосы с коротким поводком от осевой линии. */
-function drawWidthHandle(
-  context: CanvasRenderingContext2D,
-  base: MapPoint,
-  target: MapPoint,
-  active: boolean,
-): void {
+function drawWidthHandle(context: CanvasRenderingContext2D, base: MapPoint, target: MapPoint, active: boolean): void {
   const center = toScreen(base);
   const handle = toScreen(target);
   context.beginPath();
@@ -1032,11 +1062,7 @@ function loadBaseImage(publicId: string | null | undefined): void {
   image.src = getFileApi().getViewUrl(publicId);
 }
 
-watch(
-  () => [props.map, props.variant, props.viewport, props.route],
-  invalidateStatic,
-  { deep: true },
-);
+watch(() => [props.map, props.variant, props.viewport, props.route], invalidateStatic, { deep: true });
 
 watch(baseImage, invalidateStatic);
 

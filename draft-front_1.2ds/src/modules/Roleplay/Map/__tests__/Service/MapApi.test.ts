@@ -25,6 +25,7 @@ const snapshot: MapSnapshot = {
   name: 'Аустан',
   description: '',
   visibility: 'private',
+  fillOpacity: 55,
   variants: [
     {
       id: 1,

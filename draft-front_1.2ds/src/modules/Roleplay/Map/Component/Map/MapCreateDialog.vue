@@ -2,6 +2,7 @@
 import { reactive, watch } from 'vue';
 import type { MapMeta } from '@/modules/Roleplay/Map/Dto/MapMeta';
 import type { MapVisibility } from '@/modules/Roleplay/Map/Enum/MapVisibility';
+import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
 import { MAP_VISIBILITY_OPTIONS } from '@/modules/Roleplay/Map/Constant/Map/MAP_VISIBILITY_OPTIONS';
 
 const open = defineModel<boolean>('open', { default: false });
@@ -31,7 +32,12 @@ watch(open, (value) => {
 function submit(): void {
   const name = form.name.trim();
   if (name === '') return;
-  emit('submit', { name, description: form.description.trim(), visibility: form.visibility });
+  emit('submit', {
+    name,
+    description: form.description.trim(),
+    visibility: form.visibility,
+    fillOpacity: MAP_FILL_OPACITY.default,
+  });
 }
 </script>
 

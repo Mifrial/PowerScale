@@ -18,6 +18,7 @@ final class MapAreaRecord
      * @param int $mapId Карта.
      * @param string $layer surface|object.
      * @param string $color Цвет области.
+     * @param array<string, mixed> $decor Визуальный декор; пусто — без декора.
      * @param int $speed Проходимость: 0 — непроходимо.
      * @param string $label Подпись.
      * @param int|null $nodeId Привязанное место.
@@ -30,6 +31,7 @@ final class MapAreaRecord
         private readonly int $mapId,
         private readonly string $layer,
         private readonly string $color,
+        private readonly array $decor,
         private readonly int $speed,
         private readonly string $label,
         private readonly ?int $nodeId,
@@ -51,6 +53,7 @@ final class MapAreaRecord
             MapValues::requireInt($fields, 'map_id'),
             MapValues::requireString($fields, 'layer'),
             MapValues::requireString($fields, 'color'),
+            MapValues::areaDecor($fields['decor'] ?? null),
             MapValues::requireInt($fields, 'speed'),
             MapValues::requireString($fields, 'label'),
             MapValues::optionalInt($fields, 'node_id'),
@@ -96,6 +99,16 @@ final class MapAreaRecord
     public function getColor(): string
     {
         return $this->color;
+    }
+
+    /**
+     * Визуальный декор.
+     *
+     * @return array<string, mixed> Декор; пусто — без декора.
+     */
+    public function getDecor(): array
+    {
+        return $this->decor;
     }
 
     /**

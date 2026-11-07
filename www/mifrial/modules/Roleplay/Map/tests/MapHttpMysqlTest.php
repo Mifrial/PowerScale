@@ -150,6 +150,8 @@ final class MapHttpMysqlTest extends TestCase
         self::assertSame(400, $saved['data']['lines'][0]['speed']);
         self::assertSame(16, $saved['data']['lines'][0]['colorBlend']);
         self::assertEquals((object) [], $saved['data']['lines'][0]['decor']);
+        self::assertEquals((object) [], $saved['data']['areas'][0]['decor']);
+        self::assertSame(55, $saved['data']['fillOpacity']);
         self::assertSame(0, $saved['data']['lines'][0]['sortOrder']);
 
         $aroundWater = $this->dispatch('map.route', [
@@ -255,8 +257,12 @@ final class MapHttpMysqlTest extends TestCase
         );
 
         $withDecor = $this->withIds($payload, $segmentsSaved['data']);
+        $withDecor['fillOpacity'] = 34;
+        $withDecor['areas'][0]['decor'] = ['fillOpacity' => 72];
         $withDecor['lines'][0]['colorBlend'] = 24;
         $withDecor['lines'][0]['decor'] = [
+            'fillOpacity' => 80,
+            'depth' => 45,
             'flow' => [
                 'enabled' => true,
                 'speed' => 30,
@@ -273,7 +279,11 @@ final class MapHttpMysqlTest extends TestCase
             'map' => $withDecor,
         ]);
         self::assertTrue($decorSaved['success']);
+        self::assertSame(34, $decorSaved['data']['fillOpacity']);
+        self::assertSame(72, $decorSaved['data']['areas'][0]['decor']['fillOpacity']);
         self::assertSame(24, $decorSaved['data']['lines'][0]['colorBlend']);
+        self::assertSame(80, $decorSaved['data']['lines'][0]['decor']['fillOpacity']);
+        self::assertSame(45, $decorSaved['data']['lines'][0]['decor']['depth']);
         self::assertSame(30, $decorSaved['data']['lines'][0]['decor']['flow']['speed']);
         self::assertSame(-1, $decorSaved['data']['lines'][0]['decor']['flow']['direction']);
         self::assertSame('#eaf6ff', $decorSaved['data']['lines'][0]['decor']['flow']['color']);
@@ -454,6 +464,39 @@ final class MapHttpMysqlTest extends TestCase
         self::assertFalse($badDecor['success']);
         self::assertSame('MAP_INVALID', $badDecor['error']['code']);
 
+        $secondPayload['lines'][0]['decor'] = ['fillOpacity' => 80, 'depth' => 101];
+        $badDepth = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $second['data']['version'],
+            'force' => true,
+            'map' => $secondPayload,
+        ]);
+        self::assertFalse($badDepth['success']);
+        self::assertSame('MAP_INVALID', $badDepth['error']['code']);
+
+        $secondPayload['lines'][0]['decor'] = [];
+        $secondPayload['areas'][0]['decor'] = ['fillOpacity' => 101];
+        $badAreaDecor = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $second['data']['version'],
+            'force' => true,
+            'map' => $secondPayload,
+        ]);
+        self::assertFalse($badAreaDecor['success']);
+        self::assertSame('MAP_INVALID', $badAreaDecor['error']['code']);
+
+        $secondPayload['areas'][0]['decor'] = [];
+        $secondPayload['fillOpacity'] = 101;
+        $badMapOpacity = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $second['data']['version'],
+            'force' => true,
+            'map' => $secondPayload,
+        ]);
+        self::assertFalse($badMapOpacity['success']);
+        self::assertSame('MAP_INVALID', $badMapOpacity['error']['code']);
+
+        $secondPayload['fillOpacity'] = 55;
         $negative = $payload;
         $negative['nodes'][0]['placements'][0]['x'] = -1;
         $badPoint = $this->dispatch('map.save', [

@@ -41,12 +41,13 @@ final class MapRepository
      * @param string $name Имя.
      * @param string $description Описание.
      * @param string $visibility Видимость public|private.
+     * @param int $fillOpacity Плотность заливки объектов, 0–100.
      *
      * @return int Id.
      *
      * @throws MapInvalidException Если поля или карта недопустимы.
      */
-    public function add(int $ownerId, string $name, string $description, string $visibility): int
+    public function add(int $ownerId, string $name, string $description, string $visibility, int $fillOpacity): int
     {
         try {
             return $this->mapRecords->add([
@@ -54,6 +55,7 @@ final class MapRepository
                 'name' => $name,
                 'description' => $description,
                 'visibility' => $visibility,
+                'fill_opacity' => $fillOpacity,
                 'is_archived' => false,
                 'version' => 1,
             ]);

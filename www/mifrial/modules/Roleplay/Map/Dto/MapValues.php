@@ -260,14 +260,23 @@ final class MapValues
         }
 
         foreach (array_keys($value) as $unknown) {
-            if ($unknown !== 'flow') {
+            if (!in_array($unknown, ['flow', 'fillOpacity', 'depth'], true)) {
                 throw new MapInvalidException('Map line decor has an unknown key');
             }
         }
 
+        $decor = [];
+        if (array_key_exists('fillOpacity', $value)) {
+            $decor['fillOpacity'] = self::decorInt($value['fillOpacity'], 0, 100);
+        }
+
+        if (array_key_exists('depth', $value)) {
+            $decor['depth'] = self::decorInt($value['depth'], 0, 100);
+        }
+
         $flow = $value['flow'] ?? null;
         if ($flow === null) {
-            return [];
+            return $decor;
         }
 
         if (!is_array($flow)) {
@@ -293,17 +302,47 @@ final class MapValues
             throw new MapInvalidException('Map line flow color is invalid');
         }
 
-        return [
-            'flow' => [
-                'enabled' => $enabled,
-                'speed' => $speed,
-                'density' => $density,
-                'opacity' => $opacity,
-                'color' => $color,
-                'direction' => $direction,
-                'seed' => $seed,
-            ],
+        $decor['flow'] = [
+            'enabled' => $enabled,
+            'speed' => $speed,
+            'density' => $density,
+            'opacity' => $opacity,
+            'color' => $color,
+            'direction' => $direction,
+            'seed' => $seed,
         ];
+
+        return $decor;
+    }
+
+    /**
+     * Визуальный декор области.
+     *
+     * @param mixed $value Значение из строки.
+     *
+     * @return array<string, mixed> Декор; пусто — без декора.
+     *
+     * @throws MapInvalidException Если форма неверна.
+     */
+    public static function areaDecor(mixed $value): array
+    {
+        if ($value === null || $value === []) {
+            return [];
+        }
+
+        if (!is_array($value)) {
+            throw new MapInvalidException('Map area decor is invalid');
+        }
+
+        foreach (array_keys($value) as $unknown) {
+            if ($unknown !== 'fillOpacity') {
+                throw new MapInvalidException('Map area decor has an unknown key');
+            }
+        }
+
+        return array_key_exists('fillOpacity', $value)
+            ? ['fillOpacity' => self::decorInt($value['fillOpacity'], 0, 100)]
+            : [];
     }
 
     /**

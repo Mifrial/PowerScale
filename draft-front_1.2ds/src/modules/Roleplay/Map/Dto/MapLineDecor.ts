@@ -5,7 +5,7 @@ export interface MapLineFlow {
   speed: number;
   /** Плотность бликов, 0–100. */
   density: number;
-  /** Прозрачность бликов, 0–100. */
+  /** Непрозрачность бликов, 0–100. */
   opacity: number;
   color: string;
   /** 1 — по порядку точек, -1 — против. */
@@ -16,5 +16,9 @@ export interface MapLineFlow {
 
 /** Визуальный декор ленты; пусто — без декора. */
 export interface MapLineDecor {
+  /** Плотность заливки, 0–100; нет — наследовать настройку карты. */
+  fillOpacity?: number;
+  /** Глубина русла, 0–100; 0 — плоская лента. */
+  depth?: number;
   flow?: MapLineFlow;
 }
