@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { CanvasPoint } from '@/modules/Roleplay/Map/Dto/CanvasPoint';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
 import type { MapEditTarget } from '@/modules/Roleplay/Map/Dto/MapEditTarget';
@@ -13,8 +13,9 @@ import type { MapSize } from '@/modules/Roleplay/Map/Dto/MapSize';
 import type { MapVariant } from '@/modules/Roleplay/Map/Dto/MapVariant';
 import type { MapViewport } from '@/modules/Roleplay/Map/Dto/MapViewport';
 import type { MapToolMode } from '@/modules/Roleplay/Map/Enum/MapToolMode';
+import type { RibbonEdges, RibbonLayout } from '@/modules/Roleplay/Map/Service/MapRibbonService';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
-import { mapGeometryService } from '@/modules/Roleplay/Map/init';
+import { mapGeometryService, mapRibbonService } from '@/modules/Roleplay/Map/init';
 import { getFileApi } from '@/modules/Core/File/init';
 
 const props = defineProps<{
@@ -50,7 +51,23 @@ const baseImage = ref<HTMLImageElement | null>(null);
 const hoverPoint = ref<MapPoint | null>(null);
 let resizeObserver: ResizeObserver | null = null;
 let frame = 0;
+let flowFrame = 0;
+let lastFlowDraw = 0;
+let drawTime = 0;
 let lastSize: MapSize = { width: 0, height: 0 };
+const reducedMotion =
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const flowAvailable = computed(
+  () =>
+    !reducedMotion &&
+    (props.map?.lines ?? []).some(
+      (line) =>
+        line.variantId === props.variant?.id &&
+        line.isPresent &&
+        line.decor?.flow?.enabled === true,
+    ),
+);
 
 const worldWidth = (): number => props.variant?.baseFile?.width ?? MAP_CANVAS_CONFIG.fallbackWidth;
 
@@ -127,13 +144,44 @@ const selectedLine = (): MapLine | null => {
 
 function scheduleDraw(): void {
   if (frame !== 0) return;
-  frame = requestAnimationFrame(() => {
+  frame = requestAnimationFrame((timestamp) => {
     frame = 0;
-    draw();
+    draw(timestamp);
   });
 }
 
-function draw(): void {
+function startFlow(): void {
+  if (flowFrame !== 0 || !flowAvailable.value) return;
+  lastFlowDraw = 0;
+  flowFrame = requestAnimationFrame(flowTick);
+}
+
+function stopFlow(): void {
+  if (flowFrame === 0) return;
+  cancelAnimationFrame(flowFrame);
+  flowFrame = 0;
+}
+
+function flowTick(timestamp: number): void {
+  flowFrame = 0;
+  if (!flowAvailable.value || document.hidden) return;
+  if (timestamp - lastFlowDraw >= 1000 / 30) {
+    lastFlowDraw = timestamp;
+    draw(timestamp);
+  }
+  flowFrame = requestAnimationFrame(flowTick);
+}
+
+function onVisibilityChange(): void {
+  if (document.hidden) {
+    stopFlow();
+  } else {
+    startFlow();
+  }
+}
+
+function draw(timestamp = performance.now()): void {
+  drawTime = timestamp;
   const element = canvas.value;
   if (!element) return;
   const context = element.getContext('2d');
@@ -221,32 +269,74 @@ function drawAreas(context: CanvasRenderingContext2D, layer: 'surface' | 'object
 function drawLines(context: CanvasRenderingContext2D): void {
   if (!props.map || !props.variant) return;
   for (const line of sortedLines()) {
-    drawLineSegments(context, line);
+    const layout = mapRibbonService.layout(line);
+    drawLineFill(context, layout);
+    drawLineFlow(context, line, layout);
+    drawLineEdges(context, layout);
     if (props.selected?.kind === 'line' && props.selected.id === line.id) {
-      const flat = mapGeometryService.flattenLine(line.points, line.handles ?? [], line.widths);
-      drawPolyline(context, flat.points, '#1e88e5', 2 / props.viewport.scale);
+      drawPolyline(context, layout.flat.points, '#1e88e5', 2 / props.viewport.scale);
     }
   }
 }
 
-function drawLineSegments(context: CanvasRenderingContext2D, line: MapLine): void {
-  const handles = line.handles ?? [];
-  for (let index = 1; index < line.points.length; index += 1) {
-    const points: MapPoint[] = [line.points[index - 1], line.points[index]];
-    const widths = [line.widths[index - 1] ?? 1, line.widths[index] ?? 1];
-    const segmentHandles = [
-      handles[index - 1] ?? { in: [0, 0] as MapPoint, out: [0, 0] as MapPoint },
-      handles[index] ?? { in: [0, 0] as MapPoint, out: [0, 0] as MapPoint },
-    ];
-    const flat = mapGeometryService.flattenLine(points, segmentHandles, widths);
-    const segment = line.segments[index - 1];
-    drawRibbon(context, flat.points, flat.widths, segment?.color ?? line.color);
+/** Заливка непрерывных участков цвета и градиентных переходов. */
+function drawLineFill(context: CanvasRenderingContext2D, layout: RibbonLayout): void {
+  context.globalAlpha = 0.55;
+  for (const run of layout.runs) {
+    fillRibbonRange(context, layout.edges, run.from, run.to, run.color);
   }
+  for (const transition of layout.transitions) {
+    fillRibbonTransition(context, layout, transition);
+  }
+  context.globalAlpha = 1;
 }
 
-function drawRibbon(context: CanvasRenderingContext2D, points: MapPoint[], widths: number[], color: string): void {
-  const { left, right } = ribbonEdges(points, widths);
+function fillRibbonRange(
+  context: CanvasRenderingContext2D,
+  edges: RibbonEdges,
+  from: number,
+  to: number,
+  fill: string | CanvasGradient,
+): void {
+  traceRibbonRange(context, edges, from, to);
+  context.fillStyle = fill;
+  context.fill();
+}
 
+function fillRibbonTransition(
+  context: CanvasRenderingContext2D,
+  layout: RibbonLayout,
+  transition: { from: number; to: number; fromColor: string; toColor: string },
+): void {
+  const gradient = transitionGradient(context, layout, transition);
+  if (!gradient) return;
+  fillRibbonRange(context, layout.edges, transition.from, transition.to, gradient);
+}
+
+function transitionGradient(
+  context: CanvasRenderingContext2D,
+  layout: RibbonLayout,
+  transition: { from: number; to: number; fromColor: string; toColor: string },
+): CanvasGradient | null {
+  const start = mapRibbonService.centerPoint(layout.flat, transition.from);
+  const end = mapRibbonService.centerPoint(layout.flat, transition.to);
+  if (Math.hypot(end[0] - start[0], end[1] - start[1]) < 1e-6) return null;
+  const gradient = context.createLinearGradient(start[0], start[1], end[0], end[1]);
+  gradient.addColorStop(0, transition.fromColor);
+  gradient.addColorStop(1, transition.toColor);
+
+  return gradient;
+}
+
+/** Контур ленты: левый край вперёд, правый назад. */
+function traceRibbonRange(
+  context: CanvasRenderingContext2D,
+  edges: RibbonEdges,
+  from: number,
+  to: number,
+): void {
+  const left = sliceEdge(edges.left, from, to);
+  const right = sliceEdge(edges.right, from, to);
   context.beginPath();
   left.forEach((point, index) => {
     if (index === 0) {
@@ -259,55 +349,85 @@ function drawRibbon(context: CanvasRenderingContext2D, points: MapPoint[], width
     context.lineTo(right[index][0], right[index][1]);
   }
   context.closePath();
-  context.globalAlpha = 0.55;
-  context.fillStyle = color;
-  context.fill();
+}
+
+/** Кусок края между дробными индексами сэмплов. */
+function sliceEdge(edge: MapPoint[], from: number, to: number): MapPoint[] {
+  const points: MapPoint[] = [mapRibbonService.edgePoint(edge, from)];
+  const start = Math.floor(from);
+  const end = Math.ceil(to);
+  for (let index = start + 1; index < end; index += 1) {
+    if (index > from && index < to) points.push(edge[index]);
+  }
+  const last = mapRibbonService.edgePoint(edge, to);
+  const previous = points[points.length - 1];
+  if (Math.hypot(last[0] - previous[0], last[1] - previous[1]) > 1e-6) {
+    points.push(last);
+  }
+
+  return points;
+}
+
+/** Декоративное течение внутри клипа ленты. */
+function drawLineFlow(context: CanvasRenderingContext2D, line: MapLine, layout: RibbonLayout): void {
+  const flow = line.decor?.flow;
+  if (!flow?.enabled || layout.flat.points.length < 2) return;
+  const marks = mapRibbonService.flowMarks(line, layout, drawTime, reducedMotion, props.viewport.scale);
+  if (marks.length === 0) return;
+
+  context.save();
+  traceRibbonRange(context, layout.edges, 0, layout.flat.points.length - 1);
+  context.clip();
+  context.strokeStyle = flow.color;
+  context.lineCap = 'round';
+  for (const mark of marks) {
+    context.globalAlpha = mark.alpha;
+    context.lineWidth = mark.width;
+    context.beginPath();
+    context.moveTo(mark.start[0], mark.start[1]);
+    context.lineTo(mark.end[0], mark.end[1]);
+    context.stroke();
+  }
+  context.restore();
   context.globalAlpha = 1;
-  context.strokeStyle = color;
+}
+
+/** Обводка только берегов; торцевые сечения не рисуются. */
+function drawLineEdges(context: CanvasRenderingContext2D, layout: RibbonLayout): void {
   context.lineWidth = MAP_CANVAS_CONFIG.lineStrokeWidth / props.viewport.scale;
-  context.stroke();
+  context.lineJoin = 'round';
+  context.lineCap = 'round';
+  for (const run of layout.runs) {
+    strokeEdgeRange(context, layout.edges.left, run.from, run.to, run.color);
+    strokeEdgeRange(context, layout.edges.right, run.from, run.to, run.color);
+  }
+  for (const transition of layout.transitions) {
+    const gradient = transitionGradient(context, layout, transition);
+    if (!gradient) continue;
+    strokeEdgeRange(context, layout.edges.left, transition.from, transition.to, gradient);
+    strokeEdgeRange(context, layout.edges.right, transition.from, transition.to, gradient);
+  }
 }
 
-/** Края ленты с ограничением митры: острые углы не дают игл и петель. */
-function ribbonEdges(points: MapPoint[], widths: number[]): { left: MapPoint[]; right: MapPoint[] } {
-  const left: MapPoint[] = [];
-  const right: MapPoint[] = [];
-  const last = points.length - 1;
+function strokeEdgeRange(
+  context: CanvasRenderingContext2D,
+  edge: MapPoint[],
+  from: number,
+  to: number,
+  color: string | CanvasGradient,
+): void {
+  const points = sliceEdge(edge, from, to);
+  if (points.length < 2) return;
+  context.beginPath();
   points.forEach((point, index) => {
-    const halfWidth = Math.max(1, widths[index] ?? 1) / 2;
-    let offset: MapPoint;
     if (index === 0) {
-      offset = segmentNormal(point, points[1] ?? point);
-    } else if (index === last) {
-      offset = segmentNormal(points[index - 1], point);
+      context.moveTo(point[0], point[1]);
     } else {
-      const before = segmentNormal(points[index - 1], point);
-      const after = segmentNormal(point, points[index + 1]);
-      const sum: MapPoint = [before[0] + after[0], before[1] + after[1]];
-      const length = Math.hypot(sum[0], sum[1]);
-      if (length < 1e-6) {
-        offset = after;
-      } else {
-        const miter: MapPoint = [sum[0] / length, sum[1] / length];
-        const dot = miter[0] * after[0] + miter[1] * after[1];
-        const scale = dot > 0.2 ? Math.min(2.5, 1 / dot) : 1;
-        offset = [miter[0] * scale, miter[1] * scale];
-      }
+      context.lineTo(point[0], point[1]);
     }
-    left.push([point[0] + offset[0] * halfWidth, point[1] + offset[1] * halfWidth]);
-    right.push([point[0] - offset[0] * halfWidth, point[1] - offset[1] * halfWidth]);
   });
-
-  return { left, right };
-}
-
-function segmentNormal(start: MapPoint, end: MapPoint): MapPoint {
-  const deltaX = end[0] - start[0];
-  const deltaY = end[1] - start[1];
-  const length = Math.hypot(deltaX, deltaY);
-  if (length === 0) return [0, 0];
-
-  return [-deltaY / length, deltaX / length];
+  context.strokeStyle = color;
+  context.stroke();
 }
 
 function drawPolyline(context: CanvasRenderingContext2D, points: MapPoint[], color: string, width: number): void {
@@ -800,15 +920,30 @@ watch(
 
 watch(() => props.variant?.baseFile?.publicId, loadBaseImage, { immediate: true });
 
+watch(
+  flowAvailable,
+  (value) => {
+    if (value) {
+      startFlow();
+    } else {
+      stopFlow();
+    }
+  },
+  { immediate: true },
+);
+
 function mount(): void {
   const container = wrapper.value;
   if (!container) return;
   resizeObserver = new ResizeObserver(resizeCanvas);
   resizeObserver.observe(container);
+  document.addEventListener('visibilitychange', onVisibilityChange);
   resizeCanvas();
 }
 
 function unmount(): void {
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+  stopFlow();
   resizeObserver?.disconnect();
   resizeObserver = null;
   if (frame !== 0) {

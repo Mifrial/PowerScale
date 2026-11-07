@@ -5,6 +5,7 @@ import type { MapAreaShape } from '@/modules/Roleplay/Map/Dto/MapAreaShape';
 import type { MapConflict } from '@/modules/Roleplay/Map/Dto/MapConflict';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
 import type { MapLine } from '@/modules/Roleplay/Map/Dto/MapLine';
+import type { MapLineDecor } from '@/modules/Roleplay/Map/Dto/MapLineDecor';
 import type { MapHandle } from '@/modules/Roleplay/Map/Dto/MapHandle';
 import type { MapLineEdit } from '@/modules/Roleplay/Map/Dto/MapLineEdit';
 import type { MapLineHandle } from '@/modules/Roleplay/Map/Dto/MapLineHandle';
@@ -20,6 +21,7 @@ import type { MapVariantEdit } from '@/modules/Roleplay/Map/Dto/MapVariantEdit';
 import type { MapWarning } from '@/modules/Roleplay/Map/Dto/MapWarning';
 import { zeroMapHandle } from '@/modules/Roleplay/Map/Dto/MapHandle';
 import { zeroMapLineHandle } from '@/modules/Roleplay/Map/Dto/MapLineHandle';
+import { MAP_LINE_DEFAULT_COLOR_BLEND, MAP_LINE_FLOW_DEFAULTS } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DECOR';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
 import { getMapApi } from '@/modules/Roleplay/Map/init';
 import { MapApiError } from '@/modules/Roleplay/Map/Service/MapApiError';
@@ -367,6 +369,8 @@ export function useMapDraft() {
     line.color = edit.color;
     line.speed = clampSpeed(edit.speed);
     line.segments = segmentStyles(edit.segments, line.points.length, edit.color, line.speed);
+    line.colorBlend = clampColorBlend(edit.colorBlend);
+    line.decor = normalizeDecor(edit.decor);
     line.label = edit.label;
     if (edit.widthAll) {
       line.widths = line.points.map(() => clampWidth(edit.width));
@@ -388,6 +392,8 @@ export function useMapDraft() {
       widths: points.map(() => width),
       handles: autoHandles(points),
       segments: segmentStyles(edit.segments, points.length, edit.color, clampSpeed(edit.speed)),
+      colorBlend: clampColorBlend(edit.colorBlend),
+      decor: normalizeDecor(edit.decor),
       label: edit.label,
       isPresent: true,
       sortOrder: nextSortOrder(current.lines),
@@ -879,6 +885,8 @@ function lineForSave(line: MapLine, bounds: WorldBounds): MapLine {
     widths: widths.slice(0, points.length),
     handles: handles.slice(0, points.length),
     segments: segmentStyles(line.segments, points.length, line.color, line.speed),
+    colorBlend: clampColorBlend(line.colorBlend),
+    decor: normalizeDecor(line.decor),
   };
 }
 
@@ -981,6 +989,35 @@ function clampWidth(value: number): number {
   if (!Number.isFinite(value)) return 1;
 
   return Math.min(20000, Math.max(1, Math.round(value)));
+}
+
+function clampColorBlend(value: number | undefined): number {
+  if (value === undefined || !Number.isFinite(value)) return MAP_LINE_DEFAULT_COLOR_BLEND;
+
+  return Math.min(1000, Math.max(0, Math.round(value)));
+}
+
+function clampRange(value: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function normalizeDecor(decor: MapLineDecor | null | undefined): MapLineDecor {
+  const flow = decor?.flow;
+  if (!flow?.enabled) return {};
+
+  return {
+    flow: {
+      enabled: true,
+      speed: clampRange(flow.speed, 1, 600, MAP_LINE_FLOW_DEFAULTS.speed),
+      density: clampRange(flow.density, 0, 100, MAP_LINE_FLOW_DEFAULTS.density),
+      opacity: clampRange(flow.opacity, 0, 100, MAP_LINE_FLOW_DEFAULTS.opacity),
+      color: /^#[0-9a-fA-F]{6}$/.test(flow.color) ? flow.color : MAP_LINE_FLOW_DEFAULTS.color,
+      direction: flow.direction === -1 ? -1 : 1,
+      seed: clampRange(flow.seed, 0, 1000000, MAP_LINE_FLOW_DEFAULTS.seed),
+    },
+  };
 }
 
 function nextSortOrder(items: { sortOrder: number }[]): number {

@@ -4,6 +4,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import type { MapAreaEdit } from '@/modules/Roleplay/Map/Dto/MapAreaEdit';
 import type { MapHit } from '@/modules/Roleplay/Map/Dto/MapHit';
 import type { MapLineEdit } from '@/modules/Roleplay/Map/Dto/MapLineEdit';
+import type { MapLineDecor } from '@/modules/Roleplay/Map/Dto/MapLineDecor';
 import type { MapMeta } from '@/modules/Roleplay/Map/Dto/MapMeta';
 import type { MapNodeEdit } from '@/modules/Roleplay/Map/Dto/MapNodeEdit';
 import type { MapPoint } from '@/modules/Roleplay/Map/Dto/MapPoint';
@@ -57,7 +58,13 @@ const settingsOpen = ref(false);
 const conflictOpen = ref(false);
 const helpOpen = ref(false);
 const notice = ref<string | null>(null);
-const pendingLineDefaults = ref<{ color: string; speed: number; width: number } | null>(null);
+const pendingLineDefaults = ref<{
+  color: string;
+  speed: number;
+  width: number;
+  colorBlend?: number;
+  decor?: MapLineDecor;
+} | null>(null);
 
 const editor = useMapEditor({
   map: draft,
@@ -359,6 +366,8 @@ function branchLine(): void {
     color: line.segments[index - 1]?.color ?? line.color,
     speed: line.segments[index - 1]?.speed ?? line.speed,
     width: Math.max(1, line.widths[index] ?? 1),
+    colorBlend: line.colorBlend ?? 16,
+    decor: line.decor ?? {},
   };
   mode.value = 'edit';
   selected.value = { kind: 'line', id: line.id };

@@ -53,6 +53,11 @@ final class MapVariantLineTable extends SmartTableDefinition
             new JsonField('widths', FieldSettings::fromOptions(['required' => true])),
             new JsonField('handles', FieldSettings::fromOptions(['required' => true, 'default' => []])),
             new JsonField('segments', FieldSettings::fromOptions(['required' => true, 'default' => []])),
+            new IntField('color_blend', FieldSettings::fromOptions([
+                'required' => true,
+                'default' => 16,
+            ]), 0, 1000),
+            new JsonField('decor', FieldSettings::fromOptions(['required' => true, 'default' => []])),
             new StringField('label', FieldSettings::fromOptions(['required' => true]), 255),
             new BoolField('is_present', FieldSettings::fromOptions([
                 'required' => true,

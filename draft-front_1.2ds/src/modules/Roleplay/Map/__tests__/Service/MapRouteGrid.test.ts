@@ -69,6 +69,8 @@ function roadLine(id: number, speed = 10000): MapLine {
     widths: [10, 10],
     handles: [],
     segments: [],
+    colorBlend: 16,
+    decor: {},
     label: '',
     isPresent: true,
     sortOrder: 1,

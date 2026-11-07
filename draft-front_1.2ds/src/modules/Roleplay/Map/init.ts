@@ -20,4 +20,5 @@ export function registerMapModule(): void {
 
 export { mapViewportService } from '@/modules/Roleplay/Map/Service/Instance/mapViewportService';
 export { mapGeometryService } from '@/modules/Roleplay/Map/Service/Instance/mapGeometryService';
+export { mapRibbonService } from '@/modules/Roleplay/Map/Service/Instance/mapRibbonService';
 export { mapHitTestService } from '@/modules/Roleplay/Map/Service/Instance/mapHitTestService';

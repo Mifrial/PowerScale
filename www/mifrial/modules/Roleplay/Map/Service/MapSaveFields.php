@@ -236,6 +236,115 @@ final class MapSaveFields
     }
 
     /**
+     * Декор ленты: пусто или спокойное течение.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return array{flow?: array{enabled: bool, speed: int, density: int, opacity: int,
+     *     color: string, direction: int, seed: int}} Декор.
+     *
+     * @throws MapInvalidException Если форма неверна.
+     */
+    public function decorValue(array $row, string $key, string $path): array
+    {
+        $value = $row[$key] ?? null;
+        if ($value === null || $value === []) {
+            return [];
+        }
+
+        if (!is_array($value)) {
+            throw new MapInvalidException($path . ' is invalid');
+        }
+
+        foreach (array_keys($value) as $unknown) {
+            if ($unknown !== 'flow') {
+                throw new MapInvalidException($path . ' has an unknown key');
+            }
+        }
+
+        $flow = $value['flow'] ?? null;
+        if ($flow === null) {
+            return [];
+        }
+
+        if (!is_array($flow)) {
+            throw new MapInvalidException($path . '.flow is invalid');
+        }
+
+        $flowPath = $path . '.flow';
+        $allowed = ['enabled', 'speed', 'density', 'opacity', 'color', 'direction', 'seed'];
+        foreach (array_keys($flow) as $unknown) {
+            if (!in_array($unknown, $allowed, true)) {
+                throw new MapInvalidException($flowPath . ' has an unknown key');
+            }
+        }
+
+        $direction = $this->flowInt($flow, 'direction', $flowPath . '.direction', -1, 1, 1);
+        if ($direction === 0) {
+            throw new MapInvalidException($flowPath . '.direction is invalid');
+        }
+
+        return [
+            'flow' => [
+                'enabled' => $this->flowBool($flow, 'enabled', $flowPath . '.enabled'),
+                'speed' => $this->flowInt($flow, 'speed', $flowPath . '.speed', 1, 600, 40),
+                'density' => $this->flowInt($flow, 'density', $flowPath . '.density', 0, 100, 50),
+                'opacity' => $this->flowInt($flow, 'opacity', $flowPath . '.opacity', 0, 100, 18),
+                'color' => array_key_exists('color', $flow)
+                    ? $this->colorValue($flow, 'color', $flowPath . '.color')
+                    : '#ffffff',
+                'direction' => $direction,
+                'seed' => $this->flowInt($flow, 'seed', $flowPath . '.seed', 0, 1000000, 0),
+            ],
+        ];
+    }
+
+    /**
+     * Целое поле течения с умолчанием.
+     *
+     * @param array<string|int, mixed> $flow Течение.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     * @param int $min Минимум.
+     * @param int $max Максимум.
+     * @param int $default Умолчание.
+     *
+     * @return int Значение.
+     *
+     * @throws MapInvalidException Если значение неверно.
+     */
+    private function flowInt(array $flow, string $key, string $path, int $min, int $max, int $default): int
+    {
+        if (!array_key_exists($key, $flow)) {
+            return $default;
+        }
+
+        return $this->intValue($flow, $key, $path, $min, $max);
+    }
+
+    /**
+     * Логическое поле течения с умолчанием.
+     *
+     * @param array<string|int, mixed> $flow Течение.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return bool Значение.
+     *
+     * @throws MapInvalidException Если значение неверно.
+     */
+    private function flowBool(array $flow, string $key, string $path): bool
+    {
+        if (!array_key_exists($key, $flow)) {
+            return false;
+        }
+
+        return $this->boolValue($flow, $key, $path);
+    }
+
+    /**
      * Точки полилинии или полигона.
      *
      * @param array<string|int, mixed> $row Строка.

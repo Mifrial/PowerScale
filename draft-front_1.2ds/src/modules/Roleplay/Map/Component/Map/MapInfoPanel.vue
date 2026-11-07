@@ -149,6 +149,10 @@ function remove(): void {
         </div>
         <div>Скорость: {{ formatSpeed(line.speed) }}</div>
         <div>Точек: {{ line.points.length }}, ширина: {{ lineWidthRange }}</div>
+        <div v-if="line.colorBlend > 0" class="text-caption text-medium-emphasis">
+          Плавный переход цвета: {{ line.colorBlend }} px
+        </div>
+        <div v-if="line.decor?.flow?.enabled" class="text-caption text-medium-emphasis">Течение воды включено</div>
         <div class="text-caption text-medium-emphasis">Порядок: {{ linePosition }}</div>
         <div v-if="line.segments.length > 0" class="text-caption text-medium-emphasis">
           Сегментов с особым стилем: {{ line.segments.length }}

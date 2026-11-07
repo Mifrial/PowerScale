@@ -180,6 +180,8 @@ final class MapViewAssembler
             'widths' => $lineRecord->getWidths(),
             'handles' => $lineRecord->getHandles(),
             'segments' => $lineRecord->getSegments(),
+            'colorBlend' => $lineRecord->getColorBlend(),
+            'decor' => $lineRecord->getDecor() === [] ? (object) [] : $lineRecord->getDecor(),
             'label' => $lineRecord->getLabel(),
             'isPresent' => $lineRecord->isPresent(),
             'sortOrder' => $lineRecord->getSortOrder(),

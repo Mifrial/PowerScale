@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 import type { MapLine } from '@/modules/Roleplay/Map/Dto/MapLine';
+import type { MapLineDecor } from '@/modules/Roleplay/Map/Dto/MapLineDecor';
 import type { MapLineEdit } from '@/modules/Roleplay/Map/Dto/MapLineEdit';
 import type { MapLineSegment } from '@/modules/Roleplay/Map/Dto/MapLineSegment';
+import { MAP_LINE_DEFAULT_COLOR_BLEND, MAP_LINE_FLOW_DEFAULTS, MAP_LINE_FLOW_OFF } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DECOR';
 import { MAP_LINE_DEFAULT_WIDTH } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DEFAULT_WIDTH';
 import { MAP_LINE_PRESETS } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_PRESETS';
 import { MAP_LINE_SEGMENT_PRESETS } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_SEGMENT_PRESETS';
@@ -18,7 +20,7 @@ const open = defineModel<boolean>('open', { default: false });
 const props = defineProps<{
   line: MapLine | null;
   submitting: boolean;
-  defaults?: { color: string; speed: number; width: number } | null;
+  defaults?: { color: string; speed: number; width: number; colorBlend?: number; decor?: MapLineDecor } | null;
 }>();
 
 const emit = defineEmits<{
@@ -38,9 +40,21 @@ const form = reactive({
   widthAll: false,
   label: '',
   segments: [] as SegmentForm[],
+  colorBlend: MAP_LINE_DEFAULT_COLOR_BLEND,
+  flow: { ...MAP_LINE_FLOW_OFF },
 });
 const preset = ref<string | null>(null);
 const openBase = reactive({ speed: speedToInput(MAP_SPEED_DEFAULT), color: MAP_LINE_DEFAULT_COLOR });
+const gradientEnabled = computed({
+  get: () => form.colorBlend > 0,
+  set: (value: boolean) => {
+    form.colorBlend = value ? form.colorBlend || MAP_LINE_DEFAULT_COLOR_BLEND : 0;
+  },
+});
+const directionOptions = [
+  { title: 'По точкам', value: 1 },
+  { title: 'Против точек', value: -1 },
+];
 
 const presetOptions = computed(() => MAP_LINE_PRESETS.map((item) => ({ title: item.title, value: item.code })));
 const segmentPresetOptions = computed(() =>
@@ -65,6 +79,8 @@ watch(open, (value) => {
   form.width = props.line ? Math.max(1, ...props.line.widths) : (props.defaults?.width ?? MAP_LINE_DEFAULT_WIDTH);
   form.widthAll = props.line !== null;
   form.label = props.line?.label ?? '';
+  form.colorBlend = props.line?.colorBlend ?? props.defaults?.colorBlend ?? MAP_LINE_DEFAULT_COLOR_BLEND;
+  Object.assign(form.flow, props.line?.decor?.flow ?? props.defaults?.decor?.flow ?? MAP_LINE_FLOW_OFF);
   form.segments = effectiveSegments(props.line, form.speed, form.color);
 });
 
@@ -89,6 +105,8 @@ function applyPreset(code: string | null): void {
   form.color = found.color;
   form.speed = speedToInput(found.speed);
   form.width = found.width;
+  form.colorBlend = found.colorBlend ?? MAP_LINE_DEFAULT_COLOR_BLEND;
+  Object.assign(form.flow, found.decor?.flow ?? MAP_LINE_FLOW_OFF);
   if (form.label.trim() === '') form.label = found.title;
 }
 
@@ -135,6 +153,19 @@ function submit(): void {
     if (speed !== baseSpeed || color !== null) hasOverrides = true;
     segments.push({ speed, color });
   }
+  const decor: MapLineDecor = form.flow.enabled
+    ? {
+        flow: {
+          enabled: true,
+          speed: clampInt(form.flow.speed, 1, 600, MAP_LINE_FLOW_DEFAULTS.speed),
+          density: clampInt(form.flow.density, 0, 100, MAP_LINE_FLOW_DEFAULTS.density),
+          opacity: clampInt(form.flow.opacity, 0, 100, MAP_LINE_FLOW_DEFAULTS.opacity),
+          color: form.flow.color.trim() || MAP_LINE_FLOW_DEFAULTS.color,
+          direction: form.flow.direction === -1 ? -1 : 1,
+          seed: clampInt(form.flow.seed, 0, 1000000, MAP_LINE_FLOW_DEFAULTS.seed),
+        },
+      }
+    : {};
   emit('submit', {
     color: form.color.trim() || MAP_LINE_DEFAULT_COLOR,
     speed: baseSpeed,
@@ -142,7 +173,16 @@ function submit(): void {
     widthAll: form.widthAll,
     label: form.label.trim(),
     segments: hasOverrides ? segments : [],
+    colorBlend: clampInt(form.colorBlend, 0, 1000, MAP_LINE_DEFAULT_COLOR_BLEND),
+    decor,
   });
+}
+
+function clampInt(value: number, min: number, max: number, fallback: number): number {
+  const number = Math.round(Number(value));
+  if (!Number.isFinite(number)) return fallback;
+
+  return Math.min(max, Math.max(min, number));
 }
 
 function remove(): void {
@@ -206,6 +246,106 @@ function remove(): void {
           Сейчас ширина по точкам: {{ widthRange }}. Галочка применяет поле ко всем точкам; без неё ширина не
           меняется — точечно она правится ромбом на карте.
         </div>
+
+        <v-divider class="my-4" />
+        <v-switch
+          v-model="gradientEnabled"
+          label="Плавные переходы цвета"
+          color="primary"
+          density="compact"
+          hide-details
+        />
+        <v-text-field
+          v-if="gradientEnabled"
+          v-model.number="form.colorBlend"
+          type="number"
+          min="1"
+          max="1000"
+          step="1"
+          label="Ширина перехода, px"
+          variant="outlined"
+          density="comfortable"
+          class="mt-2"
+        />
+
+        <v-switch
+          v-model="form.flow.enabled"
+          label="Течение воды"
+          color="primary"
+          density="compact"
+          hide-details
+          class="mt-4"
+        />
+        <template v-if="form.flow.enabled">
+          <v-row dense class="mt-1">
+            <v-col cols="6">
+              <v-text-field
+                v-model.number="form.flow.speed"
+                type="number"
+                min="1"
+                max="600"
+                label="Скорость, px/с"
+                variant="outlined"
+                density="comfortable"
+              />
+            </v-col>
+            <v-col cols="6">
+              <v-select
+                v-model="form.flow.direction"
+                :items="directionOptions"
+                item-title="title"
+                item-value="value"
+                label="Направление"
+                variant="outlined"
+                density="comfortable"
+              />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field
+                v-model.number="form.flow.density"
+                type="number"
+                min="0"
+                max="100"
+                label="Плотность, 0–100"
+                variant="outlined"
+                density="comfortable"
+              />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field
+                v-model.number="form.flow.opacity"
+                type="number"
+                min="0"
+                max="100"
+                label="Прозрачность, %"
+                variant="outlined"
+                density="comfortable"
+              />
+            </v-col>
+          </v-row>
+          <div class="d-flex align-center ga-2">
+            <input v-model="form.flow.color" type="color" class="map-color" aria-label="Цвет бликов" />
+            <v-text-field
+              v-model="form.flow.color"
+              label="Цвет бликов"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+            />
+            <v-text-field
+              v-model.number="form.flow.seed"
+              type="number"
+              min="0"
+              max="1000000"
+              label="Зерно"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              style="max-width: 140px"
+            />
+          </div>
+        </template>
+
         <v-text-field v-model="form.label" label="Подпись" variant="outlined" density="comfortable" class="mt-3" />
 
         <template v-if="props.line && segmentCount > 0">

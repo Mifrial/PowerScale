@@ -166,6 +166,10 @@ use Mifrial\Roleplay\Map\Exception\MapInvalidException;
             'widths' => $this->fields->widthsValue($row, 'widths', $path . '.widths', count($points)),
             'handles' => $this->fields->handlesValue($row, 'handles', $path . '.handles', count($points)),
             'segments' => $this->fields->segmentsValue($row, 'segments', $path . '.segments', count($points) - 1),
+            'colorBlend' => array_key_exists('colorBlend', $row)
+                ? $this->fields->intValue($row, 'colorBlend', $path . '.colorBlend', 0, 1000)
+                : 16,
+            'decor' => $this->fields->decorValue($row, 'decor', $path . '.decor'),
             'label' => trim((string) $this->fields->optionalStringValue($row, 'label', $path . '.label')),
             'isPresent' => $this->fields->boolValue($row, 'isPresent', $path . '.isPresent'),
             'sortOrder' => $this->fields->optionalIntValue($row, 'sortOrder', $path . '.sortOrder', 0) ?? 0,

@@ -201,6 +201,18 @@ const maps: MapDetail[] = [
           { in: [-120, 0], out: [0, 0] },
         ],
         segments: [{ speed: 1000, color: '#b7a98a' }],
+        colorBlend: 16,
+        decor: {
+          flow: {
+            enabled: true,
+            speed: 30,
+            density: 45,
+            opacity: 16,
+            color: '#ffffff',
+            direction: 1,
+            seed: 7,
+          },
+        },
         label: 'Река',
         isPresent: true,
         sortOrder: 0,

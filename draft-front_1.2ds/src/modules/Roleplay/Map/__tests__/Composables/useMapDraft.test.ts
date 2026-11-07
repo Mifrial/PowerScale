@@ -109,7 +109,7 @@ describe('useMapDraft', () => {
   it('keeps per-point widths and handles, and supports undo', () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] }, 1, [
+    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} }, 1, [
       [0, 0],
       [10, 0],
     ]);
@@ -136,7 +136,7 @@ describe('useMapDraft', () => {
   it('creates ribbons with smooth interior handles', () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] }, 1, [
+    state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} }, 1, [
       [0, 0],
       [10, 10],
       [20, 0],
@@ -152,7 +152,7 @@ describe('useMapDraft', () => {
   it('rounds fractional geometry before map.save', async () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] }, 1, [
+    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} }, 1, [
       [0, 0],
       [10, 0],
     ]);
@@ -214,7 +214,7 @@ describe('useMapDraft', () => {
       ],
     );
     state.addLine(
-      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] },
+      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} },
       1,
       [
         [-20, 50],
@@ -319,7 +319,7 @@ describe('useMapDraft', () => {
     expect(state.draft.value?.areas.find((area) => area.id === firstArea)?.sortOrder).toBe(1);
 
     const firstLine = state.addLine(
-      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Первая', segments: [] },
+      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Первая', segments: [], colorBlend: 16, decor: {} },
       1,
       [
         [0, 0],
@@ -327,7 +327,7 @@ describe('useMapDraft', () => {
       ],
     );
     const secondLine = state.addLine(
-      { color: '#c5c6c6', speed: 10000, width: 10, widthAll: false, label: 'Вторая', segments: [] },
+      { color: '#c5c6c6', speed: 10000, width: 10, widthAll: false, label: 'Вторая', segments: [], colorBlend: 16, decor: {} },
       1,
       [
         [0, 20],
@@ -343,7 +343,7 @@ describe('useMapDraft', () => {
     const state = useMapDraft();
     state.setBaseline(detail());
     const lineId = state.addLine(
-      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] },
+      { color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} },
       1,
       [
         [0, 0],
@@ -362,7 +362,7 @@ describe('useMapDraft', () => {
   it('serializes line widths and handles into map.save', async () => {
     const state = useMapDraft();
     state.setBaseline(detail());
-    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [] }, 1, [
+    const lineId = state.addLine({ color: '#3f6f8f', speed: 400, width: 10, widthAll: false, label: 'Река', segments: [], colorBlend: 16, decor: {} }, 1, [
       [0, 0],
       [10, 0],
     ]);
@@ -385,7 +385,7 @@ describe('useMapDraft', () => {
         width: 10,
         widthAll: true,
         label: 'Река',
-        segments: [],
+        segments: [], colorBlend: 16, decor: {},
       },
       1,
       [
@@ -406,7 +406,7 @@ describe('useMapDraft', () => {
       width: 7,
       widthAll: true,
       label: 'Река',
-      segments: [],
+      segments: [], colorBlend: 16, decor: {},
     });
     expect(state.draft.value?.lines[0].widths).toEqual([7, 7, 7]);
   });
@@ -421,7 +421,7 @@ describe('useMapDraft', () => {
         width: 10,
         widthAll: true,
         label: 'Река',
-        segments: [],
+        segments: [], colorBlend: 16, decor: {},
       },
       1,
       [

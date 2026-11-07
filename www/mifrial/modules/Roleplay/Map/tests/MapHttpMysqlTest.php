@@ -148,6 +148,8 @@ final class MapHttpMysqlTest extends TestCase
         self::assertSame(0, $saved['data']['areas'][0]['sortOrder']);
         self::assertSame([], $saved['data']['lines'][0]['segments']);
         self::assertSame(400, $saved['data']['lines'][0]['speed']);
+        self::assertSame(16, $saved['data']['lines'][0]['colorBlend']);
+        self::assertEquals((object) [], $saved['data']['lines'][0]['decor']);
         self::assertSame(0, $saved['data']['lines'][0]['sortOrder']);
 
         $aroundWater = $this->dispatch('map.route', [
@@ -252,7 +254,31 @@ final class MapHttpMysqlTest extends TestCase
             $segmentsSaved['data']['lines'][0]['segments'],
         );
 
-        $blocked = $this->withIds($payload, $segmentsSaved['data']);
+        $withDecor = $this->withIds($payload, $segmentsSaved['data']);
+        $withDecor['lines'][0]['colorBlend'] = 24;
+        $withDecor['lines'][0]['decor'] = [
+            'flow' => [
+                'enabled' => true,
+                'speed' => 30,
+                'density' => 45,
+                'opacity' => 16,
+                'color' => '#eaf6ff',
+                'direction' => -1,
+                'seed' => 7,
+            ],
+        ];
+        $decorSaved = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $segmentsSaved['data']['version'],
+            'map' => $withDecor,
+        ]);
+        self::assertTrue($decorSaved['success']);
+        self::assertSame(24, $decorSaved['data']['lines'][0]['colorBlend']);
+        self::assertSame(30, $decorSaved['data']['lines'][0]['decor']['flow']['speed']);
+        self::assertSame(-1, $decorSaved['data']['lines'][0]['decor']['flow']['direction']);
+        self::assertSame('#eaf6ff', $decorSaved['data']['lines'][0]['decor']['flow']['color']);
+
+        $blocked = $this->withIds($payload, $decorSaved['data']);
         $blocked['areas'][] = [
             'id' => -3,
             'layer' => 'object',
@@ -272,7 +298,7 @@ final class MapHttpMysqlTest extends TestCase
         $blocked['areas'][1]['shapes'][0]['variantId'] = $variantId;
         $blockedSaved = $this->dispatch('map.save', [
             'id' => $mapId,
-            'expectedVersion' => $segmentsSaved['data']['version'],
+            'expectedVersion' => $decorSaved['data']['version'],
             'map' => $blocked,
         ]);
         self::assertTrue($blockedSaved['success']);
@@ -415,6 +441,18 @@ final class MapHttpMysqlTest extends TestCase
         ]);
         self::assertFalse($badSpeed['success']);
         self::assertSame('MAP_INVALID', $badSpeed['error']['code']);
+
+        $secondPayload['areas'][0]['speed'] = 0;
+        $secondPayload['lines'][0]['colorBlend'] = 24;
+        $secondPayload['lines'][0]['decor'] = ['flow' => ['enabled' => true, 'direction' => 0]];
+        $badDecor = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $second['data']['version'],
+            'force' => true,
+            'map' => $secondPayload,
+        ]);
+        self::assertFalse($badDecor['success']);
+        self::assertSame('MAP_INVALID', $badDecor['error']['code']);
 
         $negative = $payload;
         $negative['nodes'][0]['placements'][0]['x'] = -1;
@@ -681,6 +719,8 @@ final class MapHttpMysqlTest extends TestCase
                         ['in' => [-60, 0], 'out' => [0, 0]],
                     ],
                     'segments' => [],
+                    'colorBlend' => 16,
+                    'decor' => [],
                     'label' => 'Река',
                     'isPresent' => true,
                     'sortOrder' => 0,

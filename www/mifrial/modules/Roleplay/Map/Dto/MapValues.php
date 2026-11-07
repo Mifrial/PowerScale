@@ -241,6 +241,93 @@ final class MapValues
     }
 
     /**
+     * Визуальный декор ленты.
+     *
+     * @param mixed $value Значение из строки.
+     *
+     * @return array<string, mixed> Декор; пусто — без декора.
+     *
+     * @throws MapInvalidException Если форма неверна.
+     */
+    public static function decor(mixed $value): array
+    {
+        if ($value === null || $value === []) {
+            return [];
+        }
+
+        if (!is_array($value)) {
+            throw new MapInvalidException('Map line decor is invalid');
+        }
+
+        foreach (array_keys($value) as $unknown) {
+            if ($unknown !== 'flow') {
+                throw new MapInvalidException('Map line decor has an unknown key');
+            }
+        }
+
+        $flow = $value['flow'] ?? null;
+        if ($flow === null) {
+            return [];
+        }
+
+        if (!is_array($flow)) {
+            throw new MapInvalidException('Map line flow is invalid');
+        }
+
+        $enabled = $flow['enabled'] ?? false;
+        if (!is_bool($enabled)) {
+            throw new MapInvalidException('Map line flow enabled is invalid');
+        }
+
+        $speed = self::decorInt($flow['speed'] ?? 40, 1, 600);
+        $density = self::decorInt($flow['density'] ?? 50, 0, 100);
+        $opacity = self::decorInt($flow['opacity'] ?? 18, 0, 100);
+        $direction = self::decorInt($flow['direction'] ?? 1, -1, 1);
+        if ($direction === 0) {
+            throw new MapInvalidException('Map line flow direction is invalid');
+        }
+
+        $seed = self::decorInt($flow['seed'] ?? 0, 0, 1000000);
+        $color = $flow['color'] ?? '#ffffff';
+        if (!is_string($color) || preg_match('/^#[0-9a-fA-F]{6}$/', $color) !== 1) {
+            throw new MapInvalidException('Map line flow color is invalid');
+        }
+
+        return [
+            'flow' => [
+                'enabled' => $enabled,
+                'speed' => $speed,
+                'density' => $density,
+                'opacity' => $opacity,
+                'color' => $color,
+                'direction' => $direction,
+                'seed' => $seed,
+            ],
+        ];
+    }
+
+    /**
+     * Целое декора в диапазоне.
+     *
+     * @param mixed $value Значение.
+     * @param int $min Минимум.
+     * @param int $max Максимум.
+     *
+     * @return int Значение.
+     *
+     * @throws MapInvalidException Если значение неверно.
+     */
+    private static function decorInt(mixed $value, int $min, int $max): int
+    {
+        $int = self::intValue($value);
+        if ($int === null || $int < $min || $int > $max) {
+            throw new MapInvalidException('Map line flow value is invalid');
+        }
+
+        return $int;
+    }
+
+    /**
      * Ручки Безье по точкам ленты.
      *
      * @param mixed $value Значение JSON.

@@ -1,3 +1,4 @@
+import type { MapLineDecor } from '@/modules/Roleplay/Map/Dto/MapLineDecor';
 import type { MapLineSegment } from '@/modules/Roleplay/Map/Dto/MapLineSegment';
 
 /** Правка ленты в черновике. */
@@ -12,4 +13,8 @@ export interface MapLineEdit {
   label: string;
   /** Стили сегментов; пусто — везде цвет и скорость ленты. */
   segments: MapLineSegment[];
+  /** Ширина градиента между цветами, px; 0 — резкая граница. */
+  colorBlend: number;
+  /** Визуальный декор; пусто — без декора. */
+  decor: MapLineDecor;
 }

@@ -24,6 +24,8 @@ final class MapLineRecord
      * @param array<int, int> $widths Ширина в точках.
      * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки Безье.
      * @param array<int, array{speed: int, color: string|null}> $segments Стили сегментов; пусто — по умолчанию.
+     * @param int $colorBlend Ширина перехода между цветами, px.
+     * @param array<string, mixed> $decor Визуальный декор; пусто — без декора.
      * @param string $label Подпись.
      * @param bool $isPresent Лента есть в варианте.
      * @param int $sortOrder Порядок среди лент.
@@ -39,6 +41,8 @@ final class MapLineRecord
         private readonly array $widths,
         private readonly array $handles,
         private readonly array $segments,
+        private readonly int $colorBlend,
+        private readonly array $decor,
         private readonly string $label,
         private readonly bool $isPresent,
         private readonly int $sortOrder,
@@ -70,6 +74,8 @@ final class MapLineRecord
             MapValues::widths($fields['widths'] ?? null, count($points)),
             MapValues::handles($fields['handles'] ?? null, count($points)),
             MapValues::segments($fields['segments'] ?? null, count($points) - 1),
+            MapValues::optionalInt($fields, 'color_blend') ?? 16,
+            MapValues::decor($fields['decor'] ?? null),
             MapValues::requireString($fields, 'label'),
             MapValues::requireBool($fields, 'is_present'),
             MapValues::optionalInt($fields, 'sort_order') ?? 0,
@@ -154,6 +160,26 @@ final class MapLineRecord
     public function getSegments(): array
     {
         return $this->segments;
+    }
+
+    /**
+     * Ширина перехода между цветами.
+     *
+     * @return int Пиксели подложки.
+     */
+    public function getColorBlend(): int
+    {
+        return $this->colorBlend;
+    }
+
+    /**
+     * Визуальный декор ленты.
+     *
+     * @return array<string, mixed> Декор; пусто — без декора.
+     */
+    public function getDecor(): array
+    {
+        return $this->decor;
     }
 
     /**
