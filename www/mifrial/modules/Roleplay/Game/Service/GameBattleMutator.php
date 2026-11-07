@@ -69,27 +69,21 @@ final class GameBattleMutator
     ): array {
         $this->assertMembers($gameId, $participants);
         $battle = $this->battles->add($sessionId);
-        $this->battles->replaceParticipants($battle->getId(), $participants);
-        $version = 1;
-        $order = null;
-        if ($rolls !== null) {
-            $order = $this->order->rollAll($spaceId, $rulesRevision, $participants, $rolls);
-            $saved = $this->battles->advanceVersion($battle->getId(), 1);
-            $this->battles->replaceTurnOrder($battle->getId(), $order, 0, 1);
-            $version = $saved->getStateVersion();
-        }
-
+        $this->battles->participants->replace($battle->getId(), $participants);
+        [$version, $order] = $this->startOrder($battle->getId(), $spaceId, $rulesRevision, $participants, $rolls);
         $result = $this->opened($battle->getId(), $version);
         if ($order !== null) {
             $result['order'] = $order;
         }
 
-        $body = ['participants' => $participants];
-        if ($rolls !== null) {
-            $body['rolls'] = $rolls;
-        }
-
-        $this->commands->add($gameId, $sessionId, 'battle', $idempotencyKey, $body, $result);
+        $this->commands->add(
+            $gameId,
+            $sessionId,
+            'battle',
+            $idempotencyKey,
+            $this->bodyOf($participants, $rolls),
+            $result,
+        );
 
         return $result;
     }
@@ -126,23 +120,13 @@ final class GameBattleMutator
         $this->assertMembers($gameId, $participants);
         $turnOrder = $this->nextOrder($current, $participants, $spaceId, $rulesRevision, $expectedVersion);
         $battle = $this->battles->advanceVersion($battleId, $expectedVersion);
-        $this->battles->replaceParticipants($battleId, $participants);
-        if ($turnOrder !== null) {
-            $cursor = $this->keptCursor($current, $turnOrder);
-            $this->battles->replaceTurnOrder($battleId, $turnOrder, $cursor['index'], $cursor['round']);
-            $this->battles->replaceActionDebt($battleId, $this->debtOfRoster($current, $turnOrder));
-        }
-
+        $this->replaceRoster($current, $battleId, $participants, $turnOrder);
         $result = $this->opened($battle->getId(), $battle->getStateVersion());
         if ($turnOrder !== null) {
             $result['order'] = $turnOrder;
         }
 
-        $this->commands->add($gameId, $sessionId, 'battle', $idempotencyKey, [
-            'battleId' => $battleId,
-            'participants' => $participants,
-            'expectedVersion' => $expectedVersion,
-        ], $result);
+        $this->commands->add($gameId, $sessionId, 'battle', $idempotencyKey, $this->rosterBody($battleId, $participants, $expectedVersion), $result);
 
         return $result;
     }
@@ -186,6 +170,104 @@ final class GameBattleMutator
         ], $result);
 
         return $result;
+    }
+
+    /**
+     * Меняет состав и хвост порядка.
+     *
+     * @param GameBattleRecord $current Прежняя строка.
+     * @param int $battleId Бой.
+     * @param list<array{type: string, id: int}> $participants Новый состав.
+     * @param list<array<string, mixed>>|null $turnOrder Новый порядок или null.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если боя нет.
+     * @throws GameInvalidException Если поле.
+     */
+    private function replaceRoster(
+        GameBattleRecord $current,
+        int $battleId,
+        array $participants,
+        ?array $turnOrder,
+    ): void {
+        $this->battles->participants->replace($battleId, $participants);
+        if ($turnOrder === null) {
+            return;
+        }
+
+        $cursor = $this->keptCursor($current, $turnOrder);
+        $this->battles->replaceTurnOrder($battleId, $turnOrder, $cursor['index'], $cursor['round']);
+        $this->battles->replaceActionDebt($battleId, $this->debtOfRoster($current, $turnOrder));
+    }
+
+    /**
+     * Версия и порядок после первого броска.
+     *
+     * @param int $battleId Бой.
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param list<array{type: string, id: int}> $participants Состав.
+     * @param array<mixed>|null $rolls Способы или null.
+     *
+     * @return array{0: int, 1: list<array<string, mixed>>|null} Версия и порядок.
+     *
+     * @throws GameInvalidException Если карточка или пул чужие.
+     * @throws GameNotFoundException Если ревизии или листа нет.
+     * @throws GameBattleConflictException Если версия другая.
+     */
+    private function startOrder(
+        int $battleId,
+        int $spaceId,
+        int $rulesRevision,
+        array $participants,
+        ?array $rolls,
+    ): array {
+        if ($rolls === null) {
+            return [1, null];
+        }
+
+        $order = $this->order->rollAll($spaceId, $rulesRevision, $participants, $rolls);
+        $saved = $this->battles->advanceVersion($battleId, 1);
+        $this->battles->replaceTurnOrder($battleId, $order, 0, 1);
+
+        return [$saved->getStateVersion(), $order];
+    }
+
+    /**
+     * Тело старта в стабильном порядке ключей.
+     *
+     * @param list<array{type: string, id: int}> $participants Состав.
+     * @param array<mixed>|null $rolls Способы или null.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function bodyOf(array $participants, ?array $rolls): array
+    {
+        $body = ['participants' => $participants];
+        if ($rolls !== null) {
+            $body['rolls'] = $rolls;
+        }
+
+        return $body;
+    }
+
+    /**
+     * Тело смены состава.
+     *
+     * @param int $battleId Бой.
+     * @param list<array{type: string, id: int}> $participants Состав.
+     * @param int $expectedVersion Версия.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function rosterBody(int $battleId, array $participants, int $expectedVersion): array
+    {
+        return [
+            'battleId' => $battleId,
+            'participants' => $participants,
+            'expectedVersion' => $expectedVersion,
+        ];
     }
 
     /**

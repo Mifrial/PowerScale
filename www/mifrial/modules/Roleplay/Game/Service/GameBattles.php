@@ -5,49 +5,38 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Closure;
-use JsonException;
 use Mifrial\Core\Kernel\Exception\ActionException;
-use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
-use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGameBattles;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
-use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
-use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
-use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
 /**
  * Старт, состав и конец боя. Лист не пишет.
  */
 final class GameBattles implements IGameBattles
 {
-    private readonly GameCommandRepository $commands;
-
     /**
      * Создаёт фасад.
      *
-     * @param ISmartTableGateway $smartTableGateway Шлюз.
      * @param IGames $games Строка игры.
-     * @param GameCardAccess $cardAccess Фильтр карточки.
-     * @param GameMemberRepository $members Люди.
-     * @param GameSessionRepository $sessions Сессия.
      * @param GameBattleMutator $battleMutator Запись боя.
+     * @param GameCombatNotices $notices Сообщения боя.
+     * @param GameDeliverySignal $delivery Сигнал доставки.
+     * @param GameBattleAccess $access Права и сессия.
+     * @param GameBattleLedger $ledger Журнал команд.
      *
      * @return void
      */
     public function __construct(
-        private readonly ISmartTableGateway $smartTableGateway,
         private readonly IGames $games,
-        private readonly GameCardAccess $cardAccess,
-        private readonly GameMemberRepository $members,
-        private readonly GameSessionRepository $sessions,
         private readonly GameBattleMutator $battleMutator,
         private readonly GameCombatNotices $notices,
         private readonly GameDeliverySignal $delivery,
+        private readonly GameBattleAccess $access,
+        private readonly GameBattleLedger $ledger,
     ) {
-        $this->commands = new GameCommandRepository($smartTableGateway);
     }
 
     /**
@@ -73,40 +62,24 @@ final class GameBattles implements IGameBattles
         ?array $rolls = null,
     ): array {
         $normalized = $this->normalize($participants);
-        $body = ['participants' => $normalized];
-        if ($rolls !== null) {
-            $body['rolls'] = $rolls;
-        }
-
-        $wrote = false;
-        $opened = $this->execute(
+        $executed = $this->execute(
             $gameId,
             $actorUserId,
             $editAll,
             $viewAll,
             $idempotencyKey,
-            $body,
-            function (int $sessionId) use ($gameId, $idempotencyKey, $normalized, $rolls, &$wrote): array {
-                $wrote = true;
-
-                return $this->writeStart($gameId, $sessionId, $idempotencyKey, $normalized, $rolls);
-            },
+            $this->startBody($normalized, $rolls),
+            fn (int $sessionId): array => $this->writeStart(
+                $gameId,
+                $sessionId,
+                $idempotencyKey,
+                $normalized,
+                $rolls,
+            ),
         );
-        $order = $opened['order'] ?? null;
-        $battleId = $opened['battleId'] ?? null;
-        if ($wrote && is_array($order) && is_int($battleId)) {
-            $sessionId = $this->sessions->findSessionId($gameId);
-            if ($sessionId !== null) {
-                $this->notices->opened($this->games->get($gameId), $actorUserId, $sessionId, $battleId, $order);
-            }
+        $this->announceOpened($gameId, $actorUserId, $idempotencyKey, $executed);
 
-            $stored = $this->commands->findByKey($gameId, 'battle', $idempotencyKey);
-            if ($stored !== null) {
-                $this->delivery->recorded($gameId, 'battle', $stored['id'], []);
-            }
-        }
-
-        return $opened;
+        return $executed['result'];
     }
 
     /**
@@ -141,11 +114,7 @@ final class GameBattles implements IGameBattles
             $editAll,
             $viewAll,
             $idempotencyKey,
-            [
-                'battleId' => $battleId,
-                'participants' => $normalized,
-                'expectedVersion' => $expectedVersion,
-            ],
+            $this->rosterBody($battleId, $normalized, $expectedVersion),
             fn (int $sessionId): array => $this->writeRoster(
                 $gameId,
                 $sessionId,
@@ -154,7 +123,7 @@ final class GameBattles implements IGameBattles
                 $normalized,
                 $expectedVersion,
             ),
-        );
+        )['result'];
     }
 
     /**
@@ -185,10 +154,7 @@ final class GameBattles implements IGameBattles
             $editAll,
             $viewAll,
             $idempotencyKey,
-            [
-                'battleId' => $battleId,
-                'expectedVersion' => $expectedVersion,
-            ],
+            ['battleId' => $battleId, 'expectedVersion' => $expectedVersion],
             fn (int $sessionId): array => $this->battleMutator->end(
                 $gameId,
                 $sessionId,
@@ -196,7 +162,90 @@ final class GameBattles implements IGameBattles
                 $idempotencyKey,
                 $expectedVersion,
             ),
-        );
+        )['result'];
+    }
+
+    /**
+     * Сообщение и сигнал, если бой действительно открыт.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param string $idempotencyKey Ключ.
+     * @param array{result: array<string, mixed>, sessionId: int, wrote: bool} $executed Итог.
+     *
+     * @return void
+     */
+    private function announceOpened(
+        int $gameId,
+        int $actorUserId,
+        string $idempotencyKey,
+        array $executed,
+    ): void {
+        $opened = $executed['result'];
+        $order = $opened['order'] ?? null;
+        $battleId = $opened['battleId'] ?? null;
+        if ($executed['wrote'] && is_array($order) && is_int($battleId)) {
+            $this->announce($gameId, $actorUserId, $executed['sessionId'], $battleId, $idempotencyKey, $order);
+        }
+    }
+
+    /**
+     * Тело смены состава.
+     *
+     * @param int $battleId Бой.
+     * @param list<array{type: string, id: int}> $participants Состав.
+     * @param int $expectedVersion Версия.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function rosterBody(int $battleId, array $participants, int $expectedVersion): array
+    {
+        return ['battleId' => $battleId, 'participants' => $participants, 'expectedVersion' => $expectedVersion];
+    }
+
+    /**
+     * Тело старта в стабильном порядке ключей.
+     *
+     * @param list<array{type: string, id: int}> $participants Состав.
+     * @param array<mixed>|null $rolls Способы или null.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function startBody(array $participants, ?array $rolls): array
+    {
+        $body = ['participants' => $participants];
+        if ($rolls !== null) {
+            $body['rolls'] = $rolls;
+        }
+
+        return $body;
+    }
+
+    /**
+     * Сообщение и сигнал после первого старта.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param int $sessionId Сессия.
+     * @param int $battleId Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param array<int, array<string, mixed>> $order Порядок.
+     *
+     * @return void
+     */
+    private function announce(
+        int $gameId,
+        int $actorUserId,
+        int $sessionId,
+        int $battleId,
+        string $idempotencyKey,
+        array $order,
+    ): void {
+        $this->notices->opened($this->games->get($gameId), $actorUserId, $sessionId, $battleId, $order);
+        $stored = $this->ledger->find($gameId, 'battle', $idempotencyKey);
+        if ($stored !== null) {
+            $this->delivery->recorded($gameId, 'battle', $stored['id'], []);
+        }
     }
 
     /**
@@ -210,7 +259,7 @@ final class GameBattles implements IGameBattles
      * @param array<string, mixed> $body Тело.
      * @param Closure $write Запись внутри транзакции.
      *
-     * @return array<string, mixed> Итог.
+     * @return array{result: array<string, mixed>, sessionId: int, wrote: bool} Итог.
      *
      * @throws GameInvalidException Если ключ, completed или сессии нет.
      * @throws GameNotFoundException Если карточка скрыта.
@@ -228,12 +277,12 @@ final class GameBattles implements IGameBattles
     ): array {
         $ready = $this->ready($gameId, $actorUserId, $editAll, $viewAll, $idempotencyKey, $body);
         if ($ready['replay'] !== null) {
-            return $ready['replay'];
+            return ['result' => $ready['replay'], 'sessionId' => 0, 'wrote' => false];
         }
 
-        return $this->smartTableGateway->transaction(function () use ($write, $ready): array {
-            return $write($ready['sessionId']);
-        });
+        $result = $this->ledger->transaction(fn (): array => $write($ready['sessionId']));
+
+        return ['result' => $result, 'sessionId' => $ready['sessionId'], 'wrote' => true];
     }
 
     /**
@@ -265,42 +314,16 @@ final class GameBattles implements IGameBattles
             throw new GameInvalidException('Game battle key is empty');
         }
 
-        $game = $this->visible($gameId, $actorUserId, $viewAll);
-        $replay = $this->replay($gameId, $idempotencyKey, $body);
+        $game = $this->access->visible($gameId, $actorUserId, $viewAll);
+        $replay = $this->ledger->replay($gameId, 'battle', $idempotencyKey, $body, $this->present(...));
         if ($replay !== null) {
             return ['replay' => $replay, 'sessionId' => 0];
         }
 
-        $this->assertOpen($game);
-        $this->assertWriter($game, $actorUserId, $editAll);
+        $this->access->assertOpen($game);
+        $this->access->assertWriter($game, $actorUserId, $editAll);
 
-        return ['replay' => null, 'sessionId' => $this->requireSession($gameId)];
-    }
-
-    /**
-     * Повтор ключа или null.
-     *
-     * @param int $gameId Игра.
-     * @param string $idempotencyKey Ключ.
-     * @param array<string, mixed> $body Тело.
-     *
-     * @return array<string, mixed>|null Итог.
-     *
-     * @throws GameBattleConflictException Если тело другое.
-     * @throws GameInvalidException Если JSON.
-     */
-    private function replay(int $gameId, string $idempotencyKey, array $body): ?array
-    {
-        $stored = $this->commands->findByKey($gameId, 'battle', $idempotencyKey);
-        if ($stored === null) {
-            return null;
-        }
-
-        if ($this->canonical($stored['body']) !== $this->canonical($body)) {
-            throw new GameBattleConflictException(null);
-        }
-
-        return $this->present($stored['result']);
+        return ['replay' => null, 'sessionId' => $this->access->session($gameId)];
     }
 
     /**
@@ -369,51 +392,6 @@ final class GameBattles implements IGameBattles
     }
 
     /**
-     * Стабильный JSON.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return string JSON.
-     *
-     * @throws GameInvalidException Если значение не кодируется.
-     */
-    private function canonical(mixed $value): string
-    {
-        try {
-            $encoded = json_encode($this->sortKeys($value), JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            throw new GameInvalidException('Game battle body is invalid', $exception);
-        }
-
-        return $encoded;
-    }
-
-    /**
-     * Сортирует ключи объектов.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return mixed Значение.
-     */
-    private function sortKeys(mixed $value): mixed
-    {
-        if (!is_array($value)) {
-            return $value;
-        }
-
-        if (array_is_list($value)) {
-            return array_map($this->sortKeys(...), $value);
-        }
-
-        ksort($value);
-        foreach ($value as $key => $item) {
-            $value[$key] = $this->sortKeys($item);
-        }
-
-        return $value;
-    }
-
-    /**
      * Список пар без лишних ключей.
      *
      * @param array $participants Вход.
@@ -468,101 +446,6 @@ final class GameBattles implements IGameBattles
         }
 
         return ['type' => $type, 'id' => $id];
-    }
-
-    /**
-     * Видимая игра.
-     *
-     * @param int $gameId Игра.
-     * @param int $actorUserId Актор.
-     * @param bool $viewAll Ключ.
-     *
-     * @return GameRecord Строка.
-     *
-     * @throws GameNotFoundException Если скрыта.
-     */
-    private function visible(int $gameId, int $actorUserId, bool $viewAll): GameRecord
-    {
-        $game = $this->games->get($gameId);
-        if (!$this->cardAccess->isVisible($game, $actorUserId, $viewAll)) {
-            throw new GameNotFoundException();
-        }
-
-        return $game;
-    }
-
-    /**
-     * completed не пишет.
-     *
-     * @param GameRecord $game Игра.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если завершена.
-     */
-    private function assertOpen(GameRecord $game): void
-    {
-        if ($game->getStatus() === 'completed') {
-            throw new GameInvalidException('Game is completed');
-        }
-    }
-
-    /**
-     * Владелец, gm или edit_all.
-     *
-     * @param GameRecord $game Игра.
-     * @param int $actorUserId Актор.
-     * @param bool $editAll Ключ.
-     *
-     * @return void
-     *
-     * @throws ActionException AUTH_DENIED.
-     */
-    private function assertWriter(GameRecord $game, int $actorUserId, bool $editAll): void
-    {
-        if ($game->getOwnerId() === $actorUserId || $editAll || $this->isGm($game->getId(), $actorUserId)) {
-            return;
-        }
-
-        throw new ActionException('AUTH_DENIED', 'Permission denied');
-    }
-
-    /**
-     * Роль gm.
-     *
-     * @param int $gameId Игра.
-     * @param int $actorUserId Актор.
-     *
-     * @return bool Да, если gm.
-     */
-    private function isGm(int $gameId, int $actorUserId): bool
-    {
-        try {
-            $member = $this->members->getByPair($gameId, $actorUserId);
-        } catch (GameNotFoundException) {
-            return false;
-        }
-
-        return $member->getRole() === 'gm';
-    }
-
-    /**
-     * Текущая сессия.
-     *
-     * @param int $gameId Игра.
-     *
-     * @return int Id.
-     *
-     * @throws GameInvalidException Если сессии нет.
-     */
-    private function requireSession(int $gameId): int
-    {
-        $sessionId = $this->sessions->findSessionId($gameId);
-        if ($sessionId === null) {
-            throw new GameInvalidException('Game session is not running');
-        }
-
-        return $sessionId;
     }
 
     /**

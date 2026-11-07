@@ -1445,7 +1445,7 @@ final class GameChecks implements IGameChecks
             throw new GameNotFoundException('Game battle was not found');
         }
 
-        foreach ($this->battles->findParticipants($battleId) as $row) {
+        foreach ($this->battles->participants->find($battleId) as $row) {
             if ($row['type'] === $target['type'] && $row['id'] === $target['id']) {
                 return;
             }

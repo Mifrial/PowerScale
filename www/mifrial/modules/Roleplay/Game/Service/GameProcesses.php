@@ -246,7 +246,7 @@ final class GameProcesses implements IGameProcesses
             throw new GameNotFoundException('Game battle was not found');
         }
 
-        foreach ($this->battles->findParticipants($battleId) as $participant) {
+        foreach ($this->battles->participants->find($battleId) as $participant) {
             if ($participant['type'] === $participantType && $participant['id'] === $participantId) {
                 return;
             }

@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// Геттеры — публичный смысл строки боя; параметры ctor — колонки, не порты.
+
 namespace Mifrial\Roleplay\Game\Dto;
 
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -52,41 +56,17 @@ final class GameBattleRecord
      */
     public static function fromNormalized(array $fields): self
     {
-        $id = $fields['id'] ?? null;
-        $sessionId = $fields['session_id'] ?? null;
-        $stateVersion = $fields['state_version'] ?? null;
-        $turnOrder = self::turnOrder($fields['turn_order'] ?? null);
-        $pending = $fields['pending_action_effects'] ?? [];
-        $activeIndex = $fields['active_index'] ?? 0;
-        $round = $fields['round'] ?? 0;
-        $debt = $fields['action_debt'] ?? [];
-        $cycle = $fields['concentration_cycle'] ?? [];
-        $marks = $fields['marks'] ?? [];
-        if (
-            !is_int($id) || !is_int($sessionId) || !is_int($stateVersion) || !is_array($pending)
-            || !is_int($activeIndex) || !is_int($round) || !is_array($debt) || !is_array($cycle)
-            || !is_array($marks) || !array_is_list($marks)
-        ) {
-            throw new GameInvalidException('Game battle row is invalid');
-        }
-
-        foreach ($marks as $mark) {
-            if (!is_array($mark)) {
-                throw new GameInvalidException('Game battle row is invalid');
-            }
-        }
-
         return new self(
-            $id,
-            $sessionId,
-            $stateVersion,
-            $turnOrder,
-            $pending,
-            $activeIndex,
-            $round,
-            $debt,
-            $cycle,
-            $marks,
+            self::requiredInt($fields, 'id'),
+            self::requiredInt($fields, 'session_id'),
+            self::requiredInt($fields, 'state_version'),
+            self::turnOrder($fields['turn_order'] ?? null),
+            self::map($fields, 'pending_action_effects'),
+            self::optionalInt($fields, 'active_index'),
+            self::optionalInt($fields, 'round'),
+            self::map($fields, 'action_debt'),
+            self::map($fields, 'concentration_cycle'),
+            self::marks($fields['marks'] ?? []),
         );
     }
 
@@ -216,5 +196,89 @@ final class GameBattleRecord
         }
 
         return $turnOrder;
+    }
+
+    /**
+     * Обязательная целочисленная колонка.
+     *
+     * @param array<string, mixed> $fields Колонки.
+     * @param string $key Колонка.
+     *
+     * @return int Значение.
+     *
+     * @throws GameInvalidException Если поля нет или оно не int.
+     */
+    private static function requiredInt(array $fields, string $key): int
+    {
+        $value = $fields[$key] ?? null;
+        if (!is_int($value)) {
+            throw new GameInvalidException('Game battle row is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Необязательная целочисленная колонка.
+     *
+     * @param array<string, mixed> $fields Колонки.
+     * @param string $key Колонка.
+     *
+     * @return int Значение или 0.
+     *
+     * @throws GameInvalidException Если значение не int.
+     */
+    private static function optionalInt(array $fields, string $key): int
+    {
+        $value = $fields[$key] ?? 0;
+        if (!is_int($value)) {
+            throw new GameInvalidException('Game battle row is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Карта колонки или пустая карта.
+     *
+     * @param array<string, mixed> $fields Колонки.
+     * @param string $key Колонка.
+     *
+     * @return array<string, mixed> Карта.
+     *
+     * @throws GameInvalidException Если значение не массив.
+     */
+    private static function map(array $fields, string $key): array
+    {
+        $value = $fields[$key] ?? [];
+        if (!is_array($value)) {
+            throw new GameInvalidException('Game battle row is invalid');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Список меток боя.
+     *
+     * @param mixed $marks Колонка.
+     *
+     * @return array<int, array<string, mixed>> Метки.
+     *
+     * @throws GameInvalidException Если форма чужая.
+     */
+    private static function marks(mixed $marks): array
+    {
+        if (!is_array($marks) || !array_is_list($marks)) {
+            throw new GameInvalidException('Game battle row is invalid');
+        }
+
+        foreach ($marks as $mark) {
+            if (!is_array($mark)) {
+                throw new GameInvalidException('Game battle row is invalid');
+            }
+        }
+
+        return $marks;
     }
 }

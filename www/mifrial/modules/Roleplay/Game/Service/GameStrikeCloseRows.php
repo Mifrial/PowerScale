@@ -235,7 +235,7 @@ final class GameStrikeCloseRows
     public function assertDefender(int $battleId, array $target): void
     {
         $this->assertKind($target['type']);
-        if (!in_array($target, $this->battles->findParticipants($battleId), true)) {
+        if (!in_array($target, $this->battles->participants->find($battleId), true)) {
             throw new GameNotFoundException('Game battle participant was not found');
         }
     }

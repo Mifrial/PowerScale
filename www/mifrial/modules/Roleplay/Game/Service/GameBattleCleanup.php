@@ -52,7 +52,10 @@ final class GameBattleCleanup
             $actions->deleteBySession($sessionId, 'wide_strike');
             $actions->deleteBySession($sessionId, 'strike');
             (new GameCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
-            (new GameBattleRepository($this->smartTableGateway))->deleteBySession($sessionId);
+            $battles = new GameBattleRepository($this->smartTableGateway);
+            foreach ($battles->findIdsBySession($sessionId) as $battleId) {
+                $battles->delete($battleId);
+            }
             $this->sessionRepository->deleteSession($sessionId);
         });
     }

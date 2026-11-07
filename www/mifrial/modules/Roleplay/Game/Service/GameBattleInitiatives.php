@@ -5,50 +5,52 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Closure;
-use JsonException;
 use Mifrial\Core\Kernel\Exception\ActionException;
-use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
-use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
-use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
-use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
-use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
 /**
  * Порядок хода открытого боя. Лист не пишет.
  */
 final class GameBattleInitiatives
 {
-    private readonly GameBattleRepository $battles;
-
-    private readonly GameCommandRepository $commands;
+    private const ORDER_KEYS = [
+        'name',
+        'difficulty',
+        'roll',
+        'success',
+        'rating',
+        'faces',
+        'adjustedRolls',
+        'successes',
+        'droppedRolls',
+        'dieFaces',
+        'efficiency',
+        'advantages',
+        'min_success_size',
+        'label',
+    ];
 
     /**
      * Создаёт фасад.
      *
-     * @param ISmartTableGateway $smartTableGateway Шлюз.
-     * @param IGames $games Строка игры.
-     * @param GameCardAccess $cardAccess Фильтр карточки.
-     * @param GameMemberRepository $members Люди.
-     * @param GameSessionRepository $sessions Сессия.
+     * @param GameBattleRepository $battles Строки боя.
      * @param GameBattleOrder $order Расчёт порядка.
+     * @param GameBattleAccess $access Права и сессия.
+     * @param GameBattleLedger $ledger Журнал команд.
      *
      * @return void
      */
     public function __construct(
-        private readonly ISmartTableGateway $smartTableGateway,
-        private readonly IGames $games,
-        private readonly GameCardAccess $cardAccess,
-        private readonly GameMemberRepository $members,
-        private readonly GameSessionRepository $sessions,
+        private readonly GameBattleRepository $battles,
         private readonly GameBattleOrder $order,
+        private readonly GameBattleAccess $access,
+        private readonly GameBattleLedger $ledger,
     ) {
-        $this->battles = new GameBattleRepository($smartTableGateway);
-        $this->commands = new GameCommandRepository($smartTableGateway);
     }
 
     /**
@@ -80,18 +82,13 @@ final class GameBattleInitiatives
         int $expectedVersion,
         ?array $rolls = null,
     ): array {
-        $body = ['battleId' => $battleId, 'expectedVersion' => $expectedVersion];
-        if ($rolls !== null) {
-            $body['rolls'] = $rolls;
-        }
-
         return $this->execute(
             $gameId,
             $actorUserId,
             $editAll,
             $viewAll,
             $idempotencyKey,
-            $body,
+            $this->bodyOf($battleId, $expectedVersion, $rolls),
             fn (int $sessionId, GameRecord $game): array => $this->write(
                 $game,
                 $sessionId,
@@ -134,19 +131,36 @@ final class GameBattleInitiatives
             throw new GameInvalidException('Game battle key is empty');
         }
 
-        $game = $this->visible($gameId, $actorUserId, $viewAll);
-        $this->assertOpen($game);
-        $this->assertWriter($game, $actorUserId, $editAll);
-        $replay = $this->replay($gameId, $idempotencyKey, $body);
+        $game = $this->access->visible($gameId, $actorUserId, $viewAll);
+        $this->access->assertOpen($game);
+        $this->access->assertWriter($game, $actorUserId, $editAll);
+        $replay = $this->ledger->replay($gameId, 'battle', $idempotencyKey, $body, $this->present(...));
         if ($replay !== null) {
             return $replay;
         }
 
-        $sessionId = $this->requireSession($gameId);
+        $sessionId = $this->access->session($gameId);
 
-        return $this->smartTableGateway->transaction(
-            fn (): array => $write($sessionId, $game),
-        );
+        return $this->ledger->transaction(fn (): array => $write($sessionId, $game));
+    }
+
+    /**
+     * Тело команды в стабильном порядке ключей.
+     *
+     * @param int $battleId Бой.
+     * @param int $expectedVersion Версия.
+     * @param array<mixed>|null $rolls Способы или null.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function bodyOf(int $battleId, int $expectedVersion, ?array $rolls): array
+    {
+        $body = ['battleId' => $battleId, 'expectedVersion' => $expectedVersion];
+        if ($rolls !== null) {
+            $body['rolls'] = $rolls;
+        }
+
+        return $body;
     }
 
     /**
@@ -173,11 +187,7 @@ final class GameBattleInitiatives
         int $expectedVersion,
         ?array $rolls,
     ): array {
-        $battle = $this->battles->find($battleId);
-        if ($battle === null || $battle->getSessionId() !== $sessionId) {
-            throw new GameNotFoundException('Game battle was not found');
-        }
-
+        $battle = $this->battle($battleId, $sessionId);
         if ($battle->getStateVersion() !== $expectedVersion) {
             throw new GameBattleConflictException($battle->getStateVersion());
         }
@@ -185,9 +195,60 @@ final class GameBattleInitiatives
         $order = $this->order->rollAll(
             $game->getSpaceId(),
             $game->getRulesRevision(),
-            $this->battles->findParticipants($battleId),
+            $this->battles->participants->find($battleId),
             $rolls,
         );
+
+        return $this->save($game, $sessionId, $battleId, $idempotencyKey, $expectedVersion, $rolls, $order);
+    }
+
+    /**
+     * Бой открытой сессии.
+     *
+     * @param int $battleId Бой.
+     * @param int $sessionId Сессия.
+     *
+     * @return GameBattleRecord Строка.
+     *
+     * @throws GameNotFoundException Если боя нет или он чужой.
+     * @throws GameInvalidException Если строка битая.
+     */
+    private function battle(int $battleId, int $sessionId): GameBattleRecord
+    {
+        $battle = $this->battles->find($battleId);
+        if ($battle === null || $battle->getSessionId() !== $sessionId) {
+            throw new GameNotFoundException('Game battle was not found');
+        }
+
+        return $battle;
+    }
+
+    /**
+     * Сохраняет порядок и команду.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param int $battleId Бой.
+     * @param string $idempotencyKey Ключ.
+     * @param int $expectedVersion Версия.
+     * @param array<mixed>|null $rolls Способы или null.
+     * @param list<array<string, mixed>> $order Порядок.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameBattleConflictException Если версия другая.
+     * @throws GameNotFoundException Если боя нет.
+     * @throws GameInvalidException Если поле.
+     */
+    private function save(
+        GameRecord $game,
+        int $sessionId,
+        int $battleId,
+        string $idempotencyKey,
+        int $expectedVersion,
+        ?array $rolls,
+        array $order,
+    ): array {
         $saved = $this->battles->advanceVersion($battleId, $expectedVersion);
         $this->battles->replaceTurnOrder($battleId, $order, 0, 1);
         $result = [
@@ -195,43 +256,16 @@ final class GameBattleInitiatives
             'version' => $saved->getStateVersion(),
             'order' => $order,
         ];
-        $body = [
-            'battleId' => $battleId,
-            'expectedVersion' => $expectedVersion,
-        ];
-        if ($rolls !== null) {
-            $body['rolls'] = $rolls;
-        }
-
-        $this->commands->add($game->getId(), $sessionId, 'battle', $idempotencyKey, $body, $result);
+        $this->ledger->record(
+            $game->getId(),
+            $sessionId,
+            'battle',
+            $idempotencyKey,
+            $this->bodyOf($battleId, $expectedVersion, $rolls),
+            $result,
+        );
 
         return $result;
-    }
-
-    /**
-     * Повтор ключа или null.
-     *
-     * @param int $gameId Игра.
-     * @param string $idempotencyKey Ключ.
-     * @param array<string, mixed> $body Тело.
-     *
-     * @return array<string, mixed>|null Итог.
-     *
-     * @throws GameBattleConflictException Если тело другое.
-     * @throws GameInvalidException Если JSON.
-     */
-    private function replay(int $gameId, string $idempotencyKey, array $body): ?array
-    {
-        $stored = $this->commands->findByKey($gameId, 'battle', $idempotencyKey);
-        if ($stored === null) {
-            return null;
-        }
-
-        if ($this->canonical($stored['body']) !== $this->canonical($body)) {
-            throw new GameBattleConflictException(null);
-        }
-
-        return $this->present($stored['result']);
     }
 
     /**
@@ -268,179 +302,34 @@ final class GameBattleInitiatives
     {
         $entries = [];
         foreach ($order as $entry) {
-            if (!is_array($entry) || !is_string($entry['type'] ?? null) || !is_int($entry['id'] ?? null)) {
-                throw new GameInvalidException('Game battle result is invalid');
-            }
-
-            $row = [
-                'type' => $entry['type'],
-                'id' => $entry['id'],
-            ];
-            $keys = [
-                'name',
-                'difficulty',
-                'roll',
-                'success',
-                'rating',
-                'faces',
-                'adjustedRolls',
-                'successes',
-                'droppedRolls',
-                'dieFaces',
-                'efficiency',
-                'advantages',
-                'min_success_size',
-                'label',
-            ];
-            foreach ($keys as $key) {
-                if (array_key_exists($key, $entry)) {
-                    $row[$key] = $entry[$key];
-                }
-            }
-
-            $entries[] = $row;
+            $entries[] = $this->orderedRow($entry);
         }
 
         return $entries;
     }
 
     /**
-     * Стабильный JSON.
+     * Одна запись порядка в фиксированных ключах.
      *
-     * @param mixed $value Значение.
+     * @param mixed $entry Запись.
      *
-     * @return string JSON.
+     * @return array<string, mixed> Строка.
      *
-     * @throws GameInvalidException Если значение не кодируется.
+     * @throws GameInvalidException Если запись битая.
      */
-    private function canonical(mixed $value): string
+    private function orderedRow(mixed $entry): array
     {
-        try {
-            $encoded = json_encode($this->sortKeys($value), JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            throw new GameInvalidException('Game battle body is invalid', $exception);
+        if (!is_array($entry) || !is_string($entry['type'] ?? null) || !is_int($entry['id'] ?? null)) {
+            throw new GameInvalidException('Game battle result is invalid');
         }
 
-        return $encoded;
-    }
-
-    /**
-     * Сортирует ключи объектов.
-     *
-     * @param mixed $value Значение.
-     *
-     * @return mixed Значение.
-     */
-    private function sortKeys(mixed $value): mixed
-    {
-        if (!is_array($value)) {
-            return $value;
+        $row = ['type' => $entry['type'], 'id' => $entry['id']];
+        foreach (self::ORDER_KEYS as $key) {
+            if (array_key_exists($key, $entry)) {
+                $row[$key] = $entry[$key];
+            }
         }
 
-        if (array_is_list($value)) {
-            return array_map($this->sortKeys(...), $value);
-        }
-
-        ksort($value);
-        foreach ($value as $key => $item) {
-            $value[$key] = $this->sortKeys($item);
-        }
-
-        return $value;
-    }
-
-    /**
-     * Видимая игра.
-     *
-     * @param int $gameId Игра.
-     * @param int $actorUserId Актор.
-     * @param bool $viewAll Ключ.
-     *
-     * @return GameRecord Строка.
-     *
-     * @throws GameNotFoundException Если скрыта.
-     */
-    private function visible(int $gameId, int $actorUserId, bool $viewAll): GameRecord
-    {
-        $game = $this->games->get($gameId);
-        if (!$this->cardAccess->isVisible($game, $actorUserId, $viewAll)) {
-            throw new GameNotFoundException();
-        }
-
-        return $game;
-    }
-
-    /**
-     * completed не пишет.
-     *
-     * @param GameRecord $game Игра.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если завершена.
-     */
-    private function assertOpen(GameRecord $game): void
-    {
-        if ($game->getStatus() === 'completed') {
-            throw new GameInvalidException('Game is completed');
-        }
-    }
-
-    /**
-     * Владелец, gm или edit_all.
-     *
-     * @param GameRecord $game Игра.
-     * @param int $actorUserId Актор.
-     * @param bool $editAll Ключ.
-     *
-     * @return void
-     *
-     * @throws ActionException AUTH_DENIED.
-     */
-    private function assertWriter(GameRecord $game, int $actorUserId, bool $editAll): void
-    {
-        if ($game->getOwnerId() === $actorUserId || $editAll || $this->isGm($game->getId(), $actorUserId)) {
-            return;
-        }
-
-        throw new ActionException('AUTH_DENIED', 'Permission denied');
-    }
-
-    /**
-     * Роль gm.
-     *
-     * @param int $gameId Игра.
-     * @param int $actorUserId Актор.
-     *
-     * @return bool Да, если gm.
-     */
-    private function isGm(int $gameId, int $actorUserId): bool
-    {
-        try {
-            $member = $this->members->getByPair($gameId, $actorUserId);
-        } catch (GameNotFoundException) {
-            return false;
-        }
-
-        return $member->getRole() === 'gm';
-    }
-
-    /**
-     * Текущая сессия.
-     *
-     * @param int $gameId Игра.
-     *
-     * @return int Id.
-     *
-     * @throws GameInvalidException Если сессии нет.
-     */
-    private function requireSession(int $gameId): int
-    {
-        $sessionId = $this->sessions->findSessionId($gameId);
-        if ($sessionId === null) {
-            throw new GameInvalidException('Game session is not running');
-        }
-
-        return $sessionId;
+        return $row;
     }
 }

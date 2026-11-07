@@ -153,7 +153,7 @@ final class GameProjections implements IGameProjections
     ): array {
         $game = $this->open($gameId, $actorUserId, $viewAll);
         $this->requireBattle($gameId, $battleId);
-        $collected = $this->collect($game, $actorUserId, $this->battles->findParticipants($battleId));
+        $collected = $this->collect($game, $actorUserId, $this->battles->participants->find($battleId));
 
         return ['battleId' => $battleId]
             + $this->battleBriefs($gameId, $collected)
@@ -178,7 +178,7 @@ final class GameProjections implements IGameProjections
         }
 
         $sessions = [];
-        foreach ($this->battles->findParticipants($battleId) as $participant) {
+        foreach ($this->battles->participants->find($battleId) as $participant) {
             $type = $participant['type'];
             $id = $participant['id'];
             $view = $this->processes->view(

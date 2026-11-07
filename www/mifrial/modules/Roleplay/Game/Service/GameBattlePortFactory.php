@@ -54,11 +54,7 @@ final class GameBattlePortFactory
         $order = new GameBattleOrder($this->checkRoll($serviceLocator), new GameNpcRepository($gateway));
 
         return new GameBattles(
-            $gateway,
             $this->games($serviceLocator),
-            $this->cardAccess($gateway),
-            new GameMemberRepository($gateway),
-            new GameSessionRepository($gateway),
             new GameBattleMutator(
                 new GameBattleRepository($gateway),
                 new GameCommandRepository($gateway),
@@ -69,6 +65,8 @@ final class GameBattlePortFactory
             ),
             $this->notices($serviceLocator),
             new GameDeliverySignal($this->events($serviceLocator)),
+            $this->access($serviceLocator, $gateway),
+            $this->ledger($gateway),
         );
     }
 
@@ -102,14 +100,44 @@ final class GameBattlePortFactory
         return new GameBattleInitiativeHttp(
             $this->userAccess($serviceLocator),
             new GameBattleInitiatives(
-                $gateway,
-                $this->games($serviceLocator),
-                $this->cardAccess($gateway),
-                new GameMemberRepository($gateway),
-                new GameSessionRepository($gateway),
+                new GameBattleRepository($gateway),
                 new GameBattleOrder($this->checkRoll($serviceLocator), new GameNpcRepository($gateway)),
+                $this->access($serviceLocator, $gateway),
+                $this->ledger($gateway),
             ),
         );
+    }
+
+    /**
+     * Права и сессия боевой команды.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param ISmartTableGateway $gateway Шлюз.
+     *
+     * @return GameBattleAccess Проверки.
+     *
+     * @throws KernelException Если нет порта.
+     */
+    private function access(IServiceLocator $serviceLocator, ISmartTableGateway $gateway): GameBattleAccess
+    {
+        return new GameBattleAccess(
+            $this->games($serviceLocator),
+            $this->cardAccess($gateway),
+            new GameMemberRepository($gateway),
+            new GameSessionRepository($gateway),
+        );
+    }
+
+    /**
+     * Журнал боевых команд.
+     *
+     * @param ISmartTableGateway $gateway Шлюз.
+     *
+     * @return GameBattleLedger Журнал.
+     */
+    private function ledger(ISmartTableGateway $gateway): GameBattleLedger
+    {
+        return new GameBattleLedger($gateway, new GameCommandRepository($gateway));
     }
 
     /**
@@ -227,6 +255,15 @@ final class GameBattlePortFactory
         return $events;
     }
 
+    /**
+     * Сообщения боя.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameCombatNotices Сообщения.
+     *
+     * @throws KernelException Если чата нет.
+     */
     private function notices(IServiceLocator $serviceLocator): GameCombatNotices
     {
         $chats = $serviceLocator->get(IChatContainer::class)->get(IChats::class);
@@ -237,6 +274,15 @@ final class GameBattlePortFactory
         return new GameCombatNotices($chats);
     }
 
+    /**
+     * Актор запроса.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return IUserAccess Доступ.
+     *
+     * @throws KernelException Если порта нет.
+     */
     private function userAccess(IServiceLocator $serviceLocator): IUserAccess
     {
         $userAccess = $serviceLocator->get(IUserContainer::class)->get(IUserAccess::class);

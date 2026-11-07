@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
-use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 
 /**
@@ -18,12 +17,6 @@ use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
  */
 final class GameBattleMarks
 {
-    private const KIND_ADVANTAGE = 'advantage';
-
-    private const CONSUMES_FIRST_DEFENSE = 'first_defense';
-
-    private const EXPIRES_TURN = 'turn';
-
     /**
      * Разбирает колонку marks, отбрасывая не-записи.
      *
@@ -58,71 +51,7 @@ final class GameBattleMarks
      */
     public function normalize(array $mark): array
     {
-        $allowed = ['subject', 'kind', 'value', 'source_code', 'source_rule_code', 'scope', 'consumes', 'expires'];
-        $keys = array_keys($mark);
-        sort($keys);
-        $expected = $allowed;
-        sort($expected);
-        if ($keys !== $expected) {
-            throw new GameInvalidException('Game battle mark is invalid');
-        }
-
-        $kind = $mark['kind'] ?? null;
-        if ($kind !== self::KIND_ADVANTAGE) {
-            throw new GameInvalidException('Game battle mark kind is invalid');
-        }
-
-        $value = $mark['value'] ?? null;
-        if (!is_int($value) || $value === 0) {
-            throw new GameInvalidException('Game battle mark value is invalid');
-        }
-
-        $sourceCode = $mark['source_code'] ?? null;
-        if (!is_string($sourceCode) || $sourceCode === '') {
-            throw new GameInvalidException('Game battle mark source is invalid');
-        }
-
-        $sourceRuleCode = $mark['source_rule_code'] ?? null;
-        if ($sourceRuleCode !== null && (!is_string($sourceRuleCode) || $sourceRuleCode === '')) {
-            throw new GameInvalidException('Game battle mark source rule is invalid');
-        }
-
-        $scope = $mark['scope'] ?? null;
-        if (!is_array($scope) || !is_array($scope['defense_against'] ?? null)) {
-            throw new GameInvalidException('Game battle mark scope is invalid');
-        }
-
-        $scopeKeys = array_keys($scope);
-        sort($scopeKeys);
-        if ($scopeKeys !== ['defense_against']) {
-            throw new GameInvalidException('Game battle mark scope is invalid');
-        }
-
-        $expires = $mark['expires'] ?? null;
-        if (!is_array($expires)) {
-            throw new GameInvalidException('Game battle mark expiry is invalid');
-        }
-
-        $expireKeys = array_keys($expires);
-        sort($expireKeys);
-        if ($expireKeys !== ['kind', 'of'] || ($expires['kind'] ?? null) !== self::EXPIRES_TURN) {
-            throw new GameInvalidException('Game battle mark expiry is invalid');
-        }
-
-        if (($mark['consumes'] ?? null) !== self::CONSUMES_FIRST_DEFENSE) {
-            throw new GameInvalidException('Game battle mark consumption is invalid');
-        }
-
-        return [
-            'subject' => $this->actor($mark['subject'] ?? null),
-            'kind' => $kind,
-            'value' => $value,
-            'source_code' => $sourceCode,
-            'source_rule_code' => $sourceRuleCode,
-            'scope' => ['defense_against' => $this->actor($scope['defense_against'])],
-            'consumes' => self::CONSUMES_FIRST_DEFENSE,
-            'expires' => ['kind' => self::EXPIRES_TURN, 'of' => $this->actor($expires['of'] ?? null)],
-        ];
+        return GameBattleMark::fromArray($mark)->toArray();
     }
 
     /**
@@ -137,32 +66,26 @@ final class GameBattleMarks
      */
     public function upsert(array $marks, array $mark): array
     {
-        $mark = $this->normalize($mark);
-        $key = $this->keyOf($mark);
+        $mark = GameBattleMark::fromArray($mark);
         $result = [];
         $replaced = false;
         foreach ($marks as $entry) {
-            if (!is_array($entry)) {
+            $current = $this->markOrNull($entry);
+            if ($current === null) {
                 continue;
             }
 
-            try {
-                $current = $this->normalize($entry);
-            } catch (GameInvalidException) {
-                continue;
-            }
-
-            if ($this->keyOf($current) === $key) {
-                $result[] = $mark;
+            if ($current->key() === $mark->key()) {
+                $result[] = $mark->toArray();
                 $replaced = true;
                 continue;
             }
 
-            $result[] = $current;
+            $result[] = $current->toArray();
         }
 
         if (!$replaced) {
-            $result[] = $mark;
+            $result[] = $mark->toArray();
         }
 
         return $result;
@@ -186,30 +109,17 @@ final class GameBattleMarks
         $advantages = [];
         $keys = [];
         foreach ($marks as $entry) {
-            if (!is_array($entry)) {
+            $mark = $this->markOrNull($entry);
+            if ($mark === null || $mark->subjectKey() !== $subjectKey) {
                 continue;
             }
 
-            try {
-                $mark = $this->normalize($entry);
-            } catch (GameInvalidException) {
+            if ($mark->defenseKey() !== $attackerKey) {
                 continue;
             }
 
-            if ($this->actorKey($mark['subject']) !== $subjectKey) {
-                continue;
-            }
-
-            if ($this->actorKey($mark['scope']['defense_against']) !== $attackerKey) {
-                continue;
-            }
-
-            $advantages[] = new RollAdvantage(
-                $mark['source_code'],
-                $mark['value'],
-                AdvantageSourceLabels::getLabel($mark['source_code']),
-            );
-            $keys[] = $this->keyOf($mark);
+            $advantages[] = $mark->advantage();
+            $keys[] = $mark->key();
         }
 
         return ['advantages' => $advantages, 'keys' => $keys];
@@ -232,21 +142,12 @@ final class GameBattleMarks
         $remove = array_fill_keys($keys, true);
         $result = [];
         foreach ($marks as $entry) {
-            if (!is_array($entry)) {
+            $mark = $this->markOrNull($entry);
+            if ($mark === null || isset($remove[$mark->key()])) {
                 continue;
             }
 
-            try {
-                $mark = $this->normalize($entry);
-            } catch (GameInvalidException) {
-                continue;
-            }
-
-            if (isset($remove[$this->keyOf($mark)])) {
-                continue;
-            }
-
-            $result[] = $mark;
+            $result[] = $mark->toArray();
         }
 
         return $result;
@@ -265,21 +166,12 @@ final class GameBattleMarks
         $actorKey = $this->actorKey($actor);
         $result = [];
         foreach ($marks as $entry) {
-            if (!is_array($entry)) {
+            $mark = $this->markOrNull($entry);
+            if ($mark === null || $mark->expiresKey() === $actorKey) {
                 continue;
             }
 
-            try {
-                $mark = $this->normalize($entry);
-            } catch (GameInvalidException) {
-                continue;
-            }
-
-            if ($this->actorKey($mark['expires']['of']) === $actorKey) {
-                continue;
-            }
-
-            $result[] = $mark;
+            $result[] = $mark->toArray();
         }
 
         return $result;
@@ -291,36 +183,32 @@ final class GameBattleMarks
      * @param array<string, mixed> $mark Нормализованная метка.
      *
      * @return string Ключ.
-     */
-    public function keyOf(array $mark): string
-    {
-        return $this->actorKey($mark['subject'])
-            . '|' . $mark['kind']
-            . '|' . $this->actorKey($mark['scope']['defense_against']);
-    }
-
-    /**
-     * Разбирает пару актора.
-     *
-     * @param mixed $raw Значение.
-     *
-     * @return array{type: string, id: int} Пара.
      *
      * @throws GameInvalidException Если форма чужая.
      */
-    private function actor(mixed $raw): array
+    public function keyOf(array $mark): string
     {
-        if (
-            !is_array($raw)
-            || !is_string($raw['type'] ?? null)
-            || !in_array($raw['type'], ['character', 'npc'], true)
-            || !is_int($raw['id'] ?? null)
-            || $raw['id'] < 1
-        ) {
-            throw new GameInvalidException('Game battle mark actor is invalid');
+        return GameBattleMark::fromArray($mark)->key();
+    }
+
+    /**
+     * Нормализованная запись или null, если она битая.
+     *
+     * @param mixed $entry Запись.
+     *
+     * @return GameBattleMark|null Метка или null.
+     */
+    private function markOrNull(mixed $entry): ?GameBattleMark
+    {
+        if (!is_array($entry)) {
+            return null;
         }
 
-        return ['type' => $raw['type'], 'id' => $raw['id']];
+        try {
+            return GameBattleMark::fromArray($entry);
+        } catch (GameInvalidException) {
+            return null;
+        }
     }
 
     /**

@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassTooLong -- разбор способов и G21-порядок одного класса.
-
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameCheckThrowOverride;
@@ -17,6 +15,10 @@ use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
  */
 final class GameBattleOrder
 {
+    private readonly GameBattleOrderRolls $rolls;
+
+    private readonly GameBattleOrderRoster $roster;
+
     /**
      * Создаёт расчёт.
      *
@@ -29,6 +31,8 @@ final class GameBattleOrder
         private readonly GameCheckRoll $roll,
         private readonly GameNpcRepository $npcs,
     ) {
+        $this->rolls = new GameBattleOrderRolls();
+        $this->roster = new GameBattleOrderRoster();
     }
 
     /**
@@ -76,8 +80,8 @@ final class GameBattleOrder
         array $turnOrder,
         array $participants,
     ): array {
-        $kept = $this->kept($turnOrder, $participants);
-        $joined = $this->joined($turnOrder, $participants);
+        $kept = $this->roster->kept($turnOrder, $participants);
+        $joined = $this->roster->joined($turnOrder, $participants);
         if (count($joined) < 2) {
             return array_merge($kept, $this->unrolled($joined));
         }
@@ -135,8 +139,8 @@ final class GameBattleOrder
      */
     private function rolledByMethod(int $spaceId, int $rulesRevision, array $participants, array $rolls): array
     {
-        $parsed = $this->parsedRolls($rolls);
-        $this->assertSameSet($participants, $parsed);
+        $parsed = $this->rolls->parse($rolls);
+        $this->roster->assertSame($participants, $parsed);
         $check = $this->roll->initiativeCheck($spaceId, $rulesRevision);
         $ruleCode = $this->roll->findInitiativeCode($spaceId, $rulesRevision);
         $byKey = [];
@@ -176,17 +180,53 @@ final class GameBattleOrder
     ): array {
         $head = ['type' => $item['type'], 'id' => $item['id'], 'name' => $this->nameOf($item)];
         if ($item['method'] === 'fixed') {
-            $value = $item['value'];
-
-            return $head + [
-                'difficulty' => null,
-                'roll' => $value,
-                'success' => null,
-                'rating' => $value['base'],
-            ];
+            return $head + $this->fixedRow($item);
         }
 
-        $thrown = $this->roll->throwCheck(
+        return $head + $this->thrownRow($spaceId, $rulesRevision, $ruleCode, $check, $item);
+    }
+
+    /**
+     * Запись фиксированного способа.
+     *
+     * @param array<string, mixed> $item Способ.
+     *
+     * @return array<string, mixed> Поля строки.
+     */
+    private function fixedRow(array $item): array
+    {
+        $value = $item['value'];
+
+        return [
+            'difficulty' => null,
+            'roll' => $value,
+            'success' => null,
+            'rating' => $value['base'],
+        ];
+    }
+
+    /**
+     * Запись брошенного способа.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $ruleCode Код карточки.
+     * @param CheckSpec $check Карточка.
+     * @param array<string, mixed> $item Способ.
+     *
+     * @return array<string, mixed> Поля строки.
+     *
+     * @throws GameInvalidException Если способ или пул чужие.
+     * @throws GameNotFoundException Если листа нет.
+     */
+    private function thrownRow(
+        int $spaceId,
+        int $rulesRevision,
+        string $ruleCode,
+        CheckSpec $check,
+        array $item,
+    ): array {
+        return $this->roll->throwCheck(
             $spaceId,
             $rulesRevision,
             $ruleCode,
@@ -195,8 +235,6 @@ final class GameBattleOrder
             null,
             $this->overrideOf($check, $item),
         );
-
-        return $head + $thrown;
     }
 
     /**
@@ -232,204 +270,6 @@ final class GameBattleOrder
         }
 
         throw new GameInvalidException('Game initiative characteristic is invalid');
-    }
-
-    /**
-     * Разбор списка способов.
-     *
-     * @param array<mixed> $rolls JSON.
-     *
-     * @return list<array<string, mixed>> Строки.
-     *
-     * @throws GameInvalidException Если форма чужая.
-     */
-    private function parsedRolls(array $rolls): array
-    {
-        if (!array_is_list($rolls) || $rolls === []) {
-            throw new GameInvalidException('Game initiative rolls are invalid');
-        }
-
-        $parsed = [];
-        $seen = [];
-        foreach ($rolls as $roll) {
-            $item = $this->parsedRoll($roll);
-            $key = $this->key($item['type'], $item['id']);
-            if (isset($seen[$key])) {
-                throw new GameInvalidException('Game battle participant is duplicated');
-            }
-
-            $seen[$key] = true;
-            $parsed[] = $item;
-        }
-
-        return $parsed;
-    }
-
-    /**
-     * Один способ.
-     *
-     * @param mixed $roll JSON.
-     *
-     * @return array<string, mixed> Строка.
-     *
-     * @throws GameInvalidException Если форма чужая.
-     */
-    private function parsedRoll(mixed $roll): array
-    {
-        if (!is_array($roll) || !isset($roll['method']) || !is_string($roll['method'])) {
-            throw new GameInvalidException('Game initiative rolls are invalid');
-        }
-
-        return match ($roll['method']) {
-            'characteristic' => $this->characteristicRoll($roll),
-            'free' => $this->freeRoll($roll),
-            'fixed' => $this->fixedRoll($roll),
-            default => throw new GameInvalidException('Game initiative rolls are invalid'),
-        };
-    }
-
-    /**
-     * Способ характеристики.
-     *
-     * @param array<mixed> $roll JSON.
-     *
-     * @return array<string, mixed> Строка.
-     *
-     * @throws GameInvalidException Если ключи чужие.
-     */
-    private function characteristicRoll(array $roll): array
-    {
-        $pair = $this->typedId($roll);
-        $keys = array_keys($roll);
-        sort($keys);
-        $code = $roll['characteristicCode'] ?? null;
-        if ($keys === ['id', 'method', 'type']) {
-            return $pair + ['method' => 'characteristic', 'characteristicCode' => null];
-        }
-
-        if ($keys !== ['characteristicCode', 'id', 'method', 'type'] || !is_string($code) || $code === '') {
-            throw new GameInvalidException('Game initiative rolls are invalid');
-        }
-
-        return $pair + ['method' => 'characteristic', 'characteristicCode' => $code];
-    }
-
-    /**
-     * Свободный пул.
-     *
-     * @param array<mixed> $roll JSON.
-     *
-     * @return array<string, mixed> Строка.
-     *
-     * @throws GameInvalidException Если ключи чужие.
-     */
-    private function freeRoll(array $roll): array
-    {
-        $pair = $this->typedId($roll);
-        $diceCount = $roll['diceCount'] ?? null;
-        $advantage = $roll['advantage'] ?? null;
-        $keys = array_keys($roll);
-        sort($keys);
-        if ($advantage === null) {
-            if ($keys !== ['diceCount', 'id', 'method', 'type']) {
-                throw new GameInvalidException('Game initiative rolls are invalid');
-            }
-        } elseif ($keys !== ['advantage', 'diceCount', 'id', 'method', 'type']) {
-            throw new GameInvalidException('Game initiative rolls are invalid');
-        }
-
-        if (!is_int($diceCount) || $diceCount < 1) {
-            throw new GameInvalidException('Game initiative rolls are invalid');
-        }
-
-        if ($advantage !== null && !is_int($advantage)) {
-            throw new GameInvalidException('Game initiative rolls are invalid');
-        }
-
-        return $pair + [
-            'method' => 'free',
-            'diceCount' => $diceCount,
-            'advantage' => is_int($advantage) ? $advantage : null,
-        ];
-    }
-
-    /**
-     * Фиксированное значение.
-     *
-     * @param array<mixed> $roll JSON.
-     *
-     * @return array<string, mixed> Строка.
-     *
-     * @throws GameInvalidException Если ключи чужие.
-     */
-    private function fixedRoll(array $roll): array
-    {
-        $pair = $this->typedId($roll);
-        $keys = array_keys($roll);
-        sort($keys);
-        if ($keys !== ['id', 'method', 'type', 'value']) {
-            throw new GameInvalidException('Game initiative rolls are invalid');
-        }
-
-        $value = $roll['value'] ?? null;
-        $valueKeys = is_array($value) ? array_keys($value) : [];
-        sort($valueKeys);
-        $base = is_array($value) ? ($value['base'] ?? null) : null;
-        $size = is_array($value) ? ($value['size'] ?? null) : null;
-        if ($valueKeys !== ['base', 'size'] || !is_int($base) || !is_int($size)) {
-            throw new GameInvalidException('Game initiative rolls are invalid');
-        }
-
-        return $pair + ['method' => 'fixed', 'value' => ['base' => $base, 'size' => $size]];
-    }
-
-    /**
-     * type и id.
-     *
-     * @param array<mixed> $roll JSON.
-     *
-     * @return array{type: string, id: int} Пара.
-     *
-     * @throws GameInvalidException Если пара чужая.
-     */
-    private function typedId(array $roll): array
-    {
-        $type = $roll['type'] ?? null;
-        $id = $roll['id'] ?? null;
-        if (($type !== 'character' && $type !== 'npc') || !is_int($id) || $id < 1) {
-            throw new GameInvalidException('Game initiative rolls are invalid');
-        }
-
-        return ['type' => $type, 'id' => $id];
-    }
-
-    /**
-     * Тот же набор участников.
-     *
-     * @param list<array{type: string, id: int}> $participants Состав.
-     * @param list<array<string, mixed>> $rolls Способы.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если набор другой.
-     */
-    private function assertSameSet(array $participants, array $rolls): void
-    {
-        $left = [];
-        foreach ($participants as $participant) {
-            $left[] = $this->key($participant['type'], $participant['id']);
-        }
-
-        $right = [];
-        foreach ($rolls as $roll) {
-            $right[] = $this->key($roll['type'], $roll['id']);
-        }
-
-        sort($left);
-        sort($right);
-        if ($left !== $right) {
-            throw new GameInvalidException('Game initiative rolls are invalid');
-        }
     }
 
     /**
@@ -501,62 +341,6 @@ final class GameBattleOrder
     }
 
     /**
-     * Кто остался, в прежнем порядке.
-     *
-     * @param array<int, array<string, mixed>> $turnOrder Порядок.
-     * @param list<array{type: string, id: int}> $participants Новый состав.
-     *
-     * @return list<array<string, mixed>> Префикс.
-     */
-    private function kept(array $turnOrder, array $participants): array
-    {
-        $allowed = [];
-        foreach ($participants as $participant) {
-            $allowed[$this->key($participant['type'], $participant['id'])] = true;
-        }
-
-        $kept = [];
-        foreach ($turnOrder as $entry) {
-            $type = $entry['type'] ?? null;
-            $id = $entry['id'] ?? null;
-            if (is_string($type) && is_int($id) && isset($allowed[$this->key($type, $id)])) {
-                $kept[] = $entry;
-            }
-        }
-
-        return $kept;
-    }
-
-    /**
-     * Кого не было в записанном порядке, в порядке нового списка.
-     *
-     * @param array<int, array<string, mixed>> $turnOrder Порядок.
-     * @param list<array{type: string, id: int}> $participants Новый состав.
-     *
-     * @return list<array{type: string, id: int}> Новые.
-     */
-    private function joined(array $turnOrder, array $participants): array
-    {
-        $present = [];
-        foreach ($turnOrder as $entry) {
-            $type = $entry['type'] ?? null;
-            $id = $entry['id'] ?? null;
-            if (is_string($type) && is_int($id)) {
-                $present[$this->key($type, $id)] = true;
-            }
-        }
-
-        $joined = [];
-        foreach ($participants as $participant) {
-            if (!isset($present[$this->key($participant['type'], $participant['id'])])) {
-                $joined[] = $participant;
-            }
-        }
-
-        return $joined;
-    }
-
-    /**
      * Лист персонажа или NPC.
      *
      * @param array{type: string, id: int} $participant Участник.
@@ -566,6 +350,19 @@ final class GameBattleOrder
      * @throws GameInvalidException Если у NPC нет листа.
      * @throws GameNotFoundException Если строки нет.
      */
+    private function sheet(array $participant): array
+    {
+        if ($participant['type'] === 'character') {
+            return $this->roll->characterSheet($participant['id'])['sheet'];
+        }
+
+        $sheet = $this->npcs->getById($participant['id'])->getVersion()['sheet'] ?? null;
+        if (!is_array($sheet)) {
+            throw new GameInvalidException('Game initiative sheet is invalid');
+        }
+
+        return $sheet;
+    }
 
     /**
      * Имя участника.
@@ -587,20 +384,6 @@ final class GameBattleOrder
         }
 
         return $this->roll->characterName($id);
-    }
-
-    private function sheet(array $participant): array
-    {
-        if ($participant['type'] === 'character') {
-            return $this->roll->characterSheet($participant['id'])['sheet'];
-        }
-
-        $sheet = $this->npcs->getById($participant['id'])->getVersion()['sheet'] ?? null;
-        if (!is_array($sheet)) {
-            throw new GameInvalidException('Game initiative sheet is invalid');
-        }
-
-        return $sheet;
     }
 
     /**

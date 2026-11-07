@@ -77,7 +77,7 @@ final class GameStrikeAccess
             }
         }
 
-        $roster = $this->battles->findParticipants($battleId);
+        $roster = $this->battles->participants->find($battleId);
         if (!in_array($attacker, $roster, true)) {
             throw new GameNotFoundException('Game battle participant was not found');
         }

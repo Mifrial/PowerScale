@@ -13,14 +13,12 @@ use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\ReferenceConstraintException;
 use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
 use Mifrial\Core\SmartTable\Exception\Row\RowWriteFailedException;
-use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
-use Mifrial\Roleplay\Game\Table\GameBattleParticipantTable;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
 
 /**
@@ -28,9 +26,9 @@ use Mifrial\Roleplay\Game\Table\GameBattleTable;
  */
 final class GameBattleRepository
 {
-    private readonly IOpenedRecords $battleRecords;
+    public readonly GameBattleParticipantRepository $participants;
 
-    private readonly IOpenedRecords $participantRecords;
+    private readonly IOpenedRecords $battleRecords;
 
     /**
      * Создаёт репозиторий.
@@ -42,7 +40,7 @@ final class GameBattleRepository
     public function __construct(ISmartTableGateway $smartTableGateway)
     {
         $this->battleRecords = $smartTableGateway->open(GameBattleTable::class)->records();
-        $this->participantRecords = $smartTableGateway->open(GameBattleParticipantTable::class)->records();
+        $this->participants = new GameBattleParticipantRepository($smartTableGateway);
     }
 
     /**
@@ -138,23 +136,8 @@ final class GameBattleRepository
      */
     public function advanceVersion(int $battleId, int $expectedVersion): GameBattleRecord
     {
-        $current = $this->require($battleId);
-        if ($current->getStateVersion() !== $expectedVersion) {
-            throw new GameBattleConflictException($current->getStateVersion());
-        }
-
-        try {
-            $this->battleRecords->update($battleId, [
-                'state_version' => $expectedVersion + 1,
-            ]);
-        } catch (
-            FieldRequiredException
-            | FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
-            throw new GameInvalidException('Game battle field is invalid', $exception);
-        }
+        $this->assertVersion($battleId, $expectedVersion);
+        $this->write($battleId, ['state_version' => $expectedVersion + 1]);
 
         return $this->require($battleId);
     }
@@ -179,26 +162,13 @@ final class GameBattleRepository
         array $pending,
         ?array $marks = null,
     ): GameBattleRecord {
-        $current = $this->require($battleId);
-        if ($current->getStateVersion() !== $expectedVersion) {
-            throw new GameBattleConflictException($current->getStateVersion());
-        }
-
+        $this->assertVersion($battleId, $expectedVersion);
         $fields = ['pending_action_effects' => $pending, 'state_version' => $expectedVersion + 1];
         if ($marks !== null) {
             $fields['marks'] = $marks;
         }
 
-        try {
-            $this->battleRecords->update($battleId, $fields);
-        } catch (
-            FieldRequiredException
-            | FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
-            throw new GameInvalidException('Game battle field is invalid', $exception);
-        }
+        $this->write($battleId, $fields);
 
         return $this->require($battleId);
     }
@@ -231,46 +201,11 @@ final class GameBattleRepository
         ?array $cycle = null,
         ?array $marks = null,
     ): GameBattleRecord {
-        $current = $this->require($battleId);
-        if ($current->getStateVersion() !== $expectedVersion) {
-            throw new GameBattleConflictException($current->getStateVersion());
-        }
-
-        $fields = ['state_version' => $expectedVersion + 1];
-        if ($pending !== null) {
-            $fields['pending_action_effects'] = $pending;
-        }
-
-        if ($debt !== null) {
-            $fields['action_debt'] = $debt;
-        }
-
-        if ($activeIndex !== null) {
-            $fields['active_index'] = $activeIndex;
-        }
-
-        if ($round !== null) {
-            $fields['round'] = $round;
-        }
-
-        if ($cycle !== null) {
-            $fields['concentration_cycle'] = $cycle;
-        }
-
-        if ($marks !== null) {
-            $fields['marks'] = $marks;
-        }
-
-        try {
-            $this->battleRecords->update($battleId, $fields);
-        } catch (
-            FieldRequiredException
-            | FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
-            throw new GameInvalidException('Game battle field is invalid', $exception);
-        }
+        $this->assertVersion($battleId, $expectedVersion);
+        $this->write(
+            $battleId,
+            $this->trackedFields($expectedVersion, $pending, $debt, $activeIndex, $round, $cycle, $marks),
+        );
 
         return $this->require($battleId);
     }
@@ -289,19 +224,7 @@ final class GameBattleRepository
     public function replaceActionDebt(int $battleId, array $debt): void
     {
         $this->require($battleId);
-
-        try {
-            $this->battleRecords->update($battleId, [
-                'action_debt' => $debt,
-            ]);
-        } catch (
-            FieldRequiredException
-            | FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
-            throw new GameInvalidException('Game battle field is invalid', $exception);
-        }
+        $this->write($battleId, ['action_debt' => $debt]);
     }
 
     /**
@@ -333,38 +256,7 @@ final class GameBattleRepository
             $fields['round'] = $round;
         }
 
-        try {
-            $this->battleRecords->update($battleId, $fields);
-        } catch (
-            FieldRequiredException
-            | FieldInvalidException
-            | MapInvalidException
-            | RowWriteFailedException $exception
-        ) {
-            throw new GameInvalidException('Game battle field is invalid', $exception);
-        }
-    }
-
-    /**
-     * Заменяет состав боя.
-     *
-     * @param int $battleId Бой.
-     * @param list<array{type: string, id: int}> $participants Пары.
-     *
-     * @return void
-     *
-     * @throws GameNotFoundException Если боя нет.
-     * @throws GameInvalidException Если поле.
-     */
-    public function replaceParticipants(int $battleId, array $participants): void
-    {
-        foreach ($this->participantRowIds($battleId) as $rowId) {
-            $this->deleteRow($this->participantRecords, $rowId);
-        }
-
-        foreach ($participants as $participant) {
-            $this->insertParticipant($battleId, $participant['type'], $participant['id']);
-        }
+        $this->write($battleId, $fields);
     }
 
     /**
@@ -379,71 +271,8 @@ final class GameBattleRepository
      */
     public function delete(int $battleId): void
     {
-        foreach ($this->participantRowIds($battleId) as $rowId) {
-            $this->deleteRow($this->participantRecords, $rowId);
-        }
-
-        $this->deleteRow($this->battleRecords, $battleId);
-    }
-
-    /**
-     * Снимает все бои сессии.
-     *
-     * @param int $sessionId Сессия.
-     *
-     * @return void
-     *
-     * @throws GameNotFoundException Если строку уже сняли.
-     * @throws GameInvalidException Если поле.
-     */
-    public function deleteBySession(int $sessionId): void
-    {
-        foreach ($this->findIdsBySession($sessionId) as $battleId) {
-            $this->delete($battleId);
-        }
-    }
-
-    /**
-     * Состав боя.
-     *
-     * @param int $battleId Бой.
-     *
-     * @return list<array{type: string, id: int}> Пары.
-     *
-     * @throws GameInvalidException Если строка битая.
-     */
-    public function findParticipants(int $battleId): array
-    {
-        $result = $this->participantRecords->getList(new ListQuery(
-            new FilterGroup('AND', [
-                new FilterCondition('battle_id', '=', $battleId),
-            ]),
-            ['id' => 'ASC'],
-            ListQuery::MAX_LIMIT,
-            0,
-            false,
-            null,
-        ));
-        $participants = [];
-        foreach ($result->rows() as $row) {
-            $participants[] = $this->participant($row);
-        }
-
-        return $participants;
-    }
-
-    /**
-     * Число строк состава.
-     *
-     * @param int $battleId Бой.
-     *
-     * @return int Число.
-     *
-     * @throws GameInvalidException Если строка битая.
-     */
-    public function countParticipants(int $battleId): int
-    {
-        return count($this->participantRowIds($battleId));
+        $this->participants->deleteByBattle($battleId);
+        $this->deleteRow($battleId);
     }
 
     /**
@@ -467,84 +296,87 @@ final class GameBattleRepository
     }
 
     /**
-     * Вставляет участника.
+     * Сверяет версию боя с ожидаемой.
      *
      * @param int $battleId Бой.
-     * @param string $type character или npc.
-     * @param int $participantId Id.
+     * @param int $expectedVersion Ожидаемая версия.
      *
      * @return void
      *
+     * @throws GameBattleConflictException Если версия другая.
      * @throws GameNotFoundException Если боя нет.
+     * @throws GameInvalidException Если строка битая.
+     */
+    private function assertVersion(int $battleId, int $expectedVersion): void
+    {
+        $current = $this->require($battleId);
+        if ($current->getStateVersion() !== $expectedVersion) {
+            throw new GameBattleConflictException($current->getStateVersion());
+        }
+    }
+
+    /**
+     * Пишет поля строки боя.
+     *
+     * @param int $battleId Бой.
+     * @param array<string, mixed> $fields Поля.
+     *
+     * @return void
+     *
      * @throws GameInvalidException Если поле.
      */
-    private function insertParticipant(int $battleId, string $type, int $participantId): void
+    private function write(int $battleId, array $fields): void
     {
         try {
-            $this->participantRecords->add([
-                'battle_id' => $battleId,
-                'kind' => $type,
-                'subject_id' => $participantId,
-            ]);
-        } catch (ReferenceConstraintException $exception) {
-            throw new GameNotFoundException('Game battle was not found', $exception);
-        } catch (UniqueConstraintException $exception) {
-            throw new GameInvalidException('Game battle participant is duplicated', $exception);
+            $this->battleRecords->update($battleId, $fields);
         } catch (
             FieldRequiredException
             | FieldInvalidException
             | MapInvalidException
             | RowWriteFailedException $exception
         ) {
-            throw new GameInvalidException('Game battle participant field is invalid', $exception);
+            throw new GameInvalidException('Game battle field is invalid', $exception);
         }
     }
 
     /**
-     * Пара из строки состава.
+     * Поля CAS-записи без null-значений.
      *
-     * @param mixed $row Строка ST.
+     * @param int $expectedVersion Ожидаемая версия.
+     * @param array<string, mixed>|null $pending Карта ожидания.
+     * @param array<string, mixed>|null $debt Карта долга.
+     * @param int|null $activeIndex Курсор.
+     * @param int|null $round Раунд.
+     * @param array<string, mixed>|null $cycle Цикл концентрации.
+     * @param array<int, array<string, mixed>>|null $marks Метки.
      *
-     * @return array{type: string, id: int} Пара.
-     *
-     * @throws GameInvalidException Если поле битое.
+     * @return array<string, mixed> Поля.
      */
-    private function participant(mixed $row): array
-    {
-        if (!is_array($row) || !is_string($row['kind'] ?? null) || !is_int($row['subject_id'] ?? null)) {
-            throw new GameInvalidException('Game battle participant row is invalid');
+    private function trackedFields(
+        int $expectedVersion,
+        ?array $pending,
+        ?array $debt,
+        ?int $activeIndex,
+        ?int $round,
+        ?array $cycle,
+        ?array $marks,
+    ): array {
+        $fields = ['state_version' => $expectedVersion + 1];
+        $optional = [
+            'pending_action_effects' => $pending,
+            'action_debt' => $debt,
+            'active_index' => $activeIndex,
+            'round' => $round,
+            'concentration_cycle' => $cycle,
+            'marks' => $marks,
+        ];
+        foreach ($optional as $key => $value) {
+            if ($value !== null) {
+                $fields[$key] = $value;
+            }
         }
 
-        return ['type' => $row['kind'], 'id' => $row['subject_id']];
-    }
-
-    /**
-     * Id строк состава.
-     *
-     * @param int $battleId Бой.
-     *
-     * @return list<int> Id.
-     *
-     * @throws GameInvalidException Если строка битая.
-     */
-    private function participantRowIds(int $battleId): array
-    {
-        $result = $this->participantRecords->getList(new ListQuery(
-            new FilterGroup('AND', [
-                new FilterCondition('battle_id', '=', $battleId),
-            ]),
-            ['id' => 'ASC'],
-            ListQuery::MAX_LIMIT,
-            0,
-            false,
-            null,
-        ));
-        $ids = [];
-        foreach ($result->rows() as $row) {
-            $ids[] = $this->rowId($row);
-        }
-
-        return $ids;
+        return $fields;
     }
 
     /**
@@ -566,9 +398,8 @@ final class GameBattleRepository
     }
 
     /**
-     * Снимает строку.
+     * Снимает строку боя.
      *
-     * @param IOpenedRecords $records Таблица.
      * @param int $rowId Id.
      *
      * @return void
@@ -576,10 +407,10 @@ final class GameBattleRepository
      * @throws GameNotFoundException Если строки нет.
      * @throws GameInvalidException Если поле.
      */
-    private function deleteRow(IOpenedRecords $records, int $rowId): void
+    private function deleteRow(int $rowId): void
     {
         try {
-            $records->delete($rowId);
+            $this->battleRecords->delete($rowId);
         } catch (RowNotFoundException $exception) {
             throw new GameNotFoundException('Game battle was not found', $exception);
         } catch (RowWriteFailedException $exception) {
