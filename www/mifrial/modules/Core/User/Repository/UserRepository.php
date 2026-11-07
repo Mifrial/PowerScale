@@ -2,14 +2,10 @@
 
 declare(strict_types=1);
 
-// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh
-// findPage и пачка id — одна коллекция учётки.
-
 namespace Mifrial\Core\User\Repository;
 
 use Closure;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
-use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
 use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
@@ -23,12 +19,15 @@ use Mifrial\Core\User\Dto\UserRecordPage;
 use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserNotFoundException;
+use Mifrial\Core\User\Repository\Query\UserPageQuery;
 
 /**
  * Коллекция учёток: SmartTable внутри, снаружи профиль и USER_*.
  */
 final class UserRepository
 {
+    private readonly UserPageQuery $pageQuery;
+
     /**
      * Создаёт репозиторий.
      *
@@ -39,6 +38,7 @@ final class UserRepository
     public function __construct(
         private readonly IOpenedRecords $userRecords,
     ) {
+        $this->pageQuery = new UserPageQuery('User');
     }
 
     /**
@@ -74,13 +74,13 @@ final class UserRepository
      */
     public function findPage(int $limit, int $offset, ?string $searchQuery, ?bool $active): UserRecordPage
     {
-        $this->assertPageBounds($limit, $offset);
-        $listResult = $this->readList(ListQuery::fromOptions([
+        $this->pageQuery->assertBounds($limit, $offset);
+        $listResult = $this->pageQuery->readList($this->userRecords, ListQuery::fromOptions([
             'limit' => $limit,
             'offset' => $offset,
             'countTotal' => true,
             'sort' => ['id' => 'asc'],
-            'filter' => $this->pageFilter(
+            'filter' => $this->pageQuery->filter(
                 $searchQuery,
                 $active,
                 ['login', 'name', 'surname', 'nickname', 'email'],
@@ -232,125 +232,6 @@ final class UserRepository
         }
 
         return $records;
-    }
-
-    /**
-     * Границы страницы.
-     *
-     * @param int $limit Размер.
-     * @param int $offset Сдвиг.
-     *
-     * @return void
-     *
-     * @throws UserInvalidException Если вне диапазона.
-     */
-    private function assertPageBounds(int $limit, int $offset): void
-    {
-        if ($limit < 1 || $limit > 500 || $offset < 0) {
-            throw new UserInvalidException('User page bounds are invalid');
-        }
-    }
-
-    /**
-     * Фильтр страницы: active AND (OR LIKE).
-     *
-     * @param string|null $searchQuery Подстрока.
-     * @param bool|null $active Active.
-     * @param array<int, string> $likeFields Поля LIKE.
-     *
-     * @return array<string|int, mixed>|null Дерево или нет WHERE.
-     *
-     * @throws UserInvalidException Если q слишком длинный.
-     */
-    private function pageFilter(?string $searchQuery, ?bool $active, array $likeFields): ?array
-    {
-        $clauses = [];
-        if ($active !== null) {
-            $clauses[] = ['=active' => $active];
-        }
-
-        $likePattern = $this->likePattern($searchQuery);
-        if ($likePattern !== null) {
-            $clauses[] = $this->likeOrGroup($likeFields, $likePattern);
-        }
-
-        if ($clauses === []) {
-            return null;
-        }
-
-        if (count($clauses) === 1) {
-            return $clauses[0];
-        }
-
-        $andGroup = ['LOGIC' => 'AND'];
-        foreach ($clauses as $clause) {
-            $andGroup[] = $clause;
-        }
-
-        return $andGroup;
-    }
-
-    /**
-     * OR LIKE по полям.
-     *
-     * @param array<int, string> $likeFields Поля.
-     * @param string $likePattern Шаблон.
-     *
-     * @return array<string|int, mixed> Группа OR.
-     */
-    private function likeOrGroup(array $likeFields, string $likePattern): array
-    {
-        $orGroup = ['LOGIC' => 'OR'];
-        foreach ($likeFields as $fieldName) {
-            $orGroup[] = ['%' . $fieldName => $likePattern];
-        }
-
-        return $orGroup;
-    }
-
-    /**
-     * Шаблон contains или null.
-     *
-     * @param string|null $searchQuery Вход.
-     *
-     * @return string|null %q%.
-     *
-     * @throws UserInvalidException Если длиннее 100.
-     */
-    private function likePattern(?string $searchQuery): ?string
-    {
-        if ($searchQuery === null) {
-            return null;
-        }
-
-        $trimmedQuery = trim($searchQuery);
-        if ($trimmedQuery === '') {
-            return null;
-        }
-
-        if (strlen($trimmedQuery) > 100) {
-            throw new UserInvalidException('Search query is too long');
-        }
-
-        return '%' . addcslashes($trimmedQuery, '%_\\') . '%';
-    }
-
-    /**
-     * getList ST с мапом ошибок.
-     *
-     * @param ListQuery $listQuery Запрос.
-     *
-     * @return ListResult Страница.
-     *
-     * @throws UserInvalidException Если запрос недопустим.
-     */
-    private function readList(ListQuery $listQuery): ListResult
-    {
-        try {
-            return $this->userRecords->getList($listQuery);
-        } catch (MapInvalidException $exception) {
-            throw new UserInvalidException('User list query is invalid', $exception);
-        }
     }
 
     /**
