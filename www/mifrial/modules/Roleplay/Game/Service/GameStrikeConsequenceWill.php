@@ -251,7 +251,7 @@ final class GameStrikeConsequenceWill
         $flag = $rating <= -3 ? 'unconscious' : ($rating === -2 ? 'disabled' : 'weakness');
         $code = $this->legacyCode($slice, $flag);
         $spec = $this->states->spec($slice, $code);
-        $rank = $this->rank($spec);
+        $rank = $this->decline->rank($spec);
         if ($spec->getValueType() !== 'flag' || $rank === null) {
             throw new GameInvalidException('Game strike will outcome is invalid');
         }
@@ -307,27 +307,6 @@ final class GameStrikeConsequenceWill
             'disabled' => $spec->isDeclineDisabled(),
             default => $spec->isDeclineWeakness(),
         };
-    }
-
-    /**
-     * Ранг флага decline: слабость, недееспособность или без сознания.
-     *
-     * @param StateSpec $spec Спека состояния.
-     *
-     * @return int|null Ранг или null, если флаг не decline.
-     */
-    private function rank(StateSpec $spec): ?int
-    {
-        $flags = [$spec->isDeclineWeakness(), $spec->isDeclineDisabled(), $spec->isDeclineUnconscious()];
-        if (count(array_filter($flags)) !== 1) {
-            return null;
-        }
-
-        if ($spec->isDeclineWeakness()) {
-            return 1;
-        }
-
-        return $spec->isDeclineDisabled() ? 2 : 3;
     }
 
     /**

@@ -14,10 +14,23 @@ use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
  *
  * Проверка только выбирает исход. Движение шкалы (снять старые строки,
  * поставить новую, не понижать при росте) живёт здесь и одинаково для
- * истощения из удара и для прироста из действия.
+ * истощения из удара и для прироста из действия. Чтение рангов — в
+ * GameStateScale.
  */
 final class GameStateDecline
 {
+    private readonly GameStateScale $scale;
+
+    /**
+     * Создаёт шкалу.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->scale = new GameStateScale();
+    }
+
     /**
      * Коды исходов проверки или все decline-состояния ревизии.
      *
@@ -28,26 +41,7 @@ final class GameStateDecline
      */
     public function codes(CharacterRuleSlice $slice, CheckSpec $check): array
     {
-        $codes = [];
-        foreach ($check->getOutcomes() as $outcome) {
-            $code = $outcome->getStateRuleCode();
-            if ($code !== null) {
-                $codes[] = $code;
-            }
-        }
-
-        if ($codes !== []) {
-            return array_values(array_unique($codes));
-        }
-
-        foreach ($slice->getLiveRules() as $rule) {
-            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
-            if ($spec instanceof StateSpec && $this->rank($spec) !== null) {
-                $codes[] = $rule->getCode();
-            }
-        }
-
-        return $codes;
+        return $this->scale->codes($slice, $check);
     }
 
     /**
@@ -59,16 +53,7 @@ final class GameStateDecline
      */
     public function rank(StateSpec $spec): ?int
     {
-        $flags = [$spec->isDeclineWeakness(), $spec->isDeclineDisabled(), $spec->isDeclineUnconscious()];
-        if (count(array_filter($flags)) !== 1) {
-            return null;
-        }
-
-        if ($spec->isDeclineWeakness()) {
-            return 1;
-        }
-
-        return $spec->isDeclineDisabled() ? 2 : 3;
+        return $this->scale->rank($spec);
     }
 
     /**
@@ -81,13 +66,7 @@ final class GameStateDecline
      */
     public function rankOf(CharacterRuleSlice $slice, ?string $code): ?int
     {
-        if ($code === null || $code === '') {
-            return null;
-        }
-
-        $spec = $this->optionalState($slice, $code);
-
-        return $spec === null ? null : $this->rank($spec);
+        return $this->scale->rankOf($slice, $code);
     }
 
     /**
@@ -100,20 +79,7 @@ final class GameStateDecline
      */
     public function rankInCheck(CheckSpec $check, string $code): ?int
     {
-        $rank = 0;
-        foreach ($check->getOutcomes() as $outcome) {
-            $outcomeCode = $outcome->getStateRuleCode();
-            if ($outcomeCode === null) {
-                continue;
-            }
-
-            $rank++;
-            if ($outcomeCode === $code) {
-                return $rank;
-            }
-        }
-
-        return null;
+        return $this->scale->rankInCheck($check, $code);
     }
 
     /**
@@ -124,46 +90,12 @@ final class GameStateDecline
      * @param CheckSpec $check Проверка.
      *
      * @return int|null Ранг или null.
+     *
+     * @throws GameInvalidException Если лист битый.
      */
     public function current(CharacterRuleSlice $slice, array $sheet, CheckSpec $check): ?int
     {
-        $outcomes = $check->getOutcomes();
-        $codes = $this->codes($slice, $check);
-        if ($outcomes !== [] && $codes !== []) {
-            $byCode = [];
-            $severity = 0;
-            foreach ($outcomes as $outcome) {
-                $code = $outcome->getStateRuleCode();
-                if ($code === null) {
-                    continue;
-                }
-
-                $severity++;
-                $byCode[$code] = $severity;
-            }
-
-            $rank = null;
-            foreach ($this->stateRows($sheet) as $code) {
-                if (isset($byCode[$code])) {
-                    $rank = max($rank ?? 0, $byCode[$code]);
-                }
-            }
-
-            return $rank;
-        }
-
-        $rank = null;
-        foreach ($this->stateRows($sheet) as $code) {
-            $spec = $this->optionalState($slice, $code);
-            $rowRank = $spec === null ? null : $this->rank($spec);
-            if ($rowRank === null) {
-                continue;
-            }
-
-            $rank = max($rank ?? 0, $rowRank);
-        }
-
-        return $rank;
+        return $this->scale->current($slice, $sheet, $check);
     }
 
     /**
@@ -179,11 +111,8 @@ final class GameStateDecline
     {
         $nextRank = $next['rank'] ?? 0;
         $currentRank = $current ?? 0;
-        if ($rose && $nextRank <= $currentRank) {
-            return null;
-        }
-
-        if (!$rose && $nextRank >= $currentRank) {
+        $moves = $rose ? $nextRank > $currentRank : $nextRank < $currentRank;
+        if (!$moves) {
             return null;
         }
 
@@ -214,30 +143,7 @@ final class GameStateDecline
             return [];
         }
 
-        $ops = [];
-        $states = $sheet['states'] ?? [];
-        if (is_array($states)) {
-            foreach ($states as $row) {
-                if (!is_array($row) || !is_int($row['id'] ?? null)) {
-                    continue;
-                }
-
-                $code = $row['stateRuleCode'] ?? null;
-                if ($declineCodes !== []) {
-                    if (is_string($code) && in_array($code, $declineCodes, true)) {
-                        $ops[] = ['kind' => 'removeState', 'id' => $row['id']];
-                    }
-
-                    continue;
-                }
-
-                $spec = is_string($code) ? $this->optionalState($slice, $code) : null;
-                if ($spec !== null && $this->rank($spec) !== null) {
-                    $ops[] = ['kind' => 'removeState', 'id' => $row['id']];
-                }
-            }
-        }
-
+        $ops = $this->removeOperations($sheet, $slice, $declineCodes);
         $next = $operation['stateRuleCode'] ?? null;
         if (is_string($next) && $next !== '') {
             $ops[] = ['kind' => 'putState', 'stateRuleCode' => $next];
@@ -264,45 +170,53 @@ final class GameStateDecline
     }
 
     /**
-     * Состояние по коду или null.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param string $code Код.
-     *
-     * @return StateSpec|null Состояние.
-     */
-    private function optionalState(CharacterRuleSlice $slice, string $code): ?StateSpec
-    {
-        $rule = $slice->findLive($code);
-        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-
-        return $spec instanceof StateSpec ? $spec : null;
-    }
-
-    /**
-     * Коды строк состояний.
+     * Снимает прежние строки шкалы.
      *
      * @param array<string, mixed> $sheet Лист.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<int, string> $declineCodes Коды исходов проверки.
      *
-     * @return array<int, string> Коды.
-     *
-     * @throws GameInvalidException Если лист битый.
+     * @return list<array<string, mixed>> removeState.
      */
-    private function stateRows(array $sheet): array
+    private function removeOperations(array $sheet, CharacterRuleSlice $slice, array $declineCodes): array
     {
+        $ops = [];
         $states = $sheet['states'] ?? [];
         if (!is_array($states)) {
-            throw new GameInvalidException('Game strike sheet is invalid');
+            return $ops;
         }
 
-        $codes = [];
         foreach ($states as $row) {
-            $code = is_array($row) ? ($row['stateRuleCode'] ?? null) : null;
-            if (is_string($code) && $code !== '') {
-                $codes[] = $code;
+            if (!is_array($row) || !is_int($row['id'] ?? null)) {
+                continue;
+            }
+
+            if ($this->removable($slice, $row, $declineCodes)) {
+                $ops[] = ['kind' => 'removeState', 'id' => $row['id']];
             }
         }
 
-        return $codes;
+        return $ops;
+    }
+
+    /**
+     * Строка относится к decline.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $row Строка.
+     * @param array<int, string> $declineCodes Коды исходов проверки.
+     *
+     * @return bool true, если строку надо снять.
+     */
+    private function removable(CharacterRuleSlice $slice, array $row, array $declineCodes): bool
+    {
+        $code = $row['stateRuleCode'] ?? null;
+        if ($declineCodes !== []) {
+            return is_string($code) && in_array($code, $declineCodes, true);
+        }
+
+        $spec = is_string($code) ? $this->scale->optionalState($slice, $code) : null;
+
+        return $spec !== null && $this->scale->rank($spec) !== null;
     }
 }

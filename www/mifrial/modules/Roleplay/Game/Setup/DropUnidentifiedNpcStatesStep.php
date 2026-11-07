@@ -102,21 +102,51 @@ final class DropUnidentifiedNpcStatesStep implements ISetupStep
             return;
         }
 
+        $next = $this->cleanSheet($version);
+        if ($next === null) {
+            return;
+        }
+
+        $this->write($records, $row, $version, $next);
+    }
+
+    /**
+     * Лист без строк состояний без id.
+     *
+     * @param array<string, mixed> $version Версия строки.
+     *
+     * @return array<string, mixed>|null Лист или null, если менять нечего.
+     */
+    private function cleanSheet(array $version): ?array
+    {
         $sheet = $version['sheet'] ?? null;
         if (!is_array($sheet)) {
-            return;
+            return null;
         }
 
         try {
             $next = (new CharacterActualStateRows())->withoutUnidentified($sheet);
         } catch (CharacterInvalidException) {
-            return;
+            return null;
         }
 
-        if ($next === $sheet) {
-            return;
-        }
+        return $next === $sheet ? null : $next;
+    }
 
+    /**
+     * Записывает почищенный лист.
+     *
+     * @param IOpenedRecords $records Порт.
+     * @param array<string, mixed> $row Строка.
+     * @param array<string, mixed> $version Версия строки.
+     * @param array<string, mixed> $next Лист.
+     *
+     * @return void
+     *
+     * @throws KernelException Если запись не удалась.
+     */
+    private function write(IOpenedRecords $records, array $row, array $version, array $next): void
+    {
         $id = $row['id'] ?? null;
         $actual = $row['actual_version'] ?? null;
         if (!is_int($id) || !is_int($actual)) {

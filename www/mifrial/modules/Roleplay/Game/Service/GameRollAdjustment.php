@@ -42,6 +42,22 @@ final class GameRollAdjustment
             return new RollAdjustment();
         }
 
+        $effects = $this->effectsOf($spec, $profileType, $hitNumber);
+
+        return new RollAdjustment($effects['remap'], $effects['oneDelta'], $effects['faceDelta']);
+    }
+
+    /**
+     * Ремап граней и дельты применимых эффектов карточки.
+     *
+     * @param AbilityActionSpec $spec Карточка.
+     * @param string $profileType Тип профиля.
+     * @param int $hitNumber Номер попадания.
+     *
+     * @return array{remap: array<int, int>, oneDelta: int, faceDelta: int} Настройка.
+     */
+    private function effectsOf(AbilityActionSpec $spec, string $profileType, int $hitNumber): array
+    {
         $remap = [];
         $oneDelta = 0;
         $faceDelta = 0;
@@ -63,6 +79,6 @@ final class GameRollAdjustment
             }
         }
 
-        return new RollAdjustment($remap, $oneDelta, $faceDelta);
+        return ['remap' => $remap, 'oneDelta' => $oneDelta, 'faceDelta' => $faceDelta];
     }
 }

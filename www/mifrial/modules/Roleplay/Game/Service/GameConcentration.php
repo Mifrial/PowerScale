@@ -132,31 +132,7 @@ final class GameConcentration
             return false;
         }
 
-        $spec = $this->checkSpecOf($slice, $checkCode);
-        if ($spec === null) {
-            return false;
-        }
-
-        for ($code = $checkCode, $guard = 0; $code !== null && $guard < 20; $guard++) {
-            $current = $this->checkSpecOf($slice, $code);
-            if ($current === null) {
-                break;
-            }
-
-            if ($current->isConcentrationToken()) {
-                return true;
-            }
-
-            if ($current->isWillpower() && $this->hasFlag($slice, 'willFocus')) {
-                return true;
-            }
-
-            $code = $current->getParentCheckCode();
-        }
-
-        $charSpec = $characteristic === null ? null : $this->specOf($slice, $characteristic);
-
-        return $charSpec instanceof CharacteristicSpec && $charSpec->isConcentrationToken();
+        return $this->chainAllows($slice, $checkCode, $characteristic);
     }
 
     /**
@@ -186,6 +162,86 @@ final class GameConcentration
         }
 
         return $amount;
+    }
+
+    /**
+     * Проверка или её родительская цепочка несёт жетон.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $checkCode Карточка проверки.
+     * @param string|null $characteristic Действующая характеристика.
+     *
+     * @return bool Можно.
+     */
+    private function chainAllows(
+        CharacterRuleSlice $slice,
+        string $checkCode,
+        ?string $characteristic,
+    ): bool {
+        if ($this->checkSpecOf($slice, $checkCode) === null) {
+            return false;
+        }
+
+        return $this->chainHasToken($slice, $checkCode)
+            || $this->characteristicAllows($slice, $characteristic);
+    }
+
+    /**
+     * Цепочка проверок несёт жетон.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $checkCode Карточка проверки.
+     *
+     * @return bool Есть.
+     */
+    private function chainHasToken(CharacterRuleSlice $slice, string $checkCode): bool
+    {
+        $code = $checkCode;
+        $guard = 0;
+        while ($code !== null && $guard < 20) {
+            $current = $this->checkSpecOf($slice, $code);
+            if ($current === null) {
+                break;
+            }
+
+            if ($this->tokenInCheck($slice, $current)) {
+                return true;
+            }
+
+            $code = $current->getParentCheckCode();
+            $guard++;
+        }
+
+        return false;
+    }
+
+    /**
+     * Проверка сама даёт жетон.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CheckSpec $check Карточка проверки.
+     *
+     * @return bool Есть.
+     */
+    private function tokenInCheck(CharacterRuleSlice $slice, CheckSpec $check): bool
+    {
+        return $check->isConcentrationToken()
+            || ($check->isWillpower() && $this->hasFlag($slice, 'willFocus'));
+    }
+
+    /**
+     * Характеристика сама даёт жетон.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string|null $characteristic Действующая характеристика.
+     *
+     * @return bool Можно.
+     */
+    private function characteristicAllows(CharacterRuleSlice $slice, ?string $characteristic): bool
+    {
+        $charSpec = $characteristic === null ? null : $this->specOf($slice, $characteristic);
+
+        return $charSpec instanceof CharacteristicSpec && $charSpec->isConcentrationToken();
     }
 
     /**
@@ -233,20 +289,26 @@ final class GameConcentration
     {
         foreach ($slice->getLiveRules() as $rule) {
             $base = $this->abilityBaseOf($rule->getSpec());
-            if ($base === null) {
-                continue;
-            }
-
-            if ($flag === 'willFocus' && $base->isWillFocus()) {
-                return true;
-            }
-
-            if ($flag === 'longTension' && $base->isLongTension()) {
+            if ($base !== null && $this->flagSet($base, $flag)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Способность несёт названный признак.
+     *
+     * @param AbilityBase $base База способности.
+     * @param string $flag longTension или willFocus.
+     *
+     * @return bool Есть.
+     */
+    private function flagSet(AbilityBase $base, string $flag): bool
+    {
+        return ($flag === 'willFocus' && $base->isWillFocus())
+            || ($flag === 'longTension' && $base->isLongTension());
     }
 
     /**

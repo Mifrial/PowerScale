@@ -144,6 +144,7 @@ final class GameStrikeRuleWiring
     {
         return new GameStrikeConsequenceStates(
             new GameMechanicResolver($this->mechanics->mechanics(), $this->mechanics->engine()),
+            new GameStateScale(),
         );
     }
 

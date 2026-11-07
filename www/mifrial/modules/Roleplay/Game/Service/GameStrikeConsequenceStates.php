@@ -21,11 +21,13 @@ final class GameStrikeConsequenceStates
      * Создаёт поиск состояний.
      *
      * @param GameMechanicResolver $resolver Резолв хендлеров.
+     * @param GameStateScale $scale Чтение состояний.
      *
      * @return void
      */
     public function __construct(
         private readonly GameMechanicResolver $resolver,
+        private readonly GameStateScale $scale,
     ) {
     }
 
@@ -128,7 +130,7 @@ final class GameStrikeConsequenceStates
      */
     public function spec(CharacterRuleSlice $slice, string $code): StateSpec
     {
-        $spec = $this->optional($slice, $code);
+        $spec = $this->scale->optionalState($slice, $code);
         if (!$spec instanceof StateSpec) {
             throw new GameInvalidException('Game strike state is invalid');
         }
@@ -207,8 +209,8 @@ final class GameStrikeConsequenceStates
      */
     public function has(CharacterRuleSlice $slice, array $sheet, string $flag): bool
     {
-        foreach ($this->rows($sheet) as $code) {
-            $spec = $this->optional($slice, $code);
+        foreach ($this->scale->stateCodes($sheet) as $code) {
+            $spec = $this->scale->optionalState($slice, $code);
             if ($spec !== null && $this->matches($spec, $flag)) {
                 return true;
             }
@@ -233,22 +235,6 @@ final class GameStrikeConsequenceStates
     }
 
     /**
-     * Спека состояния по коду, если он есть и не битый.
-     *
-     * @param CharacterRuleSlice $slice Срез правил.
-     * @param string $code Код состояния.
-     *
-     * @return StateSpec|null Спека или null.
-     */
-    private function optional(CharacterRuleSlice $slice, string $code): ?StateSpec
-    {
-        $rule = $slice->findLive($code);
-        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-
-        return $spec instanceof StateSpec ? $spec : null;
-    }
-
-    /**
      * Соответствует ли состояние заданному флагу.
      *
      * @param StateSpec $spec Спека состояния.
@@ -269,30 +255,4 @@ final class GameStrikeConsequenceStates
         return $spec->isMaim();
     }
 
-    /**
-     * Коды состояний всех строк листа.
-     *
-     * @param array<string, mixed> $sheet Лист.
-     *
-     * @return array<int, string> Коды строк.
-     *
-     * @throws GameInvalidException Если список состояний битый.
-     */
-    private function rows(array $sheet): array
-    {
-        $states = $sheet['states'] ?? [];
-        if (!is_array($states)) {
-            throw new GameInvalidException('Game strike sheet is invalid');
-        }
-
-        $codes = [];
-        foreach ($states as $row) {
-            $code = is_array($row) ? ($row['stateRuleCode'] ?? null) : null;
-            if (is_string($code) && $code !== '') {
-                $codes[] = $code;
-            }
-        }
-
-        return $codes;
-    }
 }
