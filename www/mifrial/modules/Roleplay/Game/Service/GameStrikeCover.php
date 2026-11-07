@@ -248,7 +248,7 @@ final class GameStrikeCover
         );
         $defenderRoll = null;
         if ($choice['reaction'] === 'dodge') {
-            $defenderRoll = $this->resolution->dodgeRollOf(
+            $defenderRoll = $this->resolution->rolls->dodgeRollOf(
                 $game,
                 $open,
                 $hitCode,
@@ -260,10 +260,10 @@ final class GameStrikeCover
                 $shotDistance,
             );
             $attackerRoll = $profileType === 'shoot' || $profileType === 'throw'
-                ? $this->resolution->rerateRangedHit($game, $open, $conditions, $attackerRoll, $defenderRoll, 'dodge')
+                ? $this->resolution->defense->rerateRangedHit($game, $open, $conditions, $attackerRoll, $defenderRoll, 'dodge')
                 : $this->rules->hitCheck->rerate($attackerRoll, $defenderRoll);
         } elseif ($choice['reaction'] === 'block') {
-            $defenderRoll = $this->resolution->blockRollOf(
+            $defenderRoll = $this->resolution->rolls->blockRollOf(
                 $game,
                 $open,
                 $choice,
@@ -277,7 +277,7 @@ final class GameStrikeCover
             if ($isPush) {
                 $attackerRoll = $this->rules->hitCheck->rerate($attackerRoll, $defenderRoll);
             } elseif ($profileType === 'shoot' || $profileType === 'throw') {
-                $attackerRoll = $this->resolution->rerateRangedHit(
+                $attackerRoll = $this->resolution->defense->rerateRangedHit(
                     $game,
                     $open,
                     $conditions,

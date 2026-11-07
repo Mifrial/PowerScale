@@ -300,12 +300,12 @@ final class GameStrikeWideClose
 
         $damage = $this->rules->hitCheck->isHitAutoFail($attackerRoll['roll'])
             ? $this->amounts->zero()
-            : $this->resolution->damageOf($game, $open);
+            : $this->resolution->damage->damageOf($game, $open);
 
         $penetration = null;
         $penetrationFactory = function () use (&$penetration, $game, $open): DimensionalNumber {
             if (!$penetration instanceof DimensionalNumber) {
-                $penetration = $this->resolution->penetrationOf($game, $open);
+                $penetration = $this->resolution->defense->penetrationOf($game, $open);
             }
 
             return $penetration;

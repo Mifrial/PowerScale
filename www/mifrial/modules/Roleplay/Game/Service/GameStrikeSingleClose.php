@@ -445,7 +445,7 @@ final class GameStrikeSingleClose
         $pushChecks = [];
         $attackerRoll = $resumeState !== null
             ? $resumeState['attackerRoll']
-            : $this->resolution->rollOf(
+            : $this->resolution->rolls->rollOf(
                 $game,
                 $open,
                 $hitCode,
@@ -565,7 +565,7 @@ final class GameStrikeSingleClose
 
         if (!$defenseRolled && $choice['reaction'] === 'dodge') {
             $shotDistance = $profileType === 'shoot' ? $metrics['distance'] : null;
-            $defenderRoll = $this->resolution->dodgeRollOf(
+            $defenderRoll = $this->resolution->rolls->dodgeRollOf(
                 $game,
                 $targetOpen,
                 $hitCode,
@@ -577,12 +577,12 @@ final class GameStrikeSingleClose
                 $shotDistance,
             );
             $attackerRoll = $profileType === 'shoot' || $profileType === 'throw'
-                ? $this->resolution->rerateRangedHit($game, $open, $conditions, $attackerRoll, $defenderRoll, 'dodge')
+                ? $this->resolution->defense->rerateRangedHit($game, $open, $conditions, $attackerRoll, $defenderRoll, 'dodge')
                 : $this->rules->hitCheck->rerate($attackerRoll, $defenderRoll);
         }
 
         if (!$defenseRolled && $choice['reaction'] === 'block') {
-            $defenderRoll = $this->resolution->blockRollOf(
+            $defenderRoll = $this->resolution->rolls->blockRollOf(
                 $game,
                 $targetOpen,
                 $choice,
@@ -596,7 +596,7 @@ final class GameStrikeSingleClose
             if ($isPush) {
                 $attackerRoll = $this->rules->hitCheck->rerate($attackerRoll, $defenderRoll);
             } elseif ($profileType === 'shoot' || $profileType === 'throw') {
-                $attackerRoll = $this->resolution->rerateRangedHit(
+                $attackerRoll = $this->resolution->defense->rerateRangedHit(
                     $game,
                     $open,
                     $conditions,
@@ -612,7 +612,7 @@ final class GameStrikeSingleClose
             && $choice['reaction'] === 'ignore'
             && ($profileType === 'shoot' || $profileType === 'throw')
         ) {
-            $attackerRoll = $this->resolution->rerateRangedHit(
+            $attackerRoll = $this->resolution->defense->rerateRangedHit(
                 $game,
                 $open,
                 $conditions,
@@ -690,7 +690,7 @@ final class GameStrikeSingleClose
             : $this->amounts->appliedSr($success, $srCap);
         $damage = $autoFail
             ? $this->amounts->zero()
-            : $this->resolution->damageOf(
+            : $this->resolution->damage->damageOf(
                 $game,
                 $open,
                 $isPush ? $damageSr : $success,
@@ -723,18 +723,18 @@ final class GameStrikeSingleClose
             );
         $penetration = $damageSr === 0
             ? $this->amounts->zero()
-            : $this->resolution->penetrationOf($game, $open, $damageSr, 1, $metrics['drop']);
+            : $this->resolution->defense->penetrationOf($game, $open, $damageSr, 1, $metrics['drop']);
         $resistance = $damageSr === 0
             ? $this->amounts->zero()
-            : $this->resolution->resistanceOf(
+            : $this->resolution->defense->resistanceOf(
                 $game,
                 $targetOpen,
-                $this->resolution->resistanceChoice($choice, $result['defenderRoll'] ?? null),
+                $this->resolution->defense->resistanceChoice($choice, $result['defenderRoll'] ?? null),
                 $damageSr,
                 $penetration,
                 $durabilityShave,
             );
-        $soak = $this->resolution->soakOf($game, $targetOpen, $choice['reaction'], $damageSr, $pending);
+        $soak = $this->resolution->damage->soakOf($game, $targetOpen, $choice['reaction'], $damageSr, $pending);
         $result['resistance'] = $this->amounts->view($resistance);
         if ($soak !== null) {
             $result['S'] = $this->amounts->view($soak);
@@ -749,7 +749,7 @@ final class GameStrikeSingleClose
         for ($packet = 1; $packet <= $packets; ++$packet) {
             $packetDamage = $autoFail
                 ? $this->amounts->zero()
-                : $this->resolution->damageOf(
+                : $this->resolution->damage->damageOf(
                     $game,
                     $open,
                     $isPush ? $damageSr : $success,
@@ -772,7 +772,7 @@ final class GameStrikeSingleClose
         $result['packetDamages'] = array_map($this->amounts->view(...), $packetDamages);
         $result['packetInjuries'] = array_map($this->amounts->view(...), $packetInjuries);
         $prepared = ($isPush ? $damageSr > 0 : !$autoFail)
-            ? $this->resolution->prepareSheet(
+            ? $this->resolution->damage->prepareSheet(
                 $game,
                 $targetOpen,
                 $this->amounts->sum($packetInjuries),

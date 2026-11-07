@@ -203,7 +203,7 @@ final class GameActionModifierRunner
                 $actionCharacteristicModifier,
                 $gripBonus,
             );
-            $prepared = $this->resolution->selfDamage(
+            $prepared = $this->resolution->damage->selfDamage(
                 $game,
                 $attackerKind,
                 $attackerId,

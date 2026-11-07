@@ -1,28 +1,28 @@
 {
-  "minTokens": 50,
-  "minLines": 8,
-  "excludePaths": [
-    "modules/*/tests/*"
-  ],
-  "gate": {
-    "excludeFolders": [
-      "Dto",
-      "Table",
-      "Spec"
+    "minTokens": 50,
+    "minLines": 8,
+    "excludePaths": [
+        "modules/*/tests/*"
     ],
-    "alwaysIncludeFolders": [
-      "Value"
-    ],
-    "maxDuplicatedLines": 11606
-  },
-  "allow": [
-    {
-      "paths": [
-        "modules/Roleplay/Game/Service/GameStrikeConsequenceChat.php",
-        "modules/Roleplay/Game/Service/GameStrikeConsequences.php"
-      ],
-      "reason": "Фасад удара повторяет публичную подпись post, чтобы сохранить API потребителей",
-      "review": "2026-11-07"
-    }
-  ]
+    "gate": {
+        "excludeFolders": [
+            "Dto",
+            "Table",
+            "Spec"
+        ],
+        "alwaysIncludeFolders": [
+            "Value"
+        ],
+        "maxDuplicatedLines": 11347
+    },
+    "allow": [
+        {
+            "paths": [
+                "modules/Roleplay/Game/Service/GameStrikeConsequenceChat.php",
+                "modules/Roleplay/Game/Service/GameStrikeConsequences.php"
+            ],
+            "reason": "Фасад удара повторяет публичную подпись post, чтобы сохранить API потребителей",
+            "review": "2026-11-07"
+        }
+    ]
 }

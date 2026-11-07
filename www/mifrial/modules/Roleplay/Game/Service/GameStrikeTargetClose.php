@@ -559,7 +559,7 @@ final class GameStrikeTargetClose
         array_push($flank, ...$extraAdvantages);
 
         if ($choice['reaction'] === 'dodge') {
-            $defenderRoll = $this->resolution->dodgeRollOf(
+            $defenderRoll = $this->resolution->rolls->dodgeRollOf(
                 $game,
                 $targetOpen,
                 $hitCode,
@@ -573,7 +573,7 @@ final class GameStrikeTargetClose
         }
 
         if ($choice['reaction'] === 'block') {
-            $defenderRoll = $this->resolution->blockRollOf(
+            $defenderRoll = $this->resolution->rolls->blockRollOf(
                 $game,
                 $targetOpen,
                 $choice,
@@ -640,15 +640,15 @@ final class GameStrikeTargetClose
         $effectiveDamage = $success === 0 ? $this->amounts->zero() : $damage;
         $resistance = $success === 0
             ? $this->amounts->zero()
-            : $this->resolution->resistanceOf(
+            : $this->resolution->defense->resistanceOf(
                 $game,
                 $targetOpen,
-                $this->resolution->resistanceChoice($choice, $defenderRoll),
+                $this->resolution->defense->resistanceChoice($choice, $defenderRoll),
                 $success,
                 $penetrationFactory(),
                 $durabilityShave,
             );
-        $soak = $this->resolution->soakOf($game, $targetOpen, $choice['reaction'], $success, $pending);
+        $soak = $this->resolution->damage->soakOf($game, $targetOpen, $choice['reaction'], $success, $pending);
         $damageTypeCode = $this->rules->outcome->damageTypeCode(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -698,7 +698,7 @@ final class GameStrikeTargetClose
         bool $viewAll,
         array &$record,
     ): int {
-        $prepared = $this->resolution->prepareSheet(
+        $prepared = $this->resolution->damage->prepareSheet(
             $game,
             GameStrikeTargetRow::targetOpen($open, $target),
             $injury,
@@ -763,7 +763,7 @@ final class GameStrikeTargetClose
 
         array_push($advantages, ...$extraAdvantages);
 
-        return $this->resolution->rollOf(
+        return $this->resolution->rolls->rollOf(
             $game,
             $open,
             $hitCode,
