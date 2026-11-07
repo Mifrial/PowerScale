@@ -18,9 +18,14 @@ use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGameProjections;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
+use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
+use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameRepository;
+use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
 /**
  * Сборка проекций. Не метод GamePortFactory.
@@ -40,22 +45,21 @@ final class GameProjectionPortFactory
     {
         $gateway = $this->smartTableGateway($serviceLocator);
         $strikes = new GameStrikePortFactory();
+        $cardAccess = new GameCardAccess(
+            new GameRepository($gateway),
+            new GameMemberRepository($gateway),
+            new GameInvitationRepository($gateway),
+        );
+        $access = new GameProjectionAccess($this->games($serviceLocator), $cardAccess);
+        $npcs = new GameNpcProjection(new GameNpcRepository($gateway), new GameNpcVisibility(), $access);
 
         return new GameProjections(
-            $gateway,
-            $this->games($serviceLocator),
-            new GameCardAccess(
-                new GameRepository($gateway),
-                new GameMemberRepository($gateway),
-                new GameInvitationRepository($gateway),
-            ),
-            $this->characters($serviceLocator),
             $this->memberships($serviceLocator),
-            new GameCharacterProjectionMask(),
-            $this->ruleSlices($serviceLocator),
-            $this->characterSheets($serviceLocator),
-            $strikes->createSheets($serviceLocator),
-            $strikes->createProcessFlow($serviceLocator),
+            $access,
+            $this->characterProjection($serviceLocator, $access),
+            $npcs,
+            $this->battleProjection($gateway, $strikes, $serviceLocator),
+            $this->wideStrikeProjection($gateway, $cardAccess, $npcs),
         );
     }
 
@@ -71,6 +75,77 @@ final class GameProjectionPortFactory
     public function createHttp(IServiceLocator $serviceLocator): GameProjectionHttp
     {
         return new GameProjectionHttp($this->userAccess($serviceLocator), $this->create($serviceLocator));
+    }
+
+    /**
+     * Листы персонажей.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param GameProjectionAccess $access Доступ читателя.
+     *
+     * @return GameCharacterProjection Чтение.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function characterProjection(IServiceLocator $serviceLocator, GameProjectionAccess $access): GameCharacterProjection
+    {
+        return new GameCharacterProjection(
+            $this->characters($serviceLocator),
+            $this->ruleSlices($serviceLocator),
+            $this->characterSheets($serviceLocator),
+            new GameCharacterProjectionMask(),
+            $access,
+        );
+    }
+
+    /**
+     * Бой и процессы.
+     *
+     * @param ISmartTableGateway $gateway Шлюз.
+     * @param GameStrikePortFactory $strikes Сборка удара.
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameBattleProjection Чтение.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function battleProjection(
+        ISmartTableGateway $gateway,
+        GameStrikePortFactory $strikes,
+        IServiceLocator $serviceLocator,
+    ): GameBattleProjection {
+        return new GameBattleProjection(
+            new GameSessionRepository($gateway),
+            new GameBattleRepository($gateway),
+            $strikes->createProcessFlow($serviceLocator),
+            $strikes->createSheets($serviceLocator),
+        );
+    }
+
+    /**
+     * Широкий удар боя.
+     *
+     * @param ISmartTableGateway $gateway Шлюз.
+     * @param GameCardAccess $cardAccess Видимость карточки.
+     * @param GameNpcProjection $npcs NPC игры.
+     *
+     * @return GameWideStrikeProjection Чтение.
+     */
+    private function wideStrikeProjection(
+        ISmartTableGateway $gateway,
+        GameCardAccess $cardAccess,
+        GameNpcProjection $npcs,
+    ): GameWideStrikeProjection {
+        return new GameWideStrikeProjection(
+            new GameActionRepository($gateway),
+            new GameStrikeAccess(
+                new GameMemberRepository($gateway),
+                new GameCharacterRepository($gateway),
+                new GameBattleRepository($gateway),
+                $cardAccess,
+            ),
+            $npcs,
+        );
     }
 
     /**

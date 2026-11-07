@@ -66,6 +66,25 @@ final class GameStrikeTargetRow
     }
 
     /**
+     * Ожидания решения из строки удара.
+     *
+     * @param array<string, mixed> $row Строка удара.
+     *
+     * @return list<array<string, mixed>> Ожидания.
+     */
+    public static function awaiting(array $row): array
+    {
+        $resolution = $row['resolution'] ?? null;
+        if (is_string($resolution)) {
+            $resolution = json_decode($resolution, true);
+        }
+
+        return is_array($resolution) && is_array($resolution['awaiting'] ?? null)
+            ? array_values(array_filter($resolution['awaiting'], static fn (mixed $entry): bool => is_array($entry)))
+            : [];
+    }
+
+    /**
      * Пара защитника из строки.
      *
      * @param array<string, mixed> $row Цель.

@@ -70,6 +70,21 @@ final class GameViewAssembler
     }
 
     /**
+     * Участник без имени и без списка прав.
+     *
+     * @param GameMemberRecord $record Строка.
+     *
+     * @return array<string, mixed> JSON.
+     */
+    public function member(GameMemberRecord $record): array
+    {
+        return [
+            'userId' => $record->getUserId(),
+            'role' => $record->getRole(),
+        ];
+    }
+
+    /**
      * Снимок открытого боя или null.
      *
      * @param GameBattleRecord|null $battle Строка.
@@ -127,6 +142,18 @@ final class GameViewAssembler
             return null;
         }
 
+        return $this->strikeFields($row, $this->lastStrike($row));
+    }
+
+    /**
+     * Последняя цель, ждущая реакции.
+     *
+     * @param array<string, mixed> $row Колонки.
+     *
+     * @return array<string, mixed> Цель.
+     */
+    private function lastStrike(array $row): array
+    {
         $strikes = is_array($row['strikes'] ?? null) ? $row['strikes'] : [];
         $target = [];
         foreach ($strikes as $strike) {
@@ -140,21 +167,34 @@ final class GameViewAssembler
             }
         }
 
+        return $target;
+    }
+
+    /**
+     * Плоские поля открытого удара.
+     *
+     * @param array<string, mixed> $row Колонки.
+     * @param array<string, mixed> $target Цель.
+     *
+     * @return array<string, mixed> JSON.
+     */
+    private function strikeFields(array $row, array $target): array
+    {
         return [
             'strikeId' => $this->intField($target, 'id'),
-            'attackerKind' => is_string($row['attacker_kind'] ?? null) ? $row['attacker_kind'] : '',
+            'attackerKind' => $this->stringField($row, 'attacker_kind'),
             'attackerId' => $this->intField($row, 'attacker_id'),
-            'defenderKind' => is_string($target['target_type'] ?? null) ? $target['target_type'] : '',
+            'defenderKind' => $this->stringField($target, 'target_type'),
             'defenderId' => $this->intField($target, 'target_id'),
-            'actionRuleCode' => is_string($row['action_rule_code'] ?? null) ? $row['action_rule_code'] : '',
+            'actionRuleCode' => $this->stringField($row, 'action_rule_code'),
             'itemInventoryId' => $this->intField($target, 'item_inventory_id'),
-            'itemRuleCode' => is_string($target['item_rule_code'] ?? null) ? $target['item_rule_code'] : '',
-            'profileType' => is_string($target['profile_type'] ?? null) ? $target['profile_type'] : '',
+            'itemRuleCode' => $this->stringField($target, 'item_rule_code'),
+            'profileType' => $this->stringField($target, 'profile_type'),
             'profileIndex' => $this->intField($target, 'profile_index'),
             'conditions' => GameStrikeTargetRow::conditions($target),
-            'supporters' => $this->supportersOf($target),
-            'coverers' => $this->rowsOf($target, 'coverers'),
-            'awaiting' => $this->awaitingOf($target),
+            'supporters' => GameStrikeTargetRow::jsonRows($target, 'supporters'),
+            'coverers' => GameStrikeTargetRow::jsonRows($target, 'coverers'),
+            'awaiting' => GameStrikeTargetRow::awaiting($target),
             'maneuver' => $this->maneuverOf($target),
         ];
     }
@@ -168,18 +208,32 @@ final class GameViewAssembler
      */
     private function maneuverOf(array $row): ?array
     {
-        $raw = $row['resolution'] ?? null;
-        if (is_string($raw)) {
-            $raw = json_decode($raw, true);
-        }
-
+        $raw = $this->resolutionOf($row);
         if (!is_array($raw) || !is_array($raw['maneuver'] ?? null)) {
             return null;
         }
 
         $maneuver = $raw['maneuver'];
+
+        return [
+            'ruleCode' => is_string($maneuver['ruleCode'] ?? null) ? $maneuver['ruleCode'] : '',
+            'phase' => is_string($raw['phase'] ?? null) ? $raw['phase'] : '',
+            'attacker' => $raw['attacker'] ?? null,
+            'targets' => $this->maneuverTargets($raw['targets'] ?? null),
+        ];
+    }
+
+    /**
+     * Цели раскрытого манёвра.
+     *
+     * @param mixed $entries JSON.
+     *
+     * @return array<string|int, array<string, mixed>> Цели.
+     */
+    private function maneuverTargets(mixed $entries): array
+    {
         $targets = [];
-        foreach (is_array($raw['targets'] ?? null) ? $raw['targets'] : [] as $key => $target) {
+        foreach (is_array($entries) ? $entries : [] as $key => $target) {
             if (!is_array($target)) {
                 continue;
             }
@@ -193,76 +247,24 @@ final class GameViewAssembler
             ];
         }
 
-        return [
-            'ruleCode' => is_string($maneuver['ruleCode'] ?? null) ? $maneuver['ruleCode'] : '',
-            'phase' => is_string($raw['phase'] ?? null) ? $raw['phase'] : '',
-            'attacker' => $raw['attacker'] ?? null,
-            'targets' => $targets,
-        ];
+        return $targets;
     }
 
     /**
-     * Ожидающие решения открытого удара.
+     * Разобранный resolution строки.
      *
      * @param array<string, mixed> $row Колонки.
      *
-     * @return array<int, array<string, mixed>> Ожидания.
+     * @return mixed Значение.
      */
-    private function awaitingOf(array $row): array
+    private function resolutionOf(array $row): mixed
     {
         $raw = $row['resolution'] ?? null;
         if (is_string($raw)) {
             $raw = json_decode($raw, true);
         }
 
-        if (!is_array($raw) || !is_array($raw['awaiting'] ?? null)) {
-            return [];
-        }
-
-        return array_values(array_filter($raw['awaiting'], static fn (mixed $entry): bool => is_array($entry)));
-    }
-
-    /**
-     * Записи строки удара.
-     *
-     * @param array<string, mixed> $row Колонки.
-     * @param string $key Колонка.
-     *
-     * @return array<int, array<string, mixed>> Записи.
-     */
-    private function rowsOf(array $row, string $key): array
-    {
-        $raw = $row[$key] ?? null;
-        if (is_string($raw)) {
-            $raw = json_decode($raw, true);
-        }
-
-        if (!is_array($raw)) {
-            return [];
-        }
-
-        return array_values(array_filter($raw, static fn (mixed $entry): bool => is_array($entry)));
-    }
-
-    /**
-     * Уже объявленные реакции строки удара.
-     *
-     * @param array<string, mixed> $row Колонки.
-     *
-     * @return array<int, array<string, mixed>> Записи.
-     */
-    private function supportersOf(array $row): array
-    {
-        $raw = $row['supporters'] ?? null;
-        if (is_string($raw)) {
-            $raw = json_decode($raw, true);
-        }
-
-        if (!is_array($raw)) {
-            return [];
-        }
-
-        return array_values(array_filter($raw, static fn (mixed $entry): bool => is_array($entry)));
+        return $raw;
     }
 
     /**
@@ -284,17 +286,17 @@ final class GameViewAssembler
     }
 
     /**
-     * Участник без имени и без списка прав.
+     * Строковое поле строки удара.
      *
-     * @param GameMemberRecord $record Строка.
+     * @param array<string, mixed> $row Колонки.
+     * @param string $key Ключ.
      *
-     * @return array<string, mixed> JSON.
+     * @return string Значение.
      */
-    public function member(GameMemberRecord $record): array
+    private function stringField(array $row, string $key): string
     {
-        return [
-            'userId' => $record->getUserId(),
-            'role' => $record->getRole(),
-        ];
+        $value = $row[$key] ?? null;
+
+        return is_string($value) ? $value : '';
     }
 }
