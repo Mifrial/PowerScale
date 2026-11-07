@@ -74,26 +74,7 @@ final class GameStrikePortFactory
         );
         $rules = $this->strikeRules($serviceLocator);
 
-        return new GameStrikes(
-            $gateway,
-            $this->games($serviceLocator),
-            $card,
-            new GameSessionRepository($gateway),
-            $this->mutations($serviceLocator),
-            $rules,
-            new ConflictSheetProjection(
-                new CharacterSectionMask(),
-                new GameCharacterProjectionMask(),
-                new GameNpcVisibility(),
-            ),
-            $events,
-            $this->consequences($serviceLocator, $rules),
-            $this->cardAvailability($serviceLocator, $gateway, $rules),
-            new GamePushRules($rules),
-            $this->createStateIncreaseChecks($serviceLocator),
-            $this->processFlow($serviceLocator, $gateway, $rules),
-            $this->checkRoll($serviceLocator),
-        );
+        return $this->composeStrikes($serviceLocator, $gateway, $events, $card, $rules);
     }
 
     /**
@@ -352,6 +333,72 @@ final class GameStrikePortFactory
         $gateway = $this->smartTableGateway($serviceLocator);
 
         return $this->processFlow($serviceLocator, $gateway, $this->strikeRules($serviceLocator));
+    }
+
+    /**
+     * Собирает роли одиночного удара.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param ISmartTableGateway $gateway Шлюз.
+     * @param IEventManager $events Доставка.
+     * @param GameCardAccess $card Фильтр карточки.
+     * @param GameStrikeRules $rules Правила.
+     *
+     * @return GameStrikes Фасад.
+     */
+    private function composeStrikes(
+        IServiceLocator $serviceLocator,
+        ISmartTableGateway $gateway,
+        IEventManager $events,
+        GameCardAccess $card,
+        GameStrikeRules $rules,
+    ): GameStrikes {
+        $shared = new GameStrikeShared(
+            $gateway,
+            $this->games($serviceLocator),
+            $this->mutations($serviceLocator),
+            $rules,
+            $card,
+            $events,
+        );
+        $consequences = $this->consequences($serviceLocator, $rules);
+        $processes = $this->processFlow($serviceLocator, $gateway, $rules);
+        $close = $this->strikeClose($serviceLocator, $rules, $shared, $consequences, $processes);
+        $roles = new GameStrikeRoleFactory($rules, $shared);
+        $body = new GameStrikeBody();
+
+        return new GameStrikes(
+            $roles->declare($body, $consequences, $this->cardAvailability($serviceLocator, $gateway, $rules), $processes),
+            $roles->window($this->checkRoll($serviceLocator), $close),
+            $roles->closeRunner($body, $close),
+        );
+    }
+
+    /**
+     * Собирает закрытие удара.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param GameStrikeRules $rules Правила.
+     * @param GameStrikeShared $shared Общие сервисы.
+     * @param GameStrikeConsequences $consequences Последствия.
+     * @param GameProcessFlow $processes Сессия процесса.
+     *
+     * @return GameStrikeClose Закрытие.
+     */
+    private function strikeClose(
+        IServiceLocator $serviceLocator,
+        GameStrikeRules $rules,
+        GameStrikeShared $shared,
+        GameStrikeConsequences $consequences,
+        GameProcessFlow $processes,
+    ): GameStrikeClose {
+        return (new GameStrikeCloseFactory())->create(
+            $rules,
+            $shared,
+            $consequences,
+            $this->createStateIncreaseChecks($serviceLocator),
+            $processes,
+        );
     }
 
     /**
