@@ -62,4 +62,11 @@ describe('MapRenderService', () => {
     expect(service.lineDepth(line({ decor: { depth: 120 } }))).toBe(100);
     expect(service.lineDepth(line())).toBe(0);
   });
+
+  it('defaults the depth profile width to 85% and clamps overrides', () => {
+    expect(service.lineDepthWidth(line())).toBe(85);
+    expect(service.lineDepthWidth(line({ decor: { depthWidth: 60 } }))).toBe(60);
+    expect(service.lineDepthWidth(line({ decor: { depthWidth: 10 } }))).toBe(20);
+    expect(service.lineDepthWidth(line({ decor: { depthWidth: 150 } }))).toBe(100);
+  });
 });

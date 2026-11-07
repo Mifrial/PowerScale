@@ -20,5 +20,7 @@ export interface MapLineDecor {
   fillOpacity?: number;
   /** Глубина русла, 0–100; 0 — плоская лента. */
   depth?: number;
+  /** Ширина профиля глубины, 20–100 % полной ширины; по умолчанию 85. */
+  depthWidth?: number;
   flow?: MapLineFlow;
 }

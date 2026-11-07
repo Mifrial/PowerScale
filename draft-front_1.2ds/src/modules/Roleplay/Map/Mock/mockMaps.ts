@@ -207,6 +207,7 @@ const maps: MapDetail[] = [
         colorBlend: 16,
         decor: {
           depth: 45,
+          depthWidth: 85,
           flow: {
             enabled: true,
             speed: 30,

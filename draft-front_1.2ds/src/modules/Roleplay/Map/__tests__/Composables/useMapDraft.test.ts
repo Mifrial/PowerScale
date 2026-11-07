@@ -572,7 +572,7 @@ describe('useMapDraft', () => {
         label: 'Река',
         segments: [],
         colorBlend: 16,
-        decor: { fillOpacity: 0, depth: 40 },
+        decor: { fillOpacity: 0, depth: 40, depthWidth: 70 },
       },
       1,
       [
@@ -585,7 +585,7 @@ describe('useMapDraft', () => {
 
     expect(savedPayload?.map.fillOpacity).toBe(30);
     expect(savedPayload?.map.areas[0].decor).toEqual({ fillOpacity: 0 });
-    expect(savedPayload?.map.lines[0].decor).toEqual({ fillOpacity: 0, depth: 40 });
+    expect(savedPayload?.map.lines[0].decor).toEqual({ fillOpacity: 0, depth: 40, depthWidth: 70 });
   });
 
   it('saves a copy without an id and adopts the new map', async () => {

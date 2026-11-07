@@ -15,7 +15,6 @@ import type { MapViewport } from '@/modules/Roleplay/Map/Dto/MapViewport';
 import type { MapToolMode } from '@/modules/Roleplay/Map/Enum/MapToolMode';
 import type { RibbonEdges, RibbonLayout } from '@/modules/Roleplay/Map/Service/MapRibbonService';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
-import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
 import { MAP_LINE_DEPTH } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DEPTH';
 import { mapGeometryService, mapRenderService, mapRibbonService } from '@/modules/Roleplay/Map/init';
 import { getFileApi } from '@/modules/Core/File/init';
@@ -340,7 +339,13 @@ function drawLineBodies(context: CanvasRenderingContext2D): void {
     const layout = mapRibbonService.layout(line);
     const fillOpacity = mapRenderService.lineFillOpacity(line, props.map.fillOpacity);
     drawLineFill(context, line, layout, props.map.fillOpacity);
-    drawLineDepth(context, layout, mapRenderService.lineDepth(line), fillOpacity);
+    drawLineDepth(
+      context,
+      layout,
+      mapRenderService.lineDepth(line),
+      mapRenderService.lineDepthWidth(line),
+      fillOpacity,
+    );
     drawLineEdges(context, layout);
   }
 }
@@ -407,18 +412,48 @@ function drawLineDepth(
   context: CanvasRenderingContext2D,
   layout: RibbonLayout,
   depth: number,
+  depthWidth: number,
   fillOpacity: number,
 ): void {
   if (depth <= 0 || fillOpacity <= 0) return;
   const widthSum = layout.flat.widths.reduce((sum, width) => sum + width, 0);
   if (widthSum / Math.max(1, layout.flat.widths.length) < MAP_LINE_DEPTH.minWidth) return;
-  const strength = (depth / MAP_LINE_DEPTH.max) * (fillOpacity / MAP_FILL_OPACITY.max);
+  // При почти прозрачной заливке профиль гаснет вместе с ней, но на обычных
+  // 20–100 % работает в полную силу, иначе глубина теряется.
+  const strength = (depth / MAP_LINE_DEPTH.max) * Math.min(1, fillOpacity / 20);
+  const widthRatio = Math.min(1, depthWidth / MAP_LINE_DEPTH.max);
+
+  context.save();
+  context.globalCompositeOperation = 'multiply';
   for (const band of MAP_LINE_DEPTH.centerBands) {
-    fillRibbonBand(context, layout, band, `rgba(0, 0, 0, ${band.alpha * strength})`);
+    const edge = widthRatio * band.factor;
+    fillRibbonBand(context, layout, { from: -edge, to: edge }, MAP_LINE_DEPTH.centerColor, band.alpha * strength);
   }
-  for (const band of MAP_LINE_DEPTH.shallowBands) {
-    fillRibbonBand(context, layout, band, `rgba(255, 255, 255, ${band.alpha * strength})`);
+
+  if (widthRatio < 1) {
+    context.globalCompositeOperation = 'screen';
+    for (const side of [-1, 1] as const) {
+      fillRibbonBand(
+        context,
+        layout,
+        { from: side * 1, to: side * widthRatio },
+        MAP_LINE_DEPTH.shallowColor,
+        MAP_LINE_DEPTH.shallowAlpha * strength,
+      );
+      const inner = Math.max(widthRatio, MAP_LINE_DEPTH.shallowInnerRatio);
+      if (inner > widthRatio + 0.01) {
+        fillRibbonBand(
+          context,
+          layout,
+          { from: side * 1, to: side * inner },
+          MAP_LINE_DEPTH.shallowColor,
+          MAP_LINE_DEPTH.shallowInnerAlpha * strength,
+        );
+      }
+    }
   }
+  context.restore();
+  context.globalAlpha = 1;
 }
 
 function fillRibbonBand(
@@ -426,12 +461,15 @@ function fillRibbonBand(
   layout: RibbonLayout,
   band: { from: number; to: number },
   color: string,
+  alpha: number,
 ): void {
   const points = mapRibbonService.ribbonBand(layout.flat, band.from, band.to);
   if (points.length < 3) return;
   tracePolygon(context, points);
   context.fillStyle = color;
+  context.globalAlpha = Math.max(0, Math.min(1, alpha));
   context.fill();
+  context.globalAlpha = 1;
 }
 
 function fillRibbonRange(

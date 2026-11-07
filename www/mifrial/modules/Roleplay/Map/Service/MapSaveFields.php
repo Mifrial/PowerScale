@@ -242,7 +242,8 @@ final class MapSaveFields
      * @param string $path Путь.
      *
      * @return array{flow?: array{enabled: bool, speed: int, density: int, opacity: int,
-     *     color: string, direction: int, seed: int}, fillOpacity?: int, depth?: int} Декор.
+     *     color: string, direction: int, seed: int}, fillOpacity?: int, depth?: int,
+     *     depthWidth?: int} Декор.
      *
      * @throws MapInvalidException Если форма неверна.
      */
@@ -257,7 +258,7 @@ final class MapSaveFields
             throw new MapInvalidException($path . ' is invalid');
         }
 
-        $allowed = ['flow', 'fillOpacity', 'depth'];
+        $allowed = ['flow', 'fillOpacity', 'depth', 'depthWidth'];
         foreach (array_keys($value) as $unknown) {
             if (!in_array($unknown, $allowed, true)) {
                 throw new MapInvalidException($path . ' has an unknown key');
@@ -271,6 +272,10 @@ final class MapSaveFields
 
         if (array_key_exists('depth', $value)) {
             $decor['depth'] = $this->intValue($value, 'depth', $path . '.depth', 0, 100);
+        }
+
+        if (array_key_exists('depthWidth', $value)) {
+            $decor['depthWidth'] = $this->intValue($value, 'depthWidth', $path . '.depthWidth', 20, 100);
         }
 
         $flow = $value['flow'] ?? null;

@@ -50,6 +50,7 @@ const form = reactive({
   segments: [] as SegmentForm[],
   colorBlend: MAP_LINE_DEFAULT_COLOR_BLEND,
   depth: 0,
+  depthWidth: Number(MAP_LINE_DEPTH.defaultWidth),
   fillOpacityOverride: false,
   fillOpacity: Number(MAP_FILL_OPACITY.default),
   flow: { ...MAP_LINE_FLOW_OFF },
@@ -93,6 +94,7 @@ watch(open, (value) => {
   form.colorBlend = props.line?.colorBlend ?? props.defaults?.colorBlend ?? MAP_LINE_DEFAULT_COLOR_BLEND;
   const decor = props.line?.decor ?? props.defaults?.decor;
   form.depth = decor?.depth ?? 0;
+  form.depthWidth = decor?.depthWidth ?? MAP_LINE_DEPTH.defaultWidth;
   form.fillOpacityOverride = decor?.fillOpacity !== undefined;
   form.fillOpacity = decor?.fillOpacity ?? props.mapFillOpacity;
   Object.assign(form.flow, decor?.flow ?? MAP_LINE_FLOW_OFF);
@@ -122,6 +124,7 @@ function applyPreset(code: string | null): void {
   form.width = found.width;
   form.colorBlend = found.colorBlend ?? MAP_LINE_DEFAULT_COLOR_BLEND;
   form.depth = found.decor?.depth ?? 0;
+  form.depthWidth = found.decor?.depthWidth ?? MAP_LINE_DEPTH.defaultWidth;
   Object.assign(form.flow, found.decor?.flow ?? MAP_LINE_FLOW_OFF);
   if (form.label.trim() === '') form.label = found.title;
 }
@@ -171,6 +174,12 @@ function submit(): void {
   }
   if (form.depth > 0) {
     decor.depth = clampInt(form.depth, 0, MAP_LINE_DEPTH.max, 0);
+    decor.depthWidth = clampInt(
+      form.depthWidth,
+      MAP_LINE_DEPTH.minWidthPercent,
+      MAP_LINE_DEPTH.max,
+      MAP_LINE_DEPTH.defaultWidth,
+    );
   }
   if (form.flow.enabled) {
     decor.flow = {
@@ -309,8 +318,19 @@ function remove(): void {
           color="primary"
           label="Глубина русла"
         />
+        <v-slider
+          v-if="form.depth > 0"
+          v-model.number="form.depthWidth"
+          :min="MAP_LINE_DEPTH.minWidthPercent"
+          :max="MAP_LINE_DEPTH.max"
+          :step="1"
+          thumb-label
+          color="primary"
+          label="Ширина глубины, %"
+        />
         <p class="text-caption text-medium-emphasis">
-          0 — плоская лента; глубина затемняет центр и осветляет мелководье у берегов.
+          0 — плоская лента; глубина затемняет центр и осветляет мелководье у берегов. Ширина 85 % оставляет мелководье
+          только у самой кромки.
         </p>
 
         <v-switch

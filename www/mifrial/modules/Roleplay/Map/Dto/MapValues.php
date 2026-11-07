@@ -260,7 +260,7 @@ final class MapValues
         }
 
         foreach (array_keys($value) as $unknown) {
-            if (!in_array($unknown, ['flow', 'fillOpacity', 'depth'], true)) {
+            if (!in_array($unknown, ['flow', 'fillOpacity', 'depth', 'depthWidth'], true)) {
                 throw new MapInvalidException('Map line decor has an unknown key');
             }
         }
@@ -272,6 +272,10 @@ final class MapValues
 
         if (array_key_exists('depth', $value)) {
             $decor['depth'] = self::decorInt($value['depth'], 0, 100);
+        }
+
+        if (array_key_exists('depthWidth', $value)) {
+            $decor['depthWidth'] = self::decorInt($value['depthWidth'], 20, 100);
         }
 
         $flow = $value['flow'] ?? null;

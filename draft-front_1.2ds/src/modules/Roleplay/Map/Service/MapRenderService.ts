@@ -20,6 +20,16 @@ export class MapRenderService {
     return this.clamp(line.decor?.depth, MAP_LINE_DEPTH.max, 0, 0);
   }
 
+  /** Ширина профиля глубины, 20–100 %. */
+  lineDepthWidth(line: MapLine): number {
+    return this.clamp(
+      line.decor?.depthWidth,
+      MAP_LINE_DEPTH.max,
+      MAP_LINE_DEPTH.minWidthPercent,
+      MAP_LINE_DEPTH.defaultWidth,
+    );
+  }
+
   /** Плотность заливки с переопределением объекта. */
   fillOpacity(override: number | undefined, mapOpacity: number): number {
     return this.clamp(override ?? mapOpacity, MAP_FILL_OPACITY.max, MAP_FILL_OPACITY.min, MAP_FILL_OPACITY.default);

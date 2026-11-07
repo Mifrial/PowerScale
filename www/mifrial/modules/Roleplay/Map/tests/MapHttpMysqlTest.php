@@ -263,6 +263,7 @@ final class MapHttpMysqlTest extends TestCase
         $withDecor['lines'][0]['decor'] = [
             'fillOpacity' => 80,
             'depth' => 45,
+            'depthWidth' => 88,
             'flow' => [
                 'enabled' => true,
                 'speed' => 30,
@@ -284,6 +285,7 @@ final class MapHttpMysqlTest extends TestCase
         self::assertSame(24, $decorSaved['data']['lines'][0]['colorBlend']);
         self::assertSame(80, $decorSaved['data']['lines'][0]['decor']['fillOpacity']);
         self::assertSame(45, $decorSaved['data']['lines'][0]['decor']['depth']);
+        self::assertSame(88, $decorSaved['data']['lines'][0]['decor']['depthWidth']);
         self::assertSame(30, $decorSaved['data']['lines'][0]['decor']['flow']['speed']);
         self::assertSame(-1, $decorSaved['data']['lines'][0]['decor']['flow']['direction']);
         self::assertSame('#eaf6ff', $decorSaved['data']['lines'][0]['decor']['flow']['color']);
@@ -473,6 +475,16 @@ final class MapHttpMysqlTest extends TestCase
         ]);
         self::assertFalse($badDepth['success']);
         self::assertSame('MAP_INVALID', $badDepth['error']['code']);
+
+        $secondPayload['lines'][0]['decor'] = ['depth' => 45, 'depthWidth' => 10];
+        $badDepthWidth = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $second['data']['version'],
+            'force' => true,
+            'map' => $secondPayload,
+        ]);
+        self::assertFalse($badDepthWidth['success']);
+        self::assertSame('MAP_INVALID', $badDepthWidth['error']['code']);
 
         $secondPayload['lines'][0]['decor'] = [];
         $secondPayload['areas'][0]['decor'] = ['fillOpacity' => 101];

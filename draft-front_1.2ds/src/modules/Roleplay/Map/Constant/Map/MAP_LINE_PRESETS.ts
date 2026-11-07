@@ -23,7 +23,7 @@ export const MAP_LINE_PRESETS: MapLinePreset[] = [
     color: '#3F6F8F',
     speed: 400,
     width: 16,
-    decor: { depth: 60 },
+    decor: { depth: 60, depthWidth: 95 },
   },
   {
     code: 'calm-river',
@@ -32,7 +32,7 @@ export const MAP_LINE_PRESETS: MapLinePreset[] = [
     speed: 800,
     width: 14,
     colorBlend: 16,
-    decor: { depth: 35, flow: { ...MAP_LINE_FLOW_DEFAULTS } },
+    decor: { depth: 35, depthWidth: 85, flow: { ...MAP_LINE_FLOW_DEFAULTS } },
   },
   {
     code: 'river',
@@ -40,7 +40,7 @@ export const MAP_LINE_PRESETS: MapLinePreset[] = [
     color: '#5A87A8',
     speed: 800,
     width: 14,
-    decor: { depth: 30 },
+    decor: { depth: 30, depthWidth: 85 },
   },
   {
     code: 'stream',
@@ -48,7 +48,7 @@ export const MAP_LINE_PRESETS: MapLinePreset[] = [
     color: '#6FA8C4',
     speed: 1500,
     width: 6,
-    decor: { depth: 20 },
+    decor: { depth: 20, depthWidth: 70 },
   },
   { code: 'ford', title: 'Брод', color: '#B7A98A', speed: 1000, width: 10 },
   { code: 'dirt-road', title: 'Грунтовая дорога', color: '#B8A57A', speed: 7000, width: 10 },

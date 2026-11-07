@@ -235,6 +235,8 @@ sort_order IntField, required, default 0, min 0
   `map.fill_opacity`; значение `0` допустимо и означает «только контур».
 - `depth` — 0–100, профиль русла: центр темнее, у берегов мелководье светлее.
   `0` — плоская лента, по умолчанию `0`.
+- `depthWidth` — 20–100, ширина профиля глубины в процентах полной ширины
+  ленты; по умолчанию 85. Остаток у кромок отводится мелководью.
 - `flow.speed` — 1–600 px подложки в секунду по осевой, по умолчанию 40.
 - `flow.density` — 0–100, по умолчанию 50; сколько бликов ряби на единицу длины:
   малое значение — редкие крупные, большое — частая мелкая рябь.
@@ -315,8 +317,9 @@ sort_order IntField, required, default 0, min 0
   ручек в пределах мира; пустой `handles` допустим; `color` — `#rrggbb`;
   `speed` 0–10000; `segments` пуст или ровно по числу сегментов, у каждого
   `speed` 0–10000 и `color` `null` или `#rrggbb`; `colorBlend` 0–1000;
-  `decor` пуст или содержит `fillOpacity` 0–100, `depth` 0–100 и `flow` с
-  полями в допустимых диапазонах; `sortOrder ≥ 0`.
+  `decor` пуст или содержит `fillOpacity` 0–100, `depth` 0–100,
+  `depthWidth` 20–100 и `flow` с полями в допустимых диапазонах;
+  `sortOrder ≥ 0`.
 
 Предупреждений о пересечениях больше нет: маршрут сам обходит блокеры, а мост и
 ворота — это проходимые элементы сверху.
@@ -384,7 +387,7 @@ map.route       { mapId, variantId, fromX, fromY, toX, toY }
                     { "in": [-60,0], "out": [0,0] }],
         "segments": [{ "speed": 400, "color": null }, { "speed": 1000, "color": "#B7A98A" }],
         "colorBlend": 16,
-        "decor": { "fillOpacity": 80, "depth": 45,
+        "decor": { "fillOpacity": 80, "depth": 45, "depthWidth": 88,
                    "flow": { "enabled": true, "speed": 40, "density": 50,
                              "opacity": 18, "color": "#ffffff",
                              "direction": 1, "seed": 7 } },

@@ -23,6 +23,7 @@ import type { MapWarning } from '@/modules/Roleplay/Map/Dto/MapWarning';
 import { zeroMapHandle } from '@/modules/Roleplay/Map/Dto/MapHandle';
 import { zeroMapLineHandle } from '@/modules/Roleplay/Map/Dto/MapLineHandle';
 import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
+import { MAP_LINE_DEPTH } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DEPTH';
 import {
   MAP_LINE_DEFAULT_COLOR_BLEND,
   MAP_LINE_FLOW_DEFAULTS,
@@ -1022,6 +1023,14 @@ function normalizeDecor(decor: MapLineDecor | null | undefined): MapLineDecor {
   }
   if (decor?.depth !== undefined && decor.depth > 0) {
     result.depth = clampRange(decor.depth, 0, 100, 0);
+    if (decor.depthWidth !== undefined) {
+      result.depthWidth = clampRange(
+        decor.depthWidth,
+        MAP_LINE_DEPTH.minWidthPercent,
+        MAP_LINE_DEPTH.max,
+        MAP_LINE_DEPTH.defaultWidth,
+      );
+    }
   }
 
   const flow = decor?.flow;
