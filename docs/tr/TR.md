@@ -73,6 +73,11 @@
 - [План Chat 4: Vue real](chat-plan-04.md) — `Engine.openSse`; unix; не `chat.sync` action.
 - [План Chat 5: visibility](chat-plan-05.md) — аудитория `all`/`users`; unread/preview через `aggregate`; не `forRole`.
 - [План Chat 6: создать host](chat-plan-06.md) — `addPrivate` / `addGroup` HTTP+UI; inbox/SSE — все чаты членства, без allowlist по `type`.
+- [Нарезка личных заметок](notes-roadmap.md) — `Messages/Notes`: таблица `note` → фасад → HTTP → Vue → Character/Game; Map отложен.
+- [План Notes 1: вынос Inline](notes-plan-01-inline-extract.md) — `Messages/Inline`; Chat реэкспортирует, доменных модулей не знает.
+- [План Notes 2: хранение и HTTP](notes-plan-02-storage-http.md) — схема `note`, `INotes`, 8 действий `note.*`, MySQL/HTTP-тесты.
+- [План Notes 3: Vue](notes-plan-03-vue.md) — API/mock, `NotesWorkspace`, `NotesSlider`, `/notes`, реестр хостов.
+- [План Notes 4: Character и Game](notes-plan-04-character.md) — `owner_notes`/`personalNotes` сняты, слайдер на страницах хостов.
 - [План Cache 1: драйвер](cache-plan-01.md) — `Core/Cache`, `ICacheStore`; TTL ≤ 30 суток; ST и Versioning — политики.
 - [Нарезка Versioning](versioning-roadmap.md) — `Versioning/Space`: кластер; хвост часов в Rule 1.
 - [План Versioning 1: кластер и фасад](versioning-plan-01.md) — сделано; `vt_note`; TTL среза 30 суток.

@@ -347,7 +347,7 @@ game_loot_interest(
 )
 ```
 
-`games.status`, `visibility` и `join_policy` независимы. Invitation statuses: `sent`, `viewed`, `accepted`, `declined`; loot statuses: `prepared`, `available`, `distributed`. Интерес игрока к loot хранится отдельно в `game_loot_interest`. `game_personal_notes` принадлежат конкретной паре `(game_id, user_id)` и не являются общими заметками игры.
+`games.status`, `visibility` и `join_policy` независимы. Invitation statuses: `sent`, `viewed`, `accepted`, `declined`; loot statuses: `prepared`, `available`, `distributed`. Интерес игрока к loot хранится отдельно в `game_loot_interest`. `game_personal_notes` — legacy-заготовка; личные заметки зрителя хранит общая таблица `note` с `host_type = 'game'`.
 
 Внешняя модель правил игры — `spaceId + revision`; legacy `games.rules_version_at` сохраняется здесь как `REQUIREMENT/HISTORICAL`, пока backend-контракт не подтверждён.
 
@@ -367,7 +367,6 @@ characters(
   status VARCHAR DEFAULT 'draft' NOT NULL, -- UI/legacy label; не moderation lifecycle
   state_json JSON NULL,
   heir_of → characters.id NULL,
-  owner_notes TEXT NULL, -- личные заметки владельца; не входит в character_versions
   active BOOL DEFAULT true NOT NULL,
   created_at
 )
@@ -497,7 +496,25 @@ chronicle_entries(
   created_at
 )
 INDEX (chronicle_id, sort_order)
+
+note(
+  id BIGINT,
+  host_type VARCHAR(32) NOT NULL,
+  host_id INT NOT NULL,
+  author_id → users.id NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  body_html TEXT NOT NULL,
+  body_text TEXT NOT NULL,
+  pinned BOOL DEFAULT false NOT NULL,
+  sort_order INT DEFAULT 0 NOT NULL,
+  active BOOL DEFAULT true NOT NULL,
+  created_at,
+  updated_at
+)
+INDEX (host_type), (host_id), (author_id), (pinned)
 ```
+
+`note` — личные заметки автора о сущности-хосте (`host_type` + `host_id`); модуль Notes не знает доменных модулей хостов. Читает и правит только автор; bypass видит чужие заметки только в общем списке `/notes` и без права записи. `active = false` — хост удалён: строки не удаляются, а деактивируются и доступны только в фильтре «Архив»; собственное удаление заметки (`note.delete`) — физическое. `sort_order` задаёт ручной порядок внутри пары «автор + хост». При удалении учётки заметки снимаются каскадом по `author_id`.
 
 Для `chronicles` должен быть ровно один owner FK из `game_id`, `character_id`, `region_id`; это проверяется SQL CHECK либо application invariant. `chat_members.last_read_message_id` определяет unread как видимые сообщения с большим id, исключая собственные сообщения. `chat_messages.updated_at` нужен для sync по изменениям visibility/content.
 

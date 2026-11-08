@@ -517,6 +517,7 @@
                 "Core/SmartTable",
                 "Core/User",
                 "Messages/Chat",
+                "Messages/Notes",
                 "Roleplay/Character",
                 "Roleplay/Game",
                 "Roleplay/Keyword",
@@ -766,6 +767,7 @@
                 "Core/Mail",
                 "Core/User",
                 "Messages/Chat",
+                "Messages/Notes",
                 "Roleplay/Character",
                 "Roleplay/Game",
                 "Roleplay/Keyword",
@@ -1098,6 +1100,7 @@
                 "Core/File",
                 "Core/Logger",
                 "Messages/Chat",
+                "Messages/Notes",
                 "Roleplay/Character",
                 "Roleplay/Game",
                 "Roleplay/Keyword",
@@ -1356,6 +1359,133 @@
             ]
         },
         {
+            "key": "Messages/Notes",
+            "group": "Messages",
+            "name": "Notes",
+            "path": "modules/Messages/Notes",
+            "namespace": "Mifrial\\Messages\\Notes",
+            "container": "Mifrial\\Messages\\Notes\\Container\\NotesContainer",
+            "locator": "Mifrial\\Messages\\Notes\\Interface\\Container\\INotesContainer",
+            "setup": "Mifrial\\Messages\\Notes\\Setup\\NotesModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Messages\\Notes\\Interface\\Service\\INotes",
+                "Mifrial\\Messages\\Notes\\Service\\NoteHttpService",
+                "Mifrial\\Messages\\Notes\\Action\\FindNotePageAction",
+                "Mifrial\\Messages\\Notes\\Action\\FindNoteHostsAction",
+                "Mifrial\\Messages\\Notes\\Action\\GetNoteAction",
+                "Mifrial\\Messages\\Notes\\Action\\CreateNoteAction",
+                "Mifrial\\Messages\\Notes\\Action\\UpdateNoteAction",
+                "Mifrial\\Messages\\Notes\\Action\\DeleteNoteAction",
+                "Mifrial\\Messages\\Notes\\Action\\ReorderNotesAction",
+                "Mifrial\\Messages\\Notes\\Action\\PinNoteAction"
+            ],
+            "routes": [
+                {
+                    "action": "note.findPage",
+                    "handler": "Mifrial\\Messages\\Notes\\Action\\FindNotePageAction",
+                    "csrf": true
+                },
+                {
+                    "action": "note.findHosts",
+                    "handler": "Mifrial\\Messages\\Notes\\Action\\FindNoteHostsAction",
+                    "csrf": true
+                },
+                {
+                    "action": "note.get",
+                    "handler": "Mifrial\\Messages\\Notes\\Action\\GetNoteAction",
+                    "csrf": true
+                },
+                {
+                    "action": "note.create",
+                    "handler": "Mifrial\\Messages\\Notes\\Action\\CreateNoteAction",
+                    "csrf": true
+                },
+                {
+                    "action": "note.update",
+                    "handler": "Mifrial\\Messages\\Notes\\Action\\UpdateNoteAction",
+                    "csrf": true
+                },
+                {
+                    "action": "note.delete",
+                    "handler": "Mifrial\\Messages\\Notes\\Action\\DeleteNoteAction",
+                    "csrf": true
+                },
+                {
+                    "action": "note.reorder",
+                    "handler": "Mifrial\\Messages\\Notes\\Action\\ReorderNotesAction",
+                    "csrf": true
+                },
+                {
+                    "action": "note.pin",
+                    "handler": "Mifrial\\Messages\\Notes\\Action\\PinNoteAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "INotesContainer",
+                    "path": "Interface/Container/INotesContainer.php",
+                    "summary": "Публичный контейнер модуля Notes."
+                },
+                {
+                    "name": "INotes",
+                    "path": "Interface/Service/INotes.php",
+                    "summary": "Фасад личных заметок: без схемы и без HTTP."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Core/User"
+            ],
+            "dependedOnBy": [],
+            "plans": [
+                {
+                    "path": "docs/tr/notes-plan-01-inline-extract.md",
+                    "title": "План 01 — вынос Messages/Inline из Chat",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-08",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/notes-plan-02-storage-http.md",
+                    "title": "План 02 — Messages/Notes: хранение и HTTP",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-08",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/notes-plan-03-vue.md",
+                    "title": "План 03 — Messages/Notes: Vue",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-08",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/notes-plan-04-character.md",
+                    "title": "План 04 — Character: удаление owner_notes и слайдер заметок",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-08",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/notes-roadmap.md",
+                    "title": "Нарезка Messages/Notes",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-08",
+                    "hasStatus": true
+                }
+            ]
+        },
+        {
             "key": "Roleplay/Character",
             "group": "Roleplay",
             "name": "Character",
@@ -1380,8 +1510,7 @@
                 "Mifrial\\Roleplay\\Character\\Action\\ValidateCharacterAction",
                 "Mifrial\\Roleplay\\Character\\Action\\GetCharacterListAction",
                 "Mifrial\\Roleplay\\Character\\Action\\GetCharacterAction",
-                "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterVisibilityAction",
-                "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterOwnerNotesAction"
+                "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterVisibilityAction"
             ],
             "routes": [
                 {
@@ -1412,11 +1541,6 @@
                 {
                     "action": "character.updateVisibility",
                     "handler": "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterVisibilityAction",
-                    "csrf": true
-                },
-                {
-                    "action": "character.updateOwnerNotes",
-                    "handler": "Mifrial\\Roleplay\\Character\\Action\\UpdateCharacterOwnerNotesAction",
                     "csrf": true
                 },
                 {
@@ -2669,7 +2793,7 @@
                     "title": "Карты: серверный срез",
                     "kind": "plan",
                     "state": "В РАБОТЕ",
-                    "date": "2026-11-07",
+                    "date": "2026-11-08",
                     "hasStatus": true
                 },
                 {
@@ -2677,7 +2801,7 @@
                     "title": "Карты: фронтенд-срез",
                     "kind": "plan",
                     "state": "В РАБОТЕ",
-                    "date": "2026-11-07",
+                    "date": "2026-11-08",
                     "hasStatus": true
                 },
                 {
@@ -2939,27 +3063,11 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/rule-content-plan-08-strike-upgrades.md",
-                    "title": "C2 — план: улучшения удара (`strike_upgrade`)",
-                    "kind": "plan",
-                    "state": "ПЛАН",
-                    "date": "2026-09-15",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/rule-content-plan-09-melee-speed.md",
                     "title": "C2 — аудит ветки ближнего боя «Скорость»",
                     "kind": "plan",
                     "state": "ПЛАН",
                     "date": "2026-09-16",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/rule-content-plan-11-melee-accuracy.md",
-                    "title": "C2 — ветка ближнего боя «Точность»",
-                    "kind": "plan",
-                    "state": "ПЛАН",
-                    "date": "2026-09-20",
                     "hasStatus": true
                 },
                 {
@@ -2987,14 +3095,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/rule-content-plan-10-melee-power.md",
-                    "title": "C2 — аудит и посадка ветки ближнего боя «Сила»",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-10-25",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/rule-content-plan-15-melee-tactics-design.md",
                     "title": "C2 — дизайн способностей «Защита знанием» и «Прикрытие»",
                     "kind": "plan",
@@ -3008,6 +3108,14 @@
                     "kind": "plan",
                     "state": "В РАБОТЕ",
                     "date": null,
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-17-melee-maneuvers.md",
+                    "title": "C2 — ветка ближнего боя «Боевые манёвры»",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-08",
                     "hasStatus": true
                 },
                 {
@@ -3040,14 +3148,6 @@
                     "kind": "plan",
                     "state": "ЧАСТИЧНО",
                     "date": "2026-09-13",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/rule-content-plan-13-melee-quantity.md",
-                    "title": "C2 — аудит ветки ближнего боя «Количество»",
-                    "kind": "plan",
-                    "state": "ЧАСТИЧНО",
-                    "date": "2026-09-20",
                     "hasStatus": true
                 },
                 {
@@ -3136,6 +3236,38 @@
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-09-13",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-08-strike-upgrades.md",
+                    "title": "C2 — план: улучшения удара (`strike_upgrade`)",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-03",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-10-melee-power.md",
+                    "title": "C2 — аудит и посадка ветки ближнего боя «Сила»",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-08",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-11-melee-accuracy.md",
+                    "title": "C2 — ветка ближнего боя «Точность»",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-08",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-13-melee-quantity.md",
+                    "title": "C2 — аудит ветки ближнего боя «Количество»",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-08",
                     "hasStatus": true
                 },
                 {

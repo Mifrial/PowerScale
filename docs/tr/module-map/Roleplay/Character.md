@@ -29,7 +29,6 @@
 - `Mifrial\Roleplay\Character\Action\GetCharacterListAction`
 - `Mifrial\Roleplay\Character\Action\GetCharacterAction`
 - `Mifrial\Roleplay\Character\Action\UpdateCharacterVisibilityAction`
-- `Mifrial\Roleplay\Character\Action\UpdateCharacterOwnerNotesAction`
 
 ## Маршруты
 
@@ -41,7 +40,6 @@
 | `character.getList` | `GetCharacterListAction` | да |
 | `character.get` | `GetCharacterAction` | да |
 | `character.updateVisibility` | `UpdateCharacterVisibilityAction` | да |
-| `character.updateOwnerNotes` | `UpdateCharacterOwnerNotesAction` | да |
 | `character.applyActualPatch` | `ApplyCharacterActualPatchAction` | да |
 
 ## Контракты `Interface/`

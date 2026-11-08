@@ -188,8 +188,10 @@ Auth зависит от User: после входа и выхода Auth выз
 - Mechanic → Engine, UI, User (плагин админки, как Keyword). PHP: SmartTable + `IUserAccess` ([`mechanic-plan-02.md`](mechanic-plan-02.md)). Не Rule/Keyword/RuleSpace/Character/Game. Не Versioning. PHP-хендлеры Engine — OPEN. Vue: папка `Roleplay/Mechanic` ([`mechanic-plan-03.md`](mechanic-plan-03.md)).
 - Rule → Engine, UI, User (плагин), Chat (плагин), Keyword, Mechanic (публично). Не RuleSpace/Character/Game. Не Notifications. Не Versioning. `spaceId` и ревизия — проп, роут или ключ inject; RuleSpace только `provide`
 - RuleSpace → Engine, UI, User, Rule, Keyword, Mechanic (публично). Не Character/Game. Не Notifications. PHP-оператор → `IRules` + sidecar; не SQL карт `rule*` кластера; PHP RuleSpace ↛ Keyword; PHP RuleSpace ↛ Mechanic; Vue ↛ Versioning
-- Character → Engine, UI, User, Rule, RuleSpace, Keyword, Mechanic, Chat (плагин), Notifications (публично, отправка). Не Game. Не Versioning
-- Game → Engine, UI, User, Rule, RuleSpace, Character, Keyword, Mechanic, Chat (плагин), Notifications (публично, отправка). Не Versioning
+- Character → Engine, UI, User, Rule, RuleSpace, Keyword, Mechanic, Chat (плагин), Notes (плагин), Notifications (публично, отправка). Не Game. Не Versioning
+- Game → Engine, UI, User, Rule, RuleSpace, Character, Keyword, Mechanic, Chat (плагин), Notes (плагин), Notifications (публично, отправка). Не Versioning
+- Messages/Inline → Engine, UI. Доменных модулей не знает: рендереры и источники токенов регистрируют потребители. Chat реэкспортирует его публичный API
+- Messages/Notes → Engine, UI, User, Inline. Хосты регистрируют себя через `registerNoteHost`; модуль не знает доменных модулей и не проверяет доступ к сущности
 
 ### Долг кода (CODE_GAP, не реализация)
 
@@ -242,7 +244,10 @@ module.config плана 1 — хвост); просмотр HTTP+Vue —
 **`Core/Cache`** —
 `ICacheStore` (file/redis, TTL ≤ 30 суток); не теги списков ST.
 **`Messages/Chat`** (ленивый) — хост сообщений, HTTP actions + SSE
-`/api/chat/sync`; не Roleplay. **`Versioning/Space`** (ленивый) — кластер
+`/api/chat/sync`; не Roleplay. **`Messages/Inline`** (ленивый) — общие
+инлайн-примитивы и TipTap-редактор без домена. **`Messages/Notes`** — личные
+заметки автора о сущности-хосте, HTTP actions `note.*`, слайдер и `/notes`.
+**`Versioning/Space`** (ленивый) — кластер
 identity/экземпляр/space/revision + состав; не Core, не Rule.
 **`Roleplay/Keyword`**, **`Roleplay/Mechanic`**, **`Roleplay/Rule`**,
 **`Roleplay/RuleSpace`** — ленивые; Keyword → SmartTable + User
@@ -253,7 +258,7 @@ SmartTable + `ILogger` (Kernel); Mail → SmartTable + Agent (`IAgents`) +
 (`UserReferenceField`, `IUserAccess`); Image никого (только Kernel);
 User → File (`IFiles`) и Image (`IImageTransform`) для аватара; Cache никого;
 SmartTable → Cache; Auth → User и (Auth 3) Mail (`IMail`); Chat → SmartTable
-и User (публично); Versioning/Space → SmartTable + Cache; Keyword →
+и User (публично); Notes → SmartTable + User (`IUserAccess`); Versioning/Space → SmartTable + Cache; Keyword →
 SmartTable; Mechanic → SmartTable + User (`IUserAccess`); Rule → SmartTable +
 Versioning + Keyword + Mechanic; RuleSpace → SmartTable + Rule + User. Kernel
 не шлёт почту и не импортирует Logger. Vue Engine агентов не настраивает.

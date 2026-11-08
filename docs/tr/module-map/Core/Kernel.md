@@ -45,7 +45,7 @@
 ## Зависимости
 
 - **Зависит от:** [Core/SmartTable](SmartTable.md)
-- **От него зависят:** [Core/Agent](Agent.md), [Core/Auth](Auth.md), [Core/Cache](Cache.md), [Core/Event](Event.md), [Core/File](File.md), [Core/Image](Image.md), [Core/Logger](Logger.md), [Core/Mail](Mail.md), [Core/SmartTable](SmartTable.md), [Core/User](User.md), [Messages/Chat](../Messages/Chat.md), [Roleplay/Character](../Roleplay/Character.md), [Roleplay/Game](../Roleplay/Game.md), [Roleplay/Keyword](../Roleplay/Keyword.md), [Roleplay/Map](../Roleplay/Map.md), [Roleplay/Mechanic](../Roleplay/Mechanic.md), [Roleplay/Rule](../Roleplay/Rule.md), [Roleplay/RuleSpace](../Roleplay/RuleSpace.md), [Versioning/Space](../Versioning/Space.md)
+- **От него зависят:** [Core/Agent](Agent.md), [Core/Auth](Auth.md), [Core/Cache](Cache.md), [Core/Event](Event.md), [Core/File](File.md), [Core/Image](Image.md), [Core/Logger](Logger.md), [Core/Mail](Mail.md), [Core/SmartTable](SmartTable.md), [Core/User](User.md), [Messages/Chat](../Messages/Chat.md), [Messages/Notes](../Messages/Notes.md), [Roleplay/Character](../Roleplay/Character.md), [Roleplay/Game](../Roleplay/Game.md), [Roleplay/Keyword](../Roleplay/Keyword.md), [Roleplay/Map](../Roleplay/Map.md), [Roleplay/Mechanic](../Roleplay/Mechanic.md), [Roleplay/Rule](../Roleplay/Rule.md), [Roleplay/RuleSpace](../Roleplay/RuleSpace.md), [Versioning/Space](../Versioning/Space.md)
 
 ## События
 

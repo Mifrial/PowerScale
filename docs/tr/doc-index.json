@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 330,
-        "plans": 211,
+        "documents": 336,
+        "plans": 217,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 233,
+            "tr": 239,
             "tz": 2
         },
         "byZoneState": {
@@ -70,10 +70,10 @@
             },
             "tr": {
                 "нет": 26,
-                "СДЕЛАНО": 136,
+                "СДЕЛАНО": 145,
                 "ОТЛОЖЕН": 4,
-                "ЧАСТИЧНО": 32,
-                "ПЛАН": 11,
+                "ЧАСТИЧНО": 31,
+                "ПЛАН": 9,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
                 "В РАБОТЕ": 15
@@ -86,10 +86,10 @@
         "byState": {
             "СНИМОК": 65,
             "нет": 57,
-            "СДЕЛАНО": 138,
-            "ПЛАН": 14,
+            "СДЕЛАНО": 147,
+            "ПЛАН": 12,
             "ОТЛОЖЕН": 8,
-            "ЧАСТИЧНО": 32,
+            "ЧАСТИЧНО": 31,
             "ОТМЕНЁН": 1,
             "В РАБОТЕ": 15
         }
@@ -200,6 +200,17 @@
                 "МОК": 1
             }
         },
+        "Messages/Notes": {
+            "docs": 5,
+            "state": {
+                "СДЕЛАНО": 5
+            },
+            "layer": {
+                "VUE": 4,
+                "PHP": 3,
+                "МОК": 2
+            }
+        },
         "Roleplay/Character": {
             "docs": 17,
             "state": {
@@ -264,17 +275,17 @@
             }
         },
         "Roleplay/Rule": {
-            "docs": 43,
+            "docs": 44,
             "state": {
                 "нет": 3,
-                "СДЕЛАНО": 17,
-                "ЧАСТИЧНО": 7,
+                "СДЕЛАНО": 21,
+                "ЧАСТИЧНО": 6,
                 "ОТЛОЖЕН": 3,
-                "ПЛАН": 6,
+                "ПЛАН": 4,
                 "В РАБОТЕ": 7
             },
             "layer": {
-                "VUE": 13,
+                "VUE": 14,
                 "МОК": 2,
                 "PHP": 10
             }
@@ -2119,10 +2130,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 20289,
-            "lines": 164,
+            "bytes": 21112,
+            "lines": 169,
             "modules": [],
-            "linksCount": 122,
+            "linksCount": 127,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/prompts/campaign.md",
@@ -2151,6 +2162,7 @@
                 "docs/tr/logger-plan-03.md",
                 "docs/tr/logger-plan-05-vue-datetime.md",
                 "docs/tr/mail-plan-01-queue.md",
+                "docs/tr/notes-roadmap.md",
                 "docs/tr/smarttable-plan-05-reference.md",
                 "docs/tr/smarttable-plan-06-indexes.md",
                 "docs/tr/smarttable-plan-07-dictionary.md",
@@ -2207,8 +2219,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 31147,
-            "lines": 285,
+            "bytes": 32015,
+            "lines": 290,
             "modules": [],
             "linksCount": 35,
             "brokenLinks": [],
@@ -2273,6 +2285,7 @@
                 "docs/tr/mechanic-plan-02.md",
                 "docs/tr/mechanic-plan-03.md",
                 "docs/tr/mechanic-roadmap.md",
+                "docs/tr/notes-roadmap.md",
                 "docs/tr/rule-plan-02-init-surface.md",
                 "docs/tr/rulespace-plan-04.md",
                 "docs/tr/rulespace-plan-10.md",
@@ -2843,7 +2856,7 @@
             ],
             "basis": null,
             "date": "2026-10-05",
-            "bytes": 13273,
+            "bytes": 13358,
             "lines": 161,
             "modules": [
                 "Roleplay/Character"
@@ -2887,7 +2900,7 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 26239,
+            "bytes": 26557,
             "lines": 225,
             "modules": [
                 "Roleplay/Character"
@@ -3178,6 +3191,7 @@
                 "docs/tr/chat-plan-06.md",
                 "docs/tr/chat-plan-07.md",
                 "docs/tr/chat-roadmap.md",
+                "docs/tr/notes-roadmap.md",
                 "docs/tr/ui-system.md"
             ]
         },
@@ -3192,8 +3206,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-07",
-            "bytes": 23911,
-            "lines": 216,
+            "bytes": 24644,
+            "lines": 225,
             "modules": [],
             "linksCount": 6,
             "brokenLinks": [],
@@ -3361,8 +3375,8 @@
             ],
             "basis": null,
             "date": null,
-            "bytes": 21645,
-            "lines": 527,
+            "bytes": 22785,
+            "lines": 544,
             "modules": [],
             "linksCount": 8,
             "brokenLinks": [],
@@ -3378,6 +3392,7 @@
                 "docs/tr/game-roadmap.md",
                 "docs/tr/image-plan-01.md",
                 "docs/tr/image-plan-02-avatar-crop.md",
+                "docs/tr/notes-roadmap.md",
                 "docs/tr/rulespace-plan-05.md"
             ]
         },
@@ -3471,8 +3486,8 @@
             ],
             "basis": null,
             "date": "2026-11-02",
-            "bytes": 36381,
-            "lines": 573,
+            "bytes": 36858,
+            "lines": 577,
             "modules": [
                 "Roleplay/Game"
             ],
@@ -4700,7 +4715,7 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-05",
-            "bytes": 54663,
+            "bytes": 54825,
             "lines": 515,
             "modules": [
                 "Roleplay/Game"
@@ -5404,16 +5419,16 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-07 — плотность заливки, глубина русла и декоративное течение; ждёт ручной проверки.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-08 — группы областей, распознавание по подложке, границы областей и производительность на 6000+ объектов; ждёт ручной проверки.",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "PHP",
-            "date": "2026-11-07",
-            "bytes": 28226,
-            "lines": 465,
+            "date": "2026-11-08",
+            "bytes": 32135,
+            "lines": 511,
             "modules": [
                 "Roleplay/Map"
             ],
@@ -5431,16 +5446,16 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-07 — декор областей символами (трава, кроны, ели, смеси), плотность и глубина; ждёт ручной проверки.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-08 — распознавание объектов по подложке, группы областей, границы и производительность на 6000+ объектах; ждёт ручной проверки.",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "PHP",
-            "date": "2026-11-07",
-            "bytes": 29284,
-            "lines": 316,
+            "date": "2026-11-08",
+            "bytes": 43029,
+            "lines": 437,
             "modules": [
                 "Roleplay/Map"
             ],
@@ -5972,6 +5987,138 @@
             ]
         },
         {
+            "path": "docs/tr/notes-plan-01-inline-extract.md",
+            "title": "План 01 — вынос Messages/Inline из Chat",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~ — 2026-11-08. Шаг 0 нарезки",
+            "layers": [
+                "VUE"
+            ],
+            "basis": "НЕ ОСНОВА",
+            "date": "2026-11-08",
+            "bytes": 11345,
+            "lines": 197,
+            "modules": [
+                "Messages/Notes"
+            ],
+            "linksCount": 1,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/notes-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/notes-plan-02-storage-http.md",
+            "title": "План 02 — Messages/Notes: хранение и HTTP",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~ — 2026-11-08. Шаг 1 нарезки",
+            "layers": [
+                "PHP"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-08",
+            "bytes": 13004,
+            "lines": 245,
+            "modules": [
+                "Messages/Notes"
+            ],
+            "linksCount": 1,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/notes-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/notes-plan-03-vue.md",
+            "title": "План 03 — Messages/Notes: Vue",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~ — 2026-11-08. Шаг 2 нарезки",
+            "layers": [
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-08",
+            "bytes": 11711,
+            "lines": 211,
+            "modules": [
+                "Messages/Notes"
+            ],
+            "linksCount": 1,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/notes-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/notes-plan-04-character.md",
+            "title": "План 04 — Character: удаление owner_notes и слайдер заметок",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~ — 2026-11-08. Шаг 3 нарезки",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-08",
+            "bytes": 8458,
+            "lines": 156,
+            "modules": [
+                "Messages/Notes"
+            ],
+            "linksCount": 1,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/notes-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/notes-roadmap.md",
+            "title": "Нарезка Messages/Notes",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~ — 2026-11-08. Шаги 0–3 сделаны: `Messages/Inline`,",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-08",
+            "bytes": 14570,
+            "lines": 208,
+            "modules": [
+                "Messages/Notes"
+            ],
+            "linksCount": 8,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/notes-plan-01-inline-extract.md",
+                "docs/tr/notes-plan-02-storage-http.md",
+                "docs/tr/notes-plan-03-vue.md",
+                "docs/tr/notes-plan-04-character.md"
+            ]
+        },
+        {
             "path": "docs/tr/php-coding-standards.md",
             "title": "Стандарты разработки Mifrial (PHP)",
             "zone": "tr",
@@ -6432,13 +6579,13 @@
             "title": "C2 — план: улучшения удара (`strike_upgrade`)",
             "zone": "tr",
             "kind": "plan",
-            "state": "ПЛАН",
+            "state": "СДЕЛАНО",
             "stateSource": "token",
-            "statusRaw": "~ПЛАН~ — `READY`, 2026-09-15.",
+            "statusRaw": "~СДЕЛАНО~ — посажено 2026-11-03, коммит `e53d7997`. Спека, валидация, редактор, `StrikeUpgradeService` и блок на запуске удара.",
             "layers": [],
             "basis": null,
-            "date": "2026-09-15",
-            "bytes": 10488,
+            "date": "2026-11-03",
+            "bytes": 10644,
             "lines": 106,
             "modules": [
                 "Roleplay/Rule"
@@ -6483,16 +6630,14 @@
             "title": "C2 — аудит и посадка ветки ближнего боя «Сила»",
             "zone": "tr",
             "kind": "plan",
-            "state": "В РАБОТЕ",
+            "state": "СДЕЛАНО",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~ — `IN_PROGRESS`, 2026-10-25. Срезы A–H в коде: слоты, Удвоенная мощь, Яростный рывок; Силовой удар посажен в PHP Game.",
-            "layers": [
-                "PHP"
-            ],
+            "statusRaw": "~СДЕЛАНО~ — `READY`, срезы A–H закрыты 2026-11-08. Слоты рук, Удвоенная мощь и Яростный рывок посажены; `action_modifier` исполняется в серии и широком ударе.",
+            "layers": [],
             "basis": null,
-            "date": "2026-10-25",
-            "bytes": 29421,
-            "lines": 277,
+            "date": "2026-11-08",
+            "bytes": 31705,
+            "lines": 299,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -6501,6 +6646,7 @@
             "backlinks": [
                 "docs/tr/rule-content-plan-11-melee-accuracy.md",
                 "docs/tr/rule-content-plan-13-melee-quantity.md",
+                "docs/tr/rule-content-plan-17-melee-maneuvers.md",
                 "docs/tr/rule-content-queue.md",
                 "docs/tr/rule-content-roadmap.md"
             ]
@@ -6510,14 +6656,14 @@
             "title": "C2 — ветка ближнего боя «Точность»",
             "zone": "tr",
             "kind": "plan",
-            "state": "ПЛАН",
+            "state": "СДЕЛАНО",
             "stateSource": "token",
-            "statusRaw": "~ПЛАН~ — `READY` (ветка без Выверенного), 2026-09-20.",
+            "statusRaw": "~СДЕЛАНО~ — ветка без Выверенного, база и §2.3/§10 посажены к 2026-11-08.",
             "layers": [],
             "basis": null,
-            "date": "2026-09-20",
-            "bytes": 28402,
-            "lines": 272,
+            "date": "2026-11-08",
+            "bytes": 28646,
+            "lines": 273,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -6528,6 +6674,7 @@
                 "docs/tr/rule-content-plan-09-melee-speed.md",
                 "docs/tr/rule-content-plan-12-dodge-benefit.md",
                 "docs/tr/rule-content-plan-13-melee-quantity.md",
+                "docs/tr/rule-content-plan-17-melee-maneuvers.md",
                 "docs/tr/rule-content-queue.md",
                 "docs/tr/rule-content-roadmap.md"
             ]
@@ -6562,14 +6709,14 @@
             "title": "C2 — аудит ветки ближнего боя «Количество»",
             "zone": "tr",
             "kind": "plan",
-            "state": "ЧАСТИЧНО",
+            "state": "СДЕЛАНО",
             "stateSource": "token",
-            "statusRaw": "~ЧАСТИЧНО~ — `READY` (спец-пачка посажена), 2026-09-20. Первая пачка посажена.",
+            "statusRaw": "~СДЕЛАНО~ — `READY`, первая и спец-пачки посажены (A–I закрыты) к 2026-11-08.",
             "layers": [],
             "basis": null,
-            "date": "2026-09-20",
-            "bytes": 13410,
-            "lines": 161,
+            "date": "2026-11-08",
+            "bytes": 13631,
+            "lines": 162,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -6658,6 +6805,33 @@
                 "docs/tr/game-plan-44-checks-real.md",
                 "docs/tr/game-plan-45-strike-phases.md",
                 "docs/tr/rule-content-plan-02-concentration.md",
+                "docs/tr/rule-content-plan-17-melee-maneuvers.md",
+                "docs/tr/rule-content-queue.md",
+                "docs/tr/rule-content-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/rule-content-plan-17-melee-maneuvers.md",
+            "title": "C2 — ветка ближнего боя «Боевые манёвры»",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~ — первый срез S1 посажен 2026-11-08, S2 и защитные",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-08",
+            "bytes": 21645,
+            "lines": 249,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 5,
+            "brokenLinks": [],
+            "backlinks": [
                 "docs/tr/rule-content-queue.md",
                 "docs/tr/rule-content-roadmap.md"
             ]
@@ -6673,12 +6847,12 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-16",
-            "bytes": 18892,
+            "bytes": 19301,
             "lines": 55,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 15,
+            "linksCount": 16,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-45-strike-phases.md",
@@ -6698,6 +6872,7 @@
                 "docs/tr/rule-content-plan-14-future-ability-ideas.md",
                 "docs/tr/rule-content-plan-15-melee-tactics-design.md",
                 "docs/tr/rule-content-plan-16-melee-tactics.md",
+                "docs/tr/rule-content-plan-17-melee-maneuvers.md",
                 "docs/tr/rule-content-roadmap.md"
             ]
         },
@@ -6714,12 +6889,12 @@
             ],
             "basis": null,
             "date": "2026-09-16",
-            "bytes": 8475,
-            "lines": 73,
+            "bytes": 9152,
+            "lines": 75,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 14,
+            "linksCount": 15,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -6738,6 +6913,7 @@
                 "docs/tr/rule-content-plan-14-future-ability-ideas.md",
                 "docs/tr/rule-content-plan-15-melee-tactics-design.md",
                 "docs/tr/rule-content-plan-16-melee-tactics.md",
+                "docs/tr/rule-content-plan-17-melee-maneuvers.md",
                 "docs/tr/rule-content-queue.md",
                 "docs/tr/rule-roadmap.md",
                 "docs/tr/spell-roadmap.md"
@@ -7068,7 +7244,7 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 29222,
+            "bytes": 29250,
             "lines": 253,
             "modules": [
                 "Roleplay/Rule"

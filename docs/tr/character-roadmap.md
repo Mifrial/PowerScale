@@ -80,7 +80,7 @@ Immutable `(spaceId, revision)` через `IRuleSpaces` (не часы в об�
 
 План: [`character-plan-07.md`](character-plan-07.md).
 
-После C1 допустим **owner-only** read тестового aggregate (не выдавать за валидный лист). Публичный list/detail: `is_public` + `character_viewer`, маска секций из JSON-грантов (не Vue-массив `SheetVisibility` как хранение), `ownerNotes`, NotFound без утечки существования — после C5. `customRules` уже во входе create/update (C0/C5), отдельных роутов не плодить без нужды.
+После C1 допустим **owner-only** read тестового aggregate (не выдавать за валидный лист). Публичный list/detail: `is_public` + `character_viewer`, маска секций из JSON-грантов (не Vue-массив `SheetVisibility` как хранение), личные заметки вынесены в `Messages/Notes` вместо поля листа, NotFound без утечки существования — после C5. `customRules` уже во входе create/update (C0/C5), отдельных роутов не плодить без нужды.
 
 ### C7. Миграция ревизии — `DONE`
 
