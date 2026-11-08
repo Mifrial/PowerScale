@@ -344,15 +344,15 @@ final class MapPortFactory
      */
     private function routeService(IServiceLocator $serviceLocator): MapRouteService
     {
-        $geometry = new MapGeometry();
+        $grid = new MapRouteGrid(new MapGeometry());
 
         return new MapRouteService(
             $this->accessService($serviceLocator),
             $this->variantService($serviceLocator),
             $this->areaStore($serviceLocator),
             $this->lineStore($serviceLocator),
-            new MapRouteGrid($geometry),
-            $geometry,
+            $grid,
+            new MapRouteFinder($grid),
         );
     }
 

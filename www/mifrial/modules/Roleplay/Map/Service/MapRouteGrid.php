@@ -4,19 +4,18 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Map\Service;
 
-use Mifrial\Roleplay\Map\Exception\MapNoRouteException;
-use SplPriorityQueue;
-
 /**
- * Растровая проходимость варианта и A* по ней.
+ * Растровая проходимость варианта.
  *
  * Слой поверхности задаёт скорость, лента перекрывает поверхность,
  * объект сверху пишет свою скорость. Ноль блокирует, земля без разметки проходима.
  *
  * @phpstan-type Field array{width: int, height: int, cell: int, columns: int, rows: int, speeds: array<int, int>}
- * @phpstan-type Surface array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}
- * @phpstan-type Ribbon array{id: int, points: array<int, array{0: int, 1: int}>, widths: array<int, int>, handles: array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}>, segmentSpeeds: array<int, int>, defaultSpeed: int, sortOrder: int}
- * @phpstan-type RouteObject array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}
+ * @phpstan-type Contour array{id: int, path: array<int, array{0: int, 1: int}>,
+ *     handles: array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}>, speed: int, sortOrder: int}
+ * @phpstan-type Ribbon array{id: int, points: array<int, array{0: int, 1: int}>, widths: array<int, int>,
+ *     handles: array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}>,
+ *     segmentSpeeds: array<int, int>, defaultSpeed: int, sortOrder: int}
  */
 final class MapRouteGrid
 {
@@ -41,9 +40,9 @@ final class MapRouteGrid
      *
      * @param int $width Ширина мира.
      * @param int $height Высота мира.
-     * @param array<int, Surface> $surfaces Поверхности.
+     * @param array<int, Contour> $surfaces Поверхности.
      * @param array<int, Ribbon> $ribbons Ленты.
-     * @param array<int, RouteObject> $objects Объекты.
+     * @param array<int, Contour> $objects Объекты.
      *
      * @return Field Поле.
      */
@@ -63,9 +62,9 @@ final class MapRouteGrid
             'speeds' => array_fill(0, max(1, $columns) * max(1, $rows), -1),
         ];
 
-        $this->paintSurfaces($field, $surfaces);
+        $this->paintSurfaces($field, $this->flatten($surfaces));
         $this->paintRibbons($field, $ribbons);
-        $this->paintObjects($field, $objects);
+        $this->paintObjects($field, $this->flatten($objects));
         foreach ($field['speeds'] as $index => $speed) {
             if ($speed < 0) {
                 $field['speeds'][$index] = self::DEFAULT_SPEED;
@@ -76,60 +75,95 @@ final class MapRouteGrid
     }
 
     /**
-     * Строит маршрут.
+     * Проходима ли клетка.
      *
-     * @param array{width: int, height: int, cell: int, columns: int, rows: int, speeds: array<int, int>} $field Поле.
-     * @param array{0: int, 1: int} $from Начало.
-     * @param array{0: int, 1: int} $to Конец.
+     * @param Field $field Поле.
+     * @param int $x Колонка.
+     * @param int $y Строка.
      *
-     * @return array{points: array<int, array{0: int, 1: int}>, distancePixels: float, costPixels: float} Маршрут.
-     *
-     * @throws MapNoRouteException Если пути нет.
+     * @return bool Флаг.
      */
-    public function route(array $field, array $from, array $to): array
+    public function passable(array $field, int $x, int $y): bool
     {
-        $start = $this->cellOf($field, $from);
-        $goal = $this->cellOf($field, $to);
-        $startPassable = $this->passable($field, $start[0], $start[1]);
-        $goalPassable = $this->passable($field, $goal[0], $goal[1]);
-        $start = $startPassable ? $start : $this->nearestPassable($field, $start[0], $start[1]);
-        $goal = $goalPassable ? $goal : $this->nearestPassable($field, $goal[0], $goal[1]);
-        if ($start === null || $goal === null) {
-            throw new MapNoRouteException();
+        if ($x < 0 || $y < 0 || $x >= $field['columns'] || $y >= $field['rows']) {
+            return false;
         }
 
-        $cells = $this->aStar($field, $start, $goal);
-        if ($cells === []) {
-            throw new MapNoRouteException();
-        }
+        return $field['speeds'][$y * $field['columns'] + $x] > 0;
+    }
 
-        $points = [];
-        foreach ($cells as $cellPoint) {
-            $points[] = $this->cellCenter($field, $cellPoint[0], $cellPoint[1]);
-        }
-
-        if (count($points) === 1) {
-            $points = [
-                $startPassable ? $this->clampPoint($field, $from) : $points[0],
-                $goalPassable ? $this->clampPoint($field, $to) : $points[0],
-            ];
-        } else {
-            if ($startPassable) {
-                $points[0] = $this->clampPoint($field, $from);
-            }
-
-            if ($goalPassable) {
-                $points[count($points) - 1] = $this->clampPoint($field, $to);
-            }
-        }
-
-        $points = $this->dedupe($points);
+    /**
+     * Клетка точки.
+     *
+     * @param Field $field Поле.
+     * @param array{0: int, 1: int} $point Точка.
+     *
+     * @return array{0: int, 1: int} Клетка.
+     */
+    public function cellOf(array $field, array $point): array
+    {
+        $x = (int) floor($point[0] / $field['cell']);
+        $y = (int) floor($point[1] / $field['cell']);
 
         return [
-            'points' => $points,
-            'distancePixels' => $this->length($points),
-            'costPixels' => $this->lastCost,
+            max(0, min($field['columns'] - 1, $x)),
+            max(0, min($field['rows'] - 1, $y)),
         ];
+    }
+
+    /**
+     * Центр клетки.
+     *
+     * @param Field $field Поле.
+     * @param int $x Колонка.
+     * @param int $y Строка.
+     *
+     * @return array{0: int, 1: int} Точка.
+     */
+    public function cellCenter(array $field, int $x, int $y): array
+    {
+        return $this->clampPoint($field, [
+            (int) round(($x + 0.5) * $field['cell']),
+            (int) round(($y + 0.5) * $field['cell']),
+        ]);
+    }
+
+    /**
+     * Прижимает точку к миру.
+     *
+     * @param Field $field Поле.
+     * @param array{0: int, 1: int} $point Точка.
+     *
+     * @return array{0: int, 1: int} Точка.
+     */
+    public function clampPoint(array $field, array $point): array
+    {
+        return [
+            max(0, min($field['width'], (int) round($point[0]))),
+            max(0, min($field['height'], (int) round($point[1]))),
+        ];
+    }
+
+    /**
+     * Разворачивает контуры с ручками Безье в полилинии.
+     *
+     * @param array<int, Contour> $contours Контуры.
+     *
+     * @return array<int, array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}> Полилинии.
+     */
+    private function flatten(array $contours): array
+    {
+        $flat = [];
+        foreach ($contours as $contour) {
+            $flat[] = [
+                'id' => $contour['id'],
+                'path' => $this->geometry->flattenContour($contour['path'], $contour['handles']),
+                'speed' => $contour['speed'],
+                'sortOrder' => $contour['sortOrder'],
+            ];
+        }
+
+        return $flat;
     }
 
     /**
@@ -151,7 +185,7 @@ final class MapRouteGrid
      * Поверхности.
      *
      * @param Field $field Поле.
-     * @param array<int, Surface> $surfaces Поверхности.
+     * @param array<int, array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}> $surfaces Поверхности.
      *
      * @return void
      */
@@ -208,7 +242,7 @@ final class MapRouteGrid
      * Объекты.
      *
      * @param Field $field Поле.
-     * @param array<int, RouteObject> $objects Объекты.
+     * @param array<int, array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}> $objects Объекты.
      *
      * @return void
      */
@@ -337,21 +371,14 @@ final class MapRouteGrid
         $y0 = $y * $cell;
         $x1 = $x0 + $cell;
         $y1 = $y0 + $cell;
-        $samples = [
-            [$x0 + $cell / 2, $y0 + $cell / 2],
-            [$x0, $y0],
-            [$x1, $y0],
-            [$x1, $y1],
-            [$x0, $y1],
-        ];
-        foreach ($samples as $sample) {
+        foreach ($this->samples($cell, $x0, $y0) as $sample) {
             if ($this->geometry->pointInPolygon([(int) round($sample[0]), (int) round($sample[1])], $polygon)) {
                 return true;
             }
         }
 
         foreach ($polygon as $point) {
-            if ($point[0] >= $x0 && $point[0] <= $x1 && $point[1] >= $y0 && $point[1] <= $y1) {
+            if ($this->pointInCell($x0, $y0, $x1, $y1, $point)) {
                 return true;
             }
         }
@@ -360,270 +387,39 @@ final class MapRouteGrid
     }
 
     /**
-     * A*: кратчайший путь по полю скоростей.
+     * Вершина полигона внутри клетки.
      *
-     * @param Field $field Поле.
-     * @param array{0: int, 1: int} $start Начало.
-     * @param array{0: int, 1: int} $goal Конец.
-     *
-     * @return array<int, array{0: int, 1: int}> Клетки пути.
-     */
-    private function aStar(array $field, array $start, array $goal): array
-    {
-        $columns = $field['columns'];
-        $startKey = $start[1] * $columns + $start[0];
-        $goalKey = $goal[1] * $columns + $goal[0];
-        $costs = [$startKey => 0.0];
-        $previous = [];
-        $closed = [];
-        $this->lastCost = 0.0;
-        $queue = new SplPriorityQueue();
-        $queue->insert($startKey, 0.0);
-        while (!$queue->isEmpty()) {
-            $key = (int) $queue->extract();
-            if (isset($closed[$key])) {
-                continue;
-            }
-
-            $closed[$key] = true;
-            if ($key === $goalKey) {
-                $this->lastCost = $costs[$key];
-
-                return $this->reconstruct($startKey, $goalKey, $previous, $columns);
-            }
-
-            $x = $key % $columns;
-            $y = intdiv($key, $columns);
-            foreach ($this->neighbours() as $delta) {
-                $nextX = $x + $delta[0];
-                $nextY = $y + $delta[1];
-                if ($nextX < 0 || $nextY < 0 || $nextX >= $columns || $nextY >= $field['rows']) {
-                    continue;
-                }
-
-                $speed = $field['speeds'][$nextY * $columns + $nextX];
-                if ($speed <= 0) {
-                    continue;
-                }
-
-                if ($delta[0] !== 0 && $delta[1] !== 0) {
-                    if (!$this->passable($field, $x + $delta[0], $y) || !$this->passable($field, $x, $y + $delta[1])) {
-                        continue;
-                    }
-                }
-
-                $step = $field['cell'] * ($delta[0] !== 0 && $delta[1] !== 0 ? M_SQRT2 : 1.0);
-                $tentative = $costs[$key] + $step * MapSpeed::COST_FACTOR / $speed;
-                $nextKey = $nextY * $columns + $nextX;
-                if ($tentative >= ($costs[$nextKey] ?? INF)) {
-                    continue;
-                }
-
-                $costs[$nextKey] = $tentative;
-                $previous[$nextKey] = $key;
-                $queue->insert($nextKey, -($tentative + $this->heuristic($nextX, $nextY, $goal, $field['cell'])));
-            }
-        }
-
-        return [];
-    }
-
-    /**
-     * Восстанавливает путь.
-     *
-     * @param int $startKey Начало.
-     * @param int $goalKey Конец.
-     * @param array<int, int> $previous Предыдущие.
-     * @param int $columns Колонки.
-     *
-     * @return array<int, array{0: int, 1: int}> Клетки.
-     */
-    private function reconstruct(int $startKey, int $goalKey, array $previous, int $columns): array
-    {
-        $cells = [];
-        $key = $goalKey;
-        while ($key !== $startKey) {
-            $cells[] = [$key % $columns, intdiv($key, $columns)];
-            $key = $previous[$key] ?? $startKey;
-        }
-        $cells[] = [$startKey % $columns, intdiv($startKey, $columns)];
-
-        return array_reverse($cells);
-    }
-
-    /**
-     * Соседи.
-     *
-     * @return array<int, array{0: int, 1: int}> Смещения.
-     */
-    private function neighbours(): array
-    {
-        return [
-            [-1, 0],
-            [1, 0],
-            [0, -1],
-            [0, 1],
-            [-1, -1],
-            [1, -1],
-            [-1, 1],
-            [1, 1],
-        ];
-    }
-
-    /**
-     * Эвристика.
-     *
-     * @param int $x Колонка.
-     * @param int $y Строка.
-     * @param array{0: int, 1: int} $goal Конец.
-     * @param int $cell Клетка.
-     *
-     * @return float Пиксели.
-     */
-    private function heuristic(int $x, int $y, array $goal, int $cell): float
-    {
-        return hypot(($goal[0] - $x) * $cell, ($goal[1] - $y) * $cell);
-    }
-
-    /**
-     * Проходима ли клетка.
-     *
-     * @param Field $field Поле.
-     * @param int $x Колонка.
-     * @param int $y Строка.
+     * @param int $x0 Левый край.
+     * @param int $y0 Верхний край.
+     * @param int $x1 Правый край.
+     * @param int $y1 Нижний край.
+     * @param array{0: int, 1: int} $point Вершина.
      *
      * @return bool Флаг.
      */
-    private function passable(array $field, int $x, int $y): bool
+    private function pointInCell(int $x0, int $y0, int $x1, int $y1, array $point): bool
     {
-        if ($x < 0 || $y < 0 || $x >= $field['columns'] || $y >= $field['rows']) {
-            return false;
-        }
-
-        return $field['speeds'][$y * $field['columns'] + $x] > 0;
+        return $point[0] >= $x0 && $point[0] <= $x1 && $point[1] >= $y0 && $point[1] <= $y1;
     }
 
     /**
-     * Ближайшая проходимая клетка.
+     * Точки проверки клетки: центр и углы.
      *
-     * @param Field $field Поле.
-     * @param int $x Колонка.
-     * @param int $y Строка.
+     * @param int $cell Размер клетки.
+     * @param int $x0 Левый край.
+     * @param int $y0 Верхний край.
      *
-     * @return array{0: int, 1: int}|null Клетка или null.
+     * @return array<int, array{0: float, 1: float}> Точки.
      */
-    private function nearestPassable(array $field, int $x, int $y): ?array
+    private function samples(int $cell, int $x0, int $y0): array
     {
-        for ($radius = 1; $radius <= 8; $radius += 1) {
-            for ($dy = -$radius; $dy <= $radius; $dy += 1) {
-                for ($dx = -$radius; $dx <= $radius; $dx += 1) {
-                    if (abs($dx) !== $radius && abs($dy) !== $radius) {
-                        continue;
-                    }
-
-                    if ($this->passable($field, $x + $dx, $y + $dy)) {
-                        return [$x + $dx, $y + $dy];
-                    }
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Клетка точки.
-     *
-     * @param Field $field Поле.
-     * @param array{0: int, 1: int} $point Точка.
-     *
-     * @return array{0: int, 1: int} Клетка.
-     */
-    private function cellOf(array $field, array $point): array
-    {
-        $x = (int) floor($point[0] / $field['cell']);
-        $y = (int) floor($point[1] / $field['cell']);
-
         return [
-            max(0, min($field['columns'] - 1, $x)),
-            max(0, min($field['rows'] - 1, $y)),
+            [$x0 + $cell / 2, $y0 + $cell / 2],
+            [$x0, $y0],
+            [$x0 + $cell, $y0],
+            [$x0 + $cell, $y0 + $cell],
+            [$x0, $y0 + $cell],
         ];
     }
 
-    /**
-     * Центр клетки.
-     *
-     * @param Field $field Поле.
-     * @param int $x Колонка.
-     * @param int $y Строка.
-     *
-     * @return array{0: int, 1: int} Точка.
-     */
-    private function cellCenter(array $field, int $x, int $y): array
-    {
-        return $this->clampPoint($field, [
-            (int) round(($x + 0.5) * $field['cell']),
-            (int) round(($y + 0.5) * $field['cell']),
-        ]);
-    }
-
-    /**
-     * Прижимает точку к миру.
-     *
-     * @param Field $field Поле.
-     * @param array{0: int, 1: int} $point Точка.
-     *
-     * @return array{0: int, 1: int} Точка.
-     */
-    private function clampPoint(array $field, array $point): array
-    {
-        return [
-            max(0, min($field['width'], (int) round($point[0]))),
-            max(0, min($field['height'], (int) round($point[1]))),
-        ];
-    }
-
-    /**
-     * Убирает повторы подряд.
-     *
-     * @param array<int, array{0: int, 1: int}> $points Точки.
-     *
-     * @return array<int, array{0: int, 1: int}> Точки.
-     */
-    private function dedupe(array $points): array
-    {
-        $unique = [];
-        foreach ($points as $point) {
-            $last = $unique[count($unique) - 1] ?? null;
-            if ($last !== null && $last[0] === $point[0] && $last[1] === $point[1]) {
-                continue;
-            }
-
-            $unique[] = $point;
-        }
-
-        return $unique;
-    }
-
-    /**
-     * Длина ломаной.
-     *
-     * @param array<int, array{0: int, 1: int}> $points Точки.
-     *
-     * @return float Пиксели.
-     */
-    private function length(array $points): float
-    {
-        $length = 0.0;
-        for ($index = 1; $index < count($points); $index += 1) {
-            $length += hypot($points[$index][0] - $points[$index - 1][0], $points[$index][1] - $points[$index - 1][1]);
-        }
-
-        return $length;
-    }
-
-    /**
-     * Стоимость последнего маршрута.
-     */
-    private float $lastCost = 0.0;
 }

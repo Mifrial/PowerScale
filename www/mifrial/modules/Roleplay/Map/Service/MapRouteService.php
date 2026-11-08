@@ -24,7 +24,7 @@ final class MapRouteService
      * @param MapAreaStore $areaStore Области.
      * @param MapLineStore $lineStore Ленты.
      * @param MapRouteGrid $grid Сетка.
-     * @param MapGeometry $geometry Геометрия контуров.
+     * @param MapRouteFinder $finder Поиск маршрута.
      *
      * @return void
      */
@@ -34,7 +34,7 @@ final class MapRouteService
         private readonly MapAreaStore $areaStore,
         private readonly MapLineStore $lineStore,
         private readonly MapRouteGrid $grid,
-        private readonly MapGeometry $geometry,
+        private readonly MapRouteFinder $finder,
     ) {
     }
 
@@ -69,7 +69,7 @@ final class MapRouteService
         $height = $variantRecord->getHeight() ?? 900;
         $ribbons = $this->ribbons($this->lineStore->findLines($variantId));
         $field = $this->grid->build($width, $height, $surfaces, $ribbons, $objects);
-        $route = $this->grid->route(
+        $route = $this->finder->route(
             $field,
             [$this->clamp($fromX, 0, $width), $this->clamp($fromY, 0, $height)],
             [$this->clamp($toX, 0, $width), $this->clamp($toY, 0, $height)],
@@ -85,8 +85,12 @@ final class MapRouteService
      * @param int $variantId Вариант.
      *
      * @return array{
-     *     0: array<int, array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}>,
-     *     1: array<int, array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}>
+     *     0: array<int, array{id: int, path: array<int, array{0: int, 1: int}>,
+     *         handles: array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}>,
+     *         speed: int, sortOrder: int}>,
+     *     1: array<int, array{id: int, path: array<int, array{0: int, 1: int}>,
+     *         handles: array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}>,
+     *         speed: int, sortOrder: int}>
      * } Поверхности и объекты.
      */
     private function items(int $mapId, int $variantId): array
@@ -102,7 +106,8 @@ final class MapRouteService
 
             $item = [
                 'id' => $areaRecord->getId(),
-                'path' => $this->geometry->flattenContour($shape->getPath(), $shape->getHandles()),
+                'path' => $shape->getPath(),
+                'handles' => $shape->getHandles(),
                 'speed' => $areaRecord->getSpeed(),
                 'sortOrder' => $areaRecord->getSortOrder(),
             ];
