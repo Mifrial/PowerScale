@@ -47,7 +47,7 @@ final class CharacterPortBootTest extends TestCase
         self::assertArrayHasKey('character.getList', $routes);
         self::assertArrayHasKey('character.get', $routes);
         self::assertArrayHasKey('character.updateVisibility', $routes);
-        self::assertArrayHasKey('character.updateOwnerNotes', $routes);
+        self::assertArrayNotHasKey('character.updateOwnerNotes', $routes);
         self::assertArrayHasKey('character.applyActualPatch', $routes);
         $loadedCharacter = false;
         foreach ($application->getModuleManager()->getLoadedModules() as $loadedModule) {

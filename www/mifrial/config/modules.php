@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
+use Mifrial\Messages\Notes\Interface\Container\INotesContainer;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Keyword\Interface\Container\IKeywordContainer;
@@ -17,6 +18,10 @@ return [
         IChatContainer::class => [
             'group' => 'Messages',
             'name' => 'Chat',
+        ],
+        INotesContainer::class => [
+            'group' => 'Messages',
+            'name' => 'Notes',
         ],
         ISpaceContainer::class => [
             'group' => 'Versioning',

@@ -1,5 +1,5 @@
 import type { Component } from 'vue';
-import type { InlineSegment } from '@/modules/Messages/Chat/Dto/InlineSegment';
+import type { InlineSegment } from '@/modules/Messages/Inline/Dto/InlineSegment';
 
 export interface IRenderer {
   type: string;

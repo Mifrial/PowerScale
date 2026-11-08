@@ -31,7 +31,6 @@ export const mockCharacterApi: ICharacterApi = {
   updateCustomRule: (id, entryId, data, signal) => updateCustomRule(id, entryId, data, signal),
   migrateCharacter: mock.migrateCharacter,
   applyMigration: (characterId, request, signal) => applyMigration(characterId, request, signal),
-  updateOwnerNotes: mock.updateOwnerNotes,
 };
 
 async function updateCharacter(id: number, patch: CharacterPatch): Promise<CharacterDetail> {

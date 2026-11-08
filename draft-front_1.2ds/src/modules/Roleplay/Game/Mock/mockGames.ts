@@ -284,18 +284,8 @@ for (const detail of gameDetails) {
 
 let nextGameId = Math.max(0, ...gameDetails.map((d) => d.game.id)) + 1;
 
-/** Личные заметки зрителя: ключ gameId:userId. Не хранятся на GameDetail в gameDetails. */
-const personalNotesByKey: Record<string, string> = {
-  '1:1': 'Спросить Анну про руины на севере.',
-};
-
-function personalNotesKey(gameId: number, userId: number): string {
-  return `${gameId}:${userId}`;
-}
-
 function toViewerGameDetail(detail: StoredGameDetail): GameDetail {
   const copy = JSON.parse(JSON.stringify(detail)) as StoredGameDetail;
-  copy.personalNotes = personalNotesByKey[personalNotesKey(copy.game.id, getCurrentUserId())] ?? null;
 
   return { ...copy, game: withSessionRunning(copy.game) };
 }
@@ -447,28 +437,6 @@ export async function stopGameSession(id: number, _signal?: AbortSignal): Promis
   }
 
   return toViewerGameDetail(current);
-}
-
-export async function updatePersonalNotes(gameId: number, notes: string, _signal?: AbortSignal): Promise<GameDetail> {
-  await delay(150);
-  const detail = gameDetails.find((entry) => entry.game.id === gameId);
-  if (!detail) throw new Error('Игра не найдена');
-  const user = currentUser();
-  if (
-    !gameAccessService.canViewGame(
-      user,
-      withSessionRunning(detail.game),
-      detail.members.map((member) => member.userId),
-    )
-  ) {
-    throw new Error('Forbidden');
-  }
-  const key = personalNotesKey(gameId, getCurrentUserId());
-  const trimmed = notes.trim();
-  if (trimmed) personalNotesByKey[key] = trimmed;
-  else delete personalNotesByKey[key];
-
-  return toViewerGameDetail(detail);
 }
 
 /** Обновление участника: роль + индивидуальные per-game права (ТР §3 `game_member_permissions`). */

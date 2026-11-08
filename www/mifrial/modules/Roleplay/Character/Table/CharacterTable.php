@@ -12,7 +12,6 @@ use Mifrial\Core\SmartTable\Field\IntField;
 use Mifrial\Core\SmartTable\Field\JsonField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
-use Mifrial\Core\SmartTable\Field\TextField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Core\SmartTable\Value\DateTimeNow;
 use Mifrial\Core\User\Field\UserReferenceField;
@@ -78,7 +77,7 @@ final class CharacterTable extends SmartTableDefinition
     }
 
     /**
-     * JSON и заметки.
+     * JSON и видимость.
      *
      * @return array Поля.
      */
@@ -95,7 +94,6 @@ final class CharacterTable extends SmartTableDefinition
                 'is_public',
                 FieldSettings::fromOptions(['required' => true, 'default' => false, 'indexed' => true]),
             ),
-            new TextField('owner_notes', FieldSettings::fromOptions(['required' => true, 'default' => ''])),
         ];
     }
 

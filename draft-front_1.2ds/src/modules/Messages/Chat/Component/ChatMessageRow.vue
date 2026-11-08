@@ -6,7 +6,7 @@ import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMess
 import type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
 import { DateTime } from '@/modules/Core/Engine/Value/DateTime';
 import { getContentRenderer, getContentRendererEntry, getInlineRenderer } from '@/modules/Messages/Chat/init';
-import { inlineContentService } from '@/modules/Messages/Chat/Service/Instance/inlineContentService';
+import { inlineContentService } from '@/modules/Messages/Inline/init';
 import { hostInlineRendererContext } from '@/modules/Messages/Chat/Utils/hostInlineRendererContext';
 import { displayName, initials, UserAvatar } from '@/modules/Core/User/init';
 import ChatVisibilityMenu from '@/modules/Messages/Chat/Component/ChatVisibilityMenu.vue';

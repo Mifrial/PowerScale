@@ -9,6 +9,9 @@ import { registerPermissionCategory } from '@/modules/Core/User/init';
 import { registerMenuItem } from '@/modules/Core/UI/init';
 import { CHARACTERS_MENU_ITEM } from '@/modules/Roleplay/Character/Constant/Navigation/CHARACTERS_MENU_ITEM';
 import { registerChatTypes, registerChatTabs, registerChatRulesProvider } from '@/modules/Messages/Chat/init';
+import { registerNoteHost } from '@/modules/Messages/Notes/init';
+import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
+import { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
 import { CHARACTER_PERMISSION_CATEGORY } from '@/modules/Roleplay/Character/Constant/permissions';
 import { CHARACTER_CHAT_TYPES } from '@/modules/Roleplay/Character/Constant/Chat/CHARACTER_CHAT_TYPES';
 import { CHARACTER_CHAT_TABS } from '@/modules/Roleplay/Character/Constant/Chat/CHARACTER_CHAT_TABS';
@@ -72,10 +75,6 @@ export const UniqueRulesTab = defineAsyncComponent(
   () => import('@/modules/Roleplay/Character/Component/Detail/UniqueRulesTab.vue'),
 );
 
-export const OwnerNotesDialog = defineAsyncComponent(
-  () => import('@/modules/Roleplay/Character/Component/OwnerNotesDialog.vue'),
-);
-
 export const MigrationReport = defineAsyncComponent(
   () => import('@/modules/Roleplay/Character/Component/MigrationReport.vue'),
 );
@@ -135,6 +134,32 @@ export function registerCharacterModule(): void {
   registerChatTabs(CHARACTER_CHAT_TABS);
   // Правила обсуждения персонажа: ревизия персонажа (чипы/ссылки/броски в мессенджере).
   registerChatRulesProvider(characterChatRulesProvider);
+  // Заметки о персонаже: общий слайдер и редактор на /notes получают контекст ревизии.
+  registerNoteHost({
+    type: 'character',
+    label: 'Персонаж',
+    icon: 'mdi-account',
+    route: (id) => `/characters/${id}`,
+    resolveEditorContext: async (id) => {
+      const detail = await getCharacterApi().getCharacter(id);
+      const revision = await useSpaceRevision().fetchRevision(detail.character.spaceId, detail.character.rulesRevision);
+      const context = characterChatRulesContextService.build(
+        revision.rules,
+        detail.character.spaceId,
+        detail.character.rulesRevision,
+      );
+      const inlineContext: Record<string, unknown> = {
+        tokenLabels: context.tokenLabels,
+        spaceId: context.spaceId,
+        rulesRevision: context.rulesRevision,
+      };
+
+      return {
+        inlineContext,
+        tokenSources: context.tokenSources,
+      };
+    },
+  });
 }
 
 export { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';

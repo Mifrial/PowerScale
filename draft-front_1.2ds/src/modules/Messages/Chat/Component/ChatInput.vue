@@ -4,9 +4,13 @@ import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment'
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerOption';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
-import { getCommandHandlers, getToolbarExtensions, getAttachmentProcessor } from '@/modules/Messages/Chat/init';
+import {
+  getCommandHandlers,
+  getToolbarExtensions,
+  getAttachmentProcessor,
+  InlineTokenPicker,
+} from '@/modules/Messages/Chat/init';
 import type { ITokenSource } from '@/modules/Messages/Chat/Interface/ITokenSource';
-import InlineTokenPicker from '@/modules/Messages/Chat/Component/InlineTokenPicker.vue';
 import ChatVisibilityMenu from '@/modules/Messages/Chat/Component/ChatVisibilityMenu.vue';
 
 const props = withDefaults(

@@ -998,10 +998,6 @@ export class GameApi implements IGameApi {
     await this.engine.runAction<void>('game.deleteChronicleEntry', { entryId }, signal);
   }
 
-  async updatePersonalNotes(_gameId: number, _notes: string, _signal?: AbortSignal): Promise<GameDetail> {
-    this.throwPhpUnsupported();
-  }
-
   async createCheckOffer(gameId: number, data: CreateCheckOfferData): Promise<CheckOffer> {
     const initiator = this.checkPartyOf(data.initiator);
     const opponent = this.checkPartyOf(data.opponent);

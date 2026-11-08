@@ -76,7 +76,6 @@ final class GameEconomyMysqlTest extends TestCase
             ],
             'sheet' => ['money' => 100],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ]));
         $this->membershipFacade()->submit($gameId, $characterId, $this->ownerUserId);
@@ -236,7 +235,6 @@ final class GameEconomyMysqlTest extends TestCase
             ],
             'sheet' => ['money' => 0],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ]));
         $miss = $this->dispatch('game.applyEconomy', [
@@ -274,7 +272,6 @@ final class GameEconomyMysqlTest extends TestCase
             ],
             'sheet' => ['money' => 0],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ]));
         $this->membershipFacade()->submit($gameId, $secondId, $this->ownerUserId);

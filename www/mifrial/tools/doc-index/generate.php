@@ -34,6 +34,7 @@ const MODULE_SLUGS = [
     'rule' => 'Roleplay/Rule',
     'spell' => 'Roleplay/Rule',
     'chat' => 'Messages/Chat',
+    'notes' => 'Messages/Notes',
     'notifications' => 'Messages/Notifications',
     'user' => 'Core/User',
     'auth' => 'Core/Auth',

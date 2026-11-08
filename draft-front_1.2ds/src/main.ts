@@ -15,6 +15,7 @@ import { registerTemplateApi } from '@/modules/Messages/Notifications/init';
 import { registerRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
 import { registerRuleApi } from '@/modules/Roleplay/Rule/init';
 import { registerChatApi, registerChatModule } from '@/modules/Messages/Chat/init';
+import { registerNotesApi, registerNotesModule } from '@/modules/Messages/Notes/init';
 import { registerNotificationApi } from '@/modules/Messages/Notifications/init';
 import { registerCsrfApi, getCsrfApi } from '@/modules/Core/Engine/init';
 import {
@@ -40,6 +41,7 @@ async function registerApiLayer(): Promise<void> {
   if (isMock) {
     const { mockAuthApi } = await import('@/modules/Core/Auth/Mock/mockAuthApi');
     const { mockChatApi } = await import('@/modules/Messages/Chat/Mock/mockChatApi');
+    const { mockNoteApi } = await import('@/modules/Messages/Notes/Mock/mockNoteApi');
     const { mockNotificationApi } = await import('@/modules/Messages/Notifications/Mock/mockNotificationApi');
     const { mockCsrfApi } = await import('@/modules/Core/Engine/Mock/mockCsrfApi');
     const { mockUserApi } = await import('@/modules/Core/User/Mock/mockUserApi');
@@ -59,6 +61,7 @@ async function registerApiLayer(): Promise<void> {
 
     registerAuthApi(mockAuthApi);
     registerChatApi(mockChatApi);
+    registerNotesApi(mockNoteApi);
     registerNotificationApi(mockNotificationApi);
     registerUserApi(mockUserApi);
     registerGroupApi(mockGroupApi);
@@ -79,6 +82,7 @@ async function registerApiLayer(): Promise<void> {
     const { HttpClient, Engine, registerEngine } = await import('@/modules/Core/Engine/init');
     const { AuthApi } = await import('@/modules/Core/Auth/Service/AuthApi');
     const { ChatApi } = await import('@/modules/Messages/Chat/Service/ChatApi');
+    const { NoteApi } = await import('@/modules/Messages/Notes/Service/NoteApi');
     const { NotificationApi } = await import('@/modules/Messages/Notifications/Service/NotificationApi');
     const { CsrfApi } = await import('@/modules/Core/Engine/Service/CsrfApi');
     const { UserApi } = await import('@/modules/Core/User/Service/UserApi');
@@ -106,6 +110,7 @@ async function registerApiLayer(): Promise<void> {
     registerEngine(engine);
     registerAuthApi(new AuthApi(engine));
     registerChatApi(new ChatApi(engine));
+    registerNotesApi(new NoteApi(engine));
     registerNotificationApi(new NotificationApi(engine));
     registerUserApi(new UserApi(engine));
     registerGroupApi(new GroupApi(engine));
@@ -136,6 +141,7 @@ async function bootstrap(): Promise<void> {
   registerAuthModule();
   registerHomeModule();
   registerChatModule();
+  registerNotesModule();
   registerKeywordModule();
   registerLoggerModule();
   registerFileModule();

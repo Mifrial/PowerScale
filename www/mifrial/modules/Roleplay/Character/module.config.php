@@ -11,7 +11,6 @@ use Mifrial\Roleplay\Character\Action\CreateCharacterAction;
 use Mifrial\Roleplay\Character\Action\GetCharacterAction;
 use Mifrial\Roleplay\Character\Action\GetCharacterListAction;
 use Mifrial\Roleplay\Character\Action\UpdateCharacterAction;
-use Mifrial\Roleplay\Character\Action\UpdateCharacterOwnerNotesAction;
 use Mifrial\Roleplay\Character\Action\UpdateCharacterVisibilityAction;
 use Mifrial\Roleplay\Character\Action\ValidateCharacterAction;
 use Mifrial\Roleplay\Character\Container\CharacterContainer;
@@ -99,9 +98,6 @@ return [
         UpdateCharacterVisibilityAction::class => static function (IServiceLocator $serviceLocator): UpdateCharacterVisibilityAction {
             return new UpdateCharacterVisibilityAction((new CharacterPortFactory())->createRead($serviceLocator));
         },
-        UpdateCharacterOwnerNotesAction::class => static function (IServiceLocator $serviceLocator): UpdateCharacterOwnerNotesAction {
-            return new UpdateCharacterOwnerNotesAction((new CharacterPortFactory())->createRead($serviceLocator));
-        },
     ],
     'routes' => [
         'character.create' => [
@@ -126,10 +122,6 @@ return [
         ],
         'character.updateVisibility' => [
             'handler' => UpdateCharacterVisibilityAction::class,
-            'csrf' => true,
-        ],
-        'character.updateOwnerNotes' => [
-            'handler' => UpdateCharacterOwnerNotesAction::class,
             'csrf' => true,
         ],
         'character.applyActualPatch' => [

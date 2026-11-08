@@ -234,7 +234,6 @@ final class Characters implements ICharacters
             'sheet' => $this->characterInputNormalizer->normalizePayload($new->getSheet()),
             'visibility_fields' => $visibilityFields,
             'is_public' => $this->characterInputNormalizer->isPublic($visibilityFields),
-            'owner_notes' => $new->getOwnerNotes(),
             'created_at' => $writtenAt,
             'updated_at' => $writtenAt,
         ];

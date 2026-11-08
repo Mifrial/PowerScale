@@ -6,7 +6,6 @@ import type { ICommandHandler } from '@/modules/Messages/Chat/Interface/ICommand
 import type { IRenderer } from '@/modules/Messages/Chat/Interface/IRenderer';
 import type { IChatToolbarExtension } from '@/modules/Messages/Chat/Interface/IChatToolbarExtension';
 import type { IAttachmentProcessor } from '@/modules/Messages/Chat/Interface/IAttachmentProcessor';
-import type { ITokenSource } from '@/modules/Messages/Chat/Interface/ITokenSource';
 import type { IChatType } from '@/modules/Messages/Chat/Interface/IChatType';
 import type { IChatTab } from '@/modules/Messages/Chat/Interface/IChatTab';
 import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChatRulesProvider';
@@ -16,11 +15,20 @@ import { BASE_CHAT_TABS } from '@/modules/Messages/Chat/Constant/Chat/BASE_CHAT_
 import { displayName, getUserApi, useUserCatalog } from '@/modules/Core/User/init';
 import { registerMenuItem } from '@/modules/Core/UI/init';
 import { MESSENGER_MENU_ITEM } from '@/modules/Messages/Chat/Constant/Navigation/MESSENGER_MENU_ITEM';
-import { chatInlineRendererRegistry } from '@/modules/Messages/Chat/Service/Instance/chatInlineRendererRegistry';
+import {
+  registerInlineRenderer as registerInlineRendererInternal,
+  registerTokenSource as registerTokenSourceInternal,
+} from '@/modules/Messages/Inline/init';
 
-// Реэкспорт синтаксиса инлайн-токенов `[[type:param]]`: синтаксис един на все модули
-// (персонажи/НПС в летописи используют те же токены, что чат).
-export { INLINE_CONTENT_TOKEN_RE } from '@/modules/Messages/Chat/Constant/Chat/INLINE_CONTENT_TOKEN_RE';
+// Реэкспорт инлайн-примитивов: доноры (Game/Rule/Character) продолжают звать Chat/init,
+// пока не переведены на Messages/Inline. Синтаксис `[[type:param]]` един для всех модулей.
+export {
+  INLINE_CONTENT_TOKEN_RE,
+  getInlineRenderer,
+  getTokenSources,
+  registerInlineRenderer,
+  registerTokenSource,
+} from '@/modules/Messages/Inline/init';
 export { chatInlineRendererContext } from '@/modules/Messages/Chat/Utils/chatInlineRendererContext';
 export type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
 export { chatVisibilityService } from '@/modules/Messages/Chat/Service/Instance/chatVisibilityService';
@@ -30,7 +38,7 @@ export { useChatChannel } from '@/modules/Messages/Chat/Composables/useChatChann
 export { CHAT_PERMISSION_SEE_ALL } from '@/modules/Messages/Chat/Constant/Chat/CHAT_PERMISSION_SEE_ALL';
 
 export const InlineTokenPicker = defineAsyncComponent(
-  () => import('@/modules/Messages/Chat/Component/InlineTokenPicker.vue'),
+  () => import('@/modules/Messages/Inline/Component/InlineTokenPicker.vue'),
 );
 
 const userChip = () => import('@/modules/Messages/Chat/Component/ChatUserChip.vue');
@@ -47,13 +55,12 @@ const commandHandlers: ICommandHandler[] = [];
 const contentRenderers = new Map<string, IRenderer>();
 const toolbarExtensions: IChatToolbarExtension[] = [];
 const attachmentProcessors = new Map<string, IAttachmentProcessor>();
-const tokenSources: ITokenSource[] = [];
 const chatRulesProviders: IChatRulesProvider[] = [];
 
 const chatTypes: IChatType[] = [...BASE_CHAT_TYPES];
 const chatTabs: IChatTab[] = [...BASE_CHAT_TABS];
 
-chatInlineRendererRegistry.register({
+registerInlineRendererInternal({
   type: 'user',
   component: defineAsyncComponent(userChip),
   describe: (segment) => {
@@ -65,7 +72,7 @@ chatInlineRendererRegistry.register({
   },
 });
 
-registerTokenSource({
+registerTokenSourceInternal({
   type: 'user',
   label: 'Пользователь',
   icon: 'mdi-account',
@@ -118,22 +125,6 @@ export function registerAttachmentProcessor<TPayload>(processor: IAttachmentProc
 
 export function getAttachmentProcessor(type: string): IAttachmentProcessor | undefined {
   return attachmentProcessors.get(type);
-}
-
-export function registerInlineRenderer(renderer: IRenderer): void {
-  chatInlineRendererRegistry.register(renderer);
-}
-
-export function getInlineRenderer(type: string): IRenderer | undefined {
-  return chatInlineRendererRegistry.get(type);
-}
-
-export function registerTokenSource(source: ITokenSource): void {
-  tokenSources.push(source);
-}
-
-export function getTokenSources(): ITokenSource[] {
-  return tokenSources;
 }
 
 export function registerChatRulesProvider(provider: IChatRulesProvider): void {

@@ -9378,7 +9378,6 @@ final class GameStrikeMysqlTest extends TestCase
             'choices' => ['race' => 'human'],
             'sheet' => ['hp' => 1],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ]));
         $document = array_merge([

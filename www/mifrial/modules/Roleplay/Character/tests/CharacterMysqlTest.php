@@ -25,6 +25,7 @@ use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Schema\CharacterSchema;
+use Mifrial\Roleplay\Character\Setup\DropCharacterOwnerNotesStep;
 use Mifrial\Roleplay\Character\Table\CharacterTable;
 use Mifrial\Roleplay\Character\Table\CharacterViewerTable;
 use Mifrial\Roleplay\Rule\Table\RuleSpaceTable;
@@ -82,7 +83,6 @@ final class CharacterMysqlTest extends TestCase
             'name' => '  Hero  ',
             'choices' => ['race' => 'human'],
             'sheet' => ['os' => 1],
-            'ownerNotes' => 'note',
         ]));
         $characterRecord = $characters->get($characterId);
         self::assertSame($characterId, $characterRecord->getId());
@@ -96,7 +96,28 @@ final class CharacterMysqlTest extends TestCase
         self::assertSame(['os' => 1], $characterRecord->getSheet());
         self::assertSame([], $characterRecord->getVisibilityFields());
         self::assertFalse($characterRecord->isPublic());
-        self::assertSame('note', $characterRecord->getOwnerNotes());
+    }
+
+    /**
+     * Setup снимает legacy-колонку owner_notes.
+     *
+     * @return void
+     */
+    public function testSetupDropsLegacyOwnerNotesColumn(): void
+    {
+        $databaseConnection = $this->databaseConnection;
+        self::assertInstanceOf(IlluminateDatabaseConnection::class, $databaseConnection);
+        $connection = $databaseConnection->illuminateConnection();
+        $connection->statement('ALTER TABLE `character` ADD COLUMN owner_notes TEXT NOT NULL');
+
+        (new DropCharacterOwnerNotesStep($this->smartTableGateway()))->run();
+
+        $columns = array_map(
+            static fn (object $row): string => (string) $row->Field,
+            $connection->select('SHOW COLUMNS FROM `character`'),
+        );
+        self::assertNotContains('owner_notes', $columns);
+        self::assertContains('is_public', $columns);
     }
 
     /**
@@ -267,14 +288,12 @@ final class CharacterMysqlTest extends TestCase
         $characters = $this->characters();
         $characterId = $characters->add($this->newCharacter($this->addUser('saved'), $this->addSpace(), [
             'visibilityFields' => ['inventory'],
-            'ownerNotes' => 'secret',
         ]));
         $updated = $characters->replaceSaved($characterId, 'Next', false, ['money' => 1], ['money' => 1], 1);
         self::assertSame(2, $updated->getActualVersion());
         self::assertSame('Next', $updated->getName());
         self::assertFalse($updated->isActive());
         self::assertSame(['inventory'], $updated->getVisibilityFields());
-        self::assertSame('secret', $updated->getOwnerNotes());
         try {
             $characters->replaceSaved($characterId, 'Lost', true, ['lost' => true], [], 1);
             self::fail('Stale replaceSaved must conflict');
@@ -289,7 +308,7 @@ final class CharacterMysqlTest extends TestCase
     }
 
     /**
-     * replaceMigrated пишет ревизию и version одним bump и не трогает заметки.
+     * replaceMigrated пишет ревизию и version одним bump и не трогает видимость.
      *
      * @return void
      */
@@ -297,13 +316,11 @@ final class CharacterMysqlTest extends TestCase
     {
         $characters = $this->characters();
         $characterId = $characters->add($this->newCharacter($this->addUser('migrated'), $this->addSpace(), [
-            'ownerNotes' => 'secret',
             'rulesRevision' => 1,
         ]));
         $updated = $characters->replaceMigrated($characterId, 'Hero', true, ['money' => 7], ['money' => 7], 2, 1);
         self::assertSame(2, $updated->getActualVersion());
         self::assertSame(2, $updated->getRulesRevision());
-        self::assertSame('secret', $updated->getOwnerNotes());
         try {
             $characters->replaceMigrated($characterId, 'Hero', true, ['lost' => true], [], 3, 1);
             self::fail('Stale replaceMigrated must conflict');
@@ -515,7 +532,6 @@ final class CharacterMysqlTest extends TestCase
             'choices' => [],
             'sheet' => [],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ], $overrides));
     }

@@ -15,9 +15,4 @@ export interface GameDetail {
   discussionChatId: number | null;
   /** Дубль `game.gameChatId` для вкладки «Чат игры»; источник истины — поле списка. */
   gameChatId: number | null;
-  /**
-   * Личные заметки текущего зрителя по этой игре (не общие, не заметки владельца игры).
-   * Другие участники и ведущий чужой текст не получают.
-   */
-  personalNotes?: string | null;
 }

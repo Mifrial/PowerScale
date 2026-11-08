@@ -123,27 +123,6 @@ final class CharacterSheetAccess
     }
 
     /**
-     * Пишет заметки, если актор — владелец.
-     *
-     * @param RequestActor $actor Актор.
-     * @param int $characterId Персонаж.
-     * @param string $notes Текст.
-     *
-     * @return CharacterOpening Вид владельца.
-     *
-     * @throws CharacterNotFoundException Если чужой или нет строки.
-     * @throws CharacterInvalidException Если поле.
-     */
-    public function replaceOwnerNotes(RequestActor $actor, int $characterId, string $notes): CharacterOpening
-    {
-        $this->owned($actor, $characterId);
-
-        return $this->ownerOpening(
-            $this->visibilityRepository->replaceOwnerNotes($characterId, $notes, DateTime::now()),
-        );
-    }
-
-    /**
      * Полный грант владельца и его зрители.
      *
      * @param CharacterRecord $record Строка.

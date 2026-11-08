@@ -9,7 +9,7 @@ import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisi
 import type { AddCustomRuleData } from '@/modules/Roleplay/Character/Dto/AddCustomRuleData';
 import type { UpdateCustomRuleData } from '@/modules/Roleplay/Character/Dto/UpdateCustomRuleData';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
-import { getCurrentUserId, getCurrentUserSummary } from '@/modules/Core/Auth/Mock/mockAuth';
+import { getCurrentUserSummary } from '@/modules/Core/Auth/Mock/mockAuth';
 import { mockCreateCharacterDiscussion } from '@/modules/Messages/Chat/Mock/mockChat';
 import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_VISIBILITY_PRESETS';
 import { fetchRevision, fetchSpace, fetchSpaceByCode } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
@@ -444,11 +444,6 @@ async function assertVersionMatchesSpace(version: CharacterVersion, spaceId: num
   characterVersionIntegrityService.assertValid(version, revision.rules);
 }
 
-/** Личные заметки владельца — не в CharacterVersion и не в details (ГМ не должен их увидеть в листе). */
-const ownerNotesByCharacterId: Record<number, string> = {
-  1: 'Не забыть про долг кузнецу.',
-};
-
 function toViewerDetail(id: number): CharacterDetail {
   const detail = details[id];
   if (!detail) throw new Error(`Character ${id} not found`);
@@ -459,9 +454,6 @@ function toViewerDetail(id: number): CharacterDetail {
     discussionChatId: detail.character.discussionChatId,
     previousVersion: previousVersions[id] ?? null,
   };
-  if (getCurrentUserId() === detail.character.ownerId) {
-    result.ownerNotes = ownerNotesByCharacterId[id] ?? null;
-  }
 
   return result;
 }
@@ -541,18 +533,6 @@ export function replaceCharacterRuntimeVersion(
   };
 
   return captureCharacterRuntimeState(id);
-}
-
-export async function updateOwnerNotes(id: number, notes: string, _signal?: AbortSignal): Promise<CharacterDetail> {
-  await delay();
-  const character = characters.find((entry) => entry.id === id);
-  if (!character) throw new Error(`Character ${id} not found`);
-  if (getCurrentUserId() !== character.ownerId) throw new Error('Forbidden');
-  const trimmed = notes.trim();
-  if (trimmed) ownerNotesByCharacterId[id] = trimmed;
-  else delete ownerNotesByCharacterId[id];
-
-  return toViewerDetail(id);
 }
 
 let nextId = 6;

@@ -61,7 +61,6 @@ final class GameCharacterHttpMysqlTest extends TestCase
             'choices' => [],
             'sheet' => [],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ]));
         $playerId = $this->gameUserAccounts()->addFromInput(['login' => 'play', 'name' => 'Play']);

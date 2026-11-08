@@ -38,12 +38,15 @@ final class CharacterModuleSetup implements IModuleSetup
     }
 
     /**
-     * Data-шаг снятия состояний без id.
+     * Data-шаги снятия устаревших полей и состояний.
      *
      * @return array<int, ISetupStep> Шаги.
      */
     public function getDataSteps(): array
     {
-        return [new DropUnidentifiedCharacterStatesStep($this->smartTableGateway)];
+        return [
+            new DropUnidentifiedCharacterStatesStep($this->smartTableGateway),
+            new DropCharacterOwnerNotesStep($this->smartTableGateway),
+        ];
     }
 }

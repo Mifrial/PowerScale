@@ -25,7 +25,7 @@ import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinReques
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import { UserProfileSlider } from '@/modules/Core/User/init';
-import { OwnerNotesDialog } from '@/modules/Roleplay/Character/init';
+import { NotesSlider } from '@/modules/Messages/Notes/init';
 
 const route = useRoute();
 const router = useRouter();
@@ -65,6 +65,11 @@ const discussionContext = computed<ChatRulesContext>(() =>
 );
 
 const discussionInline = computed(() => chatInlineRendererContext(discussionContext.value));
+const notesInline = computed<Record<string, unknown>>(() => ({
+  tokenLabels: discussionContext.value.tokenLabels,
+  spaceId: discussionContext.value.spaceId,
+  rulesRevision: discussionContext.value.rulesRevision,
+}));
 
 const gameId = computed(() => {
   const raw = route.params.id;
@@ -80,25 +85,6 @@ const joinRequests = ref<GameJoinRequest[]>([]);
 const requesting = ref(false);
 const joinError = ref<string | null>(null);
 const notesOpen = ref(false);
-const notesSaving = ref(false);
-const notesError = ref<string | null>(null);
-
-async function savePersonalNotes(text: string): Promise<void> {
-  const current = detail.value;
-  if (!current) return;
-  notesSaving.value = true;
-  notesError.value = null;
-  try {
-    const updated = await getGameApi().updatePersonalNotes(current.game.id, text, signal.value);
-    store.applyGameUpdate(updated);
-    notesOpen.value = false;
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') return;
-    notesError.value = 'Не удалось сохранить заметки';
-  } finally {
-    notesSaving.value = false;
-  }
-}
 
 const myJoinRequest = computed(() => {
   const user = currentUser.value;
@@ -418,12 +404,14 @@ watch(detail, (value) => {
     </template>
   </v-container>
 
-  <OwnerNotesDialog
-    v-model="notesOpen"
-    :text="detail?.personalNotes"
-    :saving="notesSaving"
-    :error="notesError"
-    @save="savePersonalNotes"
+  <NotesSlider
+    v-if="detail"
+    v-model:open="notesOpen"
+    host-type="game"
+    :host-id="detail.game.id"
+    :title="detail.game.name"
+    :inline-context="notesInline"
+    :token-sources="discussionContext.tokenSources"
   />
 
   <UserProfileSlider v-model:open="ownerSliderOpen" :user-id="ownerSliderUserId" />

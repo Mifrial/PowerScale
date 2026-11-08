@@ -693,7 +693,6 @@ final class CharacterActualMutationMysqlTest extends TestCase
             'choices' => [],
             'sheet' => [],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ], $overrides));
     }

@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router';
 import { routes as dashboardRoutes } from '@/modules/Roleplay/Home/routes';
 import { routes as notFoundRoutes } from '@/modules/Core/UI/routes';
 import { routes as chatRoutes } from '@/modules/Messages/Chat/routes';
+import { routes as notesRoutes } from '@/modules/Messages/Notes/routes';
 import {
   routes as notificationRoutes,
   adminChildren as notificationAdminChildren,
@@ -26,6 +27,7 @@ const adminRoutes: RouteRecordRaw = {
 export const moduleChildren: RouteRecordRaw[] = [
   ...dashboardRoutes,
   ...chatRoutes,
+  ...notesRoutes,
   ...notificationRoutes,
   ...userRoutes,
   ...roleplayRoutes,

@@ -1,4 +1,1 @@
-export interface ITokenOption {
-  value: string;
-  label: string;
-}
+export type { ITokenOption } from '@/modules/Messages/Inline/Interface/ITokenOption';

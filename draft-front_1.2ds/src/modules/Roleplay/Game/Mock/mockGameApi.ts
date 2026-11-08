@@ -149,7 +149,6 @@ export const mockGameApi: IGameApi = {
   createChronicleEntry: mockChronicle.createChronicleEntry,
   updateChronicleEntry: mockChronicle.updateChronicleEntry,
   deleteChronicleEntry: mockChronicle.deleteChronicleEntry,
-  updatePersonalNotes: mock.updatePersonalNotes,
   createCheckOffer: mockCheckOffers.createCheckOffer,
   declareCheck: async () => {
     throw new Error('declareCheck is a PHP command');

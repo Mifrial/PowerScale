@@ -223,28 +223,6 @@ final class CharacterVisibilityRepository
     }
 
     /**
-     * Пишет заметки владельца.
-     *
-     * @param int $characterId Персонаж.
-     * @param string $notes Текст.
-     * @param DateTime $updatedAt Момент записи.
-     *
-     * @return CharacterRecord После записи.
-     *
-     * @throws CharacterNotFoundException Если строки нет.
-     * @throws CharacterInvalidException Если поле.
-     */
-    public function replaceOwnerNotes(int $characterId, string $notes, DateTime $updatedAt): CharacterRecord
-    {
-        $this->updateCharacter($characterId, [
-            'owner_notes' => $notes,
-            'updated_at' => $updatedAt,
-        ]);
-
-        return $this->getById($characterId);
-    }
-
-    /**
      * Фильтр list: null не добавляет чужие строки.
      *
      * @param int $ownerUserId Владелец.

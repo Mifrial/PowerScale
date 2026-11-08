@@ -1207,7 +1207,6 @@ final class GameEndOfTurnMysqlTest extends TestCase
             'choices' => ['race' => 'human'],
             'sheet' => ['hp' => 1],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ]));
         $rows = $inventory === [] ? [[

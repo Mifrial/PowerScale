@@ -50,7 +50,6 @@ export class CharacterHttpViewService {
       actualVersion: this.intOf(record.actualVersion, 1),
       discussionChatId: null,
       previousVersion: null,
-      ownerNotes: typeof record.ownerNotes === 'string' ? record.ownerNotes : undefined,
       visibleSections: Array.isArray(record.visibleSections) ? (record.visibleSections as SheetSection[]) : undefined,
     };
   }

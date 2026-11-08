@@ -44,6 +44,9 @@
         <testsuite name="chat">
             <directory>modules/Messages/Chat/tests</directory>
         </testsuite>
+        <testsuite name="notes">
+            <directory>modules/Messages/Notes/tests</directory>
+        </testsuite>
         <testsuite name="versioning">
             <directory>modules/Versioning/Space/tests</directory>
         </testsuite>

@@ -1,1 +1,1 @@
-export type InlineSegment = { kind: 'text'; text: string } | { kind: 'token'; type: string; params: string[] };
+export type { InlineSegment } from '@/modules/Messages/Inline/Dto/InlineSegment';

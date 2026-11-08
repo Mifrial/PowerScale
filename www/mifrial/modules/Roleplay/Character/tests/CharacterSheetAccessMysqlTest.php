@@ -102,11 +102,11 @@ final class CharacterSheetAccessMysqlTest extends TestCase
     }
 
     /**
-     * Bypass видит скрытый чужой лист и получает полный лист без заметок владельца.
+     * Bypass видит скрытый чужой лист и получает полный лист без прав владельца.
      *
      * @return void
      */
-    public function testBypassSeesAllSheetsWithoutOwnerNotes(): void
+    public function testBypassSeesAllSheetsAsViewer(): void
     {
         $ownerId = $this->addUser('owner-bypass');
         $adminId = $this->addUser('admin-bypass');
@@ -116,7 +116,6 @@ final class CharacterSheetAccessMysqlTest extends TestCase
                 'inventory' => [['ruleCode' => 'sword']],
                 'customRules' => [['id' => 1]],
             ],
-            'ownerNotes' => 'secret',
         ]));
         $owner = new RequestActor($ownerId, [], false);
         $admin = new RequestActor($adminId, [], true);
@@ -129,7 +128,6 @@ final class CharacterSheetAccessMysqlTest extends TestCase
         self::assertTrue($opening->hasFullSheet());
         self::assertSame(CharacterSheetSection::codes(), $opening->getSections());
         self::assertSame([], $opening->getViewers());
-        self::assertSame('secret', $opening->getRecord()->getOwnerNotes());
     }
 
     /**
@@ -214,10 +212,6 @@ final class CharacterSheetAccessMysqlTest extends TestCase
         } catch (CharacterNotFoundException $exception) {
             self::assertSame('CHARACTER_NOT_FOUND', $exception->getErrorCode());
         }
-
-        $noted = $this->sheetAccess()->replaceOwnerNotes($owner, $characterId, 'mine');
-        self::assertSame('mine', $noted->getRecord()->getOwnerNotes());
-        self::assertSame(1, $noted->getRecord()->getActualVersion());
     }
 
     /**
@@ -330,7 +324,6 @@ final class CharacterSheetAccessMysqlTest extends TestCase
             'choices' => [],
             'sheet' => [],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ], $overrides));
     }

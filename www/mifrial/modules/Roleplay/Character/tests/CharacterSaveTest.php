@@ -493,7 +493,6 @@ final class CharacterSaveTest extends TestCase
             'sheet' => $sheet,
             'visibility_fields' => [],
             'is_public' => false,
-            'owner_notes' => '',
             'created_at' => $moment,
             'updated_at' => $moment,
         ]);

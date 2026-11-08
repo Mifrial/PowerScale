@@ -138,12 +138,6 @@ export class CharacterApi implements ICharacterApi {
     return this.requireData(res, 'Character apply migration failed');
   }
 
-  async updateOwnerNotes(id: number, notes: string, signal?: AbortSignal): Promise<CharacterDetail> {
-    const res = await this.engine.runAction<unknown>('character.updateOwnerNotes', { id, notes }, signal);
-
-    return characterHttpViewService.detailOf(this.requireData(res, 'Character notes update failed'));
-  }
-
   private requireData<T>(response: ActionResponse<T>, fallbackMessage: string): T {
     if (!response.success || response.data === null) {
       if (response.error) throw CharacterApiError.fromActionError(response.error);

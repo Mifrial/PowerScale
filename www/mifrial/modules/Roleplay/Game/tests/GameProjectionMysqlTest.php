@@ -332,7 +332,6 @@ final class GameProjectionMysqlTest extends TestCase
                 'active' => true,
             ],
             'visibilityFields' => [],
-            'ownerNotes' => 'secret',
             'active' => true,
         ]));
     }

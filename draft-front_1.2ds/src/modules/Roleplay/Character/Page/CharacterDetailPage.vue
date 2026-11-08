@@ -12,13 +12,15 @@ import { CHARACTER_STATUS_COLOR } from '@/modules/Roleplay/Character/Constant/CH
 import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/CharacterStatus';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { useCharacterCardDraft } from '@/modules/Roleplay/Character/Composables/useCharacterCardDraft';
-import { characterChangePort, getCharacterApi, getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
+import { characterChangePort, getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
+import { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
 import type { CharacterDetail } from '@/modules/Roleplay/Character/Dto/CharacterDetail';
+import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
+import { NotesSlider } from '@/modules/Messages/Notes/init';
 import { sheetAccessService } from '@/modules/Roleplay/Character/Service/Instance/sheetAccessService';
 import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import CharacterSheetBody from '@/modules/Roleplay/Character/Component/Detail/CharacterSheetBody.vue';
-import OwnerNotesDialog from '@/modules/Roleplay/Character/Component/OwnerNotesDialog.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -88,25 +90,21 @@ const {
 } = useCharacterCardDraft(detail, rules, canEdit, signal);
 
 const notesOpen = ref(false);
-const notesSaving = ref(false);
-const notesError = ref<string | null>(null);
 
-async function saveOwnerNotes(text: string): Promise<void> {
-  const current = detail.value;
-  if (!current) return;
-  notesSaving.value = true;
-  notesError.value = null;
-  try {
-    const updated = await getCharacterApi().updateOwnerNotes(current.character.id, text, signal.value);
-    store.applyDetail(updated);
-    notesOpen.value = false;
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') return;
-    notesError.value = 'Не удалось сохранить заметки';
-  } finally {
-    notesSaving.value = false;
-  }
-}
+// Контекст правил персонажа для чипов и вставки в заметках — тот же срез ревизии, что у обсуждения.
+const notesContext = computed<ChatRulesContext>(() =>
+  characterChatRulesContextService.build(
+    rules.value,
+    detail.value?.character.spaceId,
+    detail.value?.version.rulesRevision,
+  ),
+);
+const notesInline = computed<Record<string, unknown>>(() => ({
+  tokenLabels: notesContext.value.tokenLabels,
+  spaceId: notesContext.value.spaceId,
+  rulesRevision: notesContext.value.rulesRevision,
+}));
+const notesSources = computed(() => notesContext.value.tokenSources);
 
 // Секции листа, видимые текущему зрителю (standalone-контекст): владелец/ведущие — всё,
 // иначе — по зонам. Полный доступ → обычные вкладки; частичный → ограниченный вид.
@@ -278,7 +276,7 @@ watch(detail, (value) => {
     <template v-else-if="canView && detail">
       <Teleport to="#editor-actions" defer>
         <v-btn
-          v-if="canEdit"
+          v-if="canView"
           variant="tonal"
           size="small"
           prepend-icon="mdi-note-text-outline"
@@ -416,11 +414,13 @@ watch(detail, (value) => {
     </template>
   </v-container>
 
-  <OwnerNotesDialog
-    v-model="notesOpen"
-    :text="detail?.ownerNotes"
-    :saving="notesSaving"
-    :error="notesError"
-    @save="saveOwnerNotes"
+  <NotesSlider
+    v-if="detail"
+    v-model:open="notesOpen"
+    host-type="character"
+    :host-id="detail.character.id"
+    :title="detail.character.name"
+    :inline-context="notesInline"
+    :token-sources="notesSources"
   />
 </template>

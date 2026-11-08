@@ -26,5 +26,4 @@ export interface ICharacterApi {
   ): Promise<CharacterDetail>;
   migrateCharacter(id: number, request: CharacterMigrateRequest, signal?: AbortSignal): Promise<CharacterDetail>;
   applyMigration(id: number, request: CharacterMigrationApplyRequest, signal?: AbortSignal): Promise<CharacterDetail>;
-  updateOwnerNotes(id: number, notes: string, signal?: AbortSignal): Promise<CharacterDetail>;
 }

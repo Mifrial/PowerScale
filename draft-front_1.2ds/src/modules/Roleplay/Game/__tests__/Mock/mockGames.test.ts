@@ -6,11 +6,9 @@ import {
   createGame,
   updateGame,
   addGameMember,
-  updatePersonalNotes,
 } from '@/modules/Roleplay/Game/Mock/mockGames';
 import { createInvitation, respondInvitation } from '@/modules/Roleplay/Game/Mock/mockGameInvitations';
 import { mockGetChats } from '@/modules/Messages/Chat/Mock/mockChat';
-import { mockLogin, mockLogout } from '@/modules/Core/Auth/Mock/mockAuth';
 import { users as realUsers } from '@/modules/Core/User/Mock/mockUsers';
 import type { CreateGameData } from '@/modules/Roleplay/Game/Dto/CreateGameData';
 import { clearMockGameState, startGameSession } from '@/modules/Roleplay/Game/Mock/mockGameState';
@@ -209,19 +207,5 @@ describe('mockGames: обсуждение и редактирование', () =
       .find((chat) => chat.id === detail.gameChatId)
       ?.members.find((member) => member.userId === 2)?.role;
     expect(playerRole).toBe('player');
-  });
-
-  it('личные заметки игры видны только текущему пользователю', async () => {
-    const ivan = await fetchGame(1);
-    expect(ivan.personalNotes).toBe('Спросить Анну про руины на севере.');
-
-    await mockLogin('admin', 'test');
-    const adminView = await fetchGame(1);
-    expect(adminView.personalNotes).toBeNull();
-    await updatePersonalNotes(1, 'план ГМ');
-    expect((await fetchGame(1)).personalNotes).toBe('план ГМ');
-    await mockLogout();
-
-    expect((await fetchGame(1)).personalNotes).toBe('Спросить Анну про руины на севере.');
   });
 });

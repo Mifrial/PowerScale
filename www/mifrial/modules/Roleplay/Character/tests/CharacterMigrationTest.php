@@ -495,7 +495,6 @@ final class CharacterMigrationTest extends TestCase
             'sheet' => ['money' => 7],
             'visibility_fields' => [],
             'is_public' => false,
-            'owner_notes' => '',
             'created_at' => $moment,
             'updated_at' => $moment,
         ]);

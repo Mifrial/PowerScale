@@ -46,7 +46,6 @@ final class CharacterInputNormalizerTest extends TestCase
             'choices' => ['a' => 1],
             'sheet' => [],
             'visibilityFields' => ['race'],
-            'ownerNotes' => 'n',
             'active' => false,
         ];
         $newCharacter = NewCharacter::fromNormalized($values);

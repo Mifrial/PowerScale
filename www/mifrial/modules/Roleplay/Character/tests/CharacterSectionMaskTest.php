@@ -109,7 +109,6 @@ final class CharacterSectionMaskTest extends TestCase
             'sheet' => ['active' => true, 'money' => 1],
             'visibility_fields' => ['inventory'],
             'is_public' => true,
-            'owner_notes' => 'secret',
             'created_at' => DateTime::now(),
             'updated_at' => DateTime::now(),
         ]);
@@ -155,7 +154,6 @@ final class CharacterSectionMaskTest extends TestCase
             'sheet' => ['active' => true, 'money' => 1, 'states' => []],
             'visibility_fields' => [],
             'is_public' => false,
-            'owner_notes' => 'secret',
             'created_at' => DateTime::now(),
             'updated_at' => DateTime::now(),
         ]);

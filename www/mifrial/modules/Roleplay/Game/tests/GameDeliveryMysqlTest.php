@@ -93,7 +93,6 @@ final class GameDeliveryMysqlTest extends TestCase
             ],
             'sheet' => ['money' => 100],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ]));
         $this->membershipFacade()->submit($gameId, $characterId, $this->ownerUserId);
@@ -280,7 +279,6 @@ final class GameDeliveryMysqlTest extends TestCase
             'choices' => ['race' => 'human'],
             'sheet' => ['hp' => 1],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ]));
         $this->characterFacade()->replaceMigrated($characterId, 'Hero', true, [

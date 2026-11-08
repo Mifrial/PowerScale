@@ -39,4 +39,25 @@ describe('DescriptionHtmlSanitizerService', () => {
     expect(clean).not.toContain('onclick');
     expect(clean).not.toContain('javascript:');
   });
+
+  it('сохраняет inline-атрибуты заметки и теги редактора', () => {
+    const clean = sanitizer.sanitize(
+      '<h1>Заголовок</h1><p><s>старое</s> <code>код</code></p><hr><span data-inline-type="character" data-inline-value="3" data-inline-label="Гаррик">Гаррик</span>',
+    );
+
+    expect(clean).toContain('<h1>Заголовок</h1>');
+    expect(clean).toContain('<s>старое</s>');
+    expect(clean).toContain('<code>код</code>');
+    expect(clean).toContain('<hr>');
+    expect(clean).toContain('data-inline-type="character"');
+    expect(clean).toContain('data-inline-value="3"');
+    expect(clean).toContain('data-inline-label="Гаррик"');
+  });
+
+  it('снимает посторонние data-атрибуты', () => {
+    const clean = sanitizer.sanitize('<span data-inline-type="character" data-evil="1">Текст</span>');
+
+    expect(clean).toContain('data-inline-type="character"');
+    expect(clean).not.toContain('data-evil');
+  });
 });

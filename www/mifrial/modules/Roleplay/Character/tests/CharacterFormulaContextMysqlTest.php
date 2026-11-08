@@ -95,7 +95,6 @@ final class CharacterFormulaContextMysqlTest extends TestCase
             'choices' => [],
             'sheet' => $sheet,
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ]));
 

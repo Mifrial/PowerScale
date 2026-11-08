@@ -25,7 +25,6 @@ final class NewCharacter
      * @param array $choices Build JSON.
      * @param array $sheet Кэш JSON.
      * @param array $visibilityFields Секции для всех.
-     * @param string $ownerNotes Заметки.
      * @param bool $active Включён.
      *
      * @return void
@@ -38,7 +37,6 @@ final class NewCharacter
         private readonly array $choices,
         private readonly array $sheet,
         private readonly array $visibilityFields,
-        private readonly string $ownerNotes,
         private readonly bool $active,
     ) {
     }
@@ -62,7 +60,6 @@ final class NewCharacter
             self::requireArray($values['choices'] ?? null),
             self::requireArray($values['sheet'] ?? null),
             self::requireArray($values['visibilityFields'] ?? []),
-            self::requireString($values['ownerNotes'] ?? ''),
             self::requireBool($values['active'] ?? true),
         );
     }
@@ -138,16 +135,6 @@ final class NewCharacter
     }
 
     /**
-     * Личные заметки.
-     *
-     * @return string Текст.
-     */
-    public function getOwnerNotes(): string
-    {
-        return $this->ownerNotes;
-    }
-
-    /**
      * Включён ли лист.
      *
      * @return bool true, если активен.
@@ -172,7 +159,6 @@ final class NewCharacter
             'choices' => $this->choices,
             'sheet' => $this->sheet,
             'visibilityFields' => $this->visibilityFields,
-            'ownerNotes' => $this->ownerNotes,
             'active' => $this->active,
         ];
     }

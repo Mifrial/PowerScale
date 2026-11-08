@@ -4,7 +4,7 @@ import type { ChatFoldTone } from '@/modules/Messages/Chat/Enum/ChatFoldTone';
 import type { ChatFoldVariant } from '@/modules/Messages/Chat/Enum/ChatFoldVariant';
 import type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
 import { getInlineRenderer } from '@/modules/Messages/Chat/init';
-import { inlineContentService } from '@/modules/Messages/Chat/Service/Instance/inlineContentService';
+import { inlineContentService } from '@/modules/Messages/Inline/init';
 import { hostInlineRendererContext } from '@/modules/Messages/Chat/Utils/hostInlineRendererContext';
 
 const props = defineProps<{

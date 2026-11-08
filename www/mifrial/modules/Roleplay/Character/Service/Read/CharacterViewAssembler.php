@@ -134,7 +134,6 @@ final class CharacterViewAssembler
             'actualVersion' => $record->getActualVersion(),
             'choices' => $record->getChoices(),
             'sheet' => $sheet,
-            'ownerNotes' => $record->getOwnerNotes(),
             'visibilityFields' => $record->getVisibilityFields(),
             'viewers' => $this->viewers($opening->getViewers()),
         ];

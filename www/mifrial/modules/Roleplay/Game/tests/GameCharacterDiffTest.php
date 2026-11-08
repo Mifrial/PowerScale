@@ -100,7 +100,6 @@ final class GameCharacterDiffTest extends TestCase
             'sheet' => $sheet,
             'visibility_fields' => [],
             'is_public' => false,
-            'owner_notes' => '',
             'created_at' => DateTime::now(),
             'updated_at' => DateTime::now(),
         ]);

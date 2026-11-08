@@ -282,7 +282,6 @@ export interface IGameApi {
   createChronicleEntry(gameId: number, data: CreateChronicleEntryData, signal?: AbortSignal): Promise<ChronicleEntry>;
   updateChronicleEntry(entryId: number, data: UpdateChronicleEntryData, signal?: AbortSignal): Promise<ChronicleEntry>;
   deleteChronicleEntry(entryId: number, signal?: AbortSignal): Promise<void>;
-  updatePersonalNotes(gameId: number, notes: string, signal?: AbortSignal): Promise<GameDetail>;
   createCheckOffer(gameId: number, data: CreateCheckOfferData, signal?: AbortSignal): Promise<CheckOffer>;
   declareCheck(
     body: {

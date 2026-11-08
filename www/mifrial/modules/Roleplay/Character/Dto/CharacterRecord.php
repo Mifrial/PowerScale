@@ -31,7 +31,6 @@ final class CharacterRecord
         'sheet',
         'visibility_fields',
         'is_public',
-        'owner_notes',
         'created_at',
         'updated_at',
     ];
@@ -50,7 +49,6 @@ final class CharacterRecord
      * @param array $sheet Кэш.
      * @param array $visibilityFields Секции всем.
      * @param bool $isPublic Зеркало непустых секций.
-     * @param string $ownerNotes Заметки.
      * @param DateTime $createdAt Создание.
      * @param DateTime $updatedAt Обновление.
      *
@@ -68,7 +66,6 @@ final class CharacterRecord
         private readonly array $sheet,
         private readonly array $visibilityFields,
         private readonly bool $isPublic,
-        private readonly string $ownerNotes,
         private readonly DateTime $createdAt,
         private readonly DateTime $updatedAt,
     ) {
@@ -99,7 +96,6 @@ final class CharacterRecord
             self::requireArray($fields['sheet']),
             self::requireArray($fields['visibility_fields']),
             self::requireBool($fields['is_public']),
-            self::requireString($fields['owner_notes']),
             self::requireDateTime($fields['created_at']),
             self::requireDateTime($fields['updated_at']),
         );
@@ -213,16 +209,6 @@ final class CharacterRecord
     public function isPublic(): bool
     {
         return $this->isPublic;
-    }
-
-    /**
-     * Личные заметки.
-     *
-     * @return string Текст.
-     */
-    public function getOwnerNotes(): string
-    {
-        return $this->ownerNotes;
     }
 
     /**

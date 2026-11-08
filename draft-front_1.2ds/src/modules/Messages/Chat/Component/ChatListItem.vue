@@ -6,7 +6,7 @@ import { useCurrentUser, UserAvatar } from '@/modules/Core/User/init';
 import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers';
 import { DateTime } from '@/modules/Core/Engine/Value/DateTime';
 import { avatarColors } from '@/modules/Messages/Chat/Constant/avatarColors';
-import { inlineContentService } from '@/modules/Messages/Chat/Service/Instance/inlineContentService';
+import { inlineContentService } from '@/modules/Messages/Inline/init';
 
 const props = defineProps<{
   chat: Chat;

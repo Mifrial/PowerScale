@@ -503,7 +503,6 @@ final class CharacterSave
             'choices' => $built['choices'],
             'sheet' => $built['sheet'],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => $built['active'],
         ]);
     }

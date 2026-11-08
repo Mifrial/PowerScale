@@ -241,7 +241,6 @@ final class GameCharacterSectionMysqlTest extends TestCase
             'choices' => [],
             'sheet' => [],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ]));
     }

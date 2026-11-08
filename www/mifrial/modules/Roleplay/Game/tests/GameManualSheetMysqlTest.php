@@ -231,7 +231,6 @@ final class GameManualSheetMysqlTest extends TestCase
             'choices' => ['race' => 'human'],
             'sheet' => ['hp' => 1],
             'visibilityFields' => [],
-            'ownerNotes' => '',
             'active' => true,
         ]));
         $this->characterFacade()->replaceMigrated(
