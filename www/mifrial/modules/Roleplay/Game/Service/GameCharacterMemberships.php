@@ -4,14 +4,9 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
-// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassTooLong
-// Отмена process сидит в return: седьмой аргумент конструктора запрещён, отдельный класс повторил бы транзакцию.
-
 use Mifrial\Core\Kernel\Value\DateTime;
-use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Game\Dto\GameCharacterRecord;
 use Mifrial\Roleplay\Game\Exception\GameConflictException;
@@ -19,9 +14,6 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
-use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
-use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
-use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
@@ -30,28 +22,27 @@ use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
  */
 final class GameCharacterMemberships implements IGameMemberships
 {
+    private readonly GameCharacterRelease $release;
+
     /**
      * Создаёт фасад.
      *
-     * @param GameCharacterRepository $characterRepository Строки.
+     * @param GameMembershipPorts $ports Хранилища строки.
      * @param IGames $games Игра.
      * @param ICharacters $characters Actual.
      * @param GameCharacterReview $review Состояние проверки.
      * @param GameDonorChats $donorChats Чат строки.
-     * @param ISmartTableGateway $smartTableGateway Транзакция со вставкой чата.
-     * @param ICharacterActualMutations $mutations Запись листа при снятии зажима.
      *
      * @return void
      */
     public function __construct(
-        private readonly GameCharacterRepository $characterRepository,
+        private readonly GameMembershipPorts $ports,
         private readonly IGames $games,
         private readonly ICharacters $characters,
         private readonly GameCharacterReview $review,
         private readonly GameDonorChats $donorChats,
-        private readonly ISmartTableGateway $smartTableGateway,
-        private readonly ICharacterActualMutations $mutations,
     ) {
+        $this->release = new GameCharacterRelease($ports, $games, $characters);
     }
 
     /**
@@ -74,21 +65,23 @@ final class GameCharacterMemberships implements IGameMemberships
             throw new GameNotFoundException();
         }
 
-        if ($this->characterRepository->findLiveId($characterId) !== null) {
+        if ($this->ports->characters->findLiveId($characterId) !== null) {
             throw new GameInvalidException('Character is already in a game');
         }
 
-        return $this->smartTableGateway->transaction(
+        return $this->ports->gateway->transaction(
             function () use ($gameId, $characterId, $actual): GameCharacterRecord {
-                $row = $this->characterRepository->add($gameId, $characterId, $actual->getOwnerId());
+                $row = $this->ports->characters->add($gameId, $characterId, $actual->getOwnerId());
                 $chatId = $this->donorChats->openCharacterChat(
                     $characterId,
                     $actual->getOwnerId(),
                     $this->characterChatMemberIds($gameId, $actual->getOwnerId()),
                 );
-                $this->characterRepository->saveDiscussionChatId($row->getId(), $chatId);
+                $this->ports->characters->saveDiscussionChatId($row->getId(), $chatId);
 
-                return $this->withReview($this->characterRepository->getByPair($gameId, $characterId), $actual);
+                $row = $this->ports->characters->getByPair($gameId, $characterId);
+
+                return $this->review->decorate($this->games->get($gameId), $row, $actual);
             },
         );
     }
@@ -106,10 +99,10 @@ final class GameCharacterMemberships implements IGameMemberships
      */
     public function get(int $gameId, int $characterId): GameCharacterRecord
     {
-        return $this->withReview(
-            $this->characterRepository->getByPair($gameId, $characterId),
-            $this->actual($characterId),
-        );
+        $row = $this->ports->characters->getByPair($gameId, $characterId);
+        $actual = $this->actual($characterId);
+
+        return $this->review->decorate($this->games->get($gameId), $row, $actual);
     }
 
     /**
@@ -127,7 +120,7 @@ final class GameCharacterMemberships implements IGameMemberships
     {
         $this->games->get($gameId);
 
-        return $this->characterRepository->getListByGame($gameId, $ownerUserId);
+        return $this->ports->characters->getListByGame($gameId, $ownerUserId);
     }
 
     /**
@@ -158,7 +151,7 @@ final class GameCharacterMemberships implements IGameMemberships
             throw new GameConflictException($actual->getActualVersion(), $row->getMembershipRevision());
         }
 
-        $this->characterRepository->saveApproved(
+        $this->ports->characters->saveApproved(
             $row->getId(),
             $this->snapshot($actual),
             $row->getMembershipRevision() + 1,
@@ -194,10 +187,10 @@ final class GameCharacterMemberships implements IGameMemberships
         $row = $this->openRow($gameId, $characterId);
         $actual = $this->actual($characterId);
         $this->assertMembership($row, $expectedMembershipRevision, $actual);
-        $this->smartTableGateway->transaction(
+        $this->ports->gateway->transaction(
             function () use ($row, $actorUserId, $trimmed, $gameId, $characterId): void {
                 $messageId = $this->returnMessageId($row, $actorUserId, $trimmed);
-                $this->characterRepository->saveReturned(
+                $this->ports->characters->saveReturned(
                     $row->getId(),
                     DateTime::now(),
                     $trimmed,
@@ -227,7 +220,7 @@ final class GameCharacterMemberships implements IGameMemberships
     public function reject(int $gameId, int $characterId, int $expectedMembershipRevision): void
     {
         $this->assertWritableGame($gameId);
-        $row = $this->characterRepository->getByPair($gameId, $characterId);
+        $row = $this->ports->characters->getByPair($gameId, $characterId);
         if ($row->getStatus() !== 'submitted') {
             throw new GameInvalidException('Game character cannot be rejected');
         }
@@ -237,7 +230,7 @@ final class GameCharacterMemberships implements IGameMemberships
             throw new GameConflictException($actual->getActualVersion(), $row->getMembershipRevision());
         }
 
-        $this->characterRepository->deleteById($row->getId());
+        $this->ports->characters->deleteById($row->getId());
     }
 
     /**
@@ -268,10 +261,9 @@ final class GameCharacterMemberships implements IGameMemberships
 
         $actual = $this->actual($characterId);
         $this->assertMembership($row, $expectedMembershipRevision, $actual);
-        $this->smartTableGateway->transaction(function () use ($row, $gameId, $characterId): void {
-            $this->characterRepository->saveLeft($row->getId(), $row->getMembershipRevision() + 1);
-            $this->releaseHolds($gameId, $characterId);
-            $this->releaseDebt($gameId, $characterId);
+        $this->ports->gateway->transaction(function () use ($row, $gameId, $characterId): void {
+            $this->ports->characters->saveLeft($row->getId(), $row->getMembershipRevision() + 1);
+            $this->release->release($gameId, $characterId);
         });
 
         return $this->get($gameId, $characterId);
@@ -308,7 +300,7 @@ final class GameCharacterMemberships implements IGameMemberships
         $row = $this->openRow($gameId, $characterId);
         $actual = $this->actual($characterId);
         $this->assertMembership($row, $expectedMembershipRevision, $actual);
-        $this->characterRepository->saveBonus(
+        $this->ports->characters->saveBonus(
             $row->getId(),
             $osBonus,
             $orBonus,
@@ -366,7 +358,7 @@ final class GameCharacterMemberships implements IGameMemberships
      */
     private function openRow(int $gameId, int $characterId): GameCharacterRecord
     {
-        $row = $this->characterRepository->getByPair($gameId, $characterId);
+        $row = $this->ports->characters->getByPair($gameId, $characterId);
         if ($row->getStatus() === 'left') {
             throw new GameInvalidException('Game character has left');
         }
@@ -465,8 +457,8 @@ final class GameCharacterMemberships implements IGameMemberships
      */
     private function cancelOpenCharacter(int $gameId, int $characterId): void
     {
-        $sessions = new GameSessionRepository($this->smartTableGateway);
-        $processes = new GameProcessRepository($this->smartTableGateway);
+        $sessions = new GameSessionRepository($this->ports->gateway);
+        $processes = new GameProcessRepository($this->ports->gateway);
         $processes->cancelOpenForCharacter($sessions->findSessionId($gameId), $characterId);
     }
 
@@ -505,121 +497,6 @@ final class GameCharacterMemberships implements IGameMemberships
         } catch (CharacterNotFoundException $exception) {
             throw new GameNotFoundException('Game character was not found', $exception);
         }
-    }
-
-    /**
-     * Вешает reviewState.
-     *
-     * @param GameCharacterRecord $row Строка.
-     * @param CharacterRecord $actual Лист.
-     *
-     * @return GameCharacterRecord Строка.
-     *
-     * @throws GameInvalidException Если snapshot не сравнивается.
-     */
-    private function withReview(GameCharacterRecord $row, CharacterRecord $actual): GameCharacterRecord
-    {
-        $reviewed = $row->withReviewState($this->review->reviewState(
-            $row->getApprovedCharacterVersion(),
-            $row->getReturnedAt(),
-            $actual,
-        ));
-
-        return $reviewed->withAdmission(
-            $this->review->needsModeration($row->getApprovedCharacterVersion(), $actual),
-            $this->review->canStartSession($this->games->get($row->getGameId()), $row, $actual),
-            $this->review->isActiveSessionParticipant($row->getGameId(), $row->getCharacterId()),
-        );
-    }
-
-    /**
-     * Снимает зажим уходящего персонажа на листах этой игры.
-     *
-     * @param int $gameId Игра.
-     * @param int $characterId Персонаж.
-     *
-     * @return void
-     *
-     * @throws GameNotFoundException Если листа нет.
-     * @throws GameInvalidException Если строка битая.
-     */
-    private function releaseHolds(int $gameId, int $characterId): void
-    {
-        $holder = ['kind' => 'character', 'id' => $characterId];
-        $game = $this->games->get($gameId);
-        $npcs = new GameNpcRepository($this->smartTableGateway);
-        $writes = new GameStrikeSheetWrites($this->mutations, $npcs);
-        foreach ($this->characterRepository->getListByGame($gameId, null) as $membership) {
-            $actual = $this->characters->get($membership->getCharacterId());
-            $patches = $this->holdPatches($actual->getSheet(), $holder);
-            if ($patches === []) {
-                continue;
-            }
-
-            $this->mutations->apply($membership->getCharacterId(), $actual->getActualVersion(), $patches);
-        }
-
-        foreach ($npcs->getListByGame($gameId) as $npc) {
-            $sheet = $npc->getVersion()['sheet'] ?? [];
-            $patches = is_array($sheet) ? $this->holdPatches($sheet, $holder) : [];
-            if ($patches === []) {
-                continue;
-            }
-
-            $writes->write($game, 'npc', $npc->getId(), $npc->getActualVersion(), $patches);
-        }
-    }
-
-    /**
-     * Снимает слот долга персонажа в боях открытой сессии.
-     */
-    private function releaseDebt(int $gameId, int $characterId): void
-    {
-        $sessions = new GameSessionRepository($this->smartTableGateway);
-        $sessionId = $sessions->findSessionId($gameId);
-        if ($sessionId === null) {
-            return;
-        }
-
-        $battles = new GameBattleRepository($this->smartTableGateway);
-        $key = 'character:' . $characterId;
-        foreach ($battles->findIdsBySession($sessionId) as $battleId) {
-            $battle = $battles->find($battleId);
-            if ($battle === null || !array_key_exists($key, $battle->getActionDebt())) {
-                continue;
-            }
-
-            $debt = $battle->getActionDebt();
-            unset($debt[$key]);
-            $battles->replaceActionDebt($battleId, $debt);
-        }
-    }
-
-    /**
-     * Операции снятия heldBy.
-     *
-     * @param array<string, mixed> $sheet Лист.
-     * @param array{kind: string, id: int} $holder Держатель.
-     *
-     * @return array<int, array<string, mixed>> Операции.
-     */
-    private function holdPatches(array $sheet, array $holder): array
-    {
-        $patches = [];
-        $states = $sheet['states'] ?? [];
-        if (!is_array($states)) {
-            return [];
-        }
-
-        foreach ($states as $row) {
-            if (!is_array($row) || ($row['heldBy'] ?? null) !== $holder || !is_int($row['id'] ?? null)) {
-                continue;
-            }
-
-            $patches[] = ['kind' => 'patchState', 'id' => $row['id'], 'heldBy' => null];
-        }
-
-        return $patches;
     }
 
     /**

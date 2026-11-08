@@ -60,6 +60,32 @@ final class GameCharacterReview
     }
 
     /**
+     * Вешает reviewState и допуск на строку.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameCharacterRecord $row Строка.
+     * @param CharacterRecord $actual Текущий лист.
+     *
+     * @return GameCharacterRecord Строка с проверкой и допуском.
+     *
+     * @throws GameInvalidException Если snapshot не сравнивается.
+     */
+    public function decorate(GameRecord $game, GameCharacterRecord $row, CharacterRecord $actual): GameCharacterRecord
+    {
+        $reviewed = $row->withReviewState($this->reviewState(
+            $row->getApprovedCharacterVersion(),
+            $row->getReturnedAt(),
+            $actual,
+        ));
+
+        return $reviewed->withAdmission(
+            $this->needsModeration($row->getApprovedCharacterVersion(), $actual),
+            $this->canStartSession($game, $row, $actual),
+            $this->isActiveSessionParticipant($row->getGameId(), $row->getCharacterId()),
+        );
+    }
+
+    /**
      * Нет snapshot или semantic diff. Return сюда не входит.
      *
      * @param array<string, mixed>|null $snapshot Копия или null.

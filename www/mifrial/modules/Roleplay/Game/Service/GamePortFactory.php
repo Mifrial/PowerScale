@@ -141,13 +141,11 @@ final class GamePortFactory
         $gateway = $this->smartTableGateway($serviceLocator);
 
         return new GameCharacterMemberships(
-            new GameCharacterRepository($gateway),
+            new GameMembershipPorts($gateway, $this->mutations($serviceLocator)),
             $this->create($serviceLocator),
             $this->characters($serviceLocator),
             $this->review($serviceLocator),
             $this->donorChats($serviceLocator),
-            $gateway,
-            $this->mutations($serviceLocator),
         );
     }
 
