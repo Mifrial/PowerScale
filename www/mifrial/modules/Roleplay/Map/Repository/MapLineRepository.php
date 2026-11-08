@@ -66,24 +66,20 @@ final class MapLineRepository
         bool $isPresent,
         int $sortOrder,
     ): int {
-        try {
-            return $this->lineRecords->add([
-                'variant_id' => $variantId,
-                'color' => $color,
-                'speed' => $speed,
-                'points' => $points,
-                'widths' => $widths,
-                'handles' => $handles,
-                'segments' => $segments,
-                'color_blend' => $colorBlend,
-                'decor' => $decor === [] ? (object) [] : $decor,
-                'label' => $label,
-                'is_present' => $isPresent,
-                'sort_order' => $sortOrder,
-            ]);
-        } catch (FieldInvalidException | SmartMapInvalidException | RowWriteFailedException $exception) {
-            throw new MapInvalidException('Map line row is invalid', $exception);
-        }
+        return $this->insert([
+            'variant_id' => $variantId,
+            'color' => $color,
+            'speed' => $speed,
+            'points' => $points,
+            'widths' => $widths,
+            'handles' => $handles,
+            'segments' => $segments,
+            'color_blend' => $colorBlend,
+            'decor' => $decor === [] ? (object) [] : $decor,
+            'label' => $label,
+            'is_present' => $isPresent,
+            'sort_order' => $sortOrder,
+        ]);
     }
 
     /**
@@ -143,6 +139,24 @@ final class MapLineRepository
             $this->lineRecords->delete($lineId);
         } catch (RowNotFoundException $exception) {
             throw new MapNotFoundException('Map line was not found', $exception);
+        }
+    }
+
+    /**
+     * Вставляет строку ленты.
+     *
+     * @param array<string, mixed> $fields Поля.
+     *
+     * @return int Id.
+     *
+     * @throws MapInvalidException Если поля недопустимы.
+     */
+    private function insert(array $fields): int
+    {
+        try {
+            return $this->lineRecords->add($fields);
+        } catch (FieldInvalidException | SmartMapInvalidException | RowWriteFailedException $exception) {
+            throw new MapInvalidException('Map line row is invalid', $exception);
         }
     }
 

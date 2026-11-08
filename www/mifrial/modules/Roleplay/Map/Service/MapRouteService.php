@@ -64,11 +64,37 @@ final class MapRouteService
     ): MapRoute {
         $this->accessService->requireMapForView($actor, $mapId);
         $variantRecord = $this->variantService->requireVariant($mapId, $variantId);
-        $areas = $this->areaStore->findAreas($mapId);
+        [$surfaces, $objects] = $this->items($mapId, $variantId);
+        $width = $variantRecord->getWidth() ?? 1200;
+        $height = $variantRecord->getHeight() ?? 900;
+        $ribbons = $this->ribbons($this->lineStore->findLines($variantId));
+        $field = $this->grid->build($width, $height, $surfaces, $ribbons, $objects);
+        $route = $this->grid->route(
+            $field,
+            [$this->clamp($fromX, 0, $width), $this->clamp($fromY, 0, $height)],
+            [$this->clamp($toX, 0, $width), $this->clamp($toY, 0, $height)],
+        );
+
+        return $this->response($route, $variantRecord->getMillimetersPerPixel());
+    }
+
+    /**
+     * Геометрия областей варианта для сетки.
+     *
+     * @param int $mapId Карта.
+     * @param int $variantId Вариант.
+     *
+     * @return array{
+     *     0: array<int, array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}>,
+     *     1: array<int, array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}>
+     * } Поверхности и объекты.
+     */
+    private function items(int $mapId, int $variantId): array
+    {
         $shapes = $this->indexShapes($this->areaStore->findShapes($variantId));
         $surfaces = [];
         $objects = [];
-        foreach ($areas as $areaRecord) {
+        foreach ($this->areaStore->findAreas($mapId) as $areaRecord) {
             $shape = $shapes[$areaRecord->getId()] ?? null;
             if (!$shape instanceof MapAreaShapeRecord || !$shape->isPresent() || count($shape->getPath()) < 3) {
                 continue;
@@ -82,29 +108,14 @@ final class MapRouteService
             ];
             if ($areaRecord->getLayer() === 'surface') {
                 $surfaces[] = $item;
-            } else {
-                $objects[] = $item;
+
+                continue;
             }
+
+            $objects[] = $item;
         }
 
-        $ribbons = $this->ribbons($this->lineStore->findLines($variantId));
-        $width = $variantRecord->getWidth() ?? 1200;
-        $height = $variantRecord->getHeight() ?? 900;
-        $field = $this->grid->build($width, $height, $surfaces, $ribbons, $objects);
-        $route = $this->grid->route(
-            $field,
-            [$this->clamp($fromX, 0, $width), $this->clamp($fromY, 0, $height)],
-            [$this->clamp($toX, 0, $width), $this->clamp($toY, 0, $height)],
-        );
-        $scale = $variantRecord->getMillimetersPerPixel();
-
-        return new MapRoute(
-            $route['points'],
-            $route['distancePixels'],
-            $route['costPixels'],
-            $scale === null ? null : (int) round($route['distancePixels'] * $scale / 1000),
-            $scale === null ? null : (int) round($route['costPixels'] * $scale / 1000),
-        );
+        return [$surfaces, $objects];
     }
 
     /**
@@ -164,6 +175,25 @@ final class MapRouteService
         }
 
         return $indexed;
+    }
+
+    /**
+     * Ответ маршрута с метрикой варианта.
+     *
+     * @param array{points: array<int, array{0: int, 1: int}>, distancePixels: float, costPixels: float} $route Маршрут сетки.
+     * @param int|null $scale Миллиметров на пиксель.
+     *
+     * @return MapRoute Маршрут.
+     */
+    private function response(array $route, ?int $scale): MapRoute
+    {
+        return new MapRoute(
+            $route['points'],
+            $route['distancePixels'],
+            $route['costPixels'],
+            $scale === null ? null : (int) round($route['distancePixels'] * $scale / 1000),
+            $scale === null ? null : (int) round($route['costPixels'] * $scale / 1000),
+        );
     }
 
     /**
