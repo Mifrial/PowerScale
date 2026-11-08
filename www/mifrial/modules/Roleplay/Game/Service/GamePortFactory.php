@@ -11,9 +11,6 @@ use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
-use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
-use Mifrial\Messages\Chat\Interface\Service\IChats;
-use Mifrial\Messages\Chat\Interface\Service\IChatTypeRegistry;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
@@ -61,7 +58,7 @@ final class GamePortFactory
             new GameInputNormalizer(),
             $this->sessionRoster($serviceLocator),
             $gateway,
-            $this->donorChats($serviceLocator),
+            $this->chatPorts($serviceLocator)->donorChats(),
         );
     }
 
@@ -145,7 +142,7 @@ final class GamePortFactory
             $this->create($serviceLocator),
             $this->characters($serviceLocator),
             $this->review($serviceLocator),
-            $this->donorChats($serviceLocator),
+            $this->chatPorts($serviceLocator)->donorChats(),
         );
     }
 
@@ -212,7 +209,7 @@ final class GamePortFactory
             $this->sessionRoster($serviceLocator),
             new GameViewAssembler(),
             new GameSessionRepository($gateway),
-            new GameCombatNotices($this->chats($serviceLocator)),
+            new GameCombatNotices($this->chatPorts($serviceLocator)->chats()),
         );
     }
 
@@ -231,7 +228,7 @@ final class GamePortFactory
     }
 
     /**
-     * HTTP NPC.
+     * HTTP карточки NPC.
      *
      * @param IServiceLocator $serviceLocator Каталог контейнеров.
      *
@@ -258,42 +255,15 @@ final class GamePortFactory
     }
 
     /**
-     * Чаты донора на реестре контейнера Chat.
+     * Сборка чатов игры.
      *
-     * @param IServiceLocator $serviceLocator Каталог.
+     * @param IServiceLocator $serviceLocator Каталог контейнеров.
      *
-     * @return IChats Чаты.
-     *
-     * @throws KernelException Если порта нет.
+     * @return GameChatPortFactory Сборка чатов.
      */
-    private function chats(IServiceLocator $serviceLocator): IChats
+    private function chatPorts(IServiceLocator $serviceLocator): GameChatPortFactory
     {
-        $chats = $serviceLocator->get(IChatContainer::class)->get(IChats::class);
-        if (!$chats instanceof IChats) {
-            throw new KernelException('PORT_TYPE', 'Game requires IChats');
-        }
-
-        return $chats;
-    }
-
-    private function donorChats(IServiceLocator $serviceLocator): GameDonorChats
-    {
-        $chatContainer = $serviceLocator->get(IChatContainer::class);
-        if (!$chatContainer instanceof IChatContainer) {
-            throw new KernelException('PORT_TYPE', 'Game requires IChatContainer');
-        }
-
-        $registry = $chatContainer->get(IChatTypeRegistry::class);
-        $chats = $chatContainer->get(IChats::class);
-        if (!$registry instanceof IChatTypeRegistry || !$chats instanceof IChats) {
-            throw new KernelException('PORT_TYPE', 'Game requires chat ports');
-        }
-
-        return new GameDonorChats(
-            $registry,
-            $chats,
-            new GameCharacterRepository($this->smartTableGateway($serviceLocator)),
-        );
+        return new GameChatPortFactory($serviceLocator, $this->smartTableGateway($serviceLocator));
     }
 
     /**

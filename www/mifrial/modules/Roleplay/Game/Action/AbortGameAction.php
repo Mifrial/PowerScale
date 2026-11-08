@@ -13,11 +13,22 @@ use Mifrial\Roleplay\Game\Service\GameTurnHttp;
  */
 final class AbortGameAction implements IActionHandler
 {
+    /**
+     * Создаёт обработчик.
+     *
+     * @param GameTurnHttp $turns Сценарий хода.
+     *
+     * @return void
+     */
     public function __construct(private readonly GameTurnHttp $turns)
     {
     }
 
     /**
+     * Отменяет долг на своём ходе.
+     *
+     * @param GameTurnInput $input Вход.
+     *
      * @return array<string, mixed> Итог.
      */
     public function handle(GameTurnInput $input): array
