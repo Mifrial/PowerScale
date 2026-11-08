@@ -5,11 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Messages\Chat\Interface\Service\IChats;
-use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
-use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
-use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 
 /**
  * Тред проверки: объявление, бросок и результат.
@@ -20,15 +16,13 @@ final class GameCheckChat
      * Создаёт билдеры.
      *
      * @param IChats $chats Чат игры.
-     * @param ICharacters $characters Персонажи.
-     * @param GameNpcRepository $npcs NPC игры.
+     * @param GameCheckSpeakers $speakers Участники в тексте.
      *
      * @return void
      */
     public function __construct(
         private readonly IChats $chats,
-        private readonly ICharacters $characters,
-        private readonly GameNpcRepository $npcs,
+        private readonly GameCheckSpeakers $speakers,
     ) {
     }
 
@@ -63,9 +57,9 @@ final class GameCheckChat
             $chatId,
             $actorUserId,
             'Совместная проверка [[rule:' . $ruleCode . ']] между '
-                . $this->jointName($initiator, $spent) . ' и ' . $this->tokenOf($opponent) . '.',
+                . $this->jointName($initiator, $spent) . ' и ' . $this->speakers->tokenOf($opponent) . '.',
             [],
-            $this->speakerOf($initiator),
+            $this->speakers->speakerOf($initiator),
             $thread,
         );
     }
@@ -91,9 +85,9 @@ final class GameCheckChat
         $this->send(
             $chatId,
             $actorUserId,
-            $this->tokenOf($side) . ' отклоняет проверку [[rule:' . $ruleCode . ']].',
+            $this->speakers->tokenOf($side) . ' отклоняет проверку [[rule:' . $ruleCode . ']].',
             [],
-            $this->speakerOf($side),
+            $this->speakers->speakerOf($side),
             $thread,
         );
     }
@@ -119,9 +113,9 @@ final class GameCheckChat
         $this->send(
             $chatId,
             $actorUserId,
-            $this->tokenOf($side) . ' отменяет проверку [[rule:' . $ruleCode . ']].',
+            $this->speakers->tokenOf($side) . ' отменяет проверку [[rule:' . $ruleCode . ']].',
             [],
-            $this->speakerOf($side),
+            $this->speakers->speakerOf($side),
             $thread,
         );
     }
@@ -135,8 +129,6 @@ final class GameCheckChat
      * @param array<string, mixed> $proposal Предложение.
      * @param string $ruleCode Карточка проверки.
      * @param array<string, array<string, mixed>> $rolls Броски сторон.
-     * @param int $initiatorSpent Жетоны инициатора.
-     * @param int $opponentSpent Жетоны цели.
      *
      * @return void
      */
@@ -147,44 +139,23 @@ final class GameCheckChat
         array $proposal,
         string $ruleCode,
         array $rolls,
-        int $initiatorSpent,
-        int $opponentSpent,
     ): void {
         $chatId = $game->getGameChatId();
-        if ($chatId === null) {
-            return;
-        }
-
         $initiator = $proposal['initiator'] ?? null;
         $opponent = $proposal['opponent'] ?? null;
-        if (!is_array($initiator) || !is_array($opponent)) {
+        if ($chatId === null || !is_array($initiator) || !is_array($opponent)) {
             return;
-        }
-
-        $attachments = [];
-        foreach (['initiator', 'opponent'] as $side) {
-            $roll = $rolls[$side] ?? null;
-            if (is_array($roll)) {
-                $attachments[] = ['type' => 'roll', 'payload' => $roll];
-            }
         }
 
         $this->send(
             $chatId,
             $actorUserId,
             'Броски проверки [[rule:' . $ruleCode . ']].',
-            $attachments,
-            $this->speakerOf($initiator),
+            $this->rollAttachments($rolls),
+            $this->speakers->speakerOf($initiator),
             $thread,
         );
-        $this->send(
-            $chatId,
-            $actorUserId,
-            $this->jointResult($initiator, $opponent, $ruleCode, $rolls),
-            [],
-            $this->speakerOf($initiator),
-            $thread,
-        );
+        $this->sendJointResult($chatId, $actorUserId, $initiator, $opponent, $ruleCode, $rolls, $thread);
     }
 
     /**
@@ -214,11 +185,11 @@ final class GameCheckChat
             return;
         }
 
-        $speaker = $this->speakerOf($participant);
+        $speaker = $this->speakers->speakerOf($participant);
         $this->send(
             $chatId,
             $actorUserId,
-            $this->withConcentration($participant, $spent)
+            $this->speakers->withConcentration($participant, $spent)
                 . ' совершает проверку [[rule:' . $ruleCode . ']] против сложности '
                 . $this->dimensionalText($thrown['difficulty'] ?? null) . '.',
             [],
@@ -226,14 +197,7 @@ final class GameCheckChat
             $thread,
         );
         $this->send($chatId, $actorUserId, '', [['type' => 'roll', 'payload' => $thrown]], $speaker, $thread);
-        $this->send(
-            $chatId,
-            $actorUserId,
-            $this->soloResult($participant, $ruleCode, $thrown),
-            [],
-            $speaker,
-            $thread,
-        );
+        $this->sendSoloResult($chatId, $actorUserId, $participant, $ruleCode, $thrown, $speaker, $thread);
     }
 
     /**
@@ -247,7 +211,7 @@ final class GameCheckChat
      */
     private function soloResult(array $participant, string $ruleCode, array $thrown): string
     {
-        $token = $this->tokenOf($participant);
+        $token = $this->speakers->tokenOf($participant);
         $difficulty = $this->dimensionalText($thrown['difficulty'] ?? null);
         $rating = is_int($thrown['rating'] ?? null) ? $thrown['rating'] : 0;
         if (($thrown['success'] ?? false) === true) {
@@ -278,8 +242,8 @@ final class GameCheckChat
         $leftPassed = ($left['success'] ?? false) === true;
         $rightPassed = ($right['success'] ?? false) === true;
         $tokens = [
-            'initiator' => $this->tokenOf($initiator),
-            'opponent' => $this->tokenOf($opponent),
+            'initiator' => $this->speakers->tokenOf($initiator),
+            'opponent' => $this->speakers->tokenOf($opponent),
         ];
         $score = $leftSuccesses . ' против ' . $rightSuccesses;
         if ($leftPassed && $rightPassed) {
@@ -338,81 +302,12 @@ final class GameCheckChat
      */
     private function jointName(array $participant, int $spent): string
     {
-        $token = $this->tokenOf($participant);
+        $token = $this->speakers->tokenOf($participant);
         if ($spent < 1) {
             return $token;
         }
 
         return $token . ' (концентрация ' . $spent . ')';
-    }
-
-    /**
-     * Токен участника и упоминание концентрации.
-     *
-     * @param array{type: string, id: int} $participant Участник.
-     * @param int $spent Жетоны.
-     *
-     * @return string Текст.
-     */
-    private function withConcentration(array $participant, int $spent): string
-    {
-        if ($spent < 1) {
-            return $this->tokenOf($participant);
-        }
-
-        return $this->tokenOf($participant) . ', используя концентрацию (' . $spent . '),';
-    }
-
-    /**
-     * Токен участника.
-     *
-     * @param array{type: string, id: int} $participant Участник.
-     *
-     * @return string Токен.
-     */
-    private function tokenOf(array $participant): string
-    {
-        $kind = $participant['type'] === 'npc' ? 'npc' : 'character';
-        $name = $this->nameOf($participant);
-
-        return '[[' . $kind . ':' . $participant['id'] . ',' . $name . ']]';
-    }
-
-    /**
-     * Спикер сообщения.
-     *
-     * @param array{type: string, id: int} $participant Участник.
-     *
-     * @return array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string} Спикер.
-     */
-    private function speakerOf(array $participant): array
-    {
-        $name = $this->nameOf($participant);
-        if ($participant['type'] === 'npc') {
-            return ['kind' => 'npc', 'npcId' => $participant['id'], 'npcName' => $name];
-        }
-
-        return ['kind' => 'character', 'characterId' => $participant['id'], 'characterName' => $name];
-    }
-
-    /**
-     * Имя участника.
-     *
-     * @param array{type: string, id: int} $participant Участник.
-     *
-     * @return string Имя.
-     */
-    private function nameOf(array $participant): string
-    {
-        try {
-            if ($participant['type'] === 'npc') {
-                return $this->npcs->getById($participant['id'])->getName();
-            }
-
-            return $this->characters->get($participant['id'])->getName();
-        } catch (CharacterNotFoundException | GameNotFoundException) {
-            return '';
-        }
     }
 
     /**
@@ -438,6 +333,90 @@ final class GameCheckChat
         $power = abs($size);
 
         return $base . $arrow . ($power > 1 ? (string) $power : '');
+    }
+
+    /**
+     * Вложения бросков сторон.
+     *
+     * @param array<string, array<string, mixed>> $rolls Броски сторон.
+     *
+     * @return list<array<string, mixed>> Вложения.
+     */
+    private function rollAttachments(array $rolls): array
+    {
+        $attachments = [];
+        foreach (['initiator', 'opponent'] as $side) {
+            $roll = $rolls[$side] ?? null;
+            if (is_array($roll)) {
+                $attachments[] = ['type' => 'roll', 'payload' => $roll];
+            }
+        }
+
+        return $attachments;
+    }
+
+    /**
+     * Итог совместной проверки отдельным сообщением.
+     *
+     * @param int $chatId Чат.
+     * @param int $actorUserId Автор.
+     * @param array{type: string, id: int} $initiator Инициатор.
+     * @param array{type: string, id: int} $opponent Цель.
+     * @param string $ruleCode Карточка.
+     * @param array<string, array<string, mixed>> $rolls Броски.
+     * @param array{id: string, parentId: string, kind: string} $thread Тред.
+     *
+     * @return void
+     */
+    private function sendJointResult(
+        int $chatId,
+        int $actorUserId,
+        array $initiator,
+        array $opponent,
+        string $ruleCode,
+        array $rolls,
+        array $thread,
+    ): void {
+        $this->send(
+            $chatId,
+            $actorUserId,
+            $this->jointResult($initiator, $opponent, $ruleCode, $rolls),
+            [],
+            $this->speakers->speakerOf($initiator),
+            $thread,
+        );
+    }
+
+    /**
+     * Итог соло-проверки отдельным сообщением.
+     *
+     * @param int $chatId Чат.
+     * @param int $actorUserId Автор.
+     * @param array{type: string, id: int} $participant Участник.
+     * @param string $ruleCode Карточка.
+     * @param array<string, mixed> $thrown Бросок.
+     * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string} $speaker Спикер.
+     * @param array{id: string, parentId: string, kind: string} $thread Тред.
+     *
+     * @return void
+     */
+    private function sendSoloResult(
+        int $chatId,
+        int $actorUserId,
+        array $participant,
+        string $ruleCode,
+        array $thrown,
+        array $speaker,
+        array $thread,
+    ): void {
+        $this->send(
+            $chatId,
+            $actorUserId,
+            $this->soloResult($participant, $ruleCode, $thrown),
+            [],
+            $speaker,
+            $thread,
+        );
     }
 
     /**

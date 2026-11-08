@@ -133,8 +133,7 @@ final class GameCheckPortFactory
             $this->port($serviceLocator, ICharacterContainer::class, ICharacterActualMutations::class, 'ICharacterActualMutations'),
             new GameCheckChat(
                 $this->chats($serviceLocator),
-                $characters,
-                new GameNpcRepository($gateway),
+                new GameCheckSpeakers($characters, new GameNpcRepository($gateway)),
             ),
             new GameConcentration(),
             new GameConcentrationCycle(),

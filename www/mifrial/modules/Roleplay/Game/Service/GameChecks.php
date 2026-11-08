@@ -1844,7 +1844,7 @@ final class GameChecks implements IGameChecks
         $rolls = $this->answerRolls($game, $open, $proposal, $initiatorSheet, $opponentSheet, $spent);
         $this->answerStore($game, $processId, $proposal, $versions, $rolls);
         $result = $this->answerView($processId, $open, $proposal, $versions, $rolls);
-        $this->answerChat($game, $processId, $open, $proposal, $rolls, $spent, $actorUserId);
+        $this->answerChat($game, $processId, $open, $proposal, $rolls, $actorUserId);
 
         return $result;
     }
@@ -1881,7 +1881,6 @@ final class GameChecks implements IGameChecks
      * @param array $open Сохранённое предложение.
      * @param array<string, mixed> $proposal Предложение.
      * @param array<string, mixed> $rolls Броски.
-     * @param array<string, mixed> $spent Траты.
      * @param int $actorUserId Автор сообщения.
      *
      * @return void
@@ -1892,7 +1891,6 @@ final class GameChecks implements IGameChecks
         array $open,
         array $proposal,
         array $rolls,
-        array $spent,
         int $actorUserId,
     ): void {
         $this->chat->postResolution(
@@ -1902,8 +1900,6 @@ final class GameChecks implements IGameChecks
             $proposal,
             $open['ruleCode'],
             $rolls,
-            $spent['initiator']['amount'],
-            $spent['opponent']['amount'],
         );
     }
 
