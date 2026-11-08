@@ -10,6 +10,12 @@ import type { SpellDamage } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDamag
 import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
 import type { StrikeUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeUpgrade';
 import type { StrikeUpgradeMode } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeUpgradeMode';
+import type { StrikeManeuver } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeManeuver';
+import type {
+  StrikeManeuverEffect,
+  StrikeManeuverEffectSelector,
+} from '@/modules/Roleplay/Rule/Dto/Ability/StrikeManeuver';
+import type { ManeuverBoost } from '@/modules/Roleplay/Rule/Dto/Ability/ManeuverBoost';
 import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration';
 import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -315,6 +321,8 @@ export class AbilitySpecService {
         return { type: 'has_keyword', keyword_code: '' };
       case 'min_weapon_mastery':
         return { type: 'min_weapon_mastery', keyword_code: '', min_level: 1 };
+      case 'min_weapon_mastery_value':
+        return { type: 'min_weapon_mastery_value', keyword_code: '', min: { base: 3, size: 0 } };
       case 'characteristic_value':
         return {
           type: 'characteristic_value',
@@ -580,5 +588,130 @@ export class AbilitySpecService {
     }
 
     return { ...spec, strike_upgrade: { ...current, modes } };
+  }
+
+  createEmptyStrikeManeuverEffect(): StrikeManeuverEffect {
+    return { kind: 'state', state: '', amount: 1 };
+  }
+
+  createEmptyStrikeManeuver(): StrikeManeuver {
+    return {
+      min_success: 3,
+      min_weapon_mastery: 3,
+      effects: [this.createEmptyStrikeManeuverEffect()],
+    };
+  }
+
+  setStrikeManeuver(spec: AbilitySpecDraft, maneuver: StrikeManeuver | null): AbilitySpecDraft {
+    if (!maneuver) {
+      const next = { ...spec };
+      delete next.strike_maneuver;
+
+      return next;
+    }
+
+    return { ...spec, strike_maneuver: maneuver };
+  }
+
+  patchStrikeManeuver(spec: AbilitySpecDraft, patch: Partial<StrikeManeuver>): AbilitySpecDraft {
+    const current = spec.strike_maneuver ?? this.createEmptyStrikeManeuver();
+
+    return { ...spec, strike_maneuver: { ...current, ...patch } };
+  }
+
+  patchStrikeManeuverEffect(
+    spec: AbilitySpecDraft,
+    index: number,
+    patch: Partial<StrikeManeuverEffect>,
+  ): AbilitySpecDraft {
+    const current = spec.strike_maneuver ?? this.createEmptyStrikeManeuver();
+    const effects = current.effects.map((effect, effectIndex) =>
+      effectIndex === index ? { ...effect, ...patch } : effect,
+    );
+
+    return { ...spec, strike_maneuver: { ...current, effects } };
+  }
+
+  addStrikeManeuverEffect(spec: AbilitySpecDraft): AbilitySpecDraft {
+    const current = spec.strike_maneuver ?? this.createEmptyStrikeManeuver();
+
+    return {
+      ...spec,
+      strike_maneuver: { ...current, effects: [...current.effects, this.createEmptyStrikeManeuverEffect()] },
+    };
+  }
+
+  removeStrikeManeuverEffect(spec: AbilitySpecDraft, index: number): AbilitySpecDraft {
+    const current = spec.strike_maneuver;
+    if (!current || current.effects.length <= 1) return spec;
+    const effects = current.effects.filter((_, effectIndex) => effectIndex !== index);
+
+    return { ...spec, strike_maneuver: { ...current, effects } };
+  }
+
+  createEmptyManeuverBoost(): ManeuverBoost {
+    return {
+      maneuvers: [],
+      min_success: 4,
+      min_weapon_mastery: 5,
+      replaces: [],
+      effects: [{ kind: 'state', state: '', amount: 2 }],
+    };
+  }
+
+  setManeuverBoost(spec: AbilitySpecDraft, boost: ManeuverBoost | null): AbilitySpecDraft {
+    if (!boost) {
+      const next = { ...spec };
+      delete next.maneuver_boost;
+
+      return next;
+    }
+
+    return { ...spec, maneuver_boost: boost };
+  }
+
+  patchManeuverBoost(spec: AbilitySpecDraft, patch: Partial<ManeuverBoost>): AbilitySpecDraft {
+    const current = spec.maneuver_boost ?? this.createEmptyManeuverBoost();
+
+    return { ...spec, maneuver_boost: { ...current, ...patch } };
+  }
+
+  patchManeuverBoostReplace(
+    spec: AbilitySpecDraft,
+    replaces: StrikeManeuverEffectSelector[],
+  ): AbilitySpecDraft {
+    const current = spec.maneuver_boost ?? this.createEmptyManeuverBoost();
+
+    return { ...spec, maneuver_boost: { ...current, replaces } };
+  }
+
+  patchManeuverBoostEffect(
+    spec: AbilitySpecDraft,
+    index: number,
+    patch: Partial<StrikeManeuverEffect>,
+  ): AbilitySpecDraft {
+    const current = spec.maneuver_boost ?? this.createEmptyManeuverBoost();
+    const effects = current.effects.map((effect, effectIndex) =>
+      effectIndex === index ? { ...effect, ...patch } : effect,
+    );
+
+    return { ...spec, maneuver_boost: { ...current, effects } };
+  }
+
+  addManeuverBoostEffect(spec: AbilitySpecDraft): AbilitySpecDraft {
+    const current = spec.maneuver_boost ?? this.createEmptyManeuverBoost();
+
+    return {
+      ...spec,
+      maneuver_boost: { ...current, effects: [...current.effects, this.createEmptyStrikeManeuverEffect()] },
+    };
+  }
+
+  removeManeuverBoostEffect(spec: AbilitySpecDraft, index: number): AbilitySpecDraft {
+    const current = spec.maneuver_boost;
+    if (!current || current.effects.length <= 1) return spec;
+    const effects = current.effects.filter((_, effectIndex) => effectIndex !== index);
+
+    return { ...spec, maneuver_boost: { ...current, effects } };
   }
 }

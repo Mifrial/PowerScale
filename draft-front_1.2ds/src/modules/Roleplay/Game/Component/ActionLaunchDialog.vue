@@ -27,6 +27,7 @@ import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
+import { strikeManeuverService } from '@/modules/Roleplay/Game/Service/Instance/strikeManeuverService';
 import { actionExecutionService } from '@/modules/Roleplay/Game/Service/Instance/actionExecutionService';
 import {
   asActionAbilitySpec,
@@ -191,7 +192,11 @@ const actorSnapshot = computed(() =>
   lastStrikeService.snapshotOf(actorKey.value ? (pendingEffectsByEntity.value[actorKey.value] ?? []) : []),
 );
 const followUpTargetKey = ref<CombatEntityKey | null>(null);
-const needsFollowUpTarget = computed(() => actionEffectService.requiresPreviousAttack(selectedActionRule.value));
+const needsFollowUpTarget = computed(
+  () =>
+    actionEffectService.requiresPreviousAttack(selectedActionRule.value) ||
+    strikeManeuverService.isManeuver(selectedActionRule.value),
+);
 const followUpExclude = computed(() =>
   lastStrikeService.excludeForSelect(selectedActionRule.value, actorSnapshot.value, actorKey.value, [
     ...props.characters.map((membership) => `character:${membership.characterId}`),
@@ -602,7 +607,7 @@ async function submit(): Promise<void> {
   const actionOd = selectedActionOdCost.value;
   if (actionOd <= 0) throw new Error('Укажите количество ОД');
   if (
-    actionEffectService.requiresPreviousAttack(actionRule) &&
+    (actionEffectService.requiresPreviousAttack(actionRule) || strikeManeuverService.isManeuver(actionRule)) &&
     !lastStrikeService.canFollowUp(actionRule, actorSnapshot.value, followUpTargetKey.value)
   ) {
     throw new Error('Противодействовать защите можно только сразу после атаки по этой цели');
@@ -840,7 +845,7 @@ async function applyDeclaredAction(
 ): Promise<void> {
   const key = actorKey.value;
   if (!key) throw new Error('Нет исполнителя');
-  const needsTarget = actionEffectService.requiresPreviousAttack(rule);
+  const needsTarget = actionEffectService.requiresPreviousAttack(rule) || strikeManeuverService.isManeuver(rule);
   const target = needsTarget ? followUpTargetKey.value : null;
   if (needsTarget && !target) throw new Error('Выберите цель');
   const chosenAmounts =

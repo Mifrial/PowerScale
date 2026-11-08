@@ -13,6 +13,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKeywordRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasMagicPathRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MagicPathExperienceRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryRequirement;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryValueRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\OrRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\ResourceLimitRequirement;
 use Mifrial\Roleplay\Rule\Service\AbilityRequirementCheck;
@@ -139,6 +140,32 @@ final class AbilityRequirementCheckTest extends TestCase
         self::assertFalse($check->check(new MinWeaponMasteryRequirement('blade', 4), $values));
         self::assertTrue($check->check(new MinWeaponMasteryRequirement('light', 1), $values));
         self::assertFalse($check->check(new MinWeaponMasteryRequirement('ranged', 1), $values));
+    }
+
+    /**
+     * min_weapon_mastery_value: любая семья с признаком и мастерством не ниже.
+     *
+     * @return void
+     */
+    public function testMinWeaponMasteryValue(): void
+    {
+        $check = new AbilityRequirementCheck();
+        $values = new RequirementValues(traits: new RequirementTraits(
+            weaponFamiliesByKeyword: [
+                'dagger' => ['light', 'blade'],
+                'sword' => ['blade', 'heavy'],
+                'bow' => ['ranged'],
+            ],
+            weaponMasteryValues: [
+                'dagger' => new DimensionalNumber(4, 0),
+                'sword' => new DimensionalNumber(3, 1),
+            ],
+        ));
+
+        self::assertTrue($check->check(new MinWeaponMasteryValueRequirement('blade', new DimensionalNumber(5, 0)), $values));
+        self::assertTrue($check->check(new MinWeaponMasteryValueRequirement('light', new DimensionalNumber(4, 0)), $values));
+        self::assertFalse($check->check(new MinWeaponMasteryValueRequirement('heavy', new DimensionalNumber(7, 0)), $values));
+        self::assertFalse($check->check(new MinWeaponMasteryValueRequirement('ranged', new DimensionalNumber(1, 0)), $values));
     }
 
     /**

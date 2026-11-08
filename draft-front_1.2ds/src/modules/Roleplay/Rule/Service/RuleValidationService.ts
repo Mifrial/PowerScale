@@ -511,6 +511,8 @@ export class RuleValidationService {
       if (spec.type !== 'group') {
         errors.push(...this.validateSpellUpgrade(rule, spec, rules));
         errors.push(...this.validateStrikeUpgrade(rule, spec));
+        errors.push(...this.validateStrikeManeuver(rule, spec));
+        errors.push(...this.validateManeuverBoost(rule, spec));
       }
 
       for (const component of components) {
@@ -1891,6 +1893,137 @@ export class RuleValidationService {
         ruleCode: rule.code,
         message: 'ворота физиологии улучшения удара — только true',
       });
+    }
+
+    return errors;
+  }
+
+  private validateStrikeManeuver(rule: Rule, spec: AbilitySpec): AbilityStructureError[] {
+    if (spec.type === 'group' || !spec.strike_maneuver) return [];
+    const errors: AbilityStructureError[] = [];
+    const maneuver = spec.strike_maneuver;
+    if (!Number.isInteger(maneuver.min_success) || maneuver.min_success < 1) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'порог РУ манёвра должен быть целым и не меньше 1',
+      });
+    }
+    if (
+      maneuver.min_weapon_mastery !== undefined
+      && (!Number.isInteger(maneuver.min_weapon_mastery) || maneuver.min_weapon_mastery < 1)
+    ) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'мастерство оружия манёвра должно быть целым и не меньше 1',
+      });
+    }
+    errors.push(...this.validateManeuverEffects(rule, maneuver.effects, 'манёвр'));
+
+    return errors;
+  }
+
+  private validateManeuverBoost(rule: Rule, spec: AbilitySpec): AbilityStructureError[] {
+    if (spec.type === 'group' || !spec.maneuver_boost) return [];
+    const errors: AbilityStructureError[] = [];
+    const boost = spec.maneuver_boost;
+    if (!boost.maneuvers.length) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'усиление манёвра требует хотя бы один манёвр',
+      });
+    }
+    if (boost.maneuvers.some((code) => !code.trim())) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'код усиливаемого манёвра не может быть пустым',
+      });
+    }
+    if (new Set(boost.maneuvers).size !== boost.maneuvers.length) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'коды усиливаемых манёвров повторяются',
+      });
+    }
+    if (!Number.isInteger(boost.min_success) || boost.min_success < 1) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'порог РУ усиления должен быть целым и не меньше 1',
+      });
+    }
+    if (
+      boost.min_weapon_mastery !== undefined
+      && (!Number.isInteger(boost.min_weapon_mastery) || boost.min_weapon_mastery < 1)
+    ) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'мастерство оружия усиления должно быть целым и не меньше 1',
+      });
+    }
+    const seen = new Set<string>();
+    for (const selector of boost.replaces ?? []) {
+      const key = `${selector.kind}:${selector.state}`;
+      if (!selector.state.trim()) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'заменяемый эффект усиления требует состояние',
+        });
+      } else if (seen.has(key)) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'заменяемые эффекты усиления повторяются',
+        });
+      }
+      seen.add(key);
+    }
+    errors.push(...this.validateManeuverEffects(rule, boost.effects, 'усиление манёвра'));
+
+    return errors;
+  }
+
+  private validateManeuverEffects(
+    rule: Rule,
+    effects: { kind: string; state: string; amount: number }[],
+    label: string,
+  ): AbilityStructureError[] {
+    const errors: AbilityStructureError[] = [];
+    if (!effects.length) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: `${label} требует хотя бы один эффект`,
+      });
+    }
+    for (const effect of effects) {
+      if (effect.kind !== 'state') {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: `${label}: неизвестный вид эффекта «${effect.kind}»`,
+        });
+      }
+      if (!effect.state.trim()) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: `${label}: эффект требует состояние`,
+        });
+      }
+      if (!Number.isInteger(effect.amount) || effect.amount < 1) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: `${label}: значение эффекта должно быть целым и не меньше 1`,
+        });
+      }
     }
 
     return errors;

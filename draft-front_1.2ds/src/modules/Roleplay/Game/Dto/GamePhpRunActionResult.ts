@@ -23,6 +23,13 @@ export interface GamePhpRunActionResult {
   targetKey?: string | null;
   reaction?: string | null;
   pendingActionEffects?: Record<CombatEntityKey, PendingActionEffect[]>;
+  strikeManeuver?: {
+    ruleCode: string;
+    boosted: boolean;
+    targetKey: string;
+    effects: { kind: 'state'; state: string; amount: number }[];
+    sheetVersion: number;
+  } | null;
   operation?: string;
   target?: GamePhpParticipant;
   stateId?: number;

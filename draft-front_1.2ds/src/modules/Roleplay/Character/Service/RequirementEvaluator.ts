@@ -96,6 +96,20 @@ export class RequirementEvaluator {
 
         return `требуется владение оружием с тэгом «${this.keywordName(requirement.keyword_code, snapshot)}» уровня ${requirement.min_level}`;
       }
+      case 'min_weapon_mastery_value': {
+        const families = snapshot.weaponFamilyTags?.get(requirement.keyword_code) ?? new Set<string>();
+        const mastery = snapshot.weaponMasteryValues ?? new Map<string, DimensionalNumberValue>();
+        const min = new DimensionalNumber(requirement.min);
+        const met = Array.from(families).some((family) => {
+          const value = mastery.get(family);
+
+          return value !== undefined && new DimensionalNumber(value).compare(min) >= 0;
+        });
+
+        if (met) return null;
+
+        return `требуется мастерство боя с оружием с тэгом «${this.keywordName(requirement.keyword_code, snapshot)}» от ${min.toString()}`;
+      }
       case 'characteristic_value': {
         const value = snapshot.characteristicValues.get(requirement.characteristic_code);
         // Сравнение по значению (base+size), а не по toNumber: «4↑» (5↓-подобные) не путать с «4».

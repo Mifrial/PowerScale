@@ -35,6 +35,8 @@ export const ABILITY_SHARED_SPEC_KEYS: readonly (keyof AbilitySpecDraft)[] = [
   'cover_ally',
   'known_attack_defense',
   'strike_upgrade',
+  'strike_maneuver',
+  'maneuver_boost',
   'weapon_item_code',
   'parameters',
   'group_code',

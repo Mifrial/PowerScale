@@ -113,6 +113,9 @@ final class GameActionOutcome
             $battle->getActiveIndex(),
             $applied['performed']['rolls'] ?? [],
             $descriptive ? $step->getName() : null,
+            is_array($applied['performed']['strikeManeuver'] ?? null)
+                ? $applied['performed']['strikeManeuver']
+                : null,
         );
     }
 
@@ -141,6 +144,7 @@ final class GameActionOutcome
             'reaction' => $applied['reaction'],
             'pendingActionEffects' => $applied['pending'],
             'rolls' => $applied['performed']['rolls'] ?? [],
+            'strikeManeuver' => $applied['performed']['strikeManeuver'] ?? null,
             'opened' => true,
         ];
     }
@@ -209,13 +213,10 @@ final class GameActionOutcome
             'reaction' => null,
             'pendingActionEffects' => $applied['pending'],
             'rolls' => [],
+            'strikeManeuver' => null,
             'opened' => false,
             'debt' => true,
             'remaining' => $applied['remaining'] ?? 0,
         ];
     }
-
-
-
-
 }

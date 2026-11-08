@@ -66,10 +66,12 @@ final class AbilityBase
      * @param ProcessCloseSpec|null $closesParentProcess Закрытие процесса-родителя.
      * @param ReactionModifier|null $reaction Когда карточку можно объявить реакцией.
      * @param ManeuverModifier|null $maneuver Обманный манёвр или null.
+     * @param StrikeManeuver|null $strikeManeuver Объявленный манёвр при ударе или null.
+     * @param ManeuverBoost|null $maneuverBoost Усиление манёвра или null.
      *
      * @return void
      */
-    public function __construct( // phpcs:ignore MifrialCodingStandard.Metrics.MethodQuality.MethodTooLong -- конструктор перечисляет 44 поля спеки.
+    public function __construct( // phpcs:ignore MifrialCodingStandard.Metrics.MethodQuality.MethodTooLong -- конструктор перечисляет 46 полей спеки.
         private readonly array $zones,
         private readonly array $requirements,
         private readonly array $grantBlocks,
@@ -114,6 +116,8 @@ final class AbilityBase
         private readonly ?ProcessCloseSpec $closesParentProcess = null,
         private readonly ?ReactionModifier $reaction = null,
         private readonly ?ManeuverModifier $maneuver = null,
+        private readonly ?StrikeManeuver $strikeManeuver = null,
+        private readonly ?ManeuverBoost $maneuverBoost = null,
     ) {
     }
 
@@ -555,5 +559,25 @@ final class AbilityBase
     public function getManeuver(): ?ManeuverModifier
     {
         return $this->maneuver;
+    }
+
+    /**
+     * Объявленный манёвр при ударе.
+     *
+     * @return StrikeManeuver|null Манёвр или null.
+     */
+    public function getStrikeManeuver(): ?StrikeManeuver
+    {
+        return $this->strikeManeuver;
+    }
+
+    /**
+     * Усиление объявленного манёвра.
+     *
+     * @return ManeuverBoost|null Усиление или null.
+     */
+    public function getManeuverBoost(): ?ManeuverBoost
+    {
+        return $this->maneuverBoost;
     }
 }

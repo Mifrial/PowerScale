@@ -26,6 +26,7 @@ import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
+import { strikeManeuverService } from '@/modules/Roleplay/Game/Service/Instance/strikeManeuverService';
 import { defenseCounterService } from '@/modules/Roleplay/Game/Service/Instance/defenseCounterService';
 import { formatAttackActionMessage } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
 
@@ -75,7 +76,7 @@ export class ActionExecutionService {
     if (input.actionPointCost <= 0) throw new Error('Укажите количество ОД');
     if (input.actionPointCost > resource.current.base) throw new Error('Недостаточно ОД для действия');
     let preparedDefense: { targetKey: string; reaction: string } | null = null;
-    if (actionEffectService.requiresPreviousAttack(input.rule)) {
+    if (actionEffectService.requiresPreviousAttack(input.rule) || strikeManeuverService.isManeuver(input.rule)) {
       const snapshot = lastStrikeService.snapshotOf(input.pendingEffects);
       const targetKey = input.followUpTargetKey ?? null;
       if (!lastStrikeService.canFollowUp(input.rule, snapshot, targetKey)) {

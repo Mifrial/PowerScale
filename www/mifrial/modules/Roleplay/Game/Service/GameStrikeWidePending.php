@@ -106,6 +106,15 @@ final class GameStrikeWidePending
                 'attackSr' => is_int($record['success'] ?? null) ? $record['success'] : 0,
                 'reaction' => is_string($rows[$index]['reaction'] ?? null) ? $rows[$index]['reaction'] : 'ignore',
                 'damaged' => $this->damaged($record['injury'] ?? null),
+                'itemInventoryId' => is_int($rows[$index]['item_inventory_id'] ?? null)
+                    ? $rows[$index]['item_inventory_id']
+                    : null,
+                'itemRuleCode' => is_string($rows[$index]['item_rule_code'] ?? null)
+                    ? $rows[$index]['item_rule_code']
+                    : null,
+                'profileType' => is_string($rows[$index]['profile_type'] ?? null)
+                    ? $rows[$index]['profile_type']
+                    : null,
             ];
         }
 

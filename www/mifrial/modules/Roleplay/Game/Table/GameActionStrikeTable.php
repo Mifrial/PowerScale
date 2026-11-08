@@ -123,6 +123,4 @@ final class GameActionStrikeTable extends SmartTableDefinition
             new IntField('repeat_weapon_uses', FieldSettings::fromOptions([]), 0, null),
         ];
     }
-
-
 }

@@ -5870,7 +5870,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'razbit-zaschitu',
     type: 'ability',
     name: 'Разбить защиту',
-    description: 'Вы можете применить этот манёвр при ударе 3РУ.\nЦель атаки получает Неустойчивость 1.',
+    description:
+      'Вы можете применить этот манёвр при ударе 3РУ оружием, для которого мастерство боя с оружием не ниже 3.\nЦель атаки получает Неустойчивость 1.',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -5880,7 +5881,14 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [2],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            { type: 'min_weapon_mastery_value', keyword_code: 'weapon', min: { base: 3, size: 0 } },
+          ],
+        },
+      ],
       grants: [],
       parent_ability_code: null,
       action_components: [
@@ -5891,11 +5899,17 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      strike_maneuver: {
+        min_success: 3,
+        min_weapon_mastery: 3,
+        effects: [{ kind: 'state', state: 'unstable', amount: 1 }],
+      },
     },
     keywordIds: [13, 14, 54, 65],
     mechanics: [],
     createdAt: 1786269600,
-    contentNote: 'Обязательная боевая доработка: манёвр при ударе и наложение Неустойчивости пока не исполняются Game.',
+    contentNote:
+      'S1: манёвр при ударе и Неустойчивость исполняются Game. Защитные манёвры и немедленная атака — обязательная доработка.',
   },
   {
     id: 379,
@@ -5903,7 +5917,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Вскрыть слабость',
     description:
-      'При 4РУ манёвр Заставить открыться и Разбить защиту дают цели Неустойчивость 2 . При этом Заставить открыться позволяет провести атаку за 4ОД.',
+      'При 4РУ манёвр Заставить открыться и Разбить защиту дают цели Неустойчивость 2, если удар нанесён оружием с мастерством боя с оружием не ниже 5. При этом Заставить открыться позволяет провести атаку за 4ОД.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -5913,15 +5927,41 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [2],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            {
+              type: 'and',
+              children: [
+                { type: 'min_weapon_mastery_value', keyword_code: 'weapon', min: { base: 5, size: 0 } },
+                {
+                  type: 'or',
+                  children: [
+                    { type: 'has_ability', ability_code: 'zastavit-otkrytsya' },
+                    { type: 'has_ability', ability_code: 'razbit-zaschitu' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
       grants: [],
-      parent_ability_code: 'razbit-zaschitu',
+      parent_ability_code: null,
+      maneuver_boost: {
+        maneuvers: ['zastavit-otkrytsya', 'razbit-zaschitu'],
+        min_success: 4,
+        min_weapon_mastery: 5,
+        replaces: [{ kind: 'state', state: 'unstable' }],
+        effects: [{ kind: 'state', state: 'unstable', amount: 2 }],
+      },
     },
     keywordIds: [13, 54, 65],
     mechanics: [],
     createdAt: 1786269600,
     contentNote:
-      'Обязательная боевая доработка: усиление Заставить открыться и Разбить защиту до Неустойчивости 2 пока не исполняется Game.',
+      'S1: усиление «Разбить защиту» исполняется Game. Усиление защитных манёвров — обязательная доработка.',
   },
   {
     id: 380,
@@ -5946,7 +5986,7 @@ const mockDevelopmentImportRaw: Rule[] = [
         {
           type: 'resource',
           resource_code: 'action-points',
-          amount: 3,
+          amount: 0,
           label: 'Действие',
         },
       ],
@@ -5954,7 +5994,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 54, 65],
     mechanics: [],
     createdAt: 1786269600,
-    contentNote: 'Обязательная боевая доработка: реакция после уклонения и немедленная атака пока не исполняются Game.',
+    contentNote:
+      'Обязательная боевая доработка: реакция после уклонения и немедленная атака пока не исполняются Game. Цена исправлена на 0 ОД по каталогу.',
   },
   {
     id: 381,

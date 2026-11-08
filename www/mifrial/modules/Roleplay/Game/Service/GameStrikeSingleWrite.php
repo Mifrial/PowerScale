@@ -388,6 +388,9 @@ final class GameStrikeSingleWrite
                     'attackSr' => $run->result['success'],
                     'reaction' => $run->choice['reaction'],
                     'damaged' => ($run->injury?->toInteger() ?? 0) > 0,
+                    'itemInventoryId' => $run->itemInventoryId,
+                    'itemRuleCode' => $run->itemRuleCode,
+                    'profileType' => $run->profileType,
                 ],
             ],
         );

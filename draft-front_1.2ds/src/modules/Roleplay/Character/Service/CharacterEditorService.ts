@@ -1662,6 +1662,12 @@ export class CharacterEditorService {
     for (const characteristic of characteristics) {
       characteristicValues.set(characteristic.code, characteristic.value);
     }
+    const masteryValues = this.weaponMasteryValues(
+      reference,
+      proficiencyLevels,
+      familyTags,
+      characteristicValues,
+    );
 
     // Лимиты ресурсов из вычисленных ресурсов (в т.ч. авто-Од): лимит = база + сумма бонусов (мин 0).
     // Код ресурса — из правила; неизвестный код остаётся без лимита (требование «есть ресурс» не пройдёт).
@@ -1725,6 +1731,7 @@ export class CharacterEditorService {
       abilityKeywords,
       abilityInstances,
       weaponProficiencyLevels: proficiencyLevels,
+      weaponMasteryValues: masteryValues,
       weaponFamilyTags: familyTags,
       characteristicValues,
       resourceLimits,
@@ -2587,6 +2594,45 @@ export class CharacterEditorService {
         set.add(familyCode);
         result.set(kw.code, set);
       }
+    }
+
+    return result;
+  }
+
+  /**
+   * Лучшее мастерство каждой семьи оружия: характеристика профиля, сдвинутая уровнем
+   * владения. Семья без купленного уровня получает базовое мастерство — как в PHP.
+   */
+  private weaponMasteryValues(
+    reference: CharacterReferenceService,
+    levels: Map<string, number>,
+    familyTags: Map<string, Set<string>>,
+    characteristicValues: Map<string, DimensionalNumberValue>,
+  ): Map<string, DimensionalNumberValue> {
+    const profileValues: DimensionalNumberValue[] = [];
+    for (const rule of reference.rules()) {
+      const spec = rule.spec as { weapon_mastery?: { profiles?: string[] } } | undefined;
+      if (!spec?.weapon_mastery?.profiles?.length) continue;
+      const value = characteristicValues.get(rule.code);
+      if (value) profileValues.push(value);
+    }
+
+    const families = new Set<string>(levels.keys());
+    for (const tagged of familyTags.values()) {
+      for (const familyCode of tagged) families.add(familyCode);
+    }
+
+    const result = new Map<string, DimensionalNumberValue>();
+    for (const familyCode of families) {
+      const level = levels.get(familyCode) ?? 0;
+      let best: DimensionalNumberValue | null = null;
+      for (const value of profileValues) {
+        const mastery = CharacteristicNumber.from(value).modifyWith(level).value;
+        if (best === null || new DimensionalNumber(mastery).compare(new DimensionalNumber(best)) > 0) {
+          best = mastery;
+        }
+      }
+      if (best !== null) result.set(familyCode, best);
     }
 
     return result;

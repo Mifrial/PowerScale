@@ -14,6 +14,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKeywordRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasMagicPathRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MagicPathExperienceRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryRequirement;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryValueRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\OrRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\ResourceLimitRequirement;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -100,6 +101,10 @@ final class AbilityRequirementCheck
                 true,
             ),
             $requirement instanceof MinWeaponMasteryRequirement => $this->weaponMasteryPasses($requirement, $values),
+            $requirement instanceof MinWeaponMasteryValueRequirement => $this->weaponMasteryValuePasses(
+                $requirement,
+                $values,
+            ),
             default => $this->unmodelled($requirement, $values),
         };
     }
@@ -329,6 +334,32 @@ final class AbilityRequirementCheck
             }
 
             if (($values->traits->weaponMasteryLevels[$family] ?? 0) >= $requirement->getMinLevel()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Хотя бы одна семья с признаком и мастерством не ниже минимума.
+     *
+     * @param MinWeaponMasteryValueRequirement $requirement Требование.
+     * @param RequirementValues $values Факты.
+     *
+     * @return bool Результат.
+     */
+    private function weaponMasteryValuePasses(
+        MinWeaponMasteryValueRequirement $requirement,
+        RequirementValues $values,
+    ): bool {
+        foreach ($values->traits->weaponFamiliesByKeyword as $family => $keywords) {
+            if (!in_array($requirement->getKeywordCode(), $keywords, true)) {
+                continue;
+            }
+
+            $mastery = $values->traits->weaponMasteryValues[$family] ?? null;
+            if ($mastery !== null && $mastery->compare($requirement->getMin()) >= 0) {
                 return true;
             }
         }

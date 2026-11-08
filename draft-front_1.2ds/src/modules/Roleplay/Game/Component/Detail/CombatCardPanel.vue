@@ -81,6 +81,7 @@ import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/ac
 import { gameManualSheetClient } from '@/modules/Roleplay/Game/Service/Instance/gameManualSheetClient';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
+import { strikeManeuverService } from '@/modules/Roleplay/Game/Service/Instance/strikeManeuverService';
 import { defenseCounterService } from '@/modules/Roleplay/Game/Service/Instance/defenseCounterService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/init';
@@ -191,8 +192,23 @@ function entityName(key: string): string {
   return props.memberships.find((membership) => membership.characterId === id)?.characterName ?? key;
 }
 
-const activeEffectLabels = computed(() => [
-  ...pendingEffects.value.map((pending) => {
+/** Манёвры, которые можно совершить сразу после прошлого удара. */
+const maneuverOptions = computed(() => {
+  const version = effectiveVersion.value;
+  if (!version || !model.value?.canEdit) return [];
+
+  return strikeManeuverService.listAvailable(
+    version.abilities ?? [],
+    props.rules,
+    lastStrikeService.snapshotOf(pendingEffects.value),
+  );
+});
+
+function applyManeuver(option: { ruleCode: string; targetKey: CombatEntityKey }): void {
+  emit('launch-action', { actionCode: option.ruleCode, targetKey: option.targetKey, stateIndex: -1 });
+}
+
+const activeEffectLabels = computed(() => [  ...pendingEffects.value.map((pending) => {
     const source = props.rules.find((rule) => rule.code === pending.sourceRuleCode)?.name ?? 'Временный эффект';
     if (pending.effect.type === 'last_strike_snapshot') {
       return `${source}: ${lastStrikeService.describe(pending.effect, entityName)}`;
@@ -1097,6 +1113,22 @@ function onSheetToggleEquipped(itemId: number): void {
     </template>
 
     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="ma-3">{{ error }}</v-alert>
+
+    <v-alert v-if="maneuverOptions.length" type="info" variant="tonal" density="compact" class="ma-3 mb-0">
+      <div class="text-body-2 font-weight-medium mb-1">Можно совершить один из манёвров:</div>
+      <div class="d-flex flex-wrap ga-2">
+        <v-btn
+          v-for="option in maneuverOptions"
+          :key="option.ruleCode"
+          size="small"
+          variant="tonal"
+          @click="applyManeuver(option)"
+        >
+          {{ option.name }}
+          <v-tooltip activator="parent" location="bottom">{{ option.label }}</v-tooltip>
+        </v-btn>
+      </div>
+    </v-alert>
 
     <div v-if="model && effectiveVersion === null" class="text-medium-emphasis text-center pa-8">
       Лист участника не заполнен

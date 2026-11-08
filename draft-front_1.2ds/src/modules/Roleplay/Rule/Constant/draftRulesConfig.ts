@@ -1,1 +1,1 @@
-export const DRAFT_RULES_STORAGE_KEY = 'powerscale.drafts.v2';
+export const DRAFT_RULES_STORAGE_KEY = 'powerscale.drafts.v3';

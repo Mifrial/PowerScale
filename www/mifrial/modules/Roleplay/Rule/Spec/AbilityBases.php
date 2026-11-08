@@ -71,6 +71,8 @@ final class AbilityBases
             self::closesParentProcess($document),
             ReactionSpecs::read($document),
             AbilityTactics::maneuver($document),
+            StrikeManeuverSpecs::read($document),
+            StrikeManeuverSpecs::boost($document),
         );
     }
 

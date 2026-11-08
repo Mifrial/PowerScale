@@ -4249,6 +4249,7 @@ async function submitPhpStrike(): Promise<boolean> {
   phpWideProjection.value = null;
   phpWideTargets.value = [];
   phpWideChoices.value = [];
+  emit('strike-refresh');
 
   return true;
 }

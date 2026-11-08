@@ -909,13 +909,15 @@ describe('mockDevelopmentImport (S14)', () => {
     for (const code of [
       'obezoruzhit-protivnika',
       'zastavit-otkrytsya',
-      'razbit-zaschitu',
-      'vskryt-slabost',
       'poymat-moment',
       'smenit-pozitsiyu',
     ]) {
       expect(byCode.get(code)?.catalogSection, code).toBe('abilities-acquired-melee-combat-maneuvers');
       expect(byCode.get(code)?.contentNote, code).toContain('Обязательная');
+    }
+    for (const code of ['razbit-zaschitu', 'vskryt-slabost']) {
+      expect(byCode.get(code)?.catalogSection, code).toBe('abilities-acquired-melee-combat-maneuvers');
+      expect(byCode.get(code)?.contentNote, code).toContain('S1');
     }
   });
 
@@ -987,5 +989,37 @@ describe('mockDevelopmentImport (S14)', () => {
       )
       .filter((error) => error.expectedType === 'source');
     expect(sourceErrors).toEqual([]);
+  });
+
+  it('Манёвры ближнего боя: S1-узлы и цена «Поймать момент»', () => {
+    const razbit = abilitySpec('razbit-zaschitu');
+    expect(razbit?.strike_maneuver).toEqual({
+      min_success: 3,
+      min_weapon_mastery: 3,
+      effects: [{ kind: 'state', state: 'unstable', amount: 1 }],
+    });
+    expect(razbit?.requirements).toEqual([
+      {
+        level: 1,
+        requirements: [
+          { type: 'min_weapon_mastery_value', keyword_code: 'weapon', min: { base: 3, size: 0 } },
+        ],
+      },
+    ]);
+
+    const vskryt = abilitySpec('vskryt-slabost');
+    expect(vskryt?.maneuver_boost).toEqual({
+      maneuvers: ['zastavit-otkrytsya', 'razbit-zaschitu'],
+      min_success: 4,
+      min_weapon_mastery: 5,
+      replaces: [{ kind: 'state', state: 'unstable' }],
+      effects: [{ kind: 'state', state: 'unstable', amount: 2 }],
+    });
+    expect(vskryt?.requirements?.[0]?.requirements?.[0]).toMatchObject({ type: 'and' });
+
+    const poymat = byCode.get('poymat-moment');
+    expect(poymat?.spec).toMatchObject({
+      action_components: [{ resource_code: 'action-points', amount: 0 }],
+    });
   });
 });

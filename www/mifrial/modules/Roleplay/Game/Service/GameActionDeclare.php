@@ -41,6 +41,7 @@ final class GameActionDeclare
      * @param IEventManager $events События доставки.
      * @param GameProcessFlow $processes Сессия процесса.
      * @param GameStrikeRules $rules Срез.
+     * @param GameActionManeuver $maneuver Манёвр после удара.
      *
      * @return void
      */
@@ -55,6 +56,7 @@ final class GameActionDeclare
         IEventManager $events,
         GameProcessFlow $processes,
         GameStrikeRules $rules,
+        private readonly GameActionManeuver $maneuver,
     ) {
         $this->ports = new GameActionPorts(
             $gateway,
@@ -70,8 +72,6 @@ final class GameActionDeclare
         );
         [$this->apply, $this->reaction] = $this->helpers();
     }
-
-
 
     /**
      * Выполняет команду.
@@ -192,7 +192,7 @@ final class GameActionDeclare
         $outcome = new GameActionOutcome($this->ports, $battle);
 
         return [
-            new GameActionApply($this->ports, $input, $battle, $value, $debt, $outcome),
+            new GameActionApply($this->ports, $input, $battle, $value, $debt, $outcome, $this->maneuver),
             new GameActionReaction($this->ports, $input, $battle, $value, $cover, $effects),
         ];
     }

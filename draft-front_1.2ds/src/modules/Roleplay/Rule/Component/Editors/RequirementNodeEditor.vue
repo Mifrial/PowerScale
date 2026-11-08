@@ -164,6 +164,52 @@ function removeChild(index: number) {
         />
       </template>
 
+      <template v-else-if="inner.type === 'min_weapon_mastery'">
+        <v-autocomplete
+          :model-value="inner.keyword_code"
+          @update:model-value="patch('keyword_code', $event)"
+          :items="keywords"
+          item-title="name"
+          item-value="code"
+          label="Признак оружия"
+          density="compact"
+          hide-details
+          clearable
+          class="flex-grow-1"
+        />
+        <ClampedNumberField
+          :model-value="inner.min_level"
+          @update:model-value="patch('min_level', $event)"
+          label="Уровень (мин)"
+          :min="1"
+          density="compact"
+          hide-details
+          style="min-width: 120px"
+        />
+      </template>
+
+      <template v-else-if="inner.type === 'min_weapon_mastery_value'">
+        <v-autocomplete
+          :model-value="inner.keyword_code"
+          @update:model-value="patch('keyword_code', $event)"
+          :items="keywords"
+          item-title="name"
+          item-value="code"
+          label="Признак оружия"
+          density="compact"
+          hide-details
+          clearable
+          class="flex-grow-1"
+        />
+        <DimensionalNumberInput
+          :model-value="inner.min"
+          @update:model-value="(v) => patch('min', v)"
+          label="Мастерство (мин)"
+          :min="1"
+          style="flex: 1 1 auto"
+        />
+      </template>
+
       <template v-else-if="inner.type === 'characteristic_value'">
         <v-autocomplete
           :model-value="inner.characteristic_code"

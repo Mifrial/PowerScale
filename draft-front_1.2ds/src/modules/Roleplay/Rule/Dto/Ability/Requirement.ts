@@ -5,6 +5,7 @@ export type Requirement =
   | { type: 'has_ability_keyword'; keyword_code: string; min_count: number; exclude_keyword_codes?: string[] }
   | { type: 'has_keyword'; keyword_code: string }
   | { type: 'min_weapon_mastery'; keyword_code: string; min_level: number }
+  | { type: 'min_weapon_mastery_value'; keyword_code: string; min: DimensionalNumberValue }
   | { type: 'characteristic_value'; characteristic_code: string; min: DimensionalNumberValue }
   | { type: 'resource_limit'; resource_code: string; min?: DimensionalNumberValue | number }
   | { type: 'has_magic_path'; path_code: string }

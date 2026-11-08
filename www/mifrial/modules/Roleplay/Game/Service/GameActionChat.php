@@ -44,6 +44,7 @@ final class GameActionChat
      * @param int $activeIndex Индекс хода.
      * @param list<array{roll: array<string, mixed>, text: string}> $rolls Проверки прироста состояний.
      * @param string|null $stepName Имя описательного шага процесса или null.
+     * @param array<string, mixed>|null $maneuver Применённый манёвр или null.
      *
      * @return void
      *
@@ -61,10 +62,12 @@ final class GameActionChat
         int $activeIndex,
         array $rolls = [],
         ?string $stepName = null,
+        ?array $maneuver = null,
     ): void {
         $chatId = $this->chatId($game);
         $token = $this->strikeChat->getEntityToken($actorKind, $actorId);
-        $text = $this->actionText($token, $actionRuleCode, $stepName, $spent);
+        $text = $this->actionText($token, $actionRuleCode, $stepName, $spent)
+            . $this->maneuverText($maneuver);
         $thread = GameCombatThread::buildTurn($battleId, $round, $activeIndex);
         $attachments = $this->attachments($thread, $actorKind, $actorId);
         $this->send($chatId, $actorUserId, $text, $attachments);
@@ -150,6 +153,45 @@ final class GameActionChat
         $thread = GameCombatThread::buildAttack($battle, $threadId);
         $text = $this->reactionText($actorKind, $actorId, $actionRuleCode, $side, $sideActor, $spent, $advantage);
         $this->send($chatId, $actorUserId, $text, $this->attachments($thread, $actorKind, $actorId));
+    }
+
+    /**
+     * Хвост манёвра: что получила цель прошлого удара.
+     *
+     * @param array<string, mixed>|null $maneuver Применённый манёвр.
+     *
+     * @return string Текст или пустая строка.
+     */
+    private function maneuverText(?array $maneuver): string
+    {
+        if ($maneuver === null) {
+            return '';
+        }
+
+        $targetKey = $maneuver['targetKey'] ?? null;
+        $effects = $maneuver['effects'] ?? null;
+        if (!is_string($targetKey) || !is_array($effects) || $effects === []) {
+            return '';
+        }
+
+        $parts = explode(':', $targetKey, 2);
+        if (count($parts) !== 2 || !is_numeric($parts[1])) {
+            return '';
+        }
+
+        $target = $this->strikeChat->getEntityToken($parts[0], (int) $parts[1]);
+        $applied = [];
+        foreach ($effects as $effect) {
+            $code = is_array($effect) ? ($effect['state'] ?? null) : null;
+            $amount = is_array($effect) ? ($effect['amount'] ?? null) : null;
+            if (!is_string($code) || $code === '' || !is_int($amount) || $amount < 1) {
+                return '';
+            }
+
+            $applied[] = '[[rule:' . $code . ']] ' . $amount;
+        }
+
+        return ' Цель ' . $target . ' получает ' . implode(', ', $applied) . '.';
     }
 
     /**

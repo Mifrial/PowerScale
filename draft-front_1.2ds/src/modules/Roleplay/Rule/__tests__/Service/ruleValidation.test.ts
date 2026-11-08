@@ -859,8 +859,73 @@ describe('validateAbilityStructure', () => {
     expect(ruleValidationService.validateAbilityStructure(ok, keywords)).toEqual([]);
   });
 
-  it('rejects leftover cast difficulty and allows apply_state on a spell', () => {
-    const rules: Rule[] = [
+  it('strike_maneuver и maneuver_boost проверяют пороги и эффекты', () => {
+    const broken: Rule[] = [
+      baseRule(null, 'razbit-zaschitu', 'ability', {
+        type: 'action',
+        zones: { or: { kind: 'array', levels_cost: [2] } },
+        grants: [],
+        requirements: [],
+        parent_ability_code: null,
+        strike_maneuver: {
+          min_success: 0,
+          min_weapon_mastery: 0,
+          effects: [{ kind: 'state', state: '', amount: 0 }],
+        },
+      }),
+      baseRule(null, 'vskryt-slabost', 'ability', {
+        type: 'skill',
+        zones: { or: { kind: 'array', levels_cost: [2] } },
+        grants: [],
+        requirements: [],
+        parent_ability_code: null,
+        maneuver_boost: {
+          maneuvers: [],
+          min_success: 0,
+          min_weapon_mastery: 0,
+          replaces: [{ kind: 'state', state: '' }],
+          effects: [],
+        },
+      }),
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(broken, keywords);
+    expect(errors.some((error) => error.message.includes('порог РУ манёвра'))).toBe(true);
+    expect(errors.some((error) => error.message.includes('значение эффекта'))).toBe(true);
+    expect(errors.some((error) => error.message.includes('требует хотя бы один манёвр'))).toBe(true);
+    expect(errors.some((error) => error.message.includes('эффект требует состояние'))).toBe(true);
+
+    const ok: Rule[] = [
+      baseRule(null, 'razbit-zaschitu', 'ability', {
+        type: 'action',
+        zones: { or: { kind: 'array', levels_cost: [2] } },
+        grants: [],
+        requirements: [],
+        parent_ability_code: null,
+        strike_maneuver: {
+          min_success: 3,
+          min_weapon_mastery: 3,
+          effects: [{ kind: 'state', state: 'unstable', amount: 1 }],
+        },
+      }),
+      baseRule(null, 'vskryt-slabost', 'ability', {
+        type: 'skill',
+        zones: { or: { kind: 'array', levels_cost: [2] } },
+        grants: [],
+        requirements: [],
+        parent_ability_code: null,
+        maneuver_boost: {
+          maneuvers: ['razbit-zaschitu'],
+          min_success: 4,
+          min_weapon_mastery: 5,
+          replaces: [{ kind: 'state', state: 'unstable' }],
+          effects: [{ kind: 'state', state: 'unstable', amount: 2 }],
+        },
+      }),
+    ];
+    expect(ruleValidationService.validateAbilityStructure(ok, keywords)).toEqual([]);
+  });
+
+  it('rejects leftover cast difficulty and allows apply_state on a spell', () => {    const rules: Rule[] = [
       baseRule(null, 'haste', 'state'),
       baseRule(null, 'fire-bolt', 'ability', {
         type: 'spell',

@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityBase;
 use Mifrial\Roleplay\Character\Dto\ResourceLimitBonus;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceArithmetic;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
+use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -58,7 +59,7 @@ final class CharacterRequirementFacts
     ): RequirementValues {
         return new RequirementValues(
             new RequirementNumbers($levels, $characteristics, $resourceLimits),
-            $this->traits($slice, $choices),
+            $this->traits($slice, $choices, $characteristics),
             new RequirementUnmodelled(),
         );
     }
@@ -88,11 +89,15 @@ final class CharacterRequirementFacts
      *
      * @param CharacterRuleSlice $slice Срез.
      * @param CharacterChoices $choices Выборы.
+     * @param array<string, DimensionalNumber> $characteristics Живые характеристики.
      *
      * @return RequirementTraits Признаки.
      */
-    public function traits(CharacterRuleSlice $slice, CharacterChoices $choices): RequirementTraits
-    {
+    public function traits(
+        CharacterRuleSlice $slice,
+        CharacterChoices $choices,
+        array $characteristics = [],
+    ): RequirementTraits {
         $keywords = [];
         $abilityKeywords = [];
         $raceCode = $choices->getRaceCode();
@@ -118,6 +123,7 @@ final class CharacterRequirementFacts
             array_values(array_unique($keywords)),
             $this->weaponFamiliesByKeyword($slice),
             $this->weaponMasteryLevels($slice, $choices),
+            $this->weaponMasteryValues($slice, $choices, $characteristics),
         );
     }
 
@@ -306,5 +312,62 @@ final class CharacterRequirementFacts
         }
 
         return $levels;
+    }
+
+    /**
+     * Лучшее мастерство каждой семьи оружия по её профилям.
+     *
+     * Мастерство — характеристика профиля, сдвинутая уровнем владения семьёй.
+     * Семья без купленного уровня тоже получает базовое мастерство: требование
+     * не должно зависеть от того, надето ли оружие прямо сейчас.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $choices Выборы.
+     * @param array<string, DimensionalNumber> $characteristics Живые характеристики.
+     *
+     * @return array<string, DimensionalNumber> Семья → мастерство.
+     */
+    private function weaponMasteryValues(
+        CharacterRuleSlice $slice,
+        CharacterChoices $choices,
+        array $characteristics,
+    ): array {
+        $profiles = [];
+        foreach ($slice->getLiveRules() as $rule) {
+            $spec = $rule->isSpecBroken() ? null : $rule->getSpec();
+            $value = $characteristics[$rule->getCode()] ?? null;
+            if (!$spec instanceof CharacteristicSpec || !$value instanceof DimensionalNumber) {
+                continue;
+            }
+
+            if ($spec->getWeaponMasteryProfiles() === []) {
+                continue;
+            }
+
+            $profiles[] = $value instanceof CharacteristicNumber
+                ? $value
+                : new CharacteristicNumber($value->getBase(), $value->getSize());
+        }
+
+        if ($profiles === []) {
+            return [];
+        }
+
+        $levels = $this->weaponMasteryLevels($slice, $choices);
+        $values = [];
+        foreach ($this->weaponFamiliesByKeyword($slice) as $family => $_) {
+            $level = $levels[$family] ?? 0;
+            $best = null;
+            foreach ($profiles as $profile) {
+                $mastery = $profile->modify($level);
+                if ($best === null || $mastery->compare($best) > 0) {
+                    $best = $mastery;
+                }
+            }
+
+            $values[$family] = $best;
+        }
+
+        return $values;
     }
 }

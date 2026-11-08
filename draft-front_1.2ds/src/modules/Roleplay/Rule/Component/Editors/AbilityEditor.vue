@@ -29,6 +29,7 @@ import ProcessEditor from '@/modules/Roleplay/Rule/Component/Editors/ProcessEdit
 import SpellEditor from '@/modules/Roleplay/Rule/Component/Editors/SpellEditor.vue';
 import ZoneCostsEditor from '@/modules/Roleplay/Rule/Component/Editors/ZoneCostsEditor.vue';
 import ActionComponentsEditor from '@/modules/Roleplay/Rule/Component/Editors/ActionComponentsEditor.vue';
+import StrikeManeuverEditor from '@/modules/Roleplay/Rule/Component/Editors/StrikeManeuverEditor.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import CatalogPlacementEditor from '@/modules/Roleplay/Rule/Component/Editors/CatalogPlacementEditor.vue';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
@@ -162,6 +163,34 @@ const damageTypes = computed(() => ruleReferenceService.damageTypeOptions(props.
 const senses = computed(() => ruleReferenceService.senseOptions(props.rules));
 
 const states = computed(() => ruleReferenceService.stateOptions(props.rules));
+
+const maneuverKeywordId = computed(
+  () => catalogKeywords.value.find((keyword) => keyword.code === 'maneuver')?.id ?? null,
+);
+const actionKeywordId = computed(
+  () => catalogKeywords.value.find((keyword) => keyword.code === 'action')?.id ?? null,
+);
+
+const maneuverOptions = computed(() =>
+  props.rules
+    .filter((rule) => rule.code !== props.code && rule.type === 'ability')
+    .flatMap((rule) => {
+      const spec = rule.spec;
+      const node =
+        spec && typeof spec === 'object' && 'strike_maneuver' in spec
+          ? (spec as AbilitySpecDraft).strike_maneuver
+          : undefined;
+      const keywordIds = rule.keywordIds ?? [];
+      const tagged =
+        maneuverKeywordId.value !== null &&
+        actionKeywordId.value !== null &&
+        keywordIds.includes(maneuverKeywordId.value) &&
+        keywordIds.includes(actionKeywordId.value);
+      if (!node && !tagged) return [];
+
+      return [{ code: rule.code, name: rule.name, effects: node?.effects ?? [] }];
+    }),
+);
 
 const zoneOptions = computed<{ label: string; value: string }[]>(() => ruleReferenceService.zoneOptions(props.rules));
 
@@ -656,7 +685,7 @@ function hasActionPointCost(): boolean {
       </v-expansion-panel>
 
       <v-expansion-panel v-if="!isGroup" value="upgrade">
-        <v-expansion-panel-title>Улучшение</v-expansion-panel-title>
+        <v-expansion-panel-title>Улучшение и манёвры</v-expansion-panel-title>
         <v-expansion-panel-text>
           <v-autocomplete
             :model-value="innerSpec.parent_ability_code"
@@ -760,6 +789,12 @@ function hasActionPointCost(): boolean {
             </div>
             <v-btn variant="text" size="small" class="align-self-start" @click="addStrikeUpgradeMode"> Режим </v-btn>
           </div>
+          <StrikeManeuverEditor
+            :model-value="innerSpec"
+            :states="states"
+            :maneuvers="maneuverOptions"
+            @update:model-value="(value) => (innerSpec = value)"
+          />
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>

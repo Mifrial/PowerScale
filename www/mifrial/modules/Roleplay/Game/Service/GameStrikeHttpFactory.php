@@ -116,6 +116,8 @@ final class GameStrikeHttpFactory
         (new GameStrikeCardWiring())->delivery($serviceLocator, $card);
         $rules = (new GameStrikeRuleWiring($serviceLocator))->rules();
         $write = new GameStrikeWriteWiring($serviceLocator);
+        $ruleWiring = new GameStrikeRuleWiring($serviceLocator);
+        $sheets = $write->sheets($rules);
 
         return new GameActionDeclare(
             $gateway,
@@ -124,10 +126,11 @@ final class GameStrikeHttpFactory
             $write->perform($rules),
             new GamePreparedDefense(),
             new GameActionChat($ports->chats(), new GameStrikeChat($this->npcs($gateway), $rules)),
-            $write->sheets($rules),
+            $sheets,
             $ports->events(),
             $write->processes($rules),
             $rules,
+            new GameActionManeuver($rules, $sheets, $write->writes(), $ruleWiring->checks()),
         );
     }
 

@@ -16,6 +16,11 @@ export interface CharacterSnapshot {
    * Заполняется из «Владение оружием» (domain_ref 'weapon-family') для мин_weapon_mastery.
    */
   weaponProficiencyLevels?: Map<string, number>;
+  /**
+   * Лучшее мастерство боя по семьям оружия: код семьи → характеристика с уровнем владения.
+   * Для min_weapon_mastery_value.
+   */
+  weaponMasteryValues?: Map<string, DimensionalNumberValue>;
   /** Тэги → семейства оружия с этим тэгом: «копьё» → Set{fam-kopyo, fam-metatelnoe-kopjo}. */
   weaponFamilyTags?: Map<string, Set<string>>;
   /** Значения характеристик по кодам. */

@@ -54,6 +54,9 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
 import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
+import { strikeManeuverService } from '@/modules/Roleplay/Game/Service/Instance/strikeManeuverService';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import { gameBattleSheetVersionService } from '@/modules/Roleplay/Game/Service/Instance/gameBattleSheetVersionService';
 import { GameRealtimeEventQueue } from '@/modules/Roleplay/Game/Service/GameRealtimeEventQueue';
 import { processSessionSourceService } from '@/modules/Roleplay/Game/Service/Instance/processSessionSourceService';
@@ -551,6 +554,7 @@ async function load(): Promise<void> {
     if (requestSequence === loadSequence) {
       loading.value = false;
       processNoticeReady = true;
+      void refreshPendingEffects();
     }
   }
 }
@@ -1685,6 +1689,7 @@ function onOverlayChanged(): void {
   }
   const keys = cardKey.value ? [cardKey.value] : realtimeEntityKeys();
   void loadPhpBattleSheetProjections(keys, gameId.value);
+  void refreshPendingEffects();
 }
 
 function onProcessAborted(payload: { entityKey: CombatEntityKey; name: string }): void {
@@ -1707,6 +1712,7 @@ async function onStrikeRefresh(): Promise<void> {
   await loadPhpBattleSheetProjections(keys, gameId.value);
   store.applyGameUpdate(await getGameApi().getGame(gameId.value));
   battleRevision.value += 1;
+  void refreshPendingEffects();
   await tryOpenPhpStrike();
 }
 
@@ -1841,6 +1847,48 @@ const speakerEntityKey = computed<CombatEntityKey | null>(() => {
 
   return key as CombatEntityKey;
 });
+
+const pendingEffectsByKey = ref<Record<string, PendingActionEffect[]>>({});
+
+async function refreshPendingEffects(): Promise<void> {
+  if (!gamePhpMode.isEnabled()) return;
+  try {
+    pendingEffectsByKey.value = await getGameApi().getPendingActionEffects(gameId.value);
+  } catch {
+    pendingEffectsByKey.value = {};
+  }
+}
+
+/** Полная версия листа участника для подсказки о манёврах. */
+function versionOfEntityKey(key: CombatEntityKey | null): CharacterVersion | null {
+  if (key === null) return null;
+  if (key.startsWith('character:')) {
+    return actualById.value[Number(key.slice('character:'.length))] ?? null;
+  }
+  if (key.startsWith('npc:')) {
+    return npcs.value.find((entry) => entry.id === Number(key.slice('npc:'.length)))?.version ?? null;
+  }
+
+  return null;
+}
+
+/** Манёвры, которые можно совершить сразу после прошлого удара. */
+const maneuverHintOptions = computed(() => {
+  if (!gamePhpMode.isEnabled()) return [];
+  const key = speakerEntityKey.value;
+  if (key === null) return [];
+  const snapshot = lastStrikeService.snapshotOf(pendingEffectsByKey.value[key] ?? []);
+  if (!snapshot) return [];
+  const projection = runtimeByKey.value[key];
+  const version = projection?.version ?? versionOfEntityKey(key);
+  if (!version) return [];
+
+  return strikeManeuverService.listAvailable(version.abilities ?? [], revisionRules.value, snapshot);
+});
+
+function onManeuverHint(option: { ruleCode: string; targetKey: CombatEntityKey }): void {
+  void onLaunchStateAction({ actionCode: option.ruleCode, targetKey: option.targetKey, stateIndex: -1 });
+}
 
 function isWaitingOnSpeaker(offer: CheckOffer, key: CombatEntityKey | null, asGm: boolean): boolean {
   if (offer.status !== 'pending') return false;
@@ -2230,6 +2278,21 @@ onUnmounted(() => {
   </Teleport>
 
   <div class="game-chat-tab">
+    <v-alert v-if="maneuverHintOptions.length" type="info" variant="tonal" density="compact" class="mb-3">
+      <div class="d-flex flex-wrap align-center ga-2">
+        <span class="text-body-2 font-weight-medium">Можно совершить один из манёвров:</span>
+        <v-btn
+          v-for="option in maneuverHintOptions"
+          :key="option.ruleCode"
+          size="small"
+          variant="tonal"
+          @click="onManeuverHint(option)"
+        >
+          {{ option.name }}
+          <v-tooltip activator="parent" location="bottom">{{ option.label }}</v-tooltip>
+        </v-btn>
+      </div>
+    </v-alert>
     <v-alert v-if="statusNotice" type="info" variant="tonal" density="compact" class="mb-3">
       {{ statusNotice }}
     </v-alert>

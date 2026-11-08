@@ -8,6 +8,8 @@ import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEff
 import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
 import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
 import type { StrikeUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeUpgrade';
+import type { StrikeManeuver } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeManeuver';
+import type { ManeuverBoost } from '@/modules/Roleplay/Rule/Dto/Ability/ManeuverBoost';
 import type { PushSpec } from '@/modules/Roleplay/Rule/Dto/Ability/PushSpec';
 import type { ProcessCloseSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessCloseSpec';
 
@@ -108,6 +110,10 @@ export interface AbilitySpecBase {
   };
   /** Модификатор запуска удара (режимы на проверку увечья). Родитель карточки — только покупка. */
   strike_upgrade?: StrikeUpgrade;
+  /** Объявленный манёвр при ударе: событие, порог РУ и эффекты. */
+  strike_maneuver?: StrikeManeuver;
+  /** Усиление объявленного манёвра при высоком РУ. */
+  maneuver_boost?: ManeuverBoost;
   /** Для способностей владения оружием — код предмета-оружия (напр. «sword»). */
   weapon_item_code?: string | null;
   /** Параметры «X»: подстановка `{code}` в цене/дарах/описании (Дискуссия 2). */

@@ -16,6 +16,7 @@ final class RequirementTraits
      * @param array<int, string> $keywords Признаки персонажа.
      * @param array<string, array<int, string>> $weaponFamiliesByKeyword Признаки семей оружия.
      * @param array<string, int> $weaponMasteryLevels Уровни владения семьями оружия.
+     * @param array<string, DimensionalNumber> $weaponMasteryValues Лучшее мастерство семьи оружия.
      *
      * @return void
      */
@@ -24,6 +25,7 @@ final class RequirementTraits
         public readonly array $keywords = [],
         public readonly array $weaponFamiliesByKeyword = [],
         public readonly array $weaponMasteryLevels = [],
+        public readonly array $weaponMasteryValues = [],
     ) {
     }
 }

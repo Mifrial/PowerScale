@@ -241,6 +241,47 @@ describe('RequirementEvaluator', () => {
     ).toBe(false);
   });
 
+  it('min_weapon_mastery_value: мастерство семьи по тэгу', () => {
+    const wsSnapshot: CharacterSnapshot = {
+      ...snapshot,
+      weaponProficiencyLevels: new Map([['fam-kinzhal-nozh', 3]]),
+      weaponMasteryValues: new Map([['fam-kinzhal-nozh', { base: 3, size: 1 }]]),
+      weaponFamilyTags: new Map([['dagger', new Set(['fam-kinzhal-nozh'])]]),
+    };
+
+    // 3↑ (6) выше 5
+    expect(
+      evaluator.evaluate(
+        { type: 'min_weapon_mastery_value', keyword_code: 'dagger', min: { base: 5, size: 0 } },
+        wsSnapshot,
+      ),
+    ).toBe(true);
+
+    // 3↑ (6) ниже 7
+    expect(
+      evaluator.evaluate(
+        { type: 'min_weapon_mastery_value', keyword_code: 'dagger', min: { base: 7, size: 0 } },
+        wsSnapshot,
+      ),
+    ).toBe(false);
+
+    // Тэга нет ни в одной семье
+    expect(
+      evaluator.evaluate(
+        { type: 'min_weapon_mastery_value', keyword_code: 'bow', min: { base: 1, size: 0 } },
+        wsSnapshot,
+      ),
+    ).toBe(false);
+
+    // Нет значения мастерства — не проходит
+    expect(
+      evaluator.evaluate(
+        { type: 'min_weapon_mastery_value', keyword_code: 'dagger', min: { base: 1, size: 0 } },
+        { ...snapshot } as CharacterSnapshot,
+      ),
+    ).toBe(false);
+  });
+
   it('has_magic_path и опыт пути', () => {
     const withPath: CharacterSnapshot = {
       ...snapshot,

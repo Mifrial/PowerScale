@@ -3,6 +3,7 @@ import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingAct
 import type { LastStrikeSnapshot } from '@/modules/Roleplay/Game/Dto/LastStrikeSnapshot';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
+import { StrikeManeuverService } from '@/modules/Roleplay/Game/Service/StrikeManeuverService';
 
 /**
  * Снимок прошлого удара и добивание РУ (Смертельный удар).
@@ -44,6 +45,9 @@ export class LastStrikeService {
   }
 
   followUpTargetKeys(rule: Rule | null | undefined, snapshot: LastStrikeSnapshot | null): string[] | null {
+    const maneuverTargets = new StrikeManeuverService().followUpTargetKeys(rule, snapshot);
+    if (maneuverTargets !== null) return maneuverTargets;
+
     const previousAttack = actionEffectService
       .effectsOf(rule)
       .find((effect) => effect.type === 'require_previous_attack');

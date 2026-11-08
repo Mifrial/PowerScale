@@ -9,6 +9,16 @@ export const REQUIREMENT_TYPES: { label: string; value: Requirement['type']; des
   },
   { label: 'Есть признак', value: 'has_keyword', description: 'У персонажа есть признак (просто есть/нет)' },
   {
+    label: 'Владение оружием >= N (уровень)',
+    value: 'min_weapon_mastery',
+    description: 'Уровень владения любой семьёй оружия с указанным признаком не ниже N',
+  },
+  {
+    label: 'Мастерство боя с оружием >= N',
+    value: 'min_weapon_mastery_value',
+    description: 'Мастерство (характеристика плюс уровень владения) любой семьи с указанным признаком не ниже N',
+  },
+  {
     label: 'Характеристика >= min',
     value: 'characteristic_value',
     description: 'Значение характеристики не ниже указанного',

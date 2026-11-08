@@ -14,6 +14,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKeywordRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasMagicPathRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MagicPathExperienceRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryRequirement;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryValueRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\OrRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\ResourceLimitRequirement;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
@@ -134,7 +135,14 @@ final class AbilityRequirements
                 SpecShape::string($row, 'characteristic_code'),
                 DimensionalNumbers::required($row, 'min'),
             ),
-            'resource_limit' => new ResourceLimitRequirement(SpecShape::string($row, 'resource_code'), self::limit($row)),
+            'min_weapon_mastery_value' => new MinWeaponMasteryValueRequirement(
+                SpecShape::string($row, 'keyword_code'),
+                DimensionalNumbers::required($row, 'min'),
+            ),
+            'resource_limit' => new ResourceLimitRequirement(
+                SpecShape::string($row, 'resource_code'),
+                self::limit($row),
+            ),
             'has_magic_path' => new HasMagicPathRequirement(SpecShape::string($row, 'path_code')),
             'magic_path_experience' => new MagicPathExperienceRequirement(
                 SpecShape::string($row, 'path_code'),

@@ -23,6 +23,7 @@ final class GameActionApply
      * @param GameActionValue $value Значения строк.
      * @param GameActionDebtStep $debt Шаг долга.
      * @param GameActionOutcome $outcome Исполнение и итог.
+     * @param GameActionManeuver $maneuver Манёвр после удара.
      *
      * @return void
      */
@@ -33,6 +34,7 @@ final class GameActionApply
         private readonly GameActionValue $value,
         private readonly GameActionDebtStep $debt,
         private readonly GameActionOutcome $outcome,
+        private readonly GameActionManeuver $maneuver,
     ) {
     }
 
@@ -194,6 +196,14 @@ final class GameActionApply
         $slice = $this->ports->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $step = $this->outcome->stepOf($process);
         $descriptive = $step !== null && $step->getExecution()->isNone();
+        if ($this->maneuver->isManeuver($game, $input['actionRuleCode'])) {
+            if ($process !== null || $step !== null) {
+                throw new GameInvalidException('Game strike maneuver cannot be a process step');
+            }
+
+            $this->maneuver->assert($game, $input, $battle->getPendingActionEffects());
+        }
+
         $state = $this->quoteState($game, $battle, $input, $step, $descriptive);
         if (!$paid) {
             $state = $this->debt->state($game, $slice, $battle, $input, $followUp, $step, $descriptive, $state);
@@ -206,8 +216,6 @@ final class GameActionApply
             ? $this->descriptiveApply($game, $input, $battle, $process, $step, $state, $paid)
             : $this->performedApply($game, $input, $battle, $actorUserId, $viewAll, $followUp, $process, $step, $paid);
     }
-
-
 
     /**
      * Начальный расчёт шага.
@@ -353,16 +361,23 @@ final class GameActionApply
         bool $paid,
     ): array {
         $reaction = $this->reaction($game, $input, $battle, $followUp);
+        $before = $battle->getPendingActionEffects();
         $performed = $this->outcome->perform(
             $game,
             $input,
-            $battle->getPendingActionEffects(),
+            $before,
             $actorUserId,
             $viewAll,
             !$followUp,
             $step,
             $paid,
         );
+        if ($this->maneuver->isManeuver($game, $input['actionRuleCode'])) {
+            $applied = $this->maneuver->apply($game, $input, $before);
+            $performed['strikeManeuver'] = $applied;
+            $performed['rolls'] = [...($performed['rolls'] ?? []), ...($applied['rolls'] ?? [])];
+        }
+
         $performed = $this->completePerformed($game, $input, $battle, $process, $step, $performed);
 
         return $this->performedResult($input, $performed, $reaction);
@@ -444,6 +459,10 @@ final class GameActionApply
             return null;
         }
 
+        if (!$this->ports->perform->requiresPreviousAttack($game, $input['actionRuleCode'])) {
+            return null;
+        }
+
         return $this->ports->perform->followUpReaction(
             $game,
             $input['actionRuleCode'],
@@ -487,6 +506,4 @@ final class GameActionApply
             $pending,
         );
     }
-
-
 }

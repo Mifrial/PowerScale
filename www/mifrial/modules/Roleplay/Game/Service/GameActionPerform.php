@@ -50,6 +50,25 @@ final class GameActionPerform
         $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->cards->assertServerPerformable($slice, $actionRuleCode);
 
+        return $this->cards->hasRequirePreviousAttack($spec)
+            || $spec->getBase()->getStrikeManeuver() !== null;
+    }
+
+    /**
+     * Карточке нужна реакция цели прошлого удара.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $actionRuleCode Карточка.
+     *
+     * @return bool Истина, если есть require_previous_attack.
+     *
+     * @throws GameInvalidException Если карточка не-атакующая, но серверу не по силам.
+     */
+    public function requiresPreviousAttack(GameRecord $game, string $actionRuleCode): bool
+    {
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $spec = $this->cards->assertServerPerformable($slice, $actionRuleCode);
+
         return $this->cards->hasRequirePreviousAttack($spec);
     }
 

@@ -30,6 +30,7 @@ final class CharacterRequirementFactsTest extends TestCase
             $this->rule('human', 'race', ['cost_os' => 0, 'characteristics' => [], 'abilities' => []], ['human']),
             $this->rule('swing', 'ability', ['type' => 'trait'], ['melee', 'combat']),
             $this->rule('mastery', 'ability', ['type' => 'trait', 'domain_ref' => 'weapon-family'], ['training']),
+            $this->rule('strength', 'characteristic', ['weapon_mastery' => ['profiles' => ['strike']]], []),
             $this->rule('sword', 'item', [
                 'category' => 'weapon',
                 'innate' => false,
@@ -72,6 +73,12 @@ final class CharacterRequirementFactsTest extends TestCase
         self::assertSame(['blade'], $facts->traits->weaponFamiliesByKeyword['sword']);
         self::assertArrayNotHasKey('heavy', $facts->traits->weaponFamiliesByKeyword);
         self::assertSame(['sword' => 3], $facts->traits->weaponMasteryLevels);
+        self::assertArrayHasKey('sword', $facts->traits->weaponMasteryValues);
+        self::assertSame(
+            1,
+            $facts->traits->weaponMasteryValues['sword']->compare(new DimensionalNumber(4, 1)),
+        );
+        self::assertArrayNotHasKey('heavy', $facts->traits->weaponMasteryValues);
         self::assertNull($facts->unmodelled->speed);
         self::assertNull($facts->unmodelled->magicPaths);
         self::assertNull($facts->unmodelled->magicPathExperience);

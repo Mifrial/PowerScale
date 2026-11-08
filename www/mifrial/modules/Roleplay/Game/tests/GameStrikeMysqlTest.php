@@ -1031,10 +1031,480 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
-     * Правила Обманного манёвра для теста.
+     * Манёвр после удара: цель получает Неустойчивость, цена списывается.
+     *
+     * @return void
+     */
+    public function testStrikeManeuverAppliesUnstableAfterStrike(): void
+    {
+        $world = $this->worldWithWeapon(
+            extraCards: $this->strikeManeuverCards(),
+            extraRules: $this->strikeManeuverRules(),
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Maneuver-Attacker', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [], abilities: [
+            ['ruleCode' => 'strike-maneuver', 'level' => 1],
+            ['ruleCode' => 'mastery', 'level' => 1, 'domainCode' => 'melee'],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Maneuver-Defender', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ]);
+        $battle = $this->openStrikeBattle($gameId, $attackerId, $defenderId, 'm-strike');
+        $battleId = $battle['battleId'];
+        $closed = $this->closeStrike($gameId, $battleId, $battle['version'], $defenderId, 'm-strike');
+        self::assertGreaterThanOrEqual(3, $closed['data']['success']);
+
+        $beforeAp = $this->resourceCurrent($attackerId, 'action-points');
+        $action = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'm-maneuver',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->actionEnvelope([
+                'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+                'actor' => ['type' => 'character', 'id' => $attackerId],
+                'actionRuleCode' => 'strike-maneuver',
+                'followUpTargetKey' => 'character:' . $defenderId,
+            ]),
+        ]);
+        self::assertTrue($action['success'], json_encode($action));
+        self::assertSame(1, $action['data']['spent']);
+        self::assertSame($beforeAp - 1, $this->resourceCurrent($attackerId, 'action-points'));
+        self::assertSame(1, $this->stateValue($this->statesOf($defenderId), 'unstable'));
+        self::assertFalse($action['data']['strikeManeuver']['boosted'] ?? true);
+        $pending = $this->pendingTypes($battleId, 'character:' . $attackerId);
+        self::assertNotContains('last_strike_snapshot', $pending);
+    }
+
+    /**
+     * «Вскрыть слабость» заменяет Неустойчивость 1 на 2 при высоком РУ.
+     *
+     * Мастерство оружия прошлого удара проверяется: без нужного уровня
+     * усиление не срабатывает.
+     *
+     * @return void
+     */
+    public function testStrikeManeuverBoostReplacesUnstable(): void
+    {
+        $world = $this->worldWithWeapon(
+            extraCards: $this->strikeManeuverCards(),
+            extraRules: $this->strikeManeuverRules(),
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Maneuver-Boost', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [], abilities: [
+            ['ruleCode' => 'strike-maneuver', 'level' => 1],
+            ['ruleCode' => 'maneuver-boost', 'level' => 1],
+            ['ruleCode' => 'mastery', 'level' => 2, 'domainCode' => 'melee'],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Maneuver-Boost-Target', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ]);
+        $battle = $this->openStrikeBattle($gameId, $attackerId, $defenderId, 'm-boost');
+        $battleId = $battle['battleId'];
+        $closed = $this->closeStrike($gameId, $battleId, $battle['version'], $defenderId, 'm-boost');
+        self::assertGreaterThanOrEqual(4, $closed['data']['success']);
+
+        $action = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'm-boost-action',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->actionEnvelope([
+                'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+                'actor' => ['type' => 'character', 'id' => $attackerId],
+                'actionRuleCode' => 'strike-maneuver',
+                'followUpTargetKey' => 'character:' . $defenderId,
+            ]),
+        ]);
+        self::assertTrue($action['success'], json_encode($action));
+        self::assertTrue($action['data']['strikeManeuver']['boosted'] ?? false);
+        self::assertSame(2, $this->stateValue($this->statesOf($defenderId), 'unstable'));
+    }
+
+    /**
+     * Усиление смотрит на мастерство оружия прошлого удара.
+     *
+     * При мастерстве ниже 5 «Вскрыть слабость» не срабатывает: остаётся
+     * базовый эффект «Разбить защиту».
+     *
+     * @return void
+     */
+    public function testStrikeManeuverBoostRequiresWeaponMastery(): void
+    {
+        $world = $this->worldWithWeapon(
+            extraCards: $this->strikeManeuverCards(),
+            extraRules: $this->strikeManeuverRules(),
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Maneuver-Low-Mastery', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [], abilities: [
+            ['ruleCode' => 'strike-maneuver', 'level' => 1],
+            ['ruleCode' => 'maneuver-boost', 'level' => 1],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Maneuver-Low-Mastery-Target', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ]);
+        $battle = $this->openStrikeBattle($gameId, $attackerId, $defenderId, 'm-low-mastery');
+        $battleId = $battle['battleId'];
+        $closed = $this->closeStrike($gameId, $battleId, $battle['version'], $defenderId, 'm-low-mastery');
+        self::assertGreaterThanOrEqual(4, $closed['data']['success']);
+
+        $action = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'm-low-mastery-action',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->actionEnvelope([
+                'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+                'actor' => ['type' => 'character', 'id' => $attackerId],
+                'actionRuleCode' => 'strike-maneuver',
+                'followUpTargetKey' => 'character:' . $defenderId,
+            ]),
+        ]);
+        self::assertTrue($action['success'], json_encode($action));
+        self::assertFalse($action['data']['strikeManeuver']['boosted'] ?? true);
+        self::assertSame(1, $this->stateValue($this->statesOf($defenderId), 'unstable'));
+    }
+
+    /**
+     * Манёвр без прошлого удара отклоняется.
+     *
+     * @return void
+     */
+    public function testStrikeManeuverRequiresPreviousStrike(): void
+    {
+        $world = $this->worldWithWeapon(
+            extraCards: $this->strikeManeuverCards(),
+            extraRules: $this->strikeManeuverRules(),
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Maneuver-Lonely', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [], abilities: [
+            ['ruleCode' => 'strike-maneuver', 'level' => 1],
+            ['ruleCode' => 'mastery', 'level' => 1, 'domainCode' => 'melee'],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Maneuver-Lonely-Target', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'm-lonely-battle',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $action = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'm-lonely-action',
+            'expectedVersion' => 1,
+            'action' => $this->actionEnvelope([
+                'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+                'actor' => ['type' => 'character', 'id' => $attackerId],
+                'actionRuleCode' => 'strike-maneuver',
+                'followUpTargetKey' => 'character:' . $defenderId,
+            ]),
+        ]);
+        self::assertSame('GAME_INVALID', $action['error']['code'] ?? null, json_encode($action));
+    }
+
+    /**
+     * Манёвр требует РУ не ниже порога.
+     *
+     * @return void
+     */
+    public function testStrikeManeuverRequiresThreshold(): void
+    {
+        $cards = $this->strikeManeuverCards();
+        $cards['strike-maneuver']['spec']['strike_maneuver']['min_success'] = 99;
+        $world = $this->worldWithWeapon(
+            extraCards: $cards,
+            extraRules: $this->strikeManeuverRules(),
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Maneuver-Weak', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [], abilities: [
+            ['ruleCode' => 'strike-maneuver', 'level' => 1],
+            ['ruleCode' => 'mastery', 'level' => 1, 'domainCode' => 'melee'],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Maneuver-Weak-Target', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ]);
+        $battle = $this->openStrikeBattle($gameId, $attackerId, $defenderId, 'm-weak');
+        $battleId = $battle['battleId'];
+        $closed = $this->closeStrike($gameId, $battleId, $battle['version'], $defenderId, 'm-weak');
+        self::assertGreaterThanOrEqual(3, $closed['data']['success']);
+
+        $action = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'm-weak-action',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->actionEnvelope([
+                'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+                'actor' => ['type' => 'character', 'id' => $attackerId],
+                'actionRuleCode' => 'strike-maneuver',
+                'followUpTargetKey' => 'character:' . $defenderId,
+            ]),
+        ]);
+        self::assertSame('GAME_INVALID', $action['error']['code'] ?? null, json_encode($action));
+        self::assertSame(0, $this->stateValue($this->statesOf($defenderId), 'unstable') ?? 0);
+    }
+
+    /**
+     * Манёвр не применяется к цели, которой не было в прошлом ударе.
+     *
+     * @return void
+     */
+    public function testStrikeManeuverRejectsWrongTarget(): void
+    {
+        $world = $this->worldWithWeapon(
+            extraCards: $this->strikeManeuverCards(),
+            extraRules: $this->strikeManeuverRules(),
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Maneuver-Wrong', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ], [], abilities: [
+            ['ruleCode' => 'strike-maneuver', 'level' => 1],
+            ['ruleCode' => 'mastery', 'level' => 1, 'domainCode' => 'melee'],
+        ]);
+        $defenderId = $this->admit($world->getId(), $gameId, 'Maneuver-Wrong-Target', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ]);
+        $otherId = $this->admit($world->getId(), $gameId, 'Maneuver-Other', [], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 20]],
+        ]);
+        $battle = $this->openStrikeBattle($gameId, $attackerId, $defenderId, 'm-wrong', [$otherId]);
+        $battleId = $battle['battleId'];
+        $closed = $this->closeStrike($gameId, $battleId, $battle['version'], $defenderId, 'm-wrong');
+
+        $action = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'm-wrong-action',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->actionEnvelope([
+                'expectedSheetVersion' => $this->characterFacade()->get($attackerId)->getActualVersion(),
+                'actor' => ['type' => 'character', 'id' => $attackerId],
+                'actionRuleCode' => 'strike-maneuver',
+                'followUpTargetKey' => 'character:' . $otherId,
+            ]),
+        ]);
+        self::assertSame('GAME_INVALID', $action['error']['code'] ?? null, json_encode($action));
+    }
+
+    /**
+     * Открывает бой и объявляет обычный удар.
+     *
+     * @param int $gameId Игра.
+     * @param int $attackerId Атакующий.
+     * @param int $defenderId Цель.
+     * @param string $key Ключ сценария.
+     * @param list<int> $extra Участники сверх пары.
+     *
+     * @return array{battleId: int, version: int} Бой и версия после объявления.
+     */
+    private function openStrikeBattle(
+        int $gameId,
+        int $attackerId,
+        int $defenderId,
+        string $key,
+        array $extra = [],
+    ): array {
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $participants = [
+            ['type' => 'character', 'id' => $attackerId],
+            ['type' => 'character', 'id' => $defenderId],
+        ];
+        foreach ($extra as $id) {
+            $participants[] = ['type' => 'character', 'id' => $id];
+        }
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => $key . '-battle',
+            'participants' => $participants,
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => $key . '-strike',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->characterAttack($attackerId, $defenderId)),
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+
+        return [
+            'battleId' => $battleId,
+            'version' => $declared['data']['version'],
+        ];
+    }
+
+    /**
+     * Закрывает удар выбранной реакцией цели.
+     *
+     * @param int $gameId Игра.
+     * @param int $battleId Бой.
+     * @param int $version Версия боя после объявления.
+     * @param int $defenderId Цель.
+     * @param string $key Ключ сценария.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    private function closeStrike(
+        int $gameId,
+        int $battleId,
+        int $version,
+        int $defenderId,
+        string $key,
+    ): array {
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => $key . '-close',
+            'expectedVersion' => $version,
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($defenderId)->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        return $closed;
+    }
+
+    /**
+     * Карточка манёвра после удара с типизированным эффектом.
+     *
+     * @return array<string, array<string, mixed>> Карточки.
+     */
+    private function strikeManeuverCards(): array
+    {
+        return [
+            'strike-maneuver' => [
+                'components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 1,
+                ]],
+                'effects' => [],
+                'spec' => [
+                    'strike_maneuver' => [
+                        'min_success' => 3,
+                        'min_weapon_mastery' => 3,
+                        'effects' => [['kind' => 'state', 'state' => 'unstable', 'amount' => 1]],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Состояние неустойчивости и усиление манёвра.
      *
      * @return array<string, array<string, mixed>> Правила.
      */
+    private function strikeManeuverRules(): array
+    {
+        return [
+            'action-points' => [
+                'type' => 'resource',
+                'name' => 'Action points',
+                'spec' => [
+                    'is_dimensional' => false,
+                    'auto_add' => true,
+                    'check_token' => false,
+                    'turn_refill' => true,
+                    'limit' => ['base' => 20, 'adjustments' => []],
+                ],
+            ],
+            'unstable' => [
+                'type' => 'state',
+                'name' => 'Неустойчивость',
+                'spec' => ['value_type' => 'number', 'aggregation' => 'sum', 'unstable' => true],
+            ],
+            'mastery' => [
+                'type' => 'ability',
+                'name' => 'Владение оружием',
+                'spec' => [
+                    'type' => 'skill',
+                    'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1, 1, 1, 1, 1]]],
+                    'multiple' => true,
+                    'domain_ref' => 'weapon-family',
+                    'requirements' => [],
+                ],
+            ],
+            'maneuver-boost' => [
+                'type' => 'ability',
+                'name' => 'Вскрыть слабость',
+                'spec' => [
+                    'type' => 'skill',
+                    'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                    'maneuver_boost' => [
+                        'maneuvers' => ['strike-maneuver'],
+                        'min_success' => 4,
+                        'min_weapon_mastery' => 5,
+                        'replaces' => [['kind' => 'state', 'state' => 'unstable']],
+                        'effects' => [['kind' => 'state', 'state' => 'unstable', 'amount' => 2]],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Значение состояния листа.
+     *
+     * @param array<int, array<string, mixed>> $states Состояния.
+     * @param string $code Код состояния.
+     *
+     * @return int|null Значение или null.
+     */
+    private function stateValue(array $states, string $code): ?int
+    {
+        foreach ($states as $row) {
+            if (is_array($row) && ($row['stateRuleCode'] ?? null) === $code) {
+                return is_int($row['value'] ?? null) ? $row['value'] : null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Текущее значение ресурса листа.
+     *
+     * @param int $characterId Персонаж.
+     * @param string $code Код ресурса.
+     *
+     * @return int Значение.
+     */
+    private function resourceCurrent(int $characterId, string $code): int
+    {
+        $resources = $this->characterFacade()->get($characterId)->getSheet()['resources'] ?? [];
+        foreach ($resources as $row) {
+            if (is_array($row) && ($row['ruleCode'] ?? null) === $code) {
+                return is_int($row['current'] ?? null) ? $row['current'] : 0;
+            }
+        }
+
+        return 0;
+    }
+
     private function maneuverRules(): array
     {
         $check = [
@@ -8439,6 +8909,7 @@ final class GameStrikeMysqlTest extends TestCase
             $requirements = [];
             $type = 'action';
             $parent = null;
+            $spec = [];
             if (is_array($definition) && array_key_exists('effects', $definition)) {
                 $effects = is_array($definition['effects']) ? $definition['effects'] : [];
                 $components = is_array($definition['components'] ?? null) ? $definition['components'] : [];
@@ -8447,6 +8918,7 @@ final class GameStrikeMysqlTest extends TestCase
                 $requirements = is_array($definition['requirements'] ?? null) ? $definition['requirements'] : [];
                 $type = is_string($definition['type'] ?? null) ? $definition['type'] : 'action';
                 $parent = is_string($definition['parent'] ?? null) ? $definition['parent'] : null;
+                $spec = is_array($definition['spec'] ?? null) ? $definition['spec'] : [];
             }
 
             $entries[] = RuleCommitEntry::put($code, new RuleVersionBody('ability', ucfirst($code), '', [
@@ -8457,6 +8929,7 @@ final class GameStrikeMysqlTest extends TestCase
                 ...($requirements === [] ? [] : ['requirements' => $requirements]),
                 ...($parent === null ? [] : ['parent_ability_code' => $parent]),
                 ...($effects === [] ? [] : ['action_effects' => $effects]),
+                ...$spec,
             ], [], [], 'needs_work'));
         }
 
