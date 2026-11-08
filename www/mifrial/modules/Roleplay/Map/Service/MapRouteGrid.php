@@ -13,6 +13,7 @@ namespace Mifrial\Roleplay\Map\Service;
  * @phpstan-type Field array{width: int, height: int, cell: int, columns: int, rows: int, speeds: array<int, int>}
  * @phpstan-type Contour array{id: int, path: array<int, array{0: int, 1: int}>,
  *     handles: array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}>, speed: int, sortOrder: int}
+ * @phpstan-type Area array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}
  * @phpstan-type Ribbon array{id: int, points: array<int, array{0: int, 1: int}>, widths: array<int, int>,
  *     handles: array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}>,
  *     segmentSpeeds: array<int, int>, defaultSpeed: int, sortOrder: int}
@@ -77,7 +78,7 @@ final class MapRouteGrid
     /**
      * Проходима ли клетка.
      *
-     * @param Field $field Поле.
+     * @param array{width: int, height: int, cell: int, columns: int, rows: int, speeds: array<int, int>} $field Поле.
      * @param int $x Колонка.
      * @param int $y Строка.
      *
@@ -95,7 +96,7 @@ final class MapRouteGrid
     /**
      * Клетка точки.
      *
-     * @param Field $field Поле.
+     * @param array{width: int, height: int, cell: int, columns: int, rows: int, speeds: array<int, int>} $field Поле.
      * @param array{0: int, 1: int} $point Точка.
      *
      * @return array{0: int, 1: int} Клетка.
@@ -114,7 +115,7 @@ final class MapRouteGrid
     /**
      * Центр клетки.
      *
-     * @param Field $field Поле.
+     * @param array{width: int, height: int, cell: int, columns: int, rows: int, speeds: array<int, int>} $field Поле.
      * @param int $x Колонка.
      * @param int $y Строка.
      *
@@ -131,7 +132,7 @@ final class MapRouteGrid
     /**
      * Прижимает точку к миру.
      *
-     * @param Field $field Поле.
+     * @param array{width: int, height: int, cell: int, columns: int, rows: int, speeds: array<int, int>} $field Поле.
      * @param array{0: int, 1: int} $point Точка.
      *
      * @return array{0: int, 1: int} Точка.
@@ -149,7 +150,7 @@ final class MapRouteGrid
      *
      * @param array<int, Contour> $contours Контуры.
      *
-     * @return array<int, array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}> Полилинии.
+     * @return array<int, Area> Полилинии.
      */
     private function flatten(array $contours): array
     {
@@ -185,7 +186,7 @@ final class MapRouteGrid
      * Поверхности.
      *
      * @param Field $field Поле.
-     * @param array<int, array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}> $surfaces Поверхности.
+     * @param array<int, Area> $surfaces Поверхности.
      *
      * @return void
      */
@@ -242,7 +243,7 @@ final class MapRouteGrid
      * Объекты.
      *
      * @param Field $field Поле.
-     * @param array<int, array{id: int, path: array<int, array{0: int, 1: int}>, speed: int, sortOrder: int}> $objects Объекты.
+     * @param array<int, Area> $objects Объекты.
      *
      * @return void
      */
@@ -421,5 +422,4 @@ final class MapRouteGrid
             [$x0, $y0 + $cell],
         ];
     }
-
 }

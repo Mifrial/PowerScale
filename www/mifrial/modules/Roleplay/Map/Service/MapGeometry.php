@@ -238,5 +238,4 @@ final class MapGeometry
 
         return $point[0] < $x;
     }
-
 }

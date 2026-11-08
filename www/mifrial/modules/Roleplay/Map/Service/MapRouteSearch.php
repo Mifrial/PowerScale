@@ -42,7 +42,7 @@ final class MapRouteSearch
     /**
      * Ищет клетки кратчайшего пути.
      *
-     * @param Field $field Поле.
+     * @param array{width: int, height: int, cell: int, columns: int, rows: int, speeds: array<int, int>} $field Поле.
      * @param array{0: int, 1: int} $start Начало.
      * @param array{0: int, 1: int} $goal Конец.
      *

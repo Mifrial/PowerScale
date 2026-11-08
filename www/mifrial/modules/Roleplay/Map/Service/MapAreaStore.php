@@ -129,5 +129,4 @@ final class MapAreaStore
         $this->shapeRepository->deleteByArea($areaId);
         $this->areaRepository->delete($areaId);
     }
-
 }

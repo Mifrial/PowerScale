@@ -31,7 +31,7 @@ final class MapRouteFinder
     /**
      * Строит маршрут.
      *
-     * @param Field $field Поле.
+     * @param array{width: int, height: int, cell: int, columns: int, rows: int, speeds: array<int, int>} $field Поле.
      * @param array{0: int, 1: int} $from Начало.
      * @param array{0: int, 1: int} $to Конец.
      *
@@ -66,7 +66,7 @@ final class MapRouteFinder
     /**
      * Проходимые концы маршрута.
      *
-     * @param Field $field Поле.
+     * @param array{width: int, height: int, cell: int, columns: int, rows: int, speeds: array<int, int>} $field Поле.
      * @param array{0: int, 1: int} $from Начало.
      * @param array{0: int, 1: int} $to Конец.
      *
@@ -111,7 +111,7 @@ final class MapRouteFinder
      * Ставит концы на точные координаты и убирает повторы.
      *
      * @param array<int, array{0: int, 1: int}> $points Точки пути.
-     * @param Field $field Поле.
+     * @param array{width: int, height: int, cell: int, columns: int, rows: int, speeds: array<int, int>} $field Поле.
      * @param array{0: int, 1: int} $from Начало.
      * @param array{0: int, 1: int} $to Конец.
      * @param bool $startPassable Начало проходимо.
