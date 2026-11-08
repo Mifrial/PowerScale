@@ -101,19 +101,36 @@ final class GameDeliverySync
                 $cursor = $frame['cursor'];
             }
 
-            if ($frame['events'] !== []) {
-                $sseEmitter->writeEvent('sync', $frame);
-                $quiet = 0;
-            } else {
-                $quiet++;
-                if ($quiet >= self::COMMENT_TICKS) {
-                    $sseEmitter->writeComment('ping');
-                    $quiet = 0;
-                }
-            }
-
+            $quiet = $this->writeTick($sseEmitter, $frame, $quiet);
             $this->clock->sleep(self::TICK_SECONDS);
         }
+    }
+
+    /**
+     * Пишет кадр или ping и возвращает счётчик тишины.
+     *
+     * @param SseEmitter $sseEmitter Байты.
+     * @param array<string, mixed> $frame Кадр синхронизации.
+     * @param int $quiet Тихих тиков подряд.
+     *
+     * @return int Новый счётчик тишины.
+     */
+    private function writeTick(SseEmitter $sseEmitter, array $frame, int $quiet): int
+    {
+        if ($frame['events'] !== []) {
+            $sseEmitter->writeEvent('sync', $frame);
+
+            return 0;
+        }
+
+        $quiet++;
+        if ($quiet < self::COMMENT_TICKS) {
+            return $quiet;
+        }
+
+        $sseEmitter->writeComment('ping');
+
+        return 0;
     }
 
     /**

@@ -248,15 +248,7 @@ final class GameDelivery implements IGameDelivery
      */
     private function battleIdOf(string $source, int $sourceId): ?int
     {
-        if (
-            $source !== 'strike'
-            && $source !== 'turn'
-            && $source !== 'wound'
-            && $source !== 'action'
-            && $source !== 'manual_sheet'
-            && $source !== 'battle'
-            && $source !== 'check'
-        ) {
+        if (!in_array($source, ['strike', 'turn', 'wound', 'action', 'manual_sheet', 'battle', 'check'], true)) {
             return null;
         }
 
