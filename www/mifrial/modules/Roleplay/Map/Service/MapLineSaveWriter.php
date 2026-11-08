@@ -96,20 +96,7 @@ final class MapLineSaveWriter
             return $line['id'];
         }
 
-        return $this->lineStore->addLine(
-            $variantId,
-            $fields['color'],
-            $fields['speed'],
-            $fields['points'],
-            $fields['widths'],
-            $fields['handles'],
-            $fields['segments'],
-            $fields['color_blend'],
-            $line['decor'],
-            $fields['label'],
-            $fields['is_present'],
-            $fields['sort_order'],
-        );
+        return $this->lineStore->addLine($fields);
     }
 
     /**
