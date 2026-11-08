@@ -176,31 +176,6 @@ final class MapGeometry
     }
 
     /**
-     * Есть ли в контуре хоть одна ненулевая ручка.
-     *
-     * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки.
-     * @param int $count Число вершин.
-     *
-     * @return bool Флаг.
-     */
-    private function hasCurveHandles(array $handles, int $count): bool
-    {
-        if ($count < 1) {
-            return false;
-        }
-
-        foreach ($handles as $handle) {
-            $in = $handle['in'];
-            $out = $handle['out'];
-            if (abs($in[0]) + abs($in[1]) + abs($out[0]) + abs($out[1]) > 0) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * Разворачивает один сегмент ленты.
      *
      * @param array<int, array{0: int, 1: int}> $points Осевая линия.
@@ -280,6 +255,31 @@ final class MapGeometry
             $point[0] - ($start[0] + $segmentX * $clamped),
             $point[1] - ($start[1] + $segmentY * $clamped),
         );
+    }
+
+    /**
+     * Есть ли в контуре хоть одна ненулевая ручка.
+     *
+     * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки.
+     * @param int $count Число вершин.
+     *
+     * @return bool Флаг.
+     */
+    private function hasCurveHandles(array $handles, int $count): bool
+    {
+        if ($count < 1) {
+            return false;
+        }
+
+        foreach ($handles as $handle) {
+            $in = $handle['in'];
+            $out = $handle['out'];
+            if (abs($in[0]) + abs($in[1]) + abs($out[0]) + abs($out[1]) > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -116,45 +116,110 @@ final class MapGraphSaveValidator
     private function areaRow(array $row, int $index, array $variantIds, array $nodeIds, array $groupIds): array
     {
         $path = 'areas[' . $index . ']';
+
+        return [
+            'id' => $this->fields->identifier($row, 'id', $path . '.id'),
+            'layer' => $this->areaLayer($row, $path),
+            'color' => $this->fields->colorValue($row, 'color', $path . '.color'),
+            'stroke' => array_key_exists('stroke', $row)
+                ? $this->fields->strokeValue($row, 'stroke', $path . '.stroke')
+                : '',
+            'strokeWidth' => $this->areaStrokeWidth($row, $path),
+            'decor' => $this->fields->areaDecorValue($row, 'decor', $path . '.decor'),
+            'speed' => $this->fields->intValue($row, 'speed', $path . '.speed', 0, MapSpeed::MAX),
+            'label' => trim((string) $this->fields->optionalStringValue($row, 'label', $path . '.label')),
+            'nodeId' => $this->areaNodeId($row, $path, $nodeIds),
+            'groupId' => $this->areaGroupId($row, $path, $groupIds),
+            'sortOrder' => $this->fields->optionalIntValue($row, 'sortOrder', $path . '.sortOrder', 0) ?? 0,
+            'shapes' => $this->shapes($row, $path, $variantIds),
+        ];
+    }
+
+    /**
+     * Слой области.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $path Путь.
+     *
+     * @return string surface|object.
+     *
+     * @throws MapInvalidException Если слой недопустим.
+     */
+    private function areaLayer(array $row, string $path): string
+    {
         $layer = $this->fields->stringValue($row, 'layer', $path . '.layer');
         if ($layer !== 'surface' && $layer !== 'object') {
             throw new MapInvalidException($path . '.layer is invalid');
         }
 
+        return $layer;
+    }
+
+    /**
+     * Толщина границы области.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $path Путь.
+     *
+     * @return int Экранные пиксели.
+     *
+     * @throws MapInvalidException Если значение неверно.
+     */
+    private function areaStrokeWidth(array $row, string $path): int
+    {
+        if (!array_key_exists('strokeWidth', $row) || $row['strokeWidth'] === null) {
+            return MapAreaStroke::DEFAULT_WIDTH;
+        }
+
+        return $this->fields->intValue(
+            $row,
+            'strokeWidth',
+            $path . '.strokeWidth',
+            MapAreaStroke::MIN_WIDTH,
+            MapAreaStroke::MAX_WIDTH,
+        );
+    }
+
+    /**
+     * Ссылка области на место.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $path Путь.
+     * @param array<int, true> $nodeIds Узлы снимка.
+     *
+     * @return int|null Id узла или null.
+     *
+     * @throws MapInvalidException Если ссылка неизвестна.
+     */
+    private function areaNodeId(array $row, string $path, array $nodeIds): ?int
+    {
         $nodeId = $this->fields->optionalIdentifier($row, 'nodeId', $path . '.nodeId');
         if ($nodeId !== null && !isset($nodeIds[$nodeId])) {
             throw new MapInvalidException($path . '.nodeId is unknown');
         }
 
+        return $nodeId;
+    }
+
+    /**
+     * Ссылка области на группу.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $path Путь.
+     * @param array<int, true> $groupIds Группы снимка.
+     *
+     * @return int|null Id группы или null.
+     *
+     * @throws MapInvalidException Если ссылка неизвестна.
+     */
+    private function areaGroupId(array $row, string $path, array $groupIds): ?int
+    {
         $groupId = $this->fields->optionalIdentifier($row, 'groupId', $path . '.groupId');
         if ($groupId !== null && !isset($groupIds[$groupId])) {
             throw new MapInvalidException($path . '.groupId is unknown');
         }
 
-        return [
-            'id' => $this->fields->identifier($row, 'id', $path . '.id'),
-            'layer' => $layer,
-            'color' => $this->fields->colorValue($row, 'color', $path . '.color'),
-            'stroke' => array_key_exists('stroke', $row)
-                ? $this->fields->strokeValue($row, 'stroke', $path . '.stroke')
-                : '',
-            'strokeWidth' => array_key_exists('strokeWidth', $row) && $row['strokeWidth'] !== null
-                ? $this->fields->intValue(
-                    $row,
-                    'strokeWidth',
-                    $path . '.strokeWidth',
-                    MapAreaStroke::MIN_WIDTH,
-                    MapAreaStroke::MAX_WIDTH,
-                )
-                : MapAreaStroke::DEFAULT_WIDTH,
-            'decor' => $this->fields->areaDecorValue($row, 'decor', $path . '.decor'),
-            'speed' => $this->fields->intValue($row, 'speed', $path . '.speed', 0, MapSpeed::MAX),
-            'label' => trim((string) $this->fields->optionalStringValue($row, 'label', $path . '.label')),
-            'nodeId' => $nodeId,
-            'groupId' => $groupId,
-            'sortOrder' => $this->fields->optionalIntValue($row, 'sortOrder', $path . '.sortOrder', 0) ?? 0,
-            'shapes' => $this->shapes($row, $path, $variantIds),
-        ];
+        return $groupId;
     }
 
     /**

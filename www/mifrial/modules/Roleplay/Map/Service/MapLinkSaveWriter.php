@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Map\Service;
 
+use Mifrial\Roleplay\Map\Dto\MapAreaShapeRecord;
 use Mifrial\Roleplay\Map\Exception\MapInvalidException;
 
 /**
@@ -90,52 +91,189 @@ final class MapLinkSaveWriter
     private function writeVariantShapes(int $snapshotVariantId, int $realVariantId, array $areas, array $areaMap): void
     {
         $existing = $this->areaStore->findShapes($realVariantId);
-        $existingByArea = [];
-        foreach ($existing as $shapeRecord) {
-            $existingByArea[$shapeRecord->getAreaId()] = $shapeRecord;
+        $existingByArea = $this->indexShapes($existing);
+        $keptAreaIds = [];
+        $inserts = $this->syncShapes(
+            $areas,
+            $snapshotVariantId,
+            $realVariantId,
+            $areaMap,
+            $existingByArea,
+            $keptAreaIds,
+        );
+
+        $this->deleteAbsentShapes($existing, $keptAreaIds);
+        $this->insertShapes($inserts);
+    }
+
+    /**
+     * Существующие формы по области.
+     *
+     * @param array<int, MapAreaShapeRecord> $shapes Записи.
+     *
+     * @return array<int, MapAreaShapeRecord> Id области → форма.
+     */
+    private function indexShapes(array $shapes): array
+    {
+        $indexed = [];
+        foreach ($shapes as $shapeRecord) {
+            $indexed[$shapeRecord->getAreaId()] = $shapeRecord;
         }
 
+        return $indexed;
+    }
+
+    /**
+     * Синхронизирует формы варианта.
+     *
+     * @param array<int, array<string, mixed>> $areas Области снимка.
+     * @param int $snapshotVariantId Вариант снимка.
+     * @param int $realVariantId Реальный вариант.
+     * @param array<int, int> $areaMap Id снимка → реальный id области.
+     * @param array<int, MapAreaShapeRecord> $existingByArea Известные формы.
+     * @param array<int, true> $keptAreaIds Области, которые остаются.
+     *
+     * @return array<int, array<string, mixed>> Новые строки.
+     *
+     * @throws MapInvalidException Если ссылка не разрешилась.
+     */
+    private function syncShapes(
+        array $areas,
+        int $snapshotVariantId,
+        int $realVariantId,
+        array $areaMap,
+        array $existingByArea,
+        array &$keptAreaIds,
+    ): array {
         $inserts = [];
-        $keptAreaIds = [];
         foreach ($areas as $area) {
-            foreach ($area['shapes'] as $shape) {
-                if ($shape['variantId'] !== $snapshotVariantId) {
-                    continue;
-                }
+            $inserts = [
+                ...$inserts,
+                ...$this->syncAreaShapes(
+                    $area,
+                    $snapshotVariantId,
+                    $realVariantId,
+                    $areaMap,
+                    $existingByArea,
+                    $keptAreaIds,
+                ),
+            ];
+        }
 
-                $realAreaId = $this->mapped($areaMap, $area['id']);
-                $keptAreaIds[$realAreaId] = true;
-                $current = $existingByArea[$realAreaId] ?? null;
-                if ($current === null) {
-                    $inserts[] = [
-                        'variantId' => $realVariantId,
-                        'areaId' => $realAreaId,
-                        'path' => $shape['path'],
-                        'handles' => $shape['handles'],
-                        'isPresent' => $shape['isPresent'],
-                    ];
+        return $inserts;
+    }
 
-                    continue;
-                }
+    /**
+     * Синхронизирует формы одной области.
+     *
+     * @param array<string, mixed> $area Область снимка.
+     * @param int $snapshotVariantId Вариант снимка.
+     * @param int $realVariantId Реальный вариант.
+     * @param array<int, int> $areaMap Id снимка → реальный id области.
+     * @param array<int, MapAreaShapeRecord> $existingByArea Известные формы.
+     * @param array<int, true> $keptAreaIds Области, которые остаются.
+     *
+     * @return array<int, array<string, mixed>> Новые строки.
+     *
+     * @throws MapInvalidException Если ссылка не разрешилась.
+     */
+    private function syncAreaShapes(
+        array $area,
+        int $snapshotVariantId,
+        int $realVariantId,
+        array $areaMap,
+        array $existingByArea,
+        array &$keptAreaIds,
+    ): array {
+        $inserts = [];
+        foreach ($area['shapes'] as $shape) {
+            if ($shape['variantId'] !== $snapshotVariantId) {
+                continue;
+            }
 
-                if (
-                    $current->getPath() === $shape['path']
-                    && $current->getHandles() === $shape['handles']
-                    && $current->isPresent() === $shape['isPresent']
-                ) {
-                    continue;
-                }
-
-                $this->areaStore->updateShape($current->getId(), $shape['path'], $shape['handles'], $shape['isPresent']);
+            $realAreaId = $this->mapped($areaMap, $area['id']);
+            $keptAreaIds[$realAreaId] = true;
+            $insert = $this->syncShape($shape, $realVariantId, $realAreaId, $existingByArea[$realAreaId] ?? null);
+            if ($insert !== null) {
+                $inserts[] = $insert;
             }
         }
 
+        return $inserts;
+    }
+
+    /**
+     * Применяет одну форму: вставляет, обновляет или оставляет как есть.
+     *
+     * @param array<string, mixed> $shape Форма снимка.
+     * @param int $realVariantId Реальный вариант.
+     * @param int $realAreaId Реальная область.
+     * @param MapAreaShapeRecord|null $current Записанная форма или null.
+     *
+     * @return array<string, mixed>|null Строка вставки или null.
+     */
+    private function syncShape(array $shape, int $realVariantId, int $realAreaId, ?MapAreaShapeRecord $current): ?array
+    {
+        if ($current === null) {
+            return [
+                'variantId' => $realVariantId,
+                'areaId' => $realAreaId,
+                'path' => $shape['path'],
+                'handles' => $shape['handles'],
+                'isPresent' => $shape['isPresent'],
+            ];
+        }
+
+        if ($this->sameShape($current, $shape)) {
+            return null;
+        }
+
+        $this->areaStore->updateShape($current->getId(), $shape['path'], $shape['handles'], $shape['isPresent']);
+
+        return null;
+    }
+
+    /**
+     * Совпадает ли записанная форма с формой снимка.
+     *
+     * @param MapAreaShapeRecord $current Записанная форма.
+     * @param array<string, mixed> $shape Форма снимка.
+     *
+     * @return bool Совпадают.
+     */
+    private function sameShape(MapAreaShapeRecord $current, array $shape): bool
+    {
+        return $current->getPath() === $shape['path']
+            && $current->getHandles() === $shape['handles']
+            && $current->isPresent() === $shape['isPresent'];
+    }
+
+    /**
+     * Удаляет формы, которых нет в снимке.
+     *
+     * @param array<int, MapAreaShapeRecord> $existing Записанные формы.
+     * @param array<int, true> $keptAreaIds Области, которые остаются.
+     *
+     * @return void
+     */
+    private function deleteAbsentShapes(array $existing, array $keptAreaIds): void
+    {
         foreach ($existing as $shapeRecord) {
             if (!isset($keptAreaIds[$shapeRecord->getAreaId()])) {
                 $this->areaStore->deleteShape($shapeRecord->getId());
             }
         }
+    }
 
+    /**
+     * Вставляет новые формы пачками.
+     *
+     * @param array<int, array<string, mixed>> $inserts Новые строки.
+     *
+     * @return void
+     */
+    private function insertShapes(array $inserts): void
+    {
         foreach (array_chunk($inserts, self::INSERT_CHUNK) as $chunk) {
             $this->areaStore->addShapes($chunk);
         }

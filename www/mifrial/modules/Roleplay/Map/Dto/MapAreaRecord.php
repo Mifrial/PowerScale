@@ -7,6 +7,9 @@ namespace Mifrial\Roleplay\Map\Dto;
 use Mifrial\Roleplay\Map\Service\MapAreaStroke;
 
 // phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// Геттеры полной строки области; параметры ctor — поля, не порты. Сводить
+// доступ к колонкам в структуру значило бы прятать смысл строки.
 
 /**
  * Прочитанная строка `map_area`.

@@ -385,27 +385,6 @@ final class MapValues
     }
 
     /**
-     * Целое декора в диапазоне.
-     *
-     * @param mixed $value Значение.
-     * @param int $min Минимум.
-     * @param int $max Максимум.
-     *
-     * @return int Значение.
-     *
-     * @throws MapInvalidException Если значение неверно.
-     */
-    private static function decorInt(mixed $value, int $min, int $max): int
-    {
-        $int = self::intValue($value);
-        if ($int === null || $int < $min || $int > $max) {
-            throw new MapInvalidException('Map line flow value is invalid');
-        }
-
-        return $int;
-    }
-
-    /**
      * Ручки Безье по точкам ленты.
      *
      * @param mixed $value Значение JSON.
@@ -438,6 +417,27 @@ final class MapValues
         }
 
         return $handles;
+    }
+
+    /**
+     * Целое декора в диапазоне.
+     *
+     * @param mixed $value Значение.
+     * @param int $min Минимум.
+     * @param int $max Максимум.
+     *
+     * @return int Значение.
+     *
+     * @throws MapInvalidException Если значение неверно.
+     */
+    private static function decorInt(mixed $value, int $min, int $max): int
+    {
+        $int = self::intValue($value);
+        if ($int === null || $int < $min || $int > $max) {
+            throw new MapInvalidException('Map line flow value is invalid');
+        }
+
+        return $int;
     }
 
     /**

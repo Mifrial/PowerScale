@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Map\Dto;
 
 // phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// Геттеры полной строки ленты; параметры ctor — поля, не порты.
 
 use Mifrial\Roleplay\Map\Exception\MapInvalidException;
 

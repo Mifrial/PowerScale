@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// Снимок карты собирается из разделов: каждый писатель — своя сущность,
+// объединять их значило бы смешать области, ленты, узлы и связки.
+
 namespace Mifrial\Roleplay\Map\Service;
 
 use Mifrial\Core\Kernel\Dto\RequestActor;

@@ -360,7 +360,7 @@ final class MapRouteGrid
     }
 
     /**
-     * A*.
+     * A*: кратчайший путь по полю скоростей.
      *
      * @param Field $field Поле.
      * @param array{0: int, 1: int} $start Начало.

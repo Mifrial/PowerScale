@@ -53,77 +53,6 @@ final class MapAreaStore
     }
 
     /**
-     * Область в границах карты.
-     *
-     * @param int $mapId Карта.
-     * @param int $areaId Область.
-     *
-     * @return MapAreaRecord Область.
-     */
-    public function findArea(int $mapId, int $areaId): MapAreaRecord
-    {
-        return $this->areaRepository->getForMap($mapId, $areaId);
-    }
-
-    /**
-     * Полигон области в варианте.
-     *
-     * @param int $variantId Вариант.
-     * @param int $areaId Область.
-     *
-     * @return MapAreaShapeRecord|null Полигон или null.
-     */
-    public function findShape(int $variantId, int $areaId): ?MapAreaShapeRecord
-    {
-        return $this->shapeRepository->findOne($variantId, $areaId);
-    }
-
-    /**
-     * Добавляет область.
-     *
-     * @param int $mapId Карта.
-     * @param string $layer Слой: surface или object.
-     * @param string $color Цвет.
-     * @param string $stroke Цвет границы; пусто — границы нет.
-     * @param int $strokeWidth Толщина границы.
-     * @param array<string, mixed> $decor Визуальный декор.
-     * @param int $speed Проходимость.
-     * @param string $label Подпись.
-     * @param int|null $nodeId Место.
-     * @param int $sortOrder Порядок внутри слоя.
-     * @param int|null $groupId Группа областей.
-     *
-     * @return int Id.
-     */
-    public function addArea(
-        int $mapId,
-        string $layer,
-        string $color,
-        string $stroke,
-        int $strokeWidth,
-        array $decor,
-        int $speed,
-        string $label,
-        ?int $nodeId,
-        int $sortOrder,
-        ?int $groupId = null,
-    ): int {
-        return $this->areaRepository->add(
-            $mapId,
-            $layer,
-            $color,
-            $stroke,
-            $strokeWidth,
-            $decor,
-            $speed,
-            $label,
-            $nodeId,
-            $sortOrder,
-            $groupId,
-        );
-    }
-
-    /**
      * Добавляет пачку областей.
      *
      * @param int $mapId Карта.
@@ -147,22 +76,6 @@ final class MapAreaStore
     public function updateArea(int $areaId, array $fields): void
     {
         $this->areaRepository->update($areaId, $fields);
-    }
-
-    /**
-     * Ставит полигон.
-     *
-     * @param int $variantId Вариант.
-     * @param int $areaId Область.
-     * @param array<int, array{0: int, 1: int}> $path Полигон.
-     * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки Безье.
-     * @param bool $isPresent Присутствует.
-     *
-     * @return void
-     */
-    public function upsertShape(int $variantId, int $areaId, array $path, array $handles, bool $isPresent): void
-    {
-        $this->shapeRepository->upsert($variantId, $areaId, $path, $handles, $isPresent);
     }
 
     /**
@@ -217,15 +130,4 @@ final class MapAreaStore
         $this->areaRepository->delete($areaId);
     }
 
-    /**
-     * Удаляет формы варианта.
-     *
-     * @param int $variantId Вариант.
-     *
-     * @return void
-     */
-    public function deleteShapesByVariant(int $variantId): void
-    {
-        $this->shapeRepository->deleteByVariant($variantId);
-    }
 }

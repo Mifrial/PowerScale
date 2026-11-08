@@ -33,57 +33,6 @@ final class MapAreaRepository
     }
 
     /**
-     * Добавляет область.
-     *
-     * @param int $mapId Карта.
-     * @param string $layer Слой: surface или object.
-     * @param string $color Цвет.
-     * @param string $stroke Цвет границы; пусто — границы нет.
-     * @param int $strokeWidth Толщина границы.
-     * @param array<string, mixed> $decor Визуальный декор.
-     * @param int $speed Проходимость.
-     * @param string $label Подпись.
-     * @param int|null $nodeId Место.
-     * @param int $sortOrder Порядок внутри слоя.
-     * @param int|null $groupId Группа областей.
-     *
-     * @return int Id.
-     *
-     * @throws MapInvalidException Если поля недопустимы.
-     */
-    public function add(
-        int $mapId,
-        string $layer,
-        string $color,
-        string $stroke,
-        int $strokeWidth,
-        array $decor,
-        int $speed,
-        string $label,
-        ?int $nodeId,
-        int $sortOrder,
-        ?int $groupId = null,
-    ): int {
-        try {
-            return $this->areaRecords->add([
-                'map_id' => $mapId,
-                'layer' => $layer,
-                'color' => $color,
-                'stroke' => $stroke,
-                'stroke_width' => $strokeWidth,
-                'decor' => $decor,
-                'speed' => $speed,
-                'label' => $label,
-                'node_id' => $nodeId,
-                'sort_order' => $sortOrder,
-                'group_id' => $groupId,
-            ]);
-        } catch (FieldInvalidException | SmartMapInvalidException | RowWriteFailedException $exception) {
-            throw new MapInvalidException('Map area row is invalid', $exception);
-        }
-    }
-
-    /**
      * Добавляет пачку областей.
      *
      * @param int $mapId Карта.

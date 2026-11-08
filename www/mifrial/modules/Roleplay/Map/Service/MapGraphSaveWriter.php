@@ -47,6 +47,31 @@ final class MapGraphSaveWriter
         $existingById = $this->index($existing);
         [$updates, $inserts] = $this->splitAreas($areas, $existingById);
 
+        $this->updateAreas($updates, $existingById, $nodeMap, $groupMap);
+        $this->deleteMissingAreas($existing, $updates);
+
+        $idMap = [];
+        foreach (array_keys($updates) as $id) {
+            $idMap[$id] = $id;
+        }
+
+        return $this->insertAreas($mapId, $inserts, $nodeMap, $groupMap, $idMap);
+    }
+
+    /**
+     * Обновляет изменившиеся области.
+     *
+     * @param array<int, array<string, mixed>> $updates Области снимка по id.
+     * @param array<int, MapAreaRecord> $existingById Известные строки.
+     * @param array<int, int> $nodeMap Узлы.
+     * @param array<int, int> $groupMap Группы.
+     *
+     * @return void
+     *
+     * @throws MapInvalidException Если ссылка не разрешилась.
+     */
+    private function updateAreas(array $updates, array $existingById, array $nodeMap, array $groupMap): void
+    {
         foreach ($updates as $id => $area) {
             $fields = $this->areaFields($area, $nodeMap, $groupMap);
             if ($this->isSameArea($existingById[$id], $fields)) {
@@ -55,33 +80,43 @@ final class MapGraphSaveWriter
 
             $this->areaStore->updateArea($id, $fields);
         }
+    }
 
+    /**
+     * Удаляет области, которых нет в снимке.
+     *
+     * @param array<int, MapAreaRecord> $existing Известные строки.
+     * @param array<int, array<string, mixed>> $updates Области снимка по id.
+     *
+     * @return void
+     */
+    private function deleteMissingAreas(array $existing, array $updates): void
+    {
         foreach ($existing as $areaRecord) {
             if (!isset($updates[$areaRecord->getId()])) {
                 $this->areaStore->deleteArea($areaRecord->getId());
             }
         }
+    }
 
-        $idMap = [];
-        foreach ($updates as $id => $area) {
-            $idMap[$id] = $id;
-        }
-
+    /**
+     * Вставляет новые области и дополняет карту id.
+     *
+     * @param int $mapId Карта.
+     * @param array<int, array<string, mixed>> $inserts Новые области.
+     * @param array<int, int> $nodeMap Узлы.
+     * @param array<int, int> $groupMap Группы.
+     * @param array<int, int> $idMap Уже известные id.
+     *
+     * @return array<int, int> Полная карта id снимка → реальный id.
+     *
+     * @throws MapInvalidException Если ссылка не разрешилась.
+     */
+    private function insertAreas(int $mapId, array $inserts, array $nodeMap, array $groupMap, array $idMap): array
+    {
         $rows = [];
         foreach ($inserts as $area) {
-            $fields = $this->areaFields($area, $nodeMap, $groupMap);
-            $rows[] = [
-                'layer' => $fields['layer'],
-                'color' => $fields['color'],
-                'stroke' => $fields['stroke'],
-                'strokeWidth' => $fields['stroke_width'],
-                'decor' => $fields['decor'],
-                'speed' => $fields['speed'],
-                'label' => $fields['label'],
-                'nodeId' => $fields['node_id'],
-                'sortOrder' => $fields['sort_order'],
-                'groupId' => $fields['group_id'],
-            ];
+            $rows[] = $this->insertRow($this->areaFields($area, $nodeMap, $groupMap));
         }
 
         $offset = 0;
@@ -95,6 +130,29 @@ final class MapGraphSaveWriter
         }
 
         return $idMap;
+    }
+
+    /**
+     * Строка вставки области.
+     *
+     * @param array<string, mixed> $fields Поля области.
+     *
+     * @return array<string, mixed> Строка.
+     */
+    private function insertRow(array $fields): array
+    {
+        return [
+            'layer' => $fields['layer'],
+            'color' => $fields['color'],
+            'stroke' => $fields['stroke'],
+            'strokeWidth' => $fields['stroke_width'],
+            'decor' => $fields['decor'],
+            'speed' => $fields['speed'],
+            'label' => $fields['label'],
+            'nodeId' => $fields['node_id'],
+            'sortOrder' => $fields['sort_order'],
+            'groupId' => $fields['group_id'],
+        ];
     }
 
     /**

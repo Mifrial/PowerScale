@@ -414,49 +414,6 @@ final class MapSaveFields
     }
 
     /**
-     * Целое поле течения с умолчанием.
-     *
-     * @param array<string|int, mixed> $flow Течение.
-     * @param string $key Ключ.
-     * @param string $path Путь.
-     * @param int $min Минимум.
-     * @param int $max Максимум.
-     * @param int $default Умолчание.
-     *
-     * @return int Значение.
-     *
-     * @throws MapInvalidException Если значение неверно.
-     */
-    private function flowInt(array $flow, string $key, string $path, int $min, int $max, int $default): int
-    {
-        if (!array_key_exists($key, $flow)) {
-            return $default;
-        }
-
-        return $this->intValue($flow, $key, $path, $min, $max);
-    }
-
-    /**
-     * Логическое поле течения с умолчанием.
-     *
-     * @param array<string|int, mixed> $flow Течение.
-     * @param string $key Ключ.
-     * @param string $path Путь.
-     *
-     * @return bool Значение.
-     *
-     * @throws MapInvalidException Если значение неверно.
-     */
-    private function flowBool(array $flow, string $key, string $path): bool
-    {
-        if (!array_key_exists($key, $flow)) {
-            return false;
-        }
-
-        return $this->boolValue($flow, $key, $path);
-    }
-
-    /**
      * Точки полилинии или полигона.
      *
      * @param array<string|int, mixed> $row Строка.
@@ -559,6 +516,49 @@ final class MapSaveFields
         }
 
         return $handles;
+    }
+
+    /**
+     * Целое поле течения с умолчанием.
+     *
+     * @param array<string|int, mixed> $flow Течение.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     * @param int $min Минимум.
+     * @param int $max Максимум.
+     * @param int $default Умолчание.
+     *
+     * @return int Значение.
+     *
+     * @throws MapInvalidException Если значение неверно.
+     */
+    private function flowInt(array $flow, string $key, string $path, int $min, int $max, int $default): int
+    {
+        if (!array_key_exists($key, $flow)) {
+            return $default;
+        }
+
+        return $this->intValue($flow, $key, $path, $min, $max);
+    }
+
+    /**
+     * Логическое поле течения с умолчанием.
+     *
+     * @param array<string|int, mixed> $flow Течение.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return bool Значение.
+     *
+     * @throws MapInvalidException Если значение неверно.
+     */
+    private function flowBool(array $flow, string $key, string $path): bool
+    {
+        if (!array_key_exists($key, $flow)) {
+            return false;
+        }
+
+        return $this->boolValue($flow, $key, $path);
     }
 
     /**

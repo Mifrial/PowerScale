@@ -36,12 +36,40 @@ final class MapAreaTable extends SmartTableDefinition
      */
     protected function defineFields(): array
     {
-        $required = FieldSettings::fromOptions(['required' => true]);
-        $indexed = FieldSettings::fromOptions(['required' => true, 'indexed' => true]);
+        return [
+            ...$this->keyFields(),
+            ...$this->valueFields(),
+        ];
+    }
 
+    /**
+     * Ключи области: карта, место и группа.
+     *
+     * @return array Список полей.
+     */
+    private function keyFields(): array
+    {
         return [
             new IdField(),
-            new ReferenceField('map_id', $indexed, MapTable::class, 'cascade'),
+            new ReferenceField(
+                'map_id',
+                FieldSettings::fromOptions(['required' => true, 'indexed' => true]),
+                MapTable::class,
+                'cascade',
+            ),
+            new ReferenceField('node_id', FieldSettings::fromOptions([]), MapNodeTable::class, 'setNull'),
+            new ReferenceField('group_id', FieldSettings::fromOptions(['indexed' => true]), MapAreaGroupTable::class, 'setNull'),
+        ];
+    }
+
+    /**
+     * Содержимое области: слой, цвета, декор, скорость и подпись.
+     *
+     * @return array Список полей.
+     */
+    private function valueFields(): array
+    {
+        return [
             new StringField('layer', FieldSettings::fromOptions(['required' => true, 'default' => 'object']), 16),
             new StringField('color', FieldSettings::fromOptions(['required' => true, 'default' => '#8d8d8d']), 16),
             new StringField('stroke', FieldSettings::fromOptions(['required' => true, 'default' => '']), 16),
@@ -56,9 +84,7 @@ final class MapAreaTable extends SmartTableDefinition
                 'required' => true,
                 'default' => MapSpeed::DEFAULT,
             ]), 0, MapSpeed::MAX),
-            new StringField('label', $required, 255),
-            new ReferenceField('node_id', FieldSettings::fromOptions([]), MapNodeTable::class, 'setNull'),
-            new ReferenceField('group_id', FieldSettings::fromOptions(['indexed' => true]), MapAreaGroupTable::class, 'setNull'),
+            new StringField('label', FieldSettings::fromOptions(['required' => true]), 255),
             new IntField('sort_order', FieldSettings::fromOptions([
                 'required' => true,
                 'default' => 0,

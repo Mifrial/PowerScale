@@ -37,6 +37,19 @@ final class MapVariantLineTable extends SmartTableDefinition
     protected function defineFields(): array
     {
         return [
+            ...$this->keyFields(),
+            ...$this->valueFields(),
+        ];
+    }
+
+    /**
+     * Ключи ленты: вариант.
+     *
+     * @return array Список полей.
+     */
+    private function keyFields(): array
+    {
+        return [
             new IdField(),
             new ReferenceField(
                 'variant_id',
@@ -44,6 +57,17 @@ final class MapVariantLineTable extends SmartTableDefinition
                 MapVariantTable::class,
                 'cascade',
             ),
+        ];
+    }
+
+    /**
+     * Содержимое ленты: цвет, геометрия, декор и подпись.
+     *
+     * @return array Список полей.
+     */
+    private function valueFields(): array
+    {
+        return [
             new StringField('color', FieldSettings::fromOptions(['required' => true, 'default' => '#4a7fa5']), 16),
             new IntField('speed', FieldSettings::fromOptions([
                 'required' => true,
