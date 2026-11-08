@@ -14,14 +14,18 @@ final class MapGraphSaveValidator
     /**
      * Создаёт валидатор.
      *
-     * @param MapSaveFields $fields Поля снимка.
+     * @param MapSaveFields $fields Скалярные поля снимка.
      * @param MapSaveSets $sets Коллекции снимка.
+     * @param MapSaveGeometryFields $geometryFields Геометрия ленты и контура.
+     * @param MapSaveDecorFields $decorFields Декор ленты и области.
      *
      * @return void
      */
     public function __construct(
         private readonly MapSaveFields $fields,
         private readonly MapSaveSets $sets,
+        private readonly MapSaveGeometryFields $geometryFields,
+        private readonly MapSaveDecorFields $decorFields,
     ) {
     }
 
@@ -125,7 +129,7 @@ final class MapGraphSaveValidator
                 ? $this->fields->strokeValue($row, 'stroke', $path . '.stroke')
                 : '',
             'strokeWidth' => $this->areaStrokeWidth($row, $path),
-            'decor' => $this->fields->areaDecorValue($row, 'decor', $path . '.decor'),
+            'decor' => $this->decorFields->areaDecorValue($row, 'decor', $path . '.decor'),
             'speed' => $this->fields->intValue($row, 'speed', $path . '.speed', 0, MapSpeed::MAX),
             'label' => trim((string) $this->fields->optionalStringValue($row, 'label', $path . '.label')),
             'nodeId' => $this->areaNodeId($row, $path, $nodeIds),
@@ -240,11 +244,11 @@ final class MapGraphSaveValidator
             $shapePath = $path . '.shapes[' . $index . ']';
             $variantId = $this->fields->identifier($shape, 'variantId', $shapePath . '.variantId');
             $this->sets->assertVariantExists($variantId, $variantIds, $shapePath . '.variantId');
-            $points = $this->fields->pointsValue($shape, 'path', $shapePath . '.path', 3);
+            $points = $this->geometryFields->pointsValue($shape, 'path', $shapePath . '.path', 3);
             $shapes[] = [
                 'variantId' => $variantId,
                 'path' => $points,
-                'handles' => $this->fields->handlesValue($shape, 'handles', $shapePath . '.handles', count($points)),
+                'handles' => $this->geometryFields->handlesValue($shape, 'handles', $shapePath . '.handles', count($points)),
                 'isPresent' => $this->fields->boolValue($shape, 'isPresent', $shapePath . '.isPresent'),
             ];
         }
@@ -268,7 +272,7 @@ final class MapGraphSaveValidator
         $path = 'lines[' . $index . ']';
         $variantId = $this->fields->identifier($row, 'variantId', $path . '.variantId');
         $this->sets->assertVariantExists($variantId, $variantIds, $path . '.variantId');
-        $points = $this->fields->pointsValue($row, 'points', $path . '.points', 2);
+        $points = $this->geometryFields->pointsValue($row, 'points', $path . '.points', 2);
 
         return [
             'id' => $this->fields->identifier($row, 'id', $path . '.id'),
@@ -276,13 +280,13 @@ final class MapGraphSaveValidator
             'color' => $this->fields->colorValue($row, 'color', $path . '.color'),
             'speed' => $this->fields->intValue($row, 'speed', $path . '.speed', 0, MapSpeed::MAX),
             'points' => $points,
-            'widths' => $this->fields->widthsValue($row, 'widths', $path . '.widths', count($points)),
-            'handles' => $this->fields->handlesValue($row, 'handles', $path . '.handles', count($points)),
-            'segments' => $this->fields->segmentsValue($row, 'segments', $path . '.segments', count($points) - 1),
+            'widths' => $this->geometryFields->widthsValue($row, 'widths', $path . '.widths', count($points)),
+            'handles' => $this->geometryFields->handlesValue($row, 'handles', $path . '.handles', count($points)),
+            'segments' => $this->geometryFields->segmentsValue($row, 'segments', $path . '.segments', count($points) - 1),
             'colorBlend' => array_key_exists('colorBlend', $row)
                 ? $this->fields->intValue($row, 'colorBlend', $path . '.colorBlend', 0, 1000)
                 : 16,
-            'decor' => $this->fields->decorValue($row, 'decor', $path . '.decor'),
+            'decor' => $this->decorFields->decorValue($row, 'decor', $path . '.decor'),
             'label' => trim((string) $this->fields->optionalStringValue($row, 'label', $path . '.label')),
             'isPresent' => $this->fields->boolValue($row, 'isPresent', $path . '.isPresent'),
             'sortOrder' => $this->fields->optionalIntValue($row, 'sortOrder', $path . '.sortOrder', 0) ?? 0,

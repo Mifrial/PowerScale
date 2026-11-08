@@ -212,13 +212,17 @@ final class MapPortFactory
      */
     private function saveValidator(IServiceLocator $serviceLocator): MapSaveValidator
     {
+        $fields = new MapSaveFields();
+
         return new MapSaveValidator(
-            new MapSaveFields(),
+            $fields,
             new MapSaveSets(),
             $this->files($serviceLocator),
             new MapGraphSaveValidator(
-                new MapSaveFields(),
+                $fields,
                 new MapSaveSets(),
+                new MapSaveGeometryFields($fields),
+                new MapSaveDecorFields($fields),
             ),
         );
     }
