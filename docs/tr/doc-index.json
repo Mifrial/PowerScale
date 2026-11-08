@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 336,
-        "plans": 217,
+        "documents": 337,
+        "plans": 218,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 239,
+            "tr": 240,
             "tz": 2
         },
         "byZoneState": {
@@ -70,7 +70,7 @@
             },
             "tr": {
                 "нет": 26,
-                "СДЕЛАНО": 145,
+                "СДЕЛАНО": 146,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 31,
                 "ПЛАН": 9,
@@ -86,7 +86,7 @@
         "byState": {
             "СНИМОК": 65,
             "нет": 57,
-            "СДЕЛАНО": 147,
+            "СДЕЛАНО": 148,
             "ПЛАН": 12,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 31,
@@ -212,17 +212,17 @@
             }
         },
         "Roleplay/Character": {
-            "docs": 17,
+            "docs": 18,
             "state": {
                 "ПЛАН": 1,
                 "нет": 2,
                 "СНИМОК": 1,
-                "СДЕЛАНО": 10,
+                "СДЕЛАНО": 11,
                 "ЧАСТИЧНО": 3
             },
             "layer": {
-                "PHP": 13,
-                "VUE": 2
+                "PHP": 14,
+                "VUE": 3
             }
         },
         "Roleplay/Game": {
@@ -2536,12 +2536,12 @@
             ],
             "basis": null,
             "date": "2026-09-09",
-            "bytes": 22051,
-            "lines": 237,
+            "bytes": 22417,
+            "lines": 239,
             "modules": [
                 "Roleplay/Character"
             ],
-            "linksCount": 6,
+            "linksCount": 7,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -2843,6 +2843,35 @@
             ]
         },
         {
+            "path": "docs/tr/character-plan-13-path-study.md",
+            "title": "План Character 13 — изучение в рамках пути",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~ — реализовано 2026-11-09, ревизия 46 опубликована. Ручная проверка за пользователем.",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-09",
+            "bytes": 31168,
+            "lines": 443,
+            "modules": [
+                "Roleplay/Character"
+            ],
+            "linksCount": 4,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/character-plan-01.md",
+                "docs/tr/character-roadmap.md",
+                "docs/tr/magic-content-plan-01-arcanist-entry.md",
+                "docs/tr/magic-content-plan-03-arcanist-advanced.md",
+                "docs/tr/magic-content-plan-04-arcanist-mastery.md"
+            ]
+        },
+        {
             "path": "docs/tr/character-roadmap.md",
             "title": "Нарезка Roleplay/Character",
             "zone": "tr",
@@ -2856,12 +2885,12 @@
             ],
             "basis": null,
             "date": "2026-10-05",
-            "bytes": 13358,
-            "lines": 161,
+            "bytes": 14159,
+            "lines": 171,
             "modules": [
                 "Roleplay/Character"
             ],
-            "linksCount": 18,
+            "linksCount": 19,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/plan-game-plan-30-immediate-consequences-2026-10-11.md",
@@ -2878,6 +2907,7 @@
                 "docs/tr/character-plan-09.md",
                 "docs/tr/character-plan-10.md",
                 "docs/tr/character-plan-11.md",
+                "docs/tr/character-plan-13-path-study.md",
                 "docs/tr/decisions.md",
                 "docs/tr/game-plan-03.md",
                 "docs/tr/game-plan-04.md",
@@ -2914,6 +2944,7 @@
                 "docs/tr/character-plan-01.md",
                 "docs/tr/character-plan-10.md",
                 "docs/tr/character-plan-11.md",
+                "docs/tr/character-plan-13-path-study.md",
                 "docs/tr/character-roadmap.md",
                 "docs/tr/decisions.md",
                 "docs/tr/game-combat-readiness.md",
@@ -5293,10 +5324,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-20",
-            "bytes": 5243,
-            "lines": 91,
+            "bytes": 5612,
+            "lines": 93,
             "modules": [],
-            "linksCount": 2,
+            "linksCount": 3,
             "brokenLinks": [],
             "backlinks": []
         },
@@ -5331,10 +5362,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-25",
-            "bytes": 26192,
-            "lines": 442,
+            "bytes": 26561,
+            "lines": 444,
             "modules": [],
-            "linksCount": 1,
+            "linksCount": 2,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/magic-content-design-02-arcanist-advanced.md"
@@ -5351,10 +5382,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-26",
-            "bytes": 14389,
-            "lines": 280,
+            "bytes": 14758,
+            "lines": 282,
             "modules": [],
-            "linksCount": 1,
+            "linksCount": 2,
             "brokenLinks": [],
             "backlinks": []
         },
@@ -7257,6 +7288,7 @@
                 "docs/tr/architecture.md",
                 "docs/tr/character-plan-10.md",
                 "docs/tr/character-plan-11.md",
+                "docs/tr/character-plan-13-path-study.md",
                 "docs/tr/combat-layers-prerequisite.md",
                 "docs/tr/game-plan-18.md",
                 "docs/tr/game-plan-21.md",
@@ -8506,8 +8538,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-07",
-            "bytes": 36911,
-            "lines": 415,
+            "bytes": 37300,
+            "lines": 416,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -8517,6 +8549,7 @@
             ],
             "backlinks": [
                 "docs/tr/TR.md",
+                "docs/tr/character-plan-13-path-study.md",
                 "docs/tr/character-system.md",
                 "docs/tr/game-combat-readiness.md",
                 "docs/tr/magic-content-design-01-arcanist-progression.md",

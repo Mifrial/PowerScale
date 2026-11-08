@@ -8,7 +8,6 @@ import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
 import { GRANT_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/GRANT_TYPES';
 import { SENSE_STATUS_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Sense/SENSE_STATUS_OPTIONS';
 import { LIGHTING_LEVEL_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Lighting/LIGHTING_LEVEL_OPTIONS';
-import { MAGIC_STUDY_SCOPE_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/MAGIC_STUDY_SCOPE_OPTIONS';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef';
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
@@ -315,14 +314,25 @@ function patch(key: string, value: unknown) {
       </template>
 
       <template v-else-if="inner.type === 'magic_study'">
-        <v-select
-          :model-value="inner.scope"
-          @update:model-value="patch('scope', $event)"
-          :items="MAGIC_STUDY_SCOPE_OPTIONS"
-          item-title="title"
-          item-value="value"
-          label="Что открывает"
+        <v-checkbox
+          :model-value="inner.paths === 'any'"
+          @update:model-value="patch('paths', $event ? 'any' : inner.path_code ? [inner.path_code] : [])"
+          label="Любой путь"
           density="compact"
+          hide-details
+        />
+        <v-autocomplete
+          v-if="inner.paths !== 'any'"
+          :model-value="Array.isArray(inner.paths) ? inner.paths : inner.path_code ? [inner.path_code] : []"
+          @update:model-value="patch('paths', $event ?? [])"
+          :items="magicPaths"
+          item-title="name"
+          item-value="code"
+          label="Пути изучения"
+          density="compact"
+          multiple
+          chips
+          closable-chips
           hide-details
         />
         <ClampedNumberField
@@ -335,17 +345,6 @@ function patch(key: string, value: unknown) {
           hide-details
         />
         <div v-else class="text-caption text-medium-emphasis">Максимальная стоимость определяется характеристикой</div>
-        <v-autocomplete
-          :model-value="inner.path_code ?? null"
-          @update:model-value="patch('path_code', $event || undefined)"
-          :items="magicPaths"
-          item-title="name"
-          item-value="code"
-          label="Путь изучения (без выдачи пути)"
-          density="compact"
-          hide-details
-          clearable
-        />
         <v-checkbox
           :model-value="inner.max_instances === 1"
           @update:model-value="patch('max_instances', $event ? 1 : undefined)"

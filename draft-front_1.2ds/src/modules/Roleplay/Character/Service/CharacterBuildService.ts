@@ -191,7 +191,7 @@ export class CharacterBuildService {
       const learned = this.magicStudyUnlock.learnedEntries(build.abilities, rules);
       const granted = this.magicStudyUnlock.grantedPathCodes(build.abilities, rules);
       const domainCode = options.domainCode ?? null;
-      const open = this.magicStudyUnlock.openPathCodes(spec, unlocks, granted, learned, null);
+      const open = this.magicStudyUnlock.openPathCodes(spec, unlocks, granted, learned, null, undefined, rules, ruleCode);
       if (domainCode && !open.includes(domainCode)) return build;
       if (!domainCode) return build;
       if (this.magicStudyUnlock.knownOnPath(build.abilities, ruleCode, domainCode, rules)) return build;
@@ -983,9 +983,16 @@ export class CharacterBuildService {
       if (!this.isStudyAbility(rules, ability.ruleCode)) return true;
       const spec = this.abilitySpecOf(rules, ability.ruleCode);
       if (!spec) return true;
-      if (spec.type !== 'spell') return true;
 
-      return this.magicStudyUnlock.isJustified(spec, ability.domainCode ?? null, unlocks, granted, rules);
+      return this.magicStudyUnlock.isJustified(
+        spec,
+        ability.domainCode ?? null,
+        unlocks,
+        granted,
+        rules,
+        undefined,
+        ability.ruleCode,
+      );
     });
     const withParents = kept.filter((ability) => {
       if (!this.isInstanceImprovement(rules, ability.ruleCode)) return true;

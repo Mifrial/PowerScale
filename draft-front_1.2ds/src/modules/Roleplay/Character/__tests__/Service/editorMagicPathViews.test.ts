@@ -27,18 +27,18 @@ function makeBuild(abilities: CharacterBuild['abilities']): CharacterBuild {
 }
 
 describe('EditorMagicPathViewsService', () => {
-  it('становление открывает Арканиста: заклинания до 2', () => {
+  it('становление открывает Арканиста: карточки до 2', () => {
     const views = service.build(makeBuild([{ ruleCode: 'becoming-arcanist', level: 1 }]), ruleCatalog, keywords);
     expect(views).toEqual([
       expect.objectContaining({
         pathCode: 'arcanist',
         pathName: 'Арканист',
-        restrictionLabels: ['Заклинания с базовой стоимостью до 2'],
+        restrictionLabels: ['Изучение карточек с базовой стоимостью до 2'],
       }),
     ]);
   });
 
-  it('подмена структур добавляет потолок волшебства', () => {
+  it('второй грант с тем же потолком не дублирует ограничение', () => {
     const views = service.build(
       makeBuild([
         { ruleCode: 'becoming-arcanist', level: 1 },
@@ -47,10 +47,7 @@ describe('EditorMagicPathViewsService', () => {
       ruleCatalog,
       keywords,
     );
-    expect(views[0]?.restrictionLabels).toEqual([
-      'Заклинания с базовой стоимостью до 2',
-      'Волшебство со стоимостью до 2',
-    ]);
+    expect(views[0]?.restrictionLabels).toEqual(['Изучение карточек с базовой стоимостью до 2']);
   });
 
   it('пробуждение показывает Псионика без гранта пути', () => {
@@ -58,7 +55,7 @@ describe('EditorMagicPathViewsService', () => {
     expect(views).toEqual([
       expect.objectContaining({
         pathCode: 'psionic',
-        restrictionLabels: ['Заклинания с базовой стоимостью до 1'],
+        restrictionLabels: ['Изучение карточек с базовой стоимостью до 1'],
       }),
     ]);
   });
@@ -75,13 +72,7 @@ describe('EditorMagicPathViewsService', () => {
       keywords,
     );
     const byCode = new Map(views.map((view) => [view.pathCode, view]));
-    expect(byCode.get('arcanist')?.restrictionLabels).toEqual([
-      'Заклинания с базовой стоимостью до 2',
-      'Волшебство со стоимостью до 2',
-    ]);
-    expect(byCode.get('psionic')?.restrictionLabels).toEqual([
-      'Заклинания с базовой стоимостью до 1',
-      'Волшебство со стоимостью до 1',
-    ]);
+    expect(byCode.get('arcanist')?.restrictionLabels).toEqual(['Изучение карточек с базовой стоимостью до 2']);
+    expect(byCode.get('psionic')?.restrictionLabels).toEqual(['Изучение карточек с базовой стоимостью до 1']);
   });
 });

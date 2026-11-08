@@ -253,7 +253,19 @@ final class CharacterMigrationTest extends TestCase
     private function cleanSheets(): ICharacterSheets
     {
         $sheets = $this->createMock(ICharacterSheets::class);
-        $sheets->method('validate')->willReturn(new CharacterValidation([], [], [], 0, [], [], [], true));
+        $sheets->method('validate')->willReturnCallback(
+            static function (CharacterRuleSlice $slice, CharacterChoices $choices): CharacterValidation {
+                $levels = [];
+                foreach ($choices->getAbilities() as $ability) {
+                    $levels[$ability->getRuleCode()] = max(
+                        $levels[$ability->getRuleCode()] ?? 0,
+                        $ability->getLevel(),
+                    );
+                }
+
+                return new CharacterValidation([], $levels, [], 0, [], [], [], true);
+            },
+        );
 
         return $sheets;
     }

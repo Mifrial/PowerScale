@@ -1,5 +1,6 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
+import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { SpellSpec } from '@/modules/Roleplay/Rule/Dto/Ability/SpellSpec';
 import type { SpellTargeting } from '@/modules/Roleplay/Rule/Enum/SpellTargeting';
 import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
@@ -108,7 +109,7 @@ function spellStudyFields(parentAbilityCode: string | null): { multiple: true; d
   return parentAbilityCode ? { multiple: true } : { multiple: true, domain_ref: 'magic-path' };
 }
 
-export const mockSpellImport: Rule[] = [
+const spellImportRules: Rule[] = [
   rule({
     id: nextId++,
     code: 'magic-power',
@@ -985,3 +986,50 @@ export const mockSpellImport: Rule[] = [
     keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
   }),
 ];
+
+const STUDY_PATHS: Record<string, 'any' | string[]> = {
+  discharge: 'any',
+  'lightning-strike': 'any',
+  'lightning-generator': 'any',
+  'magic-perception': 'any',
+  'careful-magic': 'any',
+  'piercing-magic': 'any',
+  'composite-magic-structures': ['arcanist'],
+  'magic-structure-construction': ['arcanist'],
+};
+
+function migrateStudyGrant(grant: Grant): Grant {
+  if (grant.type !== 'magic_study') return grant;
+  const pathCode = grant.path_code;
+  const paths = pathCode ? [pathCode] : grant.paths;
+  if (!paths) return grant;
+
+  const { scope: _scope, path_code: _pathCode, ...rest } = grant;
+
+  return { ...rest, paths };
+}
+
+/**
+ * Мок повторяет ревизию 46: paths вместо scope/path_code и study на path-карточках.
+ */
+function upgradeMagicStudy(rule: Rule): Rule {
+  const study = STUDY_PATHS[rule.code];
+  if (!study || rule.type !== 'ability' || !rule.spec || !('type' in rule.spec)) return rule;
+  const spec = rule.spec as AbilitySpec;
+  const grants = (spec.grants ?? []).map((block) => {
+    const seen = new Set<string>();
+    const rows = block.grants.map(migrateStudyGrant).filter((grant) => {
+      const key = JSON.stringify(grant);
+      if (seen.has(key)) return false;
+      seen.add(key);
+
+      return true;
+    });
+
+    return { ...block, grants: rows };
+  });
+
+  return { ...rule, spec: { ...spec, study: { paths: study }, grants } };
+}
+
+export const mockSpellImport: Rule[] = spellImportRules.map(upgradeMagicStudy);

@@ -7,28 +7,31 @@ namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ScalarFormula;
 
 /**
- * Грант изучения магии.
+ * Грант изучения карточек в рамках пути.
  */
 final class MagicStudyGrant implements AbilityGrant
 {
     /**
      * Создаёт грант.
      *
-     * @param string $scope Поле.
-     * @param ScalarFormula $maxCost Поле.
-     * @param string $pathCode Поле.
-     * @param ?int $maxInstances Поле.
-     * @param ?int $paidCost Поле.
-     * @param bool $permanent Поле.     *
+     * @param StudyPaths $paths Пути, на которых открыто изучение.
+     * @param ScalarFormula $maxCost Потолок цены первого уровня.
+     * @param ?int $maxInstances Лимит экземпляров на путь.
+     * @param ?int $paidCost Цена экземпляра для редактора.
+     * @param bool $permanent Постоянный грант.
+     * @param string $scope Прежнее поле ревизий до 46.
+     * @param string $pathCode Прежнее одиночное поле путей.
+     *
      * @return void
      */
     public function __construct(
-        private readonly string $scope,
+        private readonly StudyPaths $paths,
         private readonly ScalarFormula $maxCost,
-        private readonly string $pathCode,
         private readonly ?int $maxInstances,
         private readonly ?int $paidCost,
         private readonly bool $permanent,
+        private readonly string $scope = '',
+        private readonly string $pathCode = '',
     ) {
     }
 
@@ -43,33 +46,23 @@ final class MagicStudyGrant implements AbilityGrant
     }
 
     /**
-     * spell или non_spell.
+     * Пути изучения.
      *
-     * @return string Значение.
+     * @return StudyPaths Набор.
      */
-    public function getScope(): string
+    public function getPaths(): StudyPaths
     {
-        return $this->scope;
+        return $this->paths;
     }
 
     /**
-     * Потолок цены.
+     * Потолок цены первого уровня.
      *
      * @return ScalarFormula Значение.
      */
     public function getMaxCost(): ScalarFormula
     {
         return $this->maxCost;
-    }
-
-    /**
-     * Путь.
-     *
-     * @return string Значение.
-     */
-    public function getPathCode(): string
-    {
-        return $this->pathCode;
     }
 
     /**
@@ -100,5 +93,25 @@ final class MagicStudyGrant implements AbilityGrant
     public function isPermanent(): bool
     {
         return $this->permanent;
+    }
+
+    /**
+     * Прежнее поле scope ревизий до 46.
+     *
+     * @return string Значение.
+     */
+    public function getScope(): string
+    {
+        return $this->scope;
+    }
+
+    /**
+     * Прежнее одиночное поле пути ревизий до 46.
+     *
+     * @return string Значение.
+     */
+    public function getPathCode(): string
+    {
+        return $this->pathCode;
     }
 }

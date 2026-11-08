@@ -407,7 +407,9 @@ final class CharacterLiveComputeTest extends TestCase
         self::assertSame(1, $levels['blade-master']);
         self::assertSame(0, $levels['blade-master-3']);
         self::assertSame(1, $levels['fast']);
-        self::assertSame(1, $levels['mage']);
+        // current_speed не смоделирован и уровень не режет; has_magic_path теперь
+        // считается по активным грантам magic_path, а их в срезе нет.
+        self::assertSame(0, $levels['mage']);
     }
 
     /**

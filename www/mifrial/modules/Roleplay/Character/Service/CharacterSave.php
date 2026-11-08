@@ -143,6 +143,7 @@ final class CharacterSave
             $this->updateMoney($input, $record),
             false,
             $record->getSheet(),
+            $record->getChoices(),
         );
         $built['problems'] = $this->assembly->withClientCash($built['problems'], $input->money);
         $this->guard($built['problems']);
@@ -159,6 +160,7 @@ final class CharacterSave
      * @param int|null $money Наличные или null на create.
      * @param bool $shopCreate Считать шоп.
      * @param array<string, mixed>|null $previousSheet Прошлый лист сервера.
+     * @param array<string, mixed>|null $previousChoices Прошлые выборы сервера.
      *
      * @return array{problems: array<int, CharacterProblem>, choices: array<string, mixed>, sheet: array<string, mixed>, name: string, active: bool}
      *         Сборка.
@@ -170,6 +172,7 @@ final class CharacterSave
         ?int $money,
         bool $shopCreate,
         ?array $previousSheet = null,
+        ?array $previousChoices = null,
     ): array {
         return $this->assembly->build(
             $spaceId,
@@ -180,6 +183,7 @@ final class CharacterSave
             $input->expectedSheet,
             $this->choiceAssembler->buildDocument($input),
             $previousSheet,
+            $previousChoices,
         );
     }
 
@@ -255,6 +259,7 @@ final class CharacterSave
             $this->keptMoney($input->money->isPresent() ? $input->money->getValue() : null, $record),
             false,
             $record->getSheet(),
+            $record->getChoices(),
         );
         $built['problems'] = $this->assembly->withClientCash($built['problems'], $input->money);
 

@@ -6,7 +6,7 @@ import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 const service = new MagicStudyUnlockService();
 const orCost = (cost: number) => ({ or: { kind: 'array' as const, levels_cost: [cost] } });
 
-function spell(cost: number): AbilitySpec {
+function spell(cost: number, study = true): AbilitySpec {
   return {
     type: 'spell',
     zones: orCost(cost),
@@ -14,133 +14,91 @@ function spell(cost: number): AbilitySpec {
     grants: [],
     parent_ability_code: null,
     action_components: [],
+    study: study ? { paths: 'any' } : undefined,
     spell: { power: { base: 3, size: 0 }, control: { base: 3, size: -1 }, duration: { type: 'instant' } },
   };
 }
 
-function skill(cost: number, grants: { level: number; grants: Grant[] }[] = []): AbilitySpec {
+function skill(cost: number, grants: { level: number; grants: Grant[] }[] = [], study = false): AbilitySpec {
   return {
     type: 'skill',
     zones: orCost(cost),
     requirements: [],
     grants,
     parent_ability_code: null,
+    study: study ? { paths: 'any' } : undefined,
   };
 }
 
+function grant(overrides: Partial<Extract<Grant, { type: 'magic_study' }>> = {}): Grant {
+  return { type: 'magic_study', paths: ['arcanist'], max_cost: 2, ...overrides };
+}
+
 describe('MagicStudyUnlockService', () => {
-  it('не гейтит становление с грантом пути', () => {
-    const becoming = skill(2, [{ level: 1, grants: [{ type: 'magic_path', path_code: 'arcanist' }] }]);
-    expect(service.isGated(becoming, new Set(['magic']))).toBe(false);
-    expect(service.failureReason(becoming, new Set(['magic']), [])).toBeNull();
+  it('гейтит только карточки с правилом study', () => {
+    expect(service.isGated(spell(1, false), new Set(['magic']))).toBe(false);
+    expect(service.isGated(spell(1), new Set(['magic']))).toBe(true);
+    expect(service.isGated(skill(1, [], true), new Set())).toBe(true);
   });
 
-  it('грант изучения делает навык входным, без чужого magic_study', () => {
-    const awakening = skill(0, [
-      { level: 1, grants: [{ type: 'magic_study', scope: 'spell', max_cost: 1, path_code: 'psionic' }] },
-    ]);
-    expect(service.isGated(awakening, new Set(['magic']))).toBe(false);
+  it('грант с paths открывает изучение на своём пути', () => {
+    const unlocks = [{ ...grant(), donor_code: 'opener' }];
+    expect(service.isJustified(spell(1), 'arcanist', unlocks)).toBe(true);
+    expect(service.isJustified(spell(1), 'psionic', unlocks)).toBe(false);
   });
 
-  it('лимит экземпляров закрывает второе заклинание', () => {
-    const unlocks = [
-      { type: 'magic_study' as const, scope: 'spell' as const, max_cost: 1, max_instances: 1, paid_cost: 0 },
-    ];
-    const learned = [{ ruleCode: 'discharge', domainCode: 'psionic', spec: spell(1) }];
-    expect(service.failureReason(spell(1), new Set(['magic']), unlocks, learned, 'lightning-strike')).toContain(
-      'заклинаний',
-    );
-    expect(service.failureReason(spell(1), new Set(['magic']), unlocks, learned, 'discharge')).toBeNull();
+  it('карточка без подходящего гранта закрыта', () => {
+    expect(service.failureReason(spell(1), new Set(['magic']), [])).not.toBeNull();
+    expect(service.failureReason(spell(1, false), new Set(['magic']), [])).toBeNull();
+  });
+
+  it('потолок стоимости режет карточку', () => {
+    const unlocks = [{ ...grant({ max_cost: 2 }), donor_code: 'opener' }];
+    expect(service.failureReason(spell(2), new Set(), unlocks)).toBeNull();
+    expect(service.failureReason(spell(3), new Set(), unlocks)).not.toBeNull();
   });
 
   it('оплата из гранта перекрывает каталожную стоимость', () => {
-    const unlocks = [
-      {
-        type: 'magic_study' as const,
-        scope: 'spell' as const,
-        max_cost: 1,
-        path_code: 'psionic',
-        max_instances: 1,
-        paid_cost: 0,
-      },
-    ];
-    expect(service.paidCostOverride(spell(1), unlocks, [], 'psionic')).toBe(0);
-    expect(service.paidCostOverride(spell(1), unlocks, [], 'arcanist')).toBeNull();
+    const unlocks = [{ ...grant({ max_cost: 1, paid_cost: 0 }), donor_code: 'awakening' }];
+    expect(service.paidCostOverride(spell(1), unlocks, [], 'arcanist')).toBe(0);
+    expect(service.paidCostOverride(spell(1), unlocks, [], 'psionic')).toBeNull();
   });
 
-  it('занятый слот пробуждения не даёт второе заклинание за 0', () => {
-    const unlocks = [
-      {
-        type: 'magic_study' as const,
-        scope: 'spell' as const,
-        max_cost: 1,
-        path_code: 'psionic',
-        max_instances: 1,
-        paid_cost: 0,
-      },
-    ];
-    const learned = [{ ruleCode: 'discharge', domainCode: 'psionic', spec: spell(1) }];
-    expect(service.paidCostOverride(spell(1), unlocks, learned, 'psionic')).toBeNull();
-    expect(
-      service.paidCostOverride(spell(1), unlocks, learned, 'psionic', {
-        ruleCode: 'discharge',
-        domainCode: 'psionic',
-      }),
-    ).toBe(0);
+  it('лимит экземпляров закрывает вторую карточку', () => {
+    const unlocks = [{ ...grant({ max_cost: 1, max_instances: 1 }), donor_code: 'awakening' }];
+    const learned = [{ ruleCode: 'discharge', domainCode: 'arcanist', spec: spell(1) }];
     expect(service.openPathCodes(spell(1), unlocks, ['arcanist'], learned)).toEqual([]);
-    expect(service.isBound(unlocks, learned, 'discharge', 'psionic')).toBe(true);
+    expect(service.isBound(unlocks, learned, 'discharge', 'arcanist')).toBe(true);
   });
 
-  it('безлимитный грант пути открывает путь, слот пробуждения — только свой', () => {
-    const unlocks = [
-      {
-        type: 'magic_study' as const,
-        scope: 'spell' as const,
-        max_cost: 1,
-        path_code: 'psionic',
-        max_instances: 1,
-        paid_cost: 0,
-      },
-      { type: 'magic_study' as const, scope: 'spell' as const, max_cost: 2, path_code: 'arcanist' },
-    ];
-    expect(service.openPathCodes(spell(1), unlocks, ['arcanist'], [])).toEqual(['psionic', 'arcanist']);
-    const learned = [{ ruleCode: 'discharge', domainCode: 'psionic', spec: spell(1) }];
-    expect(service.openPathCodes(spell(1), unlocks, ['arcanist'], learned)).toEqual(['arcanist']);
+  it('any открывает пути, которые грант не перечисляет', () => {
+    const unlocks = [{ ...grant({ paths: 'any', max_cost: 1 }), donor_code: 'awakening' }];
+    expect(service.openPathCodes(spell(1), unlocks, ['arcanist', 'psionic'], [])).toEqual(['arcanist', 'psionic']);
   });
 
-  it('грант без пути не открывает чужие дарованные пути', () => {
-    const unlocks = [{ type: 'magic_study' as const, scope: 'spell' as const, max_cost: 2 }];
-    expect(service.openPathCodes(spell(1), unlocks, ['arcanist', 'psionic'], [])).toEqual([]);
+  it('карточка с ограничением paths не изучается на чужом пути', () => {
+    const restricted: AbilitySpec = { ...spell(1), study: { paths: ['psionic'] } };
+    const unlocks = [{ ...grant({ paths: 'any' }), donor_code: 'awakening' }];
+    expect(service.openPathCodes(restricted, unlocks, ['arcanist', 'psionic'], [])).toEqual(['psionic']);
+    expect(service.isJustified(restricted, 'arcanist', unlocks)).toBe(false);
   });
 
-  it('закрывает заклинание без гранта изучения', () => {
-    expect(service.failureReason(spell(1), new Set(['magic']), [])).toContain('заклинаний');
-  });
-
-  it('открывает заклинания до потолка стоимости', () => {
-    const unlocks = [{ type: 'magic_study' as const, scope: 'spell' as const, max_cost: 2 }];
-    expect(service.failureReason(spell(1), new Set(['magic']), unlocks)).toBeNull();
-    expect(service.failureReason(spell(2), new Set(['magic']), unlocks)).toBeNull();
-    expect(service.failureReason(spell(3), new Set(['magic']), unlocks)).not.toBeNull();
-    expect(service.failureReason(skill(1), new Set(['magic']), unlocks)).not.toBeNull();
-  });
-
-  it('второй грант открывает не-spell с тем же потолком', () => {
-    const unlocks = [{ type: 'magic_study' as const, scope: 'non_spell' as const, max_cost: 2 }];
-    expect(service.failureReason(skill(2), new Set(['magic']), unlocks)).toBeNull();
-    expect(service.failureReason(spell(1), new Set(['magic']), unlocks)).not.toBeNull();
+  it('свой грант не открывает карточку сам себе', () => {
+    const unlocks = [{ ...grant({ max_cost: 4 }), donor_code: 'advanced' }];
+    expect(service.isJustified(spell(2), 'arcanist', unlocks, [], [], undefined, 'advanced')).toBe(false);
+    expect(service.isJustified(spell(2), 'arcanist', unlocks, [], [], undefined, 'other')).toBe(true);
   });
 
   it('разрешает формульный потолок из текущего Интеллекта', () => {
     const unlocks = [
       {
-        type: 'magic_study' as const,
-        scope: 'spell' as const,
-        max_cost: {
-          type: 'to_scalar' as const,
-          value: { type: 'characteristic' as const, characteristic_code: 'intellect', modifier: 0 },
-        },
-        path_code: 'arcanist',
+        ...grant({
+          max_cost: {
+            type: 'to_scalar' as const,
+            value: { type: 'characteristic' as const, characteristic_code: 'intellect', modifier: 0 },
+          },
+        }),
+        donor_code: 'construction',
       },
     ];
     const snapshot = {
@@ -151,28 +109,30 @@ describe('MagicStudyUnlockService', () => {
       keywordCodes: new Set<string>(),
     };
 
-    expect(service.failureReason(spell(4), new Set(['magic']), unlocks, [], undefined, snapshot)).toBeNull();
-    expect(service.failureReason(spell(5), new Set(['magic']), unlocks, [], undefined, snapshot)).not.toBeNull();
+    expect(service.failureReason(spell(4), new Set(), unlocks, [], undefined, snapshot)).toBeNull();
+    expect(service.failureReason(spell(5), new Set(), unlocks, [], undefined, snapshot)).not.toBeNull();
   });
 
-  it('runtime-доступность заклинания следует текущему Интеллекту', () => {
+  it('runtime-доступность следует текущему Интеллекту и пути', () => {
     const construction = skill(2, [
       {
         level: 1,
         grants: [
           {
-            type: 'magic_study' as const,
-            scope: 'spell' as const,
+            type: 'magic_study',
+            paths: ['arcanist'],
             max_cost: {
-              type: 'to_scalar' as const,
-              value: { type: 'characteristic' as const, characteristic_code: 'intellect', modifier: 0 },
+              type: 'to_scalar',
+              value: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
             },
-            path_code: 'arcanist',
           },
         ],
       },
     ]);
-    const rules = [{ code: 'magic-structure-construction', type: 'ability' as const, spec: construction }] as never;
+    const rules = [
+      { code: 'magic-structure-construction', type: 'ability' as const, spec: construction },
+      { code: 'arcanist', type: 'magic_path' as const, spec: { type: 'magic_path' as const } },
+    ] as never;
     const abilities = [{ ruleCode: 'magic-structure-construction', level: 1 }];
 
     expect(
@@ -181,35 +141,40 @@ describe('MagicStudyUnlockService', () => {
     expect(
       service.isAvailableForUse(spell(5), 'arcanist', abilities, rules, new Map([['intellect', { base: 4, size: 0 }]])),
     ).toBe(false);
+    expect(
+      service.isAvailableForUse(spell(3), 'psionic', abilities, rules, new Map([['intellect', { base: 4, size: 0 }]])),
+    ).toBe(false);
   });
 
-  it('опыт пути суммирует стоимость способностей с доменом или признаком пути', () => {
+  it('опыт пути суммирует только изученные карточки с study', () => {
     const rules = [
       {
         code: 'psionic-control',
         type: 'ability' as const,
-        keywordIds: [230],
-        spec: skill(2),
+        spec: skill(2, [], false),
       },
       {
         code: 'discharge',
         type: 'ability' as const,
-        keywordIds: [],
         spec: spell(1),
       },
     ];
-    const keywordCodeById = new Map([[230, 'psionic']]);
     expect(
       service.pathExperience(
         [
-          { ruleCode: 'psionic-control', level: 1 },
+          { ruleCode: 'psionic-control', level: 1, domainCode: 'psionic' },
           { ruleCode: 'discharge', level: 1, domainCode: 'psionic' },
         ],
         rules as never,
         'psionic',
-        keywordCodeById,
+        new Map(),
       ),
-    ).toBe(3);
+    ).toBe(1);
+  });
+
+  it('прежний path_code читается как один путь', () => {
+    const legacy = { type: 'magic_study' as const, max_cost: 2, path_code: 'arcanist' };
+    expect(service.isJustified(spell(1), 'arcanist', [{ ...legacy, donor_code: 'opener' }])).toBe(true);
   });
 
   it('шаман покрывает псионика, обратно нет', () => {

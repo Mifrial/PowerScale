@@ -1578,8 +1578,13 @@ export class RuleValidationService {
     if (grant.type === 'magic_path' && grant.path_code) {
       collect({ code: grant.path_code, type: 'magic_path' });
     }
-    if (grant.type === 'magic_study' && grant.path_code) {
-      collect({ code: grant.path_code, type: 'magic_path' });
+    if (grant.type === 'magic_study') {
+      const paths = grant.paths ?? (grant.path_code ? [grant.path_code] : []);
+      if (paths !== 'any') {
+        for (const pathCode of paths) {
+          collect({ code: pathCode, type: 'magic_path' });
+        }
+      }
     }
     if (grant.type === 'skill_study') {
       for (const abilityCode of grant.ability_codes) {

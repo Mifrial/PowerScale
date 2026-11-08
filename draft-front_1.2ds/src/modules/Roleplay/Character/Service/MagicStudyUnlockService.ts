@@ -10,11 +10,14 @@ import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/F
 import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaContext';
 
 type MagicStudyGrant = Extract<Grant, { type: 'magic_study' }>;
+type StudyGrant = MagicStudyGrant & { donor_code?: string };
+type StudyPaths = 'any' | string[];
 
 /**
- * Гейт изучения волшебства: по умолчанию навыки с признаком «волшебство» закрыты,
- * пока грант magic_study не откроет подходящий scope и потолок Стоимости.
- * Навыки, сами дающие путь или такое открытие, не требуют чужого гранта.
+ * Гейт изучения в рамках пути: карточка с правилом `study` открывается только
+ * активным грантом `magic_study`, чей `paths` покрывает путь экземпляра.
+ *
+ * `scope` и `path_code` — только чтение прежних ревизий; новая логика их не делит.
  */
 export class MagicStudyUnlockService {
   private readonly formula = new FormulaEvaluationService();
@@ -42,7 +45,6 @@ export class MagicStudyUnlockService {
     rules: Rule[],
     characteristicValues: Map<string, DimensionalNumberValue>,
   ): boolean {
-    if (!this.hasMagicStudyGrants(rules)) return true;
     const snapshot: CharacterSnapshot = {
       abilityLevels: new Map(abilities.map((ability) => [ability.ruleCode, ability.level])),
       abilityKeywords: new Map(),
@@ -50,24 +52,26 @@ export class MagicStudyUnlockService {
       resourceLimits: new Map(),
       keywordCodes: new Set(),
     };
+    const ruleCode = rules.find((rule) => rule.type === 'ability' && rule.spec === spec)?.code;
 
-    return this.isJustified(spec, domainCode, this.unlocksOf(abilities, rules), [], rules, snapshot);
+    return this.isJustified(spec, domainCode, this.unlocksOf(abilities, rules), [], rules, snapshot, ruleCode);
   }
 
-  isGated(spec: AbilitySpec, keywordCodes: ReadonlySet<string>): boolean {
-    if (spec.type === 'group' || spec.type === 'trait') return false;
-    if (!keywordCodes.has('magic')) return false;
-    if (this.hasAutomaticZone(spec)) return false;
-
-    return !this.isEntry(spec);
+  /** Карточка изучается в рамках пути. Ключевые слова больше не решают. */
+  isGated(spec: AbilitySpec, _keywordCodes?: ReadonlySet<string>): boolean {
+    return this.studyOf(spec) !== null;
   }
 
-  firstLevelCost(spec: AbilitySpec): number {
+  firstLevelCost(spec: AbilitySpec, parameters: ReadonlyMap<string, number> = new Map()): number {
     if (spec.type === 'group') return 0;
     const zone = spec.zones.or ?? spec.zones.os ?? spec.zones.ol;
-    if (!zone || zone.kind !== 'array') return 0;
+    if (!zone) return 0;
 
-    return zone.levels_cost[0] ?? 0;
+    if (zone.kind === 'array') return zone.levels_cost[0] ?? 0;
+    if (zone.kind === 'progression') return zone.base_cost;
+    if (zone.kind === 'parameter') return (parameters.get(zone.parameter_code) ?? 1) * zone.per_unit;
+
+    return 0;
   }
 
   learnedEntries(abilities: readonly CharacterAbility[], rules: Rule[]): MagicStudyLearned[] {
@@ -78,6 +82,7 @@ export class MagicStudyUnlockService {
       const rule = byCode.get(ability.ruleCode);
       if (rule?.type !== 'ability' || !rule.spec || !('type' in rule.spec)) continue;
       const spec = rule.spec as AbilitySpec;
+      if (this.studyOf(spec) === null) continue;
       result.push({ ruleCode: ability.ruleCode, domainCode: ability.domainCode ?? null, spec });
     }
 
@@ -87,11 +92,10 @@ export class MagicStudyUnlockService {
   unlocksOf(
     abilities: readonly CharacterAbility[],
     rules: Rule[],
-    keywordCodeById: ReadonlyMap<number, string> = new Map(),
-  ): MagicStudyGrant[] {
-    const pathRuleCodes = new Set(rules.filter((rule) => rule.type === 'magic_path').map((rule) => rule.code));
+    _keywordCodeById: ReadonlyMap<number, string> = new Map(),
+  ): StudyGrant[] {
     const byCode = new Map(rules.map((rule) => [rule.code, rule]));
-    const unlocks: MagicStudyGrant[] = [];
+    const unlocks: StudyGrant[] = [];
     for (const ability of abilities) {
       if (ability.level < 1) continue;
       const rule = byCode.get(ability.ruleCode);
@@ -100,12 +104,11 @@ export class MagicStudyUnlockService {
       if (spec.type === 'group') continue;
       for (const entry of spec.grants ?? []) {
         if (entry.level > ability.level) continue;
-        const siblingPath = entry.grants.find((grant) => grant.type === 'magic_path')?.path_code;
         for (const grant of entry.grants) {
           if (grant.type !== 'magic_study') continue;
           const permanent = grant.permanent !== false;
           if (!permanent && entry.level !== ability.level) continue;
-          unlocks.push(this.withStudyPath(grant, siblingPath, rule, pathRuleCodes, keywordCodeById));
+          unlocks.push({ ...grant, donor_code: rule.code });
         }
       }
     }
@@ -118,8 +121,11 @@ export class MagicStudyUnlockService {
     const seen = new Set<string>();
     for (const grant of this.activeGrants(abilities, rules)) {
       if (grant.type !== 'magic_path' || seen.has(grant.path_code)) continue;
-      seen.add(grant.path_code);
-      codes.push(grant.path_code);
+      for (const code of this.coveredPathCodes(rules, grant.path_code)) {
+        if (seen.has(code)) continue;
+        seen.add(code);
+        codes.push(code);
+      }
     }
 
     return codes;
@@ -129,9 +135,11 @@ export class MagicStudyUnlockService {
     const codes: string[] = [];
     const seen = new Set<string>();
     for (const grant of unlocks) {
-      if (!grant.path_code || seen.has(grant.path_code)) continue;
-      seen.add(grant.path_code);
-      codes.push(grant.path_code);
+      for (const code of this.grantPathCodes(grant)) {
+        if (seen.has(code)) continue;
+        seen.add(code);
+        codes.push(code);
+      }
     }
 
     return codes;
@@ -139,28 +147,46 @@ export class MagicStudyUnlockService {
 
   openPathCodes(
     spec: AbilitySpec,
-    unlocks: readonly MagicStudyGrant[],
+    unlocks: readonly StudyGrant[],
     grantedPathCodes: readonly string[],
     learned: readonly MagicStudyLearned[],
     occupying: { ruleCode: string; domainCode: string | null } | null = null,
     snapshot?: CharacterSnapshot,
+    rules: Rule[] = [],
+    ruleCode?: string,
   ): string[] {
+    const study = this.studyOf(spec);
+    if (study === null) return [];
     const cost = this.firstLevelCost(spec);
-    const scope = spec.type === 'spell' ? 'spell' : 'non_spell';
     const codes: string[] = [];
     const seen = new Set<string>();
     const add = (code: string): void => {
-      if (!code || seen.has(code)) return;
+      if (!code || seen.has(code) || !this.studyAllows(study, code)) return;
+      if (rules.length > 0 && !this.isPath(rules, code)) return;
       seen.add(code);
       codes.push(code);
     };
     for (const grant of unlocks) {
-      if (grant.scope !== scope || !this.costWithinLimit(grant, cost, snapshot)) continue;
+      if (this.sameDonor(grant, ruleCode)) continue;
+      if (!this.costWithinLimit(grant, cost, snapshot)) continue;
       if (grant.max_instances != null) {
         const used = this.usedByGrant(grant, learned).filter((entry) => !this.sameOccupying(entry, occupying));
         if (used.length >= grant.max_instances) continue;
       }
-      if (grant.path_code) add(grant.path_code);
+
+      const paths = this.grantPaths(grant);
+      if (paths === 'any') {
+        for (const code of grantedPathCodes) add(code);
+        continue;
+      }
+
+      for (const owner of paths) {
+        if (rules.length === 0) {
+          add(owner);
+          continue;
+        }
+        for (const code of this.coveredPathCodes(rules, owner)) add(code);
+      }
     }
 
     return codes;
@@ -169,30 +195,36 @@ export class MagicStudyUnlockService {
   isJustified(
     spec: AbilitySpec,
     domainCode: string | null,
-    unlocks: readonly MagicStudyGrant[],
+    unlocks: readonly StudyGrant[],
     _grantedPathCodes: readonly string[] = [],
     rules: Rule[] = [],
     snapshot?: CharacterSnapshot,
+    ruleCode?: string,
   ): boolean {
+    const study = this.studyOf(spec);
+    if (study === null) return true;
+    if (!domainCode || !this.studyAllows(study, domainCode)) return false;
+    if (rules.length > 0 && !this.isPath(rules, domainCode)) return false;
+
     const cost = this.firstLevelCost(spec);
-    const scope = spec.type === 'spell' ? 'spell' : 'non_spell';
 
     return unlocks.some((grant) => {
-      if (grant.scope !== scope || !this.costWithinLimit(grant, cost, snapshot)) return false;
-      if (!grant.path_code) return spec.type !== 'group';
+      if (this.sameDonor(grant, ruleCode)) return false;
+      if (!this.costWithinLimit(grant, cost, snapshot)) return false;
 
-      return grant.path_code === domainCode || this.pathCovers(rules, grant.path_code, domainCode);
+      return this.grantAllowsPath(grant, domainCode, rules);
     });
   }
 
   isBound(
-    unlocks: readonly MagicStudyGrant[],
+    unlocks: readonly StudyGrant[],
     learned: readonly MagicStudyLearned[],
     ruleCode: string,
     domainCode: string | null,
   ): boolean {
     return unlocks.some((grant) => {
       if (grant.max_instances == null) return false;
+      if (!this.grantAllowsPath(grant, domainCode)) return false;
 
       return this.usedByGrant(grant, learned).some(
         (entry) => entry.ruleCode === ruleCode && entry.domainCode === domainCode,
@@ -202,37 +234,41 @@ export class MagicStudyUnlockService {
 
   failureReason(
     spec: AbilitySpec,
-    keywordCodes: ReadonlySet<string>,
-    unlocks: readonly MagicStudyGrant[],
+    _keywordCodes: ReadonlySet<string>,
+    unlocks: readonly StudyGrant[],
     learned: readonly MagicStudyLearned[] = [],
     currentRuleCode?: string,
     snapshot?: CharacterSnapshot,
   ): string | null {
-    if (!this.isGated(spec, keywordCodes)) return null;
-    if (currentRuleCode && learned.some((entry) => entry.ruleCode === currentRuleCode)) return null;
+    if (this.studyOf(spec) === null) return null;
+    if (currentRuleCode && this.isAlreadyLearned(currentRuleCode, learned)) return null;
     const cost = this.firstLevelCost(spec);
-    const scope = spec.type === 'spell' ? 'spell' : 'non_spell';
-    const open = unlocks.some((grant) => this.grantOpens(grant, spec, cost, scope, learned, snapshot));
+    const open = unlocks.some((grant) => {
+      if (this.sameDonor(grant, currentRuleCode) || !this.costWithinLimit(grant, cost, snapshot)) return false;
+      if (grant.max_instances == null) return true;
+
+      return this.usedByGrant(grant, learned).length < grant.max_instances;
+    });
     if (open) return null;
 
-    return scope === 'spell'
-      ? 'изучение заклинаний этого пути ещё не открыто'
-      : 'изучение навыков волшебства этого пути ещё не открыто';
+    return 'изучение этой карточки в рамках пути ещё не открыто';
   }
 
   paidCostOverride(
     spec: AbilitySpec,
-    unlocks: readonly MagicStudyGrant[],
+    unlocks: readonly StudyGrant[],
     learned: readonly MagicStudyLearned[],
     domainCode: string | null,
     occupying: { ruleCode: string; domainCode: string | null } | null = null,
     snapshot?: CharacterSnapshot,
+    ruleCode?: string,
   ): number | null {
     const cost = this.firstLevelCost(spec);
-    const scope = spec.type === 'spell' ? 'spell' : 'non_spell';
     for (const grant of unlocks) {
       if (grant.paid_cost == null) continue;
-      if (!this.matchesGrant(grant, spec, cost, scope, domainCode, snapshot)) continue;
+      if (this.sameDonor(grant, ruleCode)) continue;
+      if (!this.costWithinLimit(grant, cost, snapshot)) continue;
+      if (!this.grantAllowsPath(grant, domainCode)) continue;
       if (grant.max_instances == null) return grant.paid_cost;
       const used = this.usedByGrant(grant, learned).filter((entry) => !this.sameOccupying(entry, occupying));
       if (used.length < grant.max_instances) return grant.paid_cost;
@@ -245,7 +281,7 @@ export class MagicStudyUnlockService {
     abilities: readonly CharacterAbility[],
     rules: Rule[],
     pathCode: string,
-    keywordCodeById: ReadonlyMap<number, string>,
+    _keywordCodeById: ReadonlyMap<number, string>,
   ): number {
     const byCode = new Map(rules.map((rule) => [rule.code, rule]));
     const covered = this.coveredPathCodes(rules, pathCode);
@@ -255,12 +291,9 @@ export class MagicStudyUnlockService {
       const rule = byCode.get(ability.ruleCode);
       if (rule?.type !== 'ability' || !rule.spec || !('type' in rule.spec)) continue;
       const spec = rule.spec as AbilitySpec;
-      if (spec.type === 'group') continue;
-      const keywords = this.keywordCodesOf(rule, keywordCodeById);
-      const onPath =
-        (ability.domainCode != null && covered.has(ability.domainCode)) ||
-        [...keywords].some((code) => covered.has(code));
-      if (!onPath) continue;
+      if (spec.type === 'group' || this.studyOf(spec) === null) continue;
+      const domainCode = ability.domainCode ?? '';
+      if (!domainCode || !covered.has(domainCode)) continue;
       sum += this.purchasedCost(spec, ability.level);
     }
 
@@ -323,19 +356,57 @@ export class MagicStudyUnlockService {
     );
   }
 
-  private withStudyPath(
-    grant: MagicStudyGrant,
-    siblingPath: string | undefined,
-    rule: Rule,
-    pathRuleCodes: ReadonlySet<string>,
-    keywordCodeById: ReadonlyMap<number, string>,
-  ): MagicStudyGrant {
-    if (grant.path_code) return grant;
-    const fromKeyword = [...this.keywordCodesOf(rule, keywordCodeById)].find((code) => pathRuleCodes.has(code));
-    const pathCode = siblingPath ?? fromKeyword;
-    if (!pathCode) return grant;
+  private studyOf(spec: AbilitySpec): { paths: StudyPaths } | null {
+    if (!('study' in spec)) return null;
+    const study = (spec as { study?: { paths: StudyPaths } | null }).study;
+    if (!study) return null;
 
-    return { ...grant, path_code: pathCode };
+    return study;
+  }
+
+  private studyAllows(study: { paths: StudyPaths }, path: string | null): boolean {
+    if (!path) return false;
+
+    return study.paths === 'any' || study.paths.includes(path);
+  }
+
+  private grantPaths(grant: MagicStudyGrant): StudyPaths {
+    if (grant.paths == null) {
+      if (grant.path_code) return [grant.path_code];
+
+      return [];
+    }
+
+    return grant.paths;
+  }
+
+  private grantPathCodes(grant: MagicStudyGrant): string[] {
+    const paths = this.grantPaths(grant);
+
+    return paths === 'any' ? [] : paths;
+  }
+
+  private grantAllowsPath(grant: MagicStudyGrant, domainCode: string | null, rules: Rule[] = []): boolean {
+    if (!domainCode) return false;
+    const paths = this.grantPaths(grant);
+    if (paths === 'any') return true;
+    if (rules.length > 0) {
+      return paths.some((owner) => this.coveredPathCodes(rules, owner).has(domainCode));
+    }
+
+    return paths.includes(domainCode);
+  }
+
+  private isPath(rules: Rule[], code: string): boolean {
+    return rules.some((rule) => rule.type === 'magic_path' && rule.code === code);
+  }
+
+  private sameDonor(grant: StudyGrant, ruleCode?: string): boolean {
+    return !!ruleCode && grant.donor_code === ruleCode;
+  }
+
+  private isAlreadyLearned(ruleCode: string, learned: readonly MagicStudyLearned[]): boolean {
+    return learned.some((entry) => entry.ruleCode === ruleCode);
   }
 
   private sameOccupying(
@@ -372,45 +443,32 @@ export class MagicStudyUnlockService {
   private purchasedCost(spec: AbilitySpec, level: number): number {
     if (spec.type === 'group') return 0;
     const zone = spec.zones.or ?? spec.zones.os ?? spec.zones.ol;
-    if (!zone || zone.kind !== 'array') return 0;
+    if (!zone) return 0;
 
-    return zone.levels_cost.slice(0, level).reduce((sum, cost) => sum + cost, 0);
-  }
+    if (zone.kind === 'array') {
+      return zone.levels_cost.slice(0, level).reduce((sum, cost) => sum + cost, 0);
+    }
 
-  private grantOpens(
-    grant: MagicStudyGrant,
-    spec: AbilitySpec,
-    cost: number,
-    scope: MagicStudyGrant['scope'],
-    learned: readonly MagicStudyLearned[],
-    snapshot?: CharacterSnapshot,
-  ): boolean {
-    if (grant.scope !== scope || !this.costWithinLimit(grant, cost, snapshot)) return false;
-    if (grant.max_instances == null) return true;
+    if (zone.kind === 'progression') {
+      const steps = Math.min(level, zone.max_level);
+      let sum = 0;
+      for (let index = 0; index < steps; index += 1) {
+        sum += zone.base_cost + index * zone.step;
+      }
 
-    return this.usedByGrant(grant, learned).length < grant.max_instances;
-  }
+      return sum;
+    }
 
-  private matchesGrant(
-    grant: MagicStudyGrant,
-    spec: AbilitySpec,
-    cost: number,
-    scope: MagicStudyGrant['scope'],
-    domainCode: string | null,
-    snapshot?: CharacterSnapshot,
-  ): boolean {
-    if (grant.scope !== scope || !this.costWithinLimit(grant, cost, snapshot)) return false;
-    if (grant.path_code) return grant.path_code === domainCode;
+    if (zone.kind === 'parameter') return level * zone.per_unit;
 
-    return spec.type !== 'group';
+    return 0;
   }
 
   private usedByGrant(grant: MagicStudyGrant, learned: readonly MagicStudyLearned[]): MagicStudyLearned[] {
     return learned.filter((entry) => {
       const cost = this.firstLevelCost(entry.spec);
-      const scope = entry.spec.type === 'spell' ? 'spell' : 'non_spell';
 
-      return this.matchesGrant(grant, entry.spec, cost, scope, entry.domainCode);
+      return this.grantAllowsPath(grant, entry.domainCode) && this.costWithinLimit(grant, cost);
     });
   }
 
@@ -432,31 +490,5 @@ export class MagicStudyUnlockService {
     if (typeof grant.max_cost !== 'number' && !snapshot) return true;
 
     return cost <= this.maxCostOf(grant, snapshot);
-  }
-
-  private hasMagicStudyGrants(rules: Rule[]): boolean {
-    return rules.some((rule) => {
-      if (rule.type !== 'ability' || !rule.spec || !('type' in rule.spec)) return false;
-      const spec = rule.spec as AbilitySpec;
-      if (spec.type === 'group') return false;
-
-      return spec.grants.some((entry) => entry.grants.some((grant) => grant.type === 'magic_study'));
-    });
-  }
-
-  private isEntry(spec: AbilitySpec): boolean {
-    if (spec.type === 'group') return false;
-
-    return spec.grants.some((level) =>
-      level.grants.some(
-        (grant) => grant.type === 'magic_path' || grant.type === 'magic_study' || grant.type === 'ability',
-      ),
-    );
-  }
-
-  private hasAutomaticZone(spec: AbilitySpec): boolean {
-    if (spec.type === 'group') return false;
-
-    return Object.values(spec.zones).some((zone) => zone?.kind === 'automatic');
   }
 }

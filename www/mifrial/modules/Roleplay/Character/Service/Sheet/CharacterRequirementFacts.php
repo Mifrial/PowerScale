@@ -11,6 +11,7 @@ use Mifrial\Roleplay\Character\Dto\ResourceLimitBonus;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceArithmetic;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\MagicPathGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -18,6 +19,9 @@ use Mifrial\Roleplay\Rule\Value\RequirementNumbers;
 use Mifrial\Roleplay\Rule\Value\RequirementTraits;
 use Mifrial\Roleplay\Rule\Value\RequirementUnmodelled;
 use Mifrial\Roleplay\Rule\Value\RequirementValues;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityGrantReader;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterRaceAbilityCodes;
 
 /**
  * Собирает факты листа для проверки требований способностей.
@@ -28,6 +32,10 @@ final class CharacterRequirementFacts
 
     private readonly CharacterResourceArithmetic $arithmetic;
 
+    private readonly CharacterAbilityGrantReader $grants;
+
+    private readonly CharacterStudyPaths $paths;
+
     /**
      * Собирает помощники.
      *
@@ -37,6 +45,8 @@ final class CharacterRequirementFacts
     {
         $this->assembler = new CharacterChoiceAssembler();
         $this->arithmetic = new CharacterResourceArithmetic();
+        $this->grants = new CharacterAbilityGrantReader(new CharacterDonorGrants(), new CharacterRaceAbilityCodes());
+        $this->paths = new CharacterStudyPaths();
     }
 
     /**
@@ -60,7 +70,11 @@ final class CharacterRequirementFacts
         return new RequirementValues(
             new RequirementNumbers($levels, $characteristics, $resourceLimits),
             $this->traits($slice, $choices, $characteristics),
-            new RequirementUnmodelled(),
+            new RequirementUnmodelled(
+                null,
+                $this->magicPaths($slice, $choices, $levels),
+                $this->paths->experience($slice, $choices, $levels),
+            ),
         );
     }
 
@@ -82,6 +96,34 @@ final class CharacterRequirementFacts
             $this->characteristicsOf($sheet),
             $this->resourceLimitsOf($sheet),
         );
+    }
+
+    /**
+     * Пути из активных грантов magic_path с включениями.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $choices Выборы.
+     * @param array<string, int> $levels Уровни.
+     *
+     * @return array<int, string> Коды путей.
+     */
+    private function magicPaths(CharacterRuleSlice $slice, CharacterChoices $choices, array $levels): array
+    {
+        $paths = [];
+        foreach ($this->grants->grants($slice, $choices, $levels) as $row) {
+            $grant = $row->getGrant();
+            if (!$grant instanceof MagicPathGrant) {
+                continue;
+            }
+
+            foreach ($this->paths->covered($slice, $grant->getPathCode()) as $code) {
+                if ($this->paths->isPath($slice, $code)) {
+                    $paths[$code] = $code;
+                }
+            }
+        }
+
+        return array_values($paths);
     }
 
     /**

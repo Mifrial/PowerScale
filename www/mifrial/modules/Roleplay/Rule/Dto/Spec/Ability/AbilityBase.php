@@ -118,6 +118,7 @@ final class AbilityBase
         private readonly ?ManeuverModifier $maneuver = null,
         private readonly ?StrikeManeuver $strikeManeuver = null,
         private readonly ?ManeuverBoost $maneuverBoost = null,
+        private readonly ?StudyPaths $study = null,
     ) {
     }
 
@@ -389,6 +390,16 @@ final class AbilityBase
     public function getDomainRef(): ?string
     {
         return $this->domainRef;
+    }
+
+    /**
+     * Изучение в рамках пути. Нет правила — null.
+     *
+     * @return StudyPaths|null Набор путей или null.
+     */
+    public function getStudy(): ?StudyPaths
+    {
+        return $this->study;
     }
 
     /**

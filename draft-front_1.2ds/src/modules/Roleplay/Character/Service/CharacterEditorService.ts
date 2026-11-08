@@ -832,10 +832,18 @@ export class CharacterEditorService {
       if (this.magicPathStudyCost.usesPathStudyCost(spec, rules)) {
         const firstLevelCost = this.totalCostAtLevel(cost, 1, resolveParameter);
         paid =
-          this.magicStudyUnlock.paidCostOverride(spec, studyUnlocks, learnedStudy, ability.domainCode ?? null, {
-            ruleCode: ability.ruleCode,
-            domainCode: ability.domainCode ?? null,
-          }) ??
+          this.magicStudyUnlock.paidCostOverride(
+            spec,
+            studyUnlocks,
+            learnedStudy,
+            ability.domainCode ?? null,
+            {
+              ruleCode: ability.ruleCode,
+              domainCode: ability.domainCode ?? null,
+            },
+            undefined,
+            rule.code,
+          ) ??
           this.magicPathStudyCost.instancePaid(
             build,
             rules,
@@ -1223,7 +1231,15 @@ export class CharacterEditorService {
       const pathCosts = domainOptions.map((option) => ({
         ...option,
         cost:
-          this.magicStudyUnlock.paidCostOverride(spec, studyUnlocks, learnedStudy, option.code, null, snapshot) ??
+          this.magicStudyUnlock.paidCostOverride(
+            spec,
+            studyUnlocks,
+            learnedStudy,
+            option.code,
+            null,
+            snapshot,
+            rule.code,
+          ) ??
           this.magicPathStudyCost.nextInstanceCost(build, rules, option.code, firstLevelCost, skipGrantPaid),
       }));
       const unusedPathCosts = pathCosts.filter(
@@ -1279,6 +1295,7 @@ export class CharacterEditorService {
                     domainCode: instance.domainCode ?? null,
                   },
                   snapshot,
+                  rule.code,
                 ) ??
                 this.magicPathStudyCost.instancePaid(
                   build,
@@ -2328,7 +2345,7 @@ export class CharacterEditorService {
     ruleCode: string,
   ): { code: string; name: string }[] {
     const granted = this.magicStudyUnlock.grantedPathCodes(build.abilities, rules);
-    const codes = this.magicStudyUnlock.openPathCodes(spec, unlocks, granted, learned, null, snapshot);
+    const codes = this.magicStudyUnlock.openPathCodes(spec, unlocks, granted, learned, null, snapshot, rules, ruleCode);
     const options: { code: string; name: string }[] = [];
     const seen = new Set<string>();
     const evaluator = new RequirementEvaluator();
@@ -2379,6 +2396,7 @@ export class CharacterEditorService {
             domainCode: ability.domainCode ?? null,
           },
           snapshot,
+          ability.ruleCode,
         ) != null
       );
     };

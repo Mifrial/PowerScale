@@ -24,6 +24,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ResourceLimitChangeGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SenseModifyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SkillStudyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StateModifyGrant;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StudyPaths;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 
 /**
@@ -394,13 +395,28 @@ final class AbilityGrants
      */
     private static function magicStudy(array $row, bool $permanent): MagicStudyGrant
     {
+        $paths = StudyPaths::optional($row, 'paths');
+        $pathCode = SpecShape::optionalString($row, 'path_code') ?? '';
+        if ($paths === null && $pathCode !== '') {
+            $paths = StudyPaths::fromList([$pathCode], 'paths');
+        }
+
+        if ($paths === null && array_key_exists('path_code', $row)) {
+            $paths = StudyPaths::none();
+        }
+
+        if ($paths === null) {
+            throw new RuleSpecShapeException('paths');
+        }
+
         return new MagicStudyGrant(
-            SpecShape::string($row, 'scope'),
+            $paths,
             Formulas::scalar($row, 'max_cost'),
-            SpecShape::string($row, 'path_code'),
             SpecShape::optionalInt($row, 'max_instances'),
             SpecShape::optionalInt($row, 'paid_cost'),
             $permanent,
+            SpecShape::optionalString($row, 'scope') ?? '',
+            $pathCode,
         );
     }
 

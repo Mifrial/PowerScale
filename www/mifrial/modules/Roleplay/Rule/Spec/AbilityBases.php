@@ -8,6 +8,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityAggregate;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DerivedLevel;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessCloseSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StudyPaths;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 
 /**
@@ -73,7 +74,36 @@ final class AbilityBases
             AbilityTactics::maneuver($document),
             StrikeManeuverSpecs::read($document),
             StrikeManeuverSpecs::boost($document),
+            self::study($document),
         );
+    }
+
+    /**
+     * Правило изучения в рамках пути. Нет ключа — null.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return StudyPaths|null Набор путей или null.
+     *
+     * @throws RuleSpecShapeException Если нет domain_ref или форма чужая.
+     */
+    private static function study(array $document): ?StudyPaths
+    {
+        $row = SpecShape::object($document, 'study');
+        if ($row === null) {
+            return null;
+        }
+
+        if ((SpecShape::optionalString($document, 'domain_ref') ?? '') === '') {
+            throw new RuleSpecShapeException('study');
+        }
+
+        $paths = StudyPaths::optional($row, 'paths');
+        if ($paths === null) {
+            throw new RuleSpecShapeException('study');
+        }
+
+        return $paths;
     }
 
     /**

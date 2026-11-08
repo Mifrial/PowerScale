@@ -38,9 +38,12 @@ export type Grant =
   | { type: 'magic_path'; path_code: string; permanent?: boolean }
   | {
       type: 'magic_study';
-      scope: MagicStudyScope;
+      /** Пути, на которых грант открывает изучение: `any` или список кодов. */
+      paths?: 'any' | string[];
       max_cost: number | ScalarFormula;
-      /** Путь как домен изучения, без гранта самого пути (каст этим путём не открывается). */
+      /** Прежнее поле ревизий до 46: не используется новой логикой. */
+      scope?: MagicStudyScope;
+      /** Прежнее одиночное поле путей ревизий до 46. */
       path_code?: string;
       /** Сколько способностей этот грант может открыть; без поля — без лимита. */
       max_instances?: number;

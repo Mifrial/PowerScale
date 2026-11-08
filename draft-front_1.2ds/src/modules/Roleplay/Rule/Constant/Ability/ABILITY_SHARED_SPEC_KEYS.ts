@@ -42,6 +42,7 @@ export const ABILITY_SHARED_SPEC_KEYS: readonly (keyof AbilitySpecDraft)[] = [
   'group_code',
   'multiple',
   'domain_ref',
+  'study',
   'knowledge_template_field',
   'parent_knowledge_field',
   'aggregate',

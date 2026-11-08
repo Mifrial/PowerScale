@@ -10,7 +10,7 @@ import { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/In
 type MagicStudyGrant = Extract<Grant, { type: 'magic_study' }>;
 
 /**
- * Сводка открытых путей волшебства: потолки изучения по scope и опыт пути.
+ * Сводка открытых путей волшебства: потолки изучения по путям и опыт пути.
  */
 export class EditorMagicPathViewsService {
   constructor(private readonly unlocks = magicStudyUnlockService) {}
@@ -24,32 +24,45 @@ export class EditorMagicPathViewsService {
   ): EditorMagicPathView[] {
     const studyUnlocks = this.unlocks.unlocksOf(build.abilities, rules);
     const granted = this.unlocks.grantedPathCodes(build.abilities, rules);
-    const pathCodes = this.pathCodes(granted, studyUnlocks);
+    const pathCodes = this.pathCodes(granted, studyUnlocks, rules);
     const keywordCodeById = new Map(keywords.map((keyword) => [keyword.id, keyword.code]));
 
     return pathCodes
       .map((pathCode) => {
         const rule = rules.find((entry) => entry.code === pathCode && entry.type === 'magic_path');
         if (!rule) return null;
-        const limits = this.limitsOf(pathCode, studyUnlocks, snapshot, characteristicValues);
+        const limits = this.limitsOf(pathCode, studyUnlocks, rules, snapshot, characteristicValues);
 
         return {
           pathCode,
           pathName: rule.name,
           experience: this.unlocks.pathExperience(build.abilities, rules, pathCode, keywordCodeById),
-          restrictionLabels: limits.map((limit) => this.restrictionLabel(limit.scope, limit.maxCost)),
+          restrictionLabels: limits.map((maxCost) => this.restrictionLabel(maxCost)),
         };
       })
       .filter((entry): entry is EditorMagicPathView => entry !== null);
   }
 
-  private pathCodes(granted: readonly string[], unlocks: readonly MagicStudyGrant[]): string[] {
+  private pathCodes(granted: readonly string[], unlocks: readonly MagicStudyGrant[], rules: Rule[]): string[] {
     const codes: string[] = [...granted];
     const seen = new Set(granted);
+    const add = (code: string): void => {
+      if (!code || seen.has(code)) return;
+      seen.add(code);
+      codes.push(code);
+    };
     for (const grant of unlocks) {
-      if (!grant.path_code || seen.has(grant.path_code)) continue;
-      seen.add(grant.path_code);
-      codes.push(grant.path_code);
+      const paths = grant.paths ?? (grant.path_code ? [grant.path_code] : []);
+      if (paths === 'any') {
+        for (const rule of rules) {
+          if (rule.type === 'magic_path') add(rule.code);
+        }
+        continue;
+      }
+
+      for (const owner of paths) {
+        for (const code of this.unlocks.coveredPathCodes(rules, owner)) add(code);
+      }
     }
 
     return codes;
@@ -58,26 +71,31 @@ export class EditorMagicPathViewsService {
   private limitsOf(
     pathCode: string,
     unlocks: readonly MagicStudyGrant[],
+    rules: Rule[],
     snapshot?: CharacterSnapshot,
     characteristicValues?: Map<string, DimensionalNumberValue>,
-  ): { scope: MagicStudyGrant['scope']; maxCost: number }[] {
-    const byScope = new Map<MagicStudyGrant['scope'], number>();
+  ): number[] {
+    const limits: number[] = [];
     for (const grant of unlocks) {
-      if (grant.path_code !== pathCode) continue;
-      const current = byScope.get(grant.scope);
+      if (!this.grantCovers(grant, pathCode, rules)) continue;
       const maxCost =
         characteristicValues === undefined
           ? this.unlocks.resolvedMaxCost(grant, snapshot)
           : this.unlocks.resolvedMaxCostFromCharacteristics(grant, characteristicValues);
-      if (current === undefined || maxCost > current) byScope.set(grant.scope, maxCost);
+      if (!limits.includes(maxCost)) limits.push(maxCost);
     }
 
-    return [...byScope.entries()].map(([scope, maxCost]) => ({ scope, maxCost }));
+    return limits;
   }
 
-  private restrictionLabel(scope: MagicStudyGrant['scope'], maxCost: number): string {
-    return scope === 'spell'
-      ? `Заклинания с базовой стоимостью до ${maxCost}`
-      : `Волшебство со стоимостью до ${maxCost}`;
+  private grantCovers(grant: MagicStudyGrant, pathCode: string, rules: Rule[]): boolean {
+    const paths = grant.paths ?? (grant.path_code ? [grant.path_code] : []);
+    if (paths === 'any') return true;
+
+    return paths.some((owner) => this.unlocks.coveredPathCodes(rules, owner).has(pathCode));
+  }
+
+  private restrictionLabel(maxCost: number): string {
+    return `Изучение карточек с базовой стоимостью до ${maxCost}`;
   }
 }

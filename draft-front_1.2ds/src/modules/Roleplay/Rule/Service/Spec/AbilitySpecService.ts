@@ -260,7 +260,7 @@ export class AbilitySpecService {
       case 'magic_path':
         return { type: 'magic_path', path_code: '' };
       case 'magic_study':
-        return { type: 'magic_study', scope: 'spell', max_cost: 2 };
+        return { type: 'magic_study', paths: 'any', max_cost: 2 };
       case 'skill_study':
         return { type: 'skill_study', ability_codes: [], max_level: 1, paid_cost: 0, max_instances: 1 };
       case 'resistance':

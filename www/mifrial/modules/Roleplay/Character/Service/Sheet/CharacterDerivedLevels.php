@@ -9,18 +9,24 @@ use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityBase;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityZone;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Zone\ArrayZone;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Zone\AutomaticZone;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Zone\ParameterZone;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Zone\ProgressionZone;
 
 /**
  * Производный уровень способности по сумме стоимостей с признаком опыта.
  */
 final class CharacterDerivedLevels
 {
+    private readonly CharacterAbilityCost $cost;
+
+    /**
+     * Собирает расчёт цены.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->cost = new CharacterAbilityCost();
+    }
+
     /**
      * Код → уровень. Нулевой уровень не пишется.
      *
@@ -116,84 +122,6 @@ final class CharacterDerivedLevels
             return 0;
         }
 
-        return $this->cost($base, $level, $ability->getParameters());
-    }
-
-    /**
-     * Цена первой платной зоны до взятого уровня.
-     *
-     * @param AbilityBase $base База.
-     * @param int $level Уровень.
-     * @param array<string, int> $parameters Параметры.
-     *
-     * @return int Цена.
-     */
-    private function cost(AbilityBase $base, int $level, array $parameters): int
-    {
-        foreach ($base->getZones() as $zone) {
-            if ($zone instanceof AutomaticZone) {
-                continue;
-            }
-
-            return $this->zoneCost($zone, $level, $parameters);
-        }
-
-        return 0;
-    }
-
-    /**
-     * Цена зоны.
-     *
-     * @param AbilityZone $zone Зона.
-     * @param int $level Уровень.
-     * @param array<string, int> $parameters Параметры.
-     *
-     * @return int Цена.
-     */
-    private function zoneCost(AbilityZone $zone, int $level, array $parameters): int
-    {
-        return match (true) {
-            $zone instanceof ArrayZone => $this->arrayCost($zone, $level),
-            $zone instanceof ProgressionZone => $this->progressionCost($zone, $level),
-            $zone instanceof ParameterZone => ($parameters[$zone->getParameterCode()] ?? 1) * $zone->getPerUnit(),
-            default => 0,
-        };
-    }
-
-    /**
-     * Цена массива цен до уровня.
-     *
-     * @param ArrayZone $zone Зона.
-     * @param int $level Уровень.
-     *
-     * @return int Цена.
-     */
-    private function arrayCost(ArrayZone $zone, int $level): int
-    {
-        $sum = 0;
-        foreach (array_slice($zone->getLevelsCost(), 0, $level) as $price) {
-            $sum += $price;
-        }
-
-        return $sum;
-    }
-
-    /**
-     * Цена прогрессии до уровня.
-     *
-     * @param ProgressionZone $zone Зона.
-     * @param int $level Уровень.
-     *
-     * @return int Цена.
-     */
-    private function progressionCost(ProgressionZone $zone, int $level): int
-    {
-        $sum = 0;
-        $steps = min($level, $zone->getMaxLevel());
-        for ($index = 0; $index < $steps; $index++) {
-            $sum += $zone->getBaseCost() + $index * $zone->getStep();
-        }
-
-        return $sum;
+        return $this->cost->toLevel($base, $level, $ability->getParameters()) ?? 0;
     }
 }

@@ -2,6 +2,8 @@
 
 **Статус:** ~СДЕЛАНО~ — план, 2026-09-09. Нарезка — [`character-roadmap.md`](character-roadmap.md). Канон — [`character-system.md`](character-system.md). DAG — [`architecture.md`](architecture.md). Binding — [`mechanic-plan-03.md`](mechanic-plan-03.md). PHP Engine — OPEN в [`rule-roadmap.md`](rule-roadmap.md).
 
+> Контракт `magic_study` обновлён в Character 13: `scope` и `path_code` заменены на `paths`, карточка помечается `study`. Ниже по тексту `scope`/`path_code` — исторические формулировки; актуально см. [`character-plan-13-path-study.md`](character-plan-13-path-study.md).
+
 Цель: согласовать контракт до модуля на диске. CRUD и DDL нет.
 
 ## 1. Pipeline save

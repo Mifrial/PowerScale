@@ -110,6 +110,7 @@ final class CharacterMigration
             $prepared['expectedSheet'],
             $prepared['choices'],
             $record->getSheet(),
+            $record->getChoices(),
         );
         $built['problems'] = $this->assembly->withClientCash($built['problems'], $input->money);
 

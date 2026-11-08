@@ -1,5 +1,7 @@
 # План реализации магии 03 — углублённое образование Арканиста
 
+> Контракт изучения обновлён в Character 13: `magic_study.paths` вместо `scope`/`path_code`, карточка помечается `study`. Ниже по тексту `scope`/`path_code` — исторические формулировки; актуально см. [`character-plan-13-path-study.md`](character-plan-13-path-study.md).
+
 **Статус:** ~ПЛАН~ — `READY`, 2026-09-25.
 **Дизайн:** [`magic-content-design-02-arcanist-advanced.md`](magic-content-design-02-arcanist-advanced.md).  
 **Секция:** `Арканист → Образование → Углублённое`.

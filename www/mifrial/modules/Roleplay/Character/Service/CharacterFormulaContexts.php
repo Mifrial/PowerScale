@@ -12,14 +12,14 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\Runtime\Character;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
-use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
-use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * FormulaContext из живых характеристик sheet, иначе из закупок.
  */
 final class CharacterFormulaContexts implements ICharacterFormulaContexts
 {
+    private readonly CharacterSheetFormulaContext $sheetContexts;
+
     /**
      * Создаёт разбор.
      *
@@ -34,6 +34,7 @@ final class CharacterFormulaContexts implements ICharacterFormulaContexts
         private readonly ?ICharacterRuleSlices $slices = null,
         private readonly ?ICharacterSheets $sheets = null,
     ) {
+        $this->sheetContexts = new CharacterSheetFormulaContext();
     }
 
     /**
@@ -48,11 +49,7 @@ final class CharacterFormulaContexts implements ICharacterFormulaContexts
      */
     public function build(array $sheet, array $parameters = []): FormulaContext
     {
-        return new FormulaContext(
-            $this->characteristics($sheet),
-            $this->abilityLevels($sheet),
-            $parameters,
-        );
+        return $this->sheetContexts->build($sheet, $parameters);
     }
 
     /**
@@ -77,152 +74,5 @@ final class CharacterFormulaContexts implements ICharacterFormulaContexts
             $this->slices->get($record->getSpaceId(), $record->getRulesRevision()),
             $this->sheets,
         )->getSheet());
-    }
-
-    /**
-     * Уровни способностей из снимка.
-     *
-     * @param array<string, mixed> $sheet Снимок.
-     *
-     * @return array<string, int> Код → уровень.
-     *
-     * @throws CharacterInvalidException Если карта битая.
-     */
-    private function abilityLevels(array $sheet): array
-    {
-        $levels = $sheet['abilityLevels'] ?? null;
-        if (!is_array($levels)) {
-            $this->reject();
-        }
-
-        $result = [];
-        foreach ($levels as $code => $level) {
-            if (!is_string($code) || $code === '' || !is_int($level)) {
-                $this->reject();
-            }
-
-            $result[$code] = $level;
-        }
-
-        return $result;
-    }
-
-    /**
-     * Характеристики из закупок снимка.
-     *
-     * @param array<string, mixed> $sheet Снимок.
-     *
-     * @return array<string, DimensionalNumber> Код → пара.
-     *
-     * @throws CharacterInvalidException Если список битый.
-     */
-    private function characteristics(array $sheet): array
-    {
-        if (isset($sheet['characteristics']) && is_array($sheet['characteristics'])) {
-            return $this->liveCharacteristics($sheet['characteristics']);
-        }
-
-        $rows = $sheet['characteristicPurchases'] ?? null;
-        if (!is_array($rows)) {
-            $this->reject();
-        }
-
-        $seen = [];
-        $result = [];
-        foreach ($rows as $row) {
-            $code = $this->purchaseCode($row, $seen);
-            $result[$code] = $this->purchaseValue($row);
-        }
-
-        return $result;
-    }
-
-    /**
-     * Живые характеристики снимка.
-     *
-     * @param array<mixed> $rows Строки.
-     *
-     * @return array<string, DimensionalNumber> Код → пара.
-     *
-     * @throws CharacterInvalidException Если список битый.
-     */
-    private function liveCharacteristics(array $rows): array
-    {
-        $seen = [];
-        $result = [];
-        foreach ($rows as $row) {
-            $code = $this->purchaseCode($row, $seen);
-            $value = is_array($row) ? ($row['value'] ?? null) : null;
-            if (!is_array($value) || !is_int($value['base'] ?? null) || !is_int($value['size'] ?? null)) {
-                $this->reject();
-            }
-
-            $result[$code] = new CharacteristicNumber($value['base'], $value['size']);
-        }
-
-        return $result;
-    }
-
-    /**
-     * Код закупки. Повтор отклоняется.
-     *
-     * @param mixed $row Строка.
-     * @param array<string, true> $seen Уже виденные коды.
-     *
-     * @return string Код.
-     *
-     * @throws CharacterInvalidException Если строки нет или код повторный.
-     */
-    private function purchaseCode(mixed $row, array &$seen): string
-    {
-        if (!is_array($row)) {
-            $this->reject();
-        }
-
-        $code = $row['characteristicCode'] ?? null;
-        if (!is_string($code) || $code === '' || isset($seen[$code])) {
-            $this->reject();
-        }
-
-        $seen[$code] = true;
-
-        return $code;
-    }
-
-    /**
-     * Пара базы и размера.
-     *
-     * @param array<mixed> $row Строка закупки.
-     *
-     * @return DimensionalNumber Пара.
-     *
-     * @throws CharacterInvalidException Если value битый.
-     */
-    private function purchaseValue(array $row): DimensionalNumber
-    {
-        $value = $row['value'] ?? null;
-        if (!is_array($value)) {
-            $this->reject();
-        }
-
-        $base = $value['base'] ?? null;
-        $size = $value['size'] ?? null;
-        if (!is_int($base) || !is_int($size)) {
-            $this->reject();
-        }
-
-        return new CharacteristicNumber($base, $size);
-    }
-
-    /**
-     * Отказ до сборки контекста.
-     *
-     * @return never
-     *
-     * @throws CharacterInvalidException Всегда.
-     */
-    private function reject(): never
-    {
-        throw new CharacterInvalidException('Character formula context is invalid');
     }
 }

@@ -1,5 +1,7 @@
 # План реализации магии 04 — мастерство Арканиста
 
+> Контракт изучения обновлён в Character 13: `magic_study.paths` вместо `scope`/`path_code`, карточка помечается `study`. Ниже по тексту `scope`/`path_code` — исторические формулировки; актуально см. [`character-plan-13-path-study.md`](character-plan-13-path-study.md).
+
 **Статус:** ~ПЛАН~ — `READY`, 2026-09-26.
 **Дизайн:** [`magic-content-design-03-arcanist-mastery.md`](magic-content-design-03-arcanist-mastery.md).
 **Состав:** `magic-structure-construction`,

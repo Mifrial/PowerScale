@@ -127,7 +127,7 @@ describe('изучение заклинания как экземпляр пут
     expect(droppedAwakening.abilities.some((ability) => ability.ruleCode === 'discharge')).toBe(false);
   });
 
-  it('цепная молния не открывается становлением (нужен грант не-spell)', () => {
+  it('улучшение заклинания не получает study и не гейтится путём', () => {
     const withSpells = makeBuild({
       abilities: [
         { ruleCode: 'becoming-arcanist', level: 1 },
@@ -137,35 +137,11 @@ describe('изучение заклинания как экземпляр пут
     const chain = service
       .build(withSpells, ruleCatalog, config, keywords)
       .abilities.find((ability) => ability.ruleCode === 'chain-lightning');
-    expect(chain?.levels[0]?.met).toBe(false);
-  });
-
-  it('цепная молния открывается подменой структур', () => {
-    const withSubstitution = makeBuild({
-      abilities: [
-        { ruleCode: 'becoming-arcanist', level: 1 },
-        { ruleCode: 'structure-substitution', level: 1 },
-        { ruleCode: 'lightning-strike', level: 1, domain: 'Арканист', domainCode: 'arcanist' },
-      ],
-    });
-    const chain = service
-      .build(withSubstitution, ruleCatalog, config, keywords)
-      .abilities.find((ability) => ability.ruleCode === 'chain-lightning');
     expect(chain?.levels[0]?.met).toBe(true);
   });
 
-  it('аккуратное волшебство изучается как экземпляр пути, не свободный домен', () => {
-    const closed = service
-      .build(makeBuild({ abilities: [{ ruleCode: 'becoming-arcanist', level: 1 }] }), ruleCatalog, config, keywords)
-      .abilities.find((ability) => ability.ruleCode === 'careful-magic');
-    expect(closed?.levels[0]?.met).toBe(false);
-
-    const open = makeBuild({
-      abilities: [
-        { ruleCode: 'becoming-arcanist', level: 1 },
-        { ruleCode: 'structure-substitution', level: 1 },
-      ],
-    });
+  it('аккуратное волшебство изучается как экземпляр пути на открытом пути', () => {
+    const open = makeBuild({ abilities: [{ ruleCode: 'becoming-arcanist', level: 1 }] });
     const careful = service
       .build(open, ruleCatalog, config, keywords)
       .abilities.find((a) => a.ruleCode === 'careful-magic');
@@ -181,7 +157,10 @@ describe('изучение заклинания как экземпляр пут
       .build(open, ruleCatalog, config, keywords)
       .abilities.find((ability) => ability.ruleCode === 'careful-magic');
     expect(careful?.levels[0]?.met).toBe(true);
-    expect(careful?.domainOptions).toEqual([expect.objectContaining({ code: 'shaman', name: 'Шаман' })]);
+    expect(careful?.domainOptions).toEqual([
+      expect.objectContaining({ code: 'shaman', name: 'Шаман' }),
+      expect.objectContaining({ code: 'psionic', name: 'Псионик' }),
+    ]);
 
     const learned = characterBuildService.addAbilityInstance(open, 'careful-magic', 'Шаман', ruleCatalog, {
       zone: 'or',
@@ -203,7 +182,10 @@ describe('изучение заклинания как экземпляр пут
     const discharge = model.abilities.find((ability) => ability.ruleCode === 'discharge');
     expect(discharge?.domainOptions.map((option) => option.code)).not.toContain('shaman');
     const strike = model.abilities.find((ability) => ability.ruleCode === 'lightning-strike');
-    expect(strike?.domainOptions).toEqual([expect.objectContaining({ code: 'shaman', name: 'Шаман' })]);
+    expect(strike?.domainOptions).toEqual([
+      expect.objectContaining({ code: 'shaman', name: 'Шаман' }),
+      expect.objectContaining({ code: 'psionic', name: 'Псионик' }),
+    ]);
 
     const rejected = characterBuildService.addAbilityInstance(mixed, 'discharge', 'Шаман', ruleCatalog, {
       zone: 'or',

@@ -80,8 +80,8 @@ final class CharacterRequirementFactsTest extends TestCase
         );
         self::assertArrayNotHasKey('heavy', $facts->traits->weaponMasteryValues);
         self::assertNull($facts->unmodelled->speed);
-        self::assertNull($facts->unmodelled->magicPaths);
-        self::assertNull($facts->unmodelled->magicPathExperience);
+        self::assertSame([], $facts->unmodelled->magicPaths);
+        self::assertSame([], $facts->unmodelled->magicPathExperience);
     }
 
     /**

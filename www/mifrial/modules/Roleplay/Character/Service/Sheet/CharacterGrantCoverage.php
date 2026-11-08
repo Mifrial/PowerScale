@@ -159,8 +159,8 @@ final class CharacterGrantCoverage
 
         $covered = [];
         foreach ($donors as $row) {
-            $pathCode = $this->studyPath($row);
-            if ($pathCode !== '' && $this->reaches($slice, $pathCode, $domainCode)) {
+            $grant = $row->getGrant();
+            if ($grant instanceof MagicStudyGrant && $this->studyCovers($slice, $grant, $domainCode)) {
                 $covered[] = $domainCode;
             }
         }
@@ -169,20 +169,27 @@ final class CharacterGrantCoverage
     }
 
     /**
-     * path_code гранта magic_study или пустая строка.
+     * Грант изучения покрывает путь с учётом включений.
      *
-     * @param CharacterDonorGrant $row Грант донора.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param MagicStudyGrant $grant Грант.
+     * @param string $domainCode Путь экземпляра.
      *
-     * @return string Код или пусто.
+     * @return bool true, если покрывает.
      */
-    private function studyPath(CharacterDonorGrant $row): string
+    private function studyCovers(CharacterRuleSlice $slice, MagicStudyGrant $grant, string $domainCode): bool
     {
-        $grant = $row->getGrant();
-        if (!$grant instanceof MagicStudyGrant) {
-            return '';
+        if ($grant->getPaths()->isAny()) {
+            return true;
         }
 
-        return $grant->getPathCode();
+        foreach ($grant->getPaths()->getCodes() as $pathCode) {
+            if ($this->reaches($slice, $pathCode, $domainCode)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

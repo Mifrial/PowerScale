@@ -17,6 +17,8 @@ use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceGrantReader;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceLimits;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceStorage;
 use Mifrial\Roleplay\Character\Service\Runtime\Character;
+use Mifrial\Roleplay\Character\Service\Sheet\CharacterPathStudy;
+use Mifrial\Roleplay\Character\Service\Sheet\CharacterRequirementGate;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
 use Mifrial\Roleplay\Rule\Service\FormulaEvaluations;
 
@@ -32,6 +34,10 @@ final class CharacterSaveAssembly
     private readonly CharacterResourceLimits $resourceLimits;
 
     private readonly CharacterResourceStorage $resourceStorage;
+
+    private readonly CharacterPathStudy $pathStudy;
+
+    private readonly CharacterRequirementGate $requirementGate;
 
     /**
      * Собирает части прогона.
@@ -55,6 +61,8 @@ final class CharacterSaveAssembly
             new CharacterResourceArithmetic(),
         );
         $this->resourceStorage = new CharacterResourceStorage();
+        $this->pathStudy = new CharacterPathStudy();
+        $this->requirementGate = new CharacterRequirementGate();
     }
 
     /**
@@ -68,6 +76,7 @@ final class CharacterSaveAssembly
      * @param array<mixed>|null $expectedSheet Сверка.
      * @param array<string, mixed> $choices Документ choices.
      * @param array<string, mixed>|null $previousSheet Server-owned previous sheet.
+     * @param array<string, mixed>|null $previousChoices Предыдущие выборы или null на create.
      *
      * @return array{problems: array<int, CharacterProblem>, choices: array<string, mixed>, sheet: array<string, mixed>, name: string, active: bool}
      * Снимок и отказы.
@@ -81,6 +90,7 @@ final class CharacterSaveAssembly
         ?array $expectedSheet,
         array $choices,
         ?array $previousSheet = null,
+        ?array $previousChoices = null,
     ): array {
         $slice = $this->ruleSlices->get($spaceId, $revision);
         $model = $this->assembleModel($choices, $active);
@@ -90,9 +100,21 @@ final class CharacterSaveAssembly
         $sheet = $this->buildSheet($slice, $validation, $model, $money['money'], $previousSheet);
         $choices['money'] = $money['money'];
         $sheet = Character::fromDocument($slice, $choices, $sheet, $this->sheets)->getSheet();
+        $previous = $this->previousAbilities($previousChoices);
+        $studied = $this->pathStudy->problems($slice, $model, $sheet, $previous);
+        $required = $this->requirementGate->problems($model, $sheet, $previous);
         $name = $this->stringOf($choices, 'name');
 
-        return $this->result($validation, $limits, $money['problems'], $sheet, $expectedSheet, $choices, $name);
+        return $this->result(
+            $validation,
+            $limits,
+            $money['problems'],
+            $sheet,
+            $expectedSheet,
+            $choices,
+            $name,
+            [...$studied, ...$required],
+        );
     }
 
     /**
@@ -175,6 +197,7 @@ final class CharacterSaveAssembly
      * @param array<mixed>|null $expectedSheet Сверка.
      * @param array<string, mixed> $choices Документ.
      * @param string $name Имя.
+     * @param array<int, CharacterProblem> $extraProblems Проверки после compute.
      *
      * @return array{problems: array<int, CharacterProblem>, choices: array<string, mixed>, sheet: array<string, mixed>, name: string, active: bool}
      * Снимок и отказы.
@@ -187,12 +210,14 @@ final class CharacterSaveAssembly
         ?array $expectedSheet,
         array $choices,
         string $name,
+        array $extraProblems = [],
     ): array {
         $problems = array_merge(
             $validation->getProblems(),
             $this->limitProblems($limits),
             $shopProblems,
             $this->sheetDocument->findMismatch($sheet, $expectedSheet),
+            $extraProblems,
         );
 
         return [
@@ -312,6 +337,36 @@ final class CharacterSaveAssembly
             $money,
             $this->resourceStorage->serializeRows($resourceRows),
         );
+    }
+
+    /**
+     * Купленные экземпляры из предыдущего документа choices.
+     *
+     * @param array<string, mixed>|null $choices Документ или null.
+     *
+     * @return array<int, array{code: string, level: int, domainCode: string}> Экземпляры.
+     */
+    private function previousAbilities(?array $choices): array
+    {
+        $rows = $choices['abilities'] ?? null;
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || !is_string($row['ruleCode'] ?? null) || !is_int($row['level'] ?? null)) {
+                continue;
+            }
+
+            $result[] = [
+                'code' => $row['ruleCode'],
+                'level' => $row['level'],
+                'domainCode' => is_string($row['domainCode'] ?? null) ? $row['domainCode'] : '',
+            ];
+        }
+
+        return $result;
     }
 
     /**

@@ -57,18 +57,27 @@ final class CharacterAbilityActivity
         array $requirementLevels = [],
     ): array {
         $derived = $requirementLevels;
-        $facts = $this->facts->forModel(
-            $slice,
-            $choices,
-            $chosen + $derived,
-            $characteristics,
-            $resourceLimits,
-        );
         $levels = $chosen;
-        foreach ($choices->getAbilities() as $ability) {
-            $code = $ability->getRuleCode();
-            $wanted = $chosen[$code] ?? 0;
-            $levels[$code] = $this->capped($slice, $code, $wanted, $facts->withLevels($levels + $derived));
+        for ($pass = 0; $pass < 3; $pass++) {
+            $facts = $this->facts->forModel(
+                $slice,
+                $choices,
+                $levels + $derived,
+                $characteristics,
+                $resourceLimits,
+            );
+            $next = $chosen;
+            foreach ($choices->getAbilities() as $ability) {
+                $code = $ability->getRuleCode();
+                $wanted = $chosen[$code] ?? 0;
+                $next[$code] = $this->capped($slice, $code, $wanted, $facts->withLevels($next + $derived));
+            }
+
+            if ($next === $levels) {
+                break;
+            }
+
+            $levels = $next;
         }
 
         return $levels;

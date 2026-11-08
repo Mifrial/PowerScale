@@ -130,6 +130,11 @@ export interface AbilitySpecBase {
    * 'culture' | 'subject' | 'instrument'). Заполняется вместе с `multiple`.
    */
   domain_ref?: string | null;
+  /**
+   * Карточка изучается в рамках пути. `paths: 'any'` — на любом пути ревизии,
+   * список — только на перечисленных. Нет правила — гейт пути не применяется.
+   */
+  study?: { paths: 'any' | string[] } | null;
   /** Шаблон знания: фиксирует тип поля экземпляра `znanie`, сам на лист не покупается. */
   knowledge_template_field?: string | null;
   /** У улучшения: фильтр типа знания родителя `znanie` (напр. `laws`). */

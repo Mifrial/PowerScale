@@ -1729,6 +1729,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/character-plan-13-path-study.md",
+                    "title": "План Character 13 — изучение в рамках пути",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-09",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/specs/character-actual-session-source-roadmap.md",
                     "title": "Roadmap реализации `actualCharacter` как источника листа в session",
                     "kind": "plan",

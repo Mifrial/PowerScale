@@ -392,8 +392,7 @@ describe('mockSpellImport (M4)', () => {
     const composite = abilitySpec('composite-magic-structures');
     const study = composite && 'grants' in composite ? (composite.grants[0]?.grants ?? []) : [];
     expect(study.filter((grant) => grant.type === 'magic_study')).toEqual([
-      { type: 'magic_study', scope: 'spell', max_cost: 4, path_code: 'arcanist' },
-      { type: 'magic_study', scope: 'non_spell', max_cost: 4, path_code: 'arcanist' },
+      { type: 'magic_study', paths: ['arcanist'], max_cost: 4 },
     ]);
     const overview = abilitySpec('magic-structure-overview');
     expect(overview && 'grants' in overview ? overview.grants[0]?.grants : []).toEqual([
@@ -412,21 +411,11 @@ describe('mockSpellImport (M4)', () => {
     expect(constructionGrants).toEqual([
       {
         type: 'magic_study',
-        scope: 'spell',
+        paths: ['arcanist'],
         max_cost: {
           type: 'to_scalar',
           value: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
         },
-        path_code: 'arcanist',
-      },
-      {
-        type: 'magic_study',
-        scope: 'non_spell',
-        max_cost: {
-          type: 'to_scalar',
-          value: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
-        },
-        path_code: 'arcanist',
       },
     ]);
     expect(byCode.get('magic-structure-interaction')?.description).toContain('бонус +2');

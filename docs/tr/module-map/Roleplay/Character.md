@@ -82,6 +82,7 @@
 | [character-plan-10.md](../../character-plan-10.md) | план | `~СДЕЛАНО~` | — |
 | [character-plan-11.md](../../character-plan-11.md) | план | `~СДЕЛАНО~` | 2026-10-28 |
 | [character-plan-12.md](../../character-plan-12.md) | план | `~СДЕЛАНО~` | 2026-10-07 |
+| [character-plan-13-path-study.md](../../character-plan-13-path-study.md) | план | `~СДЕЛАНО~` | 2026-11-09 |
 | [character-actual-session-source-roadmap.md](../../../specs/character-actual-session-source-roadmap.md) | план | ? | 2026-09-28 |
 | [character-system.md](../../character-system.md) | канон | ? | 2026-08-30 |
 
