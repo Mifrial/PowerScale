@@ -22,67 +22,17 @@ final class MapGeometryTest extends TestCase
     }
 
     /**
-     * Пересечение и касание отрезков.
+     * Разворот одного сегмента ленты с ручками Безье.
      *
      * @return void
      */
-    public function testSegmentsIntersect(): void
-    {
-        self::assertTrue($this->geometry->segmentsIntersect([0, 0], [10, 10], [0, 10], [10, 0]));
-        self::assertTrue($this->geometry->segmentsIntersect([0, 0], [10, 0], [5, 0], [5, 10]));
-        self::assertFalse($this->geometry->segmentsIntersect([0, 0], [10, 0], [0, 5], [10, 5]));
-    }
-
-    /**
-     * Расстояние между отрезками.
-     *
-     * @return void
-     */
-    public function testSegmentDistance(): void
-    {
-        self::assertSame(0.0, $this->geometry->segmentDistance([0, 0], [10, 10], [0, 10], [10, 0]));
-        self::assertSame(5.0, $this->geometry->segmentDistance([0, 0], [10, 0], [0, 5], [10, 5]));
-    }
-
-    /**
-     * Полилиния и полигон.
-     *
-     * @return void
-     */
-    public function testPolylineIntersectsPolygon(): void
-    {
-        $polygon = [[0, 0], [20, 0], [20, 20], [0, 20]];
-
-        self::assertTrue($this->geometry->polylineIntersectsPolygon([[10, 10]], $polygon));
-        self::assertTrue($this->geometry->polylineIntersectsPolygon([[-10, 10], [30, 10]], $polygon));
-        self::assertFalse($this->geometry->polylineIntersectsPolygon([[-10, -10], [-1, -1]], $polygon));
-    }
-
-    /**
-     * Полилиния и лента.
-     *
-     * @return void
-     */
-    public function testPolylineIntersectsRibbon(): void
-    {
-        self::assertTrue($this->geometry->polylineIntersectsRibbon([[10, 4], [10, 16]], [[0, 10], [20, 10]], [10, 10]));
-        self::assertFalse(
-            $this->geometry->polylineIntersectsRibbon([[10, 20], [10, 30]], [[0, 10], [20, 10]], [10, 10]),
-        );
-    }
-
-    /**
-     * Разворот ленты с ручками Безье.
-     *
-     * @return void
-     */
-    public function testFlattenRibbonWithHandles(): void
+    public function testRibbonSegmentWithHandles(): void
     {
         $handles = [
             ['in' => [0, 0], 'out' => [0, 100]],
             ['in' => [0, 100], 'out' => [0, 0]],
         ];
-        [$points, $widths] = $this->geometry->flattenRibbon([[0, 0], [100, 0]], $handles, [10, 20], 4);
+        [$points, $widths] = $this->geometry->ribbonSegment([[0, 0], [100, 0]], $handles, [10, 20], 1, 4);
 
         self::assertGreaterThan(2, count($points));
         self::assertSame([0, 0], $points[0]);
@@ -90,9 +40,17 @@ final class MapGeometryTest extends TestCase
         self::assertGreaterThan(0, $points[2][1]);
         self::assertSame(10, $widths[0]);
         self::assertSame(20, $widths[count($widths) - 1]);
-        self::assertTrue(
-            $this->geometry->polylineIntersectsRibbon([[50, 70], [50, 90]], $points, $widths),
-        );
+    }
+
+    /**
+     * Смещение индекса за пределы ленты даёт пустой сегмент.
+     *
+     * @return void
+     */
+    public function testRibbonSegmentRejectsUnknownIndex(): void
+    {
+        self::assertSame([[], []], $this->geometry->ribbonSegment([[0, 0], [100, 0]], [], [10, 20], 0, 4));
+        self::assertSame([[], []], $this->geometry->ribbonSegment([[0, 0], [100, 0]], [], [10, 20], 2, 4));
     }
 
     /**
