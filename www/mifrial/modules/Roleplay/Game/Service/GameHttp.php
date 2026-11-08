@@ -21,8 +21,6 @@ use Mifrial\Roleplay\Game\Dto\NewGameMember;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
-use Mifrial\Roleplay\Game\Interface\Service\IGameSessionRoster;
-use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 
 /**
  * HTTP строки игры. Карточку фильтрует visibility.
@@ -36,9 +34,8 @@ final class GameHttp
      * @param IGames $games Фасад.
      * @param GameWorldGate $worldGate Сверка кода мира.
      * @param GameViewAssembler $viewAssembler JSON.
-     * @param IGameSessionRoster $sessionRoster Признак сессии.
      * @param GameCardAccess $cardAccess Фильтр карточки.
-     * @param GameActionRepository $actions Открытый удар.
+     * @param GameSessionFacts $facts Открытые сессия, бой и удар.
      *
      * @return void
      */
@@ -47,9 +44,8 @@ final class GameHttp
         private readonly IGames $games,
         private readonly GameWorldGate $worldGate,
         private readonly GameViewAssembler $viewAssembler,
-        private readonly IGameSessionRoster $sessionRoster,
         private readonly GameCardAccess $cardAccess,
-        private readonly GameActionRepository $actions,
+        private readonly GameSessionFacts $facts,
     ) {
     }
 
@@ -122,7 +118,7 @@ final class GameHttp
             ? $this->games->getListByOwnerOrAll($actor->getUserId(), true)
             : $this->cardAccess->retainVisible($actor->getUserId());
         foreach ($records as $record) {
-            $rows[] = $this->viewAssembler->listItem($record, $this->sessionRoster->hasSession($record->getId()));
+            $rows[] = $this->viewAssembler->listItem($record, $this->facts->hasSession($record->getId()));
         }
 
         return $rows;
@@ -259,13 +255,13 @@ final class GameHttp
      */
     private function card(GameRecord $record): array
     {
-        $battle = $this->sessionRoster->findOpenBattle($record->getId());
+        $battle = $this->facts->openBattle($record->getId());
 
         return $this->viewAssembler->detail(
             $record,
-            $this->sessionRoster->hasSession($record->getId()),
+            $this->facts->hasSession($record->getId()),
             $battle,
-            $battle === null ? null : $this->actions->findOpenWithStrikes($battle->getId(), 'strike'),
+            $this->facts->openStrike($battle),
         );
     }
 

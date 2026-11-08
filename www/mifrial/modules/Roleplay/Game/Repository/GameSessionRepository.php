@@ -106,20 +106,27 @@ final class GameSessionRepository
      * @param int $gameId Игра.
      * @param array<int, int> $characterIds Снимок входа.
      *
-     * @return void
+     * @return int Id новой сессии.
      *
      * @throws GameSessionConflictException Если сессия этой игры уже есть.
      * @throws GameNotFoundException Если нет игры или персонажа.
      * @throws GameInvalidException Если поле.
      */
-    public function addSession(int $gameId, array $characterIds): void
+    public function addSession(int $gameId, array $characterIds): int
     {
-        $this->smartTableGateway->transaction(function () use ($gameId, $characterIds): void {
+        $sessionId = $this->smartTableGateway->transaction(function () use ($gameId, $characterIds): int {
             $sessionId = $this->insertSession($gameId);
             foreach ($characterIds as $characterId) {
                 $this->insertParticipant($sessionId, $characterId);
             }
+
+            return $sessionId;
         });
+        if (!is_int($sessionId)) {
+            throw new GameInvalidException('Game session was not stored');
+        }
+
+        return $sessionId;
     }
 
     /**

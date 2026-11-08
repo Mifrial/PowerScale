@@ -47,20 +47,20 @@ final class GameSessions
      *
      * @param int $gameId Игра.
      *
-     * @return void
+     * @return int Id открытой сессии.
      *
      * @throws GameNotFoundException Если игры или actual нет.
      * @throws GameInvalidException Если completed или snapshot не сравнивается.
      * @throws GameSessionConflictException Если сессия уже есть.
      */
-    public function start(int $gameId): void
+    public function start(int $gameId): int
     {
         $game = $this->requireOpenGame($gameId);
         if ($this->sessionRepository->findSessionId($gameId) !== null) {
             throw new GameSessionConflictException();
         }
 
-        $this->sessionRepository->addSession($gameId, $this->admitted($game));
+        return $this->sessionRepository->addSession($gameId, $this->admitted($game));
     }
 
     /**

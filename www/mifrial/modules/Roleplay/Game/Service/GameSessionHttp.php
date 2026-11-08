@@ -11,7 +11,6 @@ use Mifrial\Roleplay\Game\Dto\Action\GameSessionInput;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameSessionRoster;
-use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
 /**
  * HTTP старта и stop. Карточку не прячет через видимость game.get.
@@ -26,6 +25,7 @@ final class GameSessionHttp
      * @param GameSessions $sessions Старт и stop.
      * @param IGameSessionRoster $sessionRoster Признак сессии.
      * @param GameViewAssembler $viewAssembler JSON.
+     * @param GameCombatNotices $notices Заголовок сессии в чате.
      *
      * @return void
      */
@@ -35,7 +35,6 @@ final class GameSessionHttp
         private readonly GameSessions $sessions,
         private readonly IGameSessionRoster $sessionRoster,
         private readonly GameViewAssembler $viewAssembler,
-        private readonly GameSessionRepository $sessionRepository,
         private readonly GameCombatNotices $notices,
     ) {
     }
@@ -53,11 +52,8 @@ final class GameSessionHttp
     public function start(GameSessionInput $input): array
     {
         $actor = $this->assertEditor($input->gameId);
-        $this->sessions->start($input->gameId);
-        $sessionId = $this->sessionRepository->findSessionId($input->gameId);
-        if ($sessionId !== null) {
-            $this->notices->sessionOpened($this->games->get($input->gameId), $actor->getUserId(), $sessionId);
-        }
+        $sessionId = $this->sessions->start($input->gameId);
+        $this->notices->sessionOpened($this->games->get($input->gameId), $actor->getUserId(), $sessionId);
 
         return $this->card($input->gameId);
     }

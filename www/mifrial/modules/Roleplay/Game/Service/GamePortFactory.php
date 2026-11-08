@@ -78,9 +78,11 @@ final class GamePortFactory
             $this->create($serviceLocator),
             $this->worldGate($serviceLocator),
             new GameViewAssembler(),
-            $this->sessionRoster($serviceLocator),
             $this->cardAccess($serviceLocator),
-            new GameActionRepository($this->smartTableGateway($serviceLocator)),
+            new GameSessionFacts(
+                $this->sessionRoster($serviceLocator),
+                new GameActionRepository($this->smartTableGateway($serviceLocator)),
+            ),
         );
     }
 
@@ -200,15 +202,12 @@ final class GamePortFactory
      */
     public function createSessionHttp(IServiceLocator $serviceLocator): GameSessionHttp
     {
-        $gateway = $this->smartTableGateway($serviceLocator);
-
         return new GameSessionHttp(
             $this->userAccess($serviceLocator),
             $this->create($serviceLocator),
             $this->sessions($serviceLocator),
             $this->sessionRoster($serviceLocator),
             new GameViewAssembler(),
-            new GameSessionRepository($gateway),
             new GameCombatNotices($this->chatPorts($serviceLocator)->chats()),
         );
     }
