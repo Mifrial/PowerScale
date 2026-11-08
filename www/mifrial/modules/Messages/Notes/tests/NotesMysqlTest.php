@@ -70,6 +70,25 @@ final class NotesMysqlTest extends TestCase
     }
 
     /**
+     * Снимает `note`: её FK на `user` мешает соседним наборам
+     * пересоздавать таблицу пользователя через UserMysqlTables::drop.
+     *
+     * @return void
+     */
+    protected function tearDown(): void
+    {
+        $gateway = $this->smartTableGateway;
+        if (!$gateway instanceof ISmartTableGateway) {
+            return;
+        }
+
+        $noteSchema = $gateway->open(NoteTable::class)->schema();
+        if ($noteSchema->exists()) {
+            $noteSchema->deleteTable();
+        }
+    }
+
+    /**
      * CRUD одной заметки и производный body_text.
      *
      * @return void
