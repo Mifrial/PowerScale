@@ -124,8 +124,32 @@ final class GameEconomyOperationRepository
         array $body,
         array $result,
     ): GameEconomyOperationRecord {
+        $id = $this->insert($gameId, $idempotencyKey, $body, $result);
+        $stored = $this->findByKey($gameId, $idempotencyKey);
+        if (!$stored instanceof GameEconomyOperationRecord || $stored->getId() !== $id) {
+            throw new GameInvalidException('Economy operation was not stored');
+        }
+
+        return $stored;
+    }
+
+    /**
+     * Вставляет строку операции.
+     *
+     * @param int $gameId Игра.
+     * @param string $idempotencyKey Ключ.
+     * @param array<string, mixed> $body Тело.
+     * @param array<string, mixed> $result Итог.
+     *
+     * @return int Id строки.
+     *
+     * @throws GameEconomyConflictException Если ключ уже есть.
+     * @throws GameInvalidException Если поле.
+     */
+    private function insert(int $gameId, string $idempotencyKey, array $body, array $result): int
+    {
         try {
-            $id = $this->operationRecords->add([
+            return $this->operationRecords->add([
                 'game_id' => $gameId,
                 'idempotency_key' => $idempotencyKey,
                 'body' => $body,
@@ -141,13 +165,6 @@ final class GameEconomyOperationRepository
         ) {
             throw new GameInvalidException('Economy operation field is invalid', $exception);
         }
-
-        $stored = $this->findByKey($gameId, $idempotencyKey);
-        if (!$stored instanceof GameEconomyOperationRecord || $stored->getId() !== $id) {
-            throw new GameInvalidException('Economy operation was not stored');
-        }
-
-        return $stored;
     }
 
     /**

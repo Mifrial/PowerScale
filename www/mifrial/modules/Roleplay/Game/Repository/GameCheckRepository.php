@@ -49,36 +49,21 @@ final class GameCheckRepository
      */
     public function findByProcess(int $processId): ?array
     {
-        $result = $this->checkRecords->getList(new ListQuery(
-            new FilterGroup('AND', [
-                new FilterCondition('process_id', '=', $processId),
-            ]),
-            ['id' => 'ASC'],
-            1,
-            0,
-            false,
-            null,
-        ));
-        $rows = $result->rows();
-        if ($rows === []) {
+        $row = $this->rows([new FilterCondition('process_id', '=', $processId)], 1)[0] ?? null;
+        if ($row === null) {
             return null;
         }
 
-        $row = $rows[0];
-        if (!is_string($row['rule_code'] ?? null)) {
+        $ruleCode = $row['rule_code'] ?? null;
+        if (!is_string($ruleCode)) {
             throw new GameInvalidException('Game check row is invalid');
         }
 
-        $asked = null;
-        if (is_int($row['asked_base'] ?? null) && is_int($row['asked_size'] ?? null)) {
-            $asked = ['base' => $row['asked_base'], 'size' => $row['asked_size']];
-        }
-
         return [
-            'ruleCode' => $row['rule_code'],
+            'ruleCode' => $ruleCode,
             'mode' => is_string($row['mode'] ?? null) ? $row['mode'] : 'solo',
             'offer' => is_string($row['offer'] ?? null) ? $row['offer'] : 'accepted',
-            'asked' => $asked,
+            'asked' => $this->askedOf($row),
             'targetType' => is_string($row['target_type'] ?? null) ? $row['target_type'] : null,
             'targetId' => is_int($row['target_id'] ?? null) ? $row['target_id'] : null,
             'proposal' => is_array($row['proposal'] ?? null) ? $row['proposal'] : null,
@@ -108,34 +93,9 @@ final class GameCheckRepository
             $conditions[] = new FilterCondition('target_id', '=', $entity['id']);
         }
 
-        $result = $this->checkRecords->getList(new ListQuery(
-            new FilterGroup('AND', $conditions),
-            ['id' => 'ASC'],
-            ListQuery::MAX_LIMIT,
-            0,
-            false,
-            null,
-        ));
-
         $rows = [];
-        foreach ($result->rows() as $row) {
-            if (!is_int($row['process_id'] ?? null)) {
-                throw new GameInvalidException('Game check row is invalid');
-            }
-
-            $asked = null;
-            if (is_int($row['asked_base'] ?? null) && is_int($row['asked_size'] ?? null)) {
-                $asked = ['base' => $row['asked_base'], 'size' => $row['asked_size']];
-            }
-
-            $rows[] = [
-                'processId' => $row['process_id'],
-                'ruleCode' => is_string($row['rule_code'] ?? null) ? $row['rule_code'] : '',
-                'asked' => $asked,
-                'targetType' => is_string($row['target_type'] ?? null) ? $row['target_type'] : null,
-                'targetId' => is_int($row['target_id'] ?? null) ? $row['target_id'] : null,
-                'proposal' => is_array($row['proposal'] ?? null) ? $row['proposal'] : null,
-            ];
+        foreach ($this->rows($conditions, ListQuery::MAX_LIMIT) as $row) {
+            $rows[] = $this->pendingRow($row);
         }
 
         return $rows;
@@ -232,27 +192,63 @@ final class GameCheckRepository
      */
     public function deleteBySession(int $sessionId): void
     {
-        $result = $this->checkRecords->getList(new ListQuery(
-            new FilterGroup('AND', [
-                new FilterCondition('session_id', '=', $sessionId),
-            ]),
-            ['id' => 'ASC'],
-            ListQuery::MAX_LIMIT,
-            0,
-            false,
-            null,
-        ));
-        foreach ($result->rows() as $row) {
-            if (!is_int($row['id'] ?? null)) {
+        $rows = $this->rows([new FilterCondition('session_id', '=', $sessionId)], ListQuery::MAX_LIMIT);
+        foreach ($rows as $row) {
+            $rowId = $row['id'] ?? null;
+            if (!is_int($rowId)) {
                 throw new GameInvalidException('Game check row is invalid');
             }
 
             try {
-                $this->checkRecords->delete($row['id']);
+                $this->checkRecords->delete($rowId);
             } catch (RowNotFoundException $exception) {
                 throw new GameNotFoundException('Game check was not found', $exception);
             }
         }
+    }
+
+    /**
+     * Строка ожидающего предложения.
+     *
+     * @param array<string, mixed> $row Строка ST.
+     *
+     * @return array<string, mixed> Пара.
+     *
+     * @throws GameInvalidException Если process_id битый.
+     */
+    private function pendingRow(array $row): array
+    {
+        $processId = $row['process_id'] ?? null;
+        if (!is_int($processId)) {
+            throw new GameInvalidException('Game check row is invalid');
+        }
+
+        return [
+            'processId' => $processId,
+            'ruleCode' => is_string($row['rule_code'] ?? null) ? $row['rule_code'] : '',
+            'asked' => $this->askedOf($row),
+            'targetType' => is_string($row['target_type'] ?? null) ? $row['target_type'] : null,
+            'targetId' => is_int($row['target_id'] ?? null) ? $row['target_id'] : null,
+            'proposal' => is_array($row['proposal'] ?? null) ? $row['proposal'] : null,
+        ];
+    }
+
+    /**
+     * Размер пары asked или null.
+     *
+     * @param array<string, mixed> $row Строка ST.
+     *
+     * @return array{base: int, size: int}|null Пара или null.
+     */
+    private function askedOf(array $row): ?array
+    {
+        $base = $row['asked_base'] ?? null;
+        $size = $row['asked_size'] ?? null;
+        if (!is_int($base) || !is_int($size)) {
+            return null;
+        }
+
+        return ['base' => $base, 'size' => $size];
     }
 
     /**
@@ -268,23 +264,14 @@ final class GameCheckRepository
      */
     private function updateByProcess(int $processId, array $fields): void
     {
-        $result = $this->checkRecords->getList(new ListQuery(
-            new FilterGroup('AND', [
-                new FilterCondition('process_id', '=', $processId),
-            ]),
-            ['id' => 'ASC'],
-            1,
-            0,
-            false,
-            null,
-        ));
-        $row = $result->rows()[0] ?? null;
-        if (!is_array($row) || !is_int($row['id'] ?? null)) {
+        $row = $this->rows([new FilterCondition('process_id', '=', $processId)], 1)[0] ?? null;
+        $rowId = $row['id'] ?? null;
+        if (!is_int($rowId)) {
             throw new GameNotFoundException('Game check was not found');
         }
 
         try {
-            $this->checkRecords->update($row['id'], $fields);
+            $this->checkRecords->update($rowId, $fields);
         } catch (RowNotFoundException $exception) {
             throw new GameNotFoundException('Game check was not found', $exception);
         } catch (
@@ -295,5 +282,27 @@ final class GameCheckRepository
         ) {
             throw new GameInvalidException('Game check field is invalid', $exception);
         }
+    }
+
+    /**
+     * Страница строк по фильтру.
+     *
+     * @param array<int, FilterGroup|FilterCondition> $conditions Условия через AND.
+     * @param int $limit Предел страницы.
+     *
+     * @return array<int, array<string, mixed>> Строки.
+     */
+    private function rows(array $conditions, int $limit): array
+    {
+        $result = $this->checkRecords->getList(new ListQuery(
+            new FilterGroup('AND', $conditions),
+            ['id' => 'ASC'],
+            $limit,
+            0,
+            false,
+            null,
+        ));
+
+        return $result->rows();
     }
 }
