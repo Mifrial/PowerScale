@@ -4,7 +4,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
-import { useCurrentUser } from '@/modules/Core/User/init';
+import { displayName, useCurrentUser, useUserCatalog } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
 import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_OPTIONS';
@@ -13,6 +13,7 @@ import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/Characte
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { useCharacterCardDraft } from '@/modules/Roleplay/Character/Composables/useCharacterCardDraft';
 import { characterChangePort, getCharacterApi, getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
+import type { CharacterDetail } from '@/modules/Roleplay/Character/Dto/CharacterDetail';
 import { sheetAccessService } from '@/modules/Roleplay/Character/Service/Instance/sheetAccessService';
 import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
@@ -24,6 +25,7 @@ const router = useRouter();
 const store = useCharacterStore();
 const draftStore = useCharacterDraftStore();
 const { currentUser } = useCurrentUser();
+const { users, ensureUsers } = useUserCatalog();
 const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 const detail = computed(() => store.currentCharacter);
@@ -42,11 +44,19 @@ const characterId = computed(() => {
   return Number(raw);
 });
 
+function canViewDetail(current: CharacterDetail): boolean {
+  // Backend уже отдал разрешённые секции; повторная клиентская фильтрация по пустому visibility
+  // ошибочно закрывала бы чужой лист, выданный зрителю.
+  if (current.visibleSections && current.visibleSections.length > 0) return true;
+
+  return characterAccessService.canViewCharacter(currentUser.value, current.character);
+}
+
 const canView = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return characterAccessService.canViewCharacter(currentUser.value, current.character);
+  return canViewDetail(current);
 });
 
 const canEdit = computed(() => {
@@ -102,8 +112,11 @@ async function saveOwnerNotes(text: string): Promise<void> {
 // иначе — по зонам. Полный доступ → обычные вкладки; частичный → ограниченный вид.
 const visibleSections = computed(() => {
   const current = detail.value;
+  if (!current) return [];
+  if (current.visibleSections) return current.visibleSections;
+
   const user = currentUser.value;
-  if (!current || !user) return [];
+  if (!user) return [];
 
   const ctx: SheetAccessContext = {
     user,
@@ -124,6 +137,27 @@ const statusLabel = computed(() => {
   if (!current) return '';
 
   return CHARACTER_STATUS_OPTIONS.find((option) => option.value === current.status)?.label ?? current.status;
+});
+
+const ownerName = computed(() => {
+  const current = detail.value?.character;
+  if (!current) return '';
+  if (current.ownerName) return current.ownerName;
+
+  const owner = users.value.find((user) => user.id === current.ownerId);
+
+  return owner ? displayName(owner.name, owner.surname, owner.login) || owner.login : '';
+});
+
+const raceLabel = computed(() => {
+  const current = detail.value;
+  if (!current) return null;
+  if (current.character.raceLabel) return current.character.raceLabel;
+
+  const code = current.version.raceRuleCode;
+  if (!code) return null;
+
+  return rules.value.find((rule) => rule.code === code)?.name ?? null;
 });
 
 const revisionHref = computed(() => {
@@ -154,8 +188,9 @@ async function load(): Promise<void> {
   externalChangePending.value = false;
   store.clearCurrent();
   const loaded = await store.fetchCharacter(id, signal.value);
-  if (loaded && !characterAccessService.canViewCharacter(currentUser.value, loaded.character)) {
-    router.replace({ name: 'NotFound' });
+  if (loaded) {
+    void ensureUsers([loaded.character.ownerId]);
+    if (!canViewDetail(loaded)) router.replace({ name: 'NotFound' });
   }
 }
 
@@ -286,9 +321,7 @@ watch(detail, (value) => {
       <div class="d-flex align-center mb-4">
         <div class="d-flex flex-column ga-1">
           <div class="d-flex align-center ga-2">
-            <v-chip v-if="detail.character.raceLabel" variant="tonal" size="small">{{
-              detail.character.raceLabel
-            }}</v-chip>
+            <v-chip v-if="raceLabel" variant="tonal" size="small">{{ raceLabel }}</v-chip>
             <h1 class="text-h5">{{ detail.character.name }}</h1>
           </div>
           <div class="d-flex align-center ga-2 flex-wrap">
@@ -305,7 +338,7 @@ watch(detail, (value) => {
             >
               {{ revisionLabel }}
             </v-btn>
-            <span class="text-caption text-medium-emphasis">владелец: {{ detail.character.ownerName }}</span>
+            <span class="text-caption text-medium-emphasis">владелец: {{ ownerName || '—' }}</span>
             <v-chip v-if="detail.character.gameName" variant="tonal" size="small" prepend-icon="mdi-dice-multiple">
               {{ detail.character.gameName }}
             </v-chip>

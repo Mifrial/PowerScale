@@ -2,6 +2,7 @@ import type { Character } from '@/modules/Roleplay/Character/Dto/Character';
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
 import type { CharacterDetail } from '@/modules/Roleplay/Character/Dto/CharacterDetail';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
 import type { CharacteristicValue } from '@/modules/Roleplay/Character/Dto/CharacteristicValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
@@ -50,6 +51,7 @@ export class CharacterHttpViewService {
       discussionChatId: null,
       previousVersion: null,
       ownerNotes: typeof record.ownerNotes === 'string' ? record.ownerNotes : undefined,
+      visibleSections: Array.isArray(record.visibleSections) ? (record.visibleSections as SheetSection[]) : undefined,
     };
   }
 
@@ -75,17 +77,17 @@ export class CharacterHttpViewService {
       active,
       ownerId: this.intOf(record.ownerId),
       ownerName: this.stringOf(record.ownerName),
-      raceId: null,
-      raceLabel: null,
-      gameId: null,
-      gameName: null,
+      raceId: typeof record.raceId === 'number' ? record.raceId : null,
+      raceLabel: this.nullableStringOf(record.raceLabel),
+      gameId: typeof record.gameId === 'number' ? record.gameId : null,
+      gameName: this.nullableStringOf(record.gameName),
       spaceId: this.intOf(record.spaceId),
       spaceCode: this.stringOf(record.spaceCode),
       rulesRevision: this.intOf(record.revision ?? record.rulesRevision),
       shortDescription: this.nullableStringOf(choices.shortDescription ?? record.shortDescription),
       currentPoints: { os: 0, ol: 0, or: null },
       visibility: [],
-      discussionChatId: null,
+      discussionChatId: typeof record.discussionChatId === 'number' ? record.discussionChatId : null,
     };
   }
 

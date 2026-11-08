@@ -6,7 +6,9 @@ namespace Mifrial\Roleplay\Character\Service\Read;
 
 use Mifrial\Roleplay\Character\Dto\CharacterOpening;
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\CharacterViewerRecord;
+use Mifrial\Roleplay\Character\Enum\CharacterSheetSection;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\Runtime\Character;
@@ -41,13 +43,18 @@ final class CharacterViewAssembler
      */
     public function listItem(CharacterRecord $record): array
     {
+        $choices = $record->getChoices();
+        $shortDescription = $choices['shortDescription'] ?? null;
+
         return [
             'id' => $record->getId(),
             'name' => $record->getName(),
             'ownerId' => $record->getOwnerId(),
+            'status' => $record->isActive() ? 'ready' : 'draft',
             'spaceId' => $record->getSpaceId(),
             'revision' => $record->getRulesRevision(),
             'active' => $record->isActive(),
+            'shortDescription' => is_string($shortDescription) ? $shortDescription : null,
         ];
     }
 
@@ -61,17 +68,16 @@ final class CharacterViewAssembler
     public function detail(CharacterOpening $opening): array
     {
         $record = $opening->getRecord();
-        $sheet = Character::fromRecord(
-            $record,
-            $this->ruleSlices->get($record->getSpaceId(), $record->getRulesRevision()),
-            $this->sheets,
-        )->getSheet();
+        $slice = $this->ruleSlices->get($record->getSpaceId(), $record->getRulesRevision());
+        $sheet = Character::fromRecord($record, $slice, $this->sheets)->getSheet();
         $view = $this->listItem($record);
+        $view['spaceCode'] = $slice->getSpaceCode();
+        $view['visibleSections'] = $opening->getSections();
+        $view['raceLabel'] = $this->raceLabel($slice, $record->getChoices(), $opening);
         if ($opening->isForOwner()) {
             return $view + $this->ownerFields($opening, $record, $sheet);
         }
 
-        $view['visibleSections'] = $opening->getSections();
         if ($opening->hasFullSheet()) {
             $view['choices'] = $record->getChoices();
             $view['sheet'] = $sheet;
@@ -84,6 +90,33 @@ final class CharacterViewAssembler
         $view['sheet'] = $masked['sheet'];
 
         return $view;
+    }
+
+    /**
+     * Подпись расы из среза ревизии, если секция выдана зрителю.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $choices Выборы.
+     * @param CharacterOpening $opening Доступ.
+     *
+     * @return string|null Название или null.
+     */
+    private function raceLabel(CharacterRuleSlice $slice, array $choices, CharacterOpening $opening): ?string
+    {
+        $sections = $opening->getSections();
+        $allowed = $opening->isForOwner()
+            || $opening->hasFullSheet()
+            || in_array(CharacterSheetSection::Race->value, $sections, true);
+        if (!$allowed) {
+            return null;
+        }
+
+        $code = $choices['raceCode'] ?? null;
+        if (!is_string($code) || $code === '') {
+            return null;
+        }
+
+        return $slice->findLive($code)?->getName();
     }
 
     /**

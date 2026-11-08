@@ -57,6 +57,30 @@ final class CharacterSectionMaskTest extends TestCase
     }
 
     /**
+     * Состояния и чувства не теряются, когда секция выдана.
+     *
+     * @return void
+     */
+    public function testMaskKeepsStatesAndSenses(): void
+    {
+        $mask = new CharacterSectionMask();
+        $masked = $mask->apply(
+            [],
+            [
+                'states' => [['id' => 1, 'stateRuleCode' => 'stunned']],
+                'senses' => [['ruleCode' => 'sight']],
+                'characteristics' => [],
+            ],
+            ['states'],
+        );
+
+        self::assertSame([
+            'states' => [['id' => 1, 'stateRuleCode' => 'stunned']],
+            'senses' => [['ruleCode' => 'sight']],
+        ], $masked['sheet']);
+    }
+
+    /**
      * JSON чужого без заметок и закрытых ключей.
      *
      * @return void
@@ -92,6 +116,9 @@ final class CharacterSectionMaskTest extends TestCase
         $view = $assembler->detail(new CharacterOpening($record, false, ['inventory'], []));
 
         self::assertSame('Hero', $view['name']);
+        self::assertSame('world', $view['spaceCode']);
+        self::assertSame('ready', $view['status']);
+        self::assertNull($view['raceLabel']);
         self::assertSame(['inventory'], $view['visibleSections']);
         self::assertSame(['inventory' => []], $view['choices']);
         self::assertArrayNotHasKey('ownerNotes', $view);
@@ -137,6 +164,7 @@ final class CharacterSectionMaskTest extends TestCase
         );
 
         self::assertSame(CharacterSheetSection::codes(), $view['visibleSections']);
+        self::assertSame('world', $view['spaceCode']);
         self::assertSame($record->getChoices(), $view['choices']);
         self::assertArrayNotHasKey('ownerNotes', $view);
         self::assertArrayNotHasKey('viewers', $view);

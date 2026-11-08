@@ -298,6 +298,49 @@ describe('CharacterHttpViewService.materialize', () => {
   });
 });
 
+describe('CharacterHttpViewService.detailOf', () => {
+  it('переносит метаданные и разрешённые секции из плоского PHP-ответа', () => {
+    const detail = characterHttpViewService.detailOf({
+      id: 3,
+      name: 'Воюн',
+      ownerId: 7,
+      ownerName: 'Игрок',
+      status: 'draft',
+      spaceId: 1,
+      spaceCode: 'world',
+      revision: 4,
+      active: false,
+      raceLabel: 'Эльф',
+      shortDescription: 'Кратко',
+      visibleSections: ['states', 'characteristics'],
+      choices: { name: 'Воюн', raceCode: 'elf' },
+      sheet: { states: [{ id: 1, stateRuleCode: 'stunned' }] },
+    });
+
+    expect(detail.character.ownerName).toBe('Игрок');
+    expect(detail.character.status).toBe('draft');
+    expect(detail.character.spaceCode).toBe('world');
+    expect(detail.character.raceLabel).toBe('Эльф');
+    expect(detail.character.shortDescription).toBe('Кратко');
+    expect(detail.visibleSections).toEqual(['states', 'characteristics']);
+    expect(detail.version.states).toEqual([{ id: 1, stateRuleCode: 'stunned' }]);
+  });
+
+  it('не подменяет отсутствующие секции пустым списком', () => {
+    const detail = characterHttpViewService.detailOf({
+      id: 3,
+      name: 'Воюн',
+      spaceId: 1,
+      revision: 4,
+      active: true,
+      choices: { name: 'Воюн' },
+      sheet: {},
+    });
+
+    expect(detail.visibleSections).toBeUndefined();
+  });
+});
+
 describe('CharacterHttpViewService.migratedDetailOf', () => {
   it('conflicts бросает CHARACTER_INVALID с текстами problems', () => {
     expect(() =>

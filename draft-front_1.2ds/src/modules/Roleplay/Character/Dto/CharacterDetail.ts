@@ -1,9 +1,12 @@
 import type { Character } from '@/modules/Roleplay/Character/Dto/Character';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
 
 export interface CharacterDetail {
   character: Character;
   version: CharacterVersion;
+  /** Секции, которые backend разрешил текущему зрителю. Источник истины для показа листа. */
+  visibleSections?: SheetSection[];
   /** Технический CAS-счётчик actual-строки; не является версией листа. */
   actualVersion: number;
   /** Дубль `character.discussionChatId` для вкладок карточки; источник истины — поле списка. */

@@ -13,6 +13,8 @@ import MiscTile from '@/modules/Roleplay/Character/Component/Detail/Resources/Mi
 import AttackTile from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue';
 import DefenseValue from '@/modules/Roleplay/Character/Component/Detail/Defense/DefenseValue.vue';
 import ArmorTile from '@/modules/Roleplay/Character/Component/Detail/Defense/ArmorTile.vue';
+import StateTile from '@/modules/Roleplay/Character/Component/Detail/States/StateTile.vue';
+import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 
 const props = defineProps<{
@@ -142,14 +144,15 @@ function attackKey(attack: AttackOverview): string {
         </v-expansion-panel-text>
       </v-expansion-panel>
 
-      <v-expansion-panel v-if="overview.states.length" value="states">
+      <v-expansion-panel value="states">
         <v-expansion-panel-title>Состояния</v-expansion-panel-title>
         <v-expansion-panel-text>
-          <v-row dense>
+          <v-row v-if="overview.states.length" dense>
             <v-col v-for="state in overview.states" :key="state.id" cols="6" sm="4" md="3">
               <StateTile :state="state" />
             </v-col>
           </v-row>
+          <div v-else class="text-medium-emphasis">Состояний нет</div>
         </v-expansion-panel-text>
       </v-expansion-panel>
 
