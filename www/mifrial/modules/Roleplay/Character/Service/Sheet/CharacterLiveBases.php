@@ -9,7 +9,9 @@ use Mifrial\Roleplay\Character\Dto\CharacterPurchasedCharacteristic;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\CharacterValidation;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityGrantReader;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterGrantParameters;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicGrant;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicParameterGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Race\RaceSpec;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
@@ -23,11 +25,13 @@ final class CharacterLiveBases
      * Создаёт расчёт баз.
      *
      * @param CharacterAbilityGrantReader $grantReader Гранты способностей.
+     * @param CharacterGrantParameters $parameters Параметры формул грантов.
      *
      * @return void
      */
     public function __construct(
         private readonly CharacterAbilityGrantReader $grantReader,
+        private readonly CharacterGrantParameters $parameters,
     ) {
     }
 
@@ -73,6 +77,13 @@ final class CharacterLiveBases
             $body = $grant->getGrant();
             if ($body instanceof CharacteristicGrant) {
                 $bases[$body->getCharacteristicCode()] = $body->getValue();
+                continue;
+            }
+
+            if ($body instanceof CharacteristicParameterGrant) {
+                $values = $this->parameters->forGrant($slice, $choices, $grant);
+                $value = $values[$body->getParameterCode()] ?? 0;
+                $bases[$body->getCharacteristicCode()] = new CharacteristicNumber($value * $body->getPerUnit(), 0);
             }
         }
 

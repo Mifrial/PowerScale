@@ -200,6 +200,52 @@ final class CharacterPathStudyTest extends TestCase
     }
 
     /**
+     * Опыт пути считает и карточки с признаком пути, а не только с доменом.
+     *
+     * @return void
+     */
+    public function testExperienceCountsPathKeywordCards(): void
+    {
+        $slice = $this->slice([
+            $this->rule('arcanist', 'magic_path', []),
+            $this->rule('becoming-arcanist', 'ability', [
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+            ], ['arcanist']),
+            $this->studyCard('discharge', 1),
+        ]);
+        $choices = new CharacterChoices('Имя', 'human', [
+            $this->ability('becoming-arcanist', 1),
+            $this->ability('discharge', 1, 'arcanist'),
+        ], [], [], [], true);
+        $experience = (new CharacterStudyPaths())->experience(
+            $slice,
+            $choices,
+            ['becoming-arcanist' => 1, 'discharge' => 1],
+        );
+
+        self::assertSame(3, $experience['arcanist']);
+    }
+
+    /**
+     * Карточка с доменом и признаком пути не считается дважды.
+     *
+     * @return void
+     */
+    public function testExperienceDoesNotDoubleCountOneCard(): void
+    {
+        $slice = $this->slice([
+            $this->rule('arcanist', 'magic_path', []),
+            $this->studyCard('discharge', 2, ['arcanist']),
+        ]);
+        $choices = new CharacterChoices('Имя', 'human', [
+            $this->ability('discharge', 1, 'arcanist'),
+        ], [], [], [], true);
+        $experience = (new CharacterStudyPaths())->experience($slice, $choices, ['discharge' => 1]);
+
+        self::assertSame(2, $experience['arcanist']);
+    }
+
+    /**
      * Новая покупка без выполненных требований отклоняется, изученная — нет.
      *
      * @return void
@@ -283,16 +329,17 @@ final class CharacterPathStudyTest extends TestCase
      *
      * @param string $code Код.
      * @param int|array<int, int> $cost Цена первого уровня или лестница цен.
+     * @param array<int, string> $keywords Признаки.
      *
      * @return CharacterResolvedRule Правило.
      */
-    private function studyCard(string $code, int|array $cost): CharacterResolvedRule
+    private function studyCard(string $code, int|array $cost, array $keywords = []): CharacterResolvedRule
     {
         return $this->rule($code, 'ability', [
             'domain_ref' => 'magic-path',
             'study' => ['paths' => 'any'],
             'zones' => ['or' => ['kind' => 'array', 'levels_cost' => is_int($cost) ? [$cost] : $cost]],
-        ]);
+        ], $keywords);
     }
 
     /**
@@ -334,14 +381,15 @@ final class CharacterPathStudyTest extends TestCase
      * @param string $code Код.
      * @param string $type Тип.
      * @param array<string, mixed> $spec Документ.
+     * @param array<int, string> $keywords Признаки.
      *
      * @return CharacterResolvedRule Правило.
      */
-    private function rule(string $code, string $type, array $spec): CharacterResolvedRule
+    private function rule(string $code, string $type, array $spec, array $keywords = []): CharacterResolvedRule
     {
         return new CharacterResolvedRule(
             new RuleVersionRecord(10, 1, $code, true, $type, $code, '', $spec, [], [], 'needs_work', '', DateTime::now()),
-            [],
+            $keywords,
         );
     }
 

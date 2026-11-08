@@ -8,6 +8,7 @@ import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import TreeSelectFilter from '@/modules/Core/UI/Component/FilterBar/handlers/TreeSelectFilter.vue';
 import VirtualList from '@/modules/Core/UI/Component/VirtualList.vue';
 import DevelopmentAbilityNode from '@/modules/Roleplay/Character/Component/Editor/DevelopmentAbilityNode.vue';
+import EditorRequirementChainDialog from '@/modules/Roleplay/Character/Component/Editor/EditorRequirementChainDialog.vue';
 import { isAcquiredAbility } from '@/modules/Roleplay/Character/Utils/developmentCategory';
 import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
 import type { FilterOptionValue } from '@/modules/Core/UI/Dto/Filter/Values/FilterOptionValue';
@@ -35,6 +36,15 @@ const draftStore = useCharacterDraftStore();
 
 const availableOnly = ref(false);
 const acquiredOnly = ref(false);
+/** Цепочка требований: способность, для которой пользователь раскрыл предпосылки. */
+const requirementTarget = ref<EditorAbility | null>(null);
+
+const requirementTargetOpen = computed({
+  get: () => requirementTarget.value !== null,
+  set: (value: boolean) => {
+    if (!value) requirementTarget.value = null;
+  },
+});
 /** Раскрытые панели навыков (переживают ремаунты строк виртуализации). */
 const openSet = ref<Set<string>>(new Set());
 
@@ -225,6 +235,14 @@ function setLevel(ruleCode: string, level: number): void {
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
+function openRequirementChain(ability: EditorAbility): void {
+  requirementTarget.value = ability;
+}
+
+function buyRequirement(ruleCode: string, level: number): void {
+  setLevel(ruleCode, level);
+}
+
 function setParameter(ruleCode: string, code: string, value: number | { base: number; size: number }): void {
   const next = characterBuildService.setAbilityParameter(props.build, ruleCode, code, value, props.rules);
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
@@ -350,7 +368,9 @@ function setAbilityDomain(ruleCode: string, domain: string, domainCode: string |
         :keywords="keywords"
         :rules="rules"
         :open-set="effectiveOpenSet"
+        requirement-links
         @update:open="setOpen"
+        @show-requirements="openRequirementChain"
         @set-parameter="setParameter"
         @set-level="setLevel"
         @add-instance="addInstance"
@@ -360,6 +380,14 @@ function setAbilityDomain(ruleCode: string, domain: string, domainCode: string |
         @set-ability-domain="setAbilityDomain"
       />
     </VirtualList>
+
+    <EditorRequirementChainDialog
+      v-model="requirementTargetOpen"
+      :ability="requirementTarget"
+      :abilities="model.abilities"
+      zone-code="or"
+      @buy="buyRequirement"
+    />
   </div>
 </template>
 

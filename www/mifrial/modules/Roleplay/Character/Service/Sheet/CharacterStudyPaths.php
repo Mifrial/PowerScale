@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Character\Service\Sheet;
 
 use Mifrial\Roleplay\Character\Dto\CharacterAbilityChoice;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
+use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityBase;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterSpecReader;
@@ -113,7 +114,8 @@ final class CharacterStudyPaths
     }
 
     /**
-     * Опыт каждого пути: стоимость изученных карточек на самом пути и включённых путях.
+     * Опыт каждого пути: стоимость активных карточек с доменом этого пути
+     * или признаком пути, включая включённые пути.
      *
      * @param CharacterRuleSlice $slice Срез.
      * @param CharacterChoices $choices Выборы.
@@ -134,25 +136,61 @@ final class CharacterStudyPaths
                 continue;
             }
 
-            $entry = $this->studied($slice, $ability);
-            if ($entry === null) {
+            $rule = $slice->findLive($ability->getRuleCode());
+            if ($rule === null || $rule->isSpecBroken()) {
                 continue;
             }
 
-            [$base, $path] = $entry;
+            $base = CharacterAbilityBase::of($rule->getSpec());
+            if ($base === null) {
+                continue;
+            }
+
             $cost = $this->cost->toLevel($base, $level, $ability->getParameters()) ?? 0;
             if ($cost === 0) {
                 continue;
             }
 
+            $paths = $this->marks($ability, $rule);
+            if ($paths === []) {
+                continue;
+            }
+
             foreach ($experience as $owner => $value) {
-                if ($this->reaches($slice, $owner, $path)) {
-                    $experience[$owner] = $value + $cost;
+                foreach ($paths as $path) {
+                    if ($this->reaches($slice, $owner, $path)) {
+                        $experience[$owner] = $value + $cost;
+                        break;
+                    }
                 }
             }
         }
 
         return $experience;
+    }
+
+    /**
+     * Домен экземпляра и признаки правила, совпадающие с кодами путей.
+     *
+     * @param CharacterAbilityChoice $ability Выбор.
+     * @param CharacterResolvedRule $rule Правило.
+     *
+     * @return array<int, string> Коды.
+     */
+    private function marks(CharacterAbilityChoice $ability, CharacterResolvedRule $rule): array
+    {
+        $marks = [];
+        if ($ability->getDomainCode() !== '') {
+            $marks[] = $ability->getDomainCode();
+        }
+
+        foreach ($rule->getKeywordCodes() as $code) {
+            if (!in_array($code, $marks, true)) {
+                $marks[] = $code;
+            }
+        }
+
+        return $marks;
     }
 
     /**

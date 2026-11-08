@@ -5,6 +5,13 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import { PISMENNOST_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/PISMENNOST_ABILITY_CODE';
 
+/** Невыполненное требование-способность: код, нужный уровень и подпись. */
+export interface UnmetAbility {
+  abilityCode: string;
+  minLevel: number;
+  label: string;
+}
+
 /**
  * Оценивает требования способностей (Requirement) против снимка персонажа.
  * Список требований = неявное И; явная логика — рекурсивные группы and/or.
@@ -31,6 +38,46 @@ export class RequirementEvaluator {
     const reasons = this.failureReasons(requirements, snapshot, domainContext);
 
     return reasons.length === 0 ? null : reasons.join('; ');
+  }
+
+  /**
+   * Невыполненные требования-способности списка. В `or` возвращаются все
+   * альтернативы: любую из них достаточно купить.
+   */
+  unmetAbilities(requirements: Requirement[], snapshot: CharacterSnapshot, domainContext?: string): UnmetAbility[] {
+    const result: UnmetAbility[] = [];
+    const seen = new Set<string>();
+    const add = (code: string, minLevel: number): void => {
+      const key = `${code}:${minLevel}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      result.push({
+        abilityCode: code,
+        minLevel,
+        label: `«${this.abilityName(code, snapshot)}» уровня ${minLevel}`,
+      });
+    };
+    const visit = (list: Requirement[]): void => {
+      for (const requirement of list) {
+        if (requirement.type === 'and') {
+          visit(requirement.children);
+          continue;
+        }
+        if (requirement.type === 'has_ability') {
+          if (!this.evaluate(requirement, snapshot, domainContext)) {
+            add(requirement.ability_code, requirement.min_level ?? 1);
+          }
+          continue;
+        }
+        if (requirement.type === 'or') {
+          if (requirement.children.some((child) => this.evaluate(child, snapshot, domainContext))) continue;
+          visit(requirement.children);
+        }
+      }
+    };
+    visit(requirements);
+
+    return result;
   }
 
   private failureReasons(requirements: Requirement[], snapshot: CharacterSnapshot, domainContext?: string): string[] {

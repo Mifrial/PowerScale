@@ -146,12 +146,18 @@ describe('MagicStudyUnlockService', () => {
     ).toBe(false);
   });
 
-  it('опыт пути суммирует только изученные карточки с study', () => {
+  it('опыт пути суммирует карточки с доменом или признаком пути', () => {
     const rules = [
+      {
+        code: 'psionic',
+        type: 'magic_path' as const,
+        spec: { type: 'magic_path' as const, includes_path_codes: [] },
+      },
       {
         code: 'psionic-control',
         type: 'ability' as const,
         spec: skill(2, [], false),
+        keywordIds: [7],
       },
       {
         code: 'discharge',
@@ -162,19 +168,32 @@ describe('MagicStudyUnlockService', () => {
     expect(
       service.pathExperience(
         [
-          { ruleCode: 'psionic-control', level: 1, domainCode: 'psionic' },
+          { ruleCode: 'psionic-control', level: 1 },
           { ruleCode: 'discharge', level: 1, domainCode: 'psionic' },
         ],
         rules as never,
         'psionic',
-        new Map(),
+        new Map([[7, 'psionic']]),
       ),
-    ).toBe(1);
+    ).toBe(3);
   });
 
   it('прежний path_code читается как один путь', () => {
     const legacy = { type: 'magic_study' as const, max_cost: 2, path_code: 'arcanist' };
     expect(service.isJustified(spell(1), 'arcanist', [{ ...legacy, donor_code: 'opener' }])).toBe(true);
+  });
+
+  it('прежняя ревизия: карточка без study получает путь из scope-гранта', () => {
+    const legacy = {
+      type: 'magic_study' as const,
+      scope: 'spell' as const,
+      max_cost: 2,
+      path_code: 'arcanist',
+      donor_code: 'becoming-arcanist',
+    };
+    expect(service.openPathCodes(spell(1, false), [legacy], ['arcanist'], [])).toEqual(['arcanist']);
+    expect(service.failureReason(spell(1, false), new Set(['magic']), [legacy])).toBeNull();
+    expect(service.failureReason(spell(1, false), new Set(['magic']), [])).toBeNull();
   });
 
   it('шаман покрывает псионика, обратно нет', () => {

@@ -2,6 +2,7 @@
 import EditorAbilityRow from '@/modules/Roleplay/Character/Component/Editor/EditorAbilityRow.vue';
 import type { AbilityInstanceAddPayload } from '@/modules/Roleplay/Character/Dto/Editor/AbilityInstanceAddPayload';
 import type { DevelopmentAbilityRow } from '@/modules/Roleplay/Character/Dto/Editor/DevelopmentAbilityRow';
+import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
@@ -11,6 +12,7 @@ const props = defineProps<{
   keywords: Keyword[];
   rules?: Rule[];
   openSet: Set<string>;
+  requirementLinks?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -22,6 +24,7 @@ const emit = defineEmits<{
   'set-instance-domain': [ruleCode: string, oldDomain: string, newDomain: string, domainCode: string | null];
   'remove-instance': [ruleCode: string, domain: string, domainCode?: string | null];
   'set-ability-domain': [ruleCode: string, domain: string, domainCode: string | null];
+  'show-requirements': [ability: EditorAbility];
 }>();
 
 function childrenOf(row: DevelopmentAbilityRow): DevelopmentAbilityRow[] {
@@ -39,7 +42,9 @@ function childrenOf(row: DevelopmentAbilityRow): DevelopmentAbilityRow[] {
       zone-label="ОР"
       :spell-row-kind="row.spellRowKind"
       :open="openSet.has(row.key)"
+      :requirement-links="requirementLinks"
       @update:open="emit('update:open', row.key, $event)"
+      @show-requirements="(ability) => emit('show-requirements', ability)"
       @set-parameter="(ruleCode, code, value) => emit('set-parameter', ruleCode, code, value)"
       @set-level="(ruleCode, level) => emit('set-level', ruleCode, level)"
       @add-instance="(ruleCode, domain, code, extras) => emit('add-instance', ruleCode, domain, code, extras)"
@@ -60,7 +65,9 @@ function childrenOf(row: DevelopmentAbilityRow): DevelopmentAbilityRow[] {
             :keywords="keywords"
             :rules="rules"
             :open-set="openSet"
+            :requirement-links="requirementLinks"
             @update:open="(rowKey, open) => emit('update:open', rowKey, open)"
+            @show-requirements="(ability) => emit('show-requirements', ability)"
             @set-parameter="(ruleCode, code, value) => emit('set-parameter', ruleCode, code, value)"
             @set-level="(ruleCode, level) => emit('set-level', ruleCode, level)"
             @add-instance="(ruleCode, domain, code, extras) => emit('add-instance', ruleCode, domain, code, extras)"

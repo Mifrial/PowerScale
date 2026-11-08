@@ -1190,10 +1190,21 @@ export class CharacterEditorService {
           level,
           met: !hasRequirements || evaluator.evaluateAll(all, snapshot),
           reason: hasRequirements ? evaluator.failureSummary(all, snapshot) : null,
+          unmetAbilities: hasRequirements ? evaluator.unmetAbilities(all, snapshot) : [],
         });
       }
       this.applyParentKnowledgeField(levels, spec, build);
-      this.applyMagicStudyGate(levels, spec, rule, keywordCodes, studyUnlocks, learnedStudy, rule.code, snapshot);
+      this.applyMagicStudyGate(
+        levels,
+        spec,
+        rule,
+        keywordCodes,
+        studyUnlocks,
+        learnedStudy,
+        rule.code,
+        snapshot,
+        rules,
+      );
 
       // Пер-экземплярные требования множественного навыка: has_ability проверяется по экземплярам
       // с тем же доменом («Письменность того же языка», требование родителя-улучшения — тоже).
@@ -1210,9 +1221,20 @@ export class CharacterEditorService {
             level,
             met: !hasRequirements || evaluator.evaluateAll(all, snapshot, domainContext),
             reason: hasRequirements ? evaluator.failureSummary(all, snapshot, domainContext) : null,
+            unmetAbilities: hasRequirements ? evaluator.unmetAbilities(all, snapshot, domainContext) : [],
           });
         }
-        this.applyMagicStudyGate(result, spec, rule, keywordCodes, studyUnlocks, learnedStudy, rule.code, snapshot);
+        this.applyMagicStudyGate(
+          result,
+          spec,
+          rule,
+          keywordCodes,
+          studyUnlocks,
+          learnedStudy,
+          rule.code,
+          snapshot,
+          rules,
+        );
 
         return result;
       };
@@ -1239,8 +1261,7 @@ export class CharacterEditorService {
             null,
             snapshot,
             rule.code,
-          ) ??
-          this.magicPathStudyCost.nextInstanceCost(build, rules, option.code, firstLevelCost, skipGrantPaid),
+          ) ?? this.magicPathStudyCost.nextInstanceCost(build, rules, option.code, firstLevelCost, skipGrantPaid),
       }));
       const unusedPathCosts = pathCosts.filter(
         (option) =>
@@ -1390,9 +1411,10 @@ export class CharacterEditorService {
     learned: readonly MagicStudyLearned[],
     currentRuleCode: string,
     snapshot: CharacterSnapshot,
+    rules: Rule[] = [],
   ): void {
     const codes = this.magicStudyUnlock.keywordCodesOf(rule, keywordCodes);
-    const reason = this.magicStudyUnlock.failureReason(spec, codes, unlocks, learned, currentRuleCode, snapshot);
+    const reason = this.magicStudyUnlock.failureReason(spec, codes, unlocks, learned, currentRuleCode, snapshot, rules);
     if (!reason) return;
     for (const level of levels) {
       if (level.met) {
@@ -1679,12 +1701,7 @@ export class CharacterEditorService {
     for (const characteristic of characteristics) {
       characteristicValues.set(characteristic.code, characteristic.value);
     }
-    const masteryValues = this.weaponMasteryValues(
-      reference,
-      proficiencyLevels,
-      familyTags,
-      characteristicValues,
-    );
+    const masteryValues = this.weaponMasteryValues(reference, proficiencyLevels, familyTags, characteristicValues);
 
     // Лимиты ресурсов из вычисленных ресурсов (в т.ч. авто-Од): лимит = база + сумма бонусов (мин 0).
     // Код ресурса — из правила; неизвестный код остаётся без лимита (требование «есть ресурс» не пройдёт).

@@ -294,6 +294,50 @@ final class CharacterLiveComputeTest extends TestCase
     }
 
     /**
+     * Грант characteristic_parameter ставит базу из выбранного X.
+     *
+     * @return void
+     */
+    public function testCharacteristicParameterGrantUsesChosenValue(): void
+    {
+        $slice = $this->slice([
+            $this->rule('human', 'race', ['cost_os' => 0, 'characteristics' => [], 'abilities' => []]),
+            $this->characteristic('magic-power', ['base' => 3, 'size' => 0]),
+            $this->ability('magic-core-capacity', [
+                'type' => 'trait',
+                'parameters' => [[
+                    'code' => 'x',
+                    'label' => 'X',
+                    'kind' => 'scalar',
+                    'resolution' => 'purchase',
+                    'default' => 0,
+                    'min' => 0,
+                    'max' => 10,
+                ]],
+                'grants' => [[
+                    'level' => 1,
+                    'grants' => [[
+                        'type' => 'characteristic_parameter',
+                        'characteristic_code' => 'magic-power',
+                        'parameter_code' => 'x',
+                        'per_unit' => 1,
+                    ]],
+                ]],
+            ]),
+        ]);
+        $character = Character::fromDocument($slice, [
+            'raceCode' => 'human',
+            'abilities' => [[
+                'ruleCode' => 'magic-core-capacity',
+                'level' => 1,
+                'parameters' => ['x' => 4],
+            ]],
+        ], [], $this->sheets());
+
+        self::assertSame(4, $this->valueBase($character->getSheet(), 'magic-power'));
+    }
+
+    /**
      * Строгие признаки и владение режут уровень; скорость и магия — нет.
      *
      * @return void

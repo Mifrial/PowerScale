@@ -275,10 +275,9 @@ describe('RequirementEvaluator', () => {
 
     // Нет значения мастерства — не проходит
     expect(
-      evaluator.evaluate(
-        { type: 'min_weapon_mastery_value', keyword_code: 'dagger', min: { base: 1, size: 0 } },
-        { ...snapshot } as CharacterSnapshot,
-      ),
+      evaluator.evaluate({ type: 'min_weapon_mastery_value', keyword_code: 'dagger', min: { base: 1, size: 0 } }, {
+        ...snapshot,
+      } as CharacterSnapshot),
     ).toBe(false);
   });
 
@@ -343,5 +342,41 @@ describe('RequirementEvaluator', () => {
     expect(
       evaluator.evaluate({ type: 'has_ability', ability_code: 'pismennost', min_level: 1 }, literate, 'yaryn'),
     ).toBe(false);
+  });
+});
+
+describe('RequirementEvaluator.unmetAbilities', () => {
+  it('возвращает невыполненные способности и альтернативы or', () => {
+    const requirements: Requirement[] = [
+      { type: 'has_ability', ability_code: 'missing', min_level: 2 },
+      { type: 'has_ability', ability_code: 'melee-fighting', min_level: 1 },
+      {
+        type: 'or',
+        children: [
+          { type: 'has_ability', ability_code: 'repulsive', min_level: 1 },
+          { type: 'has_ability', ability_code: 'ugly', min_level: 1 },
+        ],
+      },
+    ];
+
+    expect(evaluator.unmetAbilities(requirements, namedSnapshot)).toEqual([
+      { abilityCode: 'missing', minLevel: 2, label: '«missing» уровня 2' },
+      { abilityCode: 'repulsive', minLevel: 1, label: '«Омерзительная» уровня 1' },
+      { abilityCode: 'ugly', minLevel: 1, label: '«Уродливая» уровня 1' },
+    ]);
+  });
+
+  it('выполненная альтернатива or не попадает в список', () => {
+    const requirements: Requirement[] = [
+      {
+        type: 'or',
+        children: [
+          { type: 'has_ability', ability_code: 'melee-fighting', min_level: 1 },
+          { type: 'has_ability', ability_code: 'ugly', min_level: 1 },
+        ],
+      },
+    ];
+
+    expect(evaluator.unmetAbilities(requirements, namedSnapshot)).toEqual([]);
   });
 });

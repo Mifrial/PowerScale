@@ -67,7 +67,7 @@ final class CharacterSheetLive
         $this->choiceAssembler = new CharacterChoiceAssembler();
         $this->characteristics = new CharacterLiveCharacteristics(
             $evaluations,
-            new CharacterLiveBases($grantReader),
+            new CharacterLiveBases($grantReader, $parameters),
             new CharacterLiveDeltas($evaluations, $grantReader, $parameters, $equipped, new CharacterStateDeltas()),
             $senses,
             $equipped,

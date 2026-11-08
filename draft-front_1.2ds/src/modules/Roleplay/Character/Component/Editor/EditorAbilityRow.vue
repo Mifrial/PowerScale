@@ -39,6 +39,8 @@ const props = defineProps<{
   open?: boolean;
   /** Каталог или экземпляр заклинания (отдельные строки списка). */
   spellRowKind?: 'catalog' | 'instance' | null;
+  /** Показывать невыполненные требования ссылками с цепочкой покупки. */
+  requirementLinks?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -50,6 +52,7 @@ const emit = defineEmits<{
   'remove-instance': [ruleCode: string, domain: string, domainCode?: string | null];
   'set-ability-domain': [ruleCode: string, domain: string, domainCode: string | null];
   'update:open': [open: boolean];
+  'show-requirements': [ability: EditorAbility];
 }>();
 
 const { openRule } = useRuleDetailSlider();
@@ -327,6 +330,20 @@ function instanceBlockedReason(instance: EditorAbilityInstance): string | null {
   if (instance.level >= maxLevel(props.ability)) return null;
 
   return instance.levels[instance.level]?.reason ?? null;
+}
+
+/** Первый невыполненный уровень способности. */
+function unmetLevelOf(ability: EditorAbility) {
+  return ability.levels.find((entry) => !entry.met) ?? null;
+}
+
+/** Невыполненные требования-способности этого уровня. */
+function unmetRequirementsOf(ability: EditorAbility) {
+  return unmetLevelOf(ability)?.unmetAbilities ?? [];
+}
+
+function showRequirementChain(ability: EditorAbility): void {
+  emit('show-requirements', ability);
 }
 
 /** Можно ли понизить уровень экземпляра (ниже 1 — только удаление через «×»). */
@@ -789,8 +806,26 @@ function stepLabel(param: EditorAbilityParameter): string {
       <div
         v-if="!ability.multiple && ability.levels.some((level) => !level.met)"
         class="text-caption text-medium-emphasis mb-1"
+        :title="unmetLevelOf(ability)?.reason ?? ''"
       >
-        Требования: {{ ability.levels.find((level) => !level.met)?.reason }}
+        <span>Требования:</span>
+        <template v-if="requirementLinks && unmetRequirementsOf(ability).length">
+          <v-chip
+            v-for="requirement in unmetRequirementsOf(ability)"
+            :key="`${requirement.abilityCode}:${requirement.minLevel}`"
+            size="x-small"
+            variant="tonal"
+            color="primary"
+            class="ml-1"
+            @click.stop="showRequirementChain(ability)"
+          >
+            {{ requirement.label }}
+          </v-chip>
+          <v-btn size="x-small" variant="text" class="ml-1" @click.stop="showRequirementChain(ability)">
+            цепочка
+          </v-btn>
+        </template>
+        <template v-else>{{ ability.levels.find((level) => !level.met)?.reason }}</template>
       </div>
       <div v-if="!ability.multiple && ability.domainRef && displayLevel(ability) > 0" class="ability-row__domain">
         <v-combobox

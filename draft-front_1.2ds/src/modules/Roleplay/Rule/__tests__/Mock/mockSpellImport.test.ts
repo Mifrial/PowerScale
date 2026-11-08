@@ -139,14 +139,14 @@ describe('mockSpellImport (M4)', () => {
     expect(becoming && 'grants' in becoming ? becoming.grants[0]?.grants : []).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'magic_path', path_code: 'arcanist' }),
-        expect.objectContaining({ type: 'magic_study', scope: 'spell', max_cost: 2, path_code: 'arcanist' }),
+        expect.objectContaining({ type: 'magic_study', paths: ['arcanist'], max_cost: 2 }),
         expect.objectContaining({ type: 'characteristic', characteristic_code: 'magic-control' }),
       ]),
     );
     const substitution = abilitySpec('structure-substitution');
     expect(substitution && 'grants' in substitution ? substitution.grants[0]?.grants : []).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ type: 'magic_study', scope: 'non_spell', max_cost: 2, path_code: 'arcanist' }),
+        expect.objectContaining({ type: 'magic_study', paths: ['arcanist'], max_cost: 2 }),
       ]),
     );
     const transfer = abilitySpec('interstructure-energy-transfer');
@@ -169,9 +169,8 @@ describe('mockSpellImport (M4)', () => {
       expect.arrayContaining([
         expect.objectContaining({
           type: 'magic_study',
-          scope: 'spell',
+          paths: ['psionic'],
           max_cost: 1,
-          path_code: 'psionic',
           max_instances: 1,
           paid_cost: 0,
         }),
@@ -196,7 +195,7 @@ describe('mockSpellImport (M4)', () => {
       expect.arrayContaining([
         expect.objectContaining({ type: 'magic_path', path_code: 'psionic' }),
         expect.objectContaining({ type: 'characteristic', characteristic_code: 'magic-control' }),
-        expect.objectContaining({ type: 'magic_study', scope: 'spell', max_cost: 1, path_code: 'psionic' }),
+        expect.objectContaining({ type: 'magic_study', paths: ['psionic'], max_cost: 1 }),
       ]),
     );
     expect(byCode.get('psionic')?.type).toBe('magic_path');

@@ -1013,10 +1013,13 @@ function migrateStudyGrant(grant: Grant): Grant {
  * Мок повторяет ревизию 46: paths вместо scope/path_code и study на path-карточках.
  */
 function upgradeMagicStudy(rule: Rule): Rule {
-  const study = STUDY_PATHS[rule.code];
-  if (!study || rule.type !== 'ability' || !rule.spec || !('type' in rule.spec)) return rule;
+  if (rule.type !== 'ability' || !rule.spec || !('type' in rule.spec)) return rule;
   const spec = rule.spec as AbilitySpec;
-  const grants = (spec.grants ?? []).map((block) => {
+  const blocks = 'grants' in spec ? (spec.grants ?? []) : [];
+  const hasStudyGrant = blocks.some((block) => block.grants.some((grant) => grant.type === 'magic_study'));
+  const study = STUDY_PATHS[rule.code];
+  if (!study && !hasStudyGrant) return rule;
+  const grants = blocks.map((block) => {
     const seen = new Set<string>();
     const rows = block.grants.map(migrateStudyGrant).filter((grant) => {
       const key = JSON.stringify(grant);
@@ -1028,8 +1031,10 @@ function upgradeMagicStudy(rule: Rule): Rule {
 
     return { ...block, grants: rows };
   });
+  const withGrants = { ...spec, grants } as AbilitySpec;
+  const migrated = (study ? { ...withGrants, study: { paths: study } } : withGrants) as AbilitySpec;
 
-  return { ...rule, spec: { ...spec, study: { paths: study }, grants } };
+  return { ...rule, spec: migrated };
 }
 
 export const mockSpellImport: Rule[] = spellImportRules.map(upgradeMagicStudy);

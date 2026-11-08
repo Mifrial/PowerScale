@@ -1,3 +1,5 @@
+import type { UnmetAbility } from '@/modules/Roleplay/Character/Service/RequirementEvaluator';
+
 /** Уровень способности в модели редактора: выполнимость требований этого уровня. */
 export interface EditorAbilityLevel {
   level: number;
@@ -5,4 +7,6 @@ export interface EditorAbilityLevel {
   met: boolean;
   /** Причина невыполнения (null — выполнено). */
   reason: string | null;
+  /** Невыполненные требования-способности: из них строится цепочка покупки. */
+  unmetAbilities?: UnmetAbility[];
 }
