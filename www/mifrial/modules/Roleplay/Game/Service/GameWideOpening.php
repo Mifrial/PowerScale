@@ -21,6 +21,7 @@ final class GameWideOpening
      * @param GameStrikeRules $rules Правила.
      * @param GameCardAvailability $availability Доступность карточки.
      * @param GameWideChoices $choices Choices NPC.
+     * @param GameStrikeOpenChecks $checks Модификаторы и форма выбора.
      *
      * @return void
      */
@@ -30,6 +31,7 @@ final class GameWideOpening
         private readonly GameStrikeRules $rules,
         private readonly GameCardAvailability $availability,
         private readonly GameWideChoices $choices,
+        private readonly GameStrikeOpenChecks $checks,
     ) {
     }
 
@@ -55,6 +57,7 @@ final class GameWideOpening
             ? $this->choices->of($game->getId(), $choice['attacker']['id'])
             : null;
         $this->checks($game, $choice, $npcChoices);
+        $this->checks->assertModifiers($game, $choice);
         $this->inventory($game, $choice, $npcChoices);
     }
 

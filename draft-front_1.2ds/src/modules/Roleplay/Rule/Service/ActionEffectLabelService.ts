@@ -167,8 +167,9 @@ export class ActionEffectLabelService {
 
     const internal = outcome.ignore_defense ? 'внутреннего ' : '';
     const arrow = outcome.size_delta < 0 ? '↓' : outcome.size_delta > 0 ? '↑' : '';
+    const mode = outcome.mode === 'each' ? ' (за каждый удар)' : '';
 
-    return `${internal}${this.damageTypeLabel(outcome.damage_type_code)} [сила удара]${arrow}`;
+    return `${internal}${this.damageTypeLabel(outcome.damage_type_code)} [сила удара]${arrow}${mode}`;
   }
 
   private damageTypeLabel(code: string): string {

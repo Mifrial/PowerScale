@@ -2758,6 +2758,329 @@ final class GameWideStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Широкий удар исполняет модификатор один раз после всех целей.
+     *
+     * @return void
+     */
+    public function testWideStrikeRunsModifierOnceAfterAllTargets(): void
+    {
+        $world = $this->worldWithWeapon(
+            withPendingEffects: true,
+            extraEntries: $this->modifierEntries(),
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Wide-Rush', abilities: [
+            ['ruleCode' => 'rush', 'level' => 1],
+        ]);
+        $firstId = $this->admit($world->getId(), $gameId, 'Wide-Rush-First', ['hp' => 100]);
+        $secondId = $this->admit($world->getId(), $gameId, 'Wide-Rush-Second', ['hp' => 100]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-wide-rush',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $targets = [
+            ['type' => 'character', 'id' => $firstId],
+            ['type' => 'character', 'id' => $secondId],
+        ];
+        $opened = $this->dispatch('game.runAction', $this->declareBody(
+            $gameId,
+            $battleId,
+            's-wide-rush',
+            1,
+            $this->wideAttack($attackerId, $targets) + ['modifiers' => ['rush']],
+        ));
+        self::assertTrue($opened['success'], json_encode($opened));
+        $beforeClose = $this->characterFacade()->get($attackerId)->getActualVersion();
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-wide-rush',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->wideDefenseEnvelope($this->defenses($targets, [
+                ['reaction' => 'ignore', 'expectedSheetVersion' => $this->characterFacade()->get($firstId)->getActualVersion()],
+                ['reaction' => 'ignore', 'expectedSheetVersion' => $this->characterFacade()->get($secondId)->getActualVersion()],
+            ])),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(['rush'], $closed['data']['modifiers']['codes'] ?? null);
+        self::assertTrue($closed['data']['modifiers']['success'] ?? null, json_encode($closed));
+        self::assertTrue($closed['data']['modifiers']['skipped'] ?? null, json_encode($closed));
+        self::assertCount(1, $closed['data']['modifiers']['injuries'] ?? []);
+        self::assertSame($beforeClose + 1, $this->characterFacade()->get($attackerId)->getActualVersion());
+        self::assertNotContains(
+            'after_action_until_resource_spent_check_modifier',
+            $this->pendingTypes($battleId, 'character:' . $attackerId),
+        );
+    }
+
+    /**
+     * Режим each наносит урон по себе за каждую покрытую строку.
+     *
+     * @return void
+     */
+    public function testWideStrikeEachModeDamagesEveryTargetRow(): void
+    {
+        $world = $this->worldWithWeapon(extraEntries: $this->modifierEntries(mode: 'each'));
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Wide-Rush-Each', abilities: [
+            ['ruleCode' => 'rush', 'level' => 1],
+        ]);
+        $firstId = $this->admit($world->getId(), $gameId, 'Wide-Each-First', ['hp' => 100]);
+        $secondId = $this->admit($world->getId(), $gameId, 'Wide-Each-Second', ['hp' => 100]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-wide-each',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+        $battleId = $battle['data']['battleId'];
+        $targets = [
+            ['type' => 'character', 'id' => $firstId],
+            ['type' => 'character', 'id' => $secondId],
+        ];
+        $opened = $this->dispatch('game.runAction', $this->declareBody(
+            $gameId,
+            $battleId,
+            's-wide-each',
+            1,
+            $this->wideAttack($attackerId, $targets) + ['modifiers' => ['rush']],
+        ));
+        self::assertTrue($opened['success'], json_encode($opened));
+        $beforeClose = $this->characterFacade()->get($attackerId)->getActualVersion();
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-wide-each',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->wideDefenseEnvelope($this->defenses($targets, [
+                ['reaction' => 'ignore', 'expectedSheetVersion' => $this->characterFacade()->get($firstId)->getActualVersion()],
+                ['reaction' => 'ignore', 'expectedSheetVersion' => $this->characterFacade()->get($secondId)->getActualVersion()],
+            ])),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertCount(2, $closed['data']['modifiers']['injuries'] ?? []);
+        self::assertSame($beforeClose + 2, $this->characterFacade()->get($attackerId)->getActualVersion());
+    }
+
+    /**
+     * Модификатор вне области строк отвергается на объявлении.
+     *
+     * @return void
+     */
+    public function testWideStrikeRejectsModifierOutsideScope(): void
+    {
+        $world = $this->worldWithWeapon(extraEntries: $this->modifierEntries(scope: ['shoot']));
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Wide-Scope', abilities: [
+            ['ruleCode' => 'rush', 'level' => 1],
+        ]);
+        $firstId = $this->admit($world->getId(), $gameId, 'Wide-Scope-First');
+        $secondId = $this->admit($world->getId(), $gameId, 'Wide-Scope-Second');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-wide-scope',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $opened = $this->dispatch('game.runAction', $this->declareBody(
+            $gameId,
+            $battleId,
+            's-wide-scope',
+            1,
+            $this->wideAttack($attackerId, [
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+            ]) + ['modifiers' => ['rush']],
+        ));
+
+        self::assertSame('GAME_INVALID', $opened['error']['code'] ?? null);
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        self::assertNull((new GameActionRepository($gateway))->findOpenByBattle($battleId, 'wide_strike'));
+    }
+
+    /**
+     * Провал проверки не пишет лист и оставляет последействие действия.
+     *
+     * @return void
+     */
+    public function testWideStrikeModifierFailureKeepsAfterAction(): void
+    {
+        $world = $this->worldWithWeapon(
+            withPendingEffects: true,
+            extraEntries: $this->modifierEntries(difficulty: 99),
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit($world->getId(), $gameId, 'Wide-Rush-Fail', [
+            'characteristicPurchases' => [['characteristicCode' => 'will', 'value' => ['base' => 3, 'size' => 0]]],
+        ], abilities: [
+            ['ruleCode' => 'rush', 'level' => 1],
+        ]);
+        $firstId = $this->admit($world->getId(), $gameId, 'Wide-Fail-First', ['hp' => 100]);
+        $secondId = $this->admit($world->getId(), $gameId, 'Wide-Fail-Second', ['hp' => 100]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-wide-fail',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $firstId],
+                ['type' => 'character', 'id' => $secondId],
+            ],
+        ]);
+        $battleId = $battle['data']['battleId'];
+        $targets = [
+            ['type' => 'character', 'id' => $firstId],
+            ['type' => 'character', 'id' => $secondId],
+        ];
+        $opened = $this->dispatch('game.runAction', $this->declareBody(
+            $gameId,
+            $battleId,
+            's-wide-fail',
+            1,
+            $this->wideAttack($attackerId, $targets) + ['modifiers' => ['rush']],
+        ));
+        self::assertTrue($opened['success'], json_encode($opened));
+        $beforeClose = $this->characterFacade()->get($attackerId)->getActualVersion();
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'd-wide-fail',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->wideDefenseEnvelope($this->defenses($targets, [
+                ['reaction' => 'ignore', 'expectedSheetVersion' => $this->characterFacade()->get($firstId)->getActualVersion()],
+                ['reaction' => 'ignore', 'expectedSheetVersion' => $this->characterFacade()->get($secondId)->getActualVersion()],
+            ])),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertFalse($closed['data']['modifiers']['success'] ?? null);
+        self::assertFalse($closed['data']['modifiers']['skipped'] ?? null);
+        self::assertSame([], $closed['data']['modifiers']['injuries'] ?? null);
+        self::assertSame($beforeClose, $this->characterFacade()->get($attackerId)->getActualVersion());
+        self::assertContains(
+            'after_action_until_resource_spent_check_modifier',
+            $this->pendingTypes($battleId, 'character:' . $attackerId),
+        );
+    }
+
+    /**
+     * Записи карточки-модификатора «Яростного рывка».
+     *
+     * @param string $mode Режим урона по себе.
+     * @param list<string> $scope Профили области.
+     * @param int|null $difficulty Сложность проверки или null.
+     *
+     * @return list<RuleCommitEntry> Записи.
+     */
+    private function modifierEntries(
+        string $mode = 'strongest',
+        array $scope = ['strike'],
+        ?int $difficulty = null,
+    ): array {
+        $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
+        self::assertInstanceOf(IMechanics::class, $mechanics);
+        $rollId = $this->plainRollId($mechanics);
+        $entries = [
+            RuleCommitEntry::put('rush', new RuleVersionBody('ability', 'Rush', '', [
+                'type' => 'skill',
+                'zones' => ['or' => ['kind' => 'automatic']],
+                'parent_ability_code' => 'swing',
+                'action_effects' => [[
+                    'type' => 'action_modifier',
+                    'trigger' => 'after_strike',
+                    'scope' => ['components' => $scope, 'hit_count' => 1],
+                    ...($difficulty === null ? [] : ['check' => ['code' => 'willpower-check', 'difficulty' => $difficulty]]),
+                    'effects' => [
+                        [
+                            'type' => 'self_damage',
+                            'size_delta' => -1,
+                            'damage_type_code' => 'cut',
+                            'ignore_defense' => true,
+                            'mode' => $mode,
+                        ],
+                        ['type' => 'skip_after_action'],
+                    ],
+                ]],
+            ], [], [], 'needs_work')),
+        ];
+        if ($difficulty === null) {
+            return $entries;
+        }
+
+        $entries[] = RuleCommitEntry::put('willpower-check', new RuleVersionBody('check', 'Willpower', '', [
+            'allow_characteristic_override' => false,
+            'allowed_modes' => 'both',
+            'ordinary_root' => false,
+            'concentration_token' => false,
+            'willpower' => true,
+            'unstable_check' => false,
+            'hit_check' => false,
+            'initiative' => false,
+            'characteristic_code' => 'will',
+            'difficulty_input' => ['kind' => 'none', 'state_code' => ''],
+        ], [], [[
+            'mechanic_id' => $rollId,
+            'mechanic_payload' => ['type' => 'roll', 'data' => ['diceCount' => 1, 'dieFaces' => 1]],
+        ]], 'needs_work'));
+
+        return $entries;
+    }
+
+    /**
+     * Типы ожиданий атакующего в строке боя.
+     *
+     * @param int $battleId Бой.
+     * @param string $key Ключ участника.
+     *
+     * @return list<string> Типы.
+     */
+    private function pendingTypes(int $battleId, string $key): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $row = $gateway->open(GameBattleTable::class)->records()->getById($battleId);
+        self::assertIsArray($row);
+        $pending = $row['pending_action_effects'] ?? [];
+        self::assertIsArray($pending);
+        $entries = $pending[$key] ?? [];
+        self::assertIsArray($entries);
+        $types = [];
+        foreach ($entries as $entry) {
+            $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+            $type = is_array($effect) ? ($effect['type'] ?? null) : null;
+            self::assertIsString($type);
+            $types[] = $type;
+        }
+
+        return $types;
+    }
+
+    /**
      * Правила реакций и блока для широкого удара.
      *
      * @return list<RuleCommitEntry> Записи.
@@ -2946,6 +3269,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         ?int $damageTypeCap = null,
         bool $hitConcentration = false,
         array $extraEntries = [],
+        bool $withPendingEffects = false,
     ): RuleSpaceRecord {
         $withPenetration = $penetrationMode === true;
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
@@ -2955,6 +3279,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         $world = $this->addWorldWithRevision(
             'razrabotka' . ($damageTypeCap === null ? '' : '-cap' . $damageTypeCap)
             . ($hitConcentration ? '-conc' : '')
+            . ($withPendingEffects ? '-pending' : '')
             . ($extraEntries === []
                 ? ''
                 : '-ex' . substr(md5(implode(',', array_map(
@@ -2999,6 +3324,11 @@ final class GameWideStrikeMysqlTest extends TestCase
                         ['cost' => 2, 'value' => ['base' => 4, 'size' => 0]],
                         ['cost' => 4, 'value' => ['base' => 3, 'size' => 0]],
                     ],
+                ], [
+                    'characteristic_code' => 'will',
+                    'mode' => 'purchased',
+                    'base' => ['base' => 3, 'size' => 0],
+                    'purchase' => [['cost' => 2, 'value' => ['base' => 3, 'size' => 0]]],
                 ]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('swing', new RuleVersionBody('ability', 'Swing', '', [
@@ -3007,6 +3337,13 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'action_components' => [],
                 'attack_mode' => 'wide',
                 'max_targets' => 4,
+                ...($withPendingEffects ? ['action_effects' => [[
+                    'type' => 'after_action_until_resource_spent_check_modifier',
+                    'resource_code' => 'action-points',
+                    'amount' => 2,
+                    'check_codes' => ['hit'],
+                    'delta' => -2,
+                ]]] : []),
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('swing1', new RuleVersionBody('ability', 'Swing one', '', [
                 'type' => 'action',
@@ -3655,6 +3992,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         array $inventory = [],
         bool $purchaseStrength = true,
         ?int $ownerUserId = null,
+        array $abilities = [],
     ): int {
         $ownerUserId ??= $this->ownerUserId;
         $characterId = $this->characterFacade()->add(NewCharacter::fromNormalized([
@@ -3689,7 +4027,7 @@ final class GameWideStrikeMysqlTest extends TestCase
             $characterId,
             $name,
             true,
-            $this->storedChoices($name, $inventory, $purchaseStrength),
+            $this->storedChoices($name, $inventory, $purchaseStrength, $abilities),
             $document,
             2,
             1,
@@ -3895,12 +4233,16 @@ final class GameWideStrikeMysqlTest extends TestCase
      *
      * @return array<string, mixed> choices.
      */
-    private function storedChoices(string $name, array $inventory = [], bool $purchaseStrength = true): array
-    {
+    private function storedChoices(
+        string $name,
+        array $inventory = [],
+        bool $purchaseStrength = true,
+        array $abilities = [],
+    ): array {
         return [
             'name' => $name,
             'raceCode' => 'human',
-            'abilities' => [],
+            'abilities' => $abilities,
             'inventory' => $this->inventoryWithIds($inventory === [] ? [
                 ['ruleCode' => 'sword', 'equipped' => true],
             ] : $inventory),

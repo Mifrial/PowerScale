@@ -10,11 +10,22 @@ namespace Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect;
 final class SelfDamageOutcomeEffect implements ModifierOutcomeEffect
 {
     /**
+     * Один урон от самой сильной покрытой строки.
+     */
+    public const MODE_STRONGEST = 'strongest';
+
+    /**
+     * По одному урону на каждую покрытую строку.
+     */
+    public const MODE_EACH = 'each';
+
+    /**
      * Создаёт последствие.
      *
      * @param int $sizeDelta Сдвиг размера силы удара.
      * @param string $damageTypeCode Тип урона.
      * @param bool $ignoreDefense Игнорировать защиту и сопротивление.
+     * @param string $mode Выбор строк: strongest или each.
      *
      * @return void
      */
@@ -22,7 +33,20 @@ final class SelfDamageOutcomeEffect implements ModifierOutcomeEffect
         private readonly int $sizeDelta,
         private readonly string $damageTypeCode,
         private readonly bool $ignoreDefense,
+        private readonly string $mode = self::MODE_STRONGEST,
     ) {
+    }
+
+    /**
+     * Поддерживает ли движок режим выбора строк.
+     *
+     * @param string $value Значение из спеки.
+     *
+     * @return bool true, если поддерживает.
+     */
+    public static function supportsMode(string $value): bool
+    {
+        return $value === self::MODE_STRONGEST || $value === self::MODE_EACH;
     }
 
     /**
@@ -63,5 +87,15 @@ final class SelfDamageOutcomeEffect implements ModifierOutcomeEffect
     public function isIgnoreDefense(): bool
     {
         return $this->ignoreDefense;
+    }
+
+    /**
+     * Выбор строк для урона по себе.
+     *
+     * @return string strongest или each.
+     */
+    public function getMode(): string
+    {
+        return $this->mode;
     }
 }

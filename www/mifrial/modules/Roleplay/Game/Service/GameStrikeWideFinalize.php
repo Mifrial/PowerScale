@@ -23,6 +23,7 @@ final class GameStrikeWideFinalize
      * @param GameActionRepository $actions Действия и цели.
      * @param GameBattleRepository $battles Бои.
      * @param GameStrikeTargetClose $targets Расчёт цели.
+     * @param GameStrikeWideTrail $trail Модификаторы действия.
      *
      * @return void
      */
@@ -31,27 +32,29 @@ final class GameStrikeWideFinalize
         private readonly GameActionRepository $actions,
         private readonly GameBattleRepository $battles,
         private readonly GameStrikeTargetClose $targets,
+        private readonly GameStrikeWideTrail $trail,
     ) {
         $this->marks = new GameBattleMarks();
     }
 
     /**
-     * Пишет чат, сохраняет реакции и закрывает действие.
+     * Пишет основной чат удара до хвоста действия.
      *
      * @param GameStrikeWideRun $run Контекст прогона.
      * @param array<string, mixed> $open Открытый удар.
      * @param array{choices: list<array<string, mixed>>, refusals: list<string|null>, prepared: array<int, array<string, mixed>>, resolved: array<int, array<string, mixed>>, covers: array<int, array<string, mixed>|null>, rows: list<array<string, mixed>>, early: array<string, mixed>|null} $prepared Подготовка.
      * @param array{slice: \Mifrial\Roleplay\Character\Dto\CharacterRuleSlice, hitCode: string, rows: list<array<string, mixed>>, attackerRoll: array<string, mixed>} $opening Начало.
      * @param list<array<string, mixed>> $results Итоги целей.
-     * @param array<string, mixed> $pending Новая карта ожидания.
      *
-     * @return array<string, mixed> Итог закрытия.
-     *
-     * @throws GameInvalidException Если строка действия битая.
+     * @return void
      */
-    public function finish(
-        GameStrikeWideRun $run, array $open, array $prepared, array $opening, array $results, array $pending,
-    ): array {
+    public function post(
+        GameStrikeWideRun $run,
+        array $open,
+        array $prepared,
+        array $opening,
+        array $results,
+    ): void {
         $this->chat->post(
             $run->game,
             $prepared['rows'],
@@ -64,12 +67,57 @@ final class GameStrikeWideFinalize
             $run->scope->actorUserId,
             $prepared['covers'],
         );
+    }
+
+    /**
+     * Исполняет модификаторы действия после основного чата.
+     *
+     * @param GameStrikeWideRun $run Контекст прогона.
+     * @param array<string, mixed> $open Открытый удар.
+     * @param list<array<string, mixed>> $rows Строки целей.
+     *
+     * @return array<string, mixed>|null Итог или null.
+     */
+    public function trail(GameStrikeWideRun $run, array $open, array $rows): ?array
+    {
+        return $this->trail->apply($run, $open, $rows);
+    }
+
+    /**
+     * Сохраняет реакции, закрывает действие и пишет итог.
+     *
+     * @param GameStrikeWideRun $run Контекст прогона.
+     * @param array<string, mixed> $open Открытый удар.
+     * @param array{choices: list<array<string, mixed>>, refusals: list<string|null>, prepared: array<int, array<string, mixed>>, resolved: array<int, array<string, mixed>>, covers: array<int, array<string, mixed>|null>, rows: list<array<string, mixed>>, early: array<string, mixed>|null} $prepared Подготовка.
+     * @param array{slice: \Mifrial\Roleplay\Character\Dto\CharacterRuleSlice, hitCode: string, rows: list<array<string, mixed>>, attackerRoll: array<string, mixed>} $opening Начало.
+     * @param list<array<string, mixed>> $results Итоги целей.
+     * @param array<string, mixed> $pending Новая карта ожидания.
+     * @param array<string, mixed>|null $modifiers Итог модификаторов.
+     *
+     * @return array<string, mixed> Итог закрытия.
+     *
+     * @throws GameInvalidException Если строка действия битая.
+     */
+    public function finish(
+        GameStrikeWideRun $run,
+        array $open,
+        array $prepared,
+        array $opening,
+        array $results,
+        array $pending,
+        ?array $modifiers = null,
+    ): array {
         $this->storeReactions($prepared['rows'], $prepared['choices'], $results);
         $strikeId = $this->strikeId($open);
         $this->actions->close($strikeId);
         $this->saveBattle($run, $pending);
 
-        return $this->result($run, $strikeId, $opening['attackerRoll'], $results);
+        $result = $this->result($run, $strikeId, $opening['attackerRoll'], $results);
+        if ($modifiers !== null) {
+            $result['modifiers'] = $modifiers;
+        }
+
+        return $result;
     }
 
     /**

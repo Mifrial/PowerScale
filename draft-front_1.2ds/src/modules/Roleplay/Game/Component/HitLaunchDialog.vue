@@ -3686,6 +3686,9 @@ async function phpStrikeAttack() {
           profileType: strike.profile.profileType,
           profileIndex: strike.profile.profileIndex ?? 0,
           instanceIndex: strike.profile.instanceIndex ?? 0,
+          ...(resolvedAttackAction.value?.actionModifierCodes?.length
+            ? { modifiers: [...resolvedAttackAction.value.actionModifierCodes] }
+            : {}),
           ...(ammunitionInventoryId.value !== null ? { ammunitionInventoryId: ammunitionInventoryId.value } : {}),
           conditions: phpConditions(),
           target: gamePhpCommandService.participantOf(strike.targetKey),
@@ -3752,6 +3755,9 @@ async function phpWideStrikeAttack() {
         ...gamePhpCommandService.participantOf(key),
         conditions: wideConditionsPayload(key),
       })),
+      ...(resolvedAttackAction.value?.actionModifierCodes?.length
+        ? { modifiers: [...resolvedAttackAction.value.actionModifierCodes] }
+        : {}),
     },
   };
 }
@@ -3999,6 +4005,7 @@ function phpMultiStrikeEnvelope(attack: {
     profileIndex: number;
     instanceIndex?: number;
     ammunitionInventoryId?: number;
+    modifiers?: string[];
     conditions?: Record<string, unknown>;
     target: GamePhpParticipant;
   }[];
@@ -4025,6 +4032,7 @@ function phpWideStrikeEnvelope(attack: {
   profileIndex: number;
   instanceIndex?: number;
   ammunitionInventoryId?: number;
+  modifiers?: string[];
 }) {
   return {
     phase: 'declare' as const,
@@ -4039,6 +4047,7 @@ function phpWideStrikeEnvelope(attack: {
         profileIndex: attack.profileIndex,
         instanceIndex: attack.instanceIndex,
         ammunitionInventoryId: attack.ammunitionInventoryId,
+        modifiers: attack.modifiers,
       }),
     },
   };

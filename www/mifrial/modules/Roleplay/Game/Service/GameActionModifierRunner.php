@@ -23,6 +23,7 @@ final class GameActionModifierRunner
      * @param GameActionModifiers $modifiers Модификаторы карточки.
      * @param GameActionModifierPresenter $presenter Подписи.
      * @param GameActionModifierOutcome $outcome Последствия.
+     * @param GameActionModifierRows $rows Покрытые строки.
      *
      * @return void
      */
@@ -31,6 +32,7 @@ final class GameActionModifierRunner
         private readonly GameActionModifiers $modifiers,
         private readonly GameActionModifierPresenter $presenter,
         private readonly GameActionModifierOutcome $outcome,
+        private readonly GameActionModifierRows $rows,
     ) {
     }
 
@@ -49,7 +51,7 @@ final class GameActionModifierRunner
         $slice = $this->ports->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $levels = $this->ports->sheets->abilityLevels($game, $input->attackerKind, $input->attackerId);
         $thread = $this->thread($input);
-        $result = ['codes' => [], 'roll' => null, 'success' => false, 'skipped' => false];
+        $result = ['codes' => [], 'roll' => null, 'success' => false, 'skipped' => false, 'injuries' => []];
         foreach ($input->codes as $code) {
             $this->runCode($input, $slice, $levels, $thread, $code, $result);
         }
@@ -58,9 +60,9 @@ final class GameActionModifierRunner
     }
 
     /**
-     * Нить удара и подписи актора.
+     * Нити удара и подписи актора.
      *
-     * @param GameActionModifierInput $input Снимок удара.
+     * @param GameActionModifierInput $input Снимок действия.
      *
      * @return array{
      *     threadId: string,
@@ -71,7 +73,7 @@ final class GameActionModifierRunner
      */
     private function thread(GameActionModifierInput $input): array
     {
-        $threadId = 'attack-' . $input->strikeId;
+        $threadId = $input->threadId;
 
         return [
             'threadId' => $threadId,
@@ -115,7 +117,7 @@ final class GameActionModifierRunner
             return;
         }
 
-        $this->outcome->apply($input, $effect, $result);
+        $this->outcome->apply($input, $effect, $this->rows->covered($input->rows, $effect), $result);
     }
 
     /**

@@ -738,7 +738,13 @@ describe('mockDevelopmentImport (S14)', () => {
         scope: { components: ['strike'], hit_count: 1 },
         check: { code: 'check-willpower', difficulty: 3 },
         effects: [
-          { type: 'self_damage', size_delta: -1, damage_type_code: 'blunt', ignore_defense: true },
+          {
+            type: 'self_damage',
+            size_delta: -1,
+            damage_type_code: 'blunt',
+            ignore_defense: true,
+            mode: 'strongest',
+          },
           { type: 'skip_after_action' },
         ],
       },

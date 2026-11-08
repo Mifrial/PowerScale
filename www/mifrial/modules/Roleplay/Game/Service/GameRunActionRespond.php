@@ -365,7 +365,7 @@ final class GameRunActionRespond
             $strikes[] = $entry;
         }
 
-        return [
+        $response = [
             'kind' => 'strike',
             'phase' => 'respond',
             'battleId' => $result['battleId'] ?? 0,
@@ -376,6 +376,11 @@ final class GameRunActionRespond
             'pendingStrikes' => $pending,
             'awaiting' => is_array($result['awaiting'] ?? null) ? $result['awaiting'] : [],
         ];
+        if (array_key_exists('modifiers', $result)) {
+            $response['modifiers'] = $result['modifiers'];
+        }
+
+        return $response;
     }
 
     /**

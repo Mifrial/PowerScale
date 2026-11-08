@@ -57,14 +57,14 @@ final class GameStrikeOpenChecks
     }
 
     /**
-     * Модификаторы действия объявлены, принадлежат атакующему и применимы к удару.
+     * Модификаторы действия объявлены, принадлежат атакующему и покрывают хотя бы одну строку.
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $choice Выбор удара.
      *
      * @return void
      *
-     * @throws GameInvalidException Если код чужой, объявлен не одиночным ударом или вне области.
+     * @throws GameInvalidException Если код чужой или вне области всех строк.
      */
     public function assertModifiers(GameRecord $game, array $choice): void
     {
@@ -73,13 +73,9 @@ final class GameStrikeOpenChecks
             return;
         }
 
-        if (is_array($choice['strikes'] ?? null) && $choice['strikes'] !== []) {
-            throw new GameInvalidException('Game action modifier is not supported for multi-strike');
-        }
-
         $actor = $this->actorOf($choice, 'Game action modifier is invalid');
         $listed = $this->listed($codes);
-        $this->assertScopes($game, $actor, $listed);
+        $this->assertScopes($game, $actor, $listed, $this->profiles($choice, $actor['profile']));
     }
 
     /**
@@ -320,24 +316,63 @@ final class GameStrikeOpenChecks
     }
 
     /**
-     * Область применения каждого модификатора.
+     * Профили строк объявления.
+     *
+     * @param array<string, mixed> $choice Выбор удара.
+     * @param string $fallback Профиль без списка строк.
+     *
+     * @return list<string> Профили.
+     *
+     * @throws GameInvalidException Если профиль строки битый.
+     */
+    private function profiles(array $choice, string $fallback): array
+    {
+        $strikes = is_array($choice['strikes'] ?? null) ? $choice['strikes'] : [];
+        if ($strikes === []) {
+            return [$fallback];
+        }
+
+        $profiles = [];
+        foreach ($strikes as $strike) {
+            $profile = $strike['profileType'] ?? null;
+            if (!is_string($profile)) {
+                throw new GameInvalidException('Game action modifier is invalid');
+            }
+
+            $profiles[] = $profile;
+        }
+
+        return $profiles;
+    }
+
+    /**
+     * Область применения каждого модификатора покрывает хотя бы одну строку.
      *
      * @param GameRecord $game Игра.
      * @param array{type: string, id: int, action: string, profile: string} $actor Атакующий.
      * @param list<string> $codes Коды.
+     * @param list<string> $profiles Профили строк.
      *
      * @return void
      *
-     * @throws GameInvalidException Если модификатор вне области удара.
+     * @throws GameInvalidException Если модификатор не покрывает ни одной строки.
      */
-    private function assertScopes(GameRecord $game, array $actor, array $codes): void
+    private function assertScopes(GameRecord $game, array $actor, array $codes, array $profiles): void
     {
         $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $modifiers = new GameActionModifiers();
         $levels = $this->sheets->abilityLevels($game, $actor['type'], $actor['id']);
         foreach ($codes as $code) {
             $modifier = $modifiers->find($slice, $actor['action'], $levels, $code);
-            if (!$modifier['effect']->appliesTo($actor['profile'], 1)) {
+            $covered = false;
+            foreach ($profiles as $profile) {
+                if ($modifier['effect']->appliesTo($profile, 1)) {
+                    $covered = true;
+                    break;
+                }
+            }
+
+            if (!$covered) {
                 throw new GameInvalidException('Game action modifier scope is invalid');
             }
         }

@@ -106,6 +106,9 @@ final class GameStrikeOpenRows
                 'target_type' => $strike['target']['type'],
                 'target_id' => $strike['target']['id'],
                 'conditions' => $strike['conditions'] ?? (new GameStrikeConditions())->defaults(),
+                'action_modifiers' => is_array($strike['modifiers'] ?? null)
+                    ? array_values($strike['modifiers'])
+                    : [],
                 'maneuver' => $maneuver,
                 'reaction' => null,
                 'block_item_inventory_id' => null,

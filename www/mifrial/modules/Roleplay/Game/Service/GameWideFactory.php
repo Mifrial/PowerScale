@@ -81,6 +81,7 @@ final class GameWideFactory
                 $rules,
                 $availability,
                 new GameWideChoices($shared->repos->npcs),
+                new GameStrikeOpenChecks($rules, $availability, $shared->sheets, $shared->repos->npcs),
             ),
             new GameWideTransaction(
                 $shared->replay,

@@ -14,6 +14,8 @@ type ModifierOutcomeEffect =
       damage_type_code: string;
       /** Игнорировать защиту и сопротивление. */
       ignore_defense: boolean;
+      /** Сильнейшая покрытая строка (по умолчанию) или каждая. */
+      mode?: 'strongest' | 'each';
     }
   | {
       type: 'skip_after_action';

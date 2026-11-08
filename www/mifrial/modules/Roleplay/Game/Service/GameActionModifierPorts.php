@@ -22,6 +22,7 @@ final class GameActionModifierPorts
      * @param GameStrikeConsequences $consequences Бросок и чат.
      * @param GameStrikeChat $chat Подписи участников.
      * @param GameStrikeAmounts $amounts Пары и нули.
+     * @param GameStrikeResolutionContext $context Контекст строки атакующего.
      *
      * @return void
      */
@@ -33,6 +34,7 @@ final class GameActionModifierPorts
         public readonly GameStrikeConsequences $consequences,
         public readonly GameStrikeChat $chat,
         public readonly GameStrikeAmounts $amounts,
+        public readonly GameStrikeResolutionContext $context,
     ) {
     }
 }

@@ -355,14 +355,14 @@ final class GameRunActionStrikeDeclare
      *
      * @return array<string, mixed> Выбор.
      *
-     * @throws GameInvalidException Если пришёл модификатор.
+     * @throws GameInvalidException Если наборы модификаторов строк различаются.
      */
     private function multiAttack(array $parsed, array $strikes): array
     {
-        $this->assertNoModifiers($strikes);
         $first = $strikes[0];
         $attack = $this->attackBase($parsed, $first);
         $attack['strikes'] = $strikes;
+        $attack['modifiers'] = GameActionModifierCodes::sharedDeclared($strikes);
         $attack['tokenSpend'] = $parsed['context']['tokenSpend'] ?? null;
         if ($first['ammunitionInventoryId'] !== null) {
             $attack['ammunitionInventoryId'] = $first['ammunitionInventoryId'];
@@ -379,11 +379,10 @@ final class GameRunActionStrikeDeclare
      *
      * @return array<string, mixed> Выбор.
      *
-     * @throws GameInvalidException Если строки различаются предметом или профилем.
+     * @throws GameInvalidException Если строки различаются предметом, профилем или модификаторами.
      */
     private function wideAttack(array $parsed, array $strikes): array
     {
-        $this->assertNoModifiers($strikes);
         $first = $strikes[0];
         $targets = [];
         foreach ($strikes as $strike) {
@@ -404,6 +403,7 @@ final class GameRunActionStrikeDeclare
             'profileType' => $first['profileType'],
             'profileIndex' => $first['profileIndex'],
             'chosenAmounts' => $parsed['context']['chosenAmounts'],
+            'modifiers' => GameActionModifierCodes::sharedDeclared($strikes),
         ];
         if ($first['ammunitionInventoryId'] !== null) {
             $attack['ammunitionInventoryId'] = $first['ammunitionInventoryId'];
@@ -427,24 +427,6 @@ final class GameRunActionStrikeDeclare
         foreach (['itemInventoryId', 'itemRuleCode', 'profileType', 'profileIndex', 'instanceIndex'] as $key) {
             if ($strike[$key] !== $first[$key]) {
                 throw new GameInvalidException('Game wide strike item is invalid');
-            }
-        }
-    }
-
-    /**
-     * Модификаторы действия исполняются только одиночным ударом.
-     *
-     * @param list<array<string, mixed>> $strikes Строки.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если модификатор пришёл на серию или широкий удар.
-     */
-    private function assertNoModifiers(array $strikes): void
-    {
-        foreach ($strikes as $strike) {
-            if (($strike['modifiers'] ?? []) !== []) {
-                throw new GameInvalidException('Game action modifier is not supported for multi-strike');
             }
         }
     }

@@ -76,12 +76,14 @@ final class GameActionModifierPresenter
         $shift = $delta === 0
             ? ''
             : sprintf(' ([сила удара]%s%d)', $delta < 0 ? '↓' : '↑', abs($delta));
+        $mode = $effect->getMode() === SelfDamageOutcomeEffect::MODE_EACH ? ' за каждый удар' : '';
 
         return sprintf(
-            '%s%s урон по себе%s',
+            '%s%s урон по себе%s%s',
             $internal,
             mb_strtolower($this->ruleName($slice, $effect->getDamageTypeCode())),
             $shift,
+            $mode,
         );
     }
 

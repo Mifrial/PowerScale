@@ -8,6 +8,8 @@ export interface WideStrikeFields {
   profileIndex: number;
   instanceIndex?: number;
   ammunitionInventoryId?: number;
+  /** Коды объявленных модификаторов действия. */
+  modifiers?: string[];
 }
 
 /**
@@ -29,6 +31,7 @@ export function wideStrikeRows(
     ...(fields.ammunitionInventoryId !== undefined
       ? { ammunitionInventoryId: fields.ammunitionInventoryId }
       : {}),
+    ...(fields.modifiers?.length ? { modifiers: [...fields.modifiers] } : {}),
     ...(conditions !== undefined ? { conditions } : {}),
     target,
   }));

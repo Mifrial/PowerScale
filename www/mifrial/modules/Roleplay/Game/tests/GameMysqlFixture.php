@@ -576,6 +576,9 @@ trait GameMysqlFixture
                 ...(array_key_exists('conditions', $attack)
                     ? ['conditions' => $attack['conditions']]
                     : []),
+                ...(array_key_exists('modifiers', $attack)
+                    ? ['modifiers' => $attack['modifiers']]
+                    : []),
             ];
         }
 

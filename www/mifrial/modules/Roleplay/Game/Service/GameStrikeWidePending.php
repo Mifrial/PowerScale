@@ -37,14 +37,21 @@ final class GameStrikeWidePending
      * @param array{choices: list<array<string, mixed>>, refusals: list<string|null>, prepared: array<int, array<string, mixed>>, resolved: array<int, array<string, mixed>>, covers: array<int, array<string, mixed>|null>, rows: list<array<string, mixed>>, early: array<string, mixed>|null} $prepared Подготовка.
      * @param list<array<string, mixed>> $results Итоги целей.
      * @param array{slice: \Mifrial\Roleplay\Character\Dto\CharacterRuleSlice, hitCode: string, rows: list<array<string, mixed>>, attackerRoll: array<string, mixed>} $opening Начало.
-     * @param list<string> $targetKeys Ключи целей.
+     * @param array<int, string> $targetKeys Ключи целей.
+     * @param bool $skipAfterAction Пропуск последействия действия.
      *
      * @return array<string, mixed> Карта ожидания.
      *
      * @throws GameInvalidException Если атакующий битый.
      */
     public function pending(
-        GameStrikeWideRun $run, array $open, array $prepared, array $results, array $opening, array $targetKeys,
+        GameStrikeWideRun $run,
+        array $open,
+        array $prepared,
+        array $results,
+        array $opening,
+        array $targetKeys,
+        bool $skipAfterAction = false,
     ): array {
         $attackerKind = $open['attacker_kind'] ?? null;
         $attackerId = $open['attacker_id'] ?? null;
@@ -55,15 +62,25 @@ final class GameStrikeWidePending
         $actionRuleCode = is_string($open['action_rule_code'] ?? null) ? $open['action_rule_code'] : '';
         $slice = $opening['slice'];
         $pending = (new GamePendingActionCosts())->complete(
-            $slice, $this->choices->attackerChoices($run->game, $open), $actionRuleCode,
-            $attackerKind, $attackerId, $this->targets->pendingAfter(),
-            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode, true)], $targetKeys,
+            $slice,
+            $this->choices->attackerChoices($run->game, $open),
+            $actionRuleCode,
+            $attackerKind,
+            $attackerId,
+            $this->targets->pendingAfter(),
+            ['action-points' => $this->spend->getActionAp($slice, $actionRuleCode, true)],
+            $targetKeys,
+            $skipAfterAction,
         );
         $lastStrike = new GameLastStrikeSnapshot();
 
         return $lastStrike->store(
-            $pending, $attackerKind, $attackerId, $actionRuleCode,
-            $lastStrike->kindOf($slice, $actionRuleCode), $this->hits($results, $prepared['rows']),
+            $pending,
+            $attackerKind,
+            $attackerId,
+            $actionRuleCode,
+            $lastStrike->kindOf($slice, $actionRuleCode),
+            $this->hits($results, $prepared['rows']),
         );
     }
 

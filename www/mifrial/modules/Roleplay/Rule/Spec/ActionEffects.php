@@ -350,6 +350,7 @@ final class ActionEffects
                     SpecShape::int($effect, 'size_delta'),
                     SpecShape::string($effect, 'damage_type_code'),
                     SpecShape::bool($effect, 'ignore_defense'),
+                    self::selfDamageMode($effect),
                 ),
                 'skip_after_action' => new SkipAfterActionOutcomeEffect(),
                 default => throw new RuleSpecShapeException('effects'),
@@ -361,6 +362,25 @@ final class ActionEffects
         }
 
         return $effects;
+    }
+
+    /**
+     * Режим урона по себе: без ключа — сильнейшая покрытая строка.
+     *
+     * @param array<string, mixed> $effect Последствие.
+     *
+     * @return string strongest или each.
+     *
+     * @throws RuleSpecShapeException Если режим неизвестен.
+     */
+    private static function selfDamageMode(array $effect): string
+    {
+        $mode = SpecShape::optionalString($effect, 'mode') ?? SelfDamageOutcomeEffect::MODE_STRONGEST;
+        if (!SelfDamageOutcomeEffect::supportsMode($mode)) {
+            throw new RuleSpecShapeException('mode');
+        }
+
+        return $mode;
     }
 
     /**

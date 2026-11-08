@@ -53,8 +53,14 @@ final class GameStrikeWideClose
      * @throws \Mifrial\Roleplay\Game\Exception\GameInvalidException Если удар или цель битые.
      */
     public function close(
-        GameRecord $game, GameBattleRecord $battle, int $expectedBattleVersion, array $requestChoices,
-        int $actorUserId, bool $editAll, bool $viewAll, array $resume = [],
+        GameRecord $game,
+        GameBattleRecord $battle,
+        int $expectedBattleVersion,
+        array $requestChoices,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        array $resume = [],
     ): array {
         $run = new GameStrikeWideRun($game, $battle, $expectedBattleVersion, new GameStrikeWriteScope($actorUserId, $viewAll), $editAll, $resume);
         $state = $this->request->accept($run, $requestChoices);
@@ -69,8 +75,26 @@ final class GameStrikeWideClose
         }
 
         $hits = $this->hits->hits($run, $state['open'], $prepared, $opening);
-        $pending = $this->pending->pending($run, $state['open'], $prepared, $hits['results'], $opening, $state['targetKeys']);
+        $this->finalize->post($run, $state['open'], $prepared, $opening, $hits['results']);
+        $modifiers = $this->finalize->trail($run, $state['open'], $prepared['rows']);
+        $pending = $this->pending->pending(
+            $run,
+            $state['open'],
+            $prepared,
+            $hits['results'],
+            $opening,
+            $state['targetKeys'],
+            ($modifiers['skipped'] ?? false) === true,
+        );
 
-        return $this->finalize->finish($run, $state['open'], $prepared, $opening, $hits['results'], $pending);
+        return $this->finalize->finish(
+            $run,
+            $state['open'],
+            $prepared,
+            $opening,
+            $hits['results'],
+            $pending,
+            $modifiers,
+        );
     }
 }

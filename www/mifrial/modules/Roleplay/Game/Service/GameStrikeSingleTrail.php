@@ -14,7 +14,6 @@ final class GameStrikeSingleTrail
     /**
      * Создаёт завершение действия.
      *
-     * @param GameStrikeRules $rules Правила.
      * @param GameActionModifierRunner $modifiers Модификаторы действия.
      * @param GameProcessFlow $processes Сессия процесса.
      * @param GameStrikeSpend $spend Траты.
@@ -22,7 +21,6 @@ final class GameStrikeSingleTrail
      * @return void
      */
     public function __construct(
-        private readonly GameStrikeRules $rules,
         private readonly GameActionModifierRunner $modifiers,
         private readonly GameProcessFlow $processes,
         private readonly GameStrikeSpend $spend,
@@ -39,7 +37,7 @@ final class GameStrikeSingleTrail
      */
     public function apply(GameStrikeSingleRun $run, array $pending): array
     {
-        $modifierCodes = $this->modifierCodes($run->row);
+        $modifierCodes = GameActionModifierCodes::sharedRows($run->strikes);
         $modifiers = null;
         $skipAfterAction = false;
         if ($modifierCodes !== []) {
@@ -47,13 +45,12 @@ final class GameStrikeSingleTrail
                 $run->input->game,
                 $run->battle,
                 $run->open,
-                $run->strikeId,
                 $run->actionRuleCode,
                 $run->attackerKind,
                 $run->attackerId,
                 $modifierCodes,
-                $run->modifier,
-                $this->rules->equipment->gripBonus($run->attackContext['occupyHands']),
+                $run->strikes,
+                'attack-' . $run->strikeId,
                 $run->scope->actorUserId,
             ));
             $skipAfterAction = ($modifiers['skipped'] ?? false) === true;
@@ -152,33 +149,5 @@ final class GameStrikeSingleTrail
             $pending,
             $this->spend->getSpendAmounts($run->spends),
         );
-    }
-
-    /**
-     * Объявленные модификаторы действия из строки.
-     *
-     * @param array<string, mixed> $row Строка удара.
-     *
-     * @return list<string> Коды.
-     */
-    private function modifierCodes(array $row): array
-    {
-        $raw = $row['action_modifiers'] ?? null;
-        if (is_string($raw)) {
-            $raw = json_decode($raw, true);
-        }
-
-        if (!is_array($raw)) {
-            return [];
-        }
-
-        $codes = [];
-        foreach ($raw as $code) {
-            if (is_string($code) && $code !== '') {
-                $codes[] = $code;
-            }
-        }
-
-        return $codes;
     }
 }

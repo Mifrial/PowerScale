@@ -126,6 +126,7 @@ final class GameStrikeCloseWiring
                 $this->shared->repos->actions,
                 $this->shared->repos->battles,
                 $this->targets,
+                new GameStrikeWideTrail($this->runner),
             ),
         );
     }
@@ -168,7 +169,8 @@ final class GameStrikeCloseWiring
             $ports,
             new GameActionModifiers(),
             new GameActionModifierPresenter(),
-            new GameActionModifierOutcome($ports),
+            new GameActionModifierOutcome(new GameActionModifierSelfDamage($ports)),
+            new GameActionModifierRows(),
         );
     }
 
@@ -187,6 +189,7 @@ final class GameStrikeCloseWiring
             $this->consequences,
             $this->shared->chat,
             $this->amounts,
+            new GameStrikeResolutionContext($this->rules, $this->shared->sheets, $this->shared->repos->npcs),
         );
     }
 
@@ -268,7 +271,6 @@ final class GameStrikeCloseWiring
             $this->shared->repos->actions,
             $this->shared->repos->battles,
             new GameStrikeSingleTrail(
-                $this->rules,
                 $this->runner,
                 $this->processes,
                 $this->shared->spend,

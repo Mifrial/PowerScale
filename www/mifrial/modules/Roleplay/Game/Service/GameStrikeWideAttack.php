@@ -49,7 +49,7 @@ final class GameStrikeWideAttack
         $allowed = $this->fields->optional(
             $attack,
             self::KEYS,
-            ['chosenAmounts', 'ammunitionInventoryId', 'instanceIndex'],
+            ['chosenAmounts', 'ammunitionInventoryId', 'instanceIndex', 'modifiers'],
         );
         $this->fields->assertKeys($attack, $allowed, 'wide strike');
         $profileType = $attack['profileType'] ?? null;
@@ -82,6 +82,7 @@ final class GameStrikeWideAttack
             'ammunitionInventoryId' => $attack['ammunitionInventoryId'] ?? null,
             'instanceIndex' => $attack['instanceIndex'] ?? 0,
             'chosenAmounts' => $attack['chosenAmounts'] ?? [],
+            'modifiers' => $attack['modifiers'] ?? [],
         ];
     }
 
@@ -165,6 +166,7 @@ final class GameStrikeWideAttack
             'profileIndex' => $values['profileIndex'],
             'instanceIndex' => $values['instanceIndex'],
             'chosenAmounts' => $values['chosenAmounts'],
+            'modifiers' => $values['modifiers'],
         ];
     }
 }

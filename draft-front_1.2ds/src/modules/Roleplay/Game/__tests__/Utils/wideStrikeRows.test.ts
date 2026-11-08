@@ -32,4 +32,23 @@ describe('wideStrikeRows', () => {
 
     expect(row).not.toHaveProperty('ammunitionInventoryId');
   });
+
+  it('переносит коды модификаторов действия в каждую строку', () => {
+    const rows = wideStrikeRows(
+      [
+        { type: 'character', id: 7 },
+        { type: 'npc', id: 8 },
+      ],
+      {
+        itemInventoryId: 1,
+        itemRuleCode: 'sword',
+        profileType: 'strike',
+        profileIndex: 0,
+        modifiers: ['rush'],
+      },
+    );
+
+    expect(rows[0].modifiers).toEqual(['rush']);
+    expect(rows[1].modifiers).toEqual(['rush']);
+  });
 });

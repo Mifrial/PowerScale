@@ -335,6 +335,7 @@ final class GameStrikeCloseRows
             'profile_type' => $first['profile_type'] ?? null,
             'profile_index' => $first['profile_index'] ?? null,
             'instance_index' => $first['instance_index'] ?? null,
+            'action_modifiers' => $first['action_modifiers'] ?? null,
             'strikes' => $strikes,
         ]);
     }

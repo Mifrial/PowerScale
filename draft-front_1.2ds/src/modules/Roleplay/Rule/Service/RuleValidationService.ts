@@ -395,6 +395,18 @@ export class RuleValidationService {
                 message: 'урон себе в модификаторе действия должен указывать тип урона',
               });
             }
+            if (
+              outcome.type === 'self_damage' &&
+              outcome.mode !== undefined &&
+              outcome.mode !== 'strongest' &&
+              outcome.mode !== 'each'
+            ) {
+              errors.push({
+                ruleName: rule.name,
+                ruleCode: rule.code,
+                message: 'режим урона себе должен быть strongest или each',
+              });
+            }
           }
         }
         if (

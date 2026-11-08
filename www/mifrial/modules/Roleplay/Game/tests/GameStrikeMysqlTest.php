@@ -3293,6 +3293,223 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Серия исполняет модификатор один раз после всех ударов.
+     *
+     * @return void
+     */
+    public function testSeriesModifierRunsOnceForAllStrikes(): void
+    {
+        $setup = $this->seriesModifierBattle('strongest');
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $setup['gameId'],
+            'battleId' => $setup['battleId'],
+            'idempotencyKey' => 's-series-rush',
+            'expectedVersion' => 1,
+            'action' => $this->sameWeaponEnvelope('double', $setup['attackerId'], $setup['defenderId'], 2, ['rush']),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertCount(2, $opened['data']['strikes']);
+        $beforeClose = $this->characterFacade()->get($setup['attackerId'])->getActualVersion();
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $setup['gameId'],
+            'battleId' => $setup['battleId'],
+            'idempotencyKey' => 'd-series-rush',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($setup['defenderId'])->getActualVersion(),
+            ),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(['rush'], $closed['data']['modifiers']['codes'] ?? null);
+        self::assertCount(1, $closed['data']['modifiers']['injuries'] ?? []);
+        self::assertSame($beforeClose + 1, $this->characterFacade()->get($setup['attackerId'])->getActualVersion());
+        self::assertNotContains(
+            'after_action_until_resource_spent_check_modifier',
+            $this->pendingTypes($setup['battleId'], 'character:' . $setup['attackerId']),
+        );
+    }
+
+    /**
+     * Режим each в серии наносит урон за каждый удар.
+     *
+     * @return void
+     */
+    public function testSeriesModifierEachDamagesEveryStrike(): void
+    {
+        $setup = $this->seriesModifierBattle('each');
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $setup['gameId'],
+            'battleId' => $setup['battleId'],
+            'idempotencyKey' => 's-series-each',
+            'expectedVersion' => 1,
+            'action' => $this->sameWeaponEnvelope('double', $setup['attackerId'], $setup['defenderId'], 2, ['rush']),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $beforeClose = $this->characterFacade()->get($setup['attackerId'])->getActualVersion();
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $setup['gameId'],
+            'battleId' => $setup['battleId'],
+            'idempotencyKey' => 'd-series-each',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($setup['defenderId'])->getActualVersion(),
+            ),
+        ]);
+
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertCount(2, $closed['data']['modifiers']['injuries'] ?? []);
+        self::assertSame($beforeClose + 2, $this->characterFacade()->get($setup['attackerId'])->getActualVersion());
+    }
+
+    /**
+     * Разные наборы модификаторов в строках серии отвергаются.
+     *
+     * @return void
+     */
+    public function testSeriesRejectsDifferentModifierSets(): void
+    {
+        $setup = $this->seriesModifierBattle();
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $setup['gameId'],
+            'battleId' => $setup['battleId'],
+            'idempotencyKey' => 's-series-diff',
+            'expectedVersion' => 1,
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'strike',
+                'code' => 'double',
+                'actor' => ['type' => 'character', 'id' => $setup['attackerId']],
+                'context' => [
+                    'strikes' => [
+                        [
+                            'itemInventoryId' => 1,
+                            'itemRuleCode' => 'sword',
+                            'profileType' => 'strike',
+                            'profileIndex' => 0,
+                            'instanceIndex' => 0,
+                            'target' => ['type' => 'character', 'id' => $setup['defenderId']],
+                            'modifiers' => ['rush'],
+                        ],
+                        [
+                            'itemInventoryId' => 1,
+                            'itemRuleCode' => 'sword',
+                            'profileType' => 'strike',
+                            'profileIndex' => 0,
+                            'instanceIndex' => 1,
+                            'target' => ['type' => 'character', 'id' => $setup['defenderId']],
+                        ],
+                    ],
+                    'chosenAmounts' => [],
+                ],
+            ],
+        ]);
+
+        self::assertSame('GAME_INVALID', $opened['error']['code'] ?? null);
+        self::assertSame(0, $this->countActions('strike'));
+    }
+
+    /**
+     * Модификатор вне области строк серии отвергается на объявлении.
+     *
+     * @return void
+     */
+    public function testSeriesRejectsModifierOutsideScope(): void
+    {
+        $setup = $this->seriesModifierBattle(scope: ['shoot']);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $setup['gameId'],
+            'battleId' => $setup['battleId'],
+            'idempotencyKey' => 's-series-scope',
+            'expectedVersion' => 1,
+            'action' => $this->sameWeaponEnvelope('double', $setup['attackerId'], $setup['defenderId'], 2, ['rush']),
+        ]);
+
+        self::assertSame('GAME_INVALID', $opened['error']['code'] ?? null);
+        self::assertSame(0, $this->countActions('strike'));
+    }
+
+    /**
+     * Стенд серии с модификатором действия.
+     *
+     * @param string $mode Режим урона по себе.
+     * @param list<string> $scope Профили области.
+     *
+     * @return array{gameId: int, battleId: int, attackerId: int, defenderId: int} Стенд.
+     */
+    private function seriesModifierBattle(string $mode = 'strongest', array $scope = ['strike']): array
+    {
+        $world = $this->worldWithWeapon(
+            withPendingEffects: true,
+            extraRules: [
+                'double' => [
+                    'type' => 'ability',
+                    'name' => 'Double',
+                    'spec' => [
+                        'type' => 'action',
+                        'zones' => ['or' => ['kind' => 'automatic']],
+                        'same_weapon' => true,
+                        'min_weapons' => 2,
+                        'max_weapons' => 2,
+                        'action_components' => [],
+                    ],
+                ],
+            ],
+            extraCards: [
+                'rush' => [
+                    'type' => 'skill',
+                    'parent' => 'double',
+                    'effects' => [[
+                        'type' => 'action_modifier',
+                        'trigger' => 'after_strike',
+                        'scope' => ['components' => $scope, 'hit_count' => 1],
+                        'effects' => [
+                            [
+                                'type' => 'self_damage',
+                                'size_delta' => -1,
+                                'damage_type_code' => 'cut',
+                                'ignore_defense' => true,
+                                'mode' => $mode,
+                            ],
+                            ['type' => 'skip_after_action'],
+                        ],
+                    ]],
+                ],
+            ],
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit(
+            $world->getId(),
+            $gameId,
+            'Series Rusher',
+            sheet: ['resources' => [['ruleCode' => 'action-points', 'current' => 10]]],
+            inventory: [['ruleCode' => 'sword', 'equipped' => true, 'quantity' => 2]],
+            abilities: [['ruleCode' => 'rush', 'level' => 1]],
+        );
+        $defenderId = $this->admit($world->getId(), $gameId, 'Series Guard', sheet: ['hp' => 100]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-series-' . $mode . md5(implode(',', $scope)),
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        return [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'attackerId' => $attackerId,
+            'defenderId' => $defenderId,
+        ];
+    }
+
+    /**
      * Опция, которой у персонажа нет, отвергается уже на объявлении.
      *
      * @return void
@@ -4723,7 +4940,7 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return array<string, mixed> Действие.
      */
-    private function sameWeaponEnvelope(string $code, int $attackerId, int $defenderId, int $count): array
+    private function sameWeaponEnvelope(string $code, int $attackerId, int $defenderId, int $count, array $modifiers = []): array
     {
         $strikes = [];
         for ($index = 0; $index < $count; ++$index) {
@@ -4734,6 +4951,7 @@ final class GameStrikeMysqlTest extends TestCase
                 'profileIndex' => 0,
                 'instanceIndex' => $index,
                 'target' => ['type' => 'character', 'id' => $defenderId],
+                ...($modifiers === [] ? [] : ['modifiers' => $modifiers]),
             ];
         }
 

@@ -531,9 +531,11 @@ Evidence: `GameStrikeMysqlTest::testReliabilityCutRemovesLayersAtOrBelowRating`
    (`game.getActionOptions`), выбор объявляется вместе с ударом и хранится на
    строке (`action_modifiers`); при закрытии `GameActionModifierRunner`
    исполняет последствия по их типам (`self_damage`, `skip_after_action`).
-   Не поддержаны серия и широкий удар; флага «защита источника защищает от
-   внутреннего урона» в спеке и редакторе ещё нет, поэтому `ignore_defense`
-   игнорирует все слои.
+   Серия и широкий удар поддержаны: модификатор исполняется один раз на
+   действие, `scope.components` выбирает покрытые строки, а
+   `self_damage.mode` (`strongest`/`each`) задаёт урон по себе. Флага «защита
+   источника защищает от внутреннего урона» в спеке и редакторе ещё нет,
+   поэтому `ignore_defense` игнорирует все слои.
 
 Экономика, battleground, `N → 1`, `N → N` и полный каталог магии не входят в
 минимальный гейт P1–P4.
