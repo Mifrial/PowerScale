@@ -1094,6 +1094,7 @@ export class CharacterOverviewService {
             damageTypeLabel: null,
             damageTypeDative: null,
             damageTypeCode: null,
+            protectsInternal: slot.protects_internal === true,
           });
         }
         for (const slot of spec.armor.resistance_slots) {
@@ -1110,6 +1111,7 @@ export class CharacterOverviewService {
             damageTypeDative:
               slot.damage_type_code === null ? null : (DAMAGE_TYPE_FORMS[slot.damage_type_code]?.dative ?? null),
             damageTypeCode: slot.damage_type_code,
+            protectsInternal: slot.protects_internal === true,
           });
         }
         const overview: DefenseArmorOverview = {
@@ -1157,6 +1159,7 @@ export class CharacterOverviewService {
             damageTypeLabel: damageType?.name ?? null,
             damageTypeDative: DAMAGE_TYPE_FORMS[grant.damage_type_code]?.dative ?? null,
             damageTypeCode: grant.damage_type_code,
+            protectsInternal: grant.protects_internal === true,
           });
         }
       }
@@ -1189,6 +1192,7 @@ export class CharacterOverviewService {
               damageTypeLabel: damageType?.name ?? null,
               damageTypeDative: DAMAGE_TYPE_FORMS[grant.damage_type_code]?.dative ?? null,
               damageTypeCode: grant.damage_type_code,
+              protectsInternal: grant.protects_internal === true,
             });
           }
         }

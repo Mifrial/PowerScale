@@ -204,13 +204,13 @@ export class ActionModifierService {
       endurance: attackDamageService.enduranceValueOf(overview, input.rules),
       accumulatedDamage: attackDamageService.accumulatedDamageOf(input.version.states, input.rules),
       hooks,
-      defenseIgnored: outcome.ignore_defense,
+      defenseIgnored: outcome.ignore_defense || outcome.internal === true,
     });
     const woundStrength = Math.max(result.wound ?? 0, result.hpDamage);
     if (woundStrength <= 0) return;
 
     let state = woundInstanceService.addWound(woundStrength);
-    if (state && outcome.ignore_defense) {
+    if (state && outcome.internal === true) {
       state = woundInstanceService.setInternal(state, true);
     }
     if (state) {

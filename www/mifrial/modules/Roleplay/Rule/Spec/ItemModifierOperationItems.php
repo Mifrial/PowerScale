@@ -196,6 +196,7 @@ final class ItemModifierOperationItems
                 ItemModifierItemNumbers::scaled($slot->getDefense(), $change, false),
                 $slot->getDurability(),
                 $slot->getSourceCode(),
+                $slot->isProtectsInternal(),
             );
         }
 

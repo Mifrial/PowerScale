@@ -165,11 +165,12 @@ export class ActionEffectLabelService {
   private modifierOutcomeLabel(outcome: ModifierOutcome): string {
     if (outcome.type === 'skip_after_action') return 'без помехи действия';
 
-    const internal = outcome.ignore_defense ? 'внутреннего ' : '';
+    const internal = outcome.internal === true ? 'внутреннего ' : '';
     const arrow = outcome.size_delta < 0 ? '↓' : outcome.size_delta > 0 ? '↑' : '';
     const mode = outcome.mode === 'each' ? ' (за каждый удар)' : '';
+    const ignored = outcome.ignore_defense && outcome.internal !== true ? ' (без защиты)' : '';
 
-    return `${internal}${this.damageTypeLabel(outcome.damage_type_code)} [сила удара]${arrow}${mode}`;
+    return `${internal}${this.damageTypeLabel(outcome.damage_type_code)} [сила удара]${arrow}${mode}${ignored}`;
   }
 
   private damageTypeLabel(code: string): string {

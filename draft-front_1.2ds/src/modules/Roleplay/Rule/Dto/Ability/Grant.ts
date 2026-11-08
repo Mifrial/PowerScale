@@ -66,6 +66,8 @@ export type Grant =
       value: DimensionalNumberValue | Formula;
       source_code: string;
       permanent?: boolean;
+      /** Сопротивление держит и внутренний урон. */
+      protects_internal?: boolean;
     }
   | {
       /** Модификатор чувства: добавляет вклад к значению чувства (модификатор к Внимательности). */

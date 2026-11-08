@@ -316,6 +316,60 @@ final class GameStrikeLayersTest extends TestCase
     }
 
     /**
+     * Внутренний урон оставляет только помеченные слои.
+     *
+     * @return void
+     */
+    public function testInternalDamageKeepsOnlyMarkedLayers(): void
+    {
+        $layers = [
+            new CharacterCombatLayer('resistance', new DimensionalNumber(3, 0), null, 'armor', 'piercing', true),
+            new CharacterCombatLayer('resistance', new DimensionalNumber(5, 0), null, 'padding', 'piercing'),
+            new CharacterCombatLayer('defense', new DimensionalNumber(2, 0), null, 'body', 'piercing', true),
+        ];
+
+        $amount = $this->layers($layers, false)->total(
+            $this->damageTypeSlice(),
+            'piercing',
+            [],
+            [],
+            'ignore',
+            null,
+            1,
+            null,
+            0,
+            true,
+        );
+
+        self::assertSame(5, $amount->getBase());
+    }
+
+    /**
+     * Без внутреннего урона пометка не меняет расчёт.
+     *
+     * @return void
+     */
+    public function testMarkedLayersStillCountForOrdinaryDamage(): void
+    {
+        $layers = [
+            new CharacterCombatLayer('resistance', new DimensionalNumber(3, 0), null, 'armor', 'piercing', true),
+            new CharacterCombatLayer('resistance', new DimensionalNumber(5, 0), null, 'padding', 'piercing'),
+        ];
+
+        $amount = $this->layers($layers, false)->total(
+            $this->damageTypeSlice(),
+            'piercing',
+            [],
+            [],
+            'ignore',
+            null,
+            1,
+        );
+
+        self::assertSame(8, $amount->getBase());
+    }
+
+    /**
      * Собирает pure GameStrikeLayers с заданными projected layers.
      *
      * @param array<int, CharacterCombatLayer> $projectedLayers Слои.

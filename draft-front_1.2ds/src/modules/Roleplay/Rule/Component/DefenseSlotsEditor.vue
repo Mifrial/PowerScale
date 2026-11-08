@@ -23,6 +23,7 @@ function addSlot() {
     defense: { base: 0, size: 0 },
     durability: 0,
     source_code: null,
+    protects_internal: false,
   });
 }
 
@@ -41,6 +42,7 @@ function removeSlot(index: number) {
             <th>Защита</th>
             <th>Надёжность</th>
             <th>Источник</th>
+            <th>Внутренний урон</th>
             <th></th>
           </tr>
         </thead>
@@ -62,6 +64,9 @@ function removeSlot(index: number) {
                 hide-details
                 clearable
               />
+            </td>
+            <td>
+              <v-checkbox v-model="slot.protects_internal" density="compact" hide-details />
             </td>
             <td>
               <v-btn icon size="small" color="error" @click="removeSlot(index)">

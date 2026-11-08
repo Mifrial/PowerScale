@@ -122,8 +122,11 @@ final class GameActionModifierSelfDamage
             $input->attackerId,
             $injury,
             $effect->getDamageTypeCode(),
+            1,
+            $effect->isIgnoreDefense(),
+            $effect->isInternal(),
         );
-        $view = $this->ports->amounts->view($injury);
+        $view = $this->ports->amounts->view($prepared['injury']);
         $result['sheetVersion'] = $this->ports->sheetWrites->write(
             $input->game,
             $input->attackerKind,

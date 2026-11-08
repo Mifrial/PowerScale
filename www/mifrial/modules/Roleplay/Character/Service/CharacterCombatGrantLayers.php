@@ -166,6 +166,7 @@ final class CharacterCombatGrantLayers
             null,
             $grant->getSourceCode(),
             $grant->getDamageTypeCode(),
+            $grant->isProtectsInternal(),
         );
     }
 

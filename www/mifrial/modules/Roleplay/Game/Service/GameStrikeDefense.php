@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameStrikeDefenseTarget;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
@@ -73,6 +74,41 @@ final class GameStrikeDefense
             $target->rating,
             $target->penetration,
             $target->durabilityShave,
+        );
+    }
+
+    /**
+     * Сопротивление слоёв листа по явному типу урона.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $damageTypeCode Тип урона.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<string, mixed> $choices Выборы листа.
+     * @param bool $internal Внутренний урон: считаются только помеченные слои.
+     *
+     * @return DimensionalNumber Сумма слоёв или ноль.
+     *
+     * @throws GameInvalidException Если тип или проекция битые.
+     * @throws GameNotFoundException Если ревизии или листа нет.
+     */
+    public function resistanceByType(
+        GameRecord $game,
+        string $damageTypeCode,
+        array $sheet,
+        array $choices,
+        bool $internal = false,
+    ): DimensionalNumber {
+        return $this->layers->total(
+            $this->slices->slice($game->getSpaceId(), $game->getRulesRevision()),
+            $damageTypeCode,
+            $sheet,
+            $choices,
+            'ignore',
+            null,
+            1,
+            null,
+            0,
+            $internal,
         );
     }
 

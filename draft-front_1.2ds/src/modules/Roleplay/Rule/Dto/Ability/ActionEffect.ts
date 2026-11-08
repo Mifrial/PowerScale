@@ -16,6 +16,8 @@ type ModifierOutcomeEffect =
       ignore_defense: boolean;
       /** Сильнейшая покрытая строка (по умолчанию) или каждая. */
       mode?: 'strongest' | 'each';
+      /** Внутренний урон: рана внутренняя, обычные слои не считаются. */
+      internal?: boolean;
     }
   | {
       type: 'skip_after_action';

@@ -3131,6 +3131,234 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Своя броня уменьшает урон по себе, когда защита не игнорируется.
+     *
+     * @return void
+     */
+    public function testSelfDamageAppliesOwnArmorWithoutIgnoreDefense(): void
+    {
+        $ignored = $this->selfDamageArmorBattle(true, false, 3, false);
+        $applied = $this->selfDamageArmorBattle(false, false, 3, false);
+
+        self::assertSame(
+            $this->selfDamageInjury($this->closeSelfDamageArmor($ignored)) - 3,
+            $this->selfDamageInjury($this->closeSelfDamageArmor($applied)),
+        );
+    }
+
+    /**
+     * Внутренний урон не считает непомеченную броню.
+     *
+     * @return void
+     */
+    public function testInternalSelfDamageSkipsUnmarkedArmor(): void
+    {
+        $plain = $this->selfDamageArmorBattle(true, false, 3, false);
+        $internal = $this->selfDamageArmorBattle(true, true, 3, false);
+
+        self::assertSame(
+            $this->selfDamageInjury($this->closeSelfDamageArmor($plain)),
+            $this->selfDamageInjury($this->closeSelfDamageArmor($internal)),
+        );
+    }
+
+    /**
+     * Помеченная броня держит внутренний урон, а рана становится внутренней.
+     *
+     * @return void
+     */
+    public function testInternalSelfDamageUsesMarkedArmorAndWritesInternalWound(): void
+    {
+        $plain = $this->selfDamageArmorBattle(true, false, 1, true);
+        $internal = $this->selfDamageArmorBattle(true, true, 1, true);
+        $closed = $this->closeSelfDamageArmor($internal);
+
+        self::assertSame(
+            $this->selfDamageInjury($this->closeSelfDamageArmor($plain)) - 1,
+            $this->selfDamageInjury($closed),
+        );
+        $wounds = array_values(array_filter(
+            $this->statesOf($internal['attackerId']),
+            static fn (mixed $row): bool => is_array($row) && ($row['stateRuleCode'] ?? null) === 'self-wound',
+        ));
+        self::assertCount(1, $wounds);
+        self::assertTrue($wounds[0]['internal'] ?? null);
+    }
+
+    /**
+     * База урона по себе из итога модификатора.
+     *
+     * @param array<string, mixed> $closed Итог закрытия.
+     *
+     * @return int База.
+     */
+    private function selfDamageInjury(array $closed): int
+    {
+        $injury = $closed['data']['modifiers']['injuries'][0]['injury'] ?? null;
+        self::assertIsArray($injury, json_encode($closed));
+
+        return is_int($injury['base'] ?? null) ? $injury['base'] : 0;
+    }
+
+    /**
+     * Стенд рывка со своей бронёй на типе урона модификатора.
+     *
+     * @param bool $ignoreDefense Игнорировать защиту.
+     * @param bool $internal Внутренний урон.
+     * @param int $resistance Сопротивление брони.
+     * @param bool $protectsInternal Держит ли броня внутренний урон.
+     *
+     * @return array{gameId: int, battleId: int, attackerId: int, defenderId: int} Стенд.
+     */
+    private function selfDamageArmorBattle(
+        bool $ignoreDefense,
+        bool $internal,
+        int $resistance,
+        bool $protectsInternal,
+    ): array {
+        $world = $this->worldWithWeapon(
+            extraRules: [
+                'self-wound' => [
+                    'type' => 'state',
+                    'name' => 'Wound',
+                    'spec' => ['value_type' => 'number', 'aggregation' => 'sum'],
+                ],
+                'self-cut' => [
+                    'type' => 'damage_type',
+                    'name' => 'Self cut',
+                    'spec' => [
+                        'forms' => ['genitive' => 'self cut', 'dative' => 'self cut'],
+                        'defense_ignored' => false,
+                        'modifies_spell_difficulty' => false,
+                    ],
+                    'mechanics' => [[
+                        'mechanic_id' => $this->damageAsWoundsId(),
+                        'mechanic_payload' => ['stateRuleCode' => 'self-wound'],
+                    ]],
+                ],
+                'self-armor' => [
+                    'type' => 'item',
+                    'name' => 'Self armor',
+                    'spec' => [
+                        'category' => 'armor',
+                        'armor' => [
+                            'resistance_slots' => [[
+                                'damage_type_code' => 'self-cut',
+                                'value' => ['base' => $resistance, 'size' => 0],
+                                'durability' => null,
+                                'protects_internal' => $protectsInternal,
+                            ]],
+                        ],
+                    ],
+                ],
+            ],
+            extraCards: [
+                'rush' => [
+                    'type' => 'skill',
+                    'parent' => 'swing',
+                    'effects' => [[
+                        'type' => 'action_modifier',
+                        'trigger' => 'after_strike',
+                        'scope' => ['components' => ['strike'], 'hit_count' => 1],
+                        'effects' => [[
+                            'type' => 'self_damage',
+                            'size_delta' => 0,
+                            'damage_type_code' => 'self-cut',
+                            'ignore_defense' => $ignoreDefense,
+                            'internal' => $internal,
+                        ]],
+                    ]],
+                ],
+            ],
+        );
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $attackerId = $this->admit(
+            $world->getId(),
+            $gameId,
+            'Self Rusher',
+            [['characteristicCode' => 'strength', 'value' => ['base' => 5, 'size' => 0]]],
+            [],
+            [
+                ['ruleCode' => 'sword', 'equipped' => true],
+                ['ruleCode' => 'self-armor', 'equipped' => true],
+            ],
+            null,
+            null,
+            [['ruleCode' => 'rush', 'level' => 1]],
+        );
+        $defenderId = $this->admit($world->getId(), $gameId, 'Self Guard', sheet: ['hp' => 100]);
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b-self-armor',
+            'participants' => [
+                ['type' => 'character', 'id' => $attackerId],
+                ['type' => 'character', 'id' => $defenderId],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        return [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'attackerId' => $attackerId,
+            'defenderId' => $defenderId,
+        ];
+    }
+
+    /**
+     * Объявляет и закрывает удар со своей бронёй.
+     *
+     * @param array{gameId: int, battleId: int, attackerId: int, defenderId: int} $setup Стенд.
+     *
+     * @return array<string, mixed> Итог закрытия.
+     */
+    private function closeSelfDamageArmor(array $setup): array
+    {
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $setup['gameId'],
+            'battleId' => $setup['battleId'],
+            'idempotencyKey' => 's-self-armor',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope(
+                $this->characterAttack($setup['attackerId'], $setup['defenderId'])
+                    + ['modifiers' => ['rush']],
+            ),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $setup['gameId'],
+            'battleId' => $setup['battleId'],
+            'idempotencyKey' => 'd-self-armor',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($setup['defenderId'])->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+
+        return $closed;
+    }
+
+    /**
+     * Id маркера «урон становится раной».
+     *
+     * @return int Id.
+     */
+    private function damageAsWoundsId(): int
+    {
+        $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
+        self::assertInstanceOf(IMechanics::class, $mechanics);
+        try {
+            return $mechanics->add('damage_as_wounds_by_size', 'Wounds', '', '1.0.0');
+        } catch (MechanicInvalidException) {
+            return $mechanics->getByCodeVersion('damage_as_wounds_by_size', '1.0.0')->getId();
+        }
+    }
+
+    /**
      * Список опций отдаёт сервер и только для купленной способности.
      *
      * @return void

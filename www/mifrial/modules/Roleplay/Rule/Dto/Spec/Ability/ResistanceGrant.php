@@ -19,7 +19,9 @@ final class ResistanceGrant implements AbilityGrant
      * @param string $damageTypeCode Поле.
      * @param string $sourceCode Поле.
      * @param DimensionalNumber|DimensionalFormula|ScalarFormula $value Поле.
-     * @param bool $permanent Поле.     *
+     * @param bool $permanent Поле.
+     * @param bool $protectsInternal Держит ли грант внутренний урон.
+     *
      * @return void
      */
     public function __construct(
@@ -27,6 +29,7 @@ final class ResistanceGrant implements AbilityGrant
         private readonly string $sourceCode,
         private readonly DimensionalNumber|DimensionalFormula|ScalarFormula $value,
         private readonly bool $permanent,
+        private readonly bool $protectsInternal = false,
     ) {
     }
 
@@ -78,5 +81,15 @@ final class ResistanceGrant implements AbilityGrant
     public function isPermanent(): bool
     {
         return $this->permanent;
+    }
+
+    /**
+     * Держит ли слой внутренний урон.
+     *
+     * @return bool Значение.
+     */
+    public function isProtectsInternal(): bool
+    {
+        return $this->protectsInternal;
     }
 }

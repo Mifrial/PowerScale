@@ -110,6 +110,7 @@ final class GameActionModifiersTest extends TestCase
                             'size_delta' => -1,
                             'damage_type_code' => 'blunt',
                             'ignore_defense' => true,
+                            'internal' => true,
                         ],
                         ['type' => 'skip_after_action'],
                     ],

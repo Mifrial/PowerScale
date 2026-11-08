@@ -47,6 +47,7 @@ final class GameStrikeConsequences
      * @param string|null $damageTypeCode Тип урона.
      * @param bool $knockout Нокаут.
      * @param DimensionalNumber|null $endurance Стойкость.
+     * @param bool $internal Внутренняя ли рана.
      *
      * @return array{operations: list<array<string, mixed>>, consequence: array<string, mixed>}
      *
@@ -61,8 +62,19 @@ final class GameStrikeConsequences
         ?string $damageTypeCode,
         bool $knockout = true,
         ?DimensionalNumber $endurance = null,
+        bool $internal = false,
     ): array {
-        return $this->effect->build($game, $sheet, $injury, $success, $split, $damageTypeCode, $knockout, $endurance);
+        return $this->effect->build(
+            $game,
+            $sheet,
+            $injury,
+            $success,
+            $split,
+            $damageTypeCode,
+            $knockout,
+            $endurance,
+            $internal,
+        );
     }
 
     /**
@@ -180,8 +192,22 @@ final class GameStrikeConsequences
         array $preRollChecks = [],
     ): void {
         $this->chat->post(
-            $game, $actorUserId, $threadId, $announce, $action, $strike, $hitRoll, $result,
-            $calc, $will, $maim, $speaker, $defenseRoll, $parentId, $beforeOutcome, $preRollChecks,
+            $game,
+            $actorUserId,
+            $threadId,
+            $announce,
+            $action,
+            $strike,
+            $hitRoll,
+            $result,
+            $calc,
+            $will,
+            $maim,
+            $speaker,
+            $defenseRoll,
+            $parentId,
+            $beforeOutcome,
+            $preRollChecks,
         );
     }
 }

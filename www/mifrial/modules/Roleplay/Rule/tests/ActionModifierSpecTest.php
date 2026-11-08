@@ -41,6 +41,26 @@ final class ActionModifierSpecTest extends TestCase
     }
 
     /**
+     * Без internal урон по себе остаётся внешним.
+     *
+     * @return void
+     */
+    public function testSelfDamageDefaultsToExternalWound(): void
+    {
+        self::assertFalse($this->selfDamage([])->isInternal());
+    }
+
+    /**
+     * Явный internal читается из спеки.
+     *
+     * @return void
+     */
+    public function testSelfDamageInternalIsParsed(): void
+    {
+        self::assertTrue($this->selfDamage(['internal' => true])->isInternal());
+    }
+
+    /**
      * Неизвестный режим ломает только эту версию.
      *
      * @return void

@@ -351,6 +351,7 @@ final class ActionEffects
                     SpecShape::string($effect, 'damage_type_code'),
                     SpecShape::bool($effect, 'ignore_defense'),
                     self::selfDamageMode($effect),
+                    SpecShape::bool($effect, 'internal'),
                 ),
                 'skip_after_action' => new SkipAfterActionOutcomeEffect(),
                 default => throw new RuleSpecShapeException('effects'),

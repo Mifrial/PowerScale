@@ -46,6 +46,7 @@ final class GameStrikeConsequenceEffects
      * @param string|null $damageTypeCode Тип урона.
      * @param bool $knockout Нокаут.
      * @param DimensionalNumber|null $endurance Стойкость.
+     * @param bool $internal Внутренняя ли рана.
      *
      * @return array{operations: list<array<string, mixed>>, consequence: array<string, mixed>}
      *
@@ -60,6 +61,7 @@ final class GameStrikeConsequenceEffects
         ?string $damageTypeCode,
         bool $knockout = true,
         ?DimensionalNumber $endurance = null,
+        bool $internal = false,
     ): array {
         $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $hooks = $damageTypeCode === null ? [] : $this->states->hooks($slice, $damageTypeCode);
@@ -68,16 +70,37 @@ final class GameStrikeConsequenceEffects
         $wound = $cutting === null ? 0 : $this->calc->woundStrength($slice, $sheet, $injury);
         $will = $this->willEffect($game, $slice, $sheet, $quotient, $cutting);
         $knockoutEffect = $this->knockoutEffect(
-            $hooks, $success, $injury, $slice, $sheet, $endurance, $knockout, $will['outcome'],
+            $hooks,
+            $success,
+            $injury,
+            $slice,
+            $sheet,
+            $endurance,
+            $knockout,
+            $will['outcome'],
         );
         $maim = $this->maimEffect($game, $slice, $sheet, $success, $hooks, $cutting ? 0 : $quotient, $wound);
         return [
             'operations' => $this->operations(
-                $split, $hooks, $quotient, $cutting, $wound, $will, $knockoutEffect, $maim,
+                $split,
+                $hooks,
+                $quotient,
+                $cutting,
+                $wound,
+                $will,
+                $knockoutEffect,
+                $maim,
+                $internal,
             ),
             'consequence' => $this->consequence(
-                $cutting, $quotient, $split, $endurance, $wound,
-                $will['consequence'], $knockoutEffect['unconscious'], $maim['maim'],
+                $cutting,
+                $quotient,
+                $split,
+                $endurance,
+                $wound,
+                $will['consequence'],
+                $knockoutEffect['unconscious'],
+                $maim['maim'],
             ),
         ];
     }
@@ -93,6 +116,7 @@ final class GameStrikeConsequenceEffects
      * @param array{operations: list<array<string, mixed>>} $will Операции Воли.
      * @param array{operations: list<array<string, mixed>>} $knockoutEffect Операции нокаута.
      * @param array{operations: list<array<string, mixed>>} $maim Операции увечья.
+     * @param bool $internal Внутренняя ли рана.
      *
      * @return list<array<string, mixed>> Операции.
      *
@@ -107,9 +131,10 @@ final class GameStrikeConsequenceEffects
         array $will,
         array $knockoutEffect,
         array $maim,
+        bool $internal = false,
     ): array {
         return array_merge(
-            $this->damageOperations($split, $cutting, $wound),
+            $this->damageOperations($split, $cutting, $wound, $internal),
             $this->exhaustionOperations($hooks, $quotient),
             $will['operations'],
             $knockoutEffect['operations'],
@@ -123,10 +148,11 @@ final class GameStrikeConsequenceEffects
      * @param array{kind: string, remainder: array{base: int, size: int}, quotient: int} $split Деление урона.
      * @param string|null $cutting Код раны.
      * @param int $wound Сила раны.
+     * @param bool $internal Внутренняя ли рана.
      *
      * @return list<array<string, mixed>> Операции.
      */
-    private function damageOperations(array $split, ?string $cutting, int $wound): array
+    private function damageOperations(array $split, ?string $cutting, int $wound, bool $internal = false): array
     {
         $operations = $cutting ? [] : [$split];
         if ($wound > 0 && $cutting !== null) {
@@ -136,7 +162,7 @@ final class GameStrikeConsequenceEffects
                 'value' => $wound,
                 'bandage' => 0,
                 'clotting' => 0,
-                'internal' => false,
+                'internal' => $internal,
                 'aided' => false,
                 'heldBy' => null,
             ];
@@ -244,14 +270,16 @@ final class GameStrikeConsequenceEffects
         bool $knockout,
         ?string $willOutcome,
     ): array {
-        if (!$knockout || $willOutcome === 'unconscious' || !$this->calc->blunt(
-            $hooks,
-            $success,
-            $injury,
-            $slice,
-            $sheet,
-            $endurance,
-        )) {
+        if (
+            !$knockout || $willOutcome === 'unconscious' || !$this->calc->blunt(
+                $hooks,
+                $success,
+                $injury,
+                $slice,
+                $sheet,
+                $endurance,
+            )
+        ) {
             return ['operations' => [], 'unconscious' => false];
         }
 

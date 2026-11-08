@@ -15,6 +15,8 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
  */
 final class GameStrikeResolutionDamage
 {
+    private readonly GameStrikeAmounts $amounts;
+
     /**
      * Создаёт расчёт урона.
      *
@@ -33,6 +35,7 @@ final class GameStrikeResolutionDamage
         private readonly GameStrikeResolutionActors $actors,
         private readonly GameStrikeConsequences $consequences,
     ) {
+        $this->amounts = new GameStrikeAmounts();
     }
 
     /**
@@ -170,9 +173,11 @@ final class GameStrikeResolutionDamage
      * @param DimensionalNumber $injury Повреждение.
      * @param string $damageTypeCode Тип урона.
      * @param int $success РУ.
+     * @param bool $ignoreDefense Игнорировать защиту и сопротивление.
+     * @param bool $internal Внутренний урон: рана внутренняя, обычные слои не считаются.
      *
-     * @return array{operations: list<array<string, mixed>>, consequence: array<string, mixed>, actualVersion: int}
-     *     Операции, последствия и версия листа.
+     * @return array{operations: list<array<string, mixed>>, consequence: array<string, mixed>,
+     *     actualVersion: int, injury: DimensionalNumber} Операции, последствия, версия и урон после слоёв.
      *
      * @throws GameInvalidException Если вид, стойкость или лист битые.
      * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если листа нет.
@@ -184,8 +189,59 @@ final class GameStrikeResolutionDamage
         DimensionalNumber $injury,
         string $damageTypeCode,
         int $success = 1,
+        bool $ignoreDefense = true,
+        bool $internal = false,
     ): array {
-        return $this->sheetEffects($game, $kind, $id, $injury, $success, $damageTypeCode);
+        $snapshot = $this->sheets->snapshot($game, $kind, $id);
+        [$sheet, $choices] = $this->snapshotParts($snapshot);
+        $applied = $this->selfInjury($game, $sheet, $choices, $injury, $damageTypeCode, $ignoreDefense, $internal);
+        $prepared = $this->sheetEffects(
+            $game,
+            $kind,
+            $id,
+            $applied,
+            $success,
+            $damageTypeCode,
+            $snapshot,
+            $internal,
+        );
+        $prepared['injury'] = $applied;
+
+        return $prepared;
+    }
+
+    /**
+     * Урон по себе после собственных слоёв атакующего.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<string, mixed> $choices Выборы листа.
+     * @param DimensionalNumber $injury Повреждение.
+     * @param string $damageTypeCode Тип урона.
+     * @param bool $ignoreDefense Игнорировать защиту и сопротивление.
+     * @param bool $internal Внутренний урон.
+     *
+     * @return DimensionalNumber Повреждение после слоёв.
+     *
+     * @throws GameInvalidException Если слой или тип битые.
+     * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если ревизии нет.
+     */
+    private function selfInjury(
+        GameRecord $game,
+        array $sheet,
+        array $choices,
+        DimensionalNumber $injury,
+        string $damageTypeCode,
+        bool $ignoreDefense,
+        bool $internal,
+    ): DimensionalNumber {
+        if ($ignoreDefense && !$internal) {
+            return $injury;
+        }
+
+        $resistance = $this->rules->defense->resistanceByType($game, $damageTypeCode, $sheet, $choices, $internal);
+
+        return $this->amounts->injury($injury, $resistance, 1, null);
     }
 
     /**
@@ -305,6 +361,8 @@ final class GameStrikeResolutionDamage
      * @param DimensionalNumber $injury Повреждение.
      * @param int $success РУ.
      * @param string|null $damageTypeCode Тип урона.
+     * @param array<string, mixed>|null $snapshot Готовый снимок листа.
+     * @param bool $internal Внутренняя ли рана.
      *
      * @return array{operations: list<array<string, mixed>>, consequence: array<string, mixed>, actualVersion: int}
      *     Операции, последствия и версия.
@@ -319,11 +377,14 @@ final class GameStrikeResolutionDamage
         DimensionalNumber $injury,
         int $success,
         ?string $damageTypeCode,
+        ?array $snapshot = null,
+        bool $internal = false,
     ): array {
         if ($kind !== 'character' && $kind !== 'npc') {
             throw new GameInvalidException('Game strike participant is invalid');
         }
-        $snapshot = $this->sheets->snapshot($game, $kind, $id);
+
+        $snapshot ??= $this->sheets->snapshot($game, $kind, $id);
         [$sheet, $choices, $version] = $this->snapshotParts($snapshot);
         $effects = $this->consequences->effects(
             $game,
@@ -334,6 +395,7 @@ final class GameStrikeResolutionDamage
             $damageTypeCode,
             true,
             $this->endurance($game, $kind, $id, $sheet, $choices, $version),
+            $internal,
         );
 
         return [

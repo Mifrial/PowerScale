@@ -744,6 +744,7 @@ describe('mockDevelopmentImport (S14)', () => {
             damage_type_code: 'blunt',
             ignore_defense: true,
             mode: 'strongest',
+            internal: true,
           },
           { type: 'skip_after_action' },
         ],

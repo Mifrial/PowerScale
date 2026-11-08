@@ -26,6 +26,7 @@ final class SelfDamageOutcomeEffect implements ModifierOutcomeEffect
      * @param string $damageTypeCode Тип урона.
      * @param bool $ignoreDefense Игнорировать защиту и сопротивление.
      * @param string $mode Выбор строк: strongest или each.
+     * @param bool $internal Внутренний урон: рана внутренняя, обычные слои не считаются.
      *
      * @return void
      */
@@ -34,6 +35,7 @@ final class SelfDamageOutcomeEffect implements ModifierOutcomeEffect
         private readonly string $damageTypeCode,
         private readonly bool $ignoreDefense,
         private readonly string $mode = self::MODE_STRONGEST,
+        private readonly bool $internal = false,
     ) {
     }
 
@@ -97,5 +99,15 @@ final class SelfDamageOutcomeEffect implements ModifierOutcomeEffect
     public function getMode(): string
     {
         return $this->mode;
+    }
+
+    /**
+     * Внутренний ли урон.
+     *
+     * @return bool Значение.
+     */
+    public function isInternal(): bool
+    {
+        return $this->internal;
     }
 }

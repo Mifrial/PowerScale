@@ -416,6 +416,13 @@ function patch(key: string, value: unknown) {
           hide-details
           clearable
         />
+        <v-checkbox
+          :model-value="inner.protects_internal === true"
+          @update:model-value="patch('protects_internal', $event)"
+          label="Держит внутренний урон"
+          density="compact"
+          hide-details
+        />
       </template>
 
       <template v-else-if="inner.type === 'sense_modify'">

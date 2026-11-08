@@ -139,6 +139,82 @@ final class ItemSlotDurabilityTest extends TestCase
     }
 
     /**
+     * Слот по умолчанию не держит внутренний урон.
+     *
+     * @return void
+     */
+    public function testSlotProtectsInternalDefaultsOff(): void
+    {
+        $item = ItemSpecs::read($this->armor([
+            'defense' => ['base' => 2, 'size' => 0],
+        ], [
+            'value' => ['base' => 1, 'size' => 0],
+        ]));
+
+        self::assertFalse($item->getArmor()?->getDefenseSlots()[0]->isProtectsInternal());
+        self::assertFalse($item->getArmor()?->getResistanceSlots()[0]->isProtectsInternal());
+    }
+
+    /**
+     * Явный флаг слота читается.
+     *
+     * @return void
+     */
+    public function testSlotProtectsInternalIsParsed(): void
+    {
+        $item = ItemSpecs::read($this->armor([
+            'defense' => ['base' => 2, 'size' => 0],
+            'protects_internal' => true,
+        ], [
+            'value' => ['base' => 1, 'size' => 0],
+            'protects_internal' => true,
+        ]));
+
+        self::assertTrue($item->getArmor()?->getDefenseSlots()[0]->isProtectsInternal());
+        self::assertTrue($item->getArmor()?->getResistanceSlots()[0]->isProtectsInternal());
+    }
+
+    /**
+     * Грант сопротивления без флага не держит внутренний урон.
+     *
+     * @return void
+     */
+    public function testResistanceGrantProtectsInternalIsParsed(): void
+    {
+        $plain = $this->resistanceGrant([]);
+        $marked = $this->resistanceGrant(['protects_internal' => true]);
+
+        self::assertFalse($plain->isProtectsInternal());
+        self::assertTrue($marked->isProtectsInternal());
+    }
+
+    /**
+     * Грант сопротивления с доп. полями.
+     *
+     * @param array<string, mixed> $extra Доп. поля.
+     *
+     * @return ResistanceGrant Грант.
+     */
+    private function resistanceGrant(array $extra): ResistanceGrant
+    {
+        $blocks = AbilityGrants::blocks([
+            'grants' => [[
+                'level' => 1,
+                'grants' => [[
+                    'type' => 'resistance',
+                    'damage_type_code' => 'fire',
+                    'value' => ['type' => 'fixed', 'value' => 1],
+                    ...$extra,
+                ]],
+            ]],
+        ]);
+        $grant = $blocks[0]->getGrants()[0];
+        self::assertInstanceOf(ResistanceGrant::class, $grant);
+
+        return $grant;
+    }
+
+    /**
      * Предмет с бронёй.
      *
      * @param array<string, mixed> $defense Слот защиты.

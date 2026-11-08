@@ -81,7 +81,10 @@ function onSetOccupyHands(itemId: number, occupyHands: number): void {
             Сопротивление{{ resistance.damageTypeDative ? ` ${resistance.damageTypeDative}` : '' }}
           </span>
         </div>
-        <div class="text-body-2 text-medium-emphasis">{{ resistance.valueLabel }}</div>
+        <div class="text-body-2 text-medium-emphasis">
+          {{ resistance.valueLabel }}
+          <span v-if="resistance.protectsInternal">· держит внутренний урон</span>
+        </div>
       </v-sheet>
       <ArmorTile v-for="armor in overview.defense.armor" :key="armor.itemRuleCode" :item="armor" />
       <v-sheet v-if="overview.defense.shield" class="pa-2 rounded border">

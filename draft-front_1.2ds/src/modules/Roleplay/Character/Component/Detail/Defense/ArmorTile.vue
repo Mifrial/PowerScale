@@ -50,6 +50,7 @@ function lineKey(line: DefenseLineOverview, index: number): string {
               <span class="text-medium-emphasis">
                 · надёжность {{ line.durability === null ? 'абсолютная' : line.durability }}
               </span>
+              <span v-if="line.protectsInternal" class="text-medium-emphasis">· держит внутренний урон</span>
             </div>
           </v-card-text>
         </v-card>

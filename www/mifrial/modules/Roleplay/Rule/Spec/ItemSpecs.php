@@ -198,6 +198,7 @@ final class ItemSpecs
             DimensionalNumbers::required($row, 'defense'),
             SpecShape::optionalInt($row, 'durability'),
             SpecShape::optionalString($row, 'source_code'),
+            SpecShape::bool($row, 'protects_internal'),
         );
     }
 
@@ -238,6 +239,7 @@ final class ItemSpecs
             DimensionalNumbers::required($row, 'value'),
             SpecShape::optionalInt($row, 'durability'),
             SpecShape::optionalString($row, 'source_code'),
+            SpecShape::bool($row, 'protects_internal'),
         );
     }
 

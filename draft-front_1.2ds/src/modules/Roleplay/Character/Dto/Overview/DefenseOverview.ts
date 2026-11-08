@@ -16,6 +16,8 @@ export interface DefenseLineOverview {
   damageTypeDative: string | null;
   /** Код типа урона линии сопротивления; у защиты — null. */
   damageTypeCode: string | null;
+  /** Слой держит и внутренний урон. */
+  protectsInternal?: boolean;
 }
 
 export interface DefenseArmorOverview {

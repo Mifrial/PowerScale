@@ -71,6 +71,7 @@ final class CharacterCombatItemLayers
                 $slot->getSourceCode(),
                 $slot->getDamageTypeCode(),
                 true,
+                $slot->isProtectsInternal(),
             );
         }
 
@@ -213,7 +214,13 @@ final class CharacterCombatItemLayers
 
         $layers = [];
         foreach ($armor->getDefenseSlots() as $slot) {
-            $layers[] = $this->defense($slot->getDefense(), $slot->getDurability(), $slot->getSourceCode(), false);
+            $layers[] = $this->defense(
+                $slot->getDefense(),
+                $slot->getDurability(),
+                $slot->getSourceCode(),
+                false,
+                $slot->isProtectsInternal(),
+            );
         }
 
         foreach ($armor->getResistanceSlots() as $slot) {
@@ -223,6 +230,7 @@ final class CharacterCombatItemLayers
                 $slot->getSourceCode(),
                 $slot->getDamageTypeCode(),
                 false,
+                $slot->isProtectsInternal(),
             );
         }
 
@@ -236,6 +244,7 @@ final class CharacterCombatItemLayers
      * @param int|null $durability Порог.
      * @param string|null $sourceCode Источник слота.
      * @param bool $fromBlock Слой блока.
+     * @param bool $protectsInternal Держит ли внутренний урон.
      *
      * @return CharacterCombatLayer Слой.
      */
@@ -244,8 +253,16 @@ final class CharacterCombatItemLayers
         ?int $durability,
         ?string $sourceCode,
         bool $fromBlock,
+        bool $protectsInternal = false,
     ): CharacterCombatLayer {
-        return new CharacterCombatLayer('defense', $value, $durability, $this->source($sourceCode, $fromBlock), null);
+        return new CharacterCombatLayer(
+            'defense',
+            $value,
+            $durability,
+            $this->source($sourceCode, $fromBlock),
+            null,
+            $protectsInternal,
+        );
     }
 
     /**
@@ -256,6 +273,7 @@ final class CharacterCombatItemLayers
      * @param string|null $sourceCode Источник слота.
      * @param string|null $damageTypeCode Тип урона.
      * @param bool $fromBlock Слой блока.
+     * @param bool $protectsInternal Держит ли внутренний урон.
      *
      * @return CharacterCombatLayer Слой.
      */
@@ -265,6 +283,7 @@ final class CharacterCombatItemLayers
         ?string $sourceCode,
         ?string $damageTypeCode,
         bool $fromBlock,
+        bool $protectsInternal = false,
     ): CharacterCombatLayer {
         return new CharacterCombatLayer(
             'resistance',
@@ -272,6 +291,7 @@ final class CharacterCombatItemLayers
             $durability,
             $this->source($sourceCode, $fromBlock),
             $damageTypeCode,
+            $protectsInternal,
         );
     }
 

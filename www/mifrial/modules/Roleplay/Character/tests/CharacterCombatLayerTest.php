@@ -220,6 +220,53 @@ final class CharacterCombatLayerTest extends TestCase
     }
 
     /**
+     * Флаг «держит внутренний урон» доходит до слоёв брони и гранта.
+     *
+     * @return void
+     */
+    public function testProtectsInternalFlagReachesLayers(): void
+    {
+        $rules = [
+            $this->rule('mail', 'item', [
+                'category' => 'equipment',
+                'armor' => [
+                    'defense_slots' => [[
+                        'defense' => ['base' => 2, 'size' => 0],
+                        'protects_internal' => true,
+                    ]],
+                    'resistance_slots' => [[
+                        'damage_type_code' => 'fire',
+                        'value' => ['base' => 1, 'size' => 0],
+                        'protects_internal' => true,
+                    ]],
+                ],
+            ], []),
+            $this->rule('ward', 'ability', [
+                'type' => 'trait',
+                'grants' => [[
+                    'level' => 1,
+                    'grants' => [[
+                        'type' => 'resistance',
+                        'damage_type_code' => 'magic',
+                        'source_code' => 'body',
+                        'value' => ['base' => 1, 'size' => 0],
+                        'protects_internal' => true,
+                    ]],
+                ]],
+            ], []),
+        ];
+        $layers = $this->project($rules, [
+            'inventory' => [['id' => 1, 'ruleCode' => 'mail', 'equipped' => true]],
+            'abilities' => [['ruleCode' => 'ward', 'level' => 1]],
+        ], null, ['ward' => 1]);
+
+        self::assertCount(3, $layers);
+        self::assertTrue($layers[0]->isProtectsInternal());
+        self::assertTrue($layers[1]->isProtectsInternal());
+        self::assertTrue($layers[2]->isProtectsInternal());
+    }
+
+    /**
      * Защита блока.
      *
      * @param array<int, CharacterCombatLayer> $layers Слои.

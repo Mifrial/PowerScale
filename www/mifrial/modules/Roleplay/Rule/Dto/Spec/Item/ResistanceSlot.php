@@ -18,6 +18,7 @@ final class ResistanceSlot
      * @param DimensionalNumber $value Значение.
      * @param int|null $durability Прочность или абсолютная применимость.
      * @param string|null $sourceCode Источник.
+     * @param bool $protectsInternal Держит ли внутренний урон.
      *
      * @return void
      */
@@ -26,6 +27,7 @@ final class ResistanceSlot
         private readonly DimensionalNumber $value,
         private readonly ?int $durability,
         private readonly ?string $sourceCode,
+        private readonly bool $protectsInternal = false,
     ) {
     }
 
@@ -67,5 +69,15 @@ final class ResistanceSlot
     public function getSourceCode(): ?string
     {
         return $this->sourceCode;
+    }
+
+    /**
+     * Держит ли слой внутренний урон.
+     *
+     * @return bool Значение.
+     */
+    public function isProtectsInternal(): bool
+    {
+        return $this->protectsInternal;
     }
 }

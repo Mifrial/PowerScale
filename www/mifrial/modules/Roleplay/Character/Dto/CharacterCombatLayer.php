@@ -19,6 +19,7 @@ final class CharacterCombatLayer
      * @param int|null $durability Порог или абсолютная применимость.
      * @param string $sourceCode Источник для сложения.
      * @param string|null $damageTypeCode Тип урона или его отсутствие.
+     * @param bool $protectsInternal Держит ли слой внутренний урон.
      *
      * @return void
      */
@@ -28,6 +29,7 @@ final class CharacterCombatLayer
         private readonly ?int $durability,
         private readonly string $sourceCode,
         private readonly ?string $damageTypeCode,
+        private readonly bool $protectsInternal = false,
     ) {
     }
 
@@ -79,5 +81,15 @@ final class CharacterCombatLayer
     public function getDamageTypeCode(): ?string
     {
         return $this->damageTypeCode;
+    }
+
+    /**
+     * Держит ли слой внутренний урон.
+     *
+     * @return bool Значение.
+     */
+    public function isProtectsInternal(): bool
+    {
+        return $this->protectsInternal;
     }
 }

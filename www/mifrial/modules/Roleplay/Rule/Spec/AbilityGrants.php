@@ -291,6 +291,7 @@ final class AbilityGrants
             SpecShape::string($row, 'source_code'),
             AbilityGrantValues::resistanceValue($row),
             $permanent,
+            SpecShape::bool($row, 'protects_internal'),
         );
     }
 

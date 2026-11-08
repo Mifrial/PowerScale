@@ -54,6 +54,7 @@ final class GameStrikeLayers
      * @param int $rating Рейтинг попадания.
      * @param DimensionalNumber|null $penetration Проникновение атакующего.
      * @param int $durabilityShave Срез надёжности с единиц удара.
+     * @param bool $internal Внутренний урон: считаются только помеченные слои.
      *
      * @return DimensionalNumber Сумма.
      *
@@ -69,10 +70,11 @@ final class GameStrikeLayers
         int $rating,
         ?DimensionalNumber $penetration = null,
         int $durabilityShave = 0,
+        bool $internal = false,
     ): DimensionalNumber {
         $type = $this->damageType($slice, $damageType);
         [$projected, $cut] = $this->project($slice, $sheet, $choices, $reaction, $blockItemInventoryId, $type['rule']);
-        $values = $this->kept($projected, $damageType, $type['ignored'], $cut, $rating, $durabilityShave);
+        $values = $this->kept($projected, $damageType, $type['ignored'], $cut, $rating, $durabilityShave, $internal);
 
         return $this->combine($values['defense'], $values['resistance'], $penetration);
     }
@@ -230,6 +232,7 @@ final class GameStrikeLayers
      * @param bool $cut Срез включён.
      * @param int $rating Рейтинг.
      * @param int $durabilityShave Срез надёжности с единиц.
+     * @param bool $internal Внутренний урон: считаются только помеченные слои.
      *
      * @return array{defense: list<DimensionalNumber>, resistance: list<DimensionalNumber>} Пары по виду.
      */
@@ -240,11 +243,12 @@ final class GameStrikeLayers
         bool $cut,
         int $rating,
         int $durabilityShave,
+        bool $internal = false,
     ): array {
         $matched = [];
         foreach ($layers as $layer) {
             if (
-                $this->matches($layer, $damageType, $defenseIgnored)
+                $this->matches($layer, $damageType, $defenseIgnored, $internal)
                 && !$this->shaved($layer, $cut, $rating, $durabilityShave)
             ) {
                 $matched[] = $layer;
@@ -278,23 +282,32 @@ final class GameStrikeLayers
     }
 
     /**
-     * Слой относится к типу урона.
+     * Слой подходит типу. Внутренний урон оставляет только помеченные слои.
      *
      * @param CharacterCombatLayer $layer Слой.
-     * @param string $damageType Тип.
-     * @param bool $defenseIgnored Защита выключена.
+     * @param string $damageType Тип урона.
+     * @param bool $defenseIgnored Защита типа выключена.
+     * @param bool $internal Внутренний урон.
      *
-     * @return bool true, если слой входит.
+     * @return bool true, если слой считается.
      */
-    private function matches(CharacterCombatLayer $layer, string $damageType, bool $defenseIgnored): bool
-    {
+    private function matches(
+        CharacterCombatLayer $layer,
+        string $damageType,
+        bool $defenseIgnored,
+        bool $internal = false,
+    ): bool {
+        $code = $layer->getDamageTypeCode();
+        $typed = $code === null || $code === '' || $code === $damageType;
+        if ($internal) {
+            return $layer->isProtectsInternal() && $typed;
+        }
+
         if ($layer->getKind() === 'defense' && $defenseIgnored) {
             return false;
         }
 
-        $code = $layer->getDamageTypeCode();
-
-        return $code === null || $code === '' || $code === $damageType;
+        return $typed;
     }
 
     /**

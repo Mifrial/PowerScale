@@ -6,4 +6,6 @@ export interface ResistanceSlot {
   /** Порог РУ. null — абсолютная применимость, слот не снимается расходом успеха. */
   durability: number | null;
   source_code: string | null;
+  /** Слот держит и внутренний урон. */
+  protects_internal?: boolean;
 }
