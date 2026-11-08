@@ -16,11 +16,13 @@ final class MapNodeWriter
      * Создаёт писатель.
      *
      * @param MapNodeStore $nodeStore Узлы.
+     * @param MapSaveRows $rows Общие операции над строками снимка.
      *
      * @return void
      */
     public function __construct(
         private readonly MapNodeStore $nodeStore,
+        private readonly MapSaveRows $rows,
     ) {
     }
 
@@ -37,68 +39,22 @@ final class MapNodeWriter
     public function write(int $mapId, array $nodes): array
     {
         $existing = $this->nodeStore->findNodes($mapId);
-        [$updates, $inserts] = $this->split($nodes, $this->index($existing));
+        $existingById = $this->index($existing);
+        [$updates, $inserts] = $this->rows->split($nodes, $existingById, 'Map node is unknown');
         foreach ($updates as $id => $node) {
             $this->nodeStore->updateNode($id, $this->fields($node));
         }
 
-        $this->deleteMissing($existing, $updates);
+        foreach ($this->rows->stale($existingById, $updates) as $id) {
+            $this->nodeStore->deleteNode($id);
+        }
 
-        $idMap = $this->ids($updates);
+        $idMap = $this->rows->ids($updates);
         foreach ($inserts as $node) {
             $idMap[$node['id']] = $this->insert($mapId, $node);
         }
 
         return $idMap;
-    }
-
-    /**
-     * Делит снимок на обновления и вставки.
-     *
-     * @param array<int, array<string, mixed>> $nodes Узлы.
-     * @param array<int, true> $existingById Известные id.
-     *
-     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>} Части.
-     *
-     * @throws MapInvalidException Если узел снимка неизвестен.
-     */
-    private function split(array $nodes, array $existingById): array
-    {
-        $updates = [];
-        $inserts = [];
-        foreach ($nodes as $node) {
-            $id = $node['id'];
-            if ($id < 0) {
-                $inserts[] = $node;
-
-                continue;
-            }
-
-            if (!isset($existingById[$id])) {
-                throw new MapInvalidException('Map node is unknown');
-            }
-
-            $updates[$id] = $node;
-        }
-
-        return [$updates, $inserts];
-    }
-
-    /**
-     * Удаляет узлы, которых нет в снимке.
-     *
-     * @param array<int, MapNodeRecord> $existing Существующие.
-     * @param array<int, array<string, mixed>> $updates Обновляемые.
-     *
-     * @return void
-     */
-    private function deleteMissing(array $existing, array $updates): void
-    {
-        foreach ($existing as $nodeRecord) {
-            if (!isset($updates[$nodeRecord->getId()])) {
-                $this->nodeStore->deleteNode($nodeRecord->getId());
-            }
-        }
     }
 
     /**
@@ -116,23 +72,6 @@ final class MapNodeWriter
         }
 
         return $ids;
-    }
-
-    /**
-     * Карта id для обновлённых строк.
-     *
-     * @param array<int, array<string, mixed>> $updates Обновляемые.
-     *
-     * @return array<int, int> Id снимка → реальный id.
-     */
-    private function ids(array $updates): array
-    {
-        $idMap = [];
-        foreach ($updates as $id => $node) {
-            $idMap[$id] = $id;
-        }
-
-        return $idMap;
     }
 
     /**

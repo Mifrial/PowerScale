@@ -236,12 +236,14 @@ final class MapPortFactory
      */
     private function saveWriter(IServiceLocator $serviceLocator): MapSaveWriter
     {
+        $rows = new MapSaveRows();
+
         return new MapSaveWriter(
             $this->mapRepository($serviceLocator),
-            new MapVariantWriter($this->variantRepository($serviceLocator)),
-            new MapNodeWriter($this->nodeStore($serviceLocator)),
-            new MapGroupSaveWriter($this->groupStore($serviceLocator)),
-            new MapGraphSaveWriter($this->areaStore($serviceLocator)),
+            new MapVariantWriter($this->variantRepository($serviceLocator), $rows),
+            new MapNodeWriter($this->nodeStore($serviceLocator), $rows),
+            new MapGroupSaveWriter($this->groupStore($serviceLocator), $rows),
+            new MapGraphSaveWriter($this->areaStore($serviceLocator), $rows),
             new MapLineSaveWriter($this->lineStore($serviceLocator)),
             new MapLinkSaveWriter(
                 $this->nodeStore($serviceLocator),

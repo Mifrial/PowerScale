@@ -21,11 +21,13 @@ final class MapGraphSaveWriter
      * Создаёт писатель.
      *
      * @param MapAreaStore $areaStore Области и формы.
+     * @param MapSaveRows $rows Общие операции над строками снимка.
      *
      * @return void
      */
     public function __construct(
         private readonly MapAreaStore $areaStore,
+        private readonly MapSaveRows $rows,
     ) {
     }
 
@@ -43,19 +45,15 @@ final class MapGraphSaveWriter
      */
     public function areas(int $mapId, array $areas, array $nodeMap, array $groupMap): array
     {
-        $existing = $this->areaStore->findAreas($mapId);
-        $existingById = $this->index($existing);
-        [$updates, $inserts] = $this->splitAreas($areas, $existingById);
+        $existingById = $this->index($this->areaStore->findAreas($mapId));
+        [$updates, $inserts] = $this->rows->split($areas, $existingById, 'Map area is unknown');
 
         $this->updateAreas($updates, $existingById, $nodeMap, $groupMap);
-        $this->deleteMissingAreas($existing, $updates);
-
-        $idMap = [];
-        foreach (array_keys($updates) as $id) {
-            $idMap[$id] = $id;
+        foreach ($this->rows->stale($existingById, $updates) as $id) {
+            $this->areaStore->deleteArea($id);
         }
 
-        return $this->insertAreas($mapId, $inserts, $nodeMap, $groupMap, $idMap);
+        return $this->insertAreas($mapId, $inserts, $nodeMap, $groupMap, $this->rows->ids($updates));
     }
 
     /**
@@ -79,23 +77,6 @@ final class MapGraphSaveWriter
             }
 
             $this->areaStore->updateArea($id, $fields);
-        }
-    }
-
-    /**
-     * Удаляет области, которых нет в снимке.
-     *
-     * @param array<int, MapAreaRecord> $existing Известные строки.
-     * @param array<int, array<string, mixed>> $updates Области снимка по id.
-     *
-     * @return void
-     */
-    private function deleteMissingAreas(array $existing, array $updates): void
-    {
-        foreach ($existing as $areaRecord) {
-            if (!isset($updates[$areaRecord->getId()])) {
-                $this->areaStore->deleteArea($areaRecord->getId());
-            }
         }
     }
 
@@ -191,38 +172,6 @@ final class MapGraphSaveWriter
         ksort($right);
 
         return $left === $right;
-    }
-
-    /**
-     * Делит области на обновления и вставки.
-     *
-     * @param array<int, array<string, mixed>> $areas Области.
-     * @param array<int, MapAreaRecord> $existingById Известные строки.
-     *
-     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>} Части.
-     *
-     * @throws MapInvalidException Если область снимка неизвестна.
-     */
-    private function splitAreas(array $areas, array $existingById): array
-    {
-        $updates = [];
-        $inserts = [];
-        foreach ($areas as $area) {
-            $id = $area['id'];
-            if ($id < 0) {
-                $inserts[] = $area;
-
-                continue;
-            }
-
-            if (!isset($existingById[$id])) {
-                throw new MapInvalidException('Map area is unknown');
-            }
-
-            $updates[$id] = $area;
-        }
-
-        return [$updates, $inserts];
     }
 
     /**

@@ -16,11 +16,13 @@ final class MapGroupSaveWriter
      * Создаёт писатель.
      *
      * @param MapAreaGroupStore $groupStore Группы.
+     * @param MapSaveRows $rows Общие операции над строками снимка.
      *
      * @return void
      */
     public function __construct(
         private readonly MapAreaGroupStore $groupStore,
+        private readonly MapSaveRows $rows,
     ) {
     }
 
@@ -37,16 +39,14 @@ final class MapGroupSaveWriter
     public function write(int $mapId, array $groups): array
     {
         $existingById = $this->index($this->groupStore->findGroups($mapId));
-        [$updates, $inserts] = $this->splitGroups($groups, $existingById);
+        [$updates, $inserts] = $this->rows->split($groups, $existingById, 'Map area group is unknown');
 
         $this->rename($updates, $existingById);
-        $this->deleteMissing($existingById, $updates);
-
-        $idMap = [];
-        foreach (array_keys($updates) as $id) {
-            $idMap[$id] = $id;
+        foreach ($this->rows->stale($existingById, $updates) as $id) {
+            $this->groupStore->deleteGroup($id);
         }
 
+        $idMap = $this->rows->ids($updates);
         foreach ($inserts as $group) {
             $idMap[$group['id']] = $this->groupStore->addGroup($mapId, $group['label']);
         }
@@ -72,38 +72,6 @@ final class MapGroupSaveWriter
     }
 
     /**
-     * Делит группы на обновления и вставки.
-     *
-     * @param array<int, array<string, mixed>> $groups Группы снимка.
-     * @param array<int, MapAreaGroupRecord> $existingById Известные группы.
-     *
-     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>} Части.
-     *
-     * @throws MapInvalidException Если группа снимка неизвестна.
-     */
-    private function splitGroups(array $groups, array $existingById): array
-    {
-        $updates = [];
-        $inserts = [];
-        foreach ($groups as $group) {
-            $id = $group['id'];
-            if ($id < 0) {
-                $inserts[] = $group;
-
-                continue;
-            }
-
-            if (!isset($existingById[$id])) {
-                throw new MapInvalidException('Map area group is unknown');
-            }
-
-            $updates[$id] = $group;
-        }
-
-        return [$updates, $inserts];
-    }
-
-    /**
      * Обновляет изменившиеся подписи.
      *
      * @param array<int, array<string, mixed>> $updates Группы снимка.
@@ -116,23 +84,6 @@ final class MapGroupSaveWriter
         foreach ($updates as $id => $group) {
             if ($existingById[$id]->getLabel() !== $group['label']) {
                 $this->groupStore->updateGroup($id, $group['label']);
-            }
-        }
-    }
-
-    /**
-     * Удаляет группы, которых нет в снимке.
-     *
-     * @param array<int, MapAreaGroupRecord> $existingById Известные группы.
-     * @param array<int, array<string, mixed>> $updates Группы снимка.
-     *
-     * @return void
-     */
-    private function deleteMissing(array $existingById, array $updates): void
-    {
-        foreach ($existingById as $id => $groupRecord) {
-            if (!isset($updates[$id])) {
-                $this->groupStore->deleteGroup($id);
             }
         }
     }

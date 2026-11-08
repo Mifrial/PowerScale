@@ -17,11 +17,13 @@ final class MapVariantWriter
      * Создаёт писатель.
      *
      * @param MapVariantRepository $variantRepository Строки вариантов.
+     * @param MapSaveRows $rows Общие операции над строками снимка.
      *
      * @return void
      */
     public function __construct(
         private readonly MapVariantRepository $variantRepository,
+        private readonly MapSaveRows $rows,
     ) {
     }
 
@@ -39,68 +41,22 @@ final class MapVariantWriter
     public function write(int $mapId, array $variants, bool $isNew): array
     {
         $existing = $isNew ? [] : $this->variantRepository->findByMap($mapId);
-        [$updates, $inserts] = $this->split($variants, $this->index($existing));
+        $existingById = $this->index($existing);
+        [$updates, $inserts] = $this->rows->split($variants, $existingById, 'Map variant is unknown');
         foreach ($updates as $id => $variant) {
             $this->variantRepository->update($id, $this->fields($variant));
         }
 
-        $this->deleteMissing($existing, $updates);
+        foreach ($this->rows->stale($existingById, $updates) as $id) {
+            $this->variantRepository->delete($id);
+        }
 
-        $idMap = $this->ids($updates);
+        $idMap = $this->rows->ids($updates);
         foreach ($inserts as $variant) {
             $idMap[$variant['id']] = $this->insert($mapId, $variant);
         }
 
         return $idMap;
-    }
-
-    /**
-     * Делит снимок на обновления и вставки.
-     *
-     * @param array<int, array<string, mixed>> $variants Варианты.
-     * @param array<int, true> $existingById Известные id.
-     *
-     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>} Части.
-     *
-     * @throws MapInvalidException Если вариант снимка неизвестен.
-     */
-    private function split(array $variants, array $existingById): array
-    {
-        $updates = [];
-        $inserts = [];
-        foreach ($variants as $variant) {
-            $id = $variant['id'];
-            if ($id < 0) {
-                $inserts[] = $variant;
-
-                continue;
-            }
-
-            if (!isset($existingById[$id])) {
-                throw new MapInvalidException('Map variant is unknown');
-            }
-
-            $updates[$id] = $variant;
-        }
-
-        return [$updates, $inserts];
-    }
-
-    /**
-     * Удаляет варианты, которых нет в снимке.
-     *
-     * @param array<int, MapVariantRecord> $existing Существующие.
-     * @param array<int, array<string, mixed>> $updates Обновляемые.
-     *
-     * @return void
-     */
-    private function deleteMissing(array $existing, array $updates): void
-    {
-        foreach ($existing as $variantRecord) {
-            if (!isset($updates[$variantRecord->getId()])) {
-                $this->variantRepository->delete($variantRecord->getId());
-            }
-        }
     }
 
     /**
@@ -118,23 +74,6 @@ final class MapVariantWriter
         }
 
         return $ids;
-    }
-
-    /**
-     * Карта id для обновлённых строк.
-     *
-     * @param array<int, array<string, mixed>> $updates Обновляемые.
-     *
-     * @return array<int, int> Id снимка → реальный id.
-     */
-    private function ids(array $updates): array
-    {
-        $idMap = [];
-        foreach ($updates as $id => $variant) {
-            $idMap[$id] = $id;
-        }
-
-        return $idMap;
     }
 
     /**
