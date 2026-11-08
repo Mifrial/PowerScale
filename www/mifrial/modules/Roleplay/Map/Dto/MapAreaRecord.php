@@ -66,7 +66,7 @@ final class MapAreaRecord
             MapValues::requireString($fields, 'color'),
             MapValues::optionalString($fields, 'stroke') ?? '',
             MapValues::optionalInt($fields, 'stroke_width') ?: MapAreaStroke::DEFAULT_WIDTH,
-            MapValues::areaDecor($fields['decor'] ?? null),
+            MapDecorValues::areaDecor($fields['decor'] ?? null),
             MapValues::requireInt($fields, 'speed'),
             MapValues::requireString($fields, 'label'),
             MapValues::optionalInt($fields, 'node_id'),

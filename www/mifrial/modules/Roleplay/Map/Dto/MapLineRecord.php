@@ -62,7 +62,7 @@ final class MapLineRecord
      */
     public static function fromNormalized(array $fields): self
     {
-        $points = MapValues::path($fields, 'points', 2, true);
+        $points = MapGeometryValues::path($fields, 'points', 2, true);
         if ($points === null) {
             throw new MapInvalidException('Map line has no points');
         }
@@ -73,11 +73,11 @@ final class MapLineRecord
             MapValues::requireString($fields, 'color'),
             MapValues::requireInt($fields, 'speed'),
             $points,
-            MapValues::widths($fields['widths'] ?? null, count($points)),
-            MapValues::handles($fields['handles'] ?? null, count($points)),
-            MapValues::segments($fields['segments'] ?? null, count($points) - 1),
+            MapGeometryValues::widths($fields['widths'] ?? null, count($points)),
+            MapGeometryValues::handles($fields['handles'] ?? null, count($points)),
+            MapGeometryValues::segments($fields['segments'] ?? null, count($points) - 1),
             MapValues::optionalInt($fields, 'color_blend') ?? 16,
-            MapValues::decor($fields['decor'] ?? null),
+            MapDecorValues::decor($fields['decor'] ?? null),
             MapValues::requireString($fields, 'label'),
             MapValues::requireBool($fields, 'is_present'),
             MapValues::optionalInt($fields, 'sort_order') ?? 0,

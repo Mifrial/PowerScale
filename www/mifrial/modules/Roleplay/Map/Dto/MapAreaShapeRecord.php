@@ -44,7 +44,7 @@ final class MapAreaShapeRecord
      */
     public static function fromNormalized(array $fields): self
     {
-        $path = MapValues::path($fields, 'path', 3, true);
+        $path = MapGeometryValues::path($fields, 'path', 3, true);
         if ($path === null) {
             throw new MapInvalidException('Map area shape has no path');
         }
@@ -54,7 +54,7 @@ final class MapAreaShapeRecord
             MapValues::requireInt($fields, 'variant_id'),
             MapValues::requireInt($fields, 'area_id'),
             $path,
-            MapValues::handles($fields['handles'] ?? null, count($path)),
+            MapGeometryValues::handles($fields['handles'] ?? null, count($path)),
             MapValues::requireBool($fields, 'is_present'),
         );
     }
