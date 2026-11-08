@@ -63,9 +63,9 @@ final class MapRouteGrid
             'speeds' => array_fill(0, max(1, $columns) * max(1, $rows), -1),
         ];
 
-        $this->paintSurfaces($field, $this->flatten($surfaces));
+        $this->paintContours($field, $this->flatten($surfaces));
         $this->paintRibbons($field, $ribbons);
-        $this->paintObjects($field, $this->flatten($objects));
+        $this->paintContours($field, $this->flatten($objects));
         foreach ($field['speeds'] as $index => $speed) {
             if ($speed < 0) {
                 $field['speeds'][$index] = self::DEFAULT_SPEED;
@@ -183,26 +183,26 @@ final class MapRouteGrid
     }
 
     /**
-     * Поверхности.
+     * Полигоны слоя: поверхности или объекты.
      *
      * @param Field $field Поле.
-     * @param array<int, Area> $surfaces Поверхности.
+     * @param array<int, Area> $contours Контуры слоя.
      *
      * @return void
      */
-    private function paintSurfaces(array &$field, array $surfaces): void
+    private function paintContours(array &$field, array $contours): void
     {
         usort(
-            $surfaces,
+            $contours,
             static fn (array $left, array $right): int => $left['sortOrder'] <=> $right['sortOrder']
                 ?: $left['id'] <=> $right['id'],
         );
-        foreach ($surfaces as $surface) {
-            if (count($surface['path']) < 3) {
+        foreach ($contours as $contour) {
+            if (count($contour['path']) < 3) {
                 continue;
             }
 
-            $this->paintPolygon($field, $surface['path'], $surface['speed']);
+            $this->paintPolygon($field, $contour['path'], $contour['speed']);
         }
     }
 
@@ -236,30 +236,6 @@ final class MapRouteGrid
                 $speed = $ribbon['segmentSpeeds'][$index - 1] ?? $ribbon['defaultSpeed'];
                 $this->paintRibbonSegment($field, $points, $widths, $speed);
             }
-        }
-    }
-
-    /**
-     * Объекты.
-     *
-     * @param Field $field Поле.
-     * @param array<int, Area> $objects Объекты.
-     *
-     * @return void
-     */
-    private function paintObjects(array &$field, array $objects): void
-    {
-        usort(
-            $objects,
-            static fn (array $left, array $right): int => $left['sortOrder'] <=> $right['sortOrder']
-                ?: $left['id'] <=> $right['id'],
-        );
-        foreach ($objects as $object) {
-            if (count($object['path']) < 3) {
-                continue;
-            }
-
-            $this->paintPolygon($field, $object['path'], $object['speed']);
         }
     }
 
