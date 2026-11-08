@@ -32,7 +32,21 @@ export class MapHitTestService {
   findArea(point: MapPoint, areas: MapAreaHitCandidate[]): MapHit | null {
     for (let index = areas.length - 1; index >= 0; index -= 1) {
       const area = areas[index];
-      const contour = this.geometry.flattenContour(area.path, area.handles ?? []);
+      const path = area.shape?.path ?? area.path;
+      if (!path || path.length < 3) continue;
+      const handles = area.shape?.handles ?? area.handles ?? [];
+      const bounds = this.geometry.contourBounds(path, handles);
+      if (
+        bounds !== null &&
+        (point[0] < bounds.minX || point[0] > bounds.maxX || point[1] < bounds.minY || point[1] > bounds.maxY)
+      ) {
+        continue;
+      }
+      const contour = handles.some(
+        (handle) => handle.in[0] !== 0 || handle.in[1] !== 0 || handle.out[0] !== 0 || handle.out[1] !== 0,
+      )
+        ? this.geometry.flattenContour(path, handles)
+        : path;
       if (this.geometry.pointInPolygon(point, contour)) {
         return { kind: 'area', id: area.id };
       }

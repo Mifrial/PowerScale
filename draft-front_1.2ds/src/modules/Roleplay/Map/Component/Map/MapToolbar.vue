@@ -17,6 +17,8 @@ const props = defineProps<{
   draftSize: number;
   canUndo: boolean;
   canRedo: boolean;
+  /** Подписи всех областей, а не только крупных. */
+  labels: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -38,6 +40,7 @@ const emit = defineEmits<{
   help: [];
   undo: [];
   redo: [];
+  toggleLabels: [];
 }>();
 
 const variantOptions = computed(() => props.variants.map((variant) => ({ title: variant.label, value: variant.id })));
@@ -150,6 +153,14 @@ function changeTool(value: unknown): void {
     </template>
 
     <v-spacer />
+    <v-btn
+      :variant="props.labels ? 'tonal' : 'text'"
+      :color="props.labels ? 'primary' : undefined"
+      icon="mdi-label-outline"
+      size="small"
+      title="Подписи объектов"
+      @click="emit('toggleLabels')"
+    />
     <v-chip v-if="props.dirty" size="small" color="warning" variant="tonal">Есть изменения</v-chip>
     <v-btn
       v-if="props.mode === 'edit' && props.canEdit"

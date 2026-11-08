@@ -140,12 +140,16 @@ final class MapHttpMysqlTest extends TestCase
         self::assertSame([60, 0], $saved['data']['lines'][0]['handles'][0]['out']);
         self::assertSame([-60, 0], $saved['data']['lines'][0]['handles'][1]['in']);
         self::assertSame('#5a7f9a', $saved['data']['areas'][0]['color']);
+        self::assertSame('#315566', $saved['data']['areas'][0]['stroke']);
+        self::assertSame(3, $saved['data']['areas'][0]['strokeWidth']);
         self::assertSame(0, $saved['data']['areas'][0]['speed']);
         self::assertSame(
             array_fill(0, 4, ['in' => [0, 0], 'out' => [0, 0]]),
             $saved['data']['areas'][0]['shapes'][0]['handles'],
         );
         self::assertSame(0, $saved['data']['areas'][0]['sortOrder']);
+        self::assertCount(1, $saved['data']['groups']);
+        self::assertSame($saved['data']['groups'][0]['id'], $saved['data']['areas'][0]['groupId']);
         self::assertSame([], $saved['data']['lines'][0]['segments']);
         self::assertSame(400, $saved['data']['lines'][0]['speed']);
         self::assertSame(16, $saved['data']['lines'][0]['colorBlend']);
@@ -456,6 +460,17 @@ final class MapHttpMysqlTest extends TestCase
         self::assertSame('MAP_INVALID', $badColor['error']['code']);
 
         $secondPayload['areas'][0]['color'] = '#5a7f9a';
+        $secondPayload['areas'][0]['stroke'] = 'blue';
+        $badStroke = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $second['data']['version'],
+            'force' => true,
+            'map' => $secondPayload,
+        ]);
+        self::assertFalse($badStroke['success']);
+        self::assertSame('MAP_INVALID', $badStroke['error']['code']);
+
+        $secondPayload['areas'][0]['stroke'] = '#315566';
         $secondPayload['areas'][0]['speed'] = 20000;
         $badSpeed = $this->dispatch('map.save', [
             'id' => $mapId,
@@ -674,6 +689,118 @@ final class MapHttpMysqlTest extends TestCase
     }
 
     /**
+     * Группа областей: запись, вывод члена, удаление и неверная ссылка.
+     *
+     * @return void
+     */
+    public function testGroupRoundtripAndMemberRemoval(): void
+    {
+        $alice = $this->addUser('alice');
+        $this->setActor($alice, ['map.edit']);
+        $created = $this->dispatch('map.save', ['map' => $this->emptyPayload('Austan')]);
+        $mapId = $created['data']['id'];
+
+        $payload = $this->graphPayload();
+        $saved = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $created['data']['version'],
+            'map' => $payload,
+        ]);
+        self::assertTrue($saved['success']);
+        self::assertCount(1, $saved['data']['groups']);
+        self::assertSame($saved['data']['groups'][0]['id'], $saved['data']['areas'][0]['groupId']);
+
+        $next = $this->withIds($payload, $saved['data']);
+        $next['areas'][0]['groupId'] = null;
+        $ungrouped = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $saved['data']['version'],
+            'map' => $next,
+        ]);
+        self::assertTrue($ungrouped['success']);
+        self::assertNull($ungrouped['data']['areas'][0]['groupId']);
+        self::assertCount(1, $ungrouped['data']['groups']);
+
+        $next['groups'] = [];
+        $removed = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $ungrouped['data']['version'],
+            'map' => $next,
+        ]);
+        self::assertTrue($removed['success']);
+        self::assertCount(0, $removed['data']['groups']);
+
+        $next['areas'][0]['groupId'] = 999999;
+        $failed = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $removed['data']['version'],
+            'map' => $next,
+        ]);
+        self::assertFalse($failed['success']);
+        self::assertSame('MAP_INVALID', $failed['error']['code']);
+    }
+
+    /**
+     * Пачка областей: вставка чанками и повторное сохранение без дублей.
+     *
+     * @return void
+     */
+    public function testBatchSaveChunksAreasAndResavesCleanly(): void
+    {
+        $alice = $this->addUser('alice');
+        $this->setActor($alice, ['map.edit']);
+        $created = $this->dispatch('map.save', ['map' => $this->emptyPayload('Batch')]);
+        self::assertTrue($created['success']);
+        $mapId = $created['data']['id'];
+        self::assertIsInt($mapId);
+
+        $payload = $this->emptyPayload('Batch');
+        $payload['groups'] = [['id' => -1, 'label' => 'Дома']];
+        $payload['areas'] = [];
+        for ($index = 0; $index < 600; $index += 1) {
+            $x = 10 + ($index % 30) * 20;
+            $y = 10 + intdiv($index, 30) * 20;
+            $payload['areas'][] = [
+                'id' => -($index + 1),
+                'layer' => 'object',
+                'color' => '#8b6b4a',
+                'decor' => [],
+                'speed' => 0,
+                'label' => 'Дом',
+                'nodeId' => null,
+                'groupId' => -1,
+                'sortOrder' => $index,
+                'shapes' => [[
+                    'variantId' => -1,
+                    'path' => [[$x, $y], [$x + 10, $y], [$x + 10, $y + 10], [$x, $y + 10]],
+                    'handles' => [],
+                    'isPresent' => true,
+                ]],
+            ];
+        }
+
+        $saved = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $created['data']['version'],
+            'map' => $payload,
+        ]);
+        self::assertTrue($saved['success']);
+        self::assertCount(600, $saved['data']['areas']);
+        self::assertCount(1, $saved['data']['groups']);
+
+        $next = $this->withIds($payload, $saved['data']);
+        $again = $this->dispatch('map.save', [
+            'id' => $mapId,
+            'expectedVersion' => $saved['data']['version'],
+            'map' => $next,
+        ]);
+        self::assertTrue($again['success']);
+        self::assertCount(600, $again['data']['areas']);
+        self::assertSame($saved['data']['areas'][0]['id'], $again['data']['areas'][0]['id']);
+        self::assertSame($saved['data']['areas'][599]['id'], $again['data']['areas'][599]['id']);
+    }
+
+    /**
      * Снимок пустой карты.
      *
      * @param string $name Имя.
@@ -699,6 +826,7 @@ final class MapHttpMysqlTest extends TestCase
                 ],
             ],
             'nodes' => [],
+            'groups' => [],
             'areas' => [],
             'lines' => [],
         ];
@@ -714,6 +842,13 @@ final class MapHttpMysqlTest extends TestCase
      */
     private function withIds(array $payload, array $snapshot): array
     {
+        $groupMap = [];
+        foreach ($payload['groups'] as $index => $group) {
+            $groupMap[$group['id']] = $snapshot['groups'][$index]['id'];
+        }
+        foreach ($payload['groups'] as $index => $group) {
+            $payload['groups'][$index]['id'] = $snapshot['groups'][$index]['id'];
+        }
         foreach (['variants', 'nodes', 'areas', 'lines'] as $key) {
             foreach ($payload[$key] as $index => $row) {
                 $payload[$key][$index]['id'] = $snapshot[$key][$index]['id'];
@@ -727,6 +862,9 @@ final class MapHttpMysqlTest extends TestCase
             }
         }
         foreach ($payload['areas'] as $index => $area) {
+            if ($area['groupId'] !== null && isset($groupMap[$area['groupId']])) {
+                $payload['areas'][$index]['groupId'] = $groupMap[$area['groupId']];
+            }
             foreach ($area['shapes'] as $shapeIndex => $shape) {
                 $payload['areas'][$index]['shapes'][$shapeIndex]['variantId'] = $variantId;
             }
@@ -785,14 +923,23 @@ final class MapHttpMysqlTest extends TestCase
                     ],
                 ],
             ],
+            'groups' => [
+                [
+                    'id' => -1,
+                    'label' => 'Вода',
+                ],
+            ],
             'areas' => [
                 [
                     'id' => -1,
                     'layer' => 'surface',
                     'color' => '#5a7f9a',
+                    'stroke' => '#315566',
+                    'strokeWidth' => 3,
                     'speed' => 0,
                     'label' => 'Ручей',
                     'nodeId' => null,
+                    'groupId' => -1,
                     'sortOrder' => 0,
                     'shapes' => [
                         [

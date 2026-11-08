@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue';
+import { computed, ref, toRaw, watch } from 'vue';
 import type { Ref } from 'vue';
 import type { CanvasPoint } from '@/modules/Roleplay/Map/Dto/CanvasPoint';
 import type { MapAreaHitCandidate } from '@/modules/Roleplay/Map/Dto/MapAreaHitCandidate';
@@ -59,6 +59,12 @@ export function useMapEditor(params: {
   const pointerStart = ref<CanvasPoint | null>(null);
   const pointerLast = ref<CanvasPoint | null>(null);
   const isMoved = ref(false);
+  /** Массовое выделение областей: Shift+клик и Shift+рамка. */
+  const selectedIds = ref<number[]>([]);
+  const marquee = ref<{ start: MapPoint; end: MapPoint } | null>(null);
+  /** Объект, который сейчас тянут: холст рисует его поверх без пересборки слоя. */
+  const liveDrag = ref<MapHit | null>(null);
+  let marqueeActive = false;
   let drag: DragState | null = null;
   let altPressed = false;
 
@@ -147,7 +153,7 @@ export function useMapEditor(params: {
     if (tool.value === 'area' || tool.value === 'rect' || tool.value === 'line' || tool.value === 'calibrate') {
       return 'crosshair';
     }
-    if (tool.value === 'ruler') return 'crosshair';
+    if (tool.value === 'ruler' || tool.value === 'recognize') return 'crosshair';
     if (
       activeTarget.value !== null ||
       params.selected.value?.kind === 'node' ||
@@ -174,7 +180,7 @@ export function useMapEditor(params: {
       }
 
       if (params.selected.value === null) {
-        return 'Клик — выбрать; пустое место — панорама; колесо — зум';
+        return 'Клик — выбрать; Shift+рамка — выделить пачку; Ctrl+A — все объекты; пустое место — панорама; колесо — зум';
       }
       if (params.selected.value.kind === 'line') {
         return 'Тяните ленту целиком; вершины, ручки Безье и оранжевые ручки ширины — на выделении';
@@ -199,6 +205,9 @@ export function useMapEditor(params: {
       return rulerPoints.value.length === 0
         ? 'Линейка: кликните точку A'
         : 'Линейка: кликните следующую точку; Esc — очистить';
+    }
+    if (tool.value === 'recognize') {
+      return 'Клик по пятну — включить или исключить; «Взять цвет» — образец; протяжка — панорама';
     }
 
     return 'Калибровка: кликните две точки известного отрезка';
@@ -233,11 +242,12 @@ export function useMapEditor(params: {
     for (const area of detail.areas) {
       if (area.layer !== layer) continue;
       const shape = area.shapes.find((item) => item.variantId === variant.id && item.isPresent);
+      // Кандидат держит живую форму: правка пути не пересобирает список.
+      // Сырая ссылка нужна, чтобы hit-тест не обходил прокси на 6000 областях.
       if (shape) {
         candidates.push({
           id: area.id,
-          path: shape.path,
-          handles: shape.handles ?? [],
+          shape: toRaw(shape),
           sortOrder: area.sortOrder,
         });
       }
@@ -271,6 +281,27 @@ export function useMapEditor(params: {
     viewport.value = mapViewportService.zoomAt(viewport.value, screenPoint, factor);
   }
 
+  /** Попадание в область: рамка отсекает почти все контуры до разворота Безье. */
+  function areaHit(area: MapAreaHitCandidate, point: MapPoint): boolean {
+    const path = area.shape?.path ?? area.path;
+    if (!path || path.length < 3) return false;
+    const handles = area.shape?.handles ?? area.handles ?? [];
+    const bounds = mapGeometryService.contourBounds(path, handles);
+    if (
+      bounds !== null &&
+      (point[0] < bounds.minX || point[0] > bounds.maxX || point[1] < bounds.minY || point[1] > bounds.maxY)
+    ) {
+      return false;
+    }
+    const contour = handles.some(
+      (handle) => handle.in[0] !== 0 || handle.in[1] !== 0 || handle.out[0] !== 0 || handle.out[1] !== 0,
+    )
+      ? mapGeometryService.flattenContour(path, handles)
+      : path;
+
+    return mapGeometryService.pointInPolygon(point, contour);
+  }
+
   function hitAt(point: MapPoint): MapHit | null {
     return hitListAt(point)[0] ?? null;
   }
@@ -297,11 +328,7 @@ export function useMapEditor(params: {
 
     push(mapHitTestService.findNode(point, candidates.nodes, tolerance));
     for (let index = candidates.objects.length - 1; index >= 0; index -= 1) {
-      const area = candidates.objects[index];
-      const contour = mapGeometryService.flattenContour(area.path, area.handles ?? []);
-      if (mapGeometryService.pointInPolygon(point, contour)) {
-        push({ kind: 'area', id: area.id });
-      }
+      if (areaHit(candidates.objects[index], point)) push({ kind: 'area', id: candidates.objects[index].id });
     }
     for (let index = candidates.lines.length - 1; index >= 0; index -= 1) {
       const line = candidates.lines[index];
@@ -311,11 +338,7 @@ export function useMapEditor(params: {
       }
     }
     for (let index = candidates.surfaces.length - 1; index >= 0; index -= 1) {
-      const area = candidates.surfaces[index];
-      const contour = mapGeometryService.flattenContour(area.path, area.handles ?? []);
-      if (mapGeometryService.pointInPolygon(point, contour)) {
-        push({ kind: 'area', id: area.id });
-      }
+      if (areaHit(candidates.surfaces[index], point)) push({ kind: 'area', id: candidates.surfaces[index].id });
     }
 
     return hits;
@@ -484,14 +507,32 @@ export function useMapEditor(params: {
     return index === null ? null : { kind: 'line-vertex', id: line.id, index };
   }
 
-  function onPointerDown(point: MapPoint, screen: CanvasPoint, button: number, alt = false): void {
+  function onPointerDown(point: MapPoint, screen: CanvasPoint, button: number, alt = false, shift = false): void {
     pointerStart.value = screen;
     pointerLast.value = screen;
     isMoved.value = false;
     altPressed = alt;
+    marqueeActive = false;
 
     if (button === 1 || button === 2) {
       isPanning.value = true;
+
+      return;
+    }
+
+    if (tool.value === 'recognize') {
+      isPanning.value = true;
+
+      return;
+    }
+
+    // Shift+рамка выделяет объекты пачкой: на карте с тысячами домов
+    // поштучный клик слишком дорог.
+    if (tool.value === 'view' && shift && button === 0 && params.map.value?.canEdit === true) {
+      marqueeActive = true;
+      marquee.value = { start: point, end: point };
+      params.selected.value = null;
+      activeTarget.value = null;
 
       return;
     }
@@ -502,6 +543,7 @@ export function useMapEditor(params: {
         if (cycled !== null) {
           params.selected.value = cycled;
           activeTarget.value = null;
+          clearSelection();
 
           return;
         }
@@ -519,6 +561,7 @@ export function useMapEditor(params: {
       if (hit?.kind === 'node') {
         params.selected.value = hit;
         activeTarget.value = null;
+        clearSelection();
         if (editable) beginDrag({ kind: 'node', nodeId: hit.id });
 
         return;
@@ -527,11 +570,13 @@ export function useMapEditor(params: {
       if (hit?.kind === 'area' || hit?.kind === 'line') {
         params.selected.value = hit;
         activeTarget.value = null;
+        clearSelection();
         if (editable) beginObjectDrag(hit, point);
 
         return;
       }
 
+      clearSelection();
       isPanning.value = true;
 
       return;
@@ -589,12 +634,117 @@ export function useMapEditor(params: {
     params.draft.beginHistory();
   }
 
+  /** Объект, который затрагивает перетаскивание: его холст рисует отдельно. */
+  function hitOfDrag(state: DragState): MapHit | null {
+    // Узлы и так рисуются в динамическом слое: их перенос не требует
+    // пересборки статичного слоя и не нуждается в «живом» объекте.
+    if (state.kind === 'node') return null;
+    if (state.kind === 'area') return { kind: 'area', id: state.areaId };
+    if (state.kind === 'line') return { kind: 'line', id: state.lineId };
+    if (state.kind === 'handle' || state.kind === 'width') return { kind: 'line', id: state.target.id };
+    if (state.kind === 'area-handle') return { kind: 'area', id: state.target.id };
+    if (state.kind === 'vertex') {
+      return state.target.kind === 'line-vertex'
+        ? { kind: 'line', id: state.target.id }
+        : { kind: 'area', id: state.target.id };
+    }
+
+    return null;
+  }
+
+  function clearSelection(): void {
+    if (selectedIds.value.length > 0) selectedIds.value = [];
+  }
+
+  /** Shift+клик: добавляет или убирает область из массового выделения. */
+  function toggleSelectionAt(point: MapPoint): void {
+    const hit = hitAt(point);
+    if (hit?.kind !== 'area') {
+      clearSelection();
+
+      return;
+    }
+    const ids = selectedIds.value.slice();
+    const index = ids.indexOf(hit.id);
+    if (index >= 0) ids.splice(index, 1);
+    else ids.push(hit.id);
+    selectedIds.value = ids;
+  }
+
+  /** Shift+рамка: выделяет объекты, чьи рамки пересекают прямоугольник. */
+  function selectInRect(start: MapPoint, end: MapPoint): number {
+    const ids = collectObjectIds({
+      minX: Math.min(start[0], end[0]),
+      maxX: Math.max(start[0], end[0]),
+      minY: Math.min(start[1], end[1]),
+      maxY: Math.max(start[1], end[1]),
+    });
+    selectedIds.value = ids;
+
+    return ids.length;
+  }
+
+  /** Ctrl+A: все объекты текущего варианта — удобно перед массовым удалением. */
+  function selectAllObjects(): number {
+    const ids = collectObjectIds(null);
+    selectedIds.value = ids;
+    params.selected.value = null;
+    activeTarget.value = null;
+
+    return ids.length;
+  }
+
+  /** Объекты слоя `object` в текущем варианте; `rect` — фильтр по рамке. */
+  function collectObjectIds(
+    rect: { minX: number; maxX: number; minY: number; maxY: number } | null,
+  ): number[] {
+    const variant = params.variant.value;
+    const map = params.map.value;
+    if (!variant || !map) return [];
+    const ids: number[] = [];
+    for (const area of toRaw(map).areas) {
+      if (area.layer !== 'object') continue;
+      const shape = toRaw(area.shapes).find(
+        (candidate) => candidate.variantId === variant.id && candidate.isPresent,
+      );
+      if (!shape) continue;
+      if (rect !== null) {
+        const bounds = mapGeometryService.contourBounds(toRaw(shape.path), toRaw(shape.handles ?? []));
+        if (bounds === null) continue;
+        if (
+          bounds.maxX < rect.minX ||
+          bounds.minX > rect.maxX ||
+          bounds.maxY < rect.minY ||
+          bounds.minY > rect.maxY
+        ) {
+          continue;
+        }
+      }
+      ids.push(area.id);
+    }
+
+    return ids;
+  }
+
   function onPointerMove(point: MapPoint, screen: CanvasPoint, alt = altPressed, shift = false): void {
     if (pointerStart.value && pointerLast.value) {
       const movedBy = Math.hypot(screen.x - pointerStart.value.x, screen.y - pointerStart.value.y);
       if (movedBy > MAP_CANVAS_CONFIG.dragThreshold) {
         isMoved.value = true;
       }
+    }
+    // Объект переходит в «живой» режим только после реального сдвига:
+    // обычный клик не должен на кадр выдёргивать его из статичного слоя.
+    if (drag !== null && isMoved.value && liveDrag.value === null) {
+      liveDrag.value = hitOfDrag(drag);
+    }
+
+    if (marqueeActive) {
+      const start = marquee.value?.start ?? point;
+      marquee.value = { start, end: point };
+      pointerLast.value = screen;
+
+      return;
     }
 
     if (isPanning.value && pointerLast.value) {
@@ -603,7 +753,7 @@ export function useMapEditor(params: {
         canvasSize.value,
         worldSize.value,
       );
-    } else if (drag !== null) {
+    } else if (drag !== null && isMoved.value) {
       applyDrag(point, alt, shift);
     }
 
@@ -706,6 +856,20 @@ export function useMapEditor(params: {
   }
 
   function onPointerUp(point: MapPoint): void {
+    if (marqueeActive) {
+      const box = marquee.value;
+      const moved = isMoved.value;
+      marqueeActive = false;
+      marquee.value = null;
+      if (box !== null) {
+        if (moved) selectInRect(box.start, box.end);
+        else toggleSelectionAt(point);
+      }
+      resetPointer();
+
+      return;
+    }
+
     if (drag !== null) {
       const current = drag;
       const moved = isMoved.value;
@@ -997,6 +1161,8 @@ export function useMapEditor(params: {
     resetDrafts();
     isPanning.value = false;
     drag = null;
+    marqueeActive = false;
+    marquee.value = null;
     params.draft.cancelHistory();
     resetPointer();
   }
@@ -1064,6 +1230,7 @@ export function useMapEditor(params: {
 
   function setTool(nextTool: MapToolMode): void {
     tool.value = nextTool;
+    clearSelection();
     cancelDraft();
   }
 
@@ -1072,6 +1239,7 @@ export function useMapEditor(params: {
     pointerLast.value = null;
     isPanning.value = false;
     isMoved.value = false;
+    liveDrag.value = null;
   }
 
   function snap(point: MapPoint): MapPoint {
@@ -1172,6 +1340,10 @@ export function useMapEditor(params: {
     rulerPixels,
     activeTarget,
     isPanning,
+    isMoved,
+    selectedIds,
+    marquee,
+    liveDrag,
     cursor,
     hint,
     activeNodes,
@@ -1196,6 +1368,8 @@ export function useMapEditor(params: {
     cancelDraft,
     clearRuler,
     clearTarget,
+    clearSelection,
+    selectAllObjects,
     focusLineVertex,
     smoothLine,
     cornerLine,

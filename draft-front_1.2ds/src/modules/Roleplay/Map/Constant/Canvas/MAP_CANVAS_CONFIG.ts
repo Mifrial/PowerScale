@@ -26,6 +26,8 @@ export const MAP_CANVAS_CONFIG = {
   /** Смещение указателя, после которого клик считается перетаскиванием. */
   dragThreshold: 4,
   areaStrokeWidth: 2,
+  /** Минимальный экранный размер области, при котором видна её подпись. */
+  labelMinSize: 44,
   lineStrokeWidth: 1,
   draftLineWidth: 12,
   routeWidth: 5,

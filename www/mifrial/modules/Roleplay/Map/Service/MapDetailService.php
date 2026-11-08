@@ -23,6 +23,7 @@ final class MapDetailService
      * @param MapVariantService $variantService Варианты.
      * @param MapNodeStore $nodeStore Узлы.
      * @param MapAreaStore $areaStore Области.
+     * @param MapAreaGroupStore $groupStore Группы областей.
      * @param MapLineStore $lineStore Ленты.
      *
      * @return void
@@ -32,6 +33,7 @@ final class MapDetailService
         private readonly MapVariantService $variantService,
         private readonly MapNodeStore $nodeStore,
         private readonly MapAreaStore $areaStore,
+        private readonly MapAreaGroupStore $groupStore,
         private readonly MapLineStore $lineStore,
     ) {
     }
@@ -63,6 +65,7 @@ final class MapDetailService
             $this->nodeStore->findNodes($mapId),
             $placements,
             $this->areaStore->findAreas($mapId),
+            $this->groupStore->findGroups($mapId),
             $shapes,
             $lines,
             $this->accessService->canEdit($actor, $mapRecord),

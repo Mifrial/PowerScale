@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Map\Schema;
 
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Roleplay\Map\Table\MapAreaGroupTable;
 use Mifrial\Roleplay\Map\Table\MapAreaTable;
 use Mifrial\Roleplay\Map\Table\MapNodeTable;
 use Mifrial\Roleplay\Map\Table\MapTable;
@@ -30,6 +31,7 @@ final class MapSchema
             MapVariantTable::class,
             MapNodeTable::class,
             MapVariantNodeTable::class,
+            MapAreaGroupTable::class,
             MapAreaTable::class,
             MapVariantAreaTable::class,
             MapVariantLineTable::class,

@@ -1,4 +1,5 @@
 import type { MapArea } from '@/modules/Roleplay/Map/Dto/MapArea';
+import type { MapAreaGroup } from '@/modules/Roleplay/Map/Dto/MapAreaGroup';
 import type { MapLine } from '@/modules/Roleplay/Map/Dto/MapLine';
 import type { MapNode } from '@/modules/Roleplay/Map/Dto/MapNode';
 import type { MapSaveVariant } from '@/modules/Roleplay/Map/Dto/MapSaveVariant';
@@ -14,5 +15,6 @@ export interface MapSnapshot {
   variants: MapSaveVariant[];
   nodes: MapNode[];
   areas: MapArea[];
+  groups: MapAreaGroup[];
   lines: MapLine[];
 }

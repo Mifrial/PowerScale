@@ -33,6 +33,7 @@ function detail(areas: MapArea[] = [], lines: MapLine[] = []): MapDetail {
     variants: [variant],
     nodes: [],
     areas,
+    groups: [],
     lines,
   };
 }
@@ -53,6 +54,7 @@ function waterArea(id: number, speed = 0): MapArea {
     speed,
     label: '',
     nodeId: null,
+    groupId: null,
     sortOrder: 0,
     shapes: [{ variantId: 1, path: waterPath, handles: [], isPresent: true }],
   };
@@ -113,6 +115,7 @@ describe('MapRouteGrid', () => {
       speed: 10000,
       label: 'Мост',
       nodeId: null,
+      groupId: null,
       sortOrder: 1,
       shapes: [{ variantId: 1, path: waterPath, handles: [], isPresent: true }],
     };
@@ -140,6 +143,7 @@ describe('MapRouteGrid', () => {
       speed: 0,
       label: 'Стена',
       nodeId: null,
+      groupId: null,
       sortOrder: 0,
       shapes: [
         {

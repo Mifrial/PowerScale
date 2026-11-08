@@ -8,7 +8,8 @@ use Mifrial\Roleplay\Map\Exception\MapInvalidException;
 
 /**
  * Проверка областей и лент снимка карты.
- */final class MapGraphSaveValidator
+ */
+final class MapGraphSaveValidator
 {
     /**
      * Создаёт валидатор.
@@ -25,23 +26,50 @@ use Mifrial\Roleplay\Map\Exception\MapInvalidException;
     }
 
     /**
+     * Группы областей.
+     *
+     * @param array<string|int, mixed> $payload Тело.
+     *
+     * @return array<int, array<string, mixed>> Группы.
+     *
+     * @throws MapInvalidException Если группы недопустимы.
+     */
+    public function groups(array $payload): array
+    {
+        $groups = [];
+        foreach ($this->sets->rows($payload, 'groups', 'map.groups') as $index => $row) {
+            $path = 'groups[' . $index . ']';
+            $groups[] = [
+                'id' => $this->fields->identifier($row, 'id', $path . '.id'),
+                'label' => trim((string) $this->fields->optionalStringValue($row, 'label', $path . '.label')),
+            ];
+        }
+
+        $this->sets->assertUniqueIds($groups, 'groups');
+
+        return $groups;
+    }
+
+    /**
      * Области.
      *
      * @param array<string|int, mixed> $payload Тело.
      * @param array<int, array<string, mixed>> $variants Варианты.
      * @param array<int, array<string, mixed>> $nodes Узлы.
+     * @param array<int, array<string, mixed>> $groups Группы.
      *
      * @return array<int, array<string, mixed>> Области.
      *
      * @throws MapInvalidException Если области недопустимы.
      */
-    public function areas(array $payload, array $variants, array $nodes): array
+    public function areas(array $payload, array $variants, array $nodes, array $groups): array
     {
         $variantIds = $this->sets->idSet($variants);
         $nodeIds = $this->sets->idSet($nodes);
+        $groupIds = $this->sets->idSet($groups);
         $areas = [];
         foreach ($this->sets->rows($payload, 'areas', 'map.areas') as $index => $row) {
-            $areas[] = $this->areaRow($row, $index, $variantIds, $nodeIds);
+            $areas[] = $this->areaRow($row, $index, $variantIds, $nodeIds, $groupIds);
         }
 
         $this->sets->assertUniqueIds($areas, 'areas');
@@ -79,12 +107,13 @@ use Mifrial\Roleplay\Map\Exception\MapInvalidException;
      * @param int $index Индекс.
      * @param array<int, true> $variantIds Варианты снимка.
      * @param array<int, true> $nodeIds Узлы снимка.
+     * @param array<int, true> $groupIds Группы снимка.
      *
      * @return array<string, mixed> Область.
      *
      * @throws MapInvalidException Если область недопустима.
      */
-    private function areaRow(array $row, int $index, array $variantIds, array $nodeIds): array
+    private function areaRow(array $row, int $index, array $variantIds, array $nodeIds, array $groupIds): array
     {
         $path = 'areas[' . $index . ']';
         $layer = $this->fields->stringValue($row, 'layer', $path . '.layer');
@@ -97,14 +126,32 @@ use Mifrial\Roleplay\Map\Exception\MapInvalidException;
             throw new MapInvalidException($path . '.nodeId is unknown');
         }
 
+        $groupId = $this->fields->optionalIdentifier($row, 'groupId', $path . '.groupId');
+        if ($groupId !== null && !isset($groupIds[$groupId])) {
+            throw new MapInvalidException($path . '.groupId is unknown');
+        }
+
         return [
             'id' => $this->fields->identifier($row, 'id', $path . '.id'),
             'layer' => $layer,
             'color' => $this->fields->colorValue($row, 'color', $path . '.color'),
+            'stroke' => array_key_exists('stroke', $row)
+                ? $this->fields->strokeValue($row, 'stroke', $path . '.stroke')
+                : '',
+            'strokeWidth' => array_key_exists('strokeWidth', $row) && $row['strokeWidth'] !== null
+                ? $this->fields->intValue(
+                    $row,
+                    'strokeWidth',
+                    $path . '.strokeWidth',
+                    MapAreaStroke::MIN_WIDTH,
+                    MapAreaStroke::MAX_WIDTH,
+                )
+                : MapAreaStroke::DEFAULT_WIDTH,
             'decor' => $this->fields->areaDecorValue($row, 'decor', $path . '.decor'),
             'speed' => $this->fields->intValue($row, 'speed', $path . '.speed', 0, MapSpeed::MAX),
             'label' => trim((string) $this->fields->optionalStringValue($row, 'label', $path . '.label')),
             'nodeId' => $nodeId,
+            'groupId' => $groupId,
             'sortOrder' => $this->fields->optionalIntValue($row, 'sortOrder', $path . '.sortOrder', 0) ?? 0,
             'shapes' => $this->shapes($row, $path, $variantIds),
         ];

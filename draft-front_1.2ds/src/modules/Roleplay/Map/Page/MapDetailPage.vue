@@ -5,6 +5,7 @@ import type { MapAreaEdit } from '@/modules/Roleplay/Map/Dto/MapAreaEdit';
 import type { MapHit } from '@/modules/Roleplay/Map/Dto/MapHit';
 import type { MapLineEdit } from '@/modules/Roleplay/Map/Dto/MapLineEdit';
 import type { MapLineDecor } from '@/modules/Roleplay/Map/Dto/MapLineDecor';
+import type { MapGroupEdit } from '@/modules/Roleplay/Map/Dto/MapGroupEdit';
 import type { MapMeta } from '@/modules/Roleplay/Map/Dto/MapMeta';
 import type { MapNodeEdit } from '@/modules/Roleplay/Map/Dto/MapNodeEdit';
 import type { MapPoint } from '@/modules/Roleplay/Map/Dto/MapPoint';
@@ -15,15 +16,18 @@ import type { MapDetailMode } from '@/modules/Roleplay/Map/Enum/MapDetailMode';
 import { useMapDetail } from '@/modules/Roleplay/Map/Composables/useMapDetail';
 import { useMapDraft } from '@/modules/Roleplay/Map/Composables/useMapDraft';
 import { useMapEditor } from '@/modules/Roleplay/Map/Composables/useMapEditor';
+import { useMapRecognition } from '@/modules/Roleplay/Map/Composables/useMapRecognition';
 import { useMapRoute } from '@/modules/Roleplay/Map/Composables/useMapRoute';
 import { mapGeometryService } from '@/modules/Roleplay/Map/init';
 import MapCanvas from '@/modules/Roleplay/Map/Component/Map/MapCanvas.vue';
 import MapToolbar from '@/modules/Roleplay/Map/Component/Map/MapToolbar.vue';
 import MapSidebar from '@/modules/Roleplay/Map/Component/Map/MapSidebar.vue';
+import MapRecognitionPanel from '@/modules/Roleplay/Map/Component/Map/MapRecognitionPanel.vue';
 import MapRoutePanel from '@/modules/Roleplay/Map/Component/Map/MapRoutePanel.vue';
 import MapInfoPanel from '@/modules/Roleplay/Map/Component/Map/MapInfoPanel.vue';
 import MapNodeDialog from '@/modules/Roleplay/Map/Component/Map/MapNodeDialog.vue';
 import MapAreaDialog from '@/modules/Roleplay/Map/Component/Map/MapAreaDialog.vue';
+import MapGroupDialog from '@/modules/Roleplay/Map/Component/Map/MapGroupDialog.vue';
 import MapLineDialog from '@/modules/Roleplay/Map/Component/Map/MapLineDialog.vue';
 import MapVariantDialog from '@/modules/Roleplay/Map/Component/Map/MapVariantDialog.vue';
 import MapCalibrationDialog from '@/modules/Roleplay/Map/Component/Map/MapCalibrationDialog.vue';
@@ -58,6 +62,8 @@ const calibrationPixels = ref(0);
 const settingsOpen = ref(false);
 const conflictOpen = ref(false);
 const helpOpen = ref(false);
+/** Показывать подписи всех областей; по умолчанию только крупные. */
+const showAreaLabels = ref(false);
 const notice = ref<string | null>(null);
 const pendingLineDefaults = ref<{
   color: string;
@@ -99,8 +105,38 @@ const editor = useMapEditor({
   },
 });
 
+const recognition = useMapRecognition({
+  variant,
+  viewport: editor.viewport,
+  canvasSize: editor.canvasSize,
+  worldSize: editor.worldSize,
+  draft: draftState,
+});
+const { previewMask, previewPaths, previewExcluded } = recognition;
+const recognitionPress = ref<MapPoint | null>(null);
+
+watch(
+  () => [editor.tool.value, mode.value],
+  () => {
+    if (editor.tool.value !== 'recognize' || mode.value !== 'edit') recognition.clearPreview();
+  },
+);
+
 const nodeTarget = computed(() => draft.value?.nodes.find((node) => node.id === nodeTargetId.value) ?? null);
 const areaTarget = computed(() => draft.value?.areas.find((area) => area.id === areaTargetId.value) ?? null);
+
+const groupOpen = ref(false);
+const groupTargetId = ref<number | null>(null);
+const groupTarget = computed(() => draft.value?.groups.find((group) => group.id === groupTargetId.value) ?? null);
+const groupMembers = computed(() => {
+  const variantId = variant.value?.id;
+  const groupId = groupTargetId.value;
+  if (variantId === undefined || groupId === null) return [];
+
+  return (draft.value?.areas ?? []).filter(
+    (area) => area.groupId === groupId && area.shapes.some((shape) => shape.variantId === variantId && shape.isPresent),
+  );
+});
 const lineTarget = computed(() => draft.value?.lines.find((line) => line.id === lineTargetId.value) ?? null);
 const variantTarget = computed(
   () => draft.value?.variants.find((candidate) => candidate.id === variantTargetId.value) ?? null,
@@ -144,13 +180,22 @@ const rulerLabel = computed(() => {
   return `${text} · ${Math.round(editor.rulerPixels.value)} px`;
 });
 
-function onCanvasPointerDown(point: MapPoint, screen: { x: number; y: number }, button: number, alt: boolean): void {
+function onCanvasPointerDown(
+  point: MapPoint,
+  screen: { x: number; y: number },
+  button: number,
+  alt: boolean,
+  shift: boolean,
+): void {
   if (mode.value === 'route') {
     if (button === 0) routeState.pick(point);
 
     return;
   }
-  editor.onPointerDown(point, screen, button, alt);
+  if (mode.value === 'edit' && editor.tool.value === 'recognize') {
+    recognitionPress.value = point;
+  }
+  editor.onPointerDown(point, screen, button, alt, shift);
 }
 
 function onCanvasPointerMove(point: MapPoint, screen: { x: number; y: number }, alt: boolean, shift: boolean): void {
@@ -160,6 +205,20 @@ function onCanvasPointerMove(point: MapPoint, screen: { x: number; y: number }, 
 
 function onCanvasPointerUp(point: MapPoint): void {
   if (mode.value === 'route') return;
+  if (mode.value === 'edit' && editor.tool.value === 'recognize') {
+    const pressed = recognitionPress.value;
+    const moved = editor.isMoved.value;
+    recognitionPress.value = null;
+    editor.onPointerUp(point);
+    if (pressed === null || moved) return;
+    if (recognition.state.isPicking) {
+      recognition.sampleAt(point);
+    } else {
+      recognition.toggleAt(point);
+    }
+
+    return;
+  }
   editor.onPointerUp(point);
 }
 
@@ -173,8 +232,13 @@ function onBaseSize(size: MapSize): void {
   draftState.setVariantBaseSize(current.id, size.width, size.height);
 }
 
+function onRecognitionCreated(count: number): void {
+  notice.value = `Создано объектов: ${count}`;
+}
+
 function selectHit(hit: MapHit | null): void {
   selected.value = hit;
+  if (hit !== null) editor.clearSelection();
 }
 
 function openNode(nodeId: number): void {
@@ -196,6 +260,31 @@ function openLine(lineId: number): void {
   lineOpen.value = true;
 }
 
+function openGroup(groupId: number): void {
+  groupTargetId.value = groupId;
+  groupOpen.value = true;
+}
+
+function submitGroup(edit: MapGroupEdit): void {
+  const groupId = groupTargetId.value;
+  if (groupId === null) return;
+  const memberIds = groupMembers.value.map((area) => area.id);
+  draftState.beginHistory();
+  try {
+    if (edit.groupLabel !== null) draftState.updateGroup(groupId, edit.groupLabel);
+    if (memberIds.length > 0 && Object.keys(edit.fields).length > 0) {
+      draftState.updateAreas(memberIds, edit.fields);
+    }
+  } finally {
+    draftState.endHistory();
+  }
+  groupOpen.value = false;
+}
+
+function ungroupArea(areaId: number): void {
+  draftState.setAreaGroup(areaId, null);
+}
+
 function openVariant(variantId: number | null): void {
   variantTargetId.value = variantId;
   suggestedScale.value = null;
@@ -212,6 +301,16 @@ function removeHit(hit: MapHit): void {
   if (hit.kind === 'node') draftState.removeNode(hit.id);
   else if (hit.kind === 'area') draftState.removeArea(hit.id);
   else draftState.removeLine(hit.id);
+  editor.clearTarget();
+  selected.value = null;
+}
+
+/** Удаляет всё массовое выделение одним шагом истории. */
+function deleteSelection(): void {
+  const ids = editor.selectedIds.value;
+  if (ids.length === 0) return;
+  draftState.removeAreas(ids);
+  editor.clearSelection();
   editor.clearTarget();
   selected.value = null;
 }
@@ -373,12 +472,14 @@ function branchLine(): void {
 function undoEdit(): void {
   draftState.undo();
   editor.clearTarget();
+  editor.clearSelection();
   selected.value = null;
 }
 
 function redoEdit(): void {
   draftState.redo();
   editor.clearTarget();
+  editor.clearSelection();
   selected.value = null;
 }
 
@@ -429,6 +530,7 @@ function discardDraft(): void {
   if (!window.confirm('Отменить все несохранённые изменения?')) return;
   draftState.discard();
   selected.value = null;
+  editor.clearSelection();
 }
 
 function openSettings(): void {
@@ -462,6 +564,13 @@ function onKeydown(event: KeyboardEvent): void {
     return;
   }
 
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a' && editor.tool.value === 'view') {
+    event.preventDefault();
+    editor.selectAllObjects();
+
+    return;
+  }
+
   if (event.key === '[' || event.key === ']') {
     if (selected.value === null) return;
     if (selected.value.kind !== 'area' && selected.value.kind !== 'line') return;
@@ -477,6 +586,12 @@ function onKeydown(event: KeyboardEvent): void {
 
       return;
     }
+    if (editor.selectedIds.value.length > 0) {
+      event.preventDefault();
+      deleteSelection();
+
+      return;
+    }
     if (selected.value !== null) {
       event.preventDefault();
       removeHit(selected.value);
@@ -486,6 +601,7 @@ function onKeydown(event: KeyboardEvent): void {
   }
 
   if (event.key !== 'Enter' && event.key !== 'Escape') return;
+  if (event.key === 'Escape') editor.clearSelection();
   const hasDialog =
     nodeOpen.value ||
     areaOpen.value ||
@@ -590,8 +706,10 @@ onUnmounted(() => {
       :draft-size="draftSize"
       :can-undo="draftState.canUndo.value"
       :can-redo="draftState.canRedo.value"
+      :labels="showAreaLabels"
       @update:tool="editor.setTool($event)"
       @update:variant-id="detail.selectVariant($event)"
+      @toggle-labels="showAreaLabels = !showAreaLabels"
       @fit="editor.fitToView()"
       @zoom="editor.zoomBy($event)"
       @refresh="refreshFromServer"
@@ -610,6 +728,18 @@ onUnmounted(() => {
     />
 
     <div class="text-caption text-medium-emphasis mt-2">{{ editor.hint.value }}</div>
+    <div v-if="mode === 'edit' && editor.selectedIds.value.length > 0" class="d-flex flex-wrap align-center ga-2 mt-1">
+      <v-chip size="small" color="primary" variant="tonal">
+        Выбрано: {{ editor.selectedIds.value.length }}
+      </v-chip>
+      <v-btn size="small" color="error" variant="tonal" prepend-icon="mdi-delete" @click="deleteSelection">
+        Удалить
+      </v-btn>
+      <v-btn size="small" variant="text" @click="editor.clearSelection()">Снять</v-btn>
+      <span class="text-caption text-medium-emphasis">
+        Shift+рамка — выделить пачку, Shift+клик — добавить или убрать
+      </span>
+    </div>
 
     <v-alert v-if="loadError" type="error" variant="tonal" class="mt-3">
       {{ loadError }}
@@ -633,8 +763,13 @@ onUnmounted(() => {
           :map="draft"
           :variant="variant"
           :viewport="editor.viewport.value"
+          :revision="draftState.revision.value"
+          :show-labels="showAreaLabels"
           :selected="selected"
           :selected-target="editor.activeTarget.value"
+          :selected-ids="editor.selectedIds.value"
+          :marquee="editor.marquee.value"
+          :live-drag="editor.liveDrag.value"
           :route="routeState.route.value"
           :draft-area="editor.draftArea.value"
           :draft-line="editor.draftLine.value"
@@ -650,19 +785,31 @@ onUnmounted(() => {
           @pointer-dblclick="editor.onDoubleClick"
           @wheel="editor.zoomAt"
           @resize="onResize"
+          :recognition-mask="previewMask"
+          :recognition-paths="previewPaths"
+          :recognition-excluded="previewExcluded"
           @base-size="onBaseSize"
         />
       </div>
 
       <div class="map-workbench__panel">
         <MapSidebar
-          v-if="mode === 'edit' && draft"
+          v-if="mode === 'edit' && draft && editor.tool.value !== 'recognize'"
           :map="draft"
           :variant="variant"
           :selected="selected"
           @select="selectHit"
           @edit="editHit"
           @create="editor.setTool($event)"
+          @edit-group="openGroup"
+          @ungroup="ungroupArea"
+        />
+        <MapRecognitionPanel
+          v-if="mode === 'edit' && draft && editor.tool.value === 'recognize'"
+          :recognition="recognition"
+          :map-fill-opacity="draft.fillOpacity"
+          :disabled="!canEdit"
+          @created="onRecognitionCreated"
         />
         <MapRoutePanel
           v-if="mode === 'route'"
@@ -724,11 +871,21 @@ onUnmounted(() => {
       v-model:open="areaOpen"
       :area="areaTarget"
       :node="areaTargetNode"
+      :groups="draft?.groups ?? []"
       :map-options="mapOptions"
       :map-fill-opacity="draft?.fillOpacity ?? MAP_FILL_OPACITY.default"
       :submitting="saving"
       @submit="submitArea"
       @remove="removeArea"
+    />
+
+    <MapGroupDialog
+      v-model:open="groupOpen"
+      :group="groupTarget"
+      :members="groupMembers"
+      :map-fill-opacity="draft?.fillOpacity ?? MAP_FILL_OPACITY.default"
+      :submitting="saving"
+      @submit="submitGroup"
     />
 
     <MapLineDialog

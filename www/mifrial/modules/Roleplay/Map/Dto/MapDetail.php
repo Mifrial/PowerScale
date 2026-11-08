@@ -20,6 +20,7 @@ final class MapDetail
      * @param array<int, MapNodeRecord> $nodes Узлы.
      * @param array<int, MapPlacementRecord> $placements Размещения.
      * @param array<int, MapAreaRecord> $areas Области.
+     * @param array<int, MapAreaGroupRecord> $groups Группы областей.
      * @param array<int, MapAreaShapeRecord> $shapes Полигоны.
      * @param array<int, MapLineRecord> $lines Ленты.
      * @param bool $canEdit Можно править.
@@ -32,6 +33,7 @@ final class MapDetail
         private readonly array $nodes,
         private readonly array $placements,
         private readonly array $areas,
+        private readonly array $groups,
         private readonly array $shapes,
         private readonly array $lines,
         private readonly bool $canEdit,
@@ -96,6 +98,16 @@ final class MapDetail
     public function getShapes(): array
     {
         return $this->shapes;
+    }
+
+    /**
+     * Группы областей.
+     *
+     * @return array<int, MapAreaGroupRecord> Группы.
+     */
+    public function getGroups(): array
+    {
+        return $this->groups;
     }
 
     /**

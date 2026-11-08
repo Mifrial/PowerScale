@@ -113,6 +113,7 @@ function emptySnapshot(meta: MapMeta): MapSnapshot {
     ],
     nodes: [],
     areas: [],
+    groups: [],
     lines: [],
   };
 }

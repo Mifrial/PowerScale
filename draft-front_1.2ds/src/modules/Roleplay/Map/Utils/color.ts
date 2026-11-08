@@ -9,6 +9,11 @@ export function mixHex(from: string, to: string, ratio: number): string {
   return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
 }
 
+/** Автоцвет границы: заливка, затемнённая до читаемого контура. */
+export function autoStrokeColor(color: string, darken = 0.35): string {
+  return mixHex(color, '#000000', darken);
+}
+
 /** Превращает `#rrggbb` в `rgba(...)` с заданной непрозрачностью. */
 export function withAlpha(color: string, alpha: number): string {
   const parsed = parseHex(color);

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue';
 import type { CanvasPoint } from '@/modules/Roleplay/Map/Dto/CanvasPoint';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
 import type { MapArea } from '@/modules/Roleplay/Map/Dto/MapArea';
+import type { MapAreaDecor } from '@/modules/Roleplay/Map/Dto/MapAreaDecor';
 import type { MapEditTarget } from '@/modules/Roleplay/Map/Dto/MapEditTarget';
 import type { MapAreaShape } from '@/modules/Roleplay/Map/Dto/MapAreaShape';
 import type { MapHandle } from '@/modules/Roleplay/Map/Dto/MapHandle';
@@ -17,7 +18,9 @@ import type { MapToolMode } from '@/modules/Roleplay/Map/Enum/MapToolMode';
 import type { RibbonEdges, RibbonLayout } from '@/modules/Roleplay/Map/Service/MapRibbonService';
 import type { MapDecorPoint } from '@/modules/Roleplay/Map/Service/MapDecorService';
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
+import { MAP_AREA_STROKE } from '@/modules/Roleplay/Map/Constant/Map/MAP_AREA_STROKE';
 import { MAP_LINE_DEPTH } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DEPTH';
+import { MAP_RECOGNITION } from '@/modules/Roleplay/Map/Constant/Map/MAP_RECOGNITION';
 import {
   mapDecorPainter,
   mapDecorService,
@@ -31,8 +34,18 @@ const props = defineProps<{
   map: MapDetail | null;
   variant: MapVariant | null;
   viewport: MapViewport;
+  /** Счётчик правок черновика: холст не наблюдает карту глубоко. */
+  revision: number;
+  /** Показывать подписи всех областей, а не только крупных. */
+  showLabels: boolean;
   selected: MapHit | null;
   selectedTarget: MapEditTarget | null;
+  /** Массовое выделение объектов (Shift+рамка). */
+  selectedIds: number[];
+  /** Текущая рамка выделения в мировых координатах. */
+  marquee: { start: MapPoint; end: MapPoint } | null;
+  /** Объект под перетаскиванием: рисуется поверх без пересборки статичного слоя. */
+  liveDrag: MapHit | null;
   route: MapRoute | null;
   draftArea: MapPoint[];
   draftLine: MapPoint[];
@@ -42,10 +55,13 @@ const props = defineProps<{
   rulerLabel: string | null;
   tool: MapToolMode;
   cursor: string;
+  recognitionMask: HTMLCanvasElement | null;
+  recognitionPaths: MapPoint[][];
+  recognitionExcluded: boolean[];
 }>();
 
 const emit = defineEmits<{
-  'pointer-down': [point: MapPoint, screen: CanvasPoint, button: number, alt: boolean];
+  'pointer-down': [point: MapPoint, screen: CanvasPoint, button: number, alt: boolean, shift: boolean];
   'pointer-move': [point: MapPoint, screen: CanvasPoint, alt: boolean, shift: boolean];
   'pointer-up': [point: MapPoint, screen: CanvasPoint];
   'pointer-dblclick': [point: MapPoint];
@@ -68,7 +84,45 @@ let staticCanvas: HTMLCanvasElement | null = null;
 let labelCanvas: HTMLCanvasElement | null = null;
 let decorCanvas: HTMLCanvasElement | null = null;
 let staticDirty = true;
-const areaPathCache = new Map<number, MapPoint[] | null>();
+let paintedStatic = false;
+/** Объект, для которого статичный слой уже пересобран без него. */
+let livePainted = '';
+let staticViewport: MapViewport | null = null;
+let staticSize: MapSize = { width: 0, height: 0 };
+let zoomTimer: ReturnType<typeof setTimeout> | null = null;
+/** Индекс областей по id: без него каждый контур искал себя в списке заново. */
+const areaIndex = new Map<number, MapArea>();
+let areaIndexSource: MapArea[] | null = null;
+let areaIndexRevision = -1;
+interface AreaGeometry {
+  path: MapPoint[];
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+interface AreaGeometryEntry {
+  shape: MapAreaShape;
+  pathRef: MapPoint[];
+  handlesRef: MapHandle[];
+  geometry: AreaGeometry;
+  path2d: Path2D;
+  blocker: DecorBlocker;
+  /** Разложенный декор детерминирован: пересчитывается только при смене декора. */
+  decorRef?: MapAreaDecor | null;
+  decorPoints?: MapDecorPoint[];
+}
+/** Геометрия и путь кэшируются по области: правка пересобирает только её. */
+const areaGeometryCache = new Map<number, AreaGeometryEntry | null>();
+/** Выбранная форма варианта: find по shapes на каждом кадре стоил десятки мс. */
+const areaShapeCache = new Map<number, { shapes: MapAreaShape[]; length: number; shape: MapAreaShape | null }>();
+let geometryVariant: number | null = null;
+let geometryMap: MapDetail | null = null;
+const sortedCache = new Map<'surface' | 'object', MapArea[]>();
+let sortedRevision = -1;
+let sortedMap: MapDetail | null = null;
+let nodeIdsCache: Set<number> | null = null;
+let nodeIdsRevision = -1;
 const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const flowAvailable = computed(
@@ -78,6 +132,20 @@ const flowAvailable = computed(
       (line) => line.variantId === props.variant?.id && line.isPresent && line.decor?.flow?.enabled === true,
     ),
 );
+
+/**
+ * Сырые данные карты: холст перерисовывается по revision, а обход реактивных
+ * прокси на 6000 объектах стоит десятки миллисекунд на кадр. Ссылки
+ * обновляются наблюдателем, а не читаются из props на каждую область.
+ */
+let renderMap: MapDetail | null = null;
+let renderVariant: MapVariant | null = null;
+const rawMap = (): MapDetail | null => renderMap;
+const rawVariant = (): MapVariant | null => renderVariant;
+/** Лента под перетаскиванием: её тело не попадает в статичный слой. */
+const liveLineId = (): number | null => (props.liveDrag?.kind === 'line' ? props.liveDrag.id : null);
+/** Область под перетаскиванием: её фигура и декор не попадают в статичный слой. */
+const liveAreaId = (): number | null => (props.liveDrag?.kind === 'area' ? props.liveDrag.id : null);
 
 const worldWidth = (): number => props.variant?.baseFile?.width ?? MAP_CANVAS_CONFIG.fallbackWidth;
 
@@ -94,52 +162,195 @@ const toWorld = (screen: CanvasPoint): MapPoint => [
 ];
 
 const areaNodeIds = (): Set<number> => {
+  if (nodeIdsCache !== null && nodeIdsRevision === props.revision) return nodeIdsCache;
   const ids = new Set<number>();
-  for (const area of props.map?.areas ?? []) {
+  for (const area of rawMap()?.areas ?? []) {
     if (area.nodeId !== null) ids.add(area.nodeId);
   }
+  nodeIdsCache = ids;
+  nodeIdsRevision = props.revision;
 
   return ids;
 };
 
-const sortedAreas = (layer: 'surface' | 'object') =>
-  (props.map?.areas ?? [])
+/** Индекс областей: строится один раз на ревизию черновика. */
+function ensureAreaIndex(): Map<number, MapArea> {
+  const areas = rawMap()?.areas ?? [];
+  if (areaIndexSource === areas && areaIndexRevision === props.revision) return areaIndex;
+  areaIndex.clear();
+  for (const area of areas) areaIndex.set(area.id, area);
+  areaIndexSource = areas;
+  areaIndexRevision = props.revision;
+
+  return areaIndex;
+}
+
+const sortedAreas = (layer: 'surface' | 'object'): MapArea[] => {
+  ensureAreaIndex();
+  if (sortedRevision !== props.revision || sortedMap !== rawMap()) {
+    sortedCache.clear();
+    sortedRevision = props.revision;
+    sortedMap = rawMap();
+  }
+  const cached = sortedCache.get(layer);
+  if (cached !== undefined) return cached;
+  const list = (rawMap()?.areas ?? [])
     .filter((area) => area.layer === layer)
     .slice()
     .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
+  sortedCache.set(layer, list);
+
+  return list;
+};
 
 const sortedLines = () => {
-  const variant = props.variant;
+  const variant = rawVariant();
   if (!variant) return [];
 
-  return (props.map?.lines ?? [])
+  return (rawMap()?.lines ?? [])
     .filter((line) => line.variantId === variant.id && line.isPresent && line.points.length >= 2)
     .slice()
     .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
 };
 
 const placements = (): Record<number, MapPoint> => {
-  if (!props.map || !props.variant) return {};
+  const map = rawMap();
+  const variant = rawVariant();
+  if (!map || !variant) return {};
 
-  return mapGeometryService.placementPoints(props.map.nodes, props.variant.id);
+  return mapGeometryService.placementPoints(map.nodes, variant.id);
 };
 
+/** Смена карты или варианта сбрасывает кэш целиком. */
+function ensureGeometryScope(): void {
+  const variantId = rawVariant()?.id ?? null;
+  const map = rawMap();
+  if (geometryVariant === variantId && geometryMap === map) return;
+  areaGeometryCache.clear();
+  areaShapeCache.clear();
+  geometryVariant = variantId;
+  geometryMap = map;
+}
+
+/** Форма варианта с кэшем: повторный поиск нужен только при смене набора форм. */
+function resolveShape(area: MapArea, variantId: number): MapAreaShape | null {
+  const shapes = area.shapes;
+  const cached = areaShapeCache.get(area.id);
+  if (cached !== undefined && cached.shapes === shapes && cached.length === shapes.length) {
+    if (cached.shape === null) return null;
+
+    return cached.shape.isPresent ? cached.shape : null;
+  }
+  let found: MapAreaShape | null = null;
+  for (let index = 0; index < shapes.length; index += 1) {
+    const candidate = shapes[index];
+    if (candidate.variantId === variantId && candidate.isPresent) {
+      found = candidate;
+
+      break;
+    }
+  }
+  areaShapeCache.set(area.id, { shapes, length: shapes.length, shape: found });
+
+  return found;
+}
+
+function geometryOf(area: MapArea): AreaGeometry | null {
+  ensureGeometryScope();
+  const variant = rawVariant();
+  const shape = variant ? resolveShape(area, variant.id) : null;
+  const cached = areaGeometryCache.get(area.id);
+  if (cached !== undefined) {
+    const fresh =
+      cached === null
+        ? shape === null
+        : shape !== null &&
+          cached.shape === shape &&
+          cached.pathRef === shape.path &&
+          cached.handlesRef === (shape.handles ?? []);
+    if (fresh) return cached === null ? null : cached.geometry;
+  }
+  if (!shape) {
+    areaGeometryCache.set(area.id, null);
+
+    return null;
+  }
+
+  const paths = shape.path;
+  const handles = shape.handles ?? [];
+  const path = mapGeometryService.flattenContour(paths, handles);
+  if (path.length < 3) {
+    areaGeometryCache.set(area.id, null);
+
+    return null;
+  }
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const [x, y] of path) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  const geometry: AreaGeometry = { path, minX, minY, maxX, maxY };
+  const path2d = new Path2D();
+  tracePath(path2d, path);
+  const blocker: DecorBlocker = { polygon: path, minX, minY, maxX, maxY, erase: true, path2d };
+  areaGeometryCache.set(area.id, { shape, pathRef: paths, handlesRef: handles, geometry, path2d, blocker });
+
+  return geometry;
+}
+
+function geometryEntryOf(area: MapArea): AreaGeometryEntry | null {
+  geometryOf(area);
+  const entry = areaGeometryCache.get(area.id);
+
+  return entry === undefined ? null : entry;
+}
+
 const areaShapeOf = (areaId: number): MapAreaShape | null => {
-  const variant = props.variant;
-  const area = props.map?.areas.find((candidate) => candidate.id === areaId);
+  const variant = rawVariant();
+  const area = ensureAreaIndex().get(areaId);
   if (!variant || !area) return null;
 
   return area.shapes.find((candidate) => candidate.variantId === variant.id && candidate.isPresent) ?? null;
 };
 
 const flatShapeOf = (areaId: number): MapPoint[] | null => {
-  if (areaPathCache.has(areaId)) return areaPathCache.get(areaId) ?? null;
-  const shape = areaShapeOf(areaId);
-  const path = shape ? mapGeometryService.flattenContour(shape.path, shape.handles ?? []) : null;
-  areaPathCache.set(areaId, path);
+  const area = ensureAreaIndex().get(areaId);
 
-  return path;
+  return area === undefined ? null : (geometryOf(area)?.path ?? null);
 };
+
+interface WorldRect {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/** Видимый прямоугольник мира: по нему отсекаются области и декор. */
+function visibleWorldRect(): WorldRect {
+  const scale = props.viewport.scale || 1;
+
+  return {
+    minX: -props.viewport.offsetX / scale,
+    minY: -props.viewport.offsetY / scale,
+    maxX: (lastSize.width - props.viewport.offsetX) / scale,
+    maxY: (lastSize.height - props.viewport.offsetY) / scale,
+  };
+}
+
+function intersects(geometry: AreaGeometry, rect: WorldRect, margin: number): boolean {
+  return (
+    geometry.maxX >= rect.minX - margin &&
+    geometry.minX <= rect.maxX + margin &&
+    geometry.maxY >= rect.minY - margin &&
+    geometry.minY <= rect.maxY + margin
+  );
+}
 
 const selectedArea = (): { id: number; path: MapPoint[]; handles: MapHandle[] } | null => {
   if (props.selected?.kind !== 'area') return null;
@@ -152,7 +363,7 @@ const selectedArea = (): { id: number; path: MapPoint[]; handles: MapHandle[] } 
 const selectedLine = (): MapLine | null => {
   if (props.selected?.kind !== 'line') return null;
 
-  return props.map?.lines.find((line) => line.id === props.selected?.id) ?? null;
+  return rawMap()?.lines.find((line) => line.id === props.selected?.id) ?? null;
 };
 
 function scheduleDraw(): void {
@@ -166,12 +377,26 @@ function scheduleDraw(): void {
 /** Помечает статичный слой устаревшим и перерисовывает сцену. */
 function invalidateStatic(): void {
   staticDirty = true;
-  areaPathCache.clear();
   scheduleDraw();
+}
+
+/** Чёткая перерисовка после зума: пока крутится колесо, показываем старый слой. */
+const ZOOM_REPAINT_DELAY = 120;
+
+function scheduleZoomRepaint(): void {
+  if (zoomTimer !== null) clearTimeout(zoomTimer);
+  zoomTimer = setTimeout(() => {
+    zoomTimer = null;
+    staticDirty = true;
+    scheduleDraw();
+  }, ZOOM_REPAINT_DELAY);
 }
 
 function startFlow(): void {
   if (flowFrame !== 0 || !flowAvailable.value) return;
+  // Пока тянут объект, каждый кадр уже занят динамикой: анимация ряби только
+  // добавляет второй полный проход отрисовки и удваивает время кадра.
+  if (props.liveDrag !== null) return;
   lastFlowDraw = 0;
   flowFrame = requestAnimationFrame(flowTick);
 }
@@ -213,27 +438,104 @@ function draw(timestamp = performance.now()): void {
 
   ensureStaticLayer(width, height, dpr);
   labelCanvas = ensureLayer(labelCanvas, width, height, dpr);
-  if (staticDirty) {
+  const sizeKept = staticSize.width === width && staticSize.height === height;
+  // Пока тянут объект, слой уже собран без него: пересобирать 6000 объектов
+  // каждый кадр незачем, двигающийся объект рисуется поверх.
+  const live = props.liveDrag;
+  const liveKey = live === null ? '' : `${live.kind}:${live.id}`;
+  const liveChanged = liveKey !== livePainted;
+  if (liveChanged) livePainted = liveKey;
+  const liveFrozen = !liveChanged && live !== null;
+  // Зум идёт пачкой событий колеса: пока слой не перерисован, растягиваем
+  // прошлый кадр — это мгновенно, а чёткая картинка придёт по затишью.
+  const stale = staticDirty && paintedStatic && zoomTimer !== null && sizeKept && staticViewport !== null;
+  // Смена «живого» объекта важнее растянутого кадра зума: слой обязан потерять
+  // старую фигуру сразу, иначе под новой останется призрак.
+  if (staticDirty && !liveFrozen && (!stale || liveChanged)) {
     paintStaticLayer(width, height, dpr);
     paintLabelLayer(width, height, dpr);
     staticDirty = false;
+    paintedStatic = true;
+    staticViewport = { ...props.viewport };
+    staticSize = { width, height };
   }
 
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
   context.clearRect(0, 0, width, height);
-  if (staticCanvas) context.drawImage(staticCanvas, 0, 0, width, height);
+  if (staticCanvas) {
+    if (stale && staticViewport) {
+      compositeScaled(context, staticCanvas, staticViewport);
+    } else {
+      context.drawImage(staticCanvas, 0, 0, width, height);
+    }
+  }
 
   context.save();
   context.translate(props.viewport.offsetX, props.viewport.offsetY);
   context.scale(props.viewport.scale, props.viewport.scale);
-  drawFlow(context);
+  drawLiveLine(context);
+  drawLiveArea(context);
+  // Во время перетаскивания рябь заморожена: рисовать её кадр за кадром
+  // бессмысленно, а на картах с десятками рек это лишний полный проход.
+  if (props.liveDrag === null) drawFlow(context);
   drawSelection(context);
+  drawMarquee(context);
+  drawRecognition(context);
   context.restore();
 
-  if (labelCanvas) context.drawImage(labelCanvas, 0, 0, width, height);
+  if (labelCanvas) {
+    if (stale && staticViewport) {
+      compositeScaled(context, labelCanvas, staticViewport);
+    } else {
+      context.drawImage(labelCanvas, 0, 0, width, height);
+    }
+  }
   drawNodes(context);
   drawEditorHandles(context);
   drawDraft(context);
+}
+
+/** Переносит готовый слой со старого вида на текущий без перерисовки сцены. */
+function compositeScaled(context: CanvasRenderingContext2D, layer: HTMLCanvasElement, from: MapViewport): void {
+  const ratio = props.viewport.scale / (from.scale || 1);
+  context.drawImage(
+    layer,
+    props.viewport.offsetX - from.offsetX * ratio,
+    props.viewport.offsetY - from.offsetY * ratio,
+    lastSize.width * ratio,
+    lastSize.height * ratio,
+  );
+}
+
+/** Превью распознавания: подсветка пикселей и контуры поверх сцены. */
+function drawRecognition(context: CanvasRenderingContext2D): void {
+  if (props.recognitionMask === null && props.recognitionPaths.length === 0) return;
+  if (props.recognitionMask !== null) {
+    context.save();
+    context.globalAlpha = MAP_RECOGNITION.preview.maskOpacity;
+    context.drawImage(props.recognitionMask, 0, 0, worldWidth(), worldHeight());
+    context.restore();
+  }
+  context.save();
+  context.lineWidth = MAP_RECOGNITION.preview.strokeWidth / props.viewport.scale;
+  for (let index = 0; index < props.recognitionPaths.length; index += 1) {
+    const excluded = props.recognitionExcluded[index] === true;
+    tracePolygon(context, props.recognitionPaths[index]);
+    if (excluded) {
+      // Исключённое пятно заливается серым: на плотной карте пунктира мало,
+      // чтобы понять, какие объекты не будут созданы.
+      context.fillStyle = MAP_RECOGNITION.preview.excludedFill;
+      context.fill();
+      context.strokeStyle = MAP_RECOGNITION.preview.excludedStroke;
+      const dash = MAP_RECOGNITION.preview.dash / props.viewport.scale;
+      context.setLineDash([dash, dash]);
+    } else {
+      context.strokeStyle = MAP_RECOGNITION.preview.stroke;
+      context.setLineDash([]);
+    }
+    context.stroke();
+  }
+  context.restore();
 }
 
 /** Статичный слой подложки: пересобирается только при изменении сцены. */
@@ -301,12 +603,18 @@ function paintStaticLayer(width: number, height: number, dpr: number): void {
   }
 
   drawGrid(context);
-  drawAreas(context, 'surface');
+  const rect = visibleWorldRect();
+  const margin = MAP_AREA_STROKE.maxWidth / (props.viewport.scale || 1);
+  // Объекты собираются один раз: их пути рисуются после декора, а их полигоны
+  // вырезают деревья из декора поверхности.
+  const objectEntries = collectAreaEntries('object', rect, margin);
+  drawAreaEntries(context, collectAreaEntries('surface', rect, margin));
   drawLineBodies(context);
   // Декор ложится поверх лент: крона у берега свисает над водой и дорогой,
   // а не обрезается их краем. Объекты рисуются позже и перекрывают декор.
-  drawDecor(context, 'surface', width, height, dpr, decorBlockers());
-  drawAreas(context, 'object');
+  const hasSurfaceDecor = sortedAreas('surface').some((area) => area.decor?.set);
+  drawDecor(context, 'surface', width, height, dpr, hasSurfaceDecor ? decorBlockers(objectEntries) : []);
+  drawAreaEntries(context, objectEntries);
   drawDecor(context, 'object', width, height, dpr, []);
   drawRoute(context);
   context.restore();
@@ -338,30 +646,143 @@ function drawGrid(context: CanvasRenderingContext2D): void {
   context.stroke();
 }
 
-function drawAreas(context: CanvasRenderingContext2D, layer: 'surface' | 'object'): void {
-  if (!props.map) return;
+interface RenderEntry {
+  area: MapArea;
+  geometry: AreaGeometry;
+  path2d: Path2D;
+  blocker: DecorBlocker;
+}
+
+/** Видимые области слоя вместе с готовыми путями: один проход на кадр. */
+function collectAreaEntries(layer: 'surface' | 'object', rect: WorldRect, margin: number): RenderEntry[] {
+  const entries: RenderEntry[] = [];
+  const live = liveAreaId();
   for (const area of sortedAreas(layer)) {
-    const path = flatShapeOf(area.id);
-    if (!path || path.length < 3) continue;
-    const color = area.color;
-    context.beginPath();
-    path.forEach((point, index) => {
-      if (index === 0) {
-        context.moveTo(point[0], point[1]);
-      } else {
-        context.lineTo(point[0], point[1]);
-      }
-    });
-    context.closePath();
-    const fillOpacity = mapRenderService.areaFillOpacity(area, props.map.fillOpacity);
-    context.globalAlpha = fillOpacity / 100;
-    context.fillStyle = color;
-    context.fill();
-    context.globalAlpha = 1;
-    context.strokeStyle = color;
-    context.lineWidth = MAP_CANVAS_CONFIG.areaStrokeWidth / props.viewport.scale;
-    context.stroke();
+    if (area.id === live) continue;
+    const entry = geometryEntryOf(area);
+    if (!entry || !intersects(entry.geometry, rect, margin)) continue;
+    entries.push({ area, geometry: entry.geometry, path2d: entry.path2d, blocker: entry.blocker });
   }
+
+  return entries;
+}
+
+function drawAreaEntries(context: CanvasRenderingContext2D, entries: RenderEntry[]): void {
+  const map = rawMap();
+  if (!map) return;
+  const fillBase = map.fillOpacity;
+  const scale = props.viewport.scale || 1;
+  // Одинаково оформленные области рисуются одной пачкой: на 6000 объектах
+  // шесть тысяч вызовов fill/stroke стоят сотни миллисекунд. Пачки не
+  // сливаются через разные стили, чтобы порядок наложения сохранялся.
+  const batches: AreaBatch[] = [];
+  let batch: AreaBatch | null = null;
+  let batchKey = '';
+  for (const { area, path2d } of entries) {
+    const fillOpacity = mapRenderService.areaFillOpacity(area, fillBase);
+    const stroke = area.stroke ?? '';
+    const strokeWidth = area.strokeWidth || MAP_AREA_STROKE.defaultWidth;
+    const key = `${area.color}|${fillOpacity}|${stroke}|${strokeWidth}`;
+    if (batch === null || key !== batchKey) {
+      batch = {
+        path: new Path2D(),
+        alpha: fillOpacity / 100,
+        fill: area.color,
+        stroke,
+        strokeWidth,
+      };
+      batchKey = key;
+      batches.push(batch);
+    }
+    batch.path.addPath(path2d);
+  }
+  for (const item of batches) {
+    context.globalAlpha = item.alpha;
+    context.fillStyle = item.fill;
+    context.fill(item.path);
+    context.globalAlpha = 1;
+    if (item.stroke) {
+      context.strokeStyle = item.stroke;
+      context.lineWidth = item.strokeWidth / scale;
+      context.stroke(item.path);
+    }
+  }
+}
+
+interface AreaBatch {
+  path: Path2D;
+  alpha: number;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+}
+
+/** Обводит замкнутый контур в путь. */
+function tracePath(path: Path2D, points: MapPoint[]): void {
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    if (index === 0) {
+      path.moveTo(point[0], point[1]);
+    } else {
+      path.lineTo(point[0], point[1]);
+    }
+  }
+  path.closePath();
+}
+
+interface BlockerGrid {
+  minX: number;
+  minY: number;
+  cell: number;
+  cols: number;
+  rows: number;
+  cells: DecorBlocker[][];
+}
+
+/** Равномерная сетка по рамкам блокеров: проверяются только соседи клетки. */
+function buildBlockerGrid(blockers: DecorBlocker[]): BlockerGrid | null {
+  if (blockers.length === 0) return null;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const blocker of blockers) {
+    minX = Math.min(minX, blocker.minX);
+    minY = Math.min(minY, blocker.minY);
+    maxX = Math.max(maxX, blocker.maxX);
+    maxY = Math.max(maxY, blocker.maxY);
+  }
+  // Клетка подбирается по плотности: на разреженной карте крупнее, на плотной
+  // мельче, чтобы в одной клетке было 1–3 блокера.
+  const span = Math.max(1, maxX - minX) * Math.max(1, maxY - minY);
+  const cell = Math.max(8, Math.min(64, Math.sqrt(span / blockers.length) * 1.5));
+  const cols = Math.max(1, Math.ceil((maxX - minX) / cell) + 1);
+  const rows = Math.max(1, Math.ceil((maxY - minY) / cell) + 1);
+  const cells: DecorBlocker[][] = new Array(cols * rows);
+  for (let index = 0; index < cells.length; index += 1) cells[index] = [];
+  for (const blocker of blockers) {
+    const startCol = Math.max(0, Math.min(cols - 1, Math.floor((blocker.minX - minX) / cell)));
+    const endCol = Math.max(0, Math.min(cols - 1, Math.floor((blocker.maxX - minX) / cell)));
+    const startRow = Math.max(0, Math.min(rows - 1, Math.floor((blocker.minY - minY) / cell)));
+    const endRow = Math.max(0, Math.min(rows - 1, Math.floor((blocker.maxY - minY) / cell)));
+    for (let row = startRow; row <= endRow; row += 1) {
+      for (let col = startCol; col <= endCol; col += 1) cells[row * cols + col].push(blocker);
+    }
+  }
+
+  return { minX, minY, cell, cols, rows, cells };
+}
+
+function insideAnyBlocker(x: number, y: number, grid: BlockerGrid | null): boolean {
+  if (grid === null) return false;
+  const col = Math.floor((x - grid.minX) / grid.cell);
+  const row = Math.floor((y - grid.minY) / grid.cell);
+  if (col < 0 || col >= grid.cols || row < 0 || row >= grid.rows) return false;
+  for (const blocker of grid.cells[row * grid.cols + col]) {
+    if (insideBlocker(x, y, blocker)) return true;
+  }
+
+  return false;
 }
 
 /**
@@ -379,17 +800,27 @@ function drawDecor(
   dpr: number,
   blockers: DecorBlocker[],
 ): void {
-  if (!props.map) return;
+  if (!rawMap()) return;
 
   const drawings: { area: MapArea; points: MapDecorPoint[] }[] = [];
+  const rect = visibleWorldRect();
+  const margin = 32 / (props.viewport.scale || 1);
+  // Блокеров тысячи: без сетки фильтрация точек даёт миллионы проверок.
+  const grid = buildBlockerGrid(blockers);
+  const live = liveAreaId();
   for (const area of sortedAreas(layer)) {
+    if (area.id === live) continue;
     if (!area.decor?.set) continue;
-    const path = flatShapeOf(area.id);
-    if (!path || path.length < 3) continue;
+    const entry = geometryEntryOf(area);
+    if (!entry || !intersects(entry.geometry, rect, margin)) continue;
+    let layout = entry.decorRef === area.decor ? entry.decorPoints : undefined;
+    if (layout === undefined) {
+      layout = mapDecorService.layout(area.id, entry.geometry.path, area.decor);
+      entry.decorRef = area.decor;
+      entry.decorPoints = layout;
+    }
     // Точка в русле или в доме не даёт дерева: лес не растёт из воды и из стен.
-    const points = mapDecorService
-      .layout(area.id, path, area.decor)
-      .filter((point) => !blockers.some((blocker) => insideBlocker(point.x, point.y, blocker)));
+    const points = layout.filter((point) => !insideAnyBlocker(point.x, point.y, grid));
     if (points.length > 0) drawings.push({ area, points });
   }
   if (drawings.length === 0) return;
@@ -431,19 +862,19 @@ interface DecorBlocker {
   maxY: number;
   /** Объект рисуется поверх декора и полупрозрачен — его полигон надо вырезать. */
   erase: boolean;
+  /** Готовый путь объекта: маска стирания собирается одним fill. */
+  path2d?: Path2D;
 }
 
 /** Русла, дороги и объекты: под ними деревья не растут. */
-function decorBlockers(): DecorBlocker[] {
+function decorBlockers(objectEntries: RenderEntry[]): DecorBlocker[] {
   const blockers: DecorBlocker[] = [];
   for (const line of sortedLines()) {
+    if (line.id === liveLineId()) continue;
     const band = mapRibbonService.ribbonBand(mapRibbonService.layout(line).flat, -1, 1);
     if (band.length >= 3) blockers.push(makeBlocker(band, false));
   }
-  for (const area of sortedAreas('object')) {
-    const path = flatShapeOf(area.id);
-    if (path && path.length >= 3) blockers.push(makeBlocker(path, true));
-  }
+  for (const entry of objectEntries) blockers.push(entry.blocker);
 
   return blockers;
 }
@@ -480,20 +911,26 @@ function eraseDecorMask(context: CanvasRenderingContext2D, blockers: DecorBlocke
   context.scale(props.viewport.scale, props.viewport.scale);
   context.globalCompositeOperation = 'destination-out';
   context.fillStyle = '#000';
+  const maskPath = new Path2D();
   for (const blocker of mask) {
-    tracePolygon(context, blocker.polygon);
-    context.fill();
+    if (blocker.path2d) maskPath.addPath(blocker.path2d);
+    else tracePath(maskPath, blocker.polygon);
   }
+  context.fill(maskPath);
   context.restore();
 }
 
 /** Заливка и берега лент — часть статичного слоя. */
 function drawLineBodies(context: CanvasRenderingContext2D): void {
-  if (!props.map || !props.variant) return;
+  const map = rawMap();
+  if (!map || !rawVariant()) return;
   for (const line of sortedLines()) {
+    // Объект под перетаскиванием живёт в динамическом слое: статичный слой
+    // собран без него, иначе на карте остался бы старый след.
+    if (line.id === liveLineId()) continue;
     const layout = mapRibbonService.layout(line);
-    const fillOpacity = mapRenderService.lineFillOpacity(line, props.map.fillOpacity);
-    drawLineFill(context, line, layout, props.map.fillOpacity);
+    const fillOpacity = mapRenderService.lineFillOpacity(line, map.fillOpacity);
+    drawLineFill(context, line, layout, map.fillOpacity);
     drawLineDepth(
       context,
       layout,
@@ -505,9 +942,52 @@ function drawLineBodies(context: CanvasRenderingContext2D): void {
   }
 }
 
+/** Лента под перетаскиванием: пересобирается каждый кадр, но она одна. */
+function drawLiveLine(context: CanvasRenderingContext2D): void {
+  const id = liveLineId();
+  const map = rawMap();
+  if (id === null || map === null) return;
+  const line = map.lines.find((candidate) => candidate.id === id && candidate.isPresent);
+  if (!line) return;
+  const layout = mapRibbonService.layout(line);
+  const fillOpacity = mapRenderService.lineFillOpacity(line, map.fillOpacity);
+  drawLineFill(context, line, layout, map.fillOpacity);
+  drawLineDepth(
+    context,
+    layout,
+    mapRenderService.lineDepth(line),
+    mapRenderService.lineDepthWidth(line),
+    fillOpacity,
+  );
+  drawLineEdges(context, layout);
+}
+
+/** Область под перетаскиванием: путь меняется каждый кадр, но она одна. */
+function drawLiveArea(context: CanvasRenderingContext2D): void {
+  const id = liveAreaId();
+  const map = rawMap();
+  if (id === null || map === null) return;
+  const area = ensureAreaIndex().get(id);
+  if (!area) return;
+  const entry = geometryEntryOf(area);
+  if (!entry) return;
+  const scale = props.viewport.scale || 1;
+  context.save();
+  context.globalAlpha = mapRenderService.areaFillOpacity(area, map.fillOpacity) / 100;
+  context.fillStyle = area.color;
+  context.fill(entry.path2d);
+  context.globalAlpha = 1;
+  if (area.stroke) {
+    context.strokeStyle = area.stroke;
+    context.lineWidth = (area.strokeWidth || MAP_AREA_STROKE.defaultWidth) / scale;
+    context.stroke(entry.path2d);
+  }
+  context.restore();
+}
+
 /** Рябь: единственная часть лент, которая перерисовывается каждый кадр. */
 function drawFlow(context: CanvasRenderingContext2D): void {
-  if (!props.map || !props.variant) return;
+  if (!rawMap() || !rawVariant()) return;
   for (const line of sortedLines()) {
     if (line.decor?.flow?.enabled !== true) continue;
     drawLineFlow(context, line, mapRibbonService.layout(line));
@@ -516,6 +996,27 @@ function drawFlow(context: CanvasRenderingContext2D): void {
 
 /** Подсветка выбранного элемента поверх статичного слоя. */
 function drawSelection(context: CanvasRenderingContext2D): void {
+  const scale = props.viewport.scale || 1;
+  if (props.selectedIds.length > 0) {
+    const batch = new Path2D();
+    let count = 0;
+    for (const id of props.selectedIds) {
+      const area = ensureAreaIndex().get(id);
+      if (!area) continue;
+      const entry = geometryEntryOf(area);
+      if (!entry) continue;
+      batch.addPath(entry.path2d);
+      count += 1;
+    }
+    if (count > 0) {
+      context.save();
+      context.strokeStyle = '#1e88e5';
+      context.lineWidth = (MAP_CANVAS_CONFIG.areaStrokeWidth + 1) / scale;
+      context.stroke(batch);
+      context.restore();
+    }
+  }
+
   const selected = props.selected;
   if (!selected) return;
 
@@ -543,6 +1044,25 @@ function drawSelection(context: CanvasRenderingContext2D): void {
     if (!line) return;
     drawPolyline(context, mapRibbonService.layout(line).flat.points, '#1e88e5', 2 / props.viewport.scale);
   }
+}
+
+/** Рамка массового выделения. */
+function drawMarquee(context: CanvasRenderingContext2D): void {
+  const marquee = props.marquee;
+  if (!marquee) return;
+  const scale = props.viewport.scale || 1;
+  const minX = Math.min(marquee.start[0], marquee.end[0]);
+  const minY = Math.min(marquee.start[1], marquee.end[1]);
+  const width = Math.abs(marquee.end[0] - marquee.start[0]);
+  const height = Math.abs(marquee.end[1] - marquee.start[1]);
+  context.save();
+  context.fillStyle = 'rgba(30, 136, 229, 0.12)';
+  context.fillRect(minX, minY, width, height);
+  context.strokeStyle = '#1e88e5';
+  context.lineWidth = 1 / scale;
+  context.setLineDash([4 / scale, 3 / scale]);
+  context.strokeRect(minX, minY, width, height);
+  context.restore();
 }
 
 /** Заливка непрерывных участков цвета и градиентных переходов. */
@@ -824,19 +1344,31 @@ function routeTolerance(points: MapPoint[]): number {
 }
 
 function drawAreaLabels(context: CanvasRenderingContext2D): void {
-  if (!props.map) return;
+  const map = rawMap();
+  if (!map) return;
   context.font = '12px Roboto, sans-serif';
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.lineWidth = 3;
   context.strokeStyle = 'rgba(255, 255, 255, 0.85)';
   context.fillStyle = '#263238';
-  for (const area of props.map.areas) {
+  const rect = visibleWorldRect();
+  const selectedId = props.selected?.kind === 'area' ? props.selected.id : null;
+  const live = liveAreaId();
+  const scale = props.viewport.scale || 1;
+  for (const area of map.areas) {
+    if (area.id === live) continue;
     const label = area.label.trim();
     if (label === '') continue;
-    const path = flatShapeOf(area.id);
-    if (!path || path.length < 3) continue;
-    const point = toScreen(mapGeometryService.polygonCentroid(path));
+    const geometry = geometryOf(area);
+    if (!geometry || !intersects(geometry, rect, 0)) continue;
+    // Место и выделение подписаны всегда; остальные — когда область на экране
+    // достаточно крупная, иначе тысячи подписей превращают карту в кашу.
+    if (!props.showLabels && area.nodeId === null && area.id !== selectedId) {
+      const extent = Math.max(geometry.maxX - geometry.minX, geometry.maxY - geometry.minY) * scale;
+      if (extent < MAP_CANVAS_CONFIG.labelMinSize) continue;
+    }
+    const point = toScreen(mapGeometryService.polygonCentroid(geometry.path));
     context.strokeText(label, point.x, point.y);
     context.fillText(label, point.x, point.y);
   }
@@ -844,10 +1376,12 @@ function drawAreaLabels(context: CanvasRenderingContext2D): void {
 }
 
 function drawNodes(context: CanvasRenderingContext2D): void {
-  if (!props.map || !props.variant) return;
+  const map = rawMap();
+  const variant = rawVariant();
+  if (!map || !variant) return;
   const points = placements();
   const linked = areaNodeIds();
-  for (const node of props.map.nodes) {
+  for (const node of map.nodes) {
     const point = points[node.id];
     if (!point) continue;
     if (linked.has(node.id)) continue;
@@ -861,7 +1395,7 @@ function drawNodes(context: CanvasRenderingContext2D): void {
     context.strokeStyle = isSelected ? '#1e88e5' : '#455a64';
     context.stroke();
     const placement = node.placements.find(
-      (candidate) => candidate.variantId === props.variant?.id && candidate.isPresent,
+      (candidate) => candidate.variantId === variant.id && candidate.isPresent,
     );
     const label = placement?.labelOverride || node.name;
     if (label) {
@@ -874,7 +1408,7 @@ function drawNodes(context: CanvasRenderingContext2D): void {
 }
 
 function drawEditorHandles(context: CanvasRenderingContext2D): void {
-  if (props.map?.canEdit !== true) return;
+  if (rawMap()?.canEdit !== true) return;
   const area = selectedArea();
   if (area) {
     const target = props.selectedTarget;
@@ -1201,7 +1735,7 @@ function onPointerDown(event: PointerEvent): void {
     // Синтетические события и некоторые браузеры не дают захват указателя.
   }
   const screen = screenPointOf(event);
-  emit('pointer-down', toWorld(screen), screen, event.button, event.altKey);
+  emit('pointer-down', toWorld(screen), screen, event.button, event.altKey, event.shiftKey);
 }
 
 function onPointerMove(event: PointerEvent): void {
@@ -1255,9 +1789,49 @@ function loadBaseImage(publicId: string | null | undefined): void {
   image.src = getFileApi().getViewUrl(publicId);
 }
 
-watch(() => [props.map, props.variant, props.viewport, props.route], invalidateStatic, { deep: true });
+watch(
+  () => [props.map, props.variant] as const,
+  () => {
+    renderMap = props.map === null ? null : (toRaw(props.map) as MapDetail);
+    renderVariant = props.variant === null ? null : (toRaw(props.variant) as MapVariant);
+  },
+  { immediate: true },
+);
+// Карта и вариант меняются ссылкой; правки внутри черновика ловит revision.
+watch(() => [props.map, props.variant, props.route], invalidateStatic);
+watch(() => props.revision, invalidateStatic);
+watch(() => props.liveDrag, (value) => {
+  invalidateStatic();
+  if (value !== null) {
+    stopFlow();
+  } else if (flowAvailable.value) {
+    startFlow();
+  }
+});
+watch(() => [props.selectedIds, props.marquee], () => scheduleDraw());
+watch(() => props.showLabels, invalidateStatic);
+// Вид — отдельно и неглубоко: панорама не должна обходить весь граф карты.
+watch(
+  () => [props.viewport.scale, props.viewport.offsetX, props.viewport.offsetY] as const,
+  (next, previous) => {
+    if (previous === undefined) {
+      invalidateStatic();
+
+      return;
+    }
+    staticDirty = true;
+    // Изменился масштаб — показываем растянутый прошлый кадр и перерисовываем
+    // чётко после затишья. Сдвиг без масштаба рисуем сразу с отсечением.
+    if (next[0] !== previous[0]) scheduleZoomRepaint();
+    scheduleDraw();
+  },
+);
 
 watch(baseImage, invalidateStatic);
+watch(
+  () => [props.recognitionMask, props.recognitionPaths, props.recognitionExcluded],
+  () => scheduleDraw(),
+);
 
 watch(
   () => [
@@ -1302,6 +1876,10 @@ function unmount(): void {
   stopFlow();
   resizeObserver?.disconnect();
   resizeObserver = null;
+  if (zoomTimer !== null) {
+    clearTimeout(zoomTimer);
+    zoomTimer = null;
+  }
   if (frame !== 0) {
     cancelAnimationFrame(frame);
     frame = 0;

@@ -190,6 +190,31 @@ final class MapSaveFields
     }
 
     /**
+     * Цвет границы: пусто — границы нет, иначе `#rrggbb`.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return string Цвет или пустая строка.
+     *
+     * @throws MapInvalidException Если цвет неверен.
+     */
+    public function strokeValue(array $row, string $key, string $path): string
+    {
+        $color = trim($this->stringValue($row, $key, $path));
+        if ($color === '') {
+            return '';
+        }
+
+        if (preg_match('/^#[0-9a-fA-F]{6}$/', $color) !== 1) {
+            throw new MapInvalidException($path . ' is invalid');
+        }
+
+        return strtolower($color);
+    }
+
+    /**
      * Стили сегментов ленты.
      *
      * @param array<string|int, mixed> $row Строка.

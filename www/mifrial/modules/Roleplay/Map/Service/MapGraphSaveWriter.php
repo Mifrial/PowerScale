@@ -13,6 +13,11 @@ use Mifrial\Roleplay\Map\Exception\MapInvalidException;
 final class MapGraphSaveWriter
 {
     /**
+     * Сколько областей вставлять одним multi-insert.
+     */
+    private const INSERT_CHUNK = 500;
+
+    /**
      * Создаёт писатель.
      *
      * @param MapAreaStore $areaStore Области и формы.
@@ -30,18 +35,25 @@ final class MapGraphSaveWriter
      * @param int $mapId Карта.
      * @param array<int, array<string, mixed>> $areas Области снимка.
      * @param array<int, int> $nodeMap Id снимка → реальный id узла.
+     * @param array<int, int> $groupMap Id снимка → реальный id группы.
      *
      * @return array<int, int> Id снимка → реальный id области.
      *
      * @throws MapInvalidException Если ссылка не разрешилась.
      */
-    public function areas(int $mapId, array $areas, array $nodeMap): array
+    public function areas(int $mapId, array $areas, array $nodeMap, array $groupMap): array
     {
         $existing = $this->areaStore->findAreas($mapId);
         $existingById = $this->index($existing);
         [$updates, $inserts] = $this->splitAreas($areas, $existingById);
+
         foreach ($updates as $id => $area) {
-            $this->areaStore->updateArea($id, $this->areaFields($area, $nodeMap));
+            $fields = $this->areaFields($area, $nodeMap, $groupMap);
+            if ($this->isSameArea($existingById[$id], $fields)) {
+                continue;
+            }
+
+            $this->areaStore->updateArea($id, $fields);
         }
 
         foreach ($existing as $areaRecord) {
@@ -55,18 +67,79 @@ final class MapGraphSaveWriter
             $idMap[$id] = $id;
         }
 
+        $rows = [];
         foreach ($inserts as $area) {
-            $idMap[$area['id']] = $this->insertArea($mapId, $area, $nodeMap);
+            $fields = $this->areaFields($area, $nodeMap, $groupMap);
+            $rows[] = [
+                'layer' => $fields['layer'],
+                'color' => $fields['color'],
+                'stroke' => $fields['stroke'],
+                'strokeWidth' => $fields['stroke_width'],
+                'decor' => $fields['decor'],
+                'speed' => $fields['speed'],
+                'label' => $fields['label'],
+                'nodeId' => $fields['node_id'],
+                'sortOrder' => $fields['sort_order'],
+                'groupId' => $fields['group_id'],
+            ];
+        }
+
+        $offset = 0;
+        foreach (array_chunk($rows, self::INSERT_CHUNK) as $chunk) {
+            $insertedIds = $this->areaStore->addAreas($mapId, $chunk);
+            foreach ($insertedIds as $index => $realId) {
+                $idMap[$inserts[$offset + $index]['id']] = $realId;
+            }
+
+            $offset += count($insertedIds);
         }
 
         return $idMap;
     }
 
     /**
+     * Совпадают ли поля области с уже записанной строкой.
+     *
+     * @param MapAreaRecord $areaRecord Текущая строка.
+     * @param array<string, mixed> $fields Новые поля.
+     *
+     * @return bool Совпадают.
+     */
+    private function isSameArea(MapAreaRecord $areaRecord, array $fields): bool
+    {
+        return $areaRecord->getLayer() === $fields['layer']
+            && $areaRecord->getColor() === $fields['color']
+            && $areaRecord->getStroke() === $fields['stroke']
+            && $areaRecord->getStrokeWidth() === $fields['stroke_width']
+            && $this->sameDecor($areaRecord->getDecor(), $fields['decor'])
+            && $areaRecord->getSpeed() === $fields['speed']
+            && $areaRecord->getLabel() === $fields['label']
+            && $areaRecord->getNodeId() === $fields['node_id']
+            && $areaRecord->getGroupId() === $fields['group_id']
+            && $areaRecord->getSortOrder() === $fields['sort_order'];
+    }
+
+    /**
+     * Сравнивает декор без учёта порядка ключей.
+     *
+     * @param array<string, mixed> $left Текущий декор.
+     * @param array<string, mixed> $right Новый декор.
+     *
+     * @return bool Совпадают.
+     */
+    private function sameDecor(array $left, array $right): bool
+    {
+        ksort($left);
+        ksort($right);
+
+        return $left === $right;
+    }
+
+    /**
      * Делит области на обновления и вставки.
      *
      * @param array<int, array<string, mixed>> $areas Области.
-     * @param array<int, true> $existingById Известные id.
+     * @param array<int, MapAreaRecord> $existingById Известные строки.
      *
      * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>} Части.
      *
@@ -99,66 +172,43 @@ final class MapGraphSaveWriter
      *
      * @param array<string, mixed> $area Область.
      * @param array<int, int> $nodeMap Узлы.
+     * @param array<int, int> $groupMap Группы.
      *
      * @return array<string, mixed> Поля.
      *
      * @throws MapInvalidException Если ссылка не разрешилась.
      */
-    private function areaFields(array $area, array $nodeMap): array
+    private function areaFields(array $area, array $nodeMap, array $groupMap): array
     {
         return [
             'layer' => $area['layer'],
             'color' => $area['color'],
+            'stroke' => $area['stroke'],
+            'stroke_width' => $area['strokeWidth'],
             'decor' => $area['decor'],
             'speed' => $area['speed'],
             'label' => $area['label'],
             'node_id' => $area['nodeId'] === null ? null : $this->mapped($nodeMap, $area['nodeId']),
+            'group_id' => $area['groupId'] === null ? null : $this->mapped($groupMap, $area['groupId']),
             'sort_order' => $area['sortOrder'],
         ];
     }
 
     /**
-     * Вставляет область.
-     *
-     * @param int $mapId Карта.
-     * @param array<string, mixed> $area Область.
-     * @param array<int, int> $nodeMap Узлы.
-     *
-     * @return int Реальный id.
-     *
-     * @throws MapInvalidException Если ссылка не разрешилась.
-     */
-    private function insertArea(int $mapId, array $area, array $nodeMap): int
-    {
-        $fields = $this->areaFields($area, $nodeMap);
-
-        return $this->areaStore->addArea(
-            $mapId,
-            $fields['layer'],
-            $fields['color'],
-            $fields['decor'],
-            $fields['speed'],
-            $fields['label'],
-            $fields['node_id'],
-            $fields['sort_order'],
-        );
-    }
-
-    /**
-     * Существующие id.
+     * Существующие строки по id.
      *
      * @param array<int, MapAreaRecord> $records Записи.
      *
-     * @return array<int, true> Id → true.
+     * @return array<int, MapAreaRecord> Id → строка.
      */
     private function index(array $records): array
     {
-        $ids = [];
+        $indexed = [];
         foreach ($records as $record) {
-            $ids[$record->getId()] = true;
+            $indexed[$record->getId()] = $record;
         }
 
-        return $ids;
+        return $indexed;
     }
 
     /**

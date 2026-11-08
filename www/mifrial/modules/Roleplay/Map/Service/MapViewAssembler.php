@@ -70,6 +70,7 @@ final class MapViewAssembler
             'variants' => $this->variantViews($detail),
             'nodes' => $this->nodeViews($detail),
             'areas' => $this->areaViews($detail),
+            'groups' => $this->groupViews($detail),
             'lines' => $this->lineViews($detail),
         ];
     }
@@ -155,10 +156,13 @@ final class MapViewAssembler
             'id' => $areaRecord->getId(),
             'layer' => $areaRecord->getLayer(),
             'color' => $areaRecord->getColor(),
+            'stroke' => $areaRecord->getStroke(),
+            'strokeWidth' => $areaRecord->getStrokeWidth(),
             'decor' => $areaRecord->getDecor() === [] ? (object) [] : $areaRecord->getDecor(),
             'speed' => $areaRecord->getSpeed(),
             'label' => $areaRecord->getLabel(),
             'nodeId' => $areaRecord->getNodeId(),
+            'groupId' => $areaRecord->getGroupId(),
             'sortOrder' => $areaRecord->getSortOrder(),
             'shapes' => $shapeViews,
         ];
@@ -264,6 +268,26 @@ final class MapViewAssembler
         $views = [];
         foreach ($detail->getAreas() as $areaRecord) {
             $views[] = $this->assembleArea($areaRecord, $shapes[$areaRecord->getId()] ?? []);
+        }
+
+        return $views;
+    }
+
+    /**
+     * Группы областей в JSON.
+     *
+     * @param MapDetail $detail Снимок.
+     *
+     * @return array<int, array<string, mixed>> JSON.
+     */
+    private function groupViews(MapDetail $detail): array
+    {
+        $views = [];
+        foreach ($detail->getGroups() as $groupRecord) {
+            $views[] = [
+                'id' => $groupRecord->getId(),
+                'label' => $groupRecord->getLabel(),
+            ];
         }
 
         return $views;

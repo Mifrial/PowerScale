@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import type { MapArea } from '@/modules/Roleplay/Map/Dto/MapArea';
 import type { MapAreaDecor, MapDecorSet } from '@/modules/Roleplay/Map/Dto/MapAreaDecor';
 import type { MapAreaEdit } from '@/modules/Roleplay/Map/Dto/MapAreaEdit';
+import type { MapAreaGroup } from '@/modules/Roleplay/Map/Dto/MapAreaGroup';
 import type { MapAreaLayer } from '@/modules/Roleplay/Map/Enum/MapAreaLayer';
 import type { MapNode } from '@/modules/Roleplay/Map/Dto/MapNode';
 import type { MapSummary } from '@/modules/Roleplay/Map/Dto/MapSummary';
@@ -14,6 +15,7 @@ import {
   isMapDecorSet,
 } from '@/modules/Roleplay/Map/Constant/Map/MAP_DECOR';
 import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
+import { MAP_AREA_STROKE } from '@/modules/Roleplay/Map/Constant/Map/MAP_AREA_STROKE';
 import {
   MAP_AREA_DEFAULT_COLOR,
   MAP_SPEED_DEFAULT,
@@ -21,12 +23,14 @@ import {
   speedToInput,
 } from '@/modules/Roleplay/Map/Constant/Map/MAP_SPEED';
 import { clampInt } from '@/modules/Roleplay/Map/Utils/clampInt';
+import { autoStrokeColor } from '@/modules/Roleplay/Map/Utils/color';
 
 const open = defineModel<boolean>('open', { default: false });
 
 const props = defineProps<{
   area: MapArea | null;
   node: MapNode | null;
+  groups: MapAreaGroup[];
   mapOptions: MapSummary[];
   mapFillOpacity: number;
   submitting: boolean;
@@ -40,8 +44,12 @@ const emit = defineEmits<{
 const form = reactive({
   layer: 'object' as MapAreaLayer,
   color: MAP_AREA_DEFAULT_COLOR,
+  strokeEnabled: true,
+  stroke: autoStrokeColor(MAP_AREA_DEFAULT_COLOR, MAP_AREA_STROKE.autoDarken),
+  strokeWidth: MAP_AREA_STROKE.defaultWidth as number,
   speed: 0,
   label: '',
+  groupId: null as number | null,
   sortOrder: 0,
   fillOpacityOverride: false,
   fillOpacity: Number(MAP_FILL_OPACITY.default),
@@ -62,6 +70,10 @@ const form = reactive({
 
 const preset = ref<string | null>(null);
 
+const groupOptions = computed(() => [
+  ...props.groups.map((group) => ({ title: group.label || 'Группа', value: group.id })),
+]);
+
 const presetOptions = computed(() =>
   MAP_AREA_PRESETS.map((item) => ({
     title: item.title,
@@ -80,8 +92,12 @@ watch(open, (value) => {
   preset.value = null;
   form.layer = props.area?.layer ?? 'object';
   form.color = props.area?.color ?? MAP_AREA_DEFAULT_COLOR;
+  form.strokeEnabled = props.area ? (props.area.stroke ?? '') !== '' : true;
+  form.stroke = props.area?.stroke || autoStrokeColor(form.color, MAP_AREA_STROKE.autoDarken);
+  form.strokeWidth = props.area?.strokeWidth ?? MAP_AREA_STROKE.defaultWidth;
   form.speed = speedToInput(props.area?.speed ?? (form.layer === 'surface' ? MAP_SPEED_DEFAULT : 0));
   form.label = props.area?.label ?? '';
+  form.groupId = props.area?.groupId ?? null;
   form.sortOrder = props.area?.sortOrder ?? 0;
   form.fillOpacityOverride = props.area?.decor?.fillOpacity !== undefined;
   form.fillOpacity = props.area?.decor?.fillOpacity ?? props.mapFillOpacity;
@@ -101,6 +117,8 @@ function applyPreset(code: string | null): void {
   if (!found) return;
   form.layer = found.layer;
   form.color = found.color;
+  form.strokeEnabled = true;
+  form.stroke = autoStrokeColor(found.color, MAP_AREA_STROKE.autoDarken);
   form.speed = speedToInput(found.speed);
   loadDecor(found.decor);
   if (form.label.trim() === '') {
@@ -164,10 +182,22 @@ function submit(): void {
   emit('submit', {
     layer: form.layer,
     color: form.color.trim() || MAP_AREA_DEFAULT_COLOR,
+    stroke: form.strokeEnabled
+      ? /^#[0-9a-fA-F]{6}$/.test(form.stroke.trim())
+        ? form.stroke.trim().toLowerCase()
+        : autoStrokeColor(form.color.trim() || MAP_AREA_DEFAULT_COLOR, MAP_AREA_STROKE.autoDarken)
+      : '',
+    strokeWidth: clampInt(
+      form.strokeWidth,
+      MAP_AREA_STROKE.minWidth,
+      MAP_AREA_STROKE.maxWidth,
+      MAP_AREA_STROKE.defaultWidth,
+    ),
     speed: speedFromInput(Number(form.speed)),
     decor,
     label: form.label.trim(),
     nodeId: props.area?.nodeId ?? null,
+    groupId: form.groupId,
     sortOrder: form.sortOrder,
     place: form.hasPlace
       ? {
@@ -219,6 +249,38 @@ function remove(): void {
           <input v-model="form.color" type="color" class="map-color" aria-label="Цвет области" />
           <v-text-field v-model="form.color" label="Цвет" variant="outlined" density="comfortable" hide-details />
         </div>
+        <v-switch
+          v-model="form.strokeEnabled"
+          label="Граница"
+          color="primary"
+          density="compact"
+          hide-details
+          class="mt-2"
+        />
+        <template v-if="form.strokeEnabled">
+          <div class="d-flex align-center ga-2 mt-1">
+            <input v-model="form.stroke" type="color" class="map-color" aria-label="Цвет границы" />
+            <v-text-field
+              v-model="form.stroke"
+              label="Цвет границы"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+            />
+          </div>
+          <v-slider
+            v-model.number="form.strokeWidth"
+            :min="MAP_AREA_STROKE.minWidth"
+            :max="MAP_AREA_STROKE.maxWidth"
+            :step="1"
+            thumb-label
+            color="primary"
+            label="Толщина границы, px"
+            density="compact"
+            hide-details
+            class="mt-1"
+          />
+        </template>
         <v-text-field
           v-model.number="form.speed"
           type="number"
@@ -234,6 +296,17 @@ function remove(): void {
           50 — обычная земля, 70 — грунтовая дорога, 100 — каменная; лес 20, брод 10, река 4.
         </p>
         <v-text-field v-model="form.label" label="Подпись" variant="outlined" density="comfortable" class="mt-3" />
+        <v-select
+          v-model="form.groupId"
+          :items="groupOptions"
+          item-title="title"
+          item-value="value"
+          label="Группа"
+          variant="outlined"
+          density="comfortable"
+          clearable
+          class="mt-3"
+        />
 
         <v-divider class="my-4" />
         <div class="text-body-2 mb-2">Заливка</div>

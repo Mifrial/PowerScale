@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Map\Dto;
 
+use Mifrial\Roleplay\Map\Service\MapAreaStroke;
+
 // phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
 
 /**
@@ -18,11 +20,14 @@ final class MapAreaRecord
      * @param int $mapId Карта.
      * @param string $layer surface|object.
      * @param string $color Цвет области.
+     * @param string $stroke Цвет границы; пусто — границы нет.
+     * @param int $strokeWidth Толщина границы, экранные пиксели.
      * @param array<string, mixed> $decor Визуальный декор; пусто — без декора.
      * @param int $speed Проходимость: 0 — непроходимо.
      * @param string $label Подпись.
      * @param int|null $nodeId Привязанное место.
      * @param int $sortOrder Порядок внутри слоя.
+     * @param int|null $groupId Группа областей.
      *
      * @return void
      */
@@ -31,11 +36,14 @@ final class MapAreaRecord
         private readonly int $mapId,
         private readonly string $layer,
         private readonly string $color,
+        private readonly string $stroke,
+        private readonly int $strokeWidth,
         private readonly array $decor,
         private readonly int $speed,
         private readonly string $label,
         private readonly ?int $nodeId,
         private readonly int $sortOrder,
+        private readonly ?int $groupId,
     ) {
     }
 
@@ -53,11 +61,14 @@ final class MapAreaRecord
             MapValues::requireInt($fields, 'map_id'),
             MapValues::requireString($fields, 'layer'),
             MapValues::requireString($fields, 'color'),
+            MapValues::optionalString($fields, 'stroke') ?? '',
+            MapValues::optionalInt($fields, 'stroke_width') ?: MapAreaStroke::DEFAULT_WIDTH,
             MapValues::areaDecor($fields['decor'] ?? null),
             MapValues::requireInt($fields, 'speed'),
             MapValues::requireString($fields, 'label'),
             MapValues::optionalInt($fields, 'node_id'),
             MapValues::optionalInt($fields, 'sort_order') ?? 0,
+            MapValues::optionalInt($fields, 'group_id'),
         );
     }
 
@@ -99,6 +110,26 @@ final class MapAreaRecord
     public function getColor(): string
     {
         return $this->color;
+    }
+
+    /**
+     * Цвет границы.
+     *
+     * @return string Цвет `#rrggbb` или пустая строка.
+     */
+    public function getStroke(): string
+    {
+        return $this->stroke;
+    }
+
+    /**
+     * Толщина границы.
+     *
+     * @return int Экранные пиксели.
+     */
+    public function getStrokeWidth(): int
+    {
+        return $this->strokeWidth;
     }
 
     /**
@@ -149,5 +180,15 @@ final class MapAreaRecord
     public function getNodeId(): ?int
     {
         return $this->nodeId;
+    }
+
+    /**
+     * Группа областей.
+     *
+     * @return int|null Id группы или null.
+     */
+    public function getGroupId(): ?int
+    {
+        return $this->groupId;
     }
 }

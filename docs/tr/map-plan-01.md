@@ -1,6 +1,6 @@
 # Карты: серверный срез
 
-**Статус:** ~В РАБОТЕ~, 2026-11-07 — плотность заливки, глубина русла и декоративное течение; ждёт ручной проверки.
+**Статус:** ~В РАБОТЕ~, 2026-11-08 — группы областей, распознавание по подложке, границы областей и производительность на 6000+ объектов; ждёт ручной проверки.
 **Реализация:** ~PHP~ — готово, ~VUE~ — [`map-plan-02.md`](map-plan-02.md), ~МОК~ — да.
 **Опираться на:** ~PHP~ (`Core/File`, `Core/User`, `Core/SmartTable`).
 
@@ -22,6 +22,13 @@
   `sort_order`. Объекты всегда выше лент, ленты выше поверхностей.
 - **Маршрут — по проходимой зоне, а не по авторским рёбрам.** Сетка A* строится
   из геометрии варианта. Отдельной таблицы рёбер и waypoint-ов нет.
+- **Распознавание — клиентское.** Подложка отдаётся тем же origin-ом, поэтому
+  редактор читает пиксели через canvas и строит контуры в браузере. Сервер не
+  хранит маски и не знает о найденных пятнах: результат приходит обычным
+  снимком `map.save`.
+- **Группа — ярлык, а не геометрия.** `map_area_group` объединяет области для
+  массовых правок (цвет, скорость, плотность заливки, подпись, декор) и не
+  участвует в отрисовке, маршруте и доступе.
 - **Скорость живёт на элементе, а не в справочнике.** У области и ленты есть
   `color` и `speed`; у сегмента ленты — свои `speed` и `color`. Пресеты — только
   начальные значения во фронтенде, отдельного типа или справочника террейнов нет.
@@ -133,6 +140,21 @@ label_override StringField 255, required, default ''
 Unique `(variant_id, node_id)`. Размещение площадного места — невидимый якорь
 для выбора места и старых ссылок; маркер по нему не рисуется.
 
+### `map_area_group`
+
+Группа однотипных областей: контейнер для массовых правок. Появляется при
+распознавании объектов по подложке и доступна вручную созданным областям.
+
+```
+id     IdField
+map_id ReferenceField map, indexed, onDelete cascade
+label  StringField 255, required, default ''
+```
+
+Группа не влияет на отрисовку, проходимость и маршрут: это только ярлык и
+способ применить свойства сразу к пачке областей. Удаление группы оставляет
+её членов без группы (`map_area.group_id` → null).
+
 ### `map_area`
 
 Полигон поверхности или объекта. Слой задаётся полем `layer`; обязательные поля
@@ -143,15 +165,24 @@ id         IdField
 map_id     ReferenceField map, indexed, onDelete cascade
 layer      StringField 16, required, default 'object'   // surface|object
 color      StringField 16, required, default '#8d8d8d'
+stroke     StringField 16, required, default ''            // #rrggbb или '' — границы нет
+stroke_width IntField, required, default 2, min 0, max 8  // 0 у старых строк = умолчание
 decor      JsonField, required, default {}                 // {fillOpacity?, set?, density?, scale?, jitter?, seed?}, пусто = без декора
 speed      IntField, required, default 5000, min 0, max 10000
 label      StringField 255, required, default ''
 node_id    ReferenceField map_node, nullable, onDelete setNull
+group_id   ReferenceField map_area_group, nullable, indexed, onDelete setNull
 sort_order IntField, required, default 0, min 0
 ```
 
 - `layer = 'surface'`: поверхность; `color` — явный `#rrggbb`.
 - `layer = 'object'`: объект; `speed = 0` — непроходим, `speed > 0` — проходим.
+- `stroke` — цвет границы `#rrggbb`; пустая строка означает «границы нет» и
+  `stroke()` не вызывается. Граница не входит в `decor`: её можно включить или
+  выключить отдельно от заливки.
+- `stroke_width` — толщина в экранных пикселях, 1–8; по умолчанию 2. Колонка
+  добавлена через `updateTable`, поэтому старые строки получают `0`, который
+  читается как умолчание.
 - `node_id` разрешён обоим слоям: лес, озеро, дом и площадь могут быть местом.
 - `sort_order` — порядок внутри слоя; больше — выше.
 - `decor.fillOpacity` — своя плотность заливки области, 0–100. Если ключа нет,
@@ -291,16 +322,24 @@ sort_order IntField, required, default 0, min 0
 
 1. Проверить доступ и `expectedVersion`.
 2. Провалидировать снимок целиком.
-3. **Сущности** (`map_variant`, `map_node`, `map_area`, `map_variant_line`)
+3. **Группы** (`map_area_group`) записать до областей: `id > 0` → `UPDATE`,
+   `id < 0` → `INSERT`, отсутствует в снимке → `DELETE`; запомнить `temp → real`.
+4. **Сущности** (`map_variant`, `map_node`, `map_area`, `map_variant_line`)
    реконсилировать: `id > 0` → `UPDATE`, `id < 0` → `INSERT` и запомнить
    `temp → real`, отсутствует в снимке → `DELETE`.
-4. **Связки** (`map_variant_node`, `map_variant_area`) удалить и вставить заново
-   для вариантов из снимка: на их `id` никто не ссылается.
-5. Увеличить `map.version`, записать `updated_at` и `updated_by`.
-6. Вернуть полный снимок (как `map.get`) и `warnings: []`.
+5. **Связки** (`map_variant_node`, `map_variant_area`) синхронизировать по
+   областям: неизменённые формы не переписываются, новые вставляются пачками,
+   исчезнувшие удаляются.
+6. Увеличить `map.version`, записать `updated_at` и `updated_by`.
+7. Вернуть полный снимок (как `map.get`) и `warnings: []`.
 
-Идентичность мест, областей, лент и вариантов сохраняется между публикациями:
-на неё будут ссылаться `GameWorld` и сцены.
+Пачки. Области вставляются через `IOpenedRecords::addMany` чанками по 500;
+неизменённые области и формы при повторном сохранении пропускаются. Снимок на
+1000+ областей держится в памяти несколькими копиями, поэтому `map.save`
+поднимает `memory_limit` до 512 МБ, если сервер дал меньше.
+
+Идентичность мест, областей, лент, групп и вариантов сохраняется между
+публикациями: на неё будут ссылаться `GameWorld` и сцены.
 
 ### Создание
 
@@ -320,10 +359,12 @@ sort_order IntField, required, default 0, min 0
 - размещение: `variantId` из снимка; координаты в границах `width × height`
   варианта (если размеры заданы);
 - карта: `fillOpacity` 0–100, по умолчанию 55;
-- область: `layer` из `surface|object`; `color` — `#rrggbb`; `decor` пуст или
+- группа: `label` не длиннее 255; `id` уникален в снимке;
+- область: `layer` из `surface|object`; `color` — `#rrggbb`; `stroke` — `''` или
+  `#rrggbb`; `strokeWidth` 1–8 (нет поля — 2); `decor` пуст или
   содержит `fillOpacity` 0–100, `set` из списка наборов, `density` 0–200,
   `scale` 40–250, `jitter` 0–100 и `seed` 0–1000000; настройки без `set`
-  недопустимы; `speed` 0–10000; `nodeId` из снимка;
+  недопустимы; `speed` 0–10000; `nodeId` и `groupId` из снимка;
   полигон ≥ 3 точек; `handles` пуст или ровно по числу вершин; координаты в
   границах; `sortOrder ≥ 0`;
 - лента: ≥ 2 точек, `widths` и `handles` той же длины, ширина ≥ 1, смещения
@@ -385,6 +426,7 @@ map.route       { mapId, variantId, fromX, fromY, toX, toY }
     ],
     "areas": [
       { "id": 1, "layer": "surface", "color": "#4E7A4E",
+        "stroke": "#35542f", "strokeWidth": 2,
         "decor": { "set": "mixed", "density": 30, "scale": 100, "jitter": 90, "seed": 0 },
         "speed": 2000, "label": "Лес", "nodeId": null, "sortOrder": 2,
         "shapes": [{ "variantId": 1,

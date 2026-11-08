@@ -83,6 +83,46 @@ export class MapGeometryService {
     return isInside;
   }
 
+  /**
+   * Рамка контура с учётом ручек: грубый префильтр hit-теста.
+   *
+   * Точки Безье не выходят за выпуклую оболочку своих контрольных точек,
+   * поэтому достаточно вершин и концов ручек.
+   */
+  contourBounds(
+    path: MapPoint[],
+    handles?: MapHandle[],
+  ): { minX: number; minY: number; maxX: number; maxY: number } | null {
+    if (path.length === 0) return null;
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (let index = 0; index < path.length; index += 1) {
+      const point = path[index];
+      if (point[0] < minX) minX = point[0];
+      if (point[1] < minY) minY = point[1];
+      if (point[0] > maxX) maxX = point[0];
+      if (point[1] > maxY) maxY = point[1];
+      const handle = handles?.[index];
+      if (!handle) continue;
+      const inX = point[0] + handle.in[0];
+      const inY = point[1] + handle.in[1];
+      if (inX < minX) minX = inX;
+      if (inY < minY) minY = inY;
+      if (inX > maxX) maxX = inX;
+      if (inY > maxY) maxY = inY;
+      const outX = point[0] + handle.out[0];
+      const outY = point[1] + handle.out[1];
+      if (outX < minX) minX = outX;
+      if (outY < minY) minY = outY;
+      if (outX > maxX) maxX = outX;
+      if (outY > maxY) maxY = outY;
+    }
+
+    return { minX, minY, maxX, maxY };
+  }
+
   distanceToSegment(point: MapPoint, start: MapPoint, end: MapPoint): number {
     const segmentX = end[0] - start[0];
     const segmentY = end[1] - start[1];

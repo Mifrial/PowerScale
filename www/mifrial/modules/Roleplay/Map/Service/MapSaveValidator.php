@@ -47,11 +47,13 @@ final class MapSaveValidator
     {
         $variants = $this->variants($payload);
         $nodes = $this->nodes($payload, $variants);
+        $groups = $this->graphValidator->groups($payload);
 
         return $this->mapFields($payload) + [
             'variants' => $variants,
             'nodes' => $nodes,
-            'areas' => $this->graphValidator->areas($payload, $variants, $nodes),
+            'groups' => $groups,
+            'areas' => $this->graphValidator->areas($payload, $variants, $nodes, $groups),
             'lines' => $this->graphValidator->lines($payload, $variants),
         ];
     }

@@ -84,11 +84,14 @@ final class MapAreaStore
      * @param int $mapId Карта.
      * @param string $layer Слой: surface или object.
      * @param string $color Цвет.
+     * @param string $stroke Цвет границы; пусто — границы нет.
+     * @param int $strokeWidth Толщина границы.
      * @param array<string, mixed> $decor Визуальный декор.
      * @param int $speed Проходимость.
      * @param string $label Подпись.
      * @param int|null $nodeId Место.
      * @param int $sortOrder Порядок внутри слоя.
+     * @param int|null $groupId Группа областей.
      *
      * @return int Id.
      */
@@ -96,22 +99,41 @@ final class MapAreaStore
         int $mapId,
         string $layer,
         string $color,
+        string $stroke,
+        int $strokeWidth,
         array $decor,
         int $speed,
         string $label,
         ?int $nodeId,
         int $sortOrder,
+        ?int $groupId = null,
     ): int {
         return $this->areaRepository->add(
             $mapId,
             $layer,
             $color,
+            $stroke,
+            $strokeWidth,
             $decor,
             $speed,
             $label,
             $nodeId,
             $sortOrder,
+            $groupId,
         );
+    }
+
+    /**
+     * Добавляет пачку областей.
+     *
+     * @param int $mapId Карта.
+     * @param array<int, array<string, mixed>> $rows Строки.
+     *
+     * @return array<int, int> Id в порядке входа.
+     */
+    public function addAreas(int $mapId, array $rows): array
+    {
+        return $this->areaRepository->addMany($mapId, $rows);
     }
 
     /**
@@ -141,6 +163,45 @@ final class MapAreaStore
     public function upsertShape(int $variantId, int $areaId, array $path, array $handles, bool $isPresent): void
     {
         $this->shapeRepository->upsert($variantId, $areaId, $path, $handles, $isPresent);
+    }
+
+    /**
+     * Вставляет пачку полигонов.
+     *
+     * @param array<int, array{variantId: int, areaId: int, path: array<int, array{0: int, 1: int}>, handles: array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}>, isPresent: bool}> $rows Полигоны.
+     *
+     * @return array<int, int> Id в порядке входа.
+     */
+    public function addShapes(array $rows): array
+    {
+        return $this->shapeRepository->addMany($rows);
+    }
+
+    /**
+     * Пишет существующий полигон.
+     *
+     * @param int $shapeId Id.
+     * @param array<int, array{0: int, 1: int}> $path Полигон.
+     * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки.
+     * @param bool $isPresent Присутствует.
+     *
+     * @return void
+     */
+    public function updateShape(int $shapeId, array $path, array $handles, bool $isPresent): void
+    {
+        $this->shapeRepository->updateShape($shapeId, $path, $handles, $isPresent);
+    }
+
+    /**
+     * Удаляет полигон по id.
+     *
+     * @param int $shapeId Id.
+     *
+     * @return void
+     */
+    public function deleteShape(int $shapeId): void
+    {
+        $this->shapeRepository->deleteShape($shapeId);
     }
 
     /**

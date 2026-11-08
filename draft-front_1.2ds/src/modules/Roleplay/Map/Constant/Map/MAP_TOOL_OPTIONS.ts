@@ -9,4 +9,5 @@ export const MAP_TOOL_OPTIONS: { value: MapToolMode; title: string; icon: string
   { value: 'line', title: 'Лента', icon: 'mdi-waves' },
   { value: 'ruler', title: 'Линейка', icon: 'mdi-ruler' },
   { value: 'calibrate', title: 'Калибровка масштаба', icon: 'mdi-ruler-square' },
+  { value: 'recognize', title: 'Объекты по подложке', icon: 'mdi-vector-square' },
 ];

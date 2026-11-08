@@ -39,6 +39,7 @@ const snapshot: MapSnapshot = {
   ],
   nodes: [],
   areas: [],
+  groups: [],
   lines: [],
 };
 

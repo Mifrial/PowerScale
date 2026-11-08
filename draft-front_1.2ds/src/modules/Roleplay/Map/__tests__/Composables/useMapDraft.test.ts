@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { IMapApi } from '@/modules/Roleplay/Map/Interface/IMapApi';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
+import type { MapAreaEdit } from '@/modules/Roleplay/Map/Dto/MapAreaEdit';
 import type { MapSaveResult } from '@/modules/Roleplay/Map/Dto/MapSaveResult';
 import type { SaveMapData } from '@/modules/Roleplay/Map/Dto/SaveMapData';
 import { useMapDraft } from '@/modules/Roleplay/Map/Composables/useMapDraft';
@@ -34,8 +35,23 @@ function detail(overrides: Partial<MapDetail> = {}): MapDetail {
     ],
     nodes: [],
     areas: [],
+    groups: [],
     lines: [],
     ...overrides,
+  };
+}
+
+function areaEdit(): MapAreaEdit {
+  return {
+    layer: 'object',
+    color: '#8b6b4a',
+    decor: {},
+    speed: 0,
+    label: '',
+    nodeId: null,
+    groupId: null,
+    sortOrder: 0,
+    place: null,
   };
 }
 
@@ -74,6 +90,91 @@ describe('useMapDraft', () => {
     state.discard();
     expect(state.dirty.value).toBe(false);
     expect(state.draft.value?.name).toBe('Аустан');
+  });
+
+  it('does not take a history snapshot on a click without an edit', () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+
+    state.beginHistory();
+    state.endHistory();
+    expect(state.canUndo.value).toBe(false);
+
+    state.beginHistory();
+    state.addArea(areaEdit(), 1, [
+      [0, 0],
+      [10, 0],
+      [10, 10],
+    ]);
+    state.endHistory();
+
+    expect(state.canUndo.value).toBe(true);
+  });
+
+  it('bumps revision once per drag transaction, not per move', () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+    const areaId = state.addArea(areaEdit(), 1, [
+      [0, 0],
+      [10, 0],
+      [10, 10],
+    ]);
+    const before = state.revision.value;
+
+    state.beginHistory();
+    for (let step = 0; step < 50; step += 1) {
+      state.translateArea(areaId, 1, [1, 0]);
+    }
+    expect(state.revision.value).toBe(before);
+
+    state.endHistory();
+    expect(state.revision.value).toBe(before + 1);
+
+    state.beginHistory();
+    state.endHistory();
+    expect(state.revision.value).toBe(before + 1);
+    expect(state.canUndo.value).toBe(true);
+  });
+
+  it('removes a batch of areas in one history step', () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+    const ids = [0, 1, 2].map(() =>
+      state.addArea(areaEdit(), 1, [
+        [0, 0],
+        [10, 0],
+        [10, 10],
+      ]),
+    );
+
+    expect(state.removeAreas(ids.slice(0, 2))).toBe(2);
+    expect(state.draft.value?.areas).toHaveLength(1);
+    expect(state.dirty.value).toBe(true);
+
+    state.undo();
+    expect(state.draft.value?.areas).toHaveLength(3);
+  });
+
+  it('replaces path and handle arrays on vertex edits for the canvas cache', () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+    const id = state.addArea(areaEdit(), 1, [
+      [0, 0],
+      [10, 0],
+      [10, 10],
+    ]);
+    const shape = state.draft.value?.areas[0].shapes[0];
+    if (!shape) throw new Error('shape is missing');
+    const pathRef = shape.path;
+    const handlesRef = shape.handles;
+
+    state.setAreaVertex(id, 1, 1, [12, 0]);
+    expect(shape.path).not.toBe(pathRef);
+    expect(shape.path[1]).toEqual([12, 0]);
+
+    state.setAreaHandle(id, 1, 0, 'out', [2, 2]);
+    expect(shape.handles).not.toBe(handlesRef);
+    expect(shape.handles[0].out).toEqual([2, 2]);
   });
 
   it('sends the version token and adopts the published snapshot', async () => {
@@ -244,6 +345,7 @@ describe('useMapDraft', () => {
         speed: 0,
         label: 'Край',
         nodeId,
+        groupId: null,
         sortOrder: 0,
         place: null,
       },
@@ -303,6 +405,7 @@ describe('useMapDraft', () => {
         speed: 2000,
         label: 'Лес',
         nodeId: null,
+        groupId: null,
         sortOrder: 0,
         place: null,
       },
@@ -339,6 +442,7 @@ describe('useMapDraft', () => {
         speed: 0,
         label: 'Первый',
         nodeId: null,
+        groupId: null,
         sortOrder: 0,
         place: null,
       },
@@ -357,6 +461,7 @@ describe('useMapDraft', () => {
         speed: 0,
         label: 'Второй',
         nodeId: null,
+        groupId: null,
         sortOrder: 0,
         place: null,
       },
@@ -408,6 +513,42 @@ describe('useMapDraft', () => {
     state.moveLine(secondLine, -1);
     expect(state.draft.value?.lines.find((line) => line.id === secondLine)?.sortOrder).toBe(0);
     expect(state.draft.value?.lines.find((line) => line.id === firstLine)?.sortOrder).toBe(1);
+  });
+
+  it('keeps area border fields and clears them with an empty colour', async () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+    const areaId = state.addArea(
+      {
+        layer: 'object',
+        color: '#8b6b4a',
+        stroke: '#553311',
+        strokeWidth: 3,
+        decor: {},
+        speed: 0,
+        label: 'Дом',
+        nodeId: null,
+        groupId: null,
+        sortOrder: 0,
+        place: null,
+      },
+      1,
+      [
+        [0, 0],
+        [10, 0],
+        [10, 10],
+      ],
+    );
+    expect(state.draft.value?.areas[0]).toMatchObject({ stroke: '#553311', strokeWidth: 3 });
+
+    const revision = state.revision.value;
+    state.updateAreas([areaId], { stroke: '', strokeWidth: 99 });
+    expect(state.revision.value).toBeGreaterThan(revision);
+    expect(state.draft.value?.areas[0]).toMatchObject({ stroke: '', strokeWidth: 8 });
+
+    state.updateAreas([areaId], { stroke: '#553311', strokeWidth: 3 });
+    await state.save();
+    expect(savedPayload?.map.areas[0]).toMatchObject({ stroke: '#553311', strokeWidth: 3 });
   });
 
   it('keeps a style override for a single line segment', () => {
@@ -553,6 +694,7 @@ describe('useMapDraft', () => {
         speed: 2000,
         label: 'Лес',
         nodeId: null,
+        groupId: null,
         sortOrder: 0,
         place: null,
       },
@@ -593,6 +735,77 @@ describe('useMapDraft', () => {
       seed: 5,
     });
     expect(savedPayload?.map.lines[0].decor).toEqual({ fillOpacity: 0, depth: 40, depthWidth: 70 });
+  });
+
+  it('edits a group as one undo step and merges decor patches', () => {
+    const state = useMapDraft();
+    state.setBaseline(detail());
+    const first = state.addArea(
+      {
+        layer: 'object',
+        color: '#8b6b4a',
+        decor: { set: 'tree', density: 25, scale: 100, jitter: 90 },
+        speed: 0,
+        label: 'Дом',
+        nodeId: null,
+        groupId: null,
+        sortOrder: 0,
+        place: null,
+      },
+      1,
+      [
+        [0, 0],
+        [10, 0],
+        [10, 10],
+      ],
+    );
+    const second = state.addArea(
+      {
+        layer: 'object',
+        color: '#8b6b4a',
+        decor: { set: 'tree', density: 25, scale: 100, jitter: 90 },
+        speed: 0,
+        label: 'Дом',
+        nodeId: null,
+        groupId: null,
+        sortOrder: 0,
+        place: null,
+      },
+      1,
+      [
+        [20, 20],
+        [30, 20],
+        [30, 30],
+      ],
+    );
+    const groupId = state.addGroup('Дома');
+    state.setAreaGroup(first, groupId);
+    state.setAreaGroup(second, groupId);
+
+    state.beginHistory();
+    state.updateGroup(groupId, 'Дома у реки');
+    state.updateAreas([first, second], { color: '#112233', decor: { fillOpacity: 40 } });
+    state.endHistory();
+
+    const areas = state.draft.value?.areas ?? [];
+    expect(state.draft.value?.groups[0].label).toBe('Дома у реки');
+    expect(areas.find((area) => area.id === first)?.color).toBe('#112233');
+    expect(areas.find((area) => area.id === first)?.decor).toEqual({
+      set: 'tree',
+      density: 25,
+      scale: 100,
+      jitter: 90,
+      seed: 0,
+      fillOpacity: 40,
+    });
+
+    state.undo();
+    expect(state.draft.value?.groups[0].label).toBe('Дома');
+    expect(state.draft.value?.areas.find((area) => area.id === first)?.color).toBe('#8b6b4a');
+
+    state.setAreaGroup(first, null);
+    expect(state.draft.value?.areas.find((area) => area.id === first)?.groupId).toBeNull();
+    expect(state.draft.value?.areas.find((area) => area.id === second)?.groupId).toBe(groupId);
   });
 
   it('saves a copy without an id and adopts the new map', async () => {

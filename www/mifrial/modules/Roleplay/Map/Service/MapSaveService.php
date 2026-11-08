@@ -17,6 +17,11 @@ use Mifrial\Roleplay\Map\Exception\MapVersionConflictException;
 final class MapSaveService
 {
     /**
+     * Минимальный лимит памяти на запрос сохранения большого снимка.
+     */
+    private const MIN_MEMORY_BYTES = 512 * 1024 * 1024;
+
+    /**
      * Создаёт сервис.
      *
      * @param MapAccessService $accessService Доступ.
@@ -57,6 +62,7 @@ final class MapSaveService
         bool $force,
         array $payload,
     ): array {
+        $this->ensureMemoryLimit();
         $this->assertVersion($actor, $mapId, $expectedVersion, $force);
         $data = $this->validator->validate($payload);
         $savedId = $this->transactionRunner->run(
@@ -69,6 +75,51 @@ final class MapSaveService
             'detail' => $detail,
             'warnings' => [],
         ];
+    }
+
+    /**
+     * Поднимает лимит памяти под большой снимок.
+     *
+     * Снимок на 1000+ областей со всеми формами не помещается в дефолтные
+     * 128 МБ: валидатор и писатель держат несколько копий сразу. Лимит
+     * поднимаем только вверх и только на время запроса.
+     *
+     * @return void
+     */
+    private function ensureMemoryLimit(): void
+    {
+        $limit = trim((string) ini_get('memory_limit'));
+        if ($limit === '' || $limit === '-1') {
+            return;
+        }
+
+        $bytes = $this->memoryBytes($limit);
+        if ($bytes >= self::MIN_MEMORY_BYTES) {
+            return;
+        }
+
+        ini_set('memory_limit', (string) self::MIN_MEMORY_BYTES);
+    }
+
+    /**
+     * Размер лимита памяти в байтах.
+     *
+     * @param string $limit Значение `memory_limit`.
+     *
+     * @return int Байты; 0 — не разобрать.
+     */
+    private function memoryBytes(string $limit): int
+    {
+        $value = trim($limit);
+        $number = (int) $value;
+        $suffix = strtolower(substr($value, -1));
+
+        return match ($suffix) {
+            'g' => $number * 1024 * 1024 * 1024,
+            'm' => $number * 1024 * 1024,
+            'k' => $number * 1024,
+            default => $number,
+        };
     }
 
     /**

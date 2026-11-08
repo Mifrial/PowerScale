@@ -2,6 +2,7 @@ import { computed, ref, toRaw } from 'vue';
 import type { MapArea } from '@/modules/Roleplay/Map/Dto/MapArea';
 import type { MapAreaDecor } from '@/modules/Roleplay/Map/Dto/MapAreaDecor';
 import type { MapAreaEdit } from '@/modules/Roleplay/Map/Dto/MapAreaEdit';
+import type { MapAreaGroup } from '@/modules/Roleplay/Map/Dto/MapAreaGroup';
 import type { MapAreaShape } from '@/modules/Roleplay/Map/Dto/MapAreaShape';
 import type { MapConflict } from '@/modules/Roleplay/Map/Dto/MapConflict';
 import type { MapDetail } from '@/modules/Roleplay/Map/Dto/MapDetail';
@@ -25,6 +26,7 @@ import { zeroMapLineHandle } from '@/modules/Roleplay/Map/Dto/MapLineHandle';
 import { MAP_FILL_OPACITY } from '@/modules/Roleplay/Map/Constant/Map/MAP_FILL_OPACITY';
 import { MAP_DECOR_LIMITS, MAP_DECOR_SETS, isMapDecorSet } from '@/modules/Roleplay/Map/Constant/Map/MAP_DECOR';
 import { MAP_LINE_DEPTH } from '@/modules/Roleplay/Map/Constant/Map/MAP_LINE_DEPTH';
+import { MAP_AREA_STROKE } from '@/modules/Roleplay/Map/Constant/Map/MAP_AREA_STROKE';
 import {
   MAP_LINE_DEFAULT_COLOR_BLEND,
   MAP_LINE_FLOW_DEFAULTS,
@@ -32,8 +34,13 @@ import {
 import { MAP_CANVAS_CONFIG } from '@/modules/Roleplay/Map/Constant/Canvas/MAP_CANVAS_CONFIG';
 import { getMapApi } from '@/modules/Roleplay/Map/init';
 import { MapApiError } from '@/modules/Roleplay/Map/Service/MapApiError';
+import { clampInt } from '@/modules/Roleplay/Map/Utils/clampInt';
 
 const HISTORY_LIMIT = 50;
+/** Предел объёма истории в байтах (UTF-16): большие карты не должны копить копии. */
+const HISTORY_BYTES_LIMIT = 16 * 1024 * 1024;
+/** Сколько шагов оставлять даже в огромной карте. */
+const HISTORY_MIN_KEEP = 5;
 
 /** Полный черновик карты: локальные правки, публикация, конфликт и история. */
 export function useMapDraft() {
@@ -47,13 +54,16 @@ export function useMapDraft() {
   const tempId = ref(0);
   const history = ref<string[]>([]);
   const future = ref<string[]>([]);
+  /** Растёт при каждой правке черновика: холст перерисовывается без deep-watch. */
+  const revision = ref(0);
+  /** Флаг правок: сравнение JSON всего черновика на 6000 объектов стоило ~1 с. */
+  const dirty = ref(false);
   let inTransaction = false;
-
-  const dirty = computed(() => {
-    if (!draft.value || !baseline.value) return false;
-
-    return JSON.stringify(draft.value) !== baselineJson.value;
-  });
+  /** Транзакция начата, но снимок ещё не снят: клик без сдвига не платит за него. */
+  let pendingHistory = false;
+  /** Индекс областей по id: линейный поиск по 6000 объектам стоил до 23 мс. */
+  let areaIndex: Map<number, MapArea> | null = null;
+  let areaIndexSource: MapArea[] | null = null;
 
   const canEdit = computed(() => draft.value?.canEdit ?? false);
   const canUndo = computed(() => history.value.length > 0);
@@ -64,13 +74,23 @@ export function useMapDraft() {
     const copy = structuredClone(raw);
     baseline.value = copy;
     draft.value = structuredClone(raw);
-    for (const area of draft.value?.areas ?? []) {
+    if (!copy.groups) copy.groups = [];
+    if (!draft.value.groups) draft.value.groups = [];
+    for (const area of draft.value.areas) {
       area.shapes.forEach(normalizeAreaShape);
+      if (area.groupId === undefined) area.groupId = null;
+      normalizeAreaStroke(area);
     }
-    baselineJson.value = JSON.stringify(copy);
+    for (const area of copy.areas) {
+      if (area.groupId === undefined) area.groupId = null;
+      normalizeAreaStroke(area);
+    }
+    baselineJson.value = serialize(copy);
     conflict.value = null;
     warnings.value = [];
+    dirty.value = false;
     resetHistory();
+    revision.value += 1;
   }
 
   function discard(): void {
@@ -78,7 +98,9 @@ export function useMapDraft() {
     draft.value = structuredClone(toRaw(baseline.value));
     conflict.value = null;
     error.value = null;
+    dirty.value = false;
     resetHistory();
+    revision.value += 1;
   }
 
   function nextTempId(): number {
@@ -163,34 +185,49 @@ export function useMapDraft() {
 
   function beginHistory(): void {
     if (inTransaction) return;
-    pushHistory();
     inTransaction = true;
+    pendingHistory = true;
   }
 
   function endHistory(): void {
+    // Пока идёт транзакция (перетаскивание, массовая правка), счётчик ревизии
+    // не дёргается на каждое движение: холст перерисовывает только динамику,
+    // а статичный слой собирается один раз в конце.
+    const changed = inTransaction && !pendingHistory;
     inTransaction = false;
+    pendingHistory = false;
+    if (changed) revision.value += 1;
   }
 
   function cancelHistory(): void {
     if (!inTransaction) return;
-    history.value.pop();
+    const changed = !pendingHistory;
+    if (changed) history.value.pop();
     inTransaction = false;
+    pendingHistory = false;
+    if (changed) revision.value += 1;
   }
 
   function undo(): void {
     const snapshot = history.value.pop();
     if (snapshot === undefined || !draft.value) return;
-    future.value.push(JSON.stringify(draft.value));
+    future.value.push(serialize(draft.value));
     draft.value = JSON.parse(snapshot) as MapDetail;
     inTransaction = false;
+    pendingHistory = false;
+    dirty.value = serialize(draft.value) !== baselineJson.value;
+    revision.value += 1;
   }
 
   function redo(): void {
     const snapshot = future.value.pop();
     if (snapshot === undefined || !draft.value) return;
-    history.value.push(JSON.stringify(draft.value));
+    history.value.push(serialize(draft.value));
     draft.value = JSON.parse(snapshot) as MapDetail;
     inTransaction = false;
+    pendingHistory = false;
+    dirty.value = serialize(draft.value) !== baselineJson.value;
+    revision.value += 1;
   }
 
   function updateNode(nodeId: number, edit: MapNodeEdit): void {
@@ -254,6 +291,42 @@ export function useMapDraft() {
     Object.assign(area, areaFields(edit));
   }
 
+  /** Добавляет пачку областей одним шагом истории. */
+  function addAreas(
+    items: { edit: MapAreaEdit; path: MapPoint[]; handles?: MapHandle[] }[],
+    variantId: number,
+  ): number[] {
+    record();
+    const current = draft.value;
+    if (!current) return [];
+    let sortOrder = nextSortOrder(current.areas);
+    const ids: number[] = [];
+    for (const item of items) {
+      const area: MapArea = {
+        id: nextTempId(),
+        ...areaFields(item.edit),
+        sortOrder,
+        shapes:
+          item.path.length >= 3
+            ? [
+                {
+                  variantId,
+                  path: copyPoints(item.path),
+                  handles: copyHandles(item.path, item.handles),
+                  isPresent: true,
+                },
+              ]
+            : [],
+      };
+      sortOrder += 1;
+      current.areas.push(area);
+      ids.push(area.id);
+    }
+    areaIndex = null;
+
+    return ids;
+  }
+
   function addArea(edit: MapAreaEdit, variantId: number, path: MapPoint[]): number {
     record();
     const current = draft.value;
@@ -275,6 +348,7 @@ export function useMapDraft() {
           : [],
     };
     current.areas.push(area);
+    areaIndex = null;
 
     return area.id;
   }
@@ -302,6 +376,90 @@ export function useMapDraft() {
     if (!current) return;
     record();
     current.areas = current.areas.filter((area) => area.id !== areaId);
+    areaIndex = null;
+  }
+
+  /** Удаляет пачку областей одним шагом истории. */
+  function removeAreas(areaIds: number[]): number {
+    const current = draft.value;
+    if (!current || areaIds.length === 0) return 0;
+    const ids = new Set(areaIds);
+    const before = current.areas.length;
+    const remaining = current.areas.filter((area) => !ids.has(area.id));
+    if (remaining.length === before) return 0;
+    record();
+    current.areas = remaining;
+    areaIndex = null;
+
+    return before - remaining.length;
+  }
+
+  /** Создаёт группу областей. */
+  function addGroup(label: string): number {
+    record();
+    const current = draft.value;
+    if (!current) return 0;
+    const group: MapAreaGroup = { id: nextTempId(), label: label.trim() };
+    current.groups.push(group);
+
+    return group.id;
+  }
+
+  /** Меняет подпись группы. */
+  function updateGroup(groupId: number, label: string): void {
+    const group = draft.value?.groups.find((candidate) => candidate.id === groupId);
+    if (!group) return;
+    record();
+    group.label = label.trim();
+  }
+
+  /** Удаляет группу; её члены остаются без группы. */
+  function removeGroup(groupId: number): void {
+    const current = draft.value;
+    if (!current) return;
+    record();
+    current.groups = current.groups.filter((group) => group.id !== groupId);
+    for (const area of current.areas) {
+      if (area.groupId === groupId) area.groupId = null;
+    }
+  }
+
+  /** Переводит область в группу или выводит из неё. */
+  function setAreaGroup(areaId: number, groupId: number | null): void {
+    const area = findArea(areaId);
+    if (!area) return;
+    record();
+    area.groupId = groupId;
+  }
+
+  /**
+   * Массово меняет поля выбранных областей.
+   *
+   * Декор — частичный: поля накладываются поверх текущего, поэтому правка
+   * плотности заливки не стирает набор символов. null очищает декор.
+   */
+  function updateAreas(
+    areaIds: number[],
+    fields: Partial<Pick<MapArea, 'color' | 'stroke' | 'strokeWidth' | 'speed' | 'label' | 'groupId'>> & {
+      decor?: Partial<MapAreaDecor> | null;
+    },
+  ): void {
+    const current = draft.value;
+    if (!current || areaIds.length === 0) return;
+    record();
+    const ids = new Set(areaIds);
+    for (const area of current.areas) {
+      if (!ids.has(area.id)) continue;
+      if (fields.color !== undefined) area.color = fields.color;
+      if (fields.stroke !== undefined) area.stroke = normalizeAreaStrokeColor(fields.stroke);
+      if (fields.strokeWidth !== undefined) area.strokeWidth = clampStrokeWidth(fields.strokeWidth);
+      if (fields.speed !== undefined) area.speed = clampSpeed(fields.speed);
+      if (fields.label !== undefined) area.label = fields.label;
+      if (fields.decor !== undefined) {
+        area.decor = fields.decor === null ? {} : normalizeAreaDecor({ ...area.decor, ...fields.decor });
+      }
+      if (fields.groupId !== undefined) area.groupId = fields.groupId;
+    }
   }
 
   function translateArea(areaId: number, variantId: number, delta: MapPoint): void {
@@ -324,7 +482,10 @@ export function useMapDraft() {
     const shape = findAreaShape(areaId, variantId);
     if (!shape || index < 0 || index >= shape.path.length) return;
     record();
-    shape.path[index] = [point[0], point[1]];
+    // Copy-on-write: кэш холста видит правку по новой ссылке на массив.
+    shape.path = shape.path.map((current, position) =>
+      position === index ? ([point[0], point[1]] as MapPoint) : current,
+    );
   }
 
   function insertAreaVertex(
@@ -339,8 +500,12 @@ export function useMapDraft() {
     record();
     normalizeAreaShape(shape);
     const position = Math.min(Math.max(0, index + 1), shape.path.length);
-    shape.path.splice(position, 0, [point[0], point[1]]);
-    shape.handles.splice(position, 0, handle);
+    const path = shape.path.slice();
+    path.splice(position, 0, [point[0], point[1]]);
+    shape.path = path;
+    const handles = shape.handles.slice();
+    handles.splice(position, 0, handle);
+    shape.handles = handles;
   }
 
   function removeAreaVertex(areaId: number, variantId: number, index: number): void {
@@ -348,8 +513,8 @@ export function useMapDraft() {
     if (!shape || shape.path.length <= 3 || index < 0 || index >= shape.path.length) return;
     record();
     normalizeAreaShape(shape);
-    shape.path.splice(index, 1);
-    shape.handles.splice(index, 1);
+    shape.path = shape.path.filter((_, position) => position !== index);
+    shape.handles = shape.handles.filter((_, position) => position !== index);
   }
 
   /** Ручка Безье вершины контура. */
@@ -358,10 +523,9 @@ export function useMapDraft() {
     if (!shape || index < 0 || index >= shape.path.length) return;
     record();
     normalizeAreaShape(shape);
-    shape.handles[index] = {
-      ...shape.handles[index],
-      [side]: [offset[0], offset[1]],
-    };
+    shape.handles = shape.handles.map((handle, position) =>
+      position === index ? { ...handle, [side]: [offset[0], offset[1]] } : handle,
+    );
   }
 
   function updateLine(lineId: number, edit: MapLineEdit): void {
@@ -588,6 +752,7 @@ export function useMapDraft() {
     if (variant.baseFile.width === width && variant.baseFile.height === height) return;
     variant.baseFile.width = width;
     variant.baseFile.height = height;
+    revision.value += 1;
   }
 
   function addVariant(edit: MapVariantEdit): number {
@@ -649,11 +814,13 @@ export function useMapDraft() {
     const copy = structuredClone(detail);
     baseline.value = copy;
     draft.value = structuredClone(detail);
-    baselineJson.value = JSON.stringify(copy);
+    baselineJson.value = serialize(copy);
     warnings.value = saveWarnings;
     conflict.value = null;
     error.value = null;
+    dirty.value = false;
     resetHistory();
+    revision.value += 1;
   }
 
   function applyDefaults(variantId: number, isDefault: boolean): void {
@@ -674,14 +841,35 @@ export function useMapDraft() {
   }
 
   function record(): void {
-    if (inTransaction) return;
-    pushHistory();
+    dirty.value = true;
+    if (!inTransaction) {
+      revision.value += 1;
+      pushHistory();
+
+      return;
+    }
+    // Внутри транзакции ревизия растёт только на выходе: иначе перетаскивание
+    // на 6000 объектах пересобирает весь статичный слой на каждом кадре.
+    if (pendingHistory) {
+      pushHistory();
+      pendingHistory = false;
+    }
   }
 
   function pushHistory(): void {
     if (!draft.value) return;
-    history.value.push(JSON.stringify(draft.value));
+    history.value.push(serialize(draft.value));
     if (history.value.length > HISTORY_LIMIT) history.value.shift();
+    // Снимок на 1000+ областей весит мегабайты: держим историю ещё и по объёму,
+    // иначе браузер съедает память на полусотне копий.
+    let bytes = history.value.reduce((sum, entry) => sum + entry.length * 2, 0);
+    while (
+      history.value.length > HISTORY_MIN_KEEP &&
+      (history.value.length > HISTORY_LIMIT || bytes > HISTORY_BYTES_LIMIT)
+    ) {
+      const removed = history.value.shift();
+      bytes -= (removed?.length ?? 0) * 2;
+    }
     future.value = [];
   }
 
@@ -689,6 +877,7 @@ export function useMapDraft() {
     history.value = [];
     future.value = [];
     inTransaction = false;
+    pendingHistory = false;
   }
 
   function normalizeLine(line: MapLine): void {
@@ -706,11 +895,9 @@ export function useMapDraft() {
   }
 
   function normalizeAreaShape(shape: MapAreaShape): void {
-    shape.handles = shape.handles ?? [];
-    while (shape.handles.length < shape.path.length) {
-      shape.handles.push(zeroMapHandle());
-    }
-    shape.handles = shape.handles.slice(0, shape.path.length);
+    const handles = shape.handles ?? [];
+    if (handles.length === shape.path.length) return;
+    shape.handles = shape.path.map((_, index) => handles[index] ?? zeroMapHandle());
   }
 
   function findNode(nodeId: number): MapNode | undefined {
@@ -718,7 +905,15 @@ export function useMapDraft() {
   }
 
   function findArea(areaId: number): MapArea | undefined {
-    return draft.value?.areas.find((area) => area.id === areaId);
+    const areas = draft.value?.areas;
+    if (!areas) return undefined;
+    if (areaIndex === null || areaIndexSource !== areas) {
+      areaIndex = new Map();
+      for (const area of areas) areaIndex.set(area.id, area);
+      areaIndexSource = areas;
+    }
+
+    return areaIndex.get(areaId);
   }
 
   function findAreaShape(areaId: number, variantId: number) {
@@ -749,6 +944,7 @@ export function useMapDraft() {
   return {
     draft,
     baseline,
+    revision,
     saving,
     error,
     conflict,
@@ -775,8 +971,15 @@ export function useMapDraft() {
     removeNode,
     moveNode,
     updateArea,
+    updateAreas,
     addArea,
+    addAreas,
     removeArea,
+    removeAreas,
+    addGroup,
+    updateGroup,
+    removeGroup,
+    setAreaGroup,
     moveArea,
     translateArea,
     setAreaPath,
@@ -834,6 +1037,7 @@ function snapshotOf(detail: MapDetail): MapSnapshot {
         return { ...placement, x: point[0], y: point[1] };
       }),
     })),
+    groups: raw.groups.map((group) => ({ ...group })),
     areas: raw.areas.map((area) => ({
       ...area,
       decor: normalizeAreaDecor(area.decor),
@@ -925,6 +1129,24 @@ function copyPoints(points: MapPoint[]): MapPoint[] {
   return points.map((point) => [point[0], point[1]] as MapPoint);
 }
 
+/** JSON-снимок без обхода реактивного прокси: на 6000 объектах ~33 мс вместо ~450. */
+function serialize(detail: MapDetail): string {
+  return JSON.stringify(toRaw(detail));
+}
+
+/** Ручки под размер контура; недостающие и лишние отбрасываются. */
+function copyHandles(points: MapPoint[], handles?: MapHandle[]): MapHandle[] {
+  return points.map((_, index) => {
+    const handle = handles?.[index];
+    if (!handle) return zeroMapHandle();
+
+    return {
+      in: [handle.in[0], handle.in[1]],
+      out: [handle.out[0], handle.out[1]],
+    };
+  });
+}
+
 /** Плавные ручки по соседним точкам; концы не изгибаются. */
 function autoHandles(points: MapPoint[]): MapLineHandle[] {
   if (points.length < 3) {
@@ -962,12 +1184,40 @@ function areaFields(edit: MapAreaEdit): Omit<MapArea, 'id' | 'shapes'> {
   return {
     layer: edit.layer,
     color: edit.color,
+    stroke: normalizeAreaStrokeColor(edit.stroke),
+    strokeWidth: clampStrokeWidth(edit.strokeWidth),
     decor: normalizeAreaDecor(edit.decor),
     speed: clampSpeed(edit.speed),
     label: edit.label,
     nodeId: edit.nodeId,
+    groupId: edit.groupId,
     sortOrder: edit.sortOrder,
   };
+}
+
+/** Пустая строка или `#rrggbb`: иное — границы нет. */
+function normalizeAreaStrokeColor(value: string | null | undefined): string {
+  if (typeof value !== 'string') return '';
+
+  const color = value.trim();
+
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : '';
+}
+
+/** Толщина границы в допустимом диапазоне. */
+function clampStrokeWidth(value: number | undefined): number {
+  return clampInt(
+    value ?? MAP_AREA_STROKE.defaultWidth,
+    MAP_AREA_STROKE.minWidth,
+    MAP_AREA_STROKE.maxWidth,
+    MAP_AREA_STROKE.defaultWidth,
+  );
+}
+
+/** Дополняет прочитанную область полями границы: старые строки без них. */
+function normalizeAreaStroke(area: MapArea): void {
+  area.stroke = normalizeAreaStrokeColor(area.stroke);
+  area.strokeWidth = clampStrokeWidth(area.strokeWidth);
 }
 
 /** Базовый стиль ленты для новых сегментов. */

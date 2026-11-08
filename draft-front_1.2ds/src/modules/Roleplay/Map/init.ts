@@ -25,3 +25,4 @@ export { mapRenderService } from '@/modules/Roleplay/Map/Service/Instance/mapRen
 export { mapDecorService } from '@/modules/Roleplay/Map/Service/Instance/mapDecorService';
 export { mapDecorPainter } from '@/modules/Roleplay/Map/Service/Instance/mapDecorPainter';
 export { mapHitTestService } from '@/modules/Roleplay/Map/Service/Instance/mapHitTestService';
+export { mapRecognitionService } from '@/modules/Roleplay/Map/Service/Instance/mapRecognitionService';

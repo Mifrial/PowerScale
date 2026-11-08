@@ -113,15 +113,19 @@ const maps: MapDetail[] = [
         placements: [{ variantId: 1, x: 700, y: 600, isPresent: true, labelOverride: '' }],
       },
     ],
+    groups: [],
     areas: [
       {
         id: 1,
         layer: 'surface',
         color: '#c9b79c',
+        stroke: '#857a67',
+        strokeWidth: 2,
         decor: {},
         speed: 8000,
         label: 'Базарная площадь',
         nodeId: 1,
+        groupId: null,
         sortOrder: 0,
         shapes: [
           {
@@ -141,10 +145,13 @@ const maps: MapDetail[] = [
         id: 2,
         layer: 'object',
         color: '#9e9e9e',
+        stroke: '#6a6a6a',
+        strokeWidth: 2,
         decor: {},
         speed: 0,
         label: 'Ратуша',
         nodeId: 2,
+        groupId: null,
         sortOrder: 0,
         shapes: [
           {
@@ -164,10 +171,13 @@ const maps: MapDetail[] = [
         id: 3,
         layer: 'object',
         color: '#616161',
+        stroke: '#3d3d3d',
+        strokeWidth: 3,
         decor: {},
         speed: 0,
         label: 'Городская стена',
         nodeId: null,
+        groupId: null,
         sortOrder: 1,
         shapes: [
           {
@@ -280,10 +290,19 @@ function mapVariants(map: MapDetail, snapshot: MapSnapshot): void {
     };
   });
 
+  const groupMap = new Map<number, number>();
+  map.groups = snapshot.groups.map((group) => {
+    const id = group.id > 0 ? group.id : next();
+    groupMap.set(group.id, id);
+
+    return { ...group, id };
+  });
+
   map.areas = snapshot.areas.map((area) => ({
     ...area,
     id: area.id > 0 ? area.id : next(),
     nodeId: area.nodeId === null ? null : (nodeMap.get(area.nodeId) ?? null),
+    groupId: area.groupId === null ? null : (groupMap.get(area.groupId) ?? null),
     shapes: area.shapes.map((shape) => ({
       ...shape,
       variantId: variantMap.get(shape.variantId) ?? shape.variantId,
@@ -338,6 +357,7 @@ export async function mockSaveMap(data: SaveMapData): Promise<MapSaveResult> {
       variants: [],
       nodes: [],
       areas: [],
+      groups: [],
       lines: [],
     };
     mapVariants(map, data.map);

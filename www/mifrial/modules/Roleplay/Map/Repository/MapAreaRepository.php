@@ -38,11 +38,14 @@ final class MapAreaRepository
      * @param int $mapId Карта.
      * @param string $layer Слой: surface или object.
      * @param string $color Цвет.
+     * @param string $stroke Цвет границы; пусто — границы нет.
+     * @param int $strokeWidth Толщина границы.
      * @param array<string, mixed> $decor Визуальный декор.
      * @param int $speed Проходимость.
      * @param string $label Подпись.
      * @param int|null $nodeId Место.
      * @param int $sortOrder Порядок внутри слоя.
+     * @param int|null $groupId Группа областей.
      *
      * @return int Id.
      *
@@ -52,25 +55,67 @@ final class MapAreaRepository
         int $mapId,
         string $layer,
         string $color,
+        string $stroke,
+        int $strokeWidth,
         array $decor,
         int $speed,
         string $label,
         ?int $nodeId,
         int $sortOrder,
+        ?int $groupId = null,
     ): int {
         try {
             return $this->areaRecords->add([
                 'map_id' => $mapId,
                 'layer' => $layer,
                 'color' => $color,
+                'stroke' => $stroke,
+                'stroke_width' => $strokeWidth,
                 'decor' => $decor,
                 'speed' => $speed,
                 'label' => $label,
                 'node_id' => $nodeId,
                 'sort_order' => $sortOrder,
+                'group_id' => $groupId,
             ]);
         } catch (FieldInvalidException | SmartMapInvalidException | RowWriteFailedException $exception) {
             throw new MapInvalidException('Map area row is invalid', $exception);
+        }
+    }
+
+    /**
+     * Добавляет пачку областей.
+     *
+     * @param int $mapId Карта.
+     * @param array<int, array<string, mixed>> $rows Строки.
+     *
+     * @return array<int, int> Id в порядке входа.
+     *
+     * @throws MapInvalidException Если строки недопустимы.
+     */
+    public function addMany(int $mapId, array $rows): array
+    {
+        $payload = [];
+        foreach ($rows as $row) {
+            $payload[] = [
+                'map_id' => $mapId,
+                'layer' => $row['layer'],
+                'color' => $row['color'],
+                'stroke' => $row['stroke'],
+                'stroke_width' => $row['strokeWidth'],
+                'decor' => $row['decor'],
+                'speed' => $row['speed'],
+                'label' => $row['label'],
+                'node_id' => $row['nodeId'],
+                'sort_order' => $row['sortOrder'],
+                'group_id' => $row['groupId'],
+            ];
+        }
+
+        try {
+            return $this->areaRecords->addMany($payload);
+        } catch (FieldInvalidException | SmartMapInvalidException | RowWriteFailedException $exception) {
+            throw new MapInvalidException('Map area rows are invalid', $exception);
         }
     }
 

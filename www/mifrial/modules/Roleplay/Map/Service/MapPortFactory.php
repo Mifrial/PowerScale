@@ -15,6 +15,7 @@ use Mifrial\Core\SmartTable\Service\SmartTableTransactionRunner;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Map\Interface\Container\IMapContainer;
+use Mifrial\Roleplay\Map\Repository\MapAreaGroupRepository;
 use Mifrial\Roleplay\Map\Repository\MapAreaRepository;
 use Mifrial\Roleplay\Map\Repository\MapAreaShapeRepository;
 use Mifrial\Roleplay\Map\Repository\MapLineRepository;
@@ -22,6 +23,7 @@ use Mifrial\Roleplay\Map\Repository\MapNodeRepository;
 use Mifrial\Roleplay\Map\Repository\MapPlacementRepository;
 use Mifrial\Roleplay\Map\Repository\MapRepository;
 use Mifrial\Roleplay\Map\Repository\MapVariantRepository;
+use Mifrial\Roleplay\Map\Table\MapAreaGroupTable;
 use Mifrial\Roleplay\Map\Table\MapAreaTable;
 use Mifrial\Roleplay\Map\Table\MapNodeTable;
 use Mifrial\Roleplay\Map\Table\MapTable;
@@ -234,6 +236,7 @@ final class MapPortFactory
             $this->mapRepository($serviceLocator),
             new MapVariantWriter($this->variantRepository($serviceLocator)),
             new MapNodeWriter($this->nodeStore($serviceLocator)),
+            new MapGroupSaveWriter($this->groupStore($serviceLocator)),
             new MapGraphSaveWriter($this->areaStore($serviceLocator)),
             new MapLineSaveWriter($this->lineStore($serviceLocator)),
             new MapLinkSaveWriter(
@@ -278,6 +281,22 @@ final class MapPortFactory
     }
 
     /**
+     * Группы областей.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return MapAreaGroupStore Стор.
+     */
+    private function groupStore(IServiceLocator $serviceLocator): MapAreaGroupStore
+    {
+        return new MapAreaGroupStore(
+            new MapAreaGroupRepository(
+                $this->smartTableGateway($serviceLocator)->open(MapAreaGroupTable::class)->records(),
+            ),
+        );
+    }
+
+    /**
      * Ленты.
      *
      * @param IServiceLocator $serviceLocator Каталог.
@@ -307,6 +326,7 @@ final class MapPortFactory
             $this->variantService($serviceLocator),
             $this->nodeStore($serviceLocator),
             $this->areaStore($serviceLocator),
+            $this->groupStore($serviceLocator),
             $this->lineStore($serviceLocator),
         );
     }

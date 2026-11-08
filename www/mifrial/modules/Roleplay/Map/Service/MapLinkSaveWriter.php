@@ -12,6 +12,11 @@ use Mifrial\Roleplay\Map\Exception\MapInvalidException;
 final class MapLinkSaveWriter
 {
     /**
+     * Сколько полигонов вставлять одним multi-insert.
+     */
+    private const INSERT_CHUNK = 500;
+
+    /**
      * Создаёт писатель.
      *
      * @param MapNodeStore $nodeStore Узлы и размещения.
@@ -65,15 +70,74 @@ final class MapLinkSaveWriter
     public function shapes(array $variantMap, array $areas, array $areaMap): void
     {
         foreach ($variantMap as $snapshotVariantId => $realVariantId) {
-            $this->areaStore->deleteShapesByVariant($realVariantId);
-            foreach ($areas as $area) {
-                $this->shapeArea(
-                    $area,
-                    $snapshotVariantId,
-                    $realVariantId,
-                    $this->mapped($areaMap, $area['id']),
-                );
+            $this->writeVariantShapes($snapshotVariantId, $realVariantId, $areas, $areaMap);
+        }
+    }
+
+    /**
+     * Пишет формы одного варианта: новое пачкой, изменённое точечно,
+     * исчезнувшее — удаляет.
+     *
+     * @param int $snapshotVariantId Вариант снимка.
+     * @param int $realVariantId Реальный вариант.
+     * @param array<int, array<string, mixed>> $areas Области снимка.
+     * @param array<int, int> $areaMap Id снимка → реальный id области.
+     *
+     * @return void
+     *
+     * @throws MapInvalidException Если ссылка не разрешилась.
+     */
+    private function writeVariantShapes(int $snapshotVariantId, int $realVariantId, array $areas, array $areaMap): void
+    {
+        $existing = $this->areaStore->findShapes($realVariantId);
+        $existingByArea = [];
+        foreach ($existing as $shapeRecord) {
+            $existingByArea[$shapeRecord->getAreaId()] = $shapeRecord;
+        }
+
+        $inserts = [];
+        $keptAreaIds = [];
+        foreach ($areas as $area) {
+            foreach ($area['shapes'] as $shape) {
+                if ($shape['variantId'] !== $snapshotVariantId) {
+                    continue;
+                }
+
+                $realAreaId = $this->mapped($areaMap, $area['id']);
+                $keptAreaIds[$realAreaId] = true;
+                $current = $existingByArea[$realAreaId] ?? null;
+                if ($current === null) {
+                    $inserts[] = [
+                        'variantId' => $realVariantId,
+                        'areaId' => $realAreaId,
+                        'path' => $shape['path'],
+                        'handles' => $shape['handles'],
+                        'isPresent' => $shape['isPresent'],
+                    ];
+
+                    continue;
+                }
+
+                if (
+                    $current->getPath() === $shape['path']
+                    && $current->getHandles() === $shape['handles']
+                    && $current->isPresent() === $shape['isPresent']
+                ) {
+                    continue;
+                }
+
+                $this->areaStore->updateShape($current->getId(), $shape['path'], $shape['handles'], $shape['isPresent']);
             }
+        }
+
+        foreach ($existing as $shapeRecord) {
+            if (!isset($keptAreaIds[$shapeRecord->getAreaId()])) {
+                $this->areaStore->deleteShape($shapeRecord->getId());
+            }
+        }
+
+        foreach (array_chunk($inserts, self::INSERT_CHUNK) as $chunk) {
+            $this->areaStore->addShapes($chunk);
         }
     }
 
@@ -101,33 +165,6 @@ final class MapLinkSaveWriter
                 $placement['y'],
                 $placement['isPresent'],
                 $placement['labelOverride'],
-            );
-        }
-    }
-
-    /**
-     * Формы одной области в варианте.
-     *
-     * @param array<string, mixed> $area Область.
-     * @param int $snapshotVariantId Вариант снимка.
-     * @param int $realVariantId Реальный вариант.
-     * @param int $realAreaId Реальная область.
-     *
-     * @return void
-     */
-    private function shapeArea(array $area, int $snapshotVariantId, int $realVariantId, int $realAreaId): void
-    {
-        foreach ($area['shapes'] as $shape) {
-            if ($shape['variantId'] !== $snapshotVariantId) {
-                continue;
-            }
-
-            $this->areaStore->upsertShape(
-                $realVariantId,
-                $realAreaId,
-                $shape['path'],
-                $shape['handles'],
-                $shape['isPresent'],
             );
         }
     }

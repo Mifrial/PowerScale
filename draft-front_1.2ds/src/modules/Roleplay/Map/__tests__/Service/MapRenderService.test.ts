@@ -36,6 +36,7 @@ function area(overrides: Partial<MapArea> = {}): MapArea {
     speed: 2000,
     label: 'Лес',
     nodeId: null,
+    groupId: null,
     sortOrder: 0,
     shapes: [],
     ...overrides,

@@ -68,6 +68,62 @@ final class MapAreaShapeRepository
     }
 
     /**
+     * Вставляет пачку полигонов.
+     *
+     * @param array<int, array{variantId: int, areaId: int, path: array<int, array{0: int, 1: int}>, handles: array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}>, isPresent: bool}> $rows Полигоны.
+     *
+     * @return array<int, int> Id в порядке входа.
+     *
+     * @throws MapInvalidException Если строки недопустимы.
+     */
+    public function addMany(array $rows): array
+    {
+        $payload = [];
+        foreach ($rows as $row) {
+            $payload[] = [
+                'variant_id' => $row['variantId'],
+                'area_id' => $row['areaId'],
+                'path' => $row['path'],
+                'handles' => $row['handles'],
+                'is_present' => $row['isPresent'],
+            ];
+        }
+
+        try {
+            return $this->shapeRecords->addMany($payload);
+        } catch (FieldInvalidException | SmartMapInvalidException | RowWriteFailedException $exception) {
+            throw new MapInvalidException('Map area shape rows are invalid', $exception);
+        }
+    }
+
+    /**
+     * Пишет поля существующего полигона.
+     *
+     * @param int $shapeId Id.
+     * @param array<int, array{0: int, 1: int}> $path Полигон.
+     * @param array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}> $handles Ручки Безье.
+     * @param bool $isPresent Присутствует.
+     *
+     * @return void
+     */
+    public function updateShape(int $shapeId, array $path, array $handles, bool $isPresent): void
+    {
+        $this->update($shapeId, ['path' => $path, 'handles' => $handles, 'is_present' => $isPresent]);
+    }
+
+    /**
+     * Удаляет полигон по id.
+     *
+     * @param int $shapeId Id.
+     *
+     * @return void
+     */
+    public function deleteShape(int $shapeId): void
+    {
+        $this->delete($shapeId);
+    }
+
+    /**
      * Формы варианта.
      *
      * @param int $variantId Вариант.
