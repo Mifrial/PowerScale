@@ -16,13 +16,13 @@ final class GameWoundPatch
     /**
      * Создаёт правку.
      *
-     * @param GameWoundHands $hands Свободные руки.
+     * @param GameActionHands $hands Свободные руки.
      * @param GameWoundGrants $grants Гранты навыков.
      *
      * @return void
      */
     public function __construct(
-        private readonly GameWoundHands $hands,
+        private readonly GameActionHands $hands,
         private readonly GameWoundGrants $grants,
     ) {
     }
@@ -92,7 +92,7 @@ final class GameWoundPatch
             throw new GameInvalidException('Game wound is already held');
         }
 
-        if ($this->hands->freeHands($slice, $actorSheet, $actor, $game) < 1) {
+        if ($this->hands->build($game, $slice, $actorSheet['choices'], $actor)->getFreeHands() < 1) {
             throw new GameInvalidException('Game wound hold has no free hand');
         }
 

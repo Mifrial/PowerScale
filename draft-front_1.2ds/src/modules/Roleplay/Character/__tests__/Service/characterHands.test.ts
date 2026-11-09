@@ -32,10 +32,7 @@ const emptyWeapon: ItemSpec['weapon'] = {
 
 const bowWeapon = {
   min_strength: null,
-  weapon_profiles: [
-    { type: 'strike' },
-    { type: 'shoot', extra_hands: 1 },
-  ],
+  weapon_profiles: [{ type: 'strike' }, { type: 'shoot', extra_hands: 1 }],
 } as unknown as ItemSpec['weapon'];
 
 const rules: Rule[] = [
@@ -66,6 +63,18 @@ describe('CharacterHandsService', () => {
     expect(service.gripBonus(2)).toBe(2);
     expect(service.gripBonus(3)).toBe(2);
     expect(service.gripBonus(4)).toBe(3);
+  });
+
+  it('требование рук складывает соматические компоненты', () => {
+    expect(service.getRequiredHands(undefined)).toBe(0);
+    expect(service.getRequiredHands([{ type: 'resource', resource_code: 'action-points', amount: 4 }])).toBe(0);
+    expect(service.getRequiredHands([{ type: 'somatic', note: 'касание' }])).toBe(0);
+    expect(
+      service.getRequiredHands([
+        { type: 'somatic', occupy_hands: 1 },
+        { type: 'somatic', occupy_hands: 1 },
+      ]),
+    ).toBe(2);
   });
 
   it('лук: покой 1, выстрел требует ещё одну руку', () => {

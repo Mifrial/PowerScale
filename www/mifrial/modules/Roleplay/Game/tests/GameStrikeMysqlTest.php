@@ -332,6 +332,23 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Нехватка свободной руки отклоняет каст до записи.
+     *
+     * @return void
+     */
+    public function testSpellCastRejectsWhenHandsAreOccupied(): void
+    {
+        $scene = $this->spellScene(10, ['min' => 2, 'max' => 2]);
+        $beforeAp = $this->resourceCurrent($scene['hero'], 'action-points');
+        $cast = $this->dispatch('game.castSpell', $this->spellBody($scene));
+        self::assertFalse($cast['success']);
+        self::assertSame('GAME_INVALID', $cast['error']['code']);
+        self::assertStringContainsString('free hands', (string) $cast['error']['message']);
+        self::assertSame($scene['heroVersion'], $this->characterFacade()->get($scene['hero'])->getActualVersion());
+        self::assertSame($beforeAp, $this->resourceCurrent($scene['hero'], 'action-points'));
+    }
+
+    /**
      * Касание идёт через game.runAction: удар, защита, затем проверка и эффект.
      *
      * @return void
@@ -524,9 +541,9 @@ final class GameStrikeMysqlTest extends TestCase
      *     targetVersion: int
      * } Сцена.
      */
-    private function spellScene(int $ap = 10): array
+    private function spellScene(int $ap = 10, ?array $occupyHands = null): array
     {
-        $world = $this->spellWorld();
+        $world = $this->spellWorld($occupyHands);
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
         $hero = $this->admit(
             $world->getId(),
@@ -574,7 +591,7 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return RuleSpaceRecord Мир.
      */
-    private function spellWorld(): RuleSpaceRecord
+    private function spellWorld(?array $occupyHands = null): RuleSpaceRecord
     {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -669,6 +686,10 @@ final class GameStrikeMysqlTest extends TestCase
                             'type' => 'resource',
                             'resource_code' => 'action-points',
                             'amount' => 4,
+                        ], [
+                            'type' => 'somatic',
+                            'note' => 'указующая рука',
+                            'occupy_hands' => 1,
                         ]],
                     ],
                 ],
@@ -714,6 +735,7 @@ final class GameStrikeMysqlTest extends TestCase
                     ],
                 ],
             ],
+            occupyHands: $occupyHands,
         );
     }
 
@@ -2539,6 +2561,41 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Действие с соматикой требует свободную руку.
+     *
+     * @return void
+     */
+    public function testActionRejectsWithoutFreeHand(): void
+    {
+        $scene = $this->handsScene(
+            [
+                ['ruleCode' => 'sword', 'equipped' => true],
+                ['ruleCode' => 'sword', 'equipped' => true],
+            ],
+            'b-hands',
+        );
+        $run = $this->declareGesture($scene, 'h-1');
+        self::assertFalse($run['success']);
+        self::assertSame('GAME_INVALID', $run['error']['code']);
+        self::assertStringContainsString('free hands', (string) $run['error']['message']);
+        self::assertSame(20, $this->actionPointsOf($scene['heroId']));
+        self::assertSame($scene['version'], $this->characterFacade()->get($scene['heroId'])->getActualVersion());
+    }
+
+    /**
+     * Действие с соматикой проходит, когда рука свободна.
+     *
+     * @return void
+     */
+    public function testActionPassesWithFreeHand(): void
+    {
+        $scene = $this->handsScene([['ruleCode' => 'sword', 'equipped' => true]], 'b-hands-ok');
+        $run = $this->declareGesture($scene, 'h-2');
+        self::assertTrue($run['success'], json_encode($run));
+        self::assertSame(19, $this->actionPointsOf($scene['heroId']));
+    }
+
+    /**
      * Прирост Неустойчивости бросает проверку; провал кладёт лежачее.
      *
      * @return void
@@ -2657,6 +2714,96 @@ final class GameStrikeMysqlTest extends TestCase
         ];
 
         return $rules;
+    }
+
+    /**
+     * Сцена действия с соматикой.
+     *
+     * @param array<int, array<string, mixed>> $inventory Инвентарь.
+     * @param string $key Ключ боя.
+     *
+     * @return array{gameId: int, battleId: int, heroId: int, version: int} Сцена.
+     */
+    private function handsScene(array $inventory, string $key): array
+    {
+        $world = $this->worldWithWeapon(extraRules: $this->handsActionRules());
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $heroId = $this->admit(
+            $world->getId(),
+            $gameId,
+            'Hero',
+            [],
+            ['resources' => [['ruleCode' => 'action-points', 'current' => 20]]],
+            $inventory,
+        );
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => $key,
+            'participants' => [['type' => 'character', 'id' => $heroId]],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        return [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'heroId' => $heroId,
+            'version' => $this->characterFacade()->get($heroId)->getActualVersion(),
+        ];
+    }
+
+    /**
+     * Объявляет действие с соматикой.
+     *
+     * @param array{gameId: int, battleId: int, heroId: int, version: int} $scene Сцена.
+     * @param string $key Ключ идемпотентности.
+     *
+     * @return array<string, mixed> Ответ.
+     */
+    private function declareGesture(array $scene, string $key): array
+    {
+        return $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => $key,
+            'expectedVersion' => 1,
+            'action' => $this->actionEnvelope([
+                'expectedSheetVersion' => $scene['version'],
+                'actor' => ['type' => 'character', 'id' => $scene['heroId']],
+                'actionRuleCode' => 'gesture',
+                'followUpTargetKey' => null,
+            ]),
+        ]);
+    }
+
+    /**
+     * Действие с соматическим компонентом.
+     *
+     * @return array<string, array<string, mixed>> Правила мира.
+     */
+    private function handsActionRules(): array
+    {
+        return [
+            'action-points' => $this->stateActionRules()['action-points'],
+            'gesture' => [
+                'type' => 'ability',
+                'name' => 'Gesture',
+                'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'action_components' => [[
+                        'type' => 'resource',
+                        'resource_code' => 'action-points',
+                        'amount' => 1,
+                    ], [
+                        'type' => 'somatic',
+                        'note' => 'рука',
+                        'occupy_hands' => 1,
+                    ]],
+                ],
+            ],
+        ];
     }
 
     /**

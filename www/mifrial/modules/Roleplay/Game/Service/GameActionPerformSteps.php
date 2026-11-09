@@ -373,6 +373,13 @@ final class GameActionPerformSteps
         $spec = $this->ports->cards->assertServerPerformable($slice, $actionRuleCode);
         $this->ports->availability->assertAvailable($game, $actorKind, $actorId, $actionRuleCode);
         $document = $this->document->of($game, $actorKind, $actorId);
+        $this->ports->hands->assertAvailable(
+            $game,
+            $slice,
+            $document['choices'],
+            ['kind' => $actorKind, 'id' => $actorId],
+            $spec,
+        );
         $chosen = $this->chosen->resolve($slice, $spec, $document['sheet'], $allowZeroChosen);
         $chosen = array_replace($chosen, $chosenAmounts);
         $spends = $this->resolveSpends($game, $actionRuleCode, $document, $chosen, $allowZeroChosen);

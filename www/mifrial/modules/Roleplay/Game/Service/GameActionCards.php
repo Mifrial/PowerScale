@@ -8,6 +8,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\SomaticComponent;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ActionEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\AfterActionUntilResourceSpentCheckModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ApplyStateEffect;
@@ -128,7 +129,7 @@ final class GameActionCards
     }
 
     /**
-     * Все компоненты карточки ресурсные.
+     * Все компоненты карточки ресурсные или соматические.
      *
      * @param array<int, mixed> $components Компоненты.
      *
@@ -139,9 +140,11 @@ final class GameActionCards
     private function assertComponents(array $components): void
     {
         foreach ($components as $component) {
-            if (!$component instanceof ResourceComponent) {
-                throw new GameInvalidException('Game action component is not supported on the server');
+            if ($component instanceof ResourceComponent || $component instanceof SomaticComponent) {
+                continue;
             }
+
+            throw new GameInvalidException('Game action component is not supported on the server');
         }
     }
 

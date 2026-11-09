@@ -43,6 +43,7 @@ import {
   AttackProfileOption,
   CHARACTERISTIC_BASE_RANGE,
   characterOverviewService,
+  characterHandsService,
   useAttackFavorites,
 } from '@/modules/Roleplay/Character/init';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
@@ -321,6 +322,11 @@ const spellAvailable = computed(() => {
     rules: props.rules,
   });
 });
+const requiredHands = computed(() => characterHandsService.getRequiredHands(spellSpec.value?.action_components));
+const freeHands = computed(() =>
+  characterHandsService.getRemainingHands(casterVersion.value?.inventory ?? [], props.rules),
+);
+const handsAvailable = computed(() => freeHands.value >= requiredHands.value);
 const needsTouchAttack = computed(() => spellSpec.value?.hit_resolution?.type === 'attack');
 const spellTargeting = computed(() => {
   const targeting = spellSpec.value?.spell.targeting;
@@ -779,6 +785,14 @@ function versionOf(key: CombatEntityKey) {
   ).effectiveVersion;
 }
 
+function assertHandsAvailable(): boolean {
+  if (handsAvailable.value) return true;
+
+  error.value = `Нужно свободных рук: ${requiredHands.value}, свободно: ${freeHands.value}`;
+
+  return false;
+}
+
 async function runCast(): Promise<void> {
   if (!props.canEdit || !spellCode.value || !resolvedCasterKey.value) {
     return;
@@ -803,6 +817,7 @@ async function runCast(): Promise<void> {
 
       return;
     }
+    if (!assertHandsAvailable()) return;
     if (resolvedCasterKey.value && committedSessions.value[resolvedCasterKey.value]) {
       error.value = 'Сначала закончи или сорви текущее действие';
 
@@ -986,6 +1001,7 @@ async function runPhpCast(): Promise<void> {
 
     return;
   }
+  if (!assertHandsAvailable()) return;
   if (needsTouchAttack.value) {
     await runPhpTouchCast(caster);
 
@@ -2094,6 +2110,9 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
         </template>
       </v-card-text>
       <v-card-actions>
+        <div v-if="!handsAvailable" class="text-caption text-error mr-auto">
+          Нужно свободных рук: {{ requiredHands }}, свободно: {{ freeHands }}
+        </div>
         <v-spacer />
         <v-btn
           v-if="pendingSaturation"
@@ -2109,7 +2128,9 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
           <v-btn
             color="primary"
             :loading="busy"
-            :disabled="loadPhase !== 'ready' || !canEdit || !spellCode || !preview || !spellAvailable"
+            :disabled="
+              loadPhase !== 'ready' || !canEdit || !spellCode || !preview || !spellAvailable || !handsAvailable
+            "
             @click="runCast"
           >
             Сотворить

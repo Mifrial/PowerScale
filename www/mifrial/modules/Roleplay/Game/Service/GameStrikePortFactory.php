@@ -157,6 +157,7 @@ final class GameStrikePortFactory
                 $characters->characterSheets(),
                 $write->availability($rules),
                 new GameActionResourceResolver(),
+                new GameActionHands($rules, $shared->repos->characters, $shared->repos->npcs),
             ),
             $shared->sheets,
         );

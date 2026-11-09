@@ -109,6 +109,7 @@ final class GameStrikeHttpFactory
                 $characters->characterSheets(),
                 $write->availability($rules),
                 new GameActionResourceResolver(),
+                new GameActionHands($rules, $shared->repos->characters, $shared->repos->npcs),
             ),
             new GameSpellCastCheck(
                 $ruleWiring->checkRoll(),

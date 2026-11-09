@@ -90,7 +90,7 @@ final class GameWoundActions
         $this->delivery = new GameDeliverySignal($events);
         $this->rows = new GameWoundRows($rules, $this->npcs, $battles);
         $grants = new GameWoundGrants();
-        $this->patch = new GameWoundPatch(new GameWoundHands($rules, $this->characters, $this->npcs), $grants);
+        $this->patch = new GameWoundPatch(new GameActionHands($rules, $this->characters, $this->npcs), $grants);
         $this->price = new GameWoundPrice($this->pendingCosts, $grants, $this->rows);
         $this->battle = new GameWoundBattle($this->rows, $battles, $this->sheetWrites);
     }

@@ -24,6 +24,7 @@ final class GameActionPerformPorts
      * @param GamePendingActionCosts $pendingCosts Карта ожидания.
      * @param GameCardAvailability $availability Принадлежность карточки.
      * @param GameStateIncreaseChecks $reactions Проверки прироста состояний.
+     * @param GameActionHands $hands Руки актора.
      *
      * @return void
      */
@@ -35,6 +36,7 @@ final class GameActionPerformPorts
         public readonly GamePendingActionCosts $pendingCosts,
         public readonly GameCardAvailability $availability,
         public readonly GameStateIncreaseChecks $reactions,
+        public readonly GameActionHands $hands,
     ) {
     }
 }

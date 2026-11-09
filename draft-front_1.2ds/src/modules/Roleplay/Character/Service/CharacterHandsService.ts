@@ -2,6 +2,7 @@ import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryIt
 import type { ItemHandsSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemHandsSpec';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import { DEFAULT_CHARACTER_HAND_COUNT } from '@/modules/Roleplay/Character/Constant/Inventory/DEFAULT_CHARACTER_HAND_COUNT';
 import { GRIP_STRENGTH_BONUS } from '@/modules/Roleplay/Character/Constant/Inventory/GRIP_STRENGTH_BONUS';
 import { INNATE_HAND_ITEM_CODE } from '@/modules/Roleplay/Character/Constant/Inventory/INNATE_HAND_ITEM_CODE';
@@ -61,6 +62,17 @@ export class CharacterHandsService {
     return 0;
   }
 
+  /** Сколько свободных рук требует действие по своим компонентам. */
+  getRequiredHands(components: readonly ActionComponent[] | undefined): number {
+    if (!components || components.length === 0) return 0;
+
+    return components.reduce((total, component) => {
+      if (component.type !== 'somatic') return total;
+
+      return total + Math.max(0, Math.floor(component.occupy_hands ?? 0));
+    }, 0);
+  }
+
   restOccupiedTotal(inventory: readonly InventoryItem[], rules: Rule[], exceptItemId?: number): number {
     let total = 0;
     for (const item of inventory) {
@@ -71,7 +83,7 @@ export class CharacterHandsService {
     return total;
   }
 
-  remainingHands(inventory: readonly InventoryItem[], rules: Rule[], exceptItemId?: number): number {
+  getRemainingHands(inventory: readonly InventoryItem[], rules: Rule[], exceptItemId?: number): number {
     return Math.max(0, this.handCount - this.restOccupiedTotal(inventory, rules, exceptItemId));
   }
 
@@ -84,7 +96,7 @@ export class CharacterHandsService {
     const occupy = this.occupyHandsSpec(spec);
     const need = occupy ? this.clampOccupy(target.occupyHands ?? occupy.min, occupy) : 0;
 
-    return need <= this.remainingHands(inventory, rules, itemId);
+    return need <= this.getRemainingHands(inventory, rules, itemId);
   }
 
   withSetEquipped(
@@ -119,7 +131,7 @@ export class CharacterHandsService {
     const spec = this.specOf(target, rules);
     const occupy = this.occupyHandsSpec(spec);
     if (!occupy || occupy.max <= occupy.min) return inventory as InventoryItem[];
-    const remaining = this.remainingHands(inventory, rules, itemId);
+    const remaining = this.getRemainingHands(inventory, rules, itemId);
     const wanted = this.clampOccupy(nextHands, occupy);
     const occupyHands = target.equipped ? this.clampOccupy(Math.min(wanted, remaining), occupy) : wanted;
     if (occupyHands === this.restOccupy(target, spec)) return inventory as InventoryItem[];
@@ -154,7 +166,7 @@ export class CharacterHandsService {
     const copies = Math.max(1, Math.floor(item.quantity) || 1);
     if (item.ruleCode !== INNATE_HAND_ITEM_CODE) return copies;
 
-    return Math.min(copies, this.remainingHands(inventory, rules));
+    return Math.min(copies, this.getRemainingHands(inventory, rules));
   }
 
   private clampOccupy(value: number, occupy: ItemHandsSpec): number {

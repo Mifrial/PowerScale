@@ -43,6 +43,7 @@ final class GameSpellCastFacts
      * @param ICharacterSheets $characterSheets Пересчёт листа.
      * @param GameCardAvailability $availability Гейт карточки.
      * @param GameActionResourceResolver $resolver Компоненты.
+     * @param GameActionHands $hands Руки кастера.
      *
      * @return void
      */
@@ -52,6 +53,7 @@ final class GameSpellCastFacts
         private readonly ICharacterSheets $characterSheets,
         private readonly GameCardAvailability $availability,
         private readonly GameActionResourceResolver $resolver,
+        private readonly GameActionHands $hands,
     ) {
         $this->assembler = new CharacterChoiceAssembler();
         $this->grants = new CharacterAbilityGrantReader(new CharacterDonorGrants(), new CharacterRaceAbilityCodes());
@@ -96,6 +98,13 @@ final class GameSpellCastFacts
         $caster = $this->participant($game, $slice, $actor['type'], $actor['id']);
         $model = $this->model($caster['choices']);
         $this->assertInstance($model, $spellCode, $pathCode);
+        $this->hands->assertAvailable(
+            $game,
+            $slice,
+            $caster['choices'],
+            ['kind' => $actor['type'], 'id' => $actor['id']],
+            $spell,
+        );
 
         $target = $this->target($game, $slice, $body, $spell);
         $damageTarget = $target ?? $touchTarget;

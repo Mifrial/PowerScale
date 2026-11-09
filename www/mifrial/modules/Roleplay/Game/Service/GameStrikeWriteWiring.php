@@ -146,6 +146,7 @@ final class GameStrikeWriteWiring
             new GamePendingActionCosts(),
             $this->availability($rules),
             $this->rules->checks(),
+            new GameActionHands($rules, new GameCharacterRepository($this->ports->gateway()), $this->npcs()),
         );
 
         return new GameActionPerform(

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Service\CharacterHands;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
@@ -56,15 +57,11 @@ final class GameStrikeEquipment
         string $profileType,
         int $profileIndex,
     ): int {
-        $hands = $this->slices->item($spaceId, $rulesRevision, $itemRuleCode)->getOccupyHands();
-        if ($hands === null) {
-            return 0;
-        }
-
+        $item = $this->slices->item($spaceId, $rulesRevision, $itemRuleCode);
         $row = $this->inventoryRow($choices, $itemInventoryId, $itemRuleCode);
-        $value = $row['occupyHands'] ?? $hands->getMin();
-        $value = is_int($value) ? $value : $hands->getMin();
-        $rest = max($hands->getMin(), min($hands->getMax(), $value));
+        $value = $row['occupyHands'] ?? null;
+        $hands = new CharacterHands($this->slices->slice($spaceId, $rulesRevision), $choices);
+        $rest = $hands->getItemOccupancyOf($item, is_int($value) ? $value : null);
 
         $extra = $this->slices->profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex)
             ->getExtraHands();

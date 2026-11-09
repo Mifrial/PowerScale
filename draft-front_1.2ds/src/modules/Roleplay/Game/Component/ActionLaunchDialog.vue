@@ -22,7 +22,11 @@ import type { ActionLaunchHint } from '@/modules/Roleplay/Game/Dto/ActionLaunchH
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { actionOperationResolutionService, getGameApi } from '@/modules/Roleplay/Game/init';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
-import { characterOverviewService, movementContextService } from '@/modules/Roleplay/Character/init';
+import {
+  characterOverviewService,
+  characterHandsService,
+  movementContextService,
+} from '@/modules/Roleplay/Character/init';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
@@ -204,6 +208,10 @@ const followUpExclude = computed(() =>
   ]),
 );
 function isActionItemDisabled(item: CombatActionOption): boolean {
+  const spec = asActionAbilitySpec(findRuleByRef(props.rules, item.code));
+  const requiredHands = characterHandsService.getRequiredHands(spec?.action_components);
+  if (requiredHands > characterHandsService.getRemainingHands(actorVersion.value?.inventory ?? [], props.rules))
+    return true;
   const allowed = lastStrikeService.followUpTargetKeys(findRuleByRef(props.rules, item.code), actorSnapshot.value);
   if (allowed !== null && allowed.length === 0) return true;
   if (item.isVariableCost) return false;

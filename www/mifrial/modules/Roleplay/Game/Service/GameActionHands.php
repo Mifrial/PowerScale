@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Service\CharacterHands;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithComponents;
 
 /**
- * Свободные руки держателя: раса, надетое и уже зажатые раны.
+ * Руки актора в игре: свободные руки, зажатые раны и проверка требования.
  */
-final class GameWoundHands
+final class GameActionHands
 {
     /**
-     * Создаёт расчёт рук.
+     * Создаёт игровой расчёт рук.
      *
      * @param GameStrikeRules $rules Срез.
      * @param GameCharacterRepository $characters Персонажи игры.
@@ -32,59 +34,53 @@ final class GameWoundHands
     }
 
     /**
-     * Свободные руки держателя.
+     * Руки актора с учётом зажатых ран.
      *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param array{choices: array<string, mixed>, sheet: array<string, mixed>} $actorSheet Лист.
-     * @param array{kind: string, id: int} $actor Держатель.
      * @param GameRecord $game Игра.
-     *
-     * @return int Число.
-     */
-    public function freeHands(CharacterRuleSlice $slice, array $actorSheet, array $actor, GameRecord $game): int
-    {
-        return $this->handCount()
-            - $this->equippedHands($slice, $actorSheet['choices'])
-            - $this->heldWounds($actor, $game);
-    }
-
-    /**
-     * Число рук расы. У всех текущих рас — 2.
-     *
-     * @return int Число.
-     */
-    private function handCount(): int
-    {
-        return 2;
-    }
-
-    /**
-     * Сумма min занятых рук надетого.
-     *
      * @param CharacterRuleSlice $slice Срез.
-     * @param array<string, mixed> $choices Выборы.
+     * @param array<string, mixed> $choices Выборы актора.
+     * @param array{kind: string, id: int} $actor Держатель.
      *
-     * @return int Число.
+     * @return CharacterHands Руки.
      */
-    private function equippedHands(CharacterRuleSlice $slice, array $choices): int
+    public function build(GameRecord $game, CharacterRuleSlice $slice, array $choices, array $actor): CharacterHands
     {
-        $occupied = 0;
-        $inventory = $choices['inventory'] ?? [];
-        if (!is_array($inventory)) {
-            return 0;
+        return new CharacterHands($slice, $choices, $this->heldWounds($actor, $game));
+    }
+
+    /**
+     * Проверяет, что у актора хватает свободных рук на действие.
+     *
+     * @param GameRecord $game Игра.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $choices Выборы актора.
+     * @param array{kind: string, id: int} $actor Держатель.
+     * @param AbilityWithComponents $spec Карточка действия или заклинания.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если рук не хватает.
+     */
+    public function assertAvailable(
+        GameRecord $game,
+        CharacterRuleSlice $slice,
+        array $choices,
+        array $actor,
+        AbilityWithComponents $spec,
+    ): void {
+        $required = CharacterHands::getRequiredHandsOf($spec);
+        if ($required === 0) {
+            return;
         }
 
-        foreach ($inventory as $row) {
-            if (!is_array($row) || ($row['equipped'] ?? false) !== true || !is_string($row['ruleCode'] ?? null)) {
-                continue;
-            }
-
-            $spec = $slice->findLive($row['ruleCode'])?->getSpec();
-            $hands = $spec instanceof ItemSpec ? $spec->getOccupyHands() : null;
-            $occupied += $hands === null ? 0 : $hands->getMin();
+        $hands = $this->build($game, $slice, $choices, $actor);
+        if ($required > $hands->getFreeHands()) {
+            throw new GameInvalidException(sprintf(
+                'Game action requires %d free hands, %d available',
+                $required,
+                $hands->getFreeHands(),
+            ));
         }
-
-        return $occupied;
     }
 
     /**

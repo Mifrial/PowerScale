@@ -468,8 +468,8 @@ function toggleEquipped(itemId: number): void {
   mutateBuild({ inventory: next.inventory });
 }
 
-function remainingHandsFor(itemId: number): number {
-  return characterHandsService.remainingHands(currentBuild().inventory, props.rules, itemId);
+function getRemainingHandsFor(itemId: number): number {
+  return characterHandsService.getRemainingHands(currentBuild().inventory, props.rules, itemId);
 }
 
 function setOccupyHands(itemId: number, occupyHands: number): void {
@@ -668,7 +668,7 @@ watch(showWeaponSkills, (val) => {
           :allow-equip="variant === 'editor' || canEdit"
           :allow-ability-edit="variant === 'editor'"
           :occupy-hands="ownedOf(item)?.occupyHands"
-          :available-hands="item.inventoryId !== null ? remainingHandsFor(item.inventoryId) : undefined"
+          :available-hands="item.inventoryId !== null ? getRemainingHandsFor(item.inventoryId) : undefined"
           :can-adjust-hands="(variant === 'editor' || canEdit) && item.rowKind === 'owned'"
           @update:open="(open) => setOpen(itemKey(item), open)"
           @buy="buy"
