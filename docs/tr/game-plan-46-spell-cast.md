@@ -65,11 +65,14 @@
    диалог показывает ошибку и не считает урон/ОД локально. Мок-режим
    (`VITE_API_MODE !== 'real'`) может сохранить прежнее поведение, но он не
    является контрактом и не включается автоматически.
-3. **Изучение не пересчитывается на касте.** Источник истины — сохранённый лист
-   игры: экземпляр заклинания на пути и его эффективный уровень. Повторная
-   проверка `study`/`magic_study` — задача save, а не каста. В real-режиме
-   локальный `MagicStudyUnlockService::isAvailableForUse` не является
-   авторитетом: доступность решает сервер по сохранённому листу.
+3. **Изучение не пересчитывается на касте.** Источник истины — сохранённые
+   `choices` игры. Экземпляр заклинания на пути и его эффективный уровень
+   берутся из серверного пересчёта листа (`ICharacterSheets::compute`) от
+   этих `choices`, а не из повторной проверки study. Повторная проверка
+   `study`/`magic_study` — задача save, а не каста. В real-режиме локальный
+   `SpellCastExecutionService::isSpellAvailableForUse` /
+   `MagicStudyUnlockService::isAvailableForUse` не является авторитетом:
+   доступность решает сервер по сохранённым `choices` и пересчитанному листу.
 4. **Требования проверяются в контексте пути каста.** Для `lightning-strike`
    это `has_ability: discharge` на том же пути или на пути, который каст-путь
    включает (`MagicPathSpec::includes_path_codes`, транзитивно).
@@ -85,17 +88,16 @@
    выполняет проверки Воли и увечья; нокаут — только для `blunt`. Отдельной
    ветки «для заклинаний» нет, поэтому ответ и чат должны включать
    `will`/`willOutcome`/`maim`.
-9. **Компоненты — это компоненты действия.** `action_components` живут на
-   общей базе способности; заклинания просто часто их используют. Отдельной
-   «траты заклинания» нет: `GameActionResourceComponents`/
-   `GameActionResourceResolver` обобщаются до `AbilityWithComponents` (его
-   реализуют `AbilityActionSpec` и `AbilitySpellSpec`), и каст идёт тем же
-   путём.
+9. **Компоненты — это компоненты действия.** `action_components` — общий
+   раздел карточки: и `AbilityActionSpec`, и `AbilitySpellSpec` читают его в
+   `getComponents()`. Отдельной «траты заклинания» нет:
+   `GameActionResourceComponents`/`GameActionResourceResolver` обобщаются до
+   `AbilityWithComponents`, и каст идёт тем же путём.
 10. **Параметры заклинания и используемая мощь — разные вещи.**
-    `parameters` — карта `код → значение` для всех параметров спеки: один `x`
-    может быть и мощью, и контролем. `usedPower` — конкретная мощь источника
-    (характеристики или предмета) вместе с идентификатором источника. Мощь
-    урона берётся из `parameters`, а не из `usedPower`.
+    `parameters` — карта `код → значение` для активационных параметров спеки:
+    один `x` может быть и мощью, и контролем. `usedPower` — выбранная мощь
+    источника (характеристики, ядра или гранта) вместе с идентификатором
+    источника. Мощь урона берётся из `parameters`, а не из `usedPower`.
 
 ## 3. Модель
 
@@ -126,35 +128,42 @@ battleId: int
 idempotencyKey: string
 expectedVersion: int            // версия боя; проверяется, не меняется
 expectedSheetVersion: int       // CAS листа кастера
-expectedTargetVersion: int      // CAS листа цели
+expectedTargetVersion?: int     // CAS листа цели; только при наличии target
 actor: {type: character|npc, id: int}
 spellCode: string               // lightning-strike
 pathCode: string                // arcanist | psionic | shaman
-parameters: { [code: string]: int | {base: int, size: int} }  // значения параметров спеки
+parameters: { [code: string]: int | {base: int, size: int} }  // активационные параметры спеки
 usedPower: {
   source: {kind: 'characteristic', code: string}
         | {kind: 'item', inventoryId: int}
         | {kind: 'grant', abilityCode: string},
   value: {base: int, size: int}
 }
-target: {type: character|npc, id: int}
+target?: {type: character|npc, id: int}  // обязателен при targeting: entity
 distanceIpari?: int             // 0; поле зарезервировано под battleground
 ```
 
 Правила формы:
 
-- `parameters` — значения параметров спеки по коду, а не готовый урон:
-  скаляр или размерное число по `AbilityParameter::kind`. Сервер проверяет
-  каждое значение по `min`/`max` и требует параметр, если на него ссылается
-  `SpellValue` (`spell.power`, `spell.control`). Один и тот же `x` может
-  обслуживать и мощь, и контроль;
-- `usedPower.source` — конкретная характеристика, предмет инвентаря или
-  грант-предмет кастера; `usedPower.value` не выше живой мощи этого источника
-  и не ниже минимума шкалы характеристик. `usedPower` влияет только на
+- `parameters` — значения активационных параметров спеки по коду, а не
+  готовый урон: скаляр или размерное число по `AbilityParameter::kind`.
+  Сервер проверяет `kind` и `min`/`max`, требует параметр, если на него
+  ссылается `SpellValue` (`spell.power`, `spell.control`), и отклоняет
+  неизвестные коды и параметры с `resolution = purchase`. Один и тот же `x`
+  может обслуживать и мощь, и контроль; `ParameterLink` в этом срезе не
+  применяется;
+- `usedPower.source` — характеристика, предмет инвентаря или грант-предмет
+  кастера. Для `characteristic` код должен совпадать с
+  `path.power_characteristic_code`; для `item` строка должна быть в
+  инвентаре кастера; для `grant` активная способность должна выдавать
+  предмет-источник. В 46.3 потолок для всех видов — живая
+  `sheet.characteristics[path.power_characteristic_code]`; отдельного
+  движка мощности предмета-источника нет. `usedPower` влияет только на
   сложность, но не на урон;
-- `target` обязателен: `lightning-strike` имеет `targeting: entity`.
-  Запрос без цели — `INVALID_PARAMS`, а не autoFail. AutoFail «цель стала
-  невалидной во время исполнения» — будущая игровая логика, не этот срез;
+- `target` обязателен при `targeting: entity` и не передаётся при `self`/
+  `none`. Запрос без цели — `INVALID_PARAMS`, а не autoFail. AutoFail «цель
+  стала невалидной во время исполнения» — будущая игровая логика, не этот
+  срез;
 - `distanceIpari` не может быть отрицательным; в этом срезе значение по
   умолчанию `0`, falloff не режет урон;
 - неизвестные ключи отклоняются, как в `game.runAction`.
@@ -167,18 +176,20 @@ cast: {
   needsCheck: bool,
   roll: null | {difficulty, roll, success, rating, faces, ...}
 }
-spentAp: int
+spent: int                         // списано ОД
 caster: {type, id, sheetVersion}
 target: {type, id, sheetVersion}
 autoFail: false                    // в этом срезе всегда false
 spellSr: int | null
 spellDamage: {base, size} | null   // урон после falloff, до слоёв
 injury: {base, size} | null        // после сопротивления и РУ
-consequence: object                // истощение, Шок, putDamageSplit, will, maim
+consequence: object                // истощение, Шок, will, maim
 ```
 
 `spellDamage` — число из `SpellDamage`; `injury` — то, что реально ушло в
-`putDamageSplit`. Фронт не пересчитывает ни то, ни другое.
+`putDamageSplit`. Фронт не пересчитывает ни то, ни другое. `putDamageSplit` —
+операция записи листа, а не поле `consequence`; в ответе достаточно `injury`
+и версии листа.
 
 Ошибки не кодируются в ответе: `AUTH_DENIED`, `INVALID_PARAMS`, `GAME_INVALID`,
 `GAME_NOT_FOUND`, `GAME_BATTLE_CONFLICT` — исключения, как в `game.runAction`.
@@ -187,11 +198,12 @@ consequence: object                // истощение, Шок, putDamageSplit
 
 ### 4.3 Ошибки
 
-- `AUTH_DENIED` — актор не владелец кастера и не `edit_all`;
+- `AUTH_DENIED` — актор не владелец кастера, не GM и не `edit_all`;
 - `INVALID_PARAMS` — форма запроса, в том числе нет `target` при
   `targeting: entity`;
 - `GAME_INVALID` — карточка не spell, путь не magic_path, экземпляр не на
-  пути, нет ОД, значение параметра вне `min`/`max`, `usedPower` выше источника
+  пути, нет ОД, значение параметра вне `min`/`max` или не activation,
+  `usedPower` выше `sheet.characteristics[path.power_characteristic_code]`
   или ниже минимума шкалы;
 - `GAME_NOT_FOUND` — цель не в составе боя;
 - `GAME_BATTLE_CONFLICT` — stale `expectedVersion`, `expectedSheetVersion`
@@ -205,13 +217,20 @@ consequence: object                // истощение, Шок, putDamageSplit
 
 1. Срез игры: `CharacterRuleSlice` по `(spaceId, rulesRevision)`.
 2. `spellCode` — живая карточка `AbilitySpellSpec`.
-3. `pathCode` — живая карточка `MagicPathSpec`, `cast_check_code` не пуст.
-4. В `choices` кастера есть ровно один экземпляр с `ruleCode = spellCode` и
-   `domainCode = pathCode`. Экземпляр уже прошёл study-гейт при save; каст его
-   не пересчитывает.
-5. Эффективный уровень карточки в сохранённом листе
-   (`sheet.abilityLevels[spellCode]`) не ниже 1.
-6. Требования экземпляра выполнены в контексте `pathCode` (срез 46.1):
+3. `pathCode` — живая карточка `MagicPathSpec`; `cast_check_code`,
+   `check_code`, `power_characteristic_code` и `control_characteristic_code`
+   не пусты.
+4. В сохранённых `choices` кастера есть ровно один экземпляр с
+   `ruleCode = spellCode` и `domainCode = pathCode`. Экземпляр уже прошёл
+   study-гейт при save; каст его не пересчитывает. Нет экземпляра или их
+   несколько — `GAME_INVALID`.
+5. Уровень и требования проверяет `GameCardAvailability::assertAvailable()`
+   с `domainContext = pathCode`. Он пересчитывает лист из `choices`
+   (`ICharacterSheets::compute`), проверяет `abilityLevels[spellCode] >= 1`
+   и требования блоков до этого уровня. Отдельно уровень и требования не
+   дублировать. Для NPC `choices` берутся из снимка `GameStrikeSheets`, лист
+   тоже пересчитывается.
+6. Требования экземпляра проверяются в контексте `pathCode` (срез 46.1):
    `has_ability` ищет экземпляр нужной карточки на этом пути или на пути,
    который он включает.
 
@@ -226,11 +245,12 @@ consequence: object                // истощение, Шок, putDamageSplit
 assertAvailable()` уже делает это для действий и принимает `AbilityWithBase`
 (а `AbilitySpellSpec` его реализует). В 46.1 ему добавляется необязательный
 `?string $domainContext`; NPC-лист внутри него пересчитывается через
-`ICharacterSheets::compute`, а не берётся из сохранённого `GameStrikeSheets`.
+`ICharacterSheets::compute` от сохранённых `choices`, а не берётся как готовый
+`sheet` из `GameStrikeSheets`.
 
 ### 5.2 ОД и компоненты
 
-- Компоненты — общие `action_components` способности, а не отдельная
+- Компоненты — общий раздел карточки `action_components`, а не отдельная
   «трата заклинания». Поэтому `GameActionResourceComponents` и
   `GameActionResourceResolver` обобщаются до `AbilityWithComponents`, а не
   получают второй сборщик.
@@ -241,7 +261,8 @@ assertAvailable()` уже делает это для действий и при�
 - `GameActionResourceComponents::of()` принимает `AbilityWithComponents`.
   `GameActionResourceResolver::resolve()` ищет живую спеку по коду и
   принимает любую с компонентами; для заклинаний `chosenAmounts` и
-  `minimums` пустые, поэтому action-специфика не меняет поведение.
+  `minimums` пустые (`minimumsFor()` возвращает `[]` при пустом коде
+  предмета), поэтому action-специфика не меняет поведение.
 - Отдельного `GameSpellCastComponents` нет.
 - Траты проверяются `GameActionPerform::assertSpends()` и списываются
   `GameActionPerform::spend()` с `expectedSheetVersion`; это уже умеет CAS и
@@ -267,8 +288,10 @@ assertAvailable()` уже делает это для действий и при�
 
 - `path.power_characteristic_code` и `path.control_characteristic_code`
   (`magic-power`, `magic-control`);
-- `spell.spell.power` (`parameter x` или фиксированное значение);
-- `spell.spell.control` (у `lightning-strike` — `4|-1`);
+- `AbilitySpellSpec::getSpell()->getPower()` (`parameter x` или фиксированное
+  значение);
+- `AbilitySpellSpec::getSpell()->getControl()` (у `lightning-strike` —
+  `4|-1`);
 - база `3|0`, нижняя живая сложность `3|-1`.
 
 Формула — та же, что в `SpellCastDifficultyService`:
@@ -278,10 +301,10 @@ parameters      = request.parameters
 requiredPower   = resolve(spell.power, parameters)
 usedPower       = request.usedPower.value
 requiredControl = resolve(spell.control, parameters)
-availableControl = sheet[path.control_characteristic_code]
+availableControl = sheet.characteristics[path.control_characteristic_code].value
 
-powerShortage   = points(requiredPower) - points(usedPower)
-controlShortage = points(requiredControl) - points(availableControl)
+powerShortage   = characteristicDiff(requiredPower, usedPower)
+controlShortage = characteristicDiff(requiredControl, availableControl)
 
 delta = 0
 if powerShortage > 0: delta += powerShortage
@@ -289,35 +312,56 @@ if controlShortage > 0: delta += controlShortage
 if powerShortage < 0 and controlShortage < 0:
   delta -= min(-powerShortage, -controlShortage)
 
-difficulty = 3|0 + delta
+difficulty = CharacteristicNumber(3, 0).modify(delta)
 if difficulty < 3|-1: skip (проверка не бросается)
 ```
 
-Сопротивление добавляется только если у типа урона
-`DamageTypeSpec::isModifiesSpellDifficulty() === true`. Для `electricity` флага
-нет — сопротивление Аркане на `lightning-strike` не влияет. Обучение/помехи
-каста в этом срезе не применяются; `requiredPowerDelta` и
+`CharacteristicNumber::modify(int $delta)` уже реализует шаг шкалы 3
+(base 3–5), поэтому отдельный `modifyWith` не нужен. Для дефицита нужен
+аналог клиентского `modifyDiffTo` — разница `base + 3×size`; в PHP её нет,
+добавить `characteristicDiffTo()` или считать явно.
+
+Сопротивление к сложности добавляется, только если у типа урона заклинания
+(`SpellDamage::damage_type_code`) `DamageTypeSpec::isModifiesSpellDifficulty()
+=== true` и цель задана. Значение — целое сопротивление цели к этому типу,
+нетто по источникам (`ICharacterCombatLayers::project()` → слои
+`kind = resistance` с этим `damageTypeCode`, целое из `{X|0}`); применить
+через `modify(N)`. Для `lightning-strike` тип `electricity`, флага нет —
+сопротивление на сложность не влияет. Это не то же самое, что сопротивление
+урону заклинания: `GameStrikeDefense::resistanceByType` для сложности не
+использовать, он считает урон и включает защиту. Сопротивление урону по
+`damage_type_code` считается отдельно (§5.5). `resistancePenetration` в этот
+срез не входит; обучение/помехи каста тоже; `requiredPowerDelta` и
 `trainingDifficultyDelta` из клиентского расчёта сервер не принимает.
 
 ### 5.3.1 `parameters` и `usedPower`
 
 `SpellCastDialog` различает два разных понятия:
 
-- `parameters` — значения параметров спеки. `spell.power` и `spell.control`
-  могут быть фиксированным числом или параметром; один `x` может быть и тем,
-  и другим. Поэтому в запрос идёт карта `код → значение`, а не поле `power`.
-- `usedPower` — «Используемая мощь»: конкретная характеристика или предмет
-  кастера и её живая мощь, которую можно уменьшить. Она влияет на сложность,
-  но не на урон.
+- `parameters` — значения активационных параметров спеки. `spell.power` и
+  `spell.control` могут быть фиксированным числом или параметром; один `x`
+  может быть и тем, и другим. Поэтому в запрос идёт карта `код → значение`,
+  а не поле `power`.
+- `usedPower` — «Используемая мощь»: выбранная мощь источника кастера,
+  которую можно уменьшить. Она влияет на сложность, но не на урон.
 
 Сервер валидирует:
 
-- каждый `parameters[code]` — по `AbilityParameter::kind` и `min`/`max`
-  (скаляр не принимается вместо размерного и наоборот);
+- `parameters` — только карта, не список; каждый `parameters[code]` — по
+  `AbilityParameter::kind`, `min`/`max` и `resolution = activation`
+  (скаляр не принимается вместо размерного и наоборот; purchase-параметр и
+  неизвестный код — отказ); `ParameterLink` не применяется;
 - `usedPower.source` принадлежит кастеру: характеристика есть в листе,
   предмет — в инвентаре кастера, грант — у активной способности;
-- `usedPower.value` не ниже минимума шкалы характеристик и не выше живой мощи
-  источника.
+- `usedPower.value` не ниже минимума шкалы характеристик и не выше живой
+  `sheet.characteristics[path.power_characteristic_code]`.
+
+Соответствие `sourceKey` диалога: `inventory:{id}` → `{kind: 'item',
+inventoryId}`; `grant:{abilityCode}` → `{kind: 'grant', abilityCode}`;
+источник-характеристика → `{kind: 'characteristic', code}`. Для 46.3
+потолок у всех видов один — характеристика мощи пути; отдельного движка
+мощности ядра/предмета нет, поэтому `source` проверяется на принадлежность,
+но не даёт собственного числа.
 
 Урон считается от `resolve(spell.power, parameters)`, а не от `usedPower`.
 `availableControl` берётся из `path.control_characteristic_code` и листа; если
@@ -326,9 +370,12 @@ if difficulty < 3|-1: skip (проверка не бросается)
 ### 5.4 Бросок
 
 - Код проверки — `path.cast_check_code` (`check-spell-cast`).
-- Пул — характеристика из `path.check_code` (`check-intellect` →
-  `intellect`), передаётся `GameCheckThrowOverride`, потому что
-  `check-spell-cast` разрешает смену характеристики.
+- Характеристика пула — `path.check_code`, если это живая карточка
+  характеристики; иначе `GameCheckChain::chain()` по цепочке
+  `parent_check_code`. Имя кода не парсить. Передаётся
+  `GameCheckThrowOverride(characteristicCode: ...)`, потому что
+  `check-spell-cast` разрешает смену характеристики. Пустой `check_code` —
+  `GAME_INVALID`.
 - Сложность — вычисленная выше; `GameCheckRoll::throwWithDifficulty` не
   требует `ask`-решения.
 - Если сложность ниже живой — броска нет (`needsCheck = false`).
@@ -339,32 +386,40 @@ if difficulty < 3|-1: skip (проверка не бросается)
 
 ### 5.5 Урон
 
+Если `SpellDamage` отсутствует, урона нет: `spellDamage`/`injury` = null,
+ОД всё равно списаны. Для `lightning-strike` урон есть.
+
 - `SpellDamage::experience_keyword_code` (`electromancy`) → опыт признака.
-  Расчёт уже есть приватно в `CharacterDerivedLevels::experience()`
-  (строка 88); вынести его в общий `CharacterKeywordExperience` и оттуда
-  кормить и `CharacterDerivedLevels`, и каст. Для `lightning-strike` ступень
-  при опыте `0` даёт `+0`; `discharge` в этот срез не входит, но второй
-  расчёт заводить не надо.
-- Источник уровней для опыта: сохранённый лист (эффективные уровни), не
-  повторный пересчёт study. `CharacterDerivedLevels` сохраняет своё прежнее
-  поведение (купленные уровни), пока его не переключат отдельно.
-- `weaponDamage = resolve(spell.power, parameters) + stepModify` по шкале
-  характеристик: использовать `CharacteristicNumber`; в PHP у него сейчас нет
-  `modifyWith`/`modifyDiffTo` — добавить их или считать `base + 3×size` явно.
-  `usedPower` здесь не участвует.
+  Расчёт уже есть приватно в `CharacterDerivedLevels::experience()`; вынести
+  его в общий `CharacterKeywordExperience` и оттуда кормить и
+  `CharacterDerivedLevels`, и каст. Для `lightning-strike` ступень при опыте
+  `0` даёт `+0`; `discharge` в этот срез не входит, но второй расчёт заводить
+  не надо.
+- Источник уровней для опыта: пересчитанный лист от сохранённых `choices`
+  (эффективные уровни), не повторный пересчёт study. `CharacterDerivedLevels`
+  сохраняет своё прежнее поведение (купленные уровни), пока его не переключат
+  отдельно.
+- `weaponDamage = CharacteristicNumber(resolve(spell.power, parameters))
+  .modify(stepModify)`. `DimensionalNumber::modify()` уже реализует шаг
+  шкалы 3 (base 3–5); отдельный `modifyWith` не нужен. Для сравнения с
+  `falloff.min` нужен `characteristicDiffTo` (`base + 3×size`), которого в
+  PHP нет — добавить или считать явно. `usedPower` здесь не участвует.
 - `falloff` применяется, если задан: `free_ipari`, `size_per_extra_ipari`,
-  `min`; при `distanceIpari = 0` урон не режется.
+  `min`; при `distanceIpari = 0` урон не режется. Снижение —
+  `modify(-3 × extra × size_per_extra_ipari)`; если
+  `characteristicDiffTo(min) < 0`, урона нет.
 - РУ доставки: `hit_resolution.rating` (`2`), но не выше
   `DamageTypeSpec::getMaxSuccessRating()` (`electricity` — `3`); готовый
   helper — `GameStrikeOutcome::successRatingCap()`.
-- Сопротивление — `GameStrikeDefense::resistanceByType` по типу
+- Сопротивление урону — `GameStrikeDefense::resistanceByType` по типу
   `damage_type_code`; он уже учитывает `defense_ignored` (электричество
-  игнорирует броню, но не типизированные resistance-слои).
+  игнорирует броню, но не типизированные resistance-слои). Это отдельный
+  слой от сопротивления к сложности (§5.3).
 - `injury = max(0, (weaponDamage − resistance) × appliedSr)`; смягчение
   (`soak`) для заклинания не применяется.
 - `GameStrikeOutcome::splitInjury` делит повреждение по стойкости цели;
-  `GameStrikeConsequences::effects` собирает `putDamageSplit`, истощение и
-  Шок из хука `electricity`.
+  `GameStrikeConsequences::effects` возвращает операции с `putDamageSplit`,
+  истощением и Шоком из хука `electricity`.
 - Воля и увечье **срабатывают** и для электричества: `willEffect()` не
   зависит от типа урона, а `maimEffect()` получает `delta = quotient` при
   отсутствии cutting-хука. Нокаут — только для `blunt`. Отдельной ветки для
@@ -374,6 +429,9 @@ if difficulty < 3|-1: skip (проверка не бросается)
 
 - Граница — `GameReplayTransaction::execute` + `GameCommandRepository`
   (`source = 'spell'`, тело — все поля запроса).
+- Replay проверяется **до** CAS и чтения текущих листов: повтор с тем же
+  ключом возвращает сохранённый итог даже при устаревших версиях; другое
+  тело — конфликт.
 - Цель: `GameStrikeSheetWrites::write` с `expectedTargetVersion` и
   операциями из 5.5.
 - Кастер: `GameStrikeSheetWrites::write`/`GameActionPerform::spend` с
@@ -403,13 +461,14 @@ if difficulty < 3|-1: skip (проверка не бросается)
   оставляет устаревшие уровни экземпляров.
 - `CharacterRequirementFacts` заполняет домены и покрытие из `choices` и
   `CharacterStudyPaths::covered` (включения транзитивны); уровни — из
-  переданного `levels`.
+  переданного `levels`. Пустые `domainCode` и коды, не являющиеся живыми
+  путями, в карты не попадают.
 - `AbilityRequirementCheck::check(..., ?string $domainContext = null)`:
   при заданном домене `has_ability` проходит, если `levels[code]` не ниже
   `min_level` и у кода есть экземпляр на пути `domainContext` или на
   включённом пути. Если у требуемой карточки нет домена (обычная
-  способность), работает прежняя проверка по коду — иначе доменный контекст
-  сломает `has_ability` вне путей.
+  способность) — пустой список доменов, работает прежняя проверка по коду,
+  иначе доменный контекст сломает `has_ability` вне путей.
 - `CharacterAbilityActivity` передаёт домен текущего экземпляра; для листа по
   коду берётся **максимум** активного уровня по экземплярам
   (`$next[$code] = max(...)`), а не последний.
@@ -430,7 +489,7 @@ if difficulty < 3|-1: skip (проверка не бросается)
 - не-доменная способность в требовании проходит при заданном домене;
 - `CharacterAbilityActivity` с двумя экземплярами одного кода берёт максимум.
 
-## 7. Срез 46.2 — серверный `game.castSpell`
+## 7. Срез 46.3 — серверный `game.castSpell`
 
 Новые поверхности:
 
@@ -452,8 +511,10 @@ if difficulty < 3|-1: skip (проверка не бросается)
 
 - `GameStrikeReady`, `GameStrikeAccess` — права, видимость, сессия, replay;
 - `GameReplayTransaction`, `GameCommandRepository` — идемпотентность;
-- `GameStrikeSheets` — снимок цели и версия её листа; для NPC-кастера
-  уровень и требования берутся из `GameCardAvailability` с пересчётом листа;
+- `GameStrikeSheets` — снимок участника и версия его листа; `choices` NPC
+  берутся из снимка, лист пересчитывается `GameCardAvailability`/
+  `ICharacterSheets::compute`; для персонажа лист тоже пересчитывается из
+  сохранённых `choices`;
 - `GameStrikeDefense::resistanceByType` — слои и `defense_ignored`;
 - `GameStrikeAmounts::injury`/`appliedSr` — арифметика;
 - `GameStrikeOutcome::splitInjury`/`successRatingCap`,
@@ -472,15 +533,20 @@ if difficulty < 3|-1: skip (проверка не бросается)
 
 ```text
 experienceOf(slice, choices, levels, keywordCode): int
-  сумма cost->toLevel(base, levels[code], parameters)
-  по карточкам с levels[code] > 0 и keywordCode в признаках правила
+  по каждой ability из choices:
+    level = levels[ability.ruleCode] ?? ability.level
+    если level < 1 — пропустить
+    base = AbilityBase правила; если нет — пропустить
+    если keywordCode не в признаках правила — пропустить
+    sum += cost->toLevel(base, level, ability.parameters) ?? 0
 ```
 
-`CharacterDerivedLevels` продолжает передавать купленные уровни; каст
-передаёт эффективные уровни сохранённого листа. Один расчёт, но разные
-источники уровней остаются явными.
+`CharacterDerivedLevels` передаёт пустую карту уровней и тем самым сохраняет
+прежнее поведение (уровень каждого экземпляра из `choices`); каст передаёт
+эффективные уровни пересчитанного листа. Один расчёт, но разные источники
+уровней остаются явными.
 
-## 8. Срез 46.3 — фронт в real-режиме
+## 8. Срез 46.4 — фронт в real-режиме
 
 - `IGameApi` + `GameApi`: метод `castSpell(request)` → `game.castSpell`.
 - `SpellCastDialog` в real-режиме:
@@ -488,8 +554,10 @@ experienceOf(slice, choices, levels, keywordCode): int
   - не списывает ОД через `persistSpentAp` и не пишет состояния вручную;
   - не тратит жетоны концентрации, не пишет `pendingActionEffects`, не
     трогает charge/generator/`ActiveSpell`/цепочки/отклонение/насыщение;
-  - не строит `spellAvailable` на `MagicStudyUnlockService`: доступность
-    решает сервер, клиент только показывает ошибку;
+  - не строит `spellAvailable` на
+    `SpellCastExecutionService::isSpellAvailableForUse` /
+    `MagicStudyUnlockService`: доступность решает сервер, клиент только
+    показывает ошибку;
   - собирает `parameters` из всех параметризованных `SpellValue`
     (`spell.power`, `spell.control`, будущие поля), а не только из мощности;
   - отправляет `spellCode`, `pathCode`, `parameters`, `usedPower` (источник +
@@ -522,12 +590,17 @@ Unit:
 
 - сложность: дефицит мощи, дефицит контроля, оба дефицита, оба избытка,
   нижняя живая граница, skip;
-- `lightning-strike`: значение параметра вне `min`/`max` — отказ;
-  `usedPower.value` выше живой мощи источника — отказ; без цели при
-  `targeting: entity` — `INVALID_PARAMS`;
+- `lightning-strike`: значение параметра вне `min`/`max`, неизвестный код и
+  purchase-параметр — отказ; `usedPower.value` выше
+  `sheet.characteristics[path.power_characteristic_code]` — отказ; без цели
+  при `targeting: entity` — `INVALID_PARAMS`;
 - один параметр `x` используется и мощью, и контролем — сервер резолвит оба;
+- `usedPower.source`: характеристика, предмет и грант проверяются на
+  принадлежность кастеру; потолок у всех — мощь пути;
 - `usedPower` влияет на сложность, но не на урон; урон берётся из
   `parameters`;
+- `CharacterKeywordExperience` даёт тот же опыт, что прежний
+  `CharacterDerivedLevels::experience`, на одних и тех же `choices`;
 - компоненты: заклинание списывает 4 ОД через общий
   `GameActionResourceResolver`, регрессия действий не меняется;
 - урон: ступень `SpellDamage` по опыту `electromancy`, falloff, cap РУ,
@@ -566,7 +639,7 @@ Frontend:
 - Game/Character PHPUnit (включая MySQL каста);
 - `npx vitest run` по Character/Game spellCast;
 - `composer docs-check` и `composer maps-check`;
-- ручная проверка на НПС: купить `lightning-strike` (опыт пути станет 4),
+- ручная проверка на НПС: купить `lightning-strike` (опыт пути вырастет),
   скастовать в цель, проверить ОД, урон, Шок, повтор команды и save;
 - полный `bash tools/test-full.sh` — после ручной проверки, по подтверждению
   пользователя.
@@ -586,20 +659,30 @@ Frontend:
   максимум; доменный контекст различает требования, но не уровень. В этом
   срезе такого контента нет; per-instance уровни — отдельный шаг.
 - **Legacy-ревизии.** Каст не пересчитывает `study`; ревизии ≤45 работают,
-  если сохранённый лист уже содержит экземпляр заклинания на пути.
+  только если у пути есть `cast_check_code`/`check_code` и сохранённый
+  экземпляр уже содержит `domainCode`. Иначе каст на таком листе
+  недоступен; срез ориентирован на ревизию 46.
 - **Опыт признака.** `CharacterKeywordExperience` выносится из
   `CharacterDerivedLevels`; каст передаёт эффективные уровни листа, редактор
   — купленные. Для `lightning-strike` ступень `0` не зависит от опыта.
-- **NPC-кастер.** Проверка прав идёт через `GameStrikeAccess`; лист NPC
-  пересчитывается `GameCardAvailability`/`ICharacterSheets::compute`, а не
-  берётся из сохранённого `GameStrikeSheets`.
-- **`usedPower`.** Передаётся как источник + значение; сервер проверяет
-  принадлежность источника и потолок. Если источник — предмет, для 46.3
-  достаточно самой характеристики/предмета из листа, без отдельного движка
-  источников.
+- **NPC-кастер.** Проверка прав идёт через `GameStrikeAccess`; `choices` NPC
+  берутся из снимка `GameStrikeSheets`, лист пересчитывается
+  `GameCardAvailability`/`ICharacterSheets::compute` от этих `choices`, а не
+  берётся готовым `sheet` из снимка. Для персонажа `choices` тоже
+  пересчитываются в живой лист.
+- **`usedPower`.** Передаётся как источник + значение; для 46.3 потолок —
+  `sheet.characteristics[path.power_characteristic_code]`, а `source`
+  проверяется на принадлежность. Отдельного движка мощности предмета-источника
+  нет; он появится вместе с отклонением/насыщением.
 - **Компоненты.** Общий `GameActionResourceResolver` меняется с
   `AbilityActionSpec` на `AbilityWithComponents`; это затрагивает стабильный
   action-путь, поэтому обязательна регрессия существующих тестов действий.
+- **Сопротивление к сложности.** Берётся по типу урона заклинания и флагу
+  `modifies_spell_difficulty`; для `lightning-strike` (`electricity`) флага
+  нет, поэтому сопротивление на сложность не влияет. Это отдельный расчёт от
+  сопротивления урону. `resistancePenetration` не входит. Клиентский
+  `targetResistanceFromOverview` всегда смотрит `arcane` — это расхождение с
+  каноном `spell-plan-06`, сервер следует канону.
 - **Параметр контроля.** Текущий диалог строит `parameters` только для
   `spell.power`; для `lightning-strike` контроль фиксированный, но общий
   контракт требует собрать значения всех параметризованных `SpellValue`.
@@ -614,3 +697,4 @@ Frontend:
 | --- | --- |
 | 2026-11-09 | План создан: `game.castSpell` для `lightning-strike`; `has_ability` с доменом пути — предусловие; real-фронт без локального фолбэка; урон через `SpellDamage`, `putDamageSplit` и Шок. |
 | 2026-11-09 | Перепроверка по коду: цель и autoFail разделены; компоненты — общие компоненты действия, `AbilityWithComponents` вместо отдельного сборщика; Воля/увечье срабатывают; `coveredPaths` не гейт; домены вместо per-instance уровней; опыт вынести из `CharacterDerivedLevels`; `parameters` — карта код→значение, `usedPower` — источник+значение. |
+| 2026-11-09 | Вторая перепроверка: лист пересчитывается из сохранённых `choices`; сопротивление к сложности — по типу урона и флагу, `electricity` без флага; `modify()` уже есть, нужен `characteristicDiffTo`; `parameters` только activation; `usedPower` с единым потолком мощи пути; нумерация срезов 46.3/46.4. |
