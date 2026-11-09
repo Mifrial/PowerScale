@@ -1,4 +1,5 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { GamePhpSpellCastUpgrade } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastUpgrade';
 
 /** Блок spellCast в объявлении удара касания. */
 export interface GamePhpSpellCastPayload {
@@ -13,4 +14,5 @@ export interface GamePhpSpellCastPayload {
     value: DimensionalNumberValue;
   };
   spellTarget?: { type: 'character' | 'npc'; id: number };
+  upgrades?: GamePhpSpellCastUpgrade[];
 }

@@ -126,4 +126,78 @@ describe('SpellCastUpgradeService', () => {
     expect(spellCastUpgradeService.resistancePenetration(selected, { 'piercing-magic': 2 })).toBe(4);
     expect(spellCastUpgradeService.chipLabel(selected[0]!, 2)).toContain('х = 2');
   });
+
+  it('real-фильтр убирает цепь и заряды по форме, а не по коду', () => {
+    const abilities = [
+      { ruleCode: 'careful-magic', level: 1, domainCode: 'arcanist' },
+      { ruleCode: 'chain-lightning', level: 1, domainCode: 'arcanist' },
+      { ruleCode: 'piercing-magic', level: 1, domainCode: 'arcanist' },
+    ];
+
+    expect(
+      spellCastUpgradeService
+        .listRuntimeApplicable(abilities, 'arcanist', 'lightning-strike', [careful, chain, piercing])
+        .map((item) => item.ruleCode),
+    ).toEqual(['careful-magic', 'piercing-magic']);
+  });
+
+  it('запрос отправляет value только для улучшения с шагами пробития', () => {
+    const abilities = [
+      { ruleCode: 'careful-magic', level: 1, domainCode: 'arcanist' },
+      { ruleCode: 'piercing-magic', level: 1, domainCode: 'arcanist' },
+    ];
+    const applicable = spellCastUpgradeService.listApplicable(abilities, 'arcanist', 'discharge', [careful, piercing]);
+    const both = spellCastUpgradeService.selectedOf(applicable, ['careful-magic', 'piercing-magic']);
+
+    expect(spellCastUpgradeService.requestOf(both, { 'piercing-magic': 3 })).toEqual([
+      { code: 'careful-magic' },
+      { code: 'piercing-magic', value: 3 },
+    ]);
+  });
+
+  it('код карточки и domain_ref не решают применимость', () => {
+    const synthetic: Rule = {
+      ...careful,
+      code: 'synthetic-upgrade',
+      spec: {
+        type: 'skill',
+        zones: { or: { kind: 'array', levels_cost: [1] } },
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        multiple: false,
+        domain_ref: 'weapon-family',
+        spell_upgrade: { action_point_delta: 2 },
+      },
+      createdAt: 1,
+    };
+    const withoutForm: Rule = {
+      ...careful,
+      code: 'careful-magic',
+      spec: {
+        type: 'skill',
+        zones: { or: { kind: 'array', levels_cost: [1] } },
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        multiple: false,
+        domain_ref: 'magic-path',
+      },
+    };
+    const abilities = [{ ruleCode: 'synthetic-upgrade', level: 1, domainCode: 'arcanist' }];
+
+    expect(
+      spellCastUpgradeService
+        .listApplicable(abilities, 'arcanist', 'discharge', [synthetic])
+        .map((item) => item.ruleCode),
+    ).toEqual(['synthetic-upgrade']);
+    expect(
+      spellCastUpgradeService.listApplicable(
+        [{ ruleCode: 'careful-magic', level: 1, domainCode: 'arcanist' }],
+        'arcanist',
+        'discharge',
+        [withoutForm],
+      ),
+    ).toEqual([]);
+  });
 });

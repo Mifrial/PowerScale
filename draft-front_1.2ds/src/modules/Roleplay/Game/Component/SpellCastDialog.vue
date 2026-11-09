@@ -456,12 +456,19 @@ const actionPointCost = computed(() =>
   }),
 );
 const upgradeOptions = computed(() =>
-  spellCastUpgradeService.listApplicable(
-    casterVersion.value?.abilities ?? [],
-    pathCode.value || null,
-    spellCode.value,
-    props.rules,
-  ),
+  gamePhpMode.isEnabled()
+    ? spellCastUpgradeService.listRuntimeApplicable(
+        casterVersion.value?.abilities ?? [],
+        pathCode.value || null,
+        spellCode.value,
+        props.rules,
+      )
+    : spellCastUpgradeService.listApplicable(
+        casterVersion.value?.abilities ?? [],
+        pathCode.value || null,
+        spellCode.value,
+        props.rules,
+      ),
 );
 const selectedUpgradeOptions = computed(() =>
   spellCastUpgradeService.selectedOf(upgradeOptions.value, appliedUpgradeCodes.value),
@@ -1028,6 +1035,7 @@ async function runPhpCast(): Promise<void> {
       ? { target, expectedTargetVersion: gamePhpBattleContext.sheetVersionByKey[targetKey.value] ?? 1 }
       : {}),
     distanceIpari: 0,
+    upgrades: spellCastUpgradeService.requestOf(selectedUpgradeOptions.value, appliedUpgradeValues.value),
   };
   const result = await getGameApi().castSpell(request);
   rememberSheet(result.caster);
@@ -1085,6 +1093,7 @@ async function runPhpTouchCast(caster: CombatEntityKey): Promise<void> {
       value: usedPower.value,
     },
     ...(target ? { spellTarget: target } : {}),
+    upgrades: spellCastUpgradeService.requestOf(selectedUpgradeOptions.value, appliedUpgradeValues.value),
   };
 
   emit('touch-cast', { attack, spellCast });

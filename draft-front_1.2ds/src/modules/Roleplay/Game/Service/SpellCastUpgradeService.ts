@@ -1,4 +1,5 @@
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
+import type { GamePhpSpellCastUpgrade } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastUpgrade';
 import type { SpellCastUpgradeOption } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastUpgradeOption';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
@@ -20,21 +21,15 @@ export class SpellCastUpgradeService {
       if (!rule || !spec) {
         continue;
       }
-      const parent = spec.parent_ability_code;
-      const matchesParent = parent === spellCode;
-      const matchesPath =
-        !parent &&
-        spec.domain_ref === 'magic-path' &&
-        Boolean(pathCode) &&
-        (spec.spell_upgrade.any_path === true || ability.domainCode === pathCode);
-      if (!matchesParent && !matchesPath) {
+      if (!this.matches(spec, ability, pathCode, spellCode)) {
         continue;
       }
       if (
         !spec.spell_upgrade.action_point_delta &&
         !spec.spell_upgrade.check_advantage &&
         !spec.spell_upgrade.resistance_penetration_per_step &&
-        !spec.spell_upgrade.chain
+        !spec.spell_upgrade.chain &&
+        !spec.spell_upgrade.charge_cap
       ) {
         continue;
       }
@@ -46,6 +41,34 @@ export class SpellCastUpgradeService {
     }
 
     return options;
+  }
+
+  /** Улучшения, которые понимает серверный runtime и можно отправить в real-каст. */
+  listRuntimeApplicable(
+    abilities: CharacterAbility[],
+    pathCode: string | null,
+    spellCode: string,
+    rules: Rule[],
+  ): SpellCastUpgradeOption[] {
+    return this.listApplicable(abilities, pathCode, spellCode, rules).filter((option) =>
+      this.isRuntimeSupported(option),
+    );
+  }
+
+  /** Runtime M2 исполняет скалярные примитивы и не умеет цепь и заряды. */
+  isRuntimeSupported(option: SpellCastUpgradeOption): boolean {
+    return !option.upgrade.chain && !option.upgrade.charge_cap;
+  }
+
+  /** Запрос улучшений: value уходит только для улучшения с шагами пробития. */
+  requestOf(selected: SpellCastUpgradeOption[], values: Readonly<Record<string, number>>): GamePhpSpellCastUpgrade[] {
+    return selected.map((option) => {
+      if (!option.upgrade.resistance_penetration_per_step) {
+        return { code: option.ruleCode };
+      }
+
+      return { code: option.ruleCode, value: this.parameterValue(option, values) };
+    });
   }
 
   selectedOf(applicable: SpellCastUpgradeOption[], codes: string[]): SpellCastUpgradeOption[] {
@@ -115,9 +138,31 @@ export class SpellCastUpgradeService {
     return Math.max(0, Math.floor(values[option.ruleCode] ?? 1));
   }
 
+  /** Привязка улучшения: конкретное заклинание либо экземпляр домена. */
+  private matches(
+    spec: { parent_ability_code: string | null; spell_upgrade: SpellUpgrade },
+    ability: CharacterAbility,
+    pathCode: string | null,
+    spellCode: string,
+  ): boolean {
+    const parent = spec.parent_ability_code;
+    if (parent) {
+      if (parent !== spellCode) {
+        return false;
+      }
+
+      return spec.spell_upgrade.any_path === true || !ability.domainCode || ability.domainCode === pathCode;
+    }
+
+    if (!pathCode || !ability.domainCode) {
+      return false;
+    }
+
+    return spec.spell_upgrade.any_path === true || ability.domainCode === pathCode;
+  }
+
   private upgradeSpec(rule: Rule | undefined): {
     parent_ability_code: string | null;
-    domain_ref?: string | null;
     spell_upgrade: SpellUpgrade;
   } | null {
     if (!rule || rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object') {
@@ -127,11 +172,9 @@ export class SpellCastUpgradeService {
       return null;
     }
     const parent = 'parent_ability_code' in rule.spec ? rule.spec.parent_ability_code : null;
-    const domainRef = 'domain_ref' in rule.spec ? rule.spec.domain_ref : null;
 
     return {
       parent_ability_code: parent ?? null,
-      domain_ref: domainRef,
       spell_upgrade: rule.spec.spell_upgrade,
     };
   }

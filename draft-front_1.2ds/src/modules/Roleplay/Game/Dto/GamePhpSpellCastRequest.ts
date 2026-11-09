@@ -1,5 +1,6 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
+import type { GamePhpSpellCastUpgrade } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastUpgrade';
 
 /** Запрос каста: GameApi отправляет его как game.runAction kind spell. */
 export interface GamePhpSpellCastRequest {
@@ -22,4 +23,5 @@ export interface GamePhpSpellCastRequest {
   };
   target?: GamePhpParticipant;
   distanceIpari?: number;
+  upgrades?: GamePhpSpellCastUpgrade[];
 }
