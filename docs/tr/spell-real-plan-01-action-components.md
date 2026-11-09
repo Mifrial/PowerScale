@@ -1,12 +1,13 @@
 # План M1 — компоненты действия: соматика и свободные руки
 
-**Статус:** ~ПЛАН~, 2026-11-09.
+**Статус:** ~ЧАСТИЧНО~, 2026-11-09. Код M1 (1.1–1.4) сделан;
+полный `tools/test-full.sh` отложен по решению пользователя.
 
 **Реализация:** ~PHP~, ~VUE~.
 
 **Опираться на:** ~PHP~ (`Rule/Spec/ActionComponents`,
 `Rule/Dto/Spec/Ability/Component/SomaticComponent`,
-`Game/Service/GameWoundHands`, `GameSpellCastFacts`,
+`Game/Service/GameActionHands`, `GameSpellCastFacts`,
 `GameActionPerformSteps`), ~VUE~ (`CharacterHandsService`,
 `SpellCastDialog`, `ActionLaunchDialog`, `HitLaunchDialog`),
 [`spell-real-roadmap.md`](spell-real-roadmap.md),
@@ -35,8 +36,8 @@
 Входят:
 
 - единый объект `CharacterHands` в Character: `getOccupiedHands`,
-  `getFreeHands`, `getItemOccupancy`, `getRequiredHands`, `canEquip`
-  (выделяется из `GameWoundHands`);
+  `getFreeHands`, `getItemOccupancy`, `getRequiredHandsOf`, `canEquip`
+  (выделен из прежнего `GameWoundHands`);
 - чтение `SomaticComponent::getOccupyHands()` у любой `AbilityWithComponents`;
 - проверка при объявлении заклинания (`kind: 'spell'` и касание через
   `spellCast`) и не-атакующей карточки действия;
@@ -68,7 +69,7 @@
 | `GameActionResourceComponents` | выбирает из компонентов только `ResourceComponent` | соматику не видит |
 | `GameSpellCastFacts::prepare` | считает доступность, мощь, контроль и траты | читает только ресурсные траты; `occupy_hands` не смотрит |
 | `GameActionCards::assertComponents` | требует, чтобы **все** компоненты были ресурсными | карточка действия с соматикой получает «component is not supported on the server» |
-| `GameWoundHands::freeHands` | свободные руки = `2 − min` надетого `−` зажатые раны | используется только `GameWoundPatch`; берёт `min` предмета и игнорирует строку `occupyHands`; `handCount()` — заглушка 2 |
+| `GameWoundHands::freeHands` (был) | свободные руки = `2 − min` надетого `−` зажатые раны | использовался только `GameWoundPatch`; брал `min` предмета и игнорировал строку `occupyHands` |
 | `GameStrikeEquipment::occupyHands` | руки оружия в конкретном ударе: удержание + `extra_hands` | это не свободные руки актора, а занятость самого действия |
 | `GameManualSheetOperations::setOccupyHands` | вручную меняет занятость строки инвентаря | не влияет на объявление действий |
 | `CharacterHandsService` (фронт) | `remainingHands`, `restOccupiedTotal`, `canSetEquipped` | не подключён к окнам каста и действия |
@@ -98,7 +99,7 @@
 getItemOccupancy(ruleCode, rowValue)  → сколько рук занимает предмет
 getOccupiedHands()                   → Σ getItemOccupancy + external
 getFreeHands()                       → max(0, total − occupied)
-getRequiredHands(ability)            → сумма occupy_hands соматики
+getRequiredHandsOf(ability)            → сумма occupy_hands соматики
 canEquip(ruleCode, rowValue)         → getFreeHands() ≥ getItemOccupancy, без второго счётчика
 ```
 
@@ -111,9 +112,9 @@ canEquip(ruleCode, rowValue)         → getFreeHands() ≥ getItemOccupancy, б
   по месту в Game.
 - Game-адаптер добавляет только игровое состояние (раны) и политику отказа;
   саму арифметику не повторяет.
-- Текущие классы становятся вызывающими: `GameWoundHands`,
-  `GameStrikeEquipment`, `GameManualSheetOperations`, `GameSpellCastFacts`,
-  `GameActionPerformSteps`. Новых формул в них не остаётся.
+- Текущие классы используют объект: `GameWoundPatch`, `GameStrikeEquipment`,
+  `GameSpellCastFacts`, `GameActionPerformSteps`. `GameManualSheetOperations`
+  остаётся принудительным: у ручной правки ГМ нет `choices` для расчёта.
 - На фронте `CharacterHandsService` приводится к тем же методам и тем же
   правилам зажима, чтобы лист и боевая карточка считали одинаково.
 
@@ -163,7 +164,7 @@ final class CharacterHands
     public function getItemOccupancy(string $ruleCode, ?int $rowValue = null): int;
     public function getOccupiedHands(): int;
     public function getFreeHands(): int;
-    public function getRequiredHands(AbilityWithComponents $spec): int;
+    public static function getRequiredHandsOf(AbilityWithComponents $spec): int;
     public function canEquip(string $ruleCode, ?int $rowValue = null, ?int $exceptInventoryId = null): bool;
 }
 ```
@@ -171,10 +172,10 @@ final class CharacterHands
 - `getItemOccupancy()` — `clamp(row.occupyHands ?? item.min, item.min, item.max)`;
   для предмета без `occupy_hands`, но с `weapon`/`shield` — 1; `innate` — 0;
   неизвестный код — 0.
-- `getRequiredHands()` суммирует `SomaticComponent::getOccupyHands()`; `null` и
+- `getRequiredHandsOf()` суммирует `SomaticComponent::getOccupyHands()`; `null` и
   отрицательное значение — `0`.
 - `getFreeHands()` не опускается ниже 0; для проверки достаточно
-  `getFreeHands() >= getRequiredHands()`.
+  `getFreeHands() >= getRequiredHandsOf()`.
 - `canEquip()` не пишет лист: он только отвечает, поместится ли предмет с
   учётом уже надетого и `exceptInventoryId` (текущая строка при смене
   занятости). Запись остаётся в `setEquipped` / `setOccupyHands`.
@@ -202,19 +203,18 @@ final class GameActionHands
 ```
 
 - `build()` считает `extraOccupied` из зажатых ран (перенос из
-  `GameWoundHands::heldWounds`) и возвращает `CharacterHands`.
-- `assertAvailable()` сравнивает `getFreeHands()` и `getRequiredHands()` и
+  прежнего `GameWoundHands::heldWounds`) и возвращает `CharacterHands`.
+- `assertAvailable()` сравнивает `getFreeHands()` и `getRequiredHandsOf()` и
   бросает `GameInvalidException` с числами: `Game spell requires N free hands,
   M available` / `Game action requires N free hands, M available`.
-- `GameWoundHands` становится тонкой обёрткой над `build()->getFreeHands()`
-  (или удаляется, а `GameWoundPatch` получает новый сервис). Сигнатура
-  `GameWoundPatch` не меняется.
-- `GameStrikeEquipment::occupyHands` и `GameStrikeEquipment::gripBonus`
-  используют `getItemOccupancy()`/`getTotalHands()`, чтобы не держать третий
-  зажим.
-- `GameManualSheetOperations::setEquip`/`setOccupyHands` проверяют через
-  `canEquip()`/`getItemOccupancy()`; ручная операция ГМ может остаться
-  принудительной, но зажим в `min`/`max` — общий.
+- `GameWoundHands` удалён: `GameWoundPatch` получает `GameActionHands` и
+  вызывает `build(...)->getFreeHands()`. Отдельной обёртки нет.
+- `GameStrikeEquipment::occupyHands` использует
+  `getItemOccupancyOf()`, чтобы не держать третий зажим; `gripBonus` остаётся
+  таблицей правила.
+- `GameManualSheetOperations` пока остаётся принудительным: у операции нет
+  `choices`, чтобы посчитать свободные руки. Это отдельный шаг; сейчас
+  `canEquip()`/`getItemOccupancy()` доступны для будущей проверки.
 - `GameActionCards::assertComponents` допускает `ResourceComponent` и
   `SomaticComponent`; `VerbalComponent` и `MaterialComponent` по-прежнему
   отвергаются с понятным сообщением.
@@ -234,7 +234,7 @@ final class GameActionHands
 
 ## 6. Фронт
 
-- `SpellCastDialog`: `requiredHands` из `action_components` выбранного
+- `SpellCastDialog`: `getRequiredHands` из `action_components` выбранного
   заклинания и `freeHands` из `CharacterHandsService::remainingHands`.
   Кнопка «Сотворить» блокируется, рядом — «Нужно N свободных рук».
   В `spellAvailable` добавляется условие рук, но итог каста по-прежнему
@@ -243,7 +243,7 @@ final class GameActionHands
   `true`, если карточке нужно больше рук, чем свободно; в подсказке — причина.
 - `HitLaunchDialog` / `AttackLaunchDialog` (касание): тот же расчёт для
   `spellCast` перед отправкой; профиль касания и последняя цель не меняются.
-- Общий хелпер на фронте (например, `actionHandsService.requiredHands(spec)`)
+- Общий хелпер на фронте (например, `characterHandsService.getRequiredHands(components)`)
   чтобы не дублировать сумму соматики в трёх окнах.
 - Ошибку сервера показываем существующим способом; отдельных кодов не вводим.
 
@@ -251,7 +251,7 @@ final class GameActionHands
 
 | Срез | Содержание | Результат |
 | --- | --- | --- |
-| 1.1 | `CharacterHands` в Character + адаптер `GameActionHands`; на него переводятся `GameWoundHands`, `GameStrikeEquipment`, `GameManualSheetOperations`; строка `occupyHands` вместо `min` | unit-тесты; зажатие ран и удар ведут себя как раньше |
+| 1.1 | `CharacterHands` в Character + адаптер `GameActionHands`; на него переводятся `GameWoundPatch`, `GameStrikeEquipment`; строка `occupyHands` вместо `min` | unit-тесты; зажатие ран и удар ведут себя как раньше |
 | 1.2 | проверка соматики в `GameSpellCastFacts::prepare` | «Удар молнии» требует 1 свободную руку; «Разряд» без числа не требует; отказ до трат |
 | 1.3 | допуск соматики в `GameActionCards`, проверка в `GameActionPerformSteps::prepare` | карточка действия с соматикой выполняется; ресурсные карточки не изменились |
 | 1.4 | фронт: блокировка и подсказка в трёх окнах | vitest; ручная проверка |
@@ -266,7 +266,7 @@ Unit:
   `weapon`/`shield` без `occupy_hands` — 1; `innate` — 0; неизвестный код
   предмета; `canEquip` с `exceptInventoryId`; `extraOccupied` уменьшает
   `getFreeHands()`.
-- `getRequiredHands()`: нет компонентов — 0; соматика без числа — 0; `occupy_hands:
+- `getRequiredHandsOf()`: нет компонентов — 0; соматика без числа — 0; `occupy_hands:
   1` — 1; две соматики `1 + 1` — 2; отрицательное значение — 0.
 - `GameActionHandsTest`: зажатые раны попадают в `extraOccupied`; отказ
   содержит требуемое и доступное число.
@@ -288,7 +288,7 @@ Game/MySQL:
 
 Фронт (`vitest`):
 
-- `requiredHands` для соматики без числа, с числом и с двумя компонентами;
+- `getRequiredHands` для соматики без числа, с числом и с двумя компонентами;
 - `SpellCastDialog`: кнопка заблокирована и видна подсказка при нехватке рук;
 - `ActionLaunchDialog`: пункт недоступен с причиной «нужна свободная рука»;
 - при свободных руках поведение окон не меняется.
@@ -317,9 +317,36 @@ Game/MySQL:
 - **Локализация ошибок.** `GAME_INVALID` несёт английский текст; окна должны
   показывать свой понятный текст, а серверный — только как запасной.
 
-## 10. Журнал
+## 10. Сделано
+
+- 1.1: `CharacterHands` (Character) владеет `getTotalHands`, `getItemOccupancy`,
+  `getOccupiedHands`, `getFreeHands`, `getRequiredHandsOf`, `canEquip`.
+  `GameWoundHands` удалён; `GameWoundPatch` и `GameStrikeEquipment` используют
+  `GameActionHands`/`CharacterHands`. Строка `occupyHands` теперь зажимается в
+  диапазон предмета; оружие и щит без `occupy_hands` занимают 1 руку.
+- 1.2: `GameSpellCastFacts::prepare` проверяет соматику через
+  `GameActionHands::assertAvailable` до трат. В тестовой фикстуре
+  `lightning-strike` получил `occupy_hands: 1`; добавлен отказ при занятых
+  руках, ОД и лист не меняются.
+- 1.3: `GameActionCards` допускает `SomaticComponent`;
+  `GameActionPerformSteps::prepare` проверяет руки; `GameActionPerformPorts`
+  получил `GameActionHands`, сборка — в `GameStrikeWriteWiring`.
+- 1.4: фронт — `CharacterHandsService.getRequiredHands`,
+  `getRemainingHands`; `SpellCastDialog` блокирует кнопку и показывает
+  подсказку, `ActionLaunchDialog` отключает карточку; `InventoryTab` обновлён
+  под переименованный метод.
+- Проверки: `composer stan`; `composer test:unit` — 891 (1 skip);
+  `composer test:module game` — 509; `npx vitest run characterHands` — 10;
+  eslint/prettier по затронутым файлам; `vue-tsc` не даёт ошибок в затронутых
+  файлах (общий фон — старые ошибки Rule).
+- Не запускался: полный `bash tools/test-full.sh` — по подтверждению
+  пользователя. `composer quality` остаётся красным на старых phpcs/duplicates
+  вне этого среза.
+
+## 11. Журнал
 
 | Дата | Изменение |
 | --- | --- |
 | 2026-11-09 | План заведён: соматика как общий компонент действия, единый расчёт свободных рук, проверка в `GameSpellCastFacts` и `GameActionPerformSteps`. Зафиксировано, что проверка рук уже есть в `GameWoundHands`, но подключена только к зажатию ран. |
-| 2026-11-09 | Расчёт рук вынесен в один доменный объект `CharacterHands` (Character): `getOccupiedHands`/`getFreeHands`/`getItemOccupancy`/`getRequiredHands`/`canEquip`. `GameActionHands` — только адаптер с зажатыми ранами и политикой отказа. Отдельного счётчика `занять(1)` нет: источник истины — строки инвентаря. |
+| 2026-11-09 | Расчёт рук вынесен в один доменный объект `CharacterHands` (Character): `getOccupiedHands`/`getFreeHands`/`getItemOccupancy`/`getRequiredHandsOf`/`canEquip`. `GameActionHands` — только адаптер с зажатыми ранами и политикой отказа. Отдельного счётчика `занять(1)` нет: источник истины — строки инвентаря. |
+| 2026-11-09 | Срезы 1.1–1.4 реализованы: `GameWoundHands` удалён, проверка соматики в касте и карточке действия, фронт блокирует окна при нехватке рук. Частичные проверки зелёные; полный прогон отложен. |

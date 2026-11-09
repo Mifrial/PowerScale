@@ -57,7 +57,7 @@
 
 | Rule-поле / карточка | Где разобрано | Потребителя нет |
 | --- | --- | --- |
-| `action_components[].somatic`, `occupy_hands` | `Rule/Spec/ActionComponents.php` | Game (кроме зажатия ран: `GameWoundHands`) |
+| `action_components[].somatic`, `occupy_hands` | `Rule/Spec/ActionComponents.php` | Game (кроме зажатия ран: `GameActionHands`) |
 | `spell_upgrade` (`check_advantage`, `action_point_delta`, `resistance_penetration_per_step`, `chain`, `charge_cap`) | `Rule/Spec/AbilityCombat.php` | Game |
 | `check_efficiency` (грант) | `Rule/Spec/AbilityGrants.php` | Character/Game |
 | `spell_saturation` | `Rule/Spec/AbilityCombat.php` | Game |
@@ -120,7 +120,7 @@ M11–M12 — пути; M13–M16 — хвост.
   заклинаний, обычных действий и шагов процесса.
 - Проверять `occupy_hands`: у «Удара молнии» — 1 рука, у «Разряда» соматика
   без числа (касание, требования нет).
-- Использовать уже существующий расчёт свободных рук (`GameWoundHands`),
+- Использовать уже существующий расчёт свободных рук (прежний `GameWoundHands`),
   выделив его в доменный `CharacterHands` (Character) и тонкий
   `GameActionHands` (Game); убрать расхождение `min` против строки
   `occupyHands`.
@@ -268,3 +268,4 @@ M11–M12 — пути; M13–M16 — хвост.
 | --- | --- |
 | 2026-11-09 | Роудмап заведён: порядок M1–M16, таблица «разобрано, но не используется», открытые решения. Опора — план 46 и импортированный контент Арканиста. |
 | 2026-11-09 | M1 уточнён: соматика — компонент действия, а не заклинания; заведён `spell-real-plan-01-action-components.md`, предложен отказ при нехватке рук. |
+| 2026-11-09 | M1 (1.1–1.4) реализован: `CharacterHands`/`GameActionHands`, проверка при касте и объявлении действия, фронт блокирует окна. Полный `tools/test-full.sh` отложен. |

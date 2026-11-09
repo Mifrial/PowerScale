@@ -3101,14 +3101,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/spell-real-plan-01-action-components.md",
-                    "title": "План M1 — компоненты действия: соматика и свободные руки",
-                    "kind": "plan",
-                    "state": "ПЛАН",
-                    "date": "2026-11-09",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/spell-real-roadmap.md",
                     "title": "Роудмап магии: реальный runtime",
                     "kind": "plan",
@@ -3218,6 +3210,14 @@
                     "kind": "plan",
                     "state": "ЧАСТИЧНО",
                     "date": "2026-10-05",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-01-action-components.md",
+                    "title": "План M1 — компоненты действия: соматика и свободные руки",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-11-09",
                     "hasStatus": true
                 },
                 {
