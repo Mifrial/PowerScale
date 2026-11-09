@@ -16,6 +16,10 @@ export class SpellCastUpgradeService {
     const options: SpellCastUpgradeOption[] = [];
     const seen = new Set<string>();
     for (const ability of abilities) {
+      if (ability.level < 1) {
+        continue;
+      }
+
       const rule = rules.find((entry) => entry.code === ability.ruleCode);
       const spec = this.upgradeSpec(rule);
       if (!rule || !spec) {
@@ -28,8 +32,7 @@ export class SpellCastUpgradeService {
         !spec.spell_upgrade.action_point_delta &&
         !spec.spell_upgrade.check_advantage &&
         !spec.spell_upgrade.resistance_penetration_per_step &&
-        !spec.spell_upgrade.chain &&
-        !spec.spell_upgrade.charge_cap
+        !spec.spell_upgrade.chain
       ) {
         continue;
       }
