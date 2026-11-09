@@ -50,6 +50,19 @@ final class CharacteristicNumber extends DimensionalNumber
     }
 
     /**
+     * Разница в пунктах шкалы характеристик (base + 3×size).
+     *
+     * @param DimensionalNumber $other Второе число любой размерности.
+     *
+     * @return int Разница this − other.
+     */
+    public function characteristicDiffTo(DimensionalNumber $other): int
+    {
+        return ($this->getBase() + self::BASE_STEP * $this->getSize())
+            - ($other->getBase() + self::BASE_STEP * $other->getSize());
+    }
+
+    /**
      * У характеристик размер меняется только через modify.
      *
      * @param int $targetSize Целевой размер.

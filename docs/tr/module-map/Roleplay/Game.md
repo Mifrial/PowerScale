@@ -41,6 +41,7 @@
 - `Mifrial\Roleplay\Game\Action\AbortGameAction`
 - `Mifrial\Roleplay\Game\Action\AbortProcessGameAction`
 - `Mifrial\Roleplay\Game\Action\RunGameActionAction`
+- `Mifrial\Roleplay\Game\Action\CastGameSpellAction`
 - `Mifrial\Roleplay\Game\Action\ResolveGameStrikeWindowAction`
 - `Mifrial\Roleplay\Game\Action\StartGameBattleAction`
 - `Mifrial\Roleplay\Game\Action\SetGameBattleRosterAction`
@@ -153,6 +154,7 @@
 | `game.abortAction` | `AbortGameAction` | да |
 | `game.abortProcess` | `AbortProcessGameAction` | да |
 | `game.runAction` | `RunGameActionAction` | да |
+| `game.castSpell` | `CastGameSpellAction` | да |
 | `game.resolveStrikeWindow` | `ResolveGameStrikeWindowAction` | да |
 | `game.applyEconomy` | `ApplyGameEconomyAction` | да |
 | `game.getShop` | `GetGameShopAction` | да |

@@ -16,6 +16,7 @@ use Mifrial\Roleplay\Game\Action\AnswerGameCheckAction;
 use Mifrial\Roleplay\Game\Action\ApplyGameEconomyAction;
 use Mifrial\Roleplay\Game\Action\ApproveGameCharacterAction;
 use Mifrial\Roleplay\Game\Action\CancelGameCheckAction;
+use Mifrial\Roleplay\Game\Action\CastGameSpellAction;
 use Mifrial\Roleplay\Game\Action\ContinueGameAction;
 use Mifrial\Roleplay\Game\Action\CreateGameAction;
 use Mifrial\Roleplay\Game\Action\CreateGameChronicleEntryAction;
@@ -190,6 +191,9 @@ return [
         },
         RunGameActionAction::class => static function (IServiceLocator $serviceLocator): RunGameActionAction {
             return new RunGameActionAction((new GameStrikeHttpFactory())->createRunActionHttp($serviceLocator));
+        },
+        CastGameSpellAction::class => static function (IServiceLocator $serviceLocator): CastGameSpellAction {
+            return new CastGameSpellAction((new GameStrikeHttpFactory())->createSpellCastHttp($serviceLocator));
         },
         ResolveGameStrikeWindowAction::class => static function (
             IServiceLocator $serviceLocator,
@@ -587,6 +591,10 @@ return [
         ],
         'game.runAction' => [
             'handler' => RunGameActionAction::class,
+            'csrf' => true,
+        ],
+        'game.castSpell' => [
+            'handler' => CastGameSpellAction::class,
             'csrf' => true,
         ],
         'game.resolveStrikeWindow' => [

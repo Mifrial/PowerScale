@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Roleplay\Character\Service\Sheet\CharacterKeywordExperience;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
@@ -46,6 +47,66 @@ final class GameStrikeHttpFactory
                 new GameRunActionDeclare($this->actionDomain($serviceLocator), $wounds),
                 new GameRunActionStrikeDeclare($strikes, $wideStrikes, $ports->games(), $rules),
                 new GameRunActionRespond($strikes, $wideStrikes, $repository, $commands),
+            ),
+        );
+    }
+
+    /**
+     * HTTP серверного каста заклинания.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameSpellCastHttp Сценарий.
+     */
+    public function createSpellCastHttp(IServiceLocator $serviceLocator): GameSpellCastHttp
+    {
+        $ports = new GameStrikePorts($serviceLocator);
+        $gateway = $ports->gateway();
+        $ruleWiring = new GameStrikeRuleWiring($serviceLocator);
+        $rules = $ruleWiring->rules();
+        $write = new GameStrikeWriteWiring($serviceLocator);
+        $characters = new GameStrikeCharacterPorts($serviceLocator);
+        $shared = new GameStrikeShared(
+            $gateway,
+            $ports->games(),
+            $ports->mutations(),
+            $rules,
+            (new GameStrikeCardWiring())->card($serviceLocator),
+            $ports->events(),
+        );
+
+        return new GameSpellCastHttp(
+            $ports->userAccess(),
+            new GameSpellCastBody(),
+            new GameSpellCast(
+                $shared->ready,
+                $shared->replay,
+                $shared->repos->commands,
+                $shared->announce,
+                $shared->repos,
+                $shared->access,
+                $write->perform($rules),
+                new GameSpellCastFacts(
+                    $rules,
+                    $shared->sheets,
+                    $characters->characterSheets(),
+                    $write->availability($rules),
+                    new GameActionResourceResolver(),
+                ),
+                new GameSpellCastCheck(
+                    $ruleWiring->checkRoll(),
+                    new GameCheckChain(),
+                    $characters->combatLayers(),
+                ),
+                new GameSpellCastDamage(
+                    $rules,
+                    new CharacterKeywordExperience(),
+                    new GameStrikeAmounts(),
+                    $ruleWiring->consequences($rules),
+                ),
+                new GameSpellCastWrite($shared->sheetWrites),
+                new GameSpellCastChat($ports->chats(), $shared->chat),
+                new GameSpellCastView(),
             ),
         );
     }

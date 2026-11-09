@@ -143,6 +143,335 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Каст списывает ОД, бьёт электричеством, пишет Шок, Волю и увечье.
+     *
+     * @return void
+     */
+    public function testSpellCastAppliesElectricityAndSpendsAp(): void
+    {
+        $scene = $this->spellScene();
+        $gameId = $scene['gameId'];
+        $hero = $scene['hero'];
+        $heroVersion = $scene['heroVersion'];
+        $targetVersion = $scene['targetVersion'];
+        $body = $this->spellBody($scene);
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(4, $cast['data']['spent']);
+        self::assertTrue($cast['data']['cast']['needsCheck']);
+        self::assertTrue($cast['data']['cast']['roll']['success']);
+        self::assertSame(2, $cast['data']['spellSr']);
+        self::assertSame(['base' => 4, 'size' => 0], $cast['data']['spellDamage']);
+        self::assertNotNull($cast['data']['injury']);
+        self::assertGreaterThan($heroVersion, $cast['data']['caster']['sheetVersion']);
+        self::assertGreaterThan($targetVersion, $cast['data']['target']['sheetVersion']);
+        $consequence = $cast['data']['consequence'];
+        self::assertArrayHasKey('will', $consequence);
+        self::assertArrayHasKey('maim', $consequence);
+        self::assertSame(2, $consequence['exhaustionDelta']);
+
+        $heroAfter = $cast['data']['caster']['sheetVersion'];
+        $targetAfter = $cast['data']['target']['sheetVersion'];
+        $replay = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($replay['success'], json_encode($replay));
+        self::assertEquals($cast['data'], $replay['data']);
+        self::assertSame($heroAfter, $this->characterFacade()->get($hero)->getActualVersion());
+        self::assertSame(
+            $targetAfter,
+            $this->dispatch('game.getNpc', ['gameId' => $gameId, 'npcId' => $scene['npcId']])
+                ['data']['actualVersion'],
+        );
+    }
+
+    /**
+     * Каст без цели при targeting entity отклоняется до записи.
+     *
+     * @return void
+     */
+    public function testSpellCastRequiresTarget(): void
+    {
+        $scene = $this->spellScene();
+        $body = $this->spellBody($scene);
+        unset($body['target'], $body['expectedTargetVersion']);
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertFalse($cast['success']);
+        self::assertSame('INVALID_PARAMS', $cast['error']['code']);
+        self::assertSame($scene['heroVersion'], $this->characterFacade()->get($scene['hero'])->getActualVersion());
+    }
+
+    /**
+     * Stale цель откатывает и списание ОД.
+     *
+     * @return void
+     */
+    public function testSpellCastStaleTargetRollsBackAp(): void
+    {
+        $scene = $this->spellScene();
+        $body = $this->spellBody($scene);
+        $body['expectedTargetVersion'] = $scene['targetVersion'] + 5;
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertFalse($cast['success']);
+        self::assertSame('GAME_CONFLICT', $cast['error']['code']);
+        self::assertSame($scene['heroVersion'], $this->characterFacade()->get($scene['hero'])->getActualVersion());
+        self::assertSame(
+            $scene['targetVersion'],
+            $this->dispatch('game.getNpc', ['gameId' => $scene['gameId'], 'npcId' => $scene['npcId']])
+                ['data']['actualVersion'],
+        );
+    }
+
+    /**
+     * Значение параметра вне min/max отклоняется.
+     *
+     * @return void
+     */
+    public function testSpellCastRejectsParameterOutOfRange(): void
+    {
+        $scene = $this->spellScene();
+        $body = $this->spellBody($scene);
+        $body['parameters'] = ['x' => ['base' => 5, 'size' => 2]];
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertFalse($cast['success']);
+        self::assertSame('GAME_INVALID', $cast['error']['code']);
+        self::assertSame($scene['heroVersion'], $this->characterFacade()->get($scene['hero'])->getActualVersion());
+    }
+
+    /**
+     * Используемая мощь выше характеристики пути отклоняется.
+     *
+     * @return void
+     */
+    public function testSpellCastRejectsUsedPowerAboveCap(): void
+    {
+        $scene = $this->spellScene();
+        $body = $this->spellBody($scene);
+        $body['usedPower']['value'] = ['base' => 5, 'size' => 2];
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertFalse($cast['success']);
+        self::assertSame('GAME_INVALID', $cast['error']['code']);
+        self::assertSame($scene['heroVersion'], $this->characterFacade()->get($scene['hero'])->getActualVersion());
+    }
+
+    /**
+     * Без ОД каст отклоняется до записи.
+     *
+     * @return void
+     */
+    public function testSpellCastWithoutApIsRejected(): void
+    {
+        $scene = $this->spellScene(0);
+        $cast = $this->dispatch('game.castSpell', $this->spellBody($scene));
+        self::assertFalse($cast['success']);
+        self::assertSame('GAME_INVALID', $cast['error']['code']);
+        self::assertSame($scene['heroVersion'], $this->characterFacade()->get($scene['hero'])->getActualVersion());
+    }
+
+    /**
+     * Тело каста сцены.
+     *
+     * @param array{
+     *     gameId: int,
+     *     battleId: int,
+     *     hero: int,
+     *     heroVersion: int,
+     *     npcId: int,
+     *     targetVersion: int
+     * } $scene Сцена.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function spellBody(array $scene): array
+    {
+        return [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'cast-1',
+            'expectedVersion' => 1,
+            'expectedSheetVersion' => $scene['heroVersion'],
+            'expectedTargetVersion' => $scene['targetVersion'],
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'lightning-strike',
+            'pathCode' => 'arcanist',
+            'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+            'usedPower' => [
+                'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                'value' => ['base' => 5, 'size' => 1],
+            ],
+            'target' => ['type' => 'npc', 'id' => $scene['npcId']],
+        ];
+    }
+
+    /**
+     * Сцена каста: герой, NPC и бой.
+     *
+     * @return array{
+     *     gameId: int,
+     *     battleId: int,
+     *     hero: int,
+     *     heroVersion: int,
+     *     npcId: int,
+     *     targetVersion: int
+     * } Сцена.
+     */
+    private function spellScene(int $ap = 10): array
+    {
+        $world = $this->spellWorld();
+        $gameId = $this->addGame($world->getId(), $this->worldRevision());
+        $hero = $this->admit(
+            $world->getId(),
+            $gameId,
+            'Hero',
+            [],
+            ['resources' => [['ruleCode' => 'action-points', 'current' => $ap]]],
+            [],
+            null,
+            null,
+            [
+                ['ruleCode' => 'discharge', 'level' => 1],
+                ['ruleCode' => 'lightning-strike', 'level' => 1, 'domainCode' => 'arcanist'],
+            ],
+        );
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        $npc = $this->endureNpc($gameId, $this->dispatch('game.createNpc', [
+            'gameId' => $gameId,
+            'name' => 'Guard',
+            'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
+        ]));
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battle = $this->dispatch('game.startBattle', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'b1',
+            'participants' => [
+                ['type' => 'character', 'id' => $hero],
+                ['type' => 'npc', 'id' => $npc['data']['npcId']],
+            ],
+        ]);
+        self::assertTrue($battle['success'], json_encode($battle));
+
+        return [
+            'gameId' => $gameId,
+            'battleId' => $battle['data']['battleId'],
+            'hero' => $hero,
+            'heroVersion' => $this->characterFacade()->get($hero)->getActualVersion(),
+            'npcId' => $npc['data']['npcId'],
+            'targetVersion' => $npc['data']['actualVersion'],
+        ];
+    }
+
+    /**
+     * Мир каста: путь, проверка, заклинание, электричество и Шок.
+     *
+     * @return RuleSpaceRecord Мир.
+     */
+    private function spellWorld(): RuleSpaceRecord
+    {
+        $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
+        self::assertInstanceOf(IMechanics::class, $mechanics);
+        try {
+            $shockId = $mechanics->add('exhaustion_to_shock', 'Shock', '', '1.0.0');
+        } catch (MechanicInvalidException) {
+            $shockId = $mechanics->getByCodeVersion('exhaustion_to_shock', '1.0.0')->getId();
+        }
+
+        return $this->worldWithWeapon(
+            1,
+            true,
+            0,
+            false,
+            null,
+            false,
+            true,
+            [],
+            [
+                'discharge' => ['type' => 'trait', 'effects' => []],
+                'lightning-strike' => [
+                    'type' => 'spell',
+                    'effects' => [],
+                    'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                    'requirements' => [[
+                        'level' => 1,
+                        'requirements' => [['type' => 'has_ability', 'ability_code' => 'discharge']],
+                    ]],
+                    'spec' => [
+                        'spell' => [
+                            'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
+                            'control' => ['base' => 3, 'size' => -1],
+                            'targeting' => 'entity',
+                            'duration' => ['type' => 'instant'],
+                            'damage' => [
+                                'damage_type_code' => 'electricity',
+                                'experience_keyword_code' => 'electromancy',
+                                'power_modify_steps' => [['modify' => 0, 'min_experience' => 0]],
+                                'falloff' => [
+                                    'free_ipari' => 2,
+                                    'size_per_extra_ipari' => 1,
+                                    'min' => ['base' => 3, 'size' => -1],
+                                ],
+                            ],
+                        ],
+                        'parameters' => [[
+                            'code' => 'x',
+                            'label' => 'X',
+                            'kind' => 'dimensional',
+                            'resolution' => 'activation',
+                            'default' => ['base' => 3, 'size' => 0],
+                            'min' => ['base' => 3, 'size' => -1],
+                            'max' => ['base' => 5, 'size' => 1],
+                        ]],
+                        'hit_resolution' => ['type' => 'auto', 'rating' => 2],
+                        'action_components' => [[
+                            'type' => 'resource',
+                            'resource_code' => 'action-points',
+                            'amount' => 4,
+                        ]],
+                    ],
+                ],
+            ],
+            null,
+            [
+                'intellect' => [
+                    'type' => 'characteristic',
+                    'spec' => ['automatic' => ['value' => ['base' => 3, 'size' => 0]]],
+                ],
+                'magic-power' => [
+                    'type' => 'characteristic',
+                    'spec' => ['automatic' => ['value' => ['base' => 5, 'size' => 1]]],
+                ],
+                'magic-control' => [
+                    'type' => 'characteristic',
+                    'spec' => ['automatic' => ['value' => ['base' => 3, 'size' => 0]]],
+                ],
+                'shock' => ['type' => 'state', 'spec' => ['value_type' => 'number', 'aggregation' => 'sum']],
+                'cast-check' => ['type' => 'check', 'spec' => [
+                    'allowed_modes' => 'both',
+                    'difficulty_input' => ['kind' => 'ask'],
+                    'characteristic_code' => 'intellect',
+                    'allow_characteristic_override' => true,
+                ]],
+                'arcanist' => ['type' => 'magic_path', 'spec' => [
+                    'check_code' => 'cast-check',
+                    'cast_check_code' => 'cast-check',
+                    'power_characteristic_code' => 'magic-power',
+                    'control_characteristic_code' => 'magic-control',
+                    'includes_path_codes' => [],
+                ]],
+                'electricity' => [
+                    'type' => 'damage_type',
+                    'mechanics' => [[
+                        'mechanic_id' => $shockId,
+                        'mechanic_payload' => ['stateRuleCode' => 'shock'],
+                    ]],
+                    'spec' => [
+                        'forms' => ['genitive' => 'electricity', 'dative' => 'electricity'],
+                        'defense_ignored' => true,
+                        'max_success_rating' => 3,
+                    ],
+                ],
+            ],
+        );
+    }
+
+    /**
      * Висящие эффекты атакующего переживают ответ цели с реакцией.
      *
      * @return void
