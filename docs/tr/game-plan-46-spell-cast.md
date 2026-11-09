@@ -52,8 +52,10 @@
 - второй бросок попадания внутри `game.castSpell`: касание идёт через
   `game.runAction`, а `castSpell` остаётся для `hit_resolution: auto/none`;
 - `ActiveSpell`, Генератор, поддержание, `refreshable`/`sustained`;
-- `spell_upgrade` на каст (`chain-lightning`, `charge-accumulation`,
-  `careful-magic`), насыщение и `spell_saturation`;
+- `spell_upgrade` на каст: `careful-magic` и `piercing-magic` закрывает
+  [`spell-real-plan-02-spell-upgrades.md`](spell-real-plan-02-spell-upgrades.md);
+  `chain-lightning`, `charge-accumulation`, насыщение и `spell_saturation`
+  остаются вне этого среза;
 - магическое отклонение, арканный взрыв, стабильность, дестабилизация;
 - источники магии (ядро, кристалл, накопители, проводники);
 - battleground, реальная дистанция и координаты;
@@ -813,8 +815,10 @@ Frontend:
 
 - **Дистанция.** Battleground нет; `distanceIpari` пока `0`. Когда появится
   расстояние, falloff начнёт резать урон без изменения контракта.
-- **Соматика.** `occupy_hands` в M7 не проверялась; в этом срезе сохраняем
-  поведение и не добавляем проверку рук.
+- **Соматика.** `occupy_hands` в M7 не проверялась; соматику и свободные
+  руки закрывает [`spell-real-plan-01-action-components.md`](spell-real-plan-01-action-components.md).
+- **Улучшения каста.** `spell_upgrade` в M2 считает сервер; `chain` и
+  `charge_cap` отклоняются до M13/M8.
 - **Чат.** Сервер должен писать его внутри команды; иначе replay напечатает
   сообщения повторно. Формат — минимальный: объявление, бросок, урон/провал,
   Воля, увечье.

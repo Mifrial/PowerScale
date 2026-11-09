@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 340,
-        "plans": 221,
+        "documents": 341,
+        "plans": 222,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 243,
+            "tr": 244,
             "tz": 2
         },
         "byZoneState": {
@@ -73,7 +73,7 @@
                 "СДЕЛАНО": 146,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 33,
-                "ПЛАН": 10,
+                "ПЛАН": 11,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
                 "В РАБОТЕ": 15
@@ -87,7 +87,7 @@
             "СНИМОК": 65,
             "нет": 57,
             "СДЕЛАНО": 148,
-            "ПЛАН": 13,
+            "ПЛАН": 14,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 33,
             "ОТМЕНЁН": 1,
@@ -275,19 +275,19 @@
             }
         },
         "Roleplay/Rule": {
-            "docs": 46,
+            "docs": 47,
             "state": {
                 "нет": 3,
                 "СДЕЛАНО": 21,
                 "ЧАСТИЧНО": 7,
                 "ОТЛОЖЕН": 3,
-                "ПЛАН": 5,
+                "ПЛАН": 6,
                 "В РАБОТЕ": 7
             },
             "layer": {
-                "VUE": 16,
+                "VUE": 17,
                 "МОК": 2,
-                "PHP": 12
+                "PHP": 13
             }
         },
         "Roleplay/RuleSpace": {
@@ -4753,17 +4753,18 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 72877,
-            "lines": 882,
+            "bytes": 73234,
+            "lines": 886,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 7,
+            "linksCount": 9,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/character-plan-13-path-study.md",
                 "docs/tr/character-roadmap.md",
                 "docs/tr/spell-real-plan-01-action-components.md",
+                "docs/tr/spell-real-plan-02-spell-upgrades.md",
                 "docs/tr/spell-real-roadmap.md",
                 "docs/tr/spell-roadmap.md"
             ]
@@ -5302,6 +5303,7 @@
                 "docs/tr/magic-content-design-02-arcanist-advanced.md",
                 "docs/tr/magic-content-plan-01-arcanist-entry.md",
                 "docs/tr/magic-content-plan-02-interstructure-energy-transfer.md",
+                "docs/tr/spell-real-plan-02-spell-upgrades.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -5364,6 +5366,7 @@
             "linksCount": 3,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/spell-real-plan-02-spell-upgrades.md",
                 "docs/tr/spell-real-roadmap.md"
             ]
         },
@@ -5423,7 +5426,9 @@
             "modules": [],
             "linksCount": 2,
             "brokenLinks": [],
-            "backlinks": []
+            "backlinks": [
+                "docs/tr/spell-real-plan-02-spell-upgrades.md"
+            ]
         },
         {
             "path": "docs/tr/mail-plan-01-queue.md",
@@ -8563,6 +8568,34 @@
             "linksCount": 5,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/game-plan-46-spell-cast.md",
+                "docs/tr/spell-real-plan-02-spell-upgrades.md",
+                "docs/tr/spell-real-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/spell-real-plan-02-spell-upgrades.md",
+            "title": "План M2 — улучшения каста",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "ПЛАН",
+            "stateSource": "token",
+            "statusRaw": "~ПЛАН~, 2026-11-10.",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-10",
+            "bytes": 27501,
+            "lines": 438,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 7,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/spell-real-roadmap.md"
             ]
         },
@@ -8580,16 +8613,17 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 19210,
-            "lines": 272,
+            "bytes": 19978,
+            "lines": 279,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 7,
+            "linksCount": 8,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/spell-real-plan-01-action-components.md",
+                "docs/tr/spell-real-plan-02-spell-upgrades.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -8660,6 +8694,7 @@
                 "docs/tr/spell-plan-07-runtime-slice.md",
                 "docs/tr/spell-plan-08-runtime-expansion.md",
                 "docs/tr/spell-plan-09-magic-runtime.md",
+                "docs/tr/spell-real-plan-02-spell-upgrades.md",
                 "docs/tr/spell-real-roadmap.md"
             ]
         },
