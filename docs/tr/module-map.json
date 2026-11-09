@@ -3101,6 +3101,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/spell-real-roadmap.md",
+                    "title": "Роудмап магии: реальный runtime",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-11-09",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/spell-review-01.md",
                     "title": "Review 01 — вопросы по терминам и пропускам магии",
                     "kind": "canon",

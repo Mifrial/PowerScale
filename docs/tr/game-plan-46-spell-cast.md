@@ -26,7 +26,15 @@
 
 Входят:
 
-- `game.castSpell` для `lightning-strike`;
+- два входа по способу доставки (это **не** последовательность «сначала
+  `castSpell`, потом `runAction`», фронт выбирает ровно один):
+  - `game.castSpell` — только `hit_resolution: auto/none` (например,
+    `lightning-strike`), где второго броска и окна защиты нет;
+  - `game.runAction` — касание `hit_resolution: attack` (срез 46.6):
+    объявление удара, интерактивная защита цели, затем проверка сотворения и
+    эффект;
+- фронт не оркестрирует: по карточке выбирает один вход, отправляет команду и
+  показывает ответ сервера, а не считает результат сам;
 - `has_ability` с доменом пути — как предусловие каста;
 - проверка доступности конкретного экземпляра заклинания на выбранном пути;
 - ОД и компоненты из `action_components` карточки;
@@ -41,7 +49,8 @@
 
 Не входят:
 
-- касание (`discharge`, `hit_resolution: attack`) и второй бросок попадания;
+- второй бросок попадания внутри `game.castSpell`: касание идёт через
+  `game.runAction`, а `castSpell` остаётся для `hit_resolution: auto/none`;
 - `ActiveSpell`, Генератор, поддержание, `refreshable`/`sustained`;
 - `spell_upgrade` на каст (`chain-lightning`, `charge-accumulation`,
   `careful-magic`), насыщение и `spell_saturation`;
@@ -98,11 +107,33 @@
     один `x` может быть и мощью, и контролем. `usedPower` — выбранная мощь
     источника (характеристики, ядра или гранта) вместе с идентификатором
     источника. Мощь урона берётся из `parameters`, а не из `usedPower`.
+11. **Касание — обычный удар с payload заклинания.** `game.runAction`
+    объявляет удар (`kind: 'strike'`) с блоком `spellCast` в контексте.
+    Защита цели остаётся интерактивной: уклонение, блок или игнорирование
+    выбирает цель. Отдельного окна реакции у `game.castSpell` нет, поэтому
+    касание не идёт через него.
+12. **ОД касания = max(ОД заклинания, ОД атаки).** Списывается на
+    объявлении удара; заклинание и удар не оплачиваются дважды.
+13. **Порядок касания: объявление → компонент касания (атака) → проверка
+    сотворения → эффект.** Проверка сотворения идёт после защиты, а не до
+    неё. Промах касания — «молоко»: каст проверяется, но эффекта на цель нет.
+14. **Физический урон касания не зависит от каста.** Урон оружия/касания
+    применяется ударом даже при провале проверки сотворения. Урон
+    заклинания (электричество) — только при попадании и успешном касте.
+15. **`game.castSpell` — не второй шаг и не оркестратор.** Доменно
+    заклинание — такое же действие, но `game.runAction` с
+    `kind: 'action'` принимает только `AbilityActionSpec` (не-атака, не
+    спелл); спелл — `AbilitySpellSpec` со своим расчётом доступности,
+    параметров, мощи и `check-spell-cast`. Поэтому в 46.6 было два
+    параллельных входа по способу доставки, а в 46.7 добавлен
+    `game.runAction kind: 'spell'` для каста без касания. `game.castSpell`
+    остаётся прежним тонким алиасом того же `GameSpellCastBody`, а не
+    обязательным этапом касания; фронт вызывает только `runAction`.
 
 ## 3. Модель
 
 ```text
-game.castSpell
+game.runAction kind: 'spell'   (game.castSpell — прежний тонкий алиас)
   → проверка прав, сессии и replay
   → срез игры и листы кастера/цели
   → доступность экземпляра заклинания на пути
@@ -114,34 +145,48 @@ game.castSpell
   → чат и итог
 ```
 
-Каст — это действие, но не `game.runAction` и не удар. У него нет окна
-реакции и фаз удара; объявление, оплата и эффект происходят в одной команде.
-Поэтому отдельный вход `game.castSpell`, а не новый `kind` в `runAction`.
+Каст — это действие, но без окна реакции и фаз удара: объявление, оплата и
+эффект происходят в одной команде. Поэтому у него нет фазы `respond`, но есть
+свой `kind: 'spell'` в едином `game.runAction`. `game.castSpell` остаётся
+алиасом того же доменного расчёта для старых вызовов; фронт использует
+`runAction`.
 
-## 4. Контракт `game.castSpell`
+## 4. Контракт каста
 
 ### 4.1 Запрос
 
+Канонический конверт:
+
 ```text
-gameId: int
-battleId: int
-idempotencyKey: string
-expectedVersion: int            // версия боя; проверяется, не меняется
-expectedSheetVersion: int       // CAS листа кастера
-expectedTargetVersion?: int     // CAS листа цели; только при наличии target
-actor: {type: character|npc, id: int}
-spellCode: string               // lightning-strike
-pathCode: string                // arcanist | psionic | shaman
-parameters: { [code: string]: int | {base: int, size: int} }  // активационные параметры спеки
-usedPower: {
-  source: {kind: 'characteristic', code: string}
-        | {kind: 'item', inventoryId: int}
-        | {kind: 'grant', abilityCode: string},
-  value: {base: int, size: int}
-}
-target?: {type: character|npc, id: int}  // обязателен при targeting: entity
-distanceIpari?: int             // 0; поле зарезервировано под battleground
+game.runAction
+  gameId: int
+  battleId: int
+  idempotencyKey: string
+  expectedVersion: int
+  action:
+    phase: 'declare'
+    kind: 'spell'
+    code: spellCode
+    actor: {type: character|npc, id: int}
+    context:
+      expectedSheetVersion: int       // CAS листа кастера
+      pathCode: string                // arcanist | psionic | shaman
+      parameters: { [code: string]: int | {base: int, size: int} }
+      usedPower: {
+        source: {kind: 'characteristic', code: string}
+              | {kind: 'item', inventoryId: int}
+              | {kind: 'grant', abilityCode: string},
+        value: {base: int, size: int}
+      }
+      target?: {type: character|npc, id: int}  // обязателен при targeting: entity
+      expectedTargetVersion?: int     // CAS листа цели; только при наличии target
+      distanceIpari?: int             // 0; поле зарезервировано под battleground
 ```
+
+Прежний плоский `game.castSpell` принимает те же поля без оболочки
+`action`/`context` (`spellCode`, `pathCode`, `parameters`, `usedPower`,
+`target`, `expectedTargetVersion`, `distanceIpari`). Оба входа попадают в один
+`GameSpellCastBody`, поэтому правила формы ниже общие.
 
 Правила формы:
 
@@ -442,9 +487,13 @@ inventoryId}`; `grant:{abilityCode}` → `{kind: 'grant', abilityCode}`;
   `GameActionBattle::battleOf()`; каст его не меняет. Открытое действие в бою
   (`findOpenAny`) блокирует каст так же, как `runAction`.
 - После успешной записи — сообщения чата через новый `GameSpellCastChat`
-  (объявление, бросок каста, урон/провал, Воля, увечье). Тред — turn-тред
-  `GameCombatThread::buildTurn()`, как у `GameActionChat`; автор —
-  `actorUserId`. Чат входит в команду, чтобы replay не дублировал его.
+  (объявление, бросок каста, урон/провал, итог истощения и остатка
+  повреждений, состояния от хуков урона, Воля, увечье). Для каста без
+  касания (`kind: 'spell'`) — собственный тред заклинания
+  `GameCombatThread::buildSpellCast()` с родителем-ходом, как у атаки; id
+  стабилен от `idempotencyKey`. Для касания — тред заклинания от удара
+  (см. 46.6). Автор — `actorUserId`. Чат входит в команду, чтобы replay не
+  дублировал его.
 
 ## 6. Срез 46.1 — `has_ability` с доменом пути
 
@@ -572,7 +621,103 @@ experienceOf(slice, choices, levels, keywordCode): int
   для демо, но он не вызывается в real и не является контрактом. Если
   мок-режим не нужен — метод бросает `throwPhpUnsupported`, а не подставляет
   локальный результат.
-- `HitLaunchDialog`/касание не трогаем: `lightning-strike` — auto.
+- `HitLaunchDialog`/касание в 46.4 не трогаем: `lightning-strike` — auto.
+  Касание вынесено в 46.6.
+
+## 8.1 Срез 46.6 — касание через `game.runAction`
+
+- Контракт объявления: `phase: 'declare'`, `kind: 'strike'`; в `context`
+  появляется необязательный блок `spellCast`:
+  `spellCode`, `pathCode`, `parameters`, `usedPower`, необязательный
+  `spellTarget`. Блок допустим только для одного удара в одну цель и только
+  для заклинания с `hit_resolution: attack`.
+- `game.castSpell` не удаляется и не получает окно реакции: он остаётся для
+  заклинаний с `hit_resolution: auto/none`, где второго броска нет.
+- `GameSpellTouchBody` разбирает `spellCast`; `GameSpellTouchFacts` проверяет
+  доступность, путь, параметры и компоненты через общий `GameSpellCastFacts`.
+  Траты заклинания кладутся в выбор и объединяются с тратами удара по
+  максимуму на ресурс (`GameStrikeSpendCosts::maxSpends`). Надбавки к
+  стоимости удара (например, +1 ОД за повтор быстрого действия) применяются
+  до выбора максимума: `max(удар + надбавка, заклинание)`.
+- Объявление в чате показывает фактически списанные ОД из итога открытия
+  (`spent`), а не базовую цену карточки.
+- Строка удара хранит payload в новом JSON-поле
+  `game_action_strike.spell_cast`; служебные рассчитанные траты в неё не
+  пишутся.
+- Закрытие удара (`GameStrikeSingleWrite`) после урона и чата удара вызывает
+  `GameSpellTouchFinish`: заново готовит каст по сохранённому payload,
+  бросает `check-spell-cast`, считает эффект с `deliverySr` (успех касания) и
+  целью эффекта `damageTarget` (цель заклинания или цель касания).
+- Порядок чата: в треде хода — подтред заклинания
+  (`GameCombatThread::buildSpell`, `spell-<strikeId>`) с объявлением
+  «X совершает [[rule:discharge]] за N ОД. Заклинание требует касания:»;
+  внутри него — подтред атаки (`GameCombatThread::buildAttack`,
+  `attack-<strikeId>`) с объявлением касания, защитой, броском и итогом
+  удара; затем снова в подтреде заклинания — проверка сотворения,
+  урон/«молоко»/провал каста. Подтред атаки вкладывается в подтред
+  заклинания, а не в тред хода.
+- Промах касания (`attackSr <= 0`) — «молоко»: проверка сотворения
+  выполняется, урон заклинания не применяется. Провал каста не отменяет
+  физический урон касания, уже записанный ударом.
+- Фронт: `SpellCastDialog` для касания не вызывает `game.castSpell`, а
+  эмитит `touch-cast` с `AttackAction` и payload; `GameChatTab` открывает
+  `HitLaunchDialog`, который передаёт `spellCast` в конверт объявления.
+  Профили касания показываются тем же `AttackProfileOption`, что и в атаке.
+
+## 8.2 Срез 46.7 — `kind: 'spell'` в `game.runAction`
+
+- `GameRunActionBody` принимает `kind: 'spell'` только в фазе `declare`;
+  `respond` для заклинания отклоняется.
+- Контекст `spell` разбирает `GameRunActionSpellBody`, а полную нормализацию
+  делает общий `GameSpellCastBody`; отдельного второго парсера контракта нет.
+- `GameRunActionSpellDeclare` собирает `CastGameSpellInput` из конверта и
+  вызывает тот же `GameSpellCast`, что и `game.castSpell`. Права, replay,
+  CAS, блокировка открытым действием, чат и ответ — общие.
+- `game.castSpell` остаётся алиасом для старых вызовов; фронт
+  `GameApi.castSpell` переведён на `game.runAction kind: 'spell'`.
+- Ответ каста получает `kind: 'spell'`, `phase: 'declare'`; остальные поля
+  (`cast`, `spent`, `caster`, `target`, `spellSr`, `spellDamage`, `injury`,
+  `consequence`) не меняются.
+
+## 8.3 Согласование листа, карточки и боя
+
+- Агрегатный уровень способности (`aggregate`, «Развитие X») считается на
+  сервере так же, как на фронте: берутся активные способности с признаком
+  `method_keyword`, их цена до взятого уровня, затем жадно набираются методы
+  по ступеням `levels`. `CharacterDerivedLevels` возвращает и
+  `derived_level`, и `aggregate`; `CharacterSheetLive` кладёт их в
+  `sheet.abilityLevels`, поэтому гранты агрегата (например,
+  `razvitie-intellekta` за 2 уровень → `+2` к `intellect`) видны и в листе,
+  и в боевой карточке.
+- Фронтовый расчёт характеристик применяет модификатор производной
+  характеристики к её базам (`intellect = min(memory, reasoning)`), поэтому
+  `+2` к `intellect` доходит до `memory` и `reasoning` и не теряется при
+  пересчёте формулы.
+- Выбор цели заклинания и касания в `SpellCastDialog` ограничен участниками
+  текущего боя (`participantsOnly`); «Воздух» стоит в конце списка
+  (`trailing`) и не выбирается автоматически.
+
+## 8.4 Срез 46.8 — чат последствий и память выбора
+
+- Каст без касания пишет свой подтред `spell` (`GameCombatThread::buildSpellCast`,
+  id от `idempotencyKey`) с родителем-ходом, а не строки прямо в треде хода.
+  Касание сохраняет `spell-<strikeId>` с вложенным `attack-<strikeId>`.
+- Фронт рисует `spell` как блок, как атаку, а не как разделитель хода:
+  `chrome: 'end'`, `variant: 'block'`. Вложенные треды (атака внутри
+  заклинания) рендерятся рекурсивно через `ChatFoldChildren`.
+- Размерные числа в чате каста идут через общий `GameStrikeChat::getDimensionalText`
+  (`8`, `3↓`, `3↓²`), без сырого `base|size`.
+- `GameStrikeConsequenceEffects` кладёт в `consequence` новые поля:
+  `exhaustionTotal` (итог после прироста) и `states` (состояния от хуков
+  типа урона, например Шок). `GameSpellCastChat` пишет строку «получает N
+  истощения, итого … и … нераспределённых повреждений», перечисляет
+  сложности проверок истощения и увечья, затем сами проверки через
+  `GameStrikeChat::getExhaustionText` / `getMaimPayload` и строку получения
+  состояния.
+- `SpellCastDialog` по умолчанию берёт последний профиль касания
+  (`useAttackFavorites`, как окно атаки) и последнюю цель
+  (`useLastTargetsStore`, пара «игра + действующий»); `AttackLaunchDialog`
+  тоже по умолчанию подставляет последнюю цель.
 
 ## 9. Срезы
 
@@ -583,6 +728,8 @@ experienceOf(slice, choices, levels, keywordCode): int
 | 46.3 | `game.castSpell` + тесты | серверный каст, replay, CAS, `putDamageSplit`, Шок, Воля/увечье |
 | 46.4 | фронт real | `SpellCastDialog` через `game.castSpell`, без локального расчёта |
 | 46.5 | ручная проверка и гейт | НПС покупает `lightning-strike`, кастует в цель, save/повтор стабильны |
+| 46.6 | касание через `game.runAction` | `discharge`: объявление, защита цели, проверка сотворения, электричество/молоко; физический урон касания независим от каста; `game_action_strike.spell_cast` |
+| 46.7 | `kind: 'spell'` в `game.runAction` | каст без касания идёт через единый вход; `game.castSpell` — алиас; фронт `GameApi.castSpell` отправляет `runAction` |
 
 ## 10. Тесты
 
@@ -620,7 +767,19 @@ MySQL:
 - stale battle version: конфликт до записи;
 - stale target: откат, ОД не списаны;
 - replay того же ключа: тот же итог, второй записи и второго чата нет;
-- другое тело с тем же ключом: конфликт.
+- другое тело с тем же ключом: конфликт;
+- касание `discharge`: объявление через `game.runAction` без долга, ОД =
+  `max(4, ОД удара)`, защита цели закрывает удар, после неё идёт
+  `check-spell-cast`, электрический урон и версия листа цели растут;
+- касание с промахом: каст проверяется, урон заклинания не применяется,
+  в чате «молоко»;
+- касание с провалом каста: физический урон удара остаётся, электричества нет;
+- касание после быстрого действия: надбавка +1 ОД входит в удар, итог —
+  `max(удар + 1, заклинание)`; списывается и показывается в чате эта сумма;
+- `game.runAction kind: 'spell'`: каст `lightning-strike` тем же доменным
+  расчётом, что `game.castSpell`, replay возвращает тот же итог;
+- конверт `kind: 'spell'` с лишним ключом или целью без
+  `expectedTargetVersion` — `INVALID_PARAMS`.
 
 Frontend:
 
@@ -630,7 +789,11 @@ Frontend:
 - успешный ответ обновляет лист/оверлей;
 - в real-режиме диалог не тратит концентрацию и не пишет
   pending/charge/generator;
-- мок-режим не влияет на real-путь.
+- мок-режим не влияет на real-путь;
+- касание: `SpellCastDialog` эмитит `touch-cast` и не вызывает
+  `game.castSpell`; `HitLaunchDialog` включает `spellCast` в конверт
+  объявления; профили касания показывают тип, дистанцию, точность, урон и
+  пробитие, а занятые руки поясняются подсказкой.
 
 ## 11. Гейт
 
@@ -642,7 +805,9 @@ Frontend:
 - ручная проверка на НПС: купить `lightning-strike` (опыт пути вырастет),
   скастовать в цель, проверить ОД, урон, Шок, повтор команды и save;
 - полный `bash tools/test-full.sh` — после ручной проверки, по подтверждению
-  пользователя.
+  пользователя. На 2026-11-09 ручная проверка пройдена, полный прогон отложен
+  по решению пользователя: статус плана остаётся `~ЧАСТИЧНО~` до его
+  прохождения.
 
 ## 12. Риски и открытые вопросы
 
@@ -703,3 +868,14 @@ Frontend:
 | 2026-11-09 | 46.3 сделан: `game.castSpell` с `GameSpellCast*` (body/facts/check/damage/write/chat/view), общие компоненты, проверка домена, CAS цели и кастера, replay, Шок/Воля/увечье; MySQL-тесты успеха, replay, stale цели, нет цели/ОД, параметр вне границ, мощь выше потолка. |
 | 2026-11-09 | 46.4 сделан: `GameApi`/`IGameApi` получили `castSpell`; real-ветка `SpellCastDialog` отправляет контрактные поля и не считает локально; мок бросает ошибку. |
 | 2026-11-09 | 46.5 ожидает ручной проверки НПС и полного `tools/test-full.sh`; автоматические полосы (`composer stan`, `test:unit`, Game MySQL, vitest) зелёные. |
+| 2026-11-09 | 46.6 сделан: касание идёт через `game.runAction` с `context.spellCast`, защита цели интерактивная; ОД = max(каст, удар); payload хранится в `game_action_strike.spell_cast`; после удара `GameSpellTouchFinish` бросает `check-spell-cast` и пишет эффект/молоко; физический урон касания не зависит от каста. Фронт: `SpellCastDialog` → `touch-cast` → `HitLaunchDialog`; профили касания через `AttackProfileOption` и подсказка о занятых руках. |
+| 2026-11-09 | 46.7 сделан: `game.runAction kind: 'spell'` для каста без касания (`GameRunActionSpellBody`, `GameRunActionSpellDeclare`); используется тот же `GameSpellCast`; `game.castSpell` остаётся алиасом; `GameApi.castSpell` переведён на `runAction`. |
+| 2026-11-09 | Чат касания выправлен: подтред заклинания (`spell-<id>`) с объявлением «Заклинание требует касания:»; внутри него подтред атаки с касанием, защитой и итогом; проверка сотворения и итог каста («успешно сотворяет …, но касание уходит в воздух») — снова в подтреде заклинания. `GameSpellCastChat` принимает тред, `GameStrikeOpenAnnouncement` создаёт подтред заклинания, `GameSpellTouchFinish` пишет в него, защита и модификаторы берут родителя из `spell_cast`. |
+| 2026-11-09 | Исправлена стоимость касания: надбавки к удару (+1 ОД за повтор быстрого действия) применяются до максимума с заклинанием, поэтому `max(2+1, 4)=4`, а не `max(2,4)+1=5`; объявление в чате берёт фактически списанные ОД из `spent` итога открытия. Деталка способности показывает «Сотворение: N ОД». |
+| 2026-11-09 | Выбор цели заклинания и касания ограничен участниками боя; «Воздух» перенесён в конец списка и больше не выбирается по умолчанию. |
+| 2026-11-09 | Тред заклинания получил вид `spell` (а не `attack`), фронт строит третий уровень «ход → заклинание → атака» и раскрывает оба подтреда текущего хода по `thread.parentId`. |
+| 2026-11-09 | Причина расхождения «Интеллект 4 в бою против {3\|1} в листе»: фронт считал агрегатный уровень «Развитие интеллекта», а сервер учитывал только купленные и `derived_level`. Добавлен расчёт `aggregate` в `CharacterDerivedLevels`; уровень попадает в `sheet.abilityLevels`, и гранты агрегата применяются и в листе, и в боевой карточке. Проверка сборки NPC «Колдунец»: `intellect` стал `{3\|1}` вместо `{4\|0}`. |
+| 2026-11-09 | Каст без касания получил собственный `spell`-тред (`buildSpellCast`) с родителем-ходом; фронт рисует `spell` блоком, как атаку. |
+| 2026-11-09 | Чат последствий: размерные числа через `getDimensionalText`; строка «получает N истощения, итого …»; сложности проверок истощения и увечья; сами проверки через `getExhaustionText`/`getMaimPayload`; состояния от хуков (`Шок`) из нового `consequence.states`. |
+| 2026-11-09 | `SpellCastDialog` по умолчанию берёт последний профиль касания (`useAttackFavorites`) и последнюю цель (`useLastTargetsStore`); `AttackLaunchDialog` тоже подставляет последнюю цель. |
+| 2026-11-09 | 46.5: ручная проверка пройдена (треды, последние профиль/цель, строки истощения/увечья/Шока, интеллект). Полный `tools/test-full.sh` отложен по решению пользователя; статус остаётся `~ЧАСТИЧНО~`. Продолжение магии — [`spell-real-roadmap.md`](spell-real-roadmap.md). |

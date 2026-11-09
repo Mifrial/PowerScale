@@ -28,6 +28,6 @@
 | Roleplay | [Keyword](Roleplay/Keyword.md) | `IKeywordContainer` | 7 | 5 | Core/Kernel, Core/SmartTable, Core/User | 3 |
 | Roleplay | [Map](Roleplay/Map.md) | `IMapContainer` | 8 | 5 | Core/File, Core/Kernel, Core/SmartTable, Core/User | 3 |
 | Roleplay | [Mechanic](Roleplay/Mechanic.md) | `IMechanicContainer` | 8 | 4 | Core/Kernel, Core/SmartTable, Core/User | 8 |
-| Roleplay | [Rule](Roleplay/Rule.md) | `IRuleContainer` | 2 | 0 | Core/Kernel, Core/SmartTable, Roleplay/Keyword, Roleplay/Mechanic, Versioning/Space | 43 |
+| Roleplay | [Rule](Roleplay/Rule.md) | `IRuleContainer` | 2 | 0 | Core/Kernel, Core/SmartTable, Roleplay/Keyword, Roleplay/Mechanic, Versioning/Space | 44 |
 | Roleplay | [RuleSpace](Roleplay/RuleSpace.md) | `IRuleSpaceContainer` | 11 | 9 | Core/Kernel, Core/SmartTable, Core/User, Roleplay/Rule | 8 |
 | Versioning | [Space](Versioning/Space.md) | `ISpaceContainer` | 1 | 0 | Core/Cache, Core/Kernel, Core/SmartTable | 2 |

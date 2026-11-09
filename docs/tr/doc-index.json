@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 338,
-        "plans": 219,
+        "documents": 339,
+        "plans": 220,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 241,
+            "tr": 242,
             "tz": 2
         },
         "byZoneState": {
@@ -73,7 +73,7 @@
                 "СДЕЛАНО": 146,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 32,
-                "ПЛАН": 9,
+                "ПЛАН": 10,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
                 "В РАБОТЕ": 15
@@ -87,7 +87,7 @@
             "СНИМОК": 65,
             "нет": 57,
             "СДЕЛАНО": 148,
-            "ПЛАН": 12,
+            "ПЛАН": 13,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 32,
             "ОТМЕНЁН": 1,
@@ -275,19 +275,19 @@
             }
         },
         "Roleplay/Rule": {
-            "docs": 44,
+            "docs": 45,
             "state": {
                 "нет": 3,
                 "СДЕЛАНО": 21,
                 "ЧАСТИЧНО": 6,
                 "ОТЛОЖЕН": 3,
-                "ПЛАН": 4,
+                "ПЛАН": 5,
                 "В РАБОТЕ": 7
             },
             "layer": {
-                "VUE": 14,
+                "VUE": 15,
                 "МОК": 2,
-                "PHP": 10
+                "PHP": 11
             }
         },
         "Roleplay/RuleSpace": {
@@ -2869,7 +2869,8 @@
                 "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/magic-content-plan-01-arcanist-entry.md",
                 "docs/tr/magic-content-plan-03-arcanist-advanced.md",
-                "docs/tr/magic-content-plan-04-arcanist-mastery.md"
+                "docs/tr/magic-content-plan-04-arcanist-mastery.md",
+                "docs/tr/spell-real-roadmap.md"
             ]
         },
         {
@@ -4751,16 +4752,17 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 52950,
-            "lines": 706,
+            "bytes": 72877,
+            "lines": 882,
             "modules": [
                 "Roleplay/Game"
             ],
-            "linksCount": 6,
+            "linksCount": 7,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/character-plan-13-path-study.md",
                 "docs/tr/character-roadmap.md",
+                "docs/tr/spell-real-roadmap.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -5359,7 +5361,9 @@
             "modules": [],
             "linksCount": 3,
             "brokenLinks": [],
-            "backlinks": []
+            "backlinks": [
+                "docs/tr/spell-real-roadmap.md"
+            ]
         },
         {
             "path": "docs/tr/magic-content-plan-02-interstructure-energy-transfer.md",
@@ -8289,6 +8293,7 @@
                 "docs/tr/spell-plan-01-inventory.md",
                 "docs/tr/spell-plan-02-slice.md",
                 "docs/tr/spell-plan-06-cast-check.md",
+                "docs/tr/spell-real-roadmap.md",
                 "docs/tr/spell-review-01.md"
             ]
         },
@@ -8447,6 +8452,7 @@
                 "docs/tr/spell-plan-07-runtime-slice.md",
                 "docs/tr/spell-plan-08-runtime-expansion.md",
                 "docs/tr/spell-plan-09-magic-runtime.md",
+                "docs/tr/spell-real-roadmap.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -8532,6 +8538,32 @@
             ]
         },
         {
+            "path": "docs/tr/spell-real-roadmap.md",
+            "title": "Роудмап магии: реальный runtime",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "ПЛАН",
+            "stateSource": "token",
+            "statusRaw": "~ПЛАН~, 2026-11-09.",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-09",
+            "bytes": 17779,
+            "lines": 260,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 6,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/game-plan-46-spell-cast.md",
+                "docs/tr/spell-roadmap.md"
+            ]
+        },
+        {
             "path": "docs/tr/spell-review-01.md",
             "title": "Review 01 — вопросы по терминам и пропускам магии",
             "zone": "tr",
@@ -8571,12 +8603,12 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-07",
-            "bytes": 37513,
-            "lines": 418,
+            "bytes": 37939,
+            "lines": 420,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 18,
+            "linksCount": 19,
             "brokenLinks": [
                 "spell-plan-10-backend.md"
             ],
@@ -8597,7 +8629,8 @@
                 "docs/tr/spell-plan-06-cast-check.md",
                 "docs/tr/spell-plan-07-runtime-slice.md",
                 "docs/tr/spell-plan-08-runtime-expansion.md",
-                "docs/tr/spell-plan-09-magic-runtime.md"
+                "docs/tr/spell-plan-09-magic-runtime.md",
+                "docs/tr/spell-real-roadmap.md"
             ]
         },
         {
