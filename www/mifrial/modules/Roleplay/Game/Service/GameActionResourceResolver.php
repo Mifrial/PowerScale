@@ -14,6 +14,7 @@ use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceArithmetic;
 use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceStorage;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithComponents;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ChosenAmount;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
@@ -80,7 +81,7 @@ final class GameActionResourceResolver
         }
 
         $spec = $action->getSpec();
-        if (!$spec instanceof AbilityActionSpec) {
+        if (!$spec instanceof AbilityWithComponents) {
             return [];
         }
 

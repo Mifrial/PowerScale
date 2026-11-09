@@ -39,6 +39,27 @@ final class GameActionResourceResolverTest extends TestCase
     }
 
     /**
+     * Компоненты заклинания идут тем же путём, что и компоненты действия.
+     *
+     * @return void
+     */
+    public function testResolvesSpellActionComponents(): void
+    {
+        $spends = (new GameActionResourceResolver())->resolve(
+            $this->spellSlice(),
+            'spell',
+            0,
+            '',
+            [],
+            ['resources' => [['ruleCode' => 'ap', 'current' => 3]]],
+            ['ap' => 2],
+        );
+
+        self::assertCount(1, $spends);
+        self::assertSame(2, $spends[0]->getAmount()->toNative());
+    }
+
+    /**
      * Одна выбранная строка не читает modifiers другой строки того же кода.
      *
      * @return void
@@ -230,6 +251,68 @@ final class GameActionResourceResolverTest extends TestCase
                 new CharacterResolvedRule($action, []),
                 new CharacterResolvedRule($resource, []),
                 new CharacterResolvedRule($item, []),
+            ],
+            [],
+        );
+    }
+
+    /**
+     * Строит минимальный live slice с заклинанием и ресурсом.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function spellSlice(): CharacterRuleSlice
+    {
+        $spell = new RuleVersionRecord(
+            1,
+            1,
+            'spell',
+            true,
+            'ability',
+            'Spell',
+            '',
+            [
+                'type' => 'spell',
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'ap',
+                    'amount' => ['type' => 'chosen', 'max' => 'available'],
+                ]],
+                'spell' => [],
+            ],
+            [],
+            [],
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+        $resource = new RuleVersionRecord(
+            2,
+            2,
+            'ap',
+            true,
+            'resource',
+            'Action points',
+            '',
+            [
+                'is_dimensional' => false,
+                'auto_add' => false,
+                'check_token' => false,
+            ],
+            [],
+            [],
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+
+        return new CharacterRuleSlice(
+            1,
+            1,
+            'world',
+            [
+                new CharacterResolvedRule($spell, []),
+                new CharacterResolvedRule($resource, []),
             ],
             [],
         );

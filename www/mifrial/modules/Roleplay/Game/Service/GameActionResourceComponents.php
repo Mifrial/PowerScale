@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithComponents;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ChosenAmount;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
 
@@ -17,11 +17,11 @@ final class GameActionResourceComponents
     /**
      * Ресурсные компоненты карточки.
      *
-     * @param AbilityActionSpec $spec Карточка.
+     * @param AbilityWithComponents $spec Карточка.
      *
      * @return array<int, ResourceComponent> Компоненты.
      */
-    public function of(AbilityActionSpec $spec): array
+    public function of(AbilityWithComponents $spec): array
     {
         $components = [];
         foreach ($spec->getComponents() as $component) {

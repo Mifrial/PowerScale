@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Character\Service\Sheet;
 
-use Mifrial\Roleplay\Character\Dto\CharacterAbilityChoice;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
@@ -15,16 +14,16 @@ use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityBase;
  */
 final class CharacterDerivedLevels
 {
-    private readonly CharacterAbilityCost $cost;
+    private readonly CharacterKeywordExperience $experience;
 
     /**
-     * Собирает расчёт цены.
+     * Собирает расчёт опыта.
      *
      * @return void
      */
     public function __construct()
     {
-        $this->cost = new CharacterAbilityCost();
+        $this->experience = new CharacterKeywordExperience();
     }
 
     /**
@@ -65,7 +64,7 @@ final class CharacterDerivedLevels
             return 0;
         }
 
-        $experience = $this->experience($slice, $choices, $derived->getSourceKeyword());
+        $experience = $this->experience->experience($slice, $choices, $derived->getSourceKeyword());
         $level = 0;
         foreach ($derived->getThresholds() as $threshold) {
             if ($experience >= $threshold) {
@@ -74,54 +73,5 @@ final class CharacterDerivedLevels
         }
 
         return $level;
-    }
-
-    /**
-     * Сумма цен взятых способностей с признаком.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param CharacterChoices $choices Выборы.
-     * @param string $keyword Код признака.
-     *
-     * @return int Опыт.
-     */
-    private function experience(CharacterRuleSlice $slice, CharacterChoices $choices, string $keyword): int
-    {
-        $sum = 0;
-        foreach ($choices->getAbilities() as $ability) {
-            $sum += $this->abilityExperience($slice, $ability, $keyword);
-        }
-
-        return $sum;
-    }
-
-    /**
-     * Опыт одной взятой способности с признаком.
-     *
-     * @param CharacterRuleSlice $slice Срез.
-     * @param CharacterAbilityChoice $ability Выбор.
-     * @param string $keyword Код признака.
-     *
-     * @return int Опыт.
-     */
-    private function abilityExperience(CharacterRuleSlice $slice, CharacterAbilityChoice $ability, string $keyword): int
-    {
-        $level = $ability->getLevel();
-        $rule = $slice->findLive($ability->getRuleCode());
-        if (
-            $level < 1
-            || $rule === null
-            || $rule->isSpecBroken()
-            || !in_array($keyword, $rule->getKeywordCodes(), true)
-        ) {
-            return 0;
-        }
-
-        $base = CharacterAbilityBase::of($rule->getSpec());
-        if ($base === null) {
-            return 0;
-        }
-
-        return $this->cost->toLevel($base, $level, $ability->getParameters()) ?? 0;
     }
 }
