@@ -27,6 +27,7 @@ final class CastGameSpellInput implements IActionInput
      * @param int|null $expectedTargetVersion Версия листа цели.
      * @param array|null $target Цель.
      * @param int $distanceIpari Дистанция в ипари.
+     * @param array $upgrades Выбранные улучшения.
      *
      * @return void
      */
@@ -44,6 +45,7 @@ final class CastGameSpellInput implements IActionInput
         public readonly ?int $expectedTargetVersion = null,
         public readonly ?array $target = null,
         public readonly int $distanceIpari = 0,
+        public readonly array $upgrades = [],
     ) {
     }
 }

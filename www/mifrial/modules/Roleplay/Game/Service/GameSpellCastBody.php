@@ -59,6 +59,7 @@ final class GameSpellCastBody
             'usedPower' => $this->usedPower($input->usedPower),
             'target' => $target,
             'distanceIpari' => $input->distanceIpari,
+            'upgrades' => (new GameSpellCastUpgradeBody())->parse($input->upgrades),
         ];
     }
 

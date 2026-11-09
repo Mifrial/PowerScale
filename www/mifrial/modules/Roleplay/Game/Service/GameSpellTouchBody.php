@@ -37,8 +37,10 @@ final class GameSpellTouchBody
         }
 
         $allowed = ['spellCode', 'pathCode', 'parameters', 'usedPower'];
-        if (array_key_exists('spellTarget', $raw)) {
-            $allowed[] = 'spellTarget';
+        foreach (['spellTarget', 'upgrades'] as $key) {
+            if (array_key_exists($key, $raw)) {
+                $allowed[] = $key;
+            }
         }
 
         $this->assertKeys($raw, $allowed);
@@ -51,6 +53,7 @@ final class GameSpellTouchBody
             'spellTarget' => array_key_exists('spellTarget', $raw) && $raw['spellTarget'] !== null
                 ? (new GameRunActionFields())->side($raw['spellTarget'])
                 : null,
+            'upgrades' => (new GameSpellCastUpgradeBody())->parse($raw['upgrades'] ?? null),
         ];
     }
 

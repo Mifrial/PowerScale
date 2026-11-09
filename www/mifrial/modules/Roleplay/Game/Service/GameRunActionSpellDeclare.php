@@ -59,6 +59,7 @@ final class GameRunActionSpellDeclare
             $context['expectedTargetVersion'],
             $context['target'],
             $context['distanceIpari'],
+            $context['upgrades'] ?? [],
         ));
         $result = $this->cast->cast(
             $call->gameId,

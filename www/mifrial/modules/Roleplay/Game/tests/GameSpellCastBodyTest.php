@@ -85,6 +85,35 @@ final class GameSpellCastBodyTest extends TestCase
     }
 
     /**
+     * Список улучшений нормализуется.
+     *
+     * @return void
+     */
+    public function testNormalizesUpgrades(): void
+    {
+        $body = (new GameSpellCastBody())->parse($this->input(upgrades: [
+            ['code' => 'first'],
+            ['code' => 'second', 'value' => 2],
+        ]));
+
+        self::assertSame([
+            ['code' => 'first', 'value' => null],
+            ['code' => 'second', 'value' => 2],
+        ], $body['upgrades']);
+    }
+
+    /**
+     * Ошибочная форма улучшений отклоняется.
+     *
+     * @return void
+     */
+    public function testRejectsInvalidUpgrades(): void
+    {
+        $this->expectException(ActionException::class);
+        (new GameSpellCastBody())->parse($this->input(upgrades: [['code' => 'first', 'value' => -1]]));
+    }
+
+    /**
      * Вход для теста.
      *
      * @param array<mixed>|null $parameters Параметры.
@@ -92,6 +121,7 @@ final class GameSpellCastBodyTest extends TestCase
      * @param array<mixed>|null $target Цель.
      * @param int|null $expectedTargetVersion Версия цели.
      * @param int $distanceIpari Дистанция.
+     * @param array<mixed> $upgrades Улучшения.
      *
      * @return CastGameSpellInput Вход.
      */
@@ -101,6 +131,7 @@ final class GameSpellCastBodyTest extends TestCase
         ?array $target = null,
         ?int $expectedTargetVersion = 2,
         int $distanceIpari = 1,
+        array $upgrades = [],
     ): CastGameSpellInput {
         return new CastGameSpellInput(
             1,
@@ -119,6 +150,7 @@ final class GameSpellCastBodyTest extends TestCase
             $expectedTargetVersion,
             $target ?? ['type' => 'npc', 'id' => 7],
             $distanceIpari,
+            $upgrades,
         );
     }
 }

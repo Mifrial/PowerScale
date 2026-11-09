@@ -525,3 +525,4 @@ Game/MySQL:
 | --- | --- |
 | 2026-11-10 | План заведён: `spell_upgrade` для `action_point_delta`, `check_advantage`, `resistance_penetration_per_step`; применимость по родителю/пути/`any_path`; `spellPower` отделён от `requiredPower`; `chain`/`charge_cap` отложены. |
 | 2026-11-10 | Перепроверка на конструктор правил: `domain_ref` и `multiple` в runtime не читаются, привязка — по `parent_ability_code` или экземпляру `domainCode`; отказ неподдержанных примитивов — по форме `SpellUpgrade`, не по коду карточки; добавлены тесты на отсутствие зашитых кодов. |
+| 2026-11-10 | Срез 2.1: `GameSpellCastUpgradeBody`, `GameSpellCastUpgrades`, `GameSpellCastAppliedUpgrade`, `GameSpellCastUpgradeResolution`; `upgrades` разбирается в `game.castSpell`, `game.runAction` и `spellCast` касания. Каст пока улучшения не применяет. |

@@ -80,6 +80,7 @@ final class GameRunActionSpellBody
             'target' => $target,
             'expectedTargetVersion' => $expectedTargetVersion,
             'distanceIpari' => $distanceIpari,
+            'upgrades' => (new GameSpellCastUpgradeBody())->parse($context['upgrades'] ?? null),
         ];
     }
 
@@ -93,7 +94,7 @@ final class GameRunActionSpellBody
     private function keys(array $context): array
     {
         $allowed = ['expectedSheetVersion', 'pathCode', 'parameters', 'usedPower'];
-        foreach (['target', 'expectedTargetVersion', 'distanceIpari'] as $key) {
+        foreach (['target', 'expectedTargetVersion', 'distanceIpari', 'upgrades'] as $key) {
             if (array_key_exists($key, $context)) {
                 $allowed[] = $key;
             }
