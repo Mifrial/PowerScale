@@ -4752,8 +4752,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 26755,
-            "lines": 440,
+            "bytes": 40023,
+            "lines": 580,
             "modules": [
                 "Roleplay/Game"
             ],

@@ -32,7 +32,7 @@
 - ОД и компоненты из `action_components` карточки;
 - сложность сотворения из `MagicPathSpec` (мощь/контроль/проверка пути);
 - серверный бросок `check-spell-cast`;
-- автопровал при `hit_resolution: auto` без обязательной цели;
+- проверка формы: заклинание с `targeting: entity` без цели — ошибка запроса;
 - урон из `SpellDamage` (тип, ступени по опыту, falloff), сопротивление
   существующими слоями, `putDamageSplit` и Шок;
 - идемпотентность, CAS кастера и цели, запись в одной транзакции;
@@ -48,6 +48,12 @@
 - магическое отклонение, арканный взрыв, стабильность, дестабилизация;
 - источники магии (ядро, кристалл, накопители, проводники);
 - battleground, реальная дистанция и координаты;
+- autoFail «цель перестала быть валидной в момент исполнения» — игровая
+  логика зарезервирована, но в этом срезе не воспроизводится: для неё нужен
+  battleground;
+- жетоны концентрации, `pending_action_effects`, charge/generator,
+  `ActiveSpell`, цепочки, отклонение и насыщение на каст — сервер их не
+  считает, клиент в real-режиме не списывает;
 - новые таблицы и второй боевой движок.
 
 ## 2. Решения
@@ -61,7 +67,9 @@
    является контрактом и не включается автоматически.
 3. **Изучение не пересчитывается на касте.** Источник истины — сохранённый лист
    игры: экземпляр заклинания на пути и его эффективный уровень. Повторная
-   проверка `study`/`magic_study` — задача save, а не каста.
+   проверка `study`/`magic_study` — задача save, а не каста. В real-режиме
+   локальный `MagicStudyUnlockService::isAvailableForUse` не является
+   авторитетом: доступность решает сервер по сохранённому листу.
 4. **Требования проверяются в контексте пути каста.** Для `lightning-strike`
    это `has_ability: discharge` на том же пути или на пути, который каст-путь
    включает (`MagicPathSpec::includes_path_codes`, транзитивно).
@@ -69,6 +77,17 @@
    остаться для предпросмотра, но итог берётся из ответа сервера.
 6. **Чат пишет сервер.** Иначе replay вернёт итог, а клиент напечатает
    сообщения второй раз.
+7. **Цель и autoFail — разные вещи.** Для `targeting: entity` цель обязательна;
+   запрос без цели — `INVALID_PARAMS`. AutoFail из настольной логики (цель
+   вышла из зоны/перестала быть валидной во время сотворения) появится, когда
+   появится battleground; в этом срезе такого пути нет.
+8. **Последствия — существующие.** `GameStrikeConsequences` для электричества
+   выполняет проверки Воли и увечья; нокаут — только для `blunt`. Отдельной
+   ветки «для заклинаний» нет, поэтому ответ и чат должны включать
+   `will`/`willOutcome`/`maim`.
+9. **Компоненты заклинания — отдельный сборщик.** `GameActionResourceResolver`
+   и `GameActionResourceComponents` типизированы `AbilityActionSpec` и для
+   `AbilitySpellSpec` возвращают пусто. Варианты — §5.2.1.
 
 ## 3. Модель
 
@@ -79,7 +98,7 @@ game.castSpell
   → доступность экземпляра заклинания на пути
   → ОД и компоненты
   → сложность и бросок check-spell-cast
-  → автопровал / провал / успех
+  → провал / успех (autoFail «цель стала невалидной» — будущая логика)
   → урон, сопротивление, РУ, деление повреждения
   → запись цели и кастера в одной команде
   → чат и итог
@@ -104,6 +123,7 @@ actor: {type: character|npc, id: int}
 spellCode: string               // lightning-strike
 pathCode: string                // arcanist | psionic | shaman
 power: {base: int, size: int}   // x заклинания
+usedPower?: {base, size}        // «Используемая мощь»; рекомендация §5.3.1
 target: {type: character|npc, id: int}
 distanceIpari?: int             // 0; поле зарезервировано под battleground
 ```
@@ -112,8 +132,9 @@ distanceIpari?: int             // 0; поле зарезервировано п
 
 - `power` — размерное число, а не готовый урон; сервер проверяет его по
   `AbilityParameter::min`/`max` карточки;
-- `target` обязателен: `lightning-strike` имеет `targeting: entity` и
-  `hit_resolution: auto`, без цели каст автопроваливается после оплаты;
+- `target` обязателен: `lightning-strike` имеет `targeting: entity`.
+  Запрос без цели — `INVALID_PARAMS`, а не autoFail. AutoFail «цель стала
+  невалидной во время исполнения» — будущая игровая логика, не этот срез;
 - `distanceIpari` не может быть отрицательным; в этом срезе значение по
   умолчанию `0`, falloff не режет урон;
 - неизвестные ключи отклоняются, как в `game.runAction`.
@@ -121,8 +142,6 @@ distanceIpari?: int             // 0; поле зарезервировано п
 ### 4.2 Ответ
 
 ```text
-started: true
-refuseReason: null | not_enough_ap | unavailable_spell | invalid_target
 cast: {
   difficulty: {base, size},
   needsCheck: bool,
@@ -131,23 +150,29 @@ cast: {
 spentAp: int
 caster: {type, id, sheetVersion}
 target: {type, id, sheetVersion}
-milk: bool
-autoFail: bool
+autoFail: false                    // в этом срезе всегда false
 spellSr: int | null
 spellDamage: {base, size} | null   // урон после falloff, до слоёв
 injury: {base, size} | null        // после сопротивления и РУ
-consequence: object                // узкий итог: истощение, Шок, putDamageSplit
+consequence: object                // истощение, Шок, putDamageSplit, will, maim
 ```
 
 `spellDamage` — число из `SpellDamage`; `injury` — то, что реально ушло в
 `putDamageSplit`. Фронт не пересчитывает ни то, ни другое.
 
+Ошибки не кодируются в ответе: `AUTH_DENIED`, `INVALID_PARAMS`, `GAME_INVALID`,
+`GAME_NOT_FOUND`, `GAME_BATTLE_CONFLICT` — исключения, как в `game.runAction`.
+`started`/`refuseReason` остаются во внутреннем клиентском сервисе и не
+являются серверным контрактом.
+
 ### 4.3 Ошибки
 
 - `AUTH_DENIED` — актор не владелец кастера и не `edit_all`;
-- `INVALID_PARAMS` — форма запроса;
+- `INVALID_PARAMS` — форма запроса, в том числе нет `target` при
+  `targeting: entity`;
 - `GAME_INVALID` — карточка не spell, путь не magic_path, экземпляр не на
-  пути, нет ОД, `x` вне диапазона, цель не в бою;
+  пути, нет ОД, `x` (и `usedPower`, если он в контракте) вне диапазона;
+- `GAME_NOT_FOUND` — цель не в составе боя;
 - `GAME_BATTLE_CONFLICT` — stale `expectedVersion`, `expectedSheetVersion`
   или `expectedTargetVersion`;
 - replay с тем же `idempotencyKey` и тем же телом возвращает сохранённый итог;
@@ -160,26 +185,70 @@ consequence: object                // узкий итог: истощение, �
 1. Срез игры: `CharacterRuleSlice` по `(spaceId, rulesRevision)`.
 2. `spellCode` — живая карточка `AbilitySpellSpec`.
 3. `pathCode` — живая карточка `MagicPathSpec`, `cast_check_code` не пуст.
-4. В `choices` кастера есть экземпляр с `ruleCode = spellCode` и
-   `domainCode = pathCode`; `sheet.coveredPaths` для этого экземпляра
-   содержит `pathCode`.
-5. `sheet.abilityLevels[spellCode] >= 1`.
-6. Требования уровня экземпляра выполнены в контексте `pathCode` (срез 46.1):
+4. В `choices` кастера есть ровно один экземпляр с `ruleCode = spellCode` и
+   `domainCode = pathCode`. Экземпляр уже прошёл study-гейт при save; каст его
+   не пересчитывает.
+5. Эффективный уровень карточки в сохранённом листе
+   (`sheet.abilityLevels[spellCode]`) не ниже 1.
+6. Требования экземпляра выполнены в контексте `pathCode` (срез 46.1):
    `has_ability` ищет экземпляр нужной карточки на этом пути или на пути,
    который он включает.
 
 Пункт 6 обязателен: уровень по коду может быть поднят экземпляром с другого
 пути, поэтому одного `abilityLevels` недостаточно.
 
+`coveredPaths` не используется как гейт каста: в Character 13 он оставлен
+потребителем масок видимости, а не study/каста. Ключ `coveredPaths` к тому же
+включает отображаемое имя домена (`instanceKey`), что делает его хрупким.
+
+Проверку уровня и требований не дублировать: `GameCardAvailability::
+assertAvailable()` уже делает это для действий и принимает `AbilityWithBase`
+(а `AbilitySpellSpec` его реализует). В 46.1 ему добавляется необязательный
+`?string $domainContext`; NPC-лист внутри него пересчитывается через
+`ICharacterSheets::compute`, а не берётся из сохранённого `GameStrikeSheets`.
+
 ### 5.2 ОД и компоненты
 
-- Ресурсные компоненты карточки (`ResourceComponent`, `amount`) складываются
-  через `GameActionResourceResolver`.
+- `GameActionResourceResolver` и `GameActionResourceComponents` типизированы
+  `AbilityActionSpec`; для `AbilitySpellSpec` `resolve()` возвращает пустой
+  список. Нужен отдельный путь сборки трат (варианты — §5.2.1).
+- Траты проверяются `GameActionPerform::assertSpends()` и списываются
+  `GameActionPerform::spend()` с `expectedSheetVersion`; это уже умеет CAS и
+  запись только ресурсов.
 - `lightning-strike`: 4 ОД, соматика `occupy_hands: 1` в этом срезе не
   проверяется (как в M7).
 - Если ОД не хватает — отказ до броска и без записи.
 - ОД списываются **до** проверки сотворения: компоненты тратятся независимо
   от успеха, как в каноне M7.
+
+### 5.2.1 Варианты сборки компонентов заклинания
+
+**A. Отдельный `GameSpellCastComponents`.**
+Читает `AbilitySpellSpec::getComponents()`, оставляет `ResourceComponent`,
+собирает `ResourceSpend` (`ScalarResourceValue` для `int`), отдаёт в
+`GameActionPerform::assertSpends/spend`.
+
+- Плюсы: не трогает стабильный action-путь; простая и тестируемая единица;
+  легко расширить на `ChosenAmount`, когда появятся такие заклинания.
+- Минусы: дублирует обход компонентов; минимумы/выбранные суммы для
+  заклинаний придётся добавлять отдельно.
+
+**B. Обобщить `GameActionResourceComponents`/`GameActionResourceResolver` до
+`AbilityWithBase`.**
+У `AbilityActionSpec` и `AbilitySpellSpec` уже есть `getComponents()`.
+
+- Плюсы: один путь трат для действий и заклинаний; меньше дублирования.
+- Минусы: меняет стабильный `Game`-код и его тесты; нужно доказать, что
+  `chosenAmounts`/`minimums`/action-специфика не меняют поведение заклинаний.
+
+**C. Собирать `ResourceSpend` прямо в оркестраторе `GameSpellCastWrite`.**
+
+- Плюсы: минимум файлов.
+- Минусы: логика в оркестраторе, труднее тестировать и переиспользовать.
+
+**Рекомендация: A** для 46.2, с явным тестом на `amount: 4` и отказ при
+нехватке ОД; B — отдельным рефакторингом после появления второго потребителя
+(заклинания с `ChosenAmount`).
 
 ### 5.3 Сложность
 
@@ -195,7 +264,7 @@ consequence: object                // узкий итог: истощение, �
 
 ```text
 requiredPower  = resolve(spell.power, {x: power})
-usedPower      = sheet.magic-power
+usedPower      = usedPower из запроса (см. §5.3.1) или sheet.magic-power
 requiredControl = spell.control
 availableControl = sheet.magic-control
 
@@ -213,9 +282,26 @@ if difficulty < 3|-1: skip (проверка не бросается)
 ```
 
 Сопротивление добавляется только если у типа урона
-`DamageTypeSpec::modifiesSpellDifficulty() === true`. Для `electricity` флага
+`DamageTypeSpec::isModifiesSpellDifficulty() === true`. Для `electricity` флага
 нет — сопротивление Аркане на `lightning-strike` не влияет. Обучение/помехи
-каста в этом срезе не применяются.
+каста в этом срезе не применяются; `requiredPowerDelta` и
+`trainingDifficultyDelta` из клиентского расчёта сервер не принимает.
+
+### 5.3.1 `usedPower` — требует решения
+
+`SpellCastDialog` различает `usedPower` («Используемая мощь», можно уменьшать
+в пределах `magic-power`) и `power` (x, «Мощь заклинания»). Сложность считается
+от обоих. Варианты:
+
+- **передавать `usedPower` в запросе** и проверять `3|-1 <= usedPower <=
+  sheet.magic-power`; сервер считает от него. Плюс: регулятор в UI остаётся
+  честным, предпросмотр совпадает с итогом. Минус: ещё одно поле контракта.
+- **не передавать** и всегда брать `sheet.magic-power`. Плюс: проще. Минус:
+  регулятор «Используемая мощь» в real-режиме становится декоративным, его
+  надо убрать или заблокировать.
+
+Рекомендация: передавать `usedPower` — это существующее правило и оно влияет
+на сложность.
 
 ### 5.4 Бросок
 
@@ -226,20 +312,30 @@ if difficulty < 3|-1: skip (проверка не бросается)
 - Сложность — вычисленная выше; `GameCheckRoll::throwWithDifficulty` не
   требует `ask`-решения.
 - Если сложность ниже живой — броска нет (`needsCheck = false`).
-- `hit_resolution: auto` без цели — `autoFail`, броска нет, но ОД уже
-  списаны.
+- Цель обязательна для `targeting: entity`; запрос без цели отклоняется до
+  броска и до записи. AutoFail «цель стала невалидной во время исполнения» —
+  будущая логика, в этом срезе не реализуется.
+- При будущем `autoFail` ОД списываются, броска и урона нет.
 
 ### 5.5 Урон
 
-- `SpellDamage::experience_keyword_code` (`electromancy`) → опыт признака
-  через новый `CharacterKeywordExperience` (сумма стоимостей активных
-  карточек с этим признаком). Для `lightning-strike` ступень при опыте `0`
-  даёт `+0`; для `discharge` — `+3`, поэтому сервис нужен уже сейчас.
-- `weaponDamage = power + stepModify` по шкале характеристик.
+- `SpellDamage::experience_keyword_code` (`electromancy`) → опыт признака.
+  Расчёт уже есть приватно в `CharacterDerivedLevels::experience()`
+  (строка 88); вынести его в общий `CharacterKeywordExperience` и оттуда
+  кормить и `CharacterDerivedLevels`, и каст. Для `lightning-strike` ступень
+  при опыте `0` даёт `+0`; `discharge` в этот срез не входит, но второй
+  расчёт заводить не надо.
+- Источник уровней для опыта: сохранённый лист (эффективные уровни), не
+  повторный пересчёт study. `CharacterDerivedLevels` сохраняет своё прежнее
+  поведение (купленные уровни), пока его не переключат отдельно.
+- `weaponDamage = power + stepModify` по шкале характеристик: использовать
+  `CharacteristicNumber`; в PHP у него сейчас нет `modifyWith`/`modifyDiffTo`
+  — добавить их или считать `base + 3×size` явно.
 - `falloff` применяется, если задан: `free_ipari`, `size_per_extra_ipari`,
   `min`; при `distanceIpari = 0` урон не режется.
 - РУ доставки: `hit_resolution.rating` (`2`), но не выше
-  `DamageTypeSpec::maxSuccessRating()` (`electricity` — `3`).
+  `DamageTypeSpec::getMaxSuccessRating()` (`electricity` — `3`); готовый
+  helper — `GameStrikeOutcome::successRatingCap()`.
 - Сопротивление — `GameStrikeDefense::resistanceByType` по типу
   `damage_type_code`; он уже учитывает `defense_ignored` (электричество
   игнорирует броню, но не типизированные resistance-слои).
@@ -247,8 +343,11 @@ if difficulty < 3|-1: skip (проверка не бросается)
   (`soak`) для заклинания не применяется.
 - `GameStrikeOutcome::splitInjury` делит повреждение по стойкости цели;
   `GameStrikeConsequences::effects` собирает `putDamageSplit`, истощение и
-  Шок из хука `electricity`. Нокаут/увечье/Воля для электричества не
-  срабатывают, но передаются существующим механизмам, а не отдельной ветке.
+  Шок из хука `electricity`.
+- Воля и увечье **срабатывают** и для электричества: `willEffect()` не
+  зависит от типа урона, а `maimEffect()` получает `delta = quotient` при
+  отсутствии cutting-хука. Нокаут — только для `blunt`. Отдельной ветки для
+  заклинаний нет: ответ и чат должны включать `will`/`willOutcome`/`maim`.
 
 ### 5.6 Запись и идемпотентность
 
@@ -260,10 +359,13 @@ if difficulty < 3|-1: skip (проверка не бросается)
   `expectedSheetVersion` и `ResourceSpend` на ОД.
 - Обе записи — в одной транзакции команды. MySQL-тест обязан проверить:
   stale-версия цели откатывает и списание ОД; replay не пишет второй раз.
-- `expectedVersion` боя проверяется до записи; каст его не меняет.
+- `expectedVersion` боя проверяется до записи через
+  `GameActionBattle::battleOf()`; каст его не меняет. Открытое действие в бою
+  (`findOpenAny`) блокирует каст так же, как `runAction`.
 - После успешной записи — сообщения чата через новый `GameSpellCastChat`
-  (объявление, бросок, урон/молоко/провал). Чат входит в команду, чтобы replay
-  не дублировал его.
+  (объявление, бросок каста, урон/провал, Воля, увечье). Тред — turn-тред
+  `GameCombatThread::buildTurn()`, как у `GameActionChat`; автор —
+  `actorUserId`. Чат входит в команду, чтобы replay не дублировал его.
 
 ## 6. Срез 46.1 — `has_ability` с доменом пути
 
@@ -273,17 +375,26 @@ if difficulty < 3|-1: skip (проверка не бросается)
 
 Изменения:
 
-- `RequirementTraits` получает карту экземпляров:
-  `abilityInstances[code] = [{domainCode, level}, ...]` и карту покрытия
-  путей `pathCovers[pathCode] = [covered...]`;
-- `CharacterRequirementFacts` заполняет их из `choices`, эффективных уровней
-  и `CharacterStudyPaths::covered` (включения транзитивны);
+- `RequirementTraits` получает **статические** карты:
+  `abilityDomains[code] = [domainCode, ...]` и
+  `pathCovers[pathCode] = [covered...]`. Уровни остаются в
+  `RequirementNumbers::levels`; так `RequirementValues::withLevels()` не
+  оставляет устаревшие уровни экземпляров.
+- `CharacterRequirementFacts` заполняет домены и покрытие из `choices` и
+  `CharacterStudyPaths::covered` (включения транзитивны); уровни — из
+  переданного `levels`.
 - `AbilityRequirementCheck::check(..., ?string $domainContext = null)`:
-  при заданном домене `has_ability` проходит, если есть экземпляр нужного
-  кода на этом пути или на включённом пути с уровнем не ниже `min_level`;
-  без домена поведение прежнее;
-- `CharacterAbilityActivity` передаёт домен текущего экземпляра при проверке
-  его требований; для листа по коду остаётся максимум активного уровня;
+  при заданном домене `has_ability` проходит, если `levels[code]` не ниже
+  `min_level` и у кода есть экземпляр на пути `domainContext` или на
+  включённом пути. Если у требуемой карточки нет домена (обычная
+  способность), работает прежняя проверка по коду — иначе доменный контекст
+  сломает `has_ability` вне путей.
+- `CharacterAbilityActivity` передаёт домен текущего экземпляра; для листа по
+  коду берётся **максимум** активного уровня по экземплярам
+  (`$next[$code] = max(...)`), а не последний.
+- `GameCardAvailability::assertAvailable()` получает тот же
+  `?string $domainContext` и передаёт его в `AbilityRequirementCheck`, чтобы
+  `runAction` и `castSpell` проверяли одинаково.
 - `has_ability_keyword` и владение оружием не меняются; особый случай
   Письменности не ломаем.
 
@@ -294,7 +405,9 @@ if difficulty < 3|-1: skip (проверка не бросается)
 - `discharge` на Псионике закрывает шаманскую карточку, если Шаман включает
   Псионику;
 - обратное включение не работает;
-- старая проверка без домена сохраняет прежний результат.
+- старая проверка без домена сохраняет прежний результат;
+- не-доменная способность в требовании проходит при заданном домене;
+- `CharacterAbilityActivity` с двумя экземплярами одного кода берёт максимум.
 
 ## 7. Срез 46.2 — серверный `game.castSpell`
 
@@ -306,7 +419,8 @@ if difficulty < 3|-1: skip (проверка не бросается)
 | HTTP | `GameSpellCastHttp` |
 | Разбор | `GameSpellCastBody` (ровно названные ключи, формы сторон) |
 | Доступность | `GameSpellCastFacts` (срез, листы, экземпляр, путь, `x`) |
-| Расчёт | `GameSpellCastCheck` (сложность + бросок), `GameSpellCastDamage` (опыт, falloff, сопротивление, РЛ) |
+| Компоненты | `GameSpellCastComponents` (вариант A, §5.2.1) |
+| Расчёт | `GameSpellCastCheck` (сложность + бросок), `GameSpellCastDamage` (опыт, falloff, сопротивление, РУ) |
 | Запись | `GameSpellCastWrite` (CAS цели и кастера, replay) |
 | Чат | `GameSpellCastChat` |
 | Ответ | `GameSpellCastView` |
@@ -317,27 +431,31 @@ if difficulty < 3|-1: skip (проверка не бросается)
 
 - `GameStrikeReady`, `GameStrikeAccess` — права, видимость, сессия, replay;
 - `GameReplayTransaction`, `GameCommandRepository` — идемпотентность;
-- `GameStrikeSheets` — снимки листов и CAS-конфликты;
+- `GameStrikeSheets` — снимок цели и версия её листа; для NPC-кастера
+  уровень и требования берутся из `GameCardAvailability` с пересчётом листа;
 - `GameStrikeDefense::resistanceByType` — слои и `defense_ignored`;
 - `GameStrikeAmounts::injury`/`appliedSr` — арифметика;
-- `GameStrikeOutcome::splitInjury`, `GameStrikeConsequences` — деление и
-  `putDamageSplit`/состояния;
+- `GameStrikeOutcome::splitInjury`/`successRatingCap`,
+  `GameStrikeConsequences` — деление, `putDamageSplit`, состояния,
+  Воля/увечье;
 - `GameStrikeSheetWrites` — запись листа;
 - `GameCheckRoll`, `GameCheckChain` — бросок и характеристика проверки;
-- `GameActionResourceResolver` — компоненты ОД;
+- `GameActionPerform::assertSpends`/`spend` — проверка и списание ОД;
+- `GameCardAvailability` (с доменным контекстом) — уровень и требования;
 - `CharacterStudyPaths`/`CharacterAbilityCost` — пути и стоимости;
-- новый `CharacterKeywordExperience` — опыт признака для `SpellDamage`.
+- вынесенный `CharacterKeywordExperience` — опыт признака для `SpellDamage`.
 
-`CharacterKeywordExperience`:
+`CharacterKeywordExperience` (вынести из `CharacterDerivedLevels`):
 
 ```text
 experienceOf(slice, choices, levels, keywordCode): int
-  сумма cost->toLevel(base, effectiveLevel, parameters)
-  по активным карточкам, у правила которых есть keywordCode
+  сумма cost->toLevel(base, levels[code], parameters)
+  по карточкам с levels[code] > 0 и keywordCode в признаках правила
 ```
 
-Его же позже использует редактор/лист, чтобы не считать опыт признака второй
-раз.
+`CharacterDerivedLevels` продолжает передавать купленные уровни; каст
+передаёт эффективные уровни сохранённого листа. Один расчёт, но разные
+источники уровней остаются явными.
 
 ## 8. Срез 46.3 — фронт в real-режиме
 
@@ -345,12 +463,20 @@ experienceOf(slice, choices, levels, keywordCode): int
 - `SpellCastDialog` в real-режиме:
   - не вызывает `spellCastExecutionService.execute`/`applySpellDamage`;
   - не списывает ОД через `persistSpentAp` и не пишет состояния вручную;
+  - не тратит жетоны концентрации, не пишет `pendingActionEffects`, не
+    трогает charge/generator/`ActiveSpell`/цепочки/отклонение/насыщение;
+  - не строит `spellAvailable` на `MagicStudyUnlockService`: доступность
+    решает сервер, клиент только показывает ошибку;
   - отправляет `spellCode`, `pathCode`, `power`, `target`, версии листов;
   - показывает итог из ответа; при ошибке — сообщение, без локального
     пересчёта и без «попробовать локально»;
-  - после успеха обновляет оверлеи/листы из сервера, а не патчит их сама.
+  - после успеха обновляет оверлеи/листы из сервера, а не патчит их сама;
+  - не отправляет чат каста сам: чат пишет сервер.
 - Предпросмотр сложности/стоимости может остаться клиентским, но он не
   является результатом: авторитетный бросок и урон — только сервер.
+- Если решение по `usedPower` (§5.3.1) — передавать, добавить его в запрос и
+  проверку; если нет — убрать/заблокировать регулятор «Используемая мощь» в
+  real-режиме.
 - `MockGameApi.castSpell`: мок-режим может сохранить прежний локальный расчёт
   для демо, но он не вызывается в real и не является контрактом. Если
   мок-режим не нужен — метод бросает `throwPhpUnsupported`, а не подставляет
@@ -362,8 +488,8 @@ experienceOf(slice, choices, levels, keywordCode): int
 | Срез | Содержание | Результат |
 | --- | --- | --- |
 | 46.1 | `has_ability` с доменом пути | Character-тесты; `discharge` на пути не путается между путями |
-| 46.2 | `CharacterKeywordExperience` | опыт `electromancy` для `SpellDamage` |
-| 46.3 | `game.castSpell` + тесты | серверный каст, replay, CAS, `putDamageSplit`, Шок |
+| 46.2 | опыт признака и сборщик компонентов | `CharacterKeywordExperience` (вынести из `CharacterDerivedLevels`) + `ResourceSpend` без `GameActionResourceResolver` |
+| 46.3 | `game.castSpell` + тесты | серверный каст, replay, CAS, `putDamageSplit`, Шок, Воля/увечье |
 | 46.4 | фронт real | `SpellCastDialog` через `game.castSpell`, без локального расчёта |
 | 46.5 | ручная проверка и гейт | НПС покупает `lightning-strike`, кастует в цель, save/повтор стабильны |
 
@@ -373,19 +499,23 @@ Unit:
 
 - сложность: дефицит мощи, дефицит контроля, оба дефицита, оба избытка,
   нижняя живая граница, skip;
-- `lightning-strike`: `power` вне `min`/`max` — отказ; без цели — autoFail;
+- `lightning-strike`: `power`/`usedPower` вне допустимого — отказ; без цели
+  при `targeting: entity` — `INVALID_PARAMS`;
 - урон: ступень `SpellDamage` по опыту `electromancy`, falloff, cap РУ,
   `defense_ignored` для электричества, typed resistance;
+- последствия: Воля и увечье для электричества, нокаута нет;
 - доступность: экземпляр не на пути, уровень 0, требование на другом пути;
-- `has_ability` с доменом: свои/включённые/чужие пути.
+- `has_ability` с доменом: свои/включённые/чужие пути, не-доменная карточка.
 
 MySQL:
 
 - успешный каст: ОД списаны, цель получила `putDamageSplit` и Шок, версии
   выросли;
+- попадание с `quotient > 0`: Воля и увечье отработали, нокаута нет;
 - провал проверки: ОД списаны, урона нет;
-- autoFail без цели: ОД списаны, урона нет;
+- нет цели при `targeting: entity`: `INVALID_PARAMS`, ничего не записано;
 - нет ОД: отказано, ничего не записано;
+- stale battle version: конфликт до записи;
 - stale target: откат, ОД не списаны;
 - replay того же ключа: тот же итог, второй записи и второго чата нет;
 - другое тело с тем же ключом: конфликт.
@@ -396,6 +526,8 @@ Frontend:
   локальный execute;
 - ошибка сервера показывается без локального урона;
 - успешный ответ обновляет лист/оверлей;
+- в real-режиме диалог не тратит концентрацию и не пишет
+  pending/charge/generator;
 - мок-режим не влияет на real-путь.
 
 ## 11. Гейт
@@ -417,23 +549,31 @@ Frontend:
 - **Соматика.** `occupy_hands` в M7 не проверялась; в этом срезе сохраняем
   поведение и не добавляем проверку рук.
 - **Чат.** Сервер должен писать его внутри команды; иначе replay напечатает
-  сообщения повторно. Формат — минимальный: объявление, бросок, урон/молоко/
-  провал.
-- **Уровни экземпляров.** Для `has_ability` с доменом берём уровень
-  экземпляра из эффективных уровней по коду. Если у одной карточки два
-  экземпляра на разных путях с разными активными уровнями, понадобится
-  отдельная карта уровней экземпляров; в этом срезе такого контента нет,
-  вопрос фиксируем.
+  сообщения повторно. Формат — минимальный: объявление, бросок, урон/провал,
+  Воля, увечье.
+- **Уровни экземпляров.** `RequirementTraits` хранит только домены, уровень
+  берётся из `RequirementNumbers::levels` по коду. Если у одной карточки два
+  экземпляра на разных путях с разными активными уровнями, код-уровень —
+  максимум; доменный контекст различает требования, но не уровень. В этом
+  срезе такого контента нет; per-instance уровни — отдельный шаг.
 - **Legacy-ревизии.** Каст не пересчитывает `study`; ревизии ≤45 работают,
   если сохранённый лист уже содержит экземпляр заклинания на пути.
-- **Опыт признака.** `CharacterKeywordExperience` считает по эффективному
-  уровню карточки; для `lightning-strike` ступень `0` не зависит от опыта,
-  но для `discharge` это уже важно.
-- **NPC-кастер.** Проверка прав идёт через `GameStrikeAccess`; NPC-лист
-  читается тем же `GameStrikeSheets`.
+- **Опыт признака.** `CharacterKeywordExperience` выносится из
+  `CharacterDerivedLevels`; каст передаёт эффективные уровни листа, редактор
+  — купленные. Для `lightning-strike` ступень `0` не зависит от опыта.
+- **NPC-кастер.** Проверка прав идёт через `GameStrikeAccess`; лист NPC
+  пересчитывается `GameCardAvailability`/`ICharacterSheets::compute`, а не
+  берётся из сохранённого `GameStrikeSheets`.
+- **`usedPower`.** Открытый пункт §5.3.1: передавать в запросе или убрать
+  регулятор в real-режиме.
+- **Воля/увечье.** Существующие последствия срабатывают и для электричества;
+  это не отдельная ветка и не отключается.
+- **AutoFail.** Игровая логика «цель перестала быть валидной» появится с
+  battleground; сейчас запрос без цели — ошибка.
 
 ## 13. Журнал
 
 | Дата | Результат |
 | --- | --- |
 | 2026-11-09 | План создан: `game.castSpell` для `lightning-strike`; `has_ability` с доменом пути — предусловие; real-фронт без локального фолбэка; урон через `SpellDamage`, `putDamageSplit` и Шок. |
+| 2026-11-09 | Перепроверка по коду: цель и autoFail разделены; компоненты не через `GameActionResourceResolver` (варианты §5.2.1); Воля/увечье срабатывают; `coveredPaths` не гейт; домены вместо per-instance уровней; опыт вынести из `CharacterDerivedLevels`; `usedPower` — открытый пункт. |
