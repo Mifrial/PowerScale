@@ -19,6 +19,10 @@ import ConcentrationTokenOption from '@/modules/Roleplay/Game/Component/Concentr
 import { CONCENTRATION_TOKEN_ASK_INJECT_KEY } from '@/modules/Roleplay/Game/Constant/CONCENTRATION_TOKEN_ASK_INJECT_KEY';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
+import type { GamePhpSpellCastRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastRequest';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
@@ -432,6 +436,18 @@ const parameterValues = computed((): Record<string, DimensionalNumberValue> => {
   return { [spellSpec.value.spell.power.parameter_code]: parameterPower.value };
 });
 
+const castParameters = computed((): Record<string, DimensionalNumberValue> => {
+  const values: Record<string, DimensionalNumberValue> = { ...parameterValues.value };
+  const spell = spellSpec.value?.spell;
+  for (const value of [spell?.power, spell?.control]) {
+    if (value && !('base' in value) && !(value.parameter_code in values)) {
+      values[value.parameter_code] = parameterPower.value;
+    }
+  }
+
+  return values;
+});
+
 const damageTypeCode = computed(() => spellSpec.value?.spell.damage?.damage_type_code ?? null);
 
 const targetResistance = computed(() => {
@@ -676,6 +692,11 @@ async function runCast(): Promise<void> {
     await props.ensureRuntimeProjection?.(resolvedCasterKey.value);
     await ensureSelectedRuntimeProjections();
     if (!preview.value || !overview.value) return;
+    if (gamePhpMode.isEnabled()) {
+      await runPhpCast();
+
+      return;
+    }
     if (!spellAvailable.value) {
       error.value = 'Заклинание временно недоступно при текущем Интеллекте';
 
@@ -844,6 +865,77 @@ async function runCast(): Promise<void> {
   } finally {
     busy.value = false;
   }
+}
+
+async function runPhpCast(): Promise<void> {
+  const caster = resolvedCasterKey.value;
+  const battleId = gamePhpBattleContext.battleId;
+  if (!caster || !spellCode.value || !pathCode.value) {
+    error.value = 'Выберите заклинание и путь';
+
+    return;
+  }
+  if (battleId === null) {
+    error.value = 'Бой ещё не известен';
+
+    return;
+  }
+  if (needsSpellTarget.value && !targetKey.value) {
+    error.value = 'Выберите цель';
+
+    return;
+  }
+
+  const actor = participantOf(caster);
+  const target = targetKey.value ? participantOf(targetKey.value) : undefined;
+  const request: GamePhpSpellCastRequest = {
+    gameId: props.gameId,
+    battleId,
+    idempotencyKey: createRandomId(),
+    expectedVersion: gamePhpBattleContext.battleVersion,
+    expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[caster] ?? 1,
+    actor,
+    spellCode: spellCode.value,
+    pathCode: pathCode.value,
+    parameters: castParameters.value,
+    usedPower: {
+      source: powerSource(sourceKey.value),
+      value: usedPower.value,
+    },
+    ...(target ? { target, expectedTargetVersion: gamePhpBattleContext.sheetVersionByKey[targetKey.value!] ?? 1 } : {}),
+    distanceIpari: 0,
+  };
+  const result = await getGameApi().castSpell(request);
+  rememberSheet(result.caster);
+  if (result.target) rememberSheet(result.target);
+  lastSkip.value = !result.cast.needsCheck;
+  lastMilk.value = false;
+  lastAutoFail.value = result.autoFail;
+  emit('overlay-changed');
+  emit('settled');
+  emit('update:open', false);
+}
+
+function participantOf(key: CombatEntityKey): { type: 'character' | 'npc'; id: number } {
+  const [type, raw] = key.split(':');
+
+  return { type: type === 'npc' ? 'npc' : 'character', id: Number(raw) };
+}
+
+function powerSource(key: string): GamePhpSpellCastRequest['usedPower']['source'] {
+  const [kind, raw = ''] = key.split(':', 2);
+  if (kind === 'inventory' && Number(raw) > 0) {
+    return { kind: 'item', inventoryId: Number(raw) };
+  }
+  if (kind === 'grant' && raw !== '') {
+    return { kind: 'grant', abilityCode: raw };
+  }
+
+  return { kind: 'characteristic', code: selectedPath.value?.powerCharacteristicCode ?? 'magic-power' };
+}
+
+function rememberSheet(side: { type: 'character' | 'npc'; id: number; sheetVersion: number }): void {
+  gamePhpBattleContext.rememberSheet(`${side.type}:${side.id}`, side.sheetVersion);
 }
 
 async function settleCast(

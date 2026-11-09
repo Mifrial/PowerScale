@@ -70,6 +70,8 @@ import type { GamePhpCheckResult } from '@/modules/Roleplay/Game/Dto/GamePhpChec
 import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
 import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionRequest';
 import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
+import type { GamePhpSpellCastRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastRequest';
+import type { GamePhpSpellCastResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastResult';
 import type { GameInitiativeRollRequest } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollRequest';
 import type { GameInitiativeRollResult } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollResult';
 import type { GameInitiativeOrderEntry } from '@/modules/Roleplay/Game/Dto/GameInitiativeOrderEntry';
@@ -1246,6 +1248,17 @@ export class GameApi implements IGameApi {
           gamePhpBattleContext.rememberSheet(`${row.target.type}:${row.target.id}`, row.sheetVersion);
         }
       }
+    }
+
+    return result;
+  }
+
+  /** Серверный каст заклинания. */
+  async castSpell(body: GamePhpSpellCastRequest, signal?: AbortSignal): Promise<GamePhpSpellCastResult> {
+    const result = await this.requireData<GamePhpSpellCastResult>('game.castSpell', body, signal);
+    gamePhpBattleContext.rememberSheet(`${result.caster.type}:${result.caster.id}`, result.caster.sheetVersion);
+    if (result.target) {
+      gamePhpBattleContext.rememberSheet(`${result.target.type}:${result.target.id}`, result.target.sheetVersion);
     }
 
     return result;

@@ -59,6 +59,8 @@ import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnR
 import type { GamePhpCheckResult } from '@/modules/Roleplay/Game/Dto/GamePhpCheckResult';
 import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionRequest';
 import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
+import type { GamePhpSpellCastRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastRequest';
+import type { GamePhpSpellCastResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastResult';
 import type { GameManualSheetRequest } from '@/modules/Roleplay/Game/Dto/GameManualSheetRequest';
 import type { GameManualSheetResult } from '@/modules/Roleplay/Game/Dto/GameManualSheetResult';
 import type { GameInitiativeRollRequest } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollRequest';
@@ -329,6 +331,7 @@ export interface IGameApi {
   ): Promise<GameSheets>;
   getBattleSheets(query: { gameId: number; battleId: number }, signal?: AbortSignal): Promise<GameBattleSheets>;
   runAction(body: GamePhpRunActionRequest, signal?: AbortSignal): Promise<GamePhpRunActionResult>;
+  castSpell(body: GamePhpSpellCastRequest, signal?: AbortSignal): Promise<GamePhpSpellCastResult>;
   resolveStrikeWindow(
     body: {
       gameId: number;

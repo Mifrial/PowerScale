@@ -169,6 +169,9 @@ export const mockGameApi: IGameApi = {
     sheets: [],
   }),
   runAction: async () => ({ kind: 'action', phase: 'declare', battleId: 0, version: 1 }),
+  castSpell: async () => {
+    throw new Error('game.castSpell is a PHP command');
+  },
   resolveStrikeWindow: async () => ({ kind: 'strike', phase: 'respond', battleId: 0, version: 1 }),
   manualSheet: mockManualSheet.manualSheet,
   endTurn: async () => ({ version: 1 }),
