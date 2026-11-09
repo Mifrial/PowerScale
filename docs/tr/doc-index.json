@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 339,
-        "plans": 220,
+        "documents": 340,
+        "plans": 221,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 242,
+            "tr": 243,
             "tz": 2
         },
         "byZoneState": {
@@ -73,7 +73,7 @@
                 "СДЕЛАНО": 146,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 32,
-                "ПЛАН": 10,
+                "ПЛАН": 11,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
                 "В РАБОТЕ": 15
@@ -87,7 +87,7 @@
             "СНИМОК": 65,
             "нет": 57,
             "СДЕЛАНО": 148,
-            "ПЛАН": 13,
+            "ПЛАН": 14,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 32,
             "ОТМЕНЁН": 1,
@@ -275,19 +275,19 @@
             }
         },
         "Roleplay/Rule": {
-            "docs": 45,
+            "docs": 46,
             "state": {
                 "нет": 3,
                 "СДЕЛАНО": 21,
                 "ЧАСТИЧНО": 6,
                 "ОТЛОЖЕН": 3,
-                "ПЛАН": 5,
+                "ПЛАН": 6,
                 "В РАБОТЕ": 7
             },
             "layer": {
-                "VUE": 15,
+                "VUE": 16,
                 "МОК": 2,
-                "PHP": 11
+                "PHP": 12
             }
         },
         "Roleplay/RuleSpace": {
@@ -3529,7 +3529,8 @@
             "backlinks": [
                 "docs/review/plan-game-plan-32-end-of-turn-2026-10-12.md",
                 "docs/review/plan-game-plan-33-e2e-2026-10-12.md",
-                "docs/review/plan-reliability-capability-2026-10-09.md"
+                "docs/review/plan-reliability-capability-2026-10-09.md",
+                "docs/tr/spell-real-plan-01-action-components.md"
             ]
         },
         {
@@ -4762,6 +4763,7 @@
             "backlinks": [
                 "docs/tr/character-plan-13-path-study.md",
                 "docs/tr/character-roadmap.md",
+                "docs/tr/spell-real-plan-01-action-components.md",
                 "docs/tr/spell-real-roadmap.md",
                 "docs/tr/spell-roadmap.md"
             ]
@@ -8480,6 +8482,7 @@
                 "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/spell-plan-08-runtime-expansion.md",
                 "docs/tr/spell-plan-09-magic-runtime.md",
+                "docs/tr/spell-real-plan-01-action-components.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -8507,6 +8510,7 @@
                 "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/rule-content-plan-08-strike-upgrades.md",
                 "docs/tr/spell-plan-09-magic-runtime.md",
+                "docs/tr/spell-real-plan-01-action-components.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -8538,6 +8542,31 @@
             ]
         },
         {
+            "path": "docs/tr/spell-real-plan-01-action-components.md",
+            "title": "План M1 — компоненты действия: соматика и свободные руки",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "ПЛАН",
+            "stateSource": "token",
+            "statusRaw": "~ПЛАН~, 2026-11-09.",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-09",
+            "bytes": 25133,
+            "lines": 326,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 5,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/spell-real-roadmap.md"
+            ]
+        },
+        {
             "path": "docs/tr/spell-real-roadmap.md",
             "title": "Роудмап магии: реальный runtime",
             "zone": "tr",
@@ -8551,15 +8580,16 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 17779,
-            "lines": 260,
+            "bytes": 18937,
+            "lines": 271,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 6,
+            "linksCount": 7,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-46-spell-cast.md",
+                "docs/tr/spell-real-plan-01-action-components.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
