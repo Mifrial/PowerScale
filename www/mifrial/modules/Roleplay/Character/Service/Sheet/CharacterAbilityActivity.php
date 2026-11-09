@@ -67,10 +67,24 @@ final class CharacterAbilityActivity
                 $resourceLimits,
             );
             $next = $chosen;
+            $seen = [];
             foreach ($choices->getAbilities() as $ability) {
                 $code = $ability->getRuleCode();
                 $wanted = $chosen[$code] ?? 0;
-                $next[$code] = $this->capped($slice, $code, $wanted, $facts->withLevels($next + $derived));
+                $value = $this->capped(
+                    $slice,
+                    $code,
+                    $wanted,
+                    $facts->withLevels($next + $derived),
+                    $ability->getDomainCode(),
+                );
+                if (!isset($seen[$code])) {
+                    $seen[$code] = true;
+                    $next[$code] = $value;
+                    continue;
+                }
+
+                $next[$code] = max($next[$code], $value);
             }
 
             if ($next === $levels) {
@@ -90,6 +104,7 @@ final class CharacterAbilityActivity
      * @param string $code Способность.
      * @param int $wanted Заявленный уровень.
      * @param RequirementValues $facts Факты с текущими уровнями.
+     * @param string $domainContext Путь текущего экземпляра или пусто.
      *
      * @return int Уровень.
      */
@@ -98,6 +113,7 @@ final class CharacterAbilityActivity
         string $code,
         int $wanted,
         RequirementValues $facts,
+        string $domainContext = '',
     ): int {
         $spec = $slice->findLive($code)?->getSpec();
         if (!$spec instanceof AbilitySpec || $wanted < 1) {
@@ -106,7 +122,7 @@ final class CharacterAbilityActivity
 
         $active = 0;
         for ($level = 1; $level <= $wanted; $level++) {
-            if (!$this->blockPasses($spec, $level, $facts)) {
+            if (!$this->blockPasses($spec, $level, $facts, $domainContext)) {
                 break;
             }
 
@@ -143,18 +159,23 @@ final class CharacterAbilityActivity
      * @param AbilitySpec $spec Способность.
      * @param int $level Уровень.
      * @param RequirementValues $facts Факты.
+     * @param string $domainContext Путь текущего экземпляра или пусто.
      *
      * @return bool true, если блок активен.
      */
-    private function blockPasses(AbilitySpec $spec, int $level, RequirementValues $facts): bool
-    {
+    private function blockPasses(
+        AbilitySpec $spec,
+        int $level,
+        RequirementValues $facts,
+        string $domainContext,
+    ): bool {
         foreach ($this->requirementBlocks($spec) as $block) {
             if ($block['level'] !== $level) {
                 continue;
             }
 
             foreach ($block['requirements'] as $requirement) {
-                if ($this->check->check($requirement, $facts) === false) {
+                if ($this->check->check($requirement, $facts, $domainContext) === false) {
                     return false;
                 }
             }

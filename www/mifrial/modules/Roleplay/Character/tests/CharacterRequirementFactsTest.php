@@ -85,6 +85,42 @@ final class CharacterRequirementFactsTest extends TestCase
     }
 
     /**
+     * Домены экземпляров и покрытие путей попадают в признаки.
+     *
+     * @return void
+     */
+    public function testTraitsCarryAbilityDomainsAndPathCovers(): void
+    {
+        $slice = $this->slice([
+            $this->rule('arcanist', 'magic_path', ['includes_path_codes' => ['psionic']]),
+            $this->rule('psionic', 'magic_path', []),
+            $this->rule('shaman', 'magic_path', ['includes_path_codes' => ['sorcery']]),
+            $this->rule('sorcery', 'magic_path', []),
+            $this->rule('discharge', 'ability', ['type' => 'trait']),
+            $this->rule('bolt', 'ability', ['type' => 'trait']),
+            $this->rule('drifter', 'ability', ['type' => 'trait']),
+        ]);
+        $facts = (new CharacterRequirementFacts())->forModel(
+            $slice,
+            $this->choices([
+                ['ruleCode' => 'discharge', 'level' => 1, 'domainCode' => 'psionic'],
+                ['ruleCode' => 'bolt', 'level' => 1, 'domainCode' => 'arcanist'],
+                ['ruleCode' => 'drifter', 'level' => 1, 'domainCode' => 'missing-path'],
+            ]),
+            ['discharge' => 1, 'bolt' => 1, 'drifter' => 1],
+            [],
+            [],
+        );
+
+        self::assertSame(['psionic'], $facts->traits->abilityDomains['discharge']);
+        self::assertSame(['arcanist'], $facts->traits->abilityDomains['bolt']);
+        self::assertArrayNotHasKey('drifter', $facts->traits->abilityDomains);
+        self::assertSame(['arcanist', 'psionic'], $facts->traits->pathCovers['arcanist']);
+        self::assertSame(['psionic'], $facts->traits->pathCovers['psionic']);
+        self::assertSame(['shaman', 'sorcery'], $facts->traits->pathCovers['shaman']);
+    }
+
+    /**
      * withLevels меняет только уровни.
      *
      * @return void

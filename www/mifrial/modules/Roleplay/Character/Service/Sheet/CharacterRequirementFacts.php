@@ -161,12 +161,57 @@ final class CharacterRequirementFacts
         }
 
         return new RequirementTraits(
-            $abilityKeywords,
-            array_values(array_unique($keywords)),
-            $this->weaponFamiliesByKeyword($slice),
-            $this->weaponMasteryLevels($slice, $choices),
-            $this->weaponMasteryValues($slice, $choices, $characteristics),
+            abilityKeywords: $abilityKeywords,
+            keywords: array_values(array_unique($keywords)),
+            weaponFamiliesByKeyword: $this->weaponFamiliesByKeyword($slice),
+            weaponMasteryLevels: $this->weaponMasteryLevels($slice, $choices),
+            weaponMasteryValues: $this->weaponMasteryValues($slice, $choices, $characteristics),
+            abilityDomains: $this->abilityDomains($slice, $choices),
+            pathCovers: $this->pathCovers($slice),
         );
+    }
+
+    /**
+     * Домены экземпляров: код карточки → живые пути.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $choices Выборы.
+     *
+     * @return array<string, array<int, string>> Карта доменов.
+     */
+    private function abilityDomains(CharacterRuleSlice $slice, CharacterChoices $choices): array
+    {
+        $domains = [];
+        foreach ($choices->getAbilities() as $ability) {
+            $domain = $ability->getDomainCode();
+            if (!$this->paths->isPath($slice, $domain)) {
+                continue;
+            }
+
+            $code = $ability->getRuleCode();
+            if (!in_array($domain, $domains[$code] ?? [], true)) {
+                $domains[$code][] = $domain;
+            }
+        }
+
+        return $domains;
+    }
+
+    /**
+     * Путь → он сам и включённые пути.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     *
+     * @return array<string, array<int, string>> Карта покрытия.
+     */
+    private function pathCovers(CharacterRuleSlice $slice): array
+    {
+        $covers = [];
+        foreach ($this->paths->all($slice) as $path) {
+            $covers[$path] = $this->paths->covered($slice, $path);
+        }
+
+        return $covers;
     }
 
     /**

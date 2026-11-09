@@ -45,6 +45,7 @@ final class GameCardAvailability
      * @param string $actorKind Вид: character или npc.
      * @param int $actorId Идентификатор актора.
      * @param string $actionRuleCode Карточка действия.
+     * @param string|null $domainContext Путь экземпляра для доменных требований или null.
      *
      * @return AbilityWithBase Спека карточки.
      *
@@ -55,6 +56,7 @@ final class GameCardAvailability
         string $actorKind,
         int $actorId,
         string $actionRuleCode,
+        ?string $domainContext = null,
     ): AbilityWithBase {
         $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->specOf($slice, $actionRuleCode);
@@ -64,7 +66,7 @@ final class GameCardAvailability
             throw new GameInvalidException('Game action card is not available');
         }
 
-        $this->assertRequirements($slice, $spec, $document, $level);
+        $this->assertRequirements($slice, $spec, $document, $level, $domainContext);
 
         return $spec;
     }
@@ -197,6 +199,7 @@ final class GameCardAvailability
      * @param AbilityWithBase $spec Спека.
      * @param array{choices: array<string, mixed>, sheet: array<string, mixed>} $document Документ.
      * @param int $level Уровень карточки.
+     * @param string|null $domainContext Путь экземпляра или null.
      *
      * @return void
      *
@@ -207,6 +210,7 @@ final class GameCardAvailability
         AbilityWithBase $spec,
         array $document,
         int $level,
+        ?string $domainContext,
     ): void {
         $facts = $this->facts->forDocuments($slice, $document['choices'], $document['sheet']);
         $maxLevel = max(1, $level);
@@ -216,7 +220,7 @@ final class GameCardAvailability
             }
 
             foreach ($block['requirements'] as $requirement) {
-                if ($this->check->check($requirement, $facts) !== true) {
+                if ($this->check->check($requirement, $facts, $domainContext) !== true) {
                     throw new GameInvalidException('Game action card requirements are not met');
                 }
             }

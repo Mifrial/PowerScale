@@ -30,20 +30,24 @@ final class AbilityRequirementCheck
      *
      * @param AbilityRequirement $requirement Требование.
      * @param RequirementValues $values Факты.
+     * @param string|null $domainContext Путь текущего экземпляра или null.
      *
      * @return bool|null true, false или null, если данных нет.
      */
-    public function check(AbilityRequirement $requirement, RequirementValues $values): ?bool
-    {
+    public function check(
+        AbilityRequirement $requirement,
+        RequirementValues $values,
+        ?string $domainContext = null,
+    ): ?bool {
         if ($requirement instanceof AndRequirement) {
-            return $this->all($requirement->getRequirements(), $values);
+            return $this->all($requirement->getRequirements(), $values, $domainContext);
         }
 
         if ($requirement instanceof OrRequirement) {
-            return $this->any($requirement->getRequirements(), $values);
+            return $this->any($requirement->getRequirements(), $values, $domainContext);
         }
 
-        return $this->leaf($requirement, $values);
+        return $this->leaf($requirement, $values, $domainContext);
     }
 
     /**
@@ -51,13 +55,17 @@ final class AbilityRequirementCheck
      *
      * @param AbilityRequirement $requirement Требование.
      * @param RequirementValues $values Факты.
+     * @param string|null $domainContext Путь текущего экземпляра или null.
      *
      * @return bool|null Результат.
      */
-    private function leaf(AbilityRequirement $requirement, RequirementValues $values): ?bool
-    {
+    private function leaf(
+        AbilityRequirement $requirement,
+        RequirementValues $values,
+        ?string $domainContext,
+    ): ?bool {
         return match (true) {
-            $requirement instanceof HasAbilityRequirement => $this->hasAbility($requirement, $values),
+            $requirement instanceof HasAbilityRequirement => $this->hasAbility($requirement, $values, $domainContext),
             $requirement instanceof CharacteristicValueRequirement => $this->characteristicPasses(
                 $requirement,
                 $values,
@@ -68,18 +76,37 @@ final class AbilityRequirementCheck
     }
 
     /**
-     * Уровень способности не ниже минимума.
+     * Уровень способности не ниже минимума и домен пути, если он задан.
      *
      * @param HasAbilityRequirement $requirement Требование.
      * @param RequirementValues $values Факты.
+     * @param string|null $domainContext Путь текущего экземпляра или null.
      *
      * @return bool Результат.
      */
-    private function hasAbility(HasAbilityRequirement $requirement, RequirementValues $values): bool
-    {
-        $level = $values->numbers->levels[$requirement->getAbilityCode()] ?? 0;
+    private function hasAbility(
+        HasAbilityRequirement $requirement,
+        RequirementValues $values,
+        ?string $domainContext,
+    ): bool {
+        $code = $requirement->getAbilityCode();
+        $level = $values->numbers->levels[$code] ?? 0;
+        if ($level < ($requirement->getMinLevel() ?? 1)) {
+            return false;
+        }
 
-        return $level >= ($requirement->getMinLevel() ?? 1);
+        if ($domainContext === null || $domainContext === '') {
+            return true;
+        }
+
+        $domains = $values->traits->abilityDomains[$code] ?? [];
+        if ($domains === []) {
+            return true;
+        }
+
+        $covers = $values->traits->pathCovers[$domainContext] ?? [$domainContext];
+
+        return array_intersect($domains, $covers) !== [];
     }
 
     /**
@@ -171,18 +198,22 @@ final class AbilityRequirementCheck
      *
      * @param array<int, AbilityRequirement> $requirements Дети.
      * @param RequirementValues $values Факты.
+     * @param string|null $domainContext Путь текущего экземпляра или null.
      *
      * @return bool|null Результат.
      */
-    private function all(array $requirements, RequirementValues $values): ?bool
-    {
+    private function all(
+        array $requirements,
+        RequirementValues $values,
+        ?string $domainContext,
+    ): ?bool {
         if ($requirements === []) {
             return true;
         }
 
         $unknown = false;
         foreach ($requirements as $requirement) {
-            $result = $this->check($requirement, $values);
+            $result = $this->check($requirement, $values, $domainContext);
             if ($result === false) {
                 return false;
             }
@@ -198,14 +229,18 @@ final class AbilityRequirementCheck
      *
      * @param array<int, AbilityRequirement> $requirements Дети.
      * @param RequirementValues $values Факты.
+     * @param string|null $domainContext Путь текущего экземпляра или null.
      *
      * @return bool|null Результат.
      */
-    private function any(array $requirements, RequirementValues $values): ?bool
-    {
+    private function any(
+        array $requirements,
+        RequirementValues $values,
+        ?string $domainContext,
+    ): ?bool {
         $unknown = false;
         foreach ($requirements as $requirement) {
-            $result = $this->check($requirement, $values);
+            $result = $this->check($requirement, $values, $domainContext);
             if ($result === true) {
                 return true;
             }

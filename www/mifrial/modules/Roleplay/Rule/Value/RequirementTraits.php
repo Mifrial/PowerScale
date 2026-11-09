@@ -17,6 +17,8 @@ final class RequirementTraits
      * @param array<string, array<int, string>> $weaponFamiliesByKeyword Признаки семей оружия.
      * @param array<string, int> $weaponMasteryLevels Уровни владения семьями оружия.
      * @param array<string, DimensionalNumber> $weaponMasteryValues Лучшее мастерство семьи оружия.
+     * @param array<string, array<int, string>> $abilityDomains Домены экземпляров способностей по коду.
+     * @param array<string, array<int, string>> $pathCovers Путь → он сам и включённые пути.
      *
      * @return void
      */
@@ -26,6 +28,8 @@ final class RequirementTraits
         public readonly array $weaponFamiliesByKeyword = [],
         public readonly array $weaponMasteryLevels = [],
         public readonly array $weaponMasteryValues = [],
+        public readonly array $abilityDomains = [],
+        public readonly array $pathCovers = [],
     ) {
     }
 }

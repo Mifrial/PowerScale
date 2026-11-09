@@ -46,6 +46,48 @@ final class AbilityRequirementCheckTest extends TestCase
     }
 
     /**
+     * has_ability с доменом пути: экземпляр должен быть на пути или на включённом пути.
+     *
+     * @return void
+     */
+    public function testHasAbilityDomainContext(): void
+    {
+        $check = new AbilityRequirementCheck();
+        $values = new RequirementValues(
+            new RequirementNumbers(['discharge' => 1, 'bolt' => 1, 'plain' => 1]),
+            new RequirementTraits(
+                abilityDomains: [
+                    'discharge' => ['psionic'],
+                    'bolt' => ['arcanist'],
+                ],
+                pathCovers: [
+                    'arcanist' => ['arcanist', 'psionic'],
+                    'psionic' => ['psionic'],
+                ],
+            ),
+        );
+
+        self::assertTrue($check->check(new HasAbilityRequirement('discharge', null), $values));
+        self::assertTrue($check->check(new HasAbilityRequirement('discharge', 1), $values, 'arcanist'));
+        self::assertFalse($check->check(new HasAbilityRequirement('bolt', 1), $values, 'psionic'));
+        self::assertFalse($check->check(new HasAbilityRequirement('discharge', 2), $values, 'arcanist'));
+        self::assertTrue($check->check(new HasAbilityRequirement('plain', 1), $values, 'arcanist'));
+        self::assertTrue($check->check(
+            new AndRequirement([new HasAbilityRequirement('discharge', 1)]),
+            $values,
+            'arcanist',
+        ));
+        self::assertFalse($check->check(
+            new OrRequirement([
+                new HasAbilityRequirement('bolt', 1),
+                new HasAbilityRequirement('missing', 1),
+            ]),
+            $values,
+            'psionic',
+        ));
+    }
+
+    /**
      * characteristic_value сравнивает размерные числа.
      *
      * @return void

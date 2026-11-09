@@ -494,6 +494,72 @@ final class CharacterLiveComputeTest extends TestCase
     }
 
     /**
+     * has_ability учитывает путь экземпляра, а не только уровень по коду.
+     *
+     * @return void
+     */
+    public function testHasAbilityRequirementUsesInstanceDomain(): void
+    {
+        $requirement = [[
+            'level' => 1,
+            'requirements' => [['type' => 'has_ability', 'ability_code' => 'discharge', 'min_level' => 1]],
+        ]];
+        $slice = $this->slice([
+            $this->rule('arcanist', 'magic_path', []),
+            $this->rule('psionic', 'magic_path', []),
+            $this->rule('shaman', 'magic_path', ['includes_path_codes' => ['psionic']]),
+            $this->ability('discharge', ['type' => 'trait']),
+            $this->ability('arcanist-bolt', ['type' => 'trait', 'requirements' => $requirement]),
+            $this->ability('shaman-bolt', ['type' => 'trait', 'requirements' => $requirement]),
+        ]);
+
+        $samePath = $this->levelsOf($slice, [
+            ['ruleCode' => 'discharge', 'level' => 1, 'domainCode' => 'arcanist'],
+            ['ruleCode' => 'arcanist-bolt', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        self::assertSame(1, $samePath['arcanist-bolt']);
+
+        $otherPath = $this->levelsOf($slice, [
+            ['ruleCode' => 'discharge', 'level' => 1, 'domainCode' => 'psionic'],
+            ['ruleCode' => 'arcanist-bolt', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        self::assertSame(0, $otherPath['arcanist-bolt']);
+
+        $included = $this->levelsOf($slice, [
+            ['ruleCode' => 'discharge', 'level' => 1, 'domainCode' => 'psionic'],
+            ['ruleCode' => 'shaman-bolt', 'level' => 1, 'domainCode' => 'shaman'],
+        ]);
+        self::assertSame(1, $included['shaman-bolt']);
+
+        $reverse = $this->levelsOf($slice, [
+            ['ruleCode' => 'discharge', 'level' => 1, 'domainCode' => 'shaman'],
+            ['ruleCode' => 'arcanist-bolt', 'level' => 1, 'domainCode' => 'psionic'],
+        ]);
+        self::assertSame(0, $reverse['arcanist-bolt']);
+
+        $duplicate = $this->levelsOf($slice, [
+            ['ruleCode' => 'discharge', 'level' => 1, 'domainCode' => 'arcanist'],
+            ['ruleCode' => 'arcanist-bolt', 'level' => 1, 'domainCode' => 'arcanist'],
+            ['ruleCode' => 'arcanist-bolt', 'level' => 1, 'domainCode' => 'psionic'],
+        ]);
+        self::assertSame(1, $duplicate['arcanist-bolt']);
+    }
+
+    /**
+     * Уровни листа по списку способностей.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<int, array<string, mixed>> $abilities Способности.
+     *
+     * @return array<string, int> Уровни.
+     */
+    private function levelsOf(CharacterRuleSlice $slice, array $abilities): array
+    {
+        return Character::fromDocument($slice, ['abilities' => $abilities], [], $this->sheets())
+            ->getSheet()['abilityLevels'];
+    }
+
+    /**
      * @param CharacterRuleSlice $slice Срез.
      *
      * @return CharacterActualMutations Порт.
