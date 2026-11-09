@@ -41,7 +41,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | `review` | 63 | 1 | 0 | 0 | 2 | 0 | 0 | 49 | 11 |
 | `rule` | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 6 |
 | `specs` | 22 | 2 | 0 | 0 | 0 | 4 | 0 | 5 | 11 |
-| `tr` | 241 | 10 | 15 | 31 | 146 | 4 | 1 | 8 | 26 |
+| `tr` | 241 | 9 | 15 | 32 | 146 | 4 | 1 | 8 | 26 |
 | `tz` | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 |
 
 ## Модуль × состояние × слой
@@ -60,7 +60,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Messages/Chat](module-map/Messages/Chat.md) | 9 | 0 | 0 | 0 | 8 | 1 | 8 | 4 | 1 |
 | [Messages/Notes](module-map/Messages/Notes.md) | 5 | 0 | 0 | 0 | 5 | 0 | 3 | 4 | 2 |
 | [Roleplay/Character](module-map/Roleplay/Character.md) | 18 | 1 | 0 | 3 | 11 | 2 | 14 | 3 | 0 |
-| [Roleplay/Game](module-map/Roleplay/Game.md) | 52 | 1 | 1 | 2 | 42 | 1 | 45 | 12 | 6 |
+| [Roleplay/Game](module-map/Roleplay/Game.md) | 52 | 0 | 1 | 3 | 42 | 1 | 45 | 12 | 6 |
 | [Roleplay/Keyword](module-map/Roleplay/Keyword.md) | 3 | 0 | 0 | 3 | 0 | 0 | 3 | 2 | 0 |
 | [Roleplay/Map](module-map/Roleplay/Map.md) | 3 | 0 | 3 | 0 | 0 | 0 | 3 | 3 | 3 |
 | [Roleplay/Mechanic](module-map/Roleplay/Mechanic.md) | 9 | 0 | 0 | 2 | 6 | 0 | 6 | 4 | 0 |

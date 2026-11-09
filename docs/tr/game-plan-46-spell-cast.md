@@ -1,6 +1,6 @@
 # План 46 — серверный каст заклинания
 
-**Статус:** ~ПЛАН~, 2026-11-09.
+**Статус:** ~ЧАСТИЧНО~, 2026-11-09.
 
 **Реализация:** ~PHP~, ~VUE~.
 
@@ -702,3 +702,4 @@ Frontend:
 | 2026-11-09 | 46.2 сделан: `CharacterKeywordExperience` вынесен из `CharacterDerivedLevels`; `AbilityWithComponents` реализуют action и spell; общий resolver принимает любую спеку с компонентами. |
 | 2026-11-09 | 46.3 сделан: `game.castSpell` с `GameSpellCast*` (body/facts/check/damage/write/chat/view), общие компоненты, проверка домена, CAS цели и кастера, replay, Шок/Воля/увечье; MySQL-тесты успеха, replay, stale цели, нет цели/ОД, параметр вне границ, мощь выше потолка. |
 | 2026-11-09 | 46.4 сделан: `GameApi`/`IGameApi` получили `castSpell`; real-ветка `SpellCastDialog` отправляет контрактные поля и не считает локально; мок бросает ошибку. |
+| 2026-11-09 | 46.5 ожидает ручной проверки НПС и полного `tools/test-full.sh`; автоматические полосы (`composer stan`, `test:unit`, Game MySQL, vitest) зелёные. |
