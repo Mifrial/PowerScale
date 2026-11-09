@@ -19,6 +19,7 @@ final class GameStrikeOpenPreparation
      * @param GameStrikeRules $rules Правила.
      * @param GameStrikeOpenChecks $checks Проверки выбора.
      * @param GameCardAvailability $availability Доступность карточки.
+     * @param GameSpellTouchFacts $spellTouch Заклинание касания.
      *
      * @return void
      */
@@ -27,6 +28,7 @@ final class GameStrikeOpenPreparation
         private readonly GameStrikeRules $rules,
         private readonly GameStrikeOpenChecks $checks,
         private readonly GameCardAvailability $availability,
+        private readonly GameSpellTouchFacts $spellTouch,
     ) {
     }
 
@@ -42,6 +44,7 @@ final class GameStrikeOpenPreparation
     public function prepare(GameRecord $game, GameBattleRecord $battle, array $choice): array
     {
         $choice = $this->applyProcess($game, $battle, $choice);
+        $choice = $this->applySpell($game, $choice);
         $npcChoices = $this->npcChoices($game, $choice);
         $this->assertStrikes($game, $choice, $npcChoices);
         $this->checks->assertWeaponShape($game, $choice, $npcChoices);
@@ -94,6 +97,28 @@ final class GameStrikeOpenPreparation
     }
 
     /**
+     * Проверяет заклинание касания и кладёт его траты в выбор.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $choice Выбор.
+     *
+     * @return array<string, mixed> Выбор.
+     */
+    private function applySpell(GameRecord $game, array $choice): array
+    {
+        $spell = $choice['spellCast'] ?? null;
+        if (!is_array($spell)) {
+            return $choice;
+        }
+
+        $prepared = $this->spellTouch->prepare($game, $choice, $spell);
+        $prepared['payload']['spends'] = $prepared['spends'];
+        $choice['spellCast'] = $prepared['payload'];
+
+        return $choice;
+    }
+
+    /**
      * Choices NPC атакующего или null.
      *
      * @param GameRecord $game Игра.
@@ -101,8 +126,7 @@ final class GameStrikeOpenPreparation
      *
      * @return array<string, mixed>|null Choices.
      */
-    private function npcChoices(GameRecord $game, array $choice): ?array
-    {
+    private function npcChoices(GameRecord $game, array $choice): ?array    {
         $attacker = $choice['attacker'] ?? null;
         if (!is_array($attacker) || ($attacker['type'] ?? null) !== 'npc' || !is_int($attacker['id'] ?? null)) {
             return null;

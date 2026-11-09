@@ -114,7 +114,7 @@ final class GameStrikeOpen
      *
      * @param GameStrikeOpenRun $run Контекст записи.
      *
-     * @return array{debt: bool, strikeId: int, version: int} Итог.
+     * @return array{debt: bool, strikeId: int, version: int, spent: int} Итог.
      *
      * @throws GameInvalidException Если выбор, строка или ресурс невалидны.
      */
@@ -196,7 +196,7 @@ final class GameStrikeOpen
      *
      * @param GameBattleRecord $battle Бой.
      * @param string $kind Вид удара.
-     * @param array{debt: bool, strikeId: int, version: int} $opened Итог записи.
+     * @param array{debt: bool, strikeId: int, version: int, spent: int} $opened Итог записи.
      *
      * @return array<string, mixed> Итог.
      */
@@ -206,6 +206,7 @@ final class GameStrikeOpen
             'battleId' => $battle->getId(),
             'strikeId' => $opened['strikeId'],
             'version' => $opened['version'],
+            'spent' => $opened['spent'],
         ];
         if ($kind === 'wide_strike') {
             $result['targetResults'] = [];

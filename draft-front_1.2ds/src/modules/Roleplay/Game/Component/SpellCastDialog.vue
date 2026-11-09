@@ -23,6 +23,8 @@ import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMod
 import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import type { GamePhpSpellCastRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastRequest';
+import type { GamePhpSpellCastPayload } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastPayload';
+import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
@@ -37,7 +39,14 @@ import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Insta
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
 import { injuryPackageService } from '@/modules/Roleplay/Game/Service/Instance/injuryPackageService';
-import { CHARACTERISTIC_BASE_RANGE, characterOverviewService } from '@/modules/Roleplay/Character/init';
+import {
+  AttackProfileOption,
+  CHARACTERISTIC_BASE_RANGE,
+  characterOverviewService,
+  useAttackFavorites,
+} from '@/modules/Roleplay/Character/init';
+import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
+import { INNATE_HAND_ITEM_CODE } from '@/modules/Roleplay/Character/Constant/Inventory/INNATE_HAND_ITEM_CODE';
 import {
   actionOdCost,
   defaultTouchAction,
@@ -46,6 +55,8 @@ import {
   turnResourceCode,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
+import { useLastTargetsStore } from '@/modules/Roleplay/Game/Store/lastTargets';
+import { combatEntitySelectService } from '@/modules/Roleplay/Game/Service/Instance/combatEntitySelectService';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import SpellCastSpellRequirementMarks from '@/modules/Roleplay/Game/Component/SpellCastSpellRequirementMarks.vue';
 import SpellCastUpgradeList from '@/modules/Roleplay/Game/Component/SpellCastUpgradeList.vue';
@@ -105,6 +116,7 @@ const emit = defineEmits<{
   'update:open': [value: boolean];
   'overlay-changed': [];
   settled: [];
+  'touch-cast': [payload: { attack: AttackAction; spellCast: GamePhpSpellCastPayload }];
 }>();
 
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
@@ -168,8 +180,11 @@ const saturationPowerLabel = computed(() =>
 
 const showCastOptions = ref(false);
 const touchActionCode = ref('');
-const touchTargetKey = ref<CombatEntityKey | ''>('');
+const touchTargetKey = ref<CombatEntityKey | '' | null>(null);
 const touchProfileItem = ref('');
+const touchProfileMenu = ref(false);
+const attackFavorites = useAttackFavorites();
+const lastTargets = useLastTargetsStore();
 const { keywords, fetchTags } = useKeywords();
 
 const resolvedCasterKey = computed<CombatEntityKey | null>(() => {
@@ -330,13 +345,97 @@ const strikeProfileItems = computed(() =>
   strikeProfiles.value.map((attack, index) => ({
     value: `${attack.itemRuleCode}:${attack.profileIndex ?? 0}:${index}`,
     title: `${attack.itemName} · ${attack.accuracyLabel}`,
+    attack,
   })),
 );
 const selectedTouchProfile = computed(() => {
   const index = strikeProfileItems.value.findIndex((item) => item.value === touchProfileItem.value);
 
-  return index >= 0 ? strikeProfiles.value[index] : (strikeProfiles.value[0] ?? null);
+  return index >= 0 ? strikeProfileItems.value[index].attack : (strikeProfiles.value[0] ?? null);
 });
+const selectedTouchProfileLabel = computed(() =>
+  selectedTouchProfile.value
+    ? `${selectedTouchProfile.value.itemName} · ${selectedTouchProfile.value.profileTypeLabel} · Дистанция ${selectedTouchProfile.value.distanceLabel}`
+    : 'Выберите оружие касания',
+);
+const hasFreeHandProfile = computed(() =>
+  strikeProfiles.value.some((profile) => profile.itemRuleCode === INNATE_HAND_ITEM_CODE),
+);
+
+/** Профиль касания: последний использованный, иначе первый доступный. */
+function defaultTouchProfileValue(): string {
+  const caster = resolvedCasterKey.value;
+  const favorite = caster ? attackFavorites.favoriteOf(caster) : null;
+  const matched = favorite
+    ? strikeProfileItems.value.find(
+        (item) =>
+          item.attack.itemRuleCode === favorite.itemRuleCode &&
+          (item.attack.profileIndex ?? 0) === favorite.profileIndex,
+      )
+    : undefined;
+
+  return matched?.value ?? strikeProfileItems.value[0]?.value ?? '';
+}
+
+function rememberTouchProfile(attack: AttackOverview): void {
+  const caster = resolvedCasterKey.value;
+  if (!caster) return;
+  attackFavorites.setFavorite(caster, {
+    itemRuleCode: attack.itemRuleCode,
+    profileType: attack.profileType,
+    profileIndex: attack.profileIndex ?? 0,
+  });
+}
+
+function selectTouchProfile(attack: AttackOverview): void {
+  const item = strikeProfileItems.value.find((entry) => entry.attack === attack);
+  if (item) touchProfileItem.value = item.value;
+  rememberTouchProfile(attack);
+  touchProfileMenu.value = false;
+}
+
+const targetOptionKeys = computed(() => {
+  const exclude = resolvedCasterKey.value ? [resolvedCasterKey.value] : [];
+
+  return combatEntitySelectService
+    .items({
+      characters: props.characters,
+      npcs: props.npcs,
+      initiativeKeys: props.initiativeKeys ?? [],
+      exclude,
+      participantsOnly: true,
+    })
+    .map((item) => item.value)
+    .filter(
+      (value): value is CombatEntityKey =>
+        typeof value === 'string' && (value.startsWith('npc:') || value.startsWith('character:')),
+    );
+});
+
+function rememberedTarget(): CombatEntityKey | null {
+  const caster = resolvedCasterKey.value;
+  if (!caster) return null;
+  const target = lastTargets.targetOf(props.gameId, caster);
+
+  return target && targetOptionKeys.value.includes(target) ? target : null;
+}
+
+function rememberTarget(value: CombatEntityKey | string | null): void {
+  const caster = resolvedCasterKey.value;
+  if (!caster) return;
+  const target = value === null || value === '' ? null : (value as CombatEntityKey);
+  lastTargets.setTarget(props.gameId, caster, target);
+}
+
+function onSpellTargetChange(value: CombatEntityKey | string | null): void {
+  targetKey.value = value === null || value === '' ? null : (value as CombatEntityKey);
+  rememberTarget(value);
+}
+
+function onTouchTargetChange(value: CombatEntityKey | string | null): void {
+  touchTargetKey.value = value === null || value === '' ? '' : (value as CombatEntityKey);
+  rememberTarget(value);
+}
 const pendingSpellEffects = ref<PendingActionEffect[]>([]);
 const actionPointCost = computed(() =>
   spellCastExecutionService.actionPointCost({
@@ -602,8 +701,10 @@ async function loadCastContext(open: boolean): Promise<void> {
   parameterPower.value = { ...usedPower.value };
   spellCode.value = spells.value[0]?.ruleCode ?? '';
   touchActionCode.value = defaultTouchActionCode();
-  touchTargetKey.value = '';
-  touchProfileItem.value = strikeProfileItems.value[0]?.value ?? '';
+  const remembered = rememberedTarget();
+  targetKey.value = remembered;
+  touchTargetKey.value = remembered;
+  touchProfileItem.value = defaultTouchProfileValue();
   loadPhase.value = 'ready';
 }
 
@@ -885,6 +986,11 @@ async function runPhpCast(): Promise<void> {
 
     return;
   }
+  if (needsTouchAttack.value) {
+    await runPhpTouchCast(caster);
+
+    return;
+  }
 
   const actor = participantOf(caster);
   const target = targetKey.value ? participantOf(targetKey.value) : undefined;
@@ -902,7 +1008,9 @@ async function runPhpCast(): Promise<void> {
       source: powerSource(sourceKey.value),
       value: usedPower.value,
     },
-    ...(target ? { target, expectedTargetVersion: gamePhpBattleContext.sheetVersionByKey[targetKey.value!] ?? 1 } : {}),
+    ...(target && targetKey.value
+      ? { target, expectedTargetVersion: gamePhpBattleContext.sheetVersionByKey[targetKey.value] ?? 1 }
+      : {}),
     distanceIpari: 0,
   };
   const result = await getGameApi().castSpell(request);
@@ -920,6 +1028,51 @@ function participantOf(key: CombatEntityKey): { type: 'character' | 'npc'; id: n
   const [type, raw] = key.split(':');
 
   return { type: type === 'npc' ? 'npc' : 'character', id: Number(raw) };
+}
+
+/**
+ * Открывает окно удара касания: объявление и защита идут через game.runAction.
+ */
+async function runPhpTouchCast(caster: CombatEntityKey): Promise<void> {
+  const touchKey = touchTargetKey.value === '' ? null : touchTargetKey.value;
+  if (!touchKey) {
+    error.value = 'Выберите цель касания';
+
+    return;
+  }
+  if (!touchActionCode.value) {
+    error.value = 'Выберите атаку касания';
+
+    return;
+  }
+  const profile = selectedTouchProfile.value;
+  if (!profile) {
+    error.value = 'Выберите оружие касания';
+
+    return;
+  }
+
+  const target = targetKey.value ? participantOf(targetKey.value) : undefined;
+  const attack: AttackAction = {
+    initiator: caster,
+    source: { kind: 'action', actionRuleCode: touchActionCode.value },
+    strikes: [{ targetKey: touchKey, profile }],
+    reactionMode: 'simultaneous',
+    totalOdCost: actionPointCost.value,
+  };
+  const spellCast: GamePhpSpellCastPayload = {
+    spellCode: spellCode.value,
+    pathCode: pathCode.value,
+    parameters: castParameters.value,
+    usedPower: {
+      source: powerSource(sourceKey.value),
+      value: usedPower.value,
+    },
+    ...(target ? { spellTarget: target } : {}),
+  };
+
+  emit('touch-cast', { attack, spellCast });
+  emit('update:open', false);
 }
 
 function powerSource(key: string): GamePhpSpellCastRequest['usedPower']['source'] {
@@ -1853,13 +2006,15 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
             </div>
             <CombatEntitySelect
               v-if="hasTarget"
-              v-model="targetKey"
+              :model-value="targetKey"
               label="Цель заклинания"
               :characters="characters"
               :npcs="npcs"
               :initiative-keys="initiativeKeys"
               :exclude="resolvedCasterKey ? [resolvedCasterKey] : []"
+              participants-only
               class="mt-2"
+              @update:model-value="onSpellTargetChange"
             />
             <template v-if="needsTouchAttack">
               <v-select
@@ -1870,23 +2025,50 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
                 hide-details
                 class="mt-3"
               />
-              <v-select
-                v-model="touchProfileItem"
-                :items="strikeProfileItems"
-                label="Оружие касания"
-                density="compact"
-                hide-details
-                class="mt-2"
-              />
+              <v-menu v-model="touchProfileMenu" :close-on-content-click="false" location="bottom">
+                <template #activator="{ props: menuProps }">
+                  <v-sheet v-bind="menuProps" class="touch-profile-choice rounded border pa-2 mt-2">
+                    <div class="d-flex align-center justify-space-between ga-2">
+                      <span class="text-body-2 font-weight-medium text-truncate">{{ selectedTouchProfileLabel }}</span>
+                      <v-icon size="18">mdi-chevron-down</v-icon>
+                    </div>
+                    <div v-if="selectedTouchProfile" class="text-caption text-medium-emphasis">
+                      {{ selectedTouchProfile.accuracyLabel }} · {{ selectedTouchProfile.damageLabel }} ·
+                      {{ selectedTouchProfile.penetrationLabel }}
+                    </div>
+                  </v-sheet>
+                </template>
+                <v-card min-width="420" max-width="560">
+                  <v-list density="compact">
+                    <AttackProfileOption
+                      v-for="profile in strikeProfiles"
+                      :key="`${profile.itemRuleCode}:${profile.profileIndex ?? 0}:${profile.instanceIndex ?? 0}`"
+                      :attack="profile"
+                      :selected="
+                        profile.itemRuleCode === selectedTouchProfile?.itemRuleCode &&
+                        profile.profileIndex === selectedTouchProfile?.profileIndex &&
+                        (profile.instanceIndex ?? 0) === (selectedTouchProfile?.instanceIndex ?? 0)
+                      "
+                      @select="selectTouchProfile"
+                    />
+                    <v-list-item v-if="strikeProfiles.length === 0" title="Подходящих профилей нет" />
+                  </v-list>
+                </v-card>
+              </v-menu>
+              <div v-if="!hasFreeHandProfile" class="text-caption text-medium-emphasis mt-1">
+                Профиль руки недоступен: руки заняты или их нет.
+              </div>
               <CombatEntitySelect
-                v-model="touchTargetKey"
+                :model-value="touchTargetKey"
                 label="Цель касания"
                 :characters="characters"
                 :npcs="npcs"
                 :initiative-keys="initiativeKeys"
                 :exclude="resolvedCasterKey ? [resolvedCasterKey] : []"
-                :leading="[{ title: 'Воздух', value: '' }]"
+                :trailing="[{ title: 'Воздух', value: '' }]"
+                participants-only
                 class="mt-2"
+                @update:model-value="onTouchTargetChange"
               />
             </template>
             <div class="text-caption text-medium-emphasis mt-2">Стоимость: {{ actionPointCost }} ОД</div>
@@ -1958,3 +2140,9 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
     @confirm="resolveBurst"
   />
 </template>
+
+<style scoped>
+.touch-profile-choice {
+  cursor: pointer;
+}
+</style>

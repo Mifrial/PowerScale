@@ -38,6 +38,13 @@ final class GameSpellCastPrepared
      *     sheet: array<string, mixed>,
      *     version: int
      * }|null $target Цель или null.
+     * @param array{
+     *     type: string,
+     *     id: int,
+     *     choices: array<string, mixed>,
+     *     sheet: array<string, mixed>,
+     *     version: int
+     * }|null $damageTarget Цель эффекта: заклинания или касания.
      * @param array<string, int|array{base: int, size: int}> $parameters Активационные параметры.
      * @param CharacteristicNumber $usedPower Используемая мощь.
      * @param DimensionalNumber $requiredPower Требуемая мощь.
@@ -62,6 +69,7 @@ final class GameSpellCastPrepared
         public readonly array $casterSheet,
         public readonly int $casterVersion,
         public readonly ?array $target,
+        public readonly ?array $damageTarget,
         public readonly array $parameters,
         public readonly CharacteristicNumber $usedPower,
         public readonly DimensionalNumber $requiredPower,

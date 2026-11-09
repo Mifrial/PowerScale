@@ -44,7 +44,11 @@ final class GameStrikeHttpFactory
             $ports->userAccess(),
             new GameRunAction(
                 new GameRunActionBody(),
-                new GameRunActionDeclare($this->actionDomain($serviceLocator), $wounds),
+                new GameRunActionDeclare(
+                    $this->actionDomain($serviceLocator),
+                    $wounds,
+                    new GameRunActionSpellDeclare($this->spellCast($serviceLocator), new GameSpellCastBody()),
+                ),
                 new GameRunActionStrikeDeclare($strikes, $wideStrikes, $ports->games(), $rules),
                 new GameRunActionRespond($strikes, $wideStrikes, $repository, $commands),
             ),
@@ -59,6 +63,22 @@ final class GameStrikeHttpFactory
      * @return GameSpellCastHttp Сценарий.
      */
     public function createSpellCastHttp(IServiceLocator $serviceLocator): GameSpellCastHttp
+    {
+        return new GameSpellCastHttp(
+            (new GameStrikePorts($serviceLocator))->userAccess(),
+            new GameSpellCastBody(),
+            $this->spellCast($serviceLocator),
+        );
+    }
+
+    /**
+     * Команда каста заклинания.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameSpellCast Команда.
+     */
+    private function spellCast(IServiceLocator $serviceLocator): GameSpellCast
     {
         $ports = new GameStrikePorts($serviceLocator);
         $gateway = $ports->gateway();
@@ -75,39 +95,35 @@ final class GameStrikeHttpFactory
             $ports->events(),
         );
 
-        return new GameSpellCastHttp(
-            $ports->userAccess(),
-            new GameSpellCastBody(),
-            new GameSpellCast(
-                $shared->ready,
-                $shared->replay,
-                $shared->repos->commands,
-                $shared->announce,
-                $shared->repos,
-                $shared->access,
-                $write->perform($rules),
-                new GameSpellCastFacts(
-                    $rules,
-                    $shared->sheets,
-                    $characters->characterSheets(),
-                    $write->availability($rules),
-                    new GameActionResourceResolver(),
-                ),
-                new GameSpellCastCheck(
-                    $ruleWiring->checkRoll(),
-                    new GameCheckChain(),
-                    $characters->combatLayers(),
-                ),
-                new GameSpellCastDamage(
-                    $rules,
-                    new CharacterKeywordExperience(),
-                    new GameStrikeAmounts(),
-                    $ruleWiring->consequences($rules),
-                ),
-                new GameSpellCastWrite($shared->sheetWrites),
-                new GameSpellCastChat($ports->chats(), $shared->chat),
-                new GameSpellCastView(),
+        return new GameSpellCast(
+            $shared->ready,
+            $shared->replay,
+            $shared->repos->commands,
+            $shared->announce,
+            $shared->repos,
+            $shared->access,
+            $write->perform($rules),
+            new GameSpellCastFacts(
+                $rules,
+                $shared->sheets,
+                $characters->characterSheets(),
+                $write->availability($rules),
+                new GameActionResourceResolver(),
             ),
+            new GameSpellCastCheck(
+                $ruleWiring->checkRoll(),
+                new GameCheckChain(),
+                $characters->combatLayers(),
+            ),
+            new GameSpellCastDamage(
+                $rules,
+                new CharacterKeywordExperience(),
+                new GameStrikeAmounts(),
+                $ruleWiring->consequences($rules),
+            ),
+            new GameSpellCastWrite($shared->sheetWrites),
+            new GameSpellCastChat($ports->chats(), $shared->chat),
+            new GameSpellCastView(),
         );
     }
 

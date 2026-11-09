@@ -9,6 +9,7 @@ import {
   COMBAT_CHAT_INITIATIVE,
   COMBAT_CHAT_ROUND,
   COMBAT_CHAT_SESSION,
+  COMBAT_CHAT_SPELL,
   COMBAT_CHAT_TURN,
 } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
 import type { CombatChatFoldGroup } from '@/modules/Roleplay/Game/Dto/CombatChatFoldGroup';
@@ -22,6 +23,7 @@ export class CombatChatFoldService {
 
   private parentKindOf(kind: string): string {
     if (kind === COMBAT_CHAT_ATTACK) return COMBAT_CHAT_TURN;
+    if (kind === COMBAT_CHAT_SPELL) return COMBAT_CHAT_TURN;
     if (kind === COMBAT_CHAT_CHECK) return COMBAT_CHAT_TURN;
     if (kind === COMBAT_CHAT_INITIATIVE) return COMBAT_CHAT_ROUND;
     if (kind === COMBAT_CHAT_TURN) return COMBAT_CHAT_ROUND;
@@ -101,8 +103,11 @@ export class CombatChatFoldService {
   private isSpellOutcome(text: string): boolean {
     return (
       text.includes('успешно сотворил') ||
+      text.includes('успешно сотворяет') ||
       text.includes('не смог сотворить') ||
+      text.includes('не справляется с') ||
       text.includes('уходит в молоко') ||
+      text.includes('уходит в воздух') ||
       text.includes('Сотворение провалилось')
     );
   }
@@ -173,6 +178,27 @@ export class CombatChatFoldService {
     );
   }
 
+  private spellFoldSummary(messages: ChatMessage[]): string {
+    const bits: string[] = [];
+    const declaration = messages.find((message) => message.content.includes('требует касания'));
+    const begin =
+      declaration ??
+      messages.find(
+        (message) => message.content.includes(' сотворяет ') || message.content.includes(' творит заклинание '),
+      );
+    if (begin?.content) bits.push(this.compact(begin.content));
+    const outcome = messages.find((message) => this.isSpellOutcome(message.content));
+    if (outcome?.content) bits.push(this.compact(outcome.content));
+    const effect = messages.find(
+      (message) => this.isSpellEffect(message.content) || message.content.includes('поражает'),
+    );
+    if (effect?.content) bits.push(this.compact(effect.content));
+    bits.push(...this.injurySummaries(messages));
+    bits.push(...this.declineSummaries(messages));
+
+    return bits.length > 0 ? bits.join(' ') : 'Заклинание';
+  }
+
   attackFoldSummary(messages: ChatMessage[]): string {
     const joined = messages.map((message) => message.content).join('\n');
     const spell = messages.find((message) => this.isSpellOutcome(message.content));
@@ -229,6 +255,7 @@ export class CombatChatFoldService {
   }
 
   private foldSummary(kind: string, header: ChatMessage | undefined, body: ChatMessage[]): string {
+    if (kind === COMBAT_CHAT_SPELL) return this.spellFoldSummary(body);
     if (kind === COMBAT_CHAT_ATTACK) return this.attackFoldSummary(header ? [header, ...body] : body);
     if (kind === COMBAT_CHAT_CHECK) return this.checkFoldSummary(header ? [header, ...body] : body);
     if (kind === COMBAT_CHAT_INITIATIVE) return this.initiativeFoldSummary(header ? [header, ...body] : body);
@@ -261,9 +288,20 @@ export class CombatChatFoldService {
     }
   }
 
+  private isBlockKind(kind: string): boolean {
+    return (
+      kind === COMBAT_CHAT_ATTACK ||
+      kind === COMBAT_CHAT_SPELL ||
+      kind === COMBAT_CHAT_CHECK ||
+      kind === COMBAT_CHAT_INITIATIVE
+    );
+  }
+
   private toNode(acc: Map<string, CombatChatFoldGroup>, group: CombatChatFoldGroup): ChatFoldNode {
     const header =
-      group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_INITIATIVE
+      group.kind === COMBAT_CHAT_ATTACK ||
+      group.kind === COMBAT_CHAT_SPELL ||
+      group.kind === COMBAT_CHAT_INITIATIVE
         ? undefined
         : group.messages.find((message) => message.kind != null);
     const body = header ? group.messages.filter((message) => message.id !== header.id) : group.messages;
@@ -278,20 +316,15 @@ export class CombatChatFoldService {
         ...children.flatMap((child) => (child.type === 'fold' ? child.fold.messageIds : [child.message.id])),
       ]),
     ];
+    const block = this.isBlockKind(group.kind);
 
     return {
       id: group.id,
       kind: group.kind,
       summary: this.foldSummary(group.kind, header, body),
-      chrome:
-        group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_CHECK || group.kind === COMBAT_CHAT_INITIATIVE
-          ? 'end'
-          : 'start',
+      chrome: block ? 'end' : 'start',
       tone: group.kind === COMBAT_CHAT_ROUND || group.kind === COMBAT_CHAT_SESSION ? 'highlighted' : 'default',
-      variant:
-        group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_CHECK || group.kind === COMBAT_CHAT_INITIATIVE
-          ? 'block'
-          : 'divider',
+      variant: block ? 'block' : 'divider',
       children,
       messageIds,
     };

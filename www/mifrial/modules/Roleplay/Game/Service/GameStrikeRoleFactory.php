@@ -30,6 +30,7 @@ final class GameStrikeRoleFactory
      * @param GameStrikeConsequences $consequences Последствия.
      * @param GameCardAvailability $availability Доступность карточки.
      * @param GameProcessFlow $processes Сессия процесса.
+     * @param GameSpellTouchFacts $spellTouch Заклинание касания.
      *
      * @return GameStrikeDeclare Объявление.
      */
@@ -38,11 +39,12 @@ final class GameStrikeRoleFactory
         GameStrikeConsequences $consequences,
         GameCardAvailability $availability,
         GameProcessFlow $processes,
+        GameSpellTouchFacts $spellTouch,
     ): GameStrikeDeclare {
         return new GameStrikeDeclare(
             $body,
             $this->shared->ready,
-            $this->openFlow($consequences, $availability, $processes),
+            $this->openFlow($consequences, $availability, $processes, $spellTouch),
         );
     }
 
@@ -93,6 +95,7 @@ final class GameStrikeRoleFactory
      * @param GameStrikeConsequences $consequences Последствия.
      * @param GameCardAvailability $availability Доступность карточки.
      * @param GameProcessFlow $processes Сессия процесса.
+     * @param GameSpellTouchFacts $spellTouch Заклинание касания.
      *
      * @return GameStrikeOpenFlow Открытие.
      */
@@ -100,6 +103,7 @@ final class GameStrikeRoleFactory
         GameStrikeConsequences $consequences,
         GameCardAvailability $availability,
         GameProcessFlow $processes,
+        GameSpellTouchFacts $spellTouch,
     ): GameStrikeOpenFlow {
         $checks = $this->checks($availability);
         $transaction = $this->transaction($consequences, $processes);
@@ -108,7 +112,7 @@ final class GameStrikeRoleFactory
             $this->shared->repos->actions,
             $this->shared->access,
             new GameStrikeBattleLookup($this->shared->repos->battles),
-            new GameStrikeOpenPreparation($processes, $this->rules, $checks, $availability),
+            new GameStrikeOpenPreparation($processes, $this->rules, $checks, $availability, $spellTouch),
             $transaction,
             $this->shared->announce,
         );

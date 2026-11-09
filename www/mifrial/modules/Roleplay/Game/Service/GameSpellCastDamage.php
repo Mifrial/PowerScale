@@ -42,6 +42,7 @@ final class GameSpellCastDamage
      * @param GameRecord $game Игра.
      * @param GameSpellCastPrepared $prepared Подготовка.
      * @param bool $castOk Проверка сотворения пройдена.
+     * @param int|null $deliverySr Успех атаки касания; null — автопопадание.
      *
      * @return array{
      *     spellSr: int|null,
@@ -53,11 +54,15 @@ final class GameSpellCastDamage
      *
      * @throws GameInvalidException Если тип, срез или лист битые.
      */
-    public function apply(GameRecord $game, GameSpellCastPrepared $prepared, bool $castOk): array
-    {
+    public function apply(
+        GameRecord $game,
+        GameSpellCastPrepared $prepared,
+        bool $castOk,
+        ?int $deliverySr = null,
+    ): array {
         $damage = $prepared->spell->getSpell()->getDamage();
         $resolution = $prepared->spell->getBase()->getHitResolution();
-        $rating = $resolution instanceof AutoHit ? $resolution->getRating() : null;
+        $rating = $deliverySr ?? ($resolution instanceof AutoHit ? $resolution->getRating() : null);
         $cap = $damage === null
             ? null
             : $this->rules->outcome->successRatingCap(
@@ -65,7 +70,7 @@ final class GameSpellCastDamage
                 $game->getRulesRevision(),
                 $damage->getDamageTypeCode(),
             );
-        $spellSr = $castOk && $rating !== null ? $this->amounts->appliedSr($rating, $cap) : null;
+        $spellSr = $castOk && $rating !== null && $rating > 0 ? $this->amounts->appliedSr($rating, $cap) : null;
         $empty = [
             'spellSr' => $spellSr,
             'spellDamage' => null,
@@ -73,7 +78,7 @@ final class GameSpellCastDamage
             'operations' => [],
             'consequence' => [],
         ];
-        if ($damage === null || $prepared->target === null || $spellSr === null) {
+        if ($damage === null || $prepared->damageTarget === null || $spellSr === null) {
             return $empty;
         }
 
@@ -82,7 +87,7 @@ final class GameSpellCastDamage
             return $empty;
         }
 
-        $target = $prepared->target;
+        $target = $prepared->damageTarget;
         $resistance = $this->rules->defense->resistanceByType(
             $game,
             $damage->getDamageTypeCode(),

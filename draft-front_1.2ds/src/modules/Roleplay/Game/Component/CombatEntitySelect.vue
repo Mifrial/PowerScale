@@ -15,12 +15,17 @@ const props = withDefaults(
     initiativeKeys?: string[];
     exclude?: string[];
     leading?: CombatEntitySelectEntry[];
+    trailing?: CombatEntitySelectEntry[];
+    /** Только участники текущего боя: исключить персонажей и НПС вне инициативы. */
+    participantsOnly?: boolean;
     disabled?: boolean;
   }>(),
   {
     initiativeKeys: () => [],
     exclude: () => [],
     leading: () => [],
+    trailing: () => [],
+    participantsOnly: false,
     disabled: false,
   },
 );
@@ -36,6 +41,8 @@ const items = computed(() =>
     initiativeKeys: props.initiativeKeys,
     exclude: props.exclude,
     leading: props.leading,
+    trailing: props.trailing,
+    participantsOnly: props.participantsOnly,
   }),
 );
 </script>

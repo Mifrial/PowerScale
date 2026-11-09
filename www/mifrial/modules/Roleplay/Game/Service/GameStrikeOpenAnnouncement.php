@@ -55,17 +55,50 @@ final class GameStrikeOpenAnnouncement
 
         $threadId = 'attack-' . $actor['strikeId'];
         $parentId = GameCombatThread::buildAttack($battle, $threadId)['parentId'];
-        $line = $this->chat->getEntityToken($actor['type'], $actor['id'])
-            . ' совершает действие [[rule:' . $actor['actionCode'] . ']] за '
-            . $this->actionAp($game, $choice, $actor['actionCode']) . 'ОД.';
+        $token = $this->chat->getEntityToken($actor['type'], $actor['id']);
+        $speaker = $this->chat->getSpeakerOf($actor['type'], $actor['id']);
+        $cost = $this->actionAp($game, $choice, $actor['actionCode'], $result);
+        $spell = $this->spellCode($choice);
+        if ($spell === null) {
+            $line = $token . ' совершает действие [[rule:' . $actor['actionCode'] . ']] за ' . $cost . 'ОД.';
+        } else {
+            $spellThread = GameCombatThread::buildSpell($battle, $actor['strikeId']);
+            $this->consequences->chat->postLines(
+                $game,
+                $actorUserId,
+                $spellThread['id'],
+                [$token . ' совершает [[rule:' . $spell . ']] за ' . $cost . ' ОД. Заклинание требует касания:'],
+                $speaker,
+                $spellThread['parentId'],
+                $spellThread['kind'],
+            );
+            $line = $token . ' совершает касание [[rule:' . $actor['actionCode'] . ']].';
+            $parentId = $spellThread['id'];
+        }
+
         $this->consequences->chat->postLines(
             $game,
             $actorUserId,
             $threadId,
             [$line],
-            $this->chat->getSpeakerOf($actor['type'], $actor['id']),
+            $speaker,
             $parentId,
         );
+    }
+
+    /**
+     * Код заклинания касания в выборе.
+     *
+     * @param array<string, mixed> $choice Выбор удара.
+     *
+     * @return string|null Код или null.
+     */
+    private function spellCode(array $choice): ?string
+    {
+        $spell = $choice['spellCast'] ?? null;
+        $code = is_array($spell) ? ($spell['spellCode'] ?? null) : null;
+
+        return is_string($code) && $code !== '' ? $code : null;
     }
 
     /**
@@ -98,16 +131,22 @@ final class GameStrikeOpenAnnouncement
     }
 
     /**
-     * Стоимость действия с учётом процесса.
+     * Стоимость действия: фактически списанные ОД из итога открытия.
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $choice Выбор удара.
      * @param string $actionCode Код действия.
+     * @param array<string, mixed> $result Итог открытия.
      *
      * @return int ОД.
      */
-    private function actionAp(GameRecord $game, array $choice, string $actionCode): int
+    private function actionAp(GameRecord $game, array $choice, string $actionCode, array $result): int
     {
+        $spent = $result['spent'] ?? null;
+        if (is_int($spent) && $spent >= 0) {
+            return $spent;
+        }
+
         $contextCosts = is_array($choice['processContext']['costs'] ?? null)
             ? $choice['processContext']['costs']
             : null;

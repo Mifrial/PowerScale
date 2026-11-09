@@ -43,6 +43,7 @@ final class GameRunActionStrikeBody
         $process = $this->fields->process($context);
         $rows = $this->rows($context['strikes'] ?? null);
         $chosen = $this->chosen($context['chosenAmounts'] ?? []);
+        $spellCast = (new GameSpellTouchBody())->parse($context['spellCast'] ?? null);
         $strikes = [];
         foreach ($rows as $row) {
             $strikes[] = $this->row($row);
@@ -55,6 +56,7 @@ final class GameRunActionStrikeBody
             'maneuverRuleCode' => $maneuver,
             'processRuleCode' => $process['processRuleCode'],
             'processStepCode' => $process['processStepCode'],
+            'spellCast' => $spellCast,
         ];
     }
 
@@ -105,7 +107,8 @@ final class GameRunActionStrikeBody
     {
         $allowed = ['strikes'];
         foreach (
-            ['chosenAmounts', 'processRuleCode', 'processStepCode', 'tokenSpend', 'maneuverRuleCode'] as $key
+            ['chosenAmounts', 'processRuleCode', 'processStepCode', 'tokenSpend', 'maneuverRuleCode', 'spellCast']
+            as $key
         ) {
             if (array_key_exists($key, $context)) {
                 $allowed[] = $key;

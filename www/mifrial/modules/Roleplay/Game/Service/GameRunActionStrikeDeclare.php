@@ -48,6 +48,7 @@ final class GameRunActionStrikeDeclare
         $strikes = $context['strikes'];
         $wide = $this->isWide($parsed, $call);
         $targets = $this->targetKeys($strikes);
+        $this->assertSpellCast($parsed, $wide, count($strikes), count($targets));
         $this->assertProcessStep($context, $strikes);
         $this->assertConcentration($context, $wide, count($targets));
         $this->assertManeuver($context, $wide, count($strikes));
@@ -143,6 +144,25 @@ final class GameRunActionStrikeDeclare
     {
         if (($context['maneuverRuleCode'] ?? null) !== null && ($wide || $strikes > 1)) {
             throw new GameInvalidException('Game maneuver supports a single strike');
+        }
+    }
+
+    /**
+     * Заклинание касания — ровно один удар в одну цель.
+     *
+     * @param array<string, mixed> $parsed Разбор.
+     * @param bool $wide Широкая карточка.
+     * @param int $strikes Число ударов.
+     * @param int $targets Число целей.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если заклинание идёт в серию или по площади.
+     */
+    private function assertSpellCast(array $parsed, bool $wide, int $strikes, int $targets): void
+    {
+        if (($parsed['context']['spellCast'] ?? null) !== null && ($wide || $strikes !== 1 || $targets !== 1)) {
+            throw new GameInvalidException('Game spell touch supports a single strike');
         }
     }
 
@@ -318,6 +338,10 @@ final class GameRunActionStrikeDeclare
         if (($parsed['context']['processRuleCode'] ?? null) !== null) {
             $attack['processRuleCode'] = $parsed['context']['processRuleCode'];
             $attack['processStepCode'] = $parsed['context']['processStepCode'];
+        }
+
+        if (($parsed['context']['spellCast'] ?? null) !== null) {
+            $attack['spellCast'] = $parsed['context']['spellCast'];
         }
 
         return $attack;

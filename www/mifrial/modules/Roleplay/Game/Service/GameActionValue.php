@@ -165,4 +165,24 @@ final class GameActionValue
 
         return ($target['wide'] ? 'attack-wide-' : 'attack-') . $strikeId;
     }
+
+    /**
+     * Родительский тред удара касания заклинания.
+     *
+     * @param array<string, mixed> $target Цель реакции.
+     *
+     * @return string|null Идентификатор треда заклинания или null.
+     */
+    public function spellParent(array $target): ?string
+    {
+        $row = is_array($target['row'] ?? null) ? $target['row'] : [];
+        $spell = $row['spell_cast'] ?? null;
+        if (!is_array($spell) || $spell === []) {
+            return null;
+        }
+
+        $strikeId = is_int($target['open']['id'] ?? null) ? $target['open']['id'] : ($target['strikeId'] ?? null);
+
+        return is_int($strikeId) ? GameCombatThread::spellThreadId($strikeId) : null;
+    }
 }

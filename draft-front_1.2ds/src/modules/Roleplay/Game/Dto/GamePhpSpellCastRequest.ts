@@ -1,7 +1,7 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
 
-/** Запрос game.castSpell. */
+/** Запрос каста: GameApi отправляет его как game.runAction kind spell. */
 export interface GamePhpSpellCastRequest {
   gameId: number;
   battleId: number;

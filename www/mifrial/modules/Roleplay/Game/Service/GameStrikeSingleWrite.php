@@ -24,6 +24,7 @@ final class GameStrikeSingleWrite
      * @param GameActionRepository $actions Действия.
      * @param GameBattleRepository $battles Бои.
      * @param GameStrikeSingleTrail $trail Завершение действия.
+     * @param GameSpellTouchFinish|null $spellTouch Заклинание касания.
      *
      * @return void
      */
@@ -34,6 +35,7 @@ final class GameStrikeSingleWrite
         private readonly GameActionRepository $actions,
         private readonly GameBattleRepository $battles,
         private readonly GameStrikeSingleTrail $trail,
+        private readonly ?GameSpellTouchFinish $spellTouch = null,
     ) {
     }
 
@@ -48,6 +50,7 @@ final class GameStrikeSingleWrite
     {
         $this->writeSheet($run);
         $this->post($run);
+        $this->spell($run);
         $this->answer($run);
         $this->marks($run);
         if ($this->remaining($run) > 0) {
@@ -69,6 +72,27 @@ final class GameStrikeSingleWrite
         $run->result['resolvedIndex'] = $run->activeIndex;
 
         return $run->result;
+    }
+
+    /**
+     * Проверка сотворения и эффект заклинания касания.
+     *
+     * @param GameStrikeSingleRun $run Прогон.
+     *
+     * @return void
+     *
+     * @throws \Mifrial\Roleplay\Game\Exception\GameInvalidException Если заклинание или лист битые.
+     */
+    private function spell(GameStrikeSingleRun $run): void
+    {
+        if ($this->spellTouch === null) {
+            return;
+        }
+
+        $version = is_int($run->result['sheetVersion'] ?? null)
+            ? $run->result['sheetVersion']
+            : $run->input->expectedSheetVersion;
+        $this->spellTouch->finish($run->input->game, $run, $version);
     }
 
     /**
@@ -165,6 +189,7 @@ final class GameStrikeSingleWrite
     {
         $targetOpen = $run->targetOpen;
         $targetOpen['conditions'] = $run->conditions;
+        $targetOpen['spell_cast'] = $run->row['spell_cast'] ?? null;
         $maneuver = $run->maneuver !== [] ? ['ruleCode' => is_string($run->maneuver['ruleCode'] ?? null) ? $run->maneuver['ruleCode'] : null] : null;
         $this->chat->post(
             $run->input->game,

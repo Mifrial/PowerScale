@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
+use Mifrial\Roleplay\Character\Service\Sheet\CharacterKeywordExperience;
 use Mifrial\Roleplay\Game\Interface\Service\IGameStrikes;
 use Mifrial\Roleplay\Game\Interface\Service\IGameWideStrikes;
 
@@ -148,18 +149,46 @@ final class GameStrikePortFactory
         $processes = $write->processes($rules);
         $consequences = $rulesWiring->consequences($rules);
         $shared = $this->shared($ports, $card, $rules);
+        $characters = new GameStrikeCharacterPorts($serviceLocator);
+        $spellFacts = new GameSpellTouchFacts(
+            new GameSpellCastFacts(
+                $rules,
+                $shared->sheets,
+                $characters->characterSheets(),
+                $write->availability($rules),
+                new GameActionResourceResolver(),
+            ),
+            $shared->sheets,
+        );
+        $spellTouch = new GameSpellTouchFinish(
+            $spellFacts,
+            new GameSpellCastCheck(
+                $rulesWiring->checkRoll(),
+                new GameCheckChain(),
+                $characters->combatLayers(),
+            ),
+            new GameSpellCastDamage(
+                $rules,
+                new CharacterKeywordExperience(),
+                new GameStrikeAmounts(),
+                $consequences,
+            ),
+            $shared->sheetWrites,
+            new GameSpellCastChat($ports->chats(), $shared->chat),
+        );
         $close = (new GameStrikeCloseFactory())->create(
             $rules,
             $shared,
             $consequences,
             $rulesWiring->checks(),
             $processes,
+            $spellTouch,
         );
         $roles = new GameStrikeRoleFactory($rules, $shared);
         $body = new GameStrikeBody();
 
         return new GameStrikes(
-            $roles->declare($body, $consequences, $write->availability($rules), $processes),
+            $roles->declare($body, $consequences, $write->availability($rules), $processes, $spellFacts),
             $roles->window($rulesWiring->checkRoll(), $close),
             $roles->closeRunner($body, $close),
         );

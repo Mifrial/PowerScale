@@ -16,12 +16,14 @@ final class GameRunActionDeclare
      *
      * @param GameActionDeclare $actions Карточки действий.
      * @param GameWoundActions $wounds Зажим и перевязка.
+     * @param GameRunActionSpellDeclare $spells Заклинания.
      *
      * @return void
      */
     public function __construct(
         private readonly GameActionDeclare $actions,
         private readonly GameWoundActions $wounds,
+        private readonly GameRunActionSpellDeclare $spells,
     ) {
     }
 
@@ -39,6 +41,7 @@ final class GameRunActionDeclare
     public function declare(array $parsed, GameRunActionCall $call): array
     {
         return match ($parsed['kind']) {
+            'spell' => $this->spells->declare($parsed, $call),
             'wound' => $this->wound($parsed, $call),
             'reaction' => $this->reaction($parsed, $call),
             default => $this->action($parsed, $call),

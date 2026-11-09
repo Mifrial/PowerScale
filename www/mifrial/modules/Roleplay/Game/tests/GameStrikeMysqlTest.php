@@ -181,6 +181,71 @@ final class GameStrikeMysqlTest extends TestCase
             $this->dispatch('game.getNpc', ['gameId' => $gameId, 'npcId' => $scene['npcId']])
                 ['data']['actualVersion'],
         );
+
+        $messages = $this->chatMessages($gameId);
+        $contents = array_map(static fn (MessageRecord $message): string => $message->getContent(), $messages);
+        self::assertSame([], array_values(array_filter($contents, static fn (string $text): bool => str_contains($text, '|'))));
+        $damageIndex = $this->messageIndexOf($contents, 'поражает');
+        $thread = $this->threadOf($messages[$damageIndex]);
+        self::assertNotNull($thread);
+        self::assertSame('spell', $thread['kind']);
+        self::assertStringStartsWith('b' . $scene['battleId'] . '-r', $thread['parentId']);
+        self::assertNotSame($thread['id'], $thread['parentId']);
+        $exhaustionIndex = $this->messageIndexOf($contents, 'истощени');
+        self::assertStringContainsString('сложностью', $contents[$exhaustionIndex]);
+        $this->messageIndexOf($contents, '[[rule:shock]]');
+        $this->messageIndexOf($contents, 'истощение (');
+        $this->messageIndexOf($contents, 'увечье');
+    }
+
+    /**
+     * Заклинание без касания идёт через единый вход game.runAction kind spell.
+     *
+     * @return void
+     */
+    public function testRunActionSpellCastsLightningStrike(): void
+    {
+        $scene = $this->spellScene();
+        $body = [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'run-spell-1',
+            'expectedVersion' => 1,
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'spell',
+                'code' => 'lightning-strike',
+                'actor' => ['type' => 'character', 'id' => $scene['hero']],
+                'context' => [
+                    'expectedSheetVersion' => $scene['heroVersion'],
+                    'pathCode' => 'arcanist',
+                    'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 5, 'size' => 1],
+                    ],
+                    'target' => ['type' => 'npc', 'id' => $scene['npcId']],
+                    'expectedTargetVersion' => $scene['targetVersion'],
+                ],
+            ],
+        ];
+        $cast = $this->dispatch('game.runAction', $body);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame('spell', $cast['data']['kind']);
+        self::assertSame(4, $cast['data']['spent']);
+        self::assertTrue($cast['data']['cast']['needsCheck']);
+        self::assertTrue($cast['data']['cast']['roll']['success']);
+        self::assertSame(2, $cast['data']['spellSr']);
+        self::assertSame(['base' => 4, 'size' => 0], $cast['data']['spellDamage']);
+        self::assertNotNull($cast['data']['injury']);
+
+        $replay = $this->dispatch('game.runAction', $body);
+        self::assertTrue($replay['success'], json_encode($replay));
+        self::assertEquals($cast['data'], $replay['data']);
+        self::assertSame(
+            $cast['data']['caster']['sheetVersion'],
+            $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+        );
     }
 
     /**
@@ -267,6 +332,152 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Касание идёт через game.runAction: удар, защита, затем проверка и эффект.
+     *
+     * @return void
+     */
+    public function testTouchSpellDeclaresStrikeAndCastsAfterDefense(): void
+    {
+        $scene = $this->spellScene();
+        $beforeAp = $this->resourceCurrent($scene['hero'], 'action-points');
+        $attack = [
+            'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+            'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+            'actionRuleCode' => 'swing',
+            'itemInventoryId' => 1,
+            'itemRuleCode' => 'sword',
+            'profileType' => 'strike',
+            'profileIndex' => 0,
+            'spellCast' => [
+                'spellCode' => 'discharge',
+                'pathCode' => 'arcanist',
+                'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+                'usedPower' => [
+                    'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                    'value' => ['base' => 5, 'size' => 1],
+                ],
+            ],
+        ];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($attack),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertFalse($opened['data']['debt'] ?? false);
+        self::assertSame(2, $opened['data']['version']);
+        self::assertSame($beforeAp - 4, $this->resourceCurrent($scene['hero'], 'action-points'));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-d',
+            'expectedVersion' => 2,
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertGreaterThan(0, $closed['data']['success']);
+        self::assertArrayHasKey('spellCast', $closed['data']);
+        self::assertTrue($closed['data']['spellCast']['castOk']);
+        self::assertNotNull($closed['data']['spellSr']);
+        self::assertNotNull($closed['data']['spellDamage']);
+        self::assertNotNull($closed['data']['spellInjury']);
+        self::assertGreaterThan($scene['targetVersion'], $closed['data']['spellTargetVersion']);
+
+        $messages = $this->chatMessages($scene['gameId']);
+        $contents = array_map(static fn (MessageRecord $message): string => $message->getContent(), $messages);
+        $declaration = $this->messageIndexOf($contents, 'требует касания');
+        $touch = $this->messageIndexOf($contents, 'совершает касание');
+        $check = $this->messageIndexOf($contents, 'проходит проверку на сотворение');
+        $success = $this->messageIndexOf($contents, 'успешно сотворяет');
+        self::assertSame(
+            [true, true, true],
+            [$declaration < $touch, $touch < $check, $check < $success],
+            json_encode($contents, JSON_UNESCAPED_UNICODE),
+        );
+        self::assertStringContainsString('discharge', $contents[$declaration]);
+
+        $spellThread = $this->threadOf($messages[$declaration]);
+        $attackThread = $this->threadOf($messages[$touch]);
+        $castThread = $this->threadOf($messages[$check]);
+        self::assertNotNull($spellThread);
+        self::assertNotNull($attackThread);
+        self::assertNotNull($castThread);
+        self::assertSame('spell', $spellThread['kind']);
+        self::assertSame('spell-' . $opened['data']['strikeId'], $spellThread['id']);
+        self::assertSame($spellThread['id'], $attackThread['parentId']);
+        self::assertSame($spellThread['id'], $castThread['id']);
+        self::assertStringStartsWith('b' . $scene['battleId'] . '-r1-t', $spellThread['parentId']);
+
+        $damageIndex = $this->messageIndexOf($contents, 'поражает');
+        self::assertStringNotContainsString('|', $contents[$damageIndex]);
+        self::assertSame($spellThread['id'], $this->threadOf($messages[$damageIndex])['id'] ?? null);
+        $totalIndex = $this->messageIndexOf($contents, 'итого');
+        self::assertStringContainsString('сложностью', $contents[$totalIndex]);
+        self::assertStringNotContainsString('проверяет Волю', implode("\n", $contents));
+        $this->messageIndexOf($contents, '[[rule:shock]]');
+        $this->messageIndexOf($contents, 'истощение (');
+    }
+
+    /**
+     * Стоимость касания — максимум из удара с надбавкой и заклинания.
+     *
+     * @return void
+     */
+    public function testTouchSpellCostsMaxOfAdjustedStrikeAndSpell(): void
+    {
+        $scene = $this->spellScene(10);
+        $first = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-cost-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($this->attack($scene['hero'], $scene['npcId'])),
+        ]);
+        self::assertTrue($first['success'], json_encode($first));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-cost-d',
+            'expectedVersion' => $first['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $before = $this->resourceCurrent($scene['hero'], 'action-points');
+        self::assertSame(8, $before);
+
+        $touch = $this->attack($scene['hero'], $scene['npcId']);
+        $touch['spellCast'] = [
+            'spellCode' => 'discharge',
+            'pathCode' => 'arcanist',
+            'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+            'usedPower' => [
+                'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                'value' => ['base' => 5, 'size' => 1],
+            ],
+        ];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-cost-2',
+            'expectedVersion' => $closed['data']['version'],
+            'action' => $this->strikeEnvelope($touch),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertSame(4, $opened['data']['spent']);
+        self::assertSame($before - 4, $this->resourceCurrent($scene['hero'], 'action-points'));
+
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->chatMessages($scene['gameId']),
+        );
+        $declaration = $this->messageIndexOf($contents, 'требует касания');
+        self::assertStringContainsString('за 4 ОД', $contents[$declaration]);
+    }
+
+    /**
      * Тело каста сцены.
      *
      * @param array{
@@ -327,7 +538,7 @@ final class GameStrikeMysqlTest extends TestCase
             null,
             null,
             [
-                ['ruleCode' => 'discharge', 'level' => 1],
+                ['ruleCode' => 'discharge', 'level' => 1, 'domainCode' => 'arcanist'],
                 ['ruleCode' => 'lightning-strike', 'level' => 1, 'domainCode' => 'arcanist'],
             ],
         );
@@ -383,7 +594,42 @@ final class GameStrikeMysqlTest extends TestCase
             true,
             [],
             [
-                'discharge' => ['type' => 'trait', 'effects' => []],
+                'discharge' => [
+                    'type' => 'spell',
+                    'effects' => [],
+                    'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                    'spec' => [
+                        'spell' => [
+                            'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
+                            'control' => ['base' => 3, 'size' => -1],
+                            'targeting' => 'none',
+                            'duration' => ['type' => 'instant'],
+                            'damage' => [
+                                'damage_type_code' => 'electricity',
+                                'experience_keyword_code' => 'electromancy',
+                                'power_modify_steps' => [['modify' => 3, 'min_experience' => 0]],
+                            ],
+                        ],
+                        'parameters' => [[
+                            'code' => 'x',
+                            'label' => 'X',
+                            'kind' => 'dimensional',
+                            'resolution' => 'activation',
+                            'default' => ['base' => 3, 'size' => 0],
+                            'min' => ['base' => 3, 'size' => -1],
+                            'max' => ['base' => 5, 'size' => 1],
+                        ]],
+                        'hit_resolution' => ['type' => 'attack'],
+                        'action_components' => [[
+                            'type' => 'resource',
+                            'resource_code' => 'action-points',
+                            'amount' => 4,
+                        ], [
+                            'type' => 'somatic',
+                            'note' => 'touch',
+                        ]],
+                    ],
+                ],
                 'lightning-strike' => [
                     'type' => 'spell',
                     'effects' => [],
@@ -5038,7 +5284,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($this->pair(1), $closed['data']['resistance']);
         self::assertSame($this->pair(36, -1), $closed['data']['injury']);
         self::assertSame(
-            ['battleId', 'strikeId', 'version', 'success', 'damage', 'resistance', 'sheetVersion', 'appliedSr', 'srCap', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim', 'closed', 'kind', 'phase', 'strikes', 'pendingStrikes'],
+            ['battleId', 'strikeId', 'version', 'success', 'damage', 'resistance', 'sheetVersion', 'appliedSr', 'srCap', 'S', 'injury', 'wound', 'exhaustionDelta', 'damageRemainder', 'endurance', 'will', 'willOutcome', 'maim', 'exhaustionTotal', 'states', 'closed', 'kind', 'phase', 'strikes', 'pendingStrikes'],
             array_keys($closed['data']),
         );
         self::assertSame($defenderVersion + 1, $this->characterFacade()->get($defenderId)->getActualVersion());
@@ -10399,7 +10645,7 @@ final class GameStrikeMysqlTest extends TestCase
      */
     private function chatMessages(int $gameId): array
     {
-        return $this->messagesByThreadKind($gameId, 'attack');
+        return $this->messagesByThreadKinds($gameId, ['attack', 'spell']);
     }
 
     /**
@@ -10412,13 +10658,26 @@ final class GameStrikeMysqlTest extends TestCase
      */
     private function messagesByThreadKind(int $gameId, string $kind): array
     {
+        return $this->messagesByThreadKinds($gameId, [$kind]);
+    }
+
+    /**
+     * Сообщения игрового чата одного из видов треда.
+     *
+     * @param int $gameId Игра.
+     * @param list<string> $kinds Виды тредов.
+     *
+     * @return array<int, MessageRecord> Сообщения.
+     */
+    private function messagesByThreadKinds(int $gameId, array $kinds): array
+    {
         $chatId = $this->gameFacade()->get($gameId)->getGameChatId();
         self::assertIsInt($chatId);
         $messages = array_reverse($this->chats()->findMessagePage($chatId, $this->ownerUserId, 100, 0)->getItems());
 
         return array_values(array_filter(
             $messages,
-            fn (MessageRecord $message): bool => $this->threadKind($message) === $kind,
+            fn (MessageRecord $message): bool => in_array($this->threadKind($message), $kinds, true),
         ));
     }
 

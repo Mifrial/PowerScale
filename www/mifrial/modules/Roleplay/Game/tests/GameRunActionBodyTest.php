@@ -69,6 +69,95 @@ final class GameRunActionBodyTest extends TestCase
     }
 
     /**
+     * Объявление заклинания разбирается в контекст каста.
+     *
+     * @return void
+     */
+    public function testSpellDeclareIsNormalized(): void
+    {
+        $parsed = (new GameRunActionBody())->parse([
+            'phase' => 'declare',
+            'kind' => 'spell',
+            'code' => 'lightning-strike',
+            'actor' => ['type' => 'character', 'id' => 1],
+            'context' => [
+                'expectedSheetVersion' => 4,
+                'pathCode' => 'arcanist',
+                'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+                'usedPower' => [
+                    'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                    'value' => ['base' => 5, 'size' => 1],
+                ],
+                'target' => ['type' => 'npc', 'id' => 2],
+                'expectedTargetVersion' => 7,
+                'distanceIpari' => 3,
+            ],
+        ]);
+
+        self::assertSame('spell', $parsed['kind']);
+        self::assertSame('lightning-strike', $parsed['code']);
+        self::assertSame(['type' => 'character', 'id' => 1], $parsed['actor']);
+        self::assertSame('arcanist', $parsed['context']['pathCode']);
+        self::assertSame(['type' => 'npc', 'id' => 2], $parsed['context']['target']);
+        self::assertSame(7, $parsed['context']['expectedTargetVersion']);
+        self::assertSame(3, $parsed['context']['distanceIpari']);
+    }
+
+    /**
+     * Цель заклинания без версии листа отклоняется.
+     *
+     * @return void
+     */
+    public function testSpellTargetWithoutVersionIsRejected(): void
+    {
+        $this->expectException(ActionException::class);
+
+        (new GameRunActionBody())->parse([
+            'phase' => 'declare',
+            'kind' => 'spell',
+            'code' => 'lightning-strike',
+            'actor' => ['type' => 'character', 'id' => 1],
+            'context' => [
+                'expectedSheetVersion' => 4,
+                'pathCode' => 'arcanist',
+                'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+                'usedPower' => [
+                    'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                    'value' => ['base' => 5, 'size' => 1],
+                ],
+                'target' => ['type' => 'npc', 'id' => 2],
+            ],
+        ]);
+    }
+
+    /**
+     * Лишний ключ контекста заклинания отвергается.
+     *
+     * @return void
+     */
+    public function testUnknownSpellContextKeyIsRejected(): void
+    {
+        $this->expectException(ActionException::class);
+
+        (new GameRunActionBody())->parse([
+            'phase' => 'declare',
+            'kind' => 'spell',
+            'code' => 'lightning-strike',
+            'actor' => ['type' => 'character', 'id' => 1],
+            'context' => [
+                'expectedSheetVersion' => 4,
+                'pathCode' => 'arcanist',
+                'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+                'usedPower' => [
+                    'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                    'value' => ['base' => 5, 'size' => 1],
+                ],
+                'damage' => 3,
+            ],
+        ]);
+    }
+
+    /**
      * Лишний ключ конверта отвергается.
      *
      * @return void
@@ -126,7 +215,7 @@ final class GameRunActionBodyTest extends TestCase
 
         (new GameRunActionBody())->parse([
             'phase' => 'declare',
-            'kind' => 'spell',
+            'kind' => 'cast',
             'code' => 'wait',
             'actor' => ['type' => 'character', 'id' => 1],
             'context' => [

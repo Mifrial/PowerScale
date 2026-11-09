@@ -31,6 +31,7 @@ final class GameStrikeAttack
         'processStepCode',
         'tokenSpend',
         'maneuverRuleCode',
+        'spellCast',
     ];
 
     /**
@@ -112,6 +113,7 @@ final class GameStrikeAttack
             'chosenAmounts' => $attack['chosenAmounts'] ?? [],
             'processRuleCode' => $attack['processRuleCode'] ?? null,
             'processStepCode' => $attack['processStepCode'] ?? null,
+            'spellCast' => (new GameSpellTouchBody())->parse($attack['spellCast'] ?? null),
         ];
     }
 
@@ -247,6 +249,7 @@ final class GameStrikeAttack
                 : null,
             'processRuleCode' => $values['processRuleCode'],
             'processStepCode' => $values['processStepCode'],
+            ...($values['spellCast'] !== null ? ['spellCast' => $values['spellCast']] : []),
         ];
     }
 

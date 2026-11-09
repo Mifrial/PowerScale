@@ -487,6 +487,7 @@ final class GameActionReaction
             $effect['side'] === 'attacker' ? $target['attacker'] : $target['target'],
             0,
             $support->getAdvantage(),
+            $this->value->spellParent($target),
         );
     }
 

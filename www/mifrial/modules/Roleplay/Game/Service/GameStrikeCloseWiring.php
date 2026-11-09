@@ -43,6 +43,8 @@ final class GameStrikeCloseWiring
 
     private readonly GameStrikeWideChat $wideChat;
 
+    private readonly ?GameSpellTouchFinish $spellTouch;
+
     /**
      * Создаёт сборку закрытия.
      *
@@ -51,6 +53,7 @@ final class GameStrikeCloseWiring
      * @param GameStrikeConsequences $consequences Последствия.
      * @param GameStateIncreaseChecks $stateChecks Проверки прироста.
      * @param GameProcessFlow $processes Сессия процесса.
+     * @param GameSpellTouchFinish|null $spellTouch Заклинание касания.
      *
      * @return void
      */
@@ -60,12 +63,14 @@ final class GameStrikeCloseWiring
         GameStrikeConsequences $consequences,
         GameStateIncreaseChecks $stateChecks,
         GameProcessFlow $processes,
+        ?GameSpellTouchFinish $spellTouch = null,
     ) {
         $this->rules = $rules;
         $this->shared = $shared;
         $this->consequences = $consequences;
         $this->stateChecks = $stateChecks;
         $this->processes = $processes;
+        $this->spellTouch = $spellTouch;
         $this->push = new GamePushRules($rules);
         $this->amounts = new GameStrikeAmounts();
         $this->resolution = new GameStrikeResolution($rules, $shared->sheets, $shared->repos->npcs, $consequences);
@@ -275,6 +280,7 @@ final class GameStrikeCloseWiring
                 $this->processes,
                 $this->shared->spend,
             ),
+            $this->spellTouch,
         );
     }
 

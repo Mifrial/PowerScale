@@ -37,7 +37,7 @@ final class GameStrikeOpenLedger
      *
      * @param GameStrikeOpenRun $run Контекст записи.
      *
-     * @return array{debt: bool, strikeId: int, version: int} Итог.
+     * @return array{debt: bool, strikeId: int, version: int, spent: int} Итог.
      *
      * @throws GameInvalidException Если ресурс или строка невалидны.
      * @throws GameNotFoundException Если revision или NPC отсутствует.
@@ -63,11 +63,16 @@ final class GameStrikeOpenLedger
             $run->subject,
         );
         $run->choice['tokenSpendInfo'] = $hold['tokenSpend'];
-        if ($hold['debtHold'] !== null) {
-            return $this->debt($run, $hold);
-        }
+        $result = $hold['debtHold'] !== null
+            ? $this->debt($run, $hold)
+            : $this->writeStrike($run, $hold['pending']);
 
-        return $this->writeStrike($run, $hold['pending']);
+        return [
+            'debt' => $result['debt'],
+            'strikeId' => $result['strikeId'],
+            'version' => $result['version'],
+            'spent' => $hold['spent'],
+        ];
     }
 
     /**

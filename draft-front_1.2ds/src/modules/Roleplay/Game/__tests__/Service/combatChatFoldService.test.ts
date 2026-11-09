@@ -6,6 +6,7 @@ import {
   COMBAT_CHAT_CHECK,
   COMBAT_CHAT_INITIATIVE,
   COMBAT_CHAT_ROUND,
+  COMBAT_CHAT_SPELL,
   COMBAT_CHAT_TURN,
 } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
 import { combatChatFoldService } from '@/modules/Roleplay/Game/Service/Instance/combatChatFoldService';
@@ -304,6 +305,61 @@ describe('buildCombatChatFolds', () => {
     expect(attack.fold.summary).toBe(
       '[[character:1,Старый Бородач]] успешно сотворил [[rule:discharge]] за 2ОД! [[character:1,Старый Бородач]] попадает по [[character:2,Гаррик из Тени]] и наносит 7 истощения! [[character:2,Гаррик из Тени]] получает увечье силой 5. [[character:2,Гаррик из Тени]] потерял сознание!',
     );
+  });
+
+  it('заклинание касания вкладывает атаку третьим уровнем', () => {
+    const messages = [
+      msg(1, 'Ходит Колдунец', { kind: 'default', thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
+      msg(2, 'Колдунец совершает discharge за 4 ОД. Заклинание требует касания:', {
+        thread: { id: 'spell-1', parentId: 't1', kind: COMBAT_CHAT_SPELL },
+      }),
+      msg(3, 'Колдунец совершает касание simple-touch.', {
+        thread: { id: 'attack-1', parentId: 'spell-1', kind: COMBAT_CHAT_ATTACK },
+      }),
+      msg(4, 'Колдунец попадает по Гаррику!', {
+        thread: { id: 'attack-1', parentId: 'spell-1', kind: COMBAT_CHAT_ATTACK },
+        attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+      }),
+      msg(5, 'Колдунец проходит проверку на сотворение.', {
+        thread: { id: 'spell-1', parentId: 't1', kind: COMBAT_CHAT_SPELL },
+      }),
+      msg(6, 'Колдунец успешно сотворяет discharge.', {
+        thread: { id: 'spell-1', parentId: 't1', kind: COMBAT_CHAT_SPELL },
+      }),
+    ];
+    const forest = combatChatFoldService.buildCombatChatFolds(messages);
+    const turn = forest[0];
+    expect(turn?.type).toBe('fold');
+    if (turn?.type !== 'fold') return;
+    const spell = turn.fold.children[0];
+    expect(spell?.type).toBe('fold');
+    if (spell?.type !== 'fold') return;
+    expect(spell.fold.kind).toBe(COMBAT_CHAT_SPELL);
+    expect(spell.fold.summary).toContain('Заклинание требует касания:');
+    expect(spell.fold.summary).toContain('успешно сотворяет discharge');
+    expect(spell.fold.children.map((child) => (child.type === 'fold' ? child.fold.id : child.message.id))).toEqual([
+      2,
+      'attack-1',
+      5,
+      6,
+    ]);
+    const attack = spell.fold.children.find((child) => child.type === 'fold' && child.fold.id === 'attack-1');
+    expect(attack?.type).toBe('fold');
+    if (attack?.type !== 'fold') return;
+    expect(attack.fold.kind).toBe(COMBAT_CHAT_ATTACK);
+
+    const live = new Set(['t1', 'spell-1', 'attack-1']);
+    const rows = chatFoldService.flattenChatFolds(forest, (id) => live.has(id), null);
+    const spellPanel = rows.find((row) => row.type === 'panel' && row.foldId === 'spell-1');
+    expect(spellPanel?.type).toBe('panel');
+    if (spellPanel?.type !== 'panel') return;
+    expect(spellPanel.expanded).toBe(true);
+    expect(spellPanel.messages.map((message) => message.id)).toEqual([2, 3, 4, 5, 6]);
+    const nestedAttack = spellPanel.children.find((child) => child.type === 'fold' && child.fold.id === 'attack-1');
+    expect(nestedAttack?.type).toBe('fold');
+    if (nestedAttack?.type !== 'fold') return;
+    expect(nestedAttack.fold.kind).toBe(COMBAT_CHAT_ATTACK);
+    expect(nestedAttack.fold.messageIds).toEqual([3, 4]);
   });
 
   it('проверка на инициативу — отдельный тред со сводкой порядка', () => {

@@ -1,4 +1,5 @@
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
+import type { ChatFoldChild } from '@/modules/Messages/Chat/Dto/ChatFoldChild';
 import type { ChatFoldTone } from '@/modules/Messages/Chat/Enum/ChatFoldTone';
 import type { ChatFoldVariant } from '@/modules/Messages/Chat/Enum/ChatFoldVariant';
 
@@ -25,6 +26,8 @@ export type ChatVisibleRow =
       expanded: boolean;
       level: number;
       messages: ChatMessage[];
+      /** Дочерние узлы панели: сообщения и вложенные свёртки. */
+      children: ChatFoldChild[];
       unread: boolean;
       unreadMessageId: number | null;
     };

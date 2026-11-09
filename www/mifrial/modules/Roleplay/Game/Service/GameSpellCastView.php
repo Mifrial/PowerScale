@@ -8,7 +8,7 @@ use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
- * Ответ game.castSpell.
+ * Ответ каста (game.runAction kind spell; game.castSpell — алиас).
  */
 final class GameSpellCastView
 {

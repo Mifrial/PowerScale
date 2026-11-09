@@ -62,14 +62,20 @@ final class GameSpellCastFacts
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $body Тело команды.
+     * @param array{
+     *     type: string,
+     *     id: int,
+     *     choices: array<string, mixed>,
+     *     sheet: array<string, mixed>,
+     *     version: int
+     * }|null $touchTarget Цель касания, если заклинание доставляется ударом.
      *
      * @return GameSpellCastPrepared Подготовка.
      *
      * @throws GameInvalidException Если карточка, путь, экземпляр или траты не подходят.
      */
-    public function prepare(GameRecord $game, array $body): GameSpellCastPrepared
-    {
-        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+    public function prepare(GameRecord $game, array $body, ?array $touchTarget = null): GameSpellCastPrepared
+    {        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spellCode = $this->string($body, 'spellCode');
         $pathCode = $this->string($body, 'pathCode');
         $spell = $this->spellSpec($slice, $spellCode);
@@ -92,6 +98,7 @@ final class GameSpellCastFacts
         $this->assertInstance($model, $spellCode, $pathCode);
 
         $target = $this->target($game, $slice, $body, $spell);
+        $damageTarget = $target ?? $touchTarget;
         $parameters = $this->parameterMap($body, $spell);
         $requiredPower = $this->value($spell->getSpell()->getPower(), $parameters);
         $requiredControl = $this->value($spell->getSpell()->getControl(), $parameters);
@@ -127,6 +134,7 @@ final class GameSpellCastFacts
             $caster['sheet'],
             $caster['version'],
             $target,
+            $damageTarget,
             $parameters,
             $usedPower,
             $requiredPower,
@@ -136,6 +144,22 @@ final class GameSpellCastFacts
             $spent,
             $this->int($body, 'distanceIpari', 0),
         );
+    }
+
+    /**
+     * Пересчитывает лист участника от сохранённых choices.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $choices Выборы.
+     * @param array<string, mixed> $sheet Лист.
+     *
+     * @return array<string, mixed> Пересчитанный лист.
+     */
+    public function compute(GameRecord $game, array $choices, array $sheet): array
+    {
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+
+        return $this->characterSheets->compute($slice, $choices, $sheet);
     }
 
     /**

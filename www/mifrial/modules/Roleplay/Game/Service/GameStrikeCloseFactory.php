@@ -17,6 +17,7 @@ final class GameStrikeCloseFactory
      * @param GameStrikeConsequences $consequences Последствия.
      * @param GameStateIncreaseChecks $stateChecks Проверки прироста.
      * @param GameProcessFlow $processes Сессия процесса.
+     * @param GameSpellTouchFinish|null $spellTouch Заклинание касания.
      *
      * @return GameStrikeClose Закрытие.
      */
@@ -26,8 +27,9 @@ final class GameStrikeCloseFactory
         GameStrikeConsequences $consequences,
         GameStateIncreaseChecks $stateChecks,
         GameProcessFlow $processes,
+        ?GameSpellTouchFinish $spellTouch = null,
     ): GameStrikeClose {
-        $wiring = new GameStrikeCloseWiring($rules, $shared, $consequences, $stateChecks, $processes);
+        $wiring = new GameStrikeCloseWiring($rules, $shared, $consequences, $stateChecks, $processes, $spellTouch);
 
         return new GameStrikeClose(
             $shared->repos->commands,

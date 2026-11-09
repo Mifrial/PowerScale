@@ -123,7 +123,7 @@ final class GameStrikeSingleChat
         $this->outcome->packet(
             $game,
             $actorUserId,
-            $this->view->thread($battle, $strikeId),
+            $this->view->thread($battle, $strikeId, $open),
             $this->view->defenderToken($open),
             $this->view->attackerSpeaker($open),
             $packet,

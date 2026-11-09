@@ -13,7 +13,7 @@ final class GameRunActionBody
 {
     private const PHASES = ['declare', 'respond'];
 
-    private const KINDS = ['action', 'strike', 'reaction', 'wound'];
+    private const KINDS = ['action', 'strike', 'reaction', 'wound', 'spell'];
 
     private readonly GameRunActionFields $fields;
 
@@ -24,6 +24,8 @@ final class GameRunActionBody
     private readonly GameRunActionDefenseBody $defenses;
 
     private readonly GameRunActionWoundBody $wounds;
+
+    private readonly GameRunActionSpellBody $spells;
 
     /**
      * Создаёт разбор конверта.
@@ -37,6 +39,7 @@ final class GameRunActionBody
         $this->strikes = new GameRunActionStrikeBody($this->fields);
         $this->defenses = new GameRunActionDefenseBody($this->fields);
         $this->wounds = new GameRunActionWoundBody($this->fields);
+        $this->spells = new GameRunActionSpellBody($this->fields);
     }
 
     /**
@@ -212,6 +215,7 @@ final class GameRunActionBody
     {
         return match ($kind) {
             'action' => $this->actions->parse($context),
+            'spell' => $this->spells->parse($context),
             'wound' => $this->wounds->parse($context),
             'reaction' => $this->actions->reaction($context),
             default => $phase === 'declare' ? $this->strikes->parse($context) : $this->defenses->parse($context),

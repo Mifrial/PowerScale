@@ -71,20 +71,71 @@ final class GameCombatThread
     }
 
     /**
-     * Тред атаки внутри текущего хода.
+     * Тред заклинания касания внутри текущего хода.
      *
      * @param GameBattleRecord $battle Бой.
-     * @param string $threadId Идентификатор атаки.
+     * @param int $strikeId Удар.
      *
      * @return array{id: string, parentId: string, kind: string} Тред.
      */
-    public static function buildAttack(GameBattleRecord $battle, string $threadId): array
+    public static function buildSpell(GameBattleRecord $battle, int $strikeId): array
+    {
+        $turn = self::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex());
+
+        return [
+            'id' => self::spellThreadId($strikeId),
+            'parentId' => $turn['id'],
+            'kind' => 'spell',
+        ];
+    }
+
+    /**
+     * Тред заклинания без касания внутри текущего хода.
+     *
+     * @param GameBattleRecord $battle Бой.
+     * @param string $key Ключ команды.
+     *
+     * @return array{id: string, parentId: string, kind: string} Тред.
+     */
+    public static function buildSpellCast(GameBattleRecord $battle, string $key): array
+    {
+        $turn = self::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex());
+
+        return [
+            'id' => 'spell-' . substr(hash('sha256', $key === '' ? 'spell' : $key), 0, 12),
+            'parentId' => $turn['id'],
+            'kind' => 'spell',
+        ];
+    }
+
+    /**
+     * Идентификатор треда заклинания касания.
+     *
+     * @param int $strikeId Удар.
+     *
+     * @return string Идентификатор.
+     */
+    public static function spellThreadId(int $strikeId): string
+    {
+        return 'spell-' . $strikeId;
+    }
+
+    /**
+     * Тред атаки внутри текущего хода или треда заклинания.
+     *
+     * @param GameBattleRecord $battle Бой.
+     * @param string $threadId Идентификатор атаки.
+     * @param string|null $parentId Родительский тред; null — тред хода.
+     *
+     * @return array{id: string, parentId: string, kind: string} Тред.
+     */
+    public static function buildAttack(GameBattleRecord $battle, string $threadId, ?string $parentId = null): array
     {
         $turn = self::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex());
 
         return [
             'id' => $threadId,
-            'parentId' => $turn['id'],
+            'parentId' => $parentId ?? $turn['id'],
             'kind' => 'attack',
         ];
     }

@@ -11,10 +11,13 @@ export class CombatEntitySelectService {
     initiativeKeys?: readonly string[];
     exclude?: readonly string[];
     leading?: CombatEntitySelectEntry[];
+    trailing?: CombatEntitySelectEntry[];
+    participantsOnly?: boolean;
   }): CombatEntitySelectEntry[] {
     const excluded = new Set(input.exclude ?? []);
     const initiative = input.initiativeKeys ?? [];
     const inScale = new Set(initiative);
+    const keep = (key: string): boolean => !input.participantsOnly || inScale.has(key);
     const characters = input.characters
       .filter((membership) => membership.membershipStatus === 'active')
       .map((membership) => ({
@@ -22,7 +25,7 @@ export class CombatEntitySelectService {
         title: membership.characterName,
         kind: 'character' as const,
       }))
-      .filter((item) => !excluded.has(item.value));
+      .filter((item) => !excluded.has(item.value) && keep(item.value));
     const npcs = input.npcs
       .filter((npc) => npc.status === 'active')
       .map((npc) => ({
@@ -30,7 +33,7 @@ export class CombatEntitySelectService {
         title: npc.name,
         kind: 'npc' as const,
       }))
-      .filter((item) => !excluded.has(item.value));
+      .filter((item) => !excluded.has(item.value) && keep(item.value));
     const byKey = new Map([...characters, ...npcs].map((item) => [item.value, item]));
     const initCharacters: CombatEntitySelectEntry[] = [];
     const initNpcs: CombatEntitySelectEntry[] = [];
@@ -55,6 +58,7 @@ export class CombatEntitySelectService {
       rows.push({ type: 'divider', title: '', disabled: true });
     }
     rows.push(...restBlock);
+    rows.push(...(input.trailing ?? []));
 
     return rows;
   }

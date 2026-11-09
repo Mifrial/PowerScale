@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { ref } from 'vue';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import {
+  COMBAT_CHAT_ATTACK,
   COMBAT_CHAT_INITIATIVE,
   COMBAT_CHAT_ROUND,
+  COMBAT_CHAT_SPELL,
   COMBAT_CHAT_TURN,
 } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
@@ -58,6 +60,22 @@ describe('useCombatChatThread', () => {
     ] as ChatMessage[];
     thread.recoverFromMessages(messages);
     expect(thread.liveIds.value).toEqual(['r1', 'r2', 't1', 't2']);
+    thread.clearLive();
+  });
+
+  it('recoverFromMessages раскрывает заклинание и вложенную атаку текущего хода', () => {
+    const thread = useCombatChatThread(91008);
+    thread.clearLive();
+    const messages = [
+      { thread: { id: 'r1', kind: COMBAT_CHAT_ROUND } },
+      { thread: { id: 't1', parentId: 'r1', kind: COMBAT_CHAT_TURN } },
+      { thread: { id: 'spell-1', parentId: 't1', kind: COMBAT_CHAT_SPELL } },
+      { thread: { id: 'attack-1', parentId: 'spell-1', kind: COMBAT_CHAT_ATTACK } },
+    ] as ChatMessage[];
+    thread.recoverFromMessages(messages);
+
+    expect(thread.liveIds.value).toContain('spell-1');
+    expect(thread.liveIds.value).toContain('attack-1');
     thread.clearLive();
   });
 

@@ -65,7 +65,8 @@ final class GameStrikeSpend
      *     pending: array<string, mixed>,
      *     debtHold: array<string, mixed>|null,
      *     cycle: array<string, mixed>|null,
-     *     tokenSpend: array{resource: string, amount: int, source: string, mode: string}|null
+     *     tokenSpend: array{resource: string, amount: int, source: string, mode: string}|null,
+     *     spent: int
      * } Карта ожидания и удержанный долг.
      *
      * @throws GameInvalidException Если ресурс или атакующий невалидны.

@@ -33,6 +33,7 @@ export class ChatFoldService {
             expanded: isOpen,
             level,
             messages: isOpen ? this.collectMessages(fold.children) : [],
+            children: fold.children,
             unread: !isOpen && unreadInGroup,
             unreadMessageId: isOpen && unreadInGroup ? firstUnreadId : null,
           });

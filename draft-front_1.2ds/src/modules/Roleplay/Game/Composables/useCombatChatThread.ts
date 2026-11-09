@@ -7,6 +7,7 @@ import {
   COMBAT_CHAT_INITIATIVE,
   COMBAT_CHAT_ROUND,
   COMBAT_CHAT_SESSION,
+  COMBAT_CHAT_SPELL,
   COMBAT_CHAT_TURN,
 } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
@@ -21,6 +22,7 @@ interface CombatChatThreadState {
   previousTurnId: string | null;
   attackId: string | null;
   lastAttackId: string | null;
+  actionIds: string[];
   initiativeId: string | null;
   lastInitiativeId: string | null;
 }
@@ -40,6 +42,7 @@ function stateOf(gameId: number): CombatChatThreadState {
       previousTurnId: null,
       attackId: null,
       lastAttackId: null,
+      actionIds: [],
       initiativeId: null,
       lastInitiativeId: null,
     });
@@ -69,6 +72,7 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     current.turnId = null;
     current.attackId = null;
     current.lastAttackId = null;
+    current.actionIds = [];
     current.initiativeId = null;
     current.lastInitiativeId = null;
 
@@ -82,6 +86,7 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     current.turnId = newId();
     current.attackId = null;
     current.lastAttackId = null;
+    current.actionIds = [];
 
     return { id: current.turnId, parentId: current.roundId ?? undefined, kind: COMBAT_CHAT_TURN };
   }
@@ -131,6 +136,7 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     current.previousTurnId = null;
     current.attackId = null;
     current.lastAttackId = null;
+    current.actionIds = [];
     current.initiativeId = null;
     current.lastInitiativeId = null;
   }
@@ -207,6 +213,45 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     current.roundId = rounds[0] ?? (turns[0] ? (turnParent.get(turns[0]) ?? null) : null);
     const previousRound = rounds[1] ?? (turns[1] ? turnParent.get(turns[1]) : undefined);
     current.previousRoundId = previousRound && previousRound !== current.roundId ? previousRound : null;
+    current.actionIds = thisTurnActionIds(messages, current.turnId);
+  }
+
+  /**
+   * Треды заклинания и атаки внутри текущего хода: их раскрываем по умолчанию.
+   *
+   * @param messages Сообщения боя.
+   * @param turnId Идентификатор текущего хода.
+   *
+   * @return Идентификаторы тредов.
+   */
+  function thisTurnActionIds(messages: ChatMessage[], turnId: string | null): string[] {
+    if (turnId === null) return [];
+
+    const parents = new Map<string, string>();
+    const actionIds: string[] = [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const thread = messages[i]?.thread;
+      if (!thread) continue;
+      if (thread.parentId) parents.set(thread.id, thread.parentId);
+      if ((thread.kind === COMBAT_CHAT_ATTACK || thread.kind === COMBAT_CHAT_SPELL) && !actionIds.includes(thread.id)) {
+        actionIds.push(thread.id);
+      }
+    }
+    const underTurn = (id: string): boolean => {
+      let cursor: string | undefined = id;
+      const seen = new Set<string>();
+      while (cursor && !seen.has(cursor)) {
+        seen.add(cursor);
+        const parent = parents.get(cursor);
+        if (!parent) return false;
+        if (parent === turnId) return true;
+        cursor = parent;
+      }
+
+      return false;
+    };
+
+    return actionIds.filter(underTurn);
   }
 
   function latestSessionId(messages: ChatMessage[]): string | null {
@@ -240,6 +285,7 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
       current.initiativeId = null;
       current.lastAttackId = null;
       current.lastInitiativeId = null;
+      current.actionIds = [];
 
       return;
     }
@@ -264,6 +310,7 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     current.initiativeId = null;
     current.lastAttackId = null;
     current.lastInitiativeId = null;
+    current.actionIds = [];
   }
 
   const liveIds = computed(() => {
@@ -278,6 +325,7 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
       current.lastAttackId,
       current.initiativeId,
       current.lastInitiativeId,
+      ...current.actionIds,
     ].filter((id): id is string => id != null);
   });
 

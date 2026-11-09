@@ -12,6 +12,7 @@ import type { ChatVisibleRow } from '@/modules/Messages/Chat/Dto/ChatVisibleRow'
 import type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
 import { chatFoldService } from '@/modules/Messages/Chat/Service/Instance/chatFoldService';
 import ChatMessageRow from '@/modules/Messages/Chat/Component/ChatMessageRow.vue';
+import ChatFoldChildren from '@/modules/Messages/Chat/Component/ChatFoldChildren.vue';
 import ChatFoldChrome from '@/modules/Messages/Chat/Component/ChatFoldChrome.vue';
 import ChatFoldPanel from '@/modules/Messages/Chat/Component/ChatFoldPanel.vue';
 
@@ -216,25 +217,21 @@ watch(
             :open-entity="props.openEntity"
             @toggle="toggleFold(panelOf(vItem.index)!.foldId)"
           >
-            <template v-for="message in panelOf(vItem.index)!.messages" :key="message.id">
-              <div v-if="panelOf(vItem.index)!.unreadMessageId === message.id" class="chat-unread-divider">
-                <v-divider />
-                <span class="text-caption text-medium-emphasis mx-2">Новые сообщения</span>
-                <v-divider />
-              </div>
-              <ChatMessageRow
-                :msg="message"
-                :user="getUser(message.userId)"
-                :visibility-label="visibilityLabelOf(message)"
-                :can-change-visibility="canChangeVisibilityOf(message)"
-                :visibility-role-options="roleOptions"
-                :visibility-options="userOptions"
-                :renderer-context="props.rendererContext"
-                :open-entity="props.openEntity"
-                @open-profile="emit('open-profile', $event)"
-                @update-visibility="onUpdateVisibility"
-              />
-            </template>
+            <ChatFoldChildren
+              :nodes="panelOf(vItem.index)!.children"
+              :is-expanded="isExpanded"
+              :get-user="getUser"
+              :visibility-label-of="visibilityLabelOf"
+              :can-change-visibility-of="canChangeVisibilityOf"
+              :role-options="roleOptions"
+              :user-options="userOptions"
+              :renderer-context="props.rendererContext"
+              :open-entity="props.openEntity"
+              :first-unread-id="panelOf(vItem.index)!.unreadMessageId"
+              @toggle="toggleFold"
+              @open-profile="emit('open-profile', $event)"
+              @update-visibility="onUpdateVisibility"
+            />
           </ChatFoldPanel>
           <ChatMessageRow
             v-else-if="messageRowOf(vItem.index)"

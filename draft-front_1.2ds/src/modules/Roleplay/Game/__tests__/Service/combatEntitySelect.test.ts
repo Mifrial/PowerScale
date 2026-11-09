@@ -31,4 +31,15 @@ describe('CombatEntitySelectService', () => {
       'npc:3',
     ]);
   });
+
+  it('только участники боя и «Воздух» в конце', () => {
+    const items = combatEntitySelectService.items({
+      characters: [membership(1, 'А'), membership(2, 'Б')],
+      npcs: [npc(3, 'В'), npc(4, 'Г')],
+      initiativeKeys: ['character:2', 'npc:4'],
+      participantsOnly: true,
+      trailing: [{ title: 'Воздух', value: '' }],
+    });
+    expect(items.map((item) => item.value ?? item.type)).toEqual(['character:2', 'npc:4', '']);
+  });
 });

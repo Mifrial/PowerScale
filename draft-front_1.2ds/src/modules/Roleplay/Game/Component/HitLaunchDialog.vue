@@ -17,6 +17,7 @@ import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/Dimensiona
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { GamePhpSpellCastPayload } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastPayload';
 import type { SpellCastOfferContext } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastOfferContext';
 import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
 import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferProposal';
@@ -169,6 +170,7 @@ const props = defineProps<{
   /** Открытый серверный удар: источник данных шага защиты. */
   phpOpenStrike?: GamePhpOpenStrike | null;
   phpDefenderKey?: CombatEntityKey | null;
+  phpSpellCast?: GamePhpSpellCastPayload | null;
   spatialResolver?: ISpatialResolver | null;
   initiativeKeys?: string[];
   runtimeProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
@@ -3974,6 +3976,7 @@ function phpSingleStrikeEnvelope(attack: {
   tokenSpend?: number;
   tokenMode?: 'advantage' | 'accuracy';
   maneuverRuleCode?: string;
+  spellCast?: GamePhpSpellCastPayload | null;
 }) {
   return {
     phase: 'declare' as const,
@@ -3983,6 +3986,7 @@ function phpSingleStrikeEnvelope(attack: {
     context: {
       strikes: [phpStrikeRow({ ...attack, target: attack.defender })],
       chosenAmounts: attack.chosenAmounts ?? {},
+      ...(attack.spellCast ? { spellCast: attack.spellCast } : {}),
       ...(attack.tokenSpend && attack.tokenSpend > 0
         ? { tokenSpend: { amount: attack.tokenSpend, mode: attack.tokenMode ?? 'advantage' } }
         : {}),
@@ -4111,6 +4115,7 @@ async function submitPhpStrike(): Promise<boolean> {
               tokenSpend: spendAttackerConcentration.value,
               tokenMode: useAccuracyToken.value ? 'accuracy' : 'advantage',
               maneuverRuleCode: maneuverAvailable.value ? (maneuverRuleCode.value ?? undefined) : undefined,
+              spellCast: props.phpSpellCast,
             }),
       });
       phpDeclared.value = true;

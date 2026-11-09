@@ -101,6 +101,7 @@ final class GameActionStrikeTable extends SmartTableDefinition
             new JsonField('resolution', FieldSettings::fromOptions([])),
             new JsonField('maneuver', FieldSettings::fromOptions([])),
             new JsonField('token_spend', FieldSettings::fromOptions([])),
+            new JsonField('spell_cast', FieldSettings::fromOptions([])),
         ];
     }
 

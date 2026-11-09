@@ -7,7 +7,7 @@ import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingAct
 
 /** Нормализованный ответ game.runAction. */
 export interface GamePhpRunActionResult {
-  kind: 'action' | 'strike' | 'wound';
+  kind: 'action' | 'strike' | 'wound' | 'spell';
   phase: 'declare' | 'respond';
   battleId: number;
   version: number;

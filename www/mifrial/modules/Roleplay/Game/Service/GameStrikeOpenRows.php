@@ -56,6 +56,7 @@ final class GameStrikeOpenRows
             return $this->strikeRows(
                 $choice['strikes'],
                 is_array($choice['maneuver'] ?? null) ? $choice['maneuver'] : [],
+                $choice['spellCast'] ?? null,
             );
         }
 
@@ -90,11 +91,13 @@ final class GameStrikeOpenRows
      *
      * @param list<array<string, mixed>> $strikes Строки.
      * @param array<string, mixed> $maneuver Манёвр строки.
+     * @param mixed $spellCast Блок заклинания касания.
      *
      * @return list<array<string, mixed>> Строки.
      */
-    private function strikeRows(array $strikes, array $maneuver = []): array
+    private function strikeRows(array $strikes, array $maneuver = [], mixed $spellCast = null): array
     {
+        $spell = $this->storedSpellCast($spellCast);
         $rows = [];
         foreach ($strikes as $strike) {
             $rows[] = [
@@ -110,6 +113,7 @@ final class GameStrikeOpenRows
                     ? array_values($strike['modifiers'])
                     : [],
                 'maneuver' => $maneuver,
+                'spell_cast' => $spell,
                 'reaction' => null,
                 'block_item_inventory_id' => null,
                 'block_item_profile_index' => null,
@@ -168,6 +172,7 @@ final class GameStrikeOpenRows
             'action_modifiers' => is_array($choice['modifiers'] ?? null)
                 ? array_values($choice['modifiers'])
                 : [],
+            'spell_cast' => $this->storedSpellCast($choice['spellCast'] ?? null),
             'token_spend' => is_array($choice['tokenSpendInfo'] ?? null)
                 ? $choice['tokenSpendInfo']
                 : [],
@@ -176,5 +181,23 @@ final class GameStrikeOpenRows
             'block_item_profile_index' => null,
             'block_item_rule_code' => null,
         ];
+    }
+
+    /**
+     * Заклинание касания без служебных трат объявления.
+     *
+     * @param mixed $spellCast Блок выбора.
+     *
+     * @return array<string, mixed> Блок для строки.
+     */
+    private function storedSpellCast(mixed $spellCast): array
+    {
+        if (!is_array($spellCast)) {
+            return [];
+        }
+
+        unset($spellCast['spends']);
+
+        return $spellCast;
     }
 }

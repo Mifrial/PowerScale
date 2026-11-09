@@ -3,5 +3,6 @@ export const COMBAT_CHAT_BATTLE = 'battle';
 export const COMBAT_CHAT_ROUND = 'round';
 export const COMBAT_CHAT_TURN = 'turn';
 export const COMBAT_CHAT_ATTACK = 'attack';
+export const COMBAT_CHAT_SPELL = 'spell';
 export const COMBAT_CHAT_CHECK = 'check';
 export const COMBAT_CHAT_INITIATIVE = 'initiative';

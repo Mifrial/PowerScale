@@ -70,6 +70,7 @@ import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession'
 import type { ProcessNotice } from '@/modules/Roleplay/Game/Dto/ProcessNotice';
 import { processNoticeService } from '@/modules/Roleplay/Game/Service/Instance/processNoticeService';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
+import type { GamePhpSpellCastPayload } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastPayload';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { useConcentrationTokenAsk } from '@/modules/Roleplay/Game/Composables/useConcentrationTokenAsk';
@@ -1821,6 +1822,7 @@ const openWideStrike = ref<GamePhpOpenWideStrike | null>(null);
 const phpOpenStrike = ref<GamePhpOpenStrike | null>(null);
 const hitResumePhpStrike = ref(false);
 const hitPhpStrikeMode = ref(false);
+const hitPhpSpellCast = ref<GamePhpSpellCastPayload | null>(null);
 const hitPhpDefenderKey = ref<CombatEntityKey | null>(null);
 const hitPhpBound = ref(false);
 /** Реакция третьей стороны: окно поддержки открытого удара. */
@@ -2100,6 +2102,7 @@ function onHitClosed(open: boolean, refresh = true): void {
   hitAttackerKey.value = null;
   hitResumePhpStrike.value = false;
   hitPhpStrikeMode.value = false;
+  hitPhpSpellCast.value = null;
   hitPhpDefenderKey.value = null;
   hitPhpBound.value = false;
   hitOpen.value = false;
@@ -2160,6 +2163,7 @@ async function onLaunchAttack(payload: AttackAction): Promise<void> {
   attackAction.value = payload;
   hitAttackerKey.value = payload.initiator;
   hitAttack.value = payload.strikes[0]?.profile ?? null;
+  hitPhpSpellCast.value = null;
   processActionContext.value = payload.source.kind === 'process' ? payload.source.process : null;
   hitResumeOffer.value = null;
   hitResumePhpStrike.value = false;
@@ -2167,6 +2171,11 @@ async function onLaunchAttack(payload: AttackAction): Promise<void> {
   hitPhpDefenderKey.value = payload.strikes[0]?.targetKey ?? null;
   hitPhpBound.value = false;
   hitOpen.value = true;
+}
+
+async function onLaunchTouchCast(payload: { attack: AttackAction; spellCast: GamePhpSpellCastPayload }): Promise<void> {
+  await onLaunchAttack(payload.attack);
+  hitPhpSpellCast.value = payload.spellCast;
 }
 
 function onLaunchInjury(): void {
@@ -2484,6 +2493,7 @@ onUnmounted(() => {
       :open-wide-strike="openWideStrike"
       :php-open-strike="phpOpenStrike"
       :php-defender-key="hitPhpDefenderKey"
+      :php-spell-cast="hitPhpSpellCast"
       :process-context="processActionContext"
       :initiative-keys="initiativeKeys"
       :runtime-projections="runtimeByKey"
@@ -2605,6 +2615,7 @@ onUnmounted(() => {
       @update:open="spellOpen = $event"
       @overlay-changed="onOverlayChanged"
       @settled="refreshPendingOffers"
+      @touch-cast="onLaunchTouchCast"
     />
     <ConcentrationTokenAskDialog
       :open="concentrationAskOpen"

@@ -137,7 +137,7 @@ onMounted(() => {
             </v-chip>
             <template v-if="ability.type === 'spell'">
               <v-chip v-if="costLabel(ability.spellCastCost)" size="x-small" variant="tonal">
-                Сотворение: {{ costLabel(ability.spellCastCost) }}
+                Сотворение: {{ costLabel(ability.spellCastCost) }} ОД
               </v-chip>
               <v-chip v-if="ability.spellPowerLabel" size="x-small" variant="tonal">
                 Мощь: {{ ability.spellPowerLabel }}

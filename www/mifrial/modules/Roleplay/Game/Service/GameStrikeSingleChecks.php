@@ -73,7 +73,7 @@ final class GameStrikeSingleChecks
         int $strikeId,
         array $checks,
     ): void {
-        $thread = $this->view->thread($battle, $strikeId);
+        $thread = $this->view->thread($battle, $strikeId, $open);
         $defender = $this->view->defenderToken($open);
         $speaker = $this->view->defenderSpeaker($open);
         foreach ($checks as $entry) {

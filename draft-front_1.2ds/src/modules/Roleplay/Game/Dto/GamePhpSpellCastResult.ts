@@ -1,7 +1,7 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
 
-/** Ответ game.castSpell. */
+/** Ответ каста (game.runAction kind spell; game.castSpell — алиас). */
 export interface GamePhpSpellCastResult {
   cast: {
     difficulty: DimensionalNumberValue;

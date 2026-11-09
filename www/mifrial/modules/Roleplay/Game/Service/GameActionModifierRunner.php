@@ -74,13 +74,39 @@ final class GameActionModifierRunner
     private function thread(GameActionModifierInput $input): array
     {
         $threadId = $input->threadId;
+        $spellId = $this->spellThreadOf($input);
 
         return [
             'threadId' => $threadId,
             'speaker' => $this->ports->chat->getSpeakerOf($input->attackerKind, $input->attackerId),
-            'parentId' => GameCombatThread::buildAttack($input->battle, $threadId)['parentId'],
+            'parentId' => $spellId
+                ?? GameCombatThread::buildAttack($input->battle, $threadId)['parentId'],
             'attackerName' => $this->ports->chat->getEntityName($input->attackerKind, $input->attackerId),
         ];
+    }
+
+    /**
+     * Тред заклинания касания, если действие несёт заклинание.
+     *
+     * @param GameActionModifierInput $input Снимок действия.
+     *
+     * @return string|null Тред или null.
+     */
+    private function spellThreadOf(GameActionModifierInput $input): ?string
+    {
+        $actionId = $input->open['id'] ?? null;
+        if (!is_int($actionId)) {
+            return null;
+        }
+
+        foreach ($input->rows as $row) {
+            $spell = $row['spell_cast'] ?? null;
+            if (is_array($spell) && $spell !== []) {
+                return GameCombatThread::spellThreadId($actionId);
+            }
+        }
+
+        return null;
     }
 
     /**

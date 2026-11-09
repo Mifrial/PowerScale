@@ -275,6 +275,7 @@ final class GameActionCover
             $effect['reaction'],
             $effect['blockItemRuleCode'],
             $cost,
+            $this->value->spellParent($target),
         );
     }
 }

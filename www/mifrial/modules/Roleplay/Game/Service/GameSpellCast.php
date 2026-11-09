@@ -148,7 +148,17 @@ final class GameSpellCast
         $check = $this->check->check($game, $prepared);
         $damage = $this->damage->apply($game, $prepared, $check['castOk']);
         $versions = $this->write->write($game, $prepared, $body, $damage);
-        $this->chat->post($game, $actorUserId, $prepared, $battle, $check, $damage);
+        $key = is_string($body['idempotencyKey'] ?? null) ? $body['idempotencyKey'] : '';
+        $this->chat->post(
+            $game,
+            $actorUserId,
+            $prepared,
+            $battle,
+            $check,
+            $damage,
+            true,
+            GameCombatThread::buildSpellCast($battle, $key),
+        );
 
         return $this->view->build($prepared, $check, $damage, $versions);
     }

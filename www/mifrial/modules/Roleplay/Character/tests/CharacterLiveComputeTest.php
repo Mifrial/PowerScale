@@ -494,6 +494,56 @@ final class CharacterLiveComputeTest extends TestCase
     }
 
     /**
+     * Агрегат «Развитие X» берёт уровень по числу методов нужной ступени.
+     *
+     * @return void
+     */
+    public function testAggregateLevelCountsMethodCostTiers(): void
+    {
+        $slice = $this->slice([
+            $this->ability('method-a', [
+                'type' => 'skill',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+            ], ['method-intellect']),
+            $this->ability('method-b', [
+                'type' => 'skill',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+            ], ['method-intellect']),
+            $this->ability('method-c', [
+                'type' => 'skill',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+            ], ['method-intellect']),
+            $this->ability('method-d', [
+                'type' => 'skill',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+            ], ['method-intellect']),
+            $this->ability('razvitie', [
+                'type' => 'skill',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [0]]],
+                'aggregate' => [
+                    'levels' => [2, 2],
+                    'method_keyword' => 'method-intellect',
+                    'characteristic_code' => 'intellect',
+                ],
+            ]),
+        ]);
+
+        $twoMethods = $this->levelsOf($slice, [
+            ['ruleCode' => 'method-a', 'level' => 1],
+            ['ruleCode' => 'method-b', 'level' => 1],
+        ]);
+        self::assertSame(1, $twoMethods['razvitie']);
+
+        $fourMethods = $this->levelsOf($slice, [
+            ['ruleCode' => 'method-a', 'level' => 1],
+            ['ruleCode' => 'method-b', 'level' => 1],
+            ['ruleCode' => 'method-c', 'level' => 1],
+            ['ruleCode' => 'method-d', 'level' => 1],
+        ]);
+        self::assertSame(2, $fourMethods['razvitie']);
+    }
+
+    /**
      * has_ability учитывает путь экземпляра, а не только уровень по коду.
      *
      * @return void

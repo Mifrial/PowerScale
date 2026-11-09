@@ -541,6 +541,10 @@ trait GameMysqlFixture
             $context['maneuverRuleCode'] = $attack['maneuverRuleCode'];
         }
 
+        if (array_key_exists('spellCast', $attack)) {
+            $context['spellCast'] = $attack['spellCast'];
+        }
+
         return [
             'phase' => 'declare',
             'kind' => 'strike',
@@ -597,6 +601,10 @@ trait GameMysqlFixture
 
         if (array_key_exists('maneuverRuleCode', $attack)) {
             $context['maneuverRuleCode'] = $attack['maneuverRuleCode'];
+        }
+
+        if (array_key_exists('spellCast', $attack)) {
+            $context['spellCast'] = $attack['spellCast'];
         }
 
         return [

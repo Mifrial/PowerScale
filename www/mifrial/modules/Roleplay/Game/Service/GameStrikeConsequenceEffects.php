@@ -80,6 +80,20 @@ final class GameStrikeConsequenceEffects
             $will['outcome'],
         );
         $maim = $this->maimEffect($game, $slice, $sheet, $success, $hooks, $cutting ? 0 : $quotient, $wound);
+        $consequence = $this->consequence(
+            $cutting,
+            $quotient,
+            $split,
+            $endurance,
+            $wound,
+            $will['consequence'],
+            $knockoutEffect['unconscious'],
+            $maim['maim'],
+        );
+        $delta = $cutting === null ? $quotient : 0;
+        $consequence['exhaustionTotal'] = $this->exhaustionTotal($slice, $sheet, $delta);
+        $consequence['states'] = $this->hookStates($slice, $hooks, $quotient);
+
         return [
             'operations' => $this->operations(
                 $split,
@@ -92,17 +106,56 @@ final class GameStrikeConsequenceEffects
                 $maim,
                 $internal,
             ),
-            'consequence' => $this->consequence(
-                $cutting,
-                $quotient,
-                $split,
-                $endurance,
-                $wound,
-                $will['consequence'],
-                $knockoutEffect['unconscious'],
-                $maim['maim'],
-            ),
+            'consequence' => $consequence,
         ];
+    }
+
+    /**
+     * Итоговое истощение цели после прироста.
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
+     * @param array<string, mixed> $sheet Лист цели.
+     * @param int $delta Прирост истощения.
+     *
+     * @return int Итог.
+     *
+     * @throws GameInvalidException Если состояние истощения битое.
+     */
+    private function exhaustionTotal(CharacterRuleSlice $slice, array $sheet, int $delta): int
+    {
+        return $this->states->stored($sheet, $this->states->single($slice, 'exhaustion')) + $delta;
+    }
+
+    /**
+     * Состояния от хуков типа урона (например, Шок).
+     *
+     * @param CharacterRuleSlice $slice Срез правил.
+     * @param list<array{handler: IMechanicHandler, payload: array<string, mixed>}> $hooks Хуки.
+     * @param int $quotient Частное урона.
+     *
+     * @return list<array{code: string, name: string, value: int}> Состояния.
+     *
+     * @throws GameInvalidException Если состояние хука битое.
+     */
+    private function hookStates(CharacterRuleSlice $slice, array $hooks, int $quotient): array
+    {
+        $states = [];
+        foreach ($hooks as $hook) {
+            $amount = $this->states->exhaustion($hook['handler'], $hook['payload'], $quotient);
+            if ($amount === null || $amount === 0) {
+                continue;
+            }
+
+            $code = $this->states->code($hook['payload']);
+            $name = $slice->findLive($code)?->getName();
+            $states[$code] = [
+                'code' => $code,
+                'name' => is_string($name) && $name !== '' ? $name : $code,
+                'value' => ($states[$code]['value'] ?? 0) + $amount,
+            ];
+        }
+
+        return array_values($states);
     }
 
     /**

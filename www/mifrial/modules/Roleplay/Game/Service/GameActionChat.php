@@ -93,6 +93,7 @@ final class GameActionChat
      * @param string $reaction Выбранная защита.
      * @param string $blockItemRuleCode Предмет блока.
      * @param int $cost Стоимость прикрытия.
+     * @param string|null $parentId Родительский тред; null — тред хода.
      *
      * @return void
      *
@@ -110,9 +111,10 @@ final class GameActionChat
         string $reaction,
         string $blockItemRuleCode,
         int $cost,
+        ?string $parentId = null,
     ): void {
         $chatId = $this->chatId($game);
-        $thread = GameCombatThread::buildAttack($battle, $threadId);
+        $thread = GameCombatThread::buildAttack($battle, $threadId, $parentId);
         $text = $this->coverText($actorKind, $actorId, $actionRuleCode, $target, $reaction, $blockItemRuleCode, $cost);
         $this->send($chatId, $actorUserId, $text, $this->attachments($thread, $actorKind, $actorId));
     }
@@ -131,6 +133,7 @@ final class GameActionChat
      * @param array{type: string, id: int} $sideActor Участник выбранной стороны.
      * @param int $spent Потрачено ОД.
      * @param int $advantage Преимущество.
+     * @param string|null $parentId Родительский тред; null — тред хода.
      *
      * @return void
      *
@@ -148,9 +151,10 @@ final class GameActionChat
         array $sideActor,
         int $spent,
         int $advantage,
+        ?string $parentId = null,
     ): void {
         $chatId = $this->chatId($game);
-        $thread = GameCombatThread::buildAttack($battle, $threadId);
+        $thread = GameCombatThread::buildAttack($battle, $threadId, $parentId);
         $text = $this->reactionText($actorKind, $actorId, $actionRuleCode, $side, $sideActor, $spent, $advantage);
         $this->send($chatId, $actorUserId, $text, $this->attachments($thread, $actorKind, $actorId));
     }

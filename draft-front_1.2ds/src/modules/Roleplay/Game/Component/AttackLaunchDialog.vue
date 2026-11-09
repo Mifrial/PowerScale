@@ -46,6 +46,7 @@ import { turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ATTACK_ACTION_COST_FLOOR } from '@/modules/Roleplay/Game/Constant/Combat/ATTACK_ACTION_COST_FLOOR';
 import { AttackProfileOption } from '@/modules/Roleplay/Character/init';
 import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
+import { useLastTargetsStore } from '@/modules/Roleplay/Game/Store/lastTargets';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 
 const props = defineProps<{
@@ -87,6 +88,18 @@ let loadAbort: AbortController | null = null;
 const selectedActionModifierCodes = ref<string[]>([]);
 const pendingEffects = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
 const attackFavorites = useAttackFavorites();
+const lastTargets = useLastTargetsStore();
+
+function rememberTarget(index: number, value: CombatEntityKey | string | null): void {
+  const targetKey = value === null || value === '' ? null : (value as CombatEntityKey);
+  const nextSlots = [...slots.value];
+  const slot = nextSlots[index];
+  if (!slot) return;
+  nextSlots[index] = { ...slot, targetKey };
+  slots.value = nextSlots;
+  const key = actorKey.value;
+  if (key) lastTargets.setTarget(props.gameId, key, targetKey);
+}
 
 const actorKey = computed<CombatEntityKey | null>(() => {
   if (props.actorKey) return props.actorKey;
@@ -501,6 +514,8 @@ function defaultSlotTarget(): CombatEntityKey | null {
   if (allowed !== null) return (allowed[0] as CombatEntityKey | undefined) ?? null;
   const last = activeProcess.value?.lastStrikeTargetKey;
   if (last && targetOptions.value.some((option) => option.value === last)) return last;
+  const remembered = actorKey.value ? lastTargets.targetOf(props.gameId, actorKey.value) : null;
+  if (remembered && targetOptions.value.some((option) => option.value === remembered)) return remembered;
 
   return targetOptions.value[0]?.value ?? null;
 }
@@ -1063,7 +1078,7 @@ watch(followUpTargetKeys, (allowed) => {
             </div>
             <CombatEntitySelect
               v-if="!sharesLaunchTarget || index === 0"
-              v-model="slot.targetKey"
+              :model-value="slot.targetKey"
               label="Цель удара"
               :characters="characters"
               :npcs="npcs"
@@ -1072,6 +1087,7 @@ watch(followUpTargetKeys, (allowed) => {
               :disabled="
                 busy || Boolean(processLockedTarget) || (followUpTargetKeys !== null && followUpTargetKeys.length <= 1)
               "
+              @update:model-value="rememberTarget(index, $event)"
             />
             <div v-else class="text-caption text-medium-emphasis">Та же цель, что у первого удара</div>
           </div>

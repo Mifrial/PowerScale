@@ -2069,6 +2069,8 @@ final class GameWideStrikeMysqlTest extends TestCase
                 'will',
                 'willOutcome',
                 'maim',
+                'exhaustionTotal',
+                'states',
                 'chat',
             ],
             array_keys($results[0]),

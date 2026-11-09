@@ -47,7 +47,7 @@ final class GameStrikeSingleView
         ?array $cover,
         int $strikeId,
     ): array {
-        $thread = $this->thread($battle, $strikeId);
+        $thread = $this->thread($battle, $strikeId, $open);
         $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $push = $this->push($result);
 
@@ -67,17 +67,32 @@ final class GameStrikeSingleView
      *
      * @param GameBattleRecord $battle Бой.
      * @param int $strikeId Удар.
+     * @param array<string, mixed>|null $open Открытый удар.
      *
      * @return array{threadId: string, parentId: string|null} Тред.
      */
-    public function thread(GameBattleRecord $battle, int $strikeId): array
+    public function thread(GameBattleRecord $battle, int $strikeId, ?array $open = null): array
     {
         $threadId = 'attack-' . $strikeId;
+        $parentId = $this->isSpellTouch($open)
+            ? GameCombatThread::spellThreadId($strikeId)
+            : GameCombatThread::buildAttack($battle, $threadId)['parentId'];
 
-        return [
-            'threadId' => $threadId,
-            'parentId' => GameCombatThread::buildAttack($battle, $threadId)['parentId'],
-        ];
+        return ['threadId' => $threadId, 'parentId' => $parentId];
+    }
+
+    /**
+     * Удар — касание заклинания.
+     *
+     * @param array<string, mixed>|null $open Открытый удар.
+     *
+     * @return bool Истина, если удар несёт заклинание.
+     */
+    private function isSpellTouch(?array $open): bool
+    {
+        $spell = $open['spell_cast'] ?? null;
+
+        return is_array($spell) && $spell !== [];
     }
 
     /**

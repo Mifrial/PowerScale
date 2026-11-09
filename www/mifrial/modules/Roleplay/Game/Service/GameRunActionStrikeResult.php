@@ -25,6 +25,7 @@ final class GameRunActionStrikeResult
             'battleId' => $result['battleId'] ?? 0,
             'version' => $result['version'] ?? 0,
             'strikeId' => $result['strikeId'] ?? 0,
+            'spent' => $result['spent'] ?? 0,
             'closed' => false,
             'sheetVersion' => null,
             'strikes' => $this->rows($strikes),

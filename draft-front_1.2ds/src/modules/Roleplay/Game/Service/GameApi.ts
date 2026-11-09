@@ -1255,7 +1255,30 @@ export class GameApi implements IGameApi {
 
   /** Серверный каст заклинания. */
   async castSpell(body: GamePhpSpellCastRequest, signal?: AbortSignal): Promise<GamePhpSpellCastResult> {
-    const result = await this.requireData<GamePhpSpellCastResult>('game.castSpell', body, signal);
+    const result = await this.requireData<GamePhpSpellCastResult>(
+      'game.runAction',
+      {
+        gameId: body.gameId,
+        battleId: body.battleId,
+        idempotencyKey: body.idempotencyKey,
+        expectedVersion: body.expectedVersion,
+        action: {
+          phase: 'declare',
+          kind: 'spell',
+          code: body.spellCode,
+          actor: body.actor,
+          context: {
+            expectedSheetVersion: body.expectedSheetVersion,
+            pathCode: body.pathCode,
+            parameters: body.parameters,
+            usedPower: body.usedPower,
+            ...(body.target ? { target: body.target, expectedTargetVersion: body.expectedTargetVersion } : {}),
+            ...(body.distanceIpari ? { distanceIpari: body.distanceIpari } : {}),
+          },
+        },
+      },
+      signal,
+    );
     gamePhpBattleContext.rememberSheet(`${result.caster.type}:${result.caster.id}`, result.caster.sheetVersion);
     if (result.target) {
       gamePhpBattleContext.rememberSheet(`${result.target.type}:${result.target.id}`, result.target.sheetVersion);

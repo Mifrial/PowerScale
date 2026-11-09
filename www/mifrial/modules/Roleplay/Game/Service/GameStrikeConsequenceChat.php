@@ -90,6 +90,7 @@ final class GameStrikeConsequenceChat
      * @param array<int, string> $lines Тексты.
      * @param array{kind: string, characterId?: int, characterName?: string, npcId?: int, npcName?: string}|null $speaker Спикер.
      * @param string|null $parentId Родительский ход.
+     * @param string $kind Вид треда: attack или spell.
      *
      * @return void
      *
@@ -102,9 +103,10 @@ final class GameStrikeConsequenceChat
         array $lines,
         ?array $speaker = null,
         ?string $parentId = null,
+        string $kind = 'attack',
     ): void {
         $chatId = $this->chatId($game);
-        $thread = $this->attackThread($threadId, $parentId);
+        $thread = $this->attackThread($threadId, $parentId, $kind);
         try {
             foreach ($lines as $line) {
                 $this->sendText($chatId, $actorUserId, $line, $thread, $speaker);
@@ -351,9 +353,9 @@ final class GameStrikeConsequenceChat
      *
      * @return array{id: string, kind: string, parentId?: string} Тред.
      */
-    private function attackThread(string $threadId, ?string $parentId): array
+    private function attackThread(string $threadId, ?string $parentId, string $kind = 'attack'): array
     {
-        $thread = ['id' => $threadId, 'kind' => 'attack'];
+        $thread = ['id' => $threadId, 'kind' => $kind];
         if ($parentId !== null) {
             $thread['parentId'] = $parentId;
         }

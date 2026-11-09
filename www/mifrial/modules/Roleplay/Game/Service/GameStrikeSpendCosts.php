@@ -38,7 +38,7 @@ final class GameStrikeSpendCosts
      * @param int $id Атакующий.
      *
      * @return array{spends: array<int, ResourceSpend>, pending: array<string, mixed>,
-     *               slice: CharacterRuleSlice} Итог.
+     *               slice: CharacterRuleSlice, spent: int} Итог.
      */
     public function resolve(
         GameRecord $game,
@@ -60,12 +60,43 @@ final class GameStrikeSpendCosts
             $battle->getPendingActionEffects(),
             $spends,
         );
+        $spends = $adjusted['spends'];
+        $spell = $choice['spellCast']['spends'] ?? null;
+        if (is_array($spell)) {
+            $spends = $this->maxSpends($spends, $spell);
+        }
+        $spends = $this->floor($slice, $choice, $spends);
 
         return [
-            'spends' => $this->floor($slice, $choice, $adjusted['spends']),
+            'spends' => $spends,
             'pending' => $adjusted['pending'],
             'slice' => $slice,
+            'spent' => $this->spentAp($slice, $spends),
         ];
+    }
+
+    /**
+     * Списанные ОД из итоговых трат.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<int, ResourceSpend> $spends Траты.
+     *
+     * @return int ОД.
+     */
+    private function spentAp(CharacterRuleSlice $slice, array $spends): int
+    {
+        $code = (new GameActionFloor())->turnResourceCode($slice);
+        if ($code === null) {
+            return 0;
+        }
+
+        foreach ($spends as $spend) {
+            if ($spend->getResourceCode() === $code) {
+                return $this->amountOf($spend);
+            }
+        }
+
+        return 0;
     }
 
     /**
@@ -96,6 +127,46 @@ final class GameStrikeSpendCosts
         }
 
         return (new GameProcessRules())->replaceCosts($spends, $step);
+    }
+
+    /**
+     * Максимум трат действия и заклинания по каждому ресурсу.
+     *
+     * @param array<int, ResourceSpend> $action Траты действия.
+     * @param array<int, ResourceSpend> $spell Траты заклинания.
+     *
+     * @return array<int, ResourceSpend> Траты.
+     */
+    private function maxSpends(array $action, array $spell): array
+    {
+        $byCode = [];
+        foreach ($action as $spend) {
+            $byCode[$spend->getResourceCode()] = $spend;
+        }
+
+        foreach ($spell as $spend) {
+            $code = $spend->getResourceCode();
+            $current = $byCode[$code] ?? null;
+            if ($current === null || $this->amountOf($spend) > $this->amountOf($current)) {
+                $byCode[$code] = $spend;
+            }
+        }
+
+        return array_values($byCode);
+    }
+
+    /**
+     * Скалярная величина траты.
+     *
+     * @param ResourceSpend $spend Трата.
+     *
+     * @return int Величина.
+     */
+    private function amountOf(ResourceSpend $spend): int
+    {
+        $native = $spend->getAmount()->toNative();
+
+        return is_int($native) ? $native : 0;
     }
 
     /**
