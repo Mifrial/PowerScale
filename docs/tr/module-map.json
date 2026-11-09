@@ -2251,6 +2251,14 @@
             "dependedOnBy": [],
             "plans": [
                 {
+                    "path": "docs/tr/game-plan-46-spell-cast.md",
+                    "title": "План 46 — серверный каст заклинания",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-11-09",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/game-roadmap.md",
                     "title": "Нарезка Roleplay/Game",
                     "kind": "plan",

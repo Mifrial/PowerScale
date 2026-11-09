@@ -189,6 +189,7 @@
 
 | Документ | Тип | Состояние | Дата |
 |---|---|---|---|
+| [game-plan-46-spell-cast.md](../../game-plan-46-spell-cast.md) | план | `~ПЛАН~` | 2026-11-09 |
 | [game-roadmap.md](../../game-roadmap.md) | план | `~В РАБОТЕ~` | 2026-10-05 |
 | [game-plan-01.md](../../game-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-10-04 |
 | [game-plan-43-processes.md](../../game-plan-43-processes.md) | план | `~ЧАСТИЧНО~` | — |

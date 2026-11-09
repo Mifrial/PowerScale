@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 337,
-        "plans": 218,
+        "documents": 338,
+        "plans": 219,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 240,
+            "tr": 241,
             "tz": 2
         },
         "byZoneState": {
@@ -73,7 +73,7 @@
                 "СДЕЛАНО": 146,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 31,
-                "ПЛАН": 9,
+                "ПЛАН": 10,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
                 "В РАБОТЕ": 15
@@ -87,7 +87,7 @@
             "СНИМОК": 65,
             "нет": 57,
             "СДЕЛАНО": 148,
-            "ПЛАН": 12,
+            "ПЛАН": 13,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 31,
             "ОТМЕНЁН": 1,
@@ -226,19 +226,20 @@
             }
         },
         "Roleplay/Game": {
-            "docs": 51,
+            "docs": 52,
             "state": {
                 "СНИМОК": 4,
                 "ЧАСТИЧНО": 2,
                 "СДЕЛАНО": 42,
                 "ОТМЕНЁН": 1,
+                "ПЛАН": 1,
                 "В РАБОТЕ": 1,
                 "нет": 1
             },
             "layer": {
                 "МОК": 6,
-                "PHP": 44,
-                "VUE": 11
+                "PHP": 45,
+                "VUE": 12
             }
         },
         "Roleplay/Keyword": {
@@ -2856,16 +2857,17 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 31890,
+            "bytes": 31950,
             "lines": 446,
             "modules": [
                 "Roleplay/Character"
             ],
-            "linksCount": 4,
+            "linksCount": 5,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/character-plan-01.md",
                 "docs/tr/character-roadmap.md",
+                "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/magic-content-plan-01-arcanist-entry.md",
                 "docs/tr/magic-content-plan-03-arcanist-advanced.md",
                 "docs/tr/magic-content-plan-04-arcanist-mastery.md"
@@ -2885,12 +2887,12 @@
             ],
             "basis": null,
             "date": "2026-10-05",
-            "bytes": 14159,
+            "bytes": 14189,
             "lines": 171,
             "modules": [
                 "Roleplay/Character"
             ],
-            "linksCount": 19,
+            "linksCount": 20,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/plan-game-plan-30-immediate-consequences-2026-10-11.md",
@@ -4730,9 +4732,37 @@
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-44-checks-real.md",
+                "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/rule-content-plan-15-melee-tactics-design.md",
                 "docs/tr/rule-content-plan-16-melee-tactics.md",
                 "docs/tr/rule-content-queue.md"
+            ]
+        },
+        {
+            "path": "docs/tr/game-plan-46-spell-cast.md",
+            "title": "План 46 — серверный каст заклинания",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "ПЛАН",
+            "stateSource": "token",
+            "statusRaw": "~ПЛАН~, 2026-11-09.",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-09",
+            "bytes": 26755,
+            "lines": 440,
+            "modules": [
+                "Roleplay/Game"
+            ],
+            "linksCount": 6,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/character-plan-13-path-study.md",
+                "docs/tr/character-roadmap.md",
+                "docs/tr/spell-roadmap.md"
             ]
         },
         {
@@ -4794,6 +4824,7 @@
                 "docs/tr/game-plan-32.md",
                 "docs/tr/game-plan-44-checks-real.md",
                 "docs/tr/game-plan-45-strike-phases.md",
+                "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/mechanic-roadmap.md"
             ]
         },
@@ -8441,6 +8472,7 @@
             "linksCount": 7,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/spell-plan-08-runtime-expansion.md",
                 "docs/tr/spell-plan-09-magic-runtime.md",
                 "docs/tr/spell-roadmap.md"
@@ -8467,6 +8499,7 @@
             "linksCount": 12,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/rule-content-plan-08-strike-upgrades.md",
                 "docs/tr/spell-plan-09-magic-runtime.md",
                 "docs/tr/spell-roadmap.md"
@@ -8493,6 +8526,7 @@
             "linksCount": 9,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/spell-plan-02-slice.md",
                 "docs/tr/spell-plan-08-runtime-expansion.md",
                 "docs/tr/spell-roadmap.md"
@@ -8538,12 +8572,12 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-07",
-            "bytes": 37330,
-            "lines": 416,
+            "bytes": 37513,
+            "lines": 418,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 17,
+            "linksCount": 18,
             "brokenLinks": [
                 "spell-plan-10-backend.md"
             ],

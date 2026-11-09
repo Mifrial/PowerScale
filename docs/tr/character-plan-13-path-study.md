@@ -18,7 +18,7 @@
 слову `magic`. Логику берём из спеки и канона, не переносим из мока.
 
 **Родитель:** [`character-roadmap.md`](character-roadmap.md).
-**Следующий:** `game-plan-46-spell-cast.md` — только после этого шага.
+**Следующий:** [`game-plan-46-spell-cast.md`](game-plan-46-spell-cast.md) — только после этого шага.
 
 ## Цель
 
@@ -424,7 +424,7 @@ save. Это соответствует канону «изученное сох
 
 ## После этого
 
-`game-plan-46-spell-cast.md`:
+[`game-plan-46-spell-cast.md`](game-plan-46-spell-cast.md):
 
 - `game.castSpell` для `lightning-strike`;
 - проверка каста из `MagicPathSpec::getCastCheckCode()`, мощь/контроль — из
