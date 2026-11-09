@@ -94,6 +94,14 @@ final class GameSpellCastDamage
             $target['sheet'],
             $target['choices'],
         );
+        $penetration = $prepared->upgrades->getResistancePenetration();
+        if ($penetration > 0) {
+            $resistance = $this->amounts->effectiveDefense(
+                $resistance,
+                new DimensionalNumber($penetration, 0),
+            );
+        }
+
         $injury = $this->amounts->injury($amount, $resistance, $spellSr, null);
         $split = $this->rules->outcome->splitInjury(
             $game->getSpaceId(),
@@ -162,8 +170,8 @@ final class GameSpellCastDamage
         );
         $modify = $this->modify($damage, $experience);
         $amount = (new CharacteristicNumber(
-            $prepared->requiredPower->getBase(),
-            $prepared->requiredPower->getSize(),
+            $prepared->spellPower->getBase(),
+            $prepared->spellPower->getSize(),
         ))->modify($modify);
 
         return $this->falloff($amount, $damage, $prepared->distanceIpari);

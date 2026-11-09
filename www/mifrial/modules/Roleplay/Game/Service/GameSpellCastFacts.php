@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
+use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
@@ -15,6 +16,7 @@ use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterRaceAbilityCodes;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
+use Mifrial\Roleplay\Game\Dto\GameSpellCastUpgradeResolution;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityParameter;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
@@ -34,6 +36,8 @@ final class GameSpellCastFacts
     private readonly CharacterChoiceAssembler $assembler;
 
     private readonly CharacterAbilityGrantReader $grants;
+
+    private readonly GameSpellCastUpgrades $upgrades;
 
     /**
      * Создаёт подготовку каста.
@@ -57,6 +61,7 @@ final class GameSpellCastFacts
     ) {
         $this->assembler = new CharacterChoiceAssembler();
         $this->grants = new CharacterAbilityGrantReader(new CharacterDonorGrants(), new CharacterRaceAbilityCodes());
+        $this->upgrades = new GameSpellCastUpgrades();
     }
 
     /**
@@ -64,20 +69,15 @@ final class GameSpellCastFacts
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $body Тело команды.
-     * @param array{
-     *     type: string,
-     *     id: int,
-     *     choices: array<string, mixed>,
-     *     sheet: array<string, mixed>,
-     *     version: int
-     * }|null $touchTarget Цель касания, если заклинание доставляется ударом.
+     * @param array<string, mixed>|null $touchTarget Цель касания, если заклинание доставляется ударом.
      *
      * @return GameSpellCastPrepared Подготовка.
      *
      * @throws GameInvalidException Если карточка, путь, экземпляр или траты не подходят.
      */
     public function prepare(GameRecord $game, array $body, ?array $touchTarget = null): GameSpellCastPrepared
-    {        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+    {
+        $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spellCode = $this->string($body, 'spellCode');
         $pathCode = $this->string($body, 'pathCode');
         $spell = $this->spellSpec($slice, $spellCode);
@@ -109,7 +109,10 @@ final class GameSpellCastFacts
         $target = $this->target($game, $slice, $body, $spell);
         $damageTarget = $target ?? $touchTarget;
         $parameters = $this->parameterMap($body, $spell);
-        $requiredPower = $this->value($spell->getSpell()->getPower(), $parameters);
+        $spellPower = $this->value($spell->getSpell()->getPower(), $parameters);
+        $upgrades = $this->resolveUpgrades($slice, $model, $caster, $spellCode, $pathCode, $body);
+        $requiredPower = (new CharacteristicNumber($spellPower->getBase(), $spellPower->getSize()))
+            ->modify($upgrades->getRequiredPowerDelta());
         $requiredControl = $this->value($spell->getSpell()->getControl(), $parameters);
         $characteristics = $this->characteristicsOf($caster['sheet']);
         $powerCode = $this->pathCharacteristicCode($path->getPowerCharacteristicCode());
@@ -128,7 +131,9 @@ final class GameSpellCastFacts
             $caster['choices'],
             $caster['sheet'],
         );
-        $spent = $this->spentOf($spends, $this->turnResourceCode($slice));
+        $turnCode = $this->turnResourceCode($slice);
+        $spends = $this->mergeUpgradeSpends($spends, $upgrades->getActionPointDelta(), $turnCode);
+        $spent = $this->spentOf($spends, $turnCode);
 
         return new GameSpellCastPrepared(
             $slice,
@@ -146,9 +151,11 @@ final class GameSpellCastFacts
             $damageTarget,
             $parameters,
             $usedPower,
+            $spellPower,
             $requiredPower,
             $requiredControl,
             $availableControl,
+            $upgrades,
             $spends,
             $spent,
             $this->int($body, 'distanceIpari', 0),
@@ -378,7 +385,9 @@ final class GameSpellCastFacts
             }
         }
 
-        /** @var array<string, int|array{base: int, size: int}> $given */
+        /**
+         * @var array<string, int|array{base: int, size: int}> $given
+         */
         return $given;
     }
 
@@ -743,6 +752,118 @@ final class GameSpellCastFacts
         }
 
         return '';
+    }
+
+    /**
+     * Разрешает улучшения каста.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $model Выборы кастера.
+     * @param array{choices: array<string, mixed>, sheet: array<string, mixed>, version: int} $caster Кастер.
+     * @param string $spellCode Заклинание.
+     * @param string $pathCode Путь.
+     * @param array<string, mixed> $body Тело.
+     *
+     * @return GameSpellCastUpgradeResolution Разрешение.
+     *
+     * @throws GameInvalidException Если улучшение не подходит.
+     */
+    private function resolveUpgrades(
+        CharacterRuleSlice $slice,
+        CharacterChoices $model,
+        array $caster,
+        string $spellCode,
+        string $pathCode,
+        array $body,
+    ): GameSpellCastUpgradeResolution {
+        $levels = $caster['sheet']['abilityLevels'] ?? [];
+
+        return $this->upgrades->resolve(
+            $slice,
+            $model,
+            is_array($levels) ? $levels : [],
+            $spellCode,
+            $pathCode,
+            $this->upgradeSelection($body),
+        );
+    }
+
+    /**
+     * Выбранные улучшения из тела в строгой форме.
+     *
+     * @param array<string, mixed> $body Тело.
+     *
+     * @return array<int, array{code: string, value: int|null}> Выбор.
+     *
+     * @throws GameInvalidException Если форма списка чужая.
+     */
+    private function upgradeSelection(array $body): array
+    {
+        $rows = $body['upgrades'] ?? [];
+        if (!is_array($rows)) {
+            throw new GameInvalidException('Game spell upgrades are invalid');
+        }
+
+        $selected = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                throw new GameInvalidException('Game spell upgrades are invalid');
+            }
+
+            $code = $row['code'] ?? null;
+            $value = $row['value'] ?? null;
+            if (!is_string($code) || ($value !== null && !is_int($value))) {
+                throw new GameInvalidException('Game spell upgrades are invalid');
+            }
+
+            $selected[] = ['code' => $code, 'value' => $value];
+        }
+
+        return $selected;
+    }
+
+    /**
+     * Сливает дельту улучшений с тратой ресурса хода.
+     *
+     * @param list<ResourceSpend> $spends Траты компонентов.
+     * @param int $delta Дельта ОД.
+     * @param string $code Код ресурса хода.
+     *
+     * @return list<ResourceSpend> Траты.
+     *
+     * @throws GameInvalidException Если ресурс хода не найден.
+     */
+    private function mergeUpgradeSpends(array $spends, int $delta, string $code): array
+    {
+        if ($delta === 0) {
+            return $spends;
+        }
+
+        if ($code === '') {
+            throw new GameInvalidException('Game spell turn resource is missing');
+        }
+
+        $merged = [];
+        $found = false;
+        foreach ($spends as $spend) {
+            if ($spend->getResourceCode() !== $code) {
+                $merged[] = $spend;
+                continue;
+            }
+
+            $found = true;
+            $amount = $spend->getAmount()->toNative();
+            $total = max(0, (is_int($amount) ? $amount : 0) + $delta);
+            if ($total > 0) {
+                $merged[] = new ResourceSpend($code, new ScalarResourceValue($total));
+            }
+        }
+
+        if (!$found && $delta > 0) {
+            $merged[] = new ResourceSpend($code, new ScalarResourceValue($delta));
+        }
+
+        return $merged;
     }
 
     /**

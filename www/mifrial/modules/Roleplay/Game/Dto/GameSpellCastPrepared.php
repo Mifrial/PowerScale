@@ -47,9 +47,11 @@ final class GameSpellCastPrepared
      * }|null $damageTarget Цель эффекта: заклинания или касания.
      * @param array<string, int|array{base: int, size: int}> $parameters Активационные параметры.
      * @param CharacteristicNumber $usedPower Используемая мощь.
+     * @param DimensionalNumber $spellPower Мощь заклинания для урона.
      * @param DimensionalNumber $requiredPower Требуемая мощь.
      * @param DimensionalNumber $requiredControl Требуемый контроль.
      * @param DimensionalNumber $availableControl Доступный контроль.
+     * @param GameSpellCastUpgradeResolution $upgrades Разрешённые улучшения.
      * @param list<ResourceSpend> $spends Траты компонентов.
      * @param int $spent Списанные ОД.
      * @param int $distanceIpari Дистанция в ипари.
@@ -72,9 +74,11 @@ final class GameSpellCastPrepared
         public readonly ?array $damageTarget,
         public readonly array $parameters,
         public readonly CharacteristicNumber $usedPower,
+        public readonly DimensionalNumber $spellPower,
         public readonly DimensionalNumber $requiredPower,
         public readonly DimensionalNumber $requiredControl,
         public readonly DimensionalNumber $availableControl,
+        public readonly GameSpellCastUpgradeResolution $upgrades,
         public readonly array $spends,
         public readonly int $spent,
         public readonly int $distanceIpari,

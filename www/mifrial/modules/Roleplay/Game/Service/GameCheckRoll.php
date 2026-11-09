@@ -871,6 +871,10 @@ final class GameCheckRoll
             $rows[] = new RollAdvantage($source, $override->advantage, $label);
         }
 
+        if ($override !== null) {
+            array_push($rows, ...$override->advantages);
+        }
+
         if ($slice !== null && is_array($sheet)) {
             array_push($rows, ...$this->stateAdvantages($slice, $sheet, $characteristicCode, $hit));
         }

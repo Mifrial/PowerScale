@@ -77,7 +77,10 @@ final class GameSpellCastCheck
             (string) $prepared->path->getCastCheckCode(),
             $prepared->casterSheet,
             ['base' => $base->getBase(), 'size' => $base->getSize()],
-            new GameCheckThrowOverride(characteristicCode: $characteristic),
+            new GameCheckThrowOverride(
+                characteristicCode: $characteristic,
+                advantages: $prepared->upgrades->getAdvantages(),
+            ),
         );
 
         return [
@@ -164,8 +167,9 @@ final class GameSpellCastCheck
         }
 
         $total = $this->layerResistance($game, $prepared, $damageType);
+        $penetration = $prepared->upgrades->getResistancePenetration();
 
-        return max(0, $total);
+        return max(0, $total - max(0, $penetration));
     }
 
     /**

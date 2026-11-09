@@ -249,6 +249,146 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Улучшение пути добавляет ОД и преимущество сотворения.
+     *
+     * @return void
+     */
+    public function testSpellCastAppliesCarefulMagic(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'careful-magic', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        $body = $this->spellBody($scene);
+        $body['upgrades'] = [['code' => 'careful-magic']];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(5, $cast['data']['spent']);
+        $this->assertAdvantage('careful-magic', 1, $cast['data']['cast']['roll']['advantages'] ?? []);
+    }
+
+    /**
+     * Идентификатор улучшения уходит в единый вход каста.
+     *
+     * @return void
+     */
+    public function testRunActionSpellAppliesCarefulMagic(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'careful-magic', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        $cast = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'run-spell-upgrade-1',
+            'expectedVersion' => 1,
+            'action' => [
+                'phase' => 'declare',
+                'kind' => 'spell',
+                'code' => 'lightning-strike',
+                'actor' => ['type' => 'character', 'id' => $scene['hero']],
+                'context' => [
+                    'expectedSheetVersion' => $scene['heroVersion'],
+                    'pathCode' => 'arcanist',
+                    'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 5, 'size' => 1],
+                    ],
+                    'target' => ['type' => 'npc', 'id' => $scene['npcId']],
+                    'expectedTargetVersion' => $scene['targetVersion'],
+                    'upgrades' => [['code' => 'careful-magic']],
+                ],
+            ],
+        ]);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(5, $cast['data']['spent']);
+        $this->assertAdvantage('careful-magic', 1, $cast['data']['cast']['roll']['advantages'] ?? []);
+    }
+
+    /**
+     * Пробитие поднимает Требуемую мощь, но не урон заклинания.
+     *
+     * @return void
+     */
+    public function testSpellCastAppliesPiercingMagic(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'piercing-magic', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        $body = $this->spellBody($scene);
+        $body['upgrades'] = [['code' => 'piercing-magic', 'value' => 1]];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(4, $cast['data']['spent']);
+        self::assertSame(['base' => 3, 'size' => -1], $cast['data']['cast']['difficulty']);
+        self::assertSame(['base' => 4, 'size' => 0], $cast['data']['spellDamage']);
+    }
+
+    /**
+     * Улучшение чужого пути отклоняется до записи.
+     *
+     * @return void
+     */
+    public function testSpellCastRejectsUpgradeOfAnotherPath(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'careful-magic', 'level' => 1, 'domainCode' => 'psionics'],
+        ]);
+        $beforeAp = $this->resourceCurrent($scene['hero'], 'action-points');
+        $body = $this->spellBody($scene);
+        $body['upgrades'] = [['code' => 'careful-magic']];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertFalse($cast['success']);
+        self::assertSame('GAME_INVALID', $cast['error']['code']);
+        self::assertSame($beforeAp, $this->resourceCurrent($scene['hero'], 'action-points'));
+        self::assertSame($scene['heroVersion'], $this->characterFacade()->get($scene['hero'])->getActualVersion());
+        self::assertSame([], $this->chatMessages($scene['gameId']));
+    }
+
+    /**
+     * Улучшение другого заклинания отклоняется.
+     *
+     * @return void
+     */
+    public function testSpellCastRejectsUpgradeOfAnotherSpell(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'focused-discharge', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        $body = $this->spellBody($scene);
+        $body['upgrades'] = [['code' => 'focused-discharge']];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertFalse($cast['success']);
+        self::assertSame('GAME_INVALID', $cast['error']['code']);
+    }
+
+    /**
+     * Неизученное улучшение отклоняется.
+     *
+     * @return void
+     */
+    public function testSpellCastRejectsUnknownUpgrade(): void
+    {
+        $scene = $this->spellScene();
+        $body = $this->spellBody($scene);
+        $body['upgrades'] = [['code' => 'unknown-upgrade']];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertFalse($cast['success']);
+        self::assertSame('GAME_INVALID', $cast['error']['code']);
+    }
+
+    /**
      * Каст без цели при targeting entity отклоняется до записи.
      *
      * @return void
@@ -541,7 +681,7 @@ final class GameStrikeMysqlTest extends TestCase
      *     targetVersion: int
      * } Сцена.
      */
-    private function spellScene(int $ap = 10, ?array $occupyHands = null): array
+    private function spellScene(int $ap = 10, ?array $occupyHands = null, array $extraAbilities = []): array
     {
         $world = $this->spellWorld($occupyHands);
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
@@ -554,10 +694,10 @@ final class GameStrikeMysqlTest extends TestCase
             [],
             null,
             null,
-            [
+            array_merge([
                 ['ruleCode' => 'discharge', 'level' => 1, 'domainCode' => 'arcanist'],
                 ['ruleCode' => 'lightning-strike', 'level' => 1, 'domainCode' => 'arcanist'],
-            ],
+            ], $extraAbilities),
         );
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
         $npc = $this->endureNpc($gameId, $this->dispatch('game.createNpc', [
@@ -591,7 +731,7 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return RuleSpaceRecord Мир.
      */
-    private function spellWorld(?array $occupyHands = null): RuleSpaceRecord
+    private function spellWorld(?array $occupyHands = null, array $extraCards = []): RuleSpaceRecord
     {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -610,7 +750,7 @@ final class GameStrikeMysqlTest extends TestCase
             false,
             true,
             [],
-            [
+            array_merge([
                 'discharge' => [
                     'type' => 'spell',
                     'effects' => [],
@@ -693,7 +833,39 @@ final class GameStrikeMysqlTest extends TestCase
                         ]],
                     ],
                 ],
-            ],
+                'careful-magic' => [
+                    'type' => 'skill',
+                    'effects' => [],
+                    'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                    'spec' => [
+                        'spell_upgrade' => [
+                            'action_point_delta' => 1,
+                            'check_advantage' => 1,
+                        ],
+                    ],
+                ],
+                'piercing-magic' => [
+                    'type' => 'skill',
+                    'effects' => [],
+                    'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                    'spec' => [
+                        'spell_upgrade' => [
+                            'action_point_delta' => 0,
+                            'any_path' => true,
+                            'resistance_penetration_per_step' => 2,
+                        ],
+                    ],
+                ],
+                'focused-discharge' => [
+                    'type' => 'skill',
+                    'effects' => [],
+                    'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                    'spec' => [
+                        'parent_ability_code' => 'discharge',
+                        'spell_upgrade' => ['action_point_delta' => 1],
+                    ],
+                ],
+            ], $extraCards),
             null,
             [
                 'intellect' => [

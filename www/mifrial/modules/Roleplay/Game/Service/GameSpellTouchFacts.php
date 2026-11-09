@@ -80,6 +80,7 @@ final class GameSpellTouchFacts
             'usedPower' => $payload['usedPower'],
             'target' => $payload['spellTarget'] ?? null,
             'distanceIpari' => 0,
+            'upgrades' => $payload['upgrades'] ?? [],
         ];
         $prepared = $this->facts->prepare($game, $body, $this->touchTarget($game, $defender));
         if (!$prepared->spell->getBase()->getHitResolution() instanceof AttackHit) {
