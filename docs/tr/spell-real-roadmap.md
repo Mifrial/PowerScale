@@ -133,8 +133,10 @@ M11–M12 — пути; M13–M16 — хвост.
 
 План — [`spell-real-plan-02-spell-upgrades.md`](spell-real-plan-02-spell-upgrades.md).
 
-- Читать `spell_upgrade` у изученных навыков кастера для выбранного пути и
-  заклинания (`parent_ability_code`, `domain_ref`, `any_path`, `multiple`).
+- Читать `spell_upgrade` у изученных навыков кастера; привязка — по
+  `parent_ability_code` либо по домену экземпляра `domainCode` и `any_path`.
+  `domain_ref` и `multiple` в runtime не читаются: это метаданные редактора и
+  покупки экземпляров, а не признак каста.
 - Выбор улучшений в диалоге; `action_point_delta` входит в стоимость;
   `check_advantage` — в бросок; `resistance_penetration_per_step` — в слой
   сопротивления (сопротивление урону и сложности).
@@ -276,3 +278,4 @@ M11–M12 — пути; M13–M16 — хвост.
 | 2026-11-09 | M1 уточнён: соматика — компонент действия, а не заклинания; заведён `spell-real-plan-01-action-components.md`, предложен отказ при нехватке рук. |
 | 2026-11-09 | M1 (1.1–1.4) реализован: `CharacterHands`/`GameActionHands`, проверка при касте и объявлении действия, фронт блокирует окна. Полный `tools/test-full.sh` отложен. |
 | 2026-11-10 | Заведён план M2 — `spell-real-plan-02-spell-upgrades.md`: выбор `spell_upgrade`, `action_point_delta`, `check_advantage`, `resistance_penetration_per_step`; `spellPower` отделён от `requiredPower`; `chain`/`charge_cap` отложены. |
+| 2026-11-10 | M2 (2.1–2.5) реализован: сервер разрешает улучшения по форме `spell_upgrade`, применяет ОД/преимущество/пробитие, отдаёт список в ответе и чате; real-фронт шлёт `upgrades` и фильтрует цепь/заряды по форме. Полный `tools/test-full.sh` отложен. |

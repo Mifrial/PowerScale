@@ -1,6 +1,7 @@
 # План M2 — улучшения каста
 
-**Статус:** ~ПЛАН~, 2026-11-10.
+**Статус:** ~ЧАСТИЧНО~, 2026-11-10. Срезы 2.1–2.5 реализованы; остался
+полный `bash tools/test-full.sh` по подтверждению пользователя (2.6).
 
 **Реализация:** ~PHP~, ~VUE~.
 
@@ -76,7 +77,7 @@ M1 закрыл общий слой компонентов действия. M2 
 | `GameSpellCastDamage` | урон от `resolve(spell.power)`, сопротивление, falloff, последствия | не различает «мощь заклинания» и «Требуемую мощь»; пробитие не применяет |
 | `GameStrikeSpendCosts` | `max` трат удара и заклинания для касания | улучшения не знает |
 | `GameSpellCastBody`, `GameRunActionSpellBody`, `GameSpellTouchBody` | строгий разбор запроса | поля `upgrades` нет |
-| `SpellCastUpgradeService` (фронт) | список применимых, выбор, `chipLabel`, `actionPointDelta`, `requiredPowerDelta`, `resistancePenetration` | UI/мок; в real-срезе читает `domain_ref === 'magic-path'`, M2 заменяет это совпадением экземпляра `domainCode` |
+| `SpellCastUpgradeService` (фронт) | список применимых, выбор, `chipLabel`, `actionPointDelta`, `requiredPowerDelta`, `resistancePenetration` | UI/мок; привязка по `parent_ability_code` и `domainCode` экземпляра, real-фильтр по форме `SpellUpgrade` |
 | `SpellCastUpgradeList` (фронт) | чекбоксы и поле `х` | показывает и `chain`/`charge`, которые M2 не поддерживает |
 | `SpellCastDialog` (фронт) | считает предпросмотр с улучшениями | в real-запрос улучшения не уходят |
 
