@@ -85,9 +85,17 @@
    выполняет проверки Воли и увечья; нокаут — только для `blunt`. Отдельной
    ветки «для заклинаний» нет, поэтому ответ и чат должны включать
    `will`/`willOutcome`/`maim`.
-9. **Компоненты заклинания — отдельный сборщик.** `GameActionResourceResolver`
-   и `GameActionResourceComponents` типизированы `AbilityActionSpec` и для
-   `AbilitySpellSpec` возвращают пусто. Варианты — §5.2.1.
+9. **Компоненты — это компоненты действия.** `action_components` живут на
+   общей базе способности; заклинания просто часто их используют. Отдельной
+   «траты заклинания» нет: `GameActionResourceComponents`/
+   `GameActionResourceResolver` обобщаются до `AbilityWithComponents` (его
+   реализуют `AbilityActionSpec` и `AbilitySpellSpec`), и каст идёт тем же
+   путём.
+10. **Параметры заклинания и используемая мощь — разные вещи.**
+    `parameters` — карта `код → значение` для всех параметров спеки: один `x`
+    может быть и мощью, и контролем. `usedPower` — конкретная мощь источника
+    (характеристики или предмета) вместе с идентификатором источника. Мощь
+    урона берётся из `parameters`, а не из `usedPower`.
 
 ## 3. Модель
 
@@ -122,16 +130,28 @@ expectedTargetVersion: int      // CAS листа цели
 actor: {type: character|npc, id: int}
 spellCode: string               // lightning-strike
 pathCode: string                // arcanist | psionic | shaman
-power: {base: int, size: int}   // x заклинания
-usedPower?: {base, size}        // «Используемая мощь»; рекомендация §5.3.1
+parameters: { [code: string]: int | {base: int, size: int} }  // значения параметров спеки
+usedPower: {
+  source: {kind: 'characteristic', code: string}
+        | {kind: 'item', inventoryId: int}
+        | {kind: 'grant', abilityCode: string},
+  value: {base: int, size: int}
+}
 target: {type: character|npc, id: int}
 distanceIpari?: int             // 0; поле зарезервировано под battleground
 ```
 
 Правила формы:
 
-- `power` — размерное число, а не готовый урон; сервер проверяет его по
-  `AbilityParameter::min`/`max` карточки;
+- `parameters` — значения параметров спеки по коду, а не готовый урон:
+  скаляр или размерное число по `AbilityParameter::kind`. Сервер проверяет
+  каждое значение по `min`/`max` и требует параметр, если на него ссылается
+  `SpellValue` (`spell.power`, `spell.control`). Один и тот же `x` может
+  обслуживать и мощь, и контроль;
+- `usedPower.source` — конкретная характеристика, предмет инвентаря или
+  грант-предмет кастера; `usedPower.value` не выше живой мощи этого источника
+  и не ниже минимума шкалы характеристик. `usedPower` влияет только на
+  сложность, но не на урон;
 - `target` обязателен: `lightning-strike` имеет `targeting: entity`.
   Запрос без цели — `INVALID_PARAMS`, а не autoFail. AutoFail «цель стала
   невалидной во время исполнения» — будущая игровая логика, не этот срез;
@@ -171,7 +191,8 @@ consequence: object                // истощение, Шок, putDamageSplit
 - `INVALID_PARAMS` — форма запроса, в том числе нет `target` при
   `targeting: entity`;
 - `GAME_INVALID` — карточка не spell, путь не magic_path, экземпляр не на
-  пути, нет ОД, `x` (и `usedPower`, если он в контракте) вне диапазона;
+  пути, нет ОД, значение параметра вне `min`/`max`, `usedPower` выше источника
+  или ниже минимума шкалы;
 - `GAME_NOT_FOUND` — цель не в составе боя;
 - `GAME_BATTLE_CONFLICT` — stale `expectedVersion`, `expectedSheetVersion`
   или `expectedTargetVersion`;
@@ -209,9 +230,19 @@ assertAvailable()` уже делает это для действий и при�
 
 ### 5.2 ОД и компоненты
 
-- `GameActionResourceResolver` и `GameActionResourceComponents` типизированы
-  `AbilityActionSpec`; для `AbilitySpellSpec` `resolve()` возвращает пустой
-  список. Нужен отдельный путь сборки трат (варианты — §5.2.1).
+- Компоненты — общие `action_components` способности, а не отдельная
+  «трата заклинания». Поэтому `GameActionResourceComponents` и
+  `GameActionResourceResolver` обобщаются до `AbilityWithComponents`, а не
+  получают второй сборщик.
+- `AbilityWithComponents extends AbilityWithBase` объявляет
+  `getComponents()`; его реализуют `AbilityActionSpec` и `AbilitySpellSpec`
+  (у обоих метод уже есть). `AbilityPlainSpec`/`AbilityProcessSpec` остаются
+  без компонентов.
+- `GameActionResourceComponents::of()` принимает `AbilityWithComponents`.
+  `GameActionResourceResolver::resolve()` ищет живую спеку по коду и
+  принимает любую с компонентами; для заклинаний `chosenAmounts` и
+  `minimums` пустые, поэтому action-специфика не меняет поведение.
+- Отдельного `GameSpellCastComponents` нет.
 - Траты проверяются `GameActionPerform::assertSpends()` и списываются
   `GameActionPerform::spend()` с `expectedSheetVersion`; это уже умеет CAS и
   запись только ресурсов.
@@ -221,34 +252,14 @@ assertAvailable()` уже делает это для действий и при�
 - ОД списываются **до** проверки сотворения: компоненты тратятся независимо
   от успеха, как в каноне M7.
 
-### 5.2.1 Варианты сборки компонентов заклинания
+### 5.2.1 Почему без отдельного сборщика
 
-**A. Отдельный `GameSpellCastComponents`.**
-Читает `AbilitySpellSpec::getComponents()`, оставляет `ResourceComponent`,
-собирает `ResourceSpend` (`ScalarResourceValue` для `int`), отдаёт в
-`GameActionPerform::assertSpends/spend`.
-
-- Плюсы: не трогает стабильный action-путь; простая и тестируемая единица;
-  легко расширить на `ChosenAmount`, когда появятся такие заклинания.
-- Минусы: дублирует обход компонентов; минимумы/выбранные суммы для
-  заклинаний придётся добавлять отдельно.
-
-**B. Обобщить `GameActionResourceComponents`/`GameActionResourceResolver` до
-`AbilityWithBase`.**
-У `AbilityActionSpec` и `AbilitySpellSpec` уже есть `getComponents()`.
-
-- Плюсы: один путь трат для действий и заклинаний; меньше дублирования.
-- Минусы: меняет стабильный `Game`-код и его тесты; нужно доказать, что
-  `chosenAmounts`/`minimums`/action-специфика не меняют поведение заклинаний.
-
-**C. Собирать `ResourceSpend` прямо в оркестраторе `GameSpellCastWrite`.**
-
-- Плюсы: минимум файлов.
-- Минусы: логика в оркестраторе, труднее тестировать и переиспользовать.
-
-**Рекомендация: A** для 46.2, с явным тестом на `amount: 4` и отказ при
-нехватке ОД; B — отдельным рефакторингом после появления второго потребителя
-(заклинания с `ChosenAmount`).
+Компоненты — это компоненты действия: заклинание — такое же действие, просто
+у него компоненты встречаются часто. Отдельная трата заклинания дублировала бы
+обход `ResourceComponent`, проверку выбранных сумм и минимумов. Общий путь
+даёт одинаковое поведение для `runAction`, удара и каста и не требует
+отдельной ветки по типу карточки. Регрессия действий проверяется прежними
+тестами `GameActionResourceResolver`.
 
 ### 5.3 Сложность
 
@@ -263,10 +274,11 @@ assertAvailable()` уже делает это для действий и при�
 Формула — та же, что в `SpellCastDifficultyService`:
 
 ```text
-requiredPower  = resolve(spell.power, {x: power})
-usedPower      = usedPower из запроса (см. §5.3.1) или sheet.magic-power
-requiredControl = spell.control
-availableControl = sheet.magic-control
+parameters      = request.parameters
+requiredPower   = resolve(spell.power, parameters)
+usedPower       = request.usedPower.value
+requiredControl = resolve(spell.control, parameters)
+availableControl = sheet[path.control_characteristic_code]
 
 powerShortage   = points(requiredPower) - points(usedPower)
 controlShortage = points(requiredControl) - points(availableControl)
@@ -287,21 +299,29 @@ if difficulty < 3|-1: skip (проверка не бросается)
 каста в этом срезе не применяются; `requiredPowerDelta` и
 `trainingDifficultyDelta` из клиентского расчёта сервер не принимает.
 
-### 5.3.1 `usedPower` — требует решения
+### 5.3.1 `parameters` и `usedPower`
 
-`SpellCastDialog` различает `usedPower` («Используемая мощь», можно уменьшать
-в пределах `magic-power`) и `power` (x, «Мощь заклинания»). Сложность считается
-от обоих. Варианты:
+`SpellCastDialog` различает два разных понятия:
 
-- **передавать `usedPower` в запросе** и проверять `3|-1 <= usedPower <=
-  sheet.magic-power`; сервер считает от него. Плюс: регулятор в UI остаётся
-  честным, предпросмотр совпадает с итогом. Минус: ещё одно поле контракта.
-- **не передавать** и всегда брать `sheet.magic-power`. Плюс: проще. Минус:
-  регулятор «Используемая мощь» в real-режиме становится декоративным, его
-  надо убрать или заблокировать.
+- `parameters` — значения параметров спеки. `spell.power` и `spell.control`
+  могут быть фиксированным числом или параметром; один `x` может быть и тем,
+  и другим. Поэтому в запрос идёт карта `код → значение`, а не поле `power`.
+- `usedPower` — «Используемая мощь»: конкретная характеристика или предмет
+  кастера и её живая мощь, которую можно уменьшить. Она влияет на сложность,
+  но не на урон.
 
-Рекомендация: передавать `usedPower` — это существующее правило и оно влияет
-на сложность.
+Сервер валидирует:
+
+- каждый `parameters[code]` — по `AbilityParameter::kind` и `min`/`max`
+  (скаляр не принимается вместо размерного и наоборот);
+- `usedPower.source` принадлежит кастеру: характеристика есть в листе,
+  предмет — в инвентаре кастера, грант — у активной способности;
+- `usedPower.value` не ниже минимума шкалы характеристик и не выше живой мощи
+  источника.
+
+Урон считается от `resolve(spell.power, parameters)`, а не от `usedPower`.
+`availableControl` берётся из `path.control_characteristic_code` и листа; если
+`spell.control` — параметр, его значение берётся из `parameters`.
 
 ### 5.4 Бросок
 
@@ -328,9 +348,10 @@ if difficulty < 3|-1: skip (проверка не бросается)
 - Источник уровней для опыта: сохранённый лист (эффективные уровни), не
   повторный пересчёт study. `CharacterDerivedLevels` сохраняет своё прежнее
   поведение (купленные уровни), пока его не переключат отдельно.
-- `weaponDamage = power + stepModify` по шкале характеристик: использовать
-  `CharacteristicNumber`; в PHP у него сейчас нет `modifyWith`/`modifyDiffTo`
-  — добавить их или считать `base + 3×size` явно.
+- `weaponDamage = resolve(spell.power, parameters) + stepModify` по шкале
+  характеристик: использовать `CharacteristicNumber`; в PHP у него сейчас нет
+  `modifyWith`/`modifyDiffTo` — добавить их или считать `base + 3×size` явно.
+  `usedPower` здесь не участвует.
 - `falloff` применяется, если задан: `free_ipari`, `size_per_extra_ipari`,
   `min`; при `distanceIpari = 0` урон не режется.
 - РУ доставки: `hit_resolution.rating` (`2`), но не выше
@@ -418,8 +439,8 @@ if difficulty < 3|-1: skip (проверка не бросается)
 | Action | `CastGameSpellAction`, `CastGameSpellInput` |
 | HTTP | `GameSpellCastHttp` |
 | Разбор | `GameSpellCastBody` (ровно названные ключи, формы сторон) |
-| Доступность | `GameSpellCastFacts` (срез, листы, экземпляр, путь, `x`) |
-| Компоненты | `GameSpellCastComponents` (вариант A, §5.2.1) |
+| Доступность | `GameSpellCastFacts` (срез, листы, экземпляр, путь, параметры) |
+| Компоненты | `AbilityWithComponents` + общий `GameActionResourceResolver` |
 | Расчёт | `GameSpellCastCheck` (сложность + бросок), `GameSpellCastDamage` (опыт, falloff, сопротивление, РУ) |
 | Запись | `GameSpellCastWrite` (CAS цели и кастера, replay) |
 | Чат | `GameSpellCastChat` |
@@ -440,6 +461,8 @@ if difficulty < 3|-1: skip (проверка не бросается)
   Воля/увечье;
 - `GameStrikeSheetWrites` — запись листа;
 - `GameCheckRoll`, `GameCheckChain` — бросок и характеристика проверки;
+- `AbilityWithComponents` + `GameActionResourceComponents`/
+  `GameActionResourceResolver` — общие компоненты действия;
 - `GameActionPerform::assertSpends`/`spend` — проверка и списание ОД;
 - `GameCardAvailability` (с доменным контекстом) — уровень и требования;
 - `CharacterStudyPaths`/`CharacterAbilityCost` — пути и стоимости;
@@ -467,16 +490,16 @@ experienceOf(slice, choices, levels, keywordCode): int
     трогает charge/generator/`ActiveSpell`/цепочки/отклонение/насыщение;
   - не строит `spellAvailable` на `MagicStudyUnlockService`: доступность
     решает сервер, клиент только показывает ошибку;
-  - отправляет `spellCode`, `pathCode`, `power`, `target`, версии листов;
+  - собирает `parameters` из всех параметризованных `SpellValue`
+    (`spell.power`, `spell.control`, будущие поля), а не только из мощности;
+  - отправляет `spellCode`, `pathCode`, `parameters`, `usedPower` (источник +
+    значение), `target`, версии листов;
   - показывает итог из ответа; при ошибке — сообщение, без локального
     пересчёта и без «попробовать локально»;
   - после успеха обновляет оверлеи/листы из сервера, а не патчит их сама;
   - не отправляет чат каста сам: чат пишет сервер.
 - Предпросмотр сложности/стоимости может остаться клиентским, но он не
   является результатом: авторитетный бросок и урон — только сервер.
-- Если решение по `usedPower` (§5.3.1) — передавать, добавить его в запрос и
-  проверку; если нет — убрать/заблокировать регулятор «Используемая мощь» в
-  real-режиме.
 - `MockGameApi.castSpell`: мок-режим может сохранить прежний локальный расчёт
   для демо, но он не вызывается в real и не является контрактом. Если
   мок-режим не нужен — метод бросает `throwPhpUnsupported`, а не подставляет
@@ -488,7 +511,7 @@ experienceOf(slice, choices, levels, keywordCode): int
 | Срез | Содержание | Результат |
 | --- | --- | --- |
 | 46.1 | `has_ability` с доменом пути | Character-тесты; `discharge` на пути не путается между путями |
-| 46.2 | опыт признака и сборщик компонентов | `CharacterKeywordExperience` (вынести из `CharacterDerivedLevels`) + `ResourceSpend` без `GameActionResourceResolver` |
+| 46.2 | опыт признака и общие компоненты | `CharacterKeywordExperience` (вынести из `CharacterDerivedLevels`) + `AbilityWithComponents` в общем `GameActionResourceResolver` |
 | 46.3 | `game.castSpell` + тесты | серверный каст, replay, CAS, `putDamageSplit`, Шок, Воля/увечье |
 | 46.4 | фронт real | `SpellCastDialog` через `game.castSpell`, без локального расчёта |
 | 46.5 | ручная проверка и гейт | НПС покупает `lightning-strike`, кастует в цель, save/повтор стабильны |
@@ -499,8 +522,14 @@ Unit:
 
 - сложность: дефицит мощи, дефицит контроля, оба дефицита, оба избытка,
   нижняя живая граница, skip;
-- `lightning-strike`: `power`/`usedPower` вне допустимого — отказ; без цели
-  при `targeting: entity` — `INVALID_PARAMS`;
+- `lightning-strike`: значение параметра вне `min`/`max` — отказ;
+  `usedPower.value` выше живой мощи источника — отказ; без цели при
+  `targeting: entity` — `INVALID_PARAMS`;
+- один параметр `x` используется и мощью, и контролем — сервер резолвит оба;
+- `usedPower` влияет на сложность, но не на урон; урон берётся из
+  `parameters`;
+- компоненты: заклинание списывает 4 ОД через общий
+  `GameActionResourceResolver`, регрессия действий не меняется;
 - урон: ступень `SpellDamage` по опыту `electromancy`, falloff, cap РУ,
   `defense_ignored` для электричества, typed resistance;
 - последствия: Воля и увечье для электричества, нокаута нет;
@@ -564,8 +593,16 @@ Frontend:
 - **NPC-кастер.** Проверка прав идёт через `GameStrikeAccess`; лист NPC
   пересчитывается `GameCardAvailability`/`ICharacterSheets::compute`, а не
   берётся из сохранённого `GameStrikeSheets`.
-- **`usedPower`.** Открытый пункт §5.3.1: передавать в запросе или убрать
-  регулятор в real-режиме.
+- **`usedPower`.** Передаётся как источник + значение; сервер проверяет
+  принадлежность источника и потолок. Если источник — предмет, для 46.3
+  достаточно самой характеристики/предмета из листа, без отдельного движка
+  источников.
+- **Компоненты.** Общий `GameActionResourceResolver` меняется с
+  `AbilityActionSpec` на `AbilityWithComponents`; это затрагивает стабильный
+  action-путь, поэтому обязательна регрессия существующих тестов действий.
+- **Параметр контроля.** Текущий диалог строит `parameters` только для
+  `spell.power`; для `lightning-strike` контроль фиксированный, но общий
+  контракт требует собрать значения всех параметризованных `SpellValue`.
 - **Воля/увечье.** Существующие последствия срабатывают и для электричества;
   это не отдельная ветка и не отключается.
 - **AutoFail.** Игровая логика «цель перестала быть валидной» появится с
@@ -576,4 +613,4 @@ Frontend:
 | Дата | Результат |
 | --- | --- |
 | 2026-11-09 | План создан: `game.castSpell` для `lightning-strike`; `has_ability` с доменом пути — предусловие; real-фронт без локального фолбэка; урон через `SpellDamage`, `putDamageSplit` и Шок. |
-| 2026-11-09 | Перепроверка по коду: цель и autoFail разделены; компоненты не через `GameActionResourceResolver` (варианты §5.2.1); Воля/увечье срабатывают; `coveredPaths` не гейт; домены вместо per-instance уровней; опыт вынести из `CharacterDerivedLevels`; `usedPower` — открытый пункт. |
+| 2026-11-09 | Перепроверка по коду: цель и autoFail разделены; компоненты — общие компоненты действия, `AbilityWithComponents` вместо отдельного сборщика; Воля/увечье срабатывают; `coveredPaths` не гейт; домены вместо per-instance уровней; опыт вынести из `CharacterDerivedLevels`; `parameters` — карта код→значение, `usedPower` — источник+значение. |
