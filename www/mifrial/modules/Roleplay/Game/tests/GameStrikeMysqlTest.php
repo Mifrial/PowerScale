@@ -266,6 +266,30 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertTrue($cast['success'], json_encode($cast));
         self::assertSame(5, $cast['data']['spent']);
         $this->assertAdvantage('careful-magic', 1, $cast['data']['cast']['roll']['advantages'] ?? []);
+        self::assertSame([[
+            'code' => 'careful-magic',
+            'name' => 'Careful-magic',
+            'value' => 0,
+            'actionPointDelta' => 1,
+            'checkAdvantage' => 1,
+            'resistancePenetration' => 0,
+            'requiredPowerDelta' => 0,
+        ]], $cast['data']['cast']['upgrades']);
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->chatMessages($scene['gameId']),
+        );
+        $upgradeIndex = $this->messageIndexOf($contents, 'применяет улучшения');
+        self::assertStringContainsString('[[rule:careful-magic]]', $contents[$upgradeIndex]);
+
+        $replay = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($replay['success'], json_encode($replay));
+        self::assertEquals($cast['data'], $replay['data']);
+
+        $different = $body;
+        $different['upgrades'] = [];
+        $conflict = $this->dispatch('game.castSpell', $different);
+        self::assertSame('GAME_CONFLICT', $conflict['error']['code']);
     }
 
     /**
@@ -576,6 +600,65 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertStringNotContainsString('проверяет Волю', implode("\n", $contents));
         $this->messageIndexOf($contents, '[[rule:shock]]');
         $this->messageIndexOf($contents, 'истощение (');
+    }
+
+    /**
+     * Касание платит max(удар, заклинание + улучшение) и не списывает дважды.
+     *
+     * @return void
+     */
+    public function testTouchSpellAppliesCarefulMagicWithMaxCost(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'careful-magic', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        $beforeAp = $this->resourceCurrent($scene['hero'], 'action-points');
+        $attack = [
+            'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+            'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+            'actionRuleCode' => 'swing',
+            'itemInventoryId' => 1,
+            'itemRuleCode' => 'sword',
+            'profileType' => 'strike',
+            'profileIndex' => 0,
+            'spellCast' => [
+                'spellCode' => 'discharge',
+                'pathCode' => 'arcanist',
+                'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+                'usedPower' => [
+                    'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                    'value' => ['base' => 5, 'size' => 1],
+                ],
+                'upgrades' => [['code' => 'careful-magic']],
+            ],
+        ];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-upgrade-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($attack),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        self::assertSame($beforeAp - 5, $this->resourceCurrent($scene['hero'], 'action-points'));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-upgrade-d',
+            'expectedVersion' => 2,
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame($beforeAp - 5, $this->resourceCurrent($scene['hero'], 'action-points'));
+        self::assertTrue($closed['data']['spellCast']['castOk']);
+        $this->assertAdvantage('careful-magic', 1, $closed['data']['spellCast']['roll']['advantages'] ?? []);
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->chatMessages($scene['gameId']),
+        );
+        $upgradeIndex = $this->messageIndexOf($contents, 'применяет улучшения');
+        self::assertStringContainsString('[[rule:careful-magic]]', $contents[$upgradeIndex]);
     }
 
     /**

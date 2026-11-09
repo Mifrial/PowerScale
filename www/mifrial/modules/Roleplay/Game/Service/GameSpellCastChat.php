@@ -79,6 +79,8 @@ final class GameSpellCastChat
             );
         }
 
+        $this->postUpgrades($chatId, $actorUserId, $token, $prepared, $attachments);
+
         $roll = $check['roll'] ?? null;
         if (($check['needsCheck'] ?? false) === true && is_array($roll)) {
             $this->send(
@@ -131,6 +133,46 @@ final class GameSpellCastChat
         if (is_array($consequence)) {
             $this->postConsequence($chatId, $actorUserId, $targetToken, $prepared, $consequence, $attachments);
         }
+    }
+
+    /**
+     * Строка о применённых улучшениях каста.
+     *
+     * @param int $chatId Чат.
+     * @param int $actorUserId Автор.
+     * @param string $token Токен кастера.
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param list<array<string, mixed>> $attachments Вложения.
+     *
+     * @return void
+     */
+    private function postUpgrades(
+        int $chatId,
+        int $actorUserId,
+        string $token,
+        GameSpellCastPrepared $prepared,
+        array $attachments,
+    ): void {
+        if ($prepared->upgrades->isEmpty()) {
+            return;
+        }
+
+        $rows = [];
+        foreach ($prepared->upgrades->getApplied() as $upgrade) {
+            $label = '[[rule:' . $upgrade->getRuleCode() . ']]';
+            if ($upgrade->getRequiredPowerDelta() > 0) {
+                $label .= ' × ' . $upgrade->getValue();
+            }
+
+            $rows[] = $label;
+        }
+
+        $this->send(
+            $chatId,
+            $actorUserId,
+            $token . ' применяет улучшения: ' . implode(', ', $rows) . '.',
+            $attachments,
+        );
     }
 
     /**

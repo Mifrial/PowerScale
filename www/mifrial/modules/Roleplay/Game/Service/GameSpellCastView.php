@@ -44,6 +44,7 @@ final class GameSpellCastView
                 'difficulty' => $check['difficulty'],
                 'needsCheck' => $check['needsCheck'],
                 'roll' => $check['roll'],
+                'upgrades' => $this->upgrades($prepared),
             ],
             'spent' => $prepared->spent,
             'caster' => [
@@ -64,6 +65,39 @@ final class GameSpellCastView
             'injury' => $this->pair($damage['injury']),
             'consequence' => $damage['consequence'],
         ];
+    }
+
+    /**
+     * Применённые улучшения для ответа.
+     *
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     *
+     * @return list<array{
+     *     code: string,
+     *     name: string,
+     *     value: int,
+     *     actionPointDelta: int,
+     *     checkAdvantage: int,
+     *     resistancePenetration: int,
+     *     requiredPowerDelta: int
+     * }> Улучшения.
+     */
+    private function upgrades(GameSpellCastPrepared $prepared): array
+    {
+        $rows = [];
+        foreach ($prepared->upgrades->getApplied() as $upgrade) {
+            $rows[] = [
+                'code' => $upgrade->getRuleCode(),
+                'name' => $upgrade->getName(),
+                'value' => $upgrade->getValue(),
+                'actionPointDelta' => $upgrade->getActionPointDelta(),
+                'checkAdvantage' => $upgrade->getCheckAdvantage(),
+                'resistancePenetration' => $upgrade->getResistancePenetration(),
+                'requiredPowerDelta' => $upgrade->getRequiredPowerDelta(),
+            ];
+        }
+
+        return $rows;
     }
 
     /**
