@@ -9,7 +9,7 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     icon: 'mdi-wall',
     kind: 'obstacle',
     shapeType: 'rect',
-    props: { blocksMovement: true, blocksVision: true, height: 100 },
+    props: { blocksMovement: true, blocksVision: true, height: 64 },
   },
   {
     id: 'wall',
@@ -17,7 +17,7 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     icon: 'mdi-dots-horizontal',
     kind: 'obstacle',
     shapeType: 'wall',
-    props: { blocksMovement: true, blocksVision: true, height: 100 },
+    props: { blocksMovement: true, blocksVision: true, height: 64 },
   },
   {
     id: 'support',
@@ -25,7 +25,7 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     icon: 'mdi-floor-plan',
     kind: 'support',
     shapeType: 'rect',
-    props: { kind: 'deck', height: 50, elevation: 0 },
+    props: { kind: 'deck', height: 32, elevation: 0 },
   },
   {
     id: 'terrain',
@@ -33,7 +33,7 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     icon: 'mdi-terrain',
     kind: 'terrain',
     shapeType: 'rect',
-    props: { speed: 5000, label: '' },
+    props: { kind: 'grass', label: '' },
   },
   {
     id: 'opening',

@@ -4,16 +4,19 @@ import type { FileRecord } from '@/modules/Core/File/Dto/FileRecord';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard';
 import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
+import SceneDistanceField from '@/modules/Roleplay/Scene/Component/Scene/SceneDistanceField.vue';
 import { SCENE_ELEMENT_KIND_LABELS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ELEMENT_KIND_LABELS';
 import { SCENE_MARKER_ROLE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_MARKER_ROLE_OPTIONS';
 import { SCENE_OPENING_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OPENING_KIND_OPTIONS';
 import { SCENE_SUPPORT_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SUPPORT_KIND_OPTIONS';
+import { SCENE_TERRAIN_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_KIND_OPTIONS';
 
 const FileUploadField = defineAsyncComponent(() => import('@/modules/Core/File/Component/FileUploadField.vue'));
 
 const props = defineProps<{
   element: SceneDraftElement;
   boards: SceneSaveBoard[];
+  resolution: number;
 }>();
 
 const emit = defineEmits<{
@@ -62,10 +65,7 @@ function patch(elementProps: SceneElementProps): void {
   emit('update', { ...props.element.props, ...elementProps });
 }
 
-function patchNumber(
-  key: 'height' | 'elevation' | 'speed' | 'rotation' | 'scale',
-  value: string | number | null,
-): void {
+function patchNumber(key: 'rotation' | 'scale', value: string | number | null): void {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return;
 
@@ -114,23 +114,21 @@ function onAsset(file: FileRecord | null): void {
           hide-details
           @update:model-value="(value) => patchText('kind', value)"
         />
-        <v-text-field
+        <SceneDistanceField
           :model-value="props.element.props.height ?? 0"
-          label="Высота"
-          type="number"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchNumber('height', value)"
+          :resolution="props.resolution"
+          label="Высота, ипари"
+          :min="0"
+          :max="100000"
+          @update:model-value="(value) => patch({ height: value })"
         />
-        <v-text-field
+        <SceneDistanceField
           :model-value="props.element.props.elevation ?? 0"
-          label="Подъём"
-          type="number"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchNumber('elevation', value)"
+          :resolution="props.resolution"
+          label="Подъём, ипари"
+          :min="0"
+          :max="100000"
+          @update:model-value="(value) => patch({ elevation: value })"
         />
       </template>
 
@@ -149,15 +147,17 @@ function onAsset(file: FileRecord | null): void {
           hide-details
           @update:model-value="(value) => patchFlag('blocksVision', value)"
         />
-        <v-text-field
+        <SceneDistanceField
           :model-value="props.element.props.height ?? 0"
-          label="Высота"
-          type="number"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchNumber('height', value)"
+          :resolution="props.resolution"
+          label="Высота, ипари"
+          :min="0"
+          :max="100000"
+          @update:model-value="(value) => patch({ height: value })"
         />
+        <div class="text-caption text-medium-emphasis">
+          Толщину задаёт протяжка; высота — вертикальный размер, не толщина.
+        </div>
       </template>
 
       <template v-if="props.element.kind === 'opening'">
@@ -202,14 +202,20 @@ function onAsset(file: FileRecord | null): void {
       </template>
 
       <template v-if="props.element.kind === 'terrain'">
-        <v-text-field
-          :model-value="props.element.props.speed ?? 5000"
-          label="Скорость"
-          type="number"
+        <v-select
+          :model-value="props.element.props.kind ?? 'grass'"
+          :items="SCENE_TERRAIN_KIND_OPTIONS"
+          label="Шаблон"
           density="compact"
           variant="outlined"
           hide-details
-          @update:model-value="(value) => patchNumber('speed', value)"
+          @update:model-value="(value) => patchText('kind', value)"
+        />
+        <FileUploadField
+          :model-value="assetFile"
+          label="Текстура террейна"
+          :accept="['image/png', 'image/jpeg', 'image/webp']"
+          @update:model-value="onAsset"
         />
       </template>
 

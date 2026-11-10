@@ -284,7 +284,7 @@ final class SceneHttpMysqlTest extends TestCase
                     'boardId' => -1,
                     'kind' => 'terrain',
                     'shape' => ['type' => 'circle', 'cx' => 600, 'cy' => 600, 'r' => 100],
-                    'props' => ['speed' => 2000, 'label' => 'Грязь'],
+                    'props' => ['kind' => 'mud', 'label' => 'Грязь'],
                     'sortOrder' => 2,
                     'targetBoardId' => null,
                 ],

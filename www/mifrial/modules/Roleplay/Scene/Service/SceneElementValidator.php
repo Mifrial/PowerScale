@@ -27,6 +27,8 @@ final class SceneElementValidator
 
     private const SUPPORT_KINDS = ['ground', 'deck', 'roof', 'tabletop', 'bridge'];
 
+    private const TERRAIN_KINDS = ['grass', 'dirt', 'stone', 'sand', 'mud', 'water', 'ice'];
+
     private const OPENING_KINDS = ['door', 'window', 'gate', 'stairs', 'teleport'];
 
     private const OPENING_STATES = ['open', 'closed'];
@@ -461,12 +463,20 @@ final class SceneElementValidator
      */
     private function terrainProps(array $props, string $path): array
     {
+        $terrainKind = $this->stringOrDefault($props, 'kind', $path . '.kind', 'grass');
+        if (!in_array($terrainKind, self::TERRAIN_KINDS, true)) {
+            throw new SceneInvalidException($path . '.kind is unknown');
+        }
+
+        $assetPublicId = $this->fields->optionalStringValue($props, 'assetPublicId', $path . '.assetPublicId');
+        $fileRecord = $this->files->resolve($assetPublicId, $path . '.assetPublicId');
+
         return [
             'props' => [
-                'speed' => $this->intOrDefault($props, 'speed', $path . '.speed', 5000, 0, 10000),
+                'kind' => $terrainKind,
                 'label' => $this->label($props, $path . '.label'),
             ],
-            'assetFileId' => null,
+            'assetFileId' => $fileRecord?->getId(),
         ];
     }
 

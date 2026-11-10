@@ -153,11 +153,20 @@ created_at      DateTimeField, required, default now
 | `support` | Земля, настил, крыша, стойка, мост. | `kind`, `height`, `elevation` |
 | `obstacle` | Стена, ствол, мебель, непроходимый объём. | `blocksMovement`, `blocksVision`, `height` |
 | `opening` | Дверь, окно, ворота, лестница, телепорт. | `kind`, `state`, `blocksVision`; цель — колонка `target_board_id` |
-| `terrain` | Грязь, лёд, вода, высокая трава. | `speed`, `label` |
+| `terrain` | Грязь, лёд, вода, высокая трава. | `kind`, `label`, опционально `assetPublicId` |
 | `decor` | Декоративный токен или ассет. | `assetFileId`, `rotation`, `scale`, `label` |
 | `marker` | Служебная точка: вход, спавн, добыча. | `role`, `label` |
 
 `enclosure` не является элементом: это связь двух полей, см. ниже.
+
+`terrain.kind` — шаблон отрисовки (`grass`, `dirt`, `stone`, `sand`,
+`mud`, `water`, `ice`), а не правило движения. Труднопроходимость, скорость
+и прочие игровые свойства появятся отдельно в Game. `assetPublicId` —
+необязательная картинка-текстура террейна.
+
+`height` и `elevation` — вертикальные размеры в единицах сцены; интерфейс
+показывает ипари. `height` — высота объекта, `elevation` — подъём поверхности
+опоры. Толщина стены — это `shape.width`, а не `height`.
 
 `target_board_id` используется `opening`; для остальных `kind` он `null`.
 Валидатор проверяет, что целевое поле принадлежит той же локации, а не самому

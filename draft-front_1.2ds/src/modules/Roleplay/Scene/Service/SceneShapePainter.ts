@@ -91,46 +91,56 @@ export class SceneShapePainter {
   private styleFor(element: SceneElement, zoom: number): { fill: SceneFillStyle; stroke: SceneStrokeStyle } {
     if (element.kind === 'terrain') {
       return {
-        fill: { color: this.terrainColor(element.props), alpha: 0.24 },
-        stroke: { color: 0x1f2937, width: 1 / zoom, alpha: 0.22 },
+        fill: { color: this.terrainColor(element.props), alpha: 0.32 },
+        stroke: { color: 0xe2e8f0, width: 1 / zoom, alpha: 0.28 },
       };
     }
 
     if (element.kind === 'support') {
       return {
-        fill: { color: 0xb45309, alpha: 0.26 },
-        stroke: { color: 0x92400e, width: 2 / zoom, alpha: 0.8 },
+        fill: { color: 0xb45309, alpha: 0.5 },
+        stroke: { color: 0xfbbf24, width: 2 / zoom, alpha: 0.9 },
       };
     }
 
     if (element.kind === 'obstacle') {
       return {
-        fill: { color: 0x374151, alpha: 0.5 },
-        stroke: { color: 0x111827, width: 2 / zoom, alpha: 0.9 },
+        fill: { color: 0x475569, alpha: 0.9 },
+        stroke: { color: 0xf1f5f9, width: 2 / zoom, alpha: 0.9 },
       };
     }
 
     if (element.kind === 'marker') {
       return {
-        fill: { color: 0xf59e0b, alpha: 0.8 },
-        stroke: { color: 0x78350f, width: 2 / zoom, alpha: 0.9 },
+        fill: { color: 0xf59e0b, alpha: 0.9 },
+        stroke: { color: 0xfff7ed, width: 2 / zoom, alpha: 1 },
       };
     }
 
     return {
-      fill: { color: 0x8b5cf6, alpha: 0.6 },
-      stroke: { color: 0x5b21b6, width: 1 / zoom, alpha: 0.9 },
+      fill: { color: 0xa78bfa, alpha: 0.85 },
+      stroke: { color: 0xe9d5ff, width: 1 / zoom, alpha: 1 },
     };
   }
 
-  /** Цвет террейна по скорости. */
+  /** Цвет шаблона террейна. */
   private terrainColor(props: SceneElementProps): number {
-    const speed = typeof props.speed === 'number' ? props.speed : 5000;
-    if (speed === 0) return 0x2563eb;
-    if (speed < 3000) return 0x6b4f2a;
-    if (speed < 5000) return 0x3f7d3f;
-
-    return 0x6b7280;
+    switch (props.kind) {
+      case 'dirt':
+        return 0x92400e;
+      case 'stone':
+        return 0x64748b;
+      case 'sand':
+        return 0xd4a373;
+      case 'mud':
+        return 0x6b4f2a;
+      case 'water':
+        return 0x2563eb;
+      case 'ice':
+        return 0x93c5fd;
+      default:
+        return 0x4d7c0f;
+    }
   }
 
   /** Ломаная с толщиной. */

@@ -7,6 +7,7 @@ import type { SceneLayerName } from '@/modules/Roleplay/Scene/Enum/SceneLayerNam
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
 import { SceneShapePainter } from '@/modules/Roleplay/Scene/Service/SceneShapePainter';
 import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
+import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 
 /**
  * PixiJS-рендерер локаций: подложка, сетка, фигуры, декор и выделение.
@@ -364,7 +365,42 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
+    if (element.kind === 'terrain' && element.asset !== null) {
+      const sprite = this.terrainSprite(element);
+      if (sprite !== null) {
+        layer.addChild(sprite);
+
+        return;
+      }
+    }
+
     layer.addChild(this.painter.paintElement(element, this.zoom()));
+  }
+
+  /** Спрайт террейна, обрезанный по фигуре. */
+  private terrainSprite(element: SceneElement): Sprite | null {
+    const texture = this.textures.get(element.asset?.publicId ?? null);
+    if (texture === null) {
+      return null;
+    }
+
+    const bounds = sceneGeometryService.bounds(element.shape);
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      return null;
+    }
+
+    const sprite = new Sprite(texture);
+    sprite.position.set(bounds.x, bounds.y);
+    sprite.width = bounds.width;
+    sprite.height = bounds.height;
+
+    const mask = new Graphics();
+    this.painter.paint(mask, element.shape, undefined, undefined, this.zoom());
+    mask.fill({ color: 0xffffff });
+    sprite.mask = mask;
+    this.layers.terrain?.addChild(mask);
+
+    return sprite;
   }
 
   private layerFor(element: SceneElement): SceneLayerName {
