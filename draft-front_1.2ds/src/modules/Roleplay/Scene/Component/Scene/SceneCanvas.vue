@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
@@ -16,8 +16,9 @@ const props = withDefaults(
     board: SceneBoard | null;
     tool?: SceneTool;
     interactive?: boolean;
+    emptyHint?: string;
   }>(),
-  { tool: 'select', interactive: false },
+  { tool: 'select', interactive: false, emptyHint: '' },
 );
 
 const emit = defineEmits<{
@@ -30,6 +31,10 @@ const emit = defineEmits<{
 const host = ref<HTMLElement | null>(null);
 const selection = ref<number[]>([]);
 const renderError = ref<string | null>(null);
+const legendOpen = ref(true);
+const isEmpty = computed(
+  () => props.model.elements.filter((element) => element.boardId === props.model.activeBoardId).length === 0,
+);
 let renderer: ISceneRenderer | null = null;
 let viewport: SceneViewport | null = null;
 let observer: ResizeObserver | null = null;
@@ -306,6 +311,22 @@ defineExpose({ fit, zoomBy });
     @wheel="onWheel"
   >
     <div v-if="renderError" class="scene-canvas__error">{{ renderError }}</div>
+
+    <div v-if="props.emptyHint !== '' && isEmpty && renderError === null" class="scene-canvas__empty">
+      {{ props.emptyHint }}
+    </div>
+
+    <div class="scene-canvas__legend" @pointerdown.stop @wheel.stop>
+      <button class="scene-canvas__legend-toggle" type="button" @click="legendOpen = !legendOpen">?</button>
+      <ul v-if="legendOpen" class="scene-canvas__legend-list">
+        <li><span class="scene-canvas__swatch scene-canvas__swatch--obstacle" />Препятствие</li>
+        <li><span class="scene-canvas__swatch scene-canvas__swatch--support" />Опора</li>
+        <li><span class="scene-canvas__swatch scene-canvas__swatch--terrain" />Террейн</li>
+        <li><span class="scene-canvas__swatch scene-canvas__swatch--opening" />Проём</li>
+        <li><span class="scene-canvas__swatch scene-canvas__swatch--decor" />Декор</li>
+        <li><span class="scene-canvas__swatch scene-canvas__swatch--marker" />Маркер</li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -332,5 +353,95 @@ defineExpose({ fit, zoomBy });
   padding: 24px;
   color: #fecaca;
   text-align: center;
+}
+
+.scene-canvas__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.scene-canvas__legend {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.86);
+  color: #e2e8f0;
+  font-size: 0.72rem;
+  pointer-events: none;
+}
+
+.scene-canvas__legend-toggle {
+  pointer-events: auto;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.scene-canvas__legend-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scene-canvas__legend-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.scene-canvas__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.scene-canvas__swatch--obstacle {
+  background: #475569;
+}
+
+.scene-canvas__swatch--support {
+  background: #b45309;
+}
+
+.scene-canvas__swatch--terrain {
+  background: #4d7c0f;
+}
+
+.scene-canvas__swatch--opening {
+  background: #dc2626;
+}
+
+.scene-canvas__swatch--decor {
+  background: #a78bfa;
+}
+
+.scene-canvas__swatch--marker {
+  background: #f59e0b;
 }
 </style>

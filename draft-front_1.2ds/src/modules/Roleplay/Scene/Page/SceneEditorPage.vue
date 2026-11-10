@@ -338,6 +338,7 @@ function messageOf(exception: unknown): string {
           :board="activeViewBoard"
           :tool="tool"
           interactive
+          empty-hint="Выберите инструмент и протяните по полю"
           @draw="onDraw"
           @move="onMove"
           @selection="onSelection"
