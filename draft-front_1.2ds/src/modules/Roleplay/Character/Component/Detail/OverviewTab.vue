@@ -13,6 +13,7 @@ import MiscTile from '@/modules/Roleplay/Character/Component/Detail/Resources/Mi
 import AttackTile from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue';
 import DefenseValue from '@/modules/Roleplay/Character/Component/Detail/Defense/DefenseValue.vue';
 import ArmorTile from '@/modules/Roleplay/Character/Component/Detail/Defense/ArmorTile.vue';
+import ResistanceTile from '@/modules/Roleplay/Character/Component/Detail/Defense/ResistanceTile.vue';
 import StateTile from '@/modules/Roleplay/Character/Component/Detail/States/StateTile.vue';
 import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
@@ -169,6 +170,14 @@ function attackKey(attack: AttackOverview): string {
         <v-expansion-panel-text>
           <template v-if="overview.defense">
             <v-row dense>
+              <v-col
+                v-for="(resistance, index) in overview.defense.resistances ?? []"
+                :key="`resistance_${index}`"
+                cols="6"
+              >
+                <ResistanceTile :resistance="resistance" />
+              </v-col>
+
               <v-col v-for="item in overview.defense.armor" :key="armorKey(item)" cols="6">
                 <ArmorTile :item="item" />
               </v-col>

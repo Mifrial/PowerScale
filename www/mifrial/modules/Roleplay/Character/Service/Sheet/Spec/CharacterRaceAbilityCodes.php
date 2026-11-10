@@ -38,6 +38,35 @@ final class CharacterRaceAbilityCodes
     }
 
     /**
+     * Автоматические способности расы и предков-видов.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string|null $raceCode Код расы.
+     *
+     * @return array<int, string> Коды.
+     */
+    public function getAutomaticCodes(CharacterRuleSlice $slice, ?string $raceCode): array
+    {
+        if ($raceCode === null) {
+            return [];
+        }
+
+        $race = $slice->findLive($raceCode);
+        if ($race === null || $race->getType() !== 'race') {
+            return [];
+        }
+
+        $codes = [];
+        foreach ($this->collectRefs($slice, $raceCode, $race->getType(), []) as $ref) {
+            if ($ref->isAutomatic() && $ref->getAbilityCode() !== '') {
+                $codes[] = $ref->getAbilityCode();
+            }
+        }
+
+        return $codes;
+    }
+
+    /**
      * Скаляры параметров ссылки расы на способность. Нет ссылки — пусто.
      *
      * @param CharacterRuleSlice $slice Срез.

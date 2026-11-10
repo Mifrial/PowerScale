@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterCombatLayers;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterRaceAbilityCodes;
 use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 
 /**
@@ -36,7 +37,7 @@ final class CharacterCombatLayers implements ICharacterCombatLayers
         IFormulaEvaluations $evaluations,
     ) {
         $this->items = new CharacterCombatItemLayers();
-        $this->grants = new CharacterCombatGrantLayers($contexts, $evaluations);
+        $this->grants = new CharacterCombatGrantLayers($contexts, $evaluations, new CharacterRaceAbilityCodes());
     }
 
     /**

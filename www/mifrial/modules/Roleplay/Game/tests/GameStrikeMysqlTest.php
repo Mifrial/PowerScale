@@ -375,6 +375,31 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Автоматическая расовая способность даёт сопротивление к сложности.
+     *
+     * @return void
+     */
+    public function testSpellDifficultyUsesAutomaticRacialMagicResistance(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [],
+            $this->racialMagicResistanceRules(),
+            [],
+            [],
+            'ahtar',
+        );
+        $body = $this->spellBody($scene);
+        $body['usedPower']['value'] = ['base' => 4, 'size' => 0];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(['base' => 5, 'size' => 0], $cast['data']['cast']['difficulty']);
+    }
+
+    /**
      * Пробитие снижает сопротивление магии к сложности.
      *
      * @return void
@@ -958,6 +983,7 @@ final class GameStrikeMysqlTest extends TestCase
         array $extraRules = [],
         array $targetAbilities = [],
         array $extraCards = [],
+        ?string $targetRaceCode = null,
     ): array {
         $world = $this->spellWorld($occupyHands, $extraCards, $extraRules);
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
@@ -983,6 +1009,9 @@ final class GameStrikeMysqlTest extends TestCase
         ]));
         if ($targetAbilities !== []) {
             $npc = $this->endureNpcAbilities($gameId, $npc, $targetAbilities);
+        }
+        if ($targetRaceCode !== null) {
+            $npc = $this->endureNpcRace($gameId, $npc, $targetRaceCode);
         }
         self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
         $battle = $this->dispatch('game.startBattle', [
@@ -1268,6 +1297,48 @@ final class GameStrikeMysqlTest extends TestCase
                 ],
             ],
         ];
+    }
+
+    /**
+     * Раса с автоматическим сопротивлением магии.
+     *
+     * @param int $value Сопротивление.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function racialMagicResistanceRules(int $value = 2): array
+    {
+        $rules = $this->magicResistanceRules(0);
+        $rules['magic-resistance'] = [
+            'type' => 'ability',
+            'spec' => [
+                'type' => 'trait',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'grants' => [[
+                    'level' => 1,
+                    'grants' => [[
+                        'type' => 'resistance',
+                        'damage_type_code' => 'arcane',
+                        'source_code' => 'innate',
+                        'value' => ['type' => 'parameter', 'parameter_code' => 'x', 'per_unit' => 1],
+                    ]],
+                ]],
+            ],
+        ];
+        $rules['ahtar'] = [
+            'type' => 'race',
+            'spec' => [
+                'cost_os' => 0,
+                'parent_race_code' => null,
+                'abilities' => [[
+                    'ability_code' => 'magic-resistance',
+                    'automatic' => true,
+                    'parameters' => ['x' => ['base' => $value, 'size' => 0]],
+                ]],
+            ],
+        ];
+
+        return $rules;
     }
 
     /**
@@ -11045,6 +11116,34 @@ final class GameStrikeMysqlTest extends TestCase
         }
         $sheet['abilityLevels'] = $levels;
         $version['sheet'] = $sheet;
+        $saved = $repo->replaceVersion($npcId, $version, $record->getActualVersion());
+        $npc['data']['actualVersion'] = $saved->getActualVersion();
+
+        return $npc;
+    }
+
+    /**
+     * Выдаёт NPC расу для автоматических расовых способностей.
+     *
+     * @param int $gameId Игра.
+     * @param array<string, mixed> $npc Ответ создания NPC.
+     * @param string $raceCode Код расы.
+     *
+     * @return array<string, mixed> NPC.
+     */
+    private function endureNpcRace(int $gameId, array $npc, string $raceCode): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $npcId = $npc['data']['npcId'] ?? null;
+        self::assertIsInt($npcId);
+        $repo = new GameNpcRepository($gateway);
+        $record = $repo->getById($npcId);
+        self::assertSame($gameId, $record->getGameId());
+        $version = $record->getVersion();
+        $choices = is_array($version['choices'] ?? null) ? $version['choices'] : [];
+        $choices['raceCode'] = $raceCode;
+        $version['choices'] = $choices;
         $saved = $repo->replaceVersion($npcId, $version, $record->getActualVersion());
         $npc['data']['actualVersion'] = $saved->getActualVersion();
 

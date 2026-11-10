@@ -137,6 +137,90 @@ final class CharacterCombatLayerTest extends TestCase
     }
 
     /**
+     * Автоматическая расовая способность даёт слой и берёт параметры ссылки расы.
+     *
+     * @return void
+     */
+    public function testAutomaticRacialGrantUsesRaceParameters(): void
+    {
+        $rules = [
+            ...$this->rules(),
+            $this->rule('ahtar', 'race', [
+                'cost_os' => 0,
+                'parent_race_code' => null,
+                'abilities' => [[
+                    'ability_code' => 'racial-ward',
+                    'automatic' => true,
+                    'parameters' => ['x' => ['base' => 2, 'size' => 0]],
+                ]],
+            ], []),
+            $this->rule('racial-ward', 'ability', [
+                'type' => 'trait',
+                'grants' => [[
+                    'level' => 1,
+                    'grants' => [[
+                        'type' => 'resistance',
+                        'damage_type_code' => 'magic',
+                        'source_code' => 'innate',
+                        'value' => ['type' => 'parameter', 'parameter_code' => 'x', 'per_unit' => 1],
+                    ]],
+                ]],
+            ], []),
+        ];
+        $layers = $this->project($rules, [
+            'inventory' => [],
+            'abilities' => [],
+            'raceCode' => 'ahtar',
+        ], null);
+
+        self::assertCount(1, $layers);
+        self::assertSame('resistance', $layers[0]->getKind());
+        self::assertSame('magic', $layers[0]->getDamageTypeCode());
+        self::assertSame(2, $layers[0]->getValue()->getBase());
+        self::assertSame('innate', $layers[0]->getSourceCode());
+    }
+
+    /**
+     * Неавтоматическая расовая способность слоя не даёт.
+     *
+     * @return void
+     */
+    public function testNonAutomaticRacialGrantIsIgnored(): void
+    {
+        $rules = [
+            ...$this->rules(),
+            $this->rule('ahtar', 'race', [
+                'cost_os' => 0,
+                'parent_race_code' => null,
+                'abilities' => [[
+                    'ability_code' => 'racial-ward',
+                    'automatic' => false,
+                    'parameters' => ['x' => ['base' => 2, 'size' => 0]],
+                ]],
+            ], []),
+            $this->rule('racial-ward', 'ability', [
+                'type' => 'trait',
+                'grants' => [[
+                    'level' => 1,
+                    'grants' => [[
+                        'type' => 'resistance',
+                        'damage_type_code' => 'magic',
+                        'source_code' => 'innate',
+                        'value' => ['type' => 'parameter', 'parameter_code' => 'x', 'per_unit' => 1],
+                    ]],
+                ]],
+            ], []),
+        ];
+        $layers = $this->project($rules, [
+            'inventory' => [],
+            'abilities' => [],
+            'raceCode' => 'ahtar',
+        ], null);
+
+        self::assertSame([], $layers);
+    }
+
+    /**
      * Нет требуемого параметра — отказ, не ноль.
      *
      * @return void

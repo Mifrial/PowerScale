@@ -12,6 +12,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterRaceAbilityCodes;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ResistanceGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;
@@ -20,7 +21,7 @@ use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
- * Слои сопротивления из грантов купленных способностей.
+ * Слои сопротивления из грантов купленных и автоматических расовых способностей.
  */
 final class CharacterCombatGrantLayers
 {
@@ -29,12 +30,14 @@ final class CharacterCombatGrantLayers
      *
      * @param ICharacterFormulaContexts $contexts Контекст листа.
      * @param IFormulaEvaluations $evaluations Расчёт формул.
+     * @param CharacterRaceAbilityCodes $raceAbilityCodes Автоматические способности расы.
      *
      * @return void
      */
     public function __construct(
         private readonly ICharacterFormulaContexts $contexts,
         private readonly IFormulaEvaluations $evaluations,
+        private readonly CharacterRaceAbilityCodes $raceAbilityCodes,
     ) {
     }
 
@@ -62,7 +65,57 @@ final class CharacterCombatGrantLayers
             array_push($layers, ...$this->ability($slice, $sheet, $choices, $donors, $code, $level));
         }
 
+        $raceCode = $choices['raceCode'] ?? null;
+        if ($raceCode !== null && !is_string($raceCode)) {
+            $this->reject();
+        }
+
+        foreach ($this->raceAbilityCodes->getAutomaticCodes($slice, $raceCode) as $code) {
+            if (isset($levels[$code])) {
+                continue;
+            }
+
+            array_push($layers, ...$this->racial($slice, $sheet, $raceCode, $donors, $code));
+        }
+
         return $layers;
+    }
+
+    /**
+     * Гранты автоматической расовой способности.
+     *
+     * @param CharacterRuleSlice $slice Ревизия.
+     * @param array<string, mixed> $sheet Лист.
+     * @param string|null $raceCode Код расы.
+     * @param CharacterDonorGrants $donors Отбор блоков.
+     * @param string $code Код способности.
+     *
+     * @return array<int, CharacterCombatLayer> Слои.
+     *
+     * @throws CharacterInvalidException Если формула или spec битые.
+     */
+    private function racial(
+        CharacterRuleSlice $slice,
+        array $sheet,
+        ?string $raceCode,
+        CharacterDonorGrants $donors,
+        string $code,
+    ): array {
+        $rule = $slice->findLive($code);
+        if ($rule === null) {
+            return [];
+        }
+
+        if ($rule->isSpecBroken()) {
+            $this->assertBrokenSpecAllowed($rule);
+
+            return [];
+        }
+
+        return $this->resistances(
+            $donors->getAll($rule, $code),
+            $this->contexts->build($sheet, $this->raceAbilityCodes->getParameters($slice, $raceCode, $code)),
+        );
     }
 
     /**

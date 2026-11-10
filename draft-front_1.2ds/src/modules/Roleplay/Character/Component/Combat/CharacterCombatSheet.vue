@@ -5,6 +5,7 @@ import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/Inventor
 import AttackTile from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue';
 import DefenseValue from '@/modules/Roleplay/Character/Component/Detail/Defense/DefenseValue.vue';
 import ArmorTile from '@/modules/Roleplay/Character/Component/Detail/Defense/ArmorTile.vue';
+import ResistanceTile from '@/modules/Roleplay/Character/Component/Detail/Defense/ResistanceTile.vue';
 import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import type { CharacterCombatSheetPane } from '@/modules/Roleplay/Character/Enum/CharacterCombatSheetPane';
@@ -70,22 +71,11 @@ function onSetOccupyHands(itemId: number, occupyHands: number): void {
       </span>
     </div>
     <div v-show="defenseOpen" class="combat-sheet-pair">
-      <v-sheet
-        v-for="resistance in overview.defense.resistances ?? []"
-        :key="`${resistance.sourceCode ?? 'resistance'}:${resistance.damageTypeCode ?? 'any'}`"
-        class="pa-2 rounded border"
-      >
-        <div class="d-flex align-center ga-2">
-          <v-icon icon="mdi-shield-star-outline" color="primary" />
-          <span class="text-body-2 font-weight-medium">
-            Сопротивление{{ resistance.damageTypeDative ? ` ${resistance.damageTypeDative}` : '' }}
-          </span>
-        </div>
-        <div class="text-body-2 text-medium-emphasis">
-          {{ resistance.valueLabel }}
-          <span v-if="resistance.protectsInternal">· держит внутренний урон</span>
-        </div>
-      </v-sheet>
+      <ResistanceTile
+        v-for="(resistance, index) in overview.defense.resistances ?? []"
+        :key="`resistance_${index}`"
+        :resistance="resistance"
+      />
       <ArmorTile v-for="armor in overview.defense.armor" :key="armor.itemRuleCode" :item="armor" />
       <v-sheet v-if="overview.defense.shield" class="pa-2 rounded border">
         <div class="d-flex align-center ga-2">

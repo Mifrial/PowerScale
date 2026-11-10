@@ -8618,8 +8618,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 33155,
-            "lines": 398,
+            "bytes": 33790,
+            "lines": 399,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -8643,8 +8643,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 22807,
-            "lines": 300,
+            "bytes": 23144,
+            "lines": 301,
             "modules": [
                 "Roleplay/Rule"
             ],
