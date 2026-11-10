@@ -257,6 +257,11 @@ function isSpellCatalogRow(): boolean {
   return props.ability.type === 'spell' || props.ability.domainRef === 'magic-path';
 }
 
+/** Одиночная карточка пути: путь выбирается при изучении и хранится в самой записи. */
+function isSinglePathCard(ability: EditorAbility): boolean {
+  return !ability.multiple && ability.domainRef === 'magic-path';
+}
+
 function isCatalogRow(): boolean {
   return props.spellRowKind === 'catalog';
 }
@@ -693,6 +698,9 @@ function stepLabel(param: EditorAbilityParameter): string {
         </LightButton>
         <span class="font-weight-medium">{{ displayName(ability) }}</span>
         <LightChip v-if="isInstanceRow()">{{ ability.domain || 'Домен не выбран' }}</LightChip>
+        <LightChip v-if="isSinglePathCard(ability) && displayLevel(ability) > 0">
+          {{ ability.domain || 'Путь не выбран' }}
+        </LightChip>
         <LightChip v-if="typeLabel(ability)">{{ typeLabel(ability) }}</LightChip>
         <LightChip v-if="actionOdCostLabel(ability)">{{ actionOdCostLabel(ability) }}</LightChip>
         <LightChip v-if="ability.racial" color="primary">расовая</LightChip>
@@ -768,7 +776,14 @@ function stepLabel(param: EditorAbilityParameter): string {
           </v-tooltip>
         </div>
         <div v-else-if="isSpellCatalogRow() && !ability.derived" class="d-flex align-center ga-1">
-          <v-tooltip :disabled="canLearnSpell()" location="top" max-width="360">
+          <LightButton
+            v-if="isSinglePathCard(ability) && ability.level > 0"
+            :title="`Забыть карточку пути «${ability.domain ?? ''}»`"
+            @click.stop="emit('set-level', ability.ruleCode, 0)"
+          >
+            <i class="mdi mdi-close" aria-hidden="true" /> Забыть
+          </LightButton>
+          <v-tooltip v-else :disabled="canLearnSpell()" location="top" max-width="360">
             <template #activator="{ props: tipProps }">
               <span v-bind="tipProps">
                 <LightButton
@@ -901,7 +916,10 @@ function stepLabel(param: EditorAbilityParameter): string {
         <span>Изучение:</span>
         <span class="ml-1">{{ studyPathNotice(ability) }}</span>
       </div>
-      <div v-if="!ability.multiple && ability.domainRef && displayLevel(ability) > 0" class="ability-row__domain">
+      <div
+        v-if="!ability.multiple && ability.domainRef && ability.domainRef !== 'magic-path' && displayLevel(ability) > 0"
+        class="ability-row__domain"
+      >
         <v-combobox
           :model-value="ability.domain ?? ''"
           :items="domainNames"
