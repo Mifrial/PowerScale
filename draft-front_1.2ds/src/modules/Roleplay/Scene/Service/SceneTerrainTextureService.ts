@@ -10,10 +10,22 @@ import waterUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_surface.jpg';
 import causticsUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_caustics.png';
 import macroUrl from '@/modules/Roleplay/Scene/Asset/Terrain/macro.png';
 import glintsUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_glints.png';
+import foamUrl from '@/modules/Roleplay/Scene/Asset/Terrain/foam.png';
 
 /** Материал террейна из набора CC0. */
 export type SceneTerrainMaterial =
-  'grass' | 'dirt' | 'stone' | 'sand' | 'mud' | 'bed' | 'wetsand' | 'water' | 'caustics' | 'macro';
+  | 'grass'
+  | 'dirt'
+  | 'stone'
+  | 'sand'
+  | 'mud'
+  | 'bed'
+  | 'wetsand'
+  | 'water'
+  | 'caustics'
+  | 'glints'
+  | 'foam'
+  | 'macro';
 
 /** Источники текстур; `bed` — дно водоёма, `wetsand` — мокрый берег. */
 const SOURCES: Record<SceneTerrainMaterial, string> = {
@@ -27,6 +39,7 @@ const SOURCES: Record<SceneTerrainMaterial, string> = {
   water: waterUrl,
   caustics: causticsUrl,
   glints: glintsUrl,
+  foam: foamUrl,
   macro: macroUrl,
 };
 
@@ -46,7 +59,8 @@ const PERIOD_IPARI: Record<SceneTerrainMaterial, number> = {
   water: 2.4,
   caustics: 1.7,
   glints: 1.2,
-  macro: 7,
+  foam: 0.9,
+  macro: 10,
 };
 
 /**
