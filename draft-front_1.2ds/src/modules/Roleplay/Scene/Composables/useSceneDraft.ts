@@ -522,6 +522,21 @@ export function useSceneDraft(initial: SceneDetail) {
     markDirty();
   }
 
+  /** Дублирует выделение; копии становятся новым выделением. */
+  function duplicateSelected(): void {
+    const offset = Math.max(1, Math.round(draft.value.resolution / 4));
+    const copies = selection.value
+      .map((elementId) => service.duplicateElement(draft.value, elementId, offset))
+      .filter((element): element is NonNullable<typeof element> => element !== null);
+    if (copies.length === 0) {
+      return;
+    }
+
+    draft.value.elements = [...draft.value.elements];
+    selection.value = copies.map((element) => element.id);
+    markDirty();
+  }
+
   /** Задаёт выделение. */
   function select(elementIds: number[]): void {
     selection.value = elementIds;
@@ -563,6 +578,7 @@ export function useSceneDraft(initial: SceneDetail) {
     updateElementProps,
     setElementTarget,
     setElementAsset,
+    duplicateSelected,
     updateElementShape,
     moveVertex,
     moveHandle,
