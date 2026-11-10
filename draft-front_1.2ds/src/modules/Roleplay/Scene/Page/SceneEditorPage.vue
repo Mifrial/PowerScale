@@ -59,6 +59,25 @@ const toolDefinition = computed(() => SCENE_TOOLS.find((item) => item.id === too
 const selectedElement = computed(() =>
   selection.value.length === 1 ? (state.selectedElements.value[0] ?? null) : null,
 );
+const boardTerrainKind = computed<string | null>(() => {
+  const board = activeBoard.value;
+  if (board === null) {
+    return null;
+  }
+
+  const full = draft.value.elements.find(
+    (element) =>
+      element.boardId === board.id &&
+      element.kind === 'terrain' &&
+      element.shape.type === 'rect' &&
+      element.shape.x === 0 &&
+      element.shape.y === 0 &&
+      element.shape.w === board.boundWidth &&
+      element.shape.h === board.boundHeight,
+  );
+
+  return full?.props.kind ?? null;
+});
 const boardIndex = computed(() =>
   activeBoard.value === null ? -1 : draft.value.boards.findIndex((board) => board.id === activeBoard.value?.id),
 );
@@ -381,6 +400,7 @@ function messageOf(exception: unknown): string {
           :board-count="draft.boards.length"
           :index="boardIndex"
           :resolution="draft.resolution"
+          :terrain-kind="boardTerrainKind"
           @rename="renameBoard"
           @update="updateBoard"
           @backdrop="updateBackdrop"
