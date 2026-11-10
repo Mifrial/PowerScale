@@ -206,4 +206,68 @@ describe('SceneDraftService', () => {
 
     expect(state.enclosures[0]?.footprint).toEqual({ type: 'rect', x: 200, y: 200, w: 400, h: 400 });
   });
+
+  it('fills the board with terrain and reuses the full-board element', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+
+    const first = service.fillBoardTerrain(state, 10, 'grass');
+    expect(first?.shape).toEqual({ type: 'rect', x: 0, y: 0, w: 1000, h: 800 });
+    expect(first?.props.kind).toBe('grass');
+
+    const second = service.fillBoardTerrain(state, 10, 'water');
+    expect(second?.id).toBe(first?.id);
+    expect(state.elements).toHaveLength(1);
+    expect(second?.props.kind).toBe('water');
+  });
+
+  it('stretches only the full-board terrain when bounds change', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const full = service.fillBoardTerrain(state, 10, 'grass');
+    const partial = service.addElement(
+      state,
+      10,
+      'terrain',
+      { type: 'rect', x: 100, y: 100, w: 100, h: 100 },
+      { kind: 'water' },
+    );
+    state.boards[0]!.boundWidth = 1200;
+    state.boards[0]!.boundHeight = 900;
+
+    service.stretchBoardTerrain(state, 10, 1000, 800);
+
+    expect(full?.shape).toEqual({ type: 'rect', x: 0, y: 0, w: 1200, h: 900 });
+    expect(partial.shape).toEqual({ type: 'rect', x: 100, y: 100, w: 100, h: 100 });
+  });
+
+  it('rescales polygon points', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const element = service.addElement(
+      state,
+      10,
+      'terrain',
+      {
+        type: 'polygon',
+        points: [
+          [100, 100],
+          [500, 100],
+          [500, 500],
+        ],
+      },
+      { kind: 'water' },
+    );
+
+    service.rescale(state, 32);
+
+    expect(element.shape).toEqual({
+      type: 'polygon',
+      points: [
+        [50, 50],
+        [250, 50],
+        [250, 250],
+      ],
+    });
+  });
 });

@@ -23,6 +23,7 @@ const emit = defineEmits<{
   update: [elementProps: SceneElementProps];
   target: [boardId: number | null];
   asset: [publicId: string | null];
+  stretch: [];
   remove: [];
 }>();
 
@@ -151,13 +152,11 @@ function onAsset(file: FileRecord | null): void {
           :model-value="props.element.props.height ?? 0"
           :resolution="props.resolution"
           label="Высота, ипари"
+          hint="Толщину задаёт протяжка; высота — вертикальный размер, не толщина."
           :min="0"
           :max="100000"
           @update:model-value="(value) => patch({ height: value })"
         />
-        <div class="text-caption text-medium-emphasis">
-          Толщину задаёт протяжка; высота — вертикальный размер, не толщина.
-        </div>
       </template>
 
       <template v-if="props.element.kind === 'opening'">
@@ -217,6 +216,9 @@ function onAsset(file: FileRecord | null): void {
           :accept="['image/png', 'image/jpeg', 'image/webp']"
           @update:model-value="onAsset"
         />
+        <v-btn variant="tonal" size="small" prepend-icon="mdi-fit-to-screen" @click="emit('stretch')">
+          Растянуть на всё поле
+        </v-btn>
       </template>
 
       <template v-if="props.element.kind === 'decor'">

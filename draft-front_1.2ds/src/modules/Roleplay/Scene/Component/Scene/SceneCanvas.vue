@@ -3,9 +3,12 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
+import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
+import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
 import { createPixiSceneRenderer } from '@/modules/Roleplay/Scene/Service/Instance/pixiSceneRenderer';
 import { sceneHitTestService } from '@/modules/Roleplay/Scene/Service/Instance/sceneHitTestService';
 import { sceneViewportService } from '@/modules/Roleplay/Scene/Service/Instance/sceneViewportService';
@@ -24,6 +27,8 @@ const emit = defineEmits<{
   selection: [ids: number[]];
   viewport: [viewport: SceneViewport];
   draw: [from: ScenePoint, to: ScenePoint];
+  shape: [shape: SceneShape];
+  vertex: [elementId: number, index: number, point: ScenePoint];
   move: [delta: ScenePoint];
 }>();
 
@@ -31,15 +36,19 @@ const host = ref<HTMLElement | null>(null);
 const selection = ref<number[]>([]);
 const renderError = ref<string | null>(null);
 const legendOpen = ref(false);
+const shapeBuilder = new SceneToolShape();
 let renderer: ISceneRenderer | null = null;
 let viewport: SceneViewport | null = null;
 let observer: ResizeObserver | null = null;
-let gesture: 'none' | 'pan' | 'draw' | 'move' = 'none';
+let gesture: 'none' | 'pan' | 'draw' | 'move' | 'vertex' = 'none';
 let lastX = 0;
 let lastY = 0;
 let drawStart: ScenePoint | null = null;
 let moveLast: ScenePoint | null = null;
 let panMoved = false;
+let polygonPoints: ScenePoint[] = [];
+let polygonHover: ScenePoint | null = null;
+let vertexTarget: { elementId: number; index: number } | null = null;
 
 onMounted(async () => {
   const element = host.value;
@@ -63,9 +72,11 @@ onMounted(async () => {
   sceneRenderer.setSelection(props.model.selection);
   observer = new ResizeObserver(() => handleResize());
   observer.observe(element);
+  window.addEventListener('keydown', onPolygonKeydown);
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onPolygonKeydown);
   observer?.disconnect();
   observer = null;
   renderer?.destroy();
@@ -99,14 +110,173 @@ watch(
 );
 
 watch(
+  () => props.tool,
+  () => {
+    cancelDraft();
+  },
+);
+
+watch(
   () => props.board?.id,
   () => {
+    cancelDraft();
     if (renderer === null || host.value === null) return;
     viewport = fitViewport(sizeOf(host.value));
     renderer.setViewport(viewport);
     emit('viewport', viewport);
   },
 );
+
+function toolDefinition() {
+  return SCENE_TOOLS.find((item) => item.id === props.tool) ?? null;
+}
+
+function isPolygonTool(): boolean {
+  return toolDefinition()?.shapeType === 'polygon';
+}
+
+function boardBounds(): { x: number; y: number; width: number; height: number } | null {
+  const board = props.board;
+  if (board === null) {
+    return null;
+  }
+
+  return { x: 0, y: 0, width: board.boundWidth, height: board.boundHeight };
+}
+
+function clampPoint(point: ScenePoint): ScenePoint {
+  const bounds = boardBounds();
+  if (bounds === null) {
+    return [Math.round(point[0]), Math.round(point[1])];
+  }
+
+  return [
+    Math.min(bounds.width, Math.max(0, Math.round(point[0]))),
+    Math.min(bounds.height, Math.max(0, Math.round(point[1]))),
+  ];
+}
+
+/** Сбрасывает незавершённый полигон и превью. */
+function cancelDraft(): void {
+  polygonPoints = [];
+  polygonHover = null;
+  renderer?.setDraft(null);
+}
+
+/** Обновляет превью полигона по накопленным точкам и курсору. */
+function refreshPolygonDraft(): void {
+  if (renderer === null) {
+    return;
+  }
+
+  if (!isPolygonTool() || polygonPoints.length === 0) {
+    renderer.setDraft(null);
+
+    return;
+  }
+
+  const points = polygonHover === null ? polygonPoints : [...polygonPoints, polygonHover];
+  renderer.setDraft({ type: 'polygon', points });
+}
+
+/** Превью прямоугольника, круга или стены во время протяжки. */
+function refreshDragDraft(point: ScenePoint): void {
+  const definition = toolDefinition();
+  const bounds = boardBounds();
+  if (
+    renderer === null ||
+    definition === null ||
+    definition.shapeType === null ||
+    drawStart === null ||
+    bounds === null
+  ) {
+    renderer?.setDraft(null);
+
+    return;
+  }
+
+  renderer.setDraft(shapeBuilder.build(definition.shapeType, drawStart, point, bounds));
+}
+
+function addPolygonPoint(point: ScenePoint): void {
+  const next = clampPoint(point);
+  if (polygonPoints.length >= 3 && viewport !== null) {
+    const first = polygonPoints[0];
+    const tolerance = 10 / viewport.zoom;
+    if (Math.hypot(first[0] - next[0], first[1] - next[1]) <= tolerance) {
+      finishPolygon();
+
+      return;
+    }
+  }
+
+  polygonPoints = [...polygonPoints, next];
+  refreshPolygonDraft();
+}
+
+function finishPolygon(): void {
+  const points = polygonPoints.filter(
+    (point, index) =>
+      index === 0 || Math.hypot(point[0] - polygonPoints[index - 1][0], point[1] - polygonPoints[index - 1][1]) > 0,
+  );
+  cancelDraft();
+  if (points.length >= 3) {
+    emit('shape', { type: 'polygon', points });
+  }
+}
+
+/** Двойной клик замыкает полигон. */
+function onDoubleClick(): void {
+  if (!isPolygonTool() || polygonPoints.length < 3) {
+    return;
+  }
+
+  finishPolygon();
+}
+
+function onPolygonKeydown(event: KeyboardEvent): void {
+  if (!isPolygonTool() || polygonPoints.length === 0) {
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    cancelDraft();
+
+    return;
+  }
+
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    finishPolygon();
+  }
+}
+
+/** Вершина выделенного полигона под точкой. */
+function vertexAt(point: ScenePoint): { elementId: number; index: number } | null {
+  if (viewport === null) {
+    return null;
+  }
+
+  const tolerance = 10 / viewport.zoom;
+  for (const element of props.model.elements) {
+    if (element.boardId !== props.model.activeBoardId || !props.model.selection.includes(element.id)) {
+      continue;
+    }
+
+    if (element.shape.type !== 'polygon') {
+      continue;
+    }
+
+    for (let index = 0; index < element.shape.points.length; index += 1) {
+      const vertex = element.shape.points[index];
+      if (Math.hypot(vertex[0] - point[0], vertex[1] - point[1]) <= tolerance) {
+        return { elementId: element.id, index };
+      }
+    }
+  }
+
+  return null;
+}
 
 function handleResize(): void {
   if (renderer === null || host.value === null) return;
@@ -162,17 +332,33 @@ function onPointerDown(event: PointerEvent): void {
   const scenePoint = scenePointOf(event);
   if (scenePoint === null) return;
 
+  if (isPolygonTool()) {
+    addPolygonPoint(scenePoint);
+
+    return;
+  }
+
   if (props.tool === 'select') {
     startSelectGesture(event, scenePoint);
   } else {
     gesture = 'draw';
     drawStart = scenePoint;
+    refreshDragDraft(scenePoint);
     capture(event);
   }
 }
 
 function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   if (viewport === null) return;
+  const vertex = vertexAt(scenePoint);
+  if (vertex !== null) {
+    vertexTarget = vertex;
+    gesture = 'vertex';
+    capture(event);
+
+    return;
+  }
+
   const hit = sceneHitTestService.hit(props.model, viewport, screenPointOf(event));
   if (hit === null) {
     gesture = 'pan';
@@ -196,6 +382,16 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
 }
 
 function onPointerMove(event: PointerEvent): void {
+  if (gesture === 'none' && isPolygonTool() && polygonPoints.length > 0) {
+    const scenePoint = scenePointOf(event);
+    if (scenePoint !== null) {
+      polygonHover = clampPoint(scenePoint);
+      refreshPolygonDraft();
+    }
+
+    return;
+  }
+
   if (gesture === 'none' || viewport === null || renderer === null) return;
 
   if (gesture === 'pan') {
@@ -213,6 +409,12 @@ function onPointerMove(event: PointerEvent): void {
   const scenePoint = scenePointOf(event);
   if (scenePoint === null) return;
 
+  if (gesture === 'vertex' && vertexTarget !== null) {
+    emit('vertex', vertexTarget.elementId, vertexTarget.index, clampPoint(scenePoint));
+
+    return;
+  }
+
   if (gesture === 'move' && moveLast !== null) {
     const deltaX = Math.round(scenePoint[0] - moveLast[0]);
     const deltaY = Math.round(scenePoint[1] - moveLast[1]);
@@ -222,6 +424,10 @@ function onPointerMove(event: PointerEvent): void {
     }
 
     return;
+  }
+
+  if (gesture === 'draw') {
+    refreshDragDraft(scenePoint);
   }
 }
 
@@ -239,6 +445,7 @@ function panBy(event: PointerEvent): void {
 function onPointerUp(event: PointerEvent): void {
   if (gesture === 'draw' && drawStart !== null) {
     const end = scenePointOf(event);
+    renderer?.setDraft(null);
     if (end !== null) {
       emit('draw', drawStart, end);
     }
@@ -252,6 +459,7 @@ function onPointerUp(event: PointerEvent): void {
   gesture = 'none';
   drawStart = null;
   moveLast = null;
+  vertexTarget = null;
   panMoved = false;
 }
 
@@ -259,7 +467,9 @@ function cancelPointer(): void {
   gesture = 'none';
   drawStart = null;
   moveLast = null;
+  vertexTarget = null;
   panMoved = false;
+  renderer?.setDraft(null);
 }
 
 function onWheel(event: WheelEvent): void {
@@ -304,6 +514,7 @@ defineExpose({ fit, zoomBy });
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
     @pointerleave="cancelPointer"
+    @dblclick="onDoubleClick"
     @wheel="onWheel"
   >
     <div v-if="renderError" class="scene-canvas__error">{{ renderError }}</div>

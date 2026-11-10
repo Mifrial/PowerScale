@@ -143,8 +143,51 @@ export function useSceneDraft(initial: SceneDetail) {
       return;
     }
 
+    const oldWidth = board.boundWidth;
+    const oldHeight = board.boundHeight;
     Object.assign(board, patch);
+    if (board.boundWidth !== oldWidth || board.boundHeight !== oldHeight) {
+      service.stretchBoardTerrain(draft.value, boardId, oldWidth, oldHeight);
+      draft.value.elements = [...draft.value.elements];
+    }
+
     draft.value.boards = [...draft.value.boards];
+    markDirty();
+  }
+
+  /** Заливает поле террейном выбранного шаблона. */
+  function fillTerrain(kind: string, boardId: number | null = null): number | null {
+    const targetBoardId = boardId ?? draft.value.activeBoardId;
+    if (targetBoardId === null) {
+      return null;
+    }
+
+    const element = service.fillBoardTerrain(draft.value, targetBoardId, kind);
+    if (element === null) {
+      return null;
+    }
+
+    draft.value.elements = [...draft.value.elements];
+    selection.value = [element.id];
+    markDirty();
+
+    return element.id;
+  }
+
+  /** Растягивает выделенный террейн на всё поле. */
+  function stretchTerrain(elementId: number): void {
+    const element = draft.value.elements.find((item) => item.id === elementId);
+    if (element === undefined) {
+      return;
+    }
+
+    const board = draft.value.boards.find((item) => item.id === element.boardId);
+    if (board === undefined) {
+      return;
+    }
+
+    element.shape = service.fullBoardShape(board.boundWidth, board.boundHeight);
+    draft.value.elements = [...draft.value.elements];
     markDirty();
   }
 
@@ -240,6 +283,28 @@ export function useSceneDraft(initial: SceneDetail) {
     markDirty();
   }
 
+  /** Двигает вершину полигона в пределах поля. */
+  function moveVertex(elementId: number, index: number, point: ScenePoint): void {
+    const element = draft.value.elements.find((item) => item.id === elementId);
+    if (element === undefined || element.shape.type !== 'polygon') {
+      return;
+    }
+
+    const board = draft.value.boards.find((item) => item.id === element.boardId);
+    if (board === undefined) {
+      return;
+    }
+
+    const clamped: ScenePoint = [
+      Math.min(board.boundWidth, Math.max(0, Math.round(point[0]))),
+      Math.min(board.boundHeight, Math.max(0, Math.round(point[1]))),
+    ];
+    const points = element.shape.points.map((item, position) => (position === index ? clamped : item));
+    element.shape = { ...element.shape, points };
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
   /** Сдвигает элементы на дельту в единицах сцены. */
   function moveElements(elementIds: number[], deltaX: number, deltaY: number): void {
     if (deltaX === 0 && deltaY === 0) {
@@ -291,12 +356,15 @@ export function useSceneDraft(initial: SceneDetail) {
     moveBoard,
     updateBoard,
     setBackdrop,
+    fillTerrain,
+    stretchTerrain,
     createElement,
     createFromDrag,
     updateElementProps,
     setElementTarget,
     setElementAsset,
     updateElementShape,
+    moveVertex,
     moveElements,
     removeSelected,
     select,

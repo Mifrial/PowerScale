@@ -4,6 +4,7 @@ import type { FileRecord } from '@/modules/Core/File/Dto/FileRecord';
 import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoard';
 import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard';
 import SceneDistanceField from '@/modules/Roleplay/Scene/Component/Scene/SceneDistanceField.vue';
+import { SCENE_TERRAIN_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_KIND_OPTIONS';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
 const FileUploadField = defineAsyncComponent(() => import('@/modules/Core/File/Component/FileUploadField.vue'));
@@ -19,11 +20,13 @@ const emit = defineEmits<{
   rename: [boardId: number, name: string];
   update: [boardId: number, patch: Partial<Omit<SceneSaveBoard, 'id' | 'sortOrder'>>];
   backdrop: [boardId: number, publicId: string | null, width: number | null, height: number | null];
+  terrain: [boardId: number, kind: string];
   move: [boardId: number, offset: number];
   remove: [boardId: number];
 }>();
 
 const name = ref(props.board.name);
+const terrainKind = ref('grass');
 
 watch(
   () => props.board.name,
@@ -178,6 +181,25 @@ function onBackdrop(file: FileRecord | null): void {
         @update:model-value="onBackdrop"
       />
 
+      <div class="scene-board-settings__row scene-board-settings__row--align-end">
+        <v-select
+          v-model="terrainKind"
+          :items="SCENE_TERRAIN_KIND_OPTIONS"
+          label="Террейн поля"
+          density="compact"
+          variant="outlined"
+          hide-details
+        />
+        <v-btn
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-format-color-fill"
+          @click="emit('terrain', props.board.id, terrainKind)"
+        >
+          Залить
+        </v-btn>
+      </div>
+
       <v-alert v-if="aspectWarning" type="warning" variant="tonal" density="compact" class="text-caption">
         Пропорции подложки не совпадают с границами поля: изображение растянется.
       </v-alert>
@@ -205,5 +227,13 @@ function onBackdrop(file: FileRecord | null): void {
 .scene-board-settings__row > * {
   min-width: 0;
   flex: 1 1 0;
+}
+
+.scene-board-settings__row--align-end {
+  align-items: flex-end;
+}
+
+.scene-board-settings__row--align-end > *:last-child {
+  flex: 0 0 auto;
 }
 </style>

@@ -92,7 +92,7 @@ export class SceneShapePainter {
     if (element.kind === 'terrain') {
       return {
         fill: { color: this.terrainColor(element.props), alpha: 0.32 },
-        stroke: { color: 0xe2e8f0, width: 1 / zoom, alpha: 0.28 },
+        stroke: { color: 0xf1f5f9, width: 1.5 / zoom, alpha: 0.6 },
       };
     }
 
