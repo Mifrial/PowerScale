@@ -487,8 +487,8 @@ function messageOf(exception: unknown): string {
     flex-basis: auto;
     min-width: 0;
     height: auto;
-    max-height: none;
-    overflow-y: visible;
+    max-height: 60vh;
+    overflow-y: auto;
   }
 }
 </style>
