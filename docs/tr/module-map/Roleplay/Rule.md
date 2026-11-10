@@ -45,6 +45,7 @@
 | [rule-content-plan-04-knowledge.md](../../rule-content-plan-04-knowledge.md) | план | `~ПЛАН~` | 2026-09-13 |
 | [rule-content-plan-09-melee-speed.md](../../rule-content-plan-09-melee-speed.md) | план | `~ПЛАН~` | 2026-09-16 |
 | [rule-content-plan-12-dodge-benefit.md](../../rule-content-plan-12-dodge-benefit.md) | план | `~ПЛАН~` | 2026-09-19 |
+| [spell-real-plan-03-check-efficiency.md](../../spell-real-plan-03-check-efficiency.md) | план | `~ПЛАН~` | 2026-11-10 |
 | [spell-real-roadmap.md](../../spell-real-roadmap.md) | план | `~ПЛАН~` | 2026-11-09 |
 | [spell-review-01.md](../../spell-review-01.md) | канон | `~ПЛАН~` | 2026-09-07 |
 | [rule-content-plan-07-languages.md](../../rule-content-plan-07-languages.md) | план | `~В РАБОТЕ~` | 2026-09-15 |

@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 341,
-        "plans": 222,
+        "documents": 342,
+        "plans": 223,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 244,
+            "tr": 245,
             "tz": 2
         },
         "byZoneState": {
@@ -73,7 +73,7 @@
                 "СДЕЛАНО": 146,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 34,
-                "ПЛАН": 10,
+                "ПЛАН": 11,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
                 "В РАБОТЕ": 15
@@ -87,7 +87,7 @@
             "СНИМОК": 65,
             "нет": 57,
             "СДЕЛАНО": 148,
-            "ПЛАН": 13,
+            "ПЛАН": 14,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 34,
             "ОТМЕНЁН": 1,
@@ -275,19 +275,19 @@
             }
         },
         "Roleplay/Rule": {
-            "docs": 47,
+            "docs": 48,
             "state": {
                 "нет": 3,
                 "СДЕЛАНО": 21,
                 "ЧАСТИЧНО": 8,
                 "ОТЛОЖЕН": 3,
-                "ПЛАН": 5,
+                "ПЛАН": 6,
                 "В РАБОТЕ": 7
             },
             "layer": {
-                "VUE": 17,
+                "VUE": 18,
                 "МОК": 2,
-                "PHP": 13
+                "PHP": 14
             }
         },
         "Roleplay/RuleSpace": {
@@ -4765,6 +4765,7 @@
                 "docs/tr/character-roadmap.md",
                 "docs/tr/spell-real-plan-01-action-components.md",
                 "docs/tr/spell-real-plan-02-spell-upgrades.md",
+                "docs/tr/spell-real-plan-03-check-efficiency.md",
                 "docs/tr/spell-real-roadmap.md",
                 "docs/tr/spell-roadmap.md"
             ]
@@ -5326,7 +5327,8 @@
             "backlinks": [
                 "docs/tr/magic-content-design-01-arcanist-progression.md",
                 "docs/tr/magic-content-design-03-arcanist-mastery.md",
-                "docs/tr/magic-content-plan-03-arcanist-advanced.md"
+                "docs/tr/magic-content-plan-03-arcanist-advanced.md",
+                "docs/tr/spell-real-plan-03-check-efficiency.md"
             ]
         },
         {
@@ -5346,7 +5348,8 @@
             "linksCount": 1,
             "brokenLinks": [],
             "backlinks": [
-                "docs/tr/magic-content-plan-04-arcanist-mastery.md"
+                "docs/tr/magic-content-plan-04-arcanist-mastery.md",
+                "docs/tr/spell-real-plan-03-check-efficiency.md"
             ]
         },
         {
@@ -8300,6 +8303,7 @@
                 "docs/tr/spell-plan-01-inventory.md",
                 "docs/tr/spell-plan-02-slice.md",
                 "docs/tr/spell-plan-06-cast-check.md",
+                "docs/tr/spell-real-plan-03-check-efficiency.md",
                 "docs/tr/spell-real-roadmap.md",
                 "docs/tr/spell-review-01.md"
             ]
@@ -8587,8 +8591,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 37948,
-            "lines": 533,
+            "bytes": 38471,
+            "lines": 534,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -8596,6 +8600,32 @@
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-46-spell-cast.md",
+                "docs/tr/spell-real-plan-03-check-efficiency.md",
+                "docs/tr/spell-real-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/spell-real-plan-03-check-efficiency.md",
+            "title": "План M3 — эффективность проверки сотворения",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "ПЛАН",
+            "stateSource": "token",
+            "statusRaw": "~ПЛАН~, 2026-11-10.",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-10",
+            "bytes": 31185,
+            "lines": 387,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 7,
+            "brokenLinks": [],
+            "backlinks": [
                 "docs/tr/spell-real-roadmap.md"
             ]
         },
@@ -8613,17 +8643,18 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 20575,
-            "lines": 282,
+            "bytes": 22460,
+            "lines": 299,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 8,
+            "linksCount": 9,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/spell-real-plan-01-action-components.md",
                 "docs/tr/spell-real-plan-02-spell-upgrades.md",
+                "docs/tr/spell-real-plan-03-check-efficiency.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -8653,7 +8684,8 @@
                 "docs/tr/spell-plan-06-cast-check.md",
                 "docs/tr/spell-plan-07-runtime-slice.md",
                 "docs/tr/spell-plan-08-runtime-expansion.md",
-                "docs/tr/spell-plan-09-magic-runtime.md"
+                "docs/tr/spell-plan-09-magic-runtime.md",
+                "docs/tr/spell-real-plan-03-check-efficiency.md"
             ]
         },
         {
