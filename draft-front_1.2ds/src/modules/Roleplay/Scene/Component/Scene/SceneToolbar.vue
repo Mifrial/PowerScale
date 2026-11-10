@@ -4,54 +4,42 @@ import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS
 
 const props = defineProps<{
   tool: SceneTool;
-  isDirty: boolean;
-  saving: boolean;
-  canSave: boolean;
   hasSelection: boolean;
 }>();
 
 const emit = defineEmits<{
   'update:tool': [tool: SceneTool];
-  save: [];
   remove: [];
 }>();
 </script>
 
 <template>
   <div class="scene-toolbar">
-    <v-btn-group variant="tonal" density="comfortable">
+    <div class="scene-toolbar__tools">
       <v-btn
         v-for="item in SCENE_TOOLS"
         :key="item.id"
-        :icon="item.icon"
-        :title="item.label"
+        :prepend-icon="item.icon"
+        size="small"
         :color="props.tool === item.id ? 'primary' : undefined"
         :variant="props.tool === item.id ? 'flat' : 'tonal'"
         @click="emit('update:tool', item.id)"
-      />
-    </v-btn-group>
+      >
+        {{ item.label }}
+      </v-btn>
+    </div>
+
+    <v-divider vertical class="mx-1" />
 
     <v-btn
       variant="tonal"
       color="error"
       prepend-icon="mdi-delete"
+      size="small"
       :disabled="!props.hasSelection"
       @click="emit('remove')"
     >
       Удалить
-    </v-btn>
-
-    <v-spacer />
-
-    <v-chip v-if="props.isDirty" size="small" color="warning" variant="tonal">Есть изменения</v-chip>
-    <v-btn
-      color="primary"
-      prepend-icon="mdi-content-save"
-      :loading="props.saving"
-      :disabled="!props.canSave || props.saving"
-      @click="emit('save')"
-    >
-      Сохранить
     </v-btn>
   </div>
 </template>
@@ -60,7 +48,15 @@ const emit = defineEmits<{
 .scene-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.scene-toolbar__tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
 }
 </style>

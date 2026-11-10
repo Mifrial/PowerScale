@@ -11,6 +11,7 @@ import type { SceneToolDefinition } from '@/modules/Roleplay/Scene/Dto/SceneTool
 import { SceneDraftMapper } from '@/modules/Roleplay/Scene/Service/SceneDraftMapper';
 import { SceneDraftService } from '@/modules/Roleplay/Scene/Service/SceneDraftService';
 import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
+import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
 /**
  * Черновик редактора локации: состояние и операции над ним.
@@ -45,10 +46,34 @@ export function useSceneDraft(initial: SceneDetail) {
     isDirty.value = true;
   }
 
-  /** Имя, описание и разрешение локации. */
-  function setMeta(patch: Partial<Pick<SceneDraft, 'name' | 'description' | 'resolution'>>): void {
+  /** Имя и описание локации. */
+  function setMeta(patch: Partial<Pick<SceneDraft, 'name' | 'description'>>): void {
     Object.assign(draft.value, patch);
     markDirty();
+  }
+
+  /**
+   * Меняет точность локации и пересчитывает координаты.
+   *
+   * Разрешение обязано быть степенью двойки: так ипари переводятся в единицы
+   * сцены без дробей.
+   */
+  function setResolution(next: number): boolean {
+    if (!sceneUnits.isPowerOfTwo(next) || next < 1 || next > 1024) {
+      return false;
+    }
+
+    if (next === draft.value.resolution) {
+      return true;
+    }
+
+    service.rescale(draft.value, next);
+    draft.value.boards = [...draft.value.boards];
+    draft.value.elements = [...draft.value.elements];
+    draft.value.enclosures = [...draft.value.enclosures];
+    markDirty();
+
+    return true;
   }
 
   /** Выбирает активное поле. */
@@ -258,6 +283,7 @@ export function useSceneDraft(initial: SceneDetail) {
     selectedElements,
     reset,
     setMeta,
+    setResolution,
     setActiveBoard,
     addBoard,
     renameBoard,

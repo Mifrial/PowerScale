@@ -9,6 +9,7 @@ import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderM
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import { getSceneApi } from '@/modules/Roleplay/Scene/init';
 import { SceneApiError } from '@/modules/Roleplay/Scene/Service/SceneApiError';
+import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
 const route = useRoute();
 const router = useRouter();
@@ -41,6 +42,26 @@ const selectedElements = computed<SceneElement[]>(() =>
 const boardElementCount = computed(
   () => model.value.elements.filter((element) => element.boardId === model.value.activeBoardId).length,
 );
+const boardSize = computed(() => {
+  const current = board.value;
+  const resolution = scene.value?.resolution ?? 64;
+  if (current === null) {
+    return '—';
+  }
+
+  return (
+    `${sceneUnits.formatUnits(current.boundWidth, resolution)} × ` +
+    `${sceneUnits.formatUnits(current.boundHeight, resolution)} ипари`
+  );
+});
+const boardGrid = computed(() => {
+  const current = board.value;
+  if (current === null || current.gridStep <= 0) {
+    return 'выключена';
+  }
+
+  return `${sceneUnits.formatUnits(current.gridStep, scene.value?.resolution ?? 64)} ипари`;
+});
 
 onMounted(load);
 
@@ -164,10 +185,13 @@ function zoomLabel(): string {
                 <span>Название</span><strong>{{ board.name }}</strong>
               </div>
               <div class="d-flex justify-space-between">
-                <span>Границы</span><strong>{{ board.boundWidth }} × {{ board.boundHeight }}</strong>
+                <span>Границы</span><strong>{{ boardSize }}</strong>
               </div>
               <div class="d-flex justify-space-between">
-                <span>Разрешение</span><strong>{{ scene.resolution }} / ипари</strong>
+                <span>Сетка</span><strong>{{ boardGrid }}</strong>
+              </div>
+              <div class="d-flex justify-space-between">
+                <span>Точность</span><strong>{{ scene.resolution }} ед./ипари</strong>
               </div>
               <div class="d-flex justify-space-between">
                 <span>Элементов</span><strong>{{ boardElementCount }}</strong>
