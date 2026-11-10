@@ -13,11 +13,14 @@ const props = withDefaults(
     nullable?: boolean;
     /** Разрешить ручной ввод дробей (шаг задаётся через attrs step). */
     allowDecimal?: boolean;
+    /** Приклеивать цифры к текущему значению; false — обычный ввод. */
+    appendDigits?: boolean;
   }>(),
   {
     minWidth: '100px',
     nullable: false,
     allowDecimal: false,
+    appendDigits: true,
   },
 );
 
@@ -68,6 +71,7 @@ function onKeydown(e: KeyboardEvent) {
     return;
   }
   if (e.key.length === 1 && e.key >= '0' && e.key <= '9') {
+    if (!props.appendDigits) return;
     e.preventDefault();
     const prefix = props.modelValue == null ? '' : String(props.modelValue);
     const next = parseInt(prefix + e.key, 10);

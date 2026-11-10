@@ -93,6 +93,8 @@ function updateSize(value: number | null): void {
               label="База"
               density="compact"
               hide-details
+              :append-digits="false"
+              :precision="0"
               style="flex: 1 1 auto"
               @update:model-value="updateBase"
             />
@@ -104,6 +106,8 @@ function updateSize(value: number | null): void {
               density="compact"
               hide-details
               reverse
+              :append-digits="false"
+              :precision="0"
               style="flex: 1 1 auto"
               @update:model-value="updateSize"
             />
