@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
@@ -16,9 +16,8 @@ const props = withDefaults(
     board: SceneBoard | null;
     tool?: SceneTool;
     interactive?: boolean;
-    emptyHint?: string;
   }>(),
-  { tool: 'select', interactive: false, emptyHint: '' },
+  { tool: 'select', interactive: false },
 );
 
 const emit = defineEmits<{
@@ -32,9 +31,6 @@ const host = ref<HTMLElement | null>(null);
 const selection = ref<number[]>([]);
 const renderError = ref<string | null>(null);
 const legendOpen = ref(true);
-const isEmpty = computed(
-  () => props.model.elements.filter((element) => element.boardId === props.model.activeBoardId).length === 0,
-);
 let renderer: ISceneRenderer | null = null;
 let viewport: SceneViewport | null = null;
 let observer: ResizeObserver | null = null;
@@ -312,10 +308,6 @@ defineExpose({ fit, zoomBy });
   >
     <div v-if="renderError" class="scene-canvas__error">{{ renderError }}</div>
 
-    <div v-if="props.emptyHint !== '' && isEmpty && renderError === null" class="scene-canvas__empty">
-      {{ props.emptyHint }}
-    </div>
-
     <div class="scene-canvas__legend" @pointerdown.stop @wheel.stop>
       <button class="scene-canvas__legend-toggle" type="button" @click="legendOpen = !legendOpen">?</button>
       <ul v-if="legendOpen" class="scene-canvas__legend-list">
@@ -353,19 +345,6 @@ defineExpose({ fit, zoomBy });
   padding: 24px;
   color: #fecaca;
   text-align: center;
-}
-
-.scene-canvas__empty {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  color: #cbd5e1;
-  font-size: 0.9rem;
-  text-align: center;
-  pointer-events: none;
 }
 
 .scene-canvas__legend {

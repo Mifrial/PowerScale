@@ -338,7 +338,6 @@ function messageOf(exception: unknown): string {
           :board="activeViewBoard"
           :tool="tool"
           interactive
-          empty-hint="Выберите инструмент и протяните по полю"
           @draw="onDraw"
           @move="onMove"
           @selection="onSelection"
@@ -390,7 +389,12 @@ function messageOf(exception: unknown): string {
 
 <style scoped>
 .scene-editor {
-  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--v-layout-top, 0px));
+  height: calc(100dvh - var(--v-layout-top, 0px));
+  min-height: 0;
+  overflow: hidden;
 }
 
 .scene-editor__header {
@@ -404,13 +408,14 @@ function messageOf(exception: unknown): string {
 .scene-editor__workspace {
   display: flex;
   gap: 16px;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
 .scene-editor__canvas {
   flex: 1 1 auto;
-  height: calc(100vh - 260px);
-  min-height: 460px;
+  height: 100%;
+  min-height: 0;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.25);
@@ -419,22 +424,39 @@ function messageOf(exception: unknown): string {
 .scene-editor__panel {
   flex: 0 0 380px;
   min-width: 300px;
+  height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: calc(100vh - 260px);
-  overflow-y: auto;
-  padding-right: 4px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  padding-right: 8px;
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.65) rgba(148, 163, 184, 0.12);
 }
 
 .scene-editor__panel::-webkit-scrollbar {
-  width: 8px;
+  width: 12px;
+}
+
+.scene-editor__panel::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 999px;
 }
 
 .scene-editor__panel::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
+  background: rgba(100, 116, 139, 0.65);
+  border: 3px solid transparent;
+  background-clip: content-box;
   border-radius: 999px;
+}
+
+.scene-editor__panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 85, 105, 0.85);
+  border: 3px solid transparent;
+  background-clip: content-box;
 }
 
 @media (max-width: 1100px) {
@@ -444,6 +466,11 @@ function messageOf(exception: unknown): string {
 }
 
 @media (max-width: 900px) {
+  .scene-editor {
+    height: auto;
+    overflow: visible;
+  }
+
   .scene-editor__workspace {
     flex-direction: column;
   }
@@ -455,7 +482,9 @@ function messageOf(exception: unknown): string {
   .scene-editor__panel {
     flex-basis: auto;
     min-width: 0;
+    height: auto;
     max-height: none;
+    overflow-y: visible;
   }
 }
 </style>
