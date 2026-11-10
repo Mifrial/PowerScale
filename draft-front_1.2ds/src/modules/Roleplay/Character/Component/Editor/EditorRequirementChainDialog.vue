@@ -14,6 +14,8 @@ interface RequirementNode {
   buyLevel: number | null;
   multiple: boolean;
   depth: number;
+  /** Требование уже выполнено: покупать нечего. */
+  satisfied: boolean;
   /** Почему уровень нельзя купить прямо сейчас (пусто — можно). */
   blockedReasons: string[];
 }
@@ -106,7 +108,8 @@ function buildNode(ability: EditorAbility, requiredLevel: number, depth: number)
     buyLevel: canBuy ? next : null,
     multiple: ability.multiple,
     depth,
-    blockedReasons: canBuy ? [] : blockedReasonsOf(ability, requiredLevel, next, zone),
+    satisfied: owned >= requiredLevel,
+    blockedReasons: canBuy || owned >= requiredLevel ? [] : blockedReasonsOf(ability, requiredLevel, next, zone),
   };
 }
 
@@ -124,7 +127,12 @@ function blockedReasonsOf(
   if (zone === null) return ['нет зоны покупки за ОР'];
   if (next > zone.maxLevel) return [`достигнут максимальный уровень (${zone.maxLevel})`];
 
-  return splitReason(ability.levels[next - 1]?.reason);
+  const reasons = splitReason(ability.levels[next - 1]?.reason);
+  if (reasons.length > 0) return reasons;
+  const unmet = ability.levels[next - 1]?.unmetAbilities ?? [];
+  if (unmet.length > 0) return unmet.map((entry) => `сначала ${entry.label}`);
+
+  return ['требования уровня не выполнены'];
 }
 
 function zoneOf(ability: EditorAbility): EditorAbilityZone | null {
@@ -183,14 +191,14 @@ function buy(node: RequirementNode): void {
           <v-btn v-if="node.buyLevel !== null" size="small" variant="tonal" color="primary" @click="buy(node)">
             Купить ур. {{ node.buyLevel }}<template v-if="node.cost !== null"> · {{ node.cost }}</template>
           </v-btn>
+          <v-chip v-else-if="node.satisfied" size="small" variant="tonal" color="success">выполнено</v-chip>
           <v-tooltip v-else-if="node.blockedReasons.length > 0" location="top" max-width="420">
             <template #activator="{ props: tipProps }">
               <v-chip v-bind="tipProps" size="small" variant="tonal" color="warning">нельзя купить</v-chip>
             </template>
             <div v-for="reason in node.blockedReasons" :key="reason">{{ reason }}</div>
           </v-tooltip>
-          <v-chip v-else-if="node.multiple" size="small" variant="tonal">нужен экземпляр</v-chip>
-          <v-chip v-else size="small" variant="tonal" color="warning">сначала предпосылки</v-chip>
+          <v-chip v-else size="small" variant="tonal" color="warning">требования не выполнены</v-chip>
         </div>
       </v-card-text>
     </v-card>

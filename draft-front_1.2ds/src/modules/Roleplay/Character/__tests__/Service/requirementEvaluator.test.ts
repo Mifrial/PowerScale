@@ -300,8 +300,14 @@ describe('RequirementEvaluator', () => {
   it('has_ability в домене пути учитывает includes_path_codes', () => {
     const mixed: CharacterSnapshot = {
       ...snapshot,
-      abilityLevels: new Map([['discharge', 1]]),
-      abilityInstances: new Map([['discharge', [{ domain: 'Псионик', domainCode: 'psionic', level: 1 }]]]),
+      abilityLevels: new Map([
+        ['discharge', 1],
+        ['estestvoznanie', 1],
+      ]),
+      abilityInstances: new Map([
+        ['discharge', [{ domain: 'Псионик', domainCode: 'psionic', level: 1 }]],
+        ['estestvoznanie', [{ domain: '', domainCode: null, level: 1 }]],
+      ]),
       magicPathNames: new Map([
         ['psionic', 'Псионик'],
         ['shaman', 'Шаман'],
@@ -317,6 +323,10 @@ describe('RequirementEvaluator', () => {
     expect(evaluator.evaluate({ type: 'has_ability', ability_code: 'discharge', min_level: 1 }, mixed, 'Псионик')).toBe(
       true,
     );
+    // Навык без домена не привязан к пути и удовлетворяет требование на любом пути.
+    expect(
+      evaluator.evaluate({ type: 'has_ability', ability_code: 'estestvoznanie', min_level: 1 }, mixed, 'Псионик'),
+    ).toBe(true);
     const reverse: CharacterSnapshot = {
       ...mixed,
       abilityInstances: new Map([['discharge', [{ domain: 'Шаман', domainCode: 'shaman', level: 1 }]]]),

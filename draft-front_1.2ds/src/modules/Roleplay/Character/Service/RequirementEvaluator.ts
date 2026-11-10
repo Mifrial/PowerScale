@@ -110,6 +110,9 @@ export class RequirementEvaluator {
         const label = `«${this.abilityName(requirement.ability_code, snapshot)}» уровня ${minLevel}`;
         if (domainContext !== undefined) {
           const instances = snapshot.abilityInstances?.get(requirement.ability_code) ?? [];
+          // Способность без домена не привязана к пути: она подходит для требования на любом пути.
+          const hasPathDomain = instances.some((instance) => instance.domainCode != null);
+          if (!hasPathDomain && (snapshot.abilityLevels.get(requirement.ability_code) ?? 0) >= minLevel) return null;
           if (
             instances.some((instance) =>
               this.instanceMeetsDomain(instance, domainContext, snapshot, minLevel, requirement.ability_code),

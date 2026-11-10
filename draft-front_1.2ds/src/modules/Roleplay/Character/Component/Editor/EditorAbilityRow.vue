@@ -335,6 +335,15 @@ function onSpellPathSelect(name: string, code: string | null): void {
   emit('add-instance', props.ability.ruleCode, name, code);
 }
 
+/** Видимая причина, почему карточку пути нельзя изучить (null — можно или это не карточка пути). */
+function studyPathNotice(ability: EditorAbility): string | null {
+  if (!isSpellCatalogRow() || ability.derived) return null;
+  if (displayLevel(ability) > 0) return null;
+  if (!(ability.levels[0]?.met ?? true)) return null;
+
+  return canLearnSpell() ? null : spellLearnBlockedReason(ability);
+}
+
 /** Стоимость следующего уровня конкретного экземпляра. */
 function instanceNextCost(ability: EditorAbility, instance: EditorAbilityInstance): number {
   return zoneOf(ability)?.levelCosts[instance.level] ?? 0;
@@ -376,11 +385,6 @@ function chipBlockedReason(ability: EditorAbility, level: number): string | null
   if (chipEnabled(ability, level)) return null;
 
   return ability.levels.filter((entry) => entry.level <= level && !entry.met)[0]?.reason ?? 'Требования не выполнены';
-}
-
-/** Невыполненные требования-способности этого уровня. */
-function unmetRequirementsOf(ability: EditorAbility) {
-  return unmetLevelOf(ability)?.unmetAbilities ?? [];
 }
 
 function showRequirementChain(ability: EditorAbility): void {
@@ -882,23 +886,20 @@ function stepLabel(param: EditorAbilityParameter): string {
         :title="unmetLevelOf(ability)?.reason ?? ''"
       >
         <span>Требования:</span>
-        <template v-if="requirementLinks">
-          <v-chip
-            v-for="requirement in unmetRequirementsOf(ability)"
-            :key="`${requirement.abilityCode}:${requirement.minLevel}`"
-            size="x-small"
-            variant="tonal"
-            color="primary"
-            class="ml-1"
-            @click.stop="showRequirementChain(ability)"
-          >
-            {{ requirement.label }}
-          </v-chip>
-          <v-btn size="x-small" variant="text" class="ml-1" @click.stop="showRequirementChain(ability)">
-            {{ unmetRequirementsOf(ability).length > 0 ? 'цепочка' : 'почему?' }}
-          </v-btn>
-        </template>
-        <template v-else>{{ unmetLevelOf(ability)?.reason }}</template>
+        <span class="ml-1">{{ unmetLevelOf(ability)?.reason }}</span>
+        <v-btn
+          v-if="requirementLinks"
+          size="x-small"
+          variant="text"
+          class="ml-1"
+          @click.stop="showRequirementChain(ability)"
+        >
+          Цепочка
+        </v-btn>
+      </div>
+      <div v-else-if="studyPathNotice(ability)" class="text-caption text-medium-emphasis mb-1">
+        <span>Изучение:</span>
+        <span class="ml-1">{{ studyPathNotice(ability) }}</span>
       </div>
       <div v-if="!ability.multiple && ability.domainRef && displayLevel(ability) > 0" class="ability-row__domain">
         <v-combobox

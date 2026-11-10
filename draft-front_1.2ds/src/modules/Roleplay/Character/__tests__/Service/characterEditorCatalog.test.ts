@@ -88,6 +88,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     const composite = model.abilities.find((ability) => ability.code === 'composite-magic-structures');
     expect(composite?.levels[0]?.met).toBe(true);
     expect(composite?.levels[0]?.unmetReasons ?? []).toEqual([]);
+    expect(composite?.domainOptions.some((option) => option.code === 'arcanist')).toBe(true);
   });
 
   it('после «Составных структур» 15 опыта и «Динамическое энергонасыщение» достижимы', () => {
