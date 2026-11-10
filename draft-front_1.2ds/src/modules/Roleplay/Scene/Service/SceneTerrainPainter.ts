@@ -191,8 +191,8 @@ export class SceneTerrainPainter {
       this.trace(graphics, element.shape, zoom);
       graphics.stroke({
         fill: this.patterns.patternOf(foam, this.materials.period('foam', resolution), element.id + 53),
-        width: Math.max(1.5, resolution * 0.42),
-        alpha: 0.65,
+        width: Math.max(1.5, resolution * 0.26),
+        alpha: 0.55,
         alignment: 0.5,
         join: 'round',
       });
