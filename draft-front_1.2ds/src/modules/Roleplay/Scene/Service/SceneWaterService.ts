@@ -39,8 +39,8 @@ const FLOW_SPEED_IPARI = 0.22;
 
 /** Слои поверхности: крупная и мелкая рябь с разным направлением. */
 const SURFACE_LAYERS: SurfaceLayer[] = [
-  { periodIpari: 2.4, angle: 0, alpha: 0.3, speedIpari: FLOW_SPEED_IPARI, skew: 0 },
-  { periodIpari: 1.15, angle: Math.PI / 5, alpha: 0.14, speedIpari: FLOW_SPEED_IPARI * 1.7, skew: 0.5 },
+  { periodIpari: 2.4, angle: 0, alpha: 0.24, speedIpari: FLOW_SPEED_IPARI, skew: 0 },
+  { periodIpari: 1.15, angle: Math.PI / 5, alpha: 0.12, speedIpari: FLOW_SPEED_IPARI * 1.7, skew: 0.5 },
 ];
 
 /** Разбиение окружности для воды-круга. */

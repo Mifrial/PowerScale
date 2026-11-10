@@ -128,7 +128,7 @@ export class SceneTerrainPainter {
 
     const tint = new Graphics();
     this.trace(tint, element.shape, zoom);
-    tint.fill({ color: 0x0f3346, alpha: bed === null ? 1 : 0.5 });
+    tint.fill({ color: 0x1c4a63, alpha: bed === null ? 1 : 0.22 });
     container.addChild(tint);
   }
 
@@ -141,7 +141,7 @@ export class SceneTerrainPainter {
       graphics.stroke({
         color: DEEP_COLOR,
         width: Math.max(1, (depth * ring) / DEPTH_RINGS),
-        alpha: 0.09,
+        alpha: 0.12,
         alignment: 1,
         join: 'round',
       });
