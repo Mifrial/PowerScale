@@ -116,7 +116,10 @@
 - [Система игр](game-system.md) — игра, бой, абстрактное движение, overlay, инвентарь и экономика.
 - [План Game 34](game-plan-34.md) — ручная правка листа в сессии (`game.manualSheet`).
 - [План Game 35](game-plan-35.md) — один журнал `game_command`.
-- [Система battleground](battleground-system.md) — тактическая сцена (`REQUIREMENT`, не реализована).
+- [Система локаций сцен](scene-system.md) — authoring-слой `SceneLocation`/`SceneBoard`, снимок и контракт копирования в Game.
+- [Рендерер локаций сцен](scene-renderer.md) — PixiJS v8/WebGL, слои, камера, hit-test и инстансинг.
+- [План локаций 1](scene-plan-01.md) — authoring-срез: список, редактор, сохранение.
+- [Система battleground](battleground-system.md) — `GameScene`, occupancy, LOS и движение; authoring-слой локаций вынесен в [`scene-system.md`](scene-system.md).
 - [Система Chat](chat-system.md) — host, attachments и plugin-контракты. PHP — [`chat-roadmap.md`](chat-roadmap.md).
 - [Пользователи и авторизация](auth-system.md) — профили, группы, права и сессии.
 - [Интерфейс и уведомления](ui-system.md) — UI-разделы, frontend-паттерны и незавершённые backend-контракты.

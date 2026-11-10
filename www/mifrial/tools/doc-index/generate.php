@@ -47,6 +47,7 @@ const MODULE_SLUGS = [
     'ui' => 'Core/UI',
     'home' => 'Roleplay/Home',
     'map' => 'Roleplay/Map',
+    'scene' => 'Roleplay/Scene',
     'spatial' => 'Roleplay/Map',
 ];
 

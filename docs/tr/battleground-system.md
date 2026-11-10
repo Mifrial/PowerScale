@@ -1,10 +1,12 @@
 # Система battleground
 
-**Статус:** ~ОТЛОЖЕН~, 2026-08-31 — второй релиз, весна 2027; в первый релиз не входит.
+**Статус:** ~ОТЛОЖЕН~, 2026-08-31 — второй релиз, весна 2027; в первый релиз не входит. Authoring-слой локаций (`SceneLocation`/`SceneBoard`) вынесен в [`scene-system.md`](scene-system.md) и ведётся отдельно; здесь остаются `GameScene`, occupancy, LOS, туман и движение.
 **Реализация:** ~НИГДЕ~ — код и тесты отсутствуют (`implementationStatus: NOT_IMPLEMENTED`).
 Источник: согласованный дизайн [`docs/specs/battlegroundLockedDecisions.md`](../specs/battlegroundLockedDecisions.md). Не текущий frontend/domain канон.
 
 Абстрактное движение (action/process, `ISpatialResolver` без координат сцены) остаётся в [`game-system.md`](game-system.md) (`DEC-026`). Этот документ — пространственная сцена и её связь с боем.
+
+Термин `SceneSpace` из старых текстов переименован в `SceneBoard`, чтобы не путать с `Versioning/Space`; `SceneTemplate` соответствует `SceneLocation` authoring-слоя. Серверный Core (Kernel, Auth/User, SmartTable, файлы) уже есть; authoring локаций от него не зависит.
 
 Физическая схема, URL, PHP-классы — `OPEN`. PHP сцены не начинать до серверного Core (конвейер запроса, Auth/User, SmartTable, файлы). Глаголы домена ниже — не REST.
 
@@ -24,7 +26,7 @@ Illumination в occupancy и формула `mapVis` — `REQUIREMENT`, даже
 
 ## Шаблоны и игровые сцены
 
-- `SceneTemplate` принадлежит автору; в первом релизе не шарится. Токены шаблона — декор и служебные, без PC/NPC.
+- `SceneTemplate` (`SceneLocation` authoring-слоя) принадлежит автору; в первом релизе не шарится. Токены шаблона — декор и служебные, без PC/NPC.
 - `GameScene` — независимый snapshot шаблона в игре, не live-ссылка. Дубль — новые ID токенов; ссылки на акторов сохраняются.
 - У игры несколько сцен enabled/disabled и ровно одна `current`.
 - `BattlemapView` — полноэкранный режим, не сущность хранения.
@@ -40,7 +42,7 @@ Illumination в occupancy и формула `mapVis` — `REQUIREMENT`, даже
 
 ## Пространства и опоры
 
-- `SceneSpace` — 2D-карта со своими координатами, подложкой и occupancy. Этаж дома — отдельное пространство, не номер слоя всей локации.
+- `SceneBoard` (ранее `SceneSpace`) — 2D-карта со своими координатами, подложкой и occupancy. Этаж дома — отдельное пространство, не номер слоя всей локации.
 - `Enclosure` — только если внутри **другая карта** (дом на поляне → этажи интерьера). Двор, кольцо частокола, атриум: стены на **том же** space, середина проходима, пятно не заливать как непрозрачный объём.
 - `SupportSurface` — земля, мост, крыша, верх стойки. Крыша и мост — опоры родителя, не вкладки.
 - Позиция токена: `{spaceId, x, y, supportId, altitude}`. Настил — сплошная плита (не проваливаться на дешёвый путь под мостом). Сквозь объём стойки по полу нельзя.
@@ -164,6 +166,8 @@ SSE: смена version, token, opening, current, knowledge — не 40k instanc
 
 ## Связанные документы
 
+- [`scene-system.md`](scene-system.md) — authoring-слой локаций, `SceneLocation`/`SceneBoard`, copy-to-game contract.
+- [`scene-renderer.md`](scene-renderer.md) — PixiJS/WebGL renderer локаций.
 - [`game-system.md`](game-system.md) — бой, абстрактное движение, overlay.
 - [`architecture.md`](architecture.md) — модуль `Roleplay/Game`, SSE `OPEN`.
 - [`data-model.md`](data-model.md) — `Core/File` для assets; таблиц сцены нет.
