@@ -67,7 +67,7 @@ final class GameSpellCastSaturation
             && ($check['needsCheck'] ?? false) === true
             && $rating >= $source->getMinRating()
         ) {
-            $maxSteps = intdiv($rating, $source->getRatingPerStep());
+            $maxSteps = max(0, intdiv($rating, $source->getRatingPerStep()));
         }
 
         return new GameSpellCastSaturationPlan($source, $rating, $maxSteps);
