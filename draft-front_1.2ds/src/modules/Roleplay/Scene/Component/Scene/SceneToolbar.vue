@@ -70,14 +70,12 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
           {{ entry.label }}
         </v-btn>
 
-        <div v-else class="scene-toolbar__split">
+        <v-btn-group v-else variant="tonal" divided rounded="lg" size="small" class="scene-toolbar__split">
           <v-btn
             :prepend-icon="groupTool(entry).icon"
-            size="small"
             :color="isGroupActive(entry) ? 'primary' : undefined"
-            :variant="isGroupActive(entry) ? 'flat' : 'tonal'"
+            :variant="isGroupActive(entry) ? 'flat' : undefined"
             :title="`Террейн: ${groupTool(entry).variant}`"
-            class="scene-toolbar__split-main"
             @click="emit('update:tool', groupTool(entry).id)"
           >
             {{ entry.label }}
@@ -86,13 +84,15 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
             <template #activator="{ props: menuProps }">
               <v-btn
                 v-bind="menuProps"
-                icon="mdi-menu-down"
-                size="small"
+                icon
                 :color="isGroupActive(entry) ? 'primary' : undefined"
-                :variant="isGroupActive(entry) ? 'flat' : 'tonal'"
+                :variant="isGroupActive(entry) ? 'flat' : undefined"
                 class="scene-toolbar__split-toggle"
+                aria-label="Варианты террейна"
                 title="Варианты террейна"
-              />
+              >
+                <v-icon size="18">mdi-chevron-down</v-icon>
+              </v-btn>
             </template>
             <v-list density="compact">
               <v-list-item
@@ -105,7 +105,7 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
               />
             </v-list>
           </v-menu>
-        </div>
+        </v-btn-group>
       </template>
     </div>
 
@@ -160,19 +160,12 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
 }
 
 .scene-toolbar__split {
-  display: flex;
-  align-items: stretch;
-}
-
-.scene-toolbar__split-main {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
+  gap: 0;
+  align-self: center;
 }
 
 .scene-toolbar__split-toggle {
-  min-width: 30px;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-  border-left: 1px solid rgba(255, 255, 255, 0.18);
+  padding-inline: 4px;
+  min-width: 0;
 }
 </style>
