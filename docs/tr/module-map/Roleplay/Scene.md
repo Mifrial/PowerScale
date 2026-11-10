@@ -47,7 +47,7 @@
 
 | Документ | Тип | Состояние | Дата |
 |---|---|---|---|
-| [scene-plan-01.md](../../scene-plan-01.md) | план | `~В РАБОТЕ~` | 2026-11-10 |
-| [scene-renderer.md](../../scene-renderer.md) | канон | `~В РАБОТЕ~` | 2026-11-10 |
+| [scene-plan-01.md](../../scene-plan-01.md) | план | `~В РАБОТЕ~` | 2026-11-11 |
+| [scene-renderer.md](../../scene-renderer.md) | канон | `~В РАБОТЕ~` | 2026-11-11 |
 | [scene-system.md](../../scene-system.md) | канон | `~В РАБОТЕ~` | 2026-11-10 |
 

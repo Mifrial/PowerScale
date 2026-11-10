@@ -1,7 +1,9 @@
 # План M4 — насыщение и остаток РУ
 
-**Статус:** ~ЧАСТИЧНО~, 2026-11-10. Срезы 5.1–5.5 реализованы;
-остались ручная проверка в dev и полный прогон (5.6).
+**Статус:** ~СДЕЛАНО~, 2026-11-11. Срезы 5.1–5.6 закрыты: полный
+`bash tools/test-full.sh` зелёный (static, backend 1589, frontend 2426),
+ручная проверка в dev сделана (насыщение, «Разряд», «Удар молнии»,
+«Аккуратное волшебство», «Пронзающее волшебство»).
 
 **Реализация:** ~PHP~, ~VUE~.
 
@@ -494,6 +496,8 @@ M3 подключил эффективность проверки. M4 подкл
 - Роудмап, эта карта, `composer maps`, `docs-check`.
 - Dev: `php bin/setup.php`, кастер с «Динамическим энергонасыщением» и
   «Межструктурными энергопереходами».
+- Закрыто 2026-11-11: `setup.php` выполнен, ручная проверка в dev пройдена,
+  полный `bash tools/test-full.sh` зелёный.
 
 ## 6. Тесты
 
@@ -637,3 +641,4 @@ Front (`vitest`):
 | 2026-11-10 | План заведён: двухфазный каст `check → resolve`, отложенный каст в `game_battle.pending_spell_cast`, пауза касания после закрытия удара, хвост `next_spell_cast_difficulty` в состоянии боя. |
 | 2026-11-10 | Перепроверка: ответ сохраняет конверт `cast`; `resolve` не перебрасывает; `GamePhpBattleContext`, а не мок-`GameBattleState`; хвост снимается в `declare` с флагом для касания; полный `pendingSpellCast` в результате удара; явные версии в `GameSpellCastWrite`. |
 | 2026-11-10 | Срезы 5.1–5.5 реализованы: `GameSpellCastSaturation`/`NextCast`/`Pending`, колонка `game_battle.pending_spell_cast`, фазы `check`/`resolve`/`abort`, пауза касания, хвост в `pending_action_effects`, фронт `SpellCastDialog`/`SpellSaturationPanel`/`SpellSaturationDialog`, баннер `GameChatTab`, `GameApi` и `battleVersion`. Юнит, MySQL и vitest зелёные; остались `php bin/setup.php` в dev, ручная проверка и полный прогон. |
+| 2026-11-11 | 5.6 закрыт: `php bin/setup.php` в dev, ручная проверка (насыщение «Динамическим энергонасыщением», повышение мощи, «Разряд», «Удар молнии», «Аккуратное» и «Пронзающее») и полный `tools/test-full.sh` — static 0, backend 1589 (3 skip), frontend 2426. Статус `~СДЕЛАНО~`. |

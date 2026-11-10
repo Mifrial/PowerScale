@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 346,
-        "plans": 225,
+        "documents": 347,
+        "plans": 226,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 249,
+            "tr": 250,
             "tz": 2
         },
         "byZoneState": {
@@ -70,10 +70,10 @@
             },
             "tr": {
                 "нет": 26,
-                "СДЕЛАНО": 146,
+                "СДЕЛАНО": 148,
                 "ОТЛОЖЕН": 4,
-                "ЧАСТИЧНО": 36,
-                "ПЛАН": 10,
+                "ЧАСТИЧНО": 34,
+                "ПЛАН": 11,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
                 "В РАБОТЕ": 18
@@ -86,10 +86,10 @@
         "byState": {
             "СНИМОК": 65,
             "нет": 57,
-            "СДЕЛАНО": 148,
-            "ПЛАН": 13,
+            "СДЕЛАНО": 150,
+            "ПЛАН": 14,
             "ОТЛОЖЕН": 8,
-            "ЧАСТИЧНО": 36,
+            "ЧАСТИЧНО": 34,
             "ОТМЕНЁН": 1,
             "В РАБОТЕ": 18
         }
@@ -275,19 +275,19 @@
             }
         },
         "Roleplay/Rule": {
-            "docs": 49,
+            "docs": 50,
             "state": {
                 "нет": 3,
-                "СДЕЛАНО": 21,
-                "ЧАСТИЧНО": 10,
+                "СДЕЛАНО": 23,
+                "ЧАСТИЧНО": 8,
                 "ОТЛОЖЕН": 3,
-                "ПЛАН": 5,
+                "ПЛАН": 6,
                 "В РАБОТЕ": 7
             },
             "layer": {
-                "VUE": 19,
+                "VUE": 20,
                 "МОК": 2,
-                "PHP": 15
+                "PHP": 16
             }
         },
         "Roleplay/RuleSpace": {
@@ -3457,10 +3457,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 28757,
-            "lines": 143,
+            "bytes": 29401,
+            "lines": 144,
             "modules": [],
-            "linksCount": 14,
+            "linksCount": 16,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -4785,6 +4785,7 @@
                 "docs/tr/spell-real-plan-02-spell-upgrades.md",
                 "docs/tr/spell-real-plan-03-check-efficiency.md",
                 "docs/tr/spell-real-plan-04-saturation.md",
+                "docs/tr/spell-real-plan-05-magic-deviation.md",
                 "docs/tr/spell-real-roadmap.md",
                 "docs/tr/spell-roadmap.md"
             ]
@@ -7624,16 +7625,16 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — M1–M3 готовы; M4.1 (единицы, сетка, раскладка), M4.2 (геометрия и террейн), M4.3 (компактные значения, превью, полигон) и M4.4 (лента, Безье, панели, история) сделаны.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-11 — M1–M3 готовы; M4.1 (единицы, сетка, раскладка), M4.2 (геометрия и террейн), M4.3 (компактные значения, превью, полигон) и M4.4 (лента, Безье, панели, история) сделаны. T2.1–T2.4 (материалы, кромка, вода, декор, превью, пресеты) сделаны; следующий шаг — T1.",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "PHP",
-            "date": "2026-11-10",
-            "bytes": 15536,
-            "lines": 247,
+            "date": "2026-11-11",
+            "bytes": 23206,
+            "lines": 359,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7654,16 +7655,16 @@
             "kind": "canon",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — просмотр и редактор на PixiJS готовы; инстансинг, LOD и fog — в плане.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-11 — просмотр и редактор на PixiJS готовы; материалы террейна, кромка, вода, декор-спрайты и превью сделаны; инстансинг, LOD и fog — в плане.",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "МОК",
-            "date": "2026-11-10",
-            "bytes": 13463,
-            "lines": 197,
+            "date": "2026-11-11",
+            "bytes": 21433,
+            "lines": 283,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7672,6 +7673,7 @@
             "backlinks": [
                 "docs/tr/TR.md",
                 "docs/tr/battleground-system.md",
+                "docs/tr/decisions.md",
                 "docs/tr/scene-plan-01.md",
                 "docs/tr/scene-system.md",
                 "docs/tr/spatial-roadmap.md"
@@ -7692,8 +7694,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 20584,
-            "lines": 319,
+            "bytes": 22184,
+            "lines": 338,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7702,6 +7704,7 @@
             "backlinks": [
                 "docs/tr/TR.md",
                 "docs/tr/battleground-system.md",
+                "docs/tr/decisions.md",
                 "docs/tr/scene-plan-01.md",
                 "docs/tr/scene-renderer.md",
                 "docs/tr/spatial-roadmap.md"
@@ -8661,6 +8664,7 @@
                 "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/spell-plan-02-slice.md",
                 "docs/tr/spell-plan-08-runtime-expansion.md",
+                "docs/tr/spell-real-plan-05-magic-deviation.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -8716,6 +8720,7 @@
                 "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/spell-real-plan-03-check-efficiency.md",
                 "docs/tr/spell-real-plan-04-saturation.md",
+                "docs/tr/spell-real-plan-05-magic-deviation.md",
                 "docs/tr/spell-real-roadmap.md"
             ]
         },
@@ -8724,17 +8729,17 @@
             "title": "План M3 — эффективность проверки сотворения",
             "zone": "tr",
             "kind": "plan",
-            "state": "ЧАСТИЧНО",
+            "state": "СДЕЛАНО",
             "stateSource": "token",
-            "statusRaw": "~ЧАСТИЧНО~, 2026-11-10. Срезы 3.0–3.3 реализованы;",
+            "statusRaw": "~СДЕЛАНО~, 2026-11-11. Срезы 3.0–3.4 закрыты: полный",
             "layers": [
                 "PHP",
                 "VUE"
             ],
             "basis": "PHP",
-            "date": "2026-11-10",
-            "bytes": 34342,
-            "lines": 400,
+            "date": "2026-11-11",
+            "bytes": 34694,
+            "lines": 402,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -8750,21 +8755,47 @@
             "title": "План M4 — насыщение и остаток РУ",
             "zone": "tr",
             "kind": "plan",
-            "state": "ЧАСТИЧНО",
+            "state": "СДЕЛАНО",
             "stateSource": "token",
-            "statusRaw": "~ЧАСТИЧНО~, 2026-11-10. Срезы 5.1–5.5 реализованы;",
+            "statusRaw": "~СДЕЛАНО~, 2026-11-11. Срезы 5.1–5.6 закрыты: полный",
             "layers": [
                 "PHP",
                 "VUE"
             ],
             "basis": "PHP",
-            "date": "2026-11-10",
-            "bytes": 43600,
-            "lines": 640,
+            "date": "2026-11-11",
+            "bytes": 44403,
+            "lines": 645,
             "modules": [
                 "Roleplay/Rule"
             ],
             "linksCount": 6,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/spell-real-plan-05-magic-deviation.md",
+                "docs/tr/spell-real-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/spell-real-plan-05-magic-deviation.md",
+            "title": "План M5 — магическое отклонение",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "ПЛАН",
+            "stateSource": "token",
+            "statusRaw": "~ПЛАН~, 2026-11-11.",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-11",
+            "bytes": 24659,
+            "lines": 391,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 7,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/spell-real-roadmap.md"
@@ -8784,12 +8815,12 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 26431,
-            "lines": 326,
+            "bytes": 27754,
+            "lines": 334,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 10,
+            "linksCount": 11,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-46-spell-cast.md",
@@ -8797,6 +8828,7 @@
                 "docs/tr/spell-real-plan-02-spell-upgrades.md",
                 "docs/tr/spell-real-plan-03-check-efficiency.md",
                 "docs/tr/spell-real-plan-04-saturation.md",
+                "docs/tr/spell-real-plan-05-magic-deviation.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -8827,7 +8859,8 @@
                 "docs/tr/spell-plan-07-runtime-slice.md",
                 "docs/tr/spell-plan-08-runtime-expansion.md",
                 "docs/tr/spell-plan-09-magic-runtime.md",
-                "docs/tr/spell-real-plan-03-check-efficiency.md"
+                "docs/tr/spell-real-plan-03-check-efficiency.md",
+                "docs/tr/spell-real-plan-05-magic-deviation.md"
             ]
         },
         {

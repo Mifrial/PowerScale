@@ -3105,6 +3105,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/spell-real-plan-05-magic-deviation.md",
+                    "title": "План M5 — магическое отклонение",
+                    "kind": "plan",
+                    "state": "ПЛАН",
+                    "date": "2026-11-11",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/spell-real-roadmap.md",
                     "title": "Роудмап магии: реальный runtime",
                     "kind": "plan",
@@ -3227,22 +3235,6 @@
                 {
                     "path": "docs/tr/spell-real-plan-02-spell-upgrades.md",
                     "title": "План M2 — улучшения каста",
-                    "kind": "plan",
-                    "state": "ЧАСТИЧНО",
-                    "date": "2026-11-10",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/spell-real-plan-03-check-efficiency.md",
-                    "title": "План M3 — эффективность проверки сотворения",
-                    "kind": "plan",
-                    "state": "ЧАСТИЧНО",
-                    "date": "2026-11-10",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/spell-real-plan-04-saturation.md",
-                    "title": "План M4 — насыщение и остаток РУ",
                     "kind": "plan",
                     "state": "ЧАСТИЧНО",
                     "date": "2026-11-10",
@@ -3446,6 +3438,22 @@
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-09-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-03-check-efficiency.md",
+                    "title": "План M3 — эффективность проверки сотворения",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-04-saturation.md",
+                    "title": "План M4 — насыщение и остаток РУ",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-11",
                     "hasStatus": true
                 },
                 {
@@ -3689,7 +3697,7 @@
                     "title": "Локации сцен: authoring-срез",
                     "kind": "plan",
                     "state": "В РАБОТЕ",
-                    "date": "2026-11-10",
+                    "date": "2026-11-11",
                     "hasStatus": true
                 },
                 {
@@ -3697,7 +3705,7 @@
                     "title": "Рендерер локаций сцен",
                     "kind": "canon",
                     "state": "В РАБОТЕ",
-                    "date": "2026-11-10",
+                    "date": "2026-11-11",
                     "hasStatus": true
                 },
                 {

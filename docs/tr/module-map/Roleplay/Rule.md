@@ -45,6 +45,7 @@
 | [rule-content-plan-04-knowledge.md](../../rule-content-plan-04-knowledge.md) | план | `~ПЛАН~` | 2026-09-13 |
 | [rule-content-plan-09-melee-speed.md](../../rule-content-plan-09-melee-speed.md) | план | `~ПЛАН~` | 2026-09-16 |
 | [rule-content-plan-12-dodge-benefit.md](../../rule-content-plan-12-dodge-benefit.md) | план | `~ПЛАН~` | 2026-09-19 |
+| [spell-real-plan-05-magic-deviation.md](../../spell-real-plan-05-magic-deviation.md) | план | `~ПЛАН~` | 2026-11-11 |
 | [spell-real-roadmap.md](../../spell-real-roadmap.md) | план | `~ПЛАН~` | 2026-11-09 |
 | [spell-review-01.md](../../spell-review-01.md) | канон | `~ПЛАН~` | 2026-09-07 |
 | [rule-content-plan-07-languages.md](../../rule-content-plan-07-languages.md) | план | `~В РАБОТЕ~` | 2026-09-15 |
@@ -61,8 +62,6 @@
 | [rule-roadmap.md](../../rule-roadmap.md) | план | `~ЧАСТИЧНО~` | 2026-10-05 |
 | [spell-real-plan-01-action-components.md](../../spell-real-plan-01-action-components.md) | план | `~ЧАСТИЧНО~` | 2026-11-09 |
 | [spell-real-plan-02-spell-upgrades.md](../../spell-real-plan-02-spell-upgrades.md) | план | `~ЧАСТИЧНО~` | 2026-11-10 |
-| [spell-real-plan-03-check-efficiency.md](../../spell-real-plan-03-check-efficiency.md) | план | `~ЧАСТИЧНО~` | 2026-11-10 |
-| [spell-real-plan-04-saturation.md](../../spell-real-plan-04-saturation.md) | план | `~ЧАСТИЧНО~` | 2026-11-10 |
 | [spell-roadmap.md](../../spell-roadmap.md) | план | `~ЧАСТИЧНО~` | 2026-09-07 |
 | [rule-content-plan-03-senses.md](../../rule-content-plan-03-senses.md) | план | `~ОТЛОЖЕН~` | — |
 | [rule-content-plan-14-future-ability-ideas.md](../../rule-content-plan-14-future-ability-ideas.md) | план | `~ОТЛОЖЕН~` | — |
@@ -88,6 +87,8 @@
 | [spell-plan-07-runtime-slice.md](../../spell-plan-07-runtime-slice.md) | план | `~СДЕЛАНО~` | 2026-09-10 |
 | [spell-plan-08-runtime-expansion.md](../../spell-plan-08-runtime-expansion.md) | план | `~СДЕЛАНО~` | 2026-09-11 |
 | [spell-plan-09-magic-runtime.md](../../spell-plan-09-magic-runtime.md) | план | `~СДЕЛАНО~` | 2026-09-11 |
+| [spell-real-plan-03-check-efficiency.md](../../spell-real-plan-03-check-efficiency.md) | план | `~СДЕЛАНО~` | 2026-11-11 |
+| [spell-real-plan-04-saturation.md](../../spell-real-plan-04-saturation.md) | план | `~СДЕЛАНО~` | 2026-11-11 |
 | [rule-content-queue.md](../../rule-content-queue.md) | канон | ? | 2026-09-16 |
 | [rule-system.md](../../rule-system.md) | канон | ? | 2026-08-30 |
 
