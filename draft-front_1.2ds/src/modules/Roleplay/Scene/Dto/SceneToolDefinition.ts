@@ -16,4 +16,8 @@ export interface SceneToolDefinition {
   group?: string;
   /** Подпись варианта внутри группы. */
   variant?: string;
+  /** Ширина ленты в ипари для пресета. */
+  widthIpari?: number;
+  /** Ширина кромки в ипари для пресета. */
+  shoreWidthIpari?: number;
 }

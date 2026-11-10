@@ -305,13 +305,13 @@ export function useSceneDraft(initial: SceneDetail) {
   }
 
   /** Создаёт элемент по инструменту и геометрии. */
-  function createElement(tool: SceneToolDefinition, shape: SceneShape): number | null {
+  function createElement(tool: SceneToolDefinition, shape: SceneShape, props?: SceneElementProps): number | null {
     const boardId = draft.value.activeBoardId;
     if (boardId === null || tool.kind === null) {
       return null;
     }
 
-    const element = service.addElement(draft.value, boardId, tool.kind, shape, tool.props);
+    const element = service.addElement(draft.value, boardId, tool.kind, shape, { ...tool.props, ...props });
     draft.value.elements = [...draft.value.elements];
     selection.value = [element.id];
     markDirty();
@@ -340,12 +340,17 @@ export function useSceneDraft(initial: SceneDetail) {
   }
 
   /** Создаёт ленту по кликам: постоянная ширина и плавные ручки. */
-  function createPath(tool: SceneToolDefinition, points: ScenePoint[], width: number): number | null {
+  function createPath(
+    tool: SceneToolDefinition,
+    points: ScenePoint[],
+    width: number,
+    props?: SceneElementProps,
+  ): number | null {
     if (points.length < 2) {
       return null;
     }
 
-    return createElement(tool, service.pathShape(points, width));
+    return createElement(tool, service.pathShape(points, width), props);
   }
 
   /** Меняет свойства элемента. */
