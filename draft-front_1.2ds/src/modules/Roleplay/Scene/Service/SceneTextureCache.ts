@@ -1,5 +1,4 @@
-import type { Texture } from 'pixi.js';
-import { Assets } from 'pixi.js';
+import { Texture } from 'pixi.js';
 import { getFileApi } from '@/modules/Core/File/init';
 
 /**
@@ -17,12 +16,22 @@ export class SceneTextureCache {
     await Promise.all(
       missing.map(async (publicId) => {
         try {
-          this.textures.set(publicId, await Assets.load<Texture>(getFileApi().getViewUrl(publicId)));
+          this.textures.set(publicId, await this.loadImage(getFileApi().getViewUrl(publicId)));
         } catch {
           this.textures.set(publicId, null);
         }
       }),
     );
+  }
+
+  /** Загружает картинку по URL и оборачивает её в текстуру Pixi. */
+  private async loadImage(url: string): Promise<Texture> {
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.src = url;
+    await image.decode();
+
+    return Texture.from(image);
   }
 
   /** Текстура по внешнему id или null. */
