@@ -1019,6 +1019,115 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Провал проверки сотворения даёт 2d6 и состояние на источнике.
+     *
+     * @return void
+     */
+    public function testFailedSpellCastRollsDeviationAndAddsState(): void
+    {
+        $scene = $this->spellScene(withDeviation: true, lowPower: true);
+        $body = $this->spellCheckBody($scene, 'deviation-1', 'check', 1);
+        $body['action']['context']['parameters'] = ['x' => ['base' => 5, 'size' => 1]];
+        $body['action']['context']['usedPower']['value'] = ['base' => 3, 'size' => 0];
+
+        $cast = $this->dispatch('game.runAction', $body);
+        self::assertTrue($cast['success'], json_encode($cast));
+        $data = $cast['data'];
+        if (($data['phase'] ?? null) === 'check') {
+            self::assertIsArray($data['deviation'] ?? null);
+            $resolved = $this->dispatch('game.runAction', $this->spellResolveBody(
+                $scene,
+                (string) $data['castId'],
+                0,
+                (int) $data['version'],
+            ));
+            self::assertTrue($resolved['success'], json_encode($resolved));
+            $data = $resolved['data'];
+        }
+
+        self::assertFalse($data['cast']['castOk'] ?? true);
+        $deviation = $data['deviation'] ?? null;
+        self::assertIsArray($deviation);
+        self::assertSame(($deviation['faceSum'] ?? 0) - 7, $deviation['strength']);
+        self::assertNull($data['spellDamage']);
+
+        $states = $this->characterFacade()->get($scene['hero'])->getSheet()['states'] ?? [];
+        $deviationRows = array_values(array_filter(
+            $states,
+            static fn (array $row): bool => ($row['stateRuleCode'] ?? null) === 'core-magic-deviation'
+                && ($row['boundSourceKey'] ?? null) === 'characteristic:magic-power',
+        ));
+        if (($deviation['hasEffect'] ?? false) === true) {
+            self::assertCount(1, $deviationRows);
+            self::assertSame($deviation['strength'], $deviationRows[0]['value'] ?? null);
+        } else {
+            self::assertCount(0, $deviationRows);
+        }
+    }
+
+    /**
+     * Дубль отклонения открывает паузу и бьёт по списку целей.
+     *
+     * @return void
+     */
+    public function testDeviationDoublesBurstHitsRequestedTargets(): void
+    {
+        $scene = $this->spellScene(
+            withDeviation: true,
+            lowPower: true,
+            deviationOverride: ['dice_count' => 1, 'neutral_sum' => 0],
+        );
+        $body = $this->spellCheckBody($scene, 'deviation-1', 'check', 1);
+        $body['action']['context']['parameters'] = ['x' => ['base' => 5, 'size' => 1]];
+        $body['action']['context']['usedPower']['value'] = ['base' => 3, 'size' => 0];
+
+        $cast = $this->dispatch('game.runAction', $body);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame('check', $cast['data']['phase'] ?? null, json_encode($cast['data'], JSON_UNESCAPED_UNICODE));
+        $deviation = $cast['data']['deviation'] ?? null;
+        self::assertIsArray($deviation);
+        self::assertTrue($deviation['isDoubles']);
+        self::assertSame(3, $deviation['burst']['radius'] ?? null);
+
+        $resolved = $this->dispatch('game.runAction', $this->spellResolveBody(
+            $scene,
+            (string) $cast['data']['castId'],
+            0,
+            (int) $cast['data']['version'],
+            [['type' => 'npc', 'id' => $scene['npcId'], 'distanceIpari' => 1]],
+        ));
+        self::assertTrue($resolved['success'], json_encode($resolved));
+        $burst = $resolved['data']['burst'] ?? null;
+        self::assertIsArray($burst);
+        self::assertCount(2, $burst);
+        $keys = array_map(
+            static fn (array $row): string => $row['target']['type'] . ':' . $row['target']['id'],
+            $burst,
+        );
+        self::assertContains('character:' . $scene['hero'], $keys);
+        self::assertContains('npc:' . $scene['npcId'], $keys);
+        self::assertGreaterThan(
+            $scene['targetVersion'],
+            $this->dispatch('game.getNpc', ['gameId' => $scene['gameId'], 'npcId' => $scene['npcId']])
+                ['data']['actualVersion'],
+        );
+
+        $states = $this->characterFacade()->get($scene['hero'])->getSheet()['states'] ?? [];
+        $rows = array_values(array_filter(
+            $states,
+            static fn (array $row): bool => ($row['stateRuleCode'] ?? null) === 'core-magic-deviation',
+        ));
+        self::assertCount(1, $rows);
+        self::assertSame($deviation['strength'], $rows[0]['value'] ?? null);
+
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->chatMessages($scene['gameId']),
+        );
+        self::assertNotFalse($this->messageIndexOf($contents, 'взрыв'));
+    }
+
+    /**
      * Без ОД каст отклоняется до записи.
      *
      * @return void
@@ -1413,11 +1522,17 @@ final class GameStrikeMysqlTest extends TestCase
      * @param string $castId Ключ каста.
      * @param int $steps Шаги насыщения.
      * @param int $version Версия боя.
+     * @param array<int, array{type: string, id: int, distanceIpari: int}> $burstTargets Цели взрыва.
      *
      * @return array<string, mixed> Тело.
      */
-    private function spellResolveBody(array $scene, string $castId, int $steps, int $version): array
-    {
+    private function spellResolveBody(
+        array $scene,
+        string $castId,
+        int $steps,
+        int $version,
+        array $burstTargets = [],
+    ): array {
         return [
             'gameId' => $scene['gameId'],
             'battleId' => $scene['battleId'],
@@ -1426,7 +1541,11 @@ final class GameStrikeMysqlTest extends TestCase
             'action' => [
                 'phase' => 'resolve',
                 'kind' => 'spell',
-                'context' => ['castId' => $castId, 'saturationSteps' => $steps],
+                'context' => [
+                    'castId' => $castId,
+                    'saturationSteps' => $steps,
+                    ...($burstTargets === [] ? [] : ['burstTargets' => $burstTargets]),
+                ],
             ],
         ];
     }
@@ -1486,8 +1605,18 @@ final class GameStrikeMysqlTest extends TestCase
         array $targetAbilities = [],
         array $extraCards = [],
         ?string $targetRaceCode = null,
+        bool $withDeviation = false,
+        bool $lowPower = false,
+        array $deviationOverride = [],
     ): array {
-        $world = $this->spellWorld($occupyHands, $extraCards, $extraRules);
+        $world = $this->spellWorld(
+            $occupyHands,
+            $extraCards,
+            $extraRules,
+            $withDeviation,
+            $lowPower,
+            $deviationOverride,
+        );
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
         $hero = $this->admit(
             $world->getId(),
@@ -1541,14 +1670,51 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return RuleSpaceRecord Мир.
      */
-    private function spellWorld(?array $occupyHands = null, array $extraCards = [], array $extraRules = []): RuleSpaceRecord
-    {
+    private function spellWorld(
+        ?array $occupyHands = null,
+        array $extraCards = [],
+        array $extraRules = [],
+        bool $withDeviation = false,
+        bool $lowPower = false,
+        array $deviationOverride = [],
+    ): RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
         try {
             $shockId = $mechanics->add('exhaustion_to_shock', 'Shock', '', '1.0.0');
         } catch (MechanicInvalidException) {
             $shockId = $mechanics->getByCodeVersion('exhaustion_to_shock', '1.0.0')->getId();
+        }
+
+        if ($withDeviation) {
+            try {
+                $deviationId = $mechanics->add('spell_deviation', 'Deviation', '', '1.0.0');
+            } catch (MechanicInvalidException) {
+                $deviationId = $mechanics->getByCodeVersion('spell_deviation', '1.0.0')->getId();
+            }
+
+            $extraRules['core-magic-deviation'] = [
+                'type' => 'state',
+                'spec' => ['value_type' => 'number', 'aggregation' => 'independent', 'magic_deviation' => true],
+            ];
+            $extraRules['spell-deviation'] = [
+                'type' => 'simple',
+                'mechanics' => [[
+                    'mechanic_id' => $deviationId,
+                    'mechanic_payload' => [
+                        'type' => 'spell_deviation',
+                        'data' => [
+                            'dice_count' => 2,
+                            'die_faces' => 6,
+                            'neutral_sum' => 7,
+                            'state_rule_code' => 'core-magic-deviation',
+                            'burst' => ['damage_type_code' => 'electricity', 'success_rating' => 1],
+                            ...$deviationOverride,
+                        ],
+                    ],
+                ]],
+                'spec' => ['type' => 'simple'],
+            ];
         }
 
         return $this->worldWithWeapon(
@@ -1684,7 +1850,9 @@ final class GameStrikeMysqlTest extends TestCase
                 ],
                 'magic-power' => [
                     'type' => 'characteristic',
-                    'spec' => ['automatic' => ['value' => ['base' => 5, 'size' => 1]]],
+                    'spec' => ['automatic' => ['value' => $lowPower
+                        ? ['base' => 3, 'size' => 0]
+                        : ['base' => 5, 'size' => 1]]],
                 ],
                 'magic-control' => [
                     'type' => 'characteristic',
@@ -1696,6 +1864,7 @@ final class GameStrikeMysqlTest extends TestCase
                     'difficulty_input' => ['kind' => 'ask'],
                     'characteristic_code' => 'intellect',
                     'allow_characteristic_override' => true,
+                    ...($withDeviation ? ['failure_rule_codes' => ['spell-deviation']] : []),
                 ]],
                 'arcanist' => ['type' => 'magic_path', 'spec' => [
                     'check_code' => 'cast-check',

@@ -90,13 +90,17 @@ final class GameRunActionSpellBody
      * @param array<string, mixed> $context Контекст.
      * @param string $phase Фаза resolve или abort.
      *
-     * @return array{castId: string, saturationSteps?: int} Контекст.
+     * @return array{castId: string, saturationSteps?: int, burstTargets?: mixed} Контекст.
      *
      * @throws \Mifrial\Core\Kernel\Exception\ActionException INVALID_PARAMS.
      */
     public function phase(array $context, string $phase): array
     {
         $allowed = $phase === 'resolve' ? ['castId', 'saturationSteps'] : ['castId'];
+        if ($phase === 'resolve' && array_key_exists('burstTargets', $context)) {
+            $allowed[] = 'burstTargets';
+        }
+
         $this->fields->assertKeys($context, $allowed, 'spell phase');
         $castId = $context['castId'] ?? null;
         if (!is_string($castId) || $castId === '') {
@@ -107,6 +111,7 @@ final class GameRunActionSpellBody
             return [
                 'castId' => $castId,
                 'saturationSteps' => (new GameSpellCastSaturationSteps())->parse($context['saturationSteps'] ?? null),
+                'burstTargets' => $context['burstTargets'] ?? null,
             ];
         }
 

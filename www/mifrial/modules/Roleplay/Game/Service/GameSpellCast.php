@@ -861,7 +861,7 @@ final class GameSpellCast
         $castBody = $this->pending->bodyOf($pendingCast, $game->getId(), $battleId);
         $deviation = is_array($pendingCast['deviation'] ?? null) ? $pendingCast['deviation'] : null;
         $versions = $this->resolveWrite($game, $prepared, $castBody, $damage, $pendingCast, $deviation);
-        $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $castBody);
+        $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $body);
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
         $saved = $this->repos->battles->finishSpellCast($battleId, $expected, $pending);
         $this->repos->actions->close($pendingCast['actionId']);
