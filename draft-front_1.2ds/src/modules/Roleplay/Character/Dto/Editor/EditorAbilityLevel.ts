@@ -7,6 +7,8 @@ export interface EditorAbilityLevel {
   met: boolean;
   /** Причина невыполнения (null — выполнено). */
   reason: string | null;
+  /** Все невыполненные требования уровня по отдельности: способности, опыт, признаки, характеристики. */
+  unmetReasons?: string[];
   /** Невыполненные требования-способности: из них строится цепочка покупки. */
   unmetAbilities?: UnmetAbility[];
 }

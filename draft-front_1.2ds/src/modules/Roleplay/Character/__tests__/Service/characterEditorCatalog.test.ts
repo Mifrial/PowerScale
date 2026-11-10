@@ -3,8 +3,10 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import { CharacterEditorService } from '@/modules/Roleplay/Character/Service/CharacterEditorService';
+import { EditorMagicPathViewsService } from '@/modules/Roleplay/Character/Service/EditorMagicPathViewsService';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
+import { keywords as fullKeywords } from '@/modules/Roleplay/Keyword/Mock/mockKeywords';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
@@ -65,6 +67,54 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(codes.has('magic-structure-overview')).toBe(true);
     expect(codes.has('dynamic-energy-saturation')).toBe(true);
     expect(codes.has('basic-element-properties')).toBe(true);
+  });
+
+  it('цепочка Арканиста: 10 опыта и «Составные структуры» достижимы', () => {
+    let build = makeBuild({ rulesRevision: 47, olTotal: 0 });
+    for (const code of ['estestvoznanie', 'becoming-arcanist', 'structure-substitution']) {
+      build = characterBuildService.setAbilityLevel(build, code, 1, ruleCatalog, { zone: 'or' });
+    }
+    for (const code of ['discharge', 'careful-magic', 'interstructure-energy-transfer', 'piercing-magic']) {
+      build = characterBuildService.addAbilityInstance(build, code, 'Арканист', ruleCatalog, {
+        zone: 'or',
+        domainCode: 'arcanist',
+      });
+    }
+
+    const paths = new EditorMagicPathViewsService().build(build, ruleCatalog, fullKeywords);
+    const arcanist = paths.find((entry) => entry.pathCode === 'arcanist');
+    expect(arcanist?.experience).toBeGreaterThanOrEqual(10);
+    const model = service.build(build, ruleCatalog, { ...config, orTotal: 40 }, fullKeywords);
+    const composite = model.abilities.find((ability) => ability.code === 'composite-magic-structures');
+    expect(composite?.levels[0]?.met).toBe(true);
+    expect(composite?.levels[0]?.unmetReasons ?? []).toEqual([]);
+  });
+
+  it('после «Составных структур» 15 опыта и «Динамическое энергонасыщение» достижимы', () => {
+    let build = makeBuild({ rulesRevision: 47, olTotal: 0 });
+    for (const code of ['estestvoznanie', 'becoming-arcanist', 'structure-substitution']) {
+      build = characterBuildService.setAbilityLevel(build, code, 1, ruleCatalog, { zone: 'or' });
+    }
+    for (const code of ['discharge', 'careful-magic', 'interstructure-energy-transfer', 'piercing-magic']) {
+      build = characterBuildService.addAbilityInstance(build, code, 'Арканист', ruleCatalog, {
+        zone: 'or',
+        domainCode: 'arcanist',
+      });
+    }
+    build = characterBuildService.setAbilityLevel(build, 'composite-magic-structures', 1, ruleCatalog, { zone: 'or' });
+    for (const code of ['lightning-strike', 'magic-perception']) {
+      build = characterBuildService.addAbilityInstance(build, code, 'Арканист', ruleCatalog, {
+        zone: 'or',
+        domainCode: 'arcanist',
+      });
+    }
+
+    const paths = new EditorMagicPathViewsService().build(build, ruleCatalog, fullKeywords);
+    const arcanist = paths.find((entry) => entry.pathCode === 'arcanist');
+    expect(arcanist?.experience).toBeGreaterThanOrEqual(15);
+    const model = service.build(build, ruleCatalog, { ...config, orTotal: 40 }, fullKeywords);
+    const saturation = model.abilities.find((ability) => ability.code === 'dynamic-energy-saturation');
+    expect(saturation?.levels[0]?.met).toBe(true);
   });
 
   it('вид human: расы-дети несут cost_os и характеристики', () => {

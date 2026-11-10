@@ -292,6 +292,9 @@ describe('RequirementEvaluator', () => {
     expect(evaluator.evaluate({ type: 'has_magic_path', path_code: 'psionic' }, snapshot)).toBe(false);
     expect(evaluator.evaluate({ type: 'magic_path_experience', path_code: 'psionic', min: 6 }, withPath)).toBe(true);
     expect(evaluator.evaluate({ type: 'magic_path_experience', path_code: 'psionic', min: 7 }, withPath)).toBe(false);
+    expect(evaluator.firstFailure([{ type: 'magic_path_experience', path_code: 'psionic', min: 7 }], withPath)).toBe(
+      'требуется опыт пути «Псионик» от 7 (сейчас 6)',
+    );
   });
 
   it('has_ability в домене пути учитывает includes_path_codes', () => {

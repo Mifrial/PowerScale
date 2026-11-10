@@ -40,6 +40,11 @@ export class RequirementEvaluator {
     return reasons.length === 0 ? null : reasons.join('; ');
   }
 
+  /** Все невыполненные причины списка по отдельности (неявное И). */
+  failureReasons(requirements: Requirement[], snapshot: CharacterSnapshot, domainContext?: string): string[] {
+    return this.collectFailureReasons(requirements, snapshot, domainContext);
+  }
+
   /**
    * Невыполненные требования-способности списка. В `or` возвращаются все
    * альтернативы: любую из них достаточно купить.
@@ -80,11 +85,15 @@ export class RequirementEvaluator {
     return result;
   }
 
-  private failureReasons(requirements: Requirement[], snapshot: CharacterSnapshot, domainContext?: string): string[] {
+  private collectFailureReasons(
+    requirements: Requirement[],
+    snapshot: CharacterSnapshot,
+    domainContext?: string,
+  ): string[] {
     const reasons: string[] = [];
     for (const requirement of requirements) {
       if (requirement.type === 'and') {
-        reasons.push(...this.failureReasons(requirement.children, snapshot, domainContext));
+        reasons.push(...this.collectFailureReasons(requirement.children, snapshot, domainContext));
         continue;
       }
       const reason = this.failureReason(requirement, snapshot, domainContext);
@@ -128,7 +137,10 @@ export class RequirementEvaluator {
         }
         if (count >= requirement.min_count) return null;
 
-        return `требуется признак «${this.keywordName(requirement.keyword_code, snapshot)}» на ${requirement.min_count} способностях`;
+        const excludedNames = [...excluded].map((code) => `«${this.keywordName(code, snapshot)}»`).join(', ');
+        const excludedHint = excludedNames === '' ? '' : ` (кроме признаков ${excludedNames})`;
+
+        return `требуется признак «${this.keywordName(requirement.keyword_code, snapshot)}» на ${requirement.min_count} способностях${excludedHint}`;
       }
       case 'has_keyword': {
         if (snapshot.keywordCodes.has(requirement.keyword_code)) return null;
@@ -176,7 +188,7 @@ export class RequirementEvaluator {
         const experience = snapshot.magicPathExperience?.get(requirement.path_code) ?? 0;
         if (experience >= requirement.min) return null;
 
-        return `требуется опыт пути «${this.magicPathName(requirement.path_code, snapshot)}» от ${requirement.min}`;
+        return `требуется опыт пути «${this.magicPathName(requirement.path_code, snapshot)}» от ${requirement.min} (сейчас ${experience})`;
       }
       case 'resource_limit': {
         const limit = snapshot.resourceLimits.get(requirement.resource_code);

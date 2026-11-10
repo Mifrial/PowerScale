@@ -1190,6 +1190,7 @@ export class CharacterEditorService {
           level,
           met: !hasRequirements || evaluator.evaluateAll(all, snapshot),
           reason: hasRequirements ? evaluator.failureSummary(all, snapshot) : null,
+          unmetReasons: hasRequirements ? evaluator.failureReasons(all, snapshot) : [],
           unmetAbilities: hasRequirements ? evaluator.unmetAbilities(all, snapshot) : [],
         });
       }
@@ -1221,6 +1222,7 @@ export class CharacterEditorService {
             level,
             met: !hasRequirements || evaluator.evaluateAll(all, snapshot, domainContext),
             reason: hasRequirements ? evaluator.failureSummary(all, snapshot, domainContext) : null,
+            unmetReasons: hasRequirements ? evaluator.failureReasons(all, snapshot, domainContext) : [],
             unmetAbilities: hasRequirements ? evaluator.unmetAbilities(all, snapshot, domainContext) : [],
           });
         }
@@ -1399,6 +1401,7 @@ export class CharacterEditorService {
     for (const level of levels) {
       level.met = false;
       level.reason = level.reason ? `${level.reason}; ${reason}` : reason;
+      level.unmetReasons = [...(level.unmetReasons ?? []), reason];
     }
   }
 
@@ -1424,6 +1427,9 @@ export class CharacterEditorService {
         level.reason = reason;
       } else if (!level.reason.includes(reason)) {
         level.reason = `${level.reason}; ${reason}`;
+      }
+      if (!(level.unmetReasons ?? []).includes(reason)) {
+        level.unmetReasons = [...(level.unmetReasons ?? []), reason];
       }
     }
   }

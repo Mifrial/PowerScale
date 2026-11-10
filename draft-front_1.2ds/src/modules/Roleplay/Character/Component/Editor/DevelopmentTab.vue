@@ -38,6 +38,9 @@ const availableOnly = ref(false);
 const acquiredOnly = ref(false);
 /** Цепочка требований: способность, для которой пользователь раскрыл предпосылки. */
 const requirementTarget = ref<EditorAbility | null>(null);
+/** Пояснение, если покупка не применилась (сервис молча вернул прежний черновик). */
+const purchaseNotice = ref<string | null>(null);
+const purchaseNoticeOpen = ref(false);
 
 const requirementTargetOpen = computed({
   get: () => requirementTarget.value !== null,
@@ -232,6 +235,15 @@ function abilityKey(row: DevelopmentAbilityRow): string {
 
 function setLevel(ruleCode: string, level: number): void {
   const next = characterBuildService.setAbilityLevel(props.build, ruleCode, level, props.rules, { zone: 'or' });
+  const applied = next.abilities.find((ability) => ability.ruleCode === ruleCode);
+  if (level > 0 && (applied?.level ?? 0) < level) {
+    const ability = props.model.abilities.find((entry) => entry.ruleCode === ruleCode);
+    const reason = ability?.levels[level - 1]?.reason ?? null;
+    purchaseNotice.value = `Не удалось приобрести «${ability?.name ?? ruleCode}»${reason ? `: ${reason}` : ''}`;
+    purchaseNoticeOpen.value = true;
+
+    return;
+  }
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
@@ -388,6 +400,12 @@ function setAbilityDomain(ruleCode: string, domain: string, domainCode: string |
       zone-code="or"
       @buy="buyRequirement"
     />
+    <v-snackbar v-model="purchaseNoticeOpen" color="warning" :timeout="7000" location="bottom">
+      {{ purchaseNotice }}
+      <template #actions>
+        <v-btn variant="text" @click="purchaseNoticeOpen = false">Закрыть</v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 

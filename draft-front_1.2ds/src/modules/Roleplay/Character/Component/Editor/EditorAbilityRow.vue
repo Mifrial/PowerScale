@@ -306,6 +306,17 @@ function learnSpell(): void {
   if (available.length > 1) pathDialogOpen.value = true;
 }
 
+/** Причина, по которой заклинание нельзя изучить (null — можно). */
+function spellLearnBlockedReason(ability: EditorAbility): string | null {
+  if (canLearnSpell()) return null;
+  if (props.lockedRuleCodes?.has(ability.ruleCode)) return 'Группа исчерпала лимит выбора';
+  if (ability.derived) return 'Уровень вычисляется автоматически';
+  if (!(ability.levels[0]?.met ?? true)) return ability.levels[0]?.reason ?? 'Требования не выполнены';
+  if (unusedSpellPaths.value.length === 0) return 'Все доступные пути уже изучены';
+
+  return 'Изучение сейчас недоступно';
+}
+
 function onSpellPathSelect(name: string, code: string | null): void {
   emit('add-instance', props.ability.ruleCode, name, code);
 }
@@ -335,6 +346,22 @@ function instanceBlockedReason(instance: EditorAbilityInstance): string | null {
 /** Первый невыполненный уровень способности. */
 function unmetLevelOf(ability: EditorAbility) {
   return ability.levels.find((entry) => !entry.met) ?? null;
+}
+
+/** Причина, по которой следующий уровень сейчас не купить (null — можно или потолок). */
+function purchaseBlockedReason(ability: EditorAbility): string | null {
+  if (canRaise(ability)) return null;
+  const next = ability.level + 1;
+  if (next > maxLevel(ability)) return `Достигнут максимальный уровень (${maxLevel(ability)})`;
+
+  return unmetLevelOf(ability)?.reason ?? 'Требования не выполнены';
+}
+
+/** Причина, по которой конкретный уровень массива сейчас не взять. */
+function chipBlockedReason(ability: EditorAbility, level: number): string | null {
+  if (chipEnabled(ability, level)) return null;
+
+  return ability.levels.filter((entry) => entry.level <= level && !entry.met)[0]?.reason ?? 'Требования не выполнены';
 }
 
 /** Невыполненные требования-способности этого уровня. */
@@ -700,20 +727,43 @@ function stepLabel(param: EditorAbilityParameter): string {
           v-else-if="!ability.derived && !ability.multiple && costKind(ability) === 'array'"
           class="d-flex align-center ga-1"
         >
-          <LightButton
+          <v-tooltip
             v-for="(cost, index) in zoneOf(ability)!.levelCosts"
             :key="index"
-            :active="index + 1 === displayLevel(ability)"
-            :disabled="!chipEnabled(ability, index + 1)"
-            @click.stop="setArrayLevel(ability, index + 1)"
+            :disabled="chipEnabled(ability, index + 1)"
+            location="top"
+            max-width="360"
           >
-            {{ cost }} {{ zoneLabelOf() }}
-          </LightButton>
+            <template #activator="{ props: tipProps }">
+              <span v-bind="tipProps">
+                <LightButton
+                  :active="index + 1 === displayLevel(ability)"
+                  :disabled="!chipEnabled(ability, index + 1)"
+                  :title="chipBlockedReason(ability, index + 1) ?? `${index + 1} уровень: ${cost} ${zoneLabelOf()}`"
+                  @click.stop="setArrayLevel(ability, index + 1)"
+                >
+                  {{ cost }} {{ zoneLabelOf() }}
+                </LightButton>
+              </span>
+            </template>
+            {{ chipBlockedReason(ability, index + 1) }}
+          </v-tooltip>
         </div>
         <div v-else-if="isSpellCatalogRow() && !ability.derived" class="d-flex align-center ga-1">
-          <LightButton :disabled="!canLearnSpell()" title="Изучить заклинание" @click.stop="learnSpell">
-            <i class="mdi mdi-plus" aria-hidden="true" /> {{ nextAddCost(ability) }} {{ zoneLabelOf() }}
-          </LightButton>
+          <v-tooltip :disabled="canLearnSpell()" location="top" max-width="360">
+            <template #activator="{ props: tipProps }">
+              <span v-bind="tipProps">
+                <LightButton
+                  :disabled="!canLearnSpell()"
+                  :title="spellLearnBlockedReason(ability) ?? 'Изучить заклинание'"
+                  @click.stop="learnSpell"
+                >
+                  <i class="mdi mdi-plus" aria-hidden="true" /> {{ nextAddCost(ability) }} {{ zoneLabelOf() }}
+                </LightButton>
+              </span>
+            </template>
+            {{ spellLearnBlockedReason(ability) }}
+          </v-tooltip>
         </div>
         <div v-else-if="isInstanceRow() && rowInstance" class="d-flex align-center ga-1">
           <LightButton
@@ -757,17 +807,26 @@ function stepLabel(param: EditorAbilityParameter): string {
           >
             {{ prevLevelCost(ability) ?? 0 }} {{ zoneLabelOf() }} · <i class="mdi mdi-minus" aria-hidden="true" />
           </LightButton>
-          <LightButton
-            :disabled="ability.automatic || !canRaise(ability)"
-            :title="
-              nextLevelCost(ability) !== null
-                ? `Уровень ${ability.level + 1}: ${nextLevelCost(ability)} ${zoneLabelOf()}`
-                : undefined
-            "
-            @click.stop="emit('set-level', ability.ruleCode, ability.level + 1)"
-          >
-            <i class="mdi mdi-plus" aria-hidden="true" /> {{ nextLevelCost(ability) ?? 0 }} {{ zoneLabelOf() }}
-          </LightButton>
+          <v-tooltip :disabled="canRaise(ability)" location="top" max-width="360">
+            <template #activator="{ props: tipProps }">
+              <span v-bind="tipProps">
+                <LightButton
+                  :disabled="ability.automatic || !canRaise(ability)"
+                  :title="
+                    canRaise(ability)
+                      ? nextLevelCost(ability) !== null
+                        ? `Уровень ${ability.level + 1}: ${nextLevelCost(ability)} ${zoneLabelOf()}`
+                        : undefined
+                      : (purchaseBlockedReason(ability) ?? undefined)
+                  "
+                  @click.stop="emit('set-level', ability.ruleCode, ability.level + 1)"
+                >
+                  <i class="mdi mdi-plus" aria-hidden="true" /> {{ nextLevelCost(ability) ?? 0 }} {{ zoneLabelOf() }}
+                </LightButton>
+              </span>
+            </template>
+            {{ purchaseBlockedReason(ability) }}
+          </v-tooltip>
         </div>
       </div>
     </template>
@@ -809,7 +868,7 @@ function stepLabel(param: EditorAbilityParameter): string {
         :title="unmetLevelOf(ability)?.reason ?? ''"
       >
         <span>Требования:</span>
-        <template v-if="requirementLinks && unmetRequirementsOf(ability).length">
+        <template v-if="requirementLinks">
           <v-chip
             v-for="requirement in unmetRequirementsOf(ability)"
             :key="`${requirement.abilityCode}:${requirement.minLevel}`"
@@ -822,10 +881,10 @@ function stepLabel(param: EditorAbilityParameter): string {
             {{ requirement.label }}
           </v-chip>
           <v-btn size="x-small" variant="text" class="ml-1" @click.stop="showRequirementChain(ability)">
-            цепочка
+            {{ unmetRequirementsOf(ability).length > 0 ? 'цепочка' : 'почему?' }}
           </v-btn>
         </template>
-        <template v-else>{{ ability.levels.find((level) => !level.met)?.reason }}</template>
+        <template v-else>{{ unmetLevelOf(ability)?.reason }}</template>
       </div>
       <div v-if="!ability.multiple && ability.domainRef && displayLevel(ability) > 0" class="ability-row__domain">
         <v-combobox

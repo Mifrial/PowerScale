@@ -14,6 +14,8 @@ interface RequirementNode {
   buyLevel: number | null;
   multiple: boolean;
   depth: number;
+  /** Почему уровень нельзя купить прямо сейчас (пусто — можно). */
+  blockedReasons: string[];
 }
 
 const props = defineProps<{
@@ -34,6 +36,15 @@ const open = computed({
 });
 
 const targetRequirement = computed(() => props.ability?.levels.find((level) => !level.met) ?? null);
+
+/** Все невыполненные требования цели: способности, опыт пути, признаки, характеристики. */
+const targetBlockers = computed<string[]>(() => {
+  const level = targetRequirement.value;
+  if (level === null) return [];
+  if (level.unmetReasons !== undefined && level.unmetReasons.length > 0) return level.unmetReasons;
+
+  return splitReason(level.reason);
+});
 
 const nodes = computed<RequirementNode[]>(() => {
   const target = props.ability;
@@ -62,6 +73,15 @@ const nodes = computed<RequirementNode[]>(() => {
   return rows;
 });
 
+function splitReason(reason: string | null | undefined): string[] {
+  if (!reason) return [];
+
+  return reason
+    .split('; ')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '');
+}
+
 function buildNode(ability: EditorAbility, requiredLevel: number, depth: number): RequirementNode | null {
   const zone = zoneOf(ability);
   const owned = ability.level;
@@ -86,7 +106,25 @@ function buildNode(ability: EditorAbility, requiredLevel: number, depth: number)
     buyLevel: canBuy ? next : null,
     multiple: ability.multiple,
     depth,
+    blockedReasons: canBuy ? [] : blockedReasonsOf(ability, requiredLevel, next, zone),
   };
+}
+
+function blockedReasonsOf(
+  ability: EditorAbility,
+  requiredLevel: number,
+  next: number,
+  zone: EditorAbilityZone | null,
+): string[] {
+  if (ability.level >= requiredLevel) return [];
+  if (ability.multiple) return ['множественный навык: изучите экземпляр в каталоге (выберите путь или домен)'];
+  if (ability.automatic) return ['выдаётся автоматически'];
+  if (ability.gifted) return ['получено даром от особенности и не покупается'];
+  if (ability.derived) return ['уровень вычисляется автоматически'];
+  if (zone === null) return ['нет зоны покупки за ОР'];
+  if (next > zone.maxLevel) return [`достигнут максимальный уровень (${zone.maxLevel})`];
+
+  return splitReason(ability.levels[next - 1]?.reason);
 }
 
 function zoneOf(ability: EditorAbility): EditorAbilityZone | null {
@@ -115,7 +153,22 @@ function buy(node: RequirementNode): void {
         {{ ability.name }} · требования уровня {{ targetRequirement?.level ?? 1 }}
       </v-card-subtitle>
       <v-card-text>
-        <div v-if="nodes.length === 0" class="text-body-2 text-medium-emphasis">Все требования выполнены.</div>
+        <div v-if="targetBlockers.length > 0" class="chain-blockers">
+          <div class="text-caption text-medium-emphasis mb-1">Что мешает:</div>
+          <v-chip
+            v-for="reason in targetBlockers"
+            :key="reason"
+            size="small"
+            variant="tonal"
+            color="warning"
+            class="mr-1 mb-1"
+          >
+            {{ reason }}
+          </v-chip>
+        </div>
+        <div v-if="nodes.length === 0 && targetBlockers.length === 0" class="text-body-2 text-medium-emphasis">
+          Все требования выполнены.
+        </div>
         <div v-for="node in nodes" :key="node.key" class="chain-row" :style="{ paddingLeft: `${node.depth * 20}px` }">
           <div class="chain-row__text">
             <div class="text-body-2">{{ node.name }}</div>
@@ -123,10 +176,19 @@ function buy(node: RequirementNode): void {
               уровень {{ node.ownedLevel }} из {{ node.requiredLevel }}
               <template v-if="node.multiple"> · изучается на пути в каталоге</template>
             </div>
+            <div v-if="node.blockedReasons.length > 0" class="text-caption text-warning">
+              {{ node.blockedReasons.join('; ') }}
+            </div>
           </div>
           <v-btn v-if="node.buyLevel !== null" size="small" variant="tonal" color="primary" @click="buy(node)">
             Купить ур. {{ node.buyLevel }}<template v-if="node.cost !== null"> · {{ node.cost }}</template>
           </v-btn>
+          <v-tooltip v-else-if="node.blockedReasons.length > 0" location="top" max-width="420">
+            <template #activator="{ props: tipProps }">
+              <v-chip v-bind="tipProps" size="small" variant="tonal" color="warning">нельзя купить</v-chip>
+            </template>
+            <div v-for="reason in node.blockedReasons" :key="reason">{{ reason }}</div>
+          </v-tooltip>
           <v-chip v-else-if="node.multiple" size="small" variant="tonal">нужен экземпляр</v-chip>
           <v-chip v-else size="small" variant="tonal" color="warning">сначала предпосылки</v-chip>
         </div>
@@ -136,6 +198,12 @@ function buy(node: RequirementNode): void {
 </template>
 
 <style scoped>
+.chain-blockers {
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
 .chain-row {
   display: flex;
   align-items: center;
