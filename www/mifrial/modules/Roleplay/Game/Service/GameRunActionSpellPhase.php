@@ -95,6 +95,7 @@ final class GameRunActionSpellPhase
         ];
         if ($phase === 'resolve') {
             $body['saturationSteps'] = $context['saturationSteps'] ?? 0;
+            $body['burstTargets'] = $context['burstTargets'] ?? null;
         }
 
         $result = $command($body);

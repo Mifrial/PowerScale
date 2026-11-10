@@ -17,6 +17,7 @@ use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Серверная команда сотворения заклинания.
@@ -47,6 +48,7 @@ final class GameSpellCast
      * @param GameSpellCastPending $pending Отложенный каст.
      * @param GameStrikeSheetWrites $sheets Запись листа касания.
      * @param GameSpellDeviation $deviation Отклонение.
+     * @param GameSpellDeviationBurst $burst Взрыв отклонения.
      *
      * @return void
      */
@@ -70,6 +72,7 @@ final class GameSpellCast
         private readonly GameSpellCastPending $pending,
         private readonly GameStrikeSheetWrites $sheets,
         private readonly GameSpellDeviation $deviation,
+        private readonly GameSpellDeviationBurst $burst,
     ) {
         $this->lookup = new GameStrikeBattleLookup($repos->battles);
     }
@@ -498,6 +501,7 @@ final class GameSpellCast
             $pendingCast === null ? null : (int) $pendingCast['casterVersion'],
             $this->casterOperations($prepared, $deviation),
         );
+        $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $body);
 
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
         $saved = $this->saveBattle($battle, $pending, $pendingCast);
@@ -517,6 +521,7 @@ final class GameSpellCast
             $pendingCast,
             $saved,
             $deviation,
+            $burstRows,
         );
     }
 
@@ -537,6 +542,7 @@ final class GameSpellCast
      * @param array<string, mixed>|null $pendingCast Отложенный каст.
      * @param GameBattleRecord $saved Бой после записи.
      * @param array<string, mixed>|null $deviation Отклонение.
+     * @param list<array<string, mixed>> $burst Цели взрыва.
      *
      * @return array<string, mixed> Итог.
      */
@@ -555,6 +561,7 @@ final class GameSpellCast
         ?array $pendingCast,
         GameBattleRecord $saved,
         ?array $deviation = null,
+        array $burst = [],
     ): array {
         $this->chat->post(
             $game,
@@ -569,6 +576,16 @@ final class GameSpellCast
             $rows,
             $deviation,
         );
+        if ($burst !== []) {
+            $this->chat->postBurst(
+                $game,
+                $actorUserId,
+                $prepared,
+                $battle,
+                $this->threadOf($battle, $castId, $pendingCast),
+                $burst,
+            );
+        }
 
         return $this->view->build(
             $prepared,
@@ -585,6 +602,7 @@ final class GameSpellCast
             'kind' => 'spell',
             'battleId' => $battle->getId(),
             'version' => $saved->getStateVersion(),
+            'burst' => $this->burstView($burst),
         ];
     }
 
@@ -630,6 +648,165 @@ final class GameSpellCast
     private function deviationView(GameSpellCastPrepared $prepared, ?array $deviation): ?array
     {
         return $this->deviation->view($prepared, $deviation);
+    }
+
+    /**
+     * Взрыв по целям из запроса и записи листов.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param array<string, mixed>|null $deviation Отклонение.
+     * @param array<string, mixed> $body Тело.
+     *
+     * @return list<array<string, mixed>> Строки целей.
+     *
+     * @throws GameInvalidException Если цели или карточка битые.
+     * @throws GameBattleConflictException Если лист цели уже другой.
+     */
+    private function applyBurst(
+        GameRecord $game,
+        GameBattleRecord $battle,
+        GameSpellCastPrepared $prepared,
+        ?array $deviation,
+        array $body,
+    ): array {
+        if ($deviation === null || ($deviation['isDoubles'] ?? false) !== true) {
+            return [];
+        }
+
+        $spec = $this->deviation->spec($prepared->slice, $prepared->path->getCastCheckCode());
+        $burst = $spec?->getBurst();
+        if ($burst === null) {
+            return [];
+        }
+
+        $targets = $this->burstTargetsOf($body, $prepared, $battle);
+        $rows = $this->burst->plan($game, $prepared, $deviation, $burst, $targets);
+        foreach ($rows as $index => $row) {
+            if ($row['operations'] === []) {
+                continue;
+            }
+
+            $target = $row['target'];
+            $rows[$index]['version'] = $this->sheets->write(
+                $game,
+                $target['type'],
+                $target['id'],
+                $row['version'],
+                $row['operations'],
+            );
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Цели взрыва: список из запроса плюс кастер с дистанцией 0.
+     *
+     * @param array<string, mixed> $body Тело.
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param GameBattleRecord $battle Бой.
+     *
+     * @return list<array{type: string, id: int, distanceIpari: int}> Цели.
+     *
+     * @throws GameInvalidException Если цель или дистанция битые.
+     * @throws GameNotFoundException Если цели нет в бою.
+     */
+    private function burstTargetsOf(array $body, GameSpellCastPrepared $prepared, GameBattleRecord $battle): array
+    {
+        $radius = (new DimensionalNumber($prepared->usedPower->getBase(), $prepared->usedPower->getSize()))->toInteger();
+        $raw = $body['burstTargets'] ?? null;
+        if ($raw === null) {
+            $raw = [];
+        }
+
+        if (!is_array($raw) || !array_is_list($raw)) {
+            throw new GameInvalidException('Game spell burst targets are invalid');
+        }
+
+        $targets = [];
+        foreach ($raw as $row) {
+            if (!is_array($row)) {
+                throw new GameInvalidException('Game spell burst targets are invalid');
+            }
+
+            $type = $row['type'] ?? null;
+            $id = $row['id'] ?? null;
+            $distance = $row['distanceIpari'] ?? null;
+            if (
+                !in_array($type, ['character', 'npc'], true)
+                || !is_int($id)
+                || $id < 1
+                || !is_int($distance)
+                || $distance < 0
+                || $distance > $radius
+            ) {
+                throw new GameInvalidException('Game spell burst targets are invalid');
+            }
+
+            $targets[$type . ':' . $id] = ['type' => $type, 'id' => $id, 'distanceIpari' => $distance];
+        }
+
+        $casterKey = $prepared->casterKind . ':' . $prepared->casterId;
+        $targets[$casterKey] = [
+            'type' => $prepared->casterKind,
+            'id' => $prepared->casterId,
+            'distanceIpari' => 0,
+        ];
+
+        $others = [];
+        foreach ($targets as $key => $target) {
+            if ($key !== $casterKey) {
+                $others[] = ['type' => $target['type'], 'id' => $target['id']];
+            }
+        }
+
+        $this->access->assertRoster(
+            $battle->getId(),
+            ['type' => $prepared->casterKind, 'id' => $prepared->casterId],
+            $others,
+        );
+
+        return array_values($targets);
+    }
+
+    /**
+     * Цели взрыва для ответа.
+     *
+     * @param list<array<string, mixed>> $rows Строки.
+     *
+     * @return list<array<string, mixed>> Блок ответа.
+     */
+    private function burstView(array $rows): array
+    {
+        $view = [];
+        foreach ($rows as $row) {
+            $view[] = [
+                'target' => $row['target'],
+                'damage' => $this->pair($row['damage']),
+                'injury' => $this->pair($row['injury']),
+                'sheetVersion' => $row['version'],
+            ];
+        }
+
+        return $view;
+    }
+
+    /**
+     * Пара размерного числа для ответа.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return array{base: int, size: int}|null Пара или null.
+     */
+    private function pair(mixed $value): ?array
+    {
+        if (!$value instanceof DimensionalNumber) {
+            return null;
+        }
+
+        return ['base' => $value->getBase(), 'size' => $value->getSize()];
     }
 
     /**
@@ -684,6 +861,7 @@ final class GameSpellCast
         $castBody = $this->pending->bodyOf($pendingCast, $game->getId(), $battleId);
         $deviation = is_array($pendingCast['deviation'] ?? null) ? $pendingCast['deviation'] : null;
         $versions = $this->resolveWrite($game, $prepared, $castBody, $damage, $pendingCast, $deviation);
+        $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $castBody);
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
         $saved = $this->repos->battles->finishSpellCast($battleId, $expected, $pending);
         $this->repos->actions->close($pendingCast['actionId']);
@@ -702,6 +880,7 @@ final class GameSpellCast
             $pendingCast,
             $saved,
             $deviation,
+            $burstRows,
         );
     }
 

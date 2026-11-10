@@ -138,6 +138,14 @@ final class GameStrikeHttpFactory
             new GameSpellCastPending(),
             $shared->sheetWrites,
             $deviation,
+            new GameSpellDeviationBurst(
+                $rules,
+                $shared->sheets,
+                $characters->characterSheets(),
+                $rules->defense,
+                new GameStrikeAmounts(),
+                $ruleWiring->consequences($rules),
+            ),
         );
     }
 
