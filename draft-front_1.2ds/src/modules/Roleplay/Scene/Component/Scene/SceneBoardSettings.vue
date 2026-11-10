@@ -14,6 +14,7 @@ const props = defineProps<{
   boardCount: number;
   index: number;
   resolution: number;
+  terrainKind: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -26,7 +27,16 @@ const emit = defineEmits<{
 }>();
 
 const name = ref(props.board.name);
-const terrainKind = ref('grass');
+const terrainKind = ref(props.terrainKind ?? 'grass');
+
+watch(
+  () => props.terrainKind,
+  (value) => {
+    if (value !== null) {
+      terrainKind.value = value;
+    }
+  },
+);
 
 watch(
   () => props.board.name,
