@@ -9,6 +9,7 @@ import type {
   SceneTerrainTextureService,
 } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
+import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
 /** Цвет глубокой воды: сквозь него читается дно. */
@@ -17,11 +18,14 @@ const DEEP_COLOR = 0x275c7c;
 /** Цвет мелководья у берега. */
 const SHALLOW_COLOR = 0x9ad2e4;
 
-/** Ширина полосы мелководья в ипари. */
-const SHALLOW_IPARI = 0.8;
+/** Полоса мелководья у берега в ипари. */
+const SHALLOW_IPARI = 0.45;
+
+/** Предельная глубина градиента в ипари. */
+const DEPTH_IPARI = 3.5;
 
 /** Число внутренних обводок, которыми строится градиент глубины. */
-const SHALLOW_RINGS = 6;
+const DEPTH_RINGS = 12;
 
 /** Ширина мокрого берега в ипари. */
 const WET_IPARI = 0.3;
@@ -124,26 +128,50 @@ export class SceneTerrainPainter {
 
     const tint = new Graphics();
     this.trace(tint, element.shape, zoom);
-    tint.fill({ color: DEEP_COLOR, alpha: bed === null ? 1 : 0.44 });
+    tint.fill({ color: 0x142630, alpha: bed === null ? 1 : 0.28 });
     container.addChild(tint);
   }
 
-  /** Толща воды: мелководье у берега светлее глубины. */
-  paintWaterShallow(container: Container, element: SceneElement, resolution: number, zoom: number): void {
-    const width = Math.max(1, resolution * SHALLOW_IPARI);
+  /** Толща воды: у берега видно дно, к середине цвет уходит в глубину. */
+  paintWaterDepth(container: Container, element: SceneElement, resolution: number, zoom: number): void {
+    const depth = this.depthOf(element, resolution);
     const graphics = new Graphics();
-    for (let ring = 0; ring < SHALLOW_RINGS; ring += 1) {
+    for (let ring = 1; ring <= DEPTH_RINGS; ring += 1) {
       this.trace(graphics, element.shape, zoom);
       graphics.stroke({
-        color: SHALLOW_COLOR,
-        width: width * (1 - ring / SHALLOW_RINGS),
+        color: DEEP_COLOR,
+        width: Math.max(1, (depth * ring) / DEPTH_RINGS),
         alpha: 0.075,
         alignment: 1,
         join: 'round',
       });
     }
 
+    this.trace(graphics, element.shape, zoom);
+    graphics.stroke({
+      color: SHALLOW_COLOR,
+      width: Math.max(1, resolution * SHALLOW_IPARI),
+      alpha: 0.34,
+      alignment: 1,
+      join: 'round',
+    });
+
     container.addChild(graphics);
+  }
+
+  /** Глубина градиента: для узкой ленты — её полуширина, для чаши — предел. */
+  private depthOf(element: SceneElement, resolution: number): number {
+    const limit = Math.max(1, resolution * DEPTH_IPARI);
+    if (element.shape.type === 'path') {
+      const widest = Math.max(...element.shape.widths.map((width) => Math.max(1, width)));
+
+      return Math.min(limit, widest * 0.75);
+    }
+
+    const bounds = sceneGeometryService.bounds(element.shape);
+    const half = Math.min(bounds.width, bounds.height) / 2;
+
+    return Math.min(limit, Math.max(resolution * 0.5, half));
   }
 
   /** Линия уреза и мягкая пена поверх воды. */

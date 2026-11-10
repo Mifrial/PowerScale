@@ -659,7 +659,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     if (element.props.kind === 'water') {
       this.terrain.paintWaterBank(layer, element, resolution, zoom);
       this.terrain.paintWaterBed(layer, element, resolution, zoom);
-      this.terrain.paintWaterShallow(layer, element, resolution, zoom);
+      this.terrain.paintWaterDepth(layer, element, resolution, zoom);
       this.drawWaterBody(layer, element, resolution, zoom);
 
       return;
