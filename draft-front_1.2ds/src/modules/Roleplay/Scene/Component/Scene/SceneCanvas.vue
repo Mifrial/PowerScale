@@ -674,7 +674,11 @@ function applySelection(ids: number[]): void {
 }
 
 function capture(event: PointerEvent): void {
-  (event.currentTarget as HTMLElement | null)?.setPointerCapture(event.pointerId);
+  try {
+    (event.currentTarget as HTMLElement | null)?.setPointerCapture(event.pointerId);
+  } catch {
+    // Синтетическое событие или потерянный pointerId: жест всё равно работает.
+  }
 }
 
 function screenPointOf(event: PointerEvent | WheelEvent | MouseEvent): { x: number; y: number } {
