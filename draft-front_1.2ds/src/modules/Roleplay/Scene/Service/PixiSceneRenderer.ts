@@ -12,6 +12,7 @@ import { SceneShapePainter } from '@/modules/Roleplay/Scene/Service/SceneShapePa
 import { SceneDecorService } from '@/modules/Roleplay/Scene/Service/SceneDecorService';
 import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
+import { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
 import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
 import { SceneWaterService } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_RENDERER_PREFERENCE';
@@ -53,13 +54,15 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private readonly patterns = new SceneTerrainPatternService();
 
+  private readonly materials = new SceneTerrainTextureService();
+
   private readonly painter = new SceneShapePainter();
 
   private readonly decor = new SceneDecorService(this.textures);
 
-  private readonly terrain = new SceneTerrainPainter(this.patterns);
+  private readonly terrain = new SceneTerrainPainter(this.patterns, this.materials);
 
-  private readonly water = new SceneWaterService();
+  private readonly water = new SceneWaterService(this.materials);
 
   private waterNodes: WaterEntry[] = [];
 
@@ -200,7 +203,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
-    await this.textures.load(this.textureIds(model, board));
+    await Promise.all([this.textures.load(this.textureIds(model, board)), this.materials.load()]);
     if (token !== this.sceneToken || this.app === null) {
       return;
     }
@@ -292,6 +295,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.waterNodes = [];
     this.textures.destroy();
     this.patterns.destroy();
+    this.materials.destroy();
     this.decor.destroy();
     if (this.app !== null) {
       this.app.canvas.removeEventListener('webglcontextlost', this.handleContextLost);
@@ -354,6 +358,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'obstacles',
       'openings',
       'decor',
+      'waterSurface',
       'selection',
       'gizmos',
     ];
@@ -422,6 +427,15 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.drawDecor(element);
     }
 
+    // Поверхность воды — над декором и будущими актёрами: так работает брод.
+    const resolution = this.model?.resolution ?? 64;
+    const zoom = this.zoom();
+    for (const element of terrainElements) {
+      if (element.props.kind === 'water') {
+        this.drawWaterSurface(element, resolution, zoom);
+      }
+    }
+
     if (this.isEdit()) {
       this.drawGridOverlay(board);
     }
@@ -465,14 +479,14 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.draftGraphics = null;
     }
 
-    if (name === 'terrain') {
+    if (name === 'terrain' || name === 'waterSurface') {
       this.waterNodes = [];
     }
   }
 
   /** Обрезает содержимое поля по его границам; gizmos остаются снаружи. */
   private applyContentClip(board: SceneBoard): void {
-    const names: SceneLayerName[] = ['terrain', 'supports', 'obstacles', 'openings', 'decor'];
+    const names: SceneLayerName[] = ['terrain', 'supports', 'obstacles', 'openings', 'decor', 'waterSurface'];
     for (const name of names) {
       const layer = this.layers[name];
       if (layer === undefined) {
@@ -643,8 +657,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.terrain.paintShore(layer, element, resolution, zoom);
 
     if (element.props.kind === 'water') {
-      this.drawWater(layer, element, resolution, zoom);
-      this.terrain.paintWaterEdge(layer, element, zoom);
+      this.terrain.paintWaterBed(layer, element, resolution, zoom);
+      this.terrain.paintWaterShallow(layer, element, resolution, zoom);
+      this.drawWaterBody(layer, element, resolution, zoom);
 
       return;
     }
@@ -661,21 +676,31 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.terrain.paintSurface(layer, element, resolution, zoom);
   }
 
-  /** Вода: лента-mesh или замкнутый тайл. */
-  private drawWater(layer: Container, element: SceneElement, resolution: number, zoom: number): void {
-    const texture = this.textures.get(element.asset?.publicId ?? null) ?? this.patterns.texture('water');
-    const node = this.water.build(element, texture, resolution, zoom);
+  /** Толща воды: каустика по дну под актёрами. */
+  private drawWaterBody(layer: Container, element: SceneElement, resolution: number, zoom: number): void {
+    const node = this.water.buildBody(layer, element, resolution, zoom);
     if (node === null) {
       return;
     }
 
-    if (node.mask !== undefined) {
-      layer.addChild(node.mask);
-    }
-
-    layer.addChild(node.node);
     this.waterNodes.push({ elementId: element.id, node });
     node.update(this.waterElapsed);
+  }
+
+  /** Поверхность воды: рябь и линия уреза над актёрами. */
+  private drawWaterSurface(element: SceneElement, resolution: number, zoom: number): void {
+    const layer = this.layers.waterSurface;
+    if (layer === undefined) {
+      return;
+    }
+
+    const node = this.water.buildSurface(layer, element, resolution, zoom);
+    if (node !== null) {
+      this.waterNodes.push({ elementId: element.id, node });
+      node.update(this.waterElapsed);
+    }
+
+    this.terrain.paintWaterEdge(layer, element, resolution, zoom);
   }
 
   private drawElement(element: SceneElement): void {

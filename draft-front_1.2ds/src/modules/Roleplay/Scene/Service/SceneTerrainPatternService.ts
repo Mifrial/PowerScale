@@ -69,7 +69,10 @@ export class SceneTerrainPatternService {
 
     const texture = Texture.from(this.renderTile(normalized));
     texture.source.style.addressMode = 'repeat';
+    texture.source.style.mipmapFilter = 'linear';
+    texture.source.style.maxAnisotropy = 4;
     texture.source.style.update();
+    texture.source.autoGenerateMipmaps = true;
     this.textures.set(normalized, texture);
 
     return texture;
@@ -84,11 +87,17 @@ export class SceneTerrainPatternService {
    */
   pattern(kind: string | undefined, elementId: number, resolution: number): FillPattern {
     const period = Math.max(1, resolution) * (kind === 'water' ? 1 : 2);
-    const texture = this.texture(kind);
+
+    return this.patternOf(this.texture(kind), period, elementId);
+  }
+
+  /** Паттерн заданной текстуры: тайл в единицах сцены и сдвиг от id элемента. */
+  patternOf(texture: Texture, period: number, elementId: number): FillPattern {
+    const size = Math.max(1, texture.width);
     const seed = Math.abs(Math.trunc(elementId)) * 2654435761;
     const offsetX = ((seed % 1024) / 1024) * period;
     const offsetY = (((seed >>> 10) % 1024) / 1024) * period;
-    const matrix = new Matrix().scale(period / TEXTURE_SIZE, period / TEXTURE_SIZE).translate(offsetX, offsetY);
+    const matrix = new Matrix().scale(period / size, period / size).translate(offsetX, offsetY);
     const pattern = new FillPattern({ texture, textureSpace: 'global' });
     pattern.setTransform(matrix);
 
