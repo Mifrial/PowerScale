@@ -51,4 +51,8 @@ describe('SceneToolShape', () => {
   it('builds a point at the press position, clamped to the board', () => {
     expect(service.build('point', [-10, 900], [500, 500], bounds)).toEqual({ type: 'point', x: 0, y: 800 });
   });
+
+  it('does not build a polygon from a drag', () => {
+    expect(service.build('polygon', [100, 100], [500, 500], bounds)).toBeNull();
+  });
 });
