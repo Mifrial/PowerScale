@@ -1032,7 +1032,11 @@ function upgradeMagicStudy(rule: Rule): Rule {
     return { ...block, grants: rows };
   });
   const withGrants = { ...spec, grants } as AbilitySpec;
-  const migrated = (study ? { ...withGrants, study: { paths: study } } : withGrants) as AbilitySpec;
+  // Ревизия 46 привязывает карточку изучения к пути: study.paths и domain_ref = magic-path.
+  const domainRef = (withGrants as { domain_ref?: string | null }).domain_ref;
+  const migrated = (
+    study ? { ...withGrants, study: { paths: study }, domain_ref: domainRef ?? 'magic-path' } : withGrants
+  ) as AbilitySpec;
 
   return { ...rule, spec: migrated };
 }

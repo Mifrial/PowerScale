@@ -239,7 +239,9 @@ function setLevel(ruleCode: string, level: number): void {
   if (level > 0 && (applied?.level ?? 0) < level) {
     const ability = props.model.abilities.find((entry) => entry.ruleCode === ruleCode);
     const reason = ability?.levels[level - 1]?.reason ?? null;
-    purchaseNotice.value = `Не удалось приобрести «${ability?.name ?? ruleCode}»${reason ? `: ${reason}` : ''}`;
+    purchaseNotice.value = `Не удалось приобрести «${ability?.name ?? ruleCode}»: ${
+      reason ?? 'требования не выполнены или карточка изучается в рамках пути'
+    }`;
     purchaseNoticeOpen.value = true;
 
     return;
@@ -272,6 +274,16 @@ function addInstance(
     fieldCode: extras?.fieldCode,
     slots: extras?.slots,
   });
+  if (next.abilities.length === props.build.abilities.length) {
+    const ability = props.model.abilities.find((entry) => entry.ruleCode === ruleCode);
+    const reason = ability?.levels[0]?.reason ?? null;
+    purchaseNotice.value = `Не удалось изучить «${ability?.name ?? ruleCode}»: ${
+      reason ?? 'путь не открыт, домен уже изучен или требования не выполнены'
+    }`;
+    purchaseNoticeOpen.value = true;
+
+    return;
+  }
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 

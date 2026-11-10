@@ -191,11 +191,20 @@ export class CharacterBuildService {
       const learned = this.magicStudyUnlock.learnedEntries(build.abilities, rules);
       const granted = this.magicStudyUnlock.grantedPathCodes(build.abilities, rules);
       const domainCode = options.domainCode ?? null;
-      const open = this.magicStudyUnlock.openPathCodes(spec, unlocks, granted, learned, null, undefined, rules, ruleCode);
+      const open = this.magicStudyUnlock.openPathCodes(
+        spec,
+        unlocks,
+        granted,
+        learned,
+        null,
+        undefined,
+        rules,
+        ruleCode,
+      );
       if (domainCode && !open.includes(domainCode)) return build;
       if (!domainCode) return build;
       if (this.magicStudyUnlock.knownOnPath(build.abilities, ruleCode, domainCode, rules)) return build;
-      if (!this.studyRequirementsMet(build, rules, spec, domainCode)) return build;
+      if (!this.studyRequirementsMet(build, spec)) return build;
     }
 
     const abilities = [
@@ -1029,7 +1038,7 @@ export class CharacterBuildService {
     return this.magicStudyUnlock.isBound(unlocks, learned, ability.ruleCode, ability.domainCode ?? null);
   }
 
-  private studyRequirementsMet(build: CharacterBuild, rules: Rule[], spec: AbilitySpec, domainCode: string): boolean {
+  private studyRequirementsMet(build: CharacterBuild, spec: AbilitySpec): boolean {
     if (spec.type === 'group') return true;
     const required: { ability_code: string; min_level: number }[] = [];
     if (spec.parent_ability_code) {
@@ -1042,7 +1051,7 @@ export class CharacterBuildService {
     }
 
     return required.every((entry) =>
-      this.magicStudyUnlock.knownOnPath(build.abilities, entry.ability_code, domainCode, rules, entry.min_level),
+      build.abilities.some((ability) => ability.ruleCode === entry.ability_code && ability.level >= entry.min_level),
     );
   }
 

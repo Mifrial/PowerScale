@@ -101,7 +101,10 @@ describe('CharacterEditorService с каталогом правил (интег�
         domainCode: 'arcanist',
       });
     }
-    build = characterBuildService.setAbilityLevel(build, 'composite-magic-structures', 1, ruleCatalog, { zone: 'or' });
+    build = characterBuildService.addAbilityInstance(build, 'composite-magic-structures', 'Арканист', ruleCatalog, {
+      zone: 'or',
+      domainCode: 'arcanist',
+    });
     for (const code of ['lightning-strike', 'magic-perception']) {
       build = characterBuildService.addAbilityInstance(build, code, 'Арканист', ruleCatalog, {
         zone: 'or',
@@ -113,6 +116,10 @@ describe('CharacterEditorService с каталогом правил (интег�
     const arcanist = paths.find((entry) => entry.pathCode === 'arcanist');
     expect(arcanist?.experience).toBeGreaterThanOrEqual(15);
     const model = service.build(build, ruleCatalog, { ...config, orTotal: 40 }, fullKeywords);
+    const composite = model.abilities.find((ability) => ability.code === 'composite-magic-structures');
+    expect(composite?.level).toBe(1);
+    expect(composite?.domainRef).toBe('magic-path');
+    expect(composite?.domainCode).toBe('arcanist');
     const saturation = model.abilities.find((ability) => ability.code === 'dynamic-energy-saturation');
     expect(saturation?.levels[0]?.met).toBe(true);
   });

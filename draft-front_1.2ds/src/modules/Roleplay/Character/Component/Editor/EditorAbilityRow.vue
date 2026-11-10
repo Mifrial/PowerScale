@@ -250,7 +250,11 @@ function addInstance(): void {
 }
 
 function isSpellCatalogRow(): boolean {
-  return isCatalogRow() && (props.ability.type === 'spell' || props.ability.domainRef === 'magic-path');
+  // Карточка заклинания и карточка изучения в рамках пути (domain_ref = magic-path) изучаются
+  // через выбор пути, даже если у неё нет экземпляров (одиночная карточка пути).
+  if (isInstanceRow()) return false;
+
+  return props.ability.type === 'spell' || props.ability.domainRef === 'magic-path';
 }
 
 function isCatalogRow(): boolean {
@@ -272,25 +276,30 @@ const spellParams = computed(() => {
 
 const pathDialogOpen = ref(false);
 
-const unusedSpellPaths = computed(() =>
-  props.ability.domainOptions
+const unusedSpellPaths = computed(() => {
+  const currentDomain = props.ability.multiple ? null : (props.ability.domainCode ?? null);
+
+  return props.ability.domainOptions
     .filter(
       (option) =>
         !props.ability.instances.some(
           (instance) => instance.domain === option.name || instance.domainCode === option.code,
-        ),
+        ) &&
+        (currentDomain === null || option.code !== currentDomain),
     )
     .map((option) => ({
       code: option.code,
       name: option.name,
       cost: option.cost ?? nextAddCost(props.ability),
-    })),
-);
+    }));
+});
 
 function canLearnSpell(): boolean {
   if (!isSpellCatalogRow()) return false;
   if (props.lockedRuleCodes?.has(props.ability.ruleCode)) return false;
   if (props.ability.derived) return false;
+  // Одиночная карточка пути уже изучена: путь хранится в самой записи, а не в instances.
+  if (!props.ability.multiple && props.ability.level > 0) return false;
   if (!(props.ability.levels[0]?.met ?? true)) return false;
 
   return unusedSpellPaths.value.length > 0;
@@ -311,8 +320,13 @@ function spellLearnBlockedReason(ability: EditorAbility): string | null {
   if (canLearnSpell()) return null;
   if (props.lockedRuleCodes?.has(ability.ruleCode)) return 'Группа исчерпала лимит выбора';
   if (ability.derived) return 'Уровень вычисляется автоматически';
+  if (!ability.multiple && ability.level > 0) return 'Уже изучено';
   if (!(ability.levels[0]?.met ?? true)) return ability.levels[0]?.reason ?? 'Требования не выполнены';
-  if (unusedSpellPaths.value.length === 0) return 'Все доступные пути уже изучены';
+  if (unusedSpellPaths.value.length === 0) {
+    return ability.domainOptions.length === 0
+      ? 'Нет открытого пути изучения: проверьте требования и опыт пути'
+      : 'Все доступные пути уже изучены';
+  }
 
   return 'Изучение сейчас недоступно';
 }
@@ -724,7 +738,7 @@ function stepLabel(param: EditorAbilityParameter): string {
           <span v-else class="text-caption text-medium-emphasis">—</span>
         </div>
         <div
-          v-else-if="!ability.derived && !ability.multiple && costKind(ability) === 'array'"
+          v-else-if="!ability.derived && !ability.multiple && !isSpellCatalogRow() && costKind(ability) === 'array'"
           class="d-flex align-center ga-1"
         >
           <v-tooltip

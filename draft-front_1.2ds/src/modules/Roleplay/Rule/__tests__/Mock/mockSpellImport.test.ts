@@ -145,9 +145,7 @@ describe('mockSpellImport (M4)', () => {
     );
     const substitution = abilitySpec('structure-substitution');
     expect(substitution && 'grants' in substitution ? substitution.grants[0]?.grants : []).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: 'magic_study', paths: ['arcanist'], max_cost: 2 }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ type: 'magic_study', paths: ['arcanist'], max_cost: 2 })]),
     );
     const transfer = abilitySpec('interstructure-energy-transfer');
     expect(transfer && 'requirements' in transfer ? transfer.requirements : null).toEqual([
@@ -389,6 +387,9 @@ describe('mockSpellImport (M4)', () => {
     expect(sensation?.catalogSection).toBe('basic-senses');
     expect(sensation?.spec && 'status' in sensation.spec ? sensation.spec.status : null).toBe('imprecise');
     const composite = abilitySpec('composite-magic-structures');
+    expect(composite?.type === 'skill' && composite.study).toEqual({ paths: ['arcanist'] });
+    expect(composite?.type === 'skill' && composite.domain_ref).toBe('magic-path');
+    expect(composite?.type === 'skill' && composite.multiple).toBeUndefined();
     const study = composite && 'grants' in composite ? (composite.grants[0]?.grants ?? []) : [];
     expect(study.filter((grant) => grant.type === 'magic_study')).toEqual([
       { type: 'magic_study', paths: ['arcanist'], max_cost: 4 },
