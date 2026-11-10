@@ -121,6 +121,39 @@ describe('GameApi spell phases', () => {
     expect(gamePhpBattleContext.pendingSpellCast.value).toBeNull();
   });
 
+  it('resolve отправляет цели взрыва отклонения', async () => {
+    runAction.mockResolvedValue({ success: true, data: spellResult('resolve', 8) });
+
+    await api.resolveSpellCast({
+      gameId: 1,
+      battleId: 9,
+      idempotencyKey: 'cast-1:resolve',
+      expectedVersion: 7,
+      castId: 'cast-1',
+      saturationSteps: 0,
+      burstTargets: [
+        { type: 'character', id: 1, distanceIpari: 0 },
+        { type: 'npc', id: 2, distanceIpari: 1 },
+      ],
+    });
+
+    expect(runAction.mock.calls[0]?.[1]).toMatchObject({
+      action: {
+        phase: 'resolve',
+        kind: 'spell',
+        context: {
+          castId: 'cast-1',
+          saturationSteps: 0,
+          burstTargets: [
+            { type: 'character', id: 1, distanceIpari: 0 },
+            { type: 'npc', id: 2, distanceIpari: 1 },
+          ],
+        },
+      },
+    });
+    expect(gamePhpBattleContext.battleVersion).toBe(8);
+  });
+
   it('abort обновляет версию и очищает отложенный каст', async () => {
     gamePhpBattleContext.rememberPendingSpellCast({
       castId: 'cast-1',
@@ -141,7 +174,13 @@ describe('GameApi spell phases', () => {
     });
     runAction.mockResolvedValue({
       success: true,
-      data: { kind: 'spell', phase: 'abort', battleId: 9, version: 9, castId: 'cast-1' } satisfies GamePhpRunActionResult,
+      data: {
+        kind: 'spell',
+        phase: 'abort',
+        battleId: 9,
+        version: 9,
+        castId: 'cast-1',
+      } satisfies GamePhpRunActionResult,
     });
 
     await api.abortSpellCast({

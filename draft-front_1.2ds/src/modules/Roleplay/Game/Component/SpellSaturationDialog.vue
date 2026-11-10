@@ -103,6 +103,22 @@ async function abort(): Promise<void> {
       <v-card-title class="text-body-1">{{ sourceName }}</v-card-title>
       <v-card-text>
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
+        <v-alert
+          v-if="pending?.deviation"
+          :type="pending.deviation.hasEffect ? 'warning' : 'info'"
+          variant="tonal"
+          density="compact"
+          class="mb-3"
+        >
+          <div>
+            2d6: {{ pending.deviation.faceSum }} —
+            {{ pending.deviation.hasEffect ? `сила ${pending.deviation.strength}` : 'отклонения нет' }}.
+          </div>
+          <div v-if="pending.deviation.burst" class="mt-1">
+            Взрыв: {{ pending.deviation.burst.radius ?? 0 }} ипари вокруг кастера. Список целей задаётся сразу после
+            броска; при восстановлении окна взрыв бьёт только по кастеру.
+          </div>
+        </v-alert>
         <SpellSaturationPanel
           v-if="saturation"
           v-model="steps"

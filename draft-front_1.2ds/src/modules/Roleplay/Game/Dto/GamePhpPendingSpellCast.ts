@@ -1,5 +1,6 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
+import type { GamePhpSpellDeviation } from '@/modules/Roleplay/Game/Dto/GamePhpSpellDeviation';
 
 /** Отложенный каст между проверкой и выбором насыщения. */
 export interface GamePhpPendingSpellCast {
@@ -30,5 +31,7 @@ export interface GamePhpPendingSpellCast {
     rating: number;
     maxSteps: number;
   } | null;
+  /** 2d6 после провала: бросок уже сделан на сервере. */
+  deviation?: GamePhpSpellDeviation | null;
   createdAt: number;
 }

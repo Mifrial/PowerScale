@@ -1305,6 +1305,7 @@ export class GameApi implements IGameApi {
       expectedVersion: number;
       castId: string;
       saturationSteps: number;
+      burstTargets?: { type: 'character' | 'npc'; id: number; distanceIpari: number }[];
     },
     signal?: AbortSignal,
   ): Promise<GamePhpSpellCastResult> {
@@ -1318,7 +1319,11 @@ export class GameApi implements IGameApi {
         action: {
           phase: 'resolve',
           kind: 'spell',
-          context: { castId: body.castId, saturationSteps: body.saturationSteps },
+          context: {
+            castId: body.castId,
+            saturationSteps: body.saturationSteps,
+            ...(body.burstTargets ? { burstTargets: body.burstTargets } : {}),
+          },
         },
       },
       signal,

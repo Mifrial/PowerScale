@@ -89,13 +89,13 @@ final class GameSpellDeviationTest extends TestCase
         $spec = $this->service()->spec($this->slice(), 'check-spell-cast');
         self::assertNotNull($spec);
 
-        $operations = $this->service()->operations($spec, ['states' => []], 'item:5', 3);
+        $operations = $this->service()->operations($spec, ['states' => []], 'inventory:5', 3);
 
         self::assertSame([[
             'kind' => 'putState',
             'stateRuleCode' => 'core-magic-deviation',
             'value' => 3,
-            'boundSourceKey' => 'item:5',
+            'boundSourceKey' => 'inventory:5',
         ]], $operations);
     }
 
@@ -110,13 +110,13 @@ final class GameSpellDeviationTest extends TestCase
         self::assertNotNull($spec);
 
         $sheet = ['states' => [
-            ['id' => 1, 'stateRuleCode' => 'core-magic-deviation', 'value' => 2, 'boundSourceKey' => 'item:5'],
-            ['id' => 2, 'stateRuleCode' => 'core-magic-deviation', 'value' => 4, 'boundSourceKey' => 'item:6'],
+            ['id' => 1, 'stateRuleCode' => 'core-magic-deviation', 'value' => 2, 'boundSourceKey' => 'inventory:5'],
+            ['id' => 2, 'stateRuleCode' => 'core-magic-deviation', 'value' => 4, 'boundSourceKey' => 'inventory:6'],
         ]];
 
         self::assertSame(
             [['kind' => 'patchState', 'id' => 1, 'value' => 5]],
-            $this->service()->operations($spec, $sheet, 'item:5', 3),
+            $this->service()->operations($spec, $sheet, 'inventory:5', 3),
         );
     }
 
@@ -130,7 +130,7 @@ final class GameSpellDeviationTest extends TestCase
         $spec = $this->service()->spec($this->slice(), 'check-spell-cast');
         self::assertNotNull($spec);
 
-        self::assertSame([], $this->service()->operations($spec, ['states' => []], 'item:5', 0));
+        self::assertSame([], $this->service()->operations($spec, ['states' => []], 'inventory:5', 0));
     }
 
     /**
@@ -141,14 +141,14 @@ final class GameSpellDeviationTest extends TestCase
     public function testStrengthOnSourceSumsOnlyOwnRows(): void
     {
         $sheet = ['states' => [
-            ['id' => 1, 'stateRuleCode' => 'core-magic-deviation', 'value' => 2, 'boundSourceKey' => 'item:5'],
-            ['id' => 2, 'stateRuleCode' => 'core-magic-deviation', 'value' => 4, 'boundSourceKey' => 'item:6'],
+            ['id' => 1, 'stateRuleCode' => 'core-magic-deviation', 'value' => 2, 'boundSourceKey' => 'inventory:5'],
+            ['id' => 2, 'stateRuleCode' => 'core-magic-deviation', 'value' => 4, 'boundSourceKey' => 'inventory:6'],
             ['id' => 3, 'stateRuleCode' => 'core-magic-deviation', 'value' => 1],
         ]];
 
         self::assertSame(
             2,
-            $this->service()->strengthOnSource($this->slice(), 'check-spell-cast', $sheet, 'item:5'),
+            $this->service()->strengthOnSource($this->slice(), 'check-spell-cast', $sheet, 'inventory:5'),
         );
     }
 

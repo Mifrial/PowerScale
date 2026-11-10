@@ -1,5 +1,6 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
+import type { GamePhpSpellDeviation } from '@/modules/Roleplay/Game/Dto/GamePhpSpellDeviation';
 import type { GamePhpPendingSpellCast } from '@/modules/Roleplay/Game/Dto/GamePhpPendingSpellCast';
 
 /** Применённое сервером улучшение каста. */
@@ -11,6 +12,14 @@ export interface GamePhpSpellCastAppliedUpgrade {
   checkAdvantage: number;
   resistancePenetration: number;
   requiredPowerDelta: number;
+}
+
+/** Одна цель взрыва в ответе каста. */
+export interface GamePhpSpellCastBurstRow {
+  target: { type: 'character' | 'npc'; id: number };
+  damage: DimensionalNumberValue | null;
+  injury: DimensionalNumberValue | null;
+  sheetVersion: number;
 }
 
 /** Блок насыщения в ответе каста. */
@@ -49,6 +58,8 @@ export interface GamePhpSpellCastResult {
     upgrades?: GamePhpSpellCastAppliedUpgrade[];
   };
   saturation?: GamePhpSpellCastSaturation | null;
+  deviation?: GamePhpSpellDeviation | null;
+  burst?: GamePhpSpellCastBurstRow[] | null;
   nextCast?: GamePhpSpellCastNextCast[];
   spent: number;
   caster: GamePhpParticipant & { sheetVersion: number };

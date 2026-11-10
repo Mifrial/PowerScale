@@ -23,7 +23,7 @@ final class GameSpellSourceKey
     public static function of(array $source): string
     {
         return match ($source['kind'] ?? null) {
-            'item' => 'item:' . (int) ($source['inventoryId'] ?? 0),
+            'item' => 'inventory:' . (int) ($source['inventoryId'] ?? 0),
             'grant' => 'grant:' . (string) ($source['abilityCode'] ?? ''),
             'characteristic' => 'characteristic:' . (string) ($source['code'] ?? ''),
             default => throw new GameInvalidException('Game spell power source is invalid'),

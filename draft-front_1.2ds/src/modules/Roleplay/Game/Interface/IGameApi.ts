@@ -340,6 +340,7 @@ export interface IGameApi {
       expectedVersion: number;
       castId: string;
       saturationSteps: number;
+      burstTargets?: { type: 'character' | 'npc'; id: number; distanceIpari: number }[];
     },
     signal?: AbortSignal,
   ): Promise<GamePhpSpellCastResult>;

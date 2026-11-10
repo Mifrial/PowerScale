@@ -24,6 +24,7 @@ import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/g
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import type { GamePhpSpellCastRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastRequest';
 import type { GamePhpSpellCastResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastResult';
+import type { GamePhpSpellDeviation } from '@/modules/Roleplay/Game/Dto/GamePhpSpellDeviation';
 import type { GamePhpSpellCastPayload } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastPayload';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
@@ -157,12 +158,14 @@ const saturationSteps = ref(0);
 const phpPendingCast = ref<{
   castId: string;
   cast: GamePhpSpellCastResult['cast'];
-  saturation: NonNullable<GamePhpSpellCastResult['saturation']>;
+  saturation: NonNullable<GamePhpSpellCastResult['saturation']> | null;
+  deviation: GamePhpSpellDeviation | null;
 } | null>(null);
+const phpBurstTargets = ref<SpellBurstTarget[]>([]);
 const phpSaturationSteps = ref(0);
 const phpSaturationSourceName = computed(() => {
-  const code = phpPendingCast.value?.saturation.sourceCode;
-  if (!code) return 'Энергонасыщение';
+  const code = phpPendingCast.value?.saturation?.sourceCode;
+  if (!code) return 'Магическое отклонение';
 
   return findRuleByRef(props.rules, code)?.name ?? code;
 });
@@ -1069,12 +1072,15 @@ async function runPhpCast(): Promise<void> {
   const result = await getGameApi().castSpell(request);
   rememberSheet(result.caster);
   if (result.target) rememberSheet(result.target);
-  if (result.phase === 'check' && result.castId && result.saturation) {
+  if (result.phase === 'check' && result.castId && (result.saturation || result.deviation?.burst)) {
     phpSaturationSteps.value = 0;
+    phpBurstTargets.value = [];
+    burstOpen.value = Boolean(result.deviation?.burst);
     phpPendingCast.value = {
       castId: result.castId,
       cast: result.cast,
-      saturation: result.saturation,
+      saturation: result.saturation ?? null,
+      deviation: result.deviation ?? null,
     };
     emit('overlay-changed');
 
@@ -1207,7 +1213,7 @@ async function confirmSaturation(): Promise<void> {
 async function confirmPhpSaturation(): Promise<void> {
   const pending = phpPendingCast.value;
   if (!pending || busy.value) return;
-  const max = pending.saturation.maxSteps ?? 0;
+  const max = pending.saturation?.maxSteps ?? 0;
   const steps = Math.min(max, Math.max(0, Math.trunc(phpSaturationSteps.value)));
   await resolvePhpCast(steps);
 }
@@ -1219,6 +1225,15 @@ async function resolvePhpCast(steps: number): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
+    const burstTargets = phpBurstTargets.value.map((target) => {
+      const [type, raw] = target.key.split(':');
+
+      return {
+        type: type === 'npc' ? ('npc' as const) : ('character' as const),
+        id: Number(raw),
+        distanceIpari: target.distanceIpari,
+      };
+    });
     const result = await getGameApi().resolveSpellCast({
       gameId: props.gameId,
       battleId,
@@ -1226,13 +1241,18 @@ async function resolvePhpCast(steps: number): Promise<void> {
       expectedVersion: gamePhpBattleContext.battleVersion,
       castId: pending.castId,
       saturationSteps: steps,
+      ...(pending.deviation?.burst && burstTargets.length ? { burstTargets } : {}),
     });
     rememberSheet(result.caster);
     if (result.target) rememberSheet(result.target);
+    for (const row of result.burst ?? []) {
+      rememberSheet({ type: row.target.type, id: row.target.id, sheetVersion: row.sheetVersion });
+    }
     lastSkip.value = !result.cast.needsCheck;
     lastMilk.value = false;
     lastAutoFail.value = result.autoFail;
     phpPendingCast.value = null;
+    phpBurstTargets.value = [];
     emit('overlay-changed');
     emit('settled');
     emit('update:open', false);
@@ -1785,8 +1805,14 @@ function waitBurstTargets(): Promise<SpellBurstTarget[]> {
 
 function resolveBurst(targets: SpellBurstTarget[]): void {
   burstOpen.value = false;
-  burstWait?.(targets);
-  burstWait = null;
+  if (burstWait) {
+    burstWait(targets);
+    burstWait = null;
+
+    return;
+  }
+
+  phpBurstTargets.value = targets;
 }
 
 async function runDeviationAftermath(outcome: SpellCastExecutionResult, chatId: number | null): Promise<void> {
@@ -2004,7 +2030,29 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
         <template v-else>
           <template v-if="phpPendingCast">
             <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
+            <v-alert
+              v-if="phpPendingCast.deviation"
+              :type="phpPendingCast.deviation.hasEffect ? 'warning' : 'info'"
+              variant="tonal"
+              density="compact"
+              class="mb-3"
+            >
+              <div>
+                2d6: {{ phpPendingCast.deviation.faceSum }} —
+                {{
+                  phpPendingCast.deviation.hasEffect
+                    ? `сила отклонения ${phpPendingCast.deviation.strength}`
+                    : 'отклонения нет'
+                }}.
+              </div>
+              <div v-if="phpPendingCast.deviation.burst" class="mt-1">
+                Взрыв: {{ phpPendingCast.deviation.burst.radius ?? 0 }} ипари, РУ
+                {{ phpPendingCast.deviation.burst.successRating }}. Целей выбрано: {{ phpBurstTargets.length }}.
+                <v-btn size="small" variant="text" class="ms-2" @click="burstOpen = true">Выбрать цели</v-btn>
+              </div>
+            </v-alert>
             <SpellSaturationPanel
+              v-if="phpPendingCast.saturation"
               v-model="phpSaturationSteps"
               :rating="phpPendingCast.saturation.rating ?? 0"
               :max-steps="phpPendingCast.saturation.maxSteps ?? 0"
@@ -2218,7 +2266,9 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
         </div>
         <v-spacer />
         <template v-if="phpPendingCast">
-          <v-btn variant="text" :disabled="busy" @click="resolvePhpCast(0)">Без насыщения</v-btn>
+          <v-btn v-if="phpPendingCast.saturation" variant="text" :disabled="busy" @click="resolvePhpCast(0)">
+            Без насыщения
+          </v-btn>
           <v-btn color="primary" :loading="busy" @click="confirmPhpSaturation">Применить</v-btn>
         </template>
         <v-btn
