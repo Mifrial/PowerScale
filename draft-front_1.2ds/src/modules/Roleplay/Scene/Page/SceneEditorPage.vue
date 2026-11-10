@@ -433,8 +433,8 @@ function messageOf(exception: unknown): string {
   overflow-x: hidden;
   padding-right: 8px;
   scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(100, 116, 139, 0.65) rgba(148, 163, 184, 0.12);
+  scrollbar-width: auto;
+  scrollbar-color: rgba(71, 85, 105, 0.8) rgba(100, 116, 139, 0.18);
 }
 
 .scene-editor__panel > * {
@@ -442,16 +442,16 @@ function messageOf(exception: unknown): string {
 }
 
 .scene-editor__panel::-webkit-scrollbar {
-  width: 12px;
+  width: 14px;
 }
 
 .scene-editor__panel::-webkit-scrollbar-track {
-  background: rgba(148, 163, 184, 0.12);
+  background: rgba(100, 116, 139, 0.18);
   border-radius: 999px;
 }
 
 .scene-editor__panel::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.65);
+  background: rgba(71, 85, 105, 0.8);
   border: 3px solid transparent;
   background-clip: content-box;
   border-radius: 999px;
