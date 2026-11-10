@@ -13,11 +13,15 @@ const DEFAULT_WALL_WIDTH = 16;
 export class SceneToolShape {
   /** Фигура по типу инструмента и двум точкам сцены. */
   build(
-    shapeType: 'rect' | 'circle' | 'wall' | 'point',
+    shapeType: 'rect' | 'circle' | 'wall' | 'point' | 'polygon',
     from: ScenePoint,
     to: ScenePoint,
     bounds: SceneBounds,
   ): SceneShape | null {
+    if (shapeType === 'polygon') {
+      return null;
+    }
+
     if (shapeType === 'point') {
       return { type: 'point', x: this.clamp(from[0], 0, bounds.width), y: this.clamp(from[1], 0, bounds.height) };
     }

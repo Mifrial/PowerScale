@@ -2,6 +2,7 @@ import { Application, Container, Graphics, Sprite } from 'pixi.js';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { SceneLayerName } from '@/modules/Roleplay/Scene/Enum/SceneLayerName';
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
@@ -26,6 +27,10 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private model: SceneRenderModel | null = null;
 
   private viewport: SceneViewport | null = null;
+
+  private draftShape: SceneShape | null = null;
+
+  private draftGraphics: Graphics | null = null;
 
   private readonly textures = new SceneTextureCache();
 
@@ -140,6 +145,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.render();
   }
 
+  setDraft(shape: SceneShape | null): void {
+    this.draftShape = shape;
+    this.drawDraft();
+    this.render();
+  }
+
   render(): void {
     if (this.app === null || this.contextLost) {
       return;
@@ -162,6 +173,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.layers = {};
     this.model = null;
     this.viewport = null;
+    this.draftShape = null;
+    this.draftGraphics = null;
     this.host = null;
   }
 
@@ -223,6 +236,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     this.drawSelection();
+    this.drawBoardFrame(board);
+    this.drawDraft();
   }
 
   private clearAll(): void {
@@ -240,6 +255,10 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const children = layer.removeChildren();
     for (const child of children) {
       child.destroy({ children: true, texture: false, textureSource: false });
+    }
+
+    if (name === 'gizmos') {
+      this.draftGraphics = null;
     }
   }
 
@@ -276,10 +295,22 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     const graphics = new Graphics();
+    const tile = Math.max(1, Math.floor(Math.min(board.boundWidth, board.boundHeight) / 12));
+    for (let row = 0, y = 0; y < board.boundHeight; row += 1, y += tile) {
+      for (let column = 0, x = 0; x < board.boundWidth; column += 1, x += tile) {
+        if ((row + column) % 2 !== 0) {
+          continue;
+        }
+
+        graphics.rect(x, y, Math.min(tile, board.boundWidth - x), Math.min(tile, board.boundHeight - y));
+        graphics.fill({ color: 0x64748b, alpha: 0.07 });
+      }
+    }
+
     graphics
       .rect(0, 0, board.boundWidth, board.boundHeight)
-      .fill({ color: 0x1f2937, alpha: 0.08 })
-      .stroke({ color: 0x475569, width: 2 / this.zoom(), alpha: 0.35 });
+      .fill({ color: 0x1f2937, alpha: 0.05 })
+      .stroke({ color: 0x94a3b8, width: 2 / this.zoom(), alpha: 0.5 });
     layer.addChild(graphics);
   }
 
@@ -436,7 +467,74 @@ export class PixiSceneRenderer implements ISceneRenderer {
         this.zoom(),
       );
       layer.addChild(graphics);
+
+      if (element.shape.type === 'polygon') {
+        const size = 8 / this.zoom();
+        const handles = new Graphics();
+        for (const [x, y] of element.shape.points) {
+          handles
+            .rect(x - size / 2, y - size / 2, size, size)
+            .fill({ color: 0xfacc15, alpha: 1 })
+            .stroke({ color: 0x1f2937, width: 1.5 / this.zoom(), alpha: 1 });
+        }
+
+        layer.addChild(handles);
+      }
     }
+  }
+
+  /** Рамка поля поверх содержимого в режиме редактирования. */
+  private drawBoardFrame(board: SceneBoard): void {
+    const layer = this.layers.gizmos;
+    if (layer === undefined || this.model?.mode !== 'edit') {
+      return;
+    }
+
+    const zoom = this.zoom();
+    const graphics = new Graphics();
+    graphics.rect(0, 0, board.boundWidth, board.boundHeight).stroke({ color: 0xe2e8f0, width: 2 / zoom, alpha: 0.85 });
+
+    const tick = 10 / zoom;
+    const corners: [number, number, number, number][] = [
+      [0, 0, 1, 1],
+      [board.boundWidth, 0, -1, 1],
+      [board.boundWidth, board.boundHeight, -1, -1],
+      [0, board.boundHeight, 1, -1],
+    ];
+    for (const [x, y, dx, dy] of corners) {
+      graphics
+        .moveTo(x, y)
+        .lineTo(x + tick * dx, y)
+        .moveTo(x, y)
+        .lineTo(x, y + tick * dy)
+        .stroke({ color: 0x38bdf8, width: 3 / zoom, alpha: 1 });
+    }
+
+    layer.addChild(graphics);
+  }
+
+  /** Превью фигуры во время протяжки. */
+  private drawDraft(): void {
+    if (this.draftGraphics !== null) {
+      this.draftGraphics.destroy();
+      this.draftGraphics = null;
+    }
+
+    const layer = this.layers.gizmos;
+    if (this.draftShape === null || layer === undefined) {
+      return;
+    }
+
+    const graphics = new Graphics();
+    this.painter.paint(
+      graphics,
+      this.draftShape,
+      { color: 0x38bdf8, alpha: 0.2 },
+      { color: 0x7dd3fc, width: 2 / this.zoom(), alpha: 1 },
+      this.zoom(),
+    );
+    this.draftGraphics = graphics;
+    layer.addChild(graphics);
   }
 
   private zoom(): number {

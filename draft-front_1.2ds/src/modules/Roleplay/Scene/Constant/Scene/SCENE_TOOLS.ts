@@ -36,6 +36,14 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     props: { kind: 'grass', label: '' },
   },
   {
+    id: 'terrain-polygon',
+    label: 'Террейн (полигон)',
+    icon: 'mdi-vector-polygon',
+    kind: 'terrain',
+    shapeType: 'polygon',
+    props: { kind: 'grass', label: '' },
+  },
+  {
     id: 'opening',
     label: 'Проём',
     icon: 'mdi-door',

@@ -137,6 +137,59 @@ export class SceneDraftService {
     }
   }
 
+  /** Прямоугольник ровно по границам поля. */
+  fullBoardShape(width: number, height: number): SceneShape {
+    return { type: 'rect', x: 0, y: 0, w: width, h: height };
+  }
+
+  /** Совпадает ли фигура с прямоугольником поля. */
+  isFullBoardShape(shape: SceneShape, width: number, height: number): boolean {
+    return shape.type === 'rect' && shape.x === 0 && shape.y === 0 && shape.w === width && shape.h === height;
+  }
+
+  /** Заливает поле террейном: обновляет существующий полный прямоугольник или создаёт новый. */
+  fillBoardTerrain(draft: SceneDraft, boardId: number, kind: string): SceneDraftElement | null {
+    const board = draft.boards.find((item) => item.id === boardId);
+    if (board === undefined) {
+      return null;
+    }
+
+    const existing = draft.elements.find(
+      (element) =>
+        element.boardId === boardId &&
+        element.kind === 'terrain' &&
+        this.isFullBoardShape(element.shape, board.boundWidth, board.boundHeight),
+    );
+    if (existing !== undefined) {
+      existing.props = { ...existing.props, kind };
+
+      return existing;
+    }
+
+    return this.addElement(draft, boardId, 'terrain', this.fullBoardShape(board.boundWidth, board.boundHeight), {
+      kind,
+      label: '',
+    });
+  }
+
+  /** Растягивает террейн, который раньше занимал всё поле, под новые границы. */
+  stretchBoardTerrain(draft: SceneDraft, boardId: number, oldWidth: number, oldHeight: number): void {
+    const board = draft.boards.find((item) => item.id === boardId);
+    if (board === undefined) {
+      return;
+    }
+
+    for (const element of draft.elements) {
+      if (element.boardId !== boardId || element.kind !== 'terrain') {
+        continue;
+      }
+
+      if (this.isFullBoardShape(element.shape, oldWidth, oldHeight)) {
+        element.shape = this.fullBoardShape(board.boundWidth, board.boundHeight);
+      }
+    }
+  }
+
   /** Сдвигает элемент в пределах его поля. */
   moveElement(draft: SceneDraft, elementId: number, deltaX: number, deltaY: number): void {
     const element = draft.elements.find((item) => item.id === elementId);

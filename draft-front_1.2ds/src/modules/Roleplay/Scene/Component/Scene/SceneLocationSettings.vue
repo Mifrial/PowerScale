@@ -79,13 +79,20 @@ function cancelResolution(): void {
         :model-value="props.draft.resolution"
         :items="SCENE_RESOLUTIONS"
         label="Точность, ед./ипари"
-        :hint="resolutionHint"
-        persistent-hint
         density="compact"
         variant="outlined"
-        hide-details="auto"
+        hide-details
         @update:model-value="selectResolution"
-      />
+      >
+        <template #append-inner>
+          <v-tooltip location="top" max-width="280">
+            <template #activator="{ props: tooltipProps }">
+              <v-icon v-bind="tooltipProps" icon="mdi-information-outline" size="16" @mousedown.stop @click.stop />
+            </template>
+            <span class="text-caption">{{ resolutionHint }}</span>
+          </v-tooltip>
+        </template>
+      </v-select>
     </v-card-text>
 
     <v-dialog v-model="confirmOpen" max-width="440">

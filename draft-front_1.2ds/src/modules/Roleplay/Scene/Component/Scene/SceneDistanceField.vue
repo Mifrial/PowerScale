@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
+import DimensionalNumberField from '@/modules/Core/UI/Component/Input/DimensionalNumberField.vue';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
 const props = withDefaults(
@@ -11,62 +13,63 @@ const props = withDefaults(
     min?: number;
     max?: number;
   }>(),
-  { hint: 'Формат: 40 или {1|-1}', min: 0, max: Number.MAX_SAFE_INTEGER },
+  { hint: undefined, min: 0, max: Number.MAX_SAFE_INTEGER },
 );
 
 const emit = defineEmits<{
   'update:modelValue': [value: number];
 }>();
 
-const text = ref('');
-const error = ref<string | null>(null);
+/**
+ * Показываемое представление. Хранится отдельно, чтобы не «схлопывать»
+ * введённые базу и размер в каноническую форму после каждого нажатия.
+ */
+const display = ref<DimensionalNumberValue>(sceneUnits.toIpari(props.modelValue, props.resolution));
+
+const exponent = computed(() => Math.max(0, Math.round(Math.log2(props.resolution))));
+const sizeMin = computed(() => -exponent.value);
+const sizeMax = 20;
+
+/** Предел базы при текущем размере: значение не должно выходить за max. */
+const baseMax = computed(() => {
+  const power = display.value.size + exponent.value;
+
+  return Math.max(1, Math.floor(props.max / Math.max(1, 2 ** power)));
+});
 
 watch(
   () => [props.modelValue, props.resolution] as const,
   () => {
-    text.value = sceneUnits.formatUnits(props.modelValue, props.resolution);
+    if (sceneUnits.fromIpari(display.value, props.resolution) !== props.modelValue) {
+      display.value = sceneUnits.toIpari(props.modelValue, props.resolution);
+    }
   },
-  { immediate: true },
 );
 
-/** Применяет введённое значение; неверный формат возвращает текст к модели. */
-function commit(): void {
-  const parsed = sceneUnits.parse(text.value);
-  if (parsed === null) {
-    error.value = 'Нужно целое число ипари или {base|size}';
-    reset();
-
+/** Применяет новое значение и возвращает его в допустимый диапазон единиц. */
+function apply(next: DimensionalNumberValue | null): void {
+  if (next === null) {
     return;
   }
 
-  const units = sceneUnits.fromIpari(parsed, props.resolution);
+  const units = sceneUnits.fromIpari(next, props.resolution);
   const clamped = Math.min(props.max, Math.max(props.min, units));
-  error.value = null;
+  display.value = clamped === units ? next : sceneUnits.toIpari(clamped, props.resolution);
   if (clamped !== props.modelValue) {
     emit('update:modelValue', clamped);
   }
-
-  text.value = sceneUnits.formatUnits(clamped, props.resolution);
-}
-
-/** Возвращает текст к текущей модели. */
-function reset(): void {
-  text.value = sceneUnits.formatUnits(props.modelValue, props.resolution);
 }
 </script>
 
 <template>
-  <v-text-field
-    :model-value="text"
+  <DimensionalNumberField
+    :model-value="display"
     :label="props.label"
     :hint="props.hint"
-    :error-messages="error === null ? [] : [error]"
-    persistent-hint
-    density="compact"
-    variant="outlined"
-    hide-details="auto"
-    @update:model-value="(value) => (text = value ?? '')"
-    @blur="commit"
-    @keyup.enter="commit"
+    :min="0"
+    :max="baseMax"
+    :size-min="sizeMin"
+    :size-max="sizeMax"
+    @update:model-value="apply"
   />
 </template>

@@ -12,6 +12,7 @@ import type { SceneConflict } from '@/modules/Roleplay/Scene/Dto/SceneConflict';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
 import { SCENE_EMPTY_DETAIL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_EMPTY_DETAIL';
@@ -153,6 +154,29 @@ function onDraw(from: ScenePoint, to: ScenePoint): void {
   const definition = toolDefinition.value;
   if (definition === null) return;
   state.createFromDrag(definition, from, to);
+}
+
+/** Готовая фигура из кликов (полигон террейна). */
+function onShape(shape: SceneShape): void {
+  const definition = toolDefinition.value;
+  if (definition === null) return;
+  state.createElement(definition, shape);
+}
+
+/** Перетаскивание вершины полигона. */
+function onVertex(elementId: number, index: number, point: ScenePoint): void {
+  state.moveVertex(elementId, index, point);
+}
+
+/** Заливка поля террейном выбранного шаблона. */
+function fillTerrain(boardId: number, kind: string): void {
+  state.fillTerrain(kind, boardId);
+}
+
+/** Растягивает выделенный террейн на всё поле. */
+function stretchTerrain(): void {
+  if (selectedElement.value === null) return;
+  state.stretchTerrain(selectedElement.value.id);
 }
 
 function onMove(delta: ScenePoint): void {
@@ -339,6 +363,8 @@ function messageOf(exception: unknown): string {
           :tool="tool"
           interactive
           @draw="onDraw"
+          @shape="onShape"
+          @vertex="onVertex"
           @move="onMove"
           @selection="onSelection"
           @viewport="onViewport"
@@ -358,6 +384,7 @@ function messageOf(exception: unknown): string {
           @rename="renameBoard"
           @update="updateBoard"
           @backdrop="updateBackdrop"
+          @terrain="fillTerrain"
           @move="(boardId, offset) => state.moveBoard(boardId, offset)"
           @remove="removeBoard"
         />
@@ -370,6 +397,7 @@ function messageOf(exception: unknown): string {
           @update="updateElementProps"
           @target="updateElementTarget"
           @asset="updateElementAsset"
+          @stretch="stretchTerrain"
           @remove="removeSelected"
         />
         <v-card v-else-if="selection.length > 1" variant="outlined">
