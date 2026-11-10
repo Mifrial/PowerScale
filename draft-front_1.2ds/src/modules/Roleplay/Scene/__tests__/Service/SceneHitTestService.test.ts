@@ -27,6 +27,7 @@ function element(overrides: Partial<SceneElement>): SceneElement {
 function model(elements: SceneElement[], activeBoardId = 10): SceneRenderModel {
   return {
     activeBoardId,
+    resolution: 64,
     boards: [],
     elements,
     enclosures: [],

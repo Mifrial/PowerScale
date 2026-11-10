@@ -15,6 +15,8 @@ export interface ISceneRenderer {
   setVertexFocus(target: SceneVertexTarget | null): void;
   /** Предварительная фигура во время протяжки; null — убрать превью. */
   setDraft(shape: SceneShape | null): void;
+  /** Анимация воды: пользовательская настройка, работает в preview/play. */
+  setWaterAnimation(enabled: boolean): void;
   render(): void;
   destroy(): void;
 }

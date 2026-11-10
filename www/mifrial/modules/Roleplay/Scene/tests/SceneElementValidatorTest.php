@@ -103,6 +103,69 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Кромка террейна сохраняется вместе с шириной.
+     *
+     * @return void
+     */
+    public function testTerrainKeepsShore(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'water', 'shoreKind' => 'sand', 'shoreWidth' => 32],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame('sand', $element['props']['shoreKind']);
+        self::assertSame(32, $element['props']['shoreWidth']);
+    }
+
+    /**
+     * Без кромки ширина обнуляется.
+     *
+     * @return void
+     */
+    public function testTerrainWithoutShoreHasZeroWidth(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'grass', 'shoreKind' => 'none', 'shoreWidth' => 32],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame('none', $element['props']['shoreKind']);
+        self::assertSame(0, $element['props']['shoreWidth']);
+    }
+
+    /**
+     * Неизвестный материал кромки отклоняется.
+     *
+     * @return void
+     */
+    public function testTerrainShoreKindMustBeKnown(): void
+    {
+        $this->expectException(SceneInvalidException::class);
+        $this->expectExceptionMessage('shoreKind is unknown');
+
+        $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'water', 'shoreKind' => 'lava', 'shoreWidth' => 32],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+    }
+
+    /**
      * Проверяет один элемент на поле 1000×800.
      *
      * @param array<string|int, mixed> $row Элемент.
