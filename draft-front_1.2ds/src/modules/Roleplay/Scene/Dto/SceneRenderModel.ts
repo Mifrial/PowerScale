@@ -5,6 +5,8 @@ import type { SceneEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneEnclosure
 /** Модель, которую получает renderer. Доменное состояние остаётся снаружи. */
 export interface SceneRenderModel {
   activeBoardId: number;
+  /** Разрешение локации: единиц сцены в одном ипари. */
+  resolution: number;
   boards: SceneBoard[];
   elements: SceneElement[];
   enclosures: SceneEnclosure[];

@@ -7,12 +7,22 @@ import type { SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertex
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { SceneLayerName } from '@/modules/Roleplay/Scene/Enum/SceneLayerName';
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
+import type { SceneWaterNode } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SceneShapePainter } from '@/modules/Roleplay/Scene/Service/SceneShapePainter';
+import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
+import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
 import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
+import { SceneWaterService } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_RENDERER_PREFERENCE';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
+
+/** Вода и её анимация на активном поле. */
+interface WaterEntry {
+  elementId: number;
+  node: SceneWaterNode;
+}
 
 /**
  * PixiJS-рендерер локаций: подложка, сетка, фигуры, декор и выделение.
@@ -40,7 +50,32 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private readonly textures = new SceneTextureCache();
 
+  private readonly patterns = new SceneTerrainPatternService();
+
   private readonly painter = new SceneShapePainter();
+
+  private readonly terrain = new SceneTerrainPainter(this.patterns);
+
+  private readonly water = new SceneWaterService();
+
+  private waterNodes: WaterEntry[] = [];
+
+  private waterAnimationEnabled = true;
+
+  private waterElapsed = 0;
+
+  private waterTickerActive = false;
+
+  private readonly handleWaterTick = (ticker: { deltaMS: number }): void => {
+    this.waterElapsed += ticker.deltaMS / 1000;
+    for (const entry of this.waterNodes) {
+      entry.node.update(this.waterElapsed);
+    }
+  };
+
+  private readonly handleVisibilityChange = (): void => {
+    this.syncWaterAnimation();
+  };
 
   private sceneToken = 0;
 
@@ -75,6 +110,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     host.appendChild(app.canvas);
     this.app = app;
     this.createWorld();
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
   /**
@@ -118,6 +154,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     app.canvas.removeEventListener('webglcontextlost', this.handleContextLost);
     app.canvas.removeEventListener('webglcontextrestored', this.handleContextRestored);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    this.stopWaterTicker();
     app.canvas.parentElement?.removeChild(app.canvas);
     this.host = null;
   }
@@ -167,6 +205,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.rebuild(board);
     this.applyViewport();
     this.render();
+    this.syncWaterAnimation();
   }
 
   setSelection(ids: number[]): void {
@@ -191,6 +230,16 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.render();
   }
 
+  /** Анимация воды — пользовательская настройка, а не свойство локации. */
+  setWaterAnimation(enabled: boolean): void {
+    if (this.waterAnimationEnabled === enabled) {
+      return;
+    }
+
+    this.waterAnimationEnabled = enabled;
+    this.syncWaterAnimation();
+  }
+
   render(): void {
     if (this.app === null || this.contextLost) {
       return;
@@ -199,9 +248,47 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.app.render();
   }
 
+  /** Тикер воды: только preview/play, включённая настройка и видимая вкладка. */
+  private syncWaterAnimation(): void {
+    if (this.app === null) {
+      return;
+    }
+
+    const hidden = typeof document !== 'undefined' && document.hidden;
+    const shouldRun =
+      this.waterAnimationEnabled && this.model?.mode !== 'edit' && this.waterNodes.length > 0 && !hidden;
+    if (shouldRun) {
+      if (!this.waterTickerActive) {
+        this.app.ticker.add(this.handleWaterTick, this);
+        this.waterTickerActive = true;
+      }
+
+      this.app.ticker.start();
+
+      return;
+    }
+
+    this.stopWaterTicker();
+    this.render();
+  }
+
+  private stopWaterTicker(): void {
+    if (this.app === null || !this.waterTickerActive) {
+      return;
+    }
+
+    this.app.ticker.remove(this.handleWaterTick, this);
+    this.app.ticker.stop();
+    this.waterTickerActive = false;
+  }
+
   destroy(): void {
     ++this.sceneToken;
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    this.stopWaterTicker();
+    this.waterNodes = [];
     this.textures.destroy();
+    this.patterns.destroy();
     if (this.app !== null) {
       this.app.canvas.removeEventListener('webglcontextlost', this.handleContextLost);
       this.app.canvas.removeEventListener('webglcontextrestored', this.handleContextRestored);
@@ -289,23 +376,55 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private rebuild(board: SceneBoard): void {
     this.clearAll();
+    this.waterNodes = [];
     if (this.model === null) {
       return;
     }
 
     this.drawBackdrop(board);
-    this.drawGrid(board);
+    if (this.isEdit()) {
+      this.drawGrid(board);
+    }
+
     this.drawEnclosures(board);
     const elements = this.model.elements
       .filter((element) => element.boardId === board.id)
       .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
-    for (const element of elements) {
-      this.drawElement(element);
+    const terrainElements = elements
+      .filter((element) => element.kind === 'terrain')
+      .sort(
+        (left, right) =>
+          this.terrainRank(left) - this.terrainRank(right) || left.sortOrder - right.sortOrder || left.id - right.id,
+      );
+    for (const element of terrainElements) {
+      this.drawTerrain(element);
     }
 
-    this.drawSelection();
-    this.drawBoardFrame(board);
-    this.drawDraft();
+    for (const element of elements) {
+      if (element.kind !== 'terrain') {
+        this.drawElement(element);
+      }
+    }
+
+    if (this.isEdit()) {
+      this.drawGridOverlay(board);
+    }
+
+    this.applyContentClip(board);
+    if (this.isEdit()) {
+      this.drawSelection();
+      this.drawBoardFrame(board);
+      this.drawDraft();
+    }
+  }
+
+  /** Вода выше остальных шаблонов террейна. */
+  private terrainRank(element: SceneElement): number {
+    return element.props.kind === 'water' ? 1 : 0;
+  }
+
+  private isEdit(): boolean {
+    return this.model?.mode === 'edit';
   }
 
   private clearAll(): void {
@@ -320,6 +439,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
+    layer.mask = null;
     const children = layer.removeChildren();
     for (const child of children) {
       child.destroy({ children: true, texture: false, textureSource: false });
@@ -327,6 +447,26 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     if (name === 'gizmos') {
       this.draftGraphics = null;
+    }
+
+    if (name === 'terrain') {
+      this.waterNodes = [];
+    }
+  }
+
+  /** Обрезает содержимое поля по его границам; gizmos остаются снаружи. */
+  private applyContentClip(board: SceneBoard): void {
+    const names: SceneLayerName[] = ['terrain', 'supports', 'obstacles', 'openings', 'decor'];
+    for (const name of names) {
+      const layer = this.layers[name];
+      if (layer === undefined) {
+        continue;
+      }
+
+      const mask = new Graphics();
+      mask.rect(0, 0, board.boundWidth, board.boundHeight).fill({ color: 0xffffff });
+      layer.addChild(mask);
+      layer.mask = mask;
     }
   }
 
@@ -392,6 +532,24 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
+    this.paintGrid(layer, board, 1, 0x94a3b8);
+  }
+
+  /** Сетка поверх террейна: под непрозрачным материалом нижняя сетка не видна. */
+  private drawGridOverlay(board: SceneBoard): void {
+    if (board.gridStep <= 0) {
+      return;
+    }
+
+    const layer = this.layers.terrain;
+    if (layer === undefined) {
+      return;
+    }
+
+    this.paintGrid(layer, board, 0.55, 0x0f172a);
+  }
+
+  private paintGrid(layer: Container, board: SceneBoard, alphaFactor: number, color: number): void {
     const zoom = this.zoom();
     const minor = board.gridStep;
     const major = minor * 2;
@@ -411,7 +569,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
         graphics.moveTo(0, y).lineTo(board.boundWidth, y);
       }
 
-      graphics.stroke({ color: 0x64748b, width: 1 / zoom, alpha: 0.12 });
+      graphics.stroke({ color, width: 1 / zoom, alpha: 0.14 * alphaFactor });
       layer.addChild(graphics);
     }
 
@@ -425,7 +583,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
         graphics.moveTo(0, y).lineTo(board.boundWidth, y);
       }
 
-      graphics.stroke({ color: 0x94a3b8, width: 1.5 / zoom, alpha: 0.22 });
+      graphics.stroke({ color, width: 1.4 / zoom, alpha: 0.24 * alphaFactor });
       layer.addChild(graphics);
     }
   }
@@ -457,20 +615,58 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
   }
 
-  private drawElement(element: SceneElement): void {
-    const layerName = this.layerFor(element);
-    const layer = this.layers[layerName];
+  /** Террейн: кромка, поверхность или вода. */
+  private drawTerrain(element: SceneElement): void {
+    const layer = this.layers.terrain;
     if (layer === undefined) {
       return;
     }
 
-    if (element.kind === 'terrain' && element.asset !== null) {
+    const zoom = this.zoom();
+    const resolution = this.model?.resolution ?? 64;
+    this.terrain.paintShore(layer, element, resolution, zoom);
+
+    if (element.props.kind === 'water') {
+      this.drawWater(layer, element, resolution, zoom);
+      this.terrain.paintWaterEdge(layer, element, zoom);
+
+      return;
+    }
+
+    if (element.asset !== null) {
       const sprite = this.terrainSprite(element);
       if (sprite !== null) {
         layer.addChild(sprite);
 
         return;
       }
+    }
+
+    this.terrain.paintSurface(layer, element, resolution, zoom);
+  }
+
+  /** Вода: лента-mesh или замкнутый тайл. */
+  private drawWater(layer: Container, element: SceneElement, resolution: number, zoom: number): void {
+    const texture = this.textures.get(element.asset?.publicId ?? null) ?? this.patterns.texture('water');
+    const node = this.water.build(element, texture, resolution, zoom);
+    if (node === null) {
+      return;
+    }
+
+    if (node.mask !== undefined) {
+      layer.addChild(node.mask);
+    }
+
+    layer.addChild(node.node);
+    this.waterNodes.push({ elementId: element.id, node });
+    node.update(this.waterElapsed);
+  }
+
+  private drawElement(element: SceneElement): void {
+    const layerName = this.layerFor(element);
+    const layer = this.layers[layerName];
+    if (layer === undefined) {
+      return;
     }
 
     layer.addChild(this.painter.paintElement(element, this.zoom()));
@@ -513,7 +709,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private drawSelection(): void {
     this.clearLayer('selection');
-    if (this.model === null) {
+    if (this.model === null || !this.isEdit()) {
       return;
     }
 
@@ -649,7 +845,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     const layer = this.layers.gizmos;
-    if (this.draftShape === null || layer === undefined) {
+    if (layer === undefined || this.model?.mode !== 'edit' || this.draftShape === null) {
       return;
     }
 

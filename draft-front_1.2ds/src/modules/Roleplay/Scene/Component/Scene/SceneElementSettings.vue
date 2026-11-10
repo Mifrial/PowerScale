@@ -9,6 +9,7 @@ import { SCENE_MARKER_ROLE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Sce
 import { SCENE_OPENING_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OPENING_KIND_OPTIONS';
 import { SCENE_SUPPORT_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SUPPORT_KIND_OPTIONS';
 import { SCENE_TERRAIN_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_KIND_OPTIONS';
+import { SCENE_TERRAIN_SHORE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_SHORE_OPTIONS';
 
 const FileUploadField = defineAsyncComponent(() => import('@/modules/Core/File/Component/FileUploadField.vue'));
 
@@ -75,6 +76,18 @@ function patchNumber(key: 'rotation' | 'scale', value: string | number | null): 
 
 function patchText(key: 'label' | 'kind' | 'state' | 'role', value: string | null): void {
   patch({ [key]: value ?? '' });
+}
+
+function patchShoreKind(value: string | null): void {
+  const shoreKind = value ?? 'none';
+  const hasWidth = (props.element.props.shoreWidth ?? 0) > 0;
+  if (shoreKind !== 'none' && !hasWidth) {
+    patch({ shoreKind, shoreWidth: Math.max(1, Math.round(props.resolution / 2)) });
+
+    return;
+  }
+
+  patch({ shoreKind });
 }
 
 function patchFlag(key: 'blocksMovement' | 'blocksVision', value: boolean | null): void {
@@ -208,6 +221,25 @@ function onAsset(file: FileRecord | null): void {
         label="Текстура террейна"
         :accept="['image/png', 'image/jpeg', 'image/webp']"
         @update:model-value="onAsset"
+      />
+      <v-select
+        :model-value="props.element.props.shoreKind ?? 'none'"
+        :items="SCENE_TERRAIN_SHORE_OPTIONS"
+        :label="props.element.props.kind === 'water' ? 'Берег' : 'Кромка'"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="patchShoreKind"
+      />
+      <SceneDistanceField
+        v-if="(props.element.props.shoreKind ?? 'none') !== 'none'"
+        :model-value="props.element.props.shoreWidth ?? 0"
+        :resolution="props.resolution"
+        :label="props.element.props.kind === 'water' ? 'Ширина берега, ипари' : 'Ширина кромки, ипари'"
+        hint="Кромка расширяет террейн снаружи; материал выбирается отдельно от поверхности."
+        :min="0"
+        :max="100000"
+        @update:model-value="(value) => patch({ shoreWidth: value })"
       />
       <SceneDistanceField
         v-if="props.element.shape.type === 'path'"

@@ -2,10 +2,11 @@ import type { SceneHandle } from '@/modules/Roleplay/Scene/Dto/SceneHandle';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneCurveService } from '@/modules/Roleplay/Scene/Service/SceneCurveService';
 
-/** Геометрия ленты: осевая линия, ширины и оба края. */
+/** Геометрия ленты: осевая линия, ширины, оба края и длины вдоль осевой. */
 interface RibbonGeometry {
   center: ScenePoint[];
   widths: number[];
+  lengths: number[];
   left: ScenePoint[];
   right: ScenePoint[];
 }
@@ -18,29 +19,37 @@ interface RibbonGeometry {
 export class SceneRibbonService {
   constructor(private readonly curves: SceneCurveService) {}
 
-  /** Лента по вершинам, ручкам и ширинам. */
-  geometry(points: ScenePoint[], handles: SceneHandle[], widths: number[], tolerance = 1): RibbonGeometry {
+  /** Лента по вершинам, ручкам и ширинам; `pad` расширяет её с двух сторон. */
+  geometry(points: ScenePoint[], handles: SceneHandle[], widths: number[], tolerance = 1, pad = 0): RibbonGeometry {
     const samples = this.curves.flattenSamples(points, handles, tolerance);
     const center: ScenePoint[] = [];
     const flatWidths: number[] = [];
+    const lengths: number[] = [];
     const left: ScenePoint[] = [];
     const right: ScenePoint[] = [];
+    let length = 0;
     for (const sample of samples) {
       const width = Math.max(1, this.widthAt(widths, sample.segment, sample.t));
-      const half = width / 2;
+      const half = width / 2 + pad;
       const normal: ScenePoint = [-sample.tangent[1], sample.tangent[0]];
+      if (center.length > 0) {
+        const previous = center[center.length - 1];
+        length += Math.hypot(sample.point[0] - previous[0], sample.point[1] - previous[1]);
+      }
+
       center.push(sample.point);
       flatWidths.push(width);
+      lengths.push(length);
       left.push([sample.point[0] + normal[0] * half, sample.point[1] + normal[1] * half]);
       right.push([sample.point[0] - normal[0] * half, sample.point[1] - normal[1] * half]);
     }
 
-    return { center, widths: flatWidths, left, right };
+    return { center, widths: flatWidths, lengths, left, right };
   }
 
   /** Замкнутый контур ленты для заливки. */
-  outline(points: ScenePoint[], handles: SceneHandle[], widths: number[], tolerance = 1): ScenePoint[] {
-    const geometry = this.geometry(points, handles, widths, tolerance);
+  outline(points: ScenePoint[], handles: SceneHandle[], widths: number[], tolerance = 1, pad = 0): ScenePoint[] {
+    const geometry = this.geometry(points, handles, widths, tolerance, pad);
 
     return [...geometry.left, ...[...geometry.right].reverse()];
   }

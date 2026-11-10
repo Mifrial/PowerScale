@@ -29,6 +29,9 @@ final class SceneElementValidator
 
     private const TERRAIN_KINDS = ['grass', 'dirt', 'stone', 'sand', 'mud', 'water', 'ice'];
 
+    /** Материалы кромки террейна; `none` выключает кромку. */
+    private const TERRAIN_SHORE_KINDS = ['none', 'grass', 'dirt', 'stone', 'sand', 'mud', 'ice'];
+
     private const OPENING_KINDS = ['door', 'window', 'gate', 'stairs', 'teleport'];
 
     private const OPENING_STATES = ['open', 'closed'];
@@ -616,9 +619,20 @@ final class SceneElementValidator
         $assetPublicId = $this->fields->optionalStringValue($props, 'assetPublicId', $path . '.assetPublicId');
         $fileRecord = $this->files->resolve($assetPublicId, $path . '.assetPublicId');
 
+        $shoreKind = $this->stringOrDefault($props, 'shoreKind', $path . '.shoreKind', 'none');
+        if (!in_array($shoreKind, self::TERRAIN_SHORE_KINDS, true)) {
+            throw new SceneInvalidException($path . '.shoreKind is unknown');
+        }
+
+        $shoreWidth = $shoreKind === 'none'
+            ? 0
+            : $this->intOrDefault($props, 'shoreWidth', $path . '.shoreWidth', 0, 0, 100000);
+
         return [
             'props' => [
                 'kind' => $terrainKind,
+                'shoreKind' => $shoreKind,
+                'shoreWidth' => $shoreWidth,
                 'label' => $this->label($props, $path . '.label'),
             ],
             'assetFileId' => $fileRecord?->getId(),

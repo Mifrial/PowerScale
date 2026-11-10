@@ -30,6 +30,7 @@ const board = computed<SceneBoard | null>(
 );
 const model = computed<SceneRenderModel>(() => ({
   activeBoardId: activeBoardId.value ?? 0,
+  resolution: scene.value?.resolution ?? 64,
   boards: scene.value?.boards ?? [],
   elements: scene.value?.elements ?? [],
   enclosures: scene.value?.enclosures ?? [],

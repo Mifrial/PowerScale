@@ -26,8 +26,10 @@ const props = withDefaults(
     interactive?: boolean;
     /** Ширина ленты для превью, единицы сцены. */
     pathWidth?: number;
+    /** Пользовательская настройка анимации воды. */
+    waterAnimation?: boolean;
   }>(),
-  { tool: 'select', interactive: false, pathWidth: 256 },
+  { tool: 'select', interactive: false, pathWidth: 256, waterAnimation: true },
 );
 
 const emit = defineEmits<{
@@ -85,6 +87,7 @@ onMounted(async () => {
   sceneRenderer.resize(size.width, size.height, window.devicePixelRatio || 1);
   sceneRenderer.setViewport(viewport);
   await sceneRenderer.setScene(props.model);
+  sceneRenderer.setWaterAnimation(props.waterAnimation);
   sceneRenderer.setSelection(props.model.selection);
   observer = new ResizeObserver(() => handleResize());
   observer.observe(element);
@@ -126,6 +129,13 @@ watch(
     if (vertexTarget !== null && !ids.includes(vertexTarget.elementId)) {
       setFocus(null);
     }
+  },
+);
+
+watch(
+  () => props.waterAnimation,
+  (enabled) => {
+    renderer?.setWaterAnimation(enabled);
   },
 );
 

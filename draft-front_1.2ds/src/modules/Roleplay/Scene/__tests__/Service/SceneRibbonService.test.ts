@@ -62,4 +62,21 @@ describe('SceneRibbonService', () => {
 
     expect(point).toEqual([0, 130]);
   });
+
+  it('widens the ribbon by the shore padding', () => {
+    const geometry = service.geometry(
+      [
+        [0, 100],
+        [300, 100],
+      ],
+      curves.normalizeHandles([]),
+      [40, 40],
+      1,
+      16,
+    );
+
+    expect(geometry.left[0][1]).toBeCloseTo(136, 6);
+    expect(geometry.right[0][1]).toBeCloseTo(64, 6);
+    expect(geometry.lengths[geometry.lengths.length - 1]).toBeCloseTo(300, 6);
+  });
 });

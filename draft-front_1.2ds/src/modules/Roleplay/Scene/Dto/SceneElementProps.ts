@@ -11,4 +11,6 @@ export interface SceneElementProps {
   scale?: number;
   role?: string;
   assetPublicId?: string;
+  shoreKind?: string;
+  shoreWidth?: number;
 }

@@ -39,6 +39,8 @@ const conflict = ref<SceneConflict | null>(null);
 const viewport = ref<SceneViewport | null>(null);
 const boardPanelKey = ref(0);
 const openPanels = ref<string[]>(['board']);
+const preview = ref(false);
+const waterAnimation = ref(readWaterAnimation());
 
 const draft = state.draft;
 const selection = state.selection;
@@ -52,11 +54,12 @@ const activeViewBoard = computed(
 );
 const renderModel = computed<SceneRenderModel>(() => ({
   activeBoardId: draft.value.activeBoardId ?? 0,
+  resolution: draft.value.resolution,
   boards: viewBoards.value,
   elements: viewElements.value,
   enclosures: viewEnclosures.value,
   selection: selection.value,
-  mode: 'edit',
+  mode: preview.value ? 'preview' : 'edit',
 }));
 const toolDefinition = computed(() => SCENE_TOOLS.find((item) => item.id === tool.value) ?? SCENE_TOOLS[0]);
 const selectedElement = computed(() =>
@@ -374,9 +377,39 @@ function onKeydown(event: KeyboardEvent): void {
   }
 
   if (event.key === 'Escape') {
+    if (preview.value) {
+      preview.value = false;
+
+      return;
+    }
+
     tool.value = 'select';
     state.select([]);
   }
+}
+
+const WATER_ANIMATION_KEY = 'scene.waterAnimation';
+
+function readWaterAnimation(): boolean {
+  if (typeof window === 'undefined') {
+    return true;
+  }
+
+  const stored = window.localStorage.getItem(WATER_ANIMATION_KEY);
+  if (stored === '0') {
+    return false;
+  }
+
+  if (stored === '1') {
+    return true;
+  }
+
+  return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function setWaterAnimation(value: boolean | null): void {
+  waterAnimation.value = value === true;
+  window.localStorage.setItem(WATER_ANIMATION_KEY, waterAnimation.value ? '1' : '0');
 }
 
 function onBeforeUnload(event: BeforeUnloadEvent): void {
@@ -460,6 +493,7 @@ function messageOf(exception: unknown): string {
     </v-alert>
 
     <SceneToolbar
+      v-if="!preview"
       v-model:tool="tool"
       :has-selection="selection.length > 0"
       :can-undo="canUndo"
@@ -485,7 +519,8 @@ function messageOf(exception: unknown): string {
           :board="activeViewBoard"
           :tool="tool"
           :path-width="pathWidth"
-          interactive
+          :water-animation="waterAnimation"
+          :interactive="!preview"
           @draw="onDraw"
           @shape="onShape"
           @path="onPath"
@@ -500,9 +535,33 @@ function messageOf(exception: unknown): string {
           @selection="onSelection"
           @viewport="onViewport"
         />
+        <div class="scene-editor__view-bar">
+          <v-tooltip location="bottom" :text="preview ? 'Вернуться к редактированию (Esc)' : 'Предпросмотр'">
+            <template #activator="{ props: tooltipProps }">
+              <v-btn
+                v-bind="tooltipProps"
+                :icon="preview ? 'mdi-pencil' : 'mdi-eye'"
+                size="small"
+                variant="flat"
+                color="surface-variant"
+                @click="preview = !preview"
+              />
+            </template>
+          </v-tooltip>
+          <v-switch
+            v-if="preview"
+            :model-value="waterAnimation"
+            label="Анимация воды"
+            density="compact"
+            hide-details
+            color="primary"
+            class="scene-editor__water-switch"
+            @update:model-value="setWaterAnimation"
+          />
+        </div>
       </div>
 
-      <aside class="scene-editor__panel">
+      <aside v-if="!preview" class="scene-editor__panel">
         <v-expansion-panels v-model="openPanels" multiple variant="accordion" class="scene-editor__panels">
           <v-expansion-panel value="location">
             <v-expansion-panel-title class="text-subtitle-2">Локация</v-expansion-panel-title>
@@ -638,12 +697,34 @@ function messageOf(exception: unknown): string {
 }
 
 .scene-editor__canvas {
+  position: relative;
   flex: 1 1 auto;
   height: 100%;
   min-height: 0;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.scene-editor__view-bar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.scene-editor__view-bar > * {
+  pointer-events: auto;
+}
+
+.scene-editor__water-switch {
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.78);
 }
 
 .scene-editor__panel {
