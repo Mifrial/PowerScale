@@ -11,8 +11,6 @@ const FileUploadField = defineAsyncComponent(() => import('@/modules/Core/File/C
 
 const props = defineProps<{
   board: SceneDraftBoard;
-  boardCount: number;
-  index: number;
   resolution: number;
   terrainKind: string | null;
 }>();
@@ -22,8 +20,6 @@ const emit = defineEmits<{
   update: [boardId: number, patch: Partial<Omit<SceneSaveBoard, 'id' | 'sortOrder'>>];
   backdrop: [boardId: number, publicId: string | null, width: number | null, height: number | null];
   terrain: [boardId: number, kind: string];
-  move: [boardId: number, offset: number];
-  remove: [boardId: number];
 }>();
 
 const name = ref(props.board.name);
@@ -101,120 +97,89 @@ function onBackdrop(file: FileRecord | null): void {
 </script>
 
 <template>
-  <v-card variant="outlined">
-    <v-card-title class="text-subtitle-2 d-flex align-center ga-2">
-      Поле
-      <v-spacer />
-      <v-btn
-        icon="mdi-arrow-left"
-        size="x-small"
-        variant="text"
-        :disabled="props.index <= 0"
-        title="Поле влево"
-        @click="emit('move', props.board.id, -1)"
+  <div class="scene-board-settings">
+    <v-text-field
+      v-model="name"
+      label="Название"
+      density="compact"
+      variant="outlined"
+      hide-details
+      @blur="commitName"
+      @keyup.enter="commitName"
+    />
+
+    <div class="scene-board-settings__summary">{{ summary }}</div>
+
+    <div class="scene-board-settings__row">
+      <SceneDistanceField
+        :model-value="props.board.boundWidth"
+        :resolution="props.resolution"
+        label="Ширина, ипари"
+        :min="1"
+        :max="maxBound"
+        @update:model-value="(value) => emit('update', props.board.id, { boundWidth: value })"
       />
-      <v-btn
-        icon="mdi-arrow-right"
-        size="x-small"
-        variant="text"
-        :disabled="props.index >= props.boardCount - 1"
-        title="Поле вправо"
-        @click="emit('move', props.board.id, 1)"
+      <SceneDistanceField
+        :model-value="props.board.boundHeight"
+        :resolution="props.resolution"
+        label="Высота, ипари"
+        :min="1"
+        :max="maxBound"
+        @update:model-value="(value) => emit('update', props.board.id, { boundHeight: value })"
       />
-      <v-btn
-        icon="mdi-delete"
-        size="x-small"
-        variant="text"
-        color="error"
-        :disabled="props.boardCount <= 1"
-        title="Удалить поле"
-        @click="emit('remove', props.board.id)"
+    </div>
+
+    <div class="scene-board-settings__row">
+      <SceneDistanceField
+        :model-value="props.board.gridStep"
+        :resolution="props.resolution"
+        label="Сетка, ипари"
+        hint="0 — выключить; жирная линия каждые 2 шага"
+        :min="0"
+        :max="maxBound"
+        @update:model-value="(value) => emit('update', props.board.id, { gridStep: value })"
       />
-    </v-card-title>
-    <v-card-text class="scene-board-settings">
-      <v-text-field
-        v-model="name"
-        label="Название"
+      <SceneDistanceField
+        :model-value="props.board.occupancyCell"
+        :resolution="props.resolution"
+        label="Сэмплинг, ипари"
+        :hint="cellHint"
+        :min="1"
+        :max="maxCell"
+        @update:model-value="(value) => emit('update', props.board.id, { occupancyCell: value })"
+      />
+    </div>
+
+    <FileUploadField
+      :model-value="backdropFile"
+      label="Подложка"
+      :accept="['image/png', 'image/jpeg', 'image/webp']"
+      @update:model-value="onBackdrop"
+    />
+
+    <div class="scene-board-settings__row scene-board-settings__row--align-end">
+      <v-select
+        v-model="terrainKind"
+        :items="SCENE_TERRAIN_KIND_OPTIONS"
+        label="Террейн поля"
         density="compact"
         variant="outlined"
         hide-details
-        @blur="commitName"
-        @keyup.enter="commitName"
       />
+      <v-btn
+        color="primary"
+        variant="tonal"
+        prepend-icon="mdi-format-color-fill"
+        @click="emit('terrain', props.board.id, terrainKind)"
+      >
+        Залить
+      </v-btn>
+    </div>
 
-      <div class="scene-board-settings__summary">{{ summary }}</div>
-
-      <div class="scene-board-settings__row">
-        <SceneDistanceField
-          :model-value="props.board.boundWidth"
-          :resolution="props.resolution"
-          label="Ширина, ипари"
-          :min="1"
-          :max="maxBound"
-          @update:model-value="(value) => emit('update', props.board.id, { boundWidth: value })"
-        />
-        <SceneDistanceField
-          :model-value="props.board.boundHeight"
-          :resolution="props.resolution"
-          label="Высота, ипари"
-          :min="1"
-          :max="maxBound"
-          @update:model-value="(value) => emit('update', props.board.id, { boundHeight: value })"
-        />
-      </div>
-
-      <div class="scene-board-settings__row">
-        <SceneDistanceField
-          :model-value="props.board.gridStep"
-          :resolution="props.resolution"
-          label="Сетка, ипари"
-          hint="0 — выключить; жирная линия каждые 2 шага"
-          :min="0"
-          :max="maxBound"
-          @update:model-value="(value) => emit('update', props.board.id, { gridStep: value })"
-        />
-        <SceneDistanceField
-          :model-value="props.board.occupancyCell"
-          :resolution="props.resolution"
-          label="Сэмплинг, ипари"
-          :hint="cellHint"
-          :min="1"
-          :max="maxCell"
-          @update:model-value="(value) => emit('update', props.board.id, { occupancyCell: value })"
-        />
-      </div>
-
-      <FileUploadField
-        :model-value="backdropFile"
-        label="Подложка"
-        :accept="['image/png', 'image/jpeg', 'image/webp']"
-        @update:model-value="onBackdrop"
-      />
-
-      <div class="scene-board-settings__row scene-board-settings__row--align-end">
-        <v-select
-          v-model="terrainKind"
-          :items="SCENE_TERRAIN_KIND_OPTIONS"
-          label="Террейн поля"
-          density="compact"
-          variant="outlined"
-          hide-details
-        />
-        <v-btn
-          color="primary"
-          variant="tonal"
-          prepend-icon="mdi-format-color-fill"
-          @click="emit('terrain', props.board.id, terrainKind)"
-        >
-          Залить
-        </v-btn>
-      </div>
-
-      <v-alert v-if="aspectWarning" type="warning" variant="tonal" density="compact" class="text-caption">
-        Пропорции подложки не совпадают с границами поля: изображение растянется.
-      </v-alert>
-    </v-card-text>
-  </v-card>
+    <v-alert v-if="aspectWarning" type="warning" variant="tonal" density="compact" class="text-caption">
+      Пропорции подложки не совпадают с границами поля: изображение растянется.
+    </v-alert>
+  </div>
 </template>
 
 <style scoped>

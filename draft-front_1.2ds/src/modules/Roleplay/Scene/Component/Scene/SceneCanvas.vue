@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
+import type { SceneHandleTarget } from '@/modules/Roleplay/Scene/Dto/SceneHandleTarget';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
+import type { SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
+import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
 import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
 import { createPixiSceneRenderer } from '@/modules/Roleplay/Scene/Service/Instance/pixiSceneRenderer';
+import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneHitTestService } from '@/modules/Roleplay/Scene/Service/Instance/sceneHitTestService';
+import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
 import { sceneViewportService } from '@/modules/Roleplay/Scene/Service/Instance/sceneViewportService';
 
 const props = withDefaults(
@@ -19,8 +24,10 @@ const props = withDefaults(
     board: SceneBoard | null;
     tool?: SceneTool;
     interactive?: boolean;
+    /** Ширина ленты для превью, единицы сцены. */
+    pathWidth?: number;
   }>(),
-  { tool: 'select', interactive: false },
+  { tool: 'select', interactive: false, pathWidth: 256 },
 );
 
 const emit = defineEmits<{
@@ -28,8 +35,15 @@ const emit = defineEmits<{
   viewport: [viewport: SceneViewport];
   draw: [from: ScenePoint, to: ScenePoint];
   shape: [shape: SceneShape];
-  vertex: [elementId: number, index: number, point: ScenePoint];
+  path: [points: ScenePoint[]];
   move: [delta: ScenePoint];
+  vertex: [elementId: number, index: number, point: ScenePoint];
+  handle: [elementId: number, index: number, side: SceneHandleSide, offset: ScenePoint, mirror: boolean];
+  width: [elementId: number, index: number, width: number];
+  insertVertex: [elementId: number, point: ScenePoint, tolerance: number];
+  removeVertex: [elementId: number, index: number];
+  editStart: [];
+  editEnd: [];
 }>();
 
 const host = ref<HTMLElement | null>(null);
@@ -40,15 +54,17 @@ const shapeBuilder = new SceneToolShape();
 let renderer: ISceneRenderer | null = null;
 let viewport: SceneViewport | null = null;
 let observer: ResizeObserver | null = null;
-let gesture: 'none' | 'pan' | 'draw' | 'move' | 'vertex' = 'none';
+let gesture: 'none' | 'pan' | 'draw' | 'move' | 'vertex' | 'handle' | 'width' = 'none';
 let lastX = 0;
 let lastY = 0;
 let drawStart: ScenePoint | null = null;
 let moveLast: ScenePoint | null = null;
 let panMoved = false;
-let polygonPoints: ScenePoint[] = [];
-let polygonHover: ScenePoint | null = null;
-let vertexTarget: { elementId: number; index: number } | null = null;
+let clickPoints: ScenePoint[] = [];
+let clickHover: ScenePoint | null = null;
+let vertexTarget: SceneVertexTarget | null = null;
+let handleTarget: SceneHandleTarget | null = null;
+let widthTarget: SceneVertexTarget | null = null;
 
 onMounted(async () => {
   const element = host.value;
@@ -72,11 +88,11 @@ onMounted(async () => {
   sceneRenderer.setSelection(props.model.selection);
   observer = new ResizeObserver(() => handleResize());
   observer.observe(element);
-  window.addEventListener('keydown', onPolygonKeydown);
+  window.addEventListener('keydown', onClickKeydown);
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onPolygonKeydown);
+  window.removeEventListener('keydown', onClickKeydown);
   observer?.disconnect();
   observer = null;
   renderer?.destroy();
@@ -95,6 +111,7 @@ watch(
     if (renderer === null) return;
     await renderer.setScene(props.model);
     renderer.setSelection(selection.value);
+    renderer.setVertexFocus(vertexTarget);
     if (viewport !== null) {
       renderer.setViewport(viewport);
     }
@@ -106,20 +123,25 @@ watch(
   (ids) => {
     selection.value = [...ids];
     renderer?.setSelection(selection.value);
+    if (vertexTarget !== null && !ids.includes(vertexTarget.elementId)) {
+      setFocus(null);
+    }
   },
 );
 
 watch(
   () => props.tool,
   () => {
-    cancelDraft();
+    cancelClickDraft();
+    setFocus(null);
   },
 );
 
 watch(
   () => props.board?.id,
   () => {
-    cancelDraft();
+    cancelClickDraft();
+    setFocus(null);
     if (renderer === null || host.value === null) return;
     viewport = fitViewport(sizeOf(host.value));
     renderer.setViewport(viewport);
@@ -131,8 +153,13 @@ function toolDefinition() {
   return SCENE_TOOLS.find((item) => item.id === props.tool) ?? null;
 }
 
-function isPolygonTool(): boolean {
-  return toolDefinition()?.shapeType === 'polygon';
+function clickShape(): 'polygon' | 'path' | null {
+  const shapeType = toolDefinition()?.shapeType ?? null;
+  if (shapeType === 'polygon' || shapeType === 'path') {
+    return shapeType;
+  }
+
+  return null;
 }
 
 function boardBounds(): { x: number; y: number; width: number; height: number } | null {
@@ -156,26 +183,43 @@ function clampPoint(point: ScenePoint): ScenePoint {
   ];
 }
 
-/** Сбрасывает незавершённый полигон и превью. */
-function cancelDraft(): void {
-  polygonPoints = [];
-  polygonHover = null;
+/** Запоминает активную вершину и показывает её ручки в рендерере. */
+function setFocus(target: SceneVertexTarget | null): void {
+  vertexTarget = target;
+  renderer?.setVertexFocus(target);
+}
+
+/** Сбрасывает незавершённую кликовую фигуру и превью. */
+function cancelClickDraft(): void {
+  clickPoints = [];
+  clickHover = null;
   renderer?.setDraft(null);
 }
 
-/** Обновляет превью полигона по накопленным точкам и курсору. */
-function refreshPolygonDraft(): void {
+/** Обновляет превью полигона или ленты по накопленным точкам и курсору. */
+function refreshClickDraft(): void {
   if (renderer === null) {
     return;
   }
 
-  if (!isPolygonTool() || polygonPoints.length === 0) {
+  if (clickShape() === null || clickPoints.length === 0) {
     renderer.setDraft(null);
 
     return;
   }
 
-  const points = polygonHover === null ? polygonPoints : [...polygonPoints, polygonHover];
+  const points = clickHover === null ? clickPoints : [...clickPoints, clickHover];
+  if (clickShape() === 'path') {
+    renderer.setDraft({
+      type: 'path',
+      points,
+      widths: points.map(() => Math.max(1, props.pathWidth)),
+      handles: sceneCurveService.autoHandles(points),
+    });
+
+    return;
+  }
+
   renderer.setDraft({ type: 'polygon', points });
 }
 
@@ -198,80 +242,142 @@ function refreshDragDraft(point: ScenePoint): void {
   renderer.setDraft(shapeBuilder.build(definition.shapeType, drawStart, point, bounds));
 }
 
-function addPolygonPoint(point: ScenePoint): void {
+function addClickPoint(point: ScenePoint): void {
+  const shape = clickShape();
+  if (shape === null) {
+    return;
+  }
+
   const next = clampPoint(point);
-  if (polygonPoints.length >= 3 && viewport !== null) {
-    const first = polygonPoints[0];
+  const minimum = shape === 'polygon' ? 3 : 2;
+  if (clickPoints.length >= minimum && viewport !== null) {
+    const first = clickPoints[0];
     const tolerance = 10 / viewport.zoom;
     if (Math.hypot(first[0] - next[0], first[1] - next[1]) <= tolerance) {
-      finishPolygon();
+      finishClickShape();
 
       return;
     }
   }
 
-  polygonPoints = [...polygonPoints, next];
-  refreshPolygonDraft();
+  clickPoints = [...clickPoints, next];
+  refreshClickDraft();
 }
 
-function finishPolygon(): void {
-  const points = polygonPoints.filter(
+function finishClickShape(): void {
+  const shape = clickShape();
+  const points = clickPoints.filter(
     (point, index) =>
-      index === 0 || Math.hypot(point[0] - polygonPoints[index - 1][0], point[1] - polygonPoints[index - 1][1]) > 0,
+      index === 0 || Math.hypot(point[0] - clickPoints[index - 1][0], point[1] - clickPoints[index - 1][1]) > 0,
   );
-  cancelDraft();
-  if (points.length >= 3) {
+  cancelClickDraft();
+  if (shape === 'polygon' && points.length >= 3) {
     emit('shape', { type: 'polygon', points });
+  } else if (shape === 'path' && points.length >= 2) {
+    emit('path', points);
   }
 }
 
-/** Двойной клик замыкает полигон. */
-function onDoubleClick(): void {
-  if (!isPolygonTool() || polygonPoints.length < 3) {
+/** Двойной клик замыкает полигон или завершает ленту. */
+function onDoubleClick(event: MouseEvent): void {
+  if (clickShape() !== null) {
+    finishClickShape();
+
     return;
   }
 
-  finishPolygon();
+  if (props.tool !== 'select') {
+    return;
+  }
+
+  const scenePoint = scenePointOf(event);
+  if (scenePoint === null || viewport === null) {
+    return;
+  }
+
+  const insertion = selectionInsertion(scenePoint, 10 / viewport.zoom);
+  if (insertion !== null) {
+    emit('insertVertex', insertion.elementId, scenePoint, 10 / viewport.zoom);
+  }
 }
 
-function onPolygonKeydown(event: KeyboardEvent): void {
-  if (!isPolygonTool() || polygonPoints.length === 0) {
+function onClickKeydown(event: KeyboardEvent): void {
+  if (clickShape() === null || clickPoints.length === 0) {
     return;
   }
 
   if (event.key === 'Escape') {
-    cancelDraft();
+    cancelClickDraft();
 
     return;
   }
 
   if (event.key === 'Enter') {
     event.preventDefault();
-    finishPolygon();
+    finishClickShape();
   }
 }
 
-/** Вершина выделенного полигона под точкой. */
-function vertexAt(point: ScenePoint): { elementId: number; index: number } | null {
-  if (viewport === null) {
+/** Ближайшая вставка вершины у выделенной фигуры. */
+function selectionInsertion(point: ScenePoint, tolerance: number): { elementId: number } | null {
+  for (const element of selectedShapes()) {
+    if (sceneVertexService.insertion(element.shape, point, tolerance) !== null) {
+      return { elementId: element.id };
+    }
+  }
+
+  return null;
+}
+
+/** Выделенные фигуры текущего поля, у которых есть вершины. */
+function selectedShapes() {
+  return props.model.elements.filter(
+    (element) =>
+      element.boardId === props.model.activeBoardId &&
+      props.model.selection.includes(element.id) &&
+      (element.shape.type === 'polygon' || element.shape.type === 'path'),
+  );
+}
+
+/** Ручка Безье под точкой у активной вершины. */
+function handleTargetAt(point: ScenePoint, tolerance: number, stub: number): SceneHandleTarget | null {
+  if (vertexTarget === null) {
     return null;
   }
 
-  const tolerance = 10 / viewport.zoom;
-  for (const element of props.model.elements) {
-    if (element.boardId !== props.model.activeBoardId || !props.model.selection.includes(element.id)) {
-      continue;
-    }
+  const element = props.model.elements.find((item) => item.id === vertexTarget?.elementId);
+  if (element === undefined) {
+    return null;
+  }
 
-    if (element.shape.type !== 'polygon') {
-      continue;
-    }
+  const handle = sceneVertexService.handleAt(element.shape, point, tolerance, stub);
+  if (handle === null || handle.index !== vertexTarget.index) {
+    return null;
+  }
 
-    for (let index = 0; index < element.shape.points.length; index += 1) {
-      const vertex = element.shape.points[index];
-      if (Math.hypot(vertex[0] - point[0], vertex[1] - point[1]) <= tolerance) {
-        return { elementId: element.id, index };
-      }
+  return { elementId: element.id, index: handle.index, side: handle.side };
+}
+
+function widthTargetAt(point: ScenePoint, tolerance: number, offset: number): SceneVertexTarget | null {
+  if (vertexTarget === null) {
+    return null;
+  }
+
+  const element = props.model.elements.find((item) => item.id === vertexTarget?.elementId);
+  if (element === undefined || element.shape.type !== 'path') {
+    return null;
+  }
+
+  const index = sceneVertexService.widthAt(element.shape, point, tolerance, offset);
+
+  return index === vertexTarget.index ? { elementId: element.id, index } : null;
+}
+
+function vertexTargetAt(point: ScenePoint, tolerance: number): SceneVertexTarget | null {
+  for (const element of selectedShapes()) {
+    const index = sceneVertexService.vertexAt(element.shape, point, tolerance);
+    if (index !== null) {
+      return { elementId: element.id, index };
     }
   }
 
@@ -332,8 +438,8 @@ function onPointerDown(event: PointerEvent): void {
   const scenePoint = scenePointOf(event);
   if (scenePoint === null) return;
 
-  if (isPolygonTool()) {
-    addPolygonPoint(scenePoint);
+  if (clickShape() !== null) {
+    addClickPoint(scenePoint);
 
     return;
   }
@@ -350,15 +456,48 @@ function onPointerDown(event: PointerEvent): void {
 
 function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   if (viewport === null) return;
-  const vertex = vertexAt(scenePoint);
-  if (vertex !== null) {
-    vertexTarget = vertex;
-    gesture = 'vertex';
+  const tolerance = 10 / viewport.zoom;
+  const stub = 16 / viewport.zoom;
+
+  const width = widthTargetAt(scenePoint, tolerance, 10 / viewport.zoom);
+  if (width !== null) {
+    widthTarget = width;
+    setFocus({ elementId: width.elementId, index: width.index });
+    gesture = 'width';
+    emit('editStart');
     capture(event);
 
     return;
   }
 
+  const handle = handleTargetAt(scenePoint, tolerance, stub);
+  if (handle !== null) {
+    handleTarget = handle;
+    setFocus({ elementId: handle.elementId, index: handle.index });
+    gesture = 'handle';
+    emit('editStart');
+    capture(event);
+
+    return;
+  }
+
+  const vertex = vertexTargetAt(scenePoint, tolerance);
+  if (vertex !== null) {
+    setFocus(vertex);
+    if (event.altKey) {
+      emit('removeVertex', vertex.elementId, vertex.index);
+
+      return;
+    }
+
+    gesture = 'vertex';
+    emit('editStart');
+    capture(event);
+
+    return;
+  }
+
+  setFocus(null);
   const hit = sceneHitTestService.hit(props.model, viewport, screenPointOf(event));
   if (hit === null) {
     gesture = 'pan';
@@ -378,15 +517,16 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   applySelection(nextIds);
   gesture = 'move';
   moveLast = scenePoint;
+  emit('editStart');
   capture(event);
 }
 
 function onPointerMove(event: PointerEvent): void {
-  if (gesture === 'none' && isPolygonTool() && polygonPoints.length > 0) {
+  if (gesture === 'none' && clickShape() !== null && clickPoints.length > 0) {
     const scenePoint = scenePointOf(event);
     if (scenePoint !== null) {
-      polygonHover = clampPoint(scenePoint);
-      refreshPolygonDraft();
+      clickHover = clampPoint(scenePoint);
+      refreshClickDraft();
     }
 
     return;
@@ -411,6 +551,41 @@ function onPointerMove(event: PointerEvent): void {
 
   if (gesture === 'vertex' && vertexTarget !== null) {
     emit('vertex', vertexTarget.elementId, vertexTarget.index, clampPoint(scenePoint));
+
+    return;
+  }
+
+  if (gesture === 'handle' && handleTarget !== null) {
+    const element = props.model.elements.find((item) => item.id === handleTarget?.elementId);
+    if (element === undefined || (element.shape.type !== 'polygon' && element.shape.type !== 'path')) {
+      return;
+    }
+
+    const vertex = element.shape.points[handleTarget.index];
+    if (vertex === undefined) {
+      return;
+    }
+
+    const offset: ScenePoint = [Math.round(scenePoint[0] - vertex[0]), Math.round(scenePoint[1] - vertex[1])];
+    emit('handle', handleTarget.elementId, handleTarget.index, handleTarget.side, offset, !event.altKey);
+
+    return;
+  }
+
+  if (gesture === 'width' && widthTarget !== null) {
+    const element = props.model.elements.find((item) => item.id === widthTarget?.elementId);
+    if (element === undefined || element.shape.type !== 'path') {
+      return;
+    }
+
+    const vertex = element.shape.points[widthTarget.index];
+    if (vertex === undefined) {
+      return;
+    }
+
+    const width = Math.max(2, Math.round(Math.hypot(scenePoint[0] - vertex[0], scenePoint[1] - vertex[1]) * 2));
+    emit('width', widthTarget.elementId, widthTarget.index, width);
+    setFocus({ elementId: widthTarget.elementId, index: widthTarget.index });
 
     return;
   }
@@ -443,6 +618,8 @@ function panBy(event: PointerEvent): void {
 }
 
 function onPointerUp(event: PointerEvent): void {
+  const editing = gesture === 'vertex' || gesture === 'handle' || gesture === 'width' || gesture === 'move';
+
   if (gesture === 'draw' && drawStart !== null) {
     const end = scenePointOf(event);
     renderer?.setDraft(null);
@@ -456,20 +633,30 @@ function onPointerUp(event: PointerEvent): void {
     applySelection(hit === null ? [] : [hit.id]);
   }
 
+  if (editing) {
+    emit('editEnd');
+  }
+
   gesture = 'none';
   drawStart = null;
   moveLast = null;
-  vertexTarget = null;
+  handleTarget = null;
+  widthTarget = null;
   panMoved = false;
 }
 
 function cancelPointer(): void {
+  const editing = gesture === 'vertex' || gesture === 'handle' || gesture === 'width' || gesture === 'move';
   gesture = 'none';
   drawStart = null;
   moveLast = null;
-  vertexTarget = null;
+  handleTarget = null;
+  widthTarget = null;
   panMoved = false;
   renderer?.setDraft(null);
+  if (editing) {
+    emit('editEnd');
+  }
 }
 
 function onWheel(event: WheelEvent): void {
@@ -490,13 +677,13 @@ function capture(event: PointerEvent): void {
   (event.currentTarget as HTMLElement | null)?.setPointerCapture(event.pointerId);
 }
 
-function screenPointOf(event: PointerEvent | WheelEvent): { x: number; y: number } {
+function screenPointOf(event: PointerEvent | WheelEvent | MouseEvent): { x: number; y: number } {
   const rect = host.value?.getBoundingClientRect();
 
   return { x: event.clientX - (rect?.left ?? 0), y: event.clientY - (rect?.top ?? 0) };
 }
 
-function scenePointOf(event: PointerEvent): ScenePoint | null {
+function scenePointOf(event: PointerEvent | MouseEvent): ScenePoint | null {
   if (viewport === null) return null;
 
   return sceneViewportService.screenToScene(viewport, screenPointOf(event));

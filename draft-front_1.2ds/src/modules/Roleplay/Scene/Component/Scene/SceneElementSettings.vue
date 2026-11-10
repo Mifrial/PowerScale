@@ -5,7 +5,6 @@ import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElemen
 import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard';
 import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import SceneDistanceField from '@/modules/Roleplay/Scene/Component/Scene/SceneDistanceField.vue';
-import { SCENE_ELEMENT_KIND_LABELS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ELEMENT_KIND_LABELS';
 import { SCENE_MARKER_ROLE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_MARKER_ROLE_OPTIONS';
 import { SCENE_OPENING_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OPENING_KIND_OPTIONS';
 import { SCENE_SUPPORT_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SUPPORT_KIND_OPTIONS';
@@ -24,6 +23,9 @@ const emit = defineEmits<{
   target: [boardId: number | null];
   asset: [publicId: string | null];
   stretch: [];
+  widthAll: [width: number];
+  smooth: [];
+  corner: [];
   remove: [];
 }>();
 
@@ -36,7 +38,6 @@ watch(
   },
 );
 
-const title = computed(() => `Элемент · ${SCENE_ELEMENT_KIND_LABELS[props.element.kind]}`);
 const targetOptions = computed(() =>
   props.boards
     .filter((board) => board.id !== props.element.boardId)
@@ -88,181 +89,198 @@ function onAsset(file: FileRecord | null): void {
 </script>
 
 <template>
-  <v-card variant="outlined">
-    <v-card-title class="text-subtitle-2 d-flex align-center ga-2">
-      {{ title }}
-      <v-spacer />
-      <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" title="Удалить" @click="emit('remove')" />
-    </v-card-title>
+  <div class="scene-element-settings">
+    <v-text-field
+      :model-value="props.element.props.label ?? ''"
+      label="Подпись"
+      density="compact"
+      variant="outlined"
+      hide-details
+      @update:model-value="(value) => patchText('label', value)"
+    />
 
-    <v-card-text class="scene-element-settings">
-      <v-text-field
-        :model-value="props.element.props.label ?? ''"
-        label="Подпись"
+    <template v-if="props.element.kind === 'support'">
+      <v-select
+        :model-value="props.element.props.kind ?? 'ground'"
+        :items="SCENE_SUPPORT_KIND_OPTIONS"
+        label="Подтип"
         density="compact"
         variant="outlined"
         hide-details
-        @update:model-value="(value) => patchText('label', value)"
+        @update:model-value="(value) => patchText('kind', value)"
       />
+      <SceneDistanceField
+        :model-value="props.element.props.height ?? 0"
+        :resolution="props.resolution"
+        label="Высота, ипари"
+        :min="0"
+        :max="100000"
+        @update:model-value="(value) => patch({ height: value })"
+      />
+      <SceneDistanceField
+        :model-value="props.element.props.elevation ?? 0"
+        :resolution="props.resolution"
+        label="Подъём, ипари"
+        :min="0"
+        :max="100000"
+        @update:model-value="(value) => patch({ elevation: value })"
+      />
+    </template>
 
-      <template v-if="props.element.kind === 'support'">
-        <v-select
-          :model-value="props.element.props.kind ?? 'ground'"
-          :items="SCENE_SUPPORT_KIND_OPTIONS"
-          label="Подтип"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchText('kind', value)"
-        />
-        <SceneDistanceField
-          :model-value="props.element.props.height ?? 0"
-          :resolution="props.resolution"
-          label="Высота, ипари"
-          :min="0"
-          :max="100000"
-          @update:model-value="(value) => patch({ height: value })"
-        />
-        <SceneDistanceField
-          :model-value="props.element.props.elevation ?? 0"
-          :resolution="props.resolution"
-          label="Подъём, ипари"
-          :min="0"
-          :max="100000"
-          @update:model-value="(value) => patch({ elevation: value })"
-        />
-      </template>
+    <template v-if="props.element.kind === 'obstacle'">
+      <v-switch
+        :model-value="props.element.props.blocksMovement ?? true"
+        label="Блокирует движение"
+        density="compact"
+        hide-details
+        @update:model-value="(value) => patchFlag('blocksMovement', value)"
+      />
+      <v-switch
+        :model-value="props.element.props.blocksVision ?? true"
+        label="Блокирует обзор"
+        density="compact"
+        hide-details
+        @update:model-value="(value) => patchFlag('blocksVision', value)"
+      />
+      <SceneDistanceField
+        :model-value="props.element.props.height ?? 0"
+        :resolution="props.resolution"
+        label="Высота, ипари"
+        hint="Толщину задаёт протяжка; высота — вертикальный размер, не толщина."
+        :min="0"
+        :max="100000"
+        @update:model-value="(value) => patch({ height: value })"
+      />
+    </template>
 
-      <template v-if="props.element.kind === 'obstacle'">
-        <v-switch
-          :model-value="props.element.props.blocksMovement ?? true"
-          label="Блокирует движение"
-          density="compact"
-          hide-details
-          @update:model-value="(value) => patchFlag('blocksMovement', value)"
-        />
-        <v-switch
-          :model-value="props.element.props.blocksVision ?? true"
-          label="Блокирует обзор"
-          density="compact"
-          hide-details
-          @update:model-value="(value) => patchFlag('blocksVision', value)"
-        />
-        <SceneDistanceField
-          :model-value="props.element.props.height ?? 0"
-          :resolution="props.resolution"
-          label="Высота, ипари"
-          hint="Толщину задаёт протяжка; высота — вертикальный размер, не толщина."
-          :min="0"
-          :max="100000"
-          @update:model-value="(value) => patch({ height: value })"
-        />
-      </template>
+    <template v-if="props.element.kind === 'opening'">
+      <v-select
+        :model-value="props.element.props.kind ?? 'door'"
+        :items="SCENE_OPENING_KIND_OPTIONS"
+        label="Подтип"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchText('kind', value)"
+      />
+      <v-select
+        :model-value="props.element.props.state ?? 'closed'"
+        :items="[
+          { value: 'open', title: 'Открыт' },
+          { value: 'closed', title: 'Закрыт' },
+        ]"
+        label="Состояние"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchText('state', value)"
+      />
+      <v-switch
+        :model-value="props.element.props.blocksVision ?? false"
+        label="Блокирует обзор"
+        density="compact"
+        hide-details
+        @update:model-value="(value) => patchFlag('blocksVision', value)"
+      />
+      <v-select
+        :model-value="props.element.targetBoardId"
+        :items="targetOptions"
+        label="Ведёт на поле"
+        density="compact"
+        variant="outlined"
+        hide-details
+        clearable
+        @update:model-value="(value) => emit('target', value === null ? null : Number(value))"
+      />
+    </template>
 
-      <template v-if="props.element.kind === 'opening'">
-        <v-select
-          :model-value="props.element.props.kind ?? 'door'"
-          :items="SCENE_OPENING_KIND_OPTIONS"
-          label="Подтип"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchText('kind', value)"
-        />
-        <v-select
-          :model-value="props.element.props.state ?? 'closed'"
-          :items="[
-            { value: 'open', title: 'Открыт' },
-            { value: 'closed', title: 'Закрыт' },
-          ]"
-          label="Состояние"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchText('state', value)"
-        />
-        <v-switch
-          :model-value="props.element.props.blocksVision ?? false"
-          label="Блокирует обзор"
-          density="compact"
-          hide-details
-          @update:model-value="(value) => patchFlag('blocksVision', value)"
-        />
-        <v-select
-          :model-value="props.element.targetBoardId"
-          :items="targetOptions"
-          label="Ведёт на поле"
-          density="compact"
-          variant="outlined"
-          hide-details
-          clearable
-          @update:model-value="(value) => emit('target', value === null ? null : Number(value))"
-        />
-      </template>
-
-      <template v-if="props.element.kind === 'terrain'">
-        <v-select
-          :model-value="props.element.props.kind ?? 'grass'"
-          :items="SCENE_TERRAIN_KIND_OPTIONS"
-          label="Шаблон"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchText('kind', value)"
-        />
-        <FileUploadField
-          :model-value="assetFile"
-          label="Текстура террейна"
-          :accept="['image/png', 'image/jpeg', 'image/webp']"
-          @update:model-value="onAsset"
-        />
-        <v-btn variant="tonal" size="small" prepend-icon="mdi-fit-to-screen" @click="emit('stretch')">
-          Растянуть на всё поле
+    <template v-if="props.element.kind === 'terrain'">
+      <v-select
+        :model-value="props.element.props.kind ?? 'grass'"
+        :items="SCENE_TERRAIN_KIND_OPTIONS"
+        label="Шаблон"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchText('kind', value)"
+      />
+      <FileUploadField
+        :model-value="assetFile"
+        label="Текстура террейна"
+        :accept="['image/png', 'image/jpeg', 'image/webp']"
+        @update:model-value="onAsset"
+      />
+      <SceneDistanceField
+        v-if="props.element.shape.type === 'path'"
+        :model-value="props.element.shape.widths[0] ?? props.resolution * 4"
+        :resolution="props.resolution"
+        label="Ширина ленты, ипари"
+        hint="Одна ширина на все вершины; отдельную точку тяните ромбом на холсте."
+        :min="1"
+        :max="100000"
+        @update:model-value="(value) => emit('widthAll', value)"
+      />
+      <div
+        v-if="props.element.shape.type === 'polygon' || props.element.shape.type === 'path'"
+        class="scene-element-settings__row"
+      >
+        <v-btn variant="tonal" size="small" prepend-icon="mdi-transit-connection-variant" @click="emit('smooth')">
+          Сгладить
         </v-btn>
-      </template>
+        <v-btn variant="tonal" size="small" prepend-icon="mdi-vector-square" @click="emit('corner')"> Углы </v-btn>
+      </div>
+      <v-btn
+        v-if="props.element.shape.type !== 'path'"
+        variant="tonal"
+        size="small"
+        prepend-icon="mdi-fit-to-screen"
+        @click="emit('stretch')"
+      >
+        Растянуть на всё поле
+      </v-btn>
+    </template>
 
-      <template v-if="props.element.kind === 'decor'">
-        <FileUploadField
-          :model-value="assetFile"
-          label="Ассет"
-          :accept="['image/png', 'image/jpeg', 'image/webp']"
-          @update:model-value="onAsset"
-        />
-        <v-text-field
-          :model-value="props.element.props.rotation ?? 0"
-          label="Поворот"
-          type="number"
-          suffix="°"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchNumber('rotation', value)"
-        />
-        <v-text-field
-          :model-value="props.element.props.scale ?? 100"
-          label="Масштаб"
-          type="number"
-          suffix="%"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchNumber('scale', value)"
-        />
-      </template>
+    <template v-if="props.element.kind === 'decor'">
+      <FileUploadField
+        :model-value="assetFile"
+        label="Ассет"
+        :accept="['image/png', 'image/jpeg', 'image/webp']"
+        @update:model-value="onAsset"
+      />
+      <v-text-field
+        :model-value="props.element.props.rotation ?? 0"
+        label="Поворот"
+        type="number"
+        suffix="°"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchNumber('rotation', value)"
+      />
+      <v-text-field
+        :model-value="props.element.props.scale ?? 100"
+        label="Масштаб"
+        type="number"
+        suffix="%"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchNumber('scale', value)"
+      />
+    </template>
 
-      <template v-if="props.element.kind === 'marker'">
-        <v-select
-          :model-value="props.element.props.role ?? 'entrance'"
-          :items="SCENE_MARKER_ROLE_OPTIONS"
-          label="Роль"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchText('role', value)"
-        />
-      </template>
-    </v-card-text>
-  </v-card>
+    <template v-if="props.element.kind === 'marker'">
+      <v-select
+        :model-value="props.element.props.role ?? 'entrance'"
+        :items="SCENE_MARKER_ROLE_OPTIONS"
+        label="Роль"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchText('role', value)"
+      />
+    </template>
+  </div>
 </template>
 
 <style scoped>
@@ -270,5 +288,15 @@ function onAsset(file: FileRecord | null): void {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.scene-element-settings__row {
+  display: flex;
+  gap: 8px;
+}
+
+.scene-element-settings__row > * {
+  flex: 1 1 0;
+  min-width: 0;
 }
 </style>

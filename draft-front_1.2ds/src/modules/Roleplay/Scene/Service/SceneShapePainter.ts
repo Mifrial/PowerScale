@@ -5,6 +5,8 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneStrokeStyle } from '@/modules/Roleplay/Scene/Dto/SceneStrokeStyle';
 import { Graphics } from 'pixi.js';
+import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
+import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
 /**
  * Рисование фигур и элементов поля в Pixi `Graphics`.
@@ -45,7 +47,17 @@ export class SceneShapePainter {
     }
 
     if (shape.type === 'polygon') {
-      graphics.poly(shape.points.flat());
+      const outline = sceneCurveService.flattenContour(shape.points, shape.handles ?? []);
+      graphics.poly(outline.flat());
+      this.applyFill(graphics, fill);
+      this.applyStroke(graphics, stroke);
+
+      return;
+    }
+
+    if (shape.type === 'path') {
+      const outline = sceneRibbonService.outline(shape.points, shape.handles ?? [], shape.widths);
+      graphics.poly(outline.flat());
       this.applyFill(graphics, fill);
       this.applyStroke(graphics, stroke);
 

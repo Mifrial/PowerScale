@@ -6,7 +6,9 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElementKind';
+import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import { SCENE_BOARD_DEFAULTS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BOARD_DEFAULTS';
+import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 
 /**
  * Мутации черновика локации: поля, элементы, временные id.
@@ -135,6 +137,153 @@ export class SceneDraftService {
     if (element !== undefined) {
       element.shape = shape;
     }
+  }
+
+  /** Двигает вершину полигона или ленты. */
+  setVertex(draft: SceneDraft, elementId: number, index: number, point: ScenePoint): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined || (element.shape.type !== 'polygon' && element.shape.type !== 'path')) {
+      return;
+    }
+
+    if (index < 0 || index >= element.shape.points.length) {
+      return;
+    }
+
+    const points = element.shape.points.map((item, position) =>
+      position === index ? ([point[0], point[1]] as ScenePoint) : item,
+    );
+    element.shape = { ...element.shape, points };
+  }
+
+  /** Двигает ручку Безье вершины. */
+  setHandle(draft: SceneDraft, elementId: number, index: number, side: SceneHandleSide, offset: ScenePoint): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined || (element.shape.type !== 'polygon' && element.shape.type !== 'path')) {
+      return;
+    }
+
+    if (index < 0 || index >= element.shape.points.length) {
+      return;
+    }
+
+    const handles = sceneCurveService.normalizeHandles(element.shape.points, element.shape.handles);
+    handles[index] = {
+      ...handles[index],
+      [side]: [Math.round(offset[0]), Math.round(offset[1])],
+    };
+    element.shape = { ...element.shape, handles };
+  }
+
+  /** Вставляет вершину после указанной; для ленты интерполирует ширину. */
+  insertVertex(
+    draft: SceneDraft,
+    elementId: number,
+    afterIndex: number,
+    point: ScenePoint,
+    handle: { in: ScenePoint; out: ScenePoint },
+    width = 1,
+  ): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined || (element.shape.type !== 'polygon' && element.shape.type !== 'path')) {
+      return;
+    }
+
+    const position = Math.min(Math.max(0, afterIndex + 1), element.shape.points.length);
+    const points = element.shape.points.slice();
+    points.splice(position, 0, [Math.round(point[0]), Math.round(point[1])]);
+    const handles = sceneCurveService.normalizeHandles(element.shape.points, element.shape.handles);
+    handles.splice(position, 0, {
+      in: [Math.round(handle.in[0]), Math.round(handle.in[1])],
+      out: [Math.round(handle.out[0]), Math.round(handle.out[1])],
+    });
+
+    if (element.shape.type === 'path') {
+      const widths = element.shape.widths.slice();
+      widths.splice(position, 0, Math.max(1, Math.round(width)));
+      element.shape = { ...element.shape, points, handles, widths };
+    } else {
+      element.shape = { ...element.shape, points, handles };
+    }
+  }
+
+  /** Удаляет вершину; минимальные размеры фигур сохраняются. */
+  removeVertex(draft: SceneDraft, elementId: number, index: number): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined || (element.shape.type !== 'polygon' && element.shape.type !== 'path')) {
+      return;
+    }
+
+    const minimum = element.shape.type === 'polygon' ? 3 : 2;
+    if (element.shape.points.length <= minimum || index < 0 || index >= element.shape.points.length) {
+      return;
+    }
+
+    const points = element.shape.points.filter((_, position) => position !== index);
+    const handles = sceneCurveService
+      .normalizeHandles(element.shape.points, element.shape.handles)
+      .filter((_, position) => position !== index);
+
+    if (element.shape.type === 'path') {
+      const widths = element.shape.widths.filter((_, position) => position !== index);
+      element.shape = { ...element.shape, points, handles, widths };
+    } else {
+      element.shape = { ...element.shape, points, handles };
+    }
+  }
+
+  /** Ширина в вершине ленты; остальные ширины масштабируются пропорционально. */
+  setWidth(draft: SceneDraft, elementId: number, index: number, width: number): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined || element.shape.type !== 'path' || index < 0 || index >= element.shape.widths.length) {
+      return;
+    }
+
+    const base = element.shape.widths[index] ?? 1;
+    const target = Math.max(1, Math.round(width));
+    if (base <= 0 || target === base) {
+      return;
+    }
+
+    const factor = target / base;
+    const widths = element.shape.widths.map((value) => Math.max(1, Math.round(value * factor)));
+    widths[index] = target;
+    element.shape = { ...element.shape, widths };
+  }
+
+  /** Плавные ручки Безье по соседним вершинам. */
+  smoothShape(draft: SceneDraft, elementId: number): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined || (element.shape.type !== 'polygon' && element.shape.type !== 'path')) {
+      return;
+    }
+
+    element.shape = { ...element.shape, handles: sceneCurveService.autoHandles(element.shape.points) };
+  }
+
+  /** Прямые сегменты: все ручки обнуляются. */
+  cornerShape(draft: SceneDraft, elementId: number): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined || (element.shape.type !== 'polygon' && element.shape.type !== 'path')) {
+      return;
+    }
+
+    element.shape = {
+      ...element.shape,
+      handles: element.shape.points.map(() => sceneCurveService.zeroHandle()),
+    };
+  }
+
+  /** Лента с постоянной шириной и плавными ручками. */
+  pathShape(points: ScenePoint[], width: number): SceneShape {
+    const normalized = points.map((point): ScenePoint => [Math.round(point[0]), Math.round(point[1])]);
+
+    return {
+      type: 'path',
+      points: normalized,
+      widths: normalized.map(() => Math.max(1, Math.round(width))),
+      handles: sceneCurveService.autoHandles(normalized),
+    };
   }
 
   /** Прямоугольник ровно по границам поля. */
@@ -298,7 +447,31 @@ export class SceneDraftService {
       return { ...shape, points, width: this.scaleSize(shape.width, factor, 100000) };
     }
 
-    return { ...shape, points };
+    if (shape.type === 'path') {
+      const widths = shape.widths.map((value) => this.scaleSize(value, factor, 100000));
+      const handles = this.scaleHandles(shape.handles, factor);
+
+      return handles === undefined ? { ...shape, points, widths } : { ...shape, points, widths, handles };
+    }
+
+    const handles = this.scaleHandles(shape.handles, factor);
+
+    return handles === undefined ? { ...shape, points } : { ...shape, points, handles };
+  }
+
+  /** Масштабирует смещения ручек Безье. */
+  private scaleHandles(
+    handles: { in: ScenePoint; out: ScenePoint }[] | undefined,
+    factor: number,
+  ): { in: ScenePoint; out: ScenePoint }[] | undefined {
+    if (handles === undefined) {
+      return undefined;
+    }
+
+    return handles.map((handle) => ({
+      in: [Math.round(handle.in[0] * factor), Math.round(handle.in[1] * factor)],
+      out: [Math.round(handle.out[0] * factor), Math.round(handle.out[1] * factor)],
+    }));
   }
 
   /** Масштабирует координату и сжимает в границы с учётом размера фигуры. */

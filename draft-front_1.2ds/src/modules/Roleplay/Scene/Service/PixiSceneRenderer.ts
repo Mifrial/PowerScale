@@ -3,12 +3,15 @@ import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
+import type { SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { SceneLayerName } from '@/modules/Roleplay/Scene/Enum/SceneLayerName';
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
 import { SceneShapePainter } from '@/modules/Roleplay/Scene/Service/SceneShapePainter';
 import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
+import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
+import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
 /**
  * PixiJS-рендерер локаций: подложка, сетка, фигуры, декор и выделение.
@@ -31,6 +34,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private draftShape: SceneShape | null = null;
 
   private draftGraphics: Graphics | null = null;
+
+  private vertexFocus: SceneVertexTarget | null = null;
 
   private readonly textures = new SceneTextureCache();
 
@@ -151,6 +156,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.render();
   }
 
+  setVertexFocus(target: SceneVertexTarget | null): void {
+    this.vertexFocus = target;
+    this.drawSelection();
+    this.render();
+  }
+
   render(): void {
     if (this.app === null || this.contextLost) {
       return;
@@ -175,6 +186,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.viewport = null;
     this.draftShape = null;
     this.draftGraphics = null;
+    this.vertexFocus = null;
     this.host = null;
   }
 
@@ -468,19 +480,79 @@ export class PixiSceneRenderer implements ISceneRenderer {
       );
       layer.addChild(graphics);
 
-      if (element.shape.type === 'polygon') {
-        const size = 8 / this.zoom();
-        const handles = new Graphics();
-        for (const [x, y] of element.shape.points) {
-          handles
-            .rect(x - size / 2, y - size / 2, size, size)
-            .fill({ color: 0xfacc15, alpha: 1 })
-            .stroke({ color: 0x1f2937, width: 1.5 / this.zoom(), alpha: 1 });
-        }
-
-        layer.addChild(handles);
+      if (element.shape.type === 'polygon' || element.shape.type === 'path') {
+        this.drawVertices(layer, element.shape, element.id);
       }
     }
+  }
+
+  /** Вершины выделенной фигуры и ручки активной вершины. */
+  private drawVertices(layer: Container, shape: SceneShape, elementId: number): void {
+    if (shape.type !== 'polygon' && shape.type !== 'path') {
+      return;
+    }
+
+    const zoom = this.zoom();
+    const size = 8 / zoom;
+    const focus = this.vertexFocus;
+    const vertices = new Graphics();
+    for (let index = 0; index < shape.points.length; index += 1) {
+      const [x, y] = shape.points[index];
+      const isActive = focus !== null && focus.elementId === elementId && focus.index === index;
+      vertices
+        .rect(x - size / 2, y - size / 2, size, size)
+        .fill({ color: isActive ? 0x38bdf8 : 0xfacc15, alpha: 1 })
+        .stroke({ color: 0x1f2937, width: 1.5 / zoom, alpha: 1 });
+    }
+
+    layer.addChild(vertices);
+    if (focus === null || focus.elementId !== elementId || focus.index >= shape.points.length) {
+      return;
+    }
+
+    const handles = sceneCurveService.normalizeHandles(shape.points, shape.handles);
+    const display = sceneCurveService.displayHandles(
+      shape.points,
+      handles,
+      focus.index,
+      16 / zoom,
+      shape.type === 'polygon',
+    );
+    const vertex = shape.points[focus.index];
+    const gizmo = new Graphics();
+    const radius = 4 / zoom;
+    for (const side of ['in', 'out'] as const) {
+      const target = display[side];
+      const isStub = side === 'in' ? display.inIsStub : display.outIsStub;
+      gizmo
+        .moveTo(vertex[0], vertex[1])
+        .lineTo(target[0], target[1])
+        .stroke({ color: 0xb39ddb, width: 1.5 / zoom, alpha: isStub ? 0.55 : 0.9 })
+        .circle(target[0], target[1], radius)
+        .fill({ color: isStub ? 0x0f172a : 0x8e24aa, alpha: 1 })
+        .stroke({ color: 0x8e24aa, width: 1.5 / zoom, alpha: 1 });
+    }
+
+    if (shape.type === 'path') {
+      const widthPoint = sceneRibbonService.widthHandlePoint(
+        shape.points,
+        handles,
+        shape.widths,
+        focus.index,
+        10 / zoom,
+      );
+      const half = size;
+      gizmo
+        .moveTo(widthPoint[0], widthPoint[1] - half)
+        .lineTo(widthPoint[0] + half, widthPoint[1])
+        .lineTo(widthPoint[0], widthPoint[1] + half)
+        .lineTo(widthPoint[0] - half, widthPoint[1])
+        .closePath()
+        .fill({ color: 0x22d3ee, alpha: 1 })
+        .stroke({ color: 0x0f172a, width: 1.5 / zoom, alpha: 1 });
+    }
+
+    layer.addChild(gizmo);
   }
 
   /** Рамка поля поверх содержимого в режиме редактирования. */
