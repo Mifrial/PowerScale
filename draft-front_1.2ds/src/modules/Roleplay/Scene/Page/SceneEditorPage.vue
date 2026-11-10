@@ -90,7 +90,9 @@ const boardIndex = computed(() =>
 const canSave = computed(() => draft.value.id !== null && !loading.value);
 const canUndo = state.canUndo;
 const canRedo = state.canRedo;
-const pathWidth = computed(() => Math.max(1, draft.value.resolution * 4));
+const pathWidth = computed(() =>
+  Math.max(1, Math.round(draft.value.resolution * (toolDefinition.value.widthIpari ?? 4))),
+);
 const elementTitle = computed(() =>
   selectedElement.value === null ? 'Элемент' : `Элемент · ${SCENE_ELEMENT_KIND_LABELS[selectedElement.value.kind]}`,
 );
@@ -211,7 +213,11 @@ function onShape(shape: SceneShape): void {
 function onPath(points: ScenePoint[]): void {
   const definition = toolDefinition.value;
   if (definition === null) return;
-  state.createPath(definition, points, pathWidth.value);
+  const shoreWidth =
+    definition.shoreWidthIpari === undefined
+      ? undefined
+      : Math.max(1, Math.round(draft.value.resolution * definition.shoreWidthIpari));
+  state.createPath(definition, points, pathWidth.value, shoreWidth === undefined ? undefined : { shoreWidth });
 }
 
 /** Перетаскивание вершины полигона или ленты. */
