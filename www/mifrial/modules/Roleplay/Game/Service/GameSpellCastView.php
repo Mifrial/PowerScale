@@ -26,6 +26,7 @@ final class GameSpellCastView
      * @param GameSpellCastSaturationPlan|null $plan Выбор насыщения.
      * @param GameSpellCastSaturationResult|null $saturation Итог насыщения.
      * @param array<int, array<string, mixed>> $nextCast Поставленные хвосты.
+     * @param array<string, mixed>|null $deviation Отклонение.
      *
      * @return array<string, mixed> Итог.
      */
@@ -39,6 +40,7 @@ final class GameSpellCastView
         ?GameSpellCastSaturationPlan $plan = null,
         ?GameSpellCastSaturationResult $saturation = null,
         array $nextCast = [],
+        ?array $deviation = null,
     ): array {
         $target = $prepared->damageTarget ?? $prepared->target;
 
@@ -53,6 +55,7 @@ final class GameSpellCastView
                 'upgrades' => $this->upgrades($prepared),
             ],
             'saturation' => $this->saturationOf($plan, $saturation),
+            'deviation' => $deviation,
             'nextCast' => $nextCast,
             'spent' => $prepared->spent,
             'caster' => [

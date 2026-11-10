@@ -38,6 +38,7 @@ final class GameSpellCastWrite
      *     consequence: array<string, mixed>
      * } $damage Урон и операции.
      * @param int|null $expectedCasterVersion Версия листа кастера или null.
+     * @param list<array<string, mixed>> $casterOperations Операции кастера.
      *
      * @return array{casterVersion: int, targetVersion: int|null} Версии.
      *
@@ -49,6 +50,7 @@ final class GameSpellCastWrite
         array $body,
         array $damage,
         ?int $expectedCasterVersion = null,
+        array $casterOperations = [],
     ): array {
         $casterExpected = $expectedCasterVersion ?? $prepared->casterVersion;
         $target = $prepared->target;
@@ -65,7 +67,7 @@ final class GameSpellCastWrite
                     $prepared->casterKind,
                     $prepared->casterId,
                     $casterExpected,
-                    $damage['operations'],
+                    [...$damage['operations'], ...$casterOperations],
                     null,
                     null,
                     $prepared->spends,
@@ -85,13 +87,24 @@ final class GameSpellCastWrite
                 );
         }
 
-        $casterVersion = $this->writes->writeResources(
-            $game,
-            $prepared->casterKind,
-            $prepared->casterId,
-            $casterExpected,
-            $prepared->spends,
-        );
+        $casterVersion = $casterOperations === []
+            ? $this->writes->writeResources(
+                $game,
+                $prepared->casterKind,
+                $prepared->casterId,
+                $casterExpected,
+                $prepared->spends,
+            )
+            : $this->writes->write(
+                $game,
+                $prepared->casterKind,
+                $prepared->casterId,
+                $casterExpected,
+                $casterOperations,
+                null,
+                null,
+                $prepared->spends,
+            );
 
         return ['casterVersion' => $casterVersion, 'targetVersion' => $targetVersion];
     }

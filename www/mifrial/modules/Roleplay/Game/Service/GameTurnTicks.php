@@ -54,6 +54,7 @@ final class GameTurnTicks
                 ...$wounded['operations'],
                 ...$blood['operations'],
                 ...$this->dotPhase($game, $slice, $sheet),
+                ...$this->deviationPhase($slice, $sheet),
                 ...$this->resourcePhase($slice, $sheet),
             ],
             'rolls' => [...$wounded['rolls'], ...$blood['rolls']],
@@ -137,6 +138,42 @@ final class GameTurnTicks
             foreach ($this->dot->tick($game, $slice, $sheet, $row) as $operation) {
                 $operations[] = $operation;
             }
+        }
+
+        return $operations;
+    }
+
+    /**
+     * Затухание магического отклонения: сила −1, при нуле строка снимается.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $sheet Лист.
+     *
+     * @return list<array<string, mixed>> Операции.
+     */
+    private function deviationPhase(CharacterRuleSlice $slice, array $sheet): array
+    {
+        $operations = [];
+        foreach ($this->states->rows($sheet) as $row) {
+            $code = $row['stateRuleCode'] ?? null;
+            if (!is_string($code)) {
+                continue;
+            }
+
+            $spec = $slice->findLive($code)?->getSpec();
+            if (!$spec instanceof StateSpec || !$spec->isMagicDeviation()) {
+                continue;
+            }
+
+            $id = $row['id'] ?? null;
+            $value = $row['value'] ?? null;
+            if (!is_int($id) || $id < 1 || !is_int($value)) {
+                continue;
+            }
+
+            $operations[] = $value - 1 <= 0
+                ? ['kind' => 'removeState', 'id' => $id]
+                : ['kind' => 'patchState', 'id' => $id, 'value' => $value - 1];
         }
 
         return $operations;

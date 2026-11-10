@@ -58,11 +58,33 @@ final class CharacterActualStateTest extends TestCase
     }
 
     /**
-     * Активное состояние снимает подавляемые строки.
+     * Привязка к источнику сохраняется в строке состояния.
      *
      * @return void
      */
-    public function testSuppressorRemovesSuppressedRows(): void
+    public function testPutStateKeepsBoundSourceKey(): void
+    {
+        $patched = $this->mutations($this->slice([
+            $this->state('core-magic-deviation', 'number'),
+        ]))->applyToDocument(1, 1, ['money' => 1], [], [
+            [
+                'kind' => 'putState',
+                'stateRuleCode' => 'core-magic-deviation',
+                'value' => 2,
+                'boundSourceKey' => 'item:5',
+            ],
+        ]);
+
+        self::assertSame([
+            ['stateRuleCode' => 'core-magic-deviation', 'value' => 2, 'boundSourceKey' => 'item:5', 'id' => 1],
+        ], $patched['sheet']['states']);
+    }
+
+    /**
+     * Активное состояние снимает подавляемые строки.
+     *
+     * @return void
+     */    public function testSuppressorRemovesSuppressedRows(): void
     {
         $patched = $this->mutations($this->slice([
             $this->state('lying', 'flag', ['suppressed_state_codes' => ['unstable']]),

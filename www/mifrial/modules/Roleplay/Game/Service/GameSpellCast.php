@@ -46,6 +46,7 @@ final class GameSpellCast
      * @param GameSpellCastNextCast $nextCast Хвост Сложности.
      * @param GameSpellCastPending $pending Отложенный каст.
      * @param GameStrikeSheetWrites $sheets Запись листа касания.
+     * @param GameSpellDeviation $deviation Отклонение.
      *
      * @return void
      */
@@ -68,6 +69,7 @@ final class GameSpellCast
         private readonly GameSpellCastNextCast $nextCast,
         private readonly GameSpellCastPending $pending,
         private readonly GameStrikeSheetWrites $sheets,
+        private readonly GameSpellDeviation $deviation,
     ) {
         $this->lookup = new GameStrikeBattleLookup($repos->battles);
     }
@@ -345,9 +347,10 @@ final class GameSpellCast
         $trainingDelta = $this->nextCast->peek($battle->getPendingActionEffects(), $actorKey, $prepared->spent);
         $check = $this->check->check($game, $prepared, $trainingDelta);
         $plan = $this->saturation->plan($prepared->saturationSource, $check);
+        $deviation = $this->deviation->afterCheck($prepared, $check);
         $castId = is_string($body['idempotencyKey'] ?? null) ? $body['idempotencyKey'] : '';
 
-        if ($allowPause && $plan->hasChoice()) {
+        if ($allowPause && ($plan->hasChoice() || $this->deviation->needsPause($deviation))) {
             return $this->openPending(
                 $actorUserId,
                 $body,
@@ -357,6 +360,7 @@ final class GameSpellCast
                 $trainingDelta,
                 $battle,
                 $plan,
+                $deviation,
             );
         }
 
@@ -371,6 +375,7 @@ final class GameSpellCast
             $plan,
             0,
             null,
+            $deviation,
         );
     }
 
@@ -385,6 +390,7 @@ final class GameSpellCast
      * @param int $trainingDelta Сдвиг Сложности.
      * @param GameBattleRecord $battle Бой.
      * @param GameSpellCastSaturationPlan $plan Выбор.
+     * @param array<string, mixed>|null $deviation Отклонение.
      *
      * @return array<string, mixed> Итог.
      *
@@ -400,6 +406,7 @@ final class GameSpellCast
         int $trainingDelta,
         GameBattleRecord $battle,
         GameSpellCastSaturationPlan $plan,
+        ?array $deviation,
     ): array {
         $actionId = $this->repos->actions->add([
             'kind' => 'spell',
@@ -423,6 +430,7 @@ final class GameSpellCast
             null,
             GameCombatThread::buildSpellCast($battle, $castId),
             $plan,
+            $deviation,
         );
         $saved = $this->repos->battles->beginSpellCast($battle->getId(), $battle->getStateVersion(), $pending);
 
@@ -437,6 +445,9 @@ final class GameSpellCast
             'check',
             $castId,
             $plan,
+            null,
+            [],
+            $this->deviationView($prepared, $deviation),
         ) + [
             'kind' => 'spell',
             'battleId' => $battle->getId(),
@@ -457,6 +468,7 @@ final class GameSpellCast
      * @param GameSpellCastSaturationPlan $plan Выбор.
      * @param int $steps Выбранные шаги.
      * @param array<string, mixed>|null $pendingCast Отложенный каст или null.
+     * @param array<string, mixed>|null $deviation Отклонение или null.
      *
      * @return array<string, mixed> Итог.
      *
@@ -474,6 +486,7 @@ final class GameSpellCast
         GameSpellCastSaturationPlan $plan,
         int $steps,
         ?array $pendingCast,
+        ?array $deviation,
     ): array {
         $saturation = $this->saturation->apply($plan, $steps);
         $damageForPower = $this->damage->apply($game, $prepared, $check['castOk'], null, $saturation->getPowerDelta());
@@ -483,6 +496,7 @@ final class GameSpellCast
             $body,
             $damageForPower,
             $pendingCast === null ? null : (int) $pendingCast['casterVersion'],
+            $this->casterOperations($prepared, $deviation),
         );
 
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
@@ -502,6 +516,7 @@ final class GameSpellCast
             $pendingCast === null,
             $pendingCast,
             $saved,
+            $deviation,
         );
     }
 
@@ -521,6 +536,7 @@ final class GameSpellCast
      * @param bool $announce Писать ли объявление.
      * @param array<string, mixed>|null $pendingCast Отложенный каст.
      * @param GameBattleRecord $saved Бой после записи.
+     * @param array<string, mixed>|null $deviation Отклонение.
      *
      * @return array<string, mixed> Итог.
      */
@@ -538,6 +554,7 @@ final class GameSpellCast
         bool $announce,
         ?array $pendingCast,
         GameBattleRecord $saved,
+        ?array $deviation = null,
     ): array {
         $this->chat->post(
             $game,
@@ -550,6 +567,7 @@ final class GameSpellCast
             $this->threadOf($battle, $castId, $pendingCast),
             $saturation,
             $rows,
+            $deviation,
         );
 
         return $this->view->build(
@@ -562,11 +580,56 @@ final class GameSpellCast
             null,
             $saturation,
             $rows,
+            $this->deviationView($prepared, $deviation),
         ) + [
             'kind' => 'spell',
             'battleId' => $battle->getId(),
             'version' => $saved->getStateVersion(),
         ];
+    }
+
+    /**
+     * Операции листа кастера от отклонения.
+     *
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param array<string, mixed>|null $deviation Исход отклонения.
+     *
+     * @return list<array<string, mixed>> Операции.
+     *
+     * @throws GameInvalidException Если карточка отклонения битая.
+     */
+    private function casterOperations(GameSpellCastPrepared $prepared, ?array $deviation): array
+    {
+        if ($deviation === null) {
+            return [];
+        }
+
+        $spec = $this->deviation->spec($prepared->slice, $prepared->path->getCastCheckCode());
+        if ($spec === null) {
+            return [];
+        }
+
+        return $this->deviation->operations(
+            $spec,
+            $prepared->casterSheet,
+            $prepared->sourceKey,
+            is_int($deviation['strength'] ?? null) ? $deviation['strength'] : 0,
+        );
+    }
+
+    /**
+     * Блок отклонения для ответа.
+     *
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param array<string, mixed>|null $deviation Исход отклонения.
+     *
+     * @return array<string, mixed>|null Блок или null.
+     *
+     * @throws GameInvalidException Если карточка отклонения битая.
+     */
+    private function deviationView(GameSpellCastPrepared $prepared, ?array $deviation): ?array
+    {
+        return $this->deviation->view($prepared, $deviation);
     }
 
     /**
@@ -619,7 +682,8 @@ final class GameSpellCast
             $saturation->getPowerDelta(),
         );
         $castBody = $this->pending->bodyOf($pendingCast, $game->getId(), $battleId);
-        $versions = $this->resolveWrite($game, $prepared, $castBody, $damage, $pendingCast);
+        $deviation = is_array($pendingCast['deviation'] ?? null) ? $pendingCast['deviation'] : null;
+        $versions = $this->resolveWrite($game, $prepared, $castBody, $damage, $pendingCast, $deviation);
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
         $saved = $this->repos->battles->finishSpellCast($battleId, $expected, $pending);
         $this->repos->actions->close($pendingCast['actionId']);
@@ -637,6 +701,7 @@ final class GameSpellCast
             false,
             $pendingCast,
             $saved,
+            $deviation,
         );
     }
 
@@ -823,6 +888,7 @@ final class GameSpellCast
      * @param array<string, mixed> $body Тело.
      * @param array<string, mixed> $damage Урон.
      * @param array<string, mixed> $pendingCast Отложенный каст.
+     * @param array<string, mixed>|null $deviation Отклонение.
      *
      * @return array{casterVersion: int, targetVersion: int|null} Версии.
      *
@@ -834,7 +900,10 @@ final class GameSpellCast
         array $body,
         array $damage,
         array $pendingCast,
+        ?array $deviation = null,
     ): array {
+        $casterOperations = $this->casterOperations($prepared, $deviation);
+
         if (($pendingCast['touch'] ?? false) !== true) {
             $body['expectedTargetVersion'] = is_array($pendingCast['target'] ?? null)
                 ? (int) ($pendingCast['target']['version'] ?? 0)
@@ -846,12 +915,24 @@ final class GameSpellCast
                 $body,
                 $damage,
                 (int) $pendingCast['casterVersion'],
+                $casterOperations,
+            );
+        }
+
+        $casterVersion = (int) $pendingCast['casterVersion'];
+        if ($casterOperations !== []) {
+            $casterVersion = $this->sheets->write(
+                $game,
+                $prepared->casterKind,
+                $prepared->casterId,
+                $casterVersion,
+                $casterOperations,
             );
         }
 
         $target = $prepared->damageTarget;
         if ($target === null) {
-            return ['casterVersion' => (int) $pendingCast['casterVersion'], 'targetVersion' => null];
+            return ['casterVersion' => $casterVersion, 'targetVersion' => null];
         }
 
         $expected = (int) ($pendingCast['target']['version'] ?? 0);
@@ -866,7 +947,7 @@ final class GameSpellCast
                 $target,
             );
 
-        return ['casterVersion' => (int) $pendingCast['casterVersion'], 'targetVersion' => $version];
+        return ['casterVersion' => $casterVersion, 'targetVersion' => $version];
     }
 
     /**

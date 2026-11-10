@@ -96,6 +96,8 @@ final class GameStrikeHttpFactory
             $ports->events(),
         );
         $magicResistance = new GameSpellMagicResistance($rules->defense);
+        $mechanicPorts = new GameStrikeMechanicPorts($serviceLocator);
+        $deviation = new GameSpellDeviation($mechanicPorts->mechanics());
         $facts = new GameSpellCastFacts(
             $rules,
             $shared->sheets,
@@ -103,6 +105,7 @@ final class GameStrikeHttpFactory
             $write->availability($rules),
             new GameActionResourceResolver(),
             new GameActionHands($rules, $shared->repos->characters, $shared->repos->npcs),
+            $deviation,
         );
 
         return new GameSpellCast(
@@ -134,6 +137,7 @@ final class GameStrikeHttpFactory
             new GameSpellCastNextCast(),
             new GameSpellCastPending(),
             $shared->sheetWrites,
+            $deviation,
         );
     }
 

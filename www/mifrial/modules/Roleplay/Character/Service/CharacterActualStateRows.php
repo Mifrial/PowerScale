@@ -41,7 +41,18 @@ final class CharacterActualStateRows
         }
 
         foreach ($keys as $key) {
-            $allowed = ['aided', 'bandage', 'clotting', 'heldBy', 'internal', 'kind', 'maim', 'stateRuleCode', 'value'];
+            $allowed = [
+                'aided',
+                'bandage',
+                'boundSourceKey',
+                'clotting',
+                'heldBy',
+                'internal',
+                'kind',
+                'maim',
+                'stateRuleCode',
+                'value',
+            ];
             if (!in_array($key, $allowed, true)) {
                 throw new CharacterInvalidException('Character patch operation is invalid');
             }
@@ -747,7 +758,7 @@ final class CharacterActualStateRows
      */
     private function withWoundSidecar(array $operation, array $row): array
     {
-        foreach (['bandage', 'clotting', 'internal', 'aided', 'heldBy', 'maim'] as $field) {
+        foreach (['bandage', 'boundSourceKey', 'clotting', 'internal', 'aided', 'heldBy', 'maim'] as $field) {
             if (array_key_exists($field, $operation)) {
                 $row[$field] = $operation[$field];
             }

@@ -47,6 +47,7 @@ final class GameSpellCastChat
      * @param array{id: string, parentId: string, kind: string}|null $thread Нить удара касания; null — тред хода.
      * @param GameSpellCastSaturationResult|null $saturation Итог насыщения.
      * @param array<int, array<string, mixed>> $nextCast Поставленные хвосты.
+     * @param array<string, mixed>|null $deviation Отклонение.
      *
      * @return void
      *
@@ -63,6 +64,7 @@ final class GameSpellCastChat
         ?array $thread = null,
         ?GameSpellCastSaturationResult $saturation = null,
         array $nextCast = [],
+        ?array $deviation = null,
     ): void {
         $chatId = $this->chatId($game);
         $touch = $prepared->spell->getBase()->getHitResolution() instanceof AttackHit;
@@ -94,6 +96,10 @@ final class GameSpellCastChat
                 $token . ' проходит проверку на сотворение.',
                 [['type' => 'roll', 'payload' => $roll], ...$attachments],
             );
+        }
+
+        if ($deviation !== null) {
+            $this->postDeviation($chatId, $actorUserId, $token, $prepared, $deviation, $attachments);
         }
 
         if ($saturation !== null && $saturation->getSteps() > 0) {
@@ -210,6 +216,70 @@ final class GameSpellCastChat
             $token . ' применяет улучшения: ' . implode(', ', $rows) . '.',
             $attachments,
         );
+    }
+
+    /**
+     * Отклонение: бросок 2d6, сила и весть о взрыве.
+     *
+     * @param int $chatId Чат.
+     * @param int $actorUserId Автор.
+     * @param string $token Токен кастера.
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param array<string, mixed> $deviation Исход.
+     * @param list<array<string, mixed>> $attachments Вложения.
+     *
+     * @return void
+     */
+    private function postDeviation(
+        int $chatId,
+        int $actorUserId,
+        string $token,
+        GameSpellCastPrepared $prepared,
+        array $deviation,
+        array $attachments,
+    ): void {
+        $faces = is_array($deviation['faces'] ?? null) ? array_values($deviation['faces']) : [];
+        $dieFaces = is_int($deviation['dieFaces'] ?? null) ? $deviation['dieFaces'] : 6;
+        $payload = [
+            'spec' => [
+                'diceCount' => count($faces),
+                'dieSize' => 0,
+                'dieFaces' => $dieFaces,
+                'efficiency' => $dieFaces,
+                'scoring' => 'face_sum',
+                'advantages' => [],
+                'label' => 'Магическое отклонение',
+                'actorKey' => $prepared->casterKind . ':' . $prepared->casterId,
+            ],
+            'rolls' => $faces,
+            'successes' => array_fill(0, count($faces), 0),
+            'adjustedRolls' => $faces,
+            'droppedRolls' => [],
+            'totalSuccesses' => 0,
+            'faceSum' => $deviation['faceSum'] ?? 0,
+            'deviationStrength' => $deviation['strength'] ?? 0,
+        ];
+
+        $this->send(
+            $chatId,
+            $actorUserId,
+            $token . ' получает магическое отклонение.',
+            [['type' => 'roll', 'payload' => $payload], ...$attachments],
+        );
+
+        $strength = is_int($deviation['strength'] ?? null) ? $deviation['strength'] : 0;
+        $this->send(
+            $chatId,
+            $actorUserId,
+            $strength > 0
+                ? $token . ' — магическое отклонение силой ' . $strength . '.'
+                : $token . ' — магического отклонения нет.',
+            $attachments,
+        );
+
+        if (($deviation['isDoubles'] ?? false) === true) {
+            $this->send($chatId, $actorUserId, $token . ' — собранная магия взрывается.', $attachments);
+        }
     }
 
     /**

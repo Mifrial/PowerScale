@@ -47,6 +47,7 @@ final class GameSpellCastPrepared
      * }|null $damageTarget Цель эффекта: заклинания или касания.
      * @param array<string, int|array{base: int, size: int}> $parameters Активационные параметры.
      * @param CharacteristicNumber $usedPower Используемая мощь.
+     * @param string $sourceKey Ключ источника мощи.
      * @param DimensionalNumber $spellPower Мощь заклинания для урона.
      * @param DimensionalNumber $requiredPower Требуемая мощь.
      * @param DimensionalNumber $requiredControl Требуемый контроль.
@@ -77,6 +78,7 @@ final class GameSpellCastPrepared
         public readonly ?array $damageTarget,
         public readonly array $parameters,
         public readonly CharacteristicNumber $usedPower,
+        public readonly string $sourceKey,
         public readonly DimensionalNumber $spellPower,
         public readonly DimensionalNumber $requiredPower,
         public readonly DimensionalNumber $requiredControl,

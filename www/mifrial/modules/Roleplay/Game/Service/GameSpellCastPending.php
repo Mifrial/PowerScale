@@ -30,6 +30,7 @@ final class GameSpellCastPending
      * @param int|null $strikeId Удар касания.
      * @param array<string, mixed>|null $thread Нить чата.
      * @param GameSpellCastSaturationPlan $plan Выбор насыщения.
+     * @param array<string, mixed>|null $deviation Исход отклонения.
      *
      * @return array<string, mixed> Отложенный каст.
      */
@@ -46,6 +47,7 @@ final class GameSpellCastPending
         ?int $strikeId,
         ?array $thread,
         GameSpellCastSaturationPlan $plan,
+        ?array $deviation = null,
     ): array {
         $target = $touch ? $prepared->damageTarget : $prepared->target;
 
@@ -69,6 +71,7 @@ final class GameSpellCastPending
             'strikeId' => $strikeId,
             'thread' => $thread,
             'saturation' => $plan->toArray(),
+            'deviation' => $deviation,
             'createdAt' => time(),
         ];
     }
@@ -109,6 +112,10 @@ final class GameSpellCastPending
         }
 
         if (!is_bool($value['touch'] ?? null)) {
+            throw new GameInvalidException(self::INVALID);
+        }
+
+        if (array_key_exists('deviation', $value) && $value['deviation'] !== null && !is_array($value['deviation'])) {
             throw new GameInvalidException(self::INVALID);
         }
 

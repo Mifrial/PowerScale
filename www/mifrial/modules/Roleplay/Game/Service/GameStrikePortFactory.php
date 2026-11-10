@@ -151,6 +151,8 @@ final class GameStrikePortFactory
         $shared = $this->shared($ports, $card, $rules);
         $characters = new GameStrikeCharacterPorts($serviceLocator);
         $magicResistance = new GameSpellMagicResistance($rules->defense);
+        $mechanicPorts = new GameStrikeMechanicPorts($serviceLocator);
+        $deviation = new GameSpellDeviation($mechanicPorts->mechanics());
         $spellFacts = new GameSpellTouchFacts(
             new GameSpellCastFacts(
                 $rules,
@@ -159,6 +161,7 @@ final class GameStrikePortFactory
                 $write->availability($rules),
                 new GameActionResourceResolver(),
                 new GameActionHands($rules, $shared->repos->characters, $shared->repos->npcs),
+                $deviation,
             ),
             $shared->sheets,
         );
@@ -182,6 +185,7 @@ final class GameStrikePortFactory
             new GameSpellCastNextCast(),
             new GameSpellCastPending(),
             $shared->repos->actions,
+            $deviation,
         );
         $close = (new GameStrikeCloseFactory())->create(
             $rules,

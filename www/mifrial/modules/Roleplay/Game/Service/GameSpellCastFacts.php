@@ -55,6 +55,7 @@ final class GameSpellCastFacts
      * @param GameCardAvailability $availability Гейт карточки.
      * @param GameActionResourceResolver $resolver Компоненты.
      * @param GameActionHands $hands Руки кастера.
+     * @param GameSpellDeviation $deviation Отклонение и штраф к мощи.
      *
      * @return void
      */
@@ -65,6 +66,7 @@ final class GameSpellCastFacts
         private readonly GameCardAvailability $availability,
         private readonly GameActionResourceResolver $resolver,
         private readonly GameActionHands $hands,
+        private readonly GameSpellDeviation $deviation,
     ) {
         $this->assembler = new CharacterChoiceAssembler();
         $this->grants = new CharacterAbilityGrantReader(new CharacterDonorGrants(), new CharacterRaceAbilityCodes());
@@ -137,7 +139,8 @@ final class GameSpellCastFacts
         $characteristics = $this->characteristicsOf($caster['sheet']);
         $powerCode = $this->pathCharacteristicCode($path->getPowerCharacteristicCode());
         $controlCode = $this->pathCharacteristicCode($path->getControlCharacteristicCode());
-        $usedPower = $this->usedPower($body, $path, $caster, $model, $characteristics, $powerCode, $slice);
+        $power = $this->usedPower($body, $path, $caster, $model, $characteristics, $powerCode, $slice);
+        $usedPower = $power['value'];
         $availableControl = $characteristics[$controlCode] ?? null;
         if (!$availableControl instanceof CharacteristicNumber) {
             throw new GameInvalidException('Game spell control characteristic is missing');
@@ -171,6 +174,7 @@ final class GameSpellCastFacts
             $damageTarget,
             $parameters,
             $usedPower,
+            $power['key'],
             $spellPower,
             $requiredPower,
             $requiredControl,
@@ -523,7 +527,7 @@ final class GameSpellCastFacts
      * @param string $powerCode Характеристика мощи.
      * @param CharacterRuleSlice $slice Срез.
      *
-     * @return CharacteristicNumber Используемая мощь.
+     * @return array{value: CharacteristicNumber, key: string} Мощь и ключ источника.
      *
      * @throws GameInvalidException Если источник чужой или мощь выше потолка.
      */
@@ -535,7 +539,7 @@ final class GameSpellCastFacts
         array $characteristics,
         string $powerCode,
         CharacterRuleSlice $slice,
-    ): CharacteristicNumber {
+    ): array {
         $usedPower = $body['usedPower'] ?? null;
         if (!is_array($usedPower)) {
             throw new GameInvalidException('Game spell used power is invalid');
@@ -559,14 +563,26 @@ final class GameSpellCastFacts
             throw new GameInvalidException('Game spell used power is invalid', $exception);
         }
 
+        $this->assertSource($source, $caster, $model, $path, $slice);
+        $key = GameSpellSourceKey::of($source);
+
         $cap = $characteristics[$powerCode] ?? null;
-        if (!$cap instanceof CharacteristicNumber || $used->characteristicDiffTo($cap) > 0) {
+        if (!$cap instanceof CharacteristicNumber) {
+            throw new GameInvalidException('Game spell power characteristic is missing');
+        }
+
+        $strength = $this->deviation->strengthOnSource(
+            $slice,
+            $path->getCastCheckCode(),
+            $caster['sheet'],
+            $key,
+        );
+        $cap = $this->deviation->penalizedCap($cap, $strength);
+        if ($used->characteristicDiffTo($cap) > 0) {
             throw new GameInvalidException('Game spell used power is above the cap');
         }
 
-        $this->assertSource($source, $caster, $model, $path, $slice);
-
-        return $used;
+        return ['value' => $used, 'key' => $key];
     }
 
     /**
