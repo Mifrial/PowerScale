@@ -1045,7 +1045,7 @@ async function runPhpCast(): Promise<void> {
   }
 
   const actor = participantOf(caster);
-  const target = targetKey.value ? participantOf(targetKey.value) : undefined;
+  const target = needsSpellTarget.value && targetKey.value ? participantOf(targetKey.value) : undefined;
   const request: GamePhpSpellCastRequest = {
     gameId: props.gameId,
     battleId,
@@ -1116,7 +1116,7 @@ async function runPhpTouchCast(caster: CombatEntityKey): Promise<void> {
     return;
   }
 
-  const target = targetKey.value ? participantOf(targetKey.value) : undefined;
+  const target = needsSpellTarget.value && targetKey.value ? participantOf(targetKey.value) : undefined;
   const attack: AttackAction = {
     initiator: caster,
     source: { kind: 'action', actionRuleCode: touchActionCode.value },

@@ -127,6 +127,66 @@ describe('SpellCastUpgradeService', () => {
     expect(spellCastUpgradeService.chipLabel(selected[0]!, 2)).toContain('х = 2');
   });
 
+  it('Пронзающее скрыто, если заклинание не взаимодействует с сопротивлением магии', () => {
+    const damageType = (code: string, magic: boolean): Rule => ({
+      mechanics: [],
+      id: null,
+      code,
+      type: 'damage_type',
+      name: code,
+      description: '',
+      spaceId: 1,
+      spec: { type: 'damage_type', modifies_spell_difficulty: magic, defense_ignored: true } as unknown as Rule['spec'],
+      createdAt: 1,
+    });
+    const spellRule = (code: string, targeting: string, damageCode: string | null, hit: string): Rule => ({
+      mechanics: [],
+      id: null,
+      code,
+      type: 'ability',
+      name: code,
+      description: '',
+      spaceId: 1,
+      spec: {
+        type: 'spell',
+        hit_resolution: { type: hit },
+        spell: {
+          targeting,
+          ...(damageCode
+            ? {
+                damage: {
+                  damage_type_code: damageCode,
+                  experience_keyword_code: 'electromancy',
+                  power_modify_steps: [],
+                },
+              }
+            : {}),
+        },
+      } as unknown as Rule['spec'],
+      createdAt: 1,
+    });
+    const electricity = damageType('electricity', false);
+    const arcane = damageType('arcane', true);
+    const discharge = spellRule('discharge', 'none', 'electricity', 'attack');
+    const arcaneTouch = spellRule('arcane-touch', 'none', 'arcane', 'attack');
+    const targeted = spellRule('arcane-bolt', 'entity', null, 'auto');
+    const abilities = [{ ruleCode: 'piercing-magic', level: 1, domainCode: 'arcanist' }];
+
+    expect(
+      spellCastUpgradeService.listApplicable(abilities, 'arcanist', 'discharge', [piercing, discharge, electricity]),
+    ).toEqual([]);
+    expect(
+      spellCastUpgradeService
+        .listApplicable(abilities, 'arcanist', 'arcane-touch', [piercing, arcaneTouch, arcane])
+        .map((item) => item.ruleCode),
+    ).toEqual(['piercing-magic']);
+    expect(
+      spellCastUpgradeService
+        .listApplicable(abilities, 'arcanist', 'arcane-bolt', [piercing, targeted])
+        .map((item) => item.ruleCode),
+    ).toEqual(['piercing-magic']);
+  });
+
   it('real-фильтр убирает цепь и заряды по форме, а не по коду', () => {
     const abilities = [
       { ruleCode: 'careful-magic', level: 1, domainCode: 'arcanist' },

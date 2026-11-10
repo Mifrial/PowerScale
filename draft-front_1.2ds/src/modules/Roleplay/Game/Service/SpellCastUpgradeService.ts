@@ -2,6 +2,7 @@ import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/Characte
 import type { GamePhpSpellCastUpgrade } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastUpgrade';
 import type { SpellCastUpgradeOption } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastUpgradeOption';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
+import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
@@ -26,6 +27,9 @@ export class SpellCastUpgradeService {
         continue;
       }
       if (!this.matches(spec, ability, pathCode, spellCode)) {
+        continue;
+      }
+      if (spec.spell_upgrade.resistance_penetration_per_step && !this.spellUsesMagicResistance(spellCode, rules)) {
         continue;
       }
       if (
@@ -139,6 +143,25 @@ export class SpellCastUpgradeService {
     }
 
     return Math.max(0, Math.floor(values[option.ruleCode] ?? 1));
+  }
+
+  /** Пробитие сопротивления магии осмысленно только если заклинание с ним взаимодействует. */
+  private spellUsesMagicResistance(spellCode: string, rules: Rule[]): boolean {
+    const rule = rules.find((entry) => entry.code === spellCode && entry.type === 'ability');
+    const spec = rule?.spec as AbilitySpec | undefined;
+    if (!spec || spec.type !== 'spell') return true;
+
+    const targeting = spec.spell.targeting ?? (spec.hit_resolution?.type === 'auto' ? 'entity' : 'none');
+    // Целевое заклинание всегда проходит проверку сопротивления магии.
+    if (targeting === 'entity') return true;
+
+    // Заклинание касания без явной цели: пробитие работает по урону магического типа.
+    const damageCode = spec.spell.damage?.damage_type_code;
+    if (!damageCode) return false;
+    const damageRule = rules.find((entry) => entry.code === damageCode && entry.type === 'damage_type');
+    const damageSpec = damageRule?.spec as { modifies_spell_difficulty?: boolean } | undefined;
+
+    return damageSpec?.modifies_spell_difficulty === true;
   }
 
   /** Привязка улучшения: конкретное заклинание либо экземпляр домена. */
