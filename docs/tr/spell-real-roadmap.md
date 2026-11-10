@@ -60,8 +60,8 @@
 | `action_components[].somatic`, `occupy_hands` | `Rule/Spec/ActionComponents.php` | Game (кроме зажатия ран: `GameActionHands`) |
 | `spell_upgrade` (`check_advantage`, `action_point_delta`, `resistance_penetration_per_step`, `chain`, `charge_cap`) | `Rule/Spec/AbilityCombat.php` | Game |
 | `check_efficiency` (грант) | `Rule/Spec/AbilityGrants.php` | Character/Game |
-| `spell_saturation` | `Rule/Spec/AbilityCombat.php` | Game |
-| `next_cast_difficulty` | `Rule/Spec/AbilityCombat.php` | Game |
+| `spell_saturation` | `Rule/Spec/AbilityCombat.php` | Game — план M4 |
+| `next_cast_difficulty` | `Rule/Spec/AbilityCombat.php` | Game — план M4 |
 | `spell.charge` | `Rule/Spec/SpellSpecs.php` | Game |
 | `duration`: `sustained` / `lingering` / `refreshable` | `Rule/Dto/Spec/Ability/SpellDuration.php` | Game |
 | `magic_deviation` (флаг состояния) | `Rule/Spec/RootSpecs.php` | Game |
@@ -166,12 +166,25 @@ M11–M12 — пути; M13–M16 — хвост.
 
 ### M4. Насыщение и остаток РУ
 
+План — [`spell-real-plan-04-saturation.md`](spell-real-plan-04-saturation.md).
+
 - Пост-проверочный выбор «тратить РУ на мощь»: `min_rating`,
   `rating_per_step`, `power_per_step`; нельзя потратить больше полученного РУ.
+- Выбор делается между броском и эффектом, поэтому обычный каст становится
+  двухфазным: `check` (бросок и отложенный каст) → `resolve` (шаги, урон,
+  траты, чат). Закрытие диалога — `resolve` с 0 шагами; после броска каст
+  отменить нельзя, иначе возможен реролл. `abort` — только для устаревших
+  версий или GM.
+- Касание получает такую же паузу: закрытие удара пишет отложенный каст и
+  открытое действие, эффект заклинания и чат появляются на `resolve`.
+- Отложенный каст хранится в `game_battle.pending_spell_cast`; на время выбора
+  открыто действие боя `kind: spell`, чтобы следующий шаг не начался раньше.
 - `next_cast_difficulty`: при остатке РУ не ниже `min_remaining_rating`
   следующий каст получает `delta` к сложности. Место хранения — состояние боя
-  (не лист).
-- Тесты: 2 РУ → +1 мощь, порог остатка, сброс после использования, replay.
+  (`pending_action_effects`), не лист; хвост снимается следующим действием,
+  ставится заново при достаточном остатке.
+- Тесты: 2 РУ → +1 мощь, порог остатка, сброс после использования, стоимость
+  выше предыдущей, replay обеих фаз, пауза касания, конфликт версий.
 
 ### M5. Магическое отклонение
 
@@ -264,7 +277,9 @@ M11–M12 — пути; M13–M16 — хвост.
 ## 4. Открытые решения
 
 1. Хранение `ActiveSpell`: таблица Game против листа.
-2. Хранение `next_cast_difficulty`: бой, ход или лист.
+2. Хранение `next_cast_difficulty`: решено в M4 — состояние боя,
+   `pending_action_effects`; отложенный каст — `game_battle.pending_spell_cast`,
+   см. [`spell-real-plan-04-saturation.md`](spell-real-plan-04-saturation.md).
 3. Поведение `occupy_hands`: предложено — отказ до списания ОД, см.
    `spell-real-plan-01-action-components.md`; надбавка к сложности — позже.
 4. Минимальная модель дистанции до battleground: что нужно для зоны взрыва и
@@ -299,3 +314,4 @@ M11–M12 — пути; M13–M16 — хвост.
 | 2026-11-10 | M3 (3.0–3.3) реализован: `GameSpellMagicResistance` и фронтовый выбор по флагу; `GameCheckEfficiency`, ревизия 47 с `permanent: true`, эффективность в броске и результате. Полный `tools/test-full.sh` и ручная проверка отложены. |
 | 2026-11-10 | Багфикс M3: автоматические расовые гранты сопротивления (например, «Ахтар») теперь входят в боевые слои, сложность каста и урон; в обзоре листа появились плитки сопротивлений. |
 | 2026-11-10 | Багфикс каста: провал проверки или заклинание без урона больше не роняют запись пустых операций цели; real-диалог проверяет ОД до отправки. |
+| 2026-11-10 | Заведён план M4 — `spell-real-plan-04-saturation.md`: двухфазный каст `check → resolve` с отложенным `game_battle.pending_spell_cast` и открытым действием, пауза касания, хвост `next_spell_cast_difficulty` в `pending_action_effects`; закрытие диалога = 0 шагов, `abort` — для устаревших версий/GM. |
