@@ -9,6 +9,7 @@ import wetsandUrl from '@/modules/Roleplay/Scene/Asset/Terrain/wetsand.jpg';
 import waterUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_surface.jpg';
 import causticsUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_caustics.png';
 import macroUrl from '@/modules/Roleplay/Scene/Asset/Terrain/macro.png';
+import glintsUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_glints.png';
 
 /** Материал террейна из набора CC0. */
 export type SceneTerrainMaterial =
@@ -25,6 +26,7 @@ const SOURCES: Record<SceneTerrainMaterial, string> = {
   wetsand: wetsandUrl,
   water: waterUrl,
   caustics: causticsUrl,
+  glints: glintsUrl,
   macro: macroUrl,
 };
 
@@ -43,6 +45,7 @@ const PERIOD_IPARI: Record<SceneTerrainMaterial, number> = {
   wetsand: 1.6,
   water: 2.4,
   caustics: 1.7,
+  glints: 1.2,
   macro: 7,
 };
 

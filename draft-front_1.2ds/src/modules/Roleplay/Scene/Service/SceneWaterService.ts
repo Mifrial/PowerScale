@@ -26,6 +26,10 @@ interface SurfaceLayer {
   speedIpari: number;
   /** Смещение дрейфа относительно направления течения. */
   skew: number;
+  /** Материал слоя. */
+  material: 'water' | 'glints';
+  /** Аддитивное смешивание для бликов. */
+  additive?: boolean;
 }
 
 /** Цвет воды в каустике: слой только подсвечивает, а не закрашивает. */
@@ -39,8 +43,24 @@ const FLOW_SPEED_IPARI = 0.22;
 
 /** Слои поверхности: крупная и мелкая рябь с разным направлением. */
 const SURFACE_LAYERS: SurfaceLayer[] = [
-  { periodIpari: 2.4, angle: 0, alpha: 0.18, speedIpari: FLOW_SPEED_IPARI, skew: 0 },
-  { periodIpari: 1.15, angle: Math.PI / 5, alpha: 0.1, speedIpari: FLOW_SPEED_IPARI * 1.7, skew: 0.5 },
+  { material: 'water', periodIpari: 2.4, angle: 0, alpha: 0.18, speedIpari: FLOW_SPEED_IPARI, skew: 0 },
+  {
+    material: 'water',
+    periodIpari: 1.15,
+    angle: Math.PI / 5,
+    alpha: 0.1,
+    speedIpari: FLOW_SPEED_IPARI * 1.7,
+    skew: 0.5,
+  },
+  {
+    material: 'glints',
+    periodIpari: 1.2,
+    angle: Math.PI / 7,
+    alpha: 0.5,
+    speedIpari: FLOW_SPEED_IPARI * 2.4,
+    skew: -0.3,
+    additive: true,
+  },
 ];
 
 /** Разбиение окружности для воды-круга. */
@@ -88,17 +108,18 @@ export class SceneWaterService {
 
   /** Поверхность: два слоя ряби; null, если материала нет. */
   buildSurface(layer: Container, element: SceneElement, resolution: number, zoom: number): SceneWaterNode | null {
-    const surface = this.materials.texture('water');
     const geometry = this.geometry(element.shape, zoom);
-    if (surface === null || geometry === null) {
+    const fallback = this.materials.texture('water');
+    if (geometry === null || fallback === null) {
       return null;
     }
 
     const [flowX, flowY] = this.flowDirection(element);
     const nodes: SceneWaterNode[] = [];
     for (const spec of SURFACE_LAYERS) {
+      const texture = this.materials.texture(spec.material) ?? fallback;
       const node = this.buildLayer(
-        surface,
+        texture,
         geometry,
         Math.max(1, resolution) * spec.periodIpari,
         spec.angle,
@@ -108,6 +129,10 @@ export class SceneWaterService {
       );
       if (node === null) {
         continue;
+      }
+
+      if (spec.additive === true) {
+        node.mesh.blendMode = 'add';
       }
 
       layer.addChild(node.mesh);
