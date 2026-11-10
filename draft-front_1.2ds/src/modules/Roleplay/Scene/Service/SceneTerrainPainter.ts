@@ -16,7 +16,7 @@ import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sc
 const DEEP_COLOR = 0x275c7c;
 
 /** Цвет мелководья у берега. */
-const SHALLOW_COLOR = 0x9ad2e4;
+const SHALLOW_COLOR = 0x7fc2d6;
 
 /** Полоса мелководья у берега в ипари. */
 const SHALLOW_IPARI = 0.45;
@@ -128,7 +128,7 @@ export class SceneTerrainPainter {
 
     const tint = new Graphics();
     this.trace(tint, element.shape, zoom);
-    tint.fill({ color: 0x142630, alpha: bed === null ? 1 : 0.28 });
+    tint.fill({ color: 0x0f3346, alpha: bed === null ? 1 : 0.5 });
     container.addChild(tint);
   }
 
@@ -141,7 +141,7 @@ export class SceneTerrainPainter {
       graphics.stroke({
         color: DEEP_COLOR,
         width: Math.max(1, (depth * ring) / DEPTH_RINGS),
-        alpha: 0.075,
+        alpha: 0.09,
         alignment: 1,
         join: 'round',
       });
@@ -151,7 +151,7 @@ export class SceneTerrainPainter {
     graphics.stroke({
       color: SHALLOW_COLOR,
       width: Math.max(1, resolution * SHALLOW_IPARI),
-      alpha: 0.34,
+      alpha: 0.26,
       alignment: 1,
       join: 'round',
     });
