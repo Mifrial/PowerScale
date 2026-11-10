@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 342,
-        "plans": 223,
+        "documents": 345,
+        "plans": 224,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 245,
+            "tr": 248,
             "tz": 2
         },
         "byZoneState": {
@@ -76,7 +76,7 @@
                 "ПЛАН": 10,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
-                "В РАБОТЕ": 15
+                "В РАБОТЕ": 18
             },
             "tz": {
                 "нет": 1,
@@ -91,7 +91,7 @@
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 35,
             "ОТМЕНЁН": 1,
-            "В РАБОТЕ": 15
+            "В РАБОТЕ": 18
         }
     },
     "modules": {
@@ -298,6 +298,17 @@
             "layer": {
                 "PHP": 6,
                 "VUE": 3
+            }
+        },
+        "Roleplay/Scene": {
+            "docs": 3,
+            "state": {
+                "В РАБОТЕ": 3
+            },
+            "layer": {
+                "PHP": 3,
+                "VUE": 3,
+                "МОК": 3
             }
         },
         "Versioning/Space": {
@@ -2130,10 +2141,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 21112,
-            "lines": 169,
+            "bytes": 21618,
+            "lines": 172,
             "modules": [],
-            "linksCount": 127,
+            "linksCount": 130,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/prompts/campaign.md",
@@ -2163,6 +2174,7 @@
                 "docs/tr/logger-plan-05-vue-datetime.md",
                 "docs/tr/mail-plan-01-queue.md",
                 "docs/tr/notes-roadmap.md",
+                "docs/tr/scene-plan-01.md",
                 "docs/tr/smarttable-plan-05-reference.md",
                 "docs/tr/smarttable-plan-06-indexes.md",
                 "docs/tr/smarttable-plan-07-dictionary.md",
@@ -2470,16 +2482,16 @@
             "kind": "canon",
             "state": "ОТЛОЖЕН",
             "stateSource": "token",
-            "statusRaw": "~ОТЛОЖЕН~, 2026-08-31 — второй релиз, весна 2027; в первый релиз не входит.",
+            "statusRaw": "~ОТЛОЖЕН~, 2026-08-31 — второй релиз, весна 2027; в первый релиз не входит. Authoring-слой локаций (`SceneLocation`/`SceneBoard`) вынесен в [`scene-system.md`](scene-system.md) и ведётся отдельно; здесь остаются `GameScene`, occupancy, LOS, туман и движение.",
             "layers": [
                 "НИГДЕ"
             ],
             "basis": null,
             "date": "2026-08-31",
-            "bytes": 16765,
-            "lines": 172,
+            "bytes": 17667,
+            "lines": 176,
             "modules": [],
-            "linksCount": 4,
+            "linksCount": 6,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/tr-decisions-2026-08.md",
@@ -2491,6 +2503,9 @@
                 "docs/tr/file-plan-01.md",
                 "docs/tr/game-roadmap.md",
                 "docs/tr/game-system.md",
+                "docs/tr/scene-plan-01.md",
+                "docs/tr/scene-renderer.md",
+                "docs/tr/scene-system.md",
                 "docs/tr/spatial-roadmap.md",
                 "docs/tr/ui-system.md"
             ]
@@ -3262,15 +3277,16 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-18",
-            "bytes": 15976,
-            "lines": 181,
+            "bytes": 16227,
+            "lines": 183,
             "modules": [],
             "linksCount": 12,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
                 "docs/tr/decisions.md",
-                "docs/tr/file-plan-01.md"
+                "docs/tr/file-plan-01.md",
+                "docs/tr/scene-plan-01.md"
             ]
         },
         {
@@ -3391,7 +3407,8 @@
                 "docs/specs/character-actual-session-source-roadmap.md",
                 "docs/tr/TR.md",
                 "docs/tr/game-roadmap.md",
-                "docs/tr/migration-report.md"
+                "docs/tr/migration-report.md",
+                "docs/tr/scene-system.md"
             ]
         },
         {
@@ -3440,8 +3457,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 27545,
-            "lines": 140,
+            "bytes": 28075,
+            "lines": 142,
             "modules": [],
             "linksCount": 14,
             "brokenLinks": [],
@@ -3455,6 +3472,7 @@
                 "docs/tr/revision-file-plan-03.md",
                 "docs/tr/revision-file-roadmap.md",
                 "docs/tr/rule-system.md",
+                "docs/tr/scene-plan-01.md",
                 "docs/tr/spell-plan-01-inventory.md",
                 "docs/tr/spell-roadmap.md"
             ]
@@ -7597,6 +7615,96 @@
             ]
         },
         {
+            "path": "docs/tr/scene-plan-01.md",
+            "title": "Локации сцен: authoring-срез",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — backend M1, просмотр M2 и редактор M3 готовы; M4 (вложения, инстансинг, undo) в плане.",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-10",
+            "bytes": 9733,
+            "lines": 169,
+            "modules": [
+                "Roleplay/Scene"
+            ],
+            "linksCount": 8,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/scene-plan-01.md",
+                "docs/tr/scene-renderer.md",
+                "docs/tr/scene-system.md",
+                "docs/tr/spatial-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/scene-renderer.md",
+            "title": "Рендерер локаций сцен",
+            "zone": "tr",
+            "kind": "canon",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — просмотр и редактор на PixiJS готовы; инстансинг, LOD и fog — в плане.",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": "МОК",
+            "date": "2026-11-10",
+            "bytes": 10756,
+            "lines": 175,
+            "modules": [
+                "Roleplay/Scene"
+            ],
+            "linksCount": 4,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/battleground-system.md",
+                "docs/tr/scene-plan-01.md",
+                "docs/tr/scene-system.md",
+                "docs/tr/spatial-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/scene-system.md",
+            "title": "Система локаций сцен",
+            "zone": "tr",
+            "kind": "canon",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — authoring-слой локаций; `GameScene`, occupancy, LOS и движение остаются `DEFERRED` в [`battleground-system.md`](battleground-system.md).",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-10",
+            "bytes": 15176,
+            "lines": 265,
+            "modules": [
+                "Roleplay/Scene"
+            ],
+            "linksCount": 5,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/battleground-system.md",
+                "docs/tr/scene-plan-01.md",
+                "docs/tr/scene-renderer.md",
+                "docs/tr/spatial-roadmap.md"
+            ]
+        },
+        {
             "path": "docs/tr/smarttable-plan-01-connection.md",
             "title": "План 1 — соединение SmartTable",
             "zone": "tr",
@@ -8260,23 +8368,26 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-06 — видение и границы; карты переведены на явные цвет и скорость элемента.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — видение и границы; карты — в работе, authoring-слой локаций сцен вытащен вперёд.",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "PHP",
-            "date": "2026-11-06",
-            "bytes": 11392,
-            "lines": 143,
+            "date": "2026-11-10",
+            "bytes": 12513,
+            "lines": 152,
             "modules": [
                 "Roleplay/Map"
             ],
-            "linksCount": 3,
+            "linksCount": 6,
             "brokenLinks": [],
             "backlinks": [
-                "docs/tr/map-plan-01.md"
+                "docs/tr/map-plan-01.md",
+                "docs/tr/scene-plan-01.md",
+                "docs/tr/scene-renderer.md",
+                "docs/tr/scene-system.md"
             ]
         },
         {

@@ -46,6 +46,8 @@
 - `DEC-022` — имя справочника признаков: `keywords`.
 - `DEC-026` — абстрактное движение реализовано; battleground — отдельный контур (`DEC-069` принимает requirement-канон).
 - `DEC-069` — `battleground-system.md`: логическая модель сцены `REQUIREMENT`, реализация `NOT_IMPLEMENTED`, persistence `OPEN`.
+- `DEC-087` — authoring-слой локаций сцен вытащен вперёд: новый `Roleplay/Scene`, `SceneLocation`/`SceneBoard`; `GameScene`, occupancy, LOS и движение остаются `DEFERRED` в `battleground-system.md`. Owner `scene-system.md`.
+- `DEC-088` — renderer авторских локаций: PixiJS v8 и WebGL (`preference: 'webgl'`) за `ISceneRenderer`; Canvas 2D/SVG для мира не используются, fog/tokens резервируются. Owner `scene-renderer.md`.
 - `DEC-070` — PHP DI: процесс собирает `Application`; локатор каталогизирует контейнеры (в том числе ленивые слоты); `ModuleManager` не держит локатор. Owner [`architecture.md`](architecture.md). Порты Kernel для соседей — `OPEN`.
 - `DEC-071` — PHP quality markers: complexity и архитектурные проблемы — ошибки анализа; очевидные исправления делает агент, обоснованные исключения запрашиваются точечно, глобальные отключения запрещены. Owner [`architecture.md`](architecture.md).
 - `DEC-072` — PHP-правила отделены от фронтенд-правил и собраны в `docs/tr/php-coding-standards.md`; корневой `AGENTS.md` ссылается на них при работе с бэкендом. Обязательны PHPDoc типов и методов, порядок методов и class quality markers. Owner [`architecture.md`](architecture.md).

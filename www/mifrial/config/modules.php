@@ -11,6 +11,7 @@ use Mifrial\Roleplay\Map\Interface\Container\IMapContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
 use Mifrial\Roleplay\RuleSpace\Interface\Container\IRuleSpaceContainer;
+use Mifrial\Roleplay\Scene\Interface\Container\ISceneContainer;
 use Mifrial\Versioning\Space\Interface\Container\ISpaceContainer;
 
 return [
@@ -34,6 +35,10 @@ return [
         IMapContainer::class => [
             'group' => 'Roleplay',
             'name' => 'Map',
+        ],
+        ISceneContainer::class => [
+            'group' => 'Roleplay',
+            'name' => 'Scene',
         ],
         IMechanicContainer::class => [
             'group' => 'Roleplay',

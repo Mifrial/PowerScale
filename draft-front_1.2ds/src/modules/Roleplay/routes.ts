@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router';
 import { routes as characterRoutes } from '@/modules/Roleplay/Character/routes';
 import { routes as gameRoutes } from '@/modules/Roleplay/Game/routes';
 import { routes as mapRoutes } from '@/modules/Roleplay/Map/routes';
+import { routes as sceneRoutes } from '@/modules/Roleplay/Scene/routes';
 import { createRuleSpaceRoutes } from '@/modules/Roleplay/RuleSpace/routes';
 import { adminChildren as keywordAdminChildren } from '@/modules/Roleplay/Keyword/routes';
 import { adminChildren as mechanicAdminChildren } from '@/modules/Roleplay/Mechanic/routes';
@@ -11,6 +12,7 @@ export const roleplayRoutes: RouteRecordRaw[] = [
   ...characterRoutes,
   ...gameRoutes,
   ...mapRoutes,
+  ...sceneRoutes,
   ...createRuleSpaceRoutes(ruleCtxChildren),
 ];
 
