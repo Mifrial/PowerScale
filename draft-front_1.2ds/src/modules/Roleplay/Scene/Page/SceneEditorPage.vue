@@ -3,8 +3,10 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import SceneBoardSettings from '@/modules/Roleplay/Scene/Component/Scene/SceneBoardSettings.vue';
 import SceneBoardTabs from '@/modules/Roleplay/Scene/Component/Scene/SceneBoardTabs.vue';
+import SceneConflictDialog from '@/modules/Roleplay/Scene/Component/Scene/SceneConflictDialog.vue';
 import SceneCanvas from '@/modules/Roleplay/Scene/Component/Scene/SceneCanvas.vue';
 import SceneElementSettings from '@/modules/Roleplay/Scene/Component/Scene/SceneElementSettings.vue';
+import SceneLocationSettings from '@/modules/Roleplay/Scene/Component/Scene/SceneLocationSettings.vue';
 import SceneToolbar from '@/modules/Roleplay/Scene/Component/Scene/SceneToolbar.vue';
 import type { SceneConflict } from '@/modules/Roleplay/Scene/Dto/SceneConflict';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
@@ -251,10 +253,6 @@ function conflictOf(exception: SceneApiError): SceneConflict | null {
 function messageOf(exception: unknown): string {
   return exception instanceof SceneApiError ? exception.message : 'Не удалось выполнить действие';
 }
-
-function formatDate(unix: number): string {
-  return unix === 0 ? '—' : new Date(unix * 1000).toLocaleString();
-}
 </script>
 
 <template>
@@ -335,38 +333,7 @@ function formatDate(unix: number): string {
       </div>
 
       <aside class="scene-editor__panel">
-        <v-card variant="outlined">
-          <v-card-title class="text-subtitle-2">Локация</v-card-title>
-          <v-card-text class="scene-editor__meta">
-            <v-text-field
-              :model-value="draft.name"
-              label="Название"
-              density="compact"
-              variant="outlined"
-              hide-details
-              @update:model-value="(value) => state.setMeta({ name: value ?? '' })"
-            />
-            <v-textarea
-              :model-value="draft.description"
-              label="Описание"
-              rows="2"
-              auto-grow
-              density="compact"
-              variant="outlined"
-              hide-details
-              @update:model-value="(value) => state.setMeta({ description: value ?? '' })"
-            />
-            <v-text-field
-              :model-value="draft.resolution"
-              label="Разрешение, ед./ипари"
-              type="number"
-              density="compact"
-              variant="outlined"
-              hide-details
-              @update:model-value="(value) => state.setMeta({ resolution: Math.max(1, Number(value) || 1) })"
-            />
-          </v-card-text>
-        </v-card>
+        <SceneLocationSettings :draft="draft" @meta="state.setMeta" />
 
         <SceneBoardSettings
           v-if="activeBoard !== null"
@@ -396,25 +363,12 @@ function formatDate(unix: number): string {
       </aside>
     </div>
 
-    <v-dialog :model-value="conflict !== null" max-width="460" persistent>
-      <v-card>
-        <v-card-title>Локацию изменили в другой сессии</v-card-title>
-        <v-card-text v-if="conflict !== null">
-          <p>
-            Сохранённая версия — {{ conflict.currentVersion }} от {{ formatDate(conflict.updatedAt) }}. Текущая версия —
-            {{ draft.version }}.
-          </p>
-          <p class="text-medium-emphasis">
-            Перезагрузка потеряет несохранённые правки. Перезапись сохранит их поверх серверной версии.
-          </p>
-        </v-card-text>
-        <v-card-actions>
-          <v-btn variant="text" @click="reload">Перезагрузить</v-btn>
-          <v-spacer />
-          <v-btn color="warning" variant="tonal" @click="overwrite">Перезаписать</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <SceneConflictDialog
+      :conflict="conflict"
+      :current-version="draft.version"
+      @reload="reload"
+      @overwrite="overwrite"
+    />
   </v-container>
 </template>
 
@@ -454,12 +408,6 @@ function formatDate(unix: number): string {
   gap: 16px;
   max-height: calc(100vh - 300px);
   overflow-y: auto;
-}
-
-.scene-editor__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 @media (max-width: 900px) {
