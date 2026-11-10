@@ -3677,17 +3677,17 @@
             "dependedOnBy": [],
             "plans": [
                 {
-                    "path": "docs/tr/scene-renderer.md",
-                    "title": "Рендерер локаций сцен",
-                    "kind": "canon",
-                    "state": "ПЛАН",
+                    "path": "docs/tr/scene-plan-01.md",
+                    "title": "Локации сцен: authoring-срез",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
                     "date": "2026-11-10",
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/scene-plan-01.md",
-                    "title": "Локации сцен: authoring-срез",
-                    "kind": "plan",
+                    "path": "docs/tr/scene-renderer.md",
+                    "title": "Рендерер локаций сцен",
+                    "kind": "canon",
                     "state": "В РАБОТЕ",
                     "date": "2026-11-10",
                     "hasStatus": true

@@ -1,7 +1,7 @@
 # Рендерер локаций сцен
 
-**Статус:** ~ПЛАН~, 2026-11-10 — renderer авторских локаций; runtime-слои fog/tokens только резервируются.
-**Реализация:** ~VUE~ — план, ~PHP~ — не участвует, ~МОК~ — fixtures для smoke.
+**Статус:** ~В РАБОТЕ~, 2026-11-10 — PixiJS-просмотрщик готов; редактор, инстансинг и fog — в плане.
+**Реализация:** ~VUE~ — M2 готов (слои, камера, hit-test, context loss), ~PHP~ — не участвует, ~МОК~ — fixtures для smoke.
 **Опираться на:** [`scene-system.md`](scene-system.md), [`battleground-system.md`](battleground-system.md) (WebGL, слои, fog hooks), ~МОК~ (render fixtures).
 
 Документ фиксирует renderer авторской библиотеки локаций. Один и тот же

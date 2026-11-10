@@ -28,6 +28,7 @@
     "@types/dompurify": "^3.0.5",
     "dompurify": "^3.4.14",
     "pinia": "^2.1.0",
+    "pixi.js": "^8.22.0",
     "roboto-fontface": "^0.10.0",
     "vue": "^3.5.0",
     "vue-router": "^4.3.0",
