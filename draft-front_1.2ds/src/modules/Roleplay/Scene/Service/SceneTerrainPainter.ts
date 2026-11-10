@@ -13,13 +13,13 @@ import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
 /** Цвет глубокой воды: сквозь него читается дно. */
-const DEEP_COLOR = 0x275c7c;
+const DEEP_COLOR = 0x1f5470;
 
 /** Цвет мелководья у берега. */
 const SHALLOW_COLOR = 0x7fc2d6;
 
 /** Полоса мелководья у берега в ипари. */
-const SHALLOW_IPARI = 0.45;
+const SHALLOW_IPARI = 0.7;
 
 /** Предельная глубина градиента в ипари. */
 const DEPTH_IPARI = 3.5;
@@ -151,7 +151,7 @@ export class SceneTerrainPainter {
     graphics.stroke({
       color: SHALLOW_COLOR,
       width: Math.max(1, resolution * SHALLOW_IPARI),
-      alpha: 0.26,
+      alpha: 0.16,
       alignment: 1,
       join: 'round',
     });
@@ -180,16 +180,16 @@ export class SceneTerrainPainter {
     this.trace(graphics, element.shape, zoom);
     graphics.stroke({
       color: 0xd6efff,
-      width: Math.max(1, resolution * 0.26),
-      alpha: 0.2,
+      width: Math.max(1, resolution * 0.34),
+      alpha: 0.12,
       alignment: 1,
       join: 'round',
     });
     this.trace(graphics, element.shape, zoom);
     graphics.stroke({
       color: 0xe8f7ff,
-      width: Math.max(1, 1.5 / zoom),
-      alpha: 0.5,
+      width: Math.max(1, 1.2 / zoom),
+      alpha: 0.3,
       join: 'round',
     });
     container.addChild(graphics);
