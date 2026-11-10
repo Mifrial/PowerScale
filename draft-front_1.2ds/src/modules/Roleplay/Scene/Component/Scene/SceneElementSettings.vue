@@ -26,7 +26,6 @@ const emit = defineEmits<{
   widthAll: [width: number];
   smooth: [];
   corner: [];
-  remove: [];
 }>();
 
 const assetPublicId = ref(props.element.assetPublicId ?? null);
