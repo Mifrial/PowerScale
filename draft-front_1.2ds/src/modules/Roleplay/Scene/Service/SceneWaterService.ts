@@ -48,7 +48,7 @@ export class SceneWaterService {
       return null;
     }
 
-    const period = Math.max(1, resolution);
+    const period = Math.max(1, resolution) * 2;
     const positions = new Float32Array(count * 4);
     const uvs = new Float32Array(count * 4);
     const indices = new Uint32Array((count - 1) * 6);
@@ -105,7 +105,7 @@ export class SceneWaterService {
       return null;
     }
 
-    const period = Math.max(1, resolution);
+    const period = Math.max(1, resolution) * 2;
     const scale = period / 256;
     const sprite = new TilingSprite({
       texture,

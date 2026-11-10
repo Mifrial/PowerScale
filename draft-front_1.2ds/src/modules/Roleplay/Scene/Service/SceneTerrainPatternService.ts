@@ -148,7 +148,7 @@ export class SceneTerrainPatternService {
         }
 
         const color = noise >= 0 ? palette.light : palette.dark;
-        const amount = Math.min(1, Math.abs(noise) * 1.9);
+        const amount = Math.min(1, Math.abs(noise) * 1.15);
         const pixel = index * 4;
         image.data[pixel] = Math.round(palette.base[0] + (color[0] - palette.base[0]) * amount);
         image.data[pixel + 1] = Math.round(palette.base[1] + (color[1] - palette.base[1]) * amount);
@@ -197,66 +197,74 @@ export class SceneTerrainPatternService {
     palette: Palette,
     seed: number,
   ): void {
-    const detail = document.createElement('canvas');
-    detail.width = TEXTURE_SIZE;
-    detail.height = TEXTURE_SIZE;
-    const layer = detail.getContext('2d');
-    if (layer === null) {
-      return;
-    }
-
     const random = this.random(seed);
     switch (kind) {
       case 'grass':
-        this.grassBlades(layer, palette, random);
+        this.grassBlades(context, palette, random);
         break;
       case 'dirt':
-        this.pebbles(layer, palette, random, 0.35);
-        this.blotches(layer, palette.dark, random, 18, 0.12);
+        this.pebbles(context, palette, random, 0.35);
+        this.blotches(context, palette.dark, random, 18, 0.12);
         break;
       case 'stone':
-        this.cracks(layer, palette, random, 16);
-        this.pebbles(layer, palette, random, 0.18);
+        this.cracks(context, palette, random, 16);
+        this.pebbles(context, palette, random, 0.18);
         break;
       case 'sand':
-        this.ripples(layer, palette, random, 34);
-        this.pebbles(layer, palette, random, 0.08);
+        this.ripples(context, palette, random, 24, 0.16);
+        this.pebbles(context, palette, random, 0.08);
         break;
       case 'mud':
-        this.blotches(layer, palette.dark, random, 26, 0.16);
-        this.pebbles(layer, palette, random, 0.1);
+        this.blotches(context, palette.dark, random, 26, 0.16);
+        this.pebbles(context, palette, random, 0.1);
         break;
       case 'water':
-        this.ripples(layer, palette, random, 40, 0.22);
+        this.ripples(context, palette, random, 30, 0.18);
         break;
       case 'ice':
-        this.cracks(layer, palette, random, 22, 0.35);
-        this.blotches(layer, palette.light, random, 12, 0.18);
+        this.cracks(context, palette, random, 22, 0.35);
+        this.blotches(context, palette.light, random, 12, 0.18);
         break;
     }
+  }
 
-    for (const offsetX of [-TEXTURE_SIZE, 0, TEXTURE_SIZE]) {
-      for (const offsetY of [-TEXTURE_SIZE, 0, TEXTURE_SIZE]) {
-        context.drawImage(detail, offsetX, offsetY);
+  /** Смещения, при которых деталь у края повторяется с другой стороны. */
+  private wrappedOffsets(x: number, y: number, extent: number): [number, number][] {
+    const xs = [0];
+    if (x < extent) xs.push(TEXTURE_SIZE);
+    if (x > TEXTURE_SIZE - extent) xs.push(-TEXTURE_SIZE);
+    const ys = [0];
+    if (y < extent) ys.push(TEXTURE_SIZE);
+    if (y > TEXTURE_SIZE - extent) ys.push(-TEXTURE_SIZE);
+    const offsets: [number, number][] = [];
+    for (const offsetX of xs) {
+      for (const offsetY of ys) {
+        offsets.push([offsetX, offsetY]);
       }
     }
+
+    return offsets;
   }
 
   private grassBlades(context: CanvasRenderingContext2D, palette: Palette, random: () => number): void {
     context.lineCap = 'round';
-    for (let index = 0; index < 620; index += 1) {
+    for (let index = 0; index < 520; index += 1) {
       const x = random() * TEXTURE_SIZE;
       const y = random() * TEXTURE_SIZE;
       const length = 2 + random() * 5;
       const lean = (random() - 0.5) * 4;
       const light = random() > 0.5;
       const color = light ? palette.light : palette.dark;
-      context.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${0.2 + random() * 0.28})`;
-      context.lineWidth = 0.6 + random() * 0.8;
-      context.beginPath();
-      context.moveTo(x, y);
-      context.lineTo(x + lean, y - length);
-      context.stroke();
+      const alpha = 0.12 + random() * 0.18;
+      const width = 0.5 + random() * 0.6;
+      for (const [offsetX, offsetY] of this.wrappedOffsets(x, y, 10)) {
+        context.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`;
+        context.lineWidth = width;
+        context.beginPath();
+        context.moveTo(x + offsetX, y + offsetY);
+        context.lineTo(x + offsetX + lean, y + offsetY - length);
+        context.stroke();
+      }
     }
   }
 
@@ -266,10 +274,15 @@ export class SceneTerrainPatternService {
       const y = random() * TEXTURE_SIZE;
       const radius = 0.6 + random() * 1.8;
       const color = random() > 0.45 ? palette.light : palette.dark;
-      context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha * (0.5 + random() * 0.5)})`;
-      context.beginPath();
-      context.ellipse(x, y, radius, radius * (0.6 + random() * 0.6), random() * Math.PI, 0, Math.PI * 2);
-      context.fill();
+      const fill = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha * (0.5 + random() * 0.5)})`;
+      const rotation = random() * Math.PI;
+      const squash = 0.6 + random() * 0.6;
+      for (const [offsetX, offsetY] of this.wrappedOffsets(x, y, radius + 2)) {
+        context.fillStyle = fill;
+        context.beginPath();
+        context.ellipse(x + offsetX, y + offsetY, radius, radius * squash, rotation, 0, Math.PI * 2);
+        context.fill();
+      }
     }
   }
 
@@ -284,11 +297,15 @@ export class SceneTerrainPatternService {
       const x = random() * TEXTURE_SIZE;
       const y = random() * TEXTURE_SIZE;
       const radius = 8 + random() * 28;
-      const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
-      gradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`);
-      gradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
-      context.fillStyle = gradient;
-      context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      for (const [offsetX, offsetY] of this.wrappedOffsets(x, y, radius)) {
+        const centerX = x + offsetX;
+        const centerY = y + offsetY;
+        const gradient = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+        gradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`);
+        gradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
+        context.fillStyle = gradient;
+        context.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
+      }
     }
   }
 
@@ -301,20 +318,33 @@ export class SceneTerrainPatternService {
   ): void {
     context.lineCap = 'round';
     for (let index = 0; index < count; index += 1) {
-      let x = random() * TEXTURE_SIZE;
-      let y = random() * TEXTURE_SIZE;
+      const startX = random() * TEXTURE_SIZE;
+      const startY = random() * TEXTURE_SIZE;
       const steps = 3 + Math.floor(random() * 4);
-      context.strokeStyle = `rgba(${palette.dark[0]}, ${palette.dark[1]}, ${palette.dark[2]}, ${alpha * (0.4 + random() * 0.5)})`;
-      context.lineWidth = 0.5 + random() * 1.1;
-      context.beginPath();
-      context.moveTo(x, y);
+      const points: [number, number][] = [[startX, startY]];
+      let x = startX;
+      let y = startY;
       for (let step = 0; step < steps; step += 1) {
         x += (random() - 0.5) * 26;
         y += (random() - 0.5) * 26;
-        context.lineTo(x, y);
+        points.push([x, y]);
       }
 
-      context.stroke();
+      context.strokeStyle = `rgba(${palette.dark[0]}, ${palette.dark[1]}, ${palette.dark[2]}, ${alpha * (0.4 + random() * 0.5)})`;
+      context.lineWidth = 0.5 + random() * 1.1;
+      for (const [offsetX, offsetY] of this.wrappedOffsets(startX, startY, 80)) {
+        context.beginPath();
+        for (let point = 0; point < points.length; point += 1) {
+          const [pointX, pointY] = points[point];
+          if (point === 0) {
+            context.moveTo(pointX + offsetX, pointY + offsetY);
+          } else {
+            context.lineTo(pointX + offsetX, pointY + offsetY);
+          }
+        }
+
+        context.stroke();
+      }
     }
   }
 
@@ -334,10 +364,12 @@ export class SceneTerrainPatternService {
       const color = random() > 0.4 ? palette.light : palette.dark;
       context.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha * (0.5 + random() * 0.5)})`;
       context.lineWidth = 0.7 + random() * 1.2;
-      context.beginPath();
-      context.moveTo(x, y);
-      context.quadraticCurveTo(x + length / 2, y + bend, x + length, y);
-      context.stroke();
+      for (const [offsetX, offsetY] of this.wrappedOffsets(x, y, length + 6)) {
+        context.beginPath();
+        context.moveTo(x + offsetX, y + offsetY);
+        context.quadraticCurveTo(x + offsetX + length / 2, y + offsetY + bend, x + offsetX + length, y + offsetY);
+        context.stroke();
+      }
     }
   }
 
