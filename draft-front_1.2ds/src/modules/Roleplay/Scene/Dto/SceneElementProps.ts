@@ -6,7 +6,6 @@ export interface SceneElementProps {
   blocksMovement?: boolean;
   blocksVision?: boolean;
   state?: 'open' | 'closed';
-  speed?: number;
   label?: string;
   rotation?: number;
   scale?: number;

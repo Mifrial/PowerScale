@@ -366,6 +366,7 @@ function messageOf(exception: unknown): string {
           v-if="selectedElement !== null"
           :element="selectedElement"
           :boards="draft.boards"
+          :resolution="draft.resolution"
           @update="updateElementProps"
           @target="updateElementTarget"
           @asset="updateElementAsset"
