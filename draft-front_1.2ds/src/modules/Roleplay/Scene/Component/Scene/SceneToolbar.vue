@@ -162,12 +162,19 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
 }
 
 .scene-toolbar__split {
+  --v-btn-height: 28px;
+  height: var(--v-btn-height);
   gap: 0;
+  overflow: hidden;
   align-self: center;
+}
+
+.scene-toolbar__split .v-btn {
+  height: var(--v-btn-height) !important;
+  min-width: 0;
 }
 
 .scene-toolbar__split-toggle {
   padding-inline: 4px;
-  min-width: 0;
 }
 </style>
