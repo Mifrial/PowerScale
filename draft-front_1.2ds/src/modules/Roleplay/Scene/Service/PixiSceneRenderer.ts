@@ -9,6 +9,7 @@ import type { SceneLayerName } from '@/modules/Roleplay/Scene/Enum/SceneLayerNam
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
 import type { SceneWaterNode } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SceneShapePainter } from '@/modules/Roleplay/Scene/Service/SceneShapePainter';
+import { SceneDecorService } from '@/modules/Roleplay/Scene/Service/SceneDecorService';
 import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
 import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
@@ -53,6 +54,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private readonly patterns = new SceneTerrainPatternService();
 
   private readonly painter = new SceneShapePainter();
+
+  private readonly decor = new SceneDecorService(this.textures);
 
   private readonly terrain = new SceneTerrainPainter(this.patterns);
 
@@ -289,6 +292,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.waterNodes = [];
     this.textures.destroy();
     this.patterns.destroy();
+    this.decor.destroy();
     if (this.app !== null) {
       this.app.canvas.removeEventListener('webglcontextlost', this.handleContextLost);
       this.app.canvas.removeEventListener('webglcontextrestored', this.handleContextRestored);
@@ -400,10 +404,22 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.drawTerrain(element);
     }
 
+    const decorElements = elements
+      .filter((element) => element.kind === 'decor')
+      .sort(
+        (left, right) =>
+          this.decor.anchorY(left) - this.decor.anchorY(right) ||
+          left.sortOrder - right.sortOrder ||
+          left.id - right.id,
+      );
     for (const element of elements) {
-      if (element.kind !== 'terrain') {
+      if (element.kind !== 'terrain' && element.kind !== 'decor') {
         this.drawElement(element);
       }
+    }
+
+    for (const element of decorElements) {
+      this.drawDecor(element);
     }
 
     if (this.isEdit()) {
@@ -666,6 +682,21 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const layerName = this.layerFor(element);
     const layer = this.layers[layerName];
     if (layer === undefined) {
+      return;
+    }
+
+    layer.addChild(this.painter.paintElement(element, this.zoom()));
+  }
+
+  /** Декор-спрайт; без ассета — прежний маркер. */
+  private drawDecor(element: SceneElement): void {
+    const layer = this.layers.decor;
+    if (layer === undefined) {
+      return;
+    }
+
+    const resolution = this.model?.resolution ?? 64;
+    if (this.decor.paint(layer, element, resolution)) {
       return;
     }
 

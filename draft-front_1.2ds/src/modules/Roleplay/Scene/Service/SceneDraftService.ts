@@ -131,6 +131,34 @@ export class SceneDraftService {
     return element;
   }
 
+  /** Дублирует элемент; точка сдвигается, чтобы копия не легла ровно под оригинал. */
+  duplicateElement(draft: SceneDraft, elementId: number, offset: number): SceneDraftElement | null {
+    const source = draft.elements.find((element) => element.id === elementId);
+    if (source === undefined) {
+      return null;
+    }
+
+    const shape = JSON.parse(JSON.stringify(source.shape)) as SceneShape;
+    if (shape.type === 'point') {
+      shape.x += offset;
+      shape.y += offset;
+    }
+
+    const element: SceneDraftElement = {
+      id: this.allocateId(),
+      boardId: source.boardId,
+      kind: source.kind,
+      shape,
+      props: JSON.parse(JSON.stringify(source.props)) as SceneElementProps,
+      sortOrder: this.nextSortOrder(draft, source.boardId),
+      targetBoardId: source.targetBoardId,
+      assetPublicId: source.assetPublicId,
+    };
+    draft.elements.push(element);
+
+    return element;
+  }
+
   /** Меняет геометрию элемента. */
   updateElementShape(draft: SceneDraft, elementId: number, shape: SceneShape): void {
     const element = draft.elements.find((item) => item.id === elementId);

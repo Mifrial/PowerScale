@@ -369,6 +369,13 @@ function onKeydown(event: KeyboardEvent): void {
     return;
   }
 
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
+    event.preventDefault();
+    state.duplicateSelected();
+
+    return;
+  }
+
   if ((event.key === 'Delete' || event.key === 'Backspace') && selection.value.length > 0) {
     event.preventDefault();
     state.removeSelected();

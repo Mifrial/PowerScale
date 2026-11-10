@@ -146,3 +146,28 @@ describe('useSceneDraft history', () => {
     expect(state.isDirty.value).toBe(false);
   });
 });
+
+describe('useSceneDraft duplicate', () => {
+  it('copies the selection and selects the copies', () => {
+    const state = useSceneDraft(detail());
+    const elementId = state.createPath(
+      pathTool,
+      [
+        [0, 100],
+        [500, 100],
+      ],
+      40,
+    )!;
+    state.select([elementId]);
+
+    state.duplicateSelected();
+
+    expect(state.draft.value.elements).toHaveLength(2);
+    expect(state.selection.value).toHaveLength(1);
+    expect(state.selection.value[0]).not.toBe(elementId);
+    expect(state.draft.value.elements[1].shape).not.toBe(state.draft.value.elements[0].shape);
+
+    state.undo();
+    expect(state.draft.value.elements).toHaveLength(1);
+  });
+});
