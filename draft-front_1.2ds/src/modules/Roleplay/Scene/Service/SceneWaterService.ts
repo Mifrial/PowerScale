@@ -29,7 +29,7 @@ interface SurfaceLayer {
 }
 
 /** Цвет воды в каустике: слой только подсвечивает, а не закрашивает. */
-const CAUSTICS_ALPHA = 0.28;
+const CAUSTICS_ALPHA = 0.2;
 
 /** Скорость каустики, ипари в секунду. */
 const CAUSTICS_SPEED_IPARI = 0.06;
@@ -39,8 +39,8 @@ const FLOW_SPEED_IPARI = 0.22;
 
 /** Слои поверхности: крупная и мелкая рябь с разным направлением. */
 const SURFACE_LAYERS: SurfaceLayer[] = [
-  { periodIpari: 2.4, angle: 0, alpha: 0.24, speedIpari: FLOW_SPEED_IPARI, skew: 0 },
-  { periodIpari: 1.15, angle: Math.PI / 5, alpha: 0.12, speedIpari: FLOW_SPEED_IPARI * 1.7, skew: 0.5 },
+  { periodIpari: 2.4, angle: 0, alpha: 0.18, speedIpari: FLOW_SPEED_IPARI, skew: 0 },
+  { periodIpari: 1.15, angle: Math.PI / 5, alpha: 0.1, speedIpari: FLOW_SPEED_IPARI * 1.7, skew: 0.5 },
 ];
 
 /** Разбиение окружности для воды-круга. */
