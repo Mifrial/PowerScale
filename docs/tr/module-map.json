@@ -3105,14 +3105,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/spell-real-plan-05-magic-deviation.md",
-                    "title": "План M5 — магическое отклонение",
-                    "kind": "plan",
-                    "state": "ПЛАН",
-                    "date": "2026-11-11",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/spell-real-roadmap.md",
                     "title": "Роудмап магии: реальный runtime",
                     "kind": "plan",
@@ -3182,6 +3174,14 @@
                     "kind": "plan",
                     "state": "В РАБОТЕ",
                     "date": "2026-09-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-05-magic-deviation.md",
+                    "title": "План M5 — магическое отклонение",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-11",
                     "hasStatus": true
                 },
                 {
