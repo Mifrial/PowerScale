@@ -127,6 +127,15 @@ function zoomLabel(): string {
         <v-chip size="small" variant="outlined">{{ zoomLabel() }}</v-chip>
         <v-btn
           v-if="scene.canEdit"
+          color="primary"
+          variant="flat"
+          prepend-icon="mdi-pencil"
+          @click="router.push({ name: 'SceneEditor', params: { id: scene.id } })"
+        >
+          Редактировать
+        </v-btn>
+        <v-btn
+          v-if="scene.canEdit"
           color="error"
           variant="tonal"
           prepend-icon="mdi-archive"

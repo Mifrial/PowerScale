@@ -7621,7 +7621,7 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — backend M1 и просмотрщик M2 готовы; редактор M3 в плане.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — backend M1, просмотр M2 и редактор M3 готовы; M4 (вложения, инстансинг, undo) в плане.",
             "layers": [
                 "PHP",
                 "VUE",
@@ -7629,8 +7629,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 8706,
-            "lines": 156,
+            "bytes": 9733,
+            "lines": 169,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7651,7 +7651,7 @@
             "kind": "canon",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — PixiJS-просмотрщик готов; редактор, инстансинг и fog — в плане.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — просмотр и редактор на PixiJS готовы; инстансинг, LOD и fog — в плане.",
             "layers": [
                 "PHP",
                 "VUE",
@@ -7659,7 +7659,7 @@
             ],
             "basis": "МОК",
             "date": "2026-11-10",
-            "bytes": 10690,
+            "bytes": 10756,
             "lines": 175,
             "modules": [
                 "Roleplay/Scene"

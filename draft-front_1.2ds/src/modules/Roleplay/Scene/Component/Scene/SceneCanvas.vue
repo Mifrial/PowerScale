@@ -1,21 +1,30 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
+import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
+import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
 import { createPixiSceneRenderer } from '@/modules/Roleplay/Scene/Service/Instance/pixiSceneRenderer';
 import { sceneHitTestService } from '@/modules/Roleplay/Scene/Service/Instance/sceneHitTestService';
 import { sceneViewportService } from '@/modules/Roleplay/Scene/Service/Instance/sceneViewportService';
 
-const props = defineProps<{
-  model: SceneRenderModel;
-  board: SceneBoard | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    model: SceneRenderModel;
+    board: SceneBoard | null;
+    tool?: SceneTool;
+    interactive?: boolean;
+  }>(),
+  { tool: 'select', interactive: false },
+);
 
 const emit = defineEmits<{
   selection: [ids: number[]];
   viewport: [viewport: SceneViewport];
+  draw: [from: ScenePoint, to: ScenePoint];
+  move: [delta: ScenePoint];
 }>();
 
 const host = ref<HTMLElement | null>(null);
@@ -24,10 +33,12 @@ const renderError = ref<string | null>(null);
 let renderer: ISceneRenderer | null = null;
 let viewport: SceneViewport | null = null;
 let observer: ResizeObserver | null = null;
-let pointerDown = false;
-let pointerMoved = false;
+let gesture: 'none' | 'pan' | 'draw' | 'move' = 'none';
 let lastX = 0;
 let lastY = 0;
+let drawStart: ScenePoint | null = null;
+let moveLast: ScenePoint | null = null;
+let panMoved = false;
 
 onMounted(async () => {
   const element = host.value;
@@ -48,7 +59,7 @@ onMounted(async () => {
   sceneRenderer.resize(size.width, size.height, window.devicePixelRatio || 1);
   sceneRenderer.setViewport(viewport);
   await sceneRenderer.setScene(props.model);
-  sceneRenderer.setSelection(selection.value);
+  sceneRenderer.setSelection(props.model.selection);
   observer = new ResizeObserver(() => handleResize());
   observer.observe(element);
 });
@@ -75,6 +86,14 @@ watch(
     if (viewport !== null) {
       renderer.setViewport(viewport);
     }
+  },
+);
+
+watch(
+  () => props.model.selection,
+  (ids) => {
+    selection.value = [...ids];
+    renderer?.setSelection(selection.value);
   },
 );
 
@@ -126,54 +145,150 @@ function zoomBy(factor: number): void {
 }
 
 function onPointerDown(event: PointerEvent): void {
-  if (event.button !== 0) return;
-  pointerDown = true;
-  pointerMoved = false;
+  if (viewport === null || host.value === null) return;
   lastX = event.clientX;
   lastY = event.clientY;
-  (event.currentTarget as HTMLElement | null)?.setPointerCapture(event.pointerId);
+
+  if (event.button === 1 || !props.interactive) {
+    gesture = 'pan';
+    panMoved = false;
+    capture(event);
+
+    return;
+  }
+
+  if (event.button !== 0) return;
+  const scenePoint = scenePointOf(event);
+  if (scenePoint === null) return;
+
+  if (props.tool === 'select') {
+    startSelectGesture(event, scenePoint);
+  } else {
+    gesture = 'draw';
+    drawStart = scenePoint;
+    capture(event);
+  }
+}
+
+function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
+  if (viewport === null) return;
+  const hit = sceneHitTestService.hit(props.model, viewport, screenPointOf(event));
+  if (hit === null) {
+    gesture = 'pan';
+    panMoved = false;
+    applySelection([]);
+    capture(event);
+
+    return;
+  }
+
+  const additive = event.shiftKey || event.ctrlKey || event.metaKey;
+  const nextIds = additive
+    ? selection.value.includes(hit.id)
+      ? selection.value.filter((id) => id !== hit.id)
+      : [...selection.value, hit.id]
+    : [hit.id];
+  applySelection(nextIds);
+  gesture = 'move';
+  moveLast = scenePoint;
+  capture(event);
 }
 
 function onPointerMove(event: PointerEvent): void {
-  if (!pointerDown || viewport === null || renderer === null) return;
-  const dx = event.clientX - lastX;
-  const dy = event.clientY - lastY;
-  if (Math.abs(dx) + Math.abs(dy) > 2) {
-    pointerMoved = true;
+  if (gesture === 'none' || viewport === null || renderer === null) return;
+
+  if (gesture === 'pan') {
+    const deltaX = event.clientX - lastX;
+    const deltaY = event.clientY - lastY;
+    if (Math.abs(deltaX) + Math.abs(deltaY) > 2) {
+      panMoved = true;
+    }
+
+    panBy(event);
+
+    return;
   }
 
+  const scenePoint = scenePointOf(event);
+  if (scenePoint === null) return;
+
+  if (gesture === 'move' && moveLast !== null) {
+    const deltaX = Math.round(scenePoint[0] - moveLast[0]);
+    const deltaY = Math.round(scenePoint[1] - moveLast[1]);
+    if (deltaX !== 0 || deltaY !== 0) {
+      moveLast = scenePoint;
+      emit('move', [deltaX, deltaY]);
+    }
+
+    return;
+  }
+}
+
+function panBy(event: PointerEvent): void {
+  if (viewport === null || renderer === null) return;
+  const deltaX = event.clientX - lastX;
+  const deltaY = event.clientY - lastY;
   lastX = event.clientX;
   lastY = event.clientY;
-  viewport = sceneViewportService.pan(viewport, dx, dy);
+  viewport = sceneViewportService.pan(viewport, deltaX, deltaY);
   renderer.setViewport(viewport);
   emit('viewport', viewport);
 }
 
-function cancelPointer(): void {
-  pointerDown = false;
-  pointerMoved = false;
+function onPointerUp(event: PointerEvent): void {
+  if (gesture === 'draw' && drawStart !== null) {
+    const end = scenePointOf(event);
+    if (end !== null) {
+      emit('draw', drawStart, end);
+    }
+  }
+
+  if (gesture === 'pan' && !props.interactive && !panMoved && viewport !== null) {
+    const hit = sceneHitTestService.hit(props.model, viewport, screenPointOf(event));
+    applySelection(hit === null ? [] : [hit.id]);
+  }
+
+  gesture = 'none';
+  drawStart = null;
+  moveLast = null;
+  panMoved = false;
 }
 
-function onPointerUp(event: PointerEvent): void {
-  if (!pointerDown) return;
-  pointerDown = false;
-  if (pointerMoved || viewport === null || renderer === null || host.value === null) return;
-  const rect = host.value.getBoundingClientRect();
-  const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-  const hit = sceneHitTestService.hit(props.model, viewport, point);
-  selection.value = hit === null ? [] : [hit.id];
-  renderer.setSelection(selection.value);
-  emit('selection', selection.value);
+function cancelPointer(): void {
+  gesture = 'none';
+  drawStart = null;
+  moveLast = null;
+  panMoved = false;
 }
 
 function onWheel(event: WheelEvent): void {
   event.preventDefault();
   if (viewport === null || renderer === null || host.value === null) return;
-  const rect = host.value.getBoundingClientRect();
-  const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-  viewport = sceneViewportService.zoomAt(viewport, point, event.deltaY < 0 ? 1.12 : 0.9);
+  viewport = sceneViewportService.zoomAt(viewport, screenPointOf(event), event.deltaY < 0 ? 1.12 : 0.9);
   renderer.setViewport(viewport);
   emit('viewport', viewport);
+}
+
+function applySelection(ids: number[]): void {
+  selection.value = ids;
+  renderer?.setSelection(ids);
+  emit('selection', ids);
+}
+
+function capture(event: PointerEvent): void {
+  (event.currentTarget as HTMLElement | null)?.setPointerCapture(event.pointerId);
+}
+
+function screenPointOf(event: PointerEvent | WheelEvent): { x: number; y: number } {
+  const rect = host.value?.getBoundingClientRect();
+
+  return { x: event.clientX - (rect?.left ?? 0), y: event.clientY - (rect?.top ?? 0) };
+}
+
+function scenePointOf(event: PointerEvent): ScenePoint | null {
+  if (viewport === null) return null;
+
+  return sceneViewportService.screenToScene(viewport, screenPointOf(event));
 }
 
 defineExpose({ fit, zoomBy });
@@ -183,6 +298,7 @@ defineExpose({ fit, zoomBy });
   <div
     ref="host"
     class="scene-canvas"
+    :class="{ 'scene-canvas--edit': props.interactive }"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
@@ -201,6 +317,10 @@ defineExpose({ fit, zoomBy });
   overflow: hidden;
   touch-action: none;
   background: #0f172a;
+}
+
+.scene-canvas--edit {
+  cursor: crosshair;
 }
 
 .scene-canvas__error {
