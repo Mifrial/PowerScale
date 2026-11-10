@@ -270,4 +270,89 @@ describe('SceneDraftService', () => {
       ],
     });
   });
+
+  it('creates a path with a constant width and smooth handles', () => {
+    const service = new SceneDraftService();
+    const shape = service.pathShape(
+      [
+        [100, 300],
+        [500, 300],
+        [900, 500],
+      ],
+      40,
+    );
+
+    expect(shape.type).toBe('path');
+    if (shape.type !== 'path') return;
+    expect(shape.widths).toEqual([40, 40, 40]);
+    expect(shape.handles?.[1].out[0]).toBeGreaterThan(0);
+  });
+
+  it('inserts a vertex into a path and scales its widths', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const element = service.addElement(
+      state,
+      10,
+      'terrain',
+      {
+        type: 'path',
+        points: [
+          [0, 100],
+          [500, 100],
+        ],
+        widths: [20, 20],
+      },
+      { kind: 'water' },
+    );
+
+    service.insertVertex(state, element.id, 0, [250, 100], { in: [0, 0], out: [0, 0] }, 30);
+    if (element.shape.type !== 'path') return;
+    expect(element.shape.points).toEqual([
+      [0, 100],
+      [250, 100],
+      [500, 100],
+    ]);
+    expect(element.shape.widths).toEqual([20, 30, 20]);
+
+    service.setWidth(state, element.id, 1, 60);
+    if (element.shape.type !== 'path') return;
+    expect(element.shape.widths).toEqual([40, 60, 40]);
+  });
+
+  it('rescales path widths and bezier handles', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const element = service.addElement(
+      state,
+      10,
+      'terrain',
+      {
+        type: 'path',
+        points: [
+          [100, 100],
+          [500, 100],
+        ],
+        widths: [40, 80],
+        handles: [
+          { in: [0, 0], out: [100, 0] },
+          { in: [-100, 0], out: [0, 0] },
+        ],
+      },
+      { kind: 'water' },
+    );
+
+    service.rescale(state, 32);
+
+    if (element.shape.type !== 'path') return;
+    expect(element.shape.points).toEqual([
+      [50, 50],
+      [250, 50],
+    ]);
+    expect(element.shape.widths).toEqual([20, 40]);
+    expect(element.shape.handles).toEqual([
+      { in: [0, 0], out: [50, 0] },
+      { in: [-50, 0], out: [0, 0] },
+    ]);
+  });
 });

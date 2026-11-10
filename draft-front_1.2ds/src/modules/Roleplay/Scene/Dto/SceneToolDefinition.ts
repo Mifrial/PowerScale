@@ -10,6 +10,10 @@ export interface SceneToolDefinition {
   /** Тип создаваемого элемента; null у выбора. */
   kind: SceneElementKind | null;
   /** Тип геометрии; null у выбора. */
-  shapeType: 'rect' | 'circle' | 'wall' | 'point' | 'polygon' | null;
+  shapeType: 'rect' | 'circle' | 'wall' | 'point' | 'polygon' | 'path' | null;
   props: SceneElementProps;
+  /** Группа инструментов с общей кнопкой и меню вариантов. */
+  group?: string;
+  /** Подпись варианта внутри группы. */
+  variant?: string;
 }

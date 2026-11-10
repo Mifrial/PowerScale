@@ -1,11 +1,22 @@
 import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
+import { SceneCurveService } from '@/modules/Roleplay/Scene/Service/SceneCurveService';
+import { SceneRibbonService } from '@/modules/Roleplay/Scene/Service/SceneRibbonService';
 
 /**
  * Геометрия элементов поля: границы, попадание и расстояние до контура.
  */
 export class SceneGeometryService {
+  private readonly curves: SceneCurveService;
+
+  private readonly ribbons: SceneRibbonService;
+
+  constructor(curves: SceneCurveService = new SceneCurveService()) {
+    this.curves = curves;
+    this.ribbons = new SceneRibbonService(curves);
+  }
+
   /** Границы фигуры в единицах сцены. */
   bounds(shape: SceneShape): SceneBounds {
     if (shape.type === 'rect') {
@@ -20,16 +31,22 @@ export class SceneGeometryService {
       return { x: shape.x, y: shape.y, width: 0, height: 0 };
     }
 
-    const points = shape.points;
-    const xs = points.map((point) => point[0]);
-    const ys = points.map((point) => point[1]);
+    if (shape.type === 'path') {
+      const geometry = this.ribbons.geometry(shape.points, shape.handles ?? [], shape.widths);
+
+      return this.boundsOfPoints([...geometry.left, ...geometry.right]);
+    }
+
+    const points =
+      shape.type === 'polygon' ? this.curves.flattenContour(shape.points, shape.handles ?? []) : shape.points;
+    const bounds = this.boundsOfPoints(points);
     const extra = shape.type === 'wall' ? shape.width / 2 : 0;
 
     return {
-      x: Math.min(...xs) - extra,
-      y: Math.min(...ys) - extra,
-      width: Math.max(...xs) - Math.min(...xs) + extra * 2,
-      height: Math.max(...ys) - Math.min(...ys) + extra * 2,
+      x: bounds.x - extra,
+      y: bounds.y - extra,
+      width: bounds.width + extra * 2,
+      height: bounds.height + extra * 2,
     };
   }
 
@@ -50,6 +67,14 @@ export class SceneGeometryService {
 
     if (shape.type === 'circle') {
       return [];
+    }
+
+    if (shape.type === 'polygon') {
+      return this.curves.flattenContour(shape.points, shape.handles ?? []);
+    }
+
+    if (shape.type === 'path') {
+      return this.ribbons.geometry(shape.points, shape.handles ?? [], shape.widths).center;
     }
 
     return shape.points;
@@ -78,7 +103,13 @@ export class SceneGeometryService {
       return this.distanceToPolyline(point, shape.points) <= shape.width / 2 + tolerance;
     }
 
-    return this.pointInPolygon(point, shape.points) || this.distanceToPolyline(point, shape.points) <= tolerance;
+    if (shape.type === 'path') {
+      return this.ribbons.distance(point, shape.points, shape.handles ?? [], shape.widths) <= tolerance;
+    }
+
+    const outline = this.curves.flattenContour(shape.points, shape.handles ?? []);
+
+    return this.pointInPolygon(point, outline) || this.distanceToPolyline(point, outline) <= tolerance;
   }
 
   /** Центр фигуры. */
@@ -134,5 +165,22 @@ export class SceneGeometryService {
     }
 
     return inside;
+  }
+
+  /** Границы набора точек. */
+  private boundsOfPoints(points: ScenePoint[]): SceneBounds {
+    if (points.length === 0) {
+      return { x: 0, y: 0, width: 0, height: 0 };
+    }
+
+    const xs = points.map((point) => point[0]);
+    const ys = points.map((point) => point[1]);
+
+    return {
+      x: Math.min(...xs),
+      y: Math.min(...ys),
+      width: Math.max(...xs) - Math.min(...xs),
+      height: Math.max(...ys) - Math.min(...ys),
+    };
   }
 }

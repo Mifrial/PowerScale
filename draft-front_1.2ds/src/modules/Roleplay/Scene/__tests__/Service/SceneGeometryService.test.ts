@@ -78,6 +78,59 @@ describe('SceneGeometryService', () => {
     expect(service.contains(shape, [104, 50], 6)).toBe(true);
   });
 
+  it('accounts for bezier handles in polygon bounds', () => {
+    const shape: SceneShape = {
+      type: 'polygon',
+      points: [
+        [0, 0],
+        [100, 0],
+        [100, 100],
+      ],
+      handles: [
+        { in: [0, 0], out: [40, -60] },
+        { in: [-40, -60], out: [0, 0] },
+        { in: [0, 0], out: [0, 0] },
+      ],
+    };
+
+    const bounds = service.bounds(shape);
+
+    expect(bounds.y).toBeLessThan(0);
+    expect(bounds.height).toBeGreaterThan(100);
+  });
+
+  it('hits a ribbon by its width', () => {
+    const shape: SceneShape = {
+      type: 'path',
+      points: [
+        [0, 100],
+        [300, 100],
+      ],
+      widths: [40, 40],
+    };
+
+    expect(service.contains(shape, [150, 100], 0)).toBe(true);
+    expect(service.contains(shape, [150, 118], 0)).toBe(true);
+    expect(service.contains(shape, [150, 130], 0)).toBe(false);
+    expect(service.contains(shape, [150, 130], 15)).toBe(true);
+  });
+
+  it('accounts for ribbon width in bounds', () => {
+    const bounds = service.bounds({
+      type: 'path',
+      points: [
+        [0, 100],
+        [300, 100],
+      ],
+      widths: [40, 40],
+    });
+
+    expect(bounds.x).toBeCloseTo(0, 6);
+    expect(bounds.y).toBeCloseTo(80, 6);
+    expect(bounds.width).toBeCloseTo(300, 6);
+    expect(bounds.height).toBeCloseTo(40, 6);
+  });
+
   it('hits a point marker within tolerance', () => {
     const shape: SceneShape = { type: 'point', x: 100, y: 100 };
 

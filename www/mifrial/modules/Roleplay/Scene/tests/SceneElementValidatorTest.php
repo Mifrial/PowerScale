@@ -1,0 +1,171 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Mifrial\Roleplay\Scene\Tests;
+
+use Mifrial\Core\File\Interface\Service\IFiles;
+use Mifrial\Roleplay\Scene\Exception\SceneInvalidException;
+use Mifrial\Roleplay\Scene\Service\SceneBoardBounds;
+use Mifrial\Roleplay\Scene\Service\SceneElementValidator;
+use Mifrial\Roleplay\Scene\Service\SceneSaveFields;
+use Mifrial\Roleplay\Scene\Service\SceneSaveFileResolver;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * Проверяет геометрию элементов: полигон и ленту с ручками Безье.
+ */
+final class SceneElementValidatorTest extends TestCase
+{
+    /**
+     * Полигон с ручками сохраняет их в нормализованном виде.
+     *
+     * @return void
+     */
+    public function testPolygonKeepsBezierHandles(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => [
+                'type' => 'polygon',
+                'points' => [[0, 0], [100, 0], [100, 100]],
+                'handles' => [
+                    ['in' => [0, 0], 'out' => [20, 0]],
+                    ['in' => [-20, 0], 'out' => [0, 0]],
+                    ['in' => [0, 0], 'out' => [0, 0]],
+                ],
+            ],
+            'props' => ['kind' => 'water'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame('polygon', $element['shape']['type']);
+        self::assertSame([20, 0], $element['shape']['handles'][0]['out']);
+        self::assertSame([-20, 0], $element['shape']['handles'][1]['in']);
+    }
+
+    /**
+     * Лента принимает ширины по вершинам.
+     *
+     * @return void
+     */
+    public function testPathKeepsWidths(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => [
+                'type' => 'path',
+                'points' => [[0, 400], [500, 400], [1000, 400]],
+                'widths' => [40, 60, 40],
+                'handles' => [
+                    ['in' => [0, 0], 'out' => [100, 0]],
+                    ['in' => [-100, 0], 'out' => [100, 0]],
+                    ['in' => [-100, 0], 'out' => [0, 0]],
+                ],
+            ],
+            'props' => ['kind' => 'water'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame('path', $element['shape']['type']);
+        self::assertSame([40, 60, 40], $element['shape']['widths']);
+    }
+
+    /**
+     * Ширины обязаны совпадать с числом вершин.
+     *
+     * @return void
+     */
+    public function testPathWidthsMustMatchPoints(): void
+    {
+        $this->expectException(SceneInvalidException::class);
+        $this->expectExceptionMessage('widths is invalid');
+
+        $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => [
+                'type' => 'path',
+                'points' => [[0, 400], [500, 400]],
+                'widths' => [40],
+            ],
+            'props' => ['kind' => 'water'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+    }
+
+    /**
+     * Проверяет один элемент на поле 1000×800.
+     *
+     * @param array<string|int, mixed> $row Элемент.
+     *
+     * @return array<string, mixed> Нормализованный элемент.
+     */
+    private function validate(array $row): array
+    {
+        $validator = new SceneElementValidator(
+            new SceneSaveFields(),
+            new SceneSaveFileResolver($this->files()),
+            new SceneBoardBounds(),
+        );
+
+        $elements = $validator->validate([$row], [
+            ['id' => 10, 'boundWidth' => 1000, 'boundHeight' => 800],
+        ]);
+
+        return $elements[0];
+    }
+
+    /**
+     * Порт файлов, который не должен вызываться без ассета.
+     *
+     * @return IFiles Порт.
+     */
+    private function files(): IFiles
+    {
+        return new class () implements IFiles {
+            public function requireReadable(string $publicId): never
+            {
+                throw new \RuntimeException('unexpected file read');
+            }
+
+            public function requireOwned(string $publicId): never
+            {
+                throw new \RuntimeException('unexpected file read');
+            }
+
+            public function archive(string $publicId): never
+            {
+                throw new \RuntimeException('unexpected file archive');
+            }
+
+            public function copyOwnedTo(string $publicId, string $targetPath): never
+            {
+                throw new \RuntimeException('unexpected file copy');
+            }
+
+            public function storeDerived(string $sourcePublicId, string $sourcePath, string $originalName): never
+            {
+                throw new \RuntimeException('unexpected file store');
+            }
+
+            /**
+             * @param array<int, int> $fileIds
+             *
+             * @return array<int, string>
+             */
+            public function activePublicIds(array $fileIds): array
+            {
+                return [];
+            }
+        };
+    }
+}

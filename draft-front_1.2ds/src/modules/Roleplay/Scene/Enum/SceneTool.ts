@@ -1,3 +1,13 @@
 /** Инструмент редактора локации. */
 export type SceneTool =
-  'select' | 'obstacle' | 'support' | 'terrain' | 'terrain-polygon' | 'wall' | 'opening' | 'decor' | 'marker';
+  | 'select'
+  | 'obstacle'
+  | 'support'
+  | 'terrain'
+  | 'terrain-circle'
+  | 'terrain-polygon'
+  | 'terrain-path'
+  | 'wall'
+  | 'opening'
+  | 'decor'
+  | 'marker';

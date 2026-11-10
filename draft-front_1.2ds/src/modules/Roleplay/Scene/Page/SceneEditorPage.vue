@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import SceneBoardSettings from '@/modules/Roleplay/Scene/Component/Scene/SceneBoardSettings.vue';
 import SceneBoardTabs from '@/modules/Roleplay/Scene/Component/Scene/SceneBoardTabs.vue';
@@ -14,7 +14,9 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
+import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
+import { SCENE_ELEMENT_KIND_LABELS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ELEMENT_KIND_LABELS';
 import { SCENE_EMPTY_DETAIL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_EMPTY_DETAIL';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
 import { useSceneDraft } from '@/modules/Roleplay/Scene/Composables/useSceneDraft';
@@ -36,6 +38,7 @@ const notice = ref<string | null>(null);
 const conflict = ref<SceneConflict | null>(null);
 const viewport = ref<SceneViewport | null>(null);
 const boardPanelKey = ref(0);
+const openPanels = ref<string[]>(['board']);
 
 const draft = state.draft;
 const selection = state.selection;
@@ -82,7 +85,26 @@ const boardIndex = computed(() =>
   activeBoard.value === null ? -1 : draft.value.boards.findIndex((board) => board.id === activeBoard.value?.id),
 );
 const canSave = computed(() => draft.value.id !== null && !loading.value);
+const canUndo = state.canUndo;
+const canRedo = state.canRedo;
+const pathWidth = computed(() => Math.max(1, draft.value.resolution * 4));
+const elementTitle = computed(() =>
+  selectedElement.value === null ? 'Элемент' : `Элемент · ${SCENE_ELEMENT_KIND_LABELS[selectedElement.value.kind]}`,
+);
 const zoomLabel = computed(() => (viewport.value === null ? '—' : `${Math.round(viewport.value.zoom * 100)}%`));
+
+watch(
+  () => selectedElement.value?.id ?? null,
+  (elementId) => {
+    if (elementId !== null) {
+      openPanels.value = ['element'];
+    } else if (selection.value.length > 1) {
+      openPanels.value = ['multi'];
+    } else if (selection.value.length === 0) {
+      openPanels.value = ['board'];
+    }
+  },
+);
 
 onMounted(load);
 onMounted(() => {
@@ -182,9 +204,72 @@ function onShape(shape: SceneShape): void {
   state.createElement(definition, shape);
 }
 
-/** Перетаскивание вершины полигона. */
+/** Готовая лента из кликов. */
+function onPath(points: ScenePoint[]): void {
+  const definition = toolDefinition.value;
+  if (definition === null) return;
+  state.createPath(definition, points, pathWidth.value);
+}
+
+/** Перетаскивание вершины полигона или ленты. */
 function onVertex(elementId: number, index: number, point: ScenePoint): void {
   state.moveVertex(elementId, index, point);
+}
+
+/** Перетаскивание ручки Безье. */
+function onHandle(elementId: number, index: number, side: SceneHandleSide, offset: ScenePoint, mirror: boolean): void {
+  state.moveHandle(elementId, index, side, offset, mirror);
+}
+
+/** Перетаскивание ручки ширины ленты. */
+function onWidth(elementId: number, index: number, width: number): void {
+  state.setPathWidth(elementId, index, width);
+}
+
+/** Двойной клик по контуру вставляет вершину. */
+function onInsertVertex(elementId: number, point: ScenePoint, tolerance: number): void {
+  state.insertVertex(elementId, point, tolerance);
+}
+
+/** Alt+клик по вершине удаляет её. */
+function onRemoveVertex(elementId: number, index: number): void {
+  state.removeVertex(elementId, index);
+}
+
+/** Начало перетаскивания: один шаг истории. */
+function beginEdit(): void {
+  state.beginEdit();
+}
+
+/** Конец перетаскивания. */
+function endEdit(): void {
+  state.endEdit();
+}
+
+function undo(): void {
+  state.undo();
+}
+
+function redo(): void {
+  state.redo();
+}
+
+/** Одна ширина на все вершины ленты. */
+function setWidthAll(width: number): void {
+  if (selectedElement.value === null) return;
+  state.setPathWidthAll(selectedElement.value.id, width);
+}
+
+/** Сглаживает выделенную фигуру. */
+function smoothShape(): void {
+  if (selectedElement.value === null) return;
+  state.smoothShape(selectedElement.value.id);
+}
+
+/** Убирает кривизну выделенной фигуры. */
+function cornerShape(): void {
+  if (selectedElement.value === null) return;
+  state.cornerShape(selectedElement.value.id);
 }
 
 /** Заливка поля террейном выбранного шаблона. */
@@ -269,6 +354,17 @@ function onViewport(next: SceneViewport): void {
 function onKeydown(event: KeyboardEvent): void {
   const target = event.target as HTMLElement | null;
   if (target !== null && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+    event.preventDefault();
+    if (event.shiftKey) {
+      state.redo();
+    } else {
+      state.undo();
+    }
+
+    return;
+  }
 
   if ((event.key === 'Delete' || event.key === 'Backspace') && selection.value.length > 0) {
     event.preventDefault();
@@ -363,7 +459,15 @@ function messageOf(exception: unknown): string {
       {{ notice }}
     </v-alert>
 
-    <SceneToolbar v-model:tool="tool" :has-selection="selection.length > 0" @remove="removeSelected" />
+    <SceneToolbar
+      v-model:tool="tool"
+      :has-selection="selection.length > 0"
+      :can-undo="canUndo"
+      :can-redo="canRedo"
+      @remove="removeSelected"
+      @undo="undo"
+      @redo="redo"
+    />
 
     <SceneBoardTabs
       :model-value="draft.activeBoardId"
@@ -380,10 +484,18 @@ function messageOf(exception: unknown): string {
           :model="renderModel"
           :board="activeViewBoard"
           :tool="tool"
+          :path-width="pathWidth"
           interactive
           @draw="onDraw"
           @shape="onShape"
+          @path="onPath"
           @vertex="onVertex"
+          @handle="onHandle"
+          @width="onWidth"
+          @insert-vertex="onInsertVertex"
+          @remove-vertex="onRemoveVertex"
+          @edit-start="beginEdit"
+          @edit-end="endEdit"
           @move="onMove"
           @selection="onSelection"
           @viewport="onViewport"
@@ -391,38 +503,96 @@ function messageOf(exception: unknown): string {
       </div>
 
       <aside class="scene-editor__panel">
-        <SceneLocationSettings :draft="draft" @meta="state.setMeta" @resolution="rescaleResolution" />
+        <v-expansion-panels v-model="openPanels" multiple variant="accordion" class="scene-editor__panels">
+          <v-expansion-panel value="location">
+            <v-expansion-panel-title class="text-subtitle-2">Локация</v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <SceneLocationSettings :draft="draft" @meta="state.setMeta" @resolution="rescaleResolution" />
+            </v-expansion-panel-text>
+          </v-expansion-panel>
 
-        <SceneBoardSettings
-          v-if="activeBoard !== null"
-          :key="`${activeBoard.id}-${boardPanelKey}`"
-          :board="activeBoard"
-          :board-count="draft.boards.length"
-          :index="boardIndex"
-          :resolution="draft.resolution"
-          :terrain-kind="boardTerrainKind"
-          @rename="renameBoard"
-          @update="updateBoard"
-          @backdrop="updateBackdrop"
-          @terrain="fillTerrain"
-          @move="(boardId, offset) => state.moveBoard(boardId, offset)"
-          @remove="removeBoard"
-        />
+          <v-expansion-panel v-if="activeBoard !== null" value="board">
+            <v-expansion-panel-title class="text-subtitle-2">
+              <span>Поле</span>
+              <span class="scene-editor__panel-name">{{ activeBoard.name }}</span>
+              <v-spacer />
+              <v-btn
+                icon="mdi-arrow-left"
+                size="x-small"
+                variant="text"
+                :disabled="boardIndex <= 0"
+                title="Поле влево"
+                @click.stop="state.moveBoard(activeBoard.id, -1)"
+              />
+              <v-btn
+                icon="mdi-arrow-right"
+                size="x-small"
+                variant="text"
+                :disabled="boardIndex >= draft.boards.length - 1"
+                title="Поле вправо"
+                @click.stop="state.moveBoard(activeBoard.id, 1)"
+              />
+              <v-btn
+                icon="mdi-delete"
+                size="x-small"
+                variant="text"
+                color="error"
+                :disabled="draft.boards.length <= 1"
+                title="Удалить поле"
+                @click.stop="removeBoard(activeBoard.id)"
+              />
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <SceneBoardSettings
+                :key="`${activeBoard.id}-${boardPanelKey}`"
+                :board="activeBoard"
+                :resolution="draft.resolution"
+                :terrain-kind="boardTerrainKind"
+                @rename="renameBoard"
+                @update="updateBoard"
+                @backdrop="updateBackdrop"
+                @terrain="fillTerrain"
+              />
+            </v-expansion-panel-text>
+          </v-expansion-panel>
 
-        <SceneElementSettings
-          v-if="selectedElement !== null"
-          :element="selectedElement"
-          :boards="draft.boards"
-          :resolution="draft.resolution"
-          @update="updateElementProps"
-          @target="updateElementTarget"
-          @asset="updateElementAsset"
-          @stretch="stretchTerrain"
-          @remove="removeSelected"
-        />
-        <v-card v-else-if="selection.length > 1" variant="outlined">
-          <v-card-text class="text-body-2">Выбрано элементов: {{ selection.length }}</v-card-text>
-        </v-card>
+          <v-expansion-panel v-if="selectedElement !== null" value="element">
+            <v-expansion-panel-title class="text-subtitle-2">
+              <span>{{ elementTitle }}</span>
+              <v-spacer />
+              <v-btn
+                icon="mdi-delete"
+                size="x-small"
+                variant="text"
+                color="error"
+                title="Удалить элемент"
+                @click.stop="removeSelected"
+              />
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <SceneElementSettings
+                :element="selectedElement"
+                :boards="draft.boards"
+                :resolution="draft.resolution"
+                @update="updateElementProps"
+                @target="updateElementTarget"
+                @asset="updateElementAsset"
+                @stretch="stretchTerrain"
+                @width-all="setWidthAll"
+                @smooth="smoothShape"
+                @corner="cornerShape"
+                @remove="removeSelected"
+              />
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+
+          <v-expansion-panel v-else-if="selection.length > 1" value="multi">
+            <v-expansion-panel-title class="text-subtitle-2">Элементы</v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <div class="text-body-2">Выбрано элементов: {{ selection.length }}</div>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
       </aside>
     </div>
 
@@ -487,6 +657,16 @@ function messageOf(exception: unknown): string {
 
 .scene-editor__panel > * {
   flex: 0 0 auto;
+}
+
+.scene-editor__panels {
+  flex: 0 0 auto;
+}
+
+.scene-editor__panel-name {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: rgb(var(--v-theme-on-surface-variant));
 }
 
 .scene-editor__panel::-webkit-scrollbar {

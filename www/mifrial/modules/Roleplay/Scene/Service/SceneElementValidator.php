@@ -20,7 +20,7 @@ final class SceneElementValidator
         'support' => ['rect', 'circle', 'wall'],
         'obstacle' => ['rect', 'circle', 'wall'],
         'opening' => ['wall'],
-        'terrain' => ['rect', 'circle', 'polygon'],
+        'terrain' => ['rect', 'circle', 'polygon', 'path'],
         'decor' => ['point', 'rect', 'circle'],
         'marker' => ['point'],
     ];
@@ -175,6 +175,7 @@ final class SceneElementValidator
             'circle' => $this->circleShape($shape, $bounds, $path),
             'wall' => $this->wallShape($shape, $bounds, $path),
             'polygon' => $this->polygonShape($shape, $bounds, $path),
+            'path' => $this->pathShape($shape, $bounds, $path),
             'point' => $this->pointShape($shape, $bounds, $path),
             default => throw new SceneInvalidException($path . '.type is not allowed'),
         };
@@ -263,7 +264,151 @@ final class SceneElementValidator
      */
     private function polygonShape(array $shape, array $bounds, string $path): array
     {
-        return ['type' => 'polygon', 'points' => $this->points($shape, $path, 3, $bounds)];
+        $points = $this->points($shape, $path, 3, $bounds);
+        $handles = $this->handles($shape, $path, count($points));
+        $normalized = ['type' => 'polygon', 'points' => $points];
+        if ($handles !== null) {
+            $normalized['handles'] = $handles;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Лента: осевая линия с шириной по вершинам.
+     *
+     * @param array<string|int, mixed> $shape Геометрия.
+     * @param array{width: int, height: int} $bounds Границы.
+     * @param string $path Путь.
+     *
+     * @return array<string, mixed> Геометрия.
+     *
+     * @throws SceneInvalidException Если геометрия недопустима.
+     */
+    private function pathShape(array $shape, array $bounds, string $path): array
+    {
+        $points = $this->points($shape, $path, 2, $bounds);
+        $widths = $this->widths($shape, $path, count($points));
+        $handles = $this->handles($shape, $path, count($points));
+        $normalized = ['type' => 'path', 'points' => $points, 'widths' => $widths];
+        if ($handles !== null) {
+            $normalized['handles'] = $handles;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Ручки Безье по вершинам.
+     *
+     * @param array<string|int, mixed> $shape Геометрия.
+     * @param string $path Путь.
+     * @param int $count Число вершин.
+     *
+     * @return array<int, array{in: array{0: int, 1: int}, out: array{0: int, 1: int}}>|null Ручки или null.
+     *
+     * @throws SceneInvalidException Если ручки недопустимы.
+     */
+    private function handles(array $shape, string $path, int $count): ?array
+    {
+        if (!array_key_exists('handles', $shape)) {
+            return null;
+        }
+
+        $handles = $shape['handles'];
+        if (!is_array($handles) || !array_is_list($handles) || count($handles) !== $count) {
+            throw new SceneInvalidException($path . '.handles is invalid');
+        }
+
+        $normalized = [];
+        foreach ($handles as $index => $handle) {
+            if (!is_array($handle) || !isset($handle['in'], $handle['out'])) {
+                throw new SceneInvalidException($path . '.handles[' . $index . '] is invalid');
+            }
+
+            $normalized[] = [
+                'in' => $this->offsetPoint($handle['in'], $path . '.handles[' . $index . '].in'),
+                'out' => $this->offsetPoint($handle['out'], $path . '.handles[' . $index . '].out'),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Ширины ленты по вершинам.
+     *
+     * @param array<string|int, mixed> $shape Геометрия.
+     * @param string $path Путь.
+     * @param int $count Число вершин.
+     *
+     * @return array<int, int> Ширины.
+     *
+     * @throws SceneInvalidException Если ширины недопустимы.
+     */
+    private function widths(array $shape, string $path, int $count): array
+    {
+        $widths = $shape['widths'] ?? null;
+        if (!is_array($widths) || !array_is_list($widths) || count($widths) !== $count) {
+            throw new SceneInvalidException($path . '.widths is invalid');
+        }
+
+        $normalized = [];
+        foreach ($widths as $index => $width) {
+            $value = $this->pointInt($width, $path . '.widths[' . $index . ']');
+            if ($value < 1 || $value > 100000) {
+                throw new SceneInvalidException($path . '.widths[' . $index . '] is invalid');
+            }
+
+            $normalized[] = $value;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Смещение ручки: точка может быть отрицательной.
+     *
+     * @param mixed $point Точка.
+     * @param string $path Путь.
+     *
+     * @return array{0: int, 1: int} Смещение.
+     *
+     * @throws SceneInvalidException Если смещение недопустимо.
+     */
+    private function offsetPoint(mixed $point, string $path): array
+    {
+        if (!is_array($point) || !array_is_list($point) || count($point) !== 2) {
+            throw new SceneInvalidException($path . ' is invalid');
+        }
+
+        return [
+            $this->signedInt($point[0], $path . '[0]'),
+            $this->signedInt($point[1], $path . '[1]'),
+        ];
+    }
+
+    /**
+     * Целое смещение в пределах ±100000.
+     *
+     * @param mixed $value Значение.
+     * @param string $path Путь.
+     *
+     * @return int Смещение.
+     *
+     * @throws SceneInvalidException Если значение неверно.
+     */
+    private function signedInt(mixed $value, string $path): int
+    {
+        if (is_float($value) && floor($value) === $value) {
+            $value = (int) $value;
+        }
+
+        if (!is_int($value) || $value < -100000 || $value > 100000) {
+            throw new SceneInvalidException($path . ' is not a valid offset');
+        }
+
+        return $value;
     }
 
     /**

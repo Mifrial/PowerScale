@@ -8,16 +8,24 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneSaveSnapshot } from '@/modules/Roleplay/Scene/Dto/SceneSaveSnapshot';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneToolDefinition } from '@/modules/Roleplay/Scene/Dto/SceneToolDefinition';
+import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import { SceneDraftMapper } from '@/modules/Roleplay/Scene/Service/SceneDraftMapper';
 import { SceneDraftService } from '@/modules/Roleplay/Scene/Service/SceneDraftService';
 import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
+import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
+
+/** Предел числа шагов истории. */
+const HISTORY_LIMIT = 50;
+/** Предел объёма истории в байтах UTF-16. */
+const HISTORY_BYTES_LIMIT = 8 * 1024 * 1024;
 
 /**
  * Черновик редактора локации: состояние и операции над ним.
  *
  * Все мутации идут через сервис и помечают черновик изменённым; компонент
- * только вызывает методы.
+ * только вызывает методы. История хранит JSON-снимки и группирует
+ * перетаскивания в одну транзакцию.
  */
 export function useSceneDraft(initial: SceneDetail) {
   const mapper = new SceneDraftMapper();
@@ -26,6 +34,13 @@ export function useSceneDraft(initial: SceneDetail) {
   const draft = ref<SceneDraft>(mapper.fromDetail(initial));
   const isDirty = ref(false);
   const selection = ref<number[]>([]);
+  const history = ref<string[]>([]);
+  const future = ref<string[]>([]);
+  let baselineJson = serialize(draft.value);
+  let currentJson = baselineJson;
+  let inTransaction = false;
+  let pendingChange = false;
+  let transactionJson = '';
 
   const activeBoard = computed<SceneDraftBoard | null>(
     () => draft.value.boards.find((board) => board.id === draft.value.activeBoardId) ?? null,
@@ -33,17 +48,101 @@ export function useSceneDraft(initial: SceneDetail) {
   const selectedElements = computed(() =>
     draft.value.elements.filter((element) => selection.value.includes(element.id)),
   );
+  const canUndo = computed(() => history.value.length > 0);
+  const canRedo = computed(() => future.value.length > 0);
 
-  /** Заменяет черновик сохранённым снимком. */
+  /** Заменяет черновик сохранённым снимком и сбрасывает историю. */
   function reset(detail: SceneDetail): void {
     draft.value = mapper.fromDetail(detail);
     selection.value = [];
     isDirty.value = false;
+    baselineJson = serialize(draft.value);
+    currentJson = baselineJson;
+    history.value = [];
+    future.value = [];
+    inTransaction = false;
+    pendingChange = false;
   }
 
-  /** Помечает черновик изменённым. */
+  /** Начинает транзакцию: перетаскивание даст один шаг истории. */
+  function beginEdit(): void {
+    if (inTransaction) {
+      return;
+    }
+
+    inTransaction = true;
+    pendingChange = false;
+    transactionJson = currentJson;
+  }
+
+  /** Завершает транзакцию и фиксирует один шаг. */
+  function endEdit(): void {
+    if (!inTransaction) {
+      return;
+    }
+
+    inTransaction = false;
+    if (pendingChange) {
+      pushHistory(history.value, transactionJson);
+      currentJson = serialize(draft.value);
+      future.value = [];
+    }
+
+    pendingChange = false;
+    transactionJson = '';
+  }
+
+  /** Отменяет транзакцию без шага истории. */
+  function cancelEdit(): void {
+    inTransaction = false;
+    pendingChange = false;
+    transactionJson = '';
+  }
+
+  /** Шаг назад. */
+  function undo(): void {
+    const snapshot = history.value.pop();
+    if (snapshot === undefined) {
+      return;
+    }
+
+    future.value.push(currentJson);
+    draft.value = JSON.parse(snapshot) as SceneDraft;
+    currentJson = serialize(draft.value);
+    isDirty.value = currentJson !== baselineJson;
+    selection.value = selection.value.filter((id) => draft.value.elements.some((element) => element.id === id));
+    inTransaction = false;
+    pendingChange = false;
+  }
+
+  /** Шаг вперёд. */
+  function redo(): void {
+    const snapshot = future.value.pop();
+    if (snapshot === undefined) {
+      return;
+    }
+
+    history.value.push(currentJson);
+    draft.value = JSON.parse(snapshot) as SceneDraft;
+    currentJson = serialize(draft.value);
+    isDirty.value = currentJson !== baselineJson;
+    selection.value = selection.value.filter((id) => draft.value.elements.some((element) => element.id === id));
+    inTransaction = false;
+    pendingChange = false;
+  }
+
+  /** Помечает черновик изменённым и фиксирует шаг. */
   function markDirty(): void {
     isDirty.value = true;
+    if (inTransaction) {
+      pendingChange = true;
+
+      return;
+    }
+
+    pushHistory(history.value, currentJson);
+    currentJson = serialize(draft.value);
+    future.value = [];
   }
 
   /** Имя и описание локации. */
@@ -240,6 +339,15 @@ export function useSceneDraft(initial: SceneDetail) {
     return createElement(tool, shape);
   }
 
+  /** Создаёт ленту по кликам: постоянная ширина и плавные ручки. */
+  function createPath(tool: SceneToolDefinition, points: ScenePoint[], width: number): number | null {
+    if (points.length < 2) {
+      return null;
+    }
+
+    return createElement(tool, service.pathShape(points, width));
+  }
+
   /** Меняет свойства элемента. */
   function updateElementProps(elementId: number, props: SceneElementProps): void {
     const element = draft.value.elements.find((item) => item.id === elementId);
@@ -283,10 +391,10 @@ export function useSceneDraft(initial: SceneDetail) {
     markDirty();
   }
 
-  /** Двигает вершину полигона в пределах поля. */
+  /** Двигает вершину полигона или ленты в пределах поля. */
   function moveVertex(elementId: number, index: number, point: ScenePoint): void {
     const element = draft.value.elements.find((item) => item.id === elementId);
-    if (element === undefined || element.shape.type !== 'polygon') {
+    if (element === undefined || (element.shape.type !== 'polygon' && element.shape.type !== 'path')) {
       return;
     }
 
@@ -299,8 +407,92 @@ export function useSceneDraft(initial: SceneDetail) {
       Math.min(board.boundWidth, Math.max(0, Math.round(point[0]))),
       Math.min(board.boundHeight, Math.max(0, Math.round(point[1]))),
     ];
-    const points = element.shape.points.map((item, position) => (position === index ? clamped : item));
-    element.shape = { ...element.shape, points };
+    service.setVertex(draft.value, elementId, index, clamped);
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Двигает ручку Безье; по умолчанию противоположная ручка зеркальна. */
+  function moveHandle(
+    elementId: number,
+    index: number,
+    side: SceneHandleSide,
+    offset: ScenePoint,
+    mirror: boolean,
+  ): void {
+    service.setHandle(draft.value, elementId, index, side, offset);
+    if (mirror) {
+      service.setHandle(draft.value, elementId, index, side === 'in' ? 'out' : 'in', [-offset[0], -offset[1]]);
+    }
+
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Вставляет вершину в ближайший сегмент, сохраняя форму кривой. */
+  function insertVertex(elementId: number, point: ScenePoint, tolerance: number): boolean {
+    const element = draft.value.elements.find((item) => item.id === elementId);
+    if (element === undefined) {
+      return false;
+    }
+
+    const insertion = sceneVertexService.insertion(element.shape, point, tolerance);
+    if (insertion === null) {
+      return false;
+    }
+
+    const split = sceneVertexService.split(element.shape, insertion);
+    if (split === null) {
+      return false;
+    }
+
+    service.setHandle(draft.value, elementId, split.index, 'out', split.startHandle);
+    const endIndex =
+      element.shape.type === 'polygon' ? (split.index + 1) % element.shape.points.length : split.index + 1;
+    service.setHandle(draft.value, elementId, endIndex, 'in', split.endHandle);
+    service.insertVertex(draft.value, elementId, split.index, split.point, split.handle, split.width);
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+
+    return true;
+  }
+
+  /** Удаляет вершину, если фигура остаётся допустимой. */
+  function removeVertex(elementId: number, index: number): void {
+    service.removeVertex(draft.value, elementId, index);
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Ширина ленты в вершине; остальные ширины масштабируются. */
+  function setPathWidth(elementId: number, index: number, width: number): void {
+    service.setWidth(draft.value, elementId, index, width);
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Одна ширина на все вершины ленты. */
+  function setPathWidthAll(elementId: number, width: number): void {
+    const element = draft.value.elements.find((item) => item.id === elementId);
+    if (element === undefined || element.shape.type !== 'path') {
+      return;
+    }
+
+    element.shape = { ...element.shape, widths: element.shape.points.map(() => Math.max(1, Math.round(width))) };
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Сглаживает углы полигона или ленты. */
+  function smoothShape(elementId: number): void {
+    service.smoothShape(draft.value, elementId);
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Убирает кривизну: все сегменты прямые. */
+  function cornerShape(elementId: number): void {
+    service.cornerShape(draft.value, elementId);
     draft.value.elements = [...draft.value.elements];
     markDirty();
   }
@@ -346,7 +538,14 @@ export function useSceneDraft(initial: SceneDetail) {
     selection,
     activeBoard,
     selectedElements,
+    canUndo,
+    canRedo,
     reset,
+    beginEdit,
+    endEdit,
+    cancelEdit,
+    undo,
+    redo,
     setMeta,
     setResolution,
     setActiveBoard,
@@ -360,14 +559,37 @@ export function useSceneDraft(initial: SceneDetail) {
     stretchTerrain,
     createElement,
     createFromDrag,
+    createPath,
     updateElementProps,
     setElementTarget,
     setElementAsset,
     updateElementShape,
     moveVertex,
+    moveHandle,
+    insertVertex,
+    removeVertex,
+    setPathWidth,
+    setPathWidthAll,
+    smoothShape,
+    cornerShape,
     moveElements,
     removeSelected,
     select,
     snapshot,
   };
+}
+
+/** JSON-снимок черновика. */
+function serialize(draft: SceneDraft): string {
+  return JSON.stringify(draft);
+}
+
+/** Добавляет снимок в историю и держит её в разумных пределах. */
+function pushHistory(history: string[], snapshot: string): void {
+  history.push(snapshot);
+  let bytes = history.reduce((sum, entry) => sum + entry.length * 2, 0);
+  while (history.length > 5 && (history.length > HISTORY_LIMIT || bytes > HISTORY_BYTES_LIMIT)) {
+    const removed = history.shift();
+    bytes -= (removed?.length ?? 0) * 2;
+  }
 }
