@@ -214,7 +214,7 @@ function onAsset(file: FileRecord | null): void {
         :model-value="props.element.shape.widths[0] ?? props.resolution * 4"
         :resolution="props.resolution"
         label="Ширина ленты, ипари"
-        hint="Одна ширина на все вершины; отдельную точку тяните ромбом на холсте."
+        hint="Одна ширина на все вершины; отдельную вершину тяните ромбом на холсте."
         :min="1"
         :max="100000"
         @update:model-value="(value) => emit('widthAll', value)"

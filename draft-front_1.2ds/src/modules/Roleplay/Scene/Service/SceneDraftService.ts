@@ -233,20 +233,19 @@ export class SceneDraftService {
   }
 
   /** Ширина в вершине ленты; остальные ширины масштабируются пропорционально. */
+  /** Ширина ленты в одной вершине; остальные вершины не меняются. */
   setWidth(draft: SceneDraft, elementId: number, index: number, width: number): void {
     const element = draft.elements.find((item) => item.id === elementId);
     if (element === undefined || element.shape.type !== 'path' || index < 0 || index >= element.shape.widths.length) {
       return;
     }
 
-    const base = element.shape.widths[index] ?? 1;
     const target = Math.max(1, Math.round(width));
-    if (base <= 0 || target === base) {
+    if (target === element.shape.widths[index]) {
       return;
     }
 
-    const factor = target / base;
-    const widths = element.shape.widths.map((value) => Math.max(1, Math.round(value * factor)));
+    const widths = element.shape.widths.slice();
     widths[index] = target;
     element.shape = { ...element.shape, widths };
   }
