@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import { SceneCurveService } from '@/modules/Roleplay/Scene/Service/SceneCurveService';
 import { SceneRibbonService } from '@/modules/Roleplay/Scene/Service/SceneRibbonService';
 
@@ -36,7 +37,7 @@ describe('SceneRibbonService', () => {
 
   it('measures distance to the ribbon edge', () => {
     const handles = curves.normalizeHandles([]);
-    const points = [
+    const points: ScenePoint[] = [
       [0, 100],
       [300, 100],
     ];

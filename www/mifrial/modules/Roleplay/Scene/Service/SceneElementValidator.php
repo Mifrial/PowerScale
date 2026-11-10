@@ -311,7 +311,7 @@ final class SceneElementValidator
      */
     private function handles(array $shape, string $path, int $count): ?array
     {
-        if (!array_key_exists('handles', $shape)) {
+        if (!array_key_exists('handles', $shape) || $shape['handles'] === null) {
             return null;
         }
 

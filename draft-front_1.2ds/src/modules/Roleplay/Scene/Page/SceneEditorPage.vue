@@ -558,6 +558,15 @@ function messageOf(exception: unknown): string {
           <v-expansion-panel v-if="selectedElement !== null" value="element">
             <v-expansion-panel-title class="text-subtitle-2">
               <span>{{ elementTitle }}</span>
+              <v-tooltip location="top" max-width="320">
+                <template #activator="{ props: tooltipProps }">
+                  <v-icon v-bind="tooltipProps" icon="mdi-information-outline" size="16" class="ml-2" @click.stop />
+                </template>
+                <span class="text-caption">
+                  Клик по вершине показывает её ручки. Двойной клик по ребру вставляет вершину, Alt+клик по вершине
+                  удаляет её, Alt при перетаскивании ручки разрывает зеркальность. Ромб на вершине ленты задаёт ширину.
+                </span>
+              </v-tooltip>
               <v-spacer />
               <v-btn
                 icon="mdi-delete"
@@ -580,7 +589,6 @@ function messageOf(exception: unknown): string {
                 @width-all="setWidthAll"
                 @smooth="smoothShape"
                 @corner="cornerShape"
-                @remove="removeSelected"
               />
             </v-expansion-panel-text>
           </v-expansion-panel>
