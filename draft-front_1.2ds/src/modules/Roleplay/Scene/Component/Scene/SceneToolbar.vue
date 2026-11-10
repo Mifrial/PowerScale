@@ -63,5 +63,4 @@ const emit = defineEmits<{
   gap: 12px;
   flex-wrap: wrap;
 }
-}
 </style>
