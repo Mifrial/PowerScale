@@ -18,6 +18,7 @@ use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastUpgradeResolution;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
+use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityParameter;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ItemGrant;
@@ -40,6 +41,10 @@ final class GameSpellCastFacts
     private readonly GameSpellCastUpgrades $upgrades;
 
     private readonly GameCheckEfficiency $efficiency;
+
+    private readonly GameSpellCastSaturation $saturation;
+
+    private readonly GameSpellCastNextCast $nextCast;
 
     /**
      * Создаёт подготовку каста.
@@ -65,6 +70,8 @@ final class GameSpellCastFacts
         $this->grants = new CharacterAbilityGrantReader(new CharacterDonorGrants(), new CharacterRaceAbilityCodes());
         $this->upgrades = new GameSpellCastUpgrades();
         $this->efficiency = new GameCheckEfficiency($this->grants, new GameCheckChain());
+        $this->saturation = new GameSpellCastSaturation();
+        $this->nextCast = new GameSpellCastNextCast();
     }
 
     /**
@@ -115,12 +122,15 @@ final class GameSpellCastFacts
         $spellPower = $this->value($spell->getSpell()->getPower(), $parameters);
         $upgrades = $this->resolveUpgrades($slice, $model, $caster, $spellCode, $pathCode, $body);
         $levels = $caster['sheet']['abilityLevels'] ?? [];
+        $levelMap = is_array($levels) ? $levels : [];
         $efficiency = $this->efficiency->resolve(
             $slice,
             $model,
-            is_array($levels) ? $levels : [],
+            $levelMap,
             $path->getCastCheckCode(),
         );
+        $saturationSource = $this->saturation->source($slice, $model, $levelMap);
+        $nextCastSources = $this->nextCast->sources($slice, $model, $levelMap);
         $requiredPower = (new CharacteristicNumber($spellPower->getBase(), $spellPower->getSize()))
             ->modify($upgrades->getRequiredPowerDelta());
         $requiredControl = $this->value($spell->getSpell()->getControl(), $parameters);
@@ -170,6 +180,8 @@ final class GameSpellCastFacts
             $spends,
             $spent,
             $this->int($body, 'distanceIpari', 0),
+            $saturationSource,
+            $nextCastSources,
         );
     }
 
@@ -187,6 +199,28 @@ final class GameSpellCastFacts
         $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
 
         return $this->characterSheets->compute($slice, $choices, $sheet);
+    }
+
+    /**
+     * Текущая версия листа участника.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $kind Character или npc.
+     * @param int $id Идентификатор.
+     *
+     * @return int Версия или 0, если листа нет.
+     */
+    public function actualVersion(GameRecord $game, string $kind, int $id): int
+    {
+        try {
+            $snapshot = $this->sheets->snapshot($game, $kind, $id);
+        } catch (GameNotFoundException) {
+            return 0;
+        }
+
+        $version = $snapshot['actualVersion'] ?? null;
+
+        return is_int($version) ? $version : 0;
     }
 
     /**

@@ -23,6 +23,7 @@ import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMod
 import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import type { GamePhpSpellCastRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastRequest';
+import type { GamePhpSpellCastResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastResult';
 import type { GamePhpSpellCastPayload } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastPayload';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
@@ -62,6 +63,7 @@ import { combatEntitySelectService } from '@/modules/Roleplay/Game/Service/Insta
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import SpellCastSpellRequirementMarks from '@/modules/Roleplay/Game/Component/SpellCastSpellRequirementMarks.vue';
 import SpellCastUpgradeList from '@/modules/Roleplay/Game/Component/SpellCastUpgradeList.vue';
+import SpellSaturationPanel from '@/modules/Roleplay/Game/Component/SpellSaturationPanel.vue';
 import SpellChainHopDialog from '@/modules/Roleplay/Game/Component/SpellChainHopDialog.vue';
 import SpellArcaneBurstDialog from '@/modules/Roleplay/Game/Component/SpellArcaneBurstDialog.vue';
 import { spellCastUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/spellCastUpgradeService';
@@ -152,6 +154,18 @@ const lastSkip = ref(false);
 const lastMilk = ref(false);
 const lastAutoFail = ref(false);
 const saturationSteps = ref(0);
+const phpPendingCast = ref<{
+  castId: string;
+  cast: GamePhpSpellCastResult['cast'];
+  saturation: NonNullable<GamePhpSpellCastResult['saturation']>;
+} | null>(null);
+const phpSaturationSteps = ref(0);
+const phpSaturationSourceName = computed(() => {
+  const code = phpPendingCast.value?.saturation.sourceCode;
+  if (!code) return 'Энергонасыщение';
+
+  return findRuleByRef(props.rules, code)?.name ?? code;
+});
 const pendingSaturation = ref<{
   input: SpellCastExecutionInput;
   cast: SpellCastRollOutcome;
@@ -743,13 +757,22 @@ watch(upgradeOptions, (options) => {
 });
 
 function close(): void {
-  if (pendingSaturation.value) {
+  onDialogOpen(false);
+}
+
+function onDialogOpen(value: boolean): void {
+  if (!value && phpPendingCast.value) {
+    void resolvePhpCast(0);
+
+    return;
+  }
+  if (!value && pendingSaturation.value) {
     saturationSteps.value = 0;
     void confirmSaturation();
 
     return;
   }
-  emit('update:open', false);
+  emit('update:open', value);
 }
 
 function onSaturationStepsChange(value: number | null): void {
@@ -992,6 +1015,8 @@ async function runCast(): Promise<void> {
 async function runPhpCast(): Promise<void> {
   const caster = resolvedCasterKey.value;
   const battleId = gamePhpBattleContext.battleId;
+  phpPendingCast.value = null;
+  phpSaturationSteps.value = 0;
   if (!caster || !spellCode.value || !pathCode.value) {
     error.value = 'Выберите заклинание и путь';
 
@@ -1044,6 +1069,17 @@ async function runPhpCast(): Promise<void> {
   const result = await getGameApi().castSpell(request);
   rememberSheet(result.caster);
   if (result.target) rememberSheet(result.target);
+  if (result.phase === 'check' && result.castId && result.saturation) {
+    phpSaturationSteps.value = 0;
+    phpPendingCast.value = {
+      castId: result.castId,
+      cast: result.cast,
+      saturation: result.saturation,
+    };
+    emit('overlay-changed');
+
+    return;
+  }
   lastSkip.value = !result.cast.needsCheck;
   lastMilk.value = false;
   lastAutoFail.value = result.autoFail;
@@ -1163,6 +1199,45 @@ async function confirmSaturation(): Promise<void> {
     await settleCast(pending.input, pending.cast, steps, pending.remainingEffects, pending.effectKey);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Не удалось сотворить заклинание';
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function confirmPhpSaturation(): Promise<void> {
+  const pending = phpPendingCast.value;
+  if (!pending || busy.value) return;
+  const max = pending.saturation.maxSteps ?? 0;
+  const steps = Math.min(max, Math.max(0, Math.trunc(phpSaturationSteps.value)));
+  await resolvePhpCast(steps);
+}
+
+async function resolvePhpCast(steps: number): Promise<void> {
+  const pending = phpPendingCast.value;
+  const battleId = gamePhpBattleContext.battleId;
+  if (!pending || busy.value || battleId === null) return;
+  busy.value = true;
+  error.value = null;
+  try {
+    const result = await getGameApi().resolveSpellCast({
+      gameId: props.gameId,
+      battleId,
+      idempotencyKey: `${pending.castId}:resolve`,
+      expectedVersion: gamePhpBattleContext.battleVersion,
+      castId: pending.castId,
+      saturationSteps: steps,
+    });
+    rememberSheet(result.caster);
+    if (result.target) rememberSheet(result.target);
+    lastSkip.value = !result.cast.needsCheck;
+    lastMilk.value = false;
+    lastAutoFail.value = result.autoFail;
+    phpPendingCast.value = null;
+    emit('overlay-changed');
+    emit('settled');
+    emit('update:open', false);
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Не удалось завершить сотворение';
   } finally {
     busy.value = false;
   }
@@ -1894,9 +1969,10 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
 </script>
 
 <template>
-  <v-dialog :model-value="open" max-width="520" @update:model-value="emit('update:open', $event)">
+  <v-dialog :model-value="open" max-width="520" @update:model-value="onDialogOpen">
     <v-card>
-      <v-card-title v-if="pendingSaturation" class="text-body-1">Динамическое энергонасыщение</v-card-title>
+      <v-card-title v-if="phpPendingCast" class="text-body-1">{{ phpSaturationSourceName }}</v-card-title>
+      <v-card-title v-else-if="pendingSaturation" class="text-body-1">Динамическое энергонасыщение</v-card-title>
       <v-card-title v-else class="text-body-1 d-flex align-center justify-space-between ga-2">
         <span>Сотворение</span>
         <v-btn
@@ -1926,7 +2002,19 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
           Нет листа участника для этого действия.
         </v-alert>
         <template v-else>
-          <template v-if="pendingSaturation">
+          <template v-if="phpPendingCast">
+            <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
+            <SpellSaturationPanel
+              v-model="phpSaturationSteps"
+              :rating="phpPendingCast.saturation.rating ?? 0"
+              :max-steps="phpPendingCast.saturation.maxSteps ?? 0"
+              :rating-per-step="phpPendingCast.saturation.ratingPerStep ?? 0"
+              :power-per-step="phpPendingCast.saturation.powerPerStep ?? 0"
+              :source-name="phpSaturationSourceName"
+              :busy="busy"
+            />
+          </template>
+          <template v-else-if="pendingSaturation">
             <div class="text-body-2 mb-3">
               Каждый шаг стоит {{ saturationSpec?.rating_per_step ?? 0 }} РУ и увеличивает Мощь заклинания на
               {{ saturationSpec?.power_per_step ?? 0 }}.
@@ -2129,8 +2217,12 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
           Нужно свободных рук: {{ requiredHands }}, свободно: {{ freeHands }}
         </div>
         <v-spacer />
+        <template v-if="phpPendingCast">
+          <v-btn variant="text" :disabled="busy" @click="resolvePhpCast(0)">Без насыщения</v-btn>
+          <v-btn color="primary" :loading="busy" @click="confirmPhpSaturation">Применить</v-btn>
+        </template>
         <v-btn
-          v-if="pendingSaturation"
+          v-else-if="pendingSaturation"
           color="primary"
           :loading="busy"
           :disabled="loadPhase !== 'ready' || !canEdit"

@@ -59,12 +59,14 @@ final class GameStrikeSpendCosts
             $id,
             $battle->getPendingActionEffects(),
             $spends,
+            isset($choice['spellCast']),
         );
         $spends = $adjusted['spends'];
         $spell = $choice['spellCast']['spends'] ?? null;
         if (is_array($spell)) {
             $spends = $this->maxSpends($spends, $spell);
         }
+
         $spends = $this->floor($slice, $choice, $spends);
 
         return [

@@ -10,6 +10,7 @@ use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
+use Mifrial\Roleplay\Game\Dto\GameSpellCastSaturationResult;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\AttackHit;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -44,6 +45,8 @@ final class GameSpellCastChat
      * @param array<string, mixed> $damage Итог урона.
      * @param bool $announce Писать ли строку объявления.
      * @param array{id: string, parentId: string, kind: string}|null $thread Нить удара касания; null — тред хода.
+     * @param GameSpellCastSaturationResult|null $saturation Итог насыщения.
+     * @param array<int, array<string, mixed>> $nextCast Поставленные хвосты.
      *
      * @return void
      *
@@ -58,6 +61,8 @@ final class GameSpellCastChat
         array $damage,
         bool $announce = true,
         ?array $thread = null,
+        ?GameSpellCastSaturationResult $saturation = null,
+        array $nextCast = [],
     ): void {
         $chatId = $this->chatId($game);
         $touch = $prepared->spell->getBase()->getHitResolution() instanceof AttackHit;
@@ -89,6 +94,38 @@ final class GameSpellCastChat
                 $token . ' проходит проверку на сотворение.',
                 [['type' => 'roll', 'payload' => $roll], ...$attachments],
             );
+        }
+
+        if ($saturation !== null && $saturation->getSteps() > 0) {
+            $source = $saturation->getSource();
+            $label = $source === null ? 'энергонасыщение' : '[[rule:' . $source->getRuleCode() . ']]';
+            $this->send(
+                $chatId,
+                $actorUserId,
+                $token . ' применяет ' . $label . ': потрачено '
+                    . $saturation->getRatingSpent() . ' РУ, Мощь +'
+                    . $saturation->getPowerDelta() . '.',
+                $attachments,
+            );
+        }
+
+        if ($nextCast !== []) {
+            $labels = [];
+            foreach ($nextCast as $row) {
+                $code = $row['sourceRuleCode'] ?? null;
+                if (is_string($code) && $code !== '') {
+                    $labels[] = '[[rule:' . $code . ']]';
+                }
+            }
+
+            if ($labels !== []) {
+                $this->send(
+                    $chatId,
+                    $actorUserId,
+                    $token . ' снижает Сложность следующего сотворения: ' . implode(', ', $labels) . '.',
+                    $attachments,
+                );
+            }
         }
 
         if (($check['castOk'] ?? false) !== true) {

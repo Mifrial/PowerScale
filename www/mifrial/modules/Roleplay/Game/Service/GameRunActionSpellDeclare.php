@@ -61,19 +61,25 @@ final class GameRunActionSpellDeclare
             $context['distanceIpari'],
             $context['upgrades'] ?? [],
         ));
-        $result = $this->cast->cast(
-            $call->gameId,
-            $call->actorUserId,
-            $call->editAll,
-            $call->viewAll,
-            $body,
-        );
+        $result = ($parsed['phase'] ?? 'declare') === 'check'
+            ? $this->cast->check(
+                $call->gameId,
+                $call->actorUserId,
+                $call->editAll,
+                $call->viewAll,
+                $body,
+            )
+            : $this->cast->cast(
+                $call->gameId,
+                $call->actorUserId,
+                $call->editAll,
+                $call->viewAll,
+                $body,
+            );
 
         return array_merge($result, [
-            'kind' => 'spell',
-            'phase' => 'declare',
             'battleId' => $call->battleId,
-            'version' => $call->expectedVersion,
+            'version' => $result['version'] ?? $call->expectedVersion,
         ]);
     }
 }

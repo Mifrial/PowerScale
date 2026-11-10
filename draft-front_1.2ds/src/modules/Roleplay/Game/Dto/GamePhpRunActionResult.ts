@@ -4,11 +4,12 @@ import type { GamePhpStrikeRow } from '@/modules/Roleplay/Game/Dto/GamePhpStrike
 import type { GamePhpStrikeAwaiting } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAwaiting';
 import type { GamePhpManeuver } from '@/modules/Roleplay/Game/Dto/GamePhpManeuver';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
+import type { GamePhpPendingSpellCast } from '@/modules/Roleplay/Game/Dto/GamePhpPendingSpellCast';
 
 /** Нормализованный ответ game.runAction. */
 export interface GamePhpRunActionResult {
   kind: 'action' | 'strike' | 'wound' | 'spell';
-  phase: 'declare' | 'respond';
+  phase: 'declare' | 'check' | 'resolve' | 'abort' | 'respond';
   battleId: number;
   version: number;
   strikeId?: number;
@@ -34,4 +35,12 @@ export interface GamePhpRunActionResult {
   target?: GamePhpParticipant;
   stateId?: number;
   battleVersion?: number;
+  castId?: string;
+  pendingSpellCast?: GamePhpPendingSpellCast | null;
+  spellCastPhase?: 'check';
+  spellCast?: Record<string, unknown>;
+  spellSr?: number | null;
+  spellDamage?: unknown;
+  spellInjury?: unknown;
+  spellTargetVersion?: number;
 }

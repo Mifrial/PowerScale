@@ -18,6 +18,7 @@ final class GameRunAction
      * @param GameRunActionDeclare $declare Карточки, реакция и рана.
      * @param GameRunActionStrikeDeclare $strikes Удар.
      * @param GameRunActionRespond $respond Ответ защитой.
+     * @param GameRunActionSpellPhase $spellPhase Фазы отложенного каста.
      *
      * @return void
      */
@@ -26,6 +27,7 @@ final class GameRunAction
         private readonly GameRunActionDeclare $declare,
         private readonly GameRunActionStrikeDeclare $strikes,
         private readonly GameRunActionRespond $respond,
+        private readonly GameRunActionSpellPhase $spellPhase,
     ) {
     }
 
@@ -86,6 +88,16 @@ final class GameRunAction
     {
         if ($parsed['phase'] === 'respond') {
             return $this->respond->resolve($parsed, $call);
+        }
+
+        if ($parsed['phase'] === 'resolve' || $parsed['phase'] === 'abort') {
+            if ($parsed['kind'] !== 'spell') {
+                throw new GameInvalidException('Game action phase is invalid');
+            }
+
+            return $parsed['phase'] === 'resolve'
+                ? $this->spellPhase->resolve($parsed, $call)
+                : $this->spellPhase->abort($parsed, $call);
         }
 
         if ($parsed['actor'] === null) {

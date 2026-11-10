@@ -2,11 +2,17 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// Подготовка, проверка, отложенный каст и запись — одна причина изменения.
+
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
+use Mifrial\Roleplay\Game\Dto\GameSpellCastSaturationPlan;
 use Mifrial\Roleplay\Game\Dto\GameStrikeSingleRun;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
+use Mifrial\Roleplay\Game\Repository\GameActionRepository;
 
 /**
  * Проверка сотворения и эффект после удара касания.
@@ -21,6 +27,10 @@ final class GameSpellTouchFinish
      * @param GameSpellCastDamage $damage Урон.
      * @param GameStrikeSheetWrites $writes Запись листа.
      * @param GameSpellCastChat $chat Чат.
+     * @param GameSpellCastSaturation $saturation Насыщение.
+     * @param GameSpellCastNextCast $nextCast Хвост Сложности.
+     * @param GameSpellCastPending $pending Отложенный каст.
+     * @param GameActionRepository $actions Открытое действие.
      *
      * @return void
      */
@@ -30,6 +40,10 @@ final class GameSpellTouchFinish
         private readonly GameSpellCastDamage $damage,
         private readonly GameStrikeSheetWrites $writes,
         private readonly GameSpellCastChat $chat,
+        private readonly GameSpellCastSaturation $saturation,
+        private readonly GameSpellCastNextCast $nextCast,
+        private readonly GameSpellCastPending $pending,
+        private readonly GameActionRepository $actions,
     ) {
     }
 
@@ -56,9 +70,19 @@ final class GameSpellTouchFinish
             'defender' => $run->target,
         ];
         $prepared = $this->facts->prepared($game, $choice, $payload);
-        $check = $this->check->check($game, $prepared);
+        $actorKey = $prepared->casterKind . ':' . $prepared->casterId;
+        $trainingDelta = $this->nextCast->peek($run->pending, $actorKey, $prepared->spent);
+        $check = $this->check->check($game, $prepared, $trainingDelta);
         $attackSr = is_int($run->result['success'] ?? null) ? $run->result['success'] : 0;
-        $damage = $this->damage->apply($game, $prepared, $check['castOk'], $attackSr);
+        $plan = $this->saturation->plan($prepared->saturationSource, $check);
+        if ($plan->hasChoice()) {
+            $this->defer($run, $prepared, $payload, $check, $trainingDelta, $attackSr, $targetVersion, $plan);
+
+            return;
+        }
+
+        $saturation = $this->saturation->apply($plan, 0);
+        $damage = $this->damage->apply($game, $prepared, $check['castOk'], $attackSr, $saturation->getPowerDelta());
         $damage['milk'] = $attackSr <= 0;
 
         $version = $targetVersion;
@@ -73,13 +97,117 @@ final class GameSpellTouchFinish
             );
         }
 
+        $run->pending = $this->nextCast->consume($run->pending, $actorKey);
+        $run->pending = $this->nextCast->queue(
+            $run->pending,
+            $actorKey,
+            $prepared->nextCastSources,
+            $prepared->spent,
+            $saturation->getRemainingRating(),
+        );
         $thread = GameCombatThread::buildSpell($run->battle, $run->strikeId);
-        $this->chat->post($game, $run->scope->actorUserId, $prepared, $run->battle, $check, $damage, false, $thread);
+        $this->chat->post(
+            $game,
+            $run->scope->actorUserId,
+            $prepared,
+            $run->battle,
+            $check,
+            $damage,
+            false,
+            $thread,
+            $saturation,
+            $this->nextCast->rows($run->pending, $actorKey),
+        );
+        $this->setResult($run, $check, $damage, $version, null);
+    }
+
+    /**
+     * Откладывает эффект и открывает действие выбора.
+     *
+     * @param GameStrikeSingleRun $run Удар.
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param array<string, mixed> $payload Блок заклинания.
+     * @param array<string, mixed> $check Итог проверки.
+     * @param int $trainingDelta Сдвиг Сложности.
+     * @param int $attackSr Успех касания.
+     * @param int $targetVersion Версия цели после удара.
+     * @param GameSpellCastSaturationPlan $plan Выбор.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если действие или строка битые.
+     */
+    private function defer(
+        GameStrikeSingleRun $run,
+        GameSpellCastPrepared $prepared,
+        array $payload,
+        array $check,
+        int $trainingDelta,
+        int $attackSr,
+        int $targetVersion,
+        GameSpellCastSaturationPlan $plan,
+    ): void {
+        $castId = 'spell-' . $run->strikeId;
+        $actionId = $this->actions->add([
+            'kind' => 'spell',
+            'battle_id' => $run->battle->getId(),
+            'session_id' => $run->battle->getSessionId(),
+            'attacker_kind' => $prepared->casterKind,
+            'attacker_id' => $prepared->casterId,
+            'action_rule_code' => $prepared->spellCode,
+            'open' => true,
+        ]);
+        $pending = $this->pending->build(
+            $castId,
+            $actionId,
+            $run->scope->actorUserId,
+            $prepared,
+            $payload,
+            $check,
+            $trainingDelta,
+            $attackSr,
+            true,
+            $run->strikeId,
+            GameCombatThread::buildSpell($run->battle, $run->strikeId),
+            $plan,
+        );
+        $run->pendingSpellCast = $pending;
+        $actorKey = $prepared->casterKind . ':' . $prepared->casterId;
+        $run->pending = $this->nextCast->consume($run->pending, $actorKey);
+        $run->result['spellCast'] = $check;
+        $run->result['spellCast']['difficulty'] = $check['difficulty'];
+        $run->result['spellCastPhase'] = 'check';
+        $run->result['spellSr'] = null;
+        $run->result['spellDamage'] = null;
+        $run->result['spellInjury'] = null;
+        $run->result['spellTargetVersion'] = $targetVersion;
+        $run->result['pendingSpellCast'] = $pending;
+    }
+
+    /**
+     * Пишет итог заклинания в результат удара.
+     *
+     * @param GameStrikeSingleRun $run Удар.
+     * @param array<string, mixed> $check Проверка.
+     * @param array<string, mixed> $damage Урон.
+     * @param int $version Версия цели.
+     * @param array<string, mixed>|null $pending Отложенный каст.
+     *
+     * @return void
+     */
+    private function setResult(
+        GameStrikeSingleRun $run,
+        array $check,
+        array $damage,
+        int $version,
+        ?array $pending,
+    ): void {
         $run->result['spellCast'] = $check;
         $run->result['spellCast']['difficulty'] = $check['difficulty'];
         $run->result['spellSr'] = $damage['spellSr'];
         $run->result['spellDamage'] = $damage['spellDamage'];
         $run->result['spellInjury'] = $damage['injury'];
         $run->result['spellTargetVersion'] = $version;
+        $run->result['pendingSpellCast'] = $pending;
     }
 }

@@ -178,6 +178,10 @@ final class GameStrikePortFactory
             ),
             $shared->sheetWrites,
             new GameSpellCastChat($ports->chats(), $shared->chat),
+            new GameSpellCastSaturation(),
+            new GameSpellCastNextCast(),
+            new GameSpellCastPending(),
+            $shared->repos->actions,
         );
         $close = (new GameStrikeCloseFactory())->create(
             $rules,

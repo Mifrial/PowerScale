@@ -35,6 +35,7 @@ import type { GamePhpOpenStrikeCoverer } from '@/modules/Roleplay/Game/Dto/GameP
 import type { GamePhpStrikeAwaiting } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAwaiting';
 import type { GamePhpOpenStrikeSupporter } from '@/modules/Roleplay/Game/Dto/GamePhpOpenStrikeSupporter';
 import type { GamePhpStrikeConditions } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeConditions';
+import type { GamePhpPendingSpellCast } from '@/modules/Roleplay/Game/Dto/GamePhpPendingSpellCast';
 import type { Chronicle } from '@/modules/Roleplay/Game/Dto/Chronicle';
 import type { ChronicleEntry } from '@/modules/Roleplay/Game/Dto/ChronicleEntry';
 import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/CreateChronicleEntryData';
@@ -1223,6 +1224,9 @@ export class GameApi implements IGameApi {
   async runAction(body: GamePhpRunActionRequest, signal?: AbortSignal): Promise<GamePhpRunActionResult> {
     const result = await this.requireData<GamePhpRunActionResult>('game.runAction', body, signal);
     if (body.battleId > 0) gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    if (result.pendingSpellCast !== undefined) {
+      gamePhpBattleContext.rememberPendingSpellCast(result.pendingSpellCast);
+    }
     if (body.action.kind === 'strike' && body.action.phase === 'declare') {
       gamePhpBattleContext.rememberDebt(result.debt === true, result.version);
     }
@@ -1263,7 +1267,7 @@ export class GameApi implements IGameApi {
         idempotencyKey: body.idempotencyKey,
         expectedVersion: body.expectedVersion,
         action: {
-          phase: 'declare',
+          phase: 'check',
           kind: 'spell',
           code: body.spellCode,
           actor: body.actor,
@@ -1280,10 +1284,87 @@ export class GameApi implements IGameApi {
       },
       signal,
     );
+    if (body.battleId > 0 && typeof result.version === 'number') {
+      gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    }
+    gamePhpBattleContext.rememberPendingSpellCast(result.pendingSpellCast ?? null);
     gamePhpBattleContext.rememberSheet(`${result.caster.type}:${result.caster.id}`, result.caster.sheetVersion);
     if (result.target) {
       gamePhpBattleContext.rememberSheet(`${result.target.type}:${result.target.id}`, result.target.sheetVersion);
     }
+
+    return result;
+  }
+
+  /** Применяет выбранные шаги насыщения к отложенному касту. */
+  async resolveSpellCast(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      castId: string;
+      saturationSteps: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpSpellCastResult> {
+    const result = await this.requireData<GamePhpSpellCastResult>(
+      'game.runAction',
+      {
+        gameId: body.gameId,
+        battleId: body.battleId,
+        idempotencyKey: body.idempotencyKey,
+        expectedVersion: body.expectedVersion,
+        action: {
+          phase: 'resolve',
+          kind: 'spell',
+          context: { castId: body.castId, saturationSteps: body.saturationSteps },
+        },
+      },
+      signal,
+    );
+    if (body.battleId > 0 && typeof result.version === 'number') {
+      gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    }
+    gamePhpBattleContext.rememberPendingSpellCast(null);
+    gamePhpBattleContext.rememberSheet(`${result.caster.type}:${result.caster.id}`, result.caster.sheetVersion);
+    if (result.target) {
+      gamePhpBattleContext.rememberSheet(`${result.target.type}:${result.target.id}`, result.target.sheetVersion);
+    }
+
+    return result;
+  }
+
+  /** Прерывает отложенный каст без трат. */
+  async abortSpellCast(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      castId: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpRunActionResult> {
+    const result = await this.requireData<GamePhpRunActionResult>(
+      'game.runAction',
+      {
+        gameId: body.gameId,
+        battleId: body.battleId,
+        idempotencyKey: body.idempotencyKey,
+        expectedVersion: body.expectedVersion,
+        action: {
+          phase: 'abort',
+          kind: 'spell',
+          context: { castId: body.castId },
+        },
+      },
+      signal,
+    );
+    if (body.battleId > 0 && typeof result.version === 'number') {
+      gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    }
+    gamePhpBattleContext.rememberPendingSpellCast(null);
 
     return result;
   }
@@ -1612,6 +1693,7 @@ export class GameApi implements IGameApi {
     }
     gamePhpBattleContext.rememberOpenStrike(this.openStrikeOf(record.openStrike));
     gamePhpBattleContext.rememberPending(this.pendingOf(record.pendingActionEffects));
+    gamePhpBattleContext.rememberPendingSpellCast(this.pendingSpellCastOf(record.pendingSpellCast));
     gamePhpBattleContext.rememberBattleMarks(this.battleMarksOf(record.marks));
   }
 
@@ -1673,6 +1755,17 @@ export class GameApi implements IGameApi {
     }
 
     return pending;
+  }
+
+  private pendingSpellCastOf(value: unknown): GamePhpPendingSpellCast | null {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+    const row = value as Record<string, unknown>;
+    if (typeof row.castId !== 'string' || row.castId === '') return null;
+    if (typeof row.spellCode !== 'string' || typeof row.pathCode !== 'string') return null;
+    if (typeof row.touch !== 'boolean') return null;
+    if (row.actor === null || typeof row.actor !== 'object' || Array.isArray(row.actor)) return null;
+
+    return value as GamePhpPendingSpellCast;
   }
 
   private openStrikeOf(value: unknown): GamePhpOpenStrike | null {

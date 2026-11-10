@@ -4,6 +4,8 @@ import type { GamePhpOpenStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenS
 import type { GamePhpBattleMark } from '@/modules/Roleplay/Game/Dto/GamePhpBattleMark';
 import type { GamePhpOpenWideStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrike';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
+import type { GamePhpPendingSpellCast } from '@/modules/Roleplay/Game/Dto/GamePhpPendingSpellCast';
+import { ref, type Ref } from 'vue';
 
 /** Числовой бой PHP для команд P4. */
 export class GamePhpBattleContext {
@@ -16,6 +18,7 @@ export class GamePhpBattleContext {
   openStrike: GamePhpOpenStrike | null = null;
   openWideStrike: GamePhpOpenWideStrike | null = null;
   pendingActionEffects: Record<string, PendingActionEffect[]> = {};
+  pendingSpellCast: Ref<GamePhpPendingSpellCast | null> = ref(null);
   battleMarks: GamePhpBattleMark[] = [];
 
   rememberBattle(battleId: number, version: number): void {
@@ -41,6 +44,10 @@ export class GamePhpBattleContext {
 
   rememberPending(pending: Record<string, PendingActionEffect[]>): void {
     this.pendingActionEffects = pending;
+  }
+
+  rememberPendingSpellCast(pending: GamePhpPendingSpellCast | null): void {
+    this.pendingSpellCast.value = pending;
   }
 
   rememberBattleMarks(marks: GamePhpBattleMark[]): void {
@@ -77,6 +84,7 @@ export class GamePhpBattleContext {
     this.openStrike = null;
     this.openWideStrike = null;
     this.pendingActionEffects = {};
+    this.pendingSpellCast.value = null;
     this.battleMarks = [];
   }
 }

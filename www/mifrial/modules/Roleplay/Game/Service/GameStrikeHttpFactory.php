@@ -51,6 +51,7 @@ final class GameStrikeHttpFactory
                 ),
                 new GameRunActionStrikeDeclare($strikes, $wideStrikes, $ports->games(), $rules),
                 new GameRunActionRespond($strikes, $wideStrikes, $repository, $commands),
+                new GameRunActionSpellPhase($this->spellCast($serviceLocator)),
             ),
         );
     }
@@ -95,6 +96,14 @@ final class GameStrikeHttpFactory
             $ports->events(),
         );
         $magicResistance = new GameSpellMagicResistance($rules->defense);
+        $facts = new GameSpellCastFacts(
+            $rules,
+            $shared->sheets,
+            $characters->characterSheets(),
+            $write->availability($rules),
+            new GameActionResourceResolver(),
+            new GameActionHands($rules, $shared->repos->characters, $shared->repos->npcs),
+        );
 
         return new GameSpellCast(
             $shared->ready,
@@ -104,14 +113,8 @@ final class GameStrikeHttpFactory
             $shared->repos,
             $shared->access,
             $write->perform($rules),
-            new GameSpellCastFacts(
-                $rules,
-                $shared->sheets,
-                $characters->characterSheets(),
-                $write->availability($rules),
-                new GameActionResourceResolver(),
-                new GameActionHands($rules, $shared->repos->characters, $shared->repos->npcs),
-            ),
+            $facts,
+            new GameSpellTouchFacts($facts, $shared->sheets),
             new GameSpellCastCheck(
                 $ruleWiring->checkRoll(),
                 new GameCheckChain(),
@@ -127,6 +130,10 @@ final class GameStrikeHttpFactory
             new GameSpellCastWrite($shared->sheetWrites),
             new GameSpellCastChat($ports->chats(), $shared->chat),
             new GameSpellCastView(),
+            new GameSpellCastSaturation(),
+            new GameSpellCastNextCast(),
+            new GameSpellCastPending(),
+            $shared->sheetWrites,
         );
     }
 

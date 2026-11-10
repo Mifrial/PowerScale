@@ -332,6 +332,27 @@ export interface IGameApi {
   getBattleSheets(query: { gameId: number; battleId: number }, signal?: AbortSignal): Promise<GameBattleSheets>;
   runAction(body: GamePhpRunActionRequest, signal?: AbortSignal): Promise<GamePhpRunActionResult>;
   castSpell(body: GamePhpSpellCastRequest, signal?: AbortSignal): Promise<GamePhpSpellCastResult>;
+  resolveSpellCast(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      castId: string;
+      saturationSteps: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpSpellCastResult>;
+  abortSpellCast(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      castId: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpRunActionResult>;
   resolveStrikeWindow(
     body: {
       gameId: number;

@@ -56,6 +56,8 @@ final class GameSpellCastPrepared
      * @param list<ResourceSpend> $spends Траты компонентов.
      * @param int $spent Списанные ОД.
      * @param int $distanceIpari Дистанция в ипари.
+     * @param GameSpellCastSaturationSource|null $saturationSource Источник насыщения.
+     * @param array<int, GameSpellCastNextCastSource> $nextCastSources Источники следующей Сложности.
      *
      * @return void
      */
@@ -84,6 +86,8 @@ final class GameSpellCastPrepared
         public readonly array $spends,
         public readonly int $spent,
         public readonly int $distanceIpari,
+        public readonly ?GameSpellCastSaturationSource $saturationSource = null,
+        public readonly array $nextCastSources = [],
     ) {
     }
 }

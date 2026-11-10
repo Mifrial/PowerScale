@@ -273,6 +273,7 @@ final class GameStrikeTargetReaction
             $pending,
             $this->spend->getSpendAmounts($spends),
             false,
+            true,
         );
 
         return [$this->spend->getSpendRows($declared['amounts']), $declared['pending']];

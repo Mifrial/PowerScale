@@ -1,6 +1,7 @@
 # План M4 — насыщение и остаток РУ
 
-**Статус:** ~ПЛАН~, 2026-11-10. План заведён; реализация не начата.
+**Статус:** ~ЧАСТИЧНО~, 2026-11-10. Срезы 5.1–5.5 реализованы;
+остались ручная проверка в dev и полный прогон (5.6).
 
 **Реализация:** ~PHP~, ~VUE~.
 
@@ -635,3 +636,4 @@ Front (`vitest`):
 | --- | --- |
 | 2026-11-10 | План заведён: двухфазный каст `check → resolve`, отложенный каст в `game_battle.pending_spell_cast`, пауза касания после закрытия удара, хвост `next_spell_cast_difficulty` в состоянии боя. |
 | 2026-11-10 | Перепроверка: ответ сохраняет конверт `cast`; `resolve` не перебрасывает; `GamePhpBattleContext`, а не мок-`GameBattleState`; хвост снимается в `declare` с флагом для касания; полный `pendingSpellCast` в результате удара; явные версии в `GameSpellCastWrite`. |
+| 2026-11-10 | Срезы 5.1–5.5 реализованы: `GameSpellCastSaturation`/`NextCast`/`Pending`, колонка `game_battle.pending_spell_cast`, фазы `check`/`resolve`/`abort`, пауза касания, хвост в `pending_action_effects`, фронт `SpellCastDialog`/`SpellSaturationPanel`/`SpellSaturationDialog`, баннер `GameChatTab`, `GameApi` и `battleVersion`. Юнит, MySQL и vitest зелёные; остались `php bin/setup.php` в dev, ручная проверка и полный прогон. |

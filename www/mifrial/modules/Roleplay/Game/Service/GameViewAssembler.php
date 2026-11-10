@@ -106,6 +106,7 @@ final class GameViewAssembler
             'round' => $battle->getRound(),
             'openStrike' => $this->openStrikeOf($openStrike),
             'pendingActionEffects' => $battle->getPendingActionEffects(),
+            'pendingSpellCast' => $battle->getPendingSpellCast(),
             'marks' => $this->marksOf($battle->getMarks()),
         ];
     }

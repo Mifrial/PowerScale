@@ -85,6 +85,35 @@ final class GameRunActionSpellBody
     }
 
     /**
+     * Контекст фазы resolve или abort.
+     *
+     * @param array<string, mixed> $context Контекст.
+     * @param string $phase Фаза resolve или abort.
+     *
+     * @return array{castId: string, saturationSteps?: int} Контекст.
+     *
+     * @throws \Mifrial\Core\Kernel\Exception\ActionException INVALID_PARAMS.
+     */
+    public function phase(array $context, string $phase): array
+    {
+        $allowed = $phase === 'resolve' ? ['castId', 'saturationSteps'] : ['castId'];
+        $this->fields->assertKeys($context, $allowed, 'spell phase');
+        $castId = $context['castId'] ?? null;
+        if (!is_string($castId) || $castId === '') {
+            throw $this->invalid();
+        }
+
+        if ($phase === 'resolve') {
+            return [
+                'castId' => $castId,
+                'saturationSteps' => (new GameSpellCastSaturationSteps())->parse($context['saturationSteps'] ?? null),
+            ];
+        }
+
+        return ['castId' => $castId];
+    }
+
+    /**
      * Разрешённые ключи контекста.
      *
      * @param array<string, mixed> $context Контекст.

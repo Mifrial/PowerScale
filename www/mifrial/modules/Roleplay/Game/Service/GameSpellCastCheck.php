@@ -43,6 +43,7 @@ final class GameSpellCastCheck
      *
      * @param GameRecord $game Игра.
      * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param int $trainingDelta Сдвиг Сложности от тренировки.
      *
      * @return array{
      *     difficulty: array{base: int, size: int},
@@ -53,9 +54,9 @@ final class GameSpellCastCheck
      *
      * @throws GameInvalidException Если проверка или характеристика битые.
      */
-    public function check(GameRecord $game, GameSpellCastPrepared $prepared): array
+    public function check(GameRecord $game, GameSpellCastPrepared $prepared, int $trainingDelta = 0): array
     {
-        $difficulty = $this->difficulty($game, $prepared);
+        $difficulty = $this->difficulty($game, $prepared, $trainingDelta);
         $base = new CharacteristicNumber($difficulty->getBase(), $difficulty->getSize());
         $min = new CharacteristicNumber(self::MIN_LIVE_DIFFICULTY[0], self::MIN_LIVE_DIFFICULTY[1]);
         if ($base->characteristicDiffTo($min) < 0) {
@@ -102,10 +103,11 @@ final class GameSpellCastCheck
      *
      * @param GameRecord $game Игра.
      * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param int $trainingDelta Сдвиг от тренировки.
      *
      * @return CharacteristicNumber Сложность.
      */
-    private function difficulty(GameRecord $game, GameSpellCastPrepared $prepared): CharacteristicNumber
+    private function difficulty(GameRecord $game, GameSpellCastPrepared $prepared, int $trainingDelta = 0): CharacteristicNumber
     {
         $requiredPower = new CharacteristicNumber(
             $prepared->requiredPower->getBase(),
@@ -136,6 +138,10 @@ final class GameSpellCastCheck
         $resistance = $this->difficultyResistance($game, $prepared);
         if ($resistance > 0) {
             $difficulty = $difficulty->modify($resistance);
+        }
+
+        if ($trainingDelta !== 0) {
+            $difficulty = $difficulty->modify($trainingDelta);
         }
 
         return $difficulty;

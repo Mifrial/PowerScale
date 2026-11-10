@@ -45,6 +45,7 @@ final class GameSpellCastDamage
      * @param GameSpellCastPrepared $prepared Подготовка.
      * @param bool $castOk Проверка сотворения пройдена.
      * @param int|null $deliverySr Успех атаки касания; null — автопопадание.
+     * @param int $powerDelta Прирост Мощи от насыщения.
      *
      * @return array{
      *     spellSr: int|null,
@@ -61,6 +62,7 @@ final class GameSpellCastDamage
         GameSpellCastPrepared $prepared,
         bool $castOk,
         ?int $deliverySr = null,
+        int $powerDelta = 0,
     ): array {
         $damage = $prepared->spell->getSpell()->getDamage();
         $resolution = $prepared->spell->getBase()->getHitResolution();
@@ -84,7 +86,7 @@ final class GameSpellCastDamage
             return $empty;
         }
 
-        $amount = $this->amount($prepared, $damage);
+        $amount = $this->amount($prepared, $damage, $powerDelta);
         if (!$amount instanceof DimensionalNumber) {
             return $empty;
         }
@@ -152,12 +154,13 @@ final class GameSpellCastDamage
      *
      * @param GameSpellCastPrepared $prepared Подготовка.
      * @param SpellDamage $damage Урон карточки.
+     * @param int $powerDelta Прирост Мощи.
      *
      * @return DimensionalNumber|null Урон или null.
      *
      * @throws GameInvalidException Если опыт или мощь битые.
      */
-    private function amount(GameSpellCastPrepared $prepared, SpellDamage $damage): ?DimensionalNumber
+    private function amount(GameSpellCastPrepared $prepared, SpellDamage $damage, int $powerDelta = 0): ?DimensionalNumber
     {
         $levels = $prepared->casterSheet['abilityLevels'] ?? [];
         $known = [];
@@ -177,7 +180,7 @@ final class GameSpellCastDamage
         $amount = (new CharacteristicNumber(
             $prepared->spellPower->getBase(),
             $prepared->spellPower->getSize(),
-        ))->modify($modify);
+        ))->modify($modify + $powerDelta);
 
         return $this->falloff($amount, $damage, $prepared->distanceIpari);
     }

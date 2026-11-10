@@ -7,7 +7,7 @@ export interface GamePhpRunActionRequest {
   idempotencyKey: string;
   expectedVersion: number;
   action: {
-    phase: 'declare' | 'respond';
+    phase: 'declare' | 'check' | 'resolve' | 'abort' | 'respond';
     kind: 'action' | 'strike' | 'reaction' | 'wound' | 'spell';
     code?: string;
     actor?: GamePhpParticipant;

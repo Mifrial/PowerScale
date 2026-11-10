@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
+use Mifrial\Roleplay\Game\Dto\GameSpellCastSaturationPlan;
+use Mifrial\Roleplay\Game\Dto\GameSpellCastSaturationResult;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -16,20 +18,14 @@ final class GameSpellCastView
      * Собирает итог каста.
      *
      * @param GameSpellCastPrepared $prepared Подготовка.
-     * @param array{
-     *     difficulty: array{base: int, size: int},
-     *     needsCheck: bool,
-     *     roll: array<string, mixed>|null,
-     *     castOk: bool
-     * } $check Проверка.
-     * @param array{
-     *     spellSr: int|null,
-     *     spellDamage: DimensionalNumber|null,
-     *     injury: DimensionalNumber|null,
-     *     operations: list<array<string, mixed>>,
-     *     consequence: array<string, mixed>
-     * } $damage Урон.
+     * @param array<string, mixed> $check Проверка.
+     * @param array<string, mixed> $damage Урон.
      * @param array{casterVersion: int, targetVersion: int|null} $versions Версии.
+     * @param string $phase Фаза check или resolve.
+     * @param string|null $castId Ключ каста.
+     * @param GameSpellCastSaturationPlan|null $plan Выбор насыщения.
+     * @param GameSpellCastSaturationResult|null $saturation Итог насыщения.
+     * @param array<int, array<string, mixed>> $nextCast Поставленные хвосты.
      *
      * @return array<string, mixed> Итог.
      */
@@ -38,26 +34,38 @@ final class GameSpellCastView
         array $check,
         array $damage,
         array $versions,
+        string $phase = 'resolve',
+        ?string $castId = null,
+        ?GameSpellCastSaturationPlan $plan = null,
+        ?GameSpellCastSaturationResult $saturation = null,
+        array $nextCast = [],
     ): array {
+        $target = $prepared->damageTarget ?? $prepared->target;
+
         return [
+            'phase' => $phase,
+            'castId' => $castId,
             'cast' => [
                 'difficulty' => $check['difficulty'],
                 'needsCheck' => $check['needsCheck'],
                 'roll' => $check['roll'],
+                'castOk' => $check['castOk'],
                 'upgrades' => $this->upgrades($prepared),
             ],
+            'saturation' => $this->saturationOf($plan, $saturation),
+            'nextCast' => $nextCast,
             'spent' => $prepared->spent,
             'caster' => [
                 'type' => $prepared->casterKind,
                 'id' => $prepared->casterId,
                 'sheetVersion' => $versions['casterVersion'],
             ],
-            'target' => $prepared->target === null
+            'target' => $target === null
                 ? null
                 : [
-                    'type' => $prepared->target['type'],
-                    'id' => $prepared->target['id'],
-                    'sheetVersion' => $versions['targetVersion'],
+                    'type' => $target['type'],
+                    'id' => $target['id'],
+                    'sheetVersion' => $versions['targetVersion'] ?? $target['version'],
                 ],
             'autoFail' => false,
             'spellSr' => $damage['spellSr'],
@@ -65,6 +73,40 @@ final class GameSpellCastView
             'injury' => $this->pair($damage['injury']),
             'consequence' => $damage['consequence'],
         ];
+    }
+
+    /**
+     * Блок насыщения для ответа.
+     *
+     * @param GameSpellCastSaturationPlan|null $plan Выбор.
+     * @param GameSpellCastSaturationResult|null $result Итог.
+     *
+     * @return array<string, mixed>|null Блок или null.
+     */
+    private function saturationOf(
+        ?GameSpellCastSaturationPlan $plan,
+        ?GameSpellCastSaturationResult $result,
+    ): ?array {
+        if ($result !== null) {
+            $source = $result->getSource();
+            if ($source === null) {
+                return null;
+            }
+
+            return [
+                'sourceCode' => $source->getRuleCode(),
+                'steps' => $result->getSteps(),
+                'ratingSpent' => $result->getRatingSpent(),
+                'powerDelta' => $result->getPowerDelta(),
+                'remainingRating' => $result->getRemainingRating(),
+            ];
+        }
+
+        if ($plan === null) {
+            return null;
+        }
+
+        return $plan->toArray();
     }
 
     /**

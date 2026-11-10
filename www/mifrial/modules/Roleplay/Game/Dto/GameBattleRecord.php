@@ -30,6 +30,7 @@ final class GameBattleRecord
      * @param array<string, mixed> $actionDebt Карта долга ОД.
      * @param array<string, mixed> $concentrationCycle Карта цикла концентрации.
      * @param array<int, array<string, mixed>> $marks Метки боя.
+     * @param array<string, mixed>|null $pendingSpellCast Отложенный каст или null.
      *
      * @return void
      */
@@ -44,6 +45,7 @@ final class GameBattleRecord
         private readonly array $actionDebt = [],
         private readonly array $concentrationCycle = [],
         private readonly array $marks = [],
+        private readonly ?array $pendingSpellCast = null,
     ) {
     }
 
@@ -69,6 +71,7 @@ final class GameBattleRecord
             self::map($fields, 'action_debt'),
             self::map($fields, 'concentration_cycle'),
             self::marks($fields['marks'] ?? []),
+            self::nullableMap($fields, 'pending_spell_cast'),
         );
     }
 
@@ -120,6 +123,16 @@ final class GameBattleRecord
     public function getPendingActionEffects(): array
     {
         return $this->pendingActionEffects;
+    }
+
+    /**
+     * Отложенный каст между броском и выбором насыщения.
+     *
+     * @return array<string, mixed>|null Объект или null.
+     */
+    public function getPendingSpellCast(): ?array
+    {
+        return $this->pendingSpellCast;
     }
 
     /**
@@ -236,6 +249,30 @@ final class GameBattleRecord
     {
         $value = $fields[$key] ?? [];
         if (!is_array($value)) {
+            throw new GameInvalidException(self::INVALID);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Необязательная карта колонки.
+     *
+     * @param array<string, mixed> $fields Колонки.
+     * @param string $key Колонка.
+     *
+     * @return array<string, mixed>|null Карта или null.
+     *
+     * @throws GameInvalidException Если значение не массив.
+     */
+    private static function nullableMap(array $fields, string $key): ?array
+    {
+        $value = $fields[$key] ?? null;
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_array($value) || array_is_list($value)) {
             throw new GameInvalidException(self::INVALID);
         }
 

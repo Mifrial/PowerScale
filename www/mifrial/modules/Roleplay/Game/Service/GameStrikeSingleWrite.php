@@ -441,6 +441,7 @@ final class GameStrikeSingleWrite
                 null,
                 $run->defenderToken['cycle'],
                 $run->marksAfter,
+                $run->pendingSpellCast,
             );
 
             return;
@@ -451,6 +452,7 @@ final class GameStrikeSingleWrite
             $run->input->expectedBattleVersion,
             $pending,
             $run->marksAfter,
+            $run->pendingSpellCast,
         );
     }
 }

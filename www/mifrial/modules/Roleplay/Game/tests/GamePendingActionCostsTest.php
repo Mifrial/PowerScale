@@ -46,6 +46,99 @@ final class GamePendingActionCostsTest extends TestCase
     }
 
     /**
+     * Обычное действие снимает хвост следующего сотворения.
+     *
+     * @return void
+     */
+    public function testDeclareRemovesNextSpellCastTail(): void
+    {
+        $costs = new GamePendingActionCosts();
+        $slice = new CharacterRuleSlice(1, 1, 'test', [], []);
+        $pending = [
+            'character:1' => [[
+                'sourceRuleCode' => 'transfer',
+                'effect' => [
+                    'type' => 'next_spell_cast_difficulty',
+                    'delta' => -1,
+                    'max_total_action_cost' => 5,
+                ],
+            ]],
+        ];
+
+        $declared = $costs->declare($slice, [], 'wait', 'character', 1, $pending, ['action-points' => 2]);
+
+        self::assertSame([], $declared['pending']['character:1'] ?? []);
+    }
+
+    /**
+     * Заклинание и касание сохраняют хвост до resolve.
+     *
+     * @return void
+     */
+    public function testDeclareKeepsNextSpellCastTailForSpell(): void
+    {
+        $costs = new GamePendingActionCosts();
+        $slice = new CharacterRuleSlice(1, 1, 'test', [], []);
+        $pending = [
+            'character:1' => [[
+                'sourceRuleCode' => 'transfer',
+                'effect' => [
+                    'type' => 'next_spell_cast_difficulty',
+                    'delta' => -1,
+                    'max_total_action_cost' => 5,
+                ],
+            ]],
+        ];
+
+        $declared = $costs->declare(
+            $slice,
+            [],
+            'lightning-strike',
+            'character',
+            1,
+            $pending,
+            ['action-points' => 2],
+            false,
+            true,
+        );
+
+        self::assertCount(1, $declared['pending']['character:1'] ?? []);
+    }
+
+    /**
+     * Завершение действия не удаляет только что поставленный хвост.
+     *
+     * @return void
+     */
+    public function testCompleteKeepsNextSpellCastTail(): void
+    {
+        $costs = new GamePendingActionCosts();
+        $slice = new CharacterRuleSlice(1, 1, 'test', [], []);
+        $pending = [
+            'character:1' => [[
+                'sourceRuleCode' => 'transfer',
+                'effect' => [
+                    'type' => 'next_spell_cast_difficulty',
+                    'delta' => -1,
+                    'max_total_action_cost' => 5,
+                ],
+            ]],
+        ];
+
+        $completed = $costs->complete(
+            $slice,
+            [],
+            'wait',
+            'character',
+            1,
+            $pending,
+            ['action-points' => 2],
+        );
+
+        self::assertCount(1, $completed['character:1'] ?? []);
+    }
+
+    /**
      * Объявление действия не трогает висящую проверку.
      *
      * @return void

@@ -172,6 +172,12 @@ export const mockGameApi: IGameApi = {
   castSpell: async () => {
     throw new Error('game.castSpell is a PHP command');
   },
+  resolveSpellCast: async () => {
+    throw new Error('game.resolveSpellCast is a PHP command');
+  },
+  abortSpellCast: async () => {
+    throw new Error('game.abortSpellCast is a PHP command');
+  },
   resolveStrikeWindow: async () => ({ kind: 'strike', phase: 'respond', battleId: 0, version: 1 }),
   manualSheet: mockManualSheet.manualSheet,
   endTurn: async () => ({ version: 1 }),

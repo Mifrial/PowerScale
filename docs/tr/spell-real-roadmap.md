@@ -60,8 +60,8 @@
 | `action_components[].somatic`, `occupy_hands` | `Rule/Spec/ActionComponents.php` | Game (кроме зажатия ран: `GameActionHands`) |
 | `spell_upgrade` (`check_advantage`, `action_point_delta`, `resistance_penetration_per_step`, `chain`, `charge_cap`) | `Rule/Spec/AbilityCombat.php` | Game |
 | `check_efficiency` (грант) | `Rule/Spec/AbilityGrants.php` | Character/Game |
-| `spell_saturation` | `Rule/Spec/AbilityCombat.php` | Game — план M4 |
-| `next_cast_difficulty` | `Rule/Spec/AbilityCombat.php` | Game — план M4 |
+| `spell_saturation` | `Rule/Spec/AbilityCombat.php` | Game — реализовано (M4) |
+| `next_cast_difficulty` | `Rule/Spec/AbilityCombat.php` | Game — реализовано (M4) |
 | `spell.charge` | `Rule/Spec/SpellSpecs.php` | Game |
 | `duration`: `sustained` / `lingering` / `refreshable` | `Rule/Dto/Spec/Ability/SpellDuration.php` | Game |
 | `magic_deviation` (флаг состояния) | `Rule/Spec/RootSpecs.php` | Game |
@@ -167,6 +167,13 @@ M11–M12 — пути; M13–M16 — хвост.
 ### M4. Насыщение и остаток РУ
 
 План — [`spell-real-plan-04-saturation.md`](spell-real-plan-04-saturation.md).
+
+Реализовано (5.1–5.5): `GameSpellCastSaturation`, `GameSpellCastNextCast`,
+`GameSpellCastPending`, `game_battle.pending_spell_cast`, фазы
+`check`/`resolve`/`abort`, пауза касания, хвост в `pending_action_effects`,
+фронтовые `SpellCastDialog`/`SpellSaturationPanel`/`SpellSaturationDialog`,
+баннер `GameChatTab`, обновление `battleVersion`. Остались
+`php bin/setup.php` в dev, ручная проверка и полный прогон.
 
 - Пост-проверочный выбор «тратить РУ на мощь»: `min_rating`,
   `rating_per_step`, `power_per_step`; нельзя потратить больше полученного РУ.
@@ -315,3 +322,4 @@ M11–M12 — пути; M13–M16 — хвост.
 | 2026-11-10 | Багфикс M3: автоматические расовые гранты сопротивления (например, «Ахтар») теперь входят в боевые слои, сложность каста и урон; в обзоре листа появились плитки сопротивлений. |
 | 2026-11-10 | Багфикс каста: провал проверки или заклинание без урона больше не роняют запись пустых операций цели; real-диалог проверяет ОД до отправки. |
 | 2026-11-10 | Заведён план M4 — `spell-real-plan-04-saturation.md`: двухфазный каст `check → resolve` с отложенным `game_battle.pending_spell_cast` и открытым действием, пауза касания, хвост `next_spell_cast_difficulty` в `pending_action_effects`; закрытие диалога = 0 шагов, `abort` — для устаревших версий/GM. |
+| 2026-11-10 | M4 (5.1–5.5) реализован: сервер читает `spell_saturation`/`next_cast_difficulty`, обычный каст двухфазный, касание с паузой, хвост Сложности, фронтовый слайдер и восстановление. Остались `php bin/setup.php` в dev, ручная проверка и полный `tools/test-full.sh`. |

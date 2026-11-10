@@ -88,6 +88,8 @@ final class GameStrikeSingleRun
 
     public array $pending = [];
 
+    public ?array $pendingSpellCast = null;
+
     public array $defenderPending = [];
 
     public ?string $reactionRuleCode = null;

@@ -249,6 +249,261 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Check открывает паузу, resolve применяет шаги насыщения.
+     *
+     * @return void
+     */
+    public function testSpellCheckPausesAndResolveAppliesSaturation(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'dynamic-energy-saturation', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [], [], $this->saturationCards());
+        $beforeMessages = count($this->chatMessages($scene['gameId']));
+        $beforeAp = $this->actionPointsOf($scene['hero']);
+
+        $check = $this->dispatch('game.runAction', $this->spellCheckBody($scene, 'sat-check-1'));
+
+        self::assertTrue($check['success'], json_encode($check));
+        self::assertSame('spell', $check['data']['kind']);
+        self::assertSame('check', $check['data']['phase']);
+        self::assertIsString($check['data']['castId'] ?? null);
+        self::assertTrue($check['data']['cast']['needsCheck']);
+        self::assertTrue($check['data']['cast']['roll']['success'], json_encode($check['data']['cast']['roll']));
+        self::assertGreaterThanOrEqual(1, $check['data']['saturation']['maxSteps'] ?? 0, json_encode($check['data']['cast']['roll']));
+        self::assertSame($beforeAp, $this->actionPointsOf($scene['hero']));
+        self::assertCount($beforeMessages, $this->chatMessages($scene['gameId']));
+        $row = $this->battleRow($scene['battleId']);
+        self::assertIsArray($row['pending_spell_cast'] ?? null);
+        self::assertSame($check['data']['castId'], $row['pending_spell_cast']['castId']);
+
+        $castId = $check['data']['castId'];
+        $resolve = $this->dispatch(
+            'game.runAction',
+            $this->spellResolveBody($scene, $castId, 1, $check['data']['version']),
+        );
+
+        self::assertTrue($resolve['success'], json_encode($resolve));
+        self::assertSame('resolve', $resolve['data']['phase']);
+        self::assertSame(4, $resolve['data']['spent']);
+        self::assertSame(1, $resolve['data']['saturation']['steps']);
+        self::assertSame(2, $resolve['data']['saturation']['ratingSpent']);
+        self::assertSame(1, $resolve['data']['saturation']['powerDelta']);
+        self::assertSame(['base' => 5, 'size' => 0], $resolve['data']['spellDamage']);
+        self::assertSame($beforeAp - 4, $this->actionPointsOf($scene['hero']));
+        self::assertNull($this->battleRow($scene['battleId'])['pending_spell_cast'] ?? null);
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->chatMessages($scene['gameId']),
+        );
+        $this->messageIndexOf($contents, '[[rule:dynamic-energy-saturation]]');
+        self::assertSame(1, $this->countActions('spell'));
+    }
+
+    /**
+     * Ноль шагов оставляет успех и ставит хвост следующей Сложности.
+     *
+     * @return void
+     */
+    public function testSpellSaturationZeroQueuesNextCastDifficulty(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'dynamic-energy-saturation', 'level' => 1, 'domainCode' => 'arcanist'],
+            ['ruleCode' => 'interstructure-energy-transfer', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], $this->magicResistanceRules(), [
+            ['ruleCode' => 'magic-resistance', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], $this->saturationCards());
+        $check = $this->dispatch('game.runAction', $this->spellCheckBody($scene, 'sat-tail-1'));
+        self::assertTrue($check['success'], json_encode($check));
+        self::assertGreaterThanOrEqual(1, $check['data']['saturation']['maxSteps'] ?? 0, json_encode($check['data']['cast']['roll']));
+        $firstDifficulty = $this->characteristicFlat($check['data']['cast']['difficulty']);
+
+        $zero = $this->dispatch(
+            'game.runAction',
+            $this->spellResolveBody($scene, $check['data']['castId'], 0, $check['data']['version']),
+        );
+        self::assertTrue($zero['success'], json_encode($zero));
+        self::assertGreaterThanOrEqual(2, $zero['data']['saturation']['remainingRating']);
+        self::assertContains(
+            'next_spell_cast_difficulty',
+            $this->pendingTypes($scene['battleId'], 'character:' . $scene['hero']),
+        );
+
+        $nextScene = $scene;
+        $nextScene['heroVersion'] = $zero['data']['caster']['sheetVersion'];
+        $nextScene['targetVersion'] = $zero['data']['target']['sheetVersion'];
+        $second = $this->dispatch(
+            'game.runAction',
+            $this->spellCheckBody($nextScene, 'sat-tail-2', 'check', $zero['data']['version']),
+        );
+        self::assertTrue($second['success'], json_encode($second));
+        self::assertSame(
+            $firstDifficulty - 1,
+            $this->characteristicFlat($second['data']['cast']['difficulty']),
+            json_encode([
+                $check['data']['cast']['difficulty'],
+                $second['data']['cast']['difficulty'],
+                $check['data']['cast']['roll'] ?? null,
+                $second['data']['cast']['roll'] ?? null,
+            ]),
+        );
+
+        $clean = $this->dispatch(
+            'game.runAction',
+            $this->spellResolveBody($nextScene, $second['data']['castId'], 0, $second['data']['version']),
+        );
+        self::assertTrue($clean['success'], json_encode($clean));
+    }
+
+    /**
+     * Check без способности насыщения завершает каст сразу.
+     *
+     * @return void
+     */
+    public function testSpellCheckWithoutSaturationResolvesImmediately(): void
+    {
+        $scene = $this->spellScene();
+
+        $check = $this->dispatch('game.runAction', $this->spellCheckBody($scene, 'check-plain-1'));
+
+        self::assertTrue($check['success'], json_encode($check));
+        self::assertSame('resolve', $check['data']['phase']);
+        self::assertSame(4, $check['data']['spent']);
+        self::assertSame(['base' => 4, 'size' => 0], $check['data']['spellDamage']);
+        self::assertNull($this->battleRow($scene['battleId'])['pending_spell_cast'] ?? null);
+    }
+
+    /**
+     * Шаги больше maxSteps отклоняются и не снимают паузу.
+     *
+     * @return void
+     */
+    public function testSpellSaturationOverMaximumIsRejected(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'dynamic-energy-saturation', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [], [], $this->saturationCards());
+        $check = $this->dispatch('game.runAction', $this->spellCheckBody($scene, 'sat-bad-1'));
+        self::assertTrue($check['success'], json_encode($check));
+        $max = (int) ($check['data']['saturation']['maxSteps'] ?? 0);
+        self::assertGreaterThanOrEqual(1, $max, json_encode($check['data']['cast']['roll']));
+
+        $bad = $this->dispatch(
+            'game.runAction',
+            $this->spellResolveBody($scene, $check['data']['castId'], $max + 1, $check['data']['version']),
+        );
+
+        self::assertFalse($bad['success']);
+        self::assertSame('GAME_INVALID', $bad['error']['code']);
+        self::assertNotNull($this->battleRow($scene['battleId'])['pending_spell_cast'] ?? null);
+    }
+
+    /**
+     * Повторный check при открытом действии блокируется.
+     *
+     * @return void
+     */
+    public function testSpellCheckIsBlockedByOpenAction(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'dynamic-energy-saturation', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [], [], $this->saturationCards());
+        $check = $this->dispatch('game.runAction', $this->spellCheckBody($scene, 'sat-open-1'));
+        self::assertTrue($check['success'], json_encode($check));
+        self::assertGreaterThanOrEqual(1, $check['data']['saturation']['maxSteps'] ?? 0, json_encode($check['data']['cast']['roll']));
+
+        $second = $this->dispatch(
+            'game.runAction',
+            $this->spellCheckBody($scene, 'sat-open-2', 'check', $check['data']['version']),
+        );
+
+        self::assertFalse($second['success']);
+        self::assertSame('GAME_INVALID', $second['error']['code']);
+        self::assertStringContainsString('open action', (string) $second['error']['message']);
+    }
+
+    /**
+     * Replay check и resolve не пишут второй раз.
+     *
+     * @return void
+     */
+    public function testSpellCheckAndResolveReplay(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'dynamic-energy-saturation', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [], [], $this->saturationCards());
+        $body = $this->spellCheckBody($scene, 'sat-replay-1');
+        $check = $this->dispatch('game.runAction', $body);
+        self::assertTrue($check['success'], json_encode($check));
+        self::assertGreaterThanOrEqual(1, $check['data']['saturation']['maxSteps'] ?? 0, json_encode($check['data']['cast']['roll']));
+        $replay = $this->dispatch('game.runAction', $body);
+        self::assertTrue($replay['success'], json_encode($replay));
+        self::assertEquals($check['data'], $replay['data']);
+
+        $resolveBody = $this->spellResolveBody($scene, $check['data']['castId'], 0, $check['data']['version']);
+        $resolve = $this->dispatch('game.runAction', $resolveBody);
+        self::assertTrue($resolve['success'], json_encode($resolve));
+        $resolveReplay = $this->dispatch('game.runAction', $resolveBody);
+        self::assertTrue($resolveReplay['success'], json_encode($resolveReplay));
+        self::assertEquals($resolve['data'], $resolveReplay['data']);
+        self::assertSame(1, $this->countActions('spell'));
+    }
+
+    /**
+     * Abort очищает паузу без трат и чата.
+     *
+     * @return void
+     */
+    public function testSpellAbortClearsPendingCast(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'dynamic-energy-saturation', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [], [], $this->saturationCards());
+        $beforeAp = $this->actionPointsOf($scene['hero']);
+        $beforeMessages = count($this->chatMessages($scene['gameId']));
+        $check = $this->dispatch('game.runAction', $this->spellCheckBody($scene, 'sat-abort-1'));
+        self::assertTrue($check['success'], json_encode($check));
+        self::assertGreaterThanOrEqual(1, $check['data']['saturation']['maxSteps'] ?? 0, json_encode($check['data']['cast']['roll']));
+
+        $abort = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => $check['data']['castId'] . ':abort',
+            'expectedVersion' => $check['data']['version'],
+            'action' => [
+                'phase' => 'abort',
+                'kind' => 'spell',
+                'context' => ['castId' => $check['data']['castId']],
+            ],
+        ]);
+
+        self::assertTrue($abort['success'], json_encode($abort));
+        self::assertSame('abort', $abort['data']['phase']);
+        self::assertNull($this->battleRow($scene['battleId'])['pending_spell_cast'] ?? null);
+        self::assertSame($beforeAp, $this->actionPointsOf($scene['hero']));
+        self::assertCount($beforeMessages, $this->chatMessages($scene['gameId']));
+    }
+
+    /**
+     * Старый однофазный declare сразу завершает каст с нулём шагов.
+     *
+     * @return void
+     */
+    public function testSpellDeclareFinishesWithoutPause(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'dynamic-energy-saturation', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [], [], $this->saturationCards());
+
+        $cast = $this->dispatch('game.runAction', $this->spellCheckBody($scene, 'sat-declare-1', 'declare'));
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame('resolve', $cast['data']['phase']);
+        self::assertSame(4, $cast['data']['spent']);
+        self::assertSame(0, $cast['data']['saturation']['steps'] ?? -1);
+        self::assertNull($this->battleRow($scene['battleId'])['pending_spell_cast'] ?? null);
+    }
+
+    /**
      * Каст с ровно достаточным запасом ОД проходит.
      *
      * @return void
@@ -885,6 +1140,86 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Касание с насыщением откладывает эффект заклинания до resolve.
+     *
+     * @return void
+     */
+    public function testTouchSpellPausesForSaturation(): void
+    {
+        $cards = $this->saturationCards();
+        $cards['dynamic-energy-saturation']['spec']['spell_saturation'] = [
+            'min_rating' => 1,
+            'rating_per_step' => 1,
+            'power_per_step' => 1,
+        ];
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'dynamic-energy-saturation', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [], [], $cards);
+        $attack = [
+            'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+            'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+            'actionRuleCode' => 'swing',
+            'itemInventoryId' => 1,
+            'itemRuleCode' => 'sword',
+            'profileType' => 'strike',
+            'profileIndex' => 0,
+            'spellCast' => [
+                'spellCode' => 'discharge',
+                'pathCode' => 'arcanist',
+                'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+                'usedPower' => [
+                    'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                    'value' => ['base' => 5, 'size' => 1],
+                ],
+            ],
+        ];
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-sat-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope($attack),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-sat-d',
+            'expectedVersion' => 2,
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame('check', $closed['data']['spellCastPhase'] ?? null);
+        self::assertNull($closed['data']['spellSr'] ?? null);
+        self::assertNull($closed['data']['spellDamage'] ?? null);
+        self::assertIsArray($closed['data']['pendingSpellCast'] ?? null);
+        $pending = $closed['data']['pendingSpellCast'];
+        self::assertTrue($pending['check']['castOk']);
+        $row = $this->battleRow($scene['battleId']);
+        self::assertIsArray($row['pending_spell_cast'] ?? null);
+        self::assertSame($pending['castId'], $row['pending_spell_cast']['castId']);
+
+        $messagesBefore = count($this->chatMessages($scene['gameId']));
+        $resolve = $this->dispatch(
+            'game.runAction',
+            $this->spellResolveBody($scene, $pending['castId'], 1, $closed['data']['version']),
+        );
+        self::assertTrue($resolve['success'], json_encode($resolve));
+        self::assertSame('resolve', $resolve['data']['phase']);
+        self::assertSame(4, $resolve['data']['spent']);
+        self::assertNotNull($resolve['data']['spellDamage']);
+        self::assertGreaterThan($pending['target']['version'], $resolve['data']['target']['sheetVersion']);
+        self::assertNull($this->battleRow($scene['battleId'])['pending_spell_cast'] ?? null);
+        self::assertGreaterThan($messagesBefore, count($this->chatMessages($scene['gameId'])));
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->chatMessages($scene['gameId']),
+        );
+        $this->messageIndexOf($contents, 'успешно сотворяет');
+        $this->messageIndexOf($contents, '[[rule:dynamic-energy-saturation]]');
+    }
+
+    /**
      * Касание платит max(удар, заклинание + улучшение) и не списывает дважды.
      *
      * @return void
@@ -1031,6 +1366,103 @@ final class GameStrikeMysqlTest extends TestCase
                 'value' => ['base' => 5, 'size' => 1],
             ],
             'target' => ['type' => 'npc', 'id' => $scene['npcId']],
+        ];
+    }
+
+    /**
+     * Тело проверки сотворения через game.runAction.
+     *
+     * @param array<string, mixed> $scene Сцена.
+     * @param string $key Ключ.
+     * @param string $phase check или declare.
+     * @param int $version Версия боя.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function spellCheckBody(array $scene, string $key, string $phase = 'check', int $version = 1): array
+    {
+        return [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => $key,
+            'expectedVersion' => $version,
+            'action' => [
+                'phase' => $phase,
+                'kind' => 'spell',
+                'code' => 'lightning-strike',
+                'actor' => ['type' => 'character', 'id' => $scene['hero']],
+                'context' => [
+                    'expectedSheetVersion' => $scene['heroVersion'],
+                    'pathCode' => 'arcanist',
+                    'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 5, 'size' => 1],
+                    ],
+                    'target' => ['type' => 'npc', 'id' => $scene['npcId']],
+                    'expectedTargetVersion' => $scene['targetVersion'],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Тело resolve отложенного каста.
+     *
+     * @param array<string, mixed> $scene Сцена.
+     * @param string $castId Ключ каста.
+     * @param int $steps Шаги насыщения.
+     * @param int $version Версия боя.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function spellResolveBody(array $scene, string $castId, int $steps, int $version): array
+    {
+        return [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => $castId . ':resolve',
+            'expectedVersion' => $version,
+            'action' => [
+                'phase' => 'resolve',
+                'kind' => 'spell',
+                'context' => ['castId' => $castId, 'saturationSteps' => $steps],
+            ],
+        ];
+    }
+
+    /**
+     * Карточки насыщения и следующей Сложности.
+     *
+     * @return array<string, array<string, mixed>> Карточки.
+     */
+    private function saturationCards(): array
+    {
+        return [
+            'dynamic-energy-saturation' => [
+                'type' => 'skill',
+                'effects' => [],
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'spec' => [
+                    'spell_saturation' => [
+                        'min_rating' => 2,
+                        'rating_per_step' => 2,
+                        'power_per_step' => 1,
+                    ],
+                ],
+            ],
+            'interstructure-energy-transfer' => [
+                'type' => 'skill',
+                'effects' => [],
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'spec' => [
+                    'next_cast_difficulty' => [
+                        'min_remaining_rating' => 2,
+                        'delta' => -1,
+                        'source_code' => 'training',
+                    ],
+                ],
+            ],
         ];
     }
 
@@ -11416,6 +11848,18 @@ final class GameStrikeMysqlTest extends TestCase
             'pending' => $pending,
             'defenderId' => $defenderId,
         ];
+    }
+
+    /**
+     * Приведённое значение характеристики.
+     *
+     * @param array{base: int, size: int} $value Пара.
+     *
+     * @return int Значение.
+     */
+    private function characteristicFlat(array $value): int
+    {
+        return $value['base'] + 3 * $value['size'];
     }
 
     /**

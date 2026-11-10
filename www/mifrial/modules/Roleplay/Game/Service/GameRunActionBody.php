@@ -11,7 +11,7 @@ use Mifrial\Core\Kernel\Exception\ActionException;
  */
 final class GameRunActionBody
 {
-    private const PHASES = ['declare', 'respond'];
+    private const PHASES = ['declare', 'check', 'resolve', 'abort', 'respond'];
 
     private const KINDS = ['action', 'strike', 'reaction', 'wound', 'spell'];
 
@@ -104,7 +104,7 @@ final class GameRunActionBody
     {
         $phase = $action['phase'] ?? null;
         $keys = ['context', 'kind', 'phase'];
-        if ($phase === 'declare') {
+        if ($phase === 'declare' || $phase === 'check') {
             $keys[] = 'actor';
             $keys[] = 'code';
         }
@@ -149,7 +149,7 @@ final class GameRunActionBody
     private function code(array $action, string $phase): ?string
     {
         $code = $action['code'] ?? null;
-        if ($phase === 'declare' && (!is_string($code) || $code === '')) {
+        if (($phase === 'declare' || $phase === 'check') && (!is_string($code) || $code === '')) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: action');
         }
 
@@ -215,7 +215,9 @@ final class GameRunActionBody
     {
         return match ($kind) {
             'action' => $this->actions->parse($context),
-            'spell' => $this->spells->parse($context),
+            'spell' => $phase === 'resolve' || $phase === 'abort'
+                ? $this->spells->phase($context, $phase)
+                : $this->spells->parse($context),
             'wound' => $this->wounds->parse($context),
             'reaction' => $this->actions->reaction($context),
             default => $phase === 'declare' ? $this->strikes->parse($context) : $this->defenses->parse($context),

@@ -44,6 +44,7 @@ final class GamePendingActionCosts
      * @param int $actorId Id.
      * @param array<string, mixed> $pending Карта.
      * @param array<int, ResourceSpend> $spends Траты карточки.
+     * @param bool $keepNextSpellCast Сохранить хвост следующего сотворения.
      *
      * @return array{spends: array<int, ResourceSpend>, pending: array<string, mixed>} Итог.
      */
@@ -55,9 +56,20 @@ final class GamePendingActionCosts
         int $actorId,
         array $pending,
         array $spends,
+        bool $keepNextSpellCast = false,
     ): array {
         $split = $this->splitSpends($spends);
-        $declared = $this->declare($slice, $choices, $actionRuleCode, $actorKind, $actorId, $pending, $split['amounts'], true);
+        $declared = $this->declare(
+            $slice,
+            $choices,
+            $actionRuleCode,
+            $actorKind,
+            $actorId,
+            $pending,
+            $split['amounts'],
+            true,
+            $keepNextSpellCast,
+        );
         $kept = $split['kept'];
         foreach ($declared['amounts'] as $code => $amount) {
             $kept[] = new ResourceSpend($code, new ScalarResourceValue($amount));
@@ -77,6 +89,7 @@ final class GamePendingActionCosts
      * @param array<string, mixed> $pending Карта боя.
      * @param array<string, int> $amounts Цены по ресурсам.
      * @param bool $forAttack Команда — атака: применить next_action_attack_cost.
+     * @param bool $keepNextSpellCast Сохранить хвост следующего сотворения.
      *
      * @return array{amounts: array<string, int>, pending: array<string, mixed>, touched: array<string, bool>} Итог.
      */
@@ -89,11 +102,15 @@ final class GamePendingActionCosts
         array $pending,
         array $amounts,
         bool $forAttack = false,
+        bool $keepNextSpellCast = false,
     ): array {
         $key = $actorKind . ':' . $actorId;
         $waiting = is_array($pending[$key] ?? null) ? $pending[$key] : [];
         $consumed = $this->consume($slice, $actionRuleCode, $waiting, $amounts, $forAttack);
-        $kept = $this->reduce->keepSoakTail($slice, $consumed['kept'], $forAttack, $consumed['amounts']);
+        $kept = $keepNextSpellCast
+            ? $consumed['kept']
+            : $this->withoutNextSpellCast($consumed['kept']);
+        $kept = $this->reduce->keepSoakTail($slice, $kept, $forAttack, $consumed['amounts']);
 
         return [
             'amounts' => $consumed['amounts'],
@@ -333,6 +350,25 @@ final class GamePendingActionCosts
         }
 
         return ['amounts' => $amounts, 'kept' => $kept, 'touched' => $touched];
+    }
+
+    /**
+     * Снимает хвост снижения Сложности следующего сотворения.
+     *
+     * @param array<int, mixed> $entries Записи ожидания.
+     *
+     * @return array<int, mixed> Оставшиеся записи.
+     */
+    private function withoutNextSpellCast(array $entries): array
+    {
+        return array_values(array_filter(
+            $entries,
+            static function (mixed $entry): bool {
+                $effect = is_array($entry) ? ($entry['effect'] ?? null) : null;
+
+                return !is_array($effect) || ($effect['type'] ?? null) !== 'next_spell_cast_difficulty';
+            },
+        ));
     }
 
     /**

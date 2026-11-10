@@ -149,6 +149,7 @@ final class GameBattleRepository
      * @param int $expectedVersion Ожидаемая версия.
      * @param array<string, mixed> $pending Карта.
      * @param array<int, array<string, mixed>>|null $marks Метки или null, чтобы не трогать.
+     * @param array<string, mixed>|null $pendingSpellCast Отложенный каст или null.
      *
      * @return GameBattleRecord Строка.
      *
@@ -161,6 +162,7 @@ final class GameBattleRepository
         int $expectedVersion,
         array $pending,
         ?array $marks = null,
+        ?array $pendingSpellCast = null,
     ): GameBattleRecord {
         $this->assertVersion($battleId, $expectedVersion);
         $fields = ['pending_action_effects' => $pending, 'state_version' => $expectedVersion + 1];
@@ -168,7 +170,89 @@ final class GameBattleRepository
             $fields['marks'] = $marks;
         }
 
+        if ($pendingSpellCast !== null) {
+            $fields['pending_spell_cast'] = $pendingSpellCast;
+        }
+
         $this->write($battleId, $fields);
+
+        return $this->require($battleId);
+    }
+
+    /**
+     * Начинает отложенный каст и поднимает версию боя.
+     *
+     * @param int $battleId Бой.
+     * @param int $expectedVersion Ожидаемая версия.
+     * @param array<string, mixed> $pendingSpellCast Отложенный каст.
+     *
+     * @return GameBattleRecord Строка.
+     *
+     * @throws GameBattleConflictException Если версия другая.
+     * @throws GameNotFoundException Если боя нет.
+     * @throws GameInvalidException Если поле.
+     */
+    public function beginSpellCast(
+        int $battleId,
+        int $expectedVersion,
+        array $pendingSpellCast,
+    ): GameBattleRecord {
+        $this->assertVersion($battleId, $expectedVersion);
+        $this->write($battleId, [
+            'state_version' => $expectedVersion + 1,
+            'pending_spell_cast' => $pendingSpellCast,
+        ]);
+
+        return $this->require($battleId);
+    }
+
+    /**
+     * Завершает отложенный каст: пишет ожидание и очищает отложенный каст.
+     *
+     * @param int $battleId Бой.
+     * @param int $expectedVersion Ожидаемая версия.
+     * @param array<string, mixed> $pending Новое ожидание.
+     *
+     * @return GameBattleRecord Строка.
+     *
+     * @throws GameBattleConflictException Если версия другая.
+     * @throws GameNotFoundException Если боя нет.
+     * @throws GameInvalidException Если поле.
+     */
+    public function finishSpellCast(
+        int $battleId,
+        int $expectedVersion,
+        array $pending,
+    ): GameBattleRecord {
+        $this->assertVersion($battleId, $expectedVersion);
+        $this->write($battleId, [
+            'state_version' => $expectedVersion + 1,
+            'pending_action_effects' => $pending,
+            'pending_spell_cast' => null,
+        ]);
+
+        return $this->require($battleId);
+    }
+
+    /**
+     * Прерывает отложенный каст без трат.
+     *
+     * @param int $battleId Бой.
+     * @param int $expectedVersion Ожидаемая версия.
+     *
+     * @return GameBattleRecord Строка.
+     *
+     * @throws GameBattleConflictException Если версия другая.
+     * @throws GameNotFoundException Если боя нет.
+     * @throws GameInvalidException Если поле.
+     */
+    public function clearSpellCast(int $battleId, int $expectedVersion): GameBattleRecord
+    {
+        $this->assertVersion($battleId, $expectedVersion);
+        $this->write($battleId, [
+            'state_version' => $expectedVersion + 1,
+            'pending_spell_cast' => null,
+        ]);
 
         return $this->require($battleId);
     }
@@ -184,6 +268,7 @@ final class GameBattleRepository
      * @param int|null $round Раунд или null.
      * @param array<string, mixed>|null $cycle Цикл концентрации или null.
      * @param array<int, array<string, mixed>>|null $marks Метки или null, чтобы не трогать.
+     * @param array<string, mixed>|null $pendingSpellCast Отложенный каст или null.
      *
      * @return GameBattleRecord Строка.
      *
@@ -200,11 +285,12 @@ final class GameBattleRepository
         ?int $round,
         ?array $cycle = null,
         ?array $marks = null,
+        ?array $pendingSpellCast = null,
     ): GameBattleRecord {
         $this->assertVersion($battleId, $expectedVersion);
         $this->write(
             $battleId,
-            $this->trackedFields($expectedVersion, $pending, $debt, $activeIndex, $round, $cycle, $marks),
+            $this->trackedFields($expectedVersion, $pending, $debt, $activeIndex, $round, $cycle, $marks, $pendingSpellCast),
         );
 
         return $this->require($battleId);
@@ -349,6 +435,7 @@ final class GameBattleRepository
      * @param int|null $round Раунд.
      * @param array<string, mixed>|null $cycle Цикл концентрации.
      * @param array<int, array<string, mixed>>|null $marks Метки.
+     * @param array<string, mixed>|null $pendingSpellCast Отложенный каст.
      *
      * @return array<string, mixed> Поля.
      */
@@ -360,6 +447,7 @@ final class GameBattleRepository
         ?int $round,
         ?array $cycle,
         ?array $marks,
+        ?array $pendingSpellCast = null,
     ): array {
         $fields = ['state_version' => $expectedVersion + 1];
         $optional = [
@@ -369,6 +457,7 @@ final class GameBattleRepository
             'round' => $round,
             'concentration_cycle' => $cycle,
             'marks' => $marks,
+            'pending_spell_cast' => $pendingSpellCast,
         ];
         foreach ($optional as $key => $value) {
             if ($value !== null) {

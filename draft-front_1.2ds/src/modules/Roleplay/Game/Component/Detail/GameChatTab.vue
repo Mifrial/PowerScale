@@ -50,6 +50,8 @@ import ReactionLaunchDialog from '@/modules/Roleplay/Game/Component/ReactionLaun
 import ActionLaunchDialog from '@/modules/Roleplay/Game/Component/ActionLaunchDialog.vue';
 import AttackLaunchDialog from '@/modules/Roleplay/Game/Component/AttackLaunchDialog.vue';
 import SpellCastDialog from '@/modules/Roleplay/Game/Component/SpellCastDialog.vue';
+import SpellSaturationDialog from '@/modules/Roleplay/Game/Component/SpellSaturationDialog.vue';
+import { findRuleByRef } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
@@ -260,6 +262,28 @@ async function refreshGameCard(): Promise<GameDetail | null> {
 // Ревизия игры: правила и механики → контекст чата (чипы [[rule:...]], «Вставить ссылку»,
 // броски через RollEngine). Собирается общим buildChatRulesContext.
 const revisionRules = ref<Rule[]>([]);
+const pendingSpellCast = computed(() => gamePhpBattleContext.pendingSpellCast.value);
+const saturationDialogOpen = ref(false);
+const pendingSpellCastName = computed(() => {
+  const code = pendingSpellCast.value?.spellCode;
+  if (!code) return '';
+
+  return findRuleByRef(revisionRules.value, code)?.name ?? code;
+});
+const canResolvePendingSpell = computed(() => {
+  const pending = pendingSpellCast.value;
+  if (!pending) return false;
+
+  return pending.userId === (currentUser.value?.id ?? -1) || props.canEdit;
+});
+
+async function refreshAfterSpellCast(): Promise<void> {
+  await refreshGameCard();
+  const battleId = gamePhpBattleContext.battleId;
+  if (battleId !== null) {
+    applyBattleSheets(await getGameApi().getBattleSheets({ gameId: gameId.value, battleId }));
+  }
+}
 const hitCheckCode = computed(() => checkResolutionService.firstCheckCode(revisionRules.value, 'hit_check'));
 const mechanics = ref<Mechanic[]>([]);
 
@@ -1811,6 +1835,16 @@ const attackActorKey = ref<CombatEntityKey | null>(null);
 const hitOpen = ref(false);
 const injuryOpen = ref(false);
 const spellOpen = ref(false);
+watch(
+  () => [pendingSpellCast.value?.castId ?? null, spellOpen.value] as const,
+  ([castId]) => {
+    const pending = pendingSpellCast.value;
+    if (castId === null || !pending || !canResolvePendingSpell.value) return;
+    if (!pending.touch && spellOpen.value) return;
+    saturationDialogOpen.value = true;
+  },
+  { immediate: true },
+);
 const spellCasterKey = ref<CombatEntityKey | null>(null);
 const spellLaunchContext = ref<SpellCastLaunchContext>({ kind: 'free' });
 const resumeOffer = ref<CheckOffer | null>(null);
@@ -2305,6 +2339,13 @@ onUnmounted(() => {
     <v-alert v-if="statusNotice" type="info" variant="tonal" density="compact" class="mb-3">
       {{ statusNotice }}
     </v-alert>
+    <v-alert v-if="pendingSpellCast && (!spellOpen || pendingSpellCast.touch)" type="info" variant="tonal" density="compact" class="mb-3">
+      <div class="d-flex flex-wrap align-center ga-2">
+        <span class="text-body-2">Незавершённое сотворение: {{ pendingSpellCastName }}</span>
+        <v-spacer />
+        <v-btn size="small" variant="tonal" @click="saturationDialogOpen = true">К насыщению</v-btn>
+      </div>
+    </v-alert>
     <v-alert v-if="statusError" type="error" variant="tonal" density="compact" class="mb-3">{{ statusError }}</v-alert>
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3">
       <div class="d-flex align-center ga-2">
@@ -2616,6 +2657,17 @@ onUnmounted(() => {
       @overlay-changed="onOverlayChanged"
       @settled="refreshPendingOffers"
       @touch-cast="onLaunchTouchCast"
+    />
+    <SpellSaturationDialog
+      :open="saturationDialogOpen"
+      :pending="pendingSpellCast"
+      :game-id="gameId"
+      :rules="revisionRules"
+      :can-resolve="canResolvePendingSpell"
+      :can-abort="canEdit"
+      @update:open="saturationDialogOpen = $event"
+      @resolved="refreshAfterSpellCast"
+      @aborted="refreshAfterSpellCast"
     />
     <ConcentrationTokenAskDialog
       :open="concentrationAskOpen"

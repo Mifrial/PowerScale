@@ -48,6 +48,7 @@ final class GameBattleTable extends SmartTableDefinition
             ),
             new JsonField('turn_order', FieldSettings::fromOptions([])),
             new JsonField('pending_action_effects', FieldSettings::fromOptions([])),
+            new JsonField('pending_spell_cast', FieldSettings::fromOptions([])),
             new IntField('active_index', FieldSettings::fromOptions(['required' => true, 'default' => 0]), 0, null),
             new IntField('round', FieldSettings::fromOptions(['required' => true, 'default' => 0]), 0, null),
             new JsonField('action_debt', FieldSettings::fromOptions([])),

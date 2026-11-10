@@ -37,13 +37,20 @@ final class GameSpellCastWrite
      *     operations: list<array<string, mixed>>,
      *     consequence: array<string, mixed>
      * } $damage Урон и операции.
+     * @param int|null $expectedCasterVersion Версия листа кастера или null.
      *
      * @return array{casterVersion: int, targetVersion: int|null} Версии.
      *
      * @throws GameInvalidException Если версии цели нет.
      */
-    public function write(GameRecord $game, GameSpellCastPrepared $prepared, array $body, array $damage): array
-    {
+    public function write(
+        GameRecord $game,
+        GameSpellCastPrepared $prepared,
+        array $body,
+        array $damage,
+        ?int $expectedCasterVersion = null,
+    ): array {
+        $casterExpected = $expectedCasterVersion ?? $prepared->casterVersion;
         $target = $prepared->target;
         $targetVersion = null;
         if ($target !== null) {
@@ -57,7 +64,7 @@ final class GameSpellCastWrite
                     $game,
                     $prepared->casterKind,
                     $prepared->casterId,
-                    $prepared->casterVersion,
+                    $casterExpected,
                     $damage['operations'],
                     null,
                     null,
@@ -82,7 +89,7 @@ final class GameSpellCastWrite
             $game,
             $prepared->casterKind,
             $prepared->casterId,
-            $prepared->casterVersion,
+            $casterExpected,
             $prepared->spends,
         );
 

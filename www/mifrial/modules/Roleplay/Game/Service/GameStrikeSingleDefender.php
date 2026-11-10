@@ -281,6 +281,7 @@ final class GameStrikeSingleDefender
             $run->defenderPending,
             $this->spend->getSpendAmounts($run->spends),
             false,
+            true,
         );
         $run->spends = $this->spend->getSpendRows($declared['amounts']);
         $run->defenderPending = $declared['pending'];
