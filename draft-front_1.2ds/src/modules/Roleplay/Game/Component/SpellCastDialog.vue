@@ -1008,6 +1008,11 @@ async function runPhpCast(): Promise<void> {
     return;
   }
   if (!assertHandsAvailable()) return;
+  if (actionPointCost.value > casterAp.value.base) {
+    error.value = 'Недостаточно ОД для сотворения';
+
+    return;
+  }
   if (needsTouchAttack.value) {
     await runPhpTouchCast(caster);
 
@@ -2095,7 +2100,9 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
                 @update:model-value="onTouchTargetChange"
               />
             </template>
-            <div class="text-caption text-medium-emphasis mt-2">Стоимость: {{ actionPointCost }} ОД</div>
+            <div class="text-caption text-medium-emphasis mt-2">
+              Стоимость: {{ actionPointCost }} ОД · Доступно: {{ casterAp.base }} ОД
+            </div>
             <div v-if="needsSpellTarget && !hasTarget" class="text-caption text-warning mt-1">
               Без цели заклинания сотворение автоматически провалится
             </div>

@@ -67,13 +67,15 @@ final class GameSpellCastWrite
                 return ['casterVersion' => $version, 'targetVersion' => $version];
             }
 
-            $targetVersion = $this->writes->write(
-                $game,
-                $target['type'],
-                $target['id'],
-                $expectedTarget,
-                $damage['operations'],
-            );
+            $targetVersion = $damage['operations'] === []
+                ? $target['version']
+                : $this->writes->write(
+                    $game,
+                    $target['type'],
+                    $target['id'],
+                    $expectedTarget,
+                    $damage['operations'],
+                );
         }
 
         $casterVersion = $this->writes->writeResources(

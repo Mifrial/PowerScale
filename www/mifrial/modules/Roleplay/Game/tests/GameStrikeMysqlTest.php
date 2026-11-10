@@ -249,6 +249,76 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Каст с ровно достаточным запасом ОД проходит.
+     *
+     * @return void
+     */
+    public function testSpellCastAtExactActionPoints(): void
+    {
+        $scene = $this->spellScene(5, null, [
+            ['ruleCode' => 'careful-magic', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        $body = $this->spellBody($scene);
+        $body['upgrades'] = [['code' => 'careful-magic']];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(5, $cast['data']['spent']);
+    }
+
+    /**
+     * Целевое заклинание без урона не пишет пустые операции цели.
+     *
+     * @return void
+     */
+    public function testTargetedSpellWithoutDamageLeavesTargetSheet(): void
+    {
+        $cards = $this->magicSpellCards();
+        $cards['arcane-utility'] = [
+            'type' => 'spell',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'spell' => [
+                    'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
+                    'control' => ['base' => 3, 'size' => 0],
+                    'targeting' => 'entity',
+                    'duration' => ['type' => 'instant'],
+                ],
+                'parameters' => [[
+                    'code' => 'x',
+                    'label' => 'X',
+                    'kind' => 'dimensional',
+                    'resolution' => 'activation',
+                    'default' => ['base' => 3, 'size' => 0],
+                    'min' => ['base' => 3, 'size' => -1],
+                    'max' => ['base' => 5, 'size' => 1],
+                ]],
+                'hit_resolution' => ['type' => 'auto', 'rating' => 2],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 4,
+                ]],
+            ],
+        ];
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'arcane-utility', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [], [], $cards);
+        $body = $this->spellBody($scene);
+        $body['spellCode'] = 'arcane-utility';
+        $body['usedPower']['value'] = ['base' => 4, 'size' => 0];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(4, $cast['data']['spent']);
+        self::assertSame($scene['targetVersion'], $cast['data']['target']['sheetVersion']);
+        self::assertNull($cast['data']['spellDamage']);
+    }
+
+    /**
      * Улучшение пути добавляет ОД и преимущество сотворения.
      *
      * @return void

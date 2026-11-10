@@ -68,6 +68,10 @@ final class GameStrikeSheetWrites
         ?array $inventorySpend = null,
     ): int {
         $operations = $this->operations($effects, $spends, $inventorySpend);
+        if ($operations === []) {
+            return $expected;
+        }
+
         try {
             return $kind === 'character'
                 ? $this->mutations->apply($id, $expected, $operations)->getActualVersion()
