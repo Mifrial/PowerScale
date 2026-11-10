@@ -157,6 +157,117 @@ export class SceneDraftService {
     draft.elements = draft.elements.filter((element) => element.id !== elementId);
   }
 
+  /**
+   * Пересчитывает координаты и размеры под новое разрешение.
+   *
+   * Карта сохраняет физический размер в ипари; меняется только точность.
+   * Округление может сдвинуть элементы на единицу.
+   */
+  rescale(draft: SceneDraft, nextResolution: number): void {
+    const current = draft.resolution;
+    if (current <= 0 || nextResolution <= 0 || current === nextResolution) {
+      return;
+    }
+
+    const factor = nextResolution / current;
+    for (const board of draft.boards) {
+      board.boundWidth = this.scaleSize(board.boundWidth, factor);
+      board.boundHeight = this.scaleSize(board.boundHeight, factor);
+      board.occupancyCell = this.scaleSize(board.occupancyCell, factor);
+      board.zQuantum = this.scaleSize(board.zQuantum, factor);
+      board.gridStep = board.gridStep === 0 ? 0 : this.scaleSize(board.gridStep, factor);
+    }
+
+    for (const element of draft.elements) {
+      const bounds = this.boardBounds(draft, element.boardId);
+      element.shape = this.scaleShape(element.shape, factor, bounds);
+      if (typeof element.props.height === 'number') {
+        element.props.height = this.scaleLength(element.props.height, factor);
+      }
+
+      if (typeof element.props.elevation === 'number') {
+        element.props.elevation = this.scaleLength(element.props.elevation, factor);
+      }
+    }
+
+    for (const enclosure of draft.enclosures) {
+      const bounds = this.boardBounds(draft, enclosure.parentBoardId);
+      enclosure.footprint = this.scaleShape(enclosure.footprint, factor, bounds);
+    }
+
+    draft.resolution = nextResolution;
+  }
+
+  /** Масштабирует фигуру с прижатием к границам поля. */
+  private scaleShape(shape: SceneShape, factor: number, bounds: SceneBounds | null): SceneShape {
+    if (shape.type === 'rect') {
+      const width =
+        bounds === null ? this.scaleSize(shape.w, factor) : Math.min(this.scaleSize(shape.w, factor), bounds.width);
+      const height =
+        bounds === null ? this.scaleSize(shape.h, factor) : Math.min(this.scaleSize(shape.h, factor), bounds.height);
+
+      return {
+        ...shape,
+        x: this.scaleCoord(shape.x, factor, bounds?.width ?? null, width),
+        y: this.scaleCoord(shape.y, factor, bounds?.height ?? null, height),
+        w: width,
+        h: height,
+      };
+    }
+
+    if (shape.type === 'circle') {
+      const limit =
+        bounds === null ? this.scaleSize(shape.r, factor) : Math.floor(Math.min(bounds.width, bounds.height) / 2);
+      const radius = Math.max(1, Math.min(this.scaleSize(shape.r, factor), limit));
+
+      return {
+        ...shape,
+        cx: this.scaleCoord(shape.cx, factor, bounds?.width ?? null, radius),
+        cy: this.scaleCoord(shape.cy, factor, bounds?.height ?? null, radius),
+        r: radius,
+      };
+    }
+
+    if (shape.type === 'point') {
+      return {
+        ...shape,
+        x: this.scaleCoord(shape.x, factor, bounds?.width ?? null, 0),
+        y: this.scaleCoord(shape.y, factor, bounds?.height ?? null, 0),
+      };
+    }
+
+    const points = shape.points.map((point): ScenePoint => [
+      this.scaleCoord(point[0], factor, bounds?.width ?? null, 0),
+      this.scaleCoord(point[1], factor, bounds?.height ?? null, 0),
+    ]);
+
+    if (shape.type === 'wall') {
+      return { ...shape, points, width: this.scaleSize(shape.width, factor, 100000) };
+    }
+
+    return { ...shape, points };
+  }
+
+  /** Масштабирует координату и сжимает в границы с учётом размера фигуры. */
+  private scaleCoord(value: number, factor: number, limit: number | null, size: number): number {
+    const scaled = Math.max(0, Math.round(value * factor));
+    if (limit === null) {
+      return scaled;
+    }
+
+    return Math.min(Math.max(0, limit - size), scaled);
+  }
+
+  /** Масштабирует размер, не меньше единицы. */
+  private scaleSize(value: number, factor: number, max = Number.MAX_SAFE_INTEGER): number {
+    return Math.max(1, Math.min(max, Math.round(value * factor)));
+  }
+
+  /** Масштабирует вертикальную длину; ноль допустим. */
+  private scaleLength(value: number, factor: number): number {
+    return Math.min(100000, Math.max(0, Math.round(value * factor)));
+  }
+
   /** Следующий порядок элемента на поле. */
   nextSortOrder(draft: SceneDraft, boardId: number): number {
     let max = -1;

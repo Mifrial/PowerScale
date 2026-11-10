@@ -3,6 +3,8 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue';
 import type { FileRecord } from '@/modules/Core/File/Dto/FileRecord';
 import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoard';
 import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard';
+import SceneDistanceField from '@/modules/Roleplay/Scene/Component/Scene/SceneDistanceField.vue';
+import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
 const FileUploadField = defineAsyncComponent(() => import('@/modules/Core/File/Component/FileUploadField.vue'));
 
@@ -10,6 +12,7 @@ const props = defineProps<{
   board: SceneDraftBoard;
   boardCount: number;
   index: number;
+  resolution: number;
 }>();
 
 const emit = defineEmits<{
@@ -27,6 +30,18 @@ watch(
   (value) => {
     name.value = value;
   },
+);
+
+const summary = computed(
+  () =>
+    `${sceneUnits.formatUnits(props.board.boundWidth, props.resolution)} × ` +
+    `${sceneUnits.formatUnits(props.board.boundHeight, props.resolution)} ипари`,
+);
+const maxBound = computed(() => props.resolution * 200);
+const maxCell = computed(() => Math.max(props.board.boundWidth, props.board.boundHeight));
+const defaultCell = computed(() => Math.max(1, Math.floor(props.resolution / 4)));
+const cellHint = computed(
+  () => `Свет и укрытия. По умолчанию ${sceneUnits.formatUnits(defaultCell.value, props.resolution)} ипари.`,
 );
 
 const backdropFile = computed<FileRecord | null>(() =>
@@ -65,16 +80,6 @@ function commitName(): void {
   if (name.value.trim() !== '' && name.value !== props.board.name) {
     emit('rename', props.board.id, name.value);
   }
-}
-
-function patchNumber(
-  key: 'boundWidth' | 'boundHeight' | 'occupancyCell' | 'zQuantum' | 'gridStep',
-  value: string | number,
-): void {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return;
-
-  emit('update', props.board.id, { [key]: Math.round(parsed) });
 }
 
 function onBackdrop(file: FileRecord | null): void {
@@ -124,47 +129,45 @@ function onBackdrop(file: FileRecord | null): void {
         @keyup.enter="commitName"
       />
 
+      <div class="scene-board-settings__summary">{{ summary }}</div>
+
       <div class="scene-board-settings__row">
-        <v-text-field
+        <SceneDistanceField
           :model-value="props.board.boundWidth"
-          label="Ширина"
-          type="number"
-          suffix="ед."
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchNumber('boundWidth', value)"
+          :resolution="props.resolution"
+          label="Ширина, ипари"
+          :min="1"
+          :max="maxBound"
+          @update:model-value="(value) => emit('update', props.board.id, { boundWidth: value })"
         />
-        <v-text-field
+        <SceneDistanceField
           :model-value="props.board.boundHeight"
-          label="Высота"
-          type="number"
-          suffix="ед."
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchNumber('boundHeight', value)"
+          :resolution="props.resolution"
+          label="Высота, ипари"
+          :min="1"
+          :max="maxBound"
+          @update:model-value="(value) => emit('update', props.board.id, { boundHeight: value })"
         />
       </div>
 
       <div class="scene-board-settings__row">
-        <v-text-field
+        <SceneDistanceField
           :model-value="props.board.gridStep"
-          label="Шаг сетки"
-          type="number"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchNumber('gridStep', value)"
+          :resolution="props.resolution"
+          label="Сетка, ипари"
+          hint="0 — выключить; жирная линия каждые 2 шага"
+          :min="0"
+          :max="maxBound"
+          @update:model-value="(value) => emit('update', props.board.id, { gridStep: value })"
         />
-        <v-text-field
+        <SceneDistanceField
           :model-value="props.board.occupancyCell"
-          label="Клетка"
-          type="number"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="(value) => patchNumber('occupancyCell', value)"
+          :resolution="props.resolution"
+          label="Сэмплинг, ипари"
+          :hint="cellHint"
+          :min="1"
+          :max="maxCell"
+          @update:model-value="(value) => emit('update', props.board.id, { occupancyCell: value })"
         />
       </div>
 
@@ -189,6 +192,11 @@ function onBackdrop(file: FileRecord | null): void {
   gap: 12px;
 }
 
+.scene-board-settings__summary {
+  font-size: 0.8rem;
+  color: rgb(var(--v-theme-on-surface-variant));
+}
+
 .scene-board-settings__row {
   display: flex;
   gap: 12px;
@@ -196,5 +204,6 @@ function onBackdrop(file: FileRecord | null): void {
 
 .scene-board-settings__row > * {
   min-width: 0;
+  flex: 1 1 0;
 }
 </style>

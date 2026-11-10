@@ -194,6 +194,17 @@ function updateElementProps(elementProps: SceneElementProps): void {
   state.updateElementProps(selectedElement.value.id, elementProps);
 }
 
+function rescaleResolution(next: number): void {
+  if (state.setResolution(next)) {
+    notice.value = 'Точность изменена: координаты пересчитаны';
+    error.value = null;
+
+    return;
+  }
+
+  error.value = 'Точность должна быть степенью двойки от 16 до 1024';
+}
+
 function updateElementTarget(boardId: number | null): void {
   if (selectedElement.value === null) return;
   state.setElementTarget(selectedElement.value.id, boardId);
@@ -269,6 +280,16 @@ function messageOf(exception: unknown): string {
       </v-btn>
       <h1 class="text-h6">{{ draft.name || 'Локация' }}</h1>
       <v-chip size="small" variant="tonal">Версия {{ draft.version }}</v-chip>
+      <v-chip v-if="isDirty" size="small" color="warning" variant="tonal">Есть изменения</v-chip>
+      <v-btn
+        color="primary"
+        prepend-icon="mdi-content-save"
+        :loading="saving"
+        :disabled="!canSave || saving"
+        @click="save()"
+      >
+        Сохранить
+      </v-btn>
       <v-spacer />
       <v-btn icon="mdi-magnify-minus" variant="tonal" size="small" title="Уменьшить" @click="canvas?.zoomBy(0.9)" />
       <v-btn icon="mdi-magnify-plus" variant="tonal" size="small" title="Увеличить" @click="canvas?.zoomBy(1.1)" />
@@ -299,15 +320,7 @@ function messageOf(exception: unknown): string {
       {{ notice }}
     </v-alert>
 
-    <SceneToolbar
-      v-model:tool="tool"
-      :is-dirty="isDirty"
-      :saving="saving"
-      :can-save="canSave"
-      :has-selection="selection.length > 0"
-      @save="save()"
-      @remove="removeSelected"
-    />
+    <SceneToolbar v-model:tool="tool" :has-selection="selection.length > 0" @remove="removeSelected" />
 
     <SceneBoardTabs
       :model-value="draft.activeBoardId"
@@ -333,7 +346,7 @@ function messageOf(exception: unknown): string {
       </div>
 
       <aside class="scene-editor__panel">
-        <SceneLocationSettings :draft="draft" @meta="state.setMeta" />
+        <SceneLocationSettings :draft="draft" @meta="state.setMeta" @resolution="rescaleResolution" />
 
         <SceneBoardSettings
           v-if="activeBoard !== null"
@@ -341,6 +354,7 @@ function messageOf(exception: unknown): string {
           :board="activeBoard"
           :board-count="draft.boards.length"
           :index="boardIndex"
+          :resolution="draft.resolution"
           @rename="renameBoard"
           @update="updateBoard"
           @backdrop="updateBackdrop"
@@ -393,21 +407,38 @@ function messageOf(exception: unknown): string {
 
 .scene-editor__canvas {
   flex: 1 1 auto;
-  height: calc(100vh - 300px);
-  min-height: 420px;
+  height: calc(100vh - 260px);
+  min-height: 460px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .scene-editor__panel {
-  flex: 0 0 320px;
-  min-width: 280px;
+  flex: 0 0 380px;
+  min-width: 300px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-height: calc(100vh - 300px);
+  gap: 12px;
+  max-height: calc(100vh - 260px);
   overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+.scene-editor__panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scene-editor__panel::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+}
+
+@media (max-width: 1100px) {
+  .scene-editor__panel {
+    flex-basis: 320px;
+  }
 }
 
 @media (max-width: 900px) {
@@ -415,8 +446,13 @@ function messageOf(exception: unknown): string {
     flex-direction: column;
   }
 
+  .scene-editor__canvas {
+    height: 60vh;
+  }
+
   .scene-editor__panel {
     flex-basis: auto;
+    min-width: 0;
     max-height: none;
   }
 }

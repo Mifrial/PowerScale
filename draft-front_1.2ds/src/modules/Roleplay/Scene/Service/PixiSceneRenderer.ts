@@ -292,17 +292,42 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
-    const graphics = new Graphics();
-    for (let x = 0; x <= board.boundWidth; x += board.gridStep) {
-      graphics.moveTo(x, 0).lineTo(x, board.boundHeight);
+    const zoom = this.zoom();
+    const minor = board.gridStep;
+    const major = minor * 2;
+    const minorVisible = minor * zoom >= 4;
+    const majorVisible = major * zoom >= 8;
+    if (!minorVisible && !majorVisible) {
+      return;
     }
 
-    for (let y = 0; y <= board.boundHeight; y += board.gridStep) {
-      graphics.moveTo(0, y).lineTo(board.boundWidth, y);
+    if (minorVisible) {
+      const graphics = new Graphics();
+      for (let x = 0; x <= board.boundWidth; x += minor) {
+        graphics.moveTo(x, 0).lineTo(x, board.boundHeight);
+      }
+
+      for (let y = 0; y <= board.boundHeight; y += minor) {
+        graphics.moveTo(0, y).lineTo(board.boundWidth, y);
+      }
+
+      graphics.stroke({ color: 0x64748b, width: 1 / zoom, alpha: 0.12 });
+      layer.addChild(graphics);
     }
 
-    graphics.stroke({ color: 0x64748b, width: 1 / this.zoom(), alpha: 0.18 });
-    layer.addChild(graphics);
+    if (majorVisible) {
+      const graphics = new Graphics();
+      for (let x = 0; x <= board.boundWidth; x += major) {
+        graphics.moveTo(x, 0).lineTo(x, board.boundHeight);
+      }
+
+      for (let y = 0; y <= board.boundHeight; y += major) {
+        graphics.moveTo(0, y).lineTo(board.boundWidth, y);
+      }
+
+      graphics.stroke({ color: 0x94a3b8, width: 1.5 / zoom, alpha: 0.22 });
+      layer.addChild(graphics);
+    }
   }
 
   private drawEnclosures(board: SceneBoard): void {
