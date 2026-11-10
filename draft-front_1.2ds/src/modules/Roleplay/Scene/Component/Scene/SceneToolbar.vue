@@ -175,6 +175,7 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
 }
 
 .scene-toolbar__split-toggle {
-  padding-inline: 4px;
+  min-width: 0;
+  padding-inline: 6px;
 }
 </style>
