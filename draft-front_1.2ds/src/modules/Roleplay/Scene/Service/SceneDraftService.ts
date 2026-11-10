@@ -3,7 +3,7 @@ import type { SceneDraft } from '@/modules/Roleplay/Scene/Dto/SceneDraft';
 import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoard';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
-import type { SceneSaveElement } from '@/modules/Roleplay/Scene/Dto/SceneSaveElement';
+import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElementKind';
 import { SCENE_BOARD_DEFAULTS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BOARD_DEFAULTS';
@@ -113,8 +113,8 @@ export class SceneDraftService {
     kind: SceneElementKind,
     shape: SceneShape,
     props: SceneElementProps,
-  ): SceneSaveElement {
-    const element: SceneSaveElement = {
+  ): SceneDraftElement {
+    const element: SceneDraftElement = {
       id: this.allocateId(),
       boardId,
       kind,

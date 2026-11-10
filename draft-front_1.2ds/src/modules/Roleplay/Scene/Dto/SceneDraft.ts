@@ -1,5 +1,5 @@
 import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoard';
-import type { SceneSaveElement } from '@/modules/Roleplay/Scene/Dto/SceneSaveElement';
+import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import type { SceneSaveEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneSaveEnclosure';
 
 /** Черновик локации в редакторе: снимок плюс состояние строки. */
@@ -14,6 +14,6 @@ export interface SceneDraft {
   resolution: number;
   schemaVersion: number;
   boards: SceneDraftBoard[];
-  elements: SceneSaveElement[];
+  elements: SceneDraftElement[];
   enclosures: SceneSaveEnclosure[];
 }

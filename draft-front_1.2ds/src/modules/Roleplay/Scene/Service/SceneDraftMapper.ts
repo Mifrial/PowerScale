@@ -1,6 +1,7 @@
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneDetail } from '@/modules/Roleplay/Scene/Dto/SceneDetail';
 import type { SceneDraft } from '@/modules/Roleplay/Scene/Dto/SceneDraft';
+import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoard';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneEnclosure';
@@ -39,7 +40,7 @@ export class SceneDraftMapper {
         fileWidth: board.baseFile?.width ?? null,
         fileHeight: board.baseFile?.height ?? null,
       })),
-      elements: detail.elements.map((element) => ({
+      elements: detail.elements.map((element): SceneDraftElement => ({
         id: element.id,
         boardId: element.boardId,
         kind: element.kind,
@@ -77,7 +78,19 @@ export class SceneDraftMapper {
         zQuantum: board.zQuantum,
         gridStep: board.gridStep,
       })),
-      elements: draft.elements.map((element): SceneSaveElement => ({ ...element })),
+      elements: draft.elements.map((element): SceneSaveElement => {
+        const assetPublicId = element.assetPublicId ?? null;
+
+        return {
+          id: element.id,
+          boardId: element.boardId,
+          kind: element.kind,
+          shape: element.shape,
+          props: assetPublicId === null ? { ...element.props } : { ...element.props, assetPublicId },
+          sortOrder: element.sortOrder,
+          targetBoardId: element.targetBoardId,
+        };
+      }),
       enclosures: draft.enclosures.map((enclosure): SceneSaveEnclosure => ({ ...enclosure })),
     };
   }
@@ -101,7 +114,7 @@ export class SceneDraftMapper {
   }
 
   /** Элементы черновика → модель рендера. */
-  toViewElements(elements: SceneSaveElement[]): SceneElement[] {
+  toViewElements(elements: SceneDraftElement[]): SceneElement[] {
     return elements.map((element) => ({
       id: element.id,
       boardId: element.boardId,
@@ -110,10 +123,7 @@ export class SceneDraftMapper {
       props: element.props,
       sortOrder: element.sortOrder,
       targetBoardId: element.targetBoardId,
-      asset:
-        element.assetPublicId === undefined || element.assetPublicId === null
-          ? null
-          : { publicId: element.assetPublicId },
+      asset: element.assetPublicId === null ? null : { publicId: element.assetPublicId },
     }));
   }
 

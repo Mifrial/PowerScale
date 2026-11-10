@@ -3,7 +3,7 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue';
 import type { FileRecord } from '@/modules/Core/File/Dto/FileRecord';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard';
-import type { SceneSaveElement } from '@/modules/Roleplay/Scene/Dto/SceneSaveElement';
+import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import { SCENE_ELEMENT_KIND_LABELS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ELEMENT_KIND_LABELS';
 import { SCENE_MARKER_ROLE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_MARKER_ROLE_OPTIONS';
 import { SCENE_OPENING_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OPENING_KIND_OPTIONS';
@@ -12,7 +12,7 @@ import { SCENE_SUPPORT_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Sc
 const FileUploadField = defineAsyncComponent(() => import('@/modules/Core/File/Component/FileUploadField.vue'));
 
 const props = defineProps<{
-  element: SceneSaveElement;
+  element: SceneDraftElement;
   boards: SceneSaveBoard[];
 }>();
 

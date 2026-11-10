@@ -11,5 +11,4 @@ export interface SceneSaveElement {
   props: SceneElementProps;
   sortOrder: number;
   targetBoardId: number | null;
-  assetPublicId?: string | null;
 }

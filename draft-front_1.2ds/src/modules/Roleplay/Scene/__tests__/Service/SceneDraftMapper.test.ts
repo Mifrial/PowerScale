@@ -65,7 +65,7 @@ describe('SceneDraftMapper', () => {
     expect(snapshot.name).toBe('Таверна');
     expect(snapshot.boards[0].filePublicId).toBe('file-a');
     expect(snapshot.elements[0].props.label).toBe('Бочка');
-    expect(snapshot.elements[0].assetPublicId).toBe('file-b');
+    expect(snapshot.elements[0].props.assetPublicId).toBe('file-b');
     expect(snapshot.enclosures).toEqual([]);
   });
 

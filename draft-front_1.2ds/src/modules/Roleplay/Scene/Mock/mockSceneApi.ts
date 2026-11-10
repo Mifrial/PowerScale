@@ -60,9 +60,9 @@ export const mockSceneApi: ISceneApi = {
       sortOrder: element.sortOrder,
       targetBoardId: element.targetBoardId === null ? null : (boardIdMap.get(element.targetBoardId) ?? null),
       asset:
-        element.assetPublicId === undefined || element.assetPublicId === null
-          ? null
-          : { publicId: element.assetPublicId },
+        typeof element.props.assetPublicId === 'string' && element.props.assetPublicId !== ''
+          ? { publicId: element.props.assetPublicId }
+          : null,
     }));
     const enclosures: SceneEnclosure[] = data.scene.enclosures.map((enclosure, index) => ({
       id: enclosure.id > 0 ? enclosure.id : 3000 + index,
