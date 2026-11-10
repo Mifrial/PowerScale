@@ -52,6 +52,7 @@ import {
   actionOdCost,
   defaultTouchAction,
   findRuleByRef,
+  isPushAction,
   listAttackActions,
   turnResourceCode,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
@@ -339,10 +340,12 @@ const spellTargeting = computed(() => {
 const needsSpellTarget = computed(() => spellTargeting.value === 'entity');
 const targetsSelf = computed(() => spellTargeting.value === 'self');
 const touchActions = computed(() =>
-  listAttackActions(props.rules, overview.value, 'strike', keywords.value).map((action) => ({
-    value: action.code,
-    title: `${action.name} (${action.odCost} ОД)`,
-  })),
+  listAttackActions(props.rules, overview.value, 'strike', keywords.value)
+    .filter((action) => !isPushAction(findRuleByRef(props.rules, action.code)))
+    .map((action) => ({
+      value: action.code,
+      title: `${action.name} (${action.odCost} ОД)`,
+    })),
 );
 const strikeProfiles = computed(() =>
   (overview.value?.attacks ?? []).filter((attack) => attack.profileType === 'strike'),

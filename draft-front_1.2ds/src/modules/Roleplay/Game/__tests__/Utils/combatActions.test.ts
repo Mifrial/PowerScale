@@ -8,6 +8,7 @@ import {
   asProcessAbilitySpec,
   attackActionById,
   defaultTouchAction,
+  isPushAction,
   listAttackActions,
   reactionOdCost,
   resourceCosts,
@@ -105,6 +106,17 @@ describe('combatActions', () => {
     expect(defaultTouchAction([pool, melee, touch], null)?.code).toBe('poke');
     expect(defaultTouchAction([pool, melee, touch], null)?.odCost).toBe(3);
     expect(defaultTouchAction([pool, melee, plain], null)).toBeNull();
+  });
+
+  it('толчок не является доставкой касания', () => {
+    const push = ability(10, 'simple-push', 'Простой толчок', [14, 71, 1], 3, true);
+    const spec = asActionAbilitySpec(push);
+    if (spec) {
+      spec.push = { profiles: 'hands_or_shield', check: 'check-push' };
+    }
+
+    expect(isPushAction(push)).toBe(true);
+    expect(isPushAction(melee)).toBe(false);
   });
 
   it('ОД реакций из спеки действия', () => {

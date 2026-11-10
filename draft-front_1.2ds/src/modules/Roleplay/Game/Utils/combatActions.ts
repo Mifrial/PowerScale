@@ -44,6 +44,11 @@ export function asActionAbilitySpec(rule: Rule | null | undefined): Extract<Abil
   return rule.spec;
 }
 
+/** Карточка действия — толчок, а не доставка удара. */
+export function isPushAction(rule: Rule | null | undefined): boolean {
+  return Boolean(asActionAbilitySpec(rule)?.push);
+}
+
 export function asProcessAbilitySpec(
   rule: Rule | null | undefined,
 ): Extract<AbilitySpec, { type: 'process' }>['process'] | null {
