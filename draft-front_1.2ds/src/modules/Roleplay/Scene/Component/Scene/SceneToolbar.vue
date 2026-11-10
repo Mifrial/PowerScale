@@ -70,9 +70,10 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
           {{ entry.label }}
         </v-btn>
 
-        <v-btn-group v-else variant="tonal" divided rounded="lg" size="small" class="scene-toolbar__split">
+        <v-btn-group v-else variant="tonal" divided rounded="lg" class="scene-toolbar__split">
           <v-btn
             :prepend-icon="groupTool(entry).icon"
+            size="small"
             :color="isGroupActive(entry) ? 'primary' : undefined"
             :variant="isGroupActive(entry) ? 'flat' : undefined"
             :title="`Террейн: ${groupTool(entry).variant}`"
@@ -85,6 +86,7 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
               <v-btn
                 v-bind="menuProps"
                 icon
+                size="small"
                 :color="isGroupActive(entry) ? 'primary' : undefined"
                 :variant="isGroupActive(entry) ? 'flat' : undefined"
                 class="scene-toolbar__split-toggle"
