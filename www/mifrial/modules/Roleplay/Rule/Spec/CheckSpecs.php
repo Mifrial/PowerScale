@@ -43,8 +43,27 @@ final class CheckSpecs
             SpecShape::bool($document, 'push_check'),
             SpecShape::bool($document, 'initiative'),
             self::attached($document),
+            self::failure($document),
             self::outcomes($document),
         );
+    }
+
+    /**
+     * Коды правил последствий провала. Нет ключа — null.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return array<int, string>|null Список или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function failure(array $document): ?array
+    {
+        if (!array_key_exists('failure_rule_codes', $document) || $document['failure_rule_codes'] === null) {
+            return null;
+        }
+
+        return SpecShape::stringList($document, 'failure_rule_codes');
     }
 
     /**

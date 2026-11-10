@@ -925,7 +925,8 @@ describe('validateAbilityStructure', () => {
     expect(ruleValidationService.validateAbilityStructure(ok, keywords)).toEqual([]);
   });
 
-  it('rejects leftover cast difficulty and allows apply_state on a spell', () => {    const rules: Rule[] = [
+  it('rejects leftover cast difficulty and allows apply_state on a spell', () => {
+    const rules: Rule[] = [
       baseRule(null, 'haste', 'state'),
       baseRule(null, 'fire-bolt', 'ability', {
         type: 'spell',
@@ -1448,6 +1449,32 @@ describe('validateCheckStructure', () => {
     ];
     const errors = ruleValidationService.validateCheckStructure(rules);
     expect(errors.some((error) => error.message.includes('не найдено'))).toBe(true);
+  });
+
+  it('ломается на неизвестном правиле последствий провала', () => {
+    const rules: Rule[] = [
+      baseRule(null, 'check-simple', 'check', {
+        type: 'check',
+        difficulty_input: { kind: 'ask' },
+        allowed_modes: 'both',
+        failure_rule_codes: ['no-such-rule'],
+      }),
+    ];
+    const errors = ruleValidationService.validateCheckStructure(rules);
+    expect(errors.some((error) => error.message.includes('не найдено'))).toBe(true);
+  });
+
+  it('принимает известное правило последствий провала', () => {
+    const rules: Rule[] = [
+      baseRule(null, 'spell-deviation', 'simple'),
+      baseRule(null, 'check-simple', 'check', {
+        type: 'check',
+        difficulty_input: { kind: 'ask' },
+        allowed_modes: 'both',
+        failure_rule_codes: ['spell-deviation'],
+      }),
+    ];
+    expect(ruleValidationService.validateCheckStructure(rules)).toEqual([]);
   });
 });
 

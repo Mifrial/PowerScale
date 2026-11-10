@@ -31,6 +31,7 @@ final class CheckSpec implements RuleSpec
      * @param bool $pushCheck Проверка толчка.
      * @param bool $initiative Проверка задаёт инициативу.
      * @param ?array $attachedRuleCodes Коды правил на броске.
+     * @param ?array $failureRuleCodes Коды правил последствий провала.
      * @param array<int, CheckOutcome> $outcomes Исходы по рейтингу.
      *
      * @return void
@@ -51,6 +52,7 @@ final class CheckSpec implements RuleSpec
         private readonly bool $pushCheck,
         private readonly bool $initiative,
         private readonly ?array $attachedRuleCodes,
+        private readonly ?array $failureRuleCodes,
         private readonly array $outcomes,
     ) {
     }
@@ -213,6 +215,16 @@ final class CheckSpec implements RuleSpec
     public function getAttachedRuleCodes(): ?array
     {
         return $this->attachedRuleCodes;
+    }
+
+    /**
+     * Коды правил последствий провала.
+     *
+     * @return ?array Значение.
+     */
+    public function getFailureRuleCodes(): ?array
+    {
+        return $this->failureRuleCodes;
     }
 
     /**

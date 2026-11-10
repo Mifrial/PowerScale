@@ -595,6 +595,18 @@ export class RuleValidationService {
           }
         }
       }
+      if (spec.failure_rule_codes) {
+        const byAnyCode = new Map(rules.map((entry) => [entry.code, entry]));
+        for (const code of spec.failure_rule_codes) {
+          if (!byAnyCode.has(code)) {
+            errors.push({
+              ruleCode: rule.code,
+              ruleName: rule.name,
+              message: `правило последствий провала «${code}» не найдено`,
+            });
+          }
+        }
+      }
       const seen = new Set<string>([rule.code]);
       let parentCode = spec.parent_check_code ?? '';
       while (parentCode) {
@@ -1915,8 +1927,8 @@ export class RuleValidationService {
       });
     }
     if (
-      maneuver.min_weapon_mastery !== undefined
-      && (!Number.isInteger(maneuver.min_weapon_mastery) || maneuver.min_weapon_mastery < 1)
+      maneuver.min_weapon_mastery !== undefined &&
+      (!Number.isInteger(maneuver.min_weapon_mastery) || maneuver.min_weapon_mastery < 1)
     ) {
       errors.push({
         ruleName: rule.name,
@@ -1962,8 +1974,8 @@ export class RuleValidationService {
       });
     }
     if (
-      boost.min_weapon_mastery !== undefined
-      && (!Number.isInteger(boost.min_weapon_mastery) || boost.min_weapon_mastery < 1)
+      boost.min_weapon_mastery !== undefined &&
+      (!Number.isInteger(boost.min_weapon_mastery) || boost.min_weapon_mastery < 1)
     ) {
       errors.push({
         ruleName: rule.name,

@@ -32,6 +32,14 @@ const attachedRules = computed(() => {
     .filter((rule): rule is Rule => rule !== undefined);
 });
 
+const failureRules = computed(() => {
+  const codes = spec.value?.failure_rule_codes ?? [];
+
+  return codes
+    .map((code) => props.rules.find((candidate) => candidate.code === code))
+    .filter((rule): rule is Rule => rule !== undefined);
+});
+
 const versusLabel = computed(() => checkLaunchService.checkVersusLabel(props.rule, props.rules));
 const outcomeRows = computed(() => checkSpecService.outcomeRows(spec.value?.outcomes, props.rules));
 
@@ -91,6 +99,9 @@ function modesLabel(): string {
         <strong>{{ attachedRules.map((item) => item.name).join(', ') }}</strong>
       </div>
       <div v-else-if="spec.attached_rule_codes" class="text-body-2 mt-1">Правила броска: нет (не наследует)</div>
+      <div v-if="failureRules.length" class="text-body-2 mt-1">
+        При провале: <strong>{{ failureRules.map((item) => item.name).join(', ') }}</strong>
+      </div>
       <div v-if="spec.allow_characteristic_override" class="text-body-2 mt-1">
         На запуске можно подменить характеристику.
       </div>

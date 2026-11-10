@@ -28,6 +28,7 @@ use Mifrial\Roleplay\Mechanic\Service\Handler\PaySrVsReliabilityHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PlainRollHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PurchaseSurchargeHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\SixOneRuleHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\SpellDeviationHandler;
 use Mifrial\Roleplay\Mechanic\Table\MechanicTable;
 
 /**
@@ -72,6 +73,7 @@ final class MechanicPortFactory
         $registry->register(new BluntUnconsciousHandler());
         $registry->register(new DamageAsWoundsHandler());
         $registry->register(new BloodClottingHandler());
+        $registry->register(new SpellDeviationHandler());
 
         return new MechanicEngine($registry);
     }

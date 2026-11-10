@@ -275,6 +275,61 @@ final class RuleSpecTest extends TestCase
     }
 
     /**
+     * Нет ключа failure_rule_codes — последствий провала нет.
+     *
+     * @return void
+     */
+    public function testCheckWithoutFailureRuleCodesHasNoConsequences(): void
+    {
+        $spec = $this->check(['allowed_modes' => 'solo']);
+
+        self::assertNull($spec->getFailureRuleCodes());
+    }
+
+    /**
+     * Список правил последствий провала разбирается как коды.
+     *
+     * @return void
+     */
+    public function testCheckFailureRuleCodesAreParsed(): void
+    {
+        $spec = $this->check([
+            'allowed_modes' => 'solo',
+            'failure_rule_codes' => ['spell-deviation'],
+        ]);
+
+        self::assertSame(['spell-deviation'], $spec->getFailureRuleCodes());
+    }
+
+    /**
+     * Пустой список последствий не наследуется и не ломает версию.
+     *
+     * @return void
+     */
+    public function testCheckEmptyFailureRuleCodesAreParsed(): void
+    {
+        $spec = $this->check(['allowed_modes' => 'solo', 'failure_rule_codes' => []]);
+
+        self::assertSame([], $spec->getFailureRuleCodes());
+    }
+
+    /**
+     * Не строка в списке последствий бьёт только эту версию.
+     *
+     * @return void
+     */
+    public function testCheckFailureRuleCodesWrongTypeMarksVersionBroken(): void
+    {
+        $record = $this->record('check', [
+            'allowed_modes' => 'solo',
+            'failure_rule_codes' => [5],
+        ]);
+
+        self::assertTrue($record->isSpecBroken());
+        self::assertNull($record->getSpec());
+    }
+
+    /**
      * Не bool в initiative бьёт только эту версию.
      *
      * @return void

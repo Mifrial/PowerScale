@@ -110,6 +110,19 @@ const overrideAttachedRules = computed({
   },
 });
 
+const failureRuleOptions = computed(() =>
+  props.rules
+    .filter((rule) => rule.code !== props.code)
+    .map((rule) => ({ title: `${rule.name} (${rule.type})`, value: rule.code })),
+);
+
+const overrideFailureRules = computed({
+  get: () => draft.value.failure_rule_codes !== null && draft.value.failure_rule_codes !== undefined,
+  set: (value: boolean) => {
+    draft.value.failure_rule_codes = value ? [] : null;
+  },
+});
+
 const difficultyKind = computed({
   get: () => draft.value.difficulty_input.kind,
   set: (kind: CheckSpec['difficulty_input']['kind']) => {
@@ -308,6 +321,28 @@ const versusPreview = computed(() =>
         :items="attachableRuleOptions"
         label="Правила на броске"
         hint="Карточки вроде «Правило 6 и 1», не коды механик. Их хендлеры вешаются на события броска."
+        persistent-hint
+        multiple
+        chips
+        closable-chips
+        hide-details="auto"
+        class="mb-3"
+      />
+      <v-switch
+        v-model="overrideFailureRules"
+        label="Последствия провала"
+        hint="Карточки, которые запускаются при провале этой проверки. Выкл — последствий нет."
+        persistent-hint
+        color="primary"
+        hide-details="auto"
+        class="mb-3"
+      />
+      <v-select
+        v-if="overrideFailureRules"
+        v-model="draft.failure_rule_codes"
+        :items="failureRuleOptions"
+        label="Правила при провале"
+        hint="Например, карточка магического отклонения."
         persistent-hint
         multiple
         chips

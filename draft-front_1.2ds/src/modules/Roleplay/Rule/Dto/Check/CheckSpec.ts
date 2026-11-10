@@ -39,6 +39,11 @@ export interface CheckSpec {
    * Задано (в т.ч. []) — не наследовать у предка. Не коды механик.
    */
   attached_rule_codes?: string[] | null;
+  /**
+   * Коды правил, которые запускаются при провале этой проверки (напр. `spell-deviation`).
+   * Пусто или нет поля — последствий нет.
+   */
+  failure_rule_codes?: string[] | null;
   /** Исходы по рейтингу проверки; коды состояний — данные спеки. */
   outcomes?: CheckOutcome[];
 }
