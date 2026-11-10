@@ -2,44 +2,52 @@ import type { SceneHandle } from '@/modules/Roleplay/Scene/Dto/SceneHandle';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneCurveService } from '@/modules/Roleplay/Scene/Service/SceneCurveService';
 
+/** Геометрия ленты: осевая линия, ширины и оба края. */
+interface RibbonGeometry {
+  center: ScenePoint[];
+  widths: number[];
+  left: ScenePoint[];
+  right: ScenePoint[];
+}
+
 /**
  * Геометрия ленты: открытая кривая с шириной по вершинам.
  *
- * Река и дорога — лента; край строится по нормали к осевой.
+ * Река и дорога — лента; край строится по аналитической нормали к осевой.
  */
 export class SceneRibbonService {
   constructor(private readonly curves: SceneCurveService) {}
 
   /** Лента по вершинам, ручкам и ширинам. */
-  geometry(
-    points: ScenePoint[],
-    handles: SceneHandle[],
-    widths: number[],
-    samples = 12,
-  ): { center: ScenePoint[]; widths: number[]; left: ScenePoint[]; right: ScenePoint[] } {
-    const { center, widths: flatWidths } = this.flatten(points, handles, widths, samples);
+  geometry(points: ScenePoint[], handles: SceneHandle[], widths: number[], tolerance = 1): RibbonGeometry {
+    const samples = this.curves.flattenSamples(points, handles, tolerance);
+    const center: ScenePoint[] = [];
+    const flatWidths: number[] = [];
     const left: ScenePoint[] = [];
     const right: ScenePoint[] = [];
-    for (let index = 0; index < center.length; index += 1) {
-      const normal = this.normalAt(center, index);
-      const half = Math.max(0.5, flatWidths[index] ?? 1) / 2;
-      left.push([center[index][0] + normal[0] * half, center[index][1] + normal[1] * half]);
-      right.push([center[index][0] - normal[0] * half, center[index][1] - normal[1] * half]);
+    for (const sample of samples) {
+      const width = Math.max(1, this.widthAt(widths, sample.segment, sample.t));
+      const half = width / 2;
+      const normal: ScenePoint = [-sample.tangent[1], sample.tangent[0]];
+      center.push(sample.point);
+      flatWidths.push(width);
+      left.push([sample.point[0] + normal[0] * half, sample.point[1] + normal[1] * half]);
+      right.push([sample.point[0] - normal[0] * half, sample.point[1] - normal[1] * half]);
     }
 
     return { center, widths: flatWidths, left, right };
   }
 
   /** Замкнутый контур ленты для заливки. */
-  outline(points: ScenePoint[], handles: SceneHandle[], widths: number[], samples = 12): ScenePoint[] {
-    const geometry = this.geometry(points, handles, widths, samples);
+  outline(points: ScenePoint[], handles: SceneHandle[], widths: number[], tolerance = 1): ScenePoint[] {
+    const geometry = this.geometry(points, handles, widths, tolerance);
 
     return [...geometry.left, ...[...geometry.right].reverse()];
   }
 
   /** Расстояние от точки до ленты за вычетом половины ширины. */
-  distance(point: ScenePoint, points: ScenePoint[], handles: SceneHandle[], widths: number[], samples = 12): number {
-    const geometry = this.geometry(points, handles, widths, samples);
+  distance(point: ScenePoint, points: ScenePoint[], handles: SceneHandle[], widths: number[], tolerance = 1): number {
+    const geometry = this.geometry(points, handles, widths, tolerance);
     let nearest = Number.POSITIVE_INFINITY;
     for (let index = 1; index < geometry.center.length; index += 1) {
       const half = Math.max(geometry.widths[index - 1], geometry.widths[index]) / 2;
@@ -68,56 +76,12 @@ export class SceneRibbonService {
     return [point[0] + normal[0] * distance, point[1] + normal[1] * distance];
   }
 
-  /** Разворачивает осевую линию с ширинами в сэмплы. */
-  private flatten(
-    points: ScenePoint[],
-    handles: SceneHandle[],
-    widths: number[],
-    samples: number,
-  ): { center: ScenePoint[]; widths: number[] } {
-    if (points.length < 2) {
-      return {
-        center: points.map((point): ScenePoint => [point[0], point[1]]),
-        widths: points.map((_, index) => Math.max(1, widths[index] ?? 1)),
-      };
-    }
+  /** Ширина на сегменте с параметром `t`: линейно между вершинами. */
+  private widthAt(widths: number[], segment: number, t: number): number {
+    const start = Math.max(1, widths[segment] ?? widths[0] ?? 1);
+    const end = Math.max(1, widths[segment + 1] ?? start);
 
-    const pathHandles = this.curves.normalizeHandles(points, handles);
-    const steps = Math.max(1, samples);
-    const center: ScenePoint[] = [];
-    const flatWidths: number[] = [];
-    for (let index = 1; index < points.length; index += 1) {
-      const start = points[index - 1];
-      const end = points[index];
-      const controlOne: ScenePoint = [
-        start[0] + pathHandles[index - 1].out[0],
-        start[1] + pathHandles[index - 1].out[1],
-      ];
-      const controlTwo: ScenePoint = [end[0] + pathHandles[index].in[0], end[1] + pathHandles[index].in[1]];
-      const startWidth = Math.max(1, widths[index - 1] ?? 1);
-      const endWidth = Math.max(1, widths[index] ?? startWidth);
-      for (let step = index === 1 ? 0 : 1; step <= steps; step += 1) {
-        const t = step / steps;
-        center.push(this.curves.cubicPoint(start, controlOne, controlTwo, end, t));
-        flatWidths.push(startWidth + (endWidth - startWidth) * t);
-      }
-    }
-
-    return { center, widths: flatWidths };
-  }
-
-  /** Единичная нормаль к осевой в сэмпле. */
-  private normalAt(points: ScenePoint[], index: number): ScenePoint {
-    const previous = points[Math.max(0, index - 1)];
-    const next = points[Math.min(points.length - 1, index + 1)];
-    const dx = next[0] - previous[0];
-    const dy = next[1] - previous[1];
-    const length = Math.hypot(dx, dy);
-    if (length === 0) {
-      return [0, 1];
-    }
-
-    return [-dy / length, dx / length];
+    return start + (end - start) * t;
   }
 
   /** Расстояние до отрезка. */

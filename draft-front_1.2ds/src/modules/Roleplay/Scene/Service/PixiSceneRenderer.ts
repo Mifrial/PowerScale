@@ -9,6 +9,7 @@ import type { SceneLayerName } from '@/modules/Roleplay/Scene/Enum/SceneLayerNam
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
 import { SceneShapePainter } from '@/modules/Roleplay/Scene/Service/SceneShapePainter';
 import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
+import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_RENDERER_PREFERENCE';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
@@ -64,17 +65,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     this.host = host;
     this.dpr = window.devicePixelRatio || 1;
-    const app = new Application();
-    await app.init({
-      preference: 'webgl',
-      width: Math.max(host.clientWidth, 1),
-      height: Math.max(host.clientHeight, 1),
-      resolution: this.dpr,
-      autoDensity: true,
-      antialias: true,
-      backgroundAlpha: 0,
-      autoStart: false,
-    });
+    const app = await this.createApplication(host);
     app.ticker.stop();
     app.canvas.style.display = 'block';
     app.canvas.style.width = '100%';
@@ -84,6 +75,39 @@ export class PixiSceneRenderer implements ISceneRenderer {
     host.appendChild(app.canvas);
     this.app = app;
     this.createWorld();
+  }
+
+  /**
+   * Создаёт Pixi `Application` на выбранном бэкенде.
+   *
+   * Если предпочтён WebGPU, а браузер его не дал, пробуем WebGL: редактор
+   * должен открываться, а не падать с ошибкой контекста.
+   */
+  private async createApplication(host: HTMLElement): Promise<Application> {
+    const preferences: ('webgl' | 'webgpu')[] =
+      SCENE_RENDERER_PREFERENCE === 'webgpu' ? ['webgpu', 'webgl'] : ['webgl'];
+    let failure: unknown = null;
+    for (const preference of preferences) {
+      const app = new Application();
+      try {
+        await app.init({
+          preference,
+          width: Math.max(host.clientWidth, 1),
+          height: Math.max(host.clientHeight, 1),
+          resolution: this.dpr,
+          autoDensity: true,
+          antialias: true,
+          backgroundAlpha: 0,
+          autoStart: false,
+        });
+
+        return app;
+      } catch (error) {
+        failure = error;
+      }
+    }
+
+    throw failure ?? new Error('GPU context is unavailable');
   }
 
   detach(): void {
@@ -110,8 +134,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   setViewport(viewport: SceneViewport): void {
+    const previous = this.viewport;
     this.viewport = viewport;
     this.applyViewport();
+    if (this.shouldRetessellate(previous, viewport)) {
+      this.retessellate();
+    }
+
     this.render();
   }
 
@@ -188,6 +217,33 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.draftGraphics = null;
     this.vertexFocus = null;
     this.host = null;
+  }
+
+  /**
+   * Нужно ли пересобрать геометрию после смены зума.
+   *
+   * Тесселяция кривых зависит от масштаба: при сильном приближении старые
+   * сэмплы становятся видны как углы. Пересобираем только на заметных шагах,
+   * чтобы не платить за каждый тик колеса.
+   */
+  private shouldRetessellate(previous: SceneViewport | null, next: SceneViewport): boolean {
+    if (previous === null || previous.zoom <= 0 || this.model === null) {
+      return false;
+    }
+
+    const ratio = next.zoom / previous.zoom;
+
+    return ratio > 2 || ratio < 0.5;
+  }
+
+  /** Пересобирает слои активного поля под текущий зум. */
+  private retessellate(): void {
+    const board = this.model?.boards.find((item) => item.id === this.model?.activeBoardId);
+    if (board === undefined || this.world === null) {
+      return;
+    }
+
+    this.rebuild(board);
   }
 
   private createWorld(): void {
