@@ -12,10 +12,10 @@ import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sce
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
 /** Цвет глубокой воды: сквозь него читается дно. */
-const DEEP_COLOR = 0x2f6a8a;
+const DEEP_COLOR = 0x275c7c;
 
 /** Цвет мелководья у берега. */
-const SHALLOW_COLOR = 0x8ec4d8;
+const SHALLOW_COLOR = 0x9ad2e4;
 
 /** Ширина полосы мелководья в ипари. */
 const SHALLOW_IPARI = 0.8;
@@ -89,6 +89,26 @@ export class SceneTerrainPainter {
     return graphics;
   }
 
+  /** Сырой берег: тёмная полоса сразу за урезом, чтобы край не был резким. */
+  paintWaterBank(container: Container, element: SceneElement, resolution: number, zoom: number): void {
+    const graphics = new Graphics();
+    for (const [width, alpha] of [
+      [0.42, 0.1],
+      [0.2, 0.16],
+    ]) {
+      this.trace(graphics, element.shape, zoom);
+      graphics.stroke({
+        color: 0x1d2f38,
+        width: Math.max(1, resolution * width),
+        alpha,
+        alignment: 0,
+        join: 'round',
+      });
+    }
+
+    container.addChild(graphics);
+  }
+
   /** Дно водоёма: грунт под водой, приглушённый глубиной. */
   paintWaterBed(container: Container, element: SceneElement, resolution: number, zoom: number): void {
     const bed = this.materials.texture('bed');
@@ -104,7 +124,7 @@ export class SceneTerrainPainter {
 
     const tint = new Graphics();
     this.trace(tint, element.shape, zoom);
-    tint.fill({ color: DEEP_COLOR, alpha: bed === null ? 1 : 0.58 });
+    tint.fill({ color: DEEP_COLOR, alpha: bed === null ? 1 : 0.44 });
     container.addChild(tint);
   }
 
@@ -117,7 +137,7 @@ export class SceneTerrainPainter {
       graphics.stroke({
         color: SHALLOW_COLOR,
         width: width * (1 - ring / SHALLOW_RINGS),
-        alpha: 0.055,
+        alpha: 0.075,
         alignment: 1,
         join: 'round',
       });
@@ -131,17 +151,17 @@ export class SceneTerrainPainter {
     const graphics = new Graphics();
     this.trace(graphics, element.shape, zoom);
     graphics.stroke({
-      color: 0xcfeaff,
-      width: Math.max(1, resolution * 0.22),
-      alpha: 0.16,
+      color: 0xd6efff,
+      width: Math.max(1, resolution * 0.26),
+      alpha: 0.2,
       alignment: 1,
       join: 'round',
     });
     this.trace(graphics, element.shape, zoom);
     graphics.stroke({
       color: 0xe8f7ff,
-      width: Math.max(1, 1.8 / zoom),
-      alpha: 0.6,
+      width: Math.max(1, 1.5 / zoom),
+      alpha: 0.5,
       join: 'round',
     });
     container.addChild(graphics);
