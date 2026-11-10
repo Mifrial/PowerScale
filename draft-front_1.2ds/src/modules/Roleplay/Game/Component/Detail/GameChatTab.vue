@@ -1845,6 +1845,9 @@ watch(
   },
   { immediate: true },
 );
+watch(pendingSpellCast, (pending) => {
+  if (pending === null) saturationDialogOpen.value = false;
+});
 const spellCasterKey = ref<CombatEntityKey | null>(null);
 const spellLaunchContext = ref<SpellCastLaunchContext>({ kind: 'free' });
 const resumeOffer = ref<CheckOffer | null>(null);
