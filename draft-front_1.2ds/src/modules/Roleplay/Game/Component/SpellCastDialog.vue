@@ -563,18 +563,14 @@ const castParameters = computed((): Record<string, DimensionalNumberValue> => {
   return values;
 });
 
-const damageTypeCode = computed(() => spellSpec.value?.spell.damage?.damage_type_code ?? null);
-
 const targetResistance = computed(() => {
-  if (!hasTarget.value || !damageTypeCode.value) {
+  if (!hasTarget.value) {
     return 0;
   }
 
   const targetOverview = targetsSelf.value ? overview.value : targetKey.value ? overviewOf(targetKey.value) : null;
 
-  const result = spellCastOptionsService.targetResistanceFromOverview(targetOverview, ARCANE_DAMAGE_TYPE_CODE);
-
-  return result;
+  return spellCastOptionsService.targetSpellResistanceFromOverview(targetOverview, props.rules);
 });
 
 const preview = computed(() => {

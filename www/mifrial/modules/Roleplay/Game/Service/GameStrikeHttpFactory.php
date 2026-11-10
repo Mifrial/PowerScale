@@ -94,6 +94,7 @@ final class GameStrikeHttpFactory
             (new GameStrikeCardWiring())->card($serviceLocator),
             $ports->events(),
         );
+        $magicResistance = new GameSpellMagicResistance($rules->defense);
 
         return new GameSpellCast(
             $shared->ready,
@@ -114,12 +115,13 @@ final class GameStrikeHttpFactory
             new GameSpellCastCheck(
                 $ruleWiring->checkRoll(),
                 new GameCheckChain(),
-                $characters->combatLayers(),
+                $magicResistance,
             ),
             new GameSpellCastDamage(
                 $rules,
                 new CharacterKeywordExperience(),
                 new GameStrikeAmounts(),
+                $magicResistance,
                 $ruleWiring->consequences($rules),
             ),
             new GameSpellCastWrite($shared->sheetWrites),

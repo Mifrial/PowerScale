@@ -1,6 +1,7 @@
 # План M3 — эффективность проверки сотворения
 
-**Статус:** ~ПЛАН~, 2026-11-10.
+**Статус:** ~ЧАСТИЧНО~, 2026-11-10. Срезы 3.0–3.3 реализованы;
+остались полный прогон и ручная проверка (3.4).
 
 **Реализация:** ~PHP~, ~VUE~.
 
@@ -109,7 +110,8 @@ SR-102/106/108/109):
 - Та же цель + `piercing-magic` → сложность выросла на `max(0, X − 2×x)`.
 - «Разряд» с той же целью → сопротивления к сложности нет.
 - Целевое заклинание без урона (синтетическая карточка) → сопротивление к
-  сложности применяется.
+  сложности применяется; интеграционный тест отложен из-за записи пустого
+  листа (риск 11).
 - Синтетическое арканное заклинание → урон уменьшен на сопротивление
   магии; с `piercing-magic` — уменьшен меньше.
 - `electricity`-урон пробитием не меняется.
@@ -201,9 +203,11 @@ SR-102/106/108/109):
    `GameCheckRoll::rollPool` прибавляет его к `pool['size']`. Порог остаётся
    `efficiency.base`. Для контентных `+1/+2` размер равен 0; `+3` даёт
    `{3|1}`, а не `{6|0}`.
-5. **Отображение.** `GameCheckRoll::thrown` добавляет в результат
-   `efficiency: {base, size}`: база — финальная из `RollResult` (после
-   payload/механик), размер — из переданной эффективности или override.
+5. **Отображение.** `GameSpellCastCheck` вызывает
+   `GameCheckRoll::throwWithDifficulty(..., includeEfficiency: true)`:
+   результат получает `efficiency: {base, size}`, где база — финальная из
+   `RollResult` (после payload/механик), размер — из override. Флаг не
+   меняет результаты остальных проверок (инициатива и т.п.).
    `GameSpellCastCheck` добавляет `efficiencyAdjustments` из
    `GameCheckEfficiencyResolution` (только ненулевые вклады).
    `GameChecks::VIEW_KEYS` уже содержит оба ключа; `PhpChatRollService` и
@@ -238,7 +242,7 @@ SR-102/106/108/109):
 | 3.0 | `GameSpellMagicResistance`; сложность только по `prepared->target`; пробитие только магии; фронт по флагу | M2 закрыт по смыслу |
 | 3.1 | Миграция контента `permanent: true`; `GameCheckEfficiency`, DTO результата, уровень блока в `CharacterDonorGrant`; unit-тесты | сервер умеет посчитать бонус без броска |
 | 3.2 | `GameSpellCastFacts`/`GameSpellCastPrepared`/`GameSpellCastCheck`, `GameCheckThrowOverride.efficiencySize`, `GameCheckRoll::rollPool` | бросок каста идёт с эффективностью |
-| 3.3 | `efficiency` в `GameCheckRoll::thrown`, `efficiencyAdjustments` в касте; проверка фронта | детали броска показывают эффективность |
+| 3.3 | `efficiency` через `includeEfficiency` в броске каста, `efficiencyAdjustments` в касте; проверка фронта | детали броска показывают эффективность |
 | 3.4 | Тесты, документация, роудмап, карты | гейт шага |
 
 ## 5. Контент
@@ -271,7 +275,7 @@ PHP-парсер `AbilityGrants::one` — как `false` (`SpecShape::bool`). П
 | грант `check_efficiency` | `CharacterDonorGrants`/`CharacterAbilityGrantReader` | отбор по уровню способности и блоку |
 | каст | `GameSpellCastFacts::prepare` | эффективность для `path.cast_check_code` |
 | бросок | `GameSpellCastCheck` | `GameCheckThrowOverride.efficiency`/`efficiencySize`, только при `explicit` |
-| результат | `GameCheckRoll::thrown`, `GameSpellCastCheck` | `efficiency`, `efficiencyAdjustments` в `roll` |
+| результат | `GameCheckRoll::throwWithDifficulty` (`includeEfficiency`), `GameSpellCastCheck` | `efficiency`, `efficiencyAdjustments` в `roll` |
 | чат | `GameSpellCastChat` | передаёт `roll` как есть |
 | фронт | `PhpChatRollService`, `DiceRollResult` | отображение без нового расчёта |
 
@@ -377,6 +381,10 @@ Front (`vitest`):
     остаётся долгом M5: нужен контентный маркер типа урона (рекомендуется
     флаг `magic_deviation` у `DamageTypeSpec`) и удаление константы.
     Оправданием для нового hardcode это не является.
+11. **Целевое заклинание без урона.** Отдельный интеграционный тест не
+    сделан: `GameSpellCastWrite` падает на пустых операциях цели. Логика
+    `difficultyResistance` от `spell.damage` больше не зависит; проверить
+    случай на карточке с эффектом или после смягчения записи пустого листа.
 
 ## 9. Журнал
 
@@ -384,3 +392,6 @@ Front (`vitest`):
 | --- | --- |
 | 2026-11-10 | План заведён: эффективность проверки сотворения по `check_efficiency`, агрегация по источникам, `efficiency`/`efficiencyAdjustments` в результате; долг M2 по сопротивлению магии вынесен в 3.0. |
 | 2026-11-10 | Перепроверка по коду: 3.0 остаётся внутри M3; сопротивление считается через `GameStrikeDefense` (`GameStrikeLayers::collapse` уже группирует по `source`: лучший плюс и худший минус, между источниками — сумма); фронт получает отдельный метод для флаговых типов; `ARCANE_DAMAGE_TYPE_CODE` убирается из сложности, остаток во взрыве — долг M5 с контентным маркером; `permanent` правится миграцией 47; уточнены `explicit`-эффективность, размер `+3 → {3|1}`, уровень блока и гейт `composer maps-check`. |
+| 2026-11-10 | 3.0 реализован: `GameSpellMagicResistance`, сложность только по `prepared->target`, пробитие только для магического типа урона, фронт выбирает типы по `modifies_spell_difficulty`; тесты на «Удар молнии», пробитие, касание и арканный урон. |
+| 2026-11-10 | 3.1–3.3 реализованы: `GameCheckEfficiency` + DTO, уровень блока в `CharacterDonorGrant`, ревизия 47 с `permanent: true` (опубликована, dev-игра переключена), `GameSpellCastPrepared`/`GameSpellCastCheck`, `efficiencySize` в override, `includeEfficiency` в броске, `efficiency`/`efficiencyAdjustments` в результате. |
+| 2026-11-10 | Проверки: `composer stan`, `test:unit` 938, `test:module game` 570, `test:module character` 172, `vitest Game` 824. Полный `tools/test-full.sh` и ручная проверка отложены. |

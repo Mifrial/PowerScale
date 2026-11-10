@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
-use Mifrial\Roleplay\Character\Dto\CharacterCombatLayer;
-use Mifrial\Roleplay\Character\Interface\Service\ICharacterCombatLayers;
 use Mifrial\Roleplay\Game\Dto\GameCheckThrowOverride;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\DamageTypeSpec;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 
 /**
@@ -30,14 +27,14 @@ final class GameSpellCastCheck
      *
      * @param GameCheckRoll $roll Бросок.
      * @param GameCheckChain $chain Цепочка проверок.
-     * @param ICharacterCombatLayers $layers Слои сопротивления.
+     * @param GameSpellMagicResistance $magicResistance Сопротивление магии.
      *
      * @return void
      */
     public function __construct(
         private readonly GameCheckRoll $roll,
         private readonly GameCheckChain $chain,
-        private readonly ICharacterCombatLayers $layers,
+        private readonly GameSpellMagicResistance $magicResistance,
     ) {
     }
 
@@ -71,6 +68,9 @@ final class GameSpellCastCheck
         }
 
         $characteristic = $this->characteristic($prepared);
+        $efficiency = $prepared->efficiency;
+        $value = $efficiency->getEfficiency();
+        $explicit = $efficiency->isExplicit();
         $roll = $this->roll->throwWithDifficulty(
             $game->getSpaceId(),
             $game->getRulesRevision(),
@@ -79,9 +79,15 @@ final class GameSpellCastCheck
             ['base' => $base->getBase(), 'size' => $base->getSize()],
             new GameCheckThrowOverride(
                 characteristicCode: $characteristic,
+                efficiency: $explicit ? $value->getBase() : null,
                 advantages: $prepared->upgrades->getAdvantages(),
+                efficiencySize: $explicit ? $value->getSize() : null,
             ),
+            true,
         );
+        if ($efficiency->getAdjustments() !== []) {
+            $roll['efficiencyAdjustments'] = $efficiency->getAdjustments();
+        }
 
         return [
             'difficulty' => ['base' => $base->getBase(), 'size' => $base->getSize()],
@@ -98,8 +104,6 @@ final class GameSpellCastCheck
      * @param GameSpellCastPrepared $prepared Подготовка.
      *
      * @return CharacteristicNumber Сложность.
-     *
-     * @throws GameInvalidException Если тип урона битый.
      */
     private function difficulty(GameRecord $game, GameSpellCastPrepared $prepared): CharacteristicNumber
     {
@@ -138,113 +142,31 @@ final class GameSpellCastCheck
     }
 
     /**
-     * Сопротивление к сложности по флагу типа урона.
+     * Сопротивление к сложности по магическим типам урона.
      *
      * @param GameRecord $game Игра.
      * @param GameSpellCastPrepared $prepared Подготовка.
      *
      * @return int Сопротивление или 0.
      *
-     * @throws GameInvalidException Если тип урона битый.
+     * @throws GameInvalidException Если тип или слой битые.
      */
     private function difficultyResistance(GameRecord $game, GameSpellCastPrepared $prepared): int
-    {
-        $target = $prepared->target;
-        $damage = $prepared->spell->getSpell()->getDamage();
-        if ($target === null || $damage === null) {
-            return 0;
-        }
-
-        $damageType = $damage->getDamageTypeCode();
-        $rule = $prepared->slice->findLive($damageType);
-        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
-        if (!$spec instanceof DamageTypeSpec) {
-            throw new GameInvalidException('Game spell damage type is invalid');
-        }
-
-        if (!$spec->isModifiesSpellDifficulty()) {
-            return 0;
-        }
-
-        $total = $this->layerResistance($game, $prepared, $damageType);
-        $penetration = $prepared->upgrades->getResistancePenetration();
-
-        return max(0, $total - max(0, $penetration));
-    }
-
-    /**
-     * Целое сопротивление типу по нетто источников.
-     *
-     * @param GameRecord $game Игра.
-     * @param GameSpellCastPrepared $prepared Подготовка.
-     * @param string $damageType Тип урона.
-     *
-     * @return int Сопротивление.
-     */
-    private function layerResistance(GameRecord $game, GameSpellCastPrepared $prepared, string $damageType): int
     {
         $target = $prepared->target;
         if ($target === null) {
             return 0;
         }
 
-        $layers = $this->layers->project(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
+        $total = $this->magicResistance->sumResistance(
+            $game,
+            $prepared->slice,
             $target['sheet'],
             $target['choices'],
         );
+        $penetration = $prepared->upgrades->getResistancePenetration();
 
-        $bonus = [];
-        $penalty = [];
-        $open = [];
-        foreach ($layers as $layer) {
-            if ($layer->getKind() !== 'resistance' || $layer->getDamageTypeCode() !== $damageType) {
-                continue;
-            }
-
-            $this->keepLayer($bonus, $penalty, $open, $layer);
-        }
-
-        $total = 0;
-        foreach (array_merge($open, array_values($bonus), array_values($penalty)) as $layer) {
-            $total += $layer->getValue()->toInteger();
-        }
-
-        return $total;
-    }
-
-    /**
-     * Лучший бонус и худший штраф одного источника.
-     *
-     * @param array<string, CharacterCombatLayer> $bonus Бонусы.
-     * @param array<string, CharacterCombatLayer> $penalty Штрафы.
-     * @param list<CharacterCombatLayer> $open Слои без источника.
-     * @param CharacterCombatLayer $layer Слой.
-     *
-     * @return void
-     */
-    private function keepLayer(
-        array &$bonus,
-        array &$penalty,
-        array &$open,
-        CharacterCombatLayer $layer,
-    ): void {
-        $source = $layer->getSourceCode();
-        if ($source === '') {
-            $open[] = $layer;
-
-            return;
-        }
-
-        $value = $layer->getValue()->toInteger();
-        if ($value > 0 && (!isset($bonus[$source]) || $value > $bonus[$source]->getValue()->toInteger())) {
-            $bonus[$source] = $layer;
-        }
-
-        if ($value < 0 && (!isset($penalty[$source]) || $value < $penalty[$source]->getValue()->toInteger())) {
-            $penalty[$source] = $layer;
-        }
+        return max(0, $total - max(0, $penetration));
     }
 
     /**

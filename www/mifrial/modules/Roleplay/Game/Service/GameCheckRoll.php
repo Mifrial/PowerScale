@@ -262,6 +262,7 @@ final class GameCheckRoll
      * @param array<string, mixed> $sheet Лист.
      * @param array{base: int, size: int} $difficulty Трудность.
      * @param GameCheckThrowOverride|null $override Смена пула или null.
+     * @param bool $includeEfficiency Добавить эффективность в результат.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
      *
@@ -275,11 +276,12 @@ final class GameCheckRoll
         array $sheet,
         array $difficulty,
         ?GameCheckThrowOverride $override = null,
+        bool $includeEfficiency = false,
     ): array {
         $slice = $this->slices->get($spaceId, $rulesRevision);
         $check = $this->chains->checkOf($slice, $ruleCode, true);
 
-        return $this->thrown($slice, $check, $ruleCode, 'solo', $sheet, null, null, $difficulty, $override);
+        return $this->thrown($slice, $check, $ruleCode, 'solo', $sheet, null, null, $difficulty, $override, $includeEfficiency);
     }
 
     /**
@@ -734,6 +736,7 @@ final class GameCheckRoll
      * @param SizedBase|null $minimum Нижняя граница размерного roll.
      * @param array{base: int, size: int}|null $forced Принудительная трудность.
      * @param GameCheckThrowOverride|null $override Смена пула или null.
+     * @param bool $includeEfficiency Добавить эффективность в результат.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
      *
@@ -749,6 +752,7 @@ final class GameCheckRoll
         ?SizedBase $minimum = null,
         ?array $forced = null,
         ?GameCheckThrowOverride $override = null,
+        bool $includeEfficiency = false,
     ): array {
         $this->chains->assertFlow($check, $flow);
         $chain = $this->chains->chain($slice, $check, $ruleCode, $forced !== null);
@@ -759,9 +763,16 @@ final class GameCheckRoll
             $pool, $slice, $sheet, $chain['characteristic'], $check, $override,
             $this->efficiency($check), $bindings, $chain,
         );
-
-        return $this->scored($difficulty, $rolled, $minimum)
+        $result = $this->scored($difficulty, $rolled, $minimum)
             + ['label' => $slice->findLive($ruleCode)?->getName() ?? ''];
+        if ($includeEfficiency) {
+            $result['efficiency'] = [
+                'base' => $rolled->getSpec()->getEfficiency(),
+                'size' => $override !== null ? ($override->efficiencySize ?? 0) : 0,
+            ];
+        }
+
+        return $result;
     }
 
     /**
@@ -795,7 +806,7 @@ final class GameCheckRoll
                 $pool['diceCount'],
                 $pool['dieFaces'],
                 $override->efficiency ?? $efficiency->getBase(),
-                $pool['size'],
+                $pool['size'] + ($override->efficiencySize ?? 0),
                 $this->advantagesOf($override, $slice, $sheet, $characteristic, $check->isHitCheck()),
                 $override?->efficiency !== null || $this->hasExplicitEfficiency($check),
             ),

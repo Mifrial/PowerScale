@@ -3101,14 +3101,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/spell-real-plan-03-check-efficiency.md",
-                    "title": "План M3 — эффективность проверки сотворения",
-                    "kind": "plan",
-                    "state": "ПЛАН",
-                    "date": "2026-11-10",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/spell-real-roadmap.md",
                     "title": "Роудмап магии: реальный runtime",
                     "kind": "plan",
@@ -3231,6 +3223,14 @@
                 {
                     "path": "docs/tr/spell-real-plan-02-spell-upgrades.md",
                     "title": "План M2 — улучшения каста",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-11-10",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-03-check-efficiency.md",
+                    "title": "План M3 — эффективность проверки сотворения",
                     "kind": "plan",
                     "state": "ЧАСТИЧНО",
                     "date": "2026-11-10",

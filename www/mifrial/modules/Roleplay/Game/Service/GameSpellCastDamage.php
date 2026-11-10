@@ -24,6 +24,7 @@ final class GameSpellCastDamage
      * @param GameStrikeRules $rules Срез и данные.
      * @param CharacterKeywordExperience $experience Опыт признака.
      * @param GameStrikeAmounts $amounts Арифметика урона.
+     * @param GameSpellMagicResistance $magicResistance Сопротивление магии.
      * @param GameStrikeConsequences $consequences Последствия.
      *
      * @return void
@@ -32,6 +33,7 @@ final class GameSpellCastDamage
         private readonly GameStrikeRules $rules,
         private readonly CharacterKeywordExperience $experience,
         private readonly GameStrikeAmounts $amounts,
+        private readonly GameSpellMagicResistance $magicResistance,
         private readonly GameStrikeConsequences $consequences,
     ) {
     }
@@ -95,7 +97,10 @@ final class GameSpellCastDamage
             $target['choices'],
         );
         $penetration = $prepared->upgrades->getResistancePenetration();
-        if ($penetration > 0) {
+        if (
+            $penetration > 0
+            && $this->magicResistance->isMagicType($prepared->slice, $damage->getDamageTypeCode())
+        ) {
             $resistance = $this->amounts->effectiveDefense(
                 $resistance,
                 new DimensionalNumber($penetration, 0),

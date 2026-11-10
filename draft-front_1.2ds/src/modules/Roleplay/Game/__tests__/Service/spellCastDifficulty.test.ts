@@ -454,3 +454,74 @@ describe('asActionAbilitySpec', () => {
     expect(asActionAbilitySpec(spellRule('discharge', 'electricity'))).toBeNull();
   });
 });
+
+describe('targetSpellResistanceFromOverview', () => {
+  const damageType = (code: string, modifies: boolean): Rule => ({
+    mechanics: [],
+    id: null,
+    code,
+    type: 'damage_type',
+    name: code,
+    description: '',
+    spaceId: 1,
+    spec: {
+      type: 'damage_type',
+      forms: { genitive: code, dative: code },
+      defense_ignored: false,
+      modifies_spell_difficulty: modifies,
+      max_success_rating: null,
+    },
+    createdAt: 1,
+  });
+
+  const line = (code: string, value: number, source: string) => ({
+    kind: 'resistance' as const,
+    value,
+    valueLabel: String(value),
+    durability: null,
+    sourceCode: source,
+    sourceLabel: source,
+    damageTypeLabel: code,
+    damageTypeDative: code,
+    damageTypeCode: code,
+  });
+
+  const overview = (grants: ReturnType<typeof line>[], armor: ReturnType<typeof line>[] = []) =>
+    ({
+      defense: {
+        armor: armor.length
+          ? [{ itemRuleCode: 'armor', itemName: 'Броня', href: '#', lines: armor, tiers: [] }]
+          : [],
+        resistances: grants,
+        constantDefense: 0,
+        tiers: [],
+        shield: null,
+      },
+    }) as unknown as CharacterOverview;
+
+  it('берёт только типы с modifies_spell_difficulty', () => {
+    const rules = [damageType('arcane', true), damageType('electricity', false)];
+
+    expect(
+      spellCastOptionsService.targetSpellResistanceFromOverview(
+        overview([line('arcane', 2, 'innate'), line('electricity', 5, 'ring')]),
+        rules,
+      ),
+    ).toBe(2);
+  });
+
+  it('в одном источнике оставляет сильнейший плюс, источники складывает', () => {
+    const rules = [damageType('arcane', true)];
+
+    expect(
+      spellCastOptionsService.targetSpellResistanceFromOverview(
+        overview([
+          line('arcane', 1, 'mastery'),
+          line('arcane', 2, 'mastery'),
+          line('arcane', 1, 'innate'),
+        ], [line('arcane', 3, 'armor')]),
+        rules,
+      ),
+    ).toBe(6);
+  });
+});

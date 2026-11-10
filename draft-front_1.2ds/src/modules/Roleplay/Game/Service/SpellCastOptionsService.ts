@@ -11,7 +11,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
 import { spellDeviationService } from '@/modules/Roleplay/Game/Service/Instance/spellDeviationService';
 import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
+import { aggregateSourceDeltasService, damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
 
 /** Источники, пути и изученные заклинания для диалога сотворения. */
 export class SpellCastOptionsService {
@@ -161,19 +161,42 @@ export class SpellCastOptionsService {
   }
 
   targetResistanceFromOverview(target: CharacterOverview | null, damageTypeCode: string): number {
+    return this.resistanceFromOverview(target, (code) => code === damageTypeCode);
+  }
+
+  /** Сопротивление магии: все типы урона, меняющие сложность сотворения. */
+  targetSpellResistanceFromOverview(target: CharacterOverview | null, rules: Rule[]): number {
+    const magicTypes = new Set(
+      rules
+        .filter(
+          (rule) =>
+            rule.type === 'damage_type' &&
+            damageTypeSpecService.asDamageTypeSpec(rule)?.modifies_spell_difficulty === true,
+        )
+        .map((rule) => rule.code),
+    );
+    if (magicTypes.size === 0) {
+      return 0;
+    }
+
+    return this.resistanceFromOverview(target, (code) => code !== null && magicTypes.has(code));
+  }
+
+  private resistanceFromOverview(
+    target: CharacterOverview | null,
+    accepts: (damageTypeCode: string | null) => boolean,
+  ): number {
     if (!target?.defense) return 0;
     const fromArmor = target.defense.armor.flatMap((armor) =>
       armor.lines
-        .filter((line) => line.kind === 'resistance' && line.damageTypeCode === damageTypeCode)
+        .filter((line) => line.kind === 'resistance' && accepts(line.damageTypeCode))
         .map((line) => ({ source_code: line.sourceCode ?? armor.itemRuleCode, delta: line.value })),
     );
     const fromGrants = (target.defense.resistances ?? [])
-      .filter((line) => line.kind === 'resistance' && line.damageTypeCode === damageTypeCode)
+      .filter((line) => line.kind === 'resistance' && accepts(line.damageTypeCode))
       .map((line) => ({ source_code: line.sourceCode, delta: line.value }));
 
-    const result = aggregateSourceDeltasService.netSourceDelta([...fromGrants, ...fromArmor]);
-
-    return result;
+    return aggregateSourceDeltasService.netSourceDelta([...fromGrants, ...fromArmor]);
   }
 
   private grantRows(spec: object): { level: number; grants: Grant[] }[] {

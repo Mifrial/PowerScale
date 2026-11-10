@@ -21,6 +21,7 @@ final class GameCheckThrowOverride
      * @param int|null $efficiency Эффективность свободного пула или null.
      * @param string|null $source Источник дельты преимущества или null.
      * @param array<int, RollAdvantage> $advantages Явные преимущества или пусто.
+     * @param int|null $efficiencySize Размер эффективности или null.
      *
      * @return void
      */
@@ -32,6 +33,7 @@ final class GameCheckThrowOverride
         public readonly ?int $efficiency = null,
         public readonly ?string $source = null,
         public readonly array $advantages = [],
+        public readonly ?int $efficiencySize = null,
     ) {
     }
 }

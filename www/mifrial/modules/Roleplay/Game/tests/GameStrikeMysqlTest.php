@@ -354,6 +354,193 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Сопротивление магии повышает сложность целевого заклинания.
+     *
+     * @return void
+     */
+    public function testSpellDifficultyUsesMagicResistanceForTargetSpell(): void
+    {
+        $scene = $this->spellScene(10, null, [], $this->magicResistanceRules(), [
+            ['ruleCode' => 'magic-resistance', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        $body = $this->spellBody($scene);
+        $body['usedPower']['value'] = ['base' => 4, 'size' => 0];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(['base' => 5, 'size' => 0], $cast['data']['cast']['difficulty']);
+        self::assertSame(['base' => 4, 'size' => 0], $cast['data']['spellDamage']);
+        self::assertSame(['base' => 8, 'size' => 0], $cast['data']['injury']);
+    }
+
+    /**
+     * Пробитие снижает сопротивление магии к сложности.
+     *
+     * @return void
+     */
+    public function testSpellDifficultyPiercesMagicResistance(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'piercing-magic', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], $this->magicResistanceRules(), [
+            ['ruleCode' => 'magic-resistance', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        $body = $this->spellBody($scene);
+        $body['usedPower']['value'] = ['base' => 5, 'size' => 0];
+        $body['upgrades'] = [['code' => 'piercing-magic', 'value' => 1]];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(['base' => 3, 'size' => 0], $cast['data']['cast']['difficulty']);
+    }
+
+    /**
+     * Арканный урон снижается сопротивлением магии, пробитие его уменьшает.
+     *
+     * @return void
+     */
+    public function testSpellArcaneDamageUsesMagicResistanceAndPiercing(): void
+    {
+        $cards = $this->magicSpellCards();
+        $base = $this->spellScene(10, null, [
+            ['ruleCode' => 'arcane-strike', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], $this->magicResistanceRules(), [
+            ['ruleCode' => 'magic-resistance', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], ['arcane-strike' => $cards['arcane-strike']]);
+        $body = $this->spellBody($base);
+        $body['spellCode'] = 'arcane-strike';
+        $body['usedPower']['value'] = ['base' => 4, 'size' => 0];
+
+        $plain = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($plain['success'], json_encode($plain));
+        self::assertSame(['base' => 4, 'size' => 0], $plain['data']['spellDamage']);
+        self::assertSame(['base' => 4, 'size' => 0], $plain['data']['injury']);
+
+        $piercingRules = $this->magicResistanceRules();
+        $piercingRules['neutral-arcane'] = [
+            'type' => 'damage_type',
+            'spec' => [
+                'forms' => ['genitive' => 'neutral', 'dative' => 'neutral'],
+                'defense_ignored' => false,
+                'modifies_spell_difficulty' => false,
+            ],
+        ];
+        $piercing = $this->spellScene(10, null, [
+            ['ruleCode' => 'arcane-strike', 'level' => 1, 'domainCode' => 'arcanist'],
+            ['ruleCode' => 'piercing-magic', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], $piercingRules, [
+            ['ruleCode' => 'magic-resistance', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], ['arcane-strike' => $cards['arcane-strike']]);
+        $piercingBody = $this->spellBody($piercing);
+        $piercingBody['spellCode'] = 'arcane-strike';
+        $piercingBody['usedPower']['value'] = ['base' => 5, 'size' => 0];
+        $piercingBody['upgrades'] = [['code' => 'piercing-magic', 'value' => 1]];
+
+        $cast = $this->dispatch('game.castSpell', $piercingBody);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(['base' => 8, 'size' => 0], $cast['data']['injury']);
+    }
+
+    /**
+     * Касание не получает сопротивление магии к сложности.
+     *
+     * @return void
+     */
+    public function testTouchSpellHasNoMagicResistanceDifficulty(): void
+    {
+        $scene = $this->spellScene(10, null, [], $this->magicResistanceRules(), [
+            ['ruleCode' => 'magic-resistance', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        $body = $this->spellBody($scene);
+        $body['spellCode'] = 'discharge';
+        $body['usedPower']['value'] = ['base' => 4, 'size' => 0];
+        unset($body['target'], $body['expectedTargetVersion']);
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(['base' => 3, 'size' => 0], $cast['data']['cast']['difficulty']);
+    }
+
+    /**
+     * Грант check_efficiency поднимает эффективность каста.
+     *
+     * @return void
+     */
+    public function testSpellCastAppliesCheckEfficiency(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'efficiency-one', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [
+            'efficiency-one' => $this->efficiencyRule('efficiency-one', 1),
+        ]);
+        $body = $this->spellBody($scene);
+        $body['usedPower']['value'] = ['base' => 4, 'size' => 0];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(['base' => 4, 'size' => 0], $cast['data']['cast']['roll']['efficiency']);
+        self::assertSame([[
+            'source_code' => 'mastery',
+            'source_label' => 'Efficiency-one',
+            'delta' => 1,
+        ]], $cast['data']['cast']['roll']['efficiencyAdjustments']);
+
+        $replay = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($replay['success'], json_encode($replay));
+        self::assertEquals($cast['data'], $replay['data']);
+    }
+
+    /**
+     * Два гранта одного источника дают только сильнейший.
+     *
+     * @return void
+     */
+    public function testSpellCastKeepsStrongestCheckEfficiency(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'efficiency-one', 'level' => 1, 'domainCode' => 'arcanist'],
+            ['ruleCode' => 'efficiency-two', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [
+            'efficiency-one' => $this->efficiencyRule('efficiency-one', 1),
+            'efficiency-two' => $this->efficiencyRule('efficiency-two', 2),
+        ]);
+        $body = $this->spellBody($scene);
+        $body['usedPower']['value'] = ['base' => 4, 'size' => 0];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(['base' => 5, 'size' => 0], $cast['data']['cast']['roll']['efficiency']);
+        self::assertSame([[
+            'source_code' => 'mastery',
+            'source_label' => 'Efficiency-two',
+            'delta' => 2,
+        ]], $cast['data']['cast']['roll']['efficiencyAdjustments']);
+    }
+
+    /**
+     * Без грантов эффективность нейтральна.
+     *
+     * @return void
+     */
+    public function testSpellCastHasNeutralCheckEfficiency(): void
+    {
+        $scene = $this->spellScene();
+        $body = $this->spellBody($scene);
+        $body['usedPower']['value'] = ['base' => 4, 'size' => 0];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(['base' => 3, 'size' => 0], $cast['data']['cast']['roll']['efficiency']);
+        self::assertArrayNotHasKey('efficiencyAdjustments', $cast['data']['cast']['roll']);
+    }
+
+    /**
      * Улучшение чужого пути отклоняется до записи.
      *
      * @return void
@@ -764,9 +951,15 @@ final class GameStrikeMysqlTest extends TestCase
      *     targetVersion: int
      * } Сцена.
      */
-    private function spellScene(int $ap = 10, ?array $occupyHands = null, array $extraAbilities = []): array
-    {
-        $world = $this->spellWorld($occupyHands);
+    private function spellScene(
+        int $ap = 10,
+        ?array $occupyHands = null,
+        array $extraAbilities = [],
+        array $extraRules = [],
+        array $targetAbilities = [],
+        array $extraCards = [],
+    ): array {
+        $world = $this->spellWorld($occupyHands, $extraCards, $extraRules);
         $gameId = $this->addGame($world->getId(), $this->worldRevision());
         $hero = $this->admit(
             $world->getId(),
@@ -788,6 +981,9 @@ final class GameStrikeMysqlTest extends TestCase
             'name' => 'Guard',
             'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
         ]));
+        if ($targetAbilities !== []) {
+            $npc = $this->endureNpcAbilities($gameId, $npc, $targetAbilities);
+        }
         self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
         $battle = $this->dispatch('game.startBattle', [
             'gameId' => $gameId,
@@ -814,7 +1010,7 @@ final class GameStrikeMysqlTest extends TestCase
      *
      * @return RuleSpaceRecord Мир.
      */
-    private function spellWorld(?array $occupyHands = null, array $extraCards = []): RuleSpaceRecord
+    private function spellWorld(?array $occupyHands = null, array $extraCards = [], array $extraRules = []): RuleSpaceRecord
     {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
@@ -950,7 +1146,7 @@ final class GameStrikeMysqlTest extends TestCase
                 ],
             ], $extraCards),
             null,
-            [
+            array_merge([
                 'intellect' => [
                     'type' => 'characteristic',
                     'spec' => ['automatic' => ['value' => ['base' => 3, 'size' => 0]]],
@@ -990,8 +1186,132 @@ final class GameStrikeMysqlTest extends TestCase
                     ],
                 ],
             ],
+            $extraRules),
             occupyHands: $occupyHands,
         );
+    }
+
+    /**
+     * Способность с грантом эффективности проверки.
+     *
+     * @param string $code Код.
+     * @param int $amount Величина.
+     * @param string $source Источник.
+     * @param bool $permanent Постоянный.
+     * @param array<int, string> $checks Коды проверок.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function efficiencyRule(
+        string $code,
+        int $amount,
+        string $source = 'mastery',
+        bool $permanent = true,
+        array $checks = ['cast-check'],
+    ): array {
+        return [
+            'type' => 'ability',
+            'spec' => [
+                'type' => 'skill',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'grants' => [[
+                    'level' => 1,
+                    'grants' => [[
+                        'type' => 'check_efficiency',
+                        'amount' => $amount,
+                        'check_codes' => $checks,
+                        'source_code' => $source,
+                        'permanent' => $permanent,
+                    ]],
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Сопротивление магии и арканный тип урона.
+     *
+     * @param int $value Сопротивление.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function magicResistanceRules(int $value = 2): array
+    {
+        return [
+            'intellect' => [
+                'type' => 'characteristic',
+                'spec' => ['automatic' => ['value' => ['base' => 5, 'size' => 0]]],
+            ],
+            'arcane' => [
+                'type' => 'damage_type',
+                'spec' => [
+                    'forms' => ['genitive' => 'arcane', 'dative' => 'arcane'],
+                    'defense_ignored' => true,
+                    'modifies_spell_difficulty' => true,
+                ],
+            ],
+            'magic-resistance' => [
+                'type' => 'ability',
+                'spec' => [
+                    'type' => 'skill',
+                    'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                    'grants' => [[
+                        'level' => 1,
+                        'grants' => [[
+                            'type' => 'resistance',
+                            'damage_type_code' => 'arcane',
+                            'source_code' => 'innate',
+                            'value' => ['base' => $value, 'size' => 0],
+                            'permanent' => true,
+                        ]],
+                    ]],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Синтетические целевые заклинания: без урона и с арканным уроном.
+     *
+     * @return array<string, array<string, mixed>> Карточки.
+     */
+    private function magicSpellCards(): array
+    {
+        return [
+            'arcane-strike' => [
+                'type' => 'spell',
+                'effects' => [],
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'spec' => [
+                    'spell' => [
+                        'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
+                        'control' => ['base' => 3, 'size' => -1],
+                        'targeting' => 'entity',
+                        'duration' => ['type' => 'instant'],
+                        'damage' => [
+                            'damage_type_code' => 'arcane',
+                            'experience_keyword_code' => 'electromancy',
+                            'power_modify_steps' => [['modify' => 0, 'min_experience' => 0]],
+                        ],
+                    ],
+                    'parameters' => [[
+                        'code' => 'x',
+                        'label' => 'X',
+                        'kind' => 'dimensional',
+                        'resolution' => 'activation',
+                        'default' => ['base' => 3, 'size' => 0],
+                        'min' => ['base' => 3, 'size' => -1],
+                        'max' => ['base' => 5, 'size' => 1],
+                    ]],
+                    'hit_resolution' => ['type' => 'auto', 'rating' => 2],
+                    'action_components' => [[
+                        'type' => 'resource',
+                        'resource_code' => 'action-points',
+                        'amount' => 4,
+                    ]],
+                ],
+            ],
+        ];
     }
 
     /**
@@ -10686,6 +11006,45 @@ final class GameStrikeMysqlTest extends TestCase
             $choices['inventory'] = [['id' => 1, 'ruleCode' => 'sword', 'equipped' => true]];
             $version['choices'] = $choices;
         }
+        $saved = $repo->replaceVersion($npcId, $version, $record->getActualVersion());
+        $npc['data']['actualVersion'] = $saved->getActualVersion();
+
+        return $npc;
+    }
+
+    /**
+     * Выдаёт NPC способности для проверки грантов.
+     *
+     * @param int $gameId Игра.
+     * @param array<string, mixed> $npc Ответ создания NPC.
+     * @param array<int, array<string, mixed>> $abilities Способности.
+     *
+     * @return array<string, mixed> NPC.
+     */
+    private function endureNpcAbilities(int $gameId, array $npc, array $abilities): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $npcId = $npc['data']['npcId'] ?? null;
+        self::assertIsInt($npcId);
+        $repo = new GameNpcRepository($gateway);
+        $record = $repo->getById($npcId);
+        self::assertSame($gameId, $record->getGameId());
+        $version = $record->getVersion();
+        $choices = is_array($version['choices'] ?? null) ? $version['choices'] : [];
+        $choices['abilities'] = $abilities;
+        $version['choices'] = $choices;
+        $sheet = is_array($version['sheet'] ?? null) ? $version['sheet'] : [];
+        $levels = [];
+        foreach ($abilities as $ability) {
+            $code = $ability['ruleCode'] ?? null;
+            $level = $ability['level'] ?? null;
+            if (is_string($code) && is_int($level)) {
+                $levels[$code] = $level;
+            }
+        }
+        $sheet['abilityLevels'] = $levels;
+        $version['sheet'] = $sheet;
         $saved = $repo->replaceVersion($npcId, $version, $record->getActualVersion());
         $npc['data']['actualVersion'] = $saved->getActualVersion();
 

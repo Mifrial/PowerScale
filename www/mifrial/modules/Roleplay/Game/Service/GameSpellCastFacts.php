@@ -39,6 +39,8 @@ final class GameSpellCastFacts
 
     private readonly GameSpellCastUpgrades $upgrades;
 
+    private readonly GameCheckEfficiency $efficiency;
+
     /**
      * Создаёт подготовку каста.
      *
@@ -62,6 +64,7 @@ final class GameSpellCastFacts
         $this->assembler = new CharacterChoiceAssembler();
         $this->grants = new CharacterAbilityGrantReader(new CharacterDonorGrants(), new CharacterRaceAbilityCodes());
         $this->upgrades = new GameSpellCastUpgrades();
+        $this->efficiency = new GameCheckEfficiency($this->grants, new GameCheckChain());
     }
 
     /**
@@ -111,6 +114,13 @@ final class GameSpellCastFacts
         $parameters = $this->parameterMap($body, $spell);
         $spellPower = $this->value($spell->getSpell()->getPower(), $parameters);
         $upgrades = $this->resolveUpgrades($slice, $model, $caster, $spellCode, $pathCode, $body);
+        $levels = $caster['sheet']['abilityLevels'] ?? [];
+        $efficiency = $this->efficiency->resolve(
+            $slice,
+            $model,
+            is_array($levels) ? $levels : [],
+            $path->getCastCheckCode(),
+        );
         $requiredPower = (new CharacteristicNumber($spellPower->getBase(), $spellPower->getSize()))
             ->modify($upgrades->getRequiredPowerDelta());
         $requiredControl = $this->value($spell->getSpell()->getControl(), $parameters);
@@ -155,6 +165,7 @@ final class GameSpellCastFacts
             $requiredPower,
             $requiredControl,
             $availableControl,
+            $efficiency,
             $upgrades,
             $spends,
             $spent,

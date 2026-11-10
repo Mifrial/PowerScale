@@ -51,6 +51,7 @@ final class GameSpellCastPrepared
      * @param DimensionalNumber $requiredPower Требуемая мощь.
      * @param DimensionalNumber $requiredControl Требуемый контроль.
      * @param DimensionalNumber $availableControl Доступный контроль.
+     * @param GameCheckEfficiencyResolution $efficiency Эффективность проверки.
      * @param GameSpellCastUpgradeResolution $upgrades Разрешённые улучшения.
      * @param list<ResourceSpend> $spends Траты компонентов.
      * @param int $spent Списанные ОД.
@@ -78,6 +79,7 @@ final class GameSpellCastPrepared
         public readonly DimensionalNumber $requiredPower,
         public readonly DimensionalNumber $requiredControl,
         public readonly DimensionalNumber $availableControl,
+        public readonly GameCheckEfficiencyResolution $efficiency,
         public readonly GameSpellCastUpgradeResolution $upgrades,
         public readonly array $spends,
         public readonly int $spent,

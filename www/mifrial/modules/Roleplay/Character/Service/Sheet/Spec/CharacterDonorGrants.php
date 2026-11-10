@@ -67,7 +67,7 @@ final class CharacterDonorGrants
             }
 
             foreach ($block->getGrants() as $grant) {
-                $rows[] = new CharacterDonorGrant($donorCode, $grant);
+                $rows[] = new CharacterDonorGrant($donorCode, $grant, $block->getLevel());
             }
         }
 

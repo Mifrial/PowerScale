@@ -16,12 +16,14 @@ final class CharacterDonorGrant
      *
      * @param string $donorCode Код способности-донора.
      * @param AbilityGrant $grant Грант правила.
+     * @param int $blockLevel Уровень блока гранта.
      *
      * @return void
      */
     public function __construct(
         private readonly string $donorCode,
         private readonly AbilityGrant $grant,
+        private readonly int $blockLevel = 0,
     ) {
     }
 
@@ -43,5 +45,15 @@ final class CharacterDonorGrant
     public function getGrant(): AbilityGrant
     {
         return $this->grant;
+    }
+
+    /**
+     * Уровень блока гранта.
+     *
+     * @return int Уровень.
+     */
+    public function getBlockLevel(): int
+    {
+        return $this->blockLevel;
     }
 }

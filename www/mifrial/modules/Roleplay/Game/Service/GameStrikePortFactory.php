@@ -150,6 +150,7 @@ final class GameStrikePortFactory
         $consequences = $rulesWiring->consequences($rules);
         $shared = $this->shared($ports, $card, $rules);
         $characters = new GameStrikeCharacterPorts($serviceLocator);
+        $magicResistance = new GameSpellMagicResistance($rules->defense);
         $spellFacts = new GameSpellTouchFacts(
             new GameSpellCastFacts(
                 $rules,
@@ -166,12 +167,13 @@ final class GameStrikePortFactory
             new GameSpellCastCheck(
                 $rulesWiring->checkRoll(),
                 new GameCheckChain(),
-                $characters->combatLayers(),
+                $magicResistance,
             ),
             new GameSpellCastDamage(
                 $rules,
                 new CharacterKeywordExperience(),
                 new GameStrikeAmounts(),
+                $magicResistance,
                 $consequences,
             ),
             $shared->sheetWrites,
