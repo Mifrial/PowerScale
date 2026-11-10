@@ -39,9 +39,9 @@ const PALETTES: Record<SceneTerrainKind, Palette> = {
     dark: [56, 42, 28],
   },
   water: {
-    base: [46, 104, 156],
-    light: [92, 160, 206],
-    dark: [28, 70, 118],
+    base: [52, 116, 168],
+    light: [98, 164, 208],
+    dark: [34, 88, 138],
   },
   ice: {
     base: [176, 210, 224],
@@ -131,9 +131,9 @@ export class SceneTerrainPatternService {
   private paintBase(context: CanvasRenderingContext2D, palette: Palette, seed: number): void {
     const image = context.createImageData(TEXTURE_SIZE, TEXTURE_SIZE);
     const octaves: { cells: number; weight: number; seed: number; noise: Float32Array }[] = [
-      { cells: 4, weight: 0.5, seed, noise: new Float32Array(0) },
-      { cells: 9, weight: 0.3, seed: seed + 13, noise: new Float32Array(0) },
-      { cells: 23, weight: 0.2, seed: seed + 37, noise: new Float32Array(0) },
+      { cells: 7, weight: 0.3, seed, noise: new Float32Array(0) },
+      { cells: 15, weight: 0.4, seed: seed + 13, noise: new Float32Array(0) },
+      { cells: 31, weight: 0.3, seed: seed + 37, noise: new Float32Array(0) },
     ];
     for (const octave of octaves) {
       octave.noise = this.noise(TEXTURE_SIZE, octave.cells, octave.seed);
@@ -219,7 +219,7 @@ export class SceneTerrainPatternService {
         this.pebbles(context, palette, random, 0.1);
         break;
       case 'water':
-        this.ripples(context, palette, random, 30, 0.18);
+        this.ripples(context, palette, random, 20, 0.1);
         break;
       case 'ice':
         this.cracks(context, palette, random, 22, 0.35);
