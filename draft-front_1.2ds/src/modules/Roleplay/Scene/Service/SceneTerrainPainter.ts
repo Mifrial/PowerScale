@@ -185,6 +185,19 @@ export class SceneTerrainPainter {
       alignment: 1,
       join: 'round',
     });
+
+    const foam = this.materials.texture('foam');
+    if (foam !== null) {
+      this.trace(graphics, element.shape, zoom);
+      graphics.stroke({
+        fill: this.patterns.patternOf(foam, this.materials.period('foam', resolution), element.id + 53),
+        width: Math.max(1.5, resolution * 0.42),
+        alpha: 0.65,
+        alignment: 0.5,
+        join: 'round',
+      });
+    }
+
     this.trace(graphics, element.shape, zoom);
     graphics.stroke({
       color: 0xe8f7ff,
