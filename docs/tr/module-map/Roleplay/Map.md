@@ -52,5 +52,5 @@
 |---|---|---|---|
 | [map-plan-01.md](../../map-plan-01.md) | план | `~В РАБОТЕ~` | 2026-11-08 |
 | [map-plan-02.md](../../map-plan-02.md) | план | `~В РАБОТЕ~` | 2026-11-08 |
-| [spatial-roadmap.md](../../spatial-roadmap.md) | план | `~В РАБОТЕ~` | 2026-11-06 |
+| [spatial-roadmap.md](../../spatial-roadmap.md) | план | `~В РАБОТЕ~` | 2026-11-10 |
 

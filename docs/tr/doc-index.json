@@ -73,10 +73,10 @@
                 "СДЕЛАНО": 146,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 35,
-                "ПЛАН": 13,
+                "ПЛАН": 11,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
-                "В РАБОТЕ": 15
+                "В РАБОТЕ": 17
             },
             "tz": {
                 "нет": 1,
@@ -87,11 +87,11 @@
             "СНИМОК": 65,
             "нет": 57,
             "СДЕЛАНО": 148,
-            "ПЛАН": 16,
+            "ПЛАН": 14,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 35,
             "ОТМЕНЁН": 1,
-            "В РАБОТЕ": 15
+            "В РАБОТЕ": 17
         }
     },
     "modules": {
@@ -303,7 +303,8 @@
         "Roleplay/Scene": {
             "docs": 3,
             "state": {
-                "ПЛАН": 3
+                "В РАБОТЕ": 2,
+                "ПЛАН": 1
             },
             "layer": {
                 "PHP": 3,
@@ -7619,9 +7620,9 @@
             "title": "Локации сцен: authoring-срез",
             "zone": "tr",
             "kind": "plan",
-            "state": "ПЛАН",
+            "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~ПЛАН~, 2026-11-10 — библиотека локаций и WebGL-редактор; `GameScene`, occupancy, LOS и движение не входят.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — backend M1 готов; WebGL-редактор в плане.",
             "layers": [
                 "PHP",
                 "VUE",
@@ -7629,7 +7630,7 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 8715,
+            "bytes": 8658,
             "lines": 156,
             "modules": [
                 "Roleplay/Scene"
@@ -7679,9 +7680,9 @@
             "title": "Система локаций сцен",
             "zone": "tr",
             "kind": "canon",
-            "state": "ПЛАН",
+            "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~ПЛАН~, 2026-11-10 — authoring-слой локаций; `GameScene`, occupancy, LOS и движение остаются `DEFERRED` в [`battleground-system.md`](battleground-system.md).",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-10 — authoring-слой локаций; `GameScene`, occupancy, LOS и движение остаются `DEFERRED` в [`battleground-system.md`](battleground-system.md).",
             "layers": [
                 "PHP",
                 "VUE",
@@ -7689,7 +7690,7 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 15144,
+            "bytes": 15156,
             "lines": 265,
             "modules": [
                 "Roleplay/Scene"

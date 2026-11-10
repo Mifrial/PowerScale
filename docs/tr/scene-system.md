@@ -1,7 +1,7 @@
 # Система локаций сцен
 
-**Статус:** ~ПЛАН~, 2026-11-10 — authoring-слой локаций; `GameScene`, occupancy, LOS и движение остаются `DEFERRED` в [`battleground-system.md`](battleground-system.md).
-**Реализация:** ~PHP~ — план, ~VUE~ — план, ~МОК~ — план.
+**Статус:** ~В РАБОТЕ~, 2026-11-10 — authoring-слой локаций; `GameScene`, occupancy, LOS и движение остаются `DEFERRED` в [`battleground-system.md`](battleground-system.md).
+**Реализация:** ~PHP~ — M1 готов, ~VUE~ — план, ~МОК~ — план.
 **Опираться на:** ~PHP~ (`Core/File`, `Core/User`, `Core/SmartTable`), ~МОК~.
 
 Документ фиксирует авторскую библиотеку локаций: как ведущий проектирует

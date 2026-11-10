@@ -349,7 +349,8 @@
             ],
             "dependedOnBy": [
                 "Core/User",
-                "Roleplay/Map"
+                "Roleplay/Map",
+                "Roleplay/Scene"
             ],
             "plans": [
                 {
@@ -525,6 +526,7 @@
                 "Roleplay/Mechanic",
                 "Roleplay/Rule",
                 "Roleplay/RuleSpace",
+                "Roleplay/Scene",
                 "Versioning/Space"
             ],
             "plans": [
@@ -775,6 +777,7 @@
                 "Roleplay/Mechanic",
                 "Roleplay/Rule",
                 "Roleplay/RuleSpace",
+                "Roleplay/Scene",
                 "Versioning/Space"
             ],
             "plans": [
@@ -1106,7 +1109,8 @@
                 "Roleplay/Keyword",
                 "Roleplay/Map",
                 "Roleplay/Mechanic",
-                "Roleplay/RuleSpace"
+                "Roleplay/RuleSpace",
+                "Roleplay/Scene"
             ],
             "plans": [
                 {
@@ -2831,7 +2835,7 @@
                     "title": "Пространственный слой: карты, локации сцен, сцены",
                     "kind": "plan",
                     "state": "В РАБОТЕ",
-                    "date": "2026-11-06",
+                    "date": "2026-11-10",
                     "hasStatus": true
                 }
             ]
@@ -3611,6 +3615,89 @@
                     "kind": "plan",
                     "state": "ЧАСТИЧНО",
                     "date": "2026-09-08",
+                    "hasStatus": true
+                }
+            ]
+        },
+        {
+            "key": "Roleplay/Scene",
+            "group": "Roleplay",
+            "name": "Scene",
+            "path": "modules/Roleplay/Scene",
+            "namespace": "Mifrial\\Roleplay\\Scene",
+            "container": "Mifrial\\Roleplay\\Scene\\Container\\SceneContainer",
+            "locator": "Mifrial\\Roleplay\\Scene\\Interface\\Container\\ISceneContainer",
+            "setup": "Mifrial\\Roleplay\\Scene\\Setup\\SceneModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Roleplay\\Scene\\Service\\SceneCatalogHttp",
+                "Mifrial\\Roleplay\\Scene\\Service\\SceneSaveHttp",
+                "Mifrial\\Roleplay\\Scene\\Action\\FindScenePageAction",
+                "Mifrial\\Roleplay\\Scene\\Action\\GetSceneAction",
+                "Mifrial\\Roleplay\\Scene\\Action\\ArchiveSceneAction",
+                "Mifrial\\Roleplay\\Scene\\Action\\SaveSceneAction"
+            ],
+            "routes": [
+                {
+                    "action": "scene.findPage",
+                    "handler": "Mifrial\\Roleplay\\Scene\\Action\\FindScenePageAction",
+                    "csrf": true
+                },
+                {
+                    "action": "scene.get",
+                    "handler": "Mifrial\\Roleplay\\Scene\\Action\\GetSceneAction",
+                    "csrf": true
+                },
+                {
+                    "action": "scene.save",
+                    "handler": "Mifrial\\Roleplay\\Scene\\Action\\SaveSceneAction",
+                    "csrf": true
+                },
+                {
+                    "action": "scene.archive",
+                    "handler": "Mifrial\\Roleplay\\Scene\\Action\\ArchiveSceneAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "ISceneContainer",
+                    "path": "Interface/Container/ISceneContainer.php",
+                    "summary": "Публичный контейнер модуля Roleplay/Scene."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/File",
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Core/User"
+            ],
+            "dependedOnBy": [],
+            "plans": [
+                {
+                    "path": "docs/tr/scene-renderer.md",
+                    "title": "Рендерер локаций сцен",
+                    "kind": "canon",
+                    "state": "ПЛАН",
+                    "date": "2026-11-10",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/scene-plan-01.md",
+                    "title": "Локации сцен: authoring-срез",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-10",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/scene-system.md",
+                    "title": "Система локаций сцен",
+                    "kind": "canon",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-10",
                     "hasStatus": true
                 }
             ]
