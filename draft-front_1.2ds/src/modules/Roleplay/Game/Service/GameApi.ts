@@ -1227,6 +1227,12 @@ export class GameApi implements IGameApi {
     if (result.pendingSpellCast !== undefined) {
       gamePhpBattleContext.rememberPendingSpellCast(result.pendingSpellCast);
     }
+    if (result.casterSheetVersion) {
+      gamePhpBattleContext.rememberSheet(
+        `${result.casterSheetVersion.type}:${result.casterSheetVersion.id}`,
+        result.casterSheetVersion.sheetVersion,
+      );
+    }
     if (body.action.kind === 'strike' && body.action.phase === 'declare') {
       gamePhpBattleContext.rememberDebt(result.debt === true, result.version);
     }

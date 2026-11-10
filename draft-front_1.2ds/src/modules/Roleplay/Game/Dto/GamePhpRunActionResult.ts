@@ -43,4 +43,6 @@ export interface GamePhpRunActionResult {
   spellDamage?: unknown;
   spellInjury?: unknown;
   spellTargetVersion?: number;
+  /** Версия листа кастера после отклонения в касании. */
+  casterSheetVersion?: { type: 'character' | 'npc'; id: number; sheetVersion: number } | null;
 }

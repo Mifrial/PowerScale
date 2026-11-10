@@ -141,7 +141,11 @@ final class GameSpellTouchFinish
             $this->nextCast->rows($run->pending, $actorKey),
             $deviation,
         );
-        $this->setResult($run, $check, $damage, $version, null, $casterVersion);
+        $this->setResult($run, $check, $damage, $version, null, [
+            'type' => $prepared->casterKind,
+            'id' => $prepared->casterId,
+            'sheetVersion' => $casterVersion,
+        ]);
     }
 
     /**
@@ -219,7 +223,7 @@ final class GameSpellTouchFinish
      * @param array<string, mixed> $damage Урон.
      * @param int $version Версия цели.
      * @param array<string, mixed>|null $pending Отложенный каст.
-     * @param int|null $casterVersion Версия листа кастера.
+     * @param array{type: string, id: int, sheetVersion: int}|null $caster Кастер после отклонения.
      *
      * @return void
      */
@@ -229,7 +233,7 @@ final class GameSpellTouchFinish
         array $damage,
         int $version,
         ?array $pending,
-        ?int $casterVersion = null,
+        ?array $caster = null,
     ): void {
         $run->result['spellCast'] = $check;
         $run->result['spellCast']['difficulty'] = $check['difficulty'];
@@ -237,8 +241,8 @@ final class GameSpellTouchFinish
         $run->result['spellDamage'] = $damage['spellDamage'];
         $run->result['spellInjury'] = $damage['injury'];
         $run->result['spellTargetVersion'] = $version;
-        if ($casterVersion !== null) {
-            $run->result['casterSheetVersion'] = $casterVersion;
+        if ($caster !== null) {
+            $run->result['casterSheetVersion'] = $caster;
         }
 
         $run->result['pendingSpellCast'] = $pending;
