@@ -429,12 +429,16 @@ function messageOf(exception: unknown): string {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow-y: scroll;
+  overflow-y: auto;
   overflow-x: hidden;
   padding-right: 8px;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: rgba(100, 116, 139, 0.65) rgba(148, 163, 184, 0.12);
+}
+
+.scene-editor__panel > * {
+  flex: 0 0 auto;
 }
 
 .scene-editor__panel::-webkit-scrollbar {
@@ -465,7 +469,7 @@ function messageOf(exception: unknown): string {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 720px) {
   .scene-editor {
     height: auto;
     overflow: visible;
