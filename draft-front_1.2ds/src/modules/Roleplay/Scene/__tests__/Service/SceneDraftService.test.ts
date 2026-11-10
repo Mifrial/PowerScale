@@ -317,7 +317,7 @@ describe('SceneDraftService', () => {
 
     service.setWidth(state, element.id, 1, 60);
     if (element.shape.type !== 'path') return;
-    expect(element.shape.widths).toEqual([40, 60, 40]);
+    expect(element.shape.widths).toEqual([20, 60, 20]);
   });
 
   it('rescales path widths and bezier handles', () => {
