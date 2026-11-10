@@ -47,7 +47,8 @@ export class SceneShapePainter {
     }
 
     if (shape.type === 'polygon') {
-      const outline = sceneCurveService.flattenContour(shape.points, shape.handles ?? []);
+      const tolerance = sceneCurveService.toleranceFor(zoom);
+      const outline = sceneCurveService.flattenContour(shape.points, shape.handles ?? [], tolerance);
       graphics.poly(outline.flat());
       this.applyFill(graphics, fill);
       this.applyStroke(graphics, stroke);
@@ -56,7 +57,8 @@ export class SceneShapePainter {
     }
 
     if (shape.type === 'path') {
-      const outline = sceneRibbonService.outline(shape.points, shape.handles ?? [], shape.widths);
+      const tolerance = sceneCurveService.toleranceFor(zoom);
+      const outline = sceneRibbonService.outline(shape.points, shape.handles ?? [], shape.widths, tolerance);
       graphics.poly(outline.flat());
       this.applyFill(graphics, fill);
       this.applyStroke(graphics, stroke);

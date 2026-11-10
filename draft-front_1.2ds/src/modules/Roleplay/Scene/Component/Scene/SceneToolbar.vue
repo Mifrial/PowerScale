@@ -172,6 +172,17 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
 .scene-toolbar__split .v-btn {
   height: var(--v-btn-height) !important;
   min-width: 0;
+  border-radius: 0 !important;
+}
+
+.scene-toolbar__split .v-btn:first-child {
+  border-top-left-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+}
+
+.scene-toolbar__split .v-btn:last-child {
+  border-top-right-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
 }
 
 .scene-toolbar__split-toggle {
