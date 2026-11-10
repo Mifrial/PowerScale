@@ -514,7 +514,6 @@ function messageOf(exception: unknown): string {
           <v-expansion-panel v-if="activeBoard !== null" value="board">
             <v-expansion-panel-title class="text-subtitle-2">
               <span>Поле</span>
-              <span class="scene-editor__panel-name">{{ activeBoard.name }}</span>
               <v-spacer />
               <v-btn
                 icon="mdi-arrow-left"
@@ -661,12 +660,6 @@ function messageOf(exception: unknown): string {
 
 .scene-editor__panels {
   flex: 0 0 auto;
-}
-
-.scene-editor__panel-name {
-  font-size: 0.72rem;
-  font-weight: 400;
-  color: rgb(var(--v-theme-on-surface-variant));
 }
 
 .scene-editor__panel::-webkit-scrollbar {

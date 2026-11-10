@@ -689,7 +689,11 @@ function scenePointOf(event: PointerEvent | MouseEvent): ScenePoint | null {
   return sceneViewportService.screenToScene(viewport, screenPointOf(event));
 }
 
-defineExpose({ fit, zoomBy });
+defineExpose({
+  fit,
+  zoomBy,
+  debug: () => ({ gesture, vertexTarget, handleTarget, widthTarget }),
+});
 </script>
 
 <template>
