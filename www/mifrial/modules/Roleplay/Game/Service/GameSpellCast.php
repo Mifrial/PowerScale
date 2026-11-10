@@ -677,10 +677,7 @@ final class GameSpellCast
 
         $current = $battle->getStateVersion();
         if (!$this->access->isWriter($game, $actorUserId, $editAll)) {
-            if ((int) ($pendingCast['userId'] ?? 0) !== $actorUserId) {
-                throw new GameInvalidException('Game spell pending cast is not yours');
-            }
-
+            $this->access->assertAttacker($game, $actorUserId, $editAll, $pendingCast['actor']);
             if ($current === $expected && !$this->hasStaleSheet($game, $pendingCast)) {
                 throw new GameInvalidException('Game spell cast is not stale');
             }
