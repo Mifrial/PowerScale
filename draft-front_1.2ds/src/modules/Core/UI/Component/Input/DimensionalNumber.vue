@@ -2,9 +2,14 @@
 import { computed } from 'vue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
-const props = defineProps<{
-  value: DimensionalNumberValue;
-}>();
+const props = withDefaults(
+  defineProps<{
+    value: DimensionalNumberValue;
+    /** Не показывать размер, когда он равен нулю: 40 вместо 40|0. */
+    hideZeroSize?: boolean;
+  }>(),
+  { hideZeroSize: false },
+);
 
 const displaySize = computed(() => {
   return Math.abs(props.value.size);
@@ -14,10 +19,12 @@ const displaySize = computed(() => {
 <template>
   <v-chip size="small" variant="outlined" class="dimensional-number">
     <span class="base">{{ value.base }}</span>
-    <v-icon v-if="value.size > 0" size="18" class="separator">mdi-arrow-up</v-icon>
-    <v-icon v-else-if="value.size < 0" size="18" class="separator">mdi-arrow-down</v-icon>
-    <span v-else class="separator-text">|</span>
-    <span class="size">{{ displaySize }}</span>
+    <template v-if="value.size !== 0 || !props.hideZeroSize">
+      <v-icon v-if="value.size > 0" size="18" class="separator">mdi-arrow-up</v-icon>
+      <v-icon v-else-if="value.size < 0" size="18" class="separator">mdi-arrow-down</v-icon>
+      <span v-else class="separator-text">|</span>
+      <span class="size">{{ displaySize }}</span>
+    </template>
   </v-chip>
 </template>
 

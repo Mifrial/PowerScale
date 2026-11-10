@@ -72,7 +72,7 @@ function updateSize(value: number | null): void {
     <v-menu location="bottom start" :close-on-content-click="false" :disabled="props.disabled">
       <template #activator="{ props: menuProps }">
         <button v-bind="menuProps" type="button" class="dimensional-number-field__value" :disabled="props.disabled">
-          <DimensionalNumber v-if="hasValue" :value="current" />
+          <DimensionalNumber v-if="hasValue" :value="current" hide-zero-size />
           <v-chip v-else size="small" variant="outlined">—</v-chip>
           <v-icon icon="mdi-menu-down" size="18" class="dimensional-number-field__caret" />
         </button>
@@ -82,7 +82,7 @@ function updateSize(value: number | null): void {
         <v-card-text class="dimensional-number-field__popup">
           <div class="text-caption text-medium-emphasis">Значение = база × 2<sup>размер</sup></div>
           <div class="dimensional-number-field__preview">
-            <DimensionalNumber v-if="hasValue" :value="current" />
+            <DimensionalNumber v-if="hasValue" :value="current" hide-zero-size />
             <v-chip v-else size="small" variant="outlined">—</v-chip>
           </div>
           <div class="d-flex align-center ga-2">
