@@ -27,7 +27,7 @@ interface WaterGeometry {
 
 /** Слой воды: материал, масштаб тайла, поворот выборки и дрейф. */
 interface WaterLayer {
-  material: 'ripples' | 'glints';
+  material: 'ripples' | 'glints' | 'caustics';
   periodIpari: number;
   angle: number;
   alpha: number;
@@ -92,6 +92,27 @@ const PLANE_LAYERS: WaterLayer[] = [
     fadeTile: 150,
   },
 ];
+
+/**
+ * Один тонкий слой каустики на поверхности.
+ *
+ * В толще каустика уже есть, но она почти не читается под рябью. Этот слой
+ * возвращает игру света на воде и при этом не превращает поверхность в
+ * плитку: масштаб крупнее, альфа низкая, в отдалении слой гаснет.
+ */
+const SURFACE_CAUSTICS: WaterLayer = {
+  material: 'caustics',
+  periodIpari: 2.9,
+  angle: 0.32,
+  alpha: 0.09,
+  speedIpari: 0.05,
+  skew: 0.25,
+  additive: true,
+  fadeTile: 120,
+};
+
+/** Насколько тише каустика на поверхности у замкнутого водоёма. */
+const POND_SURFACE_CAUSTICS = 0.8;
 
 /** Крупная вариация тона воды: множитель, сбивающий сетку повторов. */
 const MACRO_IPARI = 44;
@@ -251,6 +272,28 @@ export class SceneWaterService {
 
       layer.addChild(node.mesh);
       nodes.push({ update: node.update });
+    }
+
+    const surface = this.materials.texture(SURFACE_CAUSTICS.material);
+    if (surface !== null) {
+      const period = base * SURFACE_CAUSTICS.periodIpari;
+      const alpha =
+        SURFACE_CAUSTICS.alpha * this.lod(SURFACE_CAUSTICS, period, zoom) * (pond ? POND_SURFACE_CAUSTICS : 1);
+      if (alpha >= 0.01) {
+        const node = this.buildLayer(
+          surface,
+          geometry,
+          period,
+          SURFACE_CAUSTICS.angle,
+          alpha,
+          this.motionOf(element, geometry, period, SURFACE_CAUSTICS.skew, SURFACE_CAUSTICS.speedIpari * base),
+        );
+        if (node !== null) {
+          node.mesh.blendMode = 'add';
+          layer.addChild(node.mesh);
+          nodes.push({ update: node.update });
+        }
+      }
     }
 
     const macro = this.materials.texture('waterMacro');
