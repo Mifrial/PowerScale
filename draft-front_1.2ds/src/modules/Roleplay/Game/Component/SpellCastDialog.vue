@@ -67,9 +67,11 @@ import SpellCastUpgradeList from '@/modules/Roleplay/Game/Component/SpellCastUpg
 import SpellSaturationPanel from '@/modules/Roleplay/Game/Component/SpellSaturationPanel.vue';
 import SpellChainHopDialog from '@/modules/Roleplay/Game/Component/SpellChainHopDialog.vue';
 import SpellArcaneBurstDialog from '@/modules/Roleplay/Game/Component/SpellArcaneBurstDialog.vue';
+import SpellBurstTargetPicker from '@/modules/Roleplay/Game/Component/SpellBurstTargetPicker.vue';
 import { spellCastUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/spellCastUpgradeService';
 import { spellChainHopService } from '@/modules/Roleplay/Game/Service/Instance/spellChainHopService';
 import { spellDeviationService } from '@/modules/Roleplay/Game/Service/Instance/spellDeviationService';
+import { toBurstTargetRequest } from '@/modules/Roleplay/Game/Utils/spellBurstTargets';
 import { electrochargeService } from '@/modules/Roleplay/Game/Service/Instance/electrochargeService';
 import { activeSpellService } from '@/modules/Roleplay/Game/Service/Instance/activeSpellService';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
@@ -161,8 +163,8 @@ const phpPendingCast = ref<{
   saturation: NonNullable<GamePhpSpellCastResult['saturation']> | null;
   deviation: GamePhpSpellDeviation | null;
 } | null>(null);
+/** Цели взрыва: кастер и отмеченные в диалоге. */
 const phpBurstTargets = ref<SpellBurstTarget[]>([]);
-const burstCloseConfirm = ref(false);
 const phpSaturationSteps = ref(0);
 const phpSaturationSourceName = computed(() => {
   const code = phpPendingCast.value?.saturation?.sourceCode;
@@ -249,6 +251,9 @@ const casterModel = computed(() => {
 });
 
 const casterVersion = computed(() => casterModel.value?.effectiveVersion ?? null);
+
+/** Радиус взрыва из ответа проверки. */
+const phpBurstRadius = computed(() => phpPendingCast.value?.deviation?.burst?.radius ?? 0);
 
 const chargeSustain = computed(() => {
   const context = props.launchContext;
@@ -797,11 +802,6 @@ function close(): void {
 
 function onDialogOpen(value: boolean): void {
   if (!value && phpPendingCast.value) {
-    if (phpPendingCast.value.deviation?.burst && phpBurstTargets.value.length === 0) {
-      burstCloseConfirm.value = true;
-
-      return;
-    }
     void resolvePhpCast(0);
 
     return;
@@ -821,16 +821,6 @@ function onBurstOpen(value: boolean): void {
     const casterKey = resolvedCasterKey.value;
     resolveBurst(casterKey ? [{ key: casterKey, distanceIpari: 0 }] : []);
   }
-}
-
-function pickBurstTargets(): void {
-  burstCloseConfirm.value = false;
-  burstOpen.value = true;
-}
-
-function resolveBurstWithCasterOnly(): void {
-  burstCloseConfirm.value = false;
-  void resolvePhpCast(0);
 }
 
 function onSaturationStepsChange(value: number | null): void {
@@ -1130,7 +1120,6 @@ async function runPhpCast(): Promise<void> {
   if (result.phase === 'check' && result.castId && (result.saturation || result.deviation?.burst)) {
     phpSaturationSteps.value = 0;
     phpBurstTargets.value = [];
-    burstOpen.value = Boolean(result.deviation?.burst);
     phpPendingCast.value = {
       castId: result.castId,
       cast: result.cast,
@@ -1280,15 +1269,7 @@ async function resolvePhpCast(steps: number): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
-    const burstTargets = phpBurstTargets.value.map((target) => {
-      const [type, raw] = target.key.split(':');
-
-      return {
-        type: type === 'npc' ? ('npc' as const) : ('character' as const),
-        id: Number(raw),
-        distanceIpari: target.distanceIpari,
-      };
-    });
+    const burstTargets = toBurstTargetRequest(phpBurstTargets.value);
     const result = await getGameApi().resolveSpellCast({
       gameId: props.gameId,
       battleId,
@@ -1860,14 +1841,11 @@ function waitBurstTargets(): Promise<SpellBurstTarget[]> {
 
 function resolveBurst(targets: SpellBurstTarget[]): void {
   burstOpen.value = false;
-  if (burstWait) {
-    burstWait(targets);
-    burstWait = null;
-
+  if (!burstWait) {
     return;
   }
-
-  phpBurstTargets.value = targets;
+  burstWait(targets);
+  burstWait = null;
 }
 
 async function runDeviationAftermath(outcome: SpellCastExecutionResult, chatId: number | null): Promise<void> {
@@ -2050,7 +2028,12 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
 </script>
 
 <template>
-  <v-dialog :model-value="open" max-width="520" @update:model-value="onDialogOpen">
+  <v-dialog
+    :model-value="open"
+    :persistent="Boolean(phpPendingCast)"
+    max-width="520"
+    @update:model-value="onDialogOpen"
+  >
     <v-card>
       <v-card-title v-if="phpPendingCast" class="text-body-1">{{ phpSaturationSourceName }}</v-card-title>
       <v-card-title v-else-if="pendingSaturation" class="text-body-1">Динамическое энергонасыщение</v-card-title>
@@ -2101,11 +2084,21 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
                 }}.
               </div>
               <div v-if="phpPendingCast.deviation.burst" class="mt-1">
-                Взрыв: {{ phpPendingCast.deviation.burst.radius ?? 0 }} ипари, РУ
-                {{ phpPendingCast.deviation.burst.successRating }}. Целей выбрано: {{ phpBurstTargets.length }}.
-                <v-btn size="small" variant="text" class="ms-2" @click="pickBurstTargets">Выбрать цели</v-btn>
+                Взрыв: радиус {{ phpPendingCast.deviation.burst.radius ?? 0 }} ипари, РУ
+                {{ phpPendingCast.deviation.burst.successRating }}.
               </div>
             </v-alert>
+            <SpellBurstTargetPicker
+              v-if="phpPendingCast.deviation?.burst"
+              v-model="phpBurstTargets"
+              :characters="characters"
+              :npcs="npcs"
+              :initiative-keys="initiativeKeys"
+              :caster-key="resolvedCasterKey"
+              :caster-name="casterModel?.name ?? ''"
+              :radius="phpBurstRadius"
+              class="mb-3"
+            />
             <SpellSaturationPanel
               v-if="(phpPendingCast.saturation?.maxSteps ?? 0) > 0"
               v-model="phpSaturationSteps"
@@ -2376,23 +2369,9 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
     :initiative-keys="initiativeKeys"
     :caster-key="resolvedCasterKey"
     :caster-name="casterModel?.name ?? ''"
-    :selected="phpBurstTargets"
     @update:open="onBurstOpen"
     @confirm="resolveBurst"
   />
-  <v-dialog v-model="burstCloseConfirm" max-width="420">
-    <v-card>
-      <v-card-title class="text-body-1">Взрыв без дополнительных целей?</v-card-title>
-      <v-card-text class="text-body-2">
-        Кроме кастера никто не выбран. Если закрыть сейчас, взрыв заденет только кастера.
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="pickBurstTargets">Выбрать цели</v-btn>
-        <v-btn color="primary" :loading="busy" @click="resolveBurstWithCasterOnly">Только кастер</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
 </template>
 
 <style scoped>

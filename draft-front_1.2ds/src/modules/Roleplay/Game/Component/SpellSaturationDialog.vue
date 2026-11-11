@@ -1,17 +1,26 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import SpellSaturationPanel from '@/modules/Roleplay/Game/Component/SpellSaturationPanel.vue';
+import SpellBurstTargetPicker from '@/modules/Roleplay/Game/Component/SpellBurstTargetPicker.vue';
+import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
+import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GamePhpPendingSpellCast } from '@/modules/Roleplay/Game/Dto/GamePhpPendingSpellCast';
+import type { SpellBurstTarget } from '@/modules/Roleplay/Game/Dto/Spell/SpellBurstTarget';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { findRuleByRef } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { toBurstTargetRequest } from '@/modules/Roleplay/Game/Utils/spellBurstTargets';
 
 const props = defineProps<{
   open: boolean;
   pending: GamePhpPendingSpellCast | null;
   gameId: number;
   rules: Rule[];
+  characters: GameCharacterMembership[];
+  npcs: GameNpc[];
+  initiativeKeys?: string[];
   canResolve: boolean;
   canAbort: boolean;
 }>();
@@ -23,6 +32,7 @@ const emit = defineEmits<{
 }>();
 
 const steps = ref(0);
+const burstTargets = ref<SpellBurstTarget[]>([]);
 const busy = ref(false);
 const error = ref<string | null>(null);
 const stale = ref(false);
@@ -40,11 +50,33 @@ const sourceName = computed(() => {
   return findRuleByRef(props.rules, code)?.name ?? code;
 });
 const title = computed(() => (saturation.value ? sourceName.value : 'Магическое отклонение'));
+const burstRadius = computed(() => props.pending?.deviation?.burst?.radius ?? 0);
+const casterKey = computed<CombatEntityKey | null>(() => {
+  const actor = props.pending?.actor;
+  if (!actor) {
+    return null;
+  }
+
+  return `${actor.type}:${actor.id}` as CombatEntityKey;
+});
+const casterName = computed(() => {
+  const actor = props.pending?.actor;
+  if (!actor) {
+    return '';
+  }
+
+  if (actor.type === 'npc') {
+    return props.npcs.find((npc) => npc.id === actor.id)?.name ?? `НПС ${actor.id}`;
+  }
+
+  return props.characters.find((entry) => entry.characterId === actor.id)?.characterName ?? `Персонаж ${actor.id}`;
+});
 
 watch(
   () => [props.open, props.pending?.castId],
   () => {
     steps.value = 0;
+    burstTargets.value = [];
     error.value = null;
     stale.value = false;
   },
@@ -55,6 +87,7 @@ async function apply(stepsToSend: number | null = null): Promise<void> {
   const battleId = gamePhpBattleContext.battleId;
   if (!pending || !props.canResolve || busy.value || battleId === null) return;
   const chosen = Math.min(stepsToSend ?? steps.value, saturation.value?.maxSteps ?? 0);
+  const burstTargetsToSend = toBurstTargetRequest(burstTargets.value);
   busy.value = true;
   error.value = null;
   try {
@@ -65,6 +98,7 @@ async function apply(stepsToSend: number | null = null): Promise<void> {
       expectedVersion: gamePhpBattleContext.battleVersion,
       castId: pending.castId,
       saturationSteps: Math.max(0, Math.trunc(chosen)),
+      ...(pending.deviation?.burst && burstTargetsToSend.length ? { burstTargets: burstTargetsToSend } : {}),
     });
     emit('resolved');
     emit('update:open', false);
@@ -103,7 +137,12 @@ async function abort(): Promise<void> {
 </script>
 
 <template>
-  <v-dialog :model-value="open" max-width="520" @update:model-value="emit('update:open', $event)">
+  <v-dialog
+    :model-value="open"
+    :persistent="Boolean(pending) && canResolve"
+    max-width="520"
+    @update:model-value="emit('update:open', $event)"
+  >
     <v-card>
       <v-card-title class="text-body-1">{{ title }}</v-card-title>
       <v-card-text>
@@ -120,10 +159,21 @@ async function abort(): Promise<void> {
             {{ pending.deviation.hasEffect ? `сила ${pending.deviation.strength}` : 'отклонения нет' }}.
           </div>
           <div v-if="pending.deviation.burst" class="mt-1">
-            Взрыв: {{ pending.deviation.burst.radius ?? 0 }} ипари вокруг кастера. Список целей задаётся сразу после
-            броска; при восстановлении окна взрыв бьёт только по кастеру.
+            Взрыв: радиус {{ pending.deviation.burst.radius ?? 0 }} ипари, РУ
+            {{ pending.deviation.burst.successRating }}.
           </div>
         </v-alert>
+        <SpellBurstTargetPicker
+          v-if="pending?.deviation?.burst"
+          v-model="burstTargets"
+          :characters="characters"
+          :npcs="npcs"
+          :initiative-keys="initiativeKeys"
+          :caster-key="casterKey"
+          :caster-name="casterName"
+          :radius="burstRadius"
+          class="mb-3"
+        />
         <SpellSaturationPanel
           v-if="saturation"
           v-model="steps"

@@ -2342,7 +2342,13 @@ onUnmounted(() => {
     <v-alert v-if="statusNotice" type="info" variant="tonal" density="compact" class="mb-3">
       {{ statusNotice }}
     </v-alert>
-    <v-alert v-if="pendingSpellCast && (!spellOpen || pendingSpellCast.touch)" type="info" variant="tonal" density="compact" class="mb-3">
+    <v-alert
+      v-if="pendingSpellCast && (!spellOpen || pendingSpellCast.touch)"
+      type="info"
+      variant="tonal"
+      density="compact"
+      class="mb-3"
+    >
       <div class="d-flex flex-wrap align-center ga-2">
         <span class="text-body-2">Незавершённое сотворение: {{ pendingSpellCastName }}</span>
         <v-spacer />
@@ -2666,6 +2672,9 @@ onUnmounted(() => {
       :pending="pendingSpellCast"
       :game-id="gameId"
       :rules="revisionRules"
+      :characters="eligibleMemberships"
+      :npcs="npcs"
+      :initiative-keys="initiativeKeys"
       :can-resolve="canResolvePendingSpell"
       :can-abort="canEdit"
       @update:open="saturationDialogOpen = $event"
