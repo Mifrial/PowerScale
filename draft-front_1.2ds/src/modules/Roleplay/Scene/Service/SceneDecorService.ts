@@ -105,8 +105,10 @@ export class SceneDecorService {
     if (context !== null) {
       const image = context.createImageData(4, 64);
       for (let row = 0; row < 64; row += 1) {
-        // Сверху прозрачно, снизу плотно: погружение нарастает книзу.
-        const alpha = Math.round(255 * Math.min(1, (row / 63) ** 0.7));
+        // Сверху прозрачно, снизу плотно: погружение нарастает книзу и
+        // доходит до полной силы уже на середине полосы — иначе низ объекта
+        // выглядит просто чуть темнее, а не мокрым.
+        const alpha = Math.round(255 * Math.min(1, (row / 63) * 1.8));
         for (let column = 0; column < 4; column += 1) {
           const index = (row * 4 + column) * 4;
           image.data[index] = 255;
