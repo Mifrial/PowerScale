@@ -783,7 +783,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       depth = Math.max(depth, this.water.depthAt(waterElement, resolution, [anchor.x, anchor.y]));
     }
 
-    const submerged = Math.min(painted.height * 0.55, depth * 1.2);
+    const submerged = Math.min(painted.height * 0.45, depth * 0.9);
     if (submerged < Math.max(1, painted.height * 0.04)) {
       return;
     }
