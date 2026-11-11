@@ -7,8 +7,8 @@ import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sce
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
-/** Предельная глубина градиента в ипари. */
-const DEPTH_IPARI = 3.5;
+/** Ширина мелководной полосы у берега в ипари. */
+const SHALLOW_BAND_IPARI = 0.9;
 
 /** Разрешение запекания по длинной стороне. */
 const MAX_CELLS = 160;
@@ -100,17 +100,9 @@ export class SceneWaterDepthService {
     const mask = this.rasterize(element.shape, bounds, cols, rows);
     const distance = this.distanceTransform(mask, cols, rows);
     const noise = this.noiseOf(element.id);
-    // Глубину нормируем по самому водоёму: узкая река становится глубокой
-    // к середине, а не остаётся бледной из-за общего предела.
-    let deepest = 0;
-    for (let index = 0; index < distance.length; index += 1) {
-      if (mask[index] > 0.5) {
-        deepest = Math.max(deepest, distance[index]);
-      }
-    }
-
-    const natural = deepest * cell;
-    const limit = Math.min(Math.max(1, resolution * DEPTH_IPARI), Math.max(Math.max(1, resolution * 0.6), natural));
+    // Цвет уходит в глубину уже в пределах мелководной полосы: иначе узкая
+    // река остаётся бледной, а глубина читается только в одной точке.
+    const limit = Math.max(1, resolution * SHALLOW_BAND_IPARI);
     const amplitude = Math.max(1, resolution * NOISE_IPARI);
     const depth = new Float32Array(cols * rows);
     const canvas = document.createElement('canvas');
