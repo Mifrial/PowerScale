@@ -56,11 +56,25 @@ interface FoamLayer {
 /** Движение слоя: снос вдоль русла или вихрь вокруг центра. */
 type WaterMotion = { kind: 'flow'; drift: ScenePoint } | { kind: 'swirl'; center: ScenePoint; rate: number };
 
-/** Каустика по дну: подсвечивает, а не закрашивает. */
-const CAUSTICS_ALPHA = 0.2;
-
-/** Скорость каустики, ипари в секунду. */
-const CAUSTICS_SPEED_IPARI = 0.08;
+/**
+ * Каустика по дну: два несоизмеримых масштаба.
+ *
+ * Один тайл 1.7 ипари на широкой реке повторяется квадратной сеткой. Второй
+ * слой другого масштаба и под другим углом разбивает эту сетку, поэтому узор
+ * читается как игра света, а не как плитка.
+ */
+const BODY_CAUSTICS: WaterLayer[] = [
+  { material: 'caustics', periodIpari: 1.7, angle: 0.12, alpha: 0.16, speedIpari: 0.08, skew: 0, additive: true },
+  {
+    material: 'caustics',
+    periodIpari: 2.93,
+    angle: -0.58,
+    alpha: 0.08,
+    speedIpari: 0.045,
+    skew: 0.85,
+    additive: true,
+  },
+];
 
 /** Скорость течения по умолчанию, ипари в секунду. */
 const FLOW_SPEED_IPARI = 0.25;
@@ -104,7 +118,7 @@ const SURFACE_CAUSTICS: WaterLayer[] = [
     material: 'caustics',
     periodIpari: 2.9,
     angle: 0.32,
-    alpha: 0.16,
+    alpha: 0.1,
     speedIpari: 0.05,
     skew: 0.25,
     additive: true,
@@ -131,7 +145,7 @@ const SWIRL_RATE = 0.025;
 const POND_ALPHA = 0.72;
 
 /** Во сколько раз глуше каустика у замкнутого водоёма. */
-const POND_CAUSTICS = 0.55;
+const POND_CAUSTICS = 0.6;
 
 /**
  * Слои пены: рваная полоса по урезу и широкая полупрозрачная дымка под ней.
@@ -214,26 +228,40 @@ export class SceneWaterService {
       return null;
     }
 
-    // На луже каустика глуше: вода стоячая и мутнее, а сетка узора на
-    // маленьком пятне читается как лёд.
-    const period = Math.max(1, resolution) * 1.7;
-    const alpha = CAUSTICS_ALPHA * (geometry.along === undefined ? POND_CAUSTICS : 1);
-    const node = this.buildLayer(
-      caustics,
-      geometry,
-      period,
-      0,
-      alpha,
-      this.motionOf(element, geometry, period, 0, CAUSTICS_SPEED_IPARI * Math.max(1, resolution)),
-    );
-    if (node === null) {
+    const base = Math.max(1, resolution);
+    const pond = geometry.along === undefined;
+    const nodes: SceneWaterNode[] = [];
+    for (const spec of BODY_CAUSTICS) {
+      const period = base * spec.periodIpari;
+      const alpha = spec.alpha * (pond ? POND_CAUSTICS : 1);
+      const node = this.buildLayer(
+        caustics,
+        geometry,
+        period,
+        spec.angle,
+        alpha,
+        this.motionOf(element, geometry, period, spec.skew, spec.speedIpari * base),
+      );
+      if (node === null) {
+        continue;
+      }
+
+      node.mesh.blendMode = 'add';
+      layer.addChild(node.mesh);
+      nodes.push({ update: node.update });
+    }
+
+    if (nodes.length === 0) {
       return null;
     }
 
-    node.mesh.blendMode = 'add';
-    layer.addChild(node.mesh);
-
-    return { update: node.update };
+    return {
+      update: (seconds: number): void => {
+        for (const node of nodes) {
+          node.update(seconds);
+        }
+      },
+    };
   }
 
   /** Плоскость: рябь, блики, макро-вариация и пена; под декором и актёрами. */
