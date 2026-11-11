@@ -72,12 +72,12 @@ const FLOW_SPEED_IPARI = 0.22;
  * каждый тайл, а так сумма слоёв повторяется через десятки ипари.
  */
 const PLANE_LAYERS: WaterLayer[] = [
-  { material: 'ripples', periodIpari: 8.93, angle: 0, alpha: 0.28, speedIpari: FLOW_SPEED_IPARI * 0.7, skew: 0 },
+  { material: 'ripples', periodIpari: 8.93, angle: 0, alpha: 0.4, speedIpari: FLOW_SPEED_IPARI * 0.7, skew: 0 },
   {
     material: 'ripples',
     periodIpari: 5.31,
     angle: Math.PI / 3.4,
-    alpha: 0.16,
+    alpha: 0.24,
     speedIpari: FLOW_SPEED_IPARI * 0.38,
     skew: Math.PI * 0.65,
   },
@@ -85,7 +85,7 @@ const PLANE_LAYERS: WaterLayer[] = [
     material: 'glints',
     periodIpari: 4.13,
     angle: Math.PI / 7,
-    alpha: 0.24,
+    alpha: 0.32,
     speedIpari: FLOW_SPEED_IPARI * 1.6,
     skew: -0.3,
     additive: true,
@@ -105,7 +105,7 @@ const SURFACE_CAUSTICS: WaterLayer[] = [
     material: 'caustics',
     periodIpari: 2.37,
     angle: 0.36,
-    alpha: 0.09,
+    alpha: 0.1,
     speedIpari: 0.055,
     skew: 0.25,
     additive: true,
@@ -115,7 +115,7 @@ const SURFACE_CAUSTICS: WaterLayer[] = [
     material: 'caustics',
     periodIpari: 4.11,
     angle: -0.72,
-    alpha: 0.055,
+    alpha: 0.06,
     speedIpari: 0.032,
     skew: -0.5,
     additive: true,
