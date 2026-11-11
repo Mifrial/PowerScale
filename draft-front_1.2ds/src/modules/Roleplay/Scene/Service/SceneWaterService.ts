@@ -63,7 +63,7 @@ const CAUSTICS_ALPHA = 0.2;
 const CAUSTICS_SPEED_IPARI = 0.08;
 
 /** Скорость течения по умолчанию, ипари в секунду. */
-const FLOW_SPEED_IPARI = 0.22;
+const FLOW_SPEED_IPARI = 0.25;
 
 /**
  * Слои плоскости воды: два масштаба ряби и блики.
@@ -72,21 +72,21 @@ const FLOW_SPEED_IPARI = 0.22;
  * каждый тайл, а так сумма слоёв повторяется через десятки ипари.
  */
 const PLANE_LAYERS: WaterLayer[] = [
-  { material: 'ripples', periodIpari: 8.93, angle: 0, alpha: 0.4, speedIpari: FLOW_SPEED_IPARI * 0.7, skew: 0 },
+  { material: 'ripples', periodIpari: 8.93, angle: 0, alpha: 0.4, speedIpari: FLOW_SPEED_IPARI * 0.8, skew: 0 },
   {
     material: 'ripples',
     periodIpari: 5.31,
     angle: Math.PI / 3.4,
     alpha: 0.24,
-    speedIpari: FLOW_SPEED_IPARI * 0.38,
-    skew: Math.PI * 0.65,
+    speedIpari: FLOW_SPEED_IPARI * 1.3,
+    skew: 0.45,
   },
   {
     material: 'glints',
     periodIpari: 4.13,
     angle: Math.PI / 7,
     alpha: 0.32,
-    speedIpari: FLOW_SPEED_IPARI * 1.6,
+    speedIpari: FLOW_SPEED_IPARI * 2.6,
     skew: -0.3,
     additive: true,
     fadeTile: 150,
@@ -94,32 +94,21 @@ const PLANE_LAYERS: WaterLayer[] = [
 ];
 
 /**
- * Каустика на поверхности: два несоизмеримых масштаба.
+ * Каустика на поверхности: один слой поверх плотной ряби.
  *
- * В толще каустика уже есть, но под рябью почти не читается. Эти слои
- * возвращают игру света на воде и не складываются в ровную плитку: масштабы
- * разные, дрейф разный, в отдалении оба гаснут.
+ * В толще каустика уже есть, но под рябью почти не читается. Слой добавляет
+ * игру света и не трогает плотность воды: он аддитивный.
  */
 const SURFACE_CAUSTICS: WaterLayer[] = [
   {
     material: 'caustics',
-    periodIpari: 2.37,
-    angle: 0.36,
-    alpha: 0.1,
-    speedIpari: 0.055,
+    periodIpari: 2.9,
+    angle: 0.32,
+    alpha: 0.16,
+    speedIpari: 0.05,
     skew: 0.25,
     additive: true,
-    fadeTile: 110,
-  },
-  {
-    material: 'caustics',
-    periodIpari: 4.11,
-    angle: -0.72,
-    alpha: 0.06,
-    speedIpari: 0.032,
-    skew: -0.5,
-    additive: true,
-    fadeTile: 170,
+    fadeTile: 120,
   },
 ];
 
