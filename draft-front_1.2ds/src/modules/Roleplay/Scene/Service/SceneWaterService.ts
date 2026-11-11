@@ -59,15 +59,6 @@ type WaterMotion = { kind: 'flow'; drift: ScenePoint } | { kind: 'swirl'; center
 /** Каустика по дну: подсвечивает, а не закрашивает. */
 const CAUSTICS_ALPHA = 0.2;
 
-/**
- * Тайл каустики в ипари.
- *
- * Текстура 2048² держит ту же ячейку, что прежняя 512² (около 0.2 ипари), но
- * вчетверо больше ячеек на тайл: рисунок того же масштаба повторяется вчетверо
- * реже, поэтому на широкой реке не складывается в сетку тайлов.
- */
-const CAUSTICS_PERIOD_IPARI = 6.8;
-
 /** Скорость каустики, ипари в секунду. */
 const CAUSTICS_SPEED_IPARI = 0.08;
 
@@ -203,7 +194,7 @@ export class SceneWaterService {
 
     // На луже каустика глуше: вода стоячая и мутнее, а сетка узора на
     // маленьком пятне читается как лёд.
-    const period = Math.max(1, resolution) * CAUSTICS_PERIOD_IPARI;
+    const period = Math.max(1, resolution) * 1.7;
     const alpha = CAUSTICS_ALPHA * (geometry.along === undefined ? POND_CAUSTICS : 1);
     const node = this.buildLayer(
       caustics,
