@@ -162,6 +162,7 @@ const phpPendingCast = ref<{
   deviation: GamePhpSpellDeviation | null;
 } | null>(null);
 const phpBurstTargets = ref<SpellBurstTarget[]>([]);
+const burstCloseConfirm = ref(false);
 const phpSaturationSteps = ref(0);
 const phpSaturationSourceName = computed(() => {
   const code = phpPendingCast.value?.saturation?.sourceCode;
@@ -796,6 +797,11 @@ function close(): void {
 
 function onDialogOpen(value: boolean): void {
   if (!value && phpPendingCast.value) {
+    if (phpPendingCast.value.deviation?.burst && phpBurstTargets.value.length === 0) {
+      burstCloseConfirm.value = true;
+
+      return;
+    }
     void resolvePhpCast(0);
 
     return;
@@ -807,6 +813,24 @@ function onDialogOpen(value: boolean): void {
     return;
   }
   emit('update:open', value);
+}
+
+function onBurstOpen(value: boolean): void {
+  burstOpen.value = value;
+  if (!value && burstWait) {
+    const casterKey = resolvedCasterKey.value;
+    resolveBurst(casterKey ? [{ key: casterKey, distanceIpari: 0 }] : []);
+  }
+}
+
+function pickBurstTargets(): void {
+  burstCloseConfirm.value = false;
+  burstOpen.value = true;
+}
+
+function resolveBurstWithCasterOnly(): void {
+  burstCloseConfirm.value = false;
+  void resolvePhpCast(0);
 }
 
 function onSaturationStepsChange(value: number | null): void {
@@ -2079,16 +2103,16 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
               <div v-if="phpPendingCast.deviation.burst" class="mt-1">
                 Взрыв: {{ phpPendingCast.deviation.burst.radius ?? 0 }} ипари, РУ
                 {{ phpPendingCast.deviation.burst.successRating }}. Целей выбрано: {{ phpBurstTargets.length }}.
-                <v-btn size="small" variant="text" class="ms-2" @click="burstOpen = true">Выбрать цели</v-btn>
+                <v-btn size="small" variant="text" class="ms-2" @click="pickBurstTargets">Выбрать цели</v-btn>
               </div>
             </v-alert>
             <SpellSaturationPanel
-              v-if="phpPendingCast.saturation"
+              v-if="(phpPendingCast.saturation?.maxSteps ?? 0) > 0"
               v-model="phpSaturationSteps"
-              :rating="phpPendingCast.saturation.rating ?? 0"
-              :max-steps="phpPendingCast.saturation.maxSteps ?? 0"
-              :rating-per-step="phpPendingCast.saturation.ratingPerStep ?? 0"
-              :power-per-step="phpPendingCast.saturation.powerPerStep ?? 0"
+              :rating="phpPendingCast.saturation?.rating ?? 0"
+              :max-steps="phpPendingCast.saturation?.maxSteps ?? 0"
+              :rating-per-step="phpPendingCast.saturation?.ratingPerStep ?? 0"
+              :power-per-step="phpPendingCast.saturation?.powerPerStep ?? 0"
               :source-name="phpSaturationSourceName"
               :busy="busy"
             />
@@ -2299,7 +2323,12 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
         </div>
         <v-spacer />
         <template v-if="phpPendingCast">
-          <v-btn v-if="phpPendingCast.saturation" variant="text" :disabled="busy" @click="resolvePhpCast(0)">
+          <v-btn
+            v-if="(phpPendingCast.saturation?.maxSteps ?? 0) > 0"
+            variant="text"
+            :disabled="busy"
+            @click="resolvePhpCast(0)"
+          >
             Без насыщения
           </v-btn>
           <v-btn color="primary" :loading="busy" @click="confirmPhpSaturation">Применить</v-btn>
@@ -2347,9 +2376,23 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
     :initiative-keys="initiativeKeys"
     :caster-key="resolvedCasterKey"
     :caster-name="casterModel?.name ?? ''"
-    @update:open="burstOpen = $event"
+    :selected="phpBurstTargets"
+    @update:open="onBurstOpen"
     @confirm="resolveBurst"
   />
+  <v-dialog v-model="burstCloseConfirm" max-width="420">
+    <v-card>
+      <v-card-title class="text-body-1">Взрыв без дополнительных целей?</v-card-title>
+      <v-card-text class="text-body-2">
+        Кроме кастера никто не выбран. Если закрыть сейчас, взрыв заденет только кастера.
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="pickBurstTargets">Выбрать цели</v-btn>
+        <v-btn color="primary" :loading="busy" @click="resolveBurstWithCasterOnly">Только кастер</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>

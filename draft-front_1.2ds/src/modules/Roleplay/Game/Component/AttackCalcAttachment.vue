@@ -100,7 +100,9 @@ const remainingHpDamageLabel = computed(() => {
           <span class="font-weight-medium">{{ calc.pushSrLabel }}</span>
         </div>
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
-          <span class="text-medium-emphasis">{{ calc.pushSrLabel != null ? 'РУ попадания' : 'РУ атаки' }}</span>
+          <span class="text-medium-emphasis">{{
+            calc.attackSrCaption ?? (calc.pushSrLabel != null ? 'РУ попадания' : 'РУ атаки')
+          }}</span>
           <span class="font-weight-medium">{{ calc.attackSrLabel }}</span>
         </div>
         <div v-if="stabilityLabel !== null" class="d-flex align-center justify-space-between py-1 text-body-2">

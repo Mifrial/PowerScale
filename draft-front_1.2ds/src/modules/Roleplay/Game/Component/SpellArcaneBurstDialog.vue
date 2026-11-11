@@ -13,6 +13,8 @@ const props = defineProps<{
   initiativeKeys?: string[];
   casterKey: CombatEntityKey | null;
   casterName: string;
+  /** Уже выбранные цели: при повторном открытии не теряются. */
+  selected?: SpellBurstTarget[];
 }>();
 
 const emit = defineEmits<{
@@ -39,7 +41,7 @@ watch(
     if (open) {
       extraKey.value = null;
       extraDistance.value = 0;
-      extras.value = [];
+      extras.value = (props.selected ?? []).filter((entry) => entry.key !== props.casterKey);
     }
   },
 );
@@ -97,6 +99,7 @@ function confirm(): void {
         <v-btn class="mt-2" size="small" variant="text" :disabled="!extraKey" @click="addExtra">Добавить</v-btn>
       </v-card-text>
       <v-card-actions>
+        <v-btn variant="text" @click="emit('update:open', false)">Закрыть</v-btn>
         <v-spacer />
         <v-btn color="primary" @click="confirm">Взрыв</v-btn>
       </v-card-actions>

@@ -27,7 +27,11 @@ const busy = ref(false);
 const error = ref<string | null>(null);
 const stale = ref(false);
 
-const saturation = computed(() => props.pending?.saturation ?? null);
+const saturation = computed(() => {
+  const value = props.pending?.saturation ?? null;
+
+  return value && (value.maxSteps ?? 0) > 0 ? value : null;
+});
 const abortAllowed = computed(() => props.canAbort || stale.value);
 const sourceName = computed(() => {
   const code = saturation.value?.sourceCode;
@@ -35,6 +39,7 @@ const sourceName = computed(() => {
 
   return findRuleByRef(props.rules, code)?.name ?? code;
 });
+const title = computed(() => (saturation.value ? sourceName.value : 'Магическое отклонение'));
 
 watch(
   () => [props.open, props.pending?.castId],
@@ -100,7 +105,7 @@ async function abort(): Promise<void> {
 <template>
   <v-dialog :model-value="open" max-width="520" @update:model-value="emit('update:open', $event)">
     <v-card>
-      <v-card-title class="text-body-1">{{ sourceName }}</v-card-title>
+      <v-card-title class="text-body-1">{{ title }}</v-card-title>
       <v-card-text>
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
         <v-alert
@@ -134,7 +139,9 @@ async function abort(): Promise<void> {
       <v-card-actions>
         <v-btn v-if="abortAllowed" variant="text" color="error" :disabled="busy" @click="abort">Прервать</v-btn>
         <v-spacer />
-        <v-btn v-if="canResolve" variant="text" :disabled="busy" @click="apply(0)">Без насыщения</v-btn>
+        <v-btn v-if="canResolve" variant="text" :disabled="busy" @click="apply(0)">
+          {{ saturation ? 'Без насыщения' : 'Завершить' }}
+        </v-btn>
         <v-btn v-if="canResolve" color="primary" :loading="busy" @click="apply()">Применить</v-btn>
       </v-card-actions>
     </v-card>
