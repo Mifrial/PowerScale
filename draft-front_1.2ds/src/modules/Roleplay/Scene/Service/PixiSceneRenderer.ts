@@ -185,6 +185,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.retessellate();
     }
 
+    this.syncWaterAnimation();
     this.render();
   }
 
@@ -271,6 +272,10 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
       this.app.ticker.start();
 
+      return;
+    }
+
+    if (!this.waterTickerActive) {
       return;
     }
 
