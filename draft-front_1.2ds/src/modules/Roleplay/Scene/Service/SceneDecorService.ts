@@ -23,6 +23,8 @@ const SHADOW_HEIGHT = 64;
 export class SceneDecorService {
   private shadow: Texture | null = null;
 
+  private gradient: Texture | null = null;
+
   constructor(private readonly textures: SceneTextureCache) {}
 
   /**
@@ -68,10 +70,58 @@ export class SceneDecorService {
     return element.shape.type === 'point' ? element.shape.y : 0;
   }
 
-  /** Освобождает процедурную тень. */
+  /**
+   * Мягкая маска погружения: белая полоса с прозрачным верхом.
+   *
+   * Градиент вместо жёсткой границы: вода замутняет низ объекта постепенно,
+   * и линия уровня не режет спрайт пополам.
+   */
+  submersionMask(width: number, height: number): Sprite {
+    const sprite = new Sprite(this.gradientTexture());
+    sprite.position.set(0, 0);
+    sprite.width = Math.max(1, width);
+    sprite.height = Math.max(1, height);
+
+    return sprite;
+  }
+
+  /** Освобождает процедурные ресурсы. */
   destroy(): void {
     this.shadow?.destroy(true);
     this.shadow = null;
+    this.gradient?.destroy(true);
+    this.gradient = null;
+  }
+
+  private gradientTexture(): Texture {
+    if (this.gradient !== null) {
+      return this.gradient;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 4;
+    canvas.height = 64;
+    const context = canvas.getContext('2d');
+    if (context !== null) {
+      const image = context.createImageData(4, 64);
+      for (let row = 0; row < 64; row += 1) {
+        // Сверху прозрачно, снизу плотно: погружение нарастает книзу.
+        const alpha = Math.round(255 * Math.min(1, (row / 63) ** 0.7));
+        for (let column = 0; column < 4; column += 1) {
+          const index = (row * 4 + column) * 4;
+          image.data[index] = 255;
+          image.data[index + 1] = 255;
+          image.data[index + 2] = 255;
+          image.data[index + 3] = alpha;
+        }
+      }
+
+      context.putImageData(image, 0, 0);
+    }
+
+    this.gradient = Texture.from(canvas);
+
+    return this.gradient;
   }
 
   private shadowTexture(): Texture {
