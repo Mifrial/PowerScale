@@ -88,6 +88,9 @@ const PLANE_LAYERS: WaterLayer[] = [
  * Полосы идут с разной скоростью в разные стороны: пятна пены наплывают друг
  * на друга и перестраиваются, поэтому урез не выглядит одной ползущей картинкой.
  */
+/** Доля ширины пены, уходящая на воду: остальное ложится на берег. */
+const FOAM_WATER_SHARE = 0.7;
+
 const FOAM_LAYERS: FoamLayer[] = [
   { width: 1.35, periodScale: 1, alpha: 0.85, speedIpari: 0.12, offset: 0.13 },
   { width: 2.3, periodScale: 2.7, alpha: 0.22, speedIpari: -0.07, offset: 0.61 },
@@ -235,9 +238,18 @@ export class SceneWaterService {
     const band = Math.max(1, resolution) * FOAM_IPARI;
     const period = band * (foam.width / Math.max(1, foam.height)) * FOAM_STRETCH;
     const wobble = this.wobbleOf(element.id);
+    const toward = this.waterward(element, resolution, outline);
     const nodes: { mesh: Mesh; base: Float32Array; uvs: Float32Array; drift: number; offset: number }[] = [];
     for (const spec of FOAM_LAYERS) {
-      const strip = this.meshes.foamStrip(outline, (band * spec.width) / 2, period * spec.periodScale, wobble);
+      const width = band * spec.width;
+      const strip = this.meshes.foamStrip(
+        outline,
+        width * FOAM_WATER_SHARE,
+        width * (1 - FOAM_WATER_SHARE),
+        period * spec.periodScale,
+        wobble,
+        toward,
+      );
       if (strip === null) {
         continue;
       }
@@ -346,6 +358,37 @@ export class SceneWaterService {
     const directionY = isChannel ? sin : flowX * sin + flowY * cos;
 
     return [(directionX * speed) / period, (directionY * speed) / period];
+  }
+
+  /**
+   * Куда от контура смотрит вода: пена должна лежать на воде, а не на песке.
+   *
+   * Нормаль контура не имеет выделенной стороны, поэтому сторону воды ищем по
+   * полю глубины: снаружи водоёма глубина нулевая, внутри — растёт.
+   */
+  private waterward(element: SceneElement, resolution: number, outline: ScenePoint[]): number {
+    const step = Math.max(2, resolution * 0.08);
+    const stride = Math.max(1, Math.round(outline.length / 12));
+    let score = 0;
+    for (let index = 0; index < outline.length; index += stride) {
+      const previous = outline[(index + outline.length - 1) % outline.length];
+      const next = outline[(index + 1) % outline.length];
+      const dx = next[0] - previous[0];
+      const dy = next[1] - previous[1];
+      const length = Math.hypot(dx, dy);
+      if (length === 0) {
+        continue;
+      }
+
+      const normalX = dy / length;
+      const normalY = -dx / length;
+      const point = outline[index];
+      const forward = this.depthAt(element, resolution, [point[0] + normalX * step, point[1] + normalY * step]);
+      const backward = this.depthAt(element, resolution, [point[0] - normalX * step, point[1] - normalY * step]);
+      score += Math.min(step * 4, forward) - Math.min(step * 4, backward);
+    }
+
+    return score >= 0 ? 1 : -1;
   }
 
   /** Ширина пены вдоль контура: рваный урез, а не лента постоянной толщины. */
