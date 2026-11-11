@@ -90,6 +90,10 @@ final class GameSpellCastView
         ?GameSpellCastSaturationPlan $plan,
         ?GameSpellCastSaturationResult $result,
     ): ?array {
+        if ($plan !== null && !$plan->hasChoice()) {
+            return null;
+        }
+
         if ($result !== null) {
             $source = $result->getSource();
             if ($source === null) {

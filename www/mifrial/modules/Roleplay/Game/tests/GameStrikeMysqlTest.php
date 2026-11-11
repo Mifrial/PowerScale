@@ -1071,6 +1071,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertIsArray($deviation);
         self::assertSame(($deviation['faceSum'] ?? 0) - 7, $deviation['strength']);
         self::assertNull($data['spellDamage']);
+        self::assertNull($data['saturation'] ?? null);
 
         $states = $this->characterFacade()->get($scene['hero'])->getSheet()['states'] ?? [];
         $deviationRows = array_values(array_filter(
@@ -1146,6 +1147,16 @@ final class GameStrikeMysqlTest extends TestCase
             $this->chatMessages($scene['gameId']),
         );
         self::assertNotFalse($this->messageIndexOf($contents, 'взрыв'));
+
+        $calcs = $this->attachmentsOfType($this->chatMessages($scene['gameId']), 'attack-calc');
+        self::assertCount(2, $calcs);
+        foreach ($calcs as $calc) {
+            self::assertSame('РУ взрыва', $calc['attackSrCaption'] ?? null);
+            self::assertSame('Взрыв магии', $calc['heading'] ?? null);
+            self::assertSame('1', $calc['attackSrLabel'] ?? null);
+            self::assertArrayHasKey('resistance', $calc);
+            self::assertArrayHasKey('endurance', $calc);
+        }
     }
 
     /**

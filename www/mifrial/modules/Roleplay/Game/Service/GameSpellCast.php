@@ -522,6 +522,7 @@ final class GameSpellCast
             $saved,
             $deviation,
             $burstRows,
+            $plan,
         );
     }
 
@@ -543,6 +544,7 @@ final class GameSpellCast
      * @param GameBattleRecord $saved Бой после записи.
      * @param array<string, mixed>|null $deviation Отклонение.
      * @param list<array<string, mixed>> $burst Цели взрыва.
+     * @param GameSpellCastSaturationPlan|null $plan Выбор насыщения.
      *
      * @return array<string, mixed> Итог.
      */
@@ -562,6 +564,7 @@ final class GameSpellCast
         GameBattleRecord $saved,
         ?array $deviation = null,
         array $burst = [],
+        ?GameSpellCastSaturationPlan $plan = null,
     ): array {
         $this->chat->post(
             $game,
@@ -594,7 +597,7 @@ final class GameSpellCast
             $versions,
             'resolve',
             $castId,
-            null,
+            $plan,
             $saturation,
             $rows,
             $this->deviationView($prepared, $deviation),
@@ -881,6 +884,7 @@ final class GameSpellCast
             $saved,
             $deviation,
             $burstRows,
+            $plan,
         );
     }
 

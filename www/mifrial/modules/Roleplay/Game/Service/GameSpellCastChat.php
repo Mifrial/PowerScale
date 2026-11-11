@@ -319,10 +319,84 @@ final class GameSpellCastChat
 
             $targetToken = $this->tokens->getEntityToken($target['type'], $target['id']);
             $damageName = is_string($row['damageName'] ?? null) ? $row['damageName'] : null;
-            $this->send($chatId, $actorUserId, $targetToken . ' попадает под взрыв.', $attachments);
+            $this->send(
+                $chatId,
+                $actorUserId,
+                $targetToken . ' попадает под взрыв.',
+                [['type' => 'attack-calc', 'payload' => $this->burstCalc($row)], ...$attachments],
+            );
             $consequence = is_array($row['consequence'] ?? null) ? $row['consequence'] : [];
             $this->postConsequence($chatId, $actorUserId, $targetToken, $prepared, $consequence, $attachments, $damageName);
         }
+    }
+
+    /**
+     * Payload attack-calc для цели взрыва: урон, сопротивление и последствия.
+     *
+     * @param array<string, mixed> $row Строка цели.
+     *
+     * @return array<string, mixed> Payload.
+     */
+    private function burstCalc(array $row): array
+    {
+        $consequence = is_array($row['consequence'] ?? null) ? $row['consequence'] : [];
+        $injury = $this->dimensionalPair($row['injury'] ?? null);
+
+        return [
+            'raw' => $injury === null ? 0 : $injury['base'],
+            'damage' => $this->dimensionalPair($row['damage'] ?? null) ?? ['base' => 0, 'size' => 0],
+            'damageTypeName' => is_string($row['damageName'] ?? null) ? $row['damageName'] : '',
+            'resistance' => $this->resistive($row['resistance'] ?? null),
+            'penetration' => 0,
+            'injury' => $injury,
+            'endurance' => $this->dimensionalPair($row['endurance'] ?? null) ?? ['base' => 0, 'size' => 0],
+            'defenseIgnored' => ($row['defenseIgnored'] ?? false) === true,
+            'attackSrLabel' => (string) (is_int($row['successRating'] ?? null) ? $row['successRating'] : 0),
+            'attackSrCaption' => 'РУ взрыва',
+            'appliedSr' => null,
+            'srCap' => null,
+            'heading' => 'Взрыв магии',
+            'stun' => null,
+            'shock' => null,
+            'exhaustion' => is_int($consequence['exhaustionDelta'] ?? null) ? $consequence['exhaustionDelta'] : 0,
+            'remainingHpDamage' => $this->dimensionalPair($consequence['damageRemainder'] ?? null),
+            'wound' => is_int($consequence['wound'] ?? null) ? $consequence['wound'] : null,
+            'knockout' => ($consequence['unconscious'] ?? false) === true,
+            'cuttingWound' => null,
+            'layers' => [],
+        ];
+    }
+
+    /**
+     * Пара размерного числа.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return array{base: int, size: int}|null Пара или null.
+     */
+    private function dimensionalPair(mixed $value): ?array
+    {
+        if ($value instanceof DimensionalNumber) {
+            return ['base' => $value->getBase(), 'size' => $value->getSize()];
+        }
+
+        if (is_array($value) && is_int($value['base'] ?? null) && is_int($value['size'] ?? null)) {
+            return ['base' => $value['base'], 'size' => $value['size']];
+        }
+
+        return null;
+    }
+
+    /**
+     * Число сопротивления из размерного числа.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return int Число.
+     */
+    private function resistive(mixed $value): int
+    {
+        return $value instanceof DimensionalNumber ? $value->toInteger() : 0;
     }
 
     /**
