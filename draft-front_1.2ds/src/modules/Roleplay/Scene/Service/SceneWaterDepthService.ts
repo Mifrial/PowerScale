@@ -27,7 +27,7 @@ const EDGE_ALPHA = 0.3;
 const DEEP_ALPHA = 0.88;
 
 /** Амплитуда шума глубины в ипари: кромка мелководья гуляет вдоль берега. */
-const NOISE_IPARI = 0.45;
+const NOISE_IPARI = 0.4;
 
 /** Поле глубины водоёма: сетка расстояний плюс готовая текстура градиента. */
 export interface SceneWaterDepth {
@@ -258,11 +258,18 @@ export class SceneWaterDepthService {
 
       return seed / 4294967296;
     };
-    const waves = Array.from({ length: 4 }, () => ({
-      fx: (0.12 + random() * 0.2) * (random() > 0.5 ? 1 : -1),
-      fy: (0.12 + random() * 0.2) * (random() > 0.5 ? 1 : -1),
-      phase: random() * Math.PI * 2,
-    }));
+    // Длина волны — сотни единиц сцены: кромка мелководья должна гулять
+    // вдоль берега длинными участками. Короткие волны давали «гребешок» из
+    // полос у кромки, который читался как лёд.
+    const waves = Array.from({ length: 3 }, () => {
+      const frequency = 0.016 + random() * 0.022;
+
+      return {
+        fx: frequency * (random() > 0.5 ? 1 : -1) * (0.6 + random() * 0.8),
+        fy: frequency * (random() > 0.5 ? 1 : -1) * (0.6 + random() * 0.8),
+        phase: random() * Math.PI * 2,
+      };
+    });
 
     return (x: number, y: number): number => {
       let value = 0;
