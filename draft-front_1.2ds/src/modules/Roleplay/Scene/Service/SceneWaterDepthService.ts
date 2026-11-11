@@ -8,7 +8,7 @@ import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
 /** Ширина мелководной полосы у берега в ипари. */
-const SHALLOW_BAND_IPARI = 0.9;
+const SHALLOW_BAND_IPARI = 0.55;
 
 /** Разрешение запекания по длинной стороне. */
 const MAX_CELLS = 160;
@@ -17,7 +17,7 @@ const MAX_CELLS = 160;
 const MIN_CELLS = 2;
 
 /** Цвет мелководья у берега. */
-const SHALLOW: [number, number, number] = [0x9a, 0xd0, 0xe0];
+const SHALLOW: [number, number, number] = [0x86, 0xc3, 0xd4];
 
 /** Цвет глубокой воды. */
 const DEEP: [number, number, number] = [0x1f, 0x54, 0x70];
@@ -28,6 +28,9 @@ const DEEP_ALPHA = 0.88;
 
 /** Амплитуда шума глубины в ипари: кромка мелководья гуляет вдоль берега. */
 const NOISE_IPARI = 0.4;
+
+/** Ширина мягкого подъёма прозрачности у уреза, ипари. */
+const EDGE_FADE_IPARI = 0.38;
 
 /** Поле глубины водоёма: сетка расстояний плюс готовая текстура градиента. */
 export interface SceneWaterDepth {
@@ -127,7 +130,11 @@ export class SceneWaterDepthService {
 
         const t = Math.min(1, value / limit);
         const color = this.mix(t);
-        const alpha = EDGE_ALPHA + (DEEP_ALPHA - EDGE_ALPHA) * this.smooth(t);
+        // У самого уреза альфа нулевая: иначе по берегу идёт ровный светлый
+        // ободок, который стоит на месте и читается как лёд. Кромку рисует
+        // отдельный «язык воды», который ходит вместе с накатом.
+        const edge = this.smooth(value / Math.max(1, resolution * EDGE_FADE_IPARI));
+        const alpha = edge * (EDGE_ALPHA + (DEEP_ALPHA - EDGE_ALPHA) * this.smooth(t));
         data[index * 4] = color[0];
         data[index * 4 + 1] = color[1];
         data[index * 4 + 2] = color[2];
