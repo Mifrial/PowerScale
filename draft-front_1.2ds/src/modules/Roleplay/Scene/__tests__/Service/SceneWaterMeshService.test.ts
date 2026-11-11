@@ -35,7 +35,7 @@ describe('SceneWaterMeshService', () => {
   });
 
   it('строит замкнутую полосу пены по контуру', () => {
-    const strip = service.foamStrip(square(40), 2, 10, () => 1);
+    const strip = service.foamStrip(square(40), 2, 2, 10, () => 1);
 
     expect(strip).not.toBeNull();
     const geometry = strip as NonNullable<typeof strip>;
@@ -44,20 +44,35 @@ describe('SceneWaterMeshService', () => {
     expect(geometry.period).toBeCloseTo(10);
   });
 
-  it('держит кромки полосы на равном отступе от берега', () => {
-    const strip = service.foamStrip(circle(100, 480), 3, 10, () => 1);
+  it('кладёт пену на воду, а не на берег', () => {
+    const strip = service.foamStrip(circle(100, 480), 3, 1, 10, () => 1);
     const geometry = strip as NonNullable<typeof strip>;
 
     for (let index = 0; index < 480; index += 1) {
-      const inner = Math.hypot(geometry.positions[index * 4], geometry.positions[index * 4 + 1]);
-      const outer = Math.hypot(geometry.positions[index * 4 + 2], geometry.positions[index * 4 + 3]);
-      expect(inner).toBeCloseTo(97, 3);
-      expect(outer).toBeCloseTo(103, 3);
+      const first = Math.hypot(geometry.positions[index * 4], geometry.positions[index * 4 + 1]);
+      const second = Math.hypot(geometry.positions[index * 4 + 2], geometry.positions[index * 4 + 3]);
+      // Нормаль на воду задана параметром `toward`: на воду 3, на берег 1.
+      expect(Math.min(first, second)).toBeCloseTo(99, 3);
+      expect(Math.max(first, second)).toBeCloseTo(103, 3);
     }
   });
 
+  it('переворачивает сторону воды по флагу', () => {
+    const inside = service.foamStrip(circle(100, 64), 3, 1, 10, () => 1, 1) as NonNullable<
+      ReturnType<SceneWaterMeshService['foamStrip']>
+    >;
+    const outside = service.foamStrip(circle(100, 64), 3, 1, 10, () => 1, -1) as NonNullable<
+      ReturnType<SceneWaterMeshService['foamStrip']>
+    >;
+    const radius = (geometry: typeof inside, index: number, vertex: number): number =>
+      Math.hypot(geometry.positions[index * 4 + vertex * 2], geometry.positions[index * 4 + vertex * 2 + 1]);
+
+    expect(radius(inside, 0, 1)).toBeGreaterThan(radius(inside, 0, 0));
+    expect(radius(outside, 0, 1)).toBeLessThan(radius(outside, 0, 0));
+  });
+
   it('сводит шов: контур укладывается в целое число тайлов', () => {
-    const strip = service.foamStrip(square(40), 2, 7, () => 1);
+    const strip = service.foamStrip(square(40), 2, 2, 7, () => 1);
     const geometry = strip as NonNullable<typeof strip>;
     const first = geometry.uvs[0] as number;
     const last = geometry.uvs[geometry.uvs.length - 4] as number;
@@ -69,7 +84,7 @@ describe('SceneWaterMeshService', () => {
 
   it('гуляет шириной вдоль контура, но сходится на замыкании', () => {
     const wobble = (t: number): number => 1 + 0.3 * Math.sin(t * Math.PI * 4);
-    const strip = service.foamStrip(circle(100, 64), 3, 10, wobble);
+    const strip = service.foamStrip(circle(100, 64), 3, 1, 10, wobble);
     const geometry = strip as NonNullable<typeof strip>;
     const widthAt = (index: number): number =>
       Math.hypot(
@@ -89,6 +104,7 @@ describe('SceneWaterMeshService', () => {
           [1, 1],
         ],
         2,
+        2,
         10,
         () => 1,
       ),
@@ -100,6 +116,7 @@ describe('SceneWaterMeshService', () => {
           [0, 0],
           [0, 0],
         ],
+        2,
         2,
         10,
         () => 1,

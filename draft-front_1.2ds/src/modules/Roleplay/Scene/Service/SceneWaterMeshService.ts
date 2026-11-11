@@ -58,14 +58,19 @@ export class SceneWaterMeshService {
   /**
    * Полоса пены вдоль замкнутого контура.
    *
+   * Полоса смещена в воду: `waterHalf` — вынос на воду, `landHalf` — на берег,
+   * `toward` показывает, куда от контура смотрит нормаль на воду.
+   *
    * `wobble` получает долю пройденного пути (0…1) и возвращает множитель
    * ширины; он обязан быть периодическим, чтобы полоса сходилась на замыкании.
    */
   foamStrip(
     outline: ScenePoint[],
-    halfWidth: number,
+    waterHalf: number,
+    landHalf: number,
     period: number,
     wobble: (t: number) => number,
+    toward = 1,
   ): WaterStrip | null {
     const count = outline.length;
     if (count < 3) {
@@ -104,16 +109,17 @@ export class SceneWaterMeshService {
       const sumX = previous[0] + next[0];
       const sumY = previous[1] + next[1];
       const sum = Math.hypot(sumX, sumY);
-      const axis: ScenePoint = sum === 0 ? next : [sumX / sum, sumY / sum];
-      const projection = axis[0] * next[0] + axis[1] * next[1];
+      const outward: ScenePoint = sum === 0 ? next : [sumX / sum, sumY / sum];
+      const axis: ScenePoint = [outward[0] * Math.sign(toward), outward[1] * Math.sign(toward)];
+      const projection = outward[0] * next[0] + outward[1] * next[1];
       const miter = Math.min(MITER_LIMIT, 1 / Math.max(0.35, Math.abs(projection)));
-      const width = Math.max(1, halfWidth) * wobble(cumulatives[index] / total) * miter;
+      const wave = wobble(cumulatives[index] / total) * miter;
 
       const vertex = index * 2;
-      positions[vertex * 2] = point[0] - axis[0] * width;
-      positions[vertex * 2 + 1] = point[1] - axis[1] * width;
-      positions[vertex * 2 + 2] = point[0] + axis[0] * width;
-      positions[vertex * 2 + 3] = point[1] + axis[1] * width;
+      positions[vertex * 2] = point[0] - axis[0] * Math.max(1, landHalf) * wave;
+      positions[vertex * 2 + 1] = point[1] - axis[1] * Math.max(1, landHalf) * wave;
+      positions[vertex * 2 + 2] = point[0] + axis[0] * Math.max(1, waterHalf) * wave;
+      positions[vertex * 2 + 3] = point[1] + axis[1] * Math.max(1, waterHalf) * wave;
 
       const along = cumulatives[index] / effective;
       uvs[vertex * 2] = along;
