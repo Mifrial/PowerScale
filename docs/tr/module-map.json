@@ -3177,14 +3177,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/spell-real-plan-05-magic-deviation.md",
-                    "title": "План M5 — магическое отклонение",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-11-11",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/rule-content-plan-02-concentration.md",
                     "title": "C2 — план реализации концентрации",
                     "kind": "plan",
@@ -3451,6 +3443,14 @@
                 {
                     "path": "docs/tr/spell-real-plan-04-saturation.md",
                     "title": "План M4 — насыщение и остаток РУ",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-05-magic-deviation.md",
+                    "title": "План M5 — магическое отклонение",
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-11-11",
