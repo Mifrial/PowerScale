@@ -366,7 +366,6 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'openings',
       'waterPlane',
       'decor',
-      'waterSurface',
       'selection',
       'gizmos',
     ];
@@ -422,6 +421,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     for (const element of waterElements) {
       this.drawWaterPlane(element, resolution, zoom);
+      this.drawWaterFoam(element, resolution, zoom);
     }
 
     const decorElements = elements
@@ -440,11 +440,6 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     for (const element of decorElements) {
       this.drawDecor(element, waterElements, resolution);
-    }
-
-    // Пена и линия уреза — над декором и актёрами: это граница воды.
-    for (const element of waterElements) {
-      this.drawWaterFoam(element, resolution, zoom);
     }
 
     if (this.isEdit()) {
@@ -490,22 +485,14 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.draftGraphics = null;
     }
 
-    if (name === 'terrain' || name === 'waterPlane' || name === 'waterSurface') {
+    if (name === 'terrain' || name === 'waterPlane') {
       this.waterNodes = [];
     }
   }
 
   /** Обрезает содержимое поля по его границам; gizmos остаются снаружи. */
   private applyContentClip(board: SceneBoard): void {
-    const names: SceneLayerName[] = [
-      'terrain',
-      'supports',
-      'obstacles',
-      'openings',
-      'waterPlane',
-      'decor',
-      'waterSurface',
-    ];
+    const names: SceneLayerName[] = ['terrain', 'supports', 'obstacles', 'openings', 'waterPlane', 'decor'];
     for (const name of names) {
       const layer = this.layers[name];
       if (layer === undefined) {
@@ -722,14 +709,25 @@ export class PixiSceneRenderer implements ISceneRenderer {
     node.update(this.waterElapsed);
   }
 
-  /** Урез воды: пена и линия уреза над всем. */
+  /**
+   * Урез воды: пена и линия уреза.
+   *
+   * Живёт в плоскости воды, под декором: урез лежит на земле, поэтому дерево на
+   * берегу его перекрывает, а не просвечивает сквозь пену.
+   */
   private drawWaterFoam(element: SceneElement, resolution: number, zoom: number): void {
-    const layer = this.layers.waterSurface;
+    const layer = this.layers.waterPlane;
     if (layer === undefined) {
       return;
     }
 
-    this.water.paintFoam(layer, element, resolution, zoom);
+    const node = this.water.paintFoam(layer, element, resolution, zoom);
+    if (node === null) {
+      return;
+    }
+
+    this.waterNodes.push({ elementId: element.id, node });
+    node.update(this.waterElapsed);
   }
 
   private drawElement(element: SceneElement): void {
@@ -783,7 +781,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
       depth = Math.max(depth, this.water.depthAt(waterElement, resolution, [anchor.x, anchor.y]));
     }
 
-    const submerged = Math.min(painted.height * 0.45, depth * 0.9);
+    // Дерево не должно утонуть наполовину: даже в самой глубокой точке мокрый
+    // низ ограничен долей высоты спрайта.
+    const submerged = Math.min(painted.height * 0.3, depth * 0.6);
     if (submerged < Math.max(1, painted.height * 0.04)) {
       return;
     }
@@ -794,11 +794,11 @@ export class PixiSceneRenderer implements ISceneRenderer {
     tint.width = painted.sprite.width;
     tint.height = painted.sprite.height;
     tint.rotation = painted.sprite.rotation;
-    tint.tint = 0x3f7f9c;
-    tint.alpha = 0.55;
+    tint.tint = 0x2f6480;
+    tint.alpha = 0.6;
 
-    const mask = new Graphics();
-    mask.rect(anchor.x - painted.width, anchor.y - submerged, painted.width * 2, submerged).fill({ color: 0xffffff });
+    const mask = this.decor.submersionMask(painted.width * 2, submerged);
+    mask.position.set(anchor.x - painted.width, anchor.y - submerged);
     layer.addChild(mask);
     tint.mask = mask;
     layer.addChild(tint);
