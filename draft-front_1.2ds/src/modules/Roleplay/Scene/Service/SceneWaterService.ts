@@ -113,12 +113,12 @@ interface WaveNode {
 
 /** Каустика по дну: подсвечивает, а не закрашивает. */
 const BODY_CAUSTICS: WaterLayer[] = [
-  { material: 'caustics', periodIpari: 1.7, angle: 0.12, alpha: 0.2, speedIpari: 0.08, skew: 0, additive: true },
+  { material: 'caustics', periodIpari: 1.7, angle: 0.12, alpha: 0.18, speedIpari: 0.08, skew: 0, additive: true },
   {
     material: 'caustics',
     periodIpari: 2.93,
     angle: -0.58,
-    alpha: 0.12,
+    alpha: 0.1,
     speedIpari: 0.045,
     skew: 0.85,
     additive: true,
@@ -203,7 +203,7 @@ const SWIRL_RATE = 0.025;
 const POND_ALPHA = 0.78;
 
 /** Насколько глуше каустика у замкнутого водоёма. */
-const POND_CAUSTICS = 0.7;
+const POND_CAUSTICS = 0.65;
 
 /** Доля локальной полуширины, уходящая на «язык воды». */
 const EDGE_WATER_FRACTION = 0.32;
