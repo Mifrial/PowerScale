@@ -96,6 +96,14 @@ const FOAM_LAYERS: FoamLayer[] = [
 /** Ширина полосы пены в ипари. */
 const FOAM_IPARI = 0.4;
 
+/**
+ * Растяжение тайла пены вдоль берега.
+ *
+ * Текстура квадратнее, чем полоса: без растяжения рисунок повторялся бы
+ * каждые полтора метра и читался обоями.
+ */
+const FOAM_STRETCH = 2.5;
+
 /** Разбиение окружности для воды-круга. */
 const CIRCLE_SEGMENTS = 72;
 
@@ -225,7 +233,7 @@ export class SceneWaterService {
     // Пена мелкая: тайл 512×128 растянут вдоль берега, иначе рисунок
     // повторялся бы каждые полтора метра.
     const band = Math.max(1, resolution) * FOAM_IPARI;
-    const period = band * (foam.width / Math.max(1, foam.height));
+    const period = band * (foam.width / Math.max(1, foam.height)) * FOAM_STRETCH;
     const wobble = this.wobbleOf(element.id);
     const nodes: { mesh: Mesh; base: Float32Array; uvs: Float32Array; drift: number; offset: number }[] = [];
     for (const spec of FOAM_LAYERS) {

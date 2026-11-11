@@ -795,7 +795,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     tint.height = painted.sprite.height;
     tint.rotation = painted.sprite.rotation;
     tint.tint = 0x2f6480;
-    tint.alpha = 0.6;
+    tint.alpha = 0.72;
 
     const mask = this.decor.submersionMask(painted.width * 2, submerged);
     mask.position.set(anchor.x - painted.width, anchor.y - submerged);
