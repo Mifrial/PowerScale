@@ -111,7 +111,7 @@ export class SceneWaterService {
       Math.max(1, resolution) * 1.7,
       0,
       CAUSTICS_ALPHA,
-      CAUSTICS_SPEED_IPARI,
+      CAUSTICS_SPEED_IPARI * Math.max(1, resolution),
       [flowX, flowY],
     );
     if (node === null) {
@@ -142,7 +142,7 @@ export class SceneWaterService {
         Math.max(1, resolution) * spec.periodIpari,
         spec.angle,
         spec.alpha,
-        spec.speedIpari,
+        spec.speedIpari * Math.max(1, resolution),
         this.skewed(flowX, flowY, spec.skew),
       );
       if (node === null) {
@@ -214,7 +214,11 @@ export class SceneWaterService {
     this.depths.destroy();
   }
 
-  /** Меш слоя: мировые UV, дрейф вдоль течения. */
+  /**
+   * Меш слоя: мировые UV, дрейф вдоль течения.
+   *
+   * `period` и `speed` — в единицах сцены: скорость уже переведена из ипари.
+   */
   private buildLayer(
     texture: Texture,
     geometry: WaterGeometry | null,
