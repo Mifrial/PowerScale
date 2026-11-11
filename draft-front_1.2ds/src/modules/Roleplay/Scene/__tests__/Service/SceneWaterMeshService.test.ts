@@ -96,6 +96,29 @@ describe('SceneWaterMeshService', () => {
     expect(wobble(0)).toBeCloseTo(wobble(1));
   });
 
+  it('отдаёт данные наката: доля пути, центр, нормаль и выносы', () => {
+    const strip = service.foamStrip(square(40), 3, 1, 10, (t) => t);
+    const geometry = strip as NonNullable<typeof strip>;
+
+    expect(Array.from(geometry.along)).toEqual([0, 0.25, 0.5, 0.75]);
+    expect(geometry.centers.length).toBe(8);
+    expect(geometry.axes.length).toBe(8);
+    // Профиль ширины растёт вдоль контура: 0, 0.25, 0.5, 0.75.
+    expect(geometry.water[0]).toBe(0);
+    expect(geometry.water[1]).toBeGreaterThan(geometry.water[0]);
+    expect(geometry.water[3]).toBeGreaterThan(geometry.water[1]);
+  });
+
+  it('схлопывает полосу там, где профиль равен нулю', () => {
+    const strip = service.foamStrip(square(40), 3, 1, 10, () => 0);
+    const geometry = strip as NonNullable<typeof strip>;
+
+    for (let index = 0; index < 4; index += 1) {
+      expect(geometry.positions[index * 4]).toBeCloseTo(geometry.centers[index * 2], 5);
+      expect(geometry.positions[index * 4 + 2]).toBeCloseTo(geometry.centers[index * 2], 5);
+    }
+  });
+
   it('не строит полосу по вырожденному контуру', () => {
     expect(
       service.foamStrip(
