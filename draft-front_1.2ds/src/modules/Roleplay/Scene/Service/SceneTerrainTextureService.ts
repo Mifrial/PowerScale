@@ -63,7 +63,7 @@ const PERIOD_IPARI: Record<SceneTerrainMaterial, number> = {
   bed: 1.5,
   wetsand: 1.6,
   water: 2.4,
-  caustics: 1.7,
+  caustics: 6.8,
   glints: 1.2,
   ripples: 3.2,
   foam: 0.9,

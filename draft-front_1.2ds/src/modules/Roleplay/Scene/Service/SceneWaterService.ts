@@ -27,7 +27,7 @@ interface WaterGeometry {
 
 /** Слой воды: материал, масштаб тайла, поворот выборки и дрейф. */
 interface WaterLayer {
-  material: 'ripples' | 'glints' | 'caustics';
+  material: 'ripples' | 'glints';
   periodIpari: number;
   angle: number;
   alpha: number;
@@ -56,25 +56,20 @@ interface FoamLayer {
 /** Движение слоя: снос вдоль русла или вихрь вокруг центра. */
 type WaterMotion = { kind: 'flow'; drift: ScenePoint } | { kind: 'swirl'; center: ScenePoint; rate: number };
 
+/** Каустика по дну: подсвечивает, а не закрашивает. */
+const CAUSTICS_ALPHA = 0.2;
+
 /**
- * Каустика по дну: два несоизмеримых масштаба.
+ * Тайл каустики в ипари.
  *
- * Один тайл 1.7 ипари на широкой реке повторяется квадратной сеткой. Второй
- * слой другого масштаба и под другим углом разбивает эту сетку, поэтому узор
- * читается как игра света, а не как плитка.
+ * Текстура 2048² содержит столько же ячеек, сколько прежняя 512², но занимает
+ * вчетверо большую площадь: рисунок того же масштаба повторяется вчетверо
+ * реже, поэтому на широкой реке не читается сеткой тайлов.
  */
-const BODY_CAUSTICS: WaterLayer[] = [
-  { material: 'caustics', periodIpari: 1.7, angle: 0.12, alpha: 0.16, speedIpari: 0.08, skew: 0, additive: true },
-  {
-    material: 'caustics',
-    periodIpari: 2.93,
-    angle: -0.58,
-    alpha: 0.08,
-    speedIpari: 0.045,
-    skew: 0.85,
-    additive: true,
-  },
-];
+const CAUSTICS_PERIOD_IPARI = 6.8;
+
+/** Скорость каустики, ипари в секунду. */
+const CAUSTICS_SPEED_IPARI = 0.08;
 
 /** Скорость течения по умолчанию, ипари в секунду. */
 const FLOW_SPEED_IPARI = 0.25;
@@ -107,28 +102,6 @@ const PLANE_LAYERS: WaterLayer[] = [
   },
 ];
 
-/**
- * Каустика на поверхности: один слой поверх плотной ряби.
- *
- * В толще каустика уже есть, но под рябью почти не читается. Слой добавляет
- * игру света и не трогает плотность воды: он аддитивный.
- */
-const SURFACE_CAUSTICS: WaterLayer[] = [
-  {
-    material: 'caustics',
-    periodIpari: 2.9,
-    angle: 0.32,
-    alpha: 0.1,
-    speedIpari: 0.05,
-    skew: 0.25,
-    additive: true,
-    fadeTile: 120,
-  },
-];
-
-/** Насколько тише каустика на поверхности у замкнутого водоёма. */
-const POND_SURFACE_CAUSTICS = 0.8;
-
 /** Крупная вариация тона воды: множитель, сбивающий сетку повторов. */
 const MACRO_IPARI = 44;
 
@@ -145,7 +118,7 @@ const SWIRL_RATE = 0.025;
 const POND_ALPHA = 0.72;
 
 /** Во сколько раз глуше каустика у замкнутого водоёма. */
-const POND_CAUSTICS = 0.6;
+const POND_CAUSTICS = 0.55;
 
 /**
  * Слои пены: рваная полоса по урезу и широкая полупрозрачная дымка под ней.
@@ -228,41 +201,26 @@ export class SceneWaterService {
       return null;
     }
 
-    const base = Math.max(1, resolution);
-    const pond = geometry.along === undefined;
-    const nodes: SceneWaterNode[] = [];
-    for (const spec of BODY_CAUSTICS) {
-      const period = base * spec.periodIpari;
-      const alpha = spec.alpha * (pond ? POND_CAUSTICS : 1);
-      const node = this.buildLayer(
-        caustics,
-        geometry,
-        period,
-        spec.angle,
-        alpha,
-        this.motionOf(element, geometry, period, spec.skew, spec.speedIpari * base),
-        1,
-      );
-      if (node === null) {
-        continue;
-      }
-
-      node.mesh.blendMode = 'add';
-      layer.addChild(node.mesh);
-      nodes.push({ update: node.update });
-    }
-
-    if (nodes.length === 0) {
+    // На луже каустика глуше: вода стоячая и мутнее, а сетка узора на
+    // маленьком пятне читается как лёд.
+    const period = Math.max(1, resolution) * CAUSTICS_PERIOD_IPARI;
+    const alpha = CAUSTICS_ALPHA * (geometry.along === undefined ? POND_CAUSTICS : 1);
+    const node = this.buildLayer(
+      caustics,
+      geometry,
+      period,
+      0,
+      alpha,
+      this.motionOf(element, geometry, period, 0, CAUSTICS_SPEED_IPARI * Math.max(1, resolution)),
+    );
+    if (node === null) {
       return null;
     }
 
-    return {
-      update: (seconds: number): void => {
-        for (const node of nodes) {
-          node.update(seconds);
-        }
-      },
-    };
+    node.mesh.blendMode = 'add';
+    layer.addChild(node.mesh);
+
+    return { update: node.update };
   }
 
   /** Плоскость: рябь, блики, макро-вариация и пена; под декором и актёрами. */
@@ -302,34 +260,6 @@ export class SceneWaterService {
 
       layer.addChild(node.mesh);
       nodes.push({ update: node.update });
-    }
-
-    const surface = this.materials.texture('caustics');
-    if (surface !== null) {
-      for (const spec of SURFACE_CAUSTICS) {
-        const period = base * spec.periodIpari;
-        const alpha = spec.alpha * this.lod(spec, period, zoom) * (pond ? POND_SURFACE_CAUSTICS : 1);
-        if (alpha < 0.01) {
-          continue;
-        }
-
-        const node = this.buildLayer(
-          surface,
-          geometry,
-          period,
-          spec.angle,
-          alpha,
-          this.motionOf(element, geometry, period, spec.skew, spec.speedIpari * base),
-          1,
-        );
-        if (node === null) {
-          continue;
-        }
-
-        node.mesh.blendMode = 'add';
-        layer.addChild(node.mesh);
-        nodes.push({ update: node.update });
-      }
     }
 
     const macro = this.materials.texture('waterMacro');
@@ -487,7 +417,6 @@ export class SceneWaterService {
     angle: number,
     alpha: number,
     motion: WaterMotion,
-    warp = 0,
   ): { mesh: Mesh; update(seconds: number): void } | null {
     const channel = geometry.along !== undefined && geometry.across !== undefined;
     let base: Float32Array;
@@ -502,15 +431,6 @@ export class SceneWaterService {
       base = this.meshes.channelUvs(geometry.along as Float32Array, geometry.across as Float32Array, period, angle);
     } else {
       base = this.meshes.worldUvs(geometry.positions, period, angle);
-    }
-
-    if (warp > 0) {
-      for (let index = 0; index < base.length; index += 2) {
-        const x = geometry.positions[index];
-        const y = geometry.positions[index + 1];
-        base[index] += warp * (0.12 * Math.sin(y * 0.009 + 1.7) + 0.06 * Math.sin(x * 0.013 + 0.4));
-        base[index + 1] += warp * (0.12 * Math.sin(x * 0.008 + 2.3) + 0.06 * Math.sin(y * 0.012 + 1.1));
-      }
     }
 
     const uvs = Float32Array.from(base);
