@@ -241,6 +241,7 @@ export class SceneWaterService {
         spec.angle,
         alpha,
         this.motionOf(element, geometry, period, spec.skew, spec.speedIpari * base),
+        1,
       );
       if (node === null) {
         continue;
@@ -319,6 +320,7 @@ export class SceneWaterService {
           spec.angle,
           alpha,
           this.motionOf(element, geometry, period, spec.skew, spec.speedIpari * base),
+          1,
         );
         if (node === null) {
           continue;
@@ -485,6 +487,7 @@ export class SceneWaterService {
     angle: number,
     alpha: number,
     motion: WaterMotion,
+    warp = 0,
   ): { mesh: Mesh; update(seconds: number): void } | null {
     const channel = geometry.along !== undefined && geometry.across !== undefined;
     let base: Float32Array;
@@ -499,6 +502,15 @@ export class SceneWaterService {
       base = this.meshes.channelUvs(geometry.along as Float32Array, geometry.across as Float32Array, period, angle);
     } else {
       base = this.meshes.worldUvs(geometry.positions, period, angle);
+    }
+
+    if (warp > 0) {
+      for (let index = 0; index < base.length; index += 2) {
+        const x = geometry.positions[index];
+        const y = geometry.positions[index + 1];
+        base[index] += warp * (0.12 * Math.sin(y * 0.009 + 1.7) + 0.06 * Math.sin(x * 0.013 + 0.4));
+        base[index + 1] += warp * (0.12 * Math.sin(x * 0.008 + 2.3) + 0.06 * Math.sin(y * 0.012 + 1.1));
+      }
     }
 
     const uvs = Float32Array.from(base);
