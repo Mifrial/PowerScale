@@ -137,7 +137,7 @@ const SURFACE_CAUSTICS: WaterLayer[] = [
     material: 'caustics',
     periodIpari: 2.37,
     angle: 0.36,
-    alpha: 0.13,
+    alpha: 0.09,
     speedIpari: 0.055,
     skew: 0.25,
     additive: true,
@@ -147,7 +147,7 @@ const SURFACE_CAUSTICS: WaterLayer[] = [
     material: 'caustics',
     periodIpari: 4.11,
     angle: -0.72,
-    alpha: 0.085,
+    alpha: 0.055,
     speedIpari: 0.032,
     skew: -0.5,
     additive: true,
@@ -203,7 +203,7 @@ const SWIRL_RATE = 0.025;
 const POND_ALPHA = 0.78;
 
 /** Насколько глуше каустика у замкнутого водоёма. */
-const POND_CAUSTICS = 0.8;
+const POND_CAUSTICS = 0.7;
 
 /** Доля локальной полуширины, уходящая на «язык воды». */
 const EDGE_WATER_FRACTION = 0.32;
@@ -220,18 +220,18 @@ const EDGE_LAND_MIN_IPARI = 0.04;
 const EDGE_LAND_MAX_IPARI = 0.4;
 
 /** Альфа водной и береговой частей языка. */
-const EDGE_WATER_ALPHA = 0.62;
-const EDGE_LAND_ALPHA = 0.52;
+const EDGE_WATER_ALPHA = 0.55;
+const EDGE_LAND_ALPHA = 0.7;
 
 /** Частота наката уреза, герц. */
 const EDGE_LAP_RATE = 0.13;
 
 /** Шаг между клочьями пены в ипари. */
-const FOAM_SPACING_IPARI = 2.8;
+const FOAM_SPACING_IPARI = 4.2;
 
 /** Защитные пределы числа клочьев. */
 const FOAM_MIN_COUNT = 6;
-const FOAM_MAX_COUNT = 48;
+const FOAM_MAX_COUNT = 40;
 
 /** Площадь воды на одно пятно ряби, ипари². */
 const WAVE_AREA_IPARI2 = 14;
@@ -534,7 +534,7 @@ export class SceneWaterService {
     for (let index = 0; index < count; index += 1) {
       const lap = this.lap(strip.along[index], seconds, rate, cycles, phase);
       const wave = 0.5 + 0.5 * lap;
-      const scale = side === 'land' ? 0.25 + 0.75 * wave : 0.8 + 0.2 * wave;
+      const scale = side === 'land' ? 0.2 + 0.8 * wave : 0.8 + 0.2 * wave;
       const width = (side === 'land' ? strip.land[index] : strip.water[index]) * scale;
       const centerX = strip.centers[index * 2];
       const centerY = strip.centers[index * 2 + 1];
@@ -591,8 +591,8 @@ export class SceneWaterService {
       const slot = Math.min(metrics.count - 1, Math.max(0, Math.round(station * metrics.count)));
       const edgeWater = metrics.edgeWater[slot];
       const edgeLand = metrics.edgeLand[slot];
-      const sizeAlong = edgeWater * (2.2 + random() * 2.2) + edgeLand * 1.5;
-      const sizeAcross = edgeWater * (1 + random() * 1.2) + edgeLand * 0.4;
+      const sizeAlong = edgeWater * (1.4 + random() * 1.4) + edgeLand * 0.8;
+      const sizeAcross = edgeWater * (0.8 + random() * 0.8) + edgeLand * 0.3;
       const sprite = new Sprite(texture);
       sprite.anchor.set(0.5);
       sprite.tint = 0xf4fbff;
@@ -603,8 +603,8 @@ export class SceneWaterService {
         bank,
         scaleX: sizeAlong / Math.max(1, texture.width),
         scaleY: sizeAcross / Math.max(1, texture.height),
-        alpha: 0.5 + random() * 0.32,
-        threshold: random() * 0.42,
+        alpha: 0.45 + random() * 0.27,
+        threshold: 0.1 + random() * 0.4,
         drift: (0.018 + random() * 0.04) * base,
       });
     }
@@ -648,7 +648,7 @@ export class SceneWaterService {
     const slot = Math.min(metrics.count - 1, Math.max(0, Math.round(station * metrics.count) % metrics.count));
     const edgeWater = metrics.edgeWater[slot];
     const edgeLand = metrics.edgeLand[slot];
-    const offset = edgeWater * 0.15 - edgeLand * (0.25 + 0.9 * wave);
+    const offset = edgeWater * 0.1 - edgeLand * (0.15 + 0.65 * wave);
     const normalX = tangent[1] * metrics.toward;
     const normalY = -tangent[0] * metrics.toward;
     const factor = 0.7 + 0.5 * wave;

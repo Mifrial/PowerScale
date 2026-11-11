@@ -8,7 +8,7 @@ import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
 /** Ширина мелководной полосы у берега в ипари. */
-const SHALLOW_BAND_IPARI = 0.9;
+const SHALLOW_BAND_IPARI = 0.55;
 
 /** Разрешение запекания по длинной стороне. */
 const MAX_CELLS = 160;
@@ -17,7 +17,7 @@ const MAX_CELLS = 160;
 const MIN_CELLS = 2;
 
 /** Цвет мелководья у берега. */
-const SHALLOW: [number, number, number] = [0x9a, 0xd0, 0xe0];
+const SHALLOW: [number, number, number] = [0x86, 0xc3, 0xd4];
 
 /** Цвет глубокой воды. */
 const DEEP: [number, number, number] = [0x1f, 0x54, 0x70];
