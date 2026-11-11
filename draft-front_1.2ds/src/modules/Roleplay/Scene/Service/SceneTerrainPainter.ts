@@ -142,28 +142,39 @@ export class SceneTerrainPainter {
     }
 
     const pattern = this.patterns.patternOf(wet, this.materials.period('wetsand', resolution), element.id + 31);
-    const graphics = new Graphics();
-    if (element.shape.type === 'path') {
-      const outline = sceneRibbonService.outline(
-        element.shape.points,
-        element.shape.handles ?? [],
-        element.shape.widths,
-        sceneCurveService.toleranceFor(zoom),
-      );
-      graphics.poly(outline.flat()).stroke({
-        fill: pattern,
-        width: Math.max(1, resolution * WET_IPARI),
-        alignment: 0,
-        alpha: 0.85,
-        join: 'round',
-      });
-    } else {
+    const path = (graphics: Graphics): Graphics => {
+      if (element.shape.type === 'path') {
+        const outline = sceneRibbonService.outline(
+          element.shape.points,
+          element.shape.handles ?? [],
+          element.shape.widths,
+          sceneCurveService.toleranceFor(zoom),
+        );
+
+        graphics.poly(outline.flat());
+
+        return graphics;
+      }
+
       this.trace(graphics, element.shape, zoom);
-      graphics.stroke({
+
+      return graphics;
+    };
+
+    // Сырость нарастает к урезу: несколько полос от широкой и бледной к узкой
+    // и плотной дают градиент, а не ровную тёмную ленту по всему берегу.
+    const bands: [number, number][] = [
+      [WET_IPARI, 0.22],
+      [WET_IPARI * 0.6, 0.3],
+      [WET_IPARI * 0.28, 0.4],
+    ];
+    const graphics = new Graphics();
+    for (const [width, alpha] of bands) {
+      path(graphics).stroke({
         fill: pattern,
-        width: Math.max(1, resolution * WET_IPARI),
+        width: Math.max(1, resolution * width),
         alignment: 0,
-        alpha: 0.85,
+        alpha,
         join: 'round',
       });
     }

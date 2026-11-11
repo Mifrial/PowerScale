@@ -89,12 +89,12 @@ const PLANE_LAYERS: WaterLayer[] = [
  * на друга и перестраиваются, поэтому урез не выглядит одной ползущей картинкой.
  */
 const FOAM_LAYERS: FoamLayer[] = [
-  { width: 1.35, periodScale: 1, alpha: 0.75, speedIpari: 0.12, offset: 0.13 },
+  { width: 1.35, periodScale: 1, alpha: 0.85, speedIpari: 0.12, offset: 0.13 },
   { width: 2.3, periodScale: 2.7, alpha: 0.22, speedIpari: -0.07, offset: 0.61 },
 ];
 
 /** Ширина полосы пены в ипари. */
-const FOAM_IPARI = 0.3;
+const FOAM_IPARI = 0.4;
 
 /** Разбиение окружности для воды-круга. */
 const CIRCLE_SEGMENTS = 72;
