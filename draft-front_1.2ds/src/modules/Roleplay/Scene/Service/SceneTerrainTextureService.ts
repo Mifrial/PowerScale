@@ -14,18 +14,7 @@ import foamUrl from '@/modules/Roleplay/Scene/Asset/Terrain/foam.png';
 
 /** Материал террейна из набора CC0. */
 export type SceneTerrainMaterial =
-  | 'grass'
-  | 'dirt'
-  | 'stone'
-  | 'sand'
-  | 'mud'
-  | 'bed'
-  | 'wetsand'
-  | 'water'
-  | 'caustics'
-  | 'glints'
-  | 'foam'
-  | 'macro';
+  'grass' | 'dirt' | 'stone' | 'sand' | 'mud' | 'bed' | 'wetsand' | 'water' | 'caustics' | 'glints' | 'foam' | 'macro';
 
 /** Источники текстур; `bed` — дно водоёма, `wetsand` — мокрый берег. */
 const SOURCES: Record<SceneTerrainMaterial, string> = {
@@ -106,11 +95,7 @@ export class SceneTerrainTextureService {
 
   private async decode(material: SceneTerrainMaterial): Promise<void> {
     try {
-      const image = new Image();
-      image.crossOrigin = 'anonymous';
-      image.src = SOURCES[material];
-      await image.decode();
-
+      const image = await this.loadImage(SOURCES[material]);
       const texture = Texture.from(image);
       const style = texture.source.style;
       style.addressMode = 'repeat';
@@ -122,5 +107,33 @@ export class SceneTerrainTextureService {
     } catch {
       this.textures.delete(material);
     }
+  }
+
+  /**
+   * Загружает картинку по URL.
+   *
+   * `Image.decode()` в некоторых окружениях не разрешается вовсе, поэтому
+   * ждём событие загрузки, а таймаут оставляет материал без текстуры: сцена
+   * должна открыться на процедурном шаблоне, а не зависнуть.
+   */
+  private loadImage(url: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      const timer = window.setTimeout(() => reject(new Error(`timeout: ${url}`)), 15000);
+      image.crossOrigin = 'anonymous';
+      image.onload = (): void => {
+        window.clearTimeout(timer);
+        resolve(image);
+      };
+      image.onerror = (): void => {
+        window.clearTimeout(timer);
+        reject(new Error(`failed: ${url}`));
+      };
+      image.src = url;
+      if (image.complete && image.naturalWidth > 0) {
+        window.clearTimeout(timer);
+        resolve(image);
+      }
+    });
   }
 }
