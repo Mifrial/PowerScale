@@ -48,9 +48,7 @@ final class GameBattleCleanup
         $this->smartTableGateway->transaction(function () use ($sessionId): void {
             (new GameProcessRepository($this->smartTableGateway))->cancelOpenForSession($sessionId);
             (new GameCheckRepository($this->smartTableGateway))->deleteBySession($sessionId);
-            $actions = new GameActionRepository($this->smartTableGateway);
-            $actions->deleteBySession($sessionId, 'wide_strike');
-            $actions->deleteBySession($sessionId, 'strike');
+            (new GameActionRepository($this->smartTableGateway))->deleteBySession($sessionId);
             (new GameCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
             $battles = new GameBattleRepository($this->smartTableGateway);
             foreach ($battles->findIdsBySession($sessionId) as $battleId) {

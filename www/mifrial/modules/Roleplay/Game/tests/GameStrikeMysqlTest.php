@@ -300,6 +300,27 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Остановка сессии при открытом действии каста снимает его действие.
+     *
+     * @return void
+     */
+    public function testStopSessionRemovesPendingSpellAction(): void
+    {
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'dynamic-energy-saturation', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [], [], $this->saturationCards());
+        $check = $this->dispatch('game.runAction', $this->spellCheckBody($scene, 'stop-spell-1'));
+        self::assertTrue($check['success'], json_encode($check));
+        self::assertSame('check', $check['data']['phase'] ?? null);
+        self::assertSame(1, $this->countActions('spell'));
+
+        $stopped = $this->dispatch('game.stopSession', ['gameId' => $scene['gameId']]);
+        self::assertTrue($stopped['success'], json_encode($stopped));
+        self::assertSame(0, $this->countActions('spell'));
+        self::assertSame(0, $this->countAll(GameSessionTable::class));
+    }
+
+    /**
      * Ноль шагов оставляет успех и ставит хвост следующей Сложности.
      *
      * @return void

@@ -268,17 +268,17 @@ final class GameActionRepository // phpcs:ignore MifrialCodingStandard.Metrics.C
     }
 
     /**
-     * Снимает действия вида вместе с ударами.
+     * Снимает действия сессии вместе с ударами. null kind — любой вид.
      *
      * @param int $sessionId Сессия.
-     * @param string $kind Вид действия.
+     * @param string|null $kind Вид действия или null.
      *
      * @return list<int> Id снятых действий.
      *
      * @throws GameNotFoundException Если строку уже сняли.
      * @throws GameInvalidException Если поле.
      */
-    public function deleteBySession(int $sessionId, string $kind): array
+    public function deleteBySession(int $sessionId, ?string $kind = null): array
     {
         return $this->smartTableGateway->transaction(function () use ($sessionId, $kind): array {
             $ids = $this->findIdsBySession($sessionId, $kind);
