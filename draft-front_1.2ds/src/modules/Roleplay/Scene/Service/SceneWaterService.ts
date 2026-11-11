@@ -53,7 +53,7 @@ const PLANE_LAYERS: WaterLayer[] = [
     material: 'caustics',
     periodIpari: 2.1,
     angle: Math.PI / 5,
-    alpha: 0.16,
+    alpha: 0.12,
     speedIpari: FLOW_SPEED_IPARI * 1.6,
     skew: 0.4,
   },
