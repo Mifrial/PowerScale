@@ -13,6 +13,9 @@ import glintsUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_glints.png';
 import foamUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_foam.png';
 import ripplesUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_ripples.png';
 import waterMacroUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_macro.png';
+import waterEdgeUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_edge.png';
+import waterFoamPatchUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_foam_patch.png';
+import waterSheenUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_sheen.png';
 
 /** Материал террейна из набора CC0. */
 export type SceneTerrainMaterial =
@@ -29,7 +32,10 @@ export type SceneTerrainMaterial =
   | 'ripples'
   | 'foam'
   | 'macro'
-  | 'waterMacro';
+  | 'waterMacro'
+  | 'edge'
+  | 'foamPatch'
+  | 'sheen';
 
 /** Источники текстур; `bed` — дно водоёма, `wetsand` — мокрый берег. */
 const SOURCES: Record<SceneTerrainMaterial, string> = {
@@ -47,6 +53,9 @@ const SOURCES: Record<SceneTerrainMaterial, string> = {
   foam: foamUrl,
   macro: macroUrl,
   waterMacro: waterMacroUrl,
+  edge: waterEdgeUrl,
+  foamPatch: waterFoamPatchUrl,
+  sheen: waterSheenUrl,
 };
 
 /**
@@ -69,6 +78,9 @@ const PERIOD_IPARI: Record<SceneTerrainMaterial, number> = {
   foam: 0.9,
   macro: 10,
   waterMacro: 44,
+  edge: 2.6,
+  foamPatch: 1.4,
+  sheen: 3,
 };
 
 /**
