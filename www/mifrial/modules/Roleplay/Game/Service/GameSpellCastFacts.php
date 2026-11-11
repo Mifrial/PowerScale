@@ -34,6 +34,11 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
  */
 final class GameSpellCastFacts
 {
+    /**
+     * Технический предел размера параметра: защита от переполнения,
+     * а не игровое ограничение. Верхнюю мощь задаёт характеристика кастера.
+     */
+    private const MAX_PARAMETER_SIZE = 20;
     private readonly CharacterChoiceAssembler $assembler;
 
     private readonly CharacterAbilityGrantReader $grants;
@@ -458,6 +463,10 @@ final class GameSpellCastFacts
 
         if ($parameter->getKind() === 'dimensional') {
             if (!is_array($value) || !is_int($value['base'] ?? null) || !is_int($value['size'] ?? null)) {
+                throw new GameInvalidException('Game spell parameter shape is invalid');
+            }
+
+            if ($value['size'] < -self::MAX_PARAMETER_SIZE || $value['size'] > self::MAX_PARAMETER_SIZE) {
                 throw new GameInvalidException('Game spell parameter shape is invalid');
             }
 

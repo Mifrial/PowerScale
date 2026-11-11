@@ -150,4 +150,22 @@ export class SpellCastDifficultyService {
 
     return { base: value.base, size: value.size };
   }
+
+  /** Клампит размерное значение в пределы параметра, если они заданы. */
+  clampToRange(
+    value: DimensionalNumberValue,
+    min: DimensionalNumberValue | null,
+    max: DimensionalNumberValue | null,
+  ): DimensionalNumberValue {
+    const number = DimensionalNumber.from(value);
+    if (min && number.compare(DimensionalNumber.from(min)) < 0) {
+      return { base: min.base, size: min.size };
+    }
+
+    if (max && number.compare(DimensionalNumber.from(max)) > 0) {
+      return { base: max.base, size: max.size };
+    }
+
+    return { base: value.base, size: value.size };
+  }
 }

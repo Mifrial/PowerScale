@@ -449,6 +449,24 @@ describe('clampToAtMost', () => {
   });
 });
 
+describe('clampToRange', () => {
+  it('держит размерное значение в пределах параметра', () => {
+    expect(
+      spellCastDifficultyService.clampToRange({ base: 5, size: 5 }, { base: 3, size: -1 }, { base: 5, size: 1 }),
+    ).toEqual({ base: 5, size: 1 });
+    expect(
+      spellCastDifficultyService.clampToRange({ base: 3, size: -2 }, { base: 3, size: -1 }, { base: 5, size: 1 }),
+    ).toEqual({ base: 3, size: -1 });
+    expect(
+      spellCastDifficultyService.clampToRange({ base: 4, size: 0 }, { base: 3, size: -1 }, { base: 5, size: 1 }),
+    ).toEqual({ base: 4, size: 0 });
+  });
+
+  it('без пределов не трогает значение', () => {
+    expect(spellCastDifficultyService.clampToRange({ base: 5, size: 3 }, null, null)).toEqual({ base: 5, size: 3 });
+  });
+});
+
 describe('asActionAbilitySpec', () => {
   it('не принимает type spell', () => {
     expect(asActionAbilitySpec(spellRule('discharge', 'electricity'))).toBeNull();
@@ -489,9 +507,7 @@ describe('targetSpellResistanceFromOverview', () => {
   const overview = (grants: ReturnType<typeof line>[], armor: ReturnType<typeof line>[] = []) =>
     ({
       defense: {
-        armor: armor.length
-          ? [{ itemRuleCode: 'armor', itemName: 'Броня', href: '#', lines: armor, tiers: [] }]
-          : [],
+        armor: armor.length ? [{ itemRuleCode: 'armor', itemName: 'Броня', href: '#', lines: armor, tiers: [] }] : [],
         resistances: grants,
         constantDefense: 0,
         tiers: [],
@@ -515,11 +531,10 @@ describe('targetSpellResistanceFromOverview', () => {
 
     expect(
       spellCastOptionsService.targetSpellResistanceFromOverview(
-        overview([
-          line('arcane', 1, 'mastery'),
-          line('arcane', 2, 'mastery'),
-          line('arcane', 1, 'innate'),
-        ], [line('arcane', 3, 'armor')]),
+        overview(
+          [line('arcane', 1, 'mastery'), line('arcane', 2, 'mastery'), line('arcane', 1, 'innate')],
+          [line('arcane', 3, 'armor')],
+        ),
         rules,
       ),
     ).toBe(6);

@@ -60,7 +60,6 @@ const activationPower: AbilityParameter = {
   resolution: 'activation',
   default: dim(3, 0),
   min: dim(3, -1),
-  max: dim(5, 1),
 };
 
 function rule(partial: Omit<Rule, 'spaceId' | 'createdAt' | 'mechanics'>): Rule {

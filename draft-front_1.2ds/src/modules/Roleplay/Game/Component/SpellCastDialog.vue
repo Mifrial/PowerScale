@@ -568,6 +568,37 @@ const parameterValues = computed((): Record<string, DimensionalNumberValue> => {
   return { [spellSpec.value.spell.power.parameter_code]: parameterPower.value };
 });
 
+const powerParameter = computed(() => {
+  if (!powerIsParameter.value || !spellSpec.value || !('type' in spellSpec.value.spell.power)) {
+    return null;
+  }
+
+  const code = spellSpec.value.spell.power.parameter_code;
+
+  return spellSpec.value.parameters?.find((parameter) => parameter.code === code) ?? null;
+});
+
+function dimensionalLimit(value: DimensionalNumberValue | number | null | undefined): DimensionalNumberValue | null {
+  if (value === null || value === undefined) return null;
+
+  return typeof value === 'number' ? { base: value, size: 0 } : value;
+}
+
+const powerParameterLimits = computed(() => ({
+  min: dimensionalLimit(powerParameter.value?.min),
+  max: dimensionalLimit(powerParameter.value?.max),
+}));
+
+function setParameterPower(value: DimensionalNumberValue | null): void {
+  parameterPower.value = spellCastDifficultyService.clampToRange(
+    value ?? { base: 3, size: 0 },
+    powerParameterLimits.value.min,
+    powerParameterLimits.value.max,
+  );
+}
+
+watch(spellCode, () => setParameterPower(parameterPower.value));
+
 const castParameters = computed((): Record<string, DimensionalNumberValue> => {
   const values: Record<string, DimensionalNumberValue> = { ...parameterValues.value };
   const spell = spellSpec.value?.spell;
@@ -727,7 +758,7 @@ async function loadCastContext(open: boolean): Promise<void> {
   if (sustain && DimensionalNumber.from(usedPower.value).compare(DimensionalNumber.from(sustain.sustainPower)) > 0) {
     usedPower.value = { ...sustain.sustainPower };
   }
-  parameterPower.value = { ...usedPower.value };
+  setParameterPower(usedPower.value);
   spellCode.value = spells.value[0]?.ruleCode ?? '';
   touchActionCode.value = defaultTouchActionCode();
   const remembered = rememberedTarget();
@@ -2150,11 +2181,13 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
             />
             <DimensionalNumberInput
               v-if="powerIsParameter"
-              v-model="parameterPower"
+              :model-value="parameterPower"
               label="Мощь заклинания"
               :min="CHARACTERISTIC_BASE_RANGE.min"
               :max="CHARACTERISTIC_BASE_RANGE.max"
+              :size-max="10"
               class="mb-3"
+              @update:model-value="setParameterPower"
             />
             <div v-else-if="fixedSpellPower" class="text-caption text-medium-emphasis mb-3">
               Мощь заклинания: {{ fixedSpellPowerLabel }}
