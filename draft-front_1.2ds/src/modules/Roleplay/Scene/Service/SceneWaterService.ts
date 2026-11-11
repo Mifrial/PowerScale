@@ -63,7 +63,7 @@ const CAUSTICS_ALPHA = 0.2;
 const CAUSTICS_SPEED_IPARI = 0.08;
 
 /** Скорость течения по умолчанию, ипари в секунду. */
-const FLOW_SPEED_IPARI = 0.25;
+const FLOW_SPEED_IPARI = 0.22;
 
 /**
  * Слои плоскости воды: два масштаба ряби и блики.
@@ -72,21 +72,21 @@ const FLOW_SPEED_IPARI = 0.25;
  * каждый тайл, а так сумма слоёв повторяется через десятки ипари.
  */
 const PLANE_LAYERS: WaterLayer[] = [
-  { material: 'ripples', periodIpari: 8.93, angle: 0, alpha: 0.4, speedIpari: FLOW_SPEED_IPARI * 0.8, skew: 0 },
+  { material: 'ripples', periodIpari: 8.93, angle: 0, alpha: 0.28, speedIpari: FLOW_SPEED_IPARI * 0.7, skew: 0 },
   {
     material: 'ripples',
     periodIpari: 5.31,
     angle: Math.PI / 3.4,
-    alpha: 0.24,
-    speedIpari: FLOW_SPEED_IPARI * 1.3,
-    skew: 0.45,
+    alpha: 0.16,
+    speedIpari: FLOW_SPEED_IPARI * 0.38,
+    skew: Math.PI * 0.65,
   },
   {
     material: 'glints',
     periodIpari: 4.13,
     angle: Math.PI / 7,
-    alpha: 0.32,
-    speedIpari: FLOW_SPEED_IPARI * 2.6,
+    alpha: 0.24,
+    speedIpari: FLOW_SPEED_IPARI * 1.6,
     skew: -0.3,
     additive: true,
     fadeTile: 150,
@@ -94,22 +94,34 @@ const PLANE_LAYERS: WaterLayer[] = [
 ];
 
 /**
- * Один тонкий слой каустики на поверхности.
+ * Каустика на поверхности: два несоизмеримых масштаба.
  *
- * В толще каустика уже есть, но она почти не читается под рябью. Этот слой
- * возвращает игру света на воде и при этом не превращает поверхность в
- * плитку: масштаб крупнее, альфа низкая, в отдалении слой гаснет.
+ * В толще каустика уже есть, но под рябью почти не читается. Эти слои
+ * возвращают игру света на воде и не складываются в ровную плитку: масштабы
+ * разные, дрейф разный, в отдалении оба гаснут.
  */
-const SURFACE_CAUSTICS: WaterLayer = {
-  material: 'caustics',
-  periodIpari: 2.9,
-  angle: 0.32,
-  alpha: 0.09,
-  speedIpari: 0.05,
-  skew: 0.25,
-  additive: true,
-  fadeTile: 120,
-};
+const SURFACE_CAUSTICS: WaterLayer[] = [
+  {
+    material: 'caustics',
+    periodIpari: 2.37,
+    angle: 0.36,
+    alpha: 0.09,
+    speedIpari: 0.055,
+    skew: 0.25,
+    additive: true,
+    fadeTile: 110,
+  },
+  {
+    material: 'caustics',
+    periodIpari: 4.11,
+    angle: -0.72,
+    alpha: 0.055,
+    speedIpari: 0.032,
+    skew: -0.5,
+    additive: true,
+    fadeTile: 170,
+  },
+];
 
 /** Насколько тише каустика на поверхности у замкнутого водоёма. */
 const POND_SURFACE_CAUSTICS = 0.8;
@@ -274,25 +286,30 @@ export class SceneWaterService {
       nodes.push({ update: node.update });
     }
 
-    const surface = this.materials.texture(SURFACE_CAUSTICS.material);
+    const surface = this.materials.texture('caustics');
     if (surface !== null) {
-      const period = base * SURFACE_CAUSTICS.periodIpari;
-      const alpha =
-        SURFACE_CAUSTICS.alpha * this.lod(SURFACE_CAUSTICS, period, zoom) * (pond ? POND_SURFACE_CAUSTICS : 1);
-      if (alpha >= 0.01) {
+      for (const spec of SURFACE_CAUSTICS) {
+        const period = base * spec.periodIpari;
+        const alpha = spec.alpha * this.lod(spec, period, zoom) * (pond ? POND_SURFACE_CAUSTICS : 1);
+        if (alpha < 0.01) {
+          continue;
+        }
+
         const node = this.buildLayer(
           surface,
           geometry,
           period,
-          SURFACE_CAUSTICS.angle,
+          spec.angle,
           alpha,
-          this.motionOf(element, geometry, period, SURFACE_CAUSTICS.skew, SURFACE_CAUSTICS.speedIpari * base),
+          this.motionOf(element, geometry, period, spec.skew, spec.speedIpari * base),
         );
-        if (node !== null) {
-          node.mesh.blendMode = 'add';
-          layer.addChild(node.mesh);
-          nodes.push({ update: node.update });
+        if (node === null) {
+          continue;
         }
+
+        node.mesh.blendMode = 'add';
+        layer.addChild(node.mesh);
+        nodes.push({ update: node.update });
       }
     }
 
