@@ -192,13 +192,16 @@ export class SceneWaterService {
       return null;
     }
 
+    // На луже каустика глуше: вода стоячая и мутнее, а сетка узора на
+    // маленьком пятне читается как лёд.
     const period = Math.max(1, resolution) * 1.7;
+    const alpha = CAUSTICS_ALPHA * (geometry.along === undefined ? POND_CAUSTICS : 1);
     const node = this.buildLayer(
       caustics,
       geometry,
       period,
       0,
-      CAUSTICS_ALPHA,
+      alpha,
       this.motionOf(element, geometry, period, 0, CAUSTICS_SPEED_IPARI * Math.max(1, resolution)),
     );
     if (node === null) {
