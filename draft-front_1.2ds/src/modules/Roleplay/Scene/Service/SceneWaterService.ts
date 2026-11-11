@@ -1,10 +1,11 @@
-import { FillPattern, Graphics, Matrix, Mesh, MeshGeometry, Sprite, earcut } from 'pixi.js';
+import { Graphics, Mesh, MeshGeometry, Sprite, earcut } from 'pixi.js';
 import type { Container, Texture } from 'pixi.js';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
 import { SceneWaterDepthService } from '@/modules/Roleplay/Scene/Service/SceneWaterDepthService';
+import { SceneWaterMeshService } from '@/modules/Roleplay/Scene/Service/SceneWaterMeshService';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
@@ -13,10 +14,14 @@ export interface SceneWaterNode {
   update(seconds: number): void;
 }
 
-/** Геометрия поверхности: позиции и треугольники. */
+/** Геометрия поверхности: позиции, треугольники и координаты вдоль русла. */
 interface WaterGeometry {
   positions: Float32Array;
   indices: Uint32Array;
+  /** Длина по осевой для каждой вершины; есть только у ленты. */
+  along?: Float32Array;
+  /** Смещение поперёк осевой для каждой вершины; есть только у ленты. */
+  across?: Float32Array;
 }
 
 /** Слой воды: материал, масштаб тайла, поворот выборки и дрейф. */
@@ -30,6 +35,15 @@ interface WaterLayer {
   skew: number;
   /** Аддитивное смешивание для бликов. */
   additive?: boolean;
+}
+
+/** Слой пены: ширина от базовой полосы, скорость вдоль берега и сдвиг фазы. */
+interface FoamLayer {
+  width: number;
+  periodScale: number;
+  alpha: number;
+  speedIpari: number;
+  offset: number;
 }
 
 /** Каустика по дну: подсвечивает, а не закрашивает. */
@@ -68,25 +82,39 @@ const PLANE_LAYERS: WaterLayer[] = [
   },
 ];
 
+/**
+ * Слои пены: рваная полоса по урезу и широкая полупрозрачная дымка под ней.
+ *
+ * Полосы идут с разной скоростью в разные стороны: пятна пены наплывают друг
+ * на друга и перестраиваются, поэтому урез не выглядит одной ползущей картинкой.
+ */
+const FOAM_LAYERS: FoamLayer[] = [
+  { width: 1.35, periodScale: 1, alpha: 0.75, speedIpari: 0.12, offset: 0.13 },
+  { width: 2.3, periodScale: 2.7, alpha: 0.22, speedIpari: -0.07, offset: 0.61 },
+];
+
+/** Ширина полосы пены в ипари. */
+const FOAM_IPARI = 0.3;
+
 /** Разбиение окружности для воды-круга. */
 const CIRCLE_SEGMENTS = 72;
-
-/** Ширина линии уреза в ипари. */
-const FOAM_IPARI = 0.26;
 
 /**
  * Вода: толща, плоскость и урез.
  *
  * - Толща (градиент глубины и каустика) — под актёрами.
- * - Плоскость (рябь и блики) — над толщей, но под декором и актёрами: это
- *   поверхность водоёма, и объект над ней её перекрывает.
- * - Урез (пена) — над всем: он и есть граница воды.
+ * - Плоскость (рябь, блики, пена) — над толщей и под декором: это поверхность
+ *   водоёма, и объект над ней её перекрывает.
+ * - Урез лежит на земле у кромки, поэтому тоже уходит под декор: крона дерева
+ *   на берегу не должна просвечивать через пену.
  *
  * Погружение объекта считается отдельно, по глубине под его нижней точкой.
- * UV мировые, поэтому текстура не растягивается на поворотах и не даёт стыков.
+ * UV у русла идут вдоль осевой, поэтому течение повторяет изгибы реки.
  */
 export class SceneWaterService {
   private readonly depths = new SceneWaterDepthService();
+
+  private readonly meshes = new SceneWaterMeshService();
 
   constructor(private readonly materials: SceneTerrainTextureService) {}
 
@@ -104,15 +132,14 @@ export class SceneWaterService {
       return null;
     }
 
-    const [flowX, flowY] = this.flowDirection(element);
+    const period = Math.max(1, resolution) * 1.7;
     const node = this.buildLayer(
       caustics,
       this.geometry(element.shape, zoom),
-      Math.max(1, resolution) * 1.7,
+      period,
       0,
       CAUSTICS_ALPHA,
-      CAUSTICS_SPEED_IPARI * Math.max(1, resolution),
-      [flowX, flowY],
+      this.drift(element, period, 0, CAUSTICS_SPEED_IPARI * Math.max(1, resolution)),
     );
     if (node === null) {
       return null;
@@ -132,18 +159,17 @@ export class SceneWaterService {
       return null;
     }
 
-    const [flowX, flowY] = this.flowDirection(element);
     const nodes: SceneWaterNode[] = [];
     for (const spec of PLANE_LAYERS) {
       const texture = this.materials.texture(spec.material) ?? fallback;
+      const period = Math.max(1, resolution) * spec.periodIpari;
       const node = this.buildLayer(
         texture,
         geometry,
-        Math.max(1, resolution) * spec.periodIpari,
+        period,
         spec.angle,
         spec.alpha,
-        spec.speedIpari * Math.max(1, resolution),
-        this.skewed(flowX, flowY, spec.skew),
+        this.drift(element, period, spec.skew, spec.speedIpari * Math.max(1, resolution)),
       );
       if (node === null) {
         continue;
@@ -170,38 +196,76 @@ export class SceneWaterService {
     };
   }
 
-  /** Урез: мягкая полоса, рваная пена и тонкая линия поверх всего. */
-  paintFoam(layer: Container, element: SceneElement, resolution: number, zoom: number): void {
-    const graphics = new Graphics();
-    this.trace(graphics, element.shape, zoom);
-    graphics.stroke({
-      color: 0xcfeaff,
-      width: Math.max(1, resolution * 0.3),
-      alpha: 0.12,
+  /** Урез: мокрый берег, линия воды и бегущая пена. */
+  paintFoam(layer: Container, element: SceneElement, resolution: number, zoom: number): SceneWaterNode | null {
+    const rim = new Graphics();
+    this.trace(rim, element.shape, zoom);
+    rim.stroke({
+      color: 0xbfe3f2,
+      width: Math.max(1, resolution * 0.34),
+      alpha: 0.1,
       alignment: 1,
       join: 'round',
     });
+    this.trace(rim, element.shape, zoom);
+    rim.stroke({
+      color: 0xe8f7ff,
+      width: Math.max(1, 1.2 / zoom),
+      alpha: 0.22,
+      join: 'round',
+    });
+    layer.addChild(rim);
 
     const foam = this.materials.texture('foam');
-    if (foam !== null) {
-      this.trace(graphics, element.shape, zoom);
-      graphics.stroke({
-        fill: this.patternOf(foam, this.materials.period('foam', resolution), element.id + 53),
-        width: Math.max(1.5, resolution * FOAM_IPARI),
-        alpha: 0.6,
-        alignment: 0.5,
-        join: 'round',
+    const outline = this.outline(element.shape, zoom);
+    if (foam === null || outline === null) {
+      return null;
+    }
+
+    // Пена мелкая: тайл 512×128 растянут вдоль берега, иначе рисунок
+    // повторялся бы каждые полтора метра.
+    const band = Math.max(1, resolution) * FOAM_IPARI;
+    const period = band * (foam.width / Math.max(1, foam.height));
+    const wobble = this.wobbleOf(element.id);
+    const nodes: { mesh: Mesh; base: Float32Array; uvs: Float32Array; drift: number; offset: number }[] = [];
+    for (const spec of FOAM_LAYERS) {
+      const strip = this.meshes.foamStrip(outline, (band * spec.width) / 2, period * spec.periodScale, wobble);
+      if (strip === null) {
+        continue;
+      }
+
+      const uvs = Float32Array.from(strip.uvs);
+      const mesh = new Mesh({
+        geometry: new MeshGeometry({ positions: strip.positions, uvs, indices: strip.indices }),
+        texture: foam,
+      });
+      mesh.alpha = spec.alpha;
+      layer.addChild(mesh);
+      nodes.push({
+        mesh,
+        base: Float32Array.from(strip.uvs),
+        uvs,
+        drift: (spec.speedIpari * Math.max(1, resolution)) / strip.period,
+        offset: spec.offset,
       });
     }
 
-    this.trace(graphics, element.shape, zoom);
-    graphics.stroke({
-      color: 0xe8f7ff,
-      width: Math.max(1, 1.2 / zoom),
-      alpha: 0.3,
-      join: 'round',
-    });
-    layer.addChild(graphics);
+    if (nodes.length === 0) {
+      return null;
+    }
+
+    return {
+      update: (seconds: number): void => {
+        for (const node of nodes) {
+          const shift = node.offset + node.drift * seconds;
+          for (let index = 0; index < node.uvs.length; index += 2) {
+            node.uvs[index] = node.base[index] + shift;
+          }
+
+          node.mesh.geometry.uvs = node.uvs;
+        }
+      },
+    };
   }
 
   /** Глубина под точкой в единицах сцены; вне воды — ноль. */
@@ -215,9 +279,11 @@ export class SceneWaterService {
   }
 
   /**
-   * Меш слоя: мировые UV, дрейф вдоль течения.
+   * Меш слоя: базовые UV и постоянный дрейф.
    *
-   * `period` и `speed` — в единицах сцены: скорость уже переведена из ипари.
+   * У ленты UV идут вдоль осевой, поэтому текстура не сползает с изгиба и не
+   * накапливает сдвиг: движение вдоль русла — это сдвиг одной координаты.
+   * `drift` — уже в долях тайла за секунду.
    */
   private buildLayer(
     texture: Texture,
@@ -225,42 +291,31 @@ export class SceneWaterService {
     period: number,
     angle: number,
     alpha: number,
-    speed: number,
-    flow: ScenePoint,
+    drift: ScenePoint,
   ): { mesh: Mesh; update(seconds: number): void } | null {
     if (geometry === null) {
       return null;
     }
 
-    const count = geometry.positions.length / 2;
-    const base = new Float32Array(count * 2);
-    const uvs = new Float32Array(count * 2);
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    for (let index = 0; index < count; index += 1) {
-      const x = geometry.positions[index * 2];
-      const y = geometry.positions[index * 2 + 1];
-      base[index * 2] = (x * cos - y * sin) / period;
-      base[index * 2 + 1] = (x * sin + y * cos) / period;
-    }
-
+    const base =
+      geometry.along !== undefined && geometry.across !== undefined
+        ? this.meshes.channelUvs(geometry.along, geometry.across, period, angle)
+        : this.meshes.worldUvs(geometry.positions, period, angle);
+    const uvs = Float32Array.from(base);
     const mesh = new Mesh({
       geometry: new MeshGeometry({ positions: geometry.positions, uvs, indices: geometry.indices }),
       texture,
     });
     mesh.alpha = alpha;
 
-    const driftX = (cos * flow[0] - sin * flow[1]) / period;
-    const driftY = (sin * flow[0] + cos * flow[1]) / period;
-
     return {
       mesh,
       update: (seconds: number): void => {
-        const offsetX = driftX * speed * seconds;
-        const offsetY = driftY * speed * seconds;
-        for (let index = 0; index < count; index += 1) {
-          uvs[index * 2] = base[index * 2] + offsetX;
-          uvs[index * 2 + 1] = base[index * 2 + 1] + offsetY;
+        const offsetX = drift[0] * seconds;
+        const offsetY = drift[1] * seconds;
+        for (let index = 0; index < uvs.length; index += 2) {
+          uvs[index] = base[index] + offsetX;
+          uvs[index + 1] = base[index + 1] + offsetY;
         }
 
         mesh.geometry.uvs = uvs;
@@ -268,17 +323,35 @@ export class SceneWaterService {
     };
   }
 
-  /** Паттерн материала с тайлом в единицах сцены. */
-  private patternOf(texture: Texture, period: number, elementId: number): FillPattern {
-    const seed = Math.abs(Math.trunc(elementId)) * 2654435761;
-    const offsetX = ((seed % 1024) / 1024) * period;
-    const offsetY = (((seed >>> 10) % 1024) / 1024) * period;
-    const matrix = new Matrix().scale(period / Math.max(1, texture.width), period / Math.max(1, texture.width));
-    matrix.translate(offsetX, offsetY);
-    const pattern = new FillPattern({ texture, textureSpace: 'global' });
-    pattern.setTransform(matrix);
+  /**
+   * Направление дрейфа в долях тайла за секунду.
+   *
+   * У ленты дрейф идёт вдоль русла (с небольшим поперечным скосом), у
+   * замкнутого водоёма — по общему направлению течения в мировых координатах.
+   */
+  private drift(element: SceneElement, period: number, skew: number, speed: number): ScenePoint {
+    const [flowX, flowY] = this.flowDirection(element);
+    const cos = Math.cos(skew);
+    const sin = Math.sin(skew);
+    const isChannel = element.shape.type === 'path';
+    const directionX = isChannel ? cos : flowX * cos - flowY * sin;
+    const directionY = isChannel ? sin : flowX * sin + flowY * cos;
 
-    return pattern;
+    return [(directionX * speed) / period, (directionY * speed) / period];
+  }
+
+  /** Ширина пены вдоль контура: рваный урез, а не лента постоянной толщины. */
+  private wobbleOf(seed: number): (t: number) => number {
+    const random = (value: number): number => {
+      const chunk = Math.sin(value * 127.1) * 43758.5453;
+
+      return chunk - Math.floor(chunk);
+    };
+    const phaseA = random(seed) * Math.PI * 2;
+    const phaseB = random(seed + 17) * Math.PI * 2;
+
+    return (t: number): number =>
+      1 + 0.24 * Math.sin(t * Math.PI * 6 + phaseA) + 0.14 * Math.sin(t * Math.PI * 14 + phaseB);
   }
 
   /** Среднее направление течения: для ленты — от начала к концу. */
@@ -298,18 +371,6 @@ export class SceneWaterService {
     }
 
     return [dx / length, dy / length];
-  }
-
-  /** Поворот направления дрейфа: слои не идут строго параллельно. */
-  private skewed(x: number, y: number, skew: number): ScenePoint {
-    if (skew === 0) {
-      return [x, y];
-    }
-
-    const cos = Math.cos(skew);
-    const sin = Math.sin(skew);
-
-    return [x * cos - y * sin, x * sin + y * cos];
   }
 
   /** Геометрия силуэта: полоса ленты или триангулированный контур. */
@@ -345,15 +406,22 @@ export class SceneWaterService {
     }
 
     const positions = new Float32Array(count * 4);
+    const along = new Float32Array(count * 2);
+    const across = new Float32Array(count * 2);
     const indices = new Uint32Array((count - 1) * 6);
     for (let index = 0; index < count; index += 1) {
       const left = geometry.left[index];
       const right = geometry.right[index];
       const vertex = index * 2;
+      const half = geometry.widths[index] / 2;
       positions[vertex * 2] = left[0];
       positions[vertex * 2 + 1] = left[1];
       positions[vertex * 2 + 2] = right[0];
       positions[vertex * 2 + 3] = right[1];
+      along[vertex] = geometry.lengths[index];
+      along[vertex + 1] = geometry.lengths[index];
+      across[vertex] = half;
+      across[vertex + 1] = -half;
       if (index < count - 1) {
         const triangle = index * 6;
         indices[triangle] = vertex;
@@ -365,7 +433,23 @@ export class SceneWaterService {
       }
     }
 
-    return { positions, indices };
+    return { positions, indices, along, across };
+  }
+
+  /** Замкнутый контур фигуры: у ленты — левый берег и обратно правый. */
+  private outline(shape: SceneShape, zoom: number): ScenePoint[] | null {
+    if (shape.type === 'path') {
+      const outline = sceneRibbonService.outline(
+        shape.points,
+        shape.handles ?? [],
+        shape.widths,
+        sceneCurveService.toleranceFor(zoom),
+      );
+
+      return outline.length >= 3 ? outline : null;
+    }
+
+    return this.contour(shape, zoom);
   }
 
   /** Контур замкнутой фигуры. */

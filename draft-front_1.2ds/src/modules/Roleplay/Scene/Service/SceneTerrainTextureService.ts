@@ -10,7 +10,7 @@ import waterUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_surface.jpg';
 import causticsUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_caustics.png';
 import macroUrl from '@/modules/Roleplay/Scene/Asset/Terrain/macro.png';
 import glintsUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_glints.png';
-import foamUrl from '@/modules/Roleplay/Scene/Asset/Terrain/foam.png';
+import foamUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_foam.png';
 import ripplesUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_ripples.png';
 
 /** Материал террейна из набора CC0. */

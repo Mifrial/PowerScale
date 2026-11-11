@@ -8,6 +8,5 @@ export type SceneLayerName =
   | 'openings'
   | 'waterPlane'
   | 'decor'
-  | 'waterSurface'
   | 'selection'
   | 'gizmos';
