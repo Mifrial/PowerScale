@@ -1,9 +1,10 @@
-import { Mesh, MeshGeometry, earcut } from 'pixi.js';
+import { FillPattern, Graphics, Matrix, Mesh, MeshGeometry, Sprite, earcut } from 'pixi.js';
 import type { Container, Texture } from 'pixi.js';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
+import { SceneWaterDepthService } from '@/modules/Roleplay/Scene/Service/SceneWaterDepthService';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
@@ -18,46 +19,50 @@ interface WaterGeometry {
   indices: Uint32Array;
 }
 
-/** Слой поверхности: масштаб тайла, поворот выборки и прозрачность. */
-interface SurfaceLayer {
+/** Слой воды: материал, масштаб тайла, поворот выборки и дрейф. */
+interface WaterLayer {
+  material: 'ripples' | 'caustics' | 'glints';
   periodIpari: number;
   angle: number;
   alpha: number;
   speedIpari: number;
   /** Смещение дрейфа относительно направления течения. */
   skew: number;
-  /** Материал слоя. */
-  material: 'water' | 'glints';
   /** Аддитивное смешивание для бликов. */
   additive?: boolean;
 }
 
-/** Цвет воды в каустике: слой только подсвечивает, а не закрашивает. */
+/** Каустика по дну: подсвечивает, а не закрашивает. */
 const CAUSTICS_ALPHA = 0.2;
 
 /** Скорость каустики, ипари в секунду. */
-const CAUSTICS_SPEED_IPARI = 0.06;
+const CAUSTICS_SPEED_IPARI = 0.08;
 
 /** Скорость течения по умолчанию, ипари в секунду. */
-const FLOW_SPEED_IPARI = 0.22;
+const FLOW_SPEED_IPARI = 0.25;
 
-/** Слои поверхности: крупная и мелкая рябь с разным направлением. */
-const SURFACE_LAYERS: SurfaceLayer[] = [
-  { material: 'water', periodIpari: 2.4, angle: 0, alpha: 0.18, speedIpari: FLOW_SPEED_IPARI, skew: 0 },
+/**
+ * Слои плоскости воды: крупная рябь, каустика и блики.
+ *
+ * Разные масштабы и скорости дают переливы, а не «ползущую картинку»:
+ * сумма слоёв меняется, даже когда каждый едет равномерно.
+ */
+const PLANE_LAYERS: WaterLayer[] = [
+  { material: 'ripples', periodIpari: 3.2, angle: 0, alpha: 0.42, speedIpari: FLOW_SPEED_IPARI, skew: 0 },
   {
-    material: 'water',
-    periodIpari: 1.15,
+    material: 'caustics',
+    periodIpari: 2.1,
     angle: Math.PI / 5,
-    alpha: 0.1,
-    speedIpari: FLOW_SPEED_IPARI * 1.7,
-    skew: 0.5,
+    alpha: 0.16,
+    speedIpari: FLOW_SPEED_IPARI * 1.6,
+    skew: 0.4,
   },
   {
     material: 'glints',
     periodIpari: 1.2,
     angle: Math.PI / 7,
     alpha: 0.5,
-    speedIpari: FLOW_SPEED_IPARI * 2.4,
+    speedIpari: FLOW_SPEED_IPARI * 3.2,
     skew: -0.3,
     additive: true,
   },
@@ -66,57 +71,70 @@ const SURFACE_LAYERS: SurfaceLayer[] = [
 /** Разбиение окружности для воды-круга. */
 const CIRCLE_SEGMENTS = 72;
 
+/** Ширина линии уреза в ипари. */
+const FOAM_IPARI = 0.26;
+
 /**
- * Вода в два прохода.
+ * Вода: толща, плоскость и урез.
  *
- * Толща (дно, глубина, каустика) живёт под актёрами, поверхность (рябь, линия
- * уреза) — над ними: так персонаж в броде стоит на дне, а не на воде.
+ * - Толща (градиент глубины и каустика) — под актёрами.
+ * - Плоскость (рябь и блики) — над толщей, но под декором и актёрами: это
+ *   поверхность водоёма, и объект над ней её перекрывает.
+ * - Урез (пена) — над всем: он и есть граница воды.
  *
- * UV мировые: лента и полигон задают только силуэт, поэтому текстура не
- * растягивается на поворотах и не даёт стыков между сегментами.
+ * Погружение объекта считается отдельно, по глубине под его нижней точкой.
+ * UV мировые, поэтому текстура не растягивается на поворотах и не даёт стыков.
  */
 export class SceneWaterService {
+  private readonly depths = new SceneWaterDepthService();
+
   constructor(private readonly materials: SceneTerrainTextureService) {}
 
-  /** Толща: каустика по дну; null, если материала нет. */
-  buildBody(layer: Container, element: SceneElement, resolution: number, zoom: number): SceneWaterNode | null {
+  /** Толща: градиент глубины и каустика по дну. */
+  paintBody(layer: Container, element: SceneElement, resolution: number, zoom: number): SceneWaterNode | null {
+    const field = this.depths.field(element, resolution);
+    const sprite = new Sprite(field.texture);
+    sprite.position.set(field.bounds.x, field.bounds.y);
+    sprite.width = field.bounds.width;
+    sprite.height = field.bounds.height;
+    layer.addChild(sprite);
+
     const caustics = this.materials.texture('caustics');
     if (caustics === null) {
       return null;
     }
 
     const [flowX, flowY] = this.flowDirection(element);
-    const period = this.materials.period('caustics', resolution);
-    const layerNode = this.buildLayer(
+    const node = this.buildLayer(
       caustics,
       this.geometry(element.shape, zoom),
-      period,
+      Math.max(1, resolution) * 1.7,
       0,
       CAUSTICS_ALPHA,
       CAUSTICS_SPEED_IPARI,
       [flowX, flowY],
     );
-    if (layerNode === null) {
+    if (node === null) {
       return null;
     }
 
-    layerNode.mesh.blendMode = 'add';
-    layer.addChild(layerNode.mesh);
+    node.mesh.blendMode = 'add';
+    layer.addChild(node.mesh);
 
-    return { update: layerNode.update };
+    return { update: node.update };
   }
 
-  /** Поверхность: два слоя ряби; null, если материала нет. */
-  buildSurface(layer: Container, element: SceneElement, resolution: number, zoom: number): SceneWaterNode | null {
+  /** Плоскость: рябь, каустика и блики; под декором и актёрами. */
+  paintPlane(layer: Container, element: SceneElement, resolution: number, zoom: number): SceneWaterNode | null {
     const geometry = this.geometry(element.shape, zoom);
-    const fallback = this.materials.texture('water');
+    const fallback = this.materials.texture('ripples');
     if (geometry === null || fallback === null) {
       return null;
     }
 
     const [flowX, flowY] = this.flowDirection(element);
     const nodes: SceneWaterNode[] = [];
-    for (const spec of SURFACE_LAYERS) {
+    for (const spec of PLANE_LAYERS) {
       const texture = this.materials.texture(spec.material) ?? fallback;
       const node = this.buildLayer(
         texture,
@@ -150,6 +168,50 @@ export class SceneWaterService {
         }
       },
     };
+  }
+
+  /** Урез: мягкая полоса, рваная пена и тонкая линия поверх всего. */
+  paintFoam(layer: Container, element: SceneElement, resolution: number, zoom: number): void {
+    const graphics = new Graphics();
+    this.trace(graphics, element.shape, zoom);
+    graphics.stroke({
+      color: 0xcfeaff,
+      width: Math.max(1, resolution * 0.3),
+      alpha: 0.12,
+      alignment: 1,
+      join: 'round',
+    });
+
+    const foam = this.materials.texture('foam');
+    if (foam !== null) {
+      this.trace(graphics, element.shape, zoom);
+      graphics.stroke({
+        fill: this.patternOf(foam, this.materials.period('foam', resolution), element.id + 53),
+        width: Math.max(1.5, resolution * FOAM_IPARI),
+        alpha: 0.6,
+        alignment: 0.5,
+        join: 'round',
+      });
+    }
+
+    this.trace(graphics, element.shape, zoom);
+    graphics.stroke({
+      color: 0xe8f7ff,
+      width: Math.max(1, 1.2 / zoom),
+      alpha: 0.3,
+      join: 'round',
+    });
+    layer.addChild(graphics);
+  }
+
+  /** Глубина под точкой в единицах сцены; вне воды — ноль. */
+  depthAt(element: SceneElement, resolution: number, point: ScenePoint): number {
+    return this.depths.depthAt(element, resolution, point);
+  }
+
+  /** Освобождает закэшированные поля глубины. */
+  destroy(): void {
+    this.depths.destroy();
   }
 
   /** Меш слоя: мировые UV, дрейф вдоль течения. */
@@ -202,6 +264,19 @@ export class SceneWaterService {
     };
   }
 
+  /** Паттерн материала с тайлом в единицах сцены. */
+  private patternOf(texture: Texture, period: number, elementId: number): FillPattern {
+    const seed = Math.abs(Math.trunc(elementId)) * 2654435761;
+    const offsetX = ((seed % 1024) / 1024) * period;
+    const offsetY = (((seed >>> 10) % 1024) / 1024) * period;
+    const matrix = new Matrix().scale(period / Math.max(1, texture.width), period / Math.max(1, texture.width));
+    matrix.translate(offsetX, offsetY);
+    const pattern = new FillPattern({ texture, textureSpace: 'global' });
+    pattern.setTransform(matrix);
+
+    return pattern;
+  }
+
   /** Среднее направление течения: для ленты — от начала к концу. */
   private flowDirection(element: SceneElement): ScenePoint {
     const shape = element.shape;
@@ -227,9 +302,8 @@ export class SceneWaterService {
       return [x, y];
     }
 
-    const angle = skew;
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
+    const cos = Math.cos(skew);
+    const sin = Math.sin(skew);
 
     return [x * cos - y * sin, x * sin + y * cos];
   }
@@ -317,6 +391,39 @@ export class SceneWaterService {
         );
       default:
         return null;
+    }
+  }
+
+  /** Путь фигуры в текущем контексте Graphics. */
+  private trace(graphics: Graphics, shape: SceneShape, zoom: number): void {
+    switch (shape.type) {
+      case 'rect':
+        graphics.rect(shape.x, shape.y, shape.w, shape.h);
+        break;
+      case 'circle':
+        graphics.circle(shape.cx, shape.cy, shape.r);
+        break;
+      case 'polygon': {
+        const contour = sceneCurveService.flattenContour(
+          shape.points,
+          shape.handles ?? [],
+          sceneCurveService.toleranceFor(zoom),
+        );
+        graphics.poly(contour.flat());
+        break;
+      }
+      case 'path': {
+        const outline = sceneRibbonService.outline(
+          shape.points,
+          shape.handles ?? [],
+          shape.widths,
+          sceneCurveService.toleranceFor(zoom),
+        );
+        graphics.poly(outline.flat());
+        break;
+      }
+      default:
+        break;
     }
   }
 }

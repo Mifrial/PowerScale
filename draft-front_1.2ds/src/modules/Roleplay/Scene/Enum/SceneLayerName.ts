@@ -6,6 +6,7 @@ export type SceneLayerName =
   | 'supports'
   | 'obstacles'
   | 'openings'
+  | 'waterPlane'
   | 'decor'
   | 'waterSurface'
   | 'selection'

@@ -4,6 +4,13 @@ import { Sprite } from 'pixi.js';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
 
+/** Нарисованный декор: спрайт и его размеры нужны для погружения в воду. */
+export interface SceneDecorPaint {
+  sprite: Sprite;
+  width: number;
+  height: number;
+}
+
 /** Мягкая тень декора: 128×64, радиальный градиент. */
 const SHADOW_WIDTH = 128;
 const SHADOW_HEIGHT = 64;
@@ -21,16 +28,16 @@ export class SceneDecorService {
   /**
    * Рисует декор в слой.
    *
-   * @returns true, если нарисован спрайт; false — нужен fallback-маркер.
+   * @returns спрайт и его размеры; null — нужен fallback-маркер.
    */
-  paint(layer: Container, element: SceneElement, resolution: number): boolean {
+  paint(layer: Container, element: SceneElement, resolution: number): SceneDecorPaint | null {
     if (element.shape.type !== 'point' || element.asset === null) {
-      return false;
+      return null;
     }
 
     const texture = this.textures.get(element.asset.publicId);
     if (texture === null) {
-      return false;
+      return null;
     }
 
     const scale = Math.max(1, element.props.scale ?? 100) / 100;
@@ -53,7 +60,7 @@ export class SceneDecorService {
     sprite.rotation = ((element.props.rotation ?? 0) * Math.PI) / 180;
     layer.addChild(sprite);
 
-    return true;
+    return { sprite, width: sprite.width, height: sprite.height };
   }
 
   /** Высота якоря декора: нужна для Y-сортировки. */

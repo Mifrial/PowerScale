@@ -7,6 +7,7 @@ import type { SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertex
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { SceneLayerName } from '@/modules/Roleplay/Scene/Enum/SceneLayerName';
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
+import type { SceneDecorPaint } from '@/modules/Roleplay/Scene/Service/SceneDecorService';
 import type { SceneWaterNode } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SceneShapePainter } from '@/modules/Roleplay/Scene/Service/SceneShapePainter';
 import { SceneDecorService } from '@/modules/Roleplay/Scene/Service/SceneDecorService';
@@ -302,6 +303,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.patterns.destroy();
     this.materials.destroy();
     this.decor.destroy();
+    this.water.destroy();
     if (this.app !== null) {
       this.app.canvas.removeEventListener('webglcontextlost', this.handleContextLost);
       this.app.canvas.removeEventListener('webglcontextrestored', this.handleContextRestored);
@@ -362,6 +364,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'supports',
       'obstacles',
       'openings',
+      'waterPlane',
       'decor',
       'waterSurface',
       'selection',
@@ -410,8 +413,15 @@ export class PixiSceneRenderer implements ISceneRenderer {
         (left, right) =>
           this.terrainRank(left) - this.terrainRank(right) || left.sortOrder - right.sortOrder || left.id - right.id,
       );
+    const resolution = this.model?.resolution ?? 64;
+    const zoom = this.zoom();
+    const waterElements = terrainElements.filter((element) => element.props.kind === 'water');
     for (const element of terrainElements) {
       this.drawTerrain(element);
+    }
+
+    for (const element of waterElements) {
+      this.drawWaterPlane(element, resolution, zoom);
     }
 
     const decorElements = elements
@@ -429,16 +439,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     for (const element of decorElements) {
-      this.drawDecor(element);
+      this.drawDecor(element, waterElements, resolution);
     }
 
-    // Поверхность воды — над декором и будущими актёрами: так работает брод.
-    const resolution = this.model?.resolution ?? 64;
-    const zoom = this.zoom();
-    for (const element of terrainElements) {
-      if (element.props.kind === 'water') {
-        this.drawWaterSurface(element, resolution, zoom);
-      }
+    // Пена и линия уреза — над декором и актёрами: это граница воды.
+    for (const element of waterElements) {
+      this.drawWaterFoam(element, resolution, zoom);
     }
 
     if (this.isEdit()) {
@@ -484,14 +490,22 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.draftGraphics = null;
     }
 
-    if (name === 'terrain' || name === 'waterSurface') {
+    if (name === 'terrain' || name === 'waterPlane' || name === 'waterSurface') {
       this.waterNodes = [];
     }
   }
 
   /** Обрезает содержимое поля по его границам; gizmos остаются снаружи. */
   private applyContentClip(board: SceneBoard): void {
-    const names: SceneLayerName[] = ['terrain', 'supports', 'obstacles', 'openings', 'decor', 'waterSurface'];
+    const names: SceneLayerName[] = [
+      'terrain',
+      'supports',
+      'obstacles',
+      'openings',
+      'waterPlane',
+      'decor',
+      'waterSurface',
+    ];
     for (const name of names) {
       const layer = this.layers[name];
       if (layer === undefined) {
@@ -664,7 +678,6 @@ export class PixiSceneRenderer implements ISceneRenderer {
     if (element.props.kind === 'water') {
       this.terrain.paintWaterBank(layer, element, resolution, zoom);
       this.terrain.paintWaterBed(layer, element, resolution, zoom);
-      this.terrain.paintWaterDepth(layer, element, resolution, zoom);
       this.drawWaterBody(layer, element, resolution, zoom);
 
       return;
@@ -682,9 +695,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.terrain.paintSurface(layer, element, resolution, zoom);
   }
 
-  /** Толща воды: каустика по дну под актёрами. */
+  /** Толща воды: градиент глубины и каустика под актёрами. */
   private drawWaterBody(layer: Container, element: SceneElement, resolution: number, zoom: number): void {
-    const node = this.water.buildBody(layer, element, resolution, zoom);
+    const node = this.water.paintBody(layer, element, resolution, zoom);
     if (node === null) {
       return;
     }
@@ -693,20 +706,30 @@ export class PixiSceneRenderer implements ISceneRenderer {
     node.update(this.waterElapsed);
   }
 
-  /** Поверхность воды: рябь и линия уреза над актёрами. */
-  private drawWaterSurface(element: SceneElement, resolution: number, zoom: number): void {
+  /** Плоскость воды: рябь и блики; под декором и актёрами. */
+  private drawWaterPlane(element: SceneElement, resolution: number, zoom: number): void {
+    const layer = this.layers.waterPlane;
+    if (layer === undefined) {
+      return;
+    }
+
+    const node = this.water.paintPlane(layer, element, resolution, zoom);
+    if (node === null) {
+      return;
+    }
+
+    this.waterNodes.push({ elementId: element.id, node });
+    node.update(this.waterElapsed);
+  }
+
+  /** Урез воды: пена и линия уреза над всем. */
+  private drawWaterFoam(element: SceneElement, resolution: number, zoom: number): void {
     const layer = this.layers.waterSurface;
     if (layer === undefined) {
       return;
     }
 
-    const node = this.water.buildSurface(layer, element, resolution, zoom);
-    if (node !== null) {
-      this.waterNodes.push({ elementId: element.id, node });
-      node.update(this.waterElapsed);
-    }
-
-    this.terrain.paintWaterEdge(layer, element, resolution, zoom);
+    this.water.paintFoam(layer, element, resolution, zoom);
   }
 
   private drawElement(element: SceneElement): void {
@@ -720,18 +743,65 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /** Декор-спрайт; без ассета — прежний маркер. */
-  private drawDecor(element: SceneElement): void {
+  private drawDecor(element: SceneElement, waterElements: SceneElement[], resolution: number): void {
     const layer = this.layers.decor;
     if (layer === undefined) {
       return;
     }
 
-    const resolution = this.model?.resolution ?? 64;
-    if (this.decor.paint(layer, element, resolution)) {
+    const painted = this.decor.paint(layer, element, resolution);
+    if (painted === null) {
+      layer.addChild(this.painter.paintElement(element, this.zoom()));
+
       return;
     }
 
-    layer.addChild(this.painter.paintElement(element, this.zoom()));
+    this.paintSubmersion(layer, element, painted, waterElements, resolution);
+  }
+
+  /**
+   * Погружение объекта в воду по его нижней точке.
+   *
+   * Глубина берётся из поля воды; если точка вне водоёма — объект сухой, даже
+   * когда его спрайт наложился на воду. Тонируется только низ силуэта, высота
+   * зависит от глубины: у берега меньше, к середине больше.
+   */
+  private paintSubmersion(
+    layer: Container,
+    element: SceneElement,
+    painted: SceneDecorPaint,
+    waterElements: SceneElement[],
+    resolution: number,
+  ): void {
+    if (element.shape.type !== 'point') {
+      return;
+    }
+
+    const anchor = element.shape;
+    let depth = 0;
+    for (const waterElement of waterElements) {
+      depth = Math.max(depth, this.water.depthAt(waterElement, resolution, [anchor.x, anchor.y]));
+    }
+
+    const submerged = Math.min(painted.height * 0.55, depth * 1.2);
+    if (submerged < Math.max(1, painted.height * 0.04)) {
+      return;
+    }
+
+    const tint = new Sprite(painted.sprite.texture);
+    tint.anchor.copyFrom(painted.sprite.anchor);
+    tint.position.copyFrom(painted.sprite.position);
+    tint.width = painted.sprite.width;
+    tint.height = painted.sprite.height;
+    tint.rotation = painted.sprite.rotation;
+    tint.tint = 0x3f7f9c;
+    tint.alpha = 0.55;
+
+    const mask = new Graphics();
+    mask.rect(anchor.x - painted.width, anchor.y - submerged, painted.width * 2, submerged).fill({ color: 0xffffff });
+    layer.addChild(mask);
+    tint.mask = mask;
+    layer.addChild(tint);
   }
 
   /** Спрайт террейна, обрезанный по фигуре. */

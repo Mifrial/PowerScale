@@ -9,23 +9,7 @@ import type {
   SceneTerrainTextureService,
 } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
-import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
-
-/** Цвет глубокой воды: сквозь него читается дно. */
-const DEEP_COLOR = 0x1f5470;
-
-/** Цвет мелководья у берега. */
-const SHALLOW_COLOR = 0x7fc2d6;
-
-/** Полоса мелководья у берега в ипари. */
-const SHALLOW_IPARI = 0.7;
-
-/** Предельная глубина градиента в ипари. */
-const DEPTH_IPARI = 3.5;
-
-/** Число внутренних обводок, которыми строится градиент глубины. */
-const DEPTH_RINGS = 12;
 
 /** Ширина мокрого берега в ипари. */
 const WET_IPARI = 0.3;
@@ -43,8 +27,8 @@ const MATERIALS: Record<string, SceneTerrainMaterial | undefined> = {
  * Материалы террейна: поверхность, кромка и вода.
  *
  * Поверхность заливается бесшовной текстурой в глобальном пространстве и
- * разбавляется крупной вариацией, чтобы тайл не читался штампом. Вода
- * рисуется в два прохода: дно и толща уходят под актёров, поверхность — над.
+ * разбавляется крупной вариацией, чтобы тайл не читался штампом. Вода живёт
+ * в `SceneWaterService`: здесь только её дно, сырой берег и кромка.
  */
 export class SceneTerrainPainter {
   constructor(
@@ -125,87 +109,6 @@ export class SceneTerrainPainter {
       });
       container.addChild(texture);
     }
-
-    const tint = new Graphics();
-    this.trace(tint, element.shape, zoom);
-    tint.fill({ color: 0x1c4a63, alpha: bed === null ? 1 : 0.22 });
-    container.addChild(tint);
-  }
-
-  /** Толща воды: у берега видно дно, к середине цвет уходит в глубину. */
-  paintWaterDepth(container: Container, element: SceneElement, resolution: number, zoom: number): void {
-    const depth = this.depthOf(element, resolution);
-    const graphics = new Graphics();
-    for (let ring = 1; ring <= DEPTH_RINGS; ring += 1) {
-      this.trace(graphics, element.shape, zoom);
-      graphics.stroke({
-        color: DEEP_COLOR,
-        width: Math.max(1, (depth * ring) / DEPTH_RINGS),
-        alpha: 0.12,
-        alignment: 1,
-        join: 'round',
-      });
-    }
-
-    this.trace(graphics, element.shape, zoom);
-    graphics.stroke({
-      color: SHALLOW_COLOR,
-      width: Math.max(1, resolution * SHALLOW_IPARI),
-      alpha: 0.16,
-      alignment: 1,
-      join: 'round',
-    });
-
-    container.addChild(graphics);
-  }
-
-  /** Глубина градиента: для узкой ленты — её полуширина, для чаши — предел. */
-  private depthOf(element: SceneElement, resolution: number): number {
-    const limit = Math.max(1, resolution * DEPTH_IPARI);
-    if (element.shape.type === 'path') {
-      const widest = Math.max(...element.shape.widths.map((width) => Math.max(1, width)));
-
-      return Math.min(limit, widest * 0.75);
-    }
-
-    const bounds = sceneGeometryService.bounds(element.shape);
-    const half = Math.min(bounds.width, bounds.height) / 2;
-
-    return Math.min(limit, Math.max(resolution * 0.5, half));
-  }
-
-  /** Линия уреза и мягкая пена поверх воды. */
-  paintWaterEdge(container: Container, element: SceneElement, resolution: number, zoom: number): void {
-    const graphics = new Graphics();
-    this.trace(graphics, element.shape, zoom);
-    graphics.stroke({
-      color: 0xd6efff,
-      width: Math.max(1, resolution * 0.34),
-      alpha: 0.12,
-      alignment: 1,
-      join: 'round',
-    });
-
-    const foam = this.materials.texture('foam');
-    if (foam !== null) {
-      this.trace(graphics, element.shape, zoom);
-      graphics.stroke({
-        fill: this.patterns.patternOf(foam, this.materials.period('foam', resolution), element.id + 53),
-        width: Math.max(1.5, resolution * 0.26),
-        alpha: 0.55,
-        alignment: 0.5,
-        join: 'round',
-      });
-    }
-
-    this.trace(graphics, element.shape, zoom);
-    graphics.stroke({
-      color: 0xe8f7ff,
-      width: Math.max(1, 1.2 / zoom),
-      alpha: 0.3,
-      join: 'round',
-    });
-    container.addChild(graphics);
   }
 
   /** Крупная вариация материала: сбивает сетку повторов тайла. */
