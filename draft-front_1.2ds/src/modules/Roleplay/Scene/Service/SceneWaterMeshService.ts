@@ -1,12 +1,21 @@
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 
-/** Полоса вдоль контура: позиции, UV и треугольники. */
+/** Полоса вдоль контура: позиции, UV и данные для наката. */
 export interface WaterStrip {
   positions: Float32Array;
   uvs: Float32Array;
   indices: Uint32Array;
   /** Период текстуры вдоль контура; подобран так, чтобы шов замыкался. */
   period: number;
+  /** Доля пути вдоль контура для каждой пары кромок (0…1). */
+  along: Float32Array;
+  /** Точка контура для пары кромок. */
+  centers: Float32Array;
+  /** Единичная нормаль наружу для пары кромок. */
+  axes: Float32Array;
+  /** Вынос на воду и на берег для пары кромок, уже с митрой и профилем. */
+  water: Float32Array;
+  land: Float32Array;
 }
 
 /** Предел растяжения митры на острых углах. */
@@ -102,6 +111,11 @@ export class SceneWaterMeshService {
     const positions = new Float32Array(count * 4);
     const uvs = new Float32Array(count * 4);
     const indices = new Uint32Array(count * 6);
+    const alongPath = new Float32Array(count);
+    const centers = new Float32Array(count * 2);
+    const axes = new Float32Array(count * 2);
+    const water = new Float32Array(count);
+    const land = new Float32Array(count);
     for (let index = 0; index < count; index += 1) {
       const point = outline[index];
       const previous = normals[(index + count - 1) % count];
@@ -114,12 +128,22 @@ export class SceneWaterMeshService {
       const projection = outward[0] * next[0] + outward[1] * next[1];
       const miter = Math.min(MITER_LIMIT, 1 / Math.max(0.35, Math.abs(projection)));
       const wave = wobble(cumulatives[index] / total) * miter;
+      const landWidth = Math.max(0, landHalf) * wave;
+      const waterWidth = Math.max(0, waterHalf) * wave;
 
       const vertex = index * 2;
-      positions[vertex * 2] = point[0] - axis[0] * Math.max(1, landHalf) * wave;
-      positions[vertex * 2 + 1] = point[1] - axis[1] * Math.max(1, landHalf) * wave;
-      positions[vertex * 2 + 2] = point[0] + axis[0] * Math.max(1, waterHalf) * wave;
-      positions[vertex * 2 + 3] = point[1] + axis[1] * Math.max(1, waterHalf) * wave;
+      positions[vertex * 2] = point[0] - axis[0] * landWidth;
+      positions[vertex * 2 + 1] = point[1] - axis[1] * landWidth;
+      positions[vertex * 2 + 2] = point[0] + axis[0] * waterWidth;
+      positions[vertex * 2 + 3] = point[1] + axis[1] * waterWidth;
+
+      alongPath[index] = cumulatives[index] / total;
+      centers[index * 2] = point[0];
+      centers[index * 2 + 1] = point[1];
+      axes[index * 2] = axis[0];
+      axes[index * 2 + 1] = axis[1];
+      water[index] = waterWidth;
+      land[index] = landWidth;
 
       const along = cumulatives[index] / effective;
       uvs[vertex * 2] = along;
@@ -137,6 +161,6 @@ export class SceneWaterMeshService {
       indices[quad + 5] = neighbour * 2;
     }
 
-    return { positions, uvs, indices, period: effective };
+    return { positions, uvs, indices, period: effective, along: alongPath, centers, axes, water, land };
   }
 }
