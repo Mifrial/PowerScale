@@ -128,9 +128,11 @@
   выдачу не попадают.
 - `q` — подстрока `name`, регистронезависимо средствами SmartTable.
 - JSON-вид: `id`, `collectionModule`, `collectionCode`, `collectionTitle`,
-  `filePublicId`, `name`, `width`, `height`, `mime`, `size`, `isShared`,
-  `ownerId`, `isArchived`, `createdAt`. Если строка файла архивная или
-  пропала, поля файла приходят как `null`; запись ассета остаётся видимой.
+  `filePublicId`, `originalName`, `name`, `width`, `height`, `mime`, `size`,
+  `isShared`, `ownerId`, `isArchived`, `createdAt`. `originalName` — имя
+  загруженного файла: по нему потребитель (Scene) подбирает пресет декора.
+  Если строка файла архивная или пропала, поля файла приходят как `null`;
+  запись ассета остаётся видимой.
 - Ошибки: `ASSET_INVALID`, `ASSET_DENIED`, `ASSET_NOT_FOUND`,
   `ASSET_FILE_INVALID`. Неизвестная или выключенная коллекция —
   `ASSET_INVALID`.

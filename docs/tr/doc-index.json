@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 348,
-        "plans": 227,
+        "documents": 351,
+        "plans": 230,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 251,
+            "tr": 254,
             "tz": 2
         },
         "byZoneState": {
@@ -70,13 +70,13 @@
             },
             "tr": {
                 "нет": 26,
-                "СДЕЛАНО": 148,
+                "СДЕЛАНО": 149,
                 "ОТЛОЖЕН": 4,
-                "ЧАСТИЧНО": 35,
+                "ЧАСТИЧНО": 36,
                 "ПЛАН": 10,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
-                "В РАБОТЕ": 19
+                "В РАБОТЕ": 20
             },
             "tz": {
                 "нет": 1,
@@ -86,12 +86,12 @@
         "byState": {
             "СНИМОК": 65,
             "нет": 57,
-            "СДЕЛАНО": 150,
+            "СДЕЛАНО": 151,
             "ПЛАН": 13,
             "ОТЛОЖЕН": 8,
-            "ЧАСТИЧНО": 35,
+            "ЧАСТИЧНО": 36,
             "ОТМЕНЁН": 1,
-            "В РАБОТЕ": 19
+            "В РАБОТЕ": 20
         }
     },
     "modules": {
@@ -313,15 +313,16 @@
             }
         },
         "Roleplay/Scene": {
-            "docs": 5,
+            "docs": 8,
             "state": {
-                "В РАБОТЕ": 4,
-                "СДЕЛАНО": 1
+                "В РАБОТЕ": 5,
+                "СДЕЛАНО": 2,
+                "ЧАСТИЧНО": 1
             },
             "layer": {
-                "PHP": 4,
-                "VUE": 5,
-                "МОК": 4
+                "PHP": 7,
+                "VUE": 8,
+                "МОК": 5
             }
         },
         "Versioning/Space": {
@@ -2342,8 +2343,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-13",
-            "bytes": 16831,
-            "lines": 247,
+            "bytes": 17005,
+            "lines": 249,
             "modules": [
                 "Library/Asset"
             ],
@@ -2546,6 +2547,7 @@
                 "docs/tr/game-roadmap.md",
                 "docs/tr/game-system.md",
                 "docs/tr/scene-plan-01.md",
+                "docs/tr/scene-plan-03-decor-occlusion.md",
                 "docs/tr/scene-renderer.md",
                 "docs/tr/scene-system.md",
                 "docs/tr/spatial-roadmap.md",
@@ -7703,12 +7705,12 @@
             ],
             "basis": "PHP",
             "date": "2026-11-12",
-            "bytes": 34406,
-            "lines": 482,
+            "bytes": 34888,
+            "lines": 487,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 11,
+            "linksCount": 12,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -7734,16 +7736,17 @@
             ],
             "basis": "МОК",
             "date": "2026-11-13",
-            "bytes": 12277,
-            "lines": 157,
+            "bytes": 12479,
+            "lines": 158,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 2,
+            "linksCount": 4,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/asset-library-plan-01.md",
-                "docs/tr/scene-plan-01.md"
+                "docs/tr/scene-plan-01.md",
+                "docs/tr/scene-plan-03-decor-occlusion.md"
             ]
         },
         {
@@ -7775,6 +7778,83 @@
             ]
         },
         {
+            "path": "docs/tr/scene-plan-03-decor-occlusion.md",
+            "title": "План: коллизия декора и высотный обзор",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~, 2026-11-13.",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-13",
+            "bytes": 5335,
+            "lines": 85,
+            "modules": [
+                "Roleplay/Scene"
+            ],
+            "linksCount": 2,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/scene-plan-02-battleground.md"
+            ]
+        },
+        {
+            "path": "docs/tr/scene-plan-04-render-and-nav-fixes.md",
+            "title": "План: слои травы, пресеты декора и устойчивый маршрут",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-13.",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-13",
+            "bytes": 10512,
+            "lines": 129,
+            "modules": [
+                "Roleplay/Scene"
+            ],
+            "linksCount": 0,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/scene-plan-02-battleground.md"
+            ]
+        },
+        {
+            "path": "docs/tr/scene-plan-05-bridge-deck.md",
+            "title": "Настилы, мосты и съезды",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "ЧАСТИЧНО",
+            "stateSource": "token",
+            "statusRaw": "~ЧАСТИЧНО~, 2026-11-13 — срез A (визуальный настил) готов;",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": null,
+            "date": "2026-11-13",
+            "bytes": 4179,
+            "lines": 57,
+            "modules": [
+                "Roleplay/Scene"
+            ],
+            "linksCount": 0,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/scene-plan-01.md",
+                "docs/tr/scene-renderer.md"
+            ]
+        },
+        {
             "path": "docs/tr/scene-renderer.md",
             "title": "Рендерер локаций сцен",
             "zone": "tr",
@@ -7789,12 +7869,12 @@
             ],
             "basis": "МОК",
             "date": "2026-11-12",
-            "bytes": 45926,
-            "lines": 537,
+            "bytes": 52165,
+            "lines": 587,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 5,
+            "linksCount": 6,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -7822,8 +7902,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 22908,
-            "lines": 344,
+            "bytes": 23959,
+            "lines": 355,
             "modules": [
                 "Roleplay/Scene"
             ],

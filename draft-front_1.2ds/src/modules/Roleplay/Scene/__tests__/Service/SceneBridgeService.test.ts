@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import { SceneBridgeService } from '@/modules/Roleplay/Scene/Service/SceneBridgeService';
 
-const bridge = (shape: SceneElement['shape']): SceneElement => ({
+const bridge = (shape: SceneElement['shape'], props: SceneElement['props'] = {}): SceneElement => ({
   id: 1,
   boardId: 1,
   kind: 'support',
   shape,
-  props: { kind: 'bridge', label: 'Мост' },
+  props: { kind: 'bridge', label: 'Мост', ...props },
   sortOrder: 0,
   targetBoardId: null,
   asset: null,
@@ -22,6 +22,27 @@ describe('SceneBridgeService', () => {
 
     expect(horizontal?.context.instructions.length).toBeGreaterThan(0);
     expect(vertical?.context.instructions.length).toBeGreaterThan(0);
+  });
+
+  it('добавляет объём и сваи при подъёме настила', () => {
+    const flat = service.paint(bridge({ type: 'rect', x: 0, y: 0, w: 600, h: 120 }, { elevation: 0 }), 64, 1);
+    const raised = service.paint(
+      bridge({ type: 'rect', x: 0, y: 0, w: 600, h: 120 }, { elevation: 48, height: 16 }),
+      64,
+      1,
+    );
+
+    expect(raised?.context.instructions.length ?? 0).toBeGreaterThan(flat?.context.instructions.length ?? 0);
+  });
+
+  it('рисует съезд и его наклонную грань', () => {
+    const ramp = service.paint(
+      bridge({ type: 'rect', x: 0, y: 0, w: 200, h: 120 }, { kind: 'ramp', elevation: 48, height: 16 }),
+      64,
+      1,
+    );
+
+    expect(ramp?.context.instructions.length).toBeGreaterThan(0);
   });
 
   it('не рисует мост не по прямоугольнику', () => {

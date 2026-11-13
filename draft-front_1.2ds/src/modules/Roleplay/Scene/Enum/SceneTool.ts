@@ -4,6 +4,7 @@ export type SceneTool =
   | 'obstacle'
   | 'support'
   | 'bridge'
+  | 'ramp'
   | 'terrain'
   | 'terrain-circle'
   | 'terrain-polygon'
