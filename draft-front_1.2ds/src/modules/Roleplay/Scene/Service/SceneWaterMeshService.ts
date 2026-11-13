@@ -21,16 +21,6 @@ export interface WaterStrip {
 /** Предел растяжения митры на острых углах. */
 const MITER_LIMIT = 2;
 
-/** Необязательные данные полосы: ширина по станциям и разворот V. */
-export interface WaterStripOptions {
-  /** Вынос на воду для каждой станции; важнее общего `waterHalf`. */
-  waterHalfs?: Float32Array;
-  /** Вынос на берег для каждой станции; важнее общего `landHalf`. */
-  landHalfs?: Float32Array;
-  /** Поставить V наоборот: альфа-пик окажется на внутренней кромке. */
-  flipV?: boolean;
-}
-
 /**
  * Треугольники полосы вдоль контура.
  *
@@ -90,7 +80,6 @@ export class SceneWaterMeshService {
     period: number,
     wobble: (t: number) => number,
     toward = 1,
-    options: WaterStripOptions = {},
   ): WaterStrip | null {
     const count = outline.length;
     if (count < 3) {
@@ -139,8 +128,8 @@ export class SceneWaterMeshService {
       const projection = outward[0] * next[0] + outward[1] * next[1];
       const miter = Math.min(MITER_LIMIT, 1 / Math.max(0.35, Math.abs(projection)));
       const wave = wobble(cumulatives[index] / total) * miter;
-      const landWidth = Math.max(0, options.landHalfs?.[index] ?? landHalf) * wave;
-      const waterWidth = Math.max(0, options.waterHalfs?.[index] ?? waterHalf) * wave;
+      const landWidth = Math.max(0, landHalf) * wave;
+      const waterWidth = Math.max(0, waterHalf) * wave;
 
       const vertex = index * 2;
       positions[vertex * 2] = point[0] - axis[0] * landWidth;
@@ -158,9 +147,9 @@ export class SceneWaterMeshService {
 
       const along = cumulatives[index] / effective;
       uvs[vertex * 2] = along;
-      uvs[vertex * 2 + 1] = options.flipV === true ? 1 : 0;
+      uvs[vertex * 2 + 1] = 0;
       uvs[vertex * 2 + 2] = along;
-      uvs[vertex * 2 + 3] = options.flipV === true ? 0 : 1;
+      uvs[vertex * 2 + 3] = 1;
 
       const neighbour = (index + 1) % count;
       const quad = index * 6;

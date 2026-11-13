@@ -7,13 +7,26 @@ namespace Mifrial\Roleplay\Scene\Setup;
 use Mifrial\Core\Kernel\Interface\Service\IModuleSetup;
 use Mifrial\Core\Kernel\Interface\Service\ISetupStep;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Library\Asset\Interface\Service\IAssetCollections;
 use Mifrial\Roleplay\Scene\Schema\SceneSchema;
 
 /**
- * Таблицы локаций сцен для CLI setup.
+ * Таблицы локаций сцен и коллекции ассетов для CLI setup.
  */
 final class SceneModuleSetup implements IModuleSetup
 {
+    /**
+     * Создаёт setup.
+     *
+     * @param IAssetCollections $assetCollections Порт коллекций.
+     *
+     * @return void
+     */
+    public function __construct(
+        private readonly IAssetCollections $assetCollections,
+    ) {
+    }
+
     /**
      * Возвращает карты модуля.
      *
@@ -25,12 +38,14 @@ final class SceneModuleSetup implements IModuleSetup
     }
 
     /**
-     * Данных для досева нет.
+     * Коллекции декора и террейна сцены.
      *
-     * @return array<int, ISetupStep> Пустой список.
+     * @return array<int, ISetupStep> Шаги.
      */
     public function getDataSteps(): array
     {
-        return [];
+        return [
+            new SeedSceneAssetCollectionsStep($this->assetCollections),
+        ];
     }
 }

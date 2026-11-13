@@ -41,6 +41,9 @@
         <testsuite name="cache">
             <directory>modules/Core/Cache/tests</directory>
         </testsuite>
+        <testsuite name="library">
+            <directory>modules/Library/Asset/tests</directory>
+        </testsuite>
         <testsuite name="chat">
             <directory>modules/Messages/Chat/tests</directory>
         </testsuite>

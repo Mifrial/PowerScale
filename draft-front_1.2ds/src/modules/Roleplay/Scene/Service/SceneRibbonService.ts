@@ -19,8 +19,22 @@ interface RibbonGeometry {
 export class SceneRibbonService {
   constructor(private readonly curves: SceneCurveService) {}
 
-  /** Лента по вершинам, ручкам и ширинам; `pad` расширяет её с двух сторон. */
-  geometry(points: ScenePoint[], handles: SceneHandle[], widths: number[], tolerance = 1, pad = 0): RibbonGeometry {
+  /**
+   * Лента по вершинам, ручкам и ширинам.
+   *
+   * `pad` расширяет её поперёк, `startPad`/`endPad` — вдоль осевой за концы.
+   * Продление нужно открытым концам: река упирается в край поля, и торец
+   * должен уйти под обрезку, а не читаться берегом.
+   */
+  geometry(
+    points: ScenePoint[],
+    handles: SceneHandle[],
+    widths: number[],
+    tolerance = 1,
+    pad = 0,
+    startPad = 0,
+    endPad = 0,
+  ): RibbonGeometry {
     const samples = this.curves.flattenSamples(points, handles, tolerance);
     const center: ScenePoint[] = [];
     const flatWidths: number[] = [];
@@ -44,14 +58,80 @@ export class SceneRibbonService {
       right.push([sample.point[0] - normal[0] * half, sample.point[1] - normal[1] * half]);
     }
 
+    if (samples.length > 0) {
+      this.extendEnd(samples[0], center, flatWidths, lengths, left, right, pad, -startPad, true);
+      this.extendEnd(
+        samples[samples.length - 1],
+        center,
+        flatWidths,
+        lengths,
+        left,
+        right,
+        pad,
+        endPad,
+        false,
+      );
+    }
+
     return { center, widths: flatWidths, lengths, left, right };
   }
 
   /** Замкнутый контур ленты для заливки. */
-  outline(points: ScenePoint[], handles: SceneHandle[], widths: number[], tolerance = 1, pad = 0): ScenePoint[] {
-    const geometry = this.geometry(points, handles, widths, tolerance, pad);
+  outline(
+    points: ScenePoint[],
+    handles: SceneHandle[],
+    widths: number[],
+    tolerance = 1,
+    pad = 0,
+    startPad = 0,
+    endPad = 0,
+  ): ScenePoint[] {
+    const geometry = this.geometry(points, handles, widths, tolerance, pad, startPad, endPad);
 
     return [...geometry.left, ...[...geometry.right].reverse()];
+  }
+
+  /** Продлевает ленту за конец: сдвиг по касательной плюс та же нормаль. */
+  private extendEnd(
+    sample: { point: ScenePoint; tangent: ScenePoint },
+    center: ScenePoint[],
+    widths: number[],
+    lengths: number[],
+    left: ScenePoint[],
+    right: ScenePoint[],
+    pad: number,
+    shift: number,
+    atStart: boolean,
+  ): void {
+    if (shift === 0) {
+      return;
+    }
+
+    const width = atStart ? widths[0] : widths[widths.length - 1];
+    const half = width / 2 + pad;
+    const normal: ScenePoint = [-sample.tangent[1], sample.tangent[0]];
+    const point: ScenePoint = [
+      sample.point[0] + sample.tangent[0] * shift,
+      sample.point[1] + sample.tangent[1] * shift,
+    ];
+    const length = (atStart ? lengths[0] : lengths[lengths.length - 1]) + shift;
+    const leftPoint: ScenePoint = [point[0] + normal[0] * half, point[1] + normal[1] * half];
+    const rightPoint: ScenePoint = [point[0] - normal[0] * half, point[1] - normal[1] * half];
+    if (atStart) {
+      center.unshift(point);
+      widths.unshift(width);
+      lengths.unshift(length);
+      left.unshift(leftPoint);
+      right.unshift(rightPoint);
+
+      return;
+    }
+
+    center.push(point);
+    widths.push(width);
+    lengths.push(length);
+    left.push(leftPoint);
+    right.push(rightPoint);
   }
 
   /** Расстояние от точки до ленты за вычетом половины ширины. */

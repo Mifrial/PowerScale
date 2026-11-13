@@ -21,6 +21,7 @@
 | Core | [Mail](Core/Mail.md) | `IMailContainer` | 2 | 0 | Core/Agent, Core/Kernel, Core/SmartTable | 2 |
 | Core | [SmartTable](Core/SmartTable.md) | `ISmartTableContainer` | 4 | 0 | Core/Cache, Core/Kernel | 22 |
 | Core | [User](Core/User.md) | `IUserContainer` | 20 | 13 | Core/File, Core/Image, Core/Kernel, Core/SmartTable | 10 |
+| Library | [Asset](Library/Asset.md) | `IAssetContainer` | 6 | 4 | Core/File, Core/Kernel, Core/SmartTable, Core/User | 1 |
 | Messages | [Chat](Messages/Chat.md) | `IChatContainer` | 11 | 7 | Core/Kernel, Core/SmartTable, Core/User | 9 |
 | Messages | [Notes](Messages/Notes.md) | `INotesContainer` | 10 | 8 | Core/Kernel, Core/SmartTable, Core/User | 6 |
 | Roleplay | [Character](Roleplay/Character.md) | `ICharacterContainer` | 15 | 7 | Core/Kernel, Core/SmartTable, Core/User, Roleplay/Keyword, Roleplay/Mechanic, Roleplay/Rule, Roleplay/RuleSpace | 17 |
@@ -30,5 +31,5 @@
 | Roleplay | [Mechanic](Roleplay/Mechanic.md) | `IMechanicContainer` | 8 | 4 | Core/Kernel, Core/SmartTable, Core/User | 8 |
 | Roleplay | [Rule](Roleplay/Rule.md) | `IRuleContainer` | 2 | 0 | Core/Kernel, Core/SmartTable, Roleplay/Keyword, Roleplay/Mechanic, Versioning/Space | 53 |
 | Roleplay | [RuleSpace](Roleplay/RuleSpace.md) | `IRuleSpaceContainer` | 11 | 9 | Core/Kernel, Core/SmartTable, Core/User, Roleplay/Rule | 8 |
-| Roleplay | [Scene](Roleplay/Scene.md) | `ISceneContainer` | 6 | 4 | Core/File, Core/Kernel, Core/SmartTable, Core/User | 3 |
+| Roleplay | [Scene](Roleplay/Scene.md) | `ISceneContainer` | 6 | 4 | Core/File, Core/Kernel, Core/SmartTable, Core/User, Library/Asset | 5 |
 | Versioning | [Space](Versioning/Space.md) | `ISpaceContainer` | 1 | 0 | Core/Cache, Core/Kernel, Core/SmartTable | 2 |

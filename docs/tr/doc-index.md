@@ -13,7 +13,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 
 `doc-index.json` — машинный источник для `show.php`; целиком его не читать.
 Карточки `module-map/` — факты из кода; здесь — заявленные статусы документов.
-Документов: 352, планов: 231.
+Документов: 348, планов: 227.
 
 ## Схема статусов
 
@@ -41,7 +41,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | `review` | 63 | 1 | 0 | 0 | 2 | 0 | 0 | 49 | 11 |
 | `rule` | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 6 |
 | `specs` | 22 | 2 | 0 | 0 | 0 | 4 | 0 | 5 | 11 |
-| `tr` | 255 | 10 | 21 | 35 | 150 | 4 | 1 | 8 | 26 |
+| `tr` | 251 | 10 | 19 | 35 | 148 | 4 | 1 | 8 | 26 |
 | `tz` | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 |
 
 ## Модуль × состояние × слой
@@ -57,6 +57,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Core/SmartTable](module-map/Core/SmartTable.md) | 22 | 0 | 0 | 1 | 20 | 1 | 18 | 0 | 0 |
 | `Core/UI` | 1 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 0 |
 | [Core/User](module-map/Core/User.md) | 11 | 0 | 0 | 0 | 9 | 1 | 8 | 1 | 0 |
+| [Library/Asset](module-map/Library/Asset.md) | 1 | 0 | 0 | 0 | 1 | 0 | 1 | 1 | 1 |
 | [Messages/Chat](module-map/Messages/Chat.md) | 9 | 0 | 0 | 0 | 8 | 1 | 8 | 4 | 1 |
 | [Messages/Notes](module-map/Messages/Notes.md) | 6 | 0 | 2 | 0 | 4 | 0 | 3 | 5 | 2 |
 | [Roleplay/Character](module-map/Roleplay/Character.md) | 18 | 1 | 0 | 3 | 11 | 2 | 14 | 3 | 0 |
@@ -66,7 +67,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Roleplay/Mechanic](module-map/Roleplay/Mechanic.md) | 9 | 0 | 0 | 2 | 6 | 0 | 6 | 4 | 0 |
 | [Roleplay/Rule](module-map/Roleplay/Rule.md) | 54 | 5 | 8 | 9 | 26 | 3 | 19 | 23 | 2 |
 | [Roleplay/RuleSpace](module-map/Roleplay/RuleSpace.md) | 8 | 0 | 0 | 8 | 0 | 0 | 6 | 3 | 0 |
-| [Roleplay/Scene](module-map/Roleplay/Scene.md) | 3 | 0 | 3 | 0 | 0 | 0 | 3 | 3 | 3 |
+| [Roleplay/Scene](module-map/Roleplay/Scene.md) | 5 | 0 | 4 | 0 | 1 | 0 | 4 | 5 | 4 |
 | [Versioning/Space](module-map/Versioning/Space.md) | 2 | 0 | 0 | 0 | 2 | 0 | 2 | 0 | 0 |
 | — | 135 | 6 | 4 | 6 | 10 | 46 | 7 | 12 | 0 |
 

@@ -1,0 +1,137 @@
+import { describe, expect, it } from 'vitest';
+import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
+import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
+import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
+import { SCENE_GRASS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_GRASS';
+import { SCENE_TERRAIN_BLEND } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_BLEND';
+import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
+import { SceneGrassService } from '@/modules/Roleplay/Scene/Service/SceneGrassService';
+import { SceneGrassTextureService } from '@/modules/Roleplay/Scene/Service/SceneGrassTextureService';
+import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
+import { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
+
+const board: SceneBounds = { x: 0, y: 0, width: 1000, height: 1000 };
+
+const element = (id: number, shape: SceneShape, props: SceneElement['props']): SceneElement => ({
+  id,
+  boardId: 1,
+  kind: 'terrain',
+  shape,
+  props,
+  sortOrder: id,
+  targetBoardId: null,
+  asset: null,
+});
+
+const grass = (): SceneElement => element(1, { type: 'rect', x: 0, y: 0, w: 1000, h: 1000 }, { kind: 'grass' });
+
+const spill = (resolution: number): number => Math.max(1, resolution) * SCENE_TERRAIN_BLEND.spillIpari;
+
+describe('SceneGrassService', () => {
+  const geometry = new SceneGeometryService();
+  const service = new SceneGrassService(
+    geometry,
+    new SceneGrassTextureService(new SceneTerrainTextureService(), new SceneTerrainPatternService()),
+  );
+
+  it('раскладывает высокие пучки по траве', () => {
+    const tufts = service.placeClumps([grass()], board, 64);
+
+    expect(tufts.length).toBeGreaterThan(50);
+    for (const tuft of tufts) {
+      expect(geometry.contains(grass().shape, [tuft.x, tuft.y], 0)).toBe(true);
+    }
+  });
+
+  it('сеет ковёр заметно плотнее высоких пучков', () => {
+    const carpet = service.placeCarpet([grass()], board, 64);
+    const clumps = service.placeClumps([grass()], board, 64);
+
+    expect(carpet.length).toBeGreaterThan(clumps.length * 5);
+    expect(carpet[0].height).toBeLessThan(clumps[0].height);
+  });
+
+  it('повторяет раскладку от вызова к вызову', () => {
+    const first = service.placeCarpet([grass()], board, 64);
+    const second = service.placeCarpet([grass()], board, 64);
+
+    expect(second.map((tuft) => [tuft.x, tuft.y, tuft.variant])).toEqual(
+      first.map((tuft) => [tuft.x, tuft.y, tuft.variant]),
+    );
+  });
+
+  it('не сажает траву на песок, нарисованный позже', () => {
+    const sand = element(2, { type: 'rect', x: 400, y: 400, w: 200, h: 200 }, { kind: 'sand' });
+    const tufts = service.placeCarpet([grass(), sand], board, 64);
+    const margin = spill(64);
+
+    expect(tufts.length).toBeGreaterThan(100);
+    for (const tuft of tufts) {
+      const insideSand =
+        tuft.x >= 400 - margin && tuft.x <= 600 + margin && tuft.y >= 400 - margin && tuft.y <= 600 + margin;
+      expect(insideSand).toBe(false);
+    }
+  });
+
+  it('оставляет запас на кромку и осыпь воды', () => {
+    const water = element(
+      2,
+      { type: 'rect', x: 300, y: 300, w: 400, h: 400 },
+      { kind: 'water', shoreKind: 'sand', shoreWidth: 100 },
+    );
+    const tufts = service.placeCarpet([grass(), water], board, 64);
+    const margin = 100 + spill(64);
+
+    for (const tuft of tufts) {
+      const insideWater =
+        tuft.x >= 300 - margin && tuft.x <= 700 + margin && tuft.y >= 300 - margin && tuft.y <= 700 + margin;
+      expect(insideWater).toBe(false);
+    }
+  });
+
+  it('не сажает траву в русло реки и на его кромку', () => {
+    const river = element(
+      2,
+      {
+        type: 'path',
+        points: [
+          [100, 500],
+          [900, 500],
+        ],
+        widths: [60, 60],
+      },
+      { kind: 'water', shoreKind: 'sand', shoreWidth: 30 },
+    );
+    const tufts = service.placeCarpet([grass(), river], board, 64);
+
+    expect(tufts.length).toBeGreaterThan(100);
+    for (const tuft of tufts) {
+      if (tuft.x < 150 || tuft.x > 850) {
+        continue;
+      }
+
+      expect(Math.abs(tuft.y - 500)).toBeGreaterThan(80);
+    }
+  });
+
+  it('переиспользует раскладку и сбрасывает её при смене террейна', () => {
+    const first = service.placeCarpet([grass()], board, 64);
+    const repeat = service.placeCarpet([grass()], board, 64);
+
+    expect(repeat).toBe(first);
+
+    const sand = element(2, { type: 'rect', x: 400, y: 400, w: 200, h: 200 }, { kind: 'sand' });
+    const changed = service.placeCarpet([grass(), sand], board, 64);
+
+    expect(changed).not.toBe(first);
+    expect(changed.length).toBeLessThan(first.length);
+  });
+
+  it('держит потолок числа пучков', () => {
+    const big: SceneBounds = { x: 0, y: 0, width: 6000, height: 6000 };
+    const field = element(1, { type: 'rect', x: 0, y: 0, w: 6000, h: 6000 }, { kind: 'grass' });
+    const tufts = service.placeClumps([field], big, 64);
+
+    expect(tufts.length).toBe(SCENE_GRASS.clumpLimit);
+  });
+});

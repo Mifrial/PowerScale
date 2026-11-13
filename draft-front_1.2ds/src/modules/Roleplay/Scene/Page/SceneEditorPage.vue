@@ -7,9 +7,12 @@ import SceneConflictDialog from '@/modules/Roleplay/Scene/Component/Scene/SceneC
 import SceneCanvas from '@/modules/Roleplay/Scene/Component/Scene/SceneCanvas.vue';
 import SceneElementSettings from '@/modules/Roleplay/Scene/Component/Scene/SceneElementSettings.vue';
 import SceneLocationSettings from '@/modules/Roleplay/Scene/Component/Scene/SceneLocationSettings.vue';
+import SceneOverlayControls from '@/modules/Roleplay/Scene/Component/Scene/SceneOverlayControls.vue';
+import ScenePreviewActorPanel from '@/modules/Roleplay/Scene/Component/Scene/ScenePreviewActorPanel.vue';
 import SceneToolbar from '@/modules/Roleplay/Scene/Component/Scene/SceneToolbar.vue';
 import type { SceneConflict } from '@/modules/Roleplay/Scene/Dto/SceneConflict';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
+import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
@@ -20,6 +23,8 @@ import { SCENE_ELEMENT_KIND_LABELS } from '@/modules/Roleplay/Scene/Constant/Sce
 import { SCENE_EMPTY_DETAIL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_EMPTY_DETAIL';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
 import { useSceneDraft } from '@/modules/Roleplay/Scene/Composables/useSceneDraft';
+import { useSceneFullscreen } from '@/modules/Roleplay/Scene/Composables/useSceneFullscreen';
+import { useScenePreviewActors } from '@/modules/Roleplay/Scene/Composables/useScenePreviewActors';
 import { getSceneApi } from '@/modules/Roleplay/Scene/init';
 import { SceneApiError } from '@/modules/Roleplay/Scene/Service/SceneApiError';
 import { SceneDraftMapper } from '@/modules/Roleplay/Scene/Service/SceneDraftMapper';
@@ -40,6 +45,21 @@ const viewport = ref<SceneViewport | null>(null);
 const boardPanelKey = ref(0);
 const openPanels = ref<string[]>(['board']);
 const preview = ref(false);
+const {
+  full: previewFull,
+  toggle: toggleFullscreen,
+  close: closeFullscreen,
+} = useSceneFullscreen({
+  target: () => document.querySelector<HTMLElement>('.scene-editor'),
+  fit: () => canvas.value?.fit(),
+});
+const overlayCosts = ref(false);
+const overlayVisibility = ref(false);
+const overlay = computed<SceneOverlay | null>(() =>
+  preview.value && (overlayCosts.value || overlayVisibility.value)
+    ? { costs: overlayCosts.value, visibility: overlayVisibility.value, observer: null, radius: null }
+    : null,
+);
 const waterAnimation = ref(readWaterAnimation());
 
 const draft = state.draft;
@@ -65,6 +85,20 @@ const toolDefinition = computed(() => SCENE_TOOLS.find((item) => item.id === too
 const selectedElement = computed(() =>
   selection.value.length === 1 ? (state.selectedElements.value[0] ?? null) : null,
 );
+const {
+  actors: previewActorList,
+  selectedId: previewSelectedId,
+  selectedActor: previewSelectedActor,
+  route: previewRoute,
+  select: selectPreviewActor,
+  setSightRadius: setPreviewSightRadius,
+  onMapClick: onPreviewClick,
+} = useScenePreviewActors({
+  enabled: () => preview.value,
+  board: () => activeViewBoard.value,
+  elements: () => viewElements.value,
+  resolution: () => draft.value.resolution,
+});
 const boardTerrainKind = computed<string | null>(() => {
   const board = activeBoard.value;
   if (board === null) {
@@ -360,6 +394,20 @@ function onViewport(next: SceneViewport): void {
   viewport.value = next;
 }
 
+/** Предпросмотр на весь экран доступен только из предпросмотра. */
+function togglePreviewFull(): void {
+  if (!preview.value) return;
+
+  void toggleFullscreen();
+}
+
+function togglePreview(): void {
+  if (preview.value && previewFull.value) {
+    void closeFullscreen();
+  }
+  preview.value = !preview.value;
+}
+
 function onKeydown(event: KeyboardEvent): void {
   const target = event.target as HTMLElement | null;
   if (target !== null && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
@@ -390,6 +438,12 @@ function onKeydown(event: KeyboardEvent): void {
   }
 
   if (event.key === 'Escape') {
+    if (previewFull.value) {
+      void closeFullscreen();
+
+      return;
+    }
+
     if (preview.value) {
       preview.value = false;
 
@@ -452,7 +506,7 @@ function messageOf(exception: unknown): string {
 </script>
 
 <template>
-  <v-container fluid class="scene-editor">
+  <v-container fluid class="scene-editor" :class="{ 'scene-editor--full': previewFull }">
     <v-progress-linear v-if="loading" indeterminate />
 
     <div class="scene-editor__header">
@@ -534,6 +588,11 @@ function messageOf(exception: unknown): string {
           :path-width="pathWidth"
           :water-animation="waterAnimation"
           :interactive="!preview"
+          :overlay="overlay"
+          :actors="previewActorList"
+          :selected-actor-id="previewSelectedId"
+          :route="previewRoute"
+          @point="onPreviewClick"
           @draw="onDraw"
           @shape="onShape"
           @path="onPath"
@@ -548,6 +607,19 @@ function messageOf(exception: unknown): string {
           @selection="onSelection"
           @viewport="onViewport"
         />
+        <SceneOverlayControls
+          v-if="preview"
+          v-model:costs="overlayCosts"
+          v-model:visibility="overlayVisibility"
+        />
+        <ScenePreviewActorPanel
+          v-if="preview"
+          :actors="previewActorList"
+          :selected="previewSelectedActor"
+          :resolution="draft.resolution"
+          @select="selectPreviewActor"
+          @sight="setPreviewSightRadius"
+        />
         <div class="scene-editor__view-bar">
           <v-tooltip location="bottom" :text="preview ? 'Вернуться к редактированию (Esc)' : 'Предпросмотр'">
             <template #activator="{ props: tooltipProps }">
@@ -557,7 +629,19 @@ function messageOf(exception: unknown): string {
                 size="small"
                 variant="flat"
                 color="surface-variant"
-                @click="preview = !preview"
+                @click="togglePreview"
+              />
+            </template>
+          </v-tooltip>
+          <v-tooltip v-if="preview" location="bottom" :text="previewFull ? 'Выйти из полноэкранного режима' : 'На весь экран'">
+            <template #activator="{ props: tooltipProps }">
+              <v-btn
+                v-bind="tooltipProps"
+                :icon="previewFull ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
+                size="small"
+                variant="flat"
+                color="surface-variant"
+                @click="togglePreviewFull"
               />
             </template>
           </v-tooltip>
@@ -692,6 +776,23 @@ function messageOf(exception: unknown): string {
   height: calc(100dvh - var(--v-layout-top, 0px));
   min-height: 0;
   overflow: hidden;
+}
+
+.scene-editor--full {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  width: auto;
+  max-width: none;
+  height: 100dvh;
+  margin: 0;
+  padding: 10px;
+  background: #0b1220;
+}
+
+.scene-editor--full .scene-editor__header,
+.scene-editor--full .scene-board-tabs {
+  display: none;
 }
 
 .scene-editor__header {

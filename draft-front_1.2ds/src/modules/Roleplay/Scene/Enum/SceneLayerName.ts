@@ -7,6 +7,9 @@ export type SceneLayerName =
   | 'obstacles'
   | 'openings'
   | 'waterPlane'
+  | 'ground'
+  | 'overlay'
+  | 'route'
   | 'decor'
   | 'selection'
   | 'gizmos';

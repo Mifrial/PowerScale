@@ -27,9 +27,35 @@ final class SceneElementValidator
 
     private const SUPPORT_KINDS = ['ground', 'deck', 'roof', 'tabletop', 'bridge'];
 
+    /**
+     * Пресеты скорости опор: 100 — норма, мост быстрее.
+     */
+    private const SUPPORT_SPEEDS = [
+        'ground' => 100,
+        'deck' => 100,
+        'roof' => 100,
+        'tabletop' => 100,
+        'bridge' => 150,
+    ];
+
     private const TERRAIN_KINDS = ['grass', 'dirt', 'stone', 'sand', 'mud', 'water', 'ice'];
 
-    /** Материалы кромки террейна; `none` выключает кромку. */
+    /**
+     * Пресеты скорости террейна: 100 — норма, 0 — непроходимо.
+     */
+    private const TERRAIN_SPEEDS = [
+        'grass' => 100,
+        'dirt' => 150,
+        'stone' => 120,
+        'sand' => 80,
+        'mud' => 50,
+        'water' => 20,
+        'ice' => 70,
+    ];
+
+    /**
+     * Материалы кромки террейна; `none` выключает кромку.
+     */
     private const TERRAIN_SHORE_KINDS = ['none', 'grass', 'dirt', 'stone', 'sand', 'mud', 'ice'];
 
     private const OPENING_KINDS = ['door', 'window', 'gate', 'stairs', 'teleport'];
@@ -540,6 +566,14 @@ final class SceneElementValidator
                 'kind' => $supportKind,
                 'height' => $this->intOrDefault($props, 'height', $path . '.height', 0, 0, 100000),
                 'elevation' => $this->intOrDefault($props, 'elevation', $path . '.elevation', 0, 0, 100000),
+                'speed' => $this->intOrDefault(
+                    $props,
+                    'speed',
+                    $path . '.speed',
+                    self::SUPPORT_SPEEDS[$supportKind],
+                    0,
+                    10000,
+                ),
             ],
             'assetFileId' => null,
         ];
@@ -633,6 +667,14 @@ final class SceneElementValidator
                 'kind' => $terrainKind,
                 'shoreKind' => $shoreKind,
                 'shoreWidth' => $shoreWidth,
+                'speed' => $this->intOrDefault(
+                    $props,
+                    'speed',
+                    $path . '.speed',
+                    self::TERRAIN_SPEEDS[$terrainKind],
+                    0,
+                    10000,
+                ),
                 'label' => $this->label($props, $path . '.label'),
             ],
             'assetFileId' => $fileRecord?->getId(),

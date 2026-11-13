@@ -4,6 +4,18 @@ import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import { SceneCurveService } from '@/modules/Roleplay/Scene/Service/SceneCurveService';
 import { SceneRibbonService } from '@/modules/Roleplay/Scene/Service/SceneRibbonService';
 
+/** Насколько удлинять открытый конец ленты, ипари: торец уходит за край поля. */
+const OPEN_END_PAST_IPARI = 1;
+
+/** Дальше какого расстояния до края поля конец реки считается закрытым, ипари. */
+const OPEN_END_REACH_IPARI = 10;
+
+/** Подготовленная фигура: попадание и границы без повторной тесселяции контура. */
+export interface SceneShapeProbe {
+  bounds: SceneBounds;
+  contains(point: ScenePoint, tolerance: number): boolean;
+}
+
 /**
  * Геометрия элементов поля: границы, попадание и расстояние до контура.
  */
@@ -48,6 +60,86 @@ export class SceneGeometryService {
       width: bounds.width + extra * 2,
       height: bounds.height + extra * 2,
     };
+  }
+
+  /**
+   * Продление открытых концов ленты в единицах сцены.
+   *
+   * Конец реки, стоящий у края поля, — не берег: его надо довести до края,
+   * чтобы торец ушёл под обрезку поля. Конец в глубине поля (река впадает в
+   * озеро) остаётся закрытым: там берег настоящий.
+   */
+  openEndPads(shape: SceneShape, board: SceneBounds | null, resolution: number): [number, number] {
+    if (shape.type !== 'path' || board === null) {
+      return [0, 0];
+    }
+
+    const geometry = this.ribbons.geometry(shape.points, shape.handles ?? [], shape.widths);
+    const count = geometry.center.length;
+    if (count < 2) {
+      return [0, 0];
+    }
+
+    const base = Math.max(1, resolution);
+    const reach = base * OPEN_END_REACH_IPARI;
+    const past = base * OPEN_END_PAST_IPARI;
+    const padAt = (point: ScenePoint, direction: ScenePoint): number => {
+      const inside =
+        point[0] > board.x &&
+        point[0] < board.x + board.width &&
+        point[1] > board.y &&
+        point[1] < board.y + board.height;
+      if (!inside) {
+        // Торец уже за полем: хватит небольшого продления под обрезку.
+        return past;
+      }
+
+      const exit = this.rayExit(point, direction, board);
+      if (exit === null || exit > reach) {
+        return 0;
+      }
+
+      return exit + past;
+    };
+    const startDirection = this.direction(geometry.center[0], geometry.center[1]);
+    const endDirection = this.direction(geometry.center[count - 1], geometry.center[count - 2]);
+
+    return [padAt(geometry.center[0], startDirection), padAt(geometry.center[count - 1], endDirection)];
+  }
+
+  /** Направление из `from` в `to`; ноль, если точки совпали. */
+  private direction(from: ScenePoint, to: ScenePoint): ScenePoint {
+    const dx = from[0] - to[0];
+    const dy = from[1] - to[1];
+    const length = Math.hypot(dx, dy);
+    if (length === 0) {
+      return [0, 0];
+    }
+
+    return [dx / length, dy / length];
+  }
+
+  /** Расстояние до края поля по лучу из точки внутри поля; null — луч не идёт. */
+  private rayExit(point: ScenePoint, direction: ScenePoint, board: SceneBounds): number | null {
+    if (direction[0] === 0 && direction[1] === 0) {
+      return null;
+    }
+
+    let exit = Number.POSITIVE_INFINITY;
+    if (direction[0] > 1e-6) {
+      exit = Math.min(exit, (board.x + board.width - point[0]) / direction[0]);
+    }
+    if (direction[0] < -1e-6) {
+      exit = Math.min(exit, (board.x - point[0]) / direction[0]);
+    }
+    if (direction[1] > 1e-6) {
+      exit = Math.min(exit, (board.y + board.height - point[1]) / direction[1]);
+    }
+    if (direction[1] < -1e-6) {
+      exit = Math.min(exit, (board.y - point[1]) / direction[1]);
+    }
+
+    return Number.isFinite(exit) && exit > 0 ? exit : null;
   }
 
   /** Точки контура фигуры. */
@@ -112,6 +204,54 @@ export class SceneGeometryService {
     return this.pointInPolygon(point, outline) || this.distanceToPolyline(point, outline) <= tolerance;
   }
 
+  /**
+   * Готовит фигуру для многократных проверок попадания.
+   *
+   * Контур полигона и осевая ленты тесселируются один раз: `contains` для
+   * каждой точки делает это заново, и на десятках тысяч проверок раскладка
+   * травы упирается в кривые. Возвращённая проверка даёт тот же результат.
+   */
+  probe(shape: SceneShape): SceneShapeProbe {
+    if (shape.type === 'polygon') {
+      const outline = this.curves.flattenContour(shape.points, shape.handles ?? []);
+
+      return {
+        bounds: this.boundsOfPoints(outline),
+        contains: (point, tolerance) =>
+          this.pointInPolygon(point, outline) || this.distanceToPolyline(point, outline) <= tolerance,
+      };
+    }
+
+    if (shape.type === 'path') {
+      const ribbon = this.ribbons.geometry(shape.points, shape.handles ?? [], shape.widths);
+
+      return {
+        bounds: this.boundsOfPoints([...ribbon.left, ...ribbon.right]),
+        contains: (point, tolerance) => this.distanceToRibbon(point, ribbon) <= tolerance,
+      };
+    }
+
+    return {
+      bounds: this.bounds(shape),
+      contains: (point, tolerance) => this.contains(shape, point, tolerance),
+    };
+  }
+
+  /** Расстояние до уже тесселированной ленты. */
+  private distanceToRibbon(
+    point: ScenePoint,
+    ribbon: { center: ScenePoint[]; widths: number[] },
+  ): number {
+    let nearest = Number.POSITIVE_INFINITY;
+    for (let index = 1; index < ribbon.center.length; index += 1) {
+      const half = Math.max(ribbon.widths[index - 1], ribbon.widths[index]) / 2;
+      const segment = this.distanceToSegment(point, ribbon.center[index - 1], ribbon.center[index]);
+      nearest = Math.min(nearest, Math.max(0, segment - half));
+    }
+
+    return nearest;
+  }
+
   /** Центр фигуры. */
   center(shape: SceneShape): ScenePoint {
     const bounds = this.bounds(shape);
@@ -165,6 +305,57 @@ export class SceneGeometryService {
     }
 
     return inside;
+  }
+
+  /**
+   * Замкнутый контур фигуры для навигации.
+   *
+   * Кривые разворачиваются с тем же допуском, что и в рендере. Круг
+   * аппроксимируется многоугольником: навигации не нужен аналитический круг,
+   * а булевы операции работают с полигонами. Точка контура не имеет.
+   */
+  outline(shape: SceneShape, pad = 0, circleSegments = 48): ScenePoint[] {
+    if (shape.type === 'point') {
+      return [];
+    }
+
+    if (shape.type === 'rect') {
+      const x = shape.x - pad;
+      const y = shape.y - pad;
+      const w = shape.w + pad * 2;
+      const h = shape.h + pad * 2;
+
+      return [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+      ];
+    }
+
+    if (shape.type === 'circle') {
+      const radius = Math.max(0, shape.r + pad);
+      const segments = Math.max(12, Math.min(128, Math.floor(circleSegments)));
+      const points: ScenePoint[] = [];
+      for (let index = 0; index < segments; index += 1) {
+        const angle = (index / segments) * Math.PI * 2;
+        points.push([shape.cx + Math.cos(angle) * radius, shape.cy + Math.sin(angle) * radius]);
+      }
+
+      return points;
+    }
+
+    if (shape.type === 'polygon') {
+      return this.curves.flattenContour(shape.points, shape.handles ?? []);
+    }
+
+    if (shape.type === 'wall') {
+      const widths = shape.points.map(() => shape.width);
+
+      return this.ribbons.outline(shape.points, [], widths, 1, pad);
+    }
+
+    return this.ribbons.outline(shape.points, shape.handles ?? [], shape.widths, 1, pad);
   }
 
   /** Границы набора точек. */

@@ -17,7 +17,9 @@ use Mifrial\Roleplay\Scene\Setup\SceneModuleSetup;
 return [
     'container' => SceneContainer::class,
     'locator' => ISceneContainer::class,
-    'setup' => SceneModuleSetup::class,
+    'setup' => static function (IServiceLocator $serviceLocator): SceneModuleSetup {
+        return (new ScenePortFactory())->createSetup($serviceLocator);
+    },
     'ports' => [
         SceneCatalogHttp::class => static function (IServiceLocator $serviceLocator): SceneCatalogHttp {
             return (new ScenePortFactory())->createCatalogHttp($serviceLocator);

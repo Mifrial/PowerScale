@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Mifrial\Library\Asset\Interface\Container\IAssetContainer;
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Messages\Notes\Interface\Container\INotesContainer;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
@@ -16,6 +17,10 @@ use Mifrial\Versioning\Space\Interface\Container\ISpaceContainer;
 
 return [
     'lazy' => [
+        IAssetContainer::class => [
+            'group' => 'Library',
+            'name' => 'Asset',
+        ],
         IChatContainer::class => [
             'group' => 'Messages',
             'name' => 'Chat',

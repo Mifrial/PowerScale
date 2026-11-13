@@ -14,11 +14,14 @@ use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\SmartTableTransactionRunner;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
+use Mifrial\Library\Asset\Interface\Container\IAssetContainer;
+use Mifrial\Library\Asset\Interface\Service\IAssetCollections;
 use Mifrial\Roleplay\Scene\Interface\Container\ISceneContainer;
 use Mifrial\Roleplay\Scene\Repository\SceneBoardRepository;
 use Mifrial\Roleplay\Scene\Repository\SceneElementRepository;
 use Mifrial\Roleplay\Scene\Repository\SceneEnclosureRepository;
 use Mifrial\Roleplay\Scene\Repository\SceneLocationRepository;
+use Mifrial\Roleplay\Scene\Setup\SceneModuleSetup;
 use Mifrial\Roleplay\Scene\Table\SceneBoardTable;
 use Mifrial\Roleplay\Scene\Table\SceneElementTable;
 use Mifrial\Roleplay\Scene\Table\SceneEnclosureTable;
@@ -29,6 +32,18 @@ use Mifrial\Roleplay\Scene\Table\SceneLocationTable;
  */
 final class ScenePortFactory
 {
+    /**
+     * Setup модуля с коллекциями ассетов.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return SceneModuleSetup Setup.
+     */
+    public function createSetup(IServiceLocator $serviceLocator): SceneModuleSetup
+    {
+        return new SceneModuleSetup($this->assetCollections($serviceLocator));
+    }
+
     /**
      * HTTP каталога.
      *
@@ -312,6 +327,25 @@ final class ScenePortFactory
         }
 
         return $files;
+    }
+
+    /**
+     * Коллекции ассетов.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return IAssetCollections Порт.
+     *
+     * @throws KernelException Если порт неверного типа.
+     */
+    private function assetCollections(IServiceLocator $serviceLocator): IAssetCollections
+    {
+        $collections = $serviceLocator->get(IAssetContainer::class)->get(IAssetCollections::class);
+        if (!$collections instanceof IAssetCollections) {
+            throw new KernelException('PORT_TYPE', 'Scene requires IAssetCollections');
+        }
+
+        return $collections;
     }
 
     /**

@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref, watch } from 'vue';
-import type { FileRecord } from '@/modules/Core/File/Dto/FileRecord';
+import { computed, defineAsyncComponent } from 'vue';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard';
 import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import SceneDistanceField from '@/modules/Roleplay/Scene/Component/Scene/SceneDistanceField.vue';
+import { SCENE_ASSET_COLLECTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ASSET_COLLECTIONS';
 import { SCENE_MARKER_ROLE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_MARKER_ROLE_OPTIONS';
+import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { SCENE_OPENING_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OPENING_KIND_OPTIONS';
 import { SCENE_SUPPORT_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SUPPORT_KIND_OPTIONS';
 import { SCENE_TERRAIN_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_KIND_OPTIONS';
 import { SCENE_TERRAIN_SHORE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_SHORE_OPTIONS';
 
-const FileUploadField = defineAsyncComponent(() => import('@/modules/Core/File/Component/FileUploadField.vue'));
+const AssetLibraryField = defineAsyncComponent(() => import('@/modules/Library/Asset/Component/AssetLibraryField.vue'));
 
 const props = defineProps<{
   element: SceneDraftElement;
@@ -29,38 +30,28 @@ const emit = defineEmits<{
   corner: [];
 }>();
 
-const assetPublicId = ref(props.element.assetPublicId ?? null);
+const assetPublicId = computed(() => props.element.assetPublicId ?? null);
 
-watch(
-  () => props.element.assetPublicId,
-  (value) => {
-    assetPublicId.value = value ?? null;
-  },
-);
+const SPEED_PRESETS = [
+  { label: '100 норма', value: 100 },
+  { label: '150 дорога', value: 150 },
+  { label: '80 песок', value: 80 },
+  { label: '50 грязь', value: 50 },
+  { label: '20 река', value: 20 },
+  { label: '0 стоп', value: 0 },
+];
+
+const defaultSpeed = computed(() => {
+  const kind = props.element.props.kind ?? (props.element.kind === 'support' ? 'ground' : 'grass');
+
+  return SCENE_SURFACE.speeds[kind as keyof typeof SCENE_SURFACE.speeds] ?? 100;
+});
+const currentSpeed = computed(() => props.element.props.speed ?? defaultSpeed.value);
 
 const targetOptions = computed(() =>
   props.boards
     .filter((board) => board.id !== props.element.boardId)
     .map((board) => ({ value: board.id, title: board.name })),
-);
-const assetFile = computed<FileRecord | null>(() =>
-  assetPublicId.value === null
-    ? null
-    : {
-        id: 0,
-        publicId: assetPublicId.value,
-        ownerId: 0,
-        originalName: '',
-        mime: 'image/*',
-        size: 0,
-        width: null,
-        height: null,
-        sha256: '',
-        isArchived: false,
-        isDerived: false,
-        archivedAt: null,
-        createdAt: 0,
-      },
 );
 
 function patch(elementProps: SceneElementProps): void {
@@ -76,6 +67,28 @@ function patchNumber(key: 'rotation' | 'scale', value: string | number | null): 
 
 function patchText(key: 'label' | 'kind' | 'state' | 'role', value: string | null): void {
   patch({ [key]: value ?? '' });
+}
+
+/** Смена подтипа: если скорость ещё пресетная, подставляем пресет нового типа. */
+function patchKind(value: string | null): void {
+  const kind = value ?? '';
+  const previous = props.element.props.kind ?? (props.element.kind === 'support' ? 'ground' : 'grass');
+  const previousSpeed = SCENE_SURFACE.speeds[previous as keyof typeof SCENE_SURFACE.speeds] ?? 100;
+  const nextSpeed = SCENE_SURFACE.speeds[kind as keyof typeof SCENE_SURFACE.speeds] ?? 100;
+  const speed = props.element.props.speed;
+
+  patch({
+    kind,
+    ...(speed === undefined || speed === previousSpeed ? { speed: nextSpeed } : {}),
+  });
+}
+
+/** Скорость элемента: целое 0…10000, 100 — норма. */
+function patchSpeed(value: string | number | null): void {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return;
+
+  patch({ speed: Math.max(0, Math.min(10000, Math.round(parsed))) });
 }
 
 function patchShoreKind(value: string | null): void {
@@ -94,9 +107,8 @@ function patchFlag(key: 'blocksMovement' | 'blocksVision', value: boolean | null
   patch({ [key]: value === true });
 }
 
-function onAsset(file: FileRecord | null): void {
-  assetPublicId.value = file?.publicId ?? null;
-  emit('asset', file?.publicId ?? null);
+function onAsset(publicId: string | null): void {
+  emit('asset', publicId);
 }
 </script>
 
@@ -119,8 +131,30 @@ function onAsset(file: FileRecord | null): void {
         density="compact"
         variant="outlined"
         hide-details
-        @update:model-value="(value) => patchText('kind', value)"
+        @update:model-value="patchKind"
       />
+      <v-text-field
+        :model-value="currentSpeed"
+        type="number"
+        label="Скорость"
+        hint="100 — норма; 150 — дорога и мост; 20 — река; 0 — непроходимо."
+        persistent-hint
+        density="compact"
+        variant="outlined"
+        @update:model-value="patchSpeed"
+      />
+      <div class="scene-element-settings__speeds">
+        <v-chip
+          v-for="preset in SPEED_PRESETS"
+          :key="preset.value"
+          size="x-small"
+          :color="currentSpeed === preset.value ? 'primary' : undefined"
+          variant="tonal"
+          @click="patchSpeed(preset.value)"
+        >
+          {{ preset.label }}
+        </v-chip>
+      </div>
       <SceneDistanceField
         :model-value="props.element.props.height ?? 0"
         :resolution="props.resolution"
@@ -214,12 +248,36 @@ function onAsset(file: FileRecord | null): void {
         density="compact"
         variant="outlined"
         hide-details
-        @update:model-value="(value) => patchText('kind', value)"
+        @update:model-value="patchKind"
       />
-      <FileUploadField
-        :model-value="assetFile"
+      <v-text-field
+        :model-value="currentSpeed"
+        type="number"
+        label="Скорость"
+        hint="100 — норма; 150 — дорога и мост; 20 — река; 0 — непроходимо."
+        persistent-hint
+        density="compact"
+        variant="outlined"
+        @update:model-value="patchSpeed"
+      />
+      <div class="scene-element-settings__speeds">
+        <v-chip
+          v-for="preset in SPEED_PRESETS"
+          :key="preset.value"
+          size="x-small"
+          :color="currentSpeed === preset.value ? 'primary' : undefined"
+          variant="tonal"
+          @click="patchSpeed(preset.value)"
+        >
+          {{ preset.label }}
+        </v-chip>
+      </div>
+      <AssetLibraryField
+        :model-value="assetPublicId"
         label="Текстура террейна"
-        :accept="['image/png', 'image/jpeg', 'image/webp']"
+        :collection-module="SCENE_ASSET_COLLECTIONS.terrain.module"
+        :collection-code="SCENE_ASSET_COLLECTIONS.terrain.code"
+        :collection-title="SCENE_ASSET_COLLECTIONS.terrain.title"
         @update:model-value="onAsset"
       />
       <v-select
@@ -272,10 +330,12 @@ function onAsset(file: FileRecord | null): void {
     </template>
 
     <template v-if="props.element.kind === 'decor'">
-      <FileUploadField
-        :model-value="assetFile"
-        label="Ассет"
-        :accept="['image/png', 'image/jpeg', 'image/webp']"
+      <AssetLibraryField
+        :model-value="assetPublicId"
+        label="Ассет декора"
+        :collection-module="SCENE_ASSET_COLLECTIONS.decor.module"
+        :collection-code="SCENE_ASSET_COLLECTIONS.decor.code"
+        :collection-title="SCENE_ASSET_COLLECTIONS.decor.title"
         @update:model-value="onAsset"
       />
       <v-text-field
@@ -319,6 +379,13 @@ function onAsset(file: FileRecord | null): void {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.scene-element-settings__speeds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: -8px;
 }
 
 .scene-element-settings__row {

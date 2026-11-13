@@ -1,6 +1,10 @@
-import { Application, Container, Graphics, Sprite } from 'pixi.js';
+import { Application, Container, Geometry, Graphics, Mesh, Sprite } from 'pixi.js';
+import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
+import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
+import type { SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
+import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
@@ -11,11 +15,21 @@ import type { SceneDecorPaint } from '@/modules/Roleplay/Scene/Service/SceneDeco
 import type { SceneWaterNode } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SceneShapePainter } from '@/modules/Roleplay/Scene/Service/SceneShapePainter';
 import { SceneDecorService } from '@/modules/Roleplay/Scene/Service/SceneDecorService';
+import type { SceneActorPaint } from '@/modules/Roleplay/Scene/Service/SceneActorService';
+import { SceneActorService } from '@/modules/Roleplay/Scene/Service/SceneActorService';
+import { SceneBridgeService } from '@/modules/Roleplay/Scene/Service/SceneBridgeService';
+import { SceneGrassMeshService } from '@/modules/Roleplay/Scene/Service/SceneGrassMeshService';
+import { SceneGrassService } from '@/modules/Roleplay/Scene/Service/SceneGrassService';
+import { SceneGrassShader } from '@/modules/Roleplay/Scene/Service/SceneGrassShader';
+import type { SceneGrassShaderHandle } from '@/modules/Roleplay/Scene/Service/SceneGrassShader';
+import { SceneGrassTextureService } from '@/modules/Roleplay/Scene/Service/SceneGrassTextureService';
+import { SceneGrassTrailService } from '@/modules/Roleplay/Scene/Service/SceneGrassTrailService';
+import { SceneTerrainBlendService } from '@/modules/Roleplay/Scene/Service/SceneTerrainBlendService';
 import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
 import { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
 import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
-import { SceneWaterService } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
+import { SceneWaterService, isShaderWater } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_RENDERER_PREFERENCE';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
@@ -43,6 +57,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private model: SceneRenderModel | null = null;
 
+  /** Границы активного поля: по ним открываются концы рек, упёршиеся в край. */
+  private boardBounds: SceneBounds | null = null;
+
   private viewport: SceneViewport | null = null;
 
   private draftShape: SceneShape | null = null;
@@ -61,7 +78,40 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private readonly decor = new SceneDecorService(this.textures);
 
-  private readonly terrain = new SceneTerrainPainter(this.patterns, this.materials);
+  private readonly blend = new SceneTerrainBlendService();
+
+  private readonly terrain = new SceneTerrainPainter(this.patterns, this.materials, this.blend);
+
+  private readonly grassTextures = new SceneGrassTextureService(this.materials, this.patterns);
+
+  private readonly grass = new SceneGrassService(sceneGeometryService, this.grassTextures);
+
+  private readonly grassShader = new SceneGrassShader();
+
+  private readonly grassMesh = new SceneGrassMeshService();
+
+  private readonly grassTrail = new SceneGrassTrailService();
+
+  private carpet: SceneGrassShaderHandle | null = null;
+
+  private readonly actorService = new SceneActorService();
+
+  private readonly bridge = new SceneBridgeService();
+
+  private actors: SceneActor[] = [];
+
+  private readonly actorNodes = new Map<number, SceneActorPaint>();
+
+  private readonly propY = new Map<Container, number>();
+
+  /** Готовые полосы оверлеев; их считает сервис, рендерер только рисует. */
+  private overlayPaint: SceneOverlayPaint | null = null;
+
+  /** Полилиния маршрута выбранного актора. */
+  private routePoints: ScenePoint[] | null = null;
+
+  /** Идёт жест редактирования: траву не перестраиваем, иначе река тормозит. */
+  private editing = false;
 
   private readonly water = new SceneWaterService(this.materials);
 
@@ -74,7 +124,10 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private waterTickerActive = false;
 
   private readonly handleWaterTick = (ticker: { deltaMS: number }): void => {
-    this.waterElapsed += ticker.deltaMS / 1000;
+    // Долгий кадр не должен разом прокручивать воду: иначе после подвисания
+    // картинка дёргается. Ограничиваем шаг времени, вода просто чуть
+    // отстаёт от реального времени.
+    this.waterElapsed += Math.min(ticker.deltaMS, 50) / 1000;
     for (const entry of this.waterNodes) {
       entry.node.update(this.waterElapsed);
     }
@@ -82,6 +135,19 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private readonly handleVisibilityChange = (): void => {
     this.syncWaterAnimation();
+    this.syncTrailTicker();
+  };
+
+  private trailTickerActive = false;
+
+  private readonly handleTrailTick = (ticker: { deltaMS: number }): void => {
+    // След гаснет по времени: стоящий актор не оставляет круга, а прошедший —
+    // полосу, которая распрямляется за trailRelaxMs.
+    const alive = this.grassTrail.advance(Math.min(ticker.deltaMS, 50));
+    this.applyTrail();
+    if (!alive) {
+      this.syncTrailTicker();
+    }
   };
 
   private sceneToken = 0;
@@ -162,7 +228,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     app.canvas.removeEventListener('webglcontextlost', this.handleContextLost);
     app.canvas.removeEventListener('webglcontextrestored', this.handleContextRestored);
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
-    this.stopWaterTicker();
+    this.stopTickers();
     app.canvas.parentElement?.removeChild(app.canvas);
     this.host = null;
   }
@@ -186,19 +252,40 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.retessellate();
     }
 
+    if (previous !== null && Math.abs(previous.zoom - viewport.zoom) > 0.0001) {
+      for (const actor of this.actors) {
+        const painted = this.actorNodes.get(actor.id);
+        if (painted !== undefined) {
+          this.actorService.update(painted, actor, viewport.zoom);
+        }
+      }
+    }
+
     this.syncWaterAnimation();
     this.render();
   }
 
   async setScene(model: SceneRenderModel): Promise<void> {
     this.model = model;
+    this.grassTrail.reset();
     const token = ++this.sceneToken;
     if (this.app === null || this.world === null) {
       return;
     }
 
+    // Во время жеста тянем только контур: пересборка воды, террейна и травы
+    // на каждое движение указателя превращает перетаскивание реки в слайд-шоу.
+    // Полная сцена собирается после отпускания.
+    if (this.editing) {
+      this.drawSelection();
+      this.render();
+
+      return;
+    }
+
     const board = model.boards.find((item) => item.id === model.activeBoardId);
     if (board === undefined) {
+      this.boardBounds = null;
       this.clearAll();
       this.render();
 
@@ -214,6 +301,61 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.applyViewport();
     this.render();
     this.syncWaterAnimation();
+  }
+
+  /**
+   * Режим жеста редактирования.
+   *
+   * Пока тянут террейн, раскладка травы не пересобирается: сцена обновляется
+   * на каждом движении указателя, и полный луг на 40 000 квадов не должен
+   * попадать в этот цикл. После отпускания трава возвращается.
+   */
+  setEditing(editing: boolean): void {
+    if (this.editing === editing) {
+      return;
+    }
+
+    this.editing = editing;
+    if (editing || this.model === null) {
+      return;
+    }
+
+    const board = this.model.boards.find((item) => item.id === this.model?.activeBoardId);
+    if (board !== undefined) {
+      this.rebuild(board);
+      this.applyViewport();
+      this.render();
+    }
+  }
+
+  /** Акторы на поле: позиции и facing приходят снаружи, состояние — у игры. */
+  setActors(actors: SceneActor[]): void {
+    this.actors = actors;
+    if (this.layers.decor !== undefined) {
+      this.paintActors();
+    }
+
+    if (this.model !== null) {
+      this.grassTrail.record(actors, this.model.resolution);
+      this.applyTrail();
+      this.syncTrailTicker();
+    }
+
+    this.render();
+  }
+
+  /** Готовые полосы тактических оверлеев; null — оверлеи выключены. */
+  setOverlayPaint(paint: SceneOverlayPaint | null): void {
+    this.overlayPaint = paint;
+    this.drawOverlay();
+    this.render();
+  }
+
+  /** Маршрут выбранного актора; null — линия скрыта. */
+  setRoute(points: ScenePoint[] | null): void {
+    this.routePoints = points;
+    this.drawRoute();
+    this.render();
   }
 
   setSelection(ids: number[]): void {
@@ -265,43 +407,83 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const hidden = typeof document !== 'undefined' && document.hidden;
     const shouldRun =
       this.waterAnimationEnabled && this.model?.mode !== 'edit' && this.waterNodes.length > 0 && !hidden;
-    if (shouldRun) {
-      if (!this.waterTickerActive) {
-        this.app.ticker.add(this.handleWaterTick, this);
-        this.waterTickerActive = true;
-      }
+    if (shouldRun && !this.waterTickerActive) {
+      this.app.ticker.add(this.handleWaterTick, this);
+      this.waterTickerActive = true;
+    } else if (!shouldRun && this.waterTickerActive) {
+      this.app.ticker.remove(this.handleWaterTick, this);
+      this.waterTickerActive = false;
+    }
 
+    this.syncTicker(hidden);
+  }
+
+  /** Тикер следа: пока есть точки, они гаснут и ковёр перерисовывается. */
+  private syncTrailTicker(): void {
+    if (this.app === null) {
+      return;
+    }
+
+    const hidden = typeof document !== 'undefined' && document.hidden;
+    const shouldRun = !hidden && this.grassTrail.hasPoints();
+    if (shouldRun && !this.trailTickerActive) {
+      this.app.ticker.add(this.handleTrailTick, this);
+      this.trailTickerActive = true;
+    } else if (!shouldRun && this.trailTickerActive) {
+      this.app.ticker.remove(this.handleTrailTick, this);
+      this.trailTickerActive = false;
+    }
+
+    this.syncTicker(hidden);
+  }
+
+  /** Общий тикер кадра: вода и затухающий след травы делят один цикл. */
+  private syncTicker(hidden: boolean): void {
+    if (this.app === null) {
+      return;
+    }
+
+    if (!hidden && (this.waterTickerActive || this.trailTickerActive)) {
       this.app.ticker.start();
 
       return;
     }
 
-    if (!this.waterTickerActive) {
-      return;
+    if (this.app.ticker.started) {
+      this.app.ticker.stop();
+      this.render();
     }
-
-    this.stopWaterTicker();
-    this.render();
   }
 
-  private stopWaterTicker(): void {
-    if (this.app === null || !this.waterTickerActive) {
+  /** Снимает обработчики тикера перед detach/destroy. */
+  private stopTickers(): void {
+    if (this.app === null) {
       return;
     }
 
-    this.app.ticker.remove(this.handleWaterTick, this);
+    if (this.waterTickerActive) {
+      this.app.ticker.remove(this.handleWaterTick, this);
+      this.waterTickerActive = false;
+    }
+
+    if (this.trailTickerActive) {
+      this.app.ticker.remove(this.handleTrailTick, this);
+      this.trailTickerActive = false;
+    }
+
     this.app.ticker.stop();
-    this.waterTickerActive = false;
   }
 
   destroy(): void {
     ++this.sceneToken;
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
-    this.stopWaterTicker();
+    this.stopTickers();
+    this.grassTrail.reset();
     this.waterNodes = [];
     this.textures.destroy();
     this.patterns.destroy();
     this.materials.destroy();
+    this.grassTextures.destroy();
     this.decor.destroy();
     this.water.destroy();
     if (this.app !== null) {
@@ -365,6 +547,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'obstacles',
       'openings',
       'waterPlane',
+      'ground',
+      'overlay',
+      'route',
       'decor',
       'selection',
       'gizmos',
@@ -392,6 +577,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private rebuild(board: SceneBoard): void {
     this.clearAll();
+    this.boardBounds = { x: 0, y: 0, width: board.boundWidth, height: board.boundHeight };
     this.waterNodes = [];
     if (this.model === null) {
       return;
@@ -424,6 +610,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.drawWaterFoam(element, resolution, zoom);
     }
 
+    const bridgeElements = elements.filter((element) => this.isBridge(element));
     const decorElements = elements
       .filter((element) => element.kind === 'decor')
       .sort(
@@ -433,14 +620,14 @@ export class PixiSceneRenderer implements ISceneRenderer {
           left.id - right.id,
       );
     for (const element of elements) {
-      if (element.kind !== 'terrain' && element.kind !== 'decor') {
+      if (element.kind !== 'terrain' && element.kind !== 'decor' && !this.isBridge(element)) {
         this.drawElement(element);
       }
     }
 
-    for (const element of decorElements) {
-      this.drawDecor(element, waterElements, resolution);
-    }
+    this.drawProps(board, bridgeElements, decorElements, terrainElements, waterElements, resolution);
+    this.drawOverlay();
+    this.drawRoute();
 
     if (this.isEdit()) {
       this.drawGridOverlay(board);
@@ -454,6 +641,247 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
   }
 
+  /**
+   * Декор и пучки травы одним списком по `y` якоря.
+   *
+   * Общая сортировка нужна, чтобы трава за деревом уходила под его спрайт, а
+   * трава перед деревом перекрывала низ ствола.
+   */
+  private drawProps(
+    board: SceneBoard,
+    bridgeElements: SceneElement[],
+    decorElements: SceneElement[],
+    terrainElements: SceneElement[],
+    waterElements: SceneElement[],
+    resolution: number,
+  ): void {
+    const layer = this.layers.decor;
+    const ground = this.layers.ground;
+    if (layer === undefined || ground === undefined) {
+      return;
+    }
+
+    this.propY.clear();
+    this.actorNodes.clear();
+    const bounds = { x: 0, y: 0, width: board.boundWidth, height: board.boundHeight };
+    // Мосты и ковёр — пол над водой и под оверлеями, декором и акторами.
+    for (const element of bridgeElements) {
+      const painted = this.bridge.paint(element, resolution, this.zoom());
+      if (painted !== null) {
+        ground.addChild(painted);
+      }
+    }
+
+    if (!this.editing) {
+      this.drawCarpet(ground, terrainElements, bounds, resolution);
+    }
+
+    const props = [
+      ...decorElements.map((element) => {
+        const anchorY = this.decor.anchorY(element);
+
+        return {
+          anchorY,
+          rank: 1,
+          order: element.sortOrder,
+          id: element.id,
+          draw: (): void => {
+            const group = this.decorGroup(element, waterElements, resolution);
+            if (group !== null) {
+              layer.addChild(group);
+              this.propY.set(group, anchorY);
+            }
+          },
+        };
+      }),
+      ...(this.editing ? [] : this.grass.placeClumps(terrainElements, bounds, resolution)).map((tuft) => ({
+        anchorY: tuft.y,
+        rank: 0,
+        order: 0,
+        id: tuft.sequence,
+        draw: (): void => {
+          const sprite = this.grass.paint(layer, tuft);
+          if (sprite !== null) {
+            this.propY.set(sprite, tuft.y);
+          }
+        },
+      })),
+    ];
+    props.sort(
+      (left, right) =>
+        left.anchorY - right.anchorY || left.rank - right.rank || left.order - right.order || left.id - right.id,
+    );
+    for (const prop of props) {
+      prop.draw();
+    }
+
+    this.paintActors();
+  }
+
+  /** Оверлеи поверх пола и под декором: стоимость и скрытые клетки. */
+  private drawOverlay(): void {
+    const layer = this.layers.overlay;
+    if (layer === undefined) {
+      return;
+    }
+
+    this.clearLayer('overlay');
+    if (this.overlayPaint === null || this.isEdit()) {
+      return;
+    }
+
+    const graphics = new Graphics();
+    for (const band of this.overlayPaint.bands) {
+      graphics.rect(band.x, band.y, band.width, band.height).fill({ color: band.color, alpha: band.alpha });
+    }
+    if (graphics.context.instructions.length > 0) {
+      layer.addChild(graphics);
+    }
+  }
+
+  /** Линия маршрута: над полом и оверлеями, под декором и акторами. */
+  private drawRoute(): void {
+    const layer = this.layers.route;
+    if (layer === undefined) {
+      return;
+    }
+
+    this.clearLayer('route');
+    if (this.routePoints === null || this.routePoints.length < 2 || this.isEdit()) {
+      return;
+    }
+
+    const zoom = Math.max(0.001, this.zoom());
+    const graphics = new Graphics();
+    const first = this.routePoints[0];
+    graphics.moveTo(first[0], first[1]);
+    for (const point of this.routePoints.slice(1)) {
+      graphics.lineTo(point[0], point[1]);
+    }
+    graphics.stroke({ color: 0x60a5fa, width: 3 / zoom, alpha: 0.85 });
+    for (const point of this.routePoints) {
+      graphics.circle(point[0], point[1], 2.5 / zoom).fill({ color: 0xbfdbfe, alpha: 0.95 });
+    }
+    layer.addChild(graphics);
+  }
+
+  /** Ковёр травы: один меш под декором и акторами. */
+  private drawCarpet(layer: Container, terrainElements: SceneElement[], bounds: SceneBounds, resolution: number): void {
+    this.carpet = null;
+    const tufts = this.grass.placeCarpet(terrainElements, bounds, resolution);
+    if (tufts.length === 0) {
+      return;
+    }
+
+    const atlas = this.grassTextures.atlasTexture();
+    if (atlas === null) {
+      return;
+    }
+
+    const mesh = this.grassMesh.build(tufts, this.grassTextures.frameRects());
+    if (mesh === null) {
+      return;
+    }
+
+    const geometry = new Geometry({
+      attributes: {
+        aPosition: { buffer: mesh.positions, format: 'float32x2' },
+        aUV: { buffer: mesh.uvs, format: 'float32x2' },
+        aTint: { buffer: mesh.tints, format: 'float32x4' },
+        aOrigin: { buffer: mesh.origins, format: 'float32x2' },
+      },
+      indexBuffer: mesh.indices,
+    });
+    const carpet = this.grassShader.create(atlas);
+    this.carpet = carpet;
+    this.applyTrail();
+    layer.addChild(new Mesh({ geometry, shader: carpet.shader }));
+  }
+
+  /** Передаёт след движения в шейдер ковра; без меша и модели — no-op. */
+  private applyTrail(): void {
+    if (this.carpet === null || this.model === null) {
+      return;
+    }
+
+    this.carpet.apply(this.grassTrail.pack(this.model.resolution));
+  }
+
+  /** Группа декора: тень, спрайт и погружение — один ребёнок слоя. */
+  private decorGroup(element: SceneElement, waterElements: SceneElement[], resolution: number): Container | null {
+    const group = new Container();
+    const painted = this.decor.paint(group, element, resolution);
+    if (painted === null) {
+      group.addChild(this.painter.paintElement(element, this.zoom()));
+    } else {
+      this.paintSubmersion(group, element, painted, waterElements, resolution);
+    }
+
+    return group;
+  }
+
+  /** Акторы поверх статики: вставка по `y` между детьми слоя. */
+  private paintActors(): void {
+    const layer = this.layers.decor;
+    if (layer === undefined || this.model === null) {
+      return;
+    }
+
+    const resolution = this.model.resolution;
+    const zoom = this.zoom();
+    const ids = new Set(this.actors.map((actor) => actor.id));
+    for (const [id, painted] of this.actorNodes) {
+      if (!ids.has(id)) {
+        painted.node.destroy({ children: true });
+        this.actorNodes.delete(id);
+        this.propY.delete(painted.node);
+      }
+    }
+
+    for (const actor of this.actors) {
+      const painted = this.actorNodes.get(actor.id);
+      if (painted === undefined) {
+        const created = this.actorService.paint(actor, resolution, zoom);
+        layer.addChild(created.node);
+        this.actorNodes.set(actor.id, created);
+        this.placeActor(created.node, actor.y);
+        continue;
+      }
+
+      this.actorService.update(painted, actor, zoom);
+      this.placeActor(painted.node, actor.y);
+    }
+  }
+
+  /** Ставит актора на его `y` среди статичных детей слоя. */
+  private placeActor(node: Container, y: number): void {
+    const layer = this.layers.decor;
+    if (layer === undefined) {
+      return;
+    }
+
+    const children = layer.children;
+    let index = 0;
+    for (const child of children) {
+      if (child === node) {
+        continue;
+      }
+
+      if ((this.propY.get(child) ?? 0) <= y) {
+        index += 1;
+      } else {
+        break;
+      }
+    }
+
+    const current = children.indexOf(node);
+    if (current !== index) {
+      layer.setChildIndex(node, index);
+    }
+
+    this.propY.set(node, y);
+  }
+
   /** Вода выше остальных шаблонов террейна. */
   private terrainRank(element: SceneElement): number {
     return element.props.kind === 'water' ? 1 : 0;
@@ -463,7 +891,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
     return this.model?.mode === 'edit';
   }
 
+  /** Продление открытых концов реки, упёршейся в край поля. */
+  private openEndPads(element: SceneElement, resolution: number): readonly [number, number] {
+    return sceneGeometryService.openEndPads(element.shape, this.boardBounds, resolution);
+  }
+
   private clearAll(): void {
+    this.carpet = null;
     for (const name of Object.keys(this.layers) as SceneLayerName[]) {
       this.clearLayer(name);
     }
@@ -492,7 +926,17 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   /** Обрезает содержимое поля по его границам; gizmos остаются снаружи. */
   private applyContentClip(board: SceneBoard): void {
-    const names: SceneLayerName[] = ['terrain', 'supports', 'obstacles', 'openings', 'waterPlane', 'decor'];
+    const names: SceneLayerName[] = [
+      'terrain',
+      'supports',
+      'obstacles',
+      'openings',
+      'waterPlane',
+      'ground',
+      'overlay',
+      'route',
+      'decor',
+    ];
     for (const name of names) {
       const layer = this.layers[name];
       if (layer === undefined) {
@@ -660,12 +1104,21 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     const zoom = this.zoom();
     const resolution = this.model?.resolution ?? 64;
-    this.terrain.paintShore(layer, element, resolution, zoom);
+    const endPads = this.openEndPads(element, resolution);
+    // У шейдерной воды мокрый берег и кромка считаются в шейдере тела:
+    // гладкая полоса paintWaterBank дала бы вторую параллельную линию.
+    const shaderWater = element.props.kind === 'water' && isShaderWater(element);
+    this.terrain.paintShore(layer, element, resolution, zoom, endPads, !shaderWater);
 
     if (element.props.kind === 'water') {
-      this.terrain.paintWaterBank(layer, element, resolution, zoom);
-      this.terrain.paintWaterBed(layer, element, resolution, zoom);
-      this.drawWaterBody(layer, element, resolution, zoom);
+      if (!shaderWater) {
+        this.terrain.paintWaterBank(layer, element, resolution, zoom, endPads);
+      }
+      // Тело воды на шейдере рисует дно само: иначе галька легла бы дважды.
+      if (!shaderWater) {
+        this.terrain.paintWaterBed(layer, element, resolution, zoom);
+      }
+      this.drawWaterBody(layer, element, resolution, zoom, endPads);
 
       return;
     }
@@ -683,8 +1136,14 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /** Толща воды: градиент глубины и каустика под актёрами. */
-  private drawWaterBody(layer: Container, element: SceneElement, resolution: number, zoom: number): void {
-    const node = this.water.paintBody(layer, element, resolution, zoom);
+  private drawWaterBody(
+    layer: Container,
+    element: SceneElement,
+    resolution: number,
+    zoom: number,
+    endPads: readonly [number, number],
+  ): void {
+    const node = this.water.paintBody(layer, element, resolution, zoom, endPads);
     if (node === null) {
       return;
     }
@@ -700,7 +1159,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
-    const node = this.water.paintPlane(layer, element, resolution, zoom);
+    const endPads = this.openEndPads(element, resolution);
+    const node = this.water.paintPlane(layer, element, resolution, zoom, endPads);
     if (node === null) {
       return;
     }
@@ -721,13 +1181,24 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
-    const node = this.water.paintFoam(layer, element, resolution, zoom);
+    // У шейдерной воды пена считается в шейдере поверхности: старая полоса
+    // нарисовала бы вторую, текстурную «мочалку» поверх.
+    if (isShaderWater(element)) {
+      return;
+    }
+
+    const endPads = this.openEndPads(element, resolution);
+    const node = this.water.paintFoam(layer, element, resolution, zoom, endPads);
     if (node === null) {
       return;
     }
 
     this.waterNodes.push({ elementId: element.id, node });
     node.update(this.waterElapsed);
+  }
+
+  private isBridge(element: SceneElement): boolean {
+    return element.kind === 'support' && element.props.kind === 'bridge';
   }
 
   private drawElement(element: SceneElement): void {
@@ -741,22 +1212,6 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /** Декор-спрайт; без ассета — прежний маркер. */
-  private drawDecor(element: SceneElement, waterElements: SceneElement[], resolution: number): void {
-    const layer = this.layers.decor;
-    if (layer === undefined) {
-      return;
-    }
-
-    const painted = this.decor.paint(layer, element, resolution);
-    if (painted === null) {
-      layer.addChild(this.painter.paintElement(element, this.zoom()));
-
-      return;
-    }
-
-    this.paintSubmersion(layer, element, painted, waterElements, resolution);
-  }
-
   /**
    * Погружение объекта в воду по его нижней точке.
    *
@@ -778,7 +1233,10 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const anchor = element.shape;
     let depth = 0;
     for (const waterElement of waterElements) {
-      depth = Math.max(depth, this.water.depthAt(waterElement, resolution, [anchor.x, anchor.y]));
+      depth = Math.max(
+        depth,
+        this.water.depthAt(waterElement, resolution, [anchor.x, anchor.y], this.openEndPads(waterElement, resolution)),
+      );
     }
 
     // Дерево не должно утонуть наполовину: даже в самой глубокой точке мокрый

@@ -79,4 +79,28 @@ describe('SceneRibbonService', () => {
     expect(geometry.right[0][1]).toBeCloseTo(64, 6);
     expect(geometry.lengths[geometry.lengths.length - 1]).toBeCloseTo(300, 6);
   });
+
+  it('extends open ends along the axis, not across', () => {
+    const geometry = service.geometry(
+      [
+        [0, 100],
+        [300, 100],
+      ],
+      curves.normalizeHandles([]),
+      [40, 40],
+      1,
+      0,
+      80,
+      120,
+    );
+
+    // Начало уходит назад, конец — вперёд: торец уезжает за край поля.
+    expect(geometry.center[0][0]).toBeCloseTo(-80, 6);
+    expect(geometry.center[geometry.center.length - 1][0]).toBeCloseTo(420, 6);
+    expect(geometry.lengths[0]).toBeCloseTo(-80, 6);
+    expect(geometry.lengths[geometry.lengths.length - 1]).toBeCloseTo(420, 6);
+    // Ширина концов та же: продление не раздувает русло.
+    expect(geometry.left[0][1]).toBeCloseTo(120, 6);
+    expect(geometry.right[0][1]).toBeCloseTo(80, 6);
+  });
 });

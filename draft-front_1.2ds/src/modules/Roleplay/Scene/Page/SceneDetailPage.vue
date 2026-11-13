@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import SceneCanvas from '@/modules/Roleplay/Scene/Component/Scene/SceneCanvas.vue';
+import SceneOverlayControls from '@/modules/Roleplay/Scene/Component/Scene/SceneOverlayControls.vue';
+import ScenePreviewActorPanel from '@/modules/Roleplay/Scene/Component/Scene/ScenePreviewActorPanel.vue';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneDetail } from '@/modules/Roleplay/Scene/Dto/SceneDetail';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
+import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
+import { useSceneFullscreen } from '@/modules/Roleplay/Scene/Composables/useSceneFullscreen';
+import { useScenePreviewActors } from '@/modules/Roleplay/Scene/Composables/useScenePreviewActors';
 import { getSceneApi } from '@/modules/Roleplay/Scene/init';
 import { SceneApiError } from '@/modules/Roleplay/Scene/Service/SceneApiError';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
@@ -23,11 +28,40 @@ const viewport = ref<SceneViewport | null>(null);
 const archiveOpen = ref(false);
 const archiving = ref(false);
 const canvas = ref<InstanceType<typeof SceneCanvas> | null>(null);
+const overlayCosts = ref(false);
+const overlayVisibility = ref(false);
+const overlay = computed<SceneOverlay | null>(() =>
+  overlayCosts.value || overlayVisibility.value
+    ? { costs: overlayCosts.value, visibility: overlayVisibility.value, observer: null, radius: null }
+    : null,
+);
+const {
+  full: fullscreen,
+  toggle: toggleFullscreen,
+  close: closeFullscreen,
+} = useSceneFullscreen({
+  target: () => document.querySelector<HTMLElement>('.scene-detail'),
+  fit: () => canvas.value?.fit(),
+});
 let requestId = 0;
 
 const board = computed<SceneBoard | null>(
   () => scene.value?.boards.find((item) => item.id === activeBoardId.value) ?? null,
 );
+const {
+  actors: previewActorList,
+  selectedId: previewSelectedId,
+  selectedActor: previewSelectedActor,
+  route: previewRoute,
+  select: selectPreviewActor,
+  setSightRadius: setPreviewSightRadius,
+  onMapClick: onPreviewClick,
+} = useScenePreviewActors({
+  enabled: () => scene.value !== null,
+  board: () => board.value,
+  elements: () => scene.value?.elements ?? [],
+  resolution: () => scene.value?.resolution ?? 64,
+});
 const model = computed<SceneRenderModel>(() => ({
   activeBoardId: activeBoardId.value ?? 0,
   resolution: scene.value?.resolution ?? 64,
@@ -65,6 +99,8 @@ const boardGrid = computed(() => {
 });
 
 onMounted(load);
+onMounted(() => window.addEventListener('keydown', onKeydown));
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
 async function load(): Promise<void> {
   if (!Number.isFinite(sceneId) || sceneId <= 0) {
@@ -114,6 +150,14 @@ function onViewport(next: SceneViewport): void {
   viewport.value = next;
 }
 
+/** Esc выходит из полноэкранного просмотра, не уводя со страницы. */
+function onKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape' || !fullscreen.value) return;
+
+  event.preventDefault();
+  void closeFullscreen();
+}
+
 function messageOf(exception: unknown): string {
   return exception instanceof SceneApiError ? exception.message : 'Не удалось загрузить локацию';
 }
@@ -124,7 +168,7 @@ function zoomLabel(): string {
 </script>
 
 <template>
-  <v-container fluid class="pa-0 scene-detail">
+  <v-container fluid class="pa-0 scene-detail" :class="{ 'scene-detail--full': fullscreen }">
     <v-progress-linear v-if="loading" indeterminate />
 
     <v-alert v-if="error" type="error" variant="tonal" class="ma-4">
@@ -146,6 +190,13 @@ function zoomLabel(): string {
         <v-btn variant="tonal" prepend-icon="mdi-magnify-minus" @click="canvas?.zoomBy(0.9)"> − </v-btn>
         <v-btn variant="tonal" prepend-icon="mdi-magnify-plus" @click="canvas?.zoomBy(1.1)"> + </v-btn>
         <v-btn variant="tonal" prepend-icon="mdi-fit-to-screen" @click="canvas?.fit()"> Вписать </v-btn>
+        <v-btn
+          variant="tonal"
+          :prepend-icon="fullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
+          @click="toggleFullscreen"
+        >
+          {{ fullscreen ? 'Выйти' : 'На весь экран' }}
+        </v-btn>
         <v-chip size="small" variant="outlined">{{ zoomLabel() }}</v-chip>
         <v-btn
           v-if="scene.canEdit"
@@ -175,7 +226,26 @@ function zoomLabel(): string {
 
       <div class="scene-workspace">
         <div class="scene-viewer">
-          <SceneCanvas ref="canvas" :model="model" :board="board" @selection="onSelection" @viewport="onViewport" />
+          <SceneCanvas
+            ref="canvas"
+            :model="model"
+            :board="board"
+            :overlay="overlay"
+            :actors="previewActorList"
+            :selected-actor-id="previewSelectedId"
+            :route="previewRoute"
+            @point="onPreviewClick"
+            @selection="onSelection"
+            @viewport="onViewport"
+          />
+          <SceneOverlayControls v-model:costs="overlayCosts" v-model:visibility="overlayVisibility" />
+          <ScenePreviewActorPanel
+            :actors="previewActorList"
+            :selected="previewSelectedActor"
+            :resolution="scene.resolution"
+            @select="selectPreviewActor"
+            @sight="setPreviewSightRadius"
+          />
         </div>
 
         <aside class="scene-panel">
@@ -221,6 +291,17 @@ function zoomLabel(): string {
       </div>
     </template>
 
+    <v-btn
+      v-if="fullscreen"
+      class="scene-detail__exit"
+      icon="mdi-fullscreen-exit"
+      size="small"
+      variant="flat"
+      color="surface-variant"
+      title="Выйти из полноэкранного режима (Esc)"
+      @click="closeFullscreen"
+    />
+
     <v-dialog v-model="archiveOpen" max-width="440">
       <v-card>
         <v-card-title>Архивировать локацию?</v-card-title>
@@ -240,6 +321,43 @@ function zoomLabel(): string {
   min-height: 100%;
 }
 
+.scene-detail--full {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  width: auto;
+  max-width: none;
+  height: 100dvh;
+  margin: 0;
+  padding: 0 !important;
+  overflow: hidden;
+  background: #0b1220;
+}
+
+.scene-detail--full > .d-flex,
+.scene-detail--full > .v-tabs,
+.scene-detail--full .scene-panel {
+  display: none !important;
+}
+
+.scene-detail--full .scene-workspace {
+  height: 100dvh;
+  padding: 0;
+}
+
+.scene-detail--full .scene-viewer {
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+}
+
+.scene-detail__exit {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 4100;
+}
+
 .scene-workspace {
   display: flex;
   gap: 16px;
@@ -248,6 +366,7 @@ function zoomLabel(): string {
 }
 
 .scene-viewer {
+  position: relative;
   flex: 1 1 auto;
   height: calc(100vh - 230px);
   min-height: 420px;

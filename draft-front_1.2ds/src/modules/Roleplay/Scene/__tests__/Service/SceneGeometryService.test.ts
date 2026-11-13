@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
 
@@ -131,6 +132,50 @@ describe('SceneGeometryService', () => {
     expect(bounds.height).toBeCloseTo(40, 6);
   });
 
+  it('даёт готовой проверке те же попадания, что и прямой contains', () => {
+    const polygon: SceneShape = {
+      type: 'polygon',
+      points: [
+        [0, 0],
+        [100, 0],
+        [100, 100],
+        [0, 100],
+      ],
+    };
+    const ribbon: SceneShape = {
+      type: 'path',
+      points: [
+        [0, 100],
+        [300, 100],
+      ],
+      widths: [40, 40],
+    };
+    const polygonProbe = service.probe(polygon);
+    const ribbonProbe = service.probe(ribbon);
+
+    const polygonPoints: ScenePoint[] = [
+      [50, 50],
+      [104, 50],
+      [120, 50],
+      [-3, 50],
+    ];
+    const ribbonPoints: ScenePoint[] = [
+      [150, 100],
+      [150, 118],
+      [150, 130],
+      [0, 150],
+    ];
+    for (const point of polygonPoints) {
+      expect(polygonProbe.contains(point, 6)).toBe(service.contains(polygon, point, 6));
+    }
+    for (const point of ribbonPoints) {
+      expect(ribbonProbe.contains(point, 15)).toBe(service.contains(ribbon, point, 15));
+    }
+
+    expect(polygonProbe.bounds).toEqual(service.bounds(polygon));
+    expect(ribbonProbe.bounds).toEqual(service.bounds(ribbon));
+  });
+
   it('hits a point marker within tolerance', () => {
     const shape: SceneShape = { type: 'point', x: 100, y: 100 };
 
@@ -140,5 +185,25 @@ describe('SceneGeometryService', () => {
 
   it('returns the center of a shape', () => {
     expect(service.center({ type: 'rect', x: 0, y: 0, w: 200, h: 100 })).toEqual([100, 50]);
+  });
+
+  it('opens only the ends of a river that touch the board edge', () => {
+    const board = { x: 0, y: 0, width: 2000, height: 2000 };
+    const river: SceneShape = {
+      type: 'path',
+      points: [
+        [0, 1000],
+        [500, 1000],
+      ],
+      widths: [40, 40],
+    };
+
+    // Начало на левом краю поля — открыто, конец в глубине — закрыт (река в озеро).
+    const pads = service.openEndPads(river, board, 64);
+    expect(pads[0]).toBeGreaterThan(0);
+    expect(pads[1]).toBe(0);
+
+    expect(service.openEndPads(river, null, 64)).toEqual([0, 0]);
+    expect(service.openEndPads({ type: 'circle', cx: 500, cy: 500, r: 50 }, board, 64)).toEqual([0, 0]);
   });
 });

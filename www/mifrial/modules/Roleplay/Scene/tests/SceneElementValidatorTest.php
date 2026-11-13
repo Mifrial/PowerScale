@@ -166,6 +166,87 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Скорость террейна по умолчанию зависит от типа.
+     *
+     * @return void
+     */
+    public function testTerrainSpeedDefaultsByKind(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'water'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame(20, $element['props']['speed']);
+    }
+
+    /**
+     * Явная скорость элемента сохраняется.
+     *
+     * @return void
+     */
+    public function testExplicitSpeedIsKept(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'grass', 'speed' => 35],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame(35, $element['props']['speed']);
+    }
+
+    /**
+     * Мост по умолчанию быстрее обычной опоры.
+     *
+     * @return void
+     */
+    public function testBridgeSpeedDefault(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'bridge'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame(150, $element['props']['speed']);
+    }
+
+    /**
+     * Скорость вне диапазона отклоняется.
+     *
+     * @return void
+     */
+    public function testSpeedOutOfRangeIsRejected(): void
+    {
+        $this->expectException(SceneInvalidException::class);
+        $this->expectExceptionMessage('speed');
+
+        $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'grass', 'speed' => 10001],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+    }
+
+    /**
      * Проверяет один элемент на поле 1000×800.
      *
      * @param array<string|int, mixed> $row Элемент.

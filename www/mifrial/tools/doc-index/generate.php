@@ -25,6 +25,7 @@ const KIND_LABELS = [
 
 const MODULE_SLUGS = [
     'smarttable' => 'Core/SmartTable',
+    'asset' => 'Library/Asset',
     'rulespace' => 'Roleplay/RuleSpace',
     'versioning' => 'Versioning/Space',
     'mechanic' => 'Roleplay/Mechanic',

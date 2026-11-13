@@ -8,16 +8,25 @@ import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
 /** Ширина мелководной полосы у берега в ипари. */
-const SHALLOW_BAND_IPARI = 0.55;
+const SHALLOW_BAND_IPARI = 0.9;
+
+/** Запас поля за урезом в ипари: место для наката и нормалей. */
+const MARGIN_IPARI = 1.0;
 
 /** Разрешение запекания по длинной стороне. */
-const MAX_CELLS = 160;
+const MAX_CELLS = 1024;
 
 /** Минимальная сторона сетки. */
 const MIN_CELLS = 2;
 
+/** Потолок шкалы глубины в ипари: дальше цвет толщи всё равно не меняется. */
+const MAX_DEPTH_IPARI = 3;
+
+/** Продление поля за концы реки в ипари: глубина у торца остаётся полной. */
+const FIELD_END_IPARI = 2;
+
 /** Цвет мелководья у берега. */
-const SHALLOW: [number, number, number] = [0x86, 0xc3, 0xd4];
+const SHALLOW: [number, number, number] = [0x9a, 0xd0, 0xe0];
 
 /** Цвет глубокой воды. */
 const DEEP: [number, number, number] = [0x1f, 0x54, 0x70];
@@ -29,18 +38,25 @@ const DEEP_ALPHA = 0.88;
 /** Амплитуда шума глубины в ипари: кромка мелководья гуляет вдоль берега. */
 const NOISE_IPARI = 0.4;
 
-/** Ширина мягкого подъёма прозрачности у уреза, ипари. */
-const EDGE_FADE_IPARI = 0.38;
-
-/** Поле глубины водоёма: сетка расстояний плюс готовая текстура градиента. */
+/** Поле глубины водоёма: сетка расстояний, текстура данных и готовая рампа. */
 export interface SceneWaterDepth {
+  /** Границы поля: силуэт воды плюс запас под накат. */
   bounds: SceneBounds;
+  /** Границы самого водоёма, без запаса. */
+  water: SceneBounds;
   /** Размер клетки в единицах сцены. */
   cell: number;
   cols: number;
   rows: number;
   /** Расстояние до берега в единицах сцены, с шумом; вне воды — ноль. */
   depth: Float32Array;
+  /** Масштаб знаковой дистанции в текстуре данных, единицы сцены. */
+  scale: number;
+  /**
+   * Данные для шейдеров: R — знаковая дистанция до берега (плюс внутри),
+   * G — силуэт водоёма с мягким краем.
+   */
+  data: Texture;
   /** Готовый градиент глубины с прозрачностью по силуэту. */
   texture: Texture;
 }
@@ -52,28 +68,45 @@ export interface SceneWaterDepth {
  * расстояние до берега даёт плавный градиент без полос, ширину мелководья,
  * кромку пены и глубину под объектом. Это единственный источник правды о том,
  * насколько глубоко в воде стоит дерево, камень или персонаж.
+ *
+ * Поле шире силуэта на запас: накату и нормалям нужны данные и за урезом,
+ * иначе вода не сможет наехать на берег. Знаковая дистанция пишется в
+ * текстуру данных — по ней шейдеры строят поглощение, кромку и преломление.
  */
 export class SceneWaterDepthService {
   private readonly cache = new Map<number, { key: string; field: SceneWaterDepth }>();
 
   /** Поле элемента; повторный вызов возвращает закэшированное. */
-  field(element: SceneElement, resolution: number): SceneWaterDepth {
-    const key = `${Math.max(1, resolution)}|${JSON.stringify(element.shape)}`;
+  field(element: SceneElement, resolution: number, endPads: readonly [number, number] = [0, 0]): SceneWaterDepth {
+    const key = `${Math.max(1, resolution)}|${endPads[0]},${endPads[1]}|${JSON.stringify(element.shape)}`;
     const cached = this.cache.get(element.id);
     if (cached !== undefined && cached.key === key) {
       return cached.field;
     }
 
-    cached?.field.texture.destroy(true);
-    const field = this.bake(element, resolution);
+    if (cached !== undefined) {
+      if (cached.field.texture !== Texture.WHITE) {
+        cached.field.texture.destroy(true);
+      }
+      if (cached.field.data !== Texture.WHITE) {
+        cached.field.data.destroy(true);
+      }
+    }
+
+    const field = this.bake(element, resolution, endPads);
     this.cache.set(element.id, { key, field });
 
     return field;
   }
 
   /** Глубина в точке в единицах сцены; вне водоёма — ноль. */
-  depthAt(element: SceneElement, resolution: number, point: ScenePoint): number {
-    const field = this.field(element, resolution);
+  depthAt(
+    element: SceneElement,
+    resolution: number,
+    point: ScenePoint,
+    endPads: readonly [number, number] = [0, 0],
+  ): number {
+    const field = this.field(element, resolution, endPads);
     const column = Math.round((point[0] - field.bounds.x) / field.cell - 0.5);
     const row = Math.round((point[1] - field.bounds.y) / field.cell - 0.5);
     if (column < 0 || row < 0 || column >= field.cols || row >= field.rows) {
@@ -85,27 +118,59 @@ export class SceneWaterDepthService {
 
   /** Освобождает текстуры и кэш. */
   destroy(): void {
-    this.cache.forEach(({ field }) => field.texture.destroy(true));
+    this.cache.forEach(({ field }) => {
+      if (field.texture !== Texture.WHITE) {
+        field.texture.destroy(true);
+      }
+      if (field.data !== Texture.WHITE) {
+        field.data.destroy(true);
+      }
+    });
     this.cache.clear();
   }
 
-  private bake(element: SceneElement, resolution: number): SceneWaterDepth {
-    const bounds = sceneGeometryService.bounds(element.shape);
-    const width = Math.max(1, bounds.width);
-    const height = Math.max(1, bounds.height);
-    const longest = Math.max(width, height);
-    const cell = Math.max(1, longest / MAX_CELLS);
+  private bake(element: SceneElement, resolution: number, endPads: readonly [number, number]): SceneWaterDepth {
+    const water = sceneGeometryService.bounds(element.shape);
+    // Конец реки — не берег: даже если вода обрывается внутри поля, глубина
+    // не должна выклиниваться. Поле всегда продлевает оба конца, а геометрия
+    // и обводка — только там, где торец надо спрятать под обрезку.
+    const fieldPast = Math.max(2, resolution * FIELD_END_IPARI);
+    const fieldPads: readonly [number, number] =
+      element.shape.type === 'path'
+        ? [Math.max(endPads[0], fieldPast), Math.max(endPads[1], fieldPast)]
+        : [0, 0];
+    const contour = this.contour(element.shape, fieldPads);
+    const span = contour.length >= 3 ? boundsOfPoints(contour) : water;
+    const margin = Math.max(2, resolution * MARGIN_IPARI);
+    const originX = span.x - margin;
+    const originY = span.y - margin;
+    const width = Math.max(1, span.width) + margin * 2;
+    const height = Math.max(1, span.height) + margin * 2;
+    const cell = Math.max(1, Math.max(width, height) / MAX_CELLS);
     const cols = Math.max(MIN_CELLS, Math.ceil(width / cell));
     const rows = Math.max(MIN_CELLS, Math.ceil(height / cell));
-    const scaleX = 1 / cell;
-    const scaleY = 1 / cell;
+    // Границы выровнены по сетке: текстура покрывает ровно cols×rows клеток,
+    // иначе выборка по мировым координатам уезжала бы на краю поля.
+    const bounds: SceneBounds = { x: originX, y: originY, width: cols * cell, height: rows * cell };
 
-    const mask = this.rasterize(element.shape, bounds, cols, rows);
-    const distance = this.distanceTransform(mask, cols, rows);
+    const mask = this.rasterize(element.shape, contour, bounds, cell, cols, rows);
+    const signed = signedDistanceField(mask, cols, rows);
     const noise = this.noiseOf(element.id);
     // Цвет уходит в глубину уже в пределах мелководной полосы: иначе узкая
     // река остаётся бледной, а глубина читается только в одной точке.
     const limit = Math.max(1, resolution * SHALLOW_BAND_IPARI);
+    // Шкала кодирования должна покрывать всю глубину: иначе в текстуре
+    // дальше мелководной полосы глубина насыщается, и поглощение в шейдере
+    // не отличает середину реки от мели. Сверху шкалу режем: без потолка
+    // широкий водоём отдаёт весь 8-битный диапазон на глубину, которая
+    // всё равно утонула в цвете толщи, и градиент у берега идёт ступенями.
+    let deepest = 0;
+    for (let index = 0; index < signed.length; index += 1) {
+      if (signed[index] > deepest) {
+        deepest = signed[index];
+      }
+    }
+    const scale = Math.max(limit, Math.min(deepest * cell, MAX_DEPTH_IPARI * Math.max(1, resolution)));
     const amplitude = Math.max(1, resolution * NOISE_IPARI);
     const depth = new Float32Array(cols * rows);
     const canvas = document.createElement('canvas');
@@ -114,31 +179,39 @@ export class SceneWaterDepthService {
     const context = canvas.getContext('2d');
     const image = context?.createImageData(cols, rows);
     const data = image?.data;
+    const dataCanvas = document.createElement('canvas');
+    dataCanvas.width = cols;
+    dataCanvas.height = rows;
+    const dataContext = dataCanvas.getContext('2d');
+    const dataImage = dataContext?.createImageData(cols, rows);
+    const field = dataImage?.data;
 
     for (let row = 0; row < rows; row += 1) {
       for (let column = 0; column < cols; column += 1) {
         const index = row * cols + column;
-        const raw = mask[index];
-        const worldX = bounds.x + (column + 0.5) / scaleX;
-        const worldY = bounds.y + (row + 0.5) / scaleY;
-        const value = raw > 0 ? Math.max(0, distance[index] * cell + noise(worldX, worldY) * amplitude) : 0;
+        const edge = signed[index] * cell;
+        const worldX = bounds.x + (column + 0.5) * cell;
+        const worldY = bounds.y + (row + 0.5) * cell;
+        const value = edge > 0 ? Math.max(0, edge + noise(worldX, worldY) * amplitude) : 0;
         depth[index] = value;
 
-        if (data === undefined) {
-          continue;
+        if (data !== undefined) {
+          const t = Math.min(1, value / limit);
+          const color = this.mix(t);
+          const alpha = EDGE_ALPHA + (DEEP_ALPHA - EDGE_ALPHA) * this.smooth(t);
+          data[index * 4] = color[0];
+          data[index * 4 + 1] = color[1];
+          data[index * 4 + 2] = color[2];
+          data[index * 4 + 3] = Math.round(alpha * 255 * mask[index]);
         }
 
-        const t = Math.min(1, value / limit);
-        const color = this.mix(t);
-        // У самого уреза альфа нулевая: иначе по берегу идёт ровный светлый
-        // ободок, который стоит на месте и читается как лёд. Кромку рисует
-        // отдельный «язык воды», который ходит вместе с накатом.
-        const edge = this.smooth(value / Math.max(1, resolution * EDGE_FADE_IPARI));
-        const alpha = edge * (EDGE_ALPHA + (DEEP_ALPHA - EDGE_ALPHA) * this.smooth(t));
-        data[index * 4] = color[0];
-        data[index * 4 + 1] = color[1];
-        data[index * 4 + 2] = color[2];
-        data[index * 4 + 3] = Math.round(alpha * 255 * raw);
+        if (field !== undefined) {
+          // 0.5 — урез: знаковая дистанция хранится со знаком в R.
+          field[index * 4] = Math.round(Math.min(1, Math.max(0, (edge / scale) * 0.5 + 0.5)) * 255);
+          field[index * 4 + 1] = Math.round(Math.min(1, Math.max(0, mask[index])) * 255);
+          field[index * 4 + 2] = 0;
+          field[index * 4 + 3] = 255;
+        }
       }
     }
 
@@ -151,11 +224,27 @@ export class SceneWaterDepthService {
       texture = Texture.WHITE;
     }
 
-    return { bounds, cell, cols, rows, depth, texture };
+    let dataTexture: Texture;
+    if (dataContext !== null && dataImage !== undefined) {
+      dataContext.putImageData(dataImage, 0, 0);
+      dataTexture = Texture.from(dataCanvas);
+      dataTexture.source.scaleMode = 'linear';
+    } else {
+      dataTexture = Texture.WHITE;
+    }
+
+    return { bounds, water, cell, cols, rows, depth, scale, data: dataTexture, texture };
   }
 
   /** Растровая маска силуэта: 1 внутри, 0 снаружи, с мягким краем. */
-  private rasterize(shape: SceneShape, bounds: SceneBounds, cols: number, rows: number): Float32Array {
+  private rasterize(
+    shape: SceneShape,
+    contour: ScenePoint[],
+    bounds: SceneBounds,
+    cell: number,
+    cols: number,
+    rows: number,
+  ): Float32Array {
     const canvas = document.createElement('canvas');
     canvas.width = cols;
     canvas.height = rows;
@@ -165,18 +254,18 @@ export class SceneWaterDepthService {
       return mask;
     }
 
-    const scaleX = cols / Math.max(1, bounds.width);
-    const scaleY = rows / Math.max(1, bounds.height);
-    const toX = (value: number): number => (value - bounds.x) * scaleX;
-    const toY = (value: number): number => (value - bounds.y) * scaleY;
+    // Клетка квадратная: иначе дистанционное преобразование считало бы
+    // расстояние по разным осям по-разному.
+    const scale = 1 / cell;
+    const toX = (value: number): number => (value - bounds.x) * scale;
+    const toY = (value: number): number => (value - bounds.y) * scale;
     context.fillStyle = '#fff';
     context.beginPath();
     if (shape.type === 'rect') {
-      context.rect(toX(shape.x), toY(shape.y), shape.w * scaleX, shape.h * scaleY);
+      context.rect(toX(shape.x), toY(shape.y), shape.w * scale, shape.h * scale);
     } else if (shape.type === 'circle') {
-      context.ellipse(toX(shape.cx), toY(shape.cy), shape.r * scaleX, shape.r * scaleY, 0, 0, Math.PI * 2);
+      context.ellipse(toX(shape.cx), toY(shape.cy), shape.r * scale, shape.r * scale, 0, 0, Math.PI * 2);
     } else {
-      const contour = this.contour(shape);
       if (contour.length < 3) {
         return mask;
       }
@@ -200,10 +289,18 @@ export class SceneWaterDepthService {
   }
 
   /** Контур фигуры в мировых координатах. */
-  private contour(shape: SceneShape): ScenePoint[] {
+  private contour(shape: SceneShape, endPads: readonly [number, number]): ScenePoint[] {
     const tolerance = sceneCurveService.toleranceFor(1);
     if (shape.type === 'path') {
-      return sceneRibbonService.outline(shape.points, shape.handles ?? [], shape.widths, tolerance);
+      return sceneRibbonService.outline(
+        shape.points,
+        shape.handles ?? [],
+        shape.widths,
+        tolerance,
+        0,
+        endPads[0],
+        endPads[1],
+      );
     }
 
     if (shape.type === 'polygon') {
@@ -211,51 +308,6 @@ export class SceneWaterDepthService {
     }
 
     return [];
-  }
-
-  /** Дистанционное преобразование Шама: расстояние до границы в клетках. */
-  private distanceTransform(mask: Float32Array, cols: number, rows: number): Float32Array {
-    const size = cols * rows;
-    const distance = new Float32Array(size);
-    const horizontal = 1;
-    const diagonal = Math.SQRT2;
-    for (let index = 0; index < size; index += 1) {
-      distance[index] = mask[index] > 0.5 ? Number.POSITIVE_INFINITY : 0;
-    }
-
-    for (let row = 0; row < rows; row += 1) {
-      for (let column = 0; column < cols; column += 1) {
-        const index = row * cols + column;
-        if (distance[index] === 0) {
-          continue;
-        }
-
-        let best = distance[index];
-        if (column > 0) best = Math.min(best, distance[index - 1] + horizontal);
-        if (row > 0) best = Math.min(best, distance[index - cols] + horizontal);
-        if (column > 0 && row > 0) best = Math.min(best, distance[index - cols - 1] + diagonal);
-        if (column < cols - 1 && row > 0) best = Math.min(best, distance[index - cols + 1] + diagonal);
-        distance[index] = best;
-      }
-    }
-
-    for (let row = rows - 1; row >= 0; row -= 1) {
-      for (let column = cols - 1; column >= 0; column -= 1) {
-        const index = row * cols + column;
-        if (distance[index] === 0) {
-          continue;
-        }
-
-        let best = distance[index];
-        if (column < cols - 1) best = Math.min(best, distance[index + 1] + horizontal);
-        if (row < rows - 1) best = Math.min(best, distance[index + cols] + horizontal);
-        if (column < cols - 1 && row < rows - 1) best = Math.min(best, distance[index + cols + 1] + diagonal);
-        if (column > 0 && row < rows - 1) best = Math.min(best, distance[index + cols - 1] + diagonal);
-        distance[index] = best;
-      }
-    }
-
-    return distance;
   }
 
   /** Мягкий шум: несколько волн, чтобы кромка мелководья не была параллельной. */
@@ -304,4 +356,99 @@ export class SceneWaterDepthService {
 
     return clamped * clamped * (3 - 2 * clamped);
   }
+}
+
+/**
+ * Границы набора точек в единицах сцены.
+ */
+function boundsOfPoints(points: ScenePoint[]): SceneBounds {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const point of points) {
+    minX = Math.min(minX, point[0]);
+    minY = Math.min(minY, point[1]);
+    maxX = Math.max(maxX, point[0]);
+    maxY = Math.max(maxY, point[1]);
+  }
+
+  return { x: minX, y: minY, width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY) };
+}
+
+/**
+ * Знаковая дистанция до границы маски в клетках: плюс внутри, минус снаружи.
+ *
+ * Урез проходит между клетками, а не по их центрам, поэтому расстояние
+ * сдвинуто на полклетки: на границе силуэта значение равно нулю.
+ */
+export function signedDistanceField(mask: Float32Array, cols: number, rows: number): Float32Array {
+  const inside = distanceTransform(mask, cols, rows);
+  const outside = distanceTransform(inverted(mask), cols, rows);
+  const far = Math.max(cols, rows);
+  const signed = new Float32Array(mask.length);
+  for (let index = 0; index < mask.length; index += 1) {
+    // У маски без единого противоположного пикселя расстояние бесконечно;
+    // для воды это значит «до берега дальше, чем есть поле».
+    const toLand = Number.isFinite(inside[index]) ? inside[index] : far;
+    const toWater = Number.isFinite(outside[index]) ? outside[index] : far;
+    signed[index] = mask[index] > 0.5 ? toLand - 0.5 : 0.5 - toWater;
+  }
+
+  return signed;
+}
+
+/** Дистанционное преобразование Шама: расстояние до границы в клетках. */
+function distanceTransform(mask: Float32Array, cols: number, rows: number): Float32Array {
+  const size = cols * rows;
+  const distance = new Float32Array(size);
+  const horizontal = 1;
+  const diagonal = Math.SQRT2;
+  for (let index = 0; index < size; index += 1) {
+    distance[index] = mask[index] > 0.5 ? Number.POSITIVE_INFINITY : 0;
+  }
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < cols; column += 1) {
+      const index = row * cols + column;
+      if (distance[index] === 0) {
+        continue;
+      }
+
+      let best = distance[index];
+      if (column > 0) best = Math.min(best, distance[index - 1] + horizontal);
+      if (row > 0) best = Math.min(best, distance[index - cols] + horizontal);
+      if (column > 0 && row > 0) best = Math.min(best, distance[index - cols - 1] + diagonal);
+      if (column < cols - 1 && row > 0) best = Math.min(best, distance[index - cols + 1] + diagonal);
+      distance[index] = best;
+    }
+  }
+
+  for (let row = rows - 1; row >= 0; row -= 1) {
+    for (let column = cols - 1; column >= 0; column -= 1) {
+      const index = row * cols + column;
+      if (distance[index] === 0) {
+        continue;
+      }
+
+      let best = distance[index];
+      if (column < cols - 1) best = Math.min(best, distance[index + 1] + horizontal);
+      if (row < rows - 1) best = Math.min(best, distance[index + cols] + horizontal);
+      if (column < cols - 1 && row < rows - 1) best = Math.min(best, distance[index + cols + 1] + diagonal);
+      if (column > 0 && row < rows - 1) best = Math.min(best, distance[index + cols - 1] + diagonal);
+      distance[index] = best;
+    }
+  }
+
+  return distance;
+}
+
+/** Инверсия маски: внутренность становится внешностью. */
+function inverted(mask: Float32Array): Float32Array {
+  const result = new Float32Array(mask.length);
+  for (let index = 0; index < mask.length; index += 1) {
+    result[index] = mask[index] > 0.5 ? 0 : 1;
+  }
+
+  return result;
 }

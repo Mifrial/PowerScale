@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneHandleTarget } from '@/modules/Roleplay/Scene/Dto/SceneHandleTarget';
+import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
+import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
+import type { SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
@@ -10,7 +14,9 @@ import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
+import { SCENE_OVERLAY } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OVERLAY';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
+import { SceneOverlayService } from '@/modules/Roleplay/Scene/Service/SceneOverlayService';
 import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
 import { createPixiSceneRenderer } from '@/modules/Roleplay/Scene/Service/Instance/pixiSceneRenderer';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
@@ -28,8 +34,25 @@ const props = withDefaults(
     pathWidth?: number;
     /** Пользовательская настройка анимации воды. */
     waterAnimation?: boolean;
+    /** Акторы предпросмотра: позиции и выделение приходят снаружи. */
+    actors?: SceneActor[];
+    /** Выбранный актор; от него считается туман и радиус обзора. */
+    selectedActorId?: number | null;
+    /** Маршрут выбранного актора. */
+    route?: SceneNavRoute | null;
+    /** Тактические оверлеи предпросмотра; null — выключены. */
+    overlay?: SceneOverlay | null;
   }>(),
-  { tool: 'select', interactive: false, pathWidth: 256, waterAnimation: true },
+  {
+    tool: 'select',
+    interactive: false,
+    pathWidth: 256,
+    waterAnimation: true,
+    actors: () => [],
+    selectedActorId: null,
+    route: null,
+    overlay: null,
+  },
 );
 
 const emit = defineEmits<{
@@ -46,6 +69,7 @@ const emit = defineEmits<{
   removeVertex: [elementId: number, index: number];
   editStart: [];
   editEnd: [];
+  point: [point: ScenePoint];
 }>();
 
 const host = ref<HTMLElement | null>(null);
@@ -68,6 +92,84 @@ let vertexTarget: SceneVertexTarget | null = null;
 let handleTarget: SceneHandleTarget | null = null;
 let widthTarget: SceneVertexTarget | null = null;
 
+const overlays = new SceneOverlayService();
+let overlayRefreshedAt = 0;
+
+/** Статья легенды: цвет и подпись. */
+interface LegendEntry {
+  label: string;
+  color: string;
+}
+
+const BASE_LEGEND: LegendEntry[] = [
+  { label: 'Препятствие', color: '#475569' },
+  { label: 'Опора', color: '#b45309' },
+  { label: 'Террейн', color: '#4d7c0f' },
+  { label: 'Проём', color: '#dc2626' },
+  { label: 'Декор', color: '#a78bfa' },
+  { label: 'Маркер', color: '#f59e0b' },
+];
+
+const COST_LEGEND: LegendEntry[] = [
+  { label: 'Луг 100', color: cssColor(SCENE_OVERLAY.cost.grass.color) },
+  { label: 'Дорога 150', color: cssColor(SCENE_OVERLAY.cost.dirt.color) },
+  { label: 'Мост 150', color: cssColor(SCENE_OVERLAY.cost.bridge.color) },
+  { label: 'Река 20', color: cssColor(SCENE_OVERLAY.cost.water.color) },
+  { label: 'Песок 80', color: cssColor(SCENE_OVERLAY.cost.sand.color) },
+  { label: 'Грязь 50', color: cssColor(SCENE_OVERLAY.cost.mud.color) },
+  { label: 'Непроходимо', color: cssColor(SCENE_OVERLAY.impassable.color) },
+];
+
+const legendEntries = computed<LegendEntry[]>(() => {
+  const entries: LegendEntry[] = [];
+  if (props.overlay?.costs) {
+    entries.push(...COST_LEGEND);
+  }
+  if (props.overlay?.visibility) {
+    entries.push({ label: 'Скрыто', color: cssColor(SCENE_OVERLAY.hidden.color) });
+  }
+
+  return entries.length > 0 ? entries : BASE_LEGEND;
+});
+
+/** Цвет числа Pixi в CSS-строку для легенды. */
+function cssColor(color: number): string {
+  return `#${color.toString(16).padStart(6, '0')}`;
+}
+
+const selectedActor = computed(
+  () => (props.actors ?? []).find((actor) => actor.id === props.selectedActorId) ?? null,
+);
+
+/** Точка обзора: выбранный актор, иначе первый актор или центр поля. */
+function observerOf(): ScenePoint | null {
+  const actor = selectedActor.value ?? props.actors?.[0] ?? null;
+
+  return actor === null ? null : [actor.x, actor.y];
+}
+
+/** Готовые полосы оверлеев; расчёт остаётся вне Pixi. */
+function overlayPaint(): SceneOverlayPaint | null {
+  const overlay = props.overlay;
+  const board = props.board;
+  if (overlay === null || board === null || props.model.mode === 'edit') {
+    return null;
+  }
+
+  const sightRadius = selectedActor.value?.sightRadius;
+  const effective =
+    overlay.radius === null && sightRadius !== undefined
+      ? { ...overlay, radius: sightRadius }
+      : overlay;
+
+  return overlays.paint(board, props.model.elements, props.model.resolution, effective, observerOf());
+}
+
+/** Пересобирает оверлей под текущие настройки и данные сцены. */
+function refreshOverlay(): void {
+  renderer?.setOverlayPaint(overlayPaint());
+}
+
 onMounted(async () => {
   const element = host.value;
   if (element === null) return;
@@ -89,6 +191,9 @@ onMounted(async () => {
   await sceneRenderer.setScene(props.model);
   sceneRenderer.setWaterAnimation(props.waterAnimation);
   sceneRenderer.setSelection(props.model.selection);
+  sceneRenderer.setActors(props.actors ?? []);
+  sceneRenderer.setRoute(props.route?.points ?? null);
+  refreshOverlay();
   observer = new ResizeObserver(() => handleResize());
   observer.observe(element);
   window.addEventListener('keydown', onClickKeydown);
@@ -117,6 +222,52 @@ watch(
     renderer.setVertexFocus(vertexTarget);
     if (viewport !== null) {
       renderer.setViewport(viewport);
+    }
+
+    renderer.setActors(props.actors ?? []);
+    renderer.setRoute(props.route?.points ?? null);
+    refreshOverlay();
+  },
+);
+
+watch(
+  () => props.actors,
+  () => {
+    renderer?.setActors(props.actors ?? []);
+    if (props.overlay?.visibility) {
+      const now = performance.now();
+      if (now - overlayRefreshedAt >= 120) {
+        overlayRefreshedAt = now;
+        refreshOverlay();
+      }
+    }
+  },
+);
+
+watch(
+  () => props.route,
+  () => renderer?.setRoute(props.route?.points ?? null),
+);
+
+watch(
+  () => [selectedActor.value?.sightRadius, props.overlay?.visibility] as const,
+  () => {
+    if (props.overlay?.visibility) {
+      refreshOverlay();
+    }
+  },
+);
+
+watch(
+  () => props.overlay,
+  () => refreshOverlay(),
+);
+
+watch(
+  () => [props.overlay?.costs ?? false, props.overlay?.visibility ?? false] as const,
+  ([costs, visibility]) => {
+    if (costs || visibility) {
+      legendOpen.value = true;
     }
   },
 );
@@ -464,6 +615,18 @@ function onPointerDown(event: PointerEvent): void {
   }
 }
 
+/** Жест меняет геометрию: на это время рендерер не пересобирает траву. */
+function startEditing(): void {
+  renderer?.setEditing(true);
+  emit('editStart');
+}
+
+/** Жест завершён: трава возвращается на место. */
+function stopEditing(): void {
+  renderer?.setEditing(false);
+  emit('editEnd');
+}
+
 function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   if (viewport === null) return;
   const tolerance = 10 / viewport.zoom;
@@ -474,7 +637,7 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
     widthTarget = width;
     setFocus({ elementId: width.elementId, index: width.index });
     gesture = 'width';
-    emit('editStart');
+    startEditing();
     capture(event);
 
     return;
@@ -485,7 +648,7 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
     handleTarget = handle;
     setFocus({ elementId: handle.elementId, index: handle.index });
     gesture = 'handle';
-    emit('editStart');
+    startEditing();
     capture(event);
 
     return;
@@ -501,7 +664,7 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
     }
 
     gesture = 'vertex';
-    emit('editStart');
+    startEditing();
     capture(event);
 
     return;
@@ -527,7 +690,7 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   applySelection(nextIds);
   gesture = 'move';
   moveLast = scenePoint;
-  emit('editStart');
+  startEditing();
   capture(event);
 }
 
@@ -641,10 +804,14 @@ function onPointerUp(event: PointerEvent): void {
   if (gesture === 'pan' && !props.interactive && !panMoved && viewport !== null) {
     const hit = sceneHitTestService.hit(props.model, viewport, screenPointOf(event));
     applySelection(hit === null ? [] : [hit.id]);
+    const point = scenePointOf(event);
+    if (point !== null) {
+      emit('point', point);
+    }
   }
 
   if (editing) {
-    emit('editEnd');
+    stopEditing();
   }
 
   gesture = 'none';
@@ -665,7 +832,7 @@ function cancelPointer(): void {
   panMoved = false;
   renderer?.setDraft(null);
   if (editing) {
-    emit('editEnd');
+    stopEditing();
   }
 }
 
@@ -723,12 +890,9 @@ defineExpose({ fit, zoomBy });
     <div class="scene-canvas__legend" @pointerdown.stop @wheel.stop>
       <button class="scene-canvas__legend-toggle" type="button" @click="legendOpen = !legendOpen">?</button>
       <ul v-if="legendOpen" class="scene-canvas__legend-list">
-        <li><span class="scene-canvas__swatch scene-canvas__swatch--obstacle" />Препятствие</li>
-        <li><span class="scene-canvas__swatch scene-canvas__swatch--support" />Опора</li>
-        <li><span class="scene-canvas__swatch scene-canvas__swatch--terrain" />Террейн</li>
-        <li><span class="scene-canvas__swatch scene-canvas__swatch--opening" />Проём</li>
-        <li><span class="scene-canvas__swatch scene-canvas__swatch--decor" />Декор</li>
-        <li><span class="scene-canvas__swatch scene-canvas__swatch--marker" />Маркер</li>
+        <li v-for="entry in legendEntries" :key="entry.label">
+          <span class="scene-canvas__swatch" :style="{ background: entry.color }" />{{ entry.label }}
+        </li>
       </ul>
     </div>
   </div>
@@ -812,27 +976,4 @@ defineExpose({ fit, zoomBy });
   border: 1px solid rgba(255, 255, 255, 0.7);
 }
 
-.scene-canvas__swatch--obstacle {
-  background: #475569;
-}
-
-.scene-canvas__swatch--support {
-  background: #b45309;
-}
-
-.scene-canvas__swatch--terrain {
-  background: #4d7c0f;
-}
-
-.scene-canvas__swatch--opening {
-  background: #dc2626;
-}
-
-.scene-canvas__swatch--decor {
-  background: #a78bfa;
-}
-
-.scene-canvas__swatch--marker {
-  background: #f59e0b;
-}
 </style>

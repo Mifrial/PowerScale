@@ -1,3 +1,6 @@
+import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
+import type { SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
+import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
@@ -11,6 +14,14 @@ export interface ISceneRenderer {
   setViewport(viewport: SceneViewport): void;
   setScene(model: SceneRenderModel): Promise<void>;
   setSelection(ids: number[]): void;
+  /** Акторы на поле: позиции и facing приходят снаружи. */
+  setActors(actors: SceneActor[]): void;
+  /** Режим жеста: на время перетаскивания трава не пересобирается. */
+  setEditing(editing: boolean): void;
+  /** Полосы оверлеев предпросмотра; null — выключить. */
+  setOverlayPaint(paint: SceneOverlayPaint | null): void;
+  /** Маршрут выбранного актора; null — линия скрыта. */
+  setRoute(points: ScenePoint[] | null): void;
   /** Вершина, у которой видны ручки Безье; null — ручки скрыты. */
   setVertexFocus(target: SceneVertexTarget | null): void;
   /** Предварительная фигура во время протяжки; null — убрать превью. */

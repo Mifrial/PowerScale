@@ -1,4 +1,5 @@
 import { FillPattern, Matrix, Texture } from 'pixi.js';
+import { SCENE_GRASS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_GRASS';
 
 /** Шаблоны террейна, для которых есть процедурная текстура. */
 export type SceneTerrainKind = 'grass' | 'dirt' | 'stone' | 'sand' | 'mud' | 'water' | 'ice';
@@ -51,6 +52,21 @@ const PALETTES: Record<SceneTerrainKind, Palette> = {
 };
 
 /**
+ * Сдвиг паттерна в единицах сцены.
+ *
+ * Детерминирован от id элемента: одинаковые пятна у соседних фигур не
+ * выстраиваются штампом. Общий для заливки Graphics и для шейдеров, которые
+ * семплят ту же текстуру.
+ */
+export function patternOffset(elementId: number, period: number): [number, number] {
+  const seed = Math.abs(Math.trunc(elementId)) * 2654435761;
+  const offsetX = ((seed % 1024) / 1024) * period;
+  const offsetY = (((seed >>> 10) % 1024) / 1024) * period;
+
+  return [offsetX, offsetY];
+}
+
+/**
  * Процедурные бесшовные текстуры террейна.
  *
  * Тайл рисуется один раз на шаблон и живёт в общем кэше рендерера: это
@@ -58,6 +74,8 @@ const PALETTES: Record<SceneTerrainKind, Palette> = {
  */
 export class SceneTerrainPatternService {
   private readonly textures = new Map<SceneTerrainKind, Texture>();
+
+  private readonly extras = new Map<string, Texture>();
 
   /** Текстура шаблона; неизвестный шаблон получает траву. */
   texture(kind: string | undefined): Texture {
@@ -67,15 +85,32 @@ export class SceneTerrainPatternService {
       return cached;
     }
 
-    const texture = Texture.from(this.renderTile(normalized));
-    texture.source.style.addressMode = 'repeat';
-    texture.source.style.mipmapFilter = 'linear';
-    texture.source.style.maxAnisotropy = 4;
-    texture.source.style.update();
-    texture.source.autoGenerateMipmaps = true;
+    const texture = this.createTexture(this.renderTile(normalized));
     this.textures.set(normalized, texture);
 
     return texture;
+  }
+
+  /**
+   * Крупные пятна травы.
+   *
+   * Тёмная вариация `macro` делает луг грязным, поэтому у травы своя карта:
+   * тёмно-зелёные и жёлто-зелёные пятна, которые читаются как разнотравье.
+   * Сдвиг на элементе берётся тот же, что у `macro` (id + 5).
+   */
+  grassMacro(): Texture {
+    return this.extra('grassMacro', () => this.renderGrassMacro());
+  }
+
+  /**
+   * Мелкая деталь травы.
+   *
+   * Фотоматериал на тайле 2 ипари размывается, и луг выглядит плоским. Слой
+   * тонких лезвий и зерна с собственным периодом возвращает травяную фактуру и
+   * сбивает сетку повторов фотографии.
+   */
+  grassDetail(): Texture {
+    return this.extra('grassDetail', () => this.renderGrassDetail());
   }
 
   /**
@@ -86,17 +121,18 @@ export class SceneTerrainPatternService {
    * У воды тайл мельче — один ипари, чтобы течение читалось вдоль ленты.
    */
   pattern(kind: string | undefined, elementId: number, resolution: number): FillPattern {
-    const period = Math.max(1, resolution) * (kind === 'water' ? 1 : 2);
+    return this.patternOf(this.texture(kind), this.period(kind, resolution), elementId);
+  }
 
-    return this.patternOf(this.texture(kind), period, elementId);
+  /** Период тайла шаблона в единицах сцены. */
+  period(kind: string | undefined, resolution: number): number {
+    return Math.max(1, resolution) * (kind === 'water' ? 1 : 2);
   }
 
   /** Паттерн заданной текстуры: тайл в единицах сцены и сдвиг от id элемента. */
   patternOf(texture: Texture, period: number, elementId: number): FillPattern {
     const size = Math.max(1, texture.width);
-    const seed = Math.abs(Math.trunc(elementId)) * 2654435761;
-    const offsetX = ((seed % 1024) / 1024) * period;
-    const offsetY = (((seed >>> 10) % 1024) / 1024) * period;
+    const [offsetX, offsetY] = patternOffset(elementId, period);
     const matrix = new Matrix().scale(period / size, period / size).translate(offsetX, offsetY);
     const pattern = new FillPattern({ texture, textureSpace: 'global' });
     pattern.setTransform(matrix);
@@ -108,6 +144,111 @@ export class SceneTerrainPatternService {
   destroy(): void {
     this.textures.forEach((texture) => texture.destroy(true));
     this.textures.clear();
+    this.extras.forEach((texture) => texture.destroy(true));
+    this.extras.clear();
+  }
+
+  /** Текстура из canvas: repeat, мипмапы и анизотропия. */
+  private createTexture(canvas: HTMLCanvasElement): Texture {
+    const texture = Texture.from(canvas);
+    texture.source.style.addressMode = 'repeat';
+    texture.source.style.mipmapFilter = 'linear';
+    texture.source.style.maxAnisotropy = 4;
+    texture.source.style.update();
+    texture.source.autoGenerateMipmaps = true;
+
+    return texture;
+  }
+
+  /** Дополнительная процедурная текстура из кэша. */
+  private extra(key: string, render: () => HTMLCanvasElement): Texture {
+    const cached = this.extras.get(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const texture = this.createTexture(render());
+    this.extras.set(key, texture);
+
+    return texture;
+  }
+
+  /** Крупные пятна травы: тёмная и светлая зелень без грязи. */
+  private renderGrassMacro(): HTMLCanvasElement {
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d');
+    if (context === null) {
+      return canvas;
+    }
+
+    const seed = this.seedOf('grass');
+    const coarse = this.noise(size, 4, seed + 211);
+    const fine = this.noise(size, 11, seed + 307);
+    const image = context.createImageData(size, size);
+    for (let index = 0; index < size * size; index += 1) {
+      const value = coarse[index] * 0.72 + fine[index] * 0.28;
+      const color = value >= 0 ? SCENE_GRASS.macroLight : SCENE_GRASS.macroDark;
+      const pixel = index * 4;
+      image.data[pixel] = color[0];
+      image.data[pixel + 1] = color[1];
+      image.data[pixel + 2] = color[2];
+      image.data[pixel + 3] = Math.round(Math.min(1, Math.abs(value)) * 92);
+    }
+    context.putImageData(image, 0, 0);
+
+    return canvas;
+  }
+
+  /** Мелкая деталь травы: тонкие лезвия и зерно. */
+  private renderGrassDetail(): HTMLCanvasElement {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d');
+    if (context === null) {
+      return canvas;
+    }
+
+    const random = this.random(this.seedOf('grass') + 401);
+    context.lineCap = 'round';
+    for (let index = 0; index < SCENE_GRASS.detailBlades; index += 1) {
+      const x = random() * size;
+      const y = random() * size;
+      const length = 3 + random() * 11;
+      const lean = (random() - 0.5) * 4;
+      const color = random() > 0.55 ? SCENE_GRASS.detailLight : SCENE_GRASS.detailDark;
+      const alpha = 0.1 + random() * 0.24;
+      context.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`;
+      context.lineWidth = 0.6 + random() * 0.8;
+      for (const [offsetX, offsetY] of this.wrappedOffsets(x, y, 16, size)) {
+        context.beginPath();
+        context.moveTo(x + offsetX, y + offsetY);
+        context.lineTo(x + offsetX + lean, y + offsetY - length);
+        context.stroke();
+      }
+    }
+
+    // Тени под пучками: без них слой читается штрихами в воздухе.
+    for (let index = 0; index < SCENE_GRASS.detailShadows; index += 1) {
+      const x = random() * size;
+      const y = random() * size;
+      const radius = 2 + random() * 5;
+      for (const [offsetX, offsetY] of this.wrappedOffsets(x, y, radius + 2, size)) {
+        const centerX = x + offsetX;
+        const centerY = y + offsetY;
+        const gradient = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+        gradient.addColorStop(0, 'rgba(18, 32, 14, 0.16)');
+        gradient.addColorStop(1, 'rgba(18, 32, 14, 0)');
+        context.fillStyle = gradient;
+        context.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
+      }
+    }
+
+    return canvas;
   }
 
   private normalize(kind: string | undefined): SceneTerrainKind {
@@ -238,13 +379,13 @@ export class SceneTerrainPatternService {
   }
 
   /** Смещения, при которых деталь у края повторяется с другой стороны. */
-  private wrappedOffsets(x: number, y: number, extent: number): [number, number][] {
+  private wrappedOffsets(x: number, y: number, extent: number, size = TEXTURE_SIZE): [number, number][] {
     const xs = [0];
-    if (x < extent) xs.push(TEXTURE_SIZE);
-    if (x > TEXTURE_SIZE - extent) xs.push(-TEXTURE_SIZE);
+    if (x < extent) xs.push(size);
+    if (x > size - extent) xs.push(-size);
     const ys = [0];
-    if (y < extent) ys.push(TEXTURE_SIZE);
-    if (y > TEXTURE_SIZE - extent) ys.push(-TEXTURE_SIZE);
+    if (y < extent) ys.push(size);
+    if (y > size - extent) ys.push(-size);
     const offsets: [number, number][] = [];
     for (const offsetX of xs) {
       for (const offsetY of ys) {
