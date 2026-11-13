@@ -1,5 +1,8 @@
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 
+/** Минимум, который нужен повороту: вид, фигура и свойства. */
+type RotatableElement = Pick<SceneElement, 'kind' | 'shape' | 'props'>;
+
 /**
  * Геометрический поворот опоры в градусах.
  *
@@ -7,7 +10,7 @@ import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
  * `rotation` — это поворот спрайта, у остальных элементов геометрия осевая.
  * Угол нормализуется в 0–359, чтобы сравнения и кэши не зависели от знака.
  */
-export function sceneRotation(element: SceneElement): number {
+export function sceneRotation(element: RotatableElement): number {
   if (element.kind !== 'support' || element.shape.type !== 'rect') {
     return 0;
   }

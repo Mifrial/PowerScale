@@ -1,6 +1,6 @@
 import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
+import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
-import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
@@ -21,7 +21,8 @@ export interface ISceneRenderer {
   /** Полосы оверлеев предпросмотра; null — выключить. */
   setOverlayPaint(paint: SceneOverlayPaint | null): void;
   /** Маршрут выбранного актора; null — линия скрыта. */
-  setRoute(points: ScenePoint[] | null): void;
+  /** Маршрут актора с участками по уровням; null — линия скрыта. */
+  setRoute(route: SceneNavRoute | null): void;
   /** Вершина, у которой видны ручки Безье; null — ручки скрыты. */
   setVertexFocus(target: SceneVertexTarget | null): void;
   /** Предварительная фигура во время протяжки; null — убрать превью. */

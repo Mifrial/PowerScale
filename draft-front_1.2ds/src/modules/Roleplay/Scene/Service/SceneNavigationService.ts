@@ -9,12 +9,23 @@ import type {
   SceneNavMesh,
   SceneNavRegion,
   SceneNavRoute,
+  SceneNavSegment,
+  SceneNavTransition,
+  SceneNavTransitionType,
   SceneNavTriangle,
 } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
+import type { SceneRampSlope } from '@/modules/Roleplay/Scene/Dto/SceneRampSlope';
+import {
+  isSceneDeck,
+  sceneDeckClearance,
+  sceneRampSlope,
+  sceneSlopeElevation,
+  sceneSurfaceElevation,
+} from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 const { difference, intersection, union } = polygonClipping;
@@ -23,6 +34,8 @@ const { difference, intersection, union } = polygonClipping;
 export interface SceneNavigationOptions {
   /** Радиус агента в единицах сцены; по умолчанию — радиус манекена. */
   agentRadius?: number;
+  /** Уровень старта: 0 — земля, больше — настил. По умолчанию земля. */
+  fromLevel?: number;
 }
 
 /** Ребро треугольника для склейки соседей. */
@@ -49,6 +62,15 @@ interface NavArc {
   from: number;
   to: number;
   mid: ScenePoint;
+  /** Переход между уровнями; у обычного звена — `null`. */
+  transition: SceneNavTransition | null;
+}
+
+/** Участок цепочки треугольников на одном уровне. */
+interface NavLevelRun {
+  level: number;
+  elevation: number;
+  triangles: number[];
 }
 
 /** Минимальная двоичная куча для A*. */
@@ -171,34 +193,153 @@ export class SceneNavigationService {
   }
 
   /** Маршрут по уже построенной сетке. */
-  routeOn(mesh: SceneNavMesh, from: ScenePoint, to: ScenePoint): SceneNavRoute | null {
-    let start = this.locate(mesh, from);
-    let goal = this.locate(mesh, to);
+  routeOn(
+    mesh: SceneNavMesh,
+    from: ScenePoint,
+    to: ScenePoint,
+    options: SceneNavigationOptions = {},
+  ): SceneNavRoute | null {
+    const startLevel = options.fromLevel ?? 0;
+    let start = this.locate(mesh, from, startLevel);
     if (start < 0) {
-      start = this.nearestTriangle(mesh, from);
+      start = this.locateTop(mesh, from);
     }
+    if (start < 0) {
+      start = this.nearestTriangle(mesh, from, startLevel);
+    }
+
+    let goal = this.locateTop(mesh, to);
     if (goal < 0) {
-      goal = this.nearestTriangle(mesh, to);
+      goal = this.nearestTriangle(mesh, to, 0);
     }
     if (start < 0 || goal < 0) {
       return null;
     }
 
-    const startPoint = this.speedAt(mesh, from) > 0 ? from : mesh.triangles[start].centroid;
-    const goalPoint = this.speedAt(mesh, to) > 0 ? to : mesh.triangles[goal].centroid;
+    const startTriangle = mesh.triangles[start];
+    const goalTriangle = mesh.triangles[goal];
+    const startPoint = this.speedAt(mesh, from, startTriangle.level) > 0 ? from : startTriangle.centroid;
+    const goalPoint = this.speedAt(mesh, to, goalTriangle.level) > 0 ? to : goalTriangle.centroid;
     const chain = this.findChain(mesh, start, goal, startPoint, goalPoint);
     if (chain === null) {
       return null;
     }
 
-    const points = this.funnel(mesh, chain, startPoint, goalPoint);
-
-    const simplified = this.smooth(mesh, this.dedupe(points));
-
-    return this.measure(mesh, simplified);
+    return this.buildRoute(mesh, chain, startPoint, goalPoint);
   }
 
-  /** Собирает проходимые регионы и их скорости. */
+  /**
+   * Собирает маршрут по цепочке: режет её на участки одного уровня, спрямляет
+   * каждый отдельно и считает стоимость.
+   *
+   * Спрямление через границу уровней запрещено: прямой отрезок «по настилу и
+   * под ним» обошёл бы портал подъёма. Поэтому воронка работает внутри
+   * участка, а стык уровней — общая точка на портале.
+   */
+  private buildRoute(
+    mesh: SceneNavMesh,
+    chain: readonly number[],
+    from: ScenePoint,
+    to: ScenePoint,
+  ): SceneNavRoute | null {
+    const runs = this.levelRuns(mesh, chain);
+    const segments: SceneNavSegment[] = [];
+    let start = from;
+    for (let index = 0; index < runs.length; index += 1) {
+      const run = runs[index];
+      const last = index === runs.length - 1;
+      const end = last
+        ? to
+        : this.portalMidpoint(mesh, run.triangles[run.triangles.length - 1], runs[index + 1].triangles[0]);
+      if (end === null) {
+        return null;
+      }
+
+      const path = this.funnel(mesh, run.triangles, start, end);
+      const points = this.dedupe(this.smooth(mesh, path, run.level));
+      const previous = index === 0 ? undefined : runs[index - 1].triangles[runs[index - 1].triangles.length - 1];
+      const link =
+        previous === undefined
+          ? undefined
+          : mesh.triangles[previous].links.find((candidate) => candidate.to === run.triangles[0]);
+      segments.push(...this.splitSegments(mesh, points, run.level, run.elevation, link?.transition ?? null));
+      start = end;
+    }
+
+    return segments.length === 0 ? null : this.measure(mesh, segments);
+  }
+
+  /** Режет цепочку на участки одного уровня. */
+  private levelRuns(mesh: SceneNavMesh, chain: readonly number[]): NavLevelRun[] {
+    const runs: NavLevelRun[] = [];
+    for (const triangle of chain) {
+      const level = mesh.triangles[triangle].level;
+      const last = runs[runs.length - 1];
+      if (last !== undefined && last.level === level) {
+        last.triangles.push(triangle);
+        continue;
+      }
+
+      runs.push({ level, elevation: mesh.triangles[triangle].elevation, triangles: [triangle] });
+    }
+
+    return runs;
+  }
+
+  /** Середина общего портала двух треугольников; null — звена нет. */
+  private portalMidpoint(mesh: SceneNavMesh, from: number, to: number): ScenePoint | null {
+    const link = mesh.triangles[from].links.find((candidate) => candidate.to === to);
+    if (link === undefined) {
+      return null;
+    }
+
+    return [(link.left[0] + link.right[0]) / 2, (link.left[1] + link.right[1]) / 2];
+  }
+
+  /**
+   * Делит участок уровня на открытые и закрытые настилом куски.
+   *
+   * Так линия маршрута приглушается только там, где действительно идёт под
+   * мостом, а не целиком из-за одного пересечения.
+   */
+  private splitSegments(
+    mesh: SceneNavMesh,
+    points: readonly ScenePoint[],
+    level: number,
+    elevation: number,
+    transition: SceneNavTransition | null,
+  ): SceneNavSegment[] {
+    const segments: SceneNavSegment[] = [];
+    // Пробы вдоль отрезка, а не только по его концам: иначе длинная прямая
+    // под мостом целиком считалась бы закрытой.
+    const step = Math.max(1, mesh.resolution * 0.5);
+    let current: SceneNavSegment | null = null;
+    for (let index = 1; index < points.length; index += 1) {
+      const from = points[index - 1];
+      const to = points[index];
+      const length = this.distance(from, to);
+      const pieces = Math.max(1, Math.ceil(length / step));
+      for (let piece = 0; piece < pieces; piece += 1) {
+        const t0 = piece / pieces;
+        const t1 = (piece + 1) / pieces;
+        const a: ScenePoint = [from[0] + (to[0] - from[0]) * t0, from[1] + (to[1] - from[1]) * t0];
+        const b: ScenePoint = [from[0] + (to[0] - from[0]) * t1, from[1] + (to[1] - from[1]) * t1];
+        const mid: ScenePoint = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        const covered = mesh.regions.some((region) => region.level > level && this.regionContains(region, mid));
+        if (current === null || current.covered !== covered) {
+          const first = segments.length === 0;
+          current = { level, elevation, covered, transition: first ? transition : null, points: [a, b] };
+          segments.push(current);
+        } else {
+          current.points.push(b);
+        }
+      }
+    }
+
+    return segments;
+  }
+
+  /** Собирает проходимые регионы по уровням. */
   private buildNow(
     board: SceneBoard,
     elements: readonly SceneElement[],
@@ -217,18 +358,27 @@ export class SceneNavigationService {
     }
 
     this.link(triangles, resolution);
+    this.connectLevels(triangles, regions, resolution);
     const maxSpeed = Math.max(...regions.map((region) => region.speed));
 
     return {
       triangles,
       regions,
       agentRadius,
+      resolution,
       maxSpeed: Math.max(1, maxSpeed),
       bounds: { x: 0, y: 0, width: board.boundWidth, height: board.boundHeight },
     };
   }
 
-  /** Собирает непересекающиеся регионы: верхний элемент задаёт скорость. */
+  /**
+   * Собирает непересекающиеся регионы по уровням.
+   *
+   * Базовый слой — террейн и опоры на земле: верхний элемент задаёт скорость.
+   * Настил выше `stepIpari` становится отдельным уровнем и не прячет то, что
+   * под ним: вода и берег остаются проходимыми, если зазор не меньше роста
+   * тела. Настил ниже шага — обычная замена пола, как раньше.
+   */
   private buildRegions(
     board: SceneBoard,
     elements: readonly SceneElement[],
@@ -245,14 +395,23 @@ export class SceneNavigationService {
       return [];
     }
 
+    const base = Math.max(1, resolution);
+    const step = base * SCENE_NAVIGATION.stepIpari;
+    const bodyHeight = base * SCENE_NAVIGATION.bodyHeightIpari;
     const blockers: Polygon[] = [];
     const carves: Polygon[] = [];
     const positives: { element: SceneElement; speed: number }[] = [];
+    const decks: { element: SceneElement; speed: number; elevation: number; slope: SceneRampSlope | null }[] = [];
+    const levelBlockers: { elevation: number; polygon: Polygon }[] = [];
+
     for (const element of elements) {
       if (element.kind === 'obstacle') {
         if (element.props.blocksMovement !== false) {
           const blocker = this.polygonOf(element, resolution, agentRadius);
-          if (blocker !== null) blockers.push(blocker);
+          if (blocker !== null) {
+            blockers.push(blocker);
+            levelBlockers.push({ elevation: sceneSurfaceElevation(element, resolution), polygon: blocker });
+          }
         }
         continue;
       }
@@ -270,12 +429,32 @@ export class SceneNavigationService {
           carves.push(shape);
         } else {
           blockers.push(shape);
+          levelBlockers.push({ elevation: sceneSurfaceElevation(element, resolution), polygon: shape });
         }
         continue;
       }
 
       if (element.kind === 'terrain' || element.kind === 'support') {
         const speed = this.speedOf(element);
+        const elevation = sceneSurfaceElevation(element, resolution);
+        if (isSceneDeck(element) && elevation > step) {
+          // Настил выше шага — отдельный уровень. Если зазор под ним меньше
+          // роста тела, базовый слой под настилом закрыт.
+          if (sceneDeckClearance(element, elements, resolution) < bodyHeight) {
+            const blocker = this.polygonOf(element, resolution, agentRadius);
+            if (blocker !== null) blockers.push(blocker);
+          }
+          if (speed > 0) {
+            decks.push({
+              element,
+              speed,
+              elevation,
+              slope: element.props.kind === 'ramp' ? sceneRampSlope(element, elements, resolution) : null,
+            });
+          }
+          continue;
+        }
+
         if (speed <= 0) {
           const blocker = this.polygonOf(element, resolution, agentRadius);
           if (blocker !== null) blockers.push(blocker);
@@ -308,23 +487,224 @@ export class SceneNavigationService {
       let region = this.subtract([shape], covered);
       region = this.subtract(region, blocked);
       region = this.intersect(region, [frame]);
-      for (const polygon of region) {
-        if (polygon.length === 0) continue;
-        const outer = this.normalizeRing(polygon[0]);
-        if (outer.length < 3) continue;
-        regions.push({
-          speed: positive.speed,
-          outer,
-          holes: polygon
-            .slice(1)
-            .map((ring) => this.normalizeRing(ring))
-            .filter((ring) => ring.length >= 3),
-        });
-      }
+      this.pushRegions(regions, region, positive.speed, 0, 0);
       covered = this.unionMany([...this.polygonsOf(covered), shape]);
     }
 
+    // Настилы снизу вверх: уровень — это высота, а не порядок создания.
+    const sorted = [...decks].sort(
+      (left, right) => left.elevation - right.elevation || left.element.sortOrder - right.element.sortOrder,
+    );
+    sorted.forEach((deck, index) => {
+      const shape = this.polygonOf(deck.element, resolution, 0);
+      if (shape === null) {
+        return;
+      }
+
+      const deckBlockers = levelBlockers
+        .filter((blocker) => Math.abs(blocker.elevation - deck.elevation) <= step)
+        .map((blocker) => blocker.polygon);
+      let region: MultiPolygon = [shape];
+      if (deckBlockers.length > 0) {
+        region = this.subtract(region, this.unionMany(deckBlockers));
+      }
+      region = this.intersect(region, [frame]);
+      this.pushRegions(regions, region, deck.speed, index + 1, deck.elevation, deck.slope);
+    });
+
     return regions;
+  }
+
+  /** Превращает булеву геометрию в регионы с уровнем и высотой. */
+  private pushRegions(
+    regions: SceneNavRegion[],
+    geometry: MultiPolygon,
+    speed: number,
+    level: number,
+    elevation: number,
+    slope: SceneRampSlope | null = null,
+  ): void {
+    for (const polygon of geometry) {
+      if (polygon.length === 0) continue;
+      const outer = this.normalizeRing(polygon[0]);
+      if (outer.length < 3) continue;
+      regions.push({
+        speed,
+        level,
+        elevation,
+        slope,
+        outer,
+        holes: polygon
+          .slice(1)
+          .map((ring) => this.normalizeRing(ring))
+          .filter((ring) => ring.length >= 3),
+      });
+    }
+  }
+
+  /**
+   * Связывает уровни порталами по контуру настила.
+   *
+   * Точка на краю настила ищет треугольник нижнего уровня снаружи: землю или
+   * настил ниже. Перепад решает тип перехода: в пределах `stepIpari` — шаг, до
+   * `climbIpari` — подъём, до `dropIpari` вниз — спуск. Больше — звена нет, и
+   * настил доступен только через съезд или другой настил. Соседние точки
+   * одного треугольника склеиваются в один портал.
+   */
+  private connectLevels(triangles: SceneNavTriangle[], regions: readonly SceneNavRegion[], resolution: number): void {
+    const base = Math.max(1, resolution);
+    const step = base * SCENE_NAVIGATION.stepIpari;
+    const climb = base * SCENE_NAVIGATION.climbIpari;
+    const drop = base * SCENE_NAVIGATION.dropIpari;
+    const offsets = [1, base * 0.25, base * 0.5, base, base * 1.5 + 1];
+    const levels = new Map<number, { elevation: number; slope: SceneRampSlope | null }>();
+    for (const region of regions) {
+      if (!levels.has(region.level)) {
+        levels.set(region.level, { elevation: region.elevation, slope: region.slope });
+      }
+    }
+
+    for (const region of regions) {
+      if (region.level === 0) {
+        continue;
+      }
+
+      const ring = region.outer;
+      const clockwise = this.signedArea(ring) < 0;
+      for (let edge = 0; edge < ring.length; edge += 1) {
+        const a = ring[edge];
+        const b = ring[(edge + 1) % ring.length];
+        const length = this.distance(a, b);
+        if (length <= SCENE_NAVIGATION.linkEpsilon) {
+          continue;
+        }
+
+        const dx = (b[0] - a[0]) / length;
+        const dy = (b[1] - a[1]) / length;
+        const sign = clockwise ? -1 : 1;
+        const normal: ScenePoint = [sign * dy, -sign * dx];
+        const samples = Math.max(1, Math.ceil(length / base));
+        let group: { below: number; deckTriangle: number; from: ScenePoint; to: ScenePoint } | null = null;
+        const flush = (): void => {
+          if (group === null) {
+            return;
+          }
+
+          const mid: ScenePoint = [(group.from[0] + group.to[0]) / 2, (group.from[1] + group.to[1]) / 2];
+          const above = this.levelElevation(levels.get(region.level), mid);
+          const belowLevel = triangles[group.below].level;
+          const below = this.levelElevation(levels.get(belowLevel), mid);
+          const delta = above - below;
+          const type = this.transitionType(delta, step, climb, drop);
+          if (type !== null) {
+            this.addLevelLink(triangles, group.deckTriangle, group.below, group.from, group.to, type, delta);
+          }
+          group = null;
+        };
+
+        for (let sample = 0; sample <= samples; sample += 1) {
+          const t = sample / samples;
+          const point: ScenePoint = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+          const deckTriangle = this.locateLevel(triangles, [point[0] - normal[0], point[1] - normal[1]], region.level);
+          let below = -1;
+          for (const offset of offsets) {
+            below = this.locateBelow(
+              triangles,
+              [point[0] + normal[0] * offset, point[1] + normal[1] * offset],
+              region.level,
+            );
+            if (below >= 0) {
+              break;
+            }
+          }
+          if (deckTriangle < 0 || below < 0) {
+            flush();
+            continue;
+          }
+
+          if (group !== null && group.below === below && group.deckTriangle === deckTriangle) {
+            group.to = point;
+            continue;
+          }
+
+          flush();
+          group = { below, deckTriangle, from: point, to: point };
+        }
+
+        flush();
+      }
+    }
+  }
+
+  /** Высота уровня в точке: у съезда — по наклону. */
+  private levelElevation(
+    level: { elevation: number; slope: SceneRampSlope | null } | undefined,
+    point: ScenePoint,
+  ): number {
+    if (level === undefined) {
+      return 0;
+    }
+
+    return level.slope === null ? level.elevation : sceneSlopeElevation(level.slope, point);
+  }
+
+  /** Самый высокий уровень ниже указанного, содержащий точку. */
+  private locateBelow(triangles: readonly SceneNavTriangle[], point: ScenePoint, level: number): number {
+    let best = -1;
+    for (let index = 0; index < triangles.length; index += 1) {
+      const triangle = triangles[index];
+      if (triangle.level >= level || triangle.level <= (best < 0 ? -1 : triangles[best].level)) {
+        continue;
+      }
+      if (this.inTriangle(point, triangle.points)) {
+        best = index;
+      }
+    }
+
+    return best;
+  }
+
+  /** Тип перехода по перепаду; null — перепад слишком велик. */
+  private transitionType(delta: number, step: number, climb: number, drop: number): SceneNavTransitionType | null {
+    if (Math.abs(delta) <= step) {
+      return 'walk';
+    }
+    if (delta > 0 && delta <= climb) {
+      return 'climb';
+    }
+    if (delta < 0 && -delta <= drop) {
+      return 'drop';
+    }
+
+    return null;
+  }
+
+  /** Двустороннее звено между уровнями. */
+  private addLevelLink(
+    triangles: SceneNavTriangle[],
+    deck: number,
+    base: number,
+    from: ScenePoint,
+    to: ScenePoint,
+    type: SceneNavTransitionType,
+    delta: number,
+  ): void {
+    const length = this.distance(from, to);
+    const transition: SceneNavTransition = { type, delta };
+    triangles[deck].links.push({ to: base, left: from, right: to, length, transition });
+    triangles[base].links.push({ to: deck, left: from, right: to, length, transition });
+  }
+
+  /** Ориентированная площадь кольца. */
+  private signedArea(points: readonly ScenePoint[]): number {
+    let area = 0;
+    for (let index = 0; index < points.length; index += 1) {
+      const a = points[index];
+      const b = points[(index + 1) % points.length];
+      area += a[0] * b[1] - b[0] * a[1];
+    }
+
+    return area / 2;
   }
 
   /**
@@ -343,7 +723,7 @@ export class SceneNavigationService {
       const bounds = this.boundsOfRing(region.outer);
       const spans = Math.ceil(bounds.width / cell) > 1 || Math.ceil(bounds.height / cell) > 1;
       if (!spans) {
-        this.pushTriangles(triangles, polygon, region.speed);
+        this.pushTriangles(triangles, polygon, region.speed, region.level, region.elevation);
         continue;
       }
 
@@ -361,7 +741,7 @@ export class SceneNavigationService {
             ],
           ]);
           for (const piece of clipped) {
-            this.pushTriangles(triangles, piece, region.speed);
+            this.pushTriangles(triangles, piece, region.speed, region.level, region.elevation);
           }
         }
       }
@@ -371,7 +751,13 @@ export class SceneNavigationService {
   }
 
   /** Треугольники одного простого полигона с дырками. */
-  private pushTriangles(triangles: SceneNavTriangle[], polygon: Polygon, speed: number): void {
+  private pushTriangles(
+    triangles: SceneNavTriangle[],
+    polygon: Polygon,
+    speed: number,
+    level: number,
+    elevation: number,
+  ): void {
     if (polygon.length === 0 || polygon[0].length < 3) {
       return;
     }
@@ -396,6 +782,8 @@ export class SceneNavigationService {
       triangles.push({
         points,
         speed,
+        level,
+        elevation,
         centroid: [(points[0][0] + points[1][0] + points[2][0]) / 3, (points[0][1] + points[1][1] + points[2][1]) / 3],
         links: [],
       });
@@ -478,6 +866,11 @@ export class SceneNavigationService {
           if (first.triangle === second.triangle) {
             continue;
           }
+          // Уровни склеиваются только порталами: общий участок контура не
+          // делает настил соседом земли, иначе A* перескакивает высоту.
+          if (triangles[first.triangle].level !== triangles[second.triangle].level) {
+            continue;
+          }
 
           const pair = first.id < second.id ? `${first.id}:${second.id}` : `${second.id}:${first.id}`;
           if (checked.has(pair)) {
@@ -502,8 +895,20 @@ export class SceneNavigationService {
     }
 
     for (const { from, to, portal } of best.values()) {
-      triangles[from].links.push({ to, left: portal.left, right: portal.right, length: portal.length });
-      triangles[to].links.push({ to: from, left: portal.left, right: portal.right, length: portal.length });
+      triangles[from].links.push({
+        to,
+        left: portal.left,
+        right: portal.right,
+        length: portal.length,
+        transition: null,
+      });
+      triangles[to].links.push({
+        to: from,
+        left: portal.left,
+        right: portal.right,
+        length: portal.length,
+        transition: null,
+      });
     }
   }
 
@@ -566,6 +971,7 @@ export class SceneNavigationService {
           from: triangle,
           to: link.to,
           mid: [(link.left[0] + link.right[0]) / 2, (link.left[1] + link.right[1]) / 2],
+          transition: link.transition,
         };
         outgoing[triangle].push(arcs.length);
         arcs.push(arc);
@@ -578,7 +984,8 @@ export class SceneNavigationService {
     const heap = new MinHeap();
     const startSpeed = Math.max(1, mesh.triangles[start].speed);
     for (const arc of outgoing[start]) {
-      const cost = (this.distance(from, arcs[arc].mid) * 100) / startSpeed;
+      const cost =
+        (this.distance(from, arcs[arc].mid) * 100) / startSpeed + this.transitionCost(arcs[arc].transition, mesh);
       costs[arc] = cost;
       heap.push(arc, cost + this.arcHeuristic(mesh, arcs[arc], to));
     }
@@ -611,7 +1018,10 @@ export class SceneNavigationService {
         }
 
         const nextArc = arcs[next];
-        const cost = costs[current] + (this.distance(arc.mid, nextArc.mid) * 100) / speed;
+        const cost =
+          costs[current] +
+          (this.distance(arc.mid, nextArc.mid) * 100) / speed +
+          this.transitionCost(nextArc.transition, mesh);
         if (cost >= costs[next]) {
           continue;
         }
@@ -636,6 +1046,17 @@ export class SceneNavigationService {
     chain.reverse();
 
     return chain;
+  }
+
+  /** Доплата за переход между уровнями: подъём дороже спуска. */
+  private transitionCost(transition: SceneNavTransition | null, mesh: SceneNavMesh): number {
+    if (transition === null || transition.type === 'walk') {
+      return 0;
+    }
+
+    const ipari = transition.type === 'climb' ? SCENE_NAVIGATION.climbCostIpari : SCENE_NAVIGATION.dropCostIpari;
+
+    return Math.max(1, mesh.resolution) * ipari;
   }
 
   /** Эвристика A* по порталу: расстояние до цели с максимальной скоростью. */
@@ -742,8 +1163,8 @@ export class SceneNavigationService {
     return this.distance(a, b) <= SCENE_NAVIGATION.linkEpsilon;
   }
 
-  /** Спрямляет путь через порталы проверкой видимости. */
-  private smooth(mesh: SceneNavMesh, points: ScenePoint[]): ScenePoint[] {
+  /** Спрямляет участок одного уровня проверкой видимости и стоимости. */
+  private smooth(mesh: SceneNavMesh, points: ScenePoint[], level: number): ScenePoint[] {
     if (points.length <= 2) {
       return points;
     }
@@ -753,7 +1174,7 @@ export class SceneNavigationService {
     // схлопнулся бы в прямую через воду: та тоже проходима, но медленнее.
     const along = new Array<number>(points.length).fill(0);
     for (let index = 1; index < points.length; index += 1) {
-      along[index] = along[index - 1] + this.segmentCost(mesh, points[index - 1], points[index]);
+      along[index] = along[index - 1] + this.segmentCost(mesh, points[index - 1], points[index], level);
     }
 
     const result: ScenePoint[] = [points[0]];
@@ -761,7 +1182,7 @@ export class SceneNavigationService {
     while (anchor < points.length - 1) {
       let next = points.length - 1;
       while (next > anchor + 1) {
-        const direct = this.segmentCost(mesh, points[anchor], points[next]);
+        const direct = this.segmentCost(mesh, points[anchor], points[next], level);
         const alongCost = along[next] - along[anchor];
         if (Number.isFinite(alongCost) && Number.isFinite(direct) && direct <= alongCost + 1e-6) {
           break;
@@ -775,8 +1196,8 @@ export class SceneNavigationService {
     return result;
   }
 
-  /** Стоимость отрезка по регионам; `Infinity`, если он выходит из области. */
-  private segmentCost(mesh: SceneNavMesh, from: ScenePoint, to: ScenePoint): number {
+  /** Стоимость отрезка на уровне; `Infinity`, если он выходит из области. */
+  private segmentCost(mesh: SceneNavMesh, from: ScenePoint, to: ScenePoint, level: number): number {
     const length = this.distance(from, to);
     const step = Math.max(1, this.sampleStep(mesh));
     const steps = Math.max(1, Math.ceil(length / step));
@@ -785,7 +1206,7 @@ export class SceneNavigationService {
     for (let index = 0; index < steps; index += 1) {
       const t = (index + 0.5) / steps;
       const point: ScenePoint = [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
-      const speed = this.speedAt(mesh, point);
+      const speed = this.speedAt(mesh, point, level);
       if (speed <= 0) {
         return Number.POSITIVE_INFINITY;
       }
@@ -795,33 +1216,55 @@ export class SceneNavigationService {
     return cost;
   }
 
-  /** Длина и стоимость итоговой полилинии. */
-  private measure(mesh: SceneNavMesh, points: ScenePoint[]): SceneNavRoute {
+  /** Длина и стоимость маршрута по участкам уровней. */
+  private measure(mesh: SceneNavMesh, segments: readonly SceneNavSegment[]): SceneNavRoute {
+    const points: ScenePoint[] = [];
     let distance = 0;
     let cost = 0;
     const step = Math.max(1, this.sampleStep(mesh));
-    for (let index = 1; index < points.length; index += 1) {
-      const from = points[index - 1];
-      const to = points[index];
-      const length = this.distance(from, to);
-      distance += length;
-      const steps = Math.max(1, Math.ceil(length / step));
-      const piece = length / steps;
-      for (let sample = 0; sample < steps; sample += 1) {
-        const t = (sample + 0.5) / steps;
-        const point: ScenePoint = [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
-        const speed = this.speedAt(mesh, point);
-        cost += piece * (100 / Math.max(1, speed));
+    for (const segment of segments) {
+      for (const point of segment.points) {
+        const last = points[points.length - 1];
+        if (last === undefined || this.distance(last, point) > SCENE_NAVIGATION.linkEpsilon) {
+          points.push(point);
+        }
+      }
+
+      for (let index = 1; index < segment.points.length; index += 1) {
+        const from = segment.points[index - 1];
+        const to = segment.points[index];
+        const length = this.distance(from, to);
+        distance += length;
+        const steps = Math.max(1, Math.ceil(length / step));
+        const piece = length / steps;
+        const fallback = this.speedAt(mesh, from, segment.level) || this.speedAt(mesh, to, segment.level);
+        for (let sample = 0; sample < steps; sample += 1) {
+          const t = (sample + 0.5) / steps;
+          const point: ScenePoint = [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
+          const speed = this.speedAt(mesh, point, segment.level) || fallback;
+          cost += piece * (100 / Math.max(1, speed));
+        }
       }
     }
 
-    return { points, distance, cost };
+    // Переходы между уровнями: подъём и спуск стоят как участок пути.
+    for (let index = 1; index < segments.length; index += 1) {
+      const delta = segments[index].elevation - segments[index - 1].elevation;
+      const resolution = Math.max(1, mesh.resolution);
+      const step = resolution * SCENE_NAVIGATION.stepIpari;
+      if (Math.abs(delta) <= step) {
+        continue;
+      }
+      cost += resolution * (delta > 0 ? SCENE_NAVIGATION.climbCostIpari : SCENE_NAVIGATION.dropCostIpari);
+    }
+
+    return { points, segments: [...segments], distance, cost };
   }
 
-  /** Скорость в точке по регионам. */
-  private speedAt(mesh: SceneNavMesh, point: ScenePoint): number {
+  /** Скорость в точке на уровне. */
+  private speedAt(mesh: SceneNavMesh, point: ScenePoint, level: number): number {
     for (const region of mesh.regions) {
-      if (!this.regionContains(region, point)) {
+      if (region.level !== level || !this.regionContains(region, point)) {
         continue;
       }
 
@@ -852,9 +1295,19 @@ export class SceneNavigationService {
   }
 
   /** Треугольник, содержащий точку. */
-  private locate(mesh: SceneNavMesh, point: ScenePoint): number {
-    for (let index = 0; index < mesh.triangles.length; index += 1) {
-      if (this.inTriangle(point, mesh.triangles[index].points)) {
+  /** Треугольник уровня, содержащий точку; `-1` — точка вне уровня. */
+  private locate(mesh: SceneNavMesh, point: ScenePoint, level: number): number {
+    return this.locateLevel(mesh.triangles, point, level);
+  }
+
+  /** Треугольник уровня по массиву: нужен и до сборки сетки. */
+  private locateLevel(triangles: readonly SceneNavTriangle[], point: ScenePoint, level: number): number {
+    for (let index = 0; index < triangles.length; index += 1) {
+      const triangle = triangles[index];
+      if (triangle.level !== level) {
+        continue;
+      }
+      if (this.inTriangle(point, triangle.points)) {
         return index;
       }
     }
@@ -862,12 +1315,38 @@ export class SceneNavigationService {
     return -1;
   }
 
-  /** Ближайший треугольник в пределах радиуса агента. */
-  private nearestTriangle(mesh: SceneNavMesh, point: ScenePoint): number {
+  /**
+   * Верхний уровень под точкой.
+   *
+   * Клик по настилу должен вести на настил, а не под него. Если настила нет,
+   * это обычная земля. Выбор уровня, когда под настилом тоже хочется пройти, —
+   * отдельный шаг: пока приоритет у верхней поверхности.
+   */
+  private locateTop(mesh: SceneNavMesh, point: ScenePoint): number {
+    let best = -1;
+    for (let index = 0; index < mesh.triangles.length; index += 1) {
+      const triangle = mesh.triangles[index];
+      if (!this.inTriangle(point, triangle.points)) {
+        continue;
+      }
+      if (best < 0 || triangle.level > mesh.triangles[best].level) {
+        best = index;
+      }
+    }
+
+    return best;
+  }
+
+  /** Ближайший треугольник уровня в пределах радиуса агента. */
+  private nearestTriangle(mesh: SceneNavMesh, point: ScenePoint, level: number): number {
     let best = -1;
     let bestDistance = Number.POSITIVE_INFINITY;
     for (let index = 0; index < mesh.triangles.length; index += 1) {
-      const distance = this.distanceToTriangle(point, mesh.triangles[index].points);
+      const triangle = mesh.triangles[index];
+      if (triangle.level !== level) {
+        continue;
+      }
+      const distance = this.distanceToTriangle(point, triangle.points);
       if (distance < bestDistance) {
         bestDistance = distance;
         best = index;
@@ -1098,6 +1577,9 @@ export class SceneNavigationService {
           element.sortOrder,
           element.props.kind ?? '',
           element.props.speed ?? '',
+          element.props.height ?? '',
+          element.props.elevation ?? '',
+          element.props.rotation ?? '',
           element.props.scale ?? '',
           element.props.baseRadius ?? '',
           element.props.sightRadius ?? '',

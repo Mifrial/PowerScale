@@ -737,6 +737,7 @@ function messageOf(exception: unknown): string {
               <SceneElementSettings
                 :element="selectedElement"
                 :boards="draft.boards"
+                :elements="draft.elements"
                 :resolution="draft.resolution"
                 @update="updateElementProps"
                 @target="updateElementTarget"

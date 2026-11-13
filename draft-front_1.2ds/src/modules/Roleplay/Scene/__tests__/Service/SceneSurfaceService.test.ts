@@ -97,6 +97,46 @@ describe('SceneSurfaceService', () => {
     expect(grid.sightBottom[cellOf(grid, 8, 8)]).toBe(Number.POSITIVE_INFINITY);
   });
 
+  it('считает высоту настила и зазор под ним', () => {
+    const high = service.build(
+      board(),
+      [
+        grass(),
+        element(2, 'terrain', { type: 'rect', x: 96, y: 0, w: 64, h: 256 }, { kind: 'water' }, 10),
+        element(
+          3,
+          'support',
+          { type: 'rect', x: 96, y: 96, w: 64, h: 64 },
+          { kind: 'bridge', elevation: 100, height: 16 },
+          20,
+        ),
+      ],
+      64,
+    );
+    const low = service.build(
+      board(),
+      [
+        grass(),
+        element(2, 'terrain', { type: 'rect', x: 96, y: 0, w: 64, h: 256 }, { kind: 'water' }, 10),
+        element(
+          3,
+          'support',
+          { type: 'rect', x: 96, y: 96, w: 64, h: 64 },
+          { kind: 'bridge', elevation: 0, height: 16 },
+          20,
+        ),
+      ],
+      64,
+    );
+
+    expect(high.elevation[cellOf(high, 8, 8)]).toBe(100);
+    expect(high.clearance[cellOf(high, 8, 8)]).toBe(84);
+    expect(low.elevation[cellOf(low, 8, 8)]).toBe(0);
+    expect(low.clearance[cellOf(low, 8, 8)]).toBe(-16);
+    // Вне настила потолка нет: зазор — открытое небо.
+    expect(high.clearance[cellOf(high, 0, 0)]).toBe(Number.POSITIVE_INFINITY);
+  });
+
   it('поворачивает настил моста вместе с опорой', () => {
     const shape: SceneShape = { type: 'rect', x: 93, y: 84, w: 70, h: 40 };
     const straight = service.build(board(), [grass(), element(2, 'support', shape, { kind: 'bridge' }, 20)], 64);

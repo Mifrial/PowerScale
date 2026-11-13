@@ -52,4 +52,10 @@ export const SCENE_NAVIGATION = {
 
   /** Рост тела для проверки зазора под настилом, ипари. */
   bodyHeightIpari: 1.2,
+
+  /** Доплата за подъём на уровень, в ипари пути. */
+  climbCostIpari: 2,
+
+  /** Доплата за спуск с уровня, в ипари пути. */
+  dropCostIpari: 0.5,
 } as const;

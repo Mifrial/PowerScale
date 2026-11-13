@@ -10,7 +10,7 @@ import type {
   SceneOverlayMask,
   SceneOverlayPaint,
 } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
-import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
+import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
@@ -119,8 +119,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private fogTexture: Texture | null = null;
 
-  /** Полилиния маршрута выбранного актора. */
-  private routePoints: ScenePoint[] | null = null;
+  /** Маршрут выбранного актора с участками по уровням. */
+  private route: SceneNavRoute | null = null;
 
   /** Идёт жест редактирования: траву не перестраиваем, иначе река тормозит. */
   private editing = false;
@@ -367,8 +367,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /** Маршрут выбранного актора; null — линия скрыта. */
-  setRoute(points: ScenePoint[] | null): void {
-    this.routePoints = points;
+  setRoute(route: SceneNavRoute | null): void {
+    this.route = route;
     this.drawRoute();
     this.requestFrame();
   }
@@ -904,22 +904,42 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     this.clearLayer('route');
-    if (this.routePoints === null || this.routePoints.length < 2 || this.isEdit()) {
+    if (this.route === null || this.route.points.length < 2 || this.isEdit()) {
       return;
     }
 
     const zoom = Math.max(0.001, this.zoom());
-    const graphics = new Graphics();
-    const first = this.routePoints[0];
-    graphics.moveTo(first[0], first[1]);
-    for (const point of this.routePoints.slice(1)) {
-      graphics.lineTo(point[0], point[1]);
+    const open = new Graphics();
+    const covered = new Graphics();
+    for (const segment of this.route.segments) {
+      if (segment.points.length < 2) {
+        continue;
+      }
+
+      const target = segment.covered ? covered : open;
+      const first = segment.points[0];
+      target.moveTo(first[0], first[1]);
+      for (const point of segment.points.slice(1)) {
+        target.lineTo(point[0], point[1]);
+      }
     }
-    graphics.stroke({ color: 0x60a5fa, width: 3 / zoom, alpha: 0.85 });
-    for (const point of this.routePoints) {
-      graphics.circle(point[0], point[1], 2.5 / zoom).fill({ color: 0xbfdbfe, alpha: 0.95 });
+
+    // Участок под настилом ведёт по земле: он приглушён и тоньше, чтобы не
+    // читаться как дорога поверх моста.
+    open.stroke({ color: 0x60a5fa, width: 3 / zoom, alpha: 0.85 });
+    covered.stroke({ color: 0x1d4ed8, width: 2 / zoom, alpha: 0.4 });
+    layer.addChild(open);
+    layer.addChild(covered);
+
+    // Точки стыков: вход на настил и спуск с него.
+    const dots = new Graphics();
+    for (const segment of this.route.segments) {
+      const first = segment.points[0];
+      const last = segment.points[segment.points.length - 1];
+      dots.circle(first[0], first[1], 2.5 / zoom).fill({ color: 0xbfdbfe, alpha: 0.95 });
+      dots.circle(last[0], last[1], 2.5 / zoom).fill({ color: 0xbfdbfe, alpha: 0.95 });
     }
-    layer.addChild(graphics);
+    layer.addChild(dots);
   }
 
   /**

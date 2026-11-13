@@ -279,6 +279,88 @@ describe('SceneNavigationService', () => {
     expect(clearance).toBeLessThan(trunk + body + 8);
   });
 
+  it('настил ниже шага остаётся полом, а не уровнем', () => {
+    const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20 }, 10);
+    const bridge = rect(3, 'support', 450, 300, 100, 100, { kind: 'bridge', speed: 150, elevation: 16 }, 20);
+    const route = service.route(board, [grass(), water, bridge], 64, [200, 350], [800, 350], options);
+
+    expect(route).not.toBeNull();
+    expect(route?.segments.every((segment) => segment.level === 0)).toBe(true);
+    expect(crossesRect(route?.points ?? [], 450, 300, 100, 100)).toBe(true);
+  });
+
+  it('ведёт по приподнятому настилу с подъёмом и спуском', () => {
+    const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20 }, 10);
+    // 0.75 ипари: выше шага, но в пределах подъёма; зазор под настилом мал.
+    const bridge = rect(
+      3,
+      'support',
+      450,
+      300,
+      100,
+      100,
+      { kind: 'bridge', speed: 150, elevation: 48, height: 16 },
+      20,
+    );
+    const route = service.route(board, [grass(), water, bridge], 64, [200, 350], [800, 350], options);
+    const waterOnly = service.route(board, [grass(), water], 64, [200, 350], [800, 350], options);
+
+    expect(route).not.toBeNull();
+    expect(route?.segments.some((segment) => segment.level === 1)).toBe(true);
+    expect(crossesRect(route?.points ?? [], 450, 300, 100, 100)).toBe(true);
+    expect(route?.cost).toBeLessThan(waterOnly?.cost ?? Number.POSITIVE_INFINITY);
+  });
+
+  it('пропускает под высоким настилом и не пускает на него без съезда', () => {
+    const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20 }, 10);
+    // 1.56 ипари: зазор 1.31 ипари — под мостом пройти можно, но подъём
+    // выше порога, поэтому настил без съезда недоступен.
+    const bridge = rect(
+      3,
+      'support',
+      450,
+      300,
+      100,
+      100,
+      { kind: 'bridge', speed: 150, elevation: 100, height: 16 },
+      20,
+    );
+    const route = service.route(board, [grass(), water, bridge], 64, [200, 350], [800, 350], options);
+
+    expect(route).not.toBeNull();
+    expect(route?.segments.every((segment) => segment.level === 0)).toBe(true);
+    expect(crossesRect(route?.points ?? [], 450, 300, 100, 100)).toBe(true);
+    expect(route?.segments.some((segment) => segment.covered)).toBe(true);
+    // Закрыт только кусок под настилом, остальной маршрут открыт.
+    expect(route?.segments.some((segment) => !segment.covered)).toBe(true);
+  });
+
+  it('пересобирает сетку при смене высоты настила', () => {
+    const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20 }, 10);
+    const flat = rect(3, 'support', 450, 300, 100, 100, { kind: 'bridge', speed: 150, elevation: 0 }, 20);
+    const raised = rect(3, 'support', 450, 300, 100, 100, { kind: 'bridge', speed: 150, elevation: 48 }, 20);
+    const cached = new SceneNavigationService();
+
+    const first = cached.route(board, [grass(), water, flat], 64, [200, 350], [800, 350], options);
+    const second = cached.route(board, [grass(), water, raised], 64, [200, 350], [800, 350], options);
+
+    expect(first?.segments.every((segment) => segment.level === 0)).toBe(true);
+    expect(second?.segments.some((segment) => segment.level === 1)).toBe(true);
+  });
+
+  it('съезд соединяет землю с высоким настилом', () => {
+    // Настил выше порога подъёма: без съезда на него не попасть.
+    const deck = rect(2, 'support', 600, 300, 200, 100, { kind: 'bridge', speed: 150, elevation: 100, height: 16 }, 20);
+    const ramp = rect(3, 'support', 450, 320, 150, 60, { kind: 'ramp', speed: 150, elevation: 100, height: 16 }, 15);
+    const withoutRamp = service.route(board, [grass(), deck], 64, [300, 350], [700, 350], options);
+    const withRamp = service.route(board, [grass(), deck, ramp], 64, [300, 350], [700, 350], options);
+
+    expect(withoutRamp).toBeNull();
+    expect(withRamp).not.toBeNull();
+    expect(withRamp?.segments.some((segment) => segment.level > 0)).toBe(true);
+    expect(crossesRect(withRamp?.points ?? [], 450, 320, 150, 60)).toBe(true);
+  });
+
   it('проходит щель шириной 1 ипари телом 0.3 и не проходит 0.4', () => {
     // Шахматные стены: верхняя заканчивается на y=400, нижняя начинается там
     // же; единственный проход — щель между ними по x.

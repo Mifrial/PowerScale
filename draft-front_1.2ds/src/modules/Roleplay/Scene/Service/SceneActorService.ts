@@ -84,8 +84,10 @@ export class SceneActorService {
       this.drawRing(painted, zoom, selected);
     }
 
-    painted.sprite.alpha = ghost ? SCENE_ACTOR.ghostAlpha : 1;
-    painted.arrow.alpha = ghost ? SCENE_ACTOR.ghostAlpha : 1;
+    const underDeck = actor.underDeck === true;
+    const alpha = ghost ? SCENE_ACTOR.ghostAlpha : underDeck ? SCENE_ACTOR.underDeckAlpha : 1;
+    painted.sprite.alpha = alpha;
+    painted.arrow.alpha = alpha;
   }
 
   /** Кольцо footprint: радиус в сцене, толщина — постоянная на экране. */

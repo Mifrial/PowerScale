@@ -8,17 +8,25 @@ import SceneDistanceField from '@/modules/Roleplay/Scene/Component/Scene/SceneDi
 import { SCENE_ASSET_COLLECTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ASSET_COLLECTIONS';
 import { sceneDecorPreset, sceneDecorPresetProps } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_DECOR_PRESETS';
 import { SCENE_MARKER_ROLE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_MARKER_ROLE_OPTIONS';
+import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { SCENE_OPENING_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OPENING_KIND_OPTIONS';
 import { SCENE_SUPPORT_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SUPPORT_KIND_OPTIONS';
 import { SCENE_TERRAIN_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_KIND_OPTIONS';
 import { SCENE_TERRAIN_SHORE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_SHORE_OPTIONS';
+import {
+  sceneDeckBaseElevation,
+  sceneDeckClearance,
+  sceneDeckThickness,
+} from '@/modules/Roleplay/Scene/Service/SceneHeight';
+import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
 const AssetLibraryField = defineAsyncComponent(() => import('@/modules/Library/Asset/Component/AssetLibraryField.vue'));
 
 const props = defineProps<{
   element: SceneDraftElement;
   boards: SceneSaveBoard[];
+  elements: SceneDraftElement[];
   resolution: number;
 }>();
 
@@ -54,6 +62,36 @@ const currentSpeed = computed(() => props.element.props.speed ?? defaultSpeed.va
 const isDeck = computed(
   () =>
     props.element.kind === 'support' && (props.element.props.kind === 'bridge' || props.element.props.kind === 'ramp'),
+);
+
+/** Рост тела, под который проверяется зазор, единицы сцены. */
+const bodyHeight = computed(() => Math.max(1, props.resolution) * SCENE_NAVIGATION.bodyHeightIpari);
+
+/** Зазор под настилом выбранного моста или съезда, единицы сцены. */
+const deckClearance = computed(() =>
+  isDeck.value ? sceneDeckClearance(props.element, props.elements, props.resolution) : null,
+);
+
+/** Проход под настилом открыт, если зазор не меньше роста тела. */
+const clearanceOpen = computed(() => deckClearance.value !== null && deckClearance.value >= bodyHeight.value);
+
+/** Подсказка к полю подъёма: до какой высоты поднять настил. */
+const elevationHint = computed(() => {
+  if (!isDeck.value) {
+    return undefined;
+  }
+
+  const required =
+    sceneDeckBaseElevation(props.element, props.elements, props.resolution) +
+    sceneDeckThickness(props.element, props.resolution) +
+    bodyHeight.value;
+
+  return `Проход под настилом: поднимите верхнюю поверхность до ${sceneUnits.formatUnits(required, props.resolution)} ипари, чтобы прошёл человек.`;
+});
+
+/** Зазор в ипари для карточки. */
+const clearanceText = computed(() =>
+  deckClearance.value === null ? '' : sceneUnits.formatUnits(Math.round(deckClearance.value), props.resolution),
 );
 
 const targetOptions = computed(() =>
@@ -189,7 +227,7 @@ function onAssetPreset(item: AssetItem): void {
         :model-value="props.element.props.elevation ?? 0"
         :resolution="props.resolution"
         :label="isDeck ? 'Подъём настила, ипари' : 'Подъём, ипари'"
-        :hint="isDeck ? 'Высота верхней поверхности над землёй: зазор под мостом и рёбра доступа.' : undefined"
+        :hint="isDeck ? elevationHint : undefined"
         :min="0"
         :max="100000"
         @update:model-value="(value) => patch({ elevation: value })"
@@ -204,6 +242,15 @@ function onAssetPreset(item: AssetItem): void {
         hide-details
         @update:model-value="(value) => patchNumber('rotation', value)"
       />
+      <div v-if="deckClearance !== null" class="scene-element-settings__clearance">
+        <v-icon size="16" :color="clearanceOpen ? 'success' : 'error'">
+          {{ clearanceOpen ? 'mdi-arrow-expand-vertical' : 'mdi-close-octagon-outline' }}
+        </v-icon>
+        <span>
+          Зазор под настилом {{ clearanceText }} ипари —
+          {{ clearanceOpen ? 'проход открыт' : 'проход закрыт' }}
+        </span>
+      </div>
     </template>
 
     <template v-if="props.element.kind === 'obstacle'">
@@ -460,5 +507,14 @@ function onAssetPreset(item: AssetItem): void {
 .scene-element-settings__row > * {
   flex: 1 1 0;
   min-width: 0;
+}
+
+.scene-element-settings__clearance {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  opacity: 0.9;
 }
 </style>

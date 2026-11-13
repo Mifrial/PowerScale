@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
@@ -6,9 +7,10 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { ScenePreviewActor } from '@/modules/Roleplay/Scene/Dto/ScenePreviewActor';
 import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurfaceGrid';
 import { SCENE_ACTOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ACTOR';
+import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_PREVIEW } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_PREVIEW';
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
-import { SceneSurfaceService } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
+import { SceneSurfaceService, surfaceIndex } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { SceneVisibilityService } from '@/modules/Roleplay/Scene/Service/SceneVisibilityService';
 
 /** Внешние данные предпросмотра. */
@@ -24,6 +26,8 @@ interface Motion {
   actorId: number;
   points: ScenePoint[];
   lengths: number[];
+  /** Уровень каждого отрезка: 0 — земля, больше — настил. */
+  levels: number[];
   total: number;
   traveled: number;
   lastTime: number;
@@ -102,6 +106,8 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
         label: element.props.label || (role === 'player_start' ? 'Манекен' : 'Токен'),
         selected: element.id === selectedId.value,
         ghost: old?.ghost ?? false,
+        level: old?.level ?? 0,
+        underDeck: old?.underDeck ?? false,
         sightRadius:
           old?.sightRadius ??
           resolution * (role === 'player_start' ? SCENE_PREVIEW.sightIpari : SCENE_PREVIEW.tokenSightIpari),
@@ -179,18 +185,20 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
     const result = navigation.route(board, options.elements(), options.resolution(), [actor.x, actor.y], point, {
       agentRadius: actor.radius,
+      fromLevel: actor.level ?? 0,
     });
     if (result === null || result.points.length < 2) {
       return;
     }
 
     route.value = result;
-    startMotion(actor.id, result.points);
+    startMotion(actor.id, result);
   }
 
-  /** Запускает движение по полилинии. */
-  function startMotion(actorId: number, points: ScenePoint[]): void {
+  /** Запускает движение по маршруту с уровнями. */
+  function startMotion(actorId: number, path: SceneNavRoute): void {
     stopMotion();
+    const { points, levels } = routePath(path);
     const lengths: number[] = [];
     let total = 0;
     for (let index = 1; index < points.length; index += 1) {
@@ -203,8 +211,38 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     }
 
     const now = performance.now();
-    motion = { actorId, points, lengths, total, traveled: 0, lastTime: now, lastGhostAt: now };
+    motion = { actorId, points, lengths, levels, total, traveled: 0, lastTime: now, lastGhostAt: now };
     frame = requestAnimationFrame(step);
+  }
+
+  /**
+   * Точки маршрута с уровнем каждого отрезка.
+   *
+   * Участки делят общую точку на стыке уровней: для отрезка, выходящего со
+   * стыка, берётся уровень следующего участка.
+   */
+  function routePath(path: SceneNavRoute): { points: ScenePoint[]; levels: number[] } {
+    const points: ScenePoint[] = [];
+    const levels: number[] = [];
+    for (const segment of path.segments) {
+      segment.points.forEach((point, index) => {
+        const last = points[points.length - 1];
+        if (
+          index === 0 &&
+          last !== undefined &&
+          Math.hypot(last[0] - point[0], last[1] - point[1]) <= SCENE_NAVIGATION.linkEpsilon
+        ) {
+          levels[levels.length - 1] = segment.level;
+
+          return;
+        }
+
+        points.push(point);
+        levels.push(segment.level);
+      });
+    }
+
+    return { points, levels };
   }
 
   /** Кадр движения. */
@@ -226,10 +264,19 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return;
     }
 
-    const { point, facing } = sampled;
-    actors.value = actors.value.map((actor) =>
-      actor.id === motion?.actorId ? { ...actor, x: point[0], y: point[1], facing } : actor,
-    );
+    const { point, facing, index } = sampled;
+    const board = options.board();
+    const surface = board === null ? null : surfaceGrid(board);
+    const level = motion.levels[index] ?? 0;
+    actors.value = actors.value.map((actor) => {
+      if (actor.id !== motion?.actorId) {
+        return actor;
+      }
+
+      const moved: ScenePreviewActor = { ...actor, x: point[0], y: point[1], facing, level };
+
+      return { ...moved, underDeck: surface === null ? false : isUnderDeck(surface, moved) };
+    });
 
     if (now - motion.lastGhostAt >= SCENE_PREVIEW.ghostInterval) {
       motion.lastGhostAt = now;
@@ -245,8 +292,8 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     frame = requestAnimationFrame(step);
   }
 
-  /** Точка и facing на текущей длине маршрута. */
-  function sampleMotion(current: Motion): { point: ScenePoint; facing: number } | null {
+  /** Точка, facing и индекс отрезка на текущей длине маршрута. */
+  function sampleMotion(current: Motion): { point: ScenePoint; facing: number; index: number } | null {
     let left = current.traveled;
     for (let index = 0; index < current.lengths.length; index += 1) {
       const length = current.lengths[index];
@@ -262,38 +309,45 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       const dy = to[1] - from[1];
       const facing = ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360;
 
-      return { point: [from[0] + dx * t, from[1] + dy * t], facing };
+      return { point: [from[0] + dx * t, from[1] + dy * t], facing, index };
     }
 
     return null;
   }
 
-  /** Обновляет призраков по обзору выбранного актора. */
+  /** Обновляет призраков по обзору выбранного актора и признак «под настилом». */
   function updateGhosts(): void {
     const observer = selectedActor.value;
-    if (observer === null || !options.enabled()) {
-      actors.value = actors.value.map((actor) => ({ ...actor, ghost: false }));
-
-      return;
-    }
-
     const board = options.board();
-    if (board === null) {
-      return;
-    }
-
-    const surface = surfaceGrid(board);
-    const observerPoint: ScenePoint = [observer.x, observer.y];
+    const surface = board === null || !options.enabled() ? null : surfaceGrid(board);
+    const observerPoint: ScenePoint | null = observer === null ? null : [observer.x, observer.y];
     actors.value = actors.value.map((actor) => {
-      if (actor.id === observer.id) {
-        return { ...actor, ghost: false };
+      const under = surface === null ? false : isUnderDeck(surface, actor);
+      if (observer === null || observerPoint === null || surface === null || actor.id === observer.id) {
+        return { ...actor, ghost: false, underDeck: under };
       }
 
       const distance = Math.hypot(actor.x - observer.x, actor.y - observer.y);
       const visible = distance <= observer.sightRadius && visibility.sees(surface, observerPoint, [actor.x, actor.y]);
 
-      return { ...actor, ghost: !visible };
+      return { ...actor, ghost: !visible, underDeck: under };
     });
+  }
+
+  /**
+   * Актор стоит под более высокой поверхностью.
+   *
+   * Клетка под настилом несёт конечный зазор, но на самом настиле актор тоже
+   * стоит в такой клетке. Поэтому признак включается только на базовом уровне.
+   */
+  function isUnderDeck(surface: SceneSurfaceGrid, actor: SceneActor): boolean {
+    if ((actor.level ?? 0) > 0) {
+      return false;
+    }
+
+    const cell = surfaceIndex(surface, actor.x, actor.y);
+
+    return cell >= 0 && Number.isFinite(surface.clearance[cell]);
   }
 
   /** Сетка поверхностей с кэшем: обзор не пересобирает её на каждый клик. */
@@ -314,6 +368,10 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
             element.kind,
             element.sortOrder,
             element.props.kind ?? '',
+            element.props.speed ?? '',
+            element.props.height ?? '',
+            element.props.elevation ?? '',
+            element.props.rotation ?? '',
             element.props.scale ?? '',
             element.props.baseRadius ?? '',
             element.props.sightRadius ?? '',

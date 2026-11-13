@@ -7,6 +7,7 @@ import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurface
 import type { SceneSurfaceKind } from '@/modules/Roleplay/Scene/Dto/SceneSurfaceKind';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
+import { isSceneDeck, sceneDeckThickness, sceneSurfaceElevation } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 /** Тип поверхности по виду террейна. */
@@ -69,12 +70,14 @@ export class SceneSurfaceService {
       kinds: new Array<SceneSurfaceKind>(size).fill('none'),
       speeds: new Array<number>(size).fill(0),
       costs: new Array<number>(size).fill(Number.POSITIVE_INFINITY),
+      elevation: new Float32Array(size),
+      clearance: new Float32Array(size).fill(Number.POSITIVE_INFINITY),
       sightBottom: new Float32Array(size).fill(Number.POSITIVE_INFINITY),
     };
 
     const own = elements.filter((element) => element.boardId === board.id);
-    this.paintTerrain(grid, own);
-    this.paintBridges(grid, own);
+    this.paintTerrain(grid, own, resolution);
+    this.paintBridges(grid, own, resolution);
     this.paintObstacles(grid, own);
     this.paintDecor(grid, own, resolution);
     this.paintOpenings(grid, own);
@@ -85,7 +88,7 @@ export class SceneSurfaceService {
   }
 
   /** Террейн: вода рисуется последней и перекрывает дорогу. */
-  private paintTerrain(grid: SceneSurfaceGrid, elements: readonly SceneElement[]): void {
+  private paintTerrain(grid: SceneSurfaceGrid, elements: readonly SceneElement[], resolution: number): void {
     const terrain = elements
       .filter((element) => element.kind === 'terrain')
       .sort(
@@ -100,27 +103,37 @@ export class SceneSurfaceService {
       }
 
       const preset = SCENE_SURFACE.speeds[kind];
+      const elevation = sceneSurfaceElevation(element, resolution);
       this.paintShape(grid, element.shape, (index) => {
         grid.kinds[index] = kind;
         grid.speeds[index] = this.speedOf(element, preset);
+        grid.elevation[index] = elevation;
       });
     }
   }
 
   /** Мост и съезд — настил: проходимы и не перекрывают обзор. */
-  private paintBridges(grid: SceneSurfaceGrid, elements: readonly SceneElement[]): void {
+  private paintBridges(grid: SceneSurfaceGrid, elements: readonly SceneElement[], resolution: number): void {
     for (const element of elements) {
-      if (element.kind !== 'support' || (element.props.kind !== 'bridge' && element.props.kind !== 'ramp')) {
+      if (!isSceneDeck(element)) {
         continue;
       }
 
       const preset = SCENE_SURFACE.speeds.bridge;
+      const deckElevation = sceneSurfaceElevation(element, resolution);
+      const thickness = sceneDeckThickness(element, resolution);
       this.paintShape(
         grid,
         element.shape,
         (index) => {
+          // Клетка до настила — это поверхность под ним: вода, берег, дорога
+          // или нижний настил. Зазор считается до низа настила и берётся
+          // самый узкий, если настилов несколько.
+          const gap = deckElevation - thickness - grid.elevation[index];
+          grid.clearance[index] = Math.min(grid.clearance[index], gap);
           grid.kinds[index] = 'bridge';
           grid.speeds[index] = this.speedOf(element, preset);
+          grid.elevation[index] = deckElevation;
         },
         sceneRotation(element),
       );

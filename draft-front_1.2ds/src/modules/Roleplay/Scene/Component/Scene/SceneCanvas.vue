@@ -137,9 +137,7 @@ function cssColor(color: number): string {
   return `#${color.toString(16).padStart(6, '0')}`;
 }
 
-const selectedActor = computed(
-  () => (props.actors ?? []).find((actor) => actor.id === props.selectedActorId) ?? null,
-);
+const selectedActor = computed(() => (props.actors ?? []).find((actor) => actor.id === props.selectedActorId) ?? null);
 
 /** Точка обзора: выбранный актор, иначе первый актор или центр поля. */
 function observerOf(): ScenePoint | null {
@@ -158,9 +156,7 @@ function overlayPaint(): SceneOverlayPaint | null {
 
   const sightRadius = selectedActor.value?.sightRadius;
   const effective =
-    overlay.radius === null && sightRadius !== undefined
-      ? { ...overlay, radius: sightRadius }
-      : overlay;
+    overlay.radius === null && sightRadius !== undefined ? { ...overlay, radius: sightRadius } : overlay;
 
   return overlays.paint(board, props.model.elements, props.model.resolution, effective, observerOf());
 }
@@ -192,7 +188,7 @@ onMounted(async () => {
   sceneRenderer.setWaterAnimation(props.waterAnimation);
   sceneRenderer.setSelection(props.model.selection);
   sceneRenderer.setActors(props.actors ?? []);
-  sceneRenderer.setRoute(props.route?.points ?? null);
+  sceneRenderer.setRoute(props.route ?? null);
   refreshOverlay();
   observer = new ResizeObserver(() => handleResize());
   observer.observe(element);
@@ -225,7 +221,7 @@ watch(
     }
 
     renderer.setActors(props.actors ?? []);
-    renderer.setRoute(props.route?.points ?? null);
+    renderer.setRoute(props.route ?? null);
     refreshOverlay();
   },
 );
@@ -246,7 +242,7 @@ watch(
 
 watch(
   () => props.route,
-  () => renderer?.setRoute(props.route?.points ?? null),
+  () => renderer?.setRoute(props.route ?? null),
 );
 
 watch(
@@ -975,5 +971,4 @@ defineExpose({ fit, zoomBy });
   border-radius: 3px;
   border: 1px solid rgba(255, 255, 255, 0.7);
 }
-
 </style>
