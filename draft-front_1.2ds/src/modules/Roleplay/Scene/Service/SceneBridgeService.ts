@@ -1,6 +1,7 @@
 import { Graphics } from 'pixi.js';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
+import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 /** Размеры настила, общие для моста и съезда. */
 interface DeckMetrics {
@@ -12,23 +13,28 @@ interface DeckMetrics {
   short: number;
   base: number;
   line: number;
+  /** Подъём верхней поверхности: влияет только на тень, не на проекцию. */
   rise: number;
+  /** Толщина настила: вертикальный размер для Game, в рисунке — край. */
   thickness: number;
   rail: number;
   inset: number;
   planks: number;
-  /** Съезд идёт от начала прямоугольника к концу; `true` — наоборот. */
-  flip: boolean;
+  /** Поворот вокруг центра прямоугольника, градусы. */
+  rotation: number;
 }
 
 /**
- * Мост и съезд: настил, доски, перила, сваи и боковая грань.
+ * Мост и съезд: плоский настил, доски, перила и тень.
  *
- * Рисуется в мировых координатах прямоугольника элемента и живёт в слое
- * `ground` над водой, но под акторами: это пол, а не препятствие. Подъём
- * (`props.elevation`) и толщина (`props.height`) дают боковую грань, сваи и
- * тень, поэтому мост читается объёмным. Толщина линий переводится из
- * экранных пикселей в единицы сцены через зум.
+ * Сцена top-down: мост — часть пола, а не 3D-коробка. Поэтому у настила нет
+ * боковой грани, свай и ватерлинии — только тёмная кромка, доски и мягкая
+ * тень на воде. Высота (`props.elevation`) и толщина (`props.height`) остаются
+ * данными для Game: по ним считаются зазор под настилом и рёбра доступа.
+ *
+ * Ориентация — по длинной стороне прямоугольника, `props.rotation` поворачивает
+ * настил вокруг центра. Толщина линий переводится из экранных пикселей через
+ * зум.
  */
 export class SceneBridgeService {
   /** Рисует мост или съезд; `null` — элемент не прямоугольный. */
@@ -42,139 +48,47 @@ export class SceneBridgeService {
     return element.props.kind === 'ramp' ? this.paintRamp(metrics) : this.paintBridge(metrics);
   }
 
-  /** Мост: ровный настил с перилами и объёмом. */
+  /** Мост: ровный настил с перилами. */
   private paintBridge(metrics: DeckMetrics): Graphics {
     const graphics = new Graphics();
     this.paintShadow(graphics, metrics);
-    this.paintSide(graphics, metrics);
     this.paintDeck(graphics, metrics);
     this.paintEndCaps(graphics, metrics);
     this.paintRails(graphics, metrics);
+    this.applyRotation(graphics, metrics);
 
     return graphics;
   }
 
-  /** Съезд: наклонный настил со ступенями и сходящей на нет боковой гранью. */
+  /** Съезд: наклонный настил со ступенями. */
   private paintRamp(metrics: DeckMetrics): Graphics {
     const graphics = new Graphics();
     this.paintShadow(graphics, metrics);
-    this.paintRampSide(graphics, metrics);
     this.paintDeck(graphics, metrics, true);
+    this.paintRampTint(graphics, metrics);
     this.paintRampCleats(graphics, metrics);
     this.paintRampEnds(graphics, metrics);
     this.paintRails(graphics, metrics);
+    this.applyRotation(graphics, metrics);
 
     return graphics;
   }
 
-  /** Мягкая тень на воде: несколько слоёв, смещение растёт с подъёмом. */
+  /** Мягкая тень на воде: смещение растёт с подъёмом, но грань не рисуется. */
   private paintShadow(graphics: Graphics, metrics: DeckMetrics): void {
-    if (metrics.rise <= 0) {
-      return;
-    }
-
-    const spread = metrics.rise * 0.18;
+    const offset = metrics.rise * 0.12 + metrics.thickness * 0.2;
+    const spread = Math.max(2, metrics.short * 0.04);
     for (let layer = 3; layer >= 1; layer -= 1) {
       const grow = spread * layer;
       graphics
         .roundRect(
-          metrics.x - grow + spread * 0.6,
-          metrics.y - grow + spread,
+          metrics.x - grow + offset,
+          metrics.y - grow + offset,
           metrics.w + grow * 2,
           metrics.h + grow * 2,
           Math.max(1, metrics.short * 0.08),
         )
-        .fill({ color: SCENE_BRIDGE.shadowColor, alpha: SCENE_BRIDGE.shadowAlpha / (layer + 1) });
-    }
-  }
-
-  /** Боковая грань моста: виден торец настила и сваи. */
-  private paintSide(graphics: Graphics, metrics: DeckMetrics): void {
-    if (metrics.rise <= 0) {
-      return;
-    }
-
-    const pile = Math.max(2, metrics.short * SCENE_BRIDGE.pileWidth);
-    const piles = Math.max(2, Math.round(metrics.planks / 4));
-    if (metrics.horizontal) {
-      const top = metrics.y + metrics.h;
-      graphics.rect(metrics.x, top, metrics.w, metrics.rise).fill({ color: SCENE_BRIDGE.sideColor });
-      for (let index = 1; index < metrics.planks; index += 1) {
-        const px = metrics.x + (metrics.w * index) / metrics.planks;
-        graphics.moveTo(px, top).lineTo(px, top + metrics.rise);
-      }
-      graphics.stroke({ color: SCENE_BRIDGE.sideDarkColor, width: metrics.line, alpha: 0.5 });
-      graphics
-        .rect(metrics.x, top + metrics.rise - metrics.thickness, metrics.w, metrics.thickness)
-        .fill({ color: SCENE_BRIDGE.sideDarkColor, alpha: 0.95 });
-      for (let index = 0; index <= piles; index += 1) {
-        const px = metrics.x + (metrics.w * index) / piles;
-        graphics.rect(px - pile / 2, top, pile, metrics.rise).fill({ color: SCENE_BRIDGE.pileColor, alpha: 0.85 });
-        graphics
-          .ellipse(px, top + metrics.rise, pile * 1.6, pile * 0.45)
-          .stroke({ color: 0xdbeafe, width: metrics.line, alpha: 0.16 });
-      }
-    } else {
-      const left = metrics.x + metrics.w;
-      graphics.rect(left, metrics.y, metrics.rise, metrics.h).fill({ color: SCENE_BRIDGE.sideColor });
-      for (let index = 1; index < metrics.planks; index += 1) {
-        const py = metrics.y + (metrics.h * index) / metrics.planks;
-        graphics.moveTo(left, py).lineTo(left + metrics.rise, py);
-      }
-      graphics.stroke({ color: SCENE_BRIDGE.sideDarkColor, width: metrics.line, alpha: 0.5 });
-      graphics
-        .rect(left + metrics.rise - metrics.thickness, metrics.y, metrics.thickness, metrics.h)
-        .fill({ color: SCENE_BRIDGE.sideDarkColor, alpha: 0.95 });
-      for (let index = 0; index <= piles; index += 1) {
-        const py = metrics.y + (metrics.h * index) / piles;
-        graphics.rect(left, py - pile / 2, metrics.rise, pile).fill({ color: SCENE_BRIDGE.pileColor, alpha: 0.85 });
-        graphics
-          .ellipse(left + metrics.rise, py, pile * 0.45, pile * 1.6)
-          .stroke({ color: 0xdbeafe, width: metrics.line, alpha: 0.16 });
-      }
-    }
-  }
-
-  /** Наклонная боковая грань съезда: высота растёт от низкого конца. */
-  private paintRampSide(graphics: Graphics, metrics: DeckMetrics): void {
-    if (metrics.rise <= 0) {
-      return;
-    }
-
-    if (metrics.horizontal) {
-      const bottom = metrics.y + metrics.h;
-      const points = metrics.flip
-        ? [metrics.x, bottom, metrics.x + metrics.w, bottom, metrics.x, bottom + metrics.rise]
-        : [metrics.x, bottom, metrics.x + metrics.w, bottom, metrics.x + metrics.w, bottom + metrics.rise];
-      graphics.poly(points).fill({ color: SCENE_BRIDGE.sideColor });
-      const seamFrom = metrics.flip ? metrics.x : metrics.x + metrics.w;
-      for (let index = 1; index < metrics.planks; index += 1) {
-        const px = metrics.x + (metrics.w * index) / metrics.planks;
-        const height = (metrics.rise * (metrics.flip ? metrics.x + metrics.w - px : px - metrics.x)) / metrics.w;
-        graphics.moveTo(px, bottom).lineTo(px, bottom + height);
-      }
-      graphics.stroke({ color: SCENE_BRIDGE.sideDarkColor, width: metrics.line, alpha: 0.5 });
-      graphics
-        .moveTo(seamFrom, bottom)
-        .lineTo(seamFrom, bottom + metrics.rise)
-        .stroke({ color: SCENE_BRIDGE.sideDarkColor, width: metrics.line * 1.5, alpha: 0.9 });
-    } else {
-      const right = metrics.x + metrics.w;
-      const points = metrics.flip
-        ? [right, metrics.y, right, metrics.y + metrics.h, right + metrics.rise, metrics.y]
-        : [right, metrics.y, right, metrics.y + metrics.h, right + metrics.rise, metrics.y + metrics.h];
-      graphics.poly(points).fill({ color: SCENE_BRIDGE.sideColor });
-      const seamFrom = metrics.flip ? metrics.y : metrics.y + metrics.h;
-      for (let index = 1; index < metrics.planks; index += 1) {
-        const py = metrics.y + (metrics.h * index) / metrics.planks;
-        const width = (metrics.rise * (metrics.flip ? metrics.y + metrics.h - py : py - metrics.y)) / metrics.h;
-        graphics.moveTo(right, py).lineTo(right + width, py);
-      }
-      graphics.stroke({ color: SCENE_BRIDGE.sideDarkColor, width: metrics.line, alpha: 0.5 });
-      graphics
-        .moveTo(right, seamFrom)
-        .lineTo(right + metrics.rise, seamFrom)
-        .stroke({ color: SCENE_BRIDGE.sideDarkColor, width: metrics.line * 1.5, alpha: 0.9 });
+        .fill({ color: SCENE_BRIDGE.shadowColor, alpha: SCENE_BRIDGE.shadowAlpha / (layer + 2) });
     }
   }
 
@@ -247,22 +161,62 @@ export class SceneBridgeService {
     }
   }
 
+  /** Затемнение к высокому концу съезда: полосы читаются как подъём. */
+  private paintRampTint(graphics: Graphics, metrics: DeckMetrics): void {
+    const bands = 4;
+    for (let index = 0; index < bands; index += 1) {
+      const from = index / bands;
+      const to = (index + 1) / bands;
+      if (metrics.horizontal) {
+        graphics
+          .rect(
+            metrics.x + metrics.w * (0.45 + from * 0.55),
+            metrics.y + metrics.inset,
+            metrics.w * (to - from) * 0.55,
+            Math.max(1, metrics.h - metrics.inset * 2),
+          )
+          .fill({ color: SCENE_BRIDGE.shadowColor, alpha: 0.02 + index * 0.025 });
+      } else {
+        graphics
+          .rect(
+            metrics.x + metrics.inset,
+            metrics.y + metrics.h * (0.45 + from * 0.55),
+            Math.max(1, metrics.w - metrics.inset * 2),
+            metrics.h * (to - from) * 0.55,
+          )
+          .fill({ color: SCENE_BRIDGE.shadowColor, alpha: 0.02 + index * 0.025 });
+      }
+    }
+  }
+
   /** Поперечные ступени съезда: читаются как наклонные доски. */
   private paintRampCleats(graphics: Graphics, metrics: DeckMetrics): void {
-    const cleat = Math.max(1, metrics.line);
-    for (let index = 1; index < metrics.planks; index += 1) {
+    const cleat = Math.max(1, metrics.line * 1.8);
+    for (
+      let index = SCENE_BRIDGE.rampCleatEveryPlanks;
+      index < metrics.planks;
+      index += SCENE_BRIDGE.rampCleatEveryPlanks
+    ) {
       if (metrics.horizontal) {
         const px = metrics.x + (metrics.w * index) / metrics.planks;
         graphics
           .moveTo(px, metrics.y + metrics.inset)
           .lineTo(px, metrics.y + metrics.h - metrics.inset)
-          .stroke({ color: SCENE_BRIDGE.edgeColor, width: cleat, alpha: 0.6 });
+          .stroke({ color: SCENE_BRIDGE.edgeColor, width: cleat, alpha: 0.75 });
+        graphics
+          .moveTo(px + cleat, metrics.y + metrics.inset)
+          .lineTo(px + cleat, metrics.y + metrics.h - metrics.inset)
+          .stroke({ color: SCENE_BRIDGE.railHighlightColor, width: metrics.line * 0.6, alpha: 0.35 });
       } else {
         const py = metrics.y + (metrics.h * index) / metrics.planks;
         graphics
           .moveTo(metrics.x + metrics.inset, py)
           .lineTo(metrics.x + metrics.w - metrics.inset, py)
-          .stroke({ color: SCENE_BRIDGE.edgeColor, width: cleat, alpha: 0.6 });
+          .stroke({ color: SCENE_BRIDGE.edgeColor, width: cleat, alpha: 0.75 });
+        graphics
+          .moveTo(metrics.x + metrics.inset, py + cleat)
+          .lineTo(metrics.x + metrics.w - metrics.inset, py + cleat)
+          .stroke({ color: SCENE_BRIDGE.railHighlightColor, width: metrics.line * 0.6, alpha: 0.35 });
       }
     }
   }
@@ -270,18 +224,16 @@ export class SceneBridgeService {
   /** Порог съезда: низкий конец светлее, высокий — тёмная балка. */
   private paintRampEnds(graphics: Graphics, metrics: DeckMetrics): void {
     const cap = Math.max(2, metrics.short * SCENE_BRIDGE.endCapWidth);
-    const low = metrics.flip ? 1 : 0;
-    const high = 1 - low;
     if (metrics.horizontal) {
-      const lowX = low === 0 ? metrics.x : metrics.x + metrics.w - cap;
-      const highX = high === 0 ? metrics.x : metrics.x + metrics.w - cap;
-      graphics.rect(lowX, metrics.y, cap, metrics.h).fill({ color: SCENE_BRIDGE.railHighlightColor, alpha: 0.35 });
-      graphics.rect(highX, metrics.y, cap, metrics.h).fill({ color: SCENE_BRIDGE.edgeColor, alpha: 0.95 });
+      graphics.rect(metrics.x, metrics.y, cap, metrics.h).fill({ color: SCENE_BRIDGE.railHighlightColor, alpha: 0.35 });
+      graphics
+        .rect(metrics.x + metrics.w - cap, metrics.y, cap, metrics.h)
+        .fill({ color: SCENE_BRIDGE.edgeColor, alpha: 0.95 });
     } else {
-      const lowY = low === 0 ? metrics.y : metrics.y + metrics.h - cap;
-      const highY = high === 0 ? metrics.y : metrics.y + metrics.h - cap;
-      graphics.rect(metrics.x, lowY, metrics.w, cap).fill({ color: SCENE_BRIDGE.railHighlightColor, alpha: 0.35 });
-      graphics.rect(metrics.x, highY, metrics.w, cap).fill({ color: SCENE_BRIDGE.edgeColor, alpha: 0.95 });
+      graphics.rect(metrics.x, metrics.y, metrics.w, cap).fill({ color: SCENE_BRIDGE.railHighlightColor, alpha: 0.35 });
+      graphics
+        .rect(metrics.x, metrics.y + metrics.h - cap, metrics.w, cap)
+        .fill({ color: SCENE_BRIDGE.edgeColor, alpha: 0.95 });
     }
   }
 
@@ -344,6 +296,19 @@ export class SceneBridgeService {
       .fill({ color: SCENE_BRIDGE.postCapColor, alpha: 0.9 });
   }
 
+  /** Поворот всего настила вокруг центра прямоугольника. */
+  private applyRotation(graphics: Graphics, metrics: DeckMetrics): void {
+    if (metrics.rotation === 0) {
+      return;
+    }
+
+    const centerX = metrics.x + metrics.w / 2;
+    const centerY = metrics.y + metrics.h / 2;
+    graphics.pivot.set(centerX, centerY);
+    graphics.position.set(centerX, centerY);
+    graphics.rotation = (metrics.rotation * Math.PI) / 180;
+  }
+
   /** Чередование досок. */
   private plankTone(index: number): number {
     const tones = [
@@ -365,17 +330,8 @@ export class SceneBridgeService {
     const base = Math.max(1, resolution);
     const shape = element.shape;
     const short = Math.max(1, Math.min(shape.w, shape.h));
-    const elevation = Math.max(0, element.props.elevation ?? 0);
-    const height = Math.max(0, element.props.height ?? 0);
-    // Старые мосты хранят высоту над водой в `height`, а `elevation` у них 0.
-    // Новый пресет задаёт оба: подъём — `elevation`, толщину — `height`.
-    // Оба нуля — плоский настил на земле.
-    const rise = elevation > 0 ? elevation : height;
-    const thickness = Math.min(
-      Math.max(1, height > 0 ? height : base * SCENE_BRIDGE.thicknessIpari),
-      Math.max(1, rise * SCENE_BRIDGE.thicknessShare),
-    );
-    const rotation = (((element.props.rotation ?? 0) % 360) + 360) % 360;
+    const rise = Math.max(0, element.props.elevation ?? 0);
+    const thickness = Math.max(1, element.props.height ?? base * SCENE_BRIDGE.thicknessIpari);
 
     return {
       x: shape.x,
@@ -391,7 +347,7 @@ export class SceneBridgeService {
       rail: Math.max(1, short * SCENE_BRIDGE.railWidth),
       inset: Math.max(1, short * SCENE_BRIDGE.deckInset),
       planks: Math.max(1, Math.round((shape.w >= shape.h ? shape.w : shape.h) / (base * SCENE_BRIDGE.plankIpari))),
-      flip: rotation >= 180,
+      rotation: sceneRotation(element),
     };
   }
 }

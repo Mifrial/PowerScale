@@ -7,6 +7,7 @@ import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurface
 import type { SceneSurfaceKind } from '@/modules/Roleplay/Scene/Dto/SceneSurfaceKind';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
+import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 /** Тип поверхности по виду террейна. */
 const TERRAIN_SURFACE: Readonly<Record<string, SceneSurfaceKind>> = {
@@ -114,10 +115,15 @@ export class SceneSurfaceService {
       }
 
       const preset = SCENE_SURFACE.speeds.bridge;
-      this.paintShape(grid, element.shape, (index) => {
-        grid.kinds[index] = 'bridge';
-        grid.speeds[index] = this.speedOf(element, preset);
-      });
+      this.paintShape(
+        grid,
+        element.shape,
+        (index) => {
+          grid.kinds[index] = 'bridge';
+          grid.speeds[index] = this.speedOf(element, preset);
+        },
+        sceneRotation(element),
+      );
     }
   }
 
@@ -205,9 +211,9 @@ export class SceneSurfaceService {
     }
   }
 
-  /** Заливает клетки, чей центр попал в фигуру. */
-  private paintShape(grid: SceneSurfaceGrid, shape: SceneShape, apply: (index: number) => void): void {
-    const probe = this.geometry.probe(shape);
+  /** Заливает клетки, чей центр попал в фигуру; `rotation` — поворот опоры. */
+  private paintShape(grid: SceneSurfaceGrid, shape: SceneShape, apply: (index: number) => void, rotation = 0): void {
+    const probe = this.geometry.probe(shape, rotation);
     this.forEachCell(grid, probe.bounds, (index, center) => {
       if (probe.contains(center, 0)) {
         apply(index);

@@ -180,7 +180,7 @@ function onAssetPreset(item: AssetItem): void {
         :model-value="props.element.props.height ?? 0"
         :resolution="props.resolution"
         :label="isDeck ? 'Толщина настила, ипари' : 'Высота, ипари'"
-        :hint="isDeck ? 'Толщина досок и балок; у старого моста без подъёма — высота над водой.' : undefined"
+        :hint="isDeck ? 'Толщина настила: вертикальный размер для зазора и рёбер доступа.' : undefined"
         :min="0"
         :max="100000"
         @update:model-value="(value) => patch({ height: value })"
@@ -189,10 +189,20 @@ function onAssetPreset(item: AssetItem): void {
         :model-value="props.element.props.elevation ?? 0"
         :resolution="props.resolution"
         :label="isDeck ? 'Подъём настила, ипари' : 'Подъём, ипари'"
-        :hint="isDeck ? 'Высота настила над землёй или водой; по ней рисуются боковая грань и сваи.' : undefined"
+        :hint="isDeck ? 'Высота верхней поверхности над землёй: зазор под мостом и рёбра доступа.' : undefined"
         :min="0"
         :max="100000"
         @update:model-value="(value) => patch({ elevation: value })"
+      />
+      <v-text-field
+        :model-value="props.element.props.rotation ?? 0"
+        label="Поворот"
+        type="number"
+        suffix="°"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchNumber('rotation', value)"
       />
     </template>
 

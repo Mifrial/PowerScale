@@ -40,6 +40,16 @@ describe('SceneGeometryService', () => {
     expect(service.contains(shape, [-5, 50], 8)).toBe(true);
   });
 
+  it('поворачивает прямоугольник вокруг центра', () => {
+    const shape: SceneShape = { type: 'rect', x: 0, y: 0, w: 100, h: 20 };
+
+    expect(service.bounds(shape, 90)).toEqual({ x: 40, y: -40, width: 20, height: 100 });
+    expect(service.contains(shape, [50, 50], 0, 90)).toBe(true);
+    expect(service.contains(shape, [95, 10], 0, 90)).toBe(false);
+    expect(service.contains(shape, [50, 50], 0)).toBe(false);
+    expect(service.outline(shape, 0, 48, 90)).toHaveLength(4);
+  });
+
   it('hits a circle only within the radius plus tolerance', () => {
     const shape: SceneShape = { type: 'circle', cx: 50, cy: 50, r: 20 };
 

@@ -33,7 +33,7 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     icon: 'mdi-bridge',
     kind: 'support',
     shapeType: 'rect',
-    props: { kind: 'bridge', height: 16, elevation: 48, speed: 150 },
+    props: { kind: 'bridge', height: 16, elevation: 0, speed: 150 },
   },
   {
     id: 'ramp',

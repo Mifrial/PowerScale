@@ -322,7 +322,7 @@
             "layer": {
                 "PHP": 7,
                 "VUE": 8,
-                "МОК": 5
+                "МОК": 4
             }
         },
         "Versioning/Space": {
@@ -2531,8 +2531,8 @@
             ],
             "basis": null,
             "date": "2026-08-31",
-            "bytes": 17667,
-            "lines": 176,
+            "bytes": 18074,
+            "lines": 177,
             "modules": [],
             "linksCount": 6,
             "brokenLinks": [],
@@ -7705,8 +7705,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-12",
-            "bytes": 34888,
-            "lines": 487,
+            "bytes": 35169,
+            "lines": 489,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7834,16 +7834,15 @@
             "kind": "plan",
             "state": "ЧАСТИЧНО",
             "stateSource": "token",
-            "statusRaw": "~ЧАСТИЧНО~, 2026-11-13 — срез A (визуальный настил) готов;",
+            "statusRaw": "~ЧАСТИЧНО~, 2026-11-13 — срез A (плоский настил, поворот,",
             "layers": [
                 "PHP",
-                "VUE",
-                "МОК"
+                "VUE"
             ],
             "basis": null,
             "date": "2026-11-13",
-            "bytes": 4179,
-            "lines": 57,
+            "bytes": 5970,
+            "lines": 83,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7869,8 +7868,8 @@
             ],
             "basis": "МОК",
             "date": "2026-11-12",
-            "bytes": 52165,
-            "lines": 587,
+            "bytes": 52390,
+            "lines": 589,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7902,8 +7901,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 23959,
-            "lines": 355,
+            "bytes": 24781,
+            "lines": 363,
             "modules": [
                 "Roleplay/Scene"
             ],

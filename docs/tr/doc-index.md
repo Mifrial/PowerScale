@@ -67,7 +67,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Roleplay/Mechanic](module-map/Roleplay/Mechanic.md) | 9 | 0 | 0 | 2 | 6 | 0 | 6 | 4 | 0 |
 | [Roleplay/Rule](module-map/Roleplay/Rule.md) | 54 | 5 | 8 | 9 | 26 | 3 | 19 | 23 | 2 |
 | [Roleplay/RuleSpace](module-map/Roleplay/RuleSpace.md) | 8 | 0 | 0 | 8 | 0 | 0 | 6 | 3 | 0 |
-| [Roleplay/Scene](module-map/Roleplay/Scene.md) | 8 | 0 | 5 | 1 | 2 | 0 | 7 | 8 | 5 |
+| [Roleplay/Scene](module-map/Roleplay/Scene.md) | 8 | 0 | 5 | 1 | 2 | 0 | 7 | 8 | 4 |
 | [Versioning/Space](module-map/Versioning/Space.md) | 2 | 0 | 0 | 0 | 2 | 0 | 2 | 0 | 0 |
 | — | 135 | 6 | 4 | 6 | 10 | 46 | 7 | 12 | 0 |
 

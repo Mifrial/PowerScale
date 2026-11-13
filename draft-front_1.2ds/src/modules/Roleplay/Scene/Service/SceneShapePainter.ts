@@ -7,6 +7,7 @@ import type { SceneStrokeStyle } from '@/modules/Roleplay/Scene/Dto/SceneStrokeS
 import { Graphics } from 'pixi.js';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
+import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 /**
  * Рисование фигур и элементов поля в Pixi `Graphics`.
@@ -21,11 +22,13 @@ export class SceneShapePainter {
     fill: SceneFillStyle | undefined,
     stroke: SceneStrokeStyle | undefined,
     zoom: number,
+    rotation = 0,
   ): void {
     if (shape.type === 'rect') {
       graphics.rect(shape.x, shape.y, shape.w, shape.h);
       this.applyFill(graphics, fill);
       this.applyStroke(graphics, stroke);
+      this.applyRotation(graphics, shape, rotation);
 
       return;
     }
@@ -34,6 +37,7 @@ export class SceneShapePainter {
       graphics.circle(shape.cx, shape.cy, shape.r);
       this.applyFill(graphics, fill);
       this.applyStroke(graphics, stroke);
+      this.applyRotation(graphics, shape, rotation);
 
       return;
     }
@@ -42,6 +46,7 @@ export class SceneShapePainter {
       graphics.circle(shape.x, shape.y, 9 / zoom);
       this.applyFill(graphics, fill);
       this.applyStroke(graphics, stroke);
+      this.applyRotation(graphics, shape, rotation);
 
       return;
     }
@@ -52,6 +57,7 @@ export class SceneShapePainter {
       graphics.poly(outline.flat());
       this.applyFill(graphics, fill);
       this.applyStroke(graphics, stroke);
+      this.applyRotation(graphics, shape, rotation);
 
       return;
     }
@@ -62,11 +68,26 @@ export class SceneShapePainter {
       graphics.poly(outline.flat());
       this.applyFill(graphics, fill);
       this.applyStroke(graphics, stroke);
+      this.applyRotation(graphics, shape, rotation);
 
       return;
     }
 
     this.drawPolyline(graphics, shape.points, shape.width, stroke ?? { color: 0x111827, width: shape.width, alpha: 1 });
+    this.applyRotation(graphics, shape, rotation);
+  }
+
+  /** Поворот нарисованной фигуры вокруг центра прямоугольника. */
+  private applyRotation(graphics: Graphics, shape: SceneShape, rotation: number): void {
+    if (shape.type !== 'rect' || ((rotation % 360) + 360) % 360 === 0) {
+      return;
+    }
+
+    const centerX = shape.x + shape.w / 2;
+    const centerY = shape.y + shape.h / 2;
+    graphics.pivot.set(centerX, centerY);
+    graphics.position.set(centerX, centerY);
+    graphics.rotation = (rotation * Math.PI) / 180;
   }
 
   /** Рисует элемент поля по его типу и свойствам. */
@@ -79,7 +100,7 @@ export class SceneShapePainter {
     }
 
     const style = this.styleFor(element, zoom);
-    this.paint(graphics, element.shape, style.fill, style.stroke, zoom);
+    this.paint(graphics, element.shape, style.fill, style.stroke, zoom, sceneRotation(element));
 
     return graphics;
   }

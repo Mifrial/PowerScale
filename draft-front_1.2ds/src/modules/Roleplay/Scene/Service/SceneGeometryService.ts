@@ -29,10 +29,14 @@ export class SceneGeometryService {
     this.ribbons = new SceneRibbonService(curves);
   }
 
-  /** Границы фигуры в единицах сцены. */
-  bounds(shape: SceneShape): SceneBounds {
+  /** Границы фигуры в единицах сцены; `rotation` — поворот прямоугольника. */
+  bounds(shape: SceneShape, rotation = 0): SceneBounds {
     if (shape.type === 'rect') {
-      return { x: shape.x, y: shape.y, width: shape.w, height: shape.h };
+      if (this.normalizeRotation(rotation) === 0) {
+        return { x: shape.x, y: shape.y, width: shape.w, height: shape.h };
+      }
+
+      return this.boundsOfPoints(this.rectCorners(shape, rotation));
     }
 
     if (shape.type === 'circle') {
@@ -142,19 +146,14 @@ export class SceneGeometryService {
     return Number.isFinite(exit) && exit > 0 ? exit : null;
   }
 
-  /** Точки контура фигуры. */
-  points(shape: SceneShape): ScenePoint[] {
+  /** Точки контура фигуры; `rotation` — поворот прямоугольника. */
+  points(shape: SceneShape, rotation = 0): ScenePoint[] {
     if (shape.type === 'point') {
       return [[shape.x, shape.y]];
     }
 
     if (shape.type === 'rect') {
-      return [
-        [shape.x, shape.y],
-        [shape.x + shape.w, shape.y],
-        [shape.x + shape.w, shape.y + shape.h],
-        [shape.x, shape.y + shape.h],
-      ];
+      return this.rectCorners(shape, rotation);
     }
 
     if (shape.type === 'circle') {
@@ -172,8 +171,8 @@ export class SceneGeometryService {
     return shape.points;
   }
 
-  /** Попадает ли точка в фигуру с допуском. */
-  contains(shape: SceneShape, point: ScenePoint, tolerance: number): boolean {
+  /** Попадает ли точка в фигуру с допуском; `rotation` — поворот прямоугольника. */
+  contains(shape: SceneShape, point: ScenePoint, tolerance: number, rotation = 0): boolean {
     if (shape.type === 'point') {
       return this.distance(point, [shape.x, shape.y]) <= tolerance;
     }
@@ -183,11 +182,14 @@ export class SceneGeometryService {
     }
 
     if (shape.type === 'rect') {
+      const local =
+        this.normalizeRotation(rotation) === 0 ? point : this.rotatePoint(point, this.rectCenter(shape), -rotation);
+
       return (
-        point[0] >= shape.x - tolerance &&
-        point[0] <= shape.x + shape.w + tolerance &&
-        point[1] >= shape.y - tolerance &&
-        point[1] <= shape.y + shape.h + tolerance
+        local[0] >= shape.x - tolerance &&
+        local[0] <= shape.x + shape.w + tolerance &&
+        local[1] >= shape.y - tolerance &&
+        local[1] <= shape.y + shape.h + tolerance
       );
     }
 
@@ -211,7 +213,14 @@ export class SceneGeometryService {
    * каждой точки делает это заново, и на десятках тысяч проверок раскладка
    * травы упирается в кривые. Возвращённая проверка даёт тот же результат.
    */
-  probe(shape: SceneShape): SceneShapeProbe {
+  probe(shape: SceneShape, rotation = 0): SceneShapeProbe {
+    if (shape.type === 'rect' && this.normalizeRotation(rotation) !== 0) {
+      return {
+        bounds: this.bounds(shape, rotation),
+        contains: (point, tolerance) => this.contains(shape, point, tolerance, rotation),
+      };
+    }
+
     if (shape.type === 'polygon') {
       const outline = this.curves.flattenContour(shape.points, shape.handles ?? []);
 
@@ -238,10 +247,7 @@ export class SceneGeometryService {
   }
 
   /** Расстояние до уже тесселированной ленты. */
-  private distanceToRibbon(
-    point: ScenePoint,
-    ribbon: { center: ScenePoint[]; widths: number[] },
-  ): number {
+  private distanceToRibbon(point: ScenePoint, ribbon: { center: ScenePoint[]; widths: number[] }): number {
     let nearest = Number.POSITIVE_INFINITY;
     for (let index = 1; index < ribbon.center.length; index += 1) {
       const half = Math.max(ribbon.widths[index - 1], ribbon.widths[index]) / 2;
@@ -252,9 +258,9 @@ export class SceneGeometryService {
     return nearest;
   }
 
-  /** Центр фигуры. */
-  center(shape: SceneShape): ScenePoint {
-    const bounds = this.bounds(shape);
+  /** Центр фигуры; у прямоугольника поворот не меняет центр. */
+  center(shape: SceneShape, rotation = 0): ScenePoint {
+    const bounds = this.bounds(shape, rotation);
 
     return [bounds.x + bounds.width / 2, bounds.y + bounds.height / 2];
   }
@@ -314,7 +320,7 @@ export class SceneGeometryService {
    * аппроксимируется многоугольником: навигации не нужен аналитический круг,
    * а булевы операции работают с полигонами. Точка контура не имеет.
    */
-  outline(shape: SceneShape, pad = 0, circleSegments = 48): ScenePoint[] {
+  outline(shape: SceneShape, pad = 0, circleSegments = 48, rotation = 0): ScenePoint[] {
     if (shape.type === 'point') {
       return [];
     }
@@ -324,13 +330,16 @@ export class SceneGeometryService {
       const y = shape.y - pad;
       const w = shape.w + pad * 2;
       const h = shape.h + pad * 2;
-
-      return [
+      const corners: ScenePoint[] = [
         [x, y],
         [x + w, y],
         [x + w, y + h],
         [x, y + h],
       ];
+
+      return this.normalizeRotation(rotation) === 0
+        ? corners
+        : corners.map((point) => this.rotatePoint(point, this.rectCenter(shape), rotation));
     }
 
     if (shape.type === 'circle') {
@@ -356,6 +365,44 @@ export class SceneGeometryService {
     }
 
     return this.ribbons.outline(shape.points, shape.handles ?? [], shape.widths, 1, pad);
+  }
+
+  /** Углы прямоугольника с поворотом вокруг центра. */
+  private rectCorners(shape: { x: number; y: number; w: number; h: number }, rotation: number): ScenePoint[] {
+    const corners: ScenePoint[] = [
+      [shape.x, shape.y],
+      [shape.x + shape.w, shape.y],
+      [shape.x + shape.w, shape.y + shape.h],
+      [shape.x, shape.y + shape.h],
+    ];
+    if (this.normalizeRotation(rotation) === 0) {
+      return corners;
+    }
+
+    const center = this.rectCenter(shape);
+
+    return corners.map((point) => this.rotatePoint(point, center, rotation));
+  }
+
+  /** Центр прямоугольника. */
+  private rectCenter(shape: { x: number; y: number; w: number; h: number }): ScenePoint {
+    return [shape.x + shape.w / 2, shape.y + shape.h / 2];
+  }
+
+  /** Поворот точки вокруг центра на угол в градусах. */
+  private rotatePoint(point: ScenePoint, center: ScenePoint, degrees: number): ScenePoint {
+    const radians = (degrees * Math.PI) / 180;
+    const cosine = Math.cos(radians);
+    const sine = Math.sin(radians);
+    const dx = point[0] - center[0];
+    const dy = point[1] - center[1];
+
+    return [center[0] + dx * cosine - dy * sine, center[1] + dx * sine + dy * cosine];
+  }
+
+  /** Угол в диапазон 0–360. */
+  private normalizeRotation(rotation: number): number {
+    return ((rotation % 360) + 360) % 360;
   }
 
   /** Границы набора точек. */

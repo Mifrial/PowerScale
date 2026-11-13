@@ -150,7 +150,7 @@ created_at      DateTimeField, required, default now
 
 | `kind` | Назначение | `props` первого среза |
 |---|---|---|
-| `support` | Земля, настил, крыша, стойка, мост, съезд. | `kind`, `height`, `elevation`, `speed` |
+| `support` | Земля, настил, крыша, стойка, мост, съезд. | `kind`, `height`, `elevation`, `rotation`, `speed` |
 | `obstacle` | Стена, ствол, мебель, непроходимый объём. | `blocksMovement`, `blocksVision`, `height` |
 | `opening` | Дверь, окно, ворота, лестница, телепорт. | `kind`, `state`, `blocksVision`; цель — колонка `target_board_id` |
 | `terrain` | Грязь, лёд, вода, высокая трава. | `kind`, `shoreKind`, `shoreWidth`, `speed`, `label`, опционально `assetPublicId` |
@@ -206,8 +206,15 @@ Game — для runtime-движения. `assetPublicId` — необязате
 полем.
 
 `height` и `elevation` — вертикальные размеры в единицах сцены; интерфейс
-показывает ипари. `height` — высота объекта, `elevation` — подъём поверхности
-опоры. Толщина стены — это `shape.width`, а не `height`.
+показывает ипари. `height` — вертикальный размер/толщина, `elevation` — высота
+верхней поверхности опоры над нулём поля. Толщина стены — это `shape.width`, а
+не `height`.
+
+Высоты — данные для Game, а не рисунок: top-down рендерер не поднимает настил
+над берегом. По `elevation`, `height` и поверхности под опорой Game считает
+зазор и рёбра доступа. Пороги — `SCENE_NAVIGATION.stepIpari`,
+`climbIpari`, `dropIpari` и `bodyHeightIpari`; вода остаётся проходимой
+поверхностью, поэтому маршрут под мостом возможен, если зазор достаточен.
 
 `target_board_id` используется `opening`; для остальных `kind` он `null`.
 Валидатор проверяет, что целевое поле принадлежит той же локации, а не самому
@@ -248,8 +255,9 @@ Game — для runtime-движения. `assetPublicId` — необязате
   `Alt`+клик по вершине удаляет её. У ленты ромб на вершине тянет ширину.
 - Произвольные polygon-стены — `BACKLOG`; стена первого среза — полоса с
   толщиной.
-- Поворот первого среза — только у `decor`; препятствия и опоры
-  axis-aligned.
+- Поворот первого среза — у `decor` и прямоугольных опор (`support` с
+  `shape.type = "rect"`): мост, съезд и настил крутятся через
+  `props.rotation` вокруг центра. Препятствия остаются axis-aligned.
 
 ### `scene_enclosure`
 

@@ -40,6 +40,7 @@ import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Sce
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
+import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 /** Вода и её анимация на активном поле. */
 interface WaterEntry {
@@ -1492,6 +1493,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
         undefined,
         { color: 0xfacc15, width: 3 / this.zoom(), alpha: 1 },
         this.zoom(),
+        sceneRotation(element),
       );
       layer.addChild(graphics);
 

@@ -567,6 +567,7 @@ final class SceneElementValidator
                 'kind' => $supportKind,
                 'height' => $this->intOrDefault($props, 'height', $path . '.height', 0, 0, 100000),
                 'elevation' => $this->intOrDefault($props, 'elevation', $path . '.elevation', 0, 0, 100000),
+                'rotation' => $this->intOrDefault($props, 'rotation', $path . '.rotation', 0, 0, 359),
                 'speed' => $this->intOrDefault(
                     $props,
                     'speed',

@@ -247,6 +247,26 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Поворот опоры сохраняется и ограничен 0–359.
+     *
+     * @return void
+     */
+    public function testSupportRotation(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'bridge', 'rotation' => 18],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame(18, $element['props']['rotation']);
+    }
+
+    /**
      * Скорость вне диапазона отклоняется.
      *
      * @return void

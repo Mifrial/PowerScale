@@ -15,6 +15,7 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
+import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 const { difference, intersection, union } = polygonClipping;
 
@@ -917,7 +918,7 @@ export class SceneNavigationService {
             Math.min(SCENE_NAVIGATION.circleSegmentsMax, Math.ceil((Math.PI * 2 * (shape.r + pad)) / 8)),
           )
         : SCENE_NAVIGATION.circleSegmentsMax;
-    const outline = this.geometry.outline(shape, pad, segments);
+    const outline = this.geometry.outline(shape, pad, segments, sceneRotation(element));
     const ring = this.normalizeRing(outline.map((point): Pair => [point[0], point[1]]));
 
     return ring.length >= 3 ? [ring] : null;
@@ -941,7 +942,7 @@ export class SceneNavigationService {
     const kind = element.props.kind ?? '';
     const preset =
       element.kind === 'support'
-        ? kind === 'bridge'
+        ? kind === 'bridge' || kind === 'ramp'
           ? SCENE_SURFACE.speeds.bridge
           : 100
         : (SCENE_SURFACE.speeds[kind as keyof typeof SCENE_SURFACE.speeds] ?? 100);

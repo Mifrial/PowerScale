@@ -7,6 +7,7 @@ import type { SceneGrassTuft } from '@/modules/Roleplay/Scene/Dto/SceneGrassTuft
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import { SCENE_GRASS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_GRASS';
 import { SCENE_TERRAIN_BLEND } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_BLEND';
+import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 import type { SceneGeometryService, SceneShapeProbe } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
 import type { SceneGrassTextureService } from '@/modules/Roleplay/Scene/Service/SceneGrassTextureService';
 
@@ -147,7 +148,7 @@ export class SceneGrassService {
       }
 
       const blockers = elements.slice(order + 1).map((blocker) => {
-        const probe = this.geometry.probe(blocker.shape);
+        const probe = this.geometry.probe(blocker.shape, sceneRotation(blocker));
 
         return {
           bounds: probe.bounds,
@@ -220,7 +221,7 @@ export class SceneGrassService {
   private cacheKey(elements: readonly SceneElement[], board: SceneBounds, base: number, layer: TuftLayer): string {
     const shapes = elements.map(
       (element) =>
-        `${element.id}:${element.props.kind}:${element.props.shoreKind ?? 'none'}:${element.props.shoreWidth ?? 0}:${JSON.stringify(element.shape)}`,
+        `${element.id}:${element.props.kind}:${element.props.rotation ?? 0}:${element.props.shoreKind ?? 'none'}:${element.props.shoreWidth ?? 0}:${JSON.stringify(element.shape)}`,
     );
 
     return `${layer.spacingIpari}|${layer.heightIpari}|${base}|${board.x},${board.y},${board.width},${board.height}|${shapes.join(';')}`;

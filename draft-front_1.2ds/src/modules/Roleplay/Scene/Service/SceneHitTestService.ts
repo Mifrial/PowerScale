@@ -4,6 +4,7 @@ import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
 import type { SceneViewportService } from '@/modules/Roleplay/Scene/Service/SceneViewportService';
+import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 /**
  * CPU-hit-test по геометрии активного поля.
@@ -42,6 +43,6 @@ export class SceneHitTestService {
 
   /** Попадает ли точка в элемент. */
   contains(element: SceneElement, point: ScenePoint, tolerance: number): boolean {
-    return this.geometryService.contains(element.shape, point, tolerance);
+    return this.geometryService.contains(element.shape, point, tolerance, sceneRotation(element));
   }
 }

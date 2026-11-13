@@ -133,6 +133,7 @@ export class SceneOverlayService {
             element.kind,
             element.sortOrder,
             element.props.kind ?? '',
+            element.props.rotation ?? '',
             element.props.scale ?? '',
             element.props.baseRadius ?? '',
             element.props.sightRadius ?? '',

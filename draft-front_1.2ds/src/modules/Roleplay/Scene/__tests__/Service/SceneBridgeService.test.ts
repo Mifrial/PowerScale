@@ -24,7 +24,7 @@ describe('SceneBridgeService', () => {
     expect(vertical?.context.instructions.length).toBeGreaterThan(0);
   });
 
-  it('добавляет объём и сваи при подъёме настила', () => {
+  it('не добавляет боковую грань и сваи при подъёме настила', () => {
     const flat = service.paint(bridge({ type: 'rect', x: 0, y: 0, w: 600, h: 120 }, { elevation: 0 }), 64, 1);
     const raised = service.paint(
       bridge({ type: 'rect', x: 0, y: 0, w: 600, h: 120 }, { elevation: 48, height: 16 }),
@@ -32,7 +32,16 @@ describe('SceneBridgeService', () => {
       1,
     );
 
-    expect(raised?.context.instructions.length ?? 0).toBeGreaterThan(flat?.context.instructions.length ?? 0);
+    // Высота — данные для Game; в top-down рисунке она меняет только тень.
+    expect(raised?.context.instructions.length).toBe(flat?.context.instructions.length);
+  });
+
+  it('поворачивает настил вокруг центра', () => {
+    const rotated = service.paint(bridge({ type: 'rect', x: 0, y: 0, w: 600, h: 120 }, { rotation: 90 }), 64, 1);
+
+    expect(rotated?.rotation).toBeCloseTo(Math.PI / 2);
+    expect(rotated?.pivot.x).toBe(300);
+    expect(rotated?.pivot.y).toBe(60);
   });
 
   it('рисует съезд и его наклонную грань', () => {

@@ -97,6 +97,20 @@ describe('SceneSurfaceService', () => {
     expect(grid.sightBottom[cellOf(grid, 8, 8)]).toBe(Number.POSITIVE_INFINITY);
   });
 
+  it('поворачивает настил моста вместе с опорой', () => {
+    const shape: SceneShape = { type: 'rect', x: 93, y: 84, w: 70, h: 40 };
+    const straight = service.build(board(), [grass(), element(2, 'support', shape, { kind: 'bridge' }, 20)], 64);
+    const rotated = service.build(
+      board(),
+      [grass(), element(2, 'support', shape, { kind: 'bridge', rotation: 90 }, 20)],
+      64,
+    );
+
+    // Клетка (8,4) попадает в повёрнутый настил, но не в осевой.
+    expect(straight.kinds[cellOf(straight, 8, 4)]).toBe('grass');
+    expect(rotated.kinds[cellOf(rotated, 8, 4)]).toBe('bridge');
+  });
+
   it('съезд считается настилом, как мост', () => {
     const grid = service.build(
       board(),
