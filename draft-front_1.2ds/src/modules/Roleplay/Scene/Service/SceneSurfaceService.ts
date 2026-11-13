@@ -47,8 +47,8 @@ type CellVisitor = (index: number, center: ScenePoint) => void;
  * Слой читает только данные сцены — поле, элементы, свойства и геометрию — и
  * не знает о Pixi. Клетка равна `occupancyCell` поля: по ней же потом считаются
  * маршруты и видимость. Порядок наложения повторяет рендер: террейн по
- * `sortOrder`, вода последней, затем мост как настил, препятствия, декор и
- * проёмы.
+ * `sortOrder`, вода последней, затем мост и съезд как настил, препятствия,
+ * декор и проёмы.
  */
 export class SceneSurfaceService {
   constructor(private readonly geometry: SceneGeometryService = new SceneGeometryService()) {}
@@ -68,7 +68,7 @@ export class SceneSurfaceService {
       kinds: new Array<SceneSurfaceKind>(size).fill('none'),
       speeds: new Array<number>(size).fill(0),
       costs: new Array<number>(size).fill(Number.POSITIVE_INFINITY),
-      opaque: new Array<boolean>(size).fill(false),
+      sightBottom: new Float32Array(size).fill(Number.POSITIVE_INFINITY),
     };
 
     const own = elements.filter((element) => element.boardId === board.id);
@@ -89,9 +89,7 @@ export class SceneSurfaceService {
       .filter((element) => element.kind === 'terrain')
       .sort(
         (left, right) =>
-          this.terrainRank(left) - this.terrainRank(right) ||
-          left.sortOrder - right.sortOrder ||
-          left.id - right.id,
+          this.terrainRank(left) - this.terrainRank(right) || left.sortOrder - right.sortOrder || left.id - right.id,
       );
 
     for (const element of terrain) {
@@ -108,10 +106,10 @@ export class SceneSurfaceService {
     }
   }
 
-  /** Мост — настил над водой: проходим и не перекрывает обзор. */
+  /** Мост и съезд — настил: проходимы и не перекрывают обзор. */
   private paintBridges(grid: SceneSurfaceGrid, elements: readonly SceneElement[]): void {
     for (const element of elements) {
-      if (element.kind !== 'support' || element.props.kind !== 'bridge') {
+      if (element.kind !== 'support' || (element.props.kind !== 'bridge' && element.props.kind !== 'ramp')) {
         continue;
       }
 
@@ -137,7 +135,7 @@ export class SceneSurfaceService {
           grid.speeds[index] = 0;
         }
         if (blocksVision) {
-          grid.opaque[index] = true;
+          grid.sightBottom[index] = 0;
         }
       });
     }
@@ -148,7 +146,9 @@ export class SceneSurfaceService {
    *
    * У точкового декора размер берётся из `scale` (процент от разрешения):
    * ствол дерева уже кроны, поэтому основание и силуэт считаются разными
-   * долями спрайта. Прямоугольный и круглый декор перекрывает свою фигуру.
+   * долями ширины спрайта. `sightBottom` задаёт низ силуэта: у кроны он выше
+   * глаз, и луч под ней её игнорирует. Прямоугольный и круглый декор
+   * перекрывает свою фигуру целиком.
    */
   private paintDecor(grid: SceneSurfaceGrid, elements: readonly SceneElement[], resolution: number): void {
     const base = Math.max(1, resolution);
@@ -160,18 +160,25 @@ export class SceneSurfaceService {
       if (element.shape.type !== 'point') {
         this.paintShape(grid, element.shape, (index) => {
           grid.speeds[index] = 0;
-          grid.opaque[index] = true;
+          grid.sightBottom[index] = 0;
         });
         continue;
       }
 
       const size = base * (Math.max(1, element.props.scale ?? 100) / 100);
       const center: ScenePoint = [element.shape.x, element.shape.y];
-      this.paintCircle(grid, center, size * SCENE_SURFACE.decorBaseRadius, (index) => {
+      const baseRadius = size * ((element.props.baseRadius ?? SCENE_SURFACE.decorBaseRadius) / 100);
+      const sightRadius = size * ((element.props.sightRadius ?? SCENE_SURFACE.decorSightRadius) / 100);
+      // Проценты ширины переводятся в ипари: ширина спрайта — это `scale`
+      // процентов от разрешения, а разрешение и есть ипари.
+      const sightBottom = (size / base) * ((element.props.sightBottom ?? SCENE_SURFACE.decorSightBottom) / 100);
+
+      this.paintCircle(grid, center, baseRadius, (index) => {
         grid.speeds[index] = 0;
+        grid.sightBottom[index] = 0;
       });
-      this.paintCircle(grid, center, size * SCENE_SURFACE.decorSightRadius, (index) => {
-        grid.opaque[index] = true;
+      this.paintCircle(grid, center, sightRadius, (index) => {
+        grid.sightBottom[index] = Math.min(grid.sightBottom[index], sightBottom);
       });
     }
   }
@@ -187,13 +194,13 @@ export class SceneSurfaceService {
       this.paintShape(grid, element.shape, (index) => {
         if (open) {
           grid.speeds[index] = Math.max(grid.speeds[index], SCENE_SURFACE.speeds.grass);
-          grid.opaque[index] = false;
+          grid.sightBottom[index] = Number.POSITIVE_INFINITY;
 
           return;
         }
 
         grid.speeds[index] = 0;
-        grid.opaque[index] = true;
+        grid.sightBottom[index] = 0;
       });
     }
   }
@@ -235,11 +242,7 @@ export class SceneSurfaceService {
   /** Обход клеток, пересекающих границы фигуры. */
   private forEachCell(grid: SceneSurfaceGrid, bounds: SceneBounds, visit: CellVisitor): void {
     const minColumn = this.clamp(Math.floor((bounds.x - grid.x) / grid.cell), 0, grid.columns - 1);
-    const maxColumn = this.clamp(
-      Math.floor((bounds.x + bounds.width - grid.x) / grid.cell),
-      0,
-      grid.columns - 1,
-    );
+    const maxColumn = this.clamp(Math.floor((bounds.x + bounds.width - grid.x) / grid.cell), 0, grid.columns - 1);
     const minRow = this.clamp(Math.floor((bounds.y - grid.y) / grid.cell), 0, grid.rows - 1);
     const maxRow = this.clamp(Math.floor((bounds.y + bounds.height - grid.y) / grid.cell), 0, grid.rows - 1);
 

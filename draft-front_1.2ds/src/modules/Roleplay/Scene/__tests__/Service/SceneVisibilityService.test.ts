@@ -39,12 +39,7 @@ const grass = (): SceneElement =>
   element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 256, h: 256 }, { kind: 'grass' });
 
 const wall = (id: number, y: number, h: number): SceneElement =>
-  element(
-    id,
-    'obstacle',
-    { type: 'rect', x: 80, y, w: 16, h },
-    { blocksMovement: true, blocksVision: true },
-  );
+  element(id, 'obstacle', { type: 'rect', x: 80, y, w: 16, h }, { blocksMovement: true, blocksVision: true });
 
 const cellOf = (grid: ReturnType<SceneSurfaceService['build']>, column: number, row: number): number =>
   row * grid.columns + column;
@@ -91,6 +86,32 @@ describe('SceneVisibilityService', () => {
 
     expect(service.sees(grid, [320, 560], [320, 80])).toBe(false);
     expect(service.sees(grid, [80, 80], [240, 80])).toBe(true);
+  });
+
+  it('игнорирует крону, которая начинается выше глаз', () => {
+    const large: SceneBoard = { ...board, boundWidth: 640, boundHeight: 640 };
+    const tree = (sightBottom: number): SceneElement =>
+      element(
+        2,
+        'decor',
+        { type: 'point', x: 320, y: 320 },
+        { scale: 420, baseRadius: 10, sightRadius: 45, sightBottom, label: 'Дерево' },
+      );
+
+    const crown = surfaces.build(
+      large,
+      [element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 640, h: 640 }, { kind: 'grass' }), tree(85)],
+      64,
+    );
+    expect(service.sees(crown, [370, 560], [370, 80])).toBe(true);
+
+    // Низкая крона пересекает луч и закрывает цель.
+    const low = surfaces.build(
+      large,
+      [element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 640, h: 640 }, { kind: 'grass' }), tree(10)],
+      64,
+    );
+    expect(service.sees(low, [370, 560], [370, 80])).toBe(false);
   });
 
   it('ограничивает обзор радиусом', () => {

@@ -94,7 +94,22 @@ describe('SceneSurfaceService', () => {
 
     expect(grid.kinds[cellOf(grid, 8, 8)]).toBe('bridge');
     expect(grid.speeds[cellOf(grid, 8, 8)]).toBe(150);
-    expect(grid.opaque[cellOf(grid, 8, 8)]).toBe(false);
+    expect(grid.sightBottom[cellOf(grid, 8, 8)]).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('съезд считается настилом, как мост', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(2, 'terrain', { type: 'rect', x: 96, y: 0, w: 64, h: 256 }, { kind: 'water' }, 10),
+        element(3, 'support', { type: 'rect', x: 96, y: 96, w: 64, h: 64 }, { kind: 'ramp' }, 20),
+      ],
+      64,
+    );
+
+    expect(grid.kinds[cellOf(grid, 8, 8)]).toBe('bridge');
+    expect(grid.speeds[cellOf(grid, 8, 8)]).toBe(150);
   });
 
   it('делает препятствие непроходимым и непрозрачным по флагам', () => {
@@ -114,7 +129,7 @@ describe('SceneSurfaceService', () => {
 
     expect(grid.speeds[cellOf(grid, 4, 4)]).toBe(0);
     expect(grid.costs[cellOf(grid, 4, 4)]).toBe(Number.POSITIVE_INFINITY);
-    expect(grid.opaque[cellOf(grid, 4, 4)]).toBe(true);
+    expect(grid.sightBottom[cellOf(grid, 4, 4)]).toBe(0);
     expect(grid.speeds[cellOf(grid, 0, 0)]).toBe(100);
 
     const transparent = service.build(
@@ -132,7 +147,7 @@ describe('SceneSurfaceService', () => {
     );
 
     expect(transparent.speeds[cellOf(transparent, 4, 4)]).toBe(0);
-    expect(transparent.opaque[cellOf(transparent, 4, 4)]).toBe(false);
+    expect(transparent.sightBottom[cellOf(transparent, 4, 4)]).toBe(Number.POSITIVE_INFINITY);
   });
 
   it('декор перекрывает ход основанием и обзор силуэтом', () => {
@@ -140,29 +155,36 @@ describe('SceneSurfaceService', () => {
       board(),
       [
         grass(),
-        element(2, 'decor', { type: 'point', x: 128, y: 128 }, { scale: 100, label: 'Дерево' }),
+        element(
+          2,
+          'decor',
+          { type: 'point', x: 128, y: 128 },
+          { scale: 100, baseRadius: 20, sightRadius: 45, sightBottom: 85, label: 'Дерево' },
+        ),
       ],
       64,
     );
-    const near = cellOf(tree, 8, 8);
-    const [nearX, nearY] = surfaceCenter(tree, near);
+    const trunk = cellOf(tree, 8, 8);
+    const crown = cellOf(tree, 9, 8);
+    const [trunkX, trunkY] = surfaceCenter(tree, trunk);
 
-    expect(Math.hypot(nearX - 128, nearY - 128)).toBeLessThan(20);
-    expect(tree.speeds[near]).toBe(0);
-    expect(tree.opaque[near]).toBe(true);
-    expect(tree.opaque[cellOf(tree, 10, 8)]).toBe(false);
+    expect(Math.hypot(trunkX - 128, trunkY - 128)).toBeLessThan(20);
+    expect(tree.speeds[trunk]).toBe(0);
+    expect(tree.sightBottom[trunk]).toBe(0);
+
+    // Крона шире ствола, но ход не перекрывает и начинается выше глаз.
+    expect(tree.speeds[crown]).toBe(100);
+    expect(tree.sightBottom[crown]).toBeCloseTo(0.85);
+    expect(tree.sightBottom[cellOf(tree, 10, 8)]).toBe(Number.POSITIVE_INFINITY);
 
     const boulder = service.build(
       board(),
-      [
-        grass(),
-        element(2, 'decor', { type: 'point', x: 128, y: 128 }, { scale: 420, label: 'Валун' }),
-      ],
+      [grass(), element(2, 'decor', { type: 'point', x: 128, y: 128 }, { scale: 420, label: 'Валун' })],
       64,
     );
 
     expect(boulder.speeds[cellOf(boulder, 10, 8)]).toBe(0);
-    expect(boulder.opaque[cellOf(boulder, 10, 8)]).toBe(true);
+    expect(boulder.sightBottom[cellOf(boulder, 10, 8)]).toBe(0);
   });
 
   it('читает явную скорость элемента вместо пресета', () => {
@@ -186,7 +208,14 @@ describe('SceneSurfaceService', () => {
   });
 
   it('закрытый проём держит стену, открытый прорезает', () => {
-    const wallShape: SceneShape = { type: 'wall', points: [[64, 72], [96, 72]], width: 32 };
+    const wallShape: SceneShape = {
+      type: 'wall',
+      points: [
+        [64, 72],
+        [96, 72],
+      ],
+      width: 32,
+    };
     const closed = service.build(
       board(),
       [
@@ -207,9 +236,9 @@ describe('SceneSurfaceService', () => {
     );
 
     expect(closed.speeds[cellOf(closed, 4, 4)]).toBe(0);
-    expect(closed.opaque[cellOf(closed, 4, 4)]).toBe(true);
+    expect(closed.sightBottom[cellOf(closed, 4, 4)]).toBe(0);
     expect(open.speeds[cellOf(open, 4, 4)]).toBe(100);
-    expect(open.opaque[cellOf(open, 4, 4)]).toBe(false);
+    expect(open.sightBottom[cellOf(open, 4, 4)]).toBe(Number.POSITIVE_INFINITY);
   });
 
   it('переводит мировые координаты в клетку', () => {

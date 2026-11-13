@@ -25,10 +25,10 @@ final class SceneElementValidator
         'marker' => ['point'],
     ];
 
-    private const SUPPORT_KINDS = ['ground', 'deck', 'roof', 'tabletop', 'bridge'];
+    private const SUPPORT_KINDS = ['ground', 'deck', 'roof', 'tabletop', 'bridge', 'ramp'];
 
     /**
-     * Пресеты скорости опор: 100 — норма, мост быстрее.
+     * Пресеты скорости опор: 100 — норма, мост и съезд быстрее.
      */
     private const SUPPORT_SPEEDS = [
         'ground' => 100,
@@ -36,6 +36,7 @@ final class SceneElementValidator
         'roof' => 100,
         'tabletop' => 100,
         'bridge' => 150,
+        'ramp' => 150,
     ];
 
     private const TERRAIN_KINDS = ['grass', 'dirt', 'stone', 'sand', 'mud', 'water', 'ice'];
@@ -700,6 +701,9 @@ final class SceneElementValidator
             'props' => [
                 'rotation' => $this->intOrDefault($props, 'rotation', $path . '.rotation', 0, 0, 359),
                 'scale' => $this->intOrDefault($props, 'scale', $path . '.scale', 100, 1, 1000),
+                'baseRadius' => $this->intOrDefault($props, 'baseRadius', $path . '.baseRadius', 30, 1, 200),
+                'sightRadius' => $this->intOrDefault($props, 'sightRadius', $path . '.sightRadius', 45, 1, 400),
+                'sightBottom' => $this->intOrDefault($props, 'sightBottom', $path . '.sightBottom', 0, 0, 400),
                 'label' => $this->label($props, $path . '.label'),
             ],
             'assetFileId' => $fileRecord?->getId(),

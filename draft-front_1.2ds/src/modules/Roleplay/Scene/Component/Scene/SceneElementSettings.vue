@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue';
+import type { AssetItem } from '@/modules/Library/Asset/Dto/AssetItem';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard';
 import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import SceneDistanceField from '@/modules/Roleplay/Scene/Component/Scene/SceneDistanceField.vue';
 import { SCENE_ASSET_COLLECTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ASSET_COLLECTIONS';
+import { sceneDecorPreset, sceneDecorPresetProps } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_DECOR_PRESETS';
 import { SCENE_MARKER_ROLE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_MARKER_ROLE_OPTIONS';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { SCENE_OPENING_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OPENING_KIND_OPTIONS';
@@ -48,6 +50,12 @@ const defaultSpeed = computed(() => {
 });
 const currentSpeed = computed(() => props.element.props.speed ?? defaultSpeed.value);
 
+/** Мост и съезд: у них `height` — толщина настила, а не высота объёма. */
+const isDeck = computed(
+  () =>
+    props.element.kind === 'support' && (props.element.props.kind === 'bridge' || props.element.props.kind === 'ramp'),
+);
+
 const targetOptions = computed(() =>
   props.boards
     .filter((board) => board.id !== props.element.boardId)
@@ -58,7 +66,10 @@ function patch(elementProps: SceneElementProps): void {
   emit('update', { ...props.element.props, ...elementProps });
 }
 
-function patchNumber(key: 'rotation' | 'scale', value: string | number | null): void {
+function patchNumber(
+  key: 'rotation' | 'scale' | 'baseRadius' | 'sightRadius' | 'sightBottom',
+  value: string | number | null,
+): void {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return;
 
@@ -110,6 +121,16 @@ function patchFlag(key: 'blocksMovement' | 'blocksVision', value: boolean | null
 function onAsset(publicId: string | null): void {
   emit('asset', publicId);
 }
+
+/** Пресет декора: основание и силуэт подставляются по имени файла. */
+function onAssetPreset(item: AssetItem): void {
+  const preset = sceneDecorPreset(item.originalName ?? item.name);
+  if (preset === null) {
+    return;
+  }
+
+  patch(sceneDecorPresetProps(preset));
+}
 </script>
 
 <template>
@@ -158,7 +179,8 @@ function onAsset(publicId: string | null): void {
       <SceneDistanceField
         :model-value="props.element.props.height ?? 0"
         :resolution="props.resolution"
-        label="Высота, ипари"
+        :label="isDeck ? 'Толщина настила, ипари' : 'Высота, ипари'"
+        :hint="isDeck ? 'Толщина досок и балок; у старого моста без подъёма — высота над водой.' : undefined"
         :min="0"
         :max="100000"
         @update:model-value="(value) => patch({ height: value })"
@@ -166,7 +188,8 @@ function onAsset(publicId: string | null): void {
       <SceneDistanceField
         :model-value="props.element.props.elevation ?? 0"
         :resolution="props.resolution"
-        label="Подъём, ипари"
+        :label="isDeck ? 'Подъём настила, ипари' : 'Подъём, ипари'"
+        :hint="isDeck ? 'Высота настила над землёй или водой; по ней рисуются боковая грань и сваи.' : undefined"
         :min="0"
         :max="100000"
         @update:model-value="(value) => patch({ elevation: value })"
@@ -337,6 +360,7 @@ function onAsset(publicId: string | null): void {
         :collection-code="SCENE_ASSET_COLLECTIONS.decor.code"
         :collection-title="SCENE_ASSET_COLLECTIONS.decor.title"
         @update:model-value="onAsset"
+        @select="onAssetPreset"
       />
       <v-text-field
         :model-value="props.element.props.rotation ?? 0"
@@ -357,6 +381,36 @@ function onAsset(publicId: string | null): void {
         variant="outlined"
         hide-details
         @update:model-value="(value) => patchNumber('scale', value)"
+      />
+      <v-text-field
+        :model-value="props.element.props.baseRadius ?? 30"
+        label="Основание"
+        type="number"
+        suffix="% ширины"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchNumber('baseRadius', value)"
+      />
+      <v-text-field
+        :model-value="props.element.props.sightRadius ?? 45"
+        label="Силуэт"
+        type="number"
+        suffix="% ширины"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchNumber('sightRadius', value)"
+      />
+      <v-text-field
+        :model-value="props.element.props.sightBottom ?? 0"
+        label="Низ силуэта"
+        type="number"
+        suffix="% ширины"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchNumber('sightBottom', value)"
       />
     </template>
 

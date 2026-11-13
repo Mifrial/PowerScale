@@ -11,6 +11,12 @@ export interface SceneElementProps {
   label?: string;
   rotation?: number;
   scale?: number;
+  /** Радиус основания декора, проценты ширины спрайта: ход и ствол. */
+  baseRadius?: number;
+  /** Радиус силуэта декора, проценты ширины спрайта: крона, валун. */
+  sightRadius?: number;
+  /** Низ силуэта, проценты ширины спрайта: 0 — стоит на земле. */
+  sightBottom?: number;
   role?: string;
   assetPublicId?: string;
   shoreKind?: string;

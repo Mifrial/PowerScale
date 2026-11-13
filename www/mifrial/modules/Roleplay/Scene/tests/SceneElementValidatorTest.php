@@ -226,6 +226,27 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Съезд — допустимый подтип опоры со скоростью моста.
+     *
+     * @return void
+     */
+    public function testRampSpeedDefault(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'ramp'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame('ramp', $element['props']['kind']);
+        self::assertSame(150, $element['props']['speed']);
+    }
+
+    /**
      * Скорость вне диапазона отклоняется.
      *
      * @return void
@@ -241,6 +262,71 @@ final class SceneElementValidatorTest extends TestCase
             'kind' => 'terrain',
             'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
             'props' => ['kind' => 'grass', 'speed' => 10001],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+    }
+
+    /**
+     * Декор получает умолчания основания и силуэта.
+     *
+     * @return void
+     */
+    public function testDecorOcclusionDefaults(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'decor',
+            'shape' => ['type' => 'point', 'x' => 500, 'y' => 400],
+            'props' => ['scale' => 350, 'label' => 'Дерево'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame(30, $element['props']['baseRadius']);
+        self::assertSame(45, $element['props']['sightRadius']);
+        self::assertSame(0, $element['props']['sightBottom']);
+    }
+
+    /**
+     * Явные основание, силуэт и низ силуэта сохраняются.
+     *
+     * @return void
+     */
+    public function testDecorOcclusionIsKept(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'decor',
+            'shape' => ['type' => 'point', 'x' => 500, 'y' => 400],
+            'props' => ['scale' => 350, 'baseRadius' => 20, 'sightRadius' => 60, 'sightBottom' => 85],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame(20, $element['props']['baseRadius']);
+        self::assertSame(60, $element['props']['sightRadius']);
+        self::assertSame(85, $element['props']['sightBottom']);
+    }
+
+    /**
+     * Низ силуэта вне диапазона отклоняется.
+     *
+     * @return void
+     */
+    public function testDecorSightBottomOutOfRangeIsRejected(): void
+    {
+        $this->expectException(SceneInvalidException::class);
+        $this->expectExceptionMessage('sightBottom');
+
+        $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'decor',
+            'shape' => ['type' => 'point', 'x' => 500, 'y' => 400],
+            'props' => ['scale' => 350, 'sightBottom' => 401],
             'sortOrder' => 0,
             'targetBoardId' => null,
         ]);

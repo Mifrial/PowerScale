@@ -9,16 +9,26 @@ import { surfaceCenter, surfaceIndex } from '@/modules/Roleplay/Scene/Service/Sc
  *
  * Луч идёт по мировым координатам и проверяет непрозрачные клетки сетки. Сами
  * перекрытия (препятствия, стволы, валун) уже размечены `SceneSurfaceService`,
- * поэтому сервис не знает ни о Pixi, ни о типах элементов. Высота пока не
- * учитывается: это плоский срез для предпросмотра.
+ * поэтому сервис не знает ни о Pixi, ни о типах элементов. Высота учитывается:
+ * луч идёт из глаз наблюдателя к телу цели, и клетка перекрывает его только
+ * тогда, когда её силуэт начинается не выше луча. Поэтому ствол закрывает
+ * токен, а крона, начинающаяся выше глаз, — нет.
  */
 export class SceneVisibilityService {
   /**
    * Карта видимости из точки.
    *
    * @param radius Радиус обзора в единицах сцены; без него — всё поле.
+   * @param eye Высота глаз наблюдателя, ипари.
+   * @param target Высота тела цели, ипари.
    */
-  map(grid: SceneSurfaceGrid, from: ScenePoint, radius = Number.POSITIVE_INFINITY): SceneVisibility {
+  map(
+    grid: SceneSurfaceGrid,
+    from: ScenePoint,
+    radius = Number.POSITIVE_INFINITY,
+    eye = SCENE_SURFACE.eyeIpari,
+    target = SCENE_SURFACE.targetIpari,
+  ): SceneVisibility {
     const visible = new Uint8Array(grid.columns * grid.rows);
     const origin = surfaceIndex(grid, from[0], from[1]);
     if (origin < 0) {
@@ -41,7 +51,7 @@ export class SceneVisibilityService {
           continue;
         }
 
-        if (index === origin || this.clearLine(grid, from, center, origin, index)) {
+        if (index === origin || this.clearLine(grid, from, center, origin, index, eye, target)) {
           visible[index] = 1;
         }
       }
@@ -51,14 +61,20 @@ export class SceneVisibilityService {
   }
 
   /** Видна ли точка из точки обзора. */
-  sees(grid: SceneSurfaceGrid, from: ScenePoint, to: ScenePoint): boolean {
+  sees(
+    grid: SceneSurfaceGrid,
+    from: ScenePoint,
+    to: ScenePoint,
+    eye = SCENE_SURFACE.eyeIpari,
+    target = SCENE_SURFACE.targetIpari,
+  ): boolean {
     const origin = surfaceIndex(grid, from[0], from[1]);
-    const target = surfaceIndex(grid, to[0], to[1]);
-    if (origin < 0 || target < 0) {
+    const index = surfaceIndex(grid, to[0], to[1]);
+    if (origin < 0 || index < 0) {
       return false;
     }
 
-    return origin === target || this.clearLine(grid, from, to, origin, target);
+    return origin === index || this.clearLine(grid, from, to, origin, index, eye, target);
   }
 
   /** Луч не пересекает непрозрачных клеток, кроме исходной и целевой. */
@@ -68,6 +84,8 @@ export class SceneVisibilityService {
     to: ScenePoint,
     origin: number,
     target: number,
+    eye: number,
+    targetHeight: number,
   ): boolean {
     const distance = Math.hypot(to[0] - from[0], to[1] - from[1]);
     const step = Math.max(1, grid.cell * SCENE_SURFACE.sightStep);
@@ -75,15 +93,14 @@ export class SceneVisibilityService {
 
     for (let index = 1; index < steps; index += 1) {
       const t = index / steps;
-      const cell = surfaceIndex(
-        grid,
-        from[0] + (to[0] - from[0]) * t,
-        from[1] + (to[1] - from[1]) * t,
-      );
+      const cell = surfaceIndex(grid, from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t);
       if (cell < 0 || cell === origin || cell === target) {
         continue;
       }
-      if (grid.opaque[cell]) {
+      // Высота луча падает от глаз наблюдателя к телу цели; силуэт перекрывает,
+      // только если начинается не выше луча.
+      const height = eye + (targetHeight - eye) * t;
+      if (grid.sightBottom[cell] <= height) {
         return false;
       }
     }

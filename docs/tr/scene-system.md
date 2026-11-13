@@ -150,14 +150,25 @@ created_at      DateTimeField, required, default now
 
 | `kind` | Назначение | `props` первого среза |
 |---|---|---|
-| `support` | Земля, настил, крыша, стойка, мост. | `kind`, `height`, `elevation`, `speed` |
+| `support` | Земля, настил, крыша, стойка, мост, съезд. | `kind`, `height`, `elevation`, `speed` |
 | `obstacle` | Стена, ствол, мебель, непроходимый объём. | `blocksMovement`, `blocksVision`, `height` |
 | `opening` | Дверь, окно, ворота, лестница, телепорт. | `kind`, `state`, `blocksVision`; цель — колонка `target_board_id` |
 | `terrain` | Грязь, лёд, вода, высокая трава. | `kind`, `shoreKind`, `shoreWidth`, `speed`, `label`, опционально `assetPublicId` |
-| `decor` | Декоративный токен или ассет. | `assetPublicId`, `rotation`, `scale`, `label` |
+| `decor` | Декоративный токен или ассет. | `assetPublicId`, `rotation`, `scale`, `baseRadius`, `sightRadius`, `sightBottom`, `label` |
 | `marker` | Служебная точка: вход, спавн, добыча. | `role`, `label` |
 
 `enclosure` не является элементом: это связь двух полей, см. ниже.
+
+`decor.baseRadius`, `decor.sightRadius` и `decor.sightBottom` — проценты ширины
+спрайта: радиус основания (ход и ствол), радиус силуэта (крона, валун) и высота,
+с которой силуэт перекрывает обзор. `0` — силуэт стоит на земле; у дерева крона
+начинается выше глаз, и луч под ней её игнорирует.
+
+При выборе ассета декора карточка подставляет пресет по имени загруженного
+файла (`SCENE_DECOR_PRESETS`): у `tree.png` узкое основание ствола, у куста —
+почти весь спрайт. Пресет задаёт стартовые `scale`, `baseRadius`, `sightRadius`
+и `sightBottom`; дальше автор правит их вручную, а элемент хранит уже
+конкретные значения.
 
 `terrain.kind` — шаблон отрисовки (`grass`, `dirt`, `stone`, `sand`,
 `mud`, `water`, `ice`). Скорость поверхности — явное целое `props.speed`
