@@ -5,7 +5,12 @@ import polygonClipping from 'polygon-clipping';
 import type { MultiPolygon, Pair, Polygon } from 'polygon-clipping';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
-import type { SceneNavMesh, SceneNavRegion, SceneNavRoute, SceneNavTriangle } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
+import type {
+  SceneNavMesh,
+  SceneNavRegion,
+  SceneNavRoute,
+  SceneNavTriangle,
+} from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
@@ -36,6 +41,13 @@ interface NavPortal {
   left: ScenePoint;
   right: ScenePoint;
   length: number;
+}
+
+/** Направленный переход между треугольниками через портал. */
+interface NavArc {
+  from: number;
+  to: number;
+  mid: ScenePoint;
 }
 
 /** Минимальная двоичная куча для A*. */
@@ -173,22 +185,12 @@ export class SceneNavigationService {
 
     const startPoint = this.speedAt(mesh, from) > 0 ? from : mesh.triangles[start].centroid;
     const goalPoint = this.speedAt(mesh, to) > 0 ? to : mesh.triangles[goal].centroid;
-    const chain = this.findChain(mesh, start, goal);
+    const chain = this.findChain(mesh, start, goal, startPoint, goalPoint);
     if (chain === null) {
       return null;
     }
 
-    const points: ScenePoint[] = [startPoint];
-    for (let index = 0; index < chain.length - 1; index += 1) {
-      const link = mesh.triangles[chain[index]].links.find((candidate) => candidate.to === chain[index + 1]);
-      if (link !== undefined) {
-        points.push([
-          (link.left[0] + link.right[0]) / 2,
-          (link.left[1] + link.right[1]) / 2,
-        ]);
-      }
-    }
-    points.push(goalPoint);
+    const points = this.funnel(mesh, chain, startPoint, goalPoint);
 
     const simplified = this.smooth(mesh, this.dedupe(points));
 
@@ -208,7 +210,7 @@ export class SceneNavigationService {
       return null;
     }
 
-    const triangles = this.triangulate(regions);
+    const triangles = this.triangulate(regions, resolution);
     if (triangles.length === 0) {
       return null;
     }
@@ -287,9 +289,12 @@ export class SceneNavigationService {
       blocked = this.subtract(blocked, this.unionMany(carves));
     }
 
-    positives.sort((left, right) => this.priority(left.element) - this.priority(right.element) ||
-      right.element.sortOrder - left.element.sortOrder ||
-      right.element.id - left.element.id);
+    positives.sort(
+      (left, right) =>
+        this.priority(left.element) - this.priority(right.element) ||
+        right.element.sortOrder - left.element.sortOrder ||
+        right.element.id - left.element.id,
+    );
 
     const regions: SceneNavRegion[] = [];
     let covered: MultiPolygon = [];
@@ -309,7 +314,10 @@ export class SceneNavigationService {
         regions.push({
           speed: positive.speed,
           outer,
-          holes: polygon.slice(1).map((ring) => this.normalizeRing(ring)).filter((ring) => ring.length >= 3),
+          holes: polygon
+            .slice(1)
+            .map((ring) => this.normalizeRing(ring))
+            .filter((ring) => ring.length >= 3),
         });
       }
       covered = this.unionMany([...this.polygonsOf(covered), shape]);
@@ -318,40 +326,100 @@ export class SceneNavigationService {
     return regions;
   }
 
-  /** Триангулирует регионы; у каждой треугольной грани своя скорость. */
-  private triangulate(regions: readonly SceneNavRegion[]): SceneNavTriangle[] {
+  /**
+   * Триангулирует регионы; у каждой треугольной грани своя скорость.
+   *
+   * Регион режется сеткой перед `earcut`. Иначе вырез декора сшивается с
+   * внешним контуром одним длинным разрезом: A* получает «шоссе» через
+   * вырожденный треугольник, и маршрут уходит к дальнему концу выреза.
+   * После нарезки разрез не длиннее ячейки, а сетка остаётся связной.
+   */
+  private triangulate(regions: readonly SceneNavRegion[], resolution: number): SceneNavTriangle[] {
     const triangles: SceneNavTriangle[] = [];
+    const cell = Math.max(32, resolution * SCENE_NAVIGATION.triangulationCellIpari);
     for (const region of regions) {
-      const rings: Pair[][] = [region.outer, ...region.holes];
-      const flat = flatten(rings);
-      if (flat.vertices.length < 6) {
+      const polygon: Polygon = [region.outer, ...region.holes];
+      const bounds = this.boundsOfRing(region.outer);
+      const spans = Math.ceil(bounds.width / cell) > 1 || Math.ceil(bounds.height / cell) > 1;
+      if (!spans) {
+        this.pushTriangles(triangles, polygon, region.speed);
         continue;
       }
 
-      const indexes = earcut(flat.vertices, flat.holes, flat.dimensions);
-      for (let index = 0; index + 2 < indexes.length; index += 3) {
-        const points: [ScenePoint, ScenePoint, ScenePoint] = [
-          this.vertexAt(flat.vertices, indexes[index]),
-          this.vertexAt(flat.vertices, indexes[index + 1]),
-          this.vertexAt(flat.vertices, indexes[index + 2]),
-        ];
-        if (this.area(points) < 0.01) {
-          continue;
+      const startX = Math.floor(bounds.x / cell) * cell;
+      const startY = Math.floor(bounds.y / cell) * cell;
+      for (let x = startX; x < bounds.x + bounds.width; x += cell) {
+        for (let y = startY; y < bounds.y + bounds.height; y += cell) {
+          const clipped = intersection(polygon, [
+            [
+              [x, y],
+              [x + cell, y],
+              [x + cell, y + cell],
+              [x, y + cell],
+              [x, y],
+            ],
+          ]);
+          for (const piece of clipped) {
+            this.pushTriangles(triangles, piece, region.speed);
+          }
         }
-
-        triangles.push({
-          points,
-          speed: region.speed,
-          centroid: [
-            (points[0][0] + points[1][0] + points[2][0]) / 3,
-            (points[0][1] + points[1][1] + points[2][1]) / 3,
-          ],
-          links: [],
-        });
       }
     }
 
     return triangles;
+  }
+
+  /** Треугольники одного простого полигона с дырками. */
+  private pushTriangles(triangles: SceneNavTriangle[], polygon: Polygon, speed: number): void {
+    if (polygon.length === 0 || polygon[0].length < 3) {
+      return;
+    }
+
+    const rings: Pair[][] = polygon;
+    const flat = flatten(rings);
+    if (flat.vertices.length < 6) {
+      return;
+    }
+
+    const indexes = earcut(flat.vertices, flat.holes, flat.dimensions);
+    for (let index = 0; index + 2 < indexes.length; index += 3) {
+      const points: [ScenePoint, ScenePoint, ScenePoint] = [
+        this.vertexAt(flat.vertices, indexes[index]),
+        this.vertexAt(flat.vertices, indexes[index + 1]),
+        this.vertexAt(flat.vertices, indexes[index + 2]),
+      ];
+      if (this.area(points) < 0.01) {
+        continue;
+      }
+
+      triangles.push({
+        points,
+        speed,
+        centroid: [(points[0][0] + points[1][0] + points[2][0]) / 3, (points[0][1] + points[1][1] + points[2][1]) / 3],
+        links: [],
+      });
+    }
+  }
+
+  /** Границы кольца. */
+  private boundsOfRing(ring: Pair[]): { x: number; y: number; width: number; height: number } {
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const point of ring) {
+      minX = Math.min(minX, point[0]);
+      minY = Math.min(minY, point[1]);
+      maxX = Math.max(maxX, point[0]);
+      maxY = Math.max(maxY, point[1]);
+    }
+
+    return {
+      x: minX,
+      y: minY,
+      width: Math.max(0, maxX - minX),
+      height: Math.max(0, maxY - minY),
+    };
   }
 
   /** Склеивает треугольники по общим или частично совпадающим рёбрам. */
@@ -470,20 +538,52 @@ export class SceneNavigationService {
     };
   }
 
-  /** A* по треугольникам. */
-  private findChain(mesh: SceneNavMesh, start: number, goal: number): number[] | null {
+  /**
+   * A* по направленным порталам.
+   *
+   * Состояние — не треугольник, а вход в треугольник через конкретный портал:
+   * только так стоимость перехода считается по серединам общих рёбер, а не
+   * между центрами. У вытянутого треугольника центр далеко от портала, и
+   * оценка «центр-центр» делала такой коридор дешевле, чем он есть.
+   */
+  private findChain(
+    mesh: SceneNavMesh,
+    start: number,
+    goal: number,
+    from: ScenePoint,
+    to: ScenePoint,
+  ): number[] | null {
     if (start === goal) {
       return [start];
     }
 
-    const count = mesh.triangles.length;
-    const costs = new Float64Array(count).fill(Number.POSITIVE_INFINITY);
-    const previous = new Int32Array(count).fill(-1);
-    const closed = new Uint8Array(count);
-    const heap = new MinHeap();
-    costs[start] = 0;
-    heap.push(start, this.heuristic(mesh, start, goal));
+    const arcs: NavArc[] = [];
+    const outgoing: number[][] = mesh.triangles.map(() => []);
+    for (let triangle = 0; triangle < mesh.triangles.length; triangle += 1) {
+      for (const link of mesh.triangles[triangle].links) {
+        const arc: NavArc = {
+          from: triangle,
+          to: link.to,
+          mid: [(link.left[0] + link.right[0]) / 2, (link.left[1] + link.right[1]) / 2],
+        };
+        outgoing[triangle].push(arcs.length);
+        arcs.push(arc);
+      }
+    }
 
+    const costs = new Float64Array(arcs.length).fill(Number.POSITIVE_INFINITY);
+    const previous = new Int32Array(arcs.length).fill(-1);
+    const closed = new Uint8Array(arcs.length);
+    const heap = new MinHeap();
+    const startSpeed = Math.max(1, mesh.triangles[start].speed);
+    for (const arc of outgoing[start]) {
+      const cost = (this.distance(from, arcs[arc].mid) * 100) / startSpeed;
+      costs[arc] = cost;
+      heap.push(arc, cost + this.arcHeuristic(mesh, arcs[arc], to));
+    }
+
+    let finish = -1;
+    let finishCost = Number.POSITIVE_INFINITY;
     while (heap.size > 0) {
       const current = heap.pop();
       if (current === null) {
@@ -492,48 +592,54 @@ export class SceneNavigationService {
       if (closed[current] === 1) {
         continue;
       }
-      if (current === goal) {
-        break;
+      closed[current] = 1;
+      const arc = arcs[current];
+      if (arc.to === goal) {
+        const total = costs[current] + (this.distance(arc.mid, to) * 100) / Math.max(1, mesh.triangles[goal].speed);
+        if (total < finishCost) {
+          finish = current;
+          finishCost = total;
+        }
+        continue;
       }
 
-      closed[current] = 1;
-      const triangle = mesh.triangles[current];
-      for (const link of triangle.links) {
-        if (closed[link.to] === 1) {
+      const speed = Math.max(1, mesh.triangles[arc.to].speed);
+      for (const next of outgoing[arc.to]) {
+        if (closed[next] === 1) {
           continue;
         }
 
-        const target = mesh.triangles[link.to];
-        const speed = Math.max(1, (triangle.speed + target.speed) / 2);
-        // Стоимость перехода — расстояние между центрами треугольников, а не
-        // ширина общего ребра: широкий портал не дороже узкого.
-        const next = costs[current] + (this.distance(triangle.centroid, target.centroid) * 100) / speed;
-        if (next >= costs[link.to]) {
+        const nextArc = arcs[next];
+        const cost = costs[current] + (this.distance(arc.mid, nextArc.mid) * 100) / speed;
+        if (cost >= costs[next]) {
           continue;
         }
 
-        costs[link.to] = next;
-        previous[link.to] = current;
-        heap.push(link.to, next + this.heuristic(mesh, link.to, goal));
+        costs[next] = cost;
+        previous[next] = current;
+        heap.push(next, cost + this.arcHeuristic(mesh, nextArc, to));
       }
     }
 
-    if (previous[goal] < 0 && goal !== start) {
+    if (finish < 0) {
       return null;
     }
 
     const chain: number[] = [];
-    let current = goal;
+    let current = finish;
     while (current >= 0) {
-      chain.push(current);
-      if (current === start) {
-        break;
-      }
+      chain.push(arcs[current].to);
       current = previous[current];
     }
+    chain.push(start);
     chain.reverse();
 
-    return chain[0] === start ? chain : null;
+    return chain;
+  }
+
+  /** Эвристика A* по порталу: расстояние до цели с максимальной скоростью. */
+  private arcHeuristic(mesh: SceneNavMesh, arc: NavArc, goal: ScenePoint): number {
+    return (this.distance(arc.mid, goal) * 100) / mesh.maxSpeed;
   }
 
   /** Эвристика A*: расстояние с максимальной скоростью сцены. */
@@ -542,6 +648,97 @@ export class SceneNavigationService {
     const to = mesh.triangles[goal].centroid;
 
     return (this.distance(from, to) * 100) / mesh.maxSpeed;
+  }
+
+  /**
+   * Строит путь по коридору треугольников.
+   *
+   * Порталы обходятся funnel-алгоритмом: путь прижимается к краю коридора, а
+   * не идёт через середины общих рёбер. У вырожденных треугольников середина
+   * ребра может быть далеко от самого коридора, и маршрут уходил бы в сторону.
+   */
+  private funnel(mesh: SceneNavMesh, chain: readonly number[], start: ScenePoint, goal: ScenePoint): ScenePoint[] {
+    if (chain.length < 2) {
+      return [start, goal];
+    }
+
+    const portals: [ScenePoint, ScenePoint][] = [];
+    for (let index = 0; index < chain.length - 1; index += 1) {
+      const from = mesh.triangles[chain[index]];
+      const to = mesh.triangles[chain[index + 1]];
+      const link = from.links.find((candidate) => candidate.to === chain[index + 1]);
+      if (link === undefined) {
+        continue;
+      }
+
+      // Ориентируем портал по ходу движения: funnel требует, чтобы left и
+      // right были согласованы вдоль коридора.
+      const travel: ScenePoint = [to.centroid[0] - from.centroid[0], to.centroid[1] - from.centroid[1]];
+      const cross = (link.right[0] - link.left[0]) * travel[1] - (link.right[1] - link.left[1]) * travel[0];
+      portals.push(cross > 0 ? [link.right, link.left] : [link.left, link.right]);
+    }
+
+    const path: ScenePoint[] = [start];
+    let apex = start;
+    let left = start;
+    let right = start;
+    let leftIndex = 0;
+    let rightIndex = 0;
+    const list: [ScenePoint, ScenePoint][] = [...portals, [goal, goal]];
+
+    for (let index = 0; index < list.length; index += 1) {
+      const [portalLeft, portalRight] = list[index];
+
+      // Правая граница: вершина подтягивается, пока коридор не повернёт.
+      if (this.turn(apex, right, portalRight) <= 0) {
+        if (this.samePoint(apex, right) || this.turn(apex, left, portalRight) > 0) {
+          right = portalRight;
+          rightIndex = index;
+        } else {
+          const restart = leftIndex;
+          path.push(left);
+          apex = left;
+          left = apex;
+          right = apex;
+          leftIndex = restart;
+          rightIndex = restart;
+          index = restart;
+          continue;
+        }
+      }
+
+      // Левая граница.
+      if (this.turn(apex, left, portalLeft) >= 0) {
+        if (this.samePoint(apex, left) || this.turn(apex, right, portalLeft) < 0) {
+          left = portalLeft;
+          leftIndex = index;
+        } else {
+          const restart = rightIndex;
+          path.push(right);
+          apex = right;
+          left = apex;
+          right = apex;
+          leftIndex = restart;
+          rightIndex = restart;
+          index = restart;
+          continue;
+        }
+      }
+    }
+
+    path.push(goal);
+
+    return path;
+  }
+
+  /** Знак поворота a → b → c. */
+  private turn(a: ScenePoint, b: ScenePoint, c: ScenePoint): number {
+    return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  }
+
+  /** Совпадают ли точки в пределах допуска склейки. */
+  private samePoint(a: ScenePoint, b: ScenePoint): boolean {
+    return this.distance(a, b) <= SCENE_NAVIGATION.linkEpsilon;
   }
 
   /** Спрямляет путь через порталы проверкой видимости. */
@@ -640,7 +837,12 @@ export class SceneNavigationService {
       return false;
     }
     for (const hole of region.holes) {
-      if (this.geometry.pointInPolygon(point, hole)) {
+      // Точка на самой кромке выреза — ещё проходима: путь по границе обрезки
+      // не должен стоить как сквозь препятствие.
+      if (
+        this.geometry.pointInPolygon(point, hole) &&
+        this.geometry.distanceToPolyline(point, hole) > SCENE_NAVIGATION.linkEpsilon
+      ) {
         return false;
       }
     }
@@ -695,10 +897,7 @@ export class SceneNavigationService {
 
     let distance = Number.POSITIVE_INFINITY;
     for (let index = 0; index < 3; index += 1) {
-      distance = Math.min(
-        distance,
-        this.geometry.distanceToSegment(point, triangle[index], triangle[(index + 1) % 3]),
-      );
+      distance = Math.min(distance, this.geometry.distanceToSegment(point, triangle[index], triangle[(index + 1) % 3]));
     }
 
     return distance;
@@ -711,15 +910,13 @@ export class SceneNavigationService {
       return null;
     }
 
-    const segments = shape.type === 'circle'
-      ? Math.max(
-          SCENE_NAVIGATION.circleSegmentsMin,
-          Math.min(
-            SCENE_NAVIGATION.circleSegmentsMax,
-            Math.ceil((Math.PI * 2 * (shape.r + pad)) / 8),
-          ),
-        )
-      : SCENE_NAVIGATION.circleSegmentsMax;
+    const segments =
+      shape.type === 'circle'
+        ? Math.max(
+            SCENE_NAVIGATION.circleSegmentsMin,
+            Math.min(SCENE_NAVIGATION.circleSegmentsMax, Math.ceil((Math.PI * 2 * (shape.r + pad)) / 8)),
+          )
+        : SCENE_NAVIGATION.circleSegmentsMax;
     const outline = this.geometry.outline(shape, pad, segments);
     const ring = this.normalizeRing(outline.map((point): Pair => [point[0], point[1]]));
 
@@ -733,7 +930,8 @@ export class SceneNavigationService {
     }
 
     const size = Math.max(1, resolution) * (Math.max(1, element.props.scale ?? 100) / 100);
-    const radius = size * SCENE_SURFACE.decorBaseRadius + agentRadius;
+    const baseRadius = (element.props.baseRadius ?? SCENE_SURFACE.decorBaseRadius) / 100;
+    const radius = size * baseRadius + agentRadius;
 
     return this.circlePolygon([element.shape.x, element.shape.y], radius);
   }
@@ -741,9 +939,12 @@ export class SceneNavigationService {
   /** Пресет или явная скорость элемента. */
   private speedOf(element: SceneElement): number {
     const kind = element.props.kind ?? '';
-    const preset = element.kind === 'support'
-      ? (kind === 'bridge' ? SCENE_SURFACE.speeds.bridge : 100)
-      : SCENE_SURFACE.speeds[kind as keyof typeof SCENE_SURFACE.speeds] ?? 100;
+    const preset =
+      element.kind === 'support'
+        ? kind === 'bridge'
+          ? SCENE_SURFACE.speeds.bridge
+          : 100
+        : (SCENE_SURFACE.speeds[kind as keyof typeof SCENE_SURFACE.speeds] ?? 100);
     const speed = element.props.speed;
 
     return typeof speed === 'number' && Number.isFinite(speed)
@@ -897,20 +1098,16 @@ export class SceneNavigationService {
           element.props.kind ?? '',
           element.props.speed ?? '',
           element.props.scale ?? '',
+          element.props.baseRadius ?? '',
+          element.props.sightRadius ?? '',
+          element.props.sightBottom ?? '',
           element.props.blocksMovement ?? '',
           element.props.state ?? '',
           JSON.stringify(element.shape),
         ].join(':'),
       );
 
-    return [
-      board.id,
-      board.boundWidth,
-      board.boundHeight,
-      resolution,
-      agentRadius.toFixed(3),
-      ...shapes,
-    ].join('|');
+    return [board.id, board.boundWidth, board.boundHeight, resolution, agentRadius.toFixed(3), ...shapes].join('|');
   }
 
   /** Расстояние между точками. */

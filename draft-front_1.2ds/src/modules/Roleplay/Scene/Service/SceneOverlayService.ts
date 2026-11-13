@@ -1,7 +1,11 @@
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
-import type { SceneOverlayBand, SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
+import type {
+  SceneOverlayBand,
+  SceneOverlayMask,
+  SceneOverlayPaint,
+} from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurfaceGrid';
 import type { SceneVisibility } from '@/modules/Roleplay/Scene/Dto/SceneVisibility';
@@ -18,9 +22,10 @@ interface OverlayStyle {
 /**
  * Оверлеи предпросмотра: стоимость клеток и скрытые области.
  *
- * Считает полосы заливки, но не рисует: рендерер получает готовый список
- * прямоугольников. Соседние клетки одного цвета сливаются в полосу, чтобы
- * 160×160 клеток не превращались в десятки тысяч инструкций Graphics.
+ * Считает полосы стоимости и маску тумана, но не рисует. Соседние клетки
+ * одного цвета сливаются в полосу, чтобы 160×160 клеток не превращались в
+ * десятки тысяч инструкций Graphics; туман отдаётся маской, которую рендерер
+ * растягивает с линейной фильтрацией.
  */
 export class SceneOverlayService {
   /** Сетка поверхностей переживает переключение оверлеев и зум. */
@@ -51,17 +56,15 @@ export class SceneOverlayService {
     resolution: number,
     observer: ScenePoint | null,
   ): SceneOverlayPaint {
-    const bands: SceneOverlayBand[] = [];
-    if (options.costs) {
-      bands.push(...this.costBands(grid));
-    }
+    const costs = options.costs ? this.costBands(grid) : [];
+    let fog: SceneOverlayMask | null = null;
     if (options.visibility) {
       const from = observer ?? this.center(grid);
       const radius = options.radius ?? Math.max(1, resolution) * SCENE_OVERLAY.sightIpari;
-      bands.push(...this.hiddenBands(grid, this.visibility.map(grid, from, radius)));
+      fog = this.hiddenMask(grid, this.visibility.map(grid, from, radius));
     }
 
-    return { bands };
+    return { costs, fog };
   }
 
   /** Полосы стоимости: непроходимое красное, остальное — по поверхности. */
@@ -89,28 +92,29 @@ export class SceneOverlayService {
     return bands;
   }
 
-  /** Полосы скрытых клеток; у границы обзора прозрачность ниже. */
-  hiddenBands(grid: SceneSurfaceGrid, visibility: SceneVisibility): SceneOverlayBand[] {
+  /**
+   * Маска скрытых клеток; у границы обзора прозрачность ниже.
+   *
+   * Один тексель на клетку: рендерер растягивает её с линейной фильтрацией,
+   * поэтому на экране нет ступенек, а кольца мягкого края остаются данными.
+   */
+  hiddenMask(grid: SceneSurfaceGrid, visibility: SceneVisibility): SceneOverlayMask {
     const distance = this.edgeDistance(grid, visibility);
-    const bands: SceneOverlayBand[] = [];
-    for (let row = 0; row < grid.rows; row += 1) {
-      let start = -1;
-      let style: OverlayStyle | null = null;
-      for (let column = 0; column <= grid.columns; column += 1) {
-        const next = column < grid.columns ? this.hiddenStyle(visibility, distance, row, column, grid.columns) : null;
-        if (next === style) {
-          continue;
-        }
-
-        if (style !== null && start >= 0) {
-          bands.push(this.band(grid, row, start, column, style));
-        }
-        start = next === null ? -1 : column;
-        style = next;
-      }
+    const size = grid.columns * grid.rows;
+    const alpha = new Uint8Array(size);
+    for (let index = 0; index < size; index += 1) {
+      alpha[index] = this.hiddenAlpha(visibility, distance, index);
     }
 
-    return bands;
+    return {
+      x: grid.x,
+      y: grid.y,
+      cell: grid.cell,
+      columns: grid.columns,
+      rows: grid.rows,
+      alpha,
+      color: SCENE_OVERLAY.hidden.color,
+    };
   }
 
   /** Сетка поверхностей с кэшем по полю, разрешению и форме элементов. */
@@ -130,6 +134,9 @@ export class SceneOverlayService {
             element.sortOrder,
             element.props.kind ?? '',
             element.props.scale ?? '',
+            element.props.baseRadius ?? '',
+            element.props.sightRadius ?? '',
+            element.props.sightBottom ?? '',
             element.props.blocksMovement ?? '',
             element.props.blocksVision ?? '',
             element.props.state ?? '',
@@ -154,28 +161,21 @@ export class SceneOverlayService {
     return SCENE_OVERLAY.cost[grid.kinds[index]];
   }
 
-  /** Скрытая клетка: два кольца мягкого края, дальше — плотный туман. */
-  private hiddenStyle(
-    visibility: SceneVisibility,
-    distance: Int16Array,
-    row: number,
-    column: number,
-    columns: number,
-  ): OverlayStyle | null {
-    const index = row * columns + column;
+  /** Альфа скрытой клетки: два кольца мягкого края, дальше — плотный туман. */
+  private hiddenAlpha(visibility: SceneVisibility, distance: Int16Array, index: number): number {
     if (visibility.visible[index] === 1) {
-      return null;
+      return 0;
     }
 
     const depth = distance[index];
     if (depth === 1) {
-      return SCENE_OVERLAY.hiddenEdge;
+      return Math.round(SCENE_OVERLAY.hiddenEdge.alpha * 255);
     }
     if (depth === 2) {
-      return SCENE_OVERLAY.hiddenMid;
+      return Math.round(SCENE_OVERLAY.hiddenMid.alpha * 255);
     }
 
-    return SCENE_OVERLAY.hidden;
+    return Math.round(SCENE_OVERLAY.hidden.alpha * 255);
   }
 
   /**

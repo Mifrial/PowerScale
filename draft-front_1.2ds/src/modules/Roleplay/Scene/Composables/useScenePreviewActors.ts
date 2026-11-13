@@ -5,6 +5,7 @@ import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { ScenePreviewActor } from '@/modules/Roleplay/Scene/Dto/ScenePreviewActor';
 import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurfaceGrid';
+import { SCENE_ACTOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ACTOR';
 import { SCENE_PREVIEW } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_PREVIEW';
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
 import { SceneSurfaceService } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
@@ -51,10 +52,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
   const selectedActor = computed(() => actors.value.find((actor) => actor.id === selectedId.value) ?? null);
 
-  watch(
-    [options.enabled, options.board, options.elements, options.resolution],
-    () => syncFromScene(),
-  );
+  watch([options.enabled, options.board, options.elements, options.resolution], () => syncFromScene());
   syncFromScene();
 
   onBeforeUnmount(() => stopMotion());
@@ -80,13 +78,15 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
     const resolution = Math.max(1, options.resolution());
     const previous = new Map(actors.value.map((actor) => [actor.id, actor]));
-    const markers = options.elements().filter(
-      (element) =>
-        element.boardId === board.id &&
-        element.kind === 'marker' &&
-        element.shape.type === 'point' &&
-        (element.props.role === 'player_start' || element.props.role === 'npc_spawn'),
-    );
+    const markers = options
+      .elements()
+      .filter(
+        (element) =>
+          element.boardId === board.id &&
+          element.kind === 'marker' &&
+          element.shape.type === 'point' &&
+          (element.props.role === 'player_start' || element.props.role === 'npc_spawn'),
+      );
     actors.value = markers.map((element) => {
       const point = element.shape.type === 'point' ? element.shape : { x: 0, y: 0 };
       const role = element.props.role ?? 'player_start';
@@ -97,7 +97,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
         x: old?.x ?? point.x,
         y: old?.y ?? point.y,
         facing: old?.facing ?? 0,
-        radius: Math.max(1, resolution * 0.55),
+        radius: Math.max(1, resolution * SCENE_ACTOR.radiusIpari),
         tint: role === 'player_start' ? 0x8fb4ff : 0xffb38f,
         label: element.props.label || (role === 'player_start' ? 'Манекен' : 'Токен'),
         selected: element.id === selectedId.value,
@@ -177,14 +177,9 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return;
     }
 
-    const result = navigation.route(
-      board,
-      options.elements(),
-      options.resolution(),
-      [actor.x, actor.y],
-      point,
-      { agentRadius: actor.radius },
-    );
+    const result = navigation.route(board, options.elements(), options.resolution(), [actor.x, actor.y], point, {
+      agentRadius: actor.radius,
+    });
     if (result === null || result.points.length < 2) {
       return;
     }
@@ -220,7 +215,10 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
     const delta = Math.min(0.1, (now - motion.lastTime) / 1000);
     motion.lastTime = now;
-    motion.traveled = Math.min(motion.total, motion.traveled + options.resolution() * SCENE_PREVIEW.walkIpariPerSecond * delta);
+    motion.traveled = Math.min(
+      motion.total,
+      motion.traveled + options.resolution() * SCENE_PREVIEW.walkIpariPerSecond * delta,
+    );
     const sampled = sampleMotion(motion);
     if (sampled === null) {
       stopMotion();
@@ -292,9 +290,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       }
 
       const distance = Math.hypot(actor.x - observer.x, actor.y - observer.y);
-      const visible =
-        distance <= observer.sightRadius &&
-        visibility.sees(surface, observerPoint, [actor.x, actor.y]);
+      const visible = distance <= observer.sightRadius && visibility.sees(surface, observerPoint, [actor.x, actor.y]);
 
       return { ...actor, ghost: !visible };
     });
@@ -319,6 +315,9 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
             element.sortOrder,
             element.props.kind ?? '',
             element.props.scale ?? '',
+            element.props.baseRadius ?? '',
+            element.props.sightRadius ?? '',
+            element.props.sightBottom ?? '',
             element.props.blocksMovement ?? '',
             element.props.blocksVision ?? '',
             element.props.state ?? '',

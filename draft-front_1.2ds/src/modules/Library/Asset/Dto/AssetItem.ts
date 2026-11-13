@@ -5,6 +5,8 @@ export interface AssetItem {
   collectionCode: string;
   collectionTitle: string;
   filePublicId: string | null;
+  /** Имя загруженного файла: стабильный ключ пресетов потребителя. */
+  originalName?: string | null;
   name: string;
   width: number | null;
   height: number | null;

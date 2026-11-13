@@ -80,6 +80,46 @@ describe('SceneRibbonService', () => {
     expect(geometry.lengths[geometry.lengths.length - 1]).toBeCloseTo(300, 6);
   });
 
+  it('joins a sharp corner with one miter vertex, without a zero-length fan', () => {
+    const geometry = service.geometry(
+      [
+        [0, 0],
+        [100, 0],
+        [100, 100],
+      ],
+      curves.normalizeHandles([]),
+      [40, 40, 40],
+    );
+
+    // Точка излома не дублируется: иначе лента получает веер нулевой длины.
+    expect(geometry.center).toHaveLength(3);
+    expect(geometry.left).toHaveLength(3);
+    // Митра уводит внутренний край внутрь угла, внешний — наружу.
+    expect(geometry.left[1][0]).toBeCloseTo(80, 6);
+    expect(geometry.left[1][1]).toBeCloseTo(20, 6);
+    expect(geometry.right[1][0]).toBeCloseTo(120, 6);
+    expect(geometry.right[1][1]).toBeCloseTo(-20, 6);
+  });
+
+  it('limits the miter on a hairpin turn instead of producing a needle', () => {
+    const geometry = service.geometry(
+      [
+        [0, 0],
+        [100, 0],
+        [0, 0],
+      ],
+      curves.normalizeHandles([]),
+      [40, 40, 40],
+    );
+
+    expect(geometry.center).toHaveLength(3);
+    for (const point of [...geometry.left, ...geometry.right]) {
+      expect(Number.isFinite(point[0])).toBe(true);
+      expect(Number.isFinite(point[1])).toBe(true);
+      expect(Math.hypot(point[0], point[1])).toBeLessThan(1000);
+    }
+  });
+
   it('extends open ends along the axis, not across', () => {
     const geometry = service.geometry(
       [

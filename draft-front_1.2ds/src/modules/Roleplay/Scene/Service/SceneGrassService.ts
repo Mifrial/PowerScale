@@ -2,6 +2,7 @@ import { Sprite } from 'pixi.js';
 import type { Container } from 'pixi.js';
 import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
+import type { SceneGrassBand } from '@/modules/Roleplay/Scene/Dto/SceneGrassBand';
 import type { SceneGrassTuft } from '@/modules/Roleplay/Scene/Dto/SceneGrassTuft';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import { SCENE_GRASS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_GRASS';
@@ -47,6 +48,30 @@ export class SceneGrassService {
       spacingIpari: SCENE_GRASS.carpetSpacingIpari,
       limit: SCENE_GRASS.carpetLimit,
     });
+  }
+
+  /**
+   * Режет короткий ковёр на горизонтальные полосы.
+   *
+   * Полоса сортируется по нижней границе: ошибка внутри полосы не больше её
+   * высоты, зато ковёр перестаёт быть одним слоем под всеми акторами.
+   */
+  band(tufts: readonly SceneGrassTuft[], resolution: number): SceneGrassBand[] {
+    const height = Math.max(1, resolution * SCENE_GRASS.carpetBandIpari);
+    const bands = new Map<number, SceneGrassTuft[]>();
+    for (const tuft of tufts) {
+      const index = Math.floor(tuft.y / height);
+      const band = bands.get(index);
+      if (band === undefined) {
+        bands.set(index, [tuft]);
+      } else {
+        band.push(tuft);
+      }
+    }
+
+    return [...bands.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([index, items]) => ({ y: (index + 1) * height, tufts: items }));
   }
 
   /** Высокие пучки: спрайты в Y-сортировке с декором и акторами. */
@@ -192,12 +217,7 @@ export class SceneGrassService {
   }
 
   /** Ключ кэша: поле, разрешение, полоса плотности и форма элементов. */
-  private cacheKey(
-    elements: readonly SceneElement[],
-    board: SceneBounds,
-    base: number,
-    layer: TuftLayer,
-  ): string {
+  private cacheKey(elements: readonly SceneElement[], board: SceneBounds, base: number, layer: TuftLayer): string {
     const shapes = elements.map(
       (element) =>
         `${element.id}:${element.props.kind}:${element.props.shoreKind ?? 'none'}:${element.props.shoreWidth ?? 0}:${JSON.stringify(element.shape)}`,
@@ -255,9 +275,7 @@ export class SceneGrassService {
       flip: ((seed >>> 16) & 1) === 1,
       rotation: (((seed >>> 12) % 128) / 128) * 0.16 - 0.08,
       tint:
-        (this.channel(shade * warm[0]) << 16) |
-        (this.channel(shade * warm[1]) << 8) |
-        this.channel(shade * warm[2]),
+        (this.channel(shade * warm[0]) << 16) | (this.channel(shade * warm[1]) << 8) | this.channel(shade * warm[2]),
       alpha: 0.85 + (((seed >>> 28) % 16) / 16) * 0.15,
       sequence,
     };

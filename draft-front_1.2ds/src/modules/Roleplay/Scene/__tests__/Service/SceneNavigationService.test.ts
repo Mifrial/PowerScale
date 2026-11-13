@@ -53,13 +53,7 @@ const rect = (
 const near = (point: ScenePoint, x: number, y: number, radius: number): boolean =>
   Math.hypot(point[0] - x, point[1] - y) <= radius;
 
-const crossesRect = (
-  points: ScenePoint[],
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-): boolean => {
+const crossesRect = (points: ScenePoint[], x: number, y: number, width: number, height: number): boolean => {
   for (let index = 1; index < points.length; index += 1) {
     const from = points[index - 1];
     const to = points[index];
@@ -76,6 +70,22 @@ const crossesRect = (
   }
 
   return false;
+};
+
+/** Расстояние от точки до ближайшего отрезка полилинии. */
+const minDistance = (points: ScenePoint[], x: number, y: number): number => {
+  let best = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < points.length; index += 1) {
+    const from = points[index - 1];
+    const to = points[index];
+    const dx = to[0] - from[0];
+    const dy = to[1] - from[1];
+    const length = dx * dx + dy * dy;
+    const t = length <= 0 ? 0 : Math.max(0, Math.min(1, ((x - from[0]) * dx + (y - from[1]) * dy) / length));
+    best = Math.min(best, Math.hypot(x - (from[0] + dx * t), y - (from[1] + dy * t)));
+  }
+
+  return best;
 };
 
 describe('SceneNavigationService', () => {
@@ -158,17 +168,130 @@ describe('SceneNavigationService', () => {
     expect(route).toBeNull();
   });
 
-  it('обходит основание декора', () => {
+  it('не уходит к дальнему углу моста, если ближний берег короче', () => {
+    const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20 }, 10);
+    const bridge = rect(3, 'support', 400, 300, 200, 100, { kind: 'bridge', speed: 150 }, 20);
+    const route = service.route(board, [grass(), water, bridge], 64, [300, 500], [700, 500], options);
+
+    expect(route).not.toBeNull();
+    // Мост пересекается у южного края: выход к цели не через северо-восточный
+    // угол, который добавляет лишний крюк.
+    const crossesSouthEdge = route?.points.some(
+      (point) => point[1] >= 390 && point[1] <= 410 && point[0] >= 400 && point[0] <= 600,
+    );
+    expect(crossesSouthEdge).toBe(true);
+    expect(route?.points.some((point) => near(point, 600, 300, 16))).toBe(false);
+  });
+
+  it('не срезает через длинный разрез триангуляции у выреза', () => {
+    const large: SceneBoard = { ...board, boundWidth: 2000, boundHeight: 2000 };
+    const largeGrass = element(
+      1,
+      'terrain',
+      { type: 'rect', x: 0, y: 0, w: 2000, h: 2000 },
+      { kind: 'grass', speed: 100 },
+      0,
+    );
+    const tree = element(
+      2,
+      'decor',
+      { type: 'point', x: 1000, y: 1000 },
+      { scale: 420, baseRadius: 30, label: 'Дерево' },
+      10,
+    );
+    const route = new SceneNavigationService().route(large, [largeGrass, tree], 64, [600, 1000], [1400, 1000], {
+      agentRadius: 35.2,
+    });
+
+    expect(route).not.toBeNull();
+    // Прямая 800; обход ствола добавляет немного, а разрез к углу поля — сотни.
+    expect(route?.distance).toBeLessThan(950);
+  });
+
+  it('пересобирает сетку при смене радиуса основания', () => {
     const tree = element(
       2,
       'decor',
       { type: 'point', x: 500, y: 400 },
-      { scale: 420, label: 'Валун' },
+      { scale: 420, baseRadius: 30, label: 'Дерево' },
+      10,
     );
+    const wide = service.route(board, [grass(), tree], 64, [400, 400], [600, 400], options);
+    const narrow = service.route(
+      board,
+      [grass(), { ...tree, props: { ...tree.props, baseRadius: 2 } }],
+      64,
+      [400, 400],
+      [600, 400],
+      options,
+    );
+
+    expect(wide).not.toBeNull();
+    expect(narrow).not.toBeNull();
+    expect(narrow?.distance).toBeLessThan(wide?.distance ?? 0);
+  });
+
+  it('обходит основание декора', () => {
+    const tree = element(2, 'decor', { type: 'point', x: 500, y: 400 }, { scale: 420, label: 'Валун' });
     const route = service.route(board, [grass(), tree], 64, [400, 400], [600, 400], options);
 
     expect(route).not.toBeNull();
     expect(route?.points.some((point) => near(point, 500, 400, 40))).toBe(false);
     expect(route?.distance).toBeGreaterThan(200);
+  });
+
+  it('обходит основание коротким крюком, а не через угол поля', () => {
+    const tree = element(2, 'decor', { type: 'point', x: 700, y: 400 }, { scale: 420, label: 'Дерево' }, 10);
+    const route = service.route(board, [grass(), tree], 64, [300, 430], [900, 370], options);
+    const straight = Math.hypot(600, -60);
+
+    expect(route).not.toBeNull();
+    // Обход круга радиусом около 90 добавляет немного; крюк к углу поля — втрое.
+    expect(route?.distance).toBeLessThan(straight * 1.5);
+  });
+
+  it('не считает кромку выреза дорогой через препятствие', () => {
+    const tree = element(2, 'decor', { type: 'point', x: 500, y: 400 }, { scale: 420, label: 'Дерево' }, 10);
+    const route = service.route(board, [grass(), tree], 64, [400, 400], [600, 400], options);
+
+    expect(route).not.toBeNull();
+    // Путь по кромке обрезки идёт по траве, а не по «непроходимой» цене.
+    expect(route?.cost).toBeLessThan((route?.distance ?? 0) * 1.5);
+  });
+
+  it('обходит ствол с зазором тела, а не кольца', () => {
+    const tree = element(
+      2,
+      'decor',
+      { type: 'point', x: 500, y: 400 },
+      { scale: 420, baseRadius: 10, label: 'Дерево' },
+      10,
+    );
+    // Радиус по умолчанию — тело 0.3 ипари, а не кольцо.
+    const route = service.route(board, [grass(), tree], 64, [300, 400], [700, 400]);
+
+    expect(route).not.toBeNull();
+    const trunk = 64 * 4.2 * 0.1;
+    const body = 64 * 0.3;
+    const clearance = minDistance(route?.points ?? [], 500, 400);
+    // Ствол не задет, но и «база» 0.55 ипари не огибается.
+    expect(clearance).toBeGreaterThan(trunk);
+    expect(clearance).toBeLessThan(trunk + body + 8);
+  });
+
+  it('проходит щель шириной 1 ипари телом 0.3 и не проходит 0.4', () => {
+    // Шахматные стены: верхняя заканчивается на y=400, нижняя начинается там
+    // же; единственный проход — щель между ними по x.
+    const walls = (gap: number): SceneElement[] => [
+      grass(),
+      rect(2, 'obstacle', 400, 0, 64, 400, { blocksMovement: true }),
+      rect(3, 'obstacle', 464 + gap, 400, 64, 400, { blocksMovement: true }),
+    ];
+
+    const wide = service.route(board, walls(64), 64, [300, 400], [700, 400]);
+    const narrow = service.route(board, walls(25.6), 64, [300, 400], [700, 400]);
+
+    expect(wide).not.toBeNull();
+    expect(narrow).toBeNull();
   });
 });

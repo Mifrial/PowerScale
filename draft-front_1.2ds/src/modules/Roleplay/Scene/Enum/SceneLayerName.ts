@@ -9,7 +9,8 @@ export type SceneLayerName =
   | 'waterPlane'
   | 'ground'
   | 'overlay'
-  | 'route'
   | 'decor'
+  | 'fog'
+  | 'route'
   | 'selection'
   | 'gizmos';

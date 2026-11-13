@@ -127,6 +127,24 @@ describe('SceneGrassService', () => {
     expect(changed.length).toBeLessThan(first.length);
   });
 
+  it('режет ковёр на полосы по нижней границе', () => {
+    const tuft = (y: number) => ({
+      x: 0,
+      y,
+      variant: 0,
+      height: 1,
+      flip: false,
+      rotation: 0,
+      tint: 0xffffff,
+      alpha: 1,
+      sequence: y,
+    });
+    const bands = service.band([tuft(0), tuft(10), tuft(33), tuft(70)], 64);
+
+    expect(bands.map((band) => band.y)).toEqual([32, 64, 96]);
+    expect(bands.map((band) => band.tufts.length)).toEqual([2, 1, 1]);
+  });
+
   it('держит потолок числа пучков', () => {
     const big: SceneBounds = { x: 0, y: 0, width: 6000, height: 6000 };
     const field = element(1, { type: 'rect', x: 0, y: 0, w: 6000, h: 6000 }, { kind: 'grass' });

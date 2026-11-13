@@ -103,34 +103,34 @@ describe('SceneOverlayService', () => {
       }
     }
     const visibility: SceneVisibility = { columns: grid.columns, rows: grid.rows, visible };
-    const bands = service.hiddenBands(grid, visibility);
+    const mask = service.hiddenMask(grid, visibility);
+    const alphas = new Set(mask.alpha);
 
-    expect(bands.some((band) => band.alpha === SCENE_OVERLAY.hiddenEdge.alpha)).toBe(true);
-    expect(bands.some((band) => band.alpha === SCENE_OVERLAY.hiddenMid.alpha)).toBe(true);
-    expect(bands.some((band) => band.alpha === SCENE_OVERLAY.hidden.alpha)).toBe(true);
-    expect(bands.every((band) => band.width > 0 && band.height > 0)).toBe(true);
+    expect(mask.alpha).toHaveLength(grid.columns * grid.rows);
+    expect(alphas.has(Math.round(SCENE_OVERLAY.hiddenEdge.alpha * 255))).toBe(true);
+    expect(alphas.has(Math.round(SCENE_OVERLAY.hiddenMid.alpha * 255))).toBe(true);
+    expect(alphas.has(Math.round(SCENE_OVERLAY.hidden.alpha * 255))).toBe(true);
+    expect(alphas.has(0)).toBe(true);
   });
 
-  it('ставит стоимость перед затемнением видимости', () => {
+  it('держит стоимость и туман в разных наборах', () => {
     const grid = surfaces.build(board, [grass()], 64);
-    const paint = service.build(
-      grid,
-      { costs: true, visibility: true, observer: null, radius: 48 },
-      64,
-      null,
-    );
+    const paint = service.build(grid, { costs: true, visibility: true, observer: null, radius: 48 }, 64, null);
 
-    expect(paint.bands.length).toBeGreaterThan(1);
-    expect(paint.bands[0].color).toBe(SCENE_OVERLAY.cost.grass.color);
-    expect([SCENE_OVERLAY.hidden.color, SCENE_OVERLAY.hiddenEdge.color]).toContain(
-      paint.bands[paint.bands.length - 1].color,
-    );
+    expect(paint.costs.length).toBeGreaterThan(1);
+    expect(paint.costs[0].color).toBe(SCENE_OVERLAY.cost.grass.color);
+    expect(paint.fog).not.toBeNull();
+    expect(paint.fog?.color).toBe(SCENE_OVERLAY.hidden.color);
+    expect(paint.fog?.columns).toBe(grid.columns);
+    expect(paint.fog?.rows).toBe(grid.rows);
+    expect(paint.fog?.cell).toBe(grid.cell);
   });
 
-  it('не отдаёт полос, когда оверлеи выключены', () => {
+  it('не отдаёт оверлеев, когда они выключены', () => {
     const grid = surfaces.build(board, [grass()], 64);
     const paint = service.build(grid, { costs: false, visibility: false, observer: null, radius: null }, 64, null);
 
-    expect(paint.bands).toEqual([]);
+    expect(paint.costs).toEqual([]);
+    expect(paint.fog).toBeNull();
   });
 });

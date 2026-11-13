@@ -19,6 +19,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | null];
+  select: [item: AssetItem];
 }>();
 
 const dialogOpen = ref(false);
@@ -39,6 +40,7 @@ function onSelect(item: AssetItem): void {
   if (item.filePublicId === null) return;
   publicId.value = item.filePublicId;
   emit('update:modelValue', item.filePublicId);
+  emit('select', item);
 }
 
 function clear(): void {

@@ -1,9 +1,15 @@
-import { Application, Container, Geometry, Graphics, Mesh, Sprite } from 'pixi.js';
+import { Application, Container, Geometry, Graphics, Mesh, Sprite, Texture } from 'pixi.js';
+import type { Shader } from 'pixi.js';
 import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
-import type { SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
+import type { SceneGrassTuft } from '@/modules/Roleplay/Scene/Dto/SceneGrassTuft';
+import type {
+  SceneOverlayBand,
+  SceneOverlayMask,
+  SceneOverlayPaint,
+} from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
@@ -107,6 +113,11 @@ export class PixiSceneRenderer implements ISceneRenderer {
   /** Готовые полосы оверлеев; их считает сервис, рендерер только рисует. */
   private overlayPaint: SceneOverlayPaint | null = null;
 
+  /** Маска тумана и её текстура: пересобираются только при новой видимости. */
+  private fogMask: SceneOverlayMask | null = null;
+
+  private fogTexture: Texture | null = null;
+
   /** Полилиния маршрута выбранного актора. */
   private routePoints: ScenePoint[] | null = null;
 
@@ -153,6 +164,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private sceneToken = 0;
 
   private dpr = 1;
+
+  /** Запрошенный через rAF кадр, пока тикер не запущен. */
+  private frameHandle: number | null = null;
 
   private contextLost = false;
 
@@ -262,7 +276,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     this.syncWaterAnimation();
-    this.render();
+    this.requestFrame();
   }
 
   async setScene(model: SceneRenderModel): Promise<void> {
@@ -278,7 +292,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     // Полная сцена собирается после отпускания.
     if (this.editing) {
       this.drawSelection();
-      this.render();
+      this.requestFrame();
 
       return;
     }
@@ -287,7 +301,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     if (board === undefined) {
       this.boardBounds = null;
       this.clearAll();
-      this.render();
+      this.requestFrame();
 
       return;
     }
@@ -299,7 +313,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     this.rebuild(board);
     this.applyViewport();
-    this.render();
+    this.requestFrame();
     this.syncWaterAnimation();
   }
 
@@ -324,7 +338,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     if (board !== undefined) {
       this.rebuild(board);
       this.applyViewport();
-      this.render();
+      this.requestFrame();
     }
   }
 
@@ -341,21 +355,21 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.syncTrailTicker();
     }
 
-    this.render();
+    this.requestFrame();
   }
 
   /** Готовые полосы тактических оверлеев; null — оверлеи выключены. */
   setOverlayPaint(paint: SceneOverlayPaint | null): void {
     this.overlayPaint = paint;
     this.drawOverlay();
-    this.render();
+    this.requestFrame();
   }
 
   /** Маршрут выбранного актора; null — линия скрыта. */
   setRoute(points: ScenePoint[] | null): void {
     this.routePoints = points;
     this.drawRoute();
-    this.render();
+    this.requestFrame();
   }
 
   setSelection(ids: number[]): void {
@@ -365,19 +379,19 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     this.model = { ...this.model, selection: ids };
     this.drawSelection();
-    this.render();
+    this.requestFrame();
   }
 
   setDraft(shape: SceneShape | null): void {
     this.draftShape = shape;
     this.drawDraft();
-    this.render();
+    this.requestFrame();
   }
 
   setVertexFocus(target: SceneVertexTarget | null): void {
     this.vertexFocus = target;
     this.drawSelection();
-    this.render();
+    this.requestFrame();
   }
 
   /** Анимация воды — пользовательская настройка, а не свойство локации. */
@@ -390,12 +404,48 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.syncWaterAnimation();
   }
 
+  /** Немедленный кадр. Сеттеры просят кадр через `requestFrame`, а не рисуют сами. */
   render(): void {
     if (this.app === null || this.contextLost) {
       return;
     }
 
     this.app.render();
+  }
+
+  /**
+   * Просит кадр вместо немедленного рендера.
+   *
+   * Сеттеры приходят пачкой — акторы, маршрут, оверлей, — а тикер воды и следа
+   * всё равно рисует сцену раз в кадр. Поэтому сеттер только помечает, что
+   * кадр нужен: с запущенным тикером его отрисует тикер, без тикера — один
+   * `requestAnimationFrame`. Иначе сцена уходила в GPU дважды за кадр, и
+   * движение дёргалось.
+   */
+  private requestFrame(): void {
+    if (this.app === null || this.contextLost) {
+      return;
+    }
+
+    // Тикер сам вызовет `app.render` в конце кадра; второй рендер не нужен.
+    if (this.app.ticker.started || this.frameHandle !== null) {
+      return;
+    }
+
+    this.frameHandle = requestAnimationFrame(() => {
+      this.frameHandle = null;
+      this.render();
+    });
+  }
+
+  /** Снимает запрошенный кадр: его заменит тикер или немедленный рендер. */
+  private cancelFrame(): void {
+    if (this.frameHandle === null) {
+      return;
+    }
+
+    cancelAnimationFrame(this.frameHandle);
+    this.frameHandle = null;
   }
 
   /** Тикер воды: только preview/play, включённая настройка и видимая вкладка. */
@@ -444,6 +494,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     if (!hidden && (this.waterTickerActive || this.trailTickerActive)) {
+      // Тикер отрисует кадр сам; запрошенный rAF больше не нужен.
+      this.cancelFrame();
       this.app.ticker.start();
 
       return;
@@ -451,12 +503,14 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     if (this.app.ticker.started) {
       this.app.ticker.stop();
+      this.cancelFrame();
       this.render();
     }
   }
 
   /** Снимает обработчики тикера перед detach/destroy. */
   private stopTickers(): void {
+    this.cancelFrame();
     if (this.app === null) {
       return;
     }
@@ -478,6 +532,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     ++this.sceneToken;
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.stopTickers();
+    this.releaseFogTexture();
     this.grassTrail.reset();
     this.waterNodes = [];
     this.textures.destroy();
@@ -548,9 +603,10 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'openings',
       'waterPlane',
       'ground',
-      'overlay',
-      'route',
       'decor',
+      'overlay',
+      'fog',
+      'route',
       'selection',
       'gizmos',
     ];
@@ -663,8 +719,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     this.propY.clear();
     this.actorNodes.clear();
+    this.carpet = null;
     const bounds = { x: 0, y: 0, width: board.boundWidth, height: board.boundHeight };
-    // Мосты и ковёр — пол над водой и под оверлеями, декором и акторами.
+    // Мосты и съезды — пол над водой и под оверлеями, декором и акторами.
     for (const element of bridgeElements) {
       const painted = this.bridge.paint(element, resolution, this.zoom());
       if (painted !== null) {
@@ -672,11 +729,23 @@ export class PixiSceneRenderer implements ISceneRenderer {
       }
     }
 
-    if (!this.editing) {
-      this.drawCarpet(ground, terrainElements, bounds, resolution);
-    }
-
+    const carpet = this.editing
+      ? []
+      : this.grass.band(this.grass.placeCarpet(terrainElements, bounds, resolution), resolution);
     const props = [
+      ...carpet.map((band, index) => ({
+        anchorY: band.y,
+        rank: -1,
+        order: 0,
+        id: index,
+        draw: (): void => {
+          const mesh = this.carpetMesh(band.tufts);
+          if (mesh !== null) {
+            layer.addChild(mesh);
+            this.propY.set(mesh, band.y);
+          }
+        },
+      })),
       ...decorElements.map((element) => {
         const anchorY = this.decor.anchorY(element);
 
@@ -718,28 +787,115 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.paintActors();
   }
 
-  /** Оверлеи поверх пола и под декором: стоимость и скрытые клетки. */
+  /**
+   * Оверлеи: стоимость и туман — над миром, туман выше стоимости.
+   *
+   * Стоимость — авторская подсказка, а не часть мира: траву и кроны она может
+   * подкрасить, зато непроходимые клетки и скорости читаются поверх декора.
+   * Туман — маска мира: дерево и трава за пределами обзора должны темнеть, а
+   * не светиться поверх неё, поэтому он лежит выше стоимости.
+   */
   private drawOverlay(): void {
-    const layer = this.layers.overlay;
-    if (layer === undefined) {
+    const costs = this.layers.overlay;
+    const fog = this.layers.fog;
+    if (costs === undefined || fog === undefined) {
       return;
     }
 
     this.clearLayer('overlay');
+    this.clearLayer('fog');
     if (this.overlayPaint === null || this.isEdit()) {
+      this.releaseFogTexture();
+
+      return;
+    }
+
+    this.paintBands(costs, this.overlayPaint.costs);
+    this.paintFog(fog, this.overlayPaint.fog);
+  }
+
+  /** Полосы заливки одним `Graphics` на слой: один draw call вместо сотен. */
+  private paintBands(layer: Container, bands: readonly SceneOverlayBand[]): void {
+    if (bands.length === 0) {
       return;
     }
 
     const graphics = new Graphics();
-    for (const band of this.overlayPaint.bands) {
+    for (const band of bands) {
       graphics.rect(band.x, band.y, band.width, band.height).fill({ color: band.color, alpha: band.alpha });
     }
-    if (graphics.context.instructions.length > 0) {
-      layer.addChild(graphics);
-    }
+    layer.addChild(graphics);
   }
 
-  /** Линия маршрута: над полом и оверлеями, под декором и акторами. */
+  /**
+   * Туман одной текстурой: один тексель на клетку и линейная фильтрация.
+   *
+   * Полосы из прямоугольников давали явные ступеньки на косых тенях. Маска
+   * растягивается на сетку с `linear`, поэтому край сглаживается без шейдера
+   * и без пересчёта видимости на каждый кадр. Текстура пересобирается только
+   * при новой маске: панорама и зум переиспользуют её.
+   */
+  private paintFog(layer: Container, mask: SceneOverlayMask | null): void {
+    if (mask === null) {
+      this.releaseFogTexture();
+
+      return;
+    }
+
+    if (this.fogTexture === null || this.fogMask !== mask) {
+      this.releaseFogTexture();
+      this.fogTexture = this.createFogTexture(mask);
+      this.fogMask = mask;
+    }
+
+    const sprite = new Sprite(this.fogTexture);
+    sprite.position.set(mask.x, mask.y);
+    sprite.width = mask.columns * mask.cell;
+    sprite.height = mask.rows * mask.cell;
+    layer.addChild(sprite);
+  }
+
+  /** Маска в текстуру: цвет тумана и альфа по клеткам. */
+  private createFogTexture(mask: SceneOverlayMask): Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = mask.columns;
+    canvas.height = mask.rows;
+    const context = canvas.getContext('2d');
+    if (context === null) {
+      return Texture.EMPTY;
+    }
+
+    const image = context.createImageData(mask.columns, mask.rows);
+    const red = (mask.color >> 16) & 0xff;
+    const green = (mask.color >> 8) & 0xff;
+    const blue = mask.color & 0xff;
+    for (let index = 0; index < mask.alpha.length; index += 1) {
+      const offset = index * 4;
+      image.data[offset] = red;
+      image.data[offset + 1] = green;
+      image.data[offset + 2] = blue;
+      image.data[offset + 3] = mask.alpha[index];
+    }
+    context.putImageData(image, 0, 0);
+
+    const texture = Texture.from(canvas);
+    texture.source.scaleMode = 'linear';
+
+    return texture;
+  }
+
+  /** Освобождает текстуру тумана: спрайты слоя уже сняты. */
+  private releaseFogTexture(): void {
+    this.fogMask = null;
+    if (this.fogTexture === null) {
+      return;
+    }
+
+    this.fogTexture.destroy(true);
+    this.fogTexture = null;
+  }
+
+  /** Линия маршрута: над миром и туманом, под ручками редактирования. */
   private drawRoute(): void {
     const layer = this.layers.route;
     if (layer === undefined) {
@@ -765,22 +921,26 @@ export class PixiSceneRenderer implements ISceneRenderer {
     layer.addChild(graphics);
   }
 
-  /** Ковёр травы: один меш под декором и акторами. */
-  private drawCarpet(layer: Container, terrainElements: SceneElement[], bounds: SceneBounds, resolution: number): void {
-    this.carpet = null;
-    const tufts = this.grass.placeCarpet(terrainElements, bounds, resolution);
+  /**
+   * Меш одной полосы ковра.
+   *
+   * Шейдер общий: юниформы следа одинаковы для всех полос, а геометрия у
+   * каждой своя. Так ковёр остаётся несколькими draw call, но сортируется
+   * по `y` вместе с высокими пучками и акторами.
+   */
+  private carpetMesh(tufts: readonly SceneGrassTuft[]): Mesh<Geometry, Shader> | null {
     if (tufts.length === 0) {
-      return;
+      return null;
     }
 
     const atlas = this.grassTextures.atlasTexture();
     if (atlas === null) {
-      return;
+      return null;
     }
 
     const mesh = this.grassMesh.build(tufts, this.grassTextures.frameRects());
     if (mesh === null) {
-      return;
+      return null;
     }
 
     const geometry = new Geometry({
@@ -792,10 +952,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
       },
       indexBuffer: mesh.indices,
     });
-    const carpet = this.grassShader.create(atlas);
-    this.carpet = carpet;
-    this.applyTrail();
-    layer.addChild(new Mesh({ geometry, shader: carpet.shader }));
+    if (this.carpet === null) {
+      this.carpet = this.grassShader.create(atlas);
+      this.applyTrail();
+    }
+
+    return new Mesh({ geometry, shader: this.carpet.shader });
   }
 
   /** Передаёт след движения в шейдер ковра; без меша и модели — no-op. */
@@ -844,13 +1006,23 @@ export class PixiSceneRenderer implements ISceneRenderer {
         const created = this.actorService.paint(actor, resolution, zoom);
         layer.addChild(created.node);
         this.actorNodes.set(actor.id, created);
-        this.placeActor(created.node, actor.y);
+        this.placeActor(created.node, this.actorSortY(actor));
         continue;
       }
 
       this.actorService.update(painted, actor, zoom);
-      this.placeActor(painted.node, actor.y);
+      this.placeActor(painted.node, this.actorSortY(actor));
     }
+  }
+
+  /**
+   * Ключ Y-сортировки актора.
+   *
+   * Низ footprint, а не точка под ногами: трава, попавшая под круг актора,
+   * должна уйти за него, а не расти из середины силуэта.
+   */
+  private actorSortY(actor: SceneActor): number {
+    return actor.y + actor.radius;
   }
 
   /** Ставит актора на его `y` среди статичных детей слоя. */
@@ -933,9 +1105,10 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'openings',
       'waterPlane',
       'ground',
-      'overlay',
-      'route',
       'decor',
+      'overlay',
+      'fog',
+      'route',
     ];
     for (const name of names) {
       const layer = this.layers[name];
@@ -1198,7 +1371,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   private isBridge(element: SceneElement): boolean {
-    return element.kind === 'support' && element.props.kind === 'bridge';
+    return element.kind === 'support' && (element.props.kind === 'bridge' || element.props.kind === 'ramp');
   }
 
   private drawElement(element: SceneElement): void {

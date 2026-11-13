@@ -33,6 +33,7 @@ final class AssetViewAssembler
             'collectionCode' => $collectionRecord->getCode(),
             'collectionTitle' => $collectionRecord->getTitle(),
             'filePublicId' => $fileRecord?->getPublicId(),
+            'originalName' => $fileRecord?->getOriginalName(),
             'name' => $assetRecord->getName(),
             'width' => $fileRecord?->getWidth(),
             'height' => $fileRecord?->getHeight(),

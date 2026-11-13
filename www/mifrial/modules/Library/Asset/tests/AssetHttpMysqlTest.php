@@ -118,6 +118,7 @@ final class AssetHttpMysqlTest extends TestCase
         self::assertFalse($personal['data']['isShared']);
         self::assertSame($alice, $personal['data']['ownerId']);
         self::assertSame($aliceFile, $personal['data']['filePublicId']);
+        self::assertSame('tree.png', $personal['data']['originalName']);
         self::assertSame(256, $personal['data']['width']);
         self::assertSame(340, $personal['data']['height']);
         self::assertSame('image/png', $personal['data']['mime']);
