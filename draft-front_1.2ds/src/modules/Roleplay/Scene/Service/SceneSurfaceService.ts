@@ -5,8 +5,14 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurfaceGrid';
 import type { SceneSurfaceKind } from '@/modules/Roleplay/Scene/Dto/SceneSurfaceKind';
+import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
+import {
+  sceneDecorFootprint,
+  sceneDecorSilhouette,
+  type SceneWorldFootprint,
+} from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import { isSceneDeck, sceneDeckThickness, sceneSurfaceElevation } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
@@ -179,13 +185,12 @@ export class SceneSurfaceService {
   }
 
   /**
-   * Декор: основание перекрывает ход, силуэт — обзор.
+   * Декор: основание задаёт ход, силуэт — обзор.
    *
-   * У точкового декора размер берётся из `scale` (процент от разрешения):
-   * ствол дерева уже кроны, поэтому основание и силуэт считаются разными
-   * долями ширины спрайта. `sightBottom` задаёт низ силуэта: у кроны он выше
-   * глаз, и луч под ней её игнорирует. Прямоугольный и круглый декор
-   * перекрывает свою фигуру целиком.
+   * Основание и силуэт берутся из `props.footprint` и `props.silhouette` в
+   * единицах сцены. У старых сцен полей нет: остаются доли ширины спрайта,
+   * поэтому прозрачные поля картинки влияют только на них. Скорость декора —
+   * `props.speed`, по умолчанию `0`: объект непроходим, пока не сказано иное.
    */
   private paintDecor(grid: SceneSurfaceGrid, elements: readonly SceneElement[], resolution: number): void {
     const base = Math.max(1, resolution);
@@ -195,29 +200,47 @@ export class SceneSurfaceService {
       }
 
       if (element.shape.type !== 'point') {
+        const speed = this.decorSpeed(element);
+        const blocksVision = element.props.blocksVision !== false;
         this.paintShape(grid, element.shape, (index) => {
-          grid.speeds[index] = 0;
-          grid.sightBottom[index] = 0;
+          grid.speeds[index] = speed;
+          if (blocksVision) {
+            grid.sightBottom[index] = 0;
+          }
         });
         continue;
       }
 
-      const size = base * (Math.max(1, element.props.scale ?? 100) / 100);
-      const center: ScenePoint = [element.shape.x, element.shape.y];
-      const baseRadius = size * ((element.props.baseRadius ?? SCENE_SURFACE.decorBaseRadius) / 100);
-      const sightRadius = size * ((element.props.sightRadius ?? SCENE_SURFACE.decorSightRadius) / 100);
-      // Проценты ширины переводятся в ипари: ширина спрайта — это `scale`
-      // процентов от разрешения, а разрешение и есть ипари.
-      const sightBottom = (size / base) * ((element.props.sightBottom ?? SCENE_SURFACE.decorSightBottom) / 100);
+      const speed = this.decorSpeed(element);
+      const blocksVision = element.props.blocksVision !== false;
+      const footprint = sceneDecorFootprint(element, resolution);
+      if (footprint !== null) {
+        this.paintArea(grid, footprint, (index) => {
+          grid.speeds[index] = speed;
+          if (blocksVision) {
+            grid.sightBottom[index] = 0;
+          }
+        });
+      }
 
-      this.paintCircle(grid, center, baseRadius, (index) => {
-        grid.speeds[index] = 0;
-        grid.sightBottom[index] = 0;
-      });
-      this.paintCircle(grid, center, sightRadius, (index) => {
-        grid.sightBottom[index] = Math.min(grid.sightBottom[index], sightBottom);
-      });
+      const silhouette = blocksVision ? sceneDecorSilhouette(element, resolution) : null;
+      if (silhouette !== null) {
+        const bottom = silhouette.bottom / base;
+        this.paintArea(grid, silhouette.area, (index) => {
+          grid.sightBottom[index] = Math.min(grid.sightBottom[index], bottom);
+        });
+      }
     }
+  }
+
+  /** Скорость декора: явная или непроходимость по умолчанию. */
+  private decorSpeed(element: SceneElement): number {
+    const speed = element.props.speed;
+    if (typeof speed !== 'number' || !Number.isFinite(speed)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.min(SCENE_NAVIGATION.maxSpeed, speed));
   }
 
   /** Проёмы: закрытая дверь непроходима и непрозрачна, открытая прорезает стену. */
@@ -247,6 +270,26 @@ export class SceneSurfaceService {
     const probe = this.geometry.probe(shape, rotation);
     this.forEachCell(grid, probe.bounds, (index, center) => {
       if (probe.contains(center, 0)) {
+        apply(index);
+      }
+    });
+  }
+
+  /** Заливает мировую форму: круг или полигон. */
+  private paintArea(grid: SceneSurfaceGrid, area: SceneWorldFootprint, apply: (index: number) => void): void {
+    if (area.shape === 'circle') {
+      this.paintCircle(grid, area.center, area.radius, apply);
+
+      return;
+    }
+
+    if (area.points.length < 3) {
+      return;
+    }
+
+    const bounds = this.geometry.bounds({ type: 'polygon', points: area.points });
+    this.forEachCell(grid, bounds, (index, center) => {
+      if (this.geometry.pointInPolygon(center, area.points)) {
         apply(index);
       }
     });

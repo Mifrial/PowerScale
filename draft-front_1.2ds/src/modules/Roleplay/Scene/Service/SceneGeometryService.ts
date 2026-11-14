@@ -299,6 +299,81 @@ export class SceneGeometryService {
     return this.distance(point, [start[0] + t * dx, start[1] + t * dy]);
   }
 
+  /**
+   * Сдвигает замкнутый контур наружу на `distance` единиц сцены.
+   *
+   * Митра с пределом: на острых углах точка не улетает далеко, поэтому
+   * контур остаётся читаемым. Вогнутые углы могут дать самопересечение —
+   * его снимают булевы операции навигации. `null` — контур вырожден.
+   */
+  offsetPolygon(points: ScenePoint[], distance: number): ScenePoint[] | null {
+    const ring: ScenePoint[] = [];
+    for (const point of points) {
+      const last = ring[ring.length - 1];
+      if (last === undefined || last[0] !== point[0] || last[1] !== point[1]) {
+        ring.push(point);
+      }
+    }
+
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    if (first !== undefined && last !== undefined && first[0] === last[0] && first[1] === last[1]) {
+      ring.pop();
+    }
+
+    if (ring.length < 3 || Math.abs(distance) < 1e-9) {
+      return ring.length >= 3 ? ring : null;
+    }
+
+    let doubledArea = 0;
+    for (let index = 0; index < ring.length; index += 1) {
+      const current = ring[index];
+      const next = ring[(index + 1) % ring.length];
+      doubledArea += current[0] * next[1] - next[0] * current[1];
+    }
+
+    if (Math.abs(doubledArea) < 1e-9) {
+      return null;
+    }
+
+    const clockwise = doubledArea < 0;
+    const result: ScenePoint[] = [];
+    for (let index = 0; index < ring.length; index += 1) {
+      const current = ring[index];
+      const previous = ring[(index + ring.length - 1) % ring.length];
+      const next = ring[(index + 1) % ring.length];
+      const before = this.outwardNormal(previous, current, clockwise);
+      const after = this.outwardNormal(current, next, clockwise);
+      if (before === null || after === null) {
+        return null;
+      }
+
+      const sum: ScenePoint = [before[0] + after[0], before[1] + after[1]];
+      const length = Math.hypot(sum[0], sum[1]);
+      const normal: ScenePoint = length < 1e-6 ? before : [sum[0] / length, sum[1] / length];
+      // Косинус половины угла: чем острее угол, тем длиннее митра.
+      const cosine = normal[0] * before[0] + normal[1] * before[1];
+      const miter = Math.min(Math.abs(distance) * 3, Math.abs(distance) / Math.max(0.25, cosine));
+
+      result.push([current[0] + normal[0] * miter, current[1] + normal[1] * miter]);
+    }
+
+    return result;
+  }
+
+  /** Единичная внешняя нормаль ребра. */
+  private outwardNormal(from: ScenePoint, to: ScenePoint, clockwise: boolean): ScenePoint | null {
+    const dx = to[0] - from[0];
+    const dy = to[1] - from[1];
+    const length = Math.hypot(dx, dy);
+    if (length < 1e-9) {
+      return null;
+    }
+
+    // У контура с положительной площадью внешняя сторона — справа от ребра.
+    return clockwise ? [-dy / length, dx / length] : [dy / length, -dx / length];
+  }
+
   /** Точка внутри многоугольника. */
   pointInPolygon(point: ScenePoint, polygon: ScenePoint[]): boolean {
     let inside = false;

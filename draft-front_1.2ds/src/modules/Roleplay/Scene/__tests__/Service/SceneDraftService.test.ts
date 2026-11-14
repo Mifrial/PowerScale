@@ -190,6 +190,42 @@ describe('SceneDraftService', () => {
     expect(support.props.elevation).toBe(16);
   });
 
+  it('rescales decor footprint and silhouette with resolution', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const decor = service.addElement(
+      state,
+      10,
+      'decor',
+      { type: 'point', x: 100, y: 200 },
+      {
+        footprint: {
+          shape: 'polygon',
+          points: [
+            [-40, -20],
+            [40, -20],
+            [40, 20],
+            [-40, 20],
+          ],
+        },
+        silhouette: { shape: 'circle', radius: 60, bottom: 20 },
+      },
+    );
+
+    service.rescale(state, 32);
+
+    expect(decor.props.footprint).toEqual({
+      shape: 'polygon',
+      points: [
+        [-20, -10],
+        [20, -10],
+        [20, 10],
+        [-20, 10],
+      ],
+    });
+    expect(decor.props.silhouette).toEqual({ shape: 'circle', radius: 30, bottom: 10 });
+  });
+
   it('rescales enclosure footprints with the parent board', () => {
     const service = new SceneDraftService();
     const state = draft();

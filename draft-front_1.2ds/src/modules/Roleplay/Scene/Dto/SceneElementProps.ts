@@ -1,3 +1,5 @@
+import type { SceneFootprint, SceneSilhouette } from '@/modules/Roleplay/Scene/Dto/SceneFootprint';
+
 /** Свойства элемента; набор зависит от kind. */
 export interface SceneElementProps {
   kind?: string;
@@ -17,6 +19,10 @@ export interface SceneElementProps {
   sightRadius?: number;
   /** Низ силуэта, проценты ширины спрайта: 0 — стоит на земле. */
   sightBottom?: number;
+  /** Основание декора в единицах сцены: круг или полигон от якоря. */
+  footprint?: SceneFootprint;
+  /** Силуэт декора в единицах сцены: форма перекрытия обзора и его низ. */
+  silhouette?: SceneSilhouette;
   role?: string;
   assetPublicId?: string;
   shoreKind?: string;

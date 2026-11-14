@@ -29,6 +29,7 @@ import { getSceneApi } from '@/modules/Roleplay/Scene/init';
 import { SceneApiError } from '@/modules/Roleplay/Scene/Service/SceneApiError';
 import { SceneDraftMapper } from '@/modules/Roleplay/Scene/Service/SceneDraftMapper';
 import { sceneRampAttachment, type SceneDeckEnd } from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
+import { sceneDecorRotation } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 
 const route = useRoute();
 const router = useRouter();
@@ -41,6 +42,8 @@ const loading = ref(true);
 const saving = ref(false);
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
+/** Обводка основания выбранного декора: клики собираются в полигон. */
+const outlineTarget = ref<'footprint' | null>(null);
 const conflict = ref<SceneConflict | null>(null);
 const viewport = ref<SceneViewport | null>(null);
 const boardPanelKey = ref(0);
@@ -239,11 +242,61 @@ function onDraw(from: ScenePoint, to: ScenePoint): void {
   state.createFromDrag(definition, from, to);
 }
 
-/** Готовая фигура из кликов (полигон террейна). */
+/** Готовая фигура из кликов: полигон террейна или обводка основания. */
 function onShape(shape: SceneShape): void {
+  if (outlineTarget.value !== null) {
+    applyOutline(shape);
+
+    return;
+  }
+
   const definition = toolDefinition.value;
   if (definition === null) return;
   state.createElement(definition, shape);
+}
+
+/** Начинает обводку основания выбранного декора. */
+function startOutline(target: 'footprint'): void {
+  if (selectedElement.value === null || selectedElement.value.shape.type !== 'point') {
+    error.value = 'Обвести основание можно только у точечного декора';
+
+    return;
+  }
+
+  outlineTarget.value = target;
+  tool.value = 'select';
+  error.value = null;
+  notice.value = 'Обведите основание: клики по карте, двойной клик — замкнуть, Esc — отмена';
+}
+
+/**
+ * Применяет нарисованный полигон как основание.
+ *
+ * Клики приходят в мировых координатах; в свойстве хранится локальный контур
+ * от якоря, повёрнутый на `props.rotation`. Поэтому точка переводится обратным
+ * поворотом — тогда основание едет вместе со спрайтом.
+ */
+function applyOutline(shape: SceneShape): void {
+  const element = selectedElement.value;
+  outlineTarget.value = null;
+  notice.value = null;
+  if (element === null || element.shape.type !== 'point' || shape.type !== 'polygon') {
+    return;
+  }
+
+  const anchor = element.shape;
+  const radians = (-sceneDecorRotation(element) * Math.PI) / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const points = shape.points.map((point): ScenePoint => {
+    const dx = point[0] - anchor.x;
+    const dy = point[1] - anchor.y;
+
+    return [Math.round(dx * cosine - dy * sine), Math.round(dx * sine + dy * cosine)];
+  });
+
+  state.updateElementProps(element.id, { ...element.props, footprint: { shape: 'polygon', points } });
+  notice.value = 'Основание обведено';
 }
 
 /** Готовая лента из кликов. */
@@ -356,6 +409,7 @@ function onMove(delta: ScenePoint): void {
 }
 
 function onSelection(ids: number[]): void {
+  outlineTarget.value = null;
   state.select(ids);
 }
 
@@ -463,6 +517,13 @@ function onKeydown(event: KeyboardEvent): void {
   }
 
   if (event.key === 'Escape') {
+    if (outlineTarget.value !== null) {
+      outlineTarget.value = null;
+      notice.value = null;
+
+      return;
+    }
+
     if (previewFull.value) {
       void closeFullscreen();
 
@@ -618,6 +679,7 @@ function messageOf(exception: unknown): string {
           :selected-actor-id="previewSelectedId"
           :route="previewRoute"
           :level-menu="previewLevelMenu"
+          :shape-override="outlineTarget !== null ? 'polygon' : null"
           @point="onPreviewClick"
           @level="previewChooseLevel"
           @draw="onDraw"
@@ -774,6 +836,7 @@ function messageOf(exception: unknown): string {
                 @smooth="smoothShape"
                 @corner="cornerShape"
                 @attach-ramp="attachRamp"
+                @outline="startOutline"
               />
             </v-expansion-panel-text>
           </v-expansion-panel>

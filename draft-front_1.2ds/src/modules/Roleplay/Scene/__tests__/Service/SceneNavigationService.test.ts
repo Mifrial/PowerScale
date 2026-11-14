@@ -233,6 +233,60 @@ describe('SceneNavigationService', () => {
     expect(narrow?.distance).toBeLessThan(wide?.distance ?? 0);
   });
 
+  it('обходит полигон основания с запасом тела', () => {
+    const boulder = element(
+      2,
+      'decor',
+      { type: 'point', x: 500, y: 400 },
+      {
+        footprint: {
+          shape: 'polygon',
+          points: [
+            [-60, -60],
+            [60, -60],
+            [60, 60],
+            [-60, 60],
+          ],
+        },
+        speed: 0,
+        label: 'Валун',
+      },
+      10,
+    );
+    const route = service.route(board, [grass(), boulder], 64, [400, 400], [600, 400], options);
+
+    expect(route).not.toBeNull();
+    expect(route?.points.some((point) => near(point, 500, 400, 60))).toBe(false);
+    expect(route?.distance).toBeGreaterThan(200);
+  });
+
+  it('не вычитает проходимый декор из навмеша', () => {
+    const grassTuft = element(
+      2,
+      'decor',
+      { type: 'point', x: 500, y: 400 },
+      {
+        footprint: {
+          shape: 'polygon',
+          points: [
+            [-60, -60],
+            [60, -60],
+            [60, 60],
+            [-60, 60],
+          ],
+        },
+        speed: 100,
+        blocksVision: false,
+        label: 'Куст',
+      },
+      10,
+    );
+    const route = service.route(board, [grass(), grassTuft], 64, [400, 400], [600, 400], options);
+
+    expect(route).not.toBeNull();
+    expect(route?.distance).toBeLessThan(210);
+  });
+
   it('обходит основание декора', () => {
     const tree = element(2, 'decor', { type: 'point', x: 500, y: 400 }, { scale: 420, label: 'Валун' });
     const route = service.route(board, [grass(), tree], 64, [400, 400], [600, 400], options);

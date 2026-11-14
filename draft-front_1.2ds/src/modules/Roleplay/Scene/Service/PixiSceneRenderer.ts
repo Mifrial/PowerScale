@@ -25,6 +25,11 @@ import type { SceneActorPaint } from '@/modules/Roleplay/Scene/Service/SceneActo
 import { SceneActorService } from '@/modules/Roleplay/Scene/Service/SceneActorService';
 import { SceneBridgeService } from '@/modules/Roleplay/Scene/Service/SceneBridgeService';
 import { sceneRampBlockedShare } from '@/modules/Roleplay/Scene/Service/SceneDeck';
+import {
+  sceneDecorFootprint,
+  sceneDecorSilhouette,
+  type SceneWorldFootprint,
+} from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import { SceneGrassMeshService } from '@/modules/Roleplay/Scene/Service/SceneGrassMeshService';
 import { SceneGrassService } from '@/modules/Roleplay/Scene/Service/SceneGrassService';
 import { SceneGrassShader } from '@/modules/Roleplay/Scene/Service/SceneGrassShader';
@@ -1530,10 +1535,53 @@ export class PixiSceneRenderer implements ISceneRenderer {
       );
       layer.addChild(graphics);
 
+      if (element.kind === 'decor' && element.shape.type === 'point') {
+        this.drawDecorContours(layer, element, this.model.resolution);
+      }
+
       if (element.shape.type === 'polygon' || element.shape.type === 'path') {
         this.drawVertices(layer, element.shape, element.id);
       }
     }
+  }
+
+  /**
+   * Контур основания и силуэта выделенного декора.
+   *
+   * Мастер видит, что именно непроходимо и откуда начинается перекрытие
+   * обзора: без этого основание — невидимая зона в числах карточки.
+   */
+  private drawDecorContours(layer: Container, element: SceneElement, resolution: number): void {
+    const footprint = sceneDecorFootprint(element, resolution);
+    if (footprint !== null) {
+      const graphics = new Graphics();
+      this.paintFootprint(graphics, footprint, 0xfacc15, 0.9);
+      layer.addChild(graphics);
+    }
+
+    const silhouette = element.props.blocksVision === false ? null : sceneDecorSilhouette(element, resolution);
+    if (silhouette !== null) {
+      const graphics = new Graphics();
+      this.paintFootprint(graphics, silhouette.area, 0x38bdf8, 0.55);
+      layer.addChild(graphics);
+    }
+  }
+
+  /** Обводит мировую форму основания. */
+  private paintFootprint(graphics: Graphics, area: SceneWorldFootprint, color: number, alpha: number): void {
+    const width = 2 / this.zoom();
+    if (area.shape === 'circle') {
+      graphics.circle(area.center[0], area.center[1], area.radius).stroke({ color, width, alpha });
+
+      return;
+    }
+
+    graphics
+      .poly(
+        area.points.flatMap((point) => [point[0], point[1]]),
+        true,
+      )
+      .stroke({ color, width, alpha });
   }
 
   /** Вершины выделенной фигуры и ручки активной вершины. */

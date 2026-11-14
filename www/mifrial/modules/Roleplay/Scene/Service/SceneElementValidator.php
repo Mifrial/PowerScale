@@ -698,17 +698,143 @@ final class SceneElementValidator
         $assetPublicId = $this->fields->optionalStringValue($props, 'assetPublicId', $path . '.assetPublicId');
         $fileRecord = $this->files->resolve($assetPublicId, $path . '.assetPublicId');
 
+        $normalized = [
+            'rotation' => $this->intOrDefault($props, 'rotation', $path . '.rotation', 0, 0, 359),
+            'scale' => $this->intOrDefault($props, 'scale', $path . '.scale', 100, 1, 1000),
+            'baseRadius' => $this->intOrDefault($props, 'baseRadius', $path . '.baseRadius', 30, 1, 200),
+            'sightRadius' => $this->intOrDefault($props, 'sightRadius', $path . '.sightRadius', 45, 1, 400),
+            'sightBottom' => $this->intOrDefault($props, 'sightBottom', $path . '.sightBottom', 0, 0, 400),
+            'blocksVision' => $this->boolOrDefault($props, 'blocksVision', $path . '.blocksVision', true),
+            'label' => $this->label($props, $path . '.label'),
+        ];
+
+        $footprint = $this->footprintValue($props, 'footprint', $path . '.footprint');
+        if ($footprint !== null) {
+            $normalized['footprint'] = $footprint;
+        }
+
+        $silhouette = $this->silhouetteValue($props, 'silhouette', $path . '.silhouette');
+        if ($silhouette !== null) {
+            $normalized['silhouette'] = $silhouette;
+        }
+
         return [
-            'props' => [
-                'rotation' => $this->intOrDefault($props, 'rotation', $path . '.rotation', 0, 0, 359),
-                'scale' => $this->intOrDefault($props, 'scale', $path . '.scale', 100, 1, 1000),
-                'baseRadius' => $this->intOrDefault($props, 'baseRadius', $path . '.baseRadius', 30, 1, 200),
-                'sightRadius' => $this->intOrDefault($props, 'sightRadius', $path . '.sightRadius', 45, 1, 400),
-                'sightBottom' => $this->intOrDefault($props, 'sightBottom', $path . '.sightBottom', 0, 0, 400),
-                'label' => $this->label($props, $path . '.label'),
-            ],
+            'props' => $normalized,
             'assetFileId' => $fileRecord?->getId(),
         ];
+    }
+
+    /**
+     * Основание декора: круг или локальный полигон в единицах сцены.
+     *
+     * @param array<string|int, mixed> $props Свойства.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return array<string, mixed>|null Нормализованное основание или null.
+     *
+     * @throws SceneInvalidException Если основание недопустимо.
+     */
+    private function footprintValue(array $props, string $key, string $path): ?array
+    {
+        if (!array_key_exists($key, $props) || $props[$key] === null) {
+            return null;
+        }
+
+        $value = $this->fields->arrayValue($props, $key, $path);
+        $shape = $this->fields->stringValue($value, 'shape', $path . '.shape');
+
+        if ($shape === 'circle') {
+            return [
+                'shape' => 'circle',
+                'radius' => $this->fields->intValue($value, 'radius', $path . '.radius', 1, 100000),
+            ];
+        }
+
+        if ($shape !== 'polygon') {
+            throw new SceneInvalidException($path . '.shape is invalid');
+        }
+
+        return ['shape' => 'polygon', 'points' => $this->localPoints($value, $path)];
+    }
+
+    /**
+     * Силуэт декора: та же форма плюс низ над землёй.
+     *
+     * @param array<string|int, mixed> $props Свойства.
+     * @param string $key Ключ.
+     * @param string $path Путь.
+     *
+     * @return array<string, mixed>|null Нормализованный силуэт или null.
+     *
+     * @throws SceneInvalidException Если силуэт недопустим.
+     */
+    private function silhouetteValue(array $props, string $key, string $path): ?array
+    {
+        $silhouette = $this->footprintValue($props, $key, $path);
+        if ($silhouette === null) {
+            return null;
+        }
+
+        $value = $this->fields->arrayValue($props, $key, $path);
+        $silhouette['bottom'] = $this->fields->intValue($value, 'bottom', $path . '.bottom', 0, 100000);
+
+        return $silhouette;
+    }
+
+    /**
+     * Локальные точки основания: они могут быть отрицательными.
+     *
+     * @param array<string|int, mixed> $value Основание.
+     * @param string $path Путь.
+     *
+     * @return array<int, array{0: int, 1: int}> Точки.
+     *
+     * @throws SceneInvalidException Если точки недопустимы.
+     */
+    private function localPoints(array $value, string $path): array
+    {
+        $points = $value['points'] ?? null;
+        if (!is_array($points) || !array_is_list($points) || count($points) < 3 || count($points) > 64) {
+            throw new SceneInvalidException($path . '.points is invalid');
+        }
+
+        $normalized = [];
+        foreach ($points as $index => $point) {
+            if (!is_array($point) || !array_is_list($point) || count($point) !== 2) {
+                throw new SceneInvalidException($path . '.points[' . $index . '] is invalid');
+            }
+
+            $normalized[] = [
+                $this->localPointInt($point[0], $path . '.points[' . $index . '][0]'),
+                $this->localPointInt($point[1], $path . '.points[' . $index . '][1]'),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Координата локальной точки: целая и в пределах допуска.
+     *
+     * @param mixed $value Значение.
+     * @param string $path Путь.
+     *
+     * @return int Координата.
+     *
+     * @throws SceneInvalidException Если значение неверно.
+     */
+    private function localPointInt(mixed $value, string $path): int
+    {
+        if (is_float($value) && floor($value) === $value) {
+            $value = (int) $value;
+        }
+
+        if (!is_int($value) || $value < -100000 || $value > 100000) {
+            throw new SceneInvalidException($path . ' is not an integer');
+        }
+
+        return $value;
     }
 
     /**

@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 351,
-        "plans": 230,
+        "documents": 352,
+        "plans": 231,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 254,
+            "tr": 255,
             "tz": 2
         },
         "byZoneState": {
@@ -76,7 +76,7 @@
                 "ПЛАН": 10,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
-                "В РАБОТЕ": 20
+                "В РАБОТЕ": 21
             },
             "tz": {
                 "нет": 1,
@@ -91,7 +91,7 @@
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 36,
             "ОТМЕНЁН": 1,
-            "В РАБОТЕ": 20
+            "В РАБОТЕ": 21
         }
     },
     "modules": {
@@ -313,15 +313,15 @@
             }
         },
         "Roleplay/Scene": {
-            "docs": 8,
+            "docs": 9,
             "state": {
-                "В РАБОТЕ": 5,
+                "В РАБОТЕ": 6,
                 "СДЕЛАНО": 2,
                 "ЧАСТИЧНО": 1
             },
             "layer": {
-                "PHP": 7,
-                "VUE": 8,
+                "PHP": 8,
+                "VUE": 9,
                 "МОК": 4
             }
         },
@@ -2354,6 +2354,7 @@
                 "docs/tr/architecture.md",
                 "docs/tr/scene-plan-01.md",
                 "docs/tr/scene-plan-02-battleground.md",
+                "docs/tr/scene-plan-06-objects.md",
                 "docs/tr/scene-system.md"
             ]
         },
@@ -7854,6 +7855,29 @@
             ]
         },
         {
+            "path": "docs/tr/scene-plan-06-objects.md",
+            "title": "Объекты: основание, силуэт и библиотека шаблонов",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-15 — срез B6.1 (основание и силуэт в единицах",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": null,
+            "date": "2026-11-15",
+            "bytes": 5860,
+            "lines": 77,
+            "modules": [
+                "Roleplay/Scene"
+            ],
+            "linksCount": 1,
+            "brokenLinks": [],
+            "backlinks": []
+        },
+        {
             "path": "docs/tr/scene-renderer.md",
             "title": "Рендерер локаций сцен",
             "zone": "tr",
@@ -7868,8 +7892,8 @@
             ],
             "basis": "МОК",
             "date": "2026-11-12",
-            "bytes": 53456,
-            "lines": 599,
+            "bytes": 53789,
+            "lines": 602,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7901,8 +7925,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 26611,
-            "lines": 381,
+            "bytes": 27799,
+            "lines": 392,
             "modules": [
                 "Roleplay/Scene"
             ],

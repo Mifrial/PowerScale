@@ -353,6 +353,87 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Основание и силуэт в единицах сцены сохраняются как есть.
+     *
+     * @return void
+     */
+    public function testDecorFootprintAndSilhouetteAreKept(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'decor',
+            'shape' => ['type' => 'point', 'x' => 500, 'y' => 400],
+            'props' => [
+                'scale' => 350,
+                'blocksVision' => false,
+                'footprint' => ['shape' => 'circle', 'radius' => 42],
+                'silhouette' => [
+                    'shape' => 'polygon',
+                    'points' => [[-10, -20], [30, -20], [30, 20], [-10, 20]],
+                    'bottom' => 16,
+                ],
+            ],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertFalse($element['props']['blocksVision']);
+        self::assertSame(['shape' => 'circle', 'radius' => 42], $element['props']['footprint']);
+        self::assertSame(
+            ['shape' => 'polygon', 'points' => [[-10, -20], [30, -20], [30, 20], [-10, 20]], 'bottom' => 16],
+            $element['props']['silhouette'],
+        );
+    }
+
+    /**
+     * Локальная точка основания вне допуска отклоняется.
+     *
+     * @return void
+     */
+    public function testDecorFootprintPointOutOfRangeIsRejected(): void
+    {
+        $this->expectException(SceneInvalidException::class);
+        $this->expectExceptionMessage('points[1][0]');
+
+        $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'decor',
+            'shape' => ['type' => 'point', 'x' => 500, 'y' => 400],
+            'props' => [
+                'footprint' => [
+                    'shape' => 'polygon',
+                    'points' => [[0, 0], [100001, 0], [0, 10]],
+                ],
+            ],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+    }
+
+    /**
+     * Полигон основания короче трёх точек отклоняется.
+     *
+     * @return void
+     */
+    public function testDecorFootprintWithTwoPointsIsRejected(): void
+    {
+        $this->expectException(SceneInvalidException::class);
+        $this->expectExceptionMessage('footprint.points');
+
+        $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'decor',
+            'shape' => ['type' => 'point', 'x' => 500, 'y' => 400],
+            'props' => ['footprint' => ['shape' => 'polygon', 'points' => [[0, 0], [10, 10]]]],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+    }
+
+    /**
      * Проверяет один элемент на поле 1000×800.
      *
      * @param array<string|int, mixed> $row Элемент.

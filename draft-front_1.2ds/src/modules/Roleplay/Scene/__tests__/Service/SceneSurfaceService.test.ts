@@ -277,6 +277,93 @@ describe('SceneSurfaceService', () => {
     expect(boulder.sightBottom[cellOf(boulder, 10, 8)]).toBe(0);
   });
 
+  it('держит полигон основания и низ силуэта из новых полей', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(
+          2,
+          'decor',
+          { type: 'point', x: 128, y: 128 },
+          {
+            footprint: {
+              shape: 'polygon',
+              points: [
+                [-20, -20],
+                [20, -20],
+                [20, 20],
+                [-20, 20],
+              ],
+            },
+            silhouette: { shape: 'circle', radius: 30, bottom: 16 },
+            label: 'Валун',
+          },
+        ),
+      ],
+      64,
+    );
+
+    // Внутри основания ход закрыт, обзор перекрыт от земли.
+    expect(grid.speeds[cellOf(grid, 8, 8)]).toBe(0);
+    expect(grid.sightBottom[cellOf(grid, 8, 8)]).toBe(0);
+
+    // Между основанием и краем силуэта ход открыт, обзор — с высоты 16.
+    expect(grid.speeds[cellOf(grid, 9, 8)]).toBe(100);
+    expect(grid.sightBottom[cellOf(grid, 9, 8)]).toBeCloseTo(16 / 64);
+
+    // За силуэтом обзор свободен.
+    expect(grid.sightBottom[cellOf(grid, 10, 8)]).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('выключает перекрытие обзора флагом', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(
+          2,
+          'decor',
+          { type: 'point', x: 128, y: 128 },
+          {
+            footprint: { shape: 'circle', radius: 20 },
+            silhouette: { shape: 'circle', radius: 30, bottom: 0 },
+            blocksVision: false,
+            label: 'Ковёр',
+          },
+        ),
+      ],
+      64,
+    );
+
+    expect(grid.speeds[cellOf(grid, 8, 8)]).toBe(0);
+    expect(grid.sightBottom[cellOf(grid, 8, 8)]).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('пропускает проходимый декор, но силуэт всё равно перекрывает обзор', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(
+          2,
+          'decor',
+          { type: 'point', x: 128, y: 128 },
+          {
+            footprint: { shape: 'circle', radius: 20 },
+            silhouette: { shape: 'circle', radius: 20, bottom: 0 },
+            speed: 100,
+            label: 'Куст',
+          },
+        ),
+      ],
+      64,
+    );
+
+    expect(grid.speeds[cellOf(grid, 8, 8)]).toBe(100);
+    expect(grid.sightBottom[cellOf(grid, 8, 8)]).toBe(0);
+  });
+
   it('читает явную скорость элемента вместо пресета', () => {
     const grid = service.build(
       board(),

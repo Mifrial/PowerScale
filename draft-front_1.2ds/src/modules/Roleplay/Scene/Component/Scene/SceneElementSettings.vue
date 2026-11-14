@@ -26,6 +26,8 @@ import {
   type SceneDeckEnd,
   type SceneRampAttachment,
 } from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
+import { sceneDecorFootprintDefaults } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
+import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
 const AssetLibraryField = defineAsyncComponent(() => import('@/modules/Library/Asset/Component/AssetLibraryField.vue'));
@@ -46,6 +48,7 @@ const emit = defineEmits<{
   smooth: [];
   corner: [];
   attachRamp: [end: SceneDeckEnd];
+  outline: [target: 'footprint'];
 }>();
 
 /** Прилагательное для торца по стороне света. */
@@ -71,12 +74,81 @@ const SPEED_PRESETS = [
   { label: '0 стоп', value: 0 },
 ];
 
+const FOOTPRINT_KINDS = [
+  { title: 'Круг', value: 'circle' },
+  { title: 'Полигон', value: 'polygon' },
+];
+
 const defaultSpeed = computed(() => {
+  // Декор по умолчанию непроходим: объект, а не поверхность. Явная скорость
+  // выше нуля делает его проходимым — например, куст или ковёр.
+  if (props.element.kind === 'decor') {
+    return 0;
+  }
+
   const kind = props.element.props.kind ?? (props.element.kind === 'support' ? 'ground' : 'grass');
 
   return SCENE_SURFACE.speeds[kind as keyof typeof SCENE_SURFACE.speeds] ?? 100;
 });
 const currentSpeed = computed(() => props.element.props.speed ?? defaultSpeed.value);
+
+/** Основание и силуэт: явные поля или старые доли ширины спрайта. */
+const decorDefaults = computed(() => sceneDecorFootprintDefaults(props.element, props.resolution));
+
+/** Тип основания в карточке: круг или полигон. */
+const footprintKind = computed(() => props.element.props.footprint?.shape ?? 'circle');
+
+const footprintRadius = computed(() => {
+  const footprint = props.element.props.footprint;
+  if (footprint?.shape === 'circle') {
+    return footprint.radius;
+  }
+
+  if (footprint?.shape === 'polygon') {
+    return outlineRadius(footprint.points);
+  }
+
+  const derived = decorDefaults.value.footprint;
+
+  return derived.shape === 'circle' ? derived.radius : 0;
+});
+
+const footprintPointCount = computed(() => {
+  const footprint = props.element.props.footprint;
+
+  return footprint?.shape === 'polygon' ? footprint.points.length : 0;
+});
+
+const blocksVision = computed(() => props.element.props.blocksVision !== false);
+
+const silhouetteKind = computed(() => props.element.props.silhouette?.shape ?? 'circle');
+
+const silhouetteRadius = computed(() => {
+  const silhouette = props.element.props.silhouette;
+  if (silhouette?.shape === 'circle') {
+    return silhouette.radius;
+  }
+
+  if (silhouette?.shape === 'polygon') {
+    return outlineRadius(silhouette.points);
+  }
+
+  const derived = decorDefaults.value.silhouette;
+
+  return derived.shape === 'circle' ? derived.radius : 0;
+});
+
+const silhouetteBottom = computed(() => {
+  const silhouette = props.element.props.silhouette;
+
+  return silhouette?.bottom ?? decorDefaults.value.silhouette.bottom;
+});
+
+const silhouettePointCount = computed(() => {
+  const silhouette = props.element.props.silhouette;
+
+  return silhouette?.shape === 'polygon' ? silhouette.points.length : 0;
+});
 
 /** Мост и съезд: у них `height` — толщина настила, а не высота объёма. */
 const isDeck = computed(
@@ -254,6 +326,68 @@ function patchShoreKind(value: string | null): void {
 
 function patchFlag(key: 'blocksMovement' | 'blocksVision', value: boolean | null): void {
   patch({ [key]: value === true });
+}
+
+/** Радиус круглого основания в единицах сцены. */
+function patchFootprintRadius(value: number): void {
+  patch({ footprint: { shape: 'circle', radius: Math.max(1, Math.round(value)) } });
+}
+
+/** Смена типа основания: полигон начинается с восьмиугольника по кругу. */
+function patchFootprintKind(value: string | null): void {
+  if (value === 'polygon') {
+    if (props.element.props.footprint?.shape === 'polygon') {
+      return;
+    }
+
+    patch({ footprint: { shape: 'polygon', points: regularPolygon(Math.max(1, footprintRadius.value)) } });
+
+    return;
+  }
+
+  patch({ footprint: { shape: 'circle', radius: Math.max(1, footprintRadius.value) } });
+}
+
+/** Восьмиугольник вокруг якоря: стартовая форма для обводки. */
+function regularPolygon(radius: number): ScenePoint[] {
+  return Array.from({ length: 8 }, (_, index): ScenePoint => {
+    const angle = (index / 8) * Math.PI * 2;
+
+    return [Math.round(Math.cos(angle) * radius), Math.round(Math.sin(angle) * radius)];
+  });
+}
+
+/** Радиус описанной окружности контура: стартовый круг при смене типа. */
+function outlineRadius(points: ScenePoint[]): number {
+  const radius = points.reduce((max, point) => Math.max(max, Math.hypot(point[0], point[1])), 0);
+
+  return Math.max(1, Math.round(radius));
+}
+
+/** Радиус силуэта в единицах сцены; полигон не трогаем. */
+function patchSilhouetteRadius(value: number): void {
+  patch({
+    silhouette: {
+      shape: 'circle',
+      radius: Math.max(1, Math.round(value)),
+      bottom: silhouetteBottom.value,
+    },
+  });
+}
+
+/** Низ силуэта: форму сохраняем, меняем только высоту. */
+function patchSilhouetteBottom(value: number): void {
+  const current = props.element.props.silhouette;
+  const shape =
+    current?.shape === 'polygon'
+      ? { shape: 'polygon' as const, points: current.points }
+      : { shape: 'circle' as const, radius: Math.max(1, silhouetteRadius.value) };
+
+  patch({ silhouette: { ...shape, bottom: Math.max(0, Math.round(value)) } });
+}
+
+function outlineFootprint(): void {
+  emit('outline', 'footprint');
 }
 
 function onAsset(publicId: string | null): void {
@@ -552,36 +686,59 @@ function onAssetPreset(item: AssetItem): void {
         hide-details
         @update:model-value="(value) => patchNumber('scale', value)"
       />
-      <v-text-field
-        :model-value="props.element.props.baseRadius ?? 30"
+      <v-select
+        :model-value="footprintKind"
+        :items="FOOTPRINT_KINDS"
         label="Основание"
-        type="number"
-        suffix="% ширины"
         density="compact"
         variant="outlined"
         hide-details
-        @update:model-value="(value) => patchNumber('baseRadius', value)"
+        @update:model-value="patchFootprintKind"
       />
-      <v-text-field
-        :model-value="props.element.props.sightRadius ?? 45"
-        label="Силуэт"
-        type="number"
-        suffix="% ширины"
+      <SceneDistanceField
+        v-if="footprintKind === 'circle'"
+        :model-value="footprintRadius"
+        :resolution="props.resolution"
+        label="Радиус основания, ипари"
+        hint="Зона хода: поля картинки на неё не влияют."
+        :min="1"
+        :max="100000"
+        @update:model-value="patchFootprintRadius"
+      />
+      <div v-else class="scene-element-settings__row">
+        <span class="text-caption">Полигон: {{ footprintPointCount }} точек</span>
+        <v-btn size="small" variant="tonal" prepend-icon="mdi-vector-polygon" @click="outlineFootprint">
+          Обвести
+        </v-btn>
+      </div>
+      <v-checkbox
+        :model-value="blocksVision"
+        label="Перекрывает обзор"
         density="compact"
-        variant="outlined"
         hide-details
-        @update:model-value="(value) => patchNumber('sightRadius', value)"
+        @update:model-value="patchFlag('blocksVision', $event)"
       />
-      <v-text-field
-        :model-value="props.element.props.sightBottom ?? 0"
-        label="Низ силуэта"
-        type="number"
-        suffix="% ширины"
-        density="compact"
-        variant="outlined"
-        hide-details
-        @update:model-value="(value) => patchNumber('sightBottom', value)"
-      />
+      <template v-if="blocksVision">
+        <SceneDistanceField
+          v-if="silhouetteKind === 'circle'"
+          :model-value="silhouetteRadius"
+          :resolution="props.resolution"
+          label="Радиус силуэта, ипари"
+          :min="1"
+          :max="100000"
+          @update:model-value="patchSilhouetteRadius"
+        />
+        <span v-else class="text-caption">Силуэт: полигон, {{ silhouettePointCount }} точек</span>
+        <SceneDistanceField
+          :model-value="silhouetteBottom"
+          :resolution="props.resolution"
+          label="Низ силуэта, ипари"
+          hint="0 — перекрывает от земли; у кроны — выше глаз."
+          :min="0"
+          :max="100000"
+          @update:model-value="patchSilhouetteBottom"
+        />
+      </template>
     </template>
 
     <template v-if="props.element.kind === 'marker'">

@@ -45,6 +45,8 @@ const props = withDefaults(
     overlay?: SceneOverlay | null;
     /** Меню выбора уровня под точкой клика; null — скрыто. */
     levelMenu?: SceneLevelMenu | null;
+    /** Принудительный сбор полигона кликами: обводка основания декора. */
+    shapeOverride?: 'polygon' | null;
   }>(),
   {
     tool: 'select',
@@ -56,6 +58,7 @@ const props = withDefaults(
     route: null,
     overlay: null,
     levelMenu: null,
+    shapeOverride: null,
   },
 );
 
@@ -316,6 +319,10 @@ function toolDefinition() {
 }
 
 function clickShape(): 'polygon' | 'path' | null {
+  if (props.shapeOverride !== null) {
+    return props.shapeOverride;
+  }
+
   const shapeType = toolDefinition()?.shapeType ?? null;
   if (shapeType === 'polygon' || shapeType === 'path') {
     return shapeType;

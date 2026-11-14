@@ -2,6 +2,7 @@ import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { SceneDraft } from '@/modules/Roleplay/Scene/Dto/SceneDraft';
 import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoard';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
+import type { SceneFootprint } from '@/modules/Roleplay/Scene/Dto/SceneFootprint';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
@@ -417,6 +418,18 @@ export class SceneDraftService {
       if (typeof element.props.elevation === 'number') {
         element.props.elevation = this.scaleLength(element.props.elevation, factor);
       }
+
+      if (element.props.footprint !== undefined) {
+        element.props.footprint = this.scaleFootprint(element.props.footprint, factor);
+      }
+
+      const silhouette = element.props.silhouette;
+      if (silhouette !== undefined) {
+        element.props.silhouette = {
+          ...this.scaleFootprint(silhouette, factor),
+          bottom: this.scaleLength(silhouette.bottom, factor),
+        };
+      }
     }
 
     for (const enclosure of draft.enclosures) {
@@ -514,6 +527,26 @@ export class SceneDraftService {
   /** Масштабирует размер, не меньше единицы. */
   private scaleSize(value: number, factor: number, max = Number.MAX_SAFE_INTEGER): number {
     return Math.max(1, Math.min(max, Math.round(value * factor)));
+  }
+
+  /**
+   * Масштабирует основание при смене разрешения.
+   *
+   * Основание хранится в единицах сцены, поэтому оно живёт по тем же правилам,
+   * что фигура и высота. Точки локальные и могут быть отрицательными.
+   */
+  private scaleFootprint(footprint: SceneFootprint, factor: number): SceneFootprint {
+    if (footprint.shape === 'circle') {
+      return { shape: 'circle', radius: this.scaleSize(footprint.radius, factor) };
+    }
+
+    return {
+      shape: 'polygon',
+      points: footprint.points.map((point): ScenePoint => [
+        Math.round(point[0] * factor),
+        Math.round(point[1] * factor),
+      ]),
+    };
   }
 
   /** Масштабирует вертикальную длину; ноль допустим. */

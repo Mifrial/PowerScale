@@ -18,6 +18,7 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import type { SceneDeckFrame } from '@/modules/Roleplay/Scene/Service/SceneDeck';
+import { sceneDecorFootprint, type SceneWorldFootprint } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import {
   sceneDeckEndEdge,
   sceneDeckFrame,
@@ -1598,17 +1599,43 @@ export class SceneNavigationService {
     return ring.length >= 3 ? [ring] : null;
   }
 
-  /** Основание декора: для точки — круг от масштаба спрайта. */
+  /** Основание декора: явное поле или старый круг от ширины спрайта. */
   private decorBlocker(element: SceneElement, resolution: number, agentRadius: number): Polygon | null {
+    // Проходимый декор (трава, ковёр) не вычитается из навмеша: скорость выше
+    // нуля — это поверхность, а не препятствие.
+    if (this.decorSpeed(element) > 0) {
+      return null;
+    }
+
     if (element.shape.type !== 'point') {
       return this.polygonOf(element, resolution, agentRadius);
     }
 
-    const size = Math.max(1, resolution) * (Math.max(1, element.props.scale ?? 100) / 100);
-    const baseRadius = (element.props.baseRadius ?? SCENE_SURFACE.decorBaseRadius) / 100;
-    const radius = size * baseRadius + agentRadius;
+    const footprint = sceneDecorFootprint(element, resolution);
 
-    return this.circlePolygon([element.shape.x, element.shape.y], radius);
+    return footprint === null ? null : this.footprintPolygon(footprint, agentRadius);
+  }
+
+  /** Мировое основание как полигон с запасом на радиус тела. */
+  private footprintPolygon(area: SceneWorldFootprint, pad: number): Polygon | null {
+    if (area.shape === 'circle') {
+      return this.circlePolygon(area.center, area.radius + pad);
+    }
+
+    const offset = this.geometry.offsetPolygon(area.points, pad);
+    const ring = this.normalizeRing(offset ?? area.points);
+
+    return ring.length >= 3 ? [ring] : null;
+  }
+
+  /** Скорость декора: явная или непроходимость по умолчанию. */
+  private decorSpeed(element: SceneElement): number {
+    const speed = element.props.speed;
+    if (typeof speed !== 'number' || !Number.isFinite(speed)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.min(SCENE_NAVIGATION.maxSpeed, speed));
   }
 
   /** Пресет или явная скорость элемента. */
@@ -1779,6 +1806,9 @@ export class SceneNavigationService {
           element.props.baseRadius ?? '',
           element.props.sightRadius ?? '',
           element.props.sightBottom ?? '',
+          JSON.stringify(element.props.footprint ?? null),
+          JSON.stringify(element.props.silhouette ?? null),
+          element.props.blocksVision ?? '',
           element.props.blocksMovement ?? '',
           element.props.state ?? '',
           JSON.stringify(element.shape),

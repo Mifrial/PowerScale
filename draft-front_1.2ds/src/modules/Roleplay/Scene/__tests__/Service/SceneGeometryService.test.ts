@@ -210,6 +210,74 @@ describe('SceneGeometryService', () => {
     expect(service.center({ type: 'rect', x: 0, y: 0, w: 200, h: 100 })).toEqual([100, 50]);
   });
 
+  it('offsets a closed contour outward with miter joins', () => {
+    const square: ScenePoint[] = [
+      [0, 0],
+      [100, 0],
+      [100, 100],
+      [0, 100],
+    ];
+
+    expect(service.offsetPolygon(square, 10)).toEqual([
+      [-10, -10],
+      [110, -10],
+      [110, 110],
+      [-10, 110],
+    ]);
+
+    // The concave corner moves into the notch, not into the shape.
+    const lShape: ScenePoint[] = [
+      [0, 0],
+      [100, 0],
+      [100, 40],
+      [40, 40],
+      [40, 100],
+      [0, 100],
+    ];
+    const offset = service.offsetPolygon(lShape, 10);
+    expect(offset).not.toBeNull();
+    for (const point of offset ?? []) {
+      expect(service.pointInPolygon(point, lShape)).toBe(false);
+    }
+
+    expect(
+      service.offsetPolygon(
+        [
+          [0, 0],
+          [10, 0],
+        ],
+        5,
+      ),
+    ).toBeNull();
+    expect(
+      service.offsetPolygon(
+        [
+          [0, 0],
+          [50, 0],
+          [100, 0],
+        ],
+        5,
+      ),
+    ).toBeNull();
+    expect(
+      service.offsetPolygon(
+        [
+          [0, 0],
+          [100, 0],
+          [100, 100],
+          [0, 100],
+          [0, 0],
+        ],
+        10,
+      ),
+    ).toEqual([
+      [-10, -10],
+      [110, -10],
+      [110, 110],
+      [-10, 110],
+    ]);
+  });
+
   it('opens only the ends of a river that touch the board edge', () => {
     const board = { x: 0, y: 0, width: 2000, height: 2000 };
     const river: SceneShape = {
