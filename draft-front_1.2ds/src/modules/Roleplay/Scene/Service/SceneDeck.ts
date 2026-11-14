@@ -134,6 +134,37 @@ export function sceneDeckRailSlope(slope: SceneRampSlope, resolution: number): S
 }
 
 /**
+ * Доля длины съезда, под которой не пройти.
+ *
+ * Съезд — клин: низкий конец лежит на земле, высокий поднят. Просвет
+ * появляется только там, где низ настила выше роста тела. Доля считается от
+ * низкого конца; 0 — под съездом можно пройти везде, 1 — нигде.
+ */
+export function sceneRampBlockedShare(
+  element: SceneHeightElement,
+  elements: readonly SceneHeightElement[],
+  resolution: number,
+): number {
+  const slope = sceneRampSlope(element, elements, resolution);
+  if (slope === null) {
+    return 0;
+  }
+
+  const rise = slope.high - slope.low;
+  if (rise <= 0) {
+    return 0;
+  }
+
+  const base = Math.max(1, resolution);
+  const required =
+    sceneDeckBaseElevation(element, elements, resolution) +
+    sceneDeckThickness(element, resolution) +
+    base * SCENE_NAVIGATION.bodyHeightIpari;
+
+  return Math.min(1, Math.max(0, (required - slope.low) / rise));
+}
+
+/**
  * Низкая часть съезда, под которой не пройти.
  *
  * Съезд — сплошной клин: у низкого конца он лежит на земле, у высокого под ним
@@ -152,31 +183,19 @@ export function sceneRampBaseBlocker(
     return null;
   }
 
-  const slope = sceneRampSlope(element, elements, resolution);
-  if (slope === null) {
-    return null;
-  }
-
-  const rise = slope.high - slope.low;
-  if (rise <= 0) {
-    return null;
-  }
-
-  const base = Math.max(1, resolution);
-  const required =
-    sceneDeckBaseElevation(element, elements, resolution) +
-    sceneDeckThickness(element, resolution) +
-    base * SCENE_NAVIGATION.bodyHeightIpari;
-  const blocked = Math.min(1, Math.max(0, (required - slope.low) / rise));
+  const blocked = sceneRampBlockedShare(element, elements, resolution);
   if (blocked <= 0) {
     return null;
   }
 
   const shape = frame.shape;
   const horizontal = shape.w >= shape.h;
+  // Низкий конец — вход на съезд: его не расширяем, иначе запас отодвигает
+  // тело от портала и маршрут идёт сквозь запретную зону. Запас нужен с боков
+  // и со стороны высокого конца.
   const band = horizontal
-    ? { x: shape.x - pad, y: shape.y - pad, w: shape.w * blocked + pad * 2, h: shape.h + pad * 2 }
-    : { x: shape.x - pad, y: shape.y - pad, w: shape.w + pad * 2, h: shape.h * blocked + pad * 2 };
+    ? { x: shape.x, y: shape.y - pad, w: shape.w * blocked + pad, h: shape.h + pad * 2 }
+    : { x: shape.x - pad, y: shape.y, w: shape.w + pad * 2, h: shape.h * blocked + pad };
   const center: ScenePoint = [shape.x + shape.w / 2, shape.y + shape.h / 2];
 
   return (

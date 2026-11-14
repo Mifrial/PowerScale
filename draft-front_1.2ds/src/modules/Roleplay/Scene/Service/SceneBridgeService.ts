@@ -39,14 +39,14 @@ interface DeckMetrics {
  */
 export class SceneBridgeService {
   /** Рисует мост или съезд; `null` — элемент не прямоугольный. */
-  paint(element: SceneElement, resolution: number, zoom: number): Graphics | null {
+  paint(element: SceneElement, resolution: number, zoom: number, blockedShare = 0): Graphics | null {
     if (element.shape.type !== 'rect') {
       return null;
     }
 
     const metrics = this.metrics(element, resolution, zoom);
 
-    return element.props.kind === 'ramp' ? this.paintRamp(metrics) : this.paintBridge(metrics);
+    return element.props.kind === 'ramp' ? this.paintRamp(metrics, blockedShare) : this.paintBridge(metrics);
   }
 
   /** Мост: ровный настил с перилами. */
@@ -62,11 +62,12 @@ export class SceneBridgeService {
   }
 
   /** Съезд: наклонный настил со ступенями. */
-  private paintRamp(metrics: DeckMetrics): Graphics {
+  private paintRamp(metrics: DeckMetrics, blockedShare: number): Graphics {
     const graphics = new Graphics();
     this.paintShadow(graphics, metrics);
     this.paintDeck(graphics, metrics, true);
     this.paintRampTint(graphics, metrics);
+    this.paintRampContact(graphics, metrics, blockedShare);
     this.paintRampCleats(graphics, metrics);
     this.paintRampEnds(graphics, metrics);
     this.paintRails(graphics, metrics);
@@ -191,6 +192,39 @@ export class SceneBridgeService {
   }
 
   /** Поперечные ступени съезда: читаются как наклонные доски. */
+  /**
+   * Подошва съезда: низкая часть лежит на земле, под ней нет просвета.
+   *
+   * Плоский настил об этом не говорит, поэтому низ затемняется как насыпь.
+   * Заливка прозрачная — доски и ступени остаются видны; линия на границе
+   * показывает, где просвет появляется.
+   */
+  private paintRampContact(graphics: Graphics, metrics: DeckMetrics, share: number): void {
+    const blocked = Math.min(1, Math.max(0, share));
+    if (blocked <= 0) {
+      return;
+    }
+
+    const innerW = Math.max(1, metrics.w - metrics.inset * 2);
+    const innerH = Math.max(1, metrics.h - metrics.inset * 2);
+    const fill = { color: SCENE_BRIDGE.shadowColor, alpha: SCENE_BRIDGE.rampContactAlpha };
+    if (metrics.horizontal) {
+      const width = Math.max(1, innerW * blocked);
+      graphics.rect(metrics.x + metrics.inset, metrics.y + metrics.inset, width, innerH).fill(fill);
+      graphics
+        .moveTo(metrics.x + metrics.inset + width, metrics.y + metrics.inset)
+        .lineTo(metrics.x + metrics.inset + width, metrics.y + metrics.h - metrics.inset)
+        .stroke({ color: SCENE_BRIDGE.edgeColor, width: metrics.line, alpha: 0.5 });
+    } else {
+      const height = Math.max(1, innerH * blocked);
+      graphics.rect(metrics.x + metrics.inset, metrics.y + metrics.inset, innerW, height).fill(fill);
+      graphics
+        .moveTo(metrics.x + metrics.inset, metrics.y + metrics.inset + height)
+        .lineTo(metrics.x + metrics.w - metrics.inset, metrics.y + metrics.inset + height)
+        .stroke({ color: SCENE_BRIDGE.edgeColor, width: metrics.line, alpha: 0.5 });
+    }
+  }
+
   private paintRampCleats(graphics: Graphics, metrics: DeckMetrics): void {
     const cleat = Math.max(1, metrics.line * 1.8);
     for (

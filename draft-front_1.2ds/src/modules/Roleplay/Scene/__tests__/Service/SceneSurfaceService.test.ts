@@ -4,7 +4,12 @@ import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElementKind';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
-import { SceneSurfaceService, surfaceCenter, surfaceIndex } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
+import {
+  SceneSurfaceService,
+  surfaceCenter,
+  surfaceIndex,
+  surfaceUnderDeck,
+} from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 
 const board = (overrides: Partial<SceneBoard> = {}): SceneBoard => ({
   id: 1,
@@ -135,6 +140,37 @@ describe('SceneSurfaceService', () => {
     expect(low.clearance[cellOf(low, 8, 8)]).toBe(-16);
     // Вне настила потолка нет: зазор — открытое небо.
     expect(high.clearance[cellOf(high, 0, 0)]).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('считает «под настилом» только при конечном положительном зазоре', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(
+          2,
+          'support',
+          { type: 'rect', x: 96, y: 96, w: 64, h: 64 },
+          { kind: 'bridge', elevation: 100, height: 16 },
+          20,
+        ),
+        element(
+          3,
+          'support',
+          { type: 'rect', x: 0, y: 0, w: 64, h: 64 },
+          { kind: 'bridge', elevation: 0, height: 16 },
+          30,
+        ),
+      ],
+      64,
+    );
+
+    // Под высоким настилом зазор конечный и положительный.
+    expect(surfaceUnderDeck(grid, 136, 136)).toBe(true);
+    // Настил-пол: зазор отрицательный, это не потолок.
+    expect(surfaceUnderDeck(grid, 40, 40)).toBe(false);
+    // Открытая трава: потолка нет вовсе.
+    expect(surfaceUnderDeck(grid, 200, 200)).toBe(false);
   });
 
   it('поворачивает настил моста вместе с опорой', () => {

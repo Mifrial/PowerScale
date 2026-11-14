@@ -14,6 +14,7 @@ import {
   sceneDeckRailSlope,
   sceneDeckRailWidth,
   sceneRampBaseBlocker,
+  sceneRampBlockedShare,
 } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 
 const RESOLUTION = 64;
@@ -134,5 +135,22 @@ describe('SceneDeck', () => {
 
     expect(contains(blocker, [110, 160])).toBe(true);
     expect(contains(blocker, [390, 160])).toBe(false);
+  });
+
+  it('считает долю низкой части съезда', () => {
+    const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
+    const ramp = element(
+      2,
+      'support',
+      { type: 'rect', x: 100, y: 100, w: 300, h: 120 },
+      {
+        kind: 'ramp',
+        elevation: 100,
+        height: 16,
+      },
+    );
+
+    // 92.8 из 100 единиц подъёма ниже роста тела.
+    expect(sceneRampBlockedShare(ramp, [grass, ramp], RESOLUTION)).toBeCloseTo(0.928, 3);
   });
 });

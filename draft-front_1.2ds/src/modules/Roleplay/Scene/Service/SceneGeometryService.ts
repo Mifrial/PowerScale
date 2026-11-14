@@ -203,7 +203,7 @@ export class SceneGeometryService {
 
     const outline = this.curves.flattenContour(shape.points, shape.handles ?? []);
 
-    return this.pointInPolygon(point, outline) || this.distanceToPolyline(point, outline) <= tolerance;
+    return this.pointInPolygon(point, outline) || this.distanceToPolyline(point, outline, true) <= tolerance;
   }
 
   /**
@@ -227,7 +227,7 @@ export class SceneGeometryService {
       return {
         bounds: this.boundsOfPoints(outline),
         contains: (point, tolerance) =>
-          this.pointInPolygon(point, outline) || this.distanceToPolyline(point, outline) <= tolerance,
+          this.pointInPolygon(point, outline) || this.distanceToPolyline(point, outline, true) <= tolerance,
       };
     }
 
@@ -271,10 +271,15 @@ export class SceneGeometryService {
   }
 
   /** Минимальное расстояние до полилинии. */
-  distanceToPolyline(point: ScenePoint, points: ScenePoint[]): number {
+  distanceToPolyline(point: ScenePoint, points: ScenePoint[], closed = false): number {
     let result = Number.POSITIVE_INFINITY;
     for (let index = 0; index < points.length - 1; index += 1) {
       result = Math.min(result, this.distanceToSegment(point, points[index], points[index + 1]));
+    }
+    // Кольцо замкнуто: последнее ребро `последняя → первая` иначе выпадает,
+    // и точка на нём считается лежащей внутри выреза.
+    if (closed && points.length > 2) {
+      result = Math.min(result, this.distanceToSegment(point, points[points.length - 1], points[0]));
     }
 
     return result;

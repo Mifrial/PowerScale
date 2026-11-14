@@ -73,6 +73,19 @@ describe('SceneGeometryService', () => {
     expect(service.contains(shape, [50, 10], 6)).toBe(true);
   });
 
+  it('замыкает кольцо при проверке расстояния', () => {
+    const ring: ScenePoint[] = [
+      [0, 0],
+      [100, 0],
+      [100, 100],
+      [0, 100],
+    ];
+
+    // Точка слева от кольца ближе всего к замыкающему ребру (0,100)-(0,0).
+    expect(service.distanceToPolyline([-4, 50], ring, true)).toBeCloseTo(4);
+    expect(service.distanceToPolyline([-4, 50], ring)).toBeGreaterThan(10);
+  });
+
   it('hits a polygon by interior or contour tolerance', () => {
     const shape: SceneShape = {
       type: 'polygon',

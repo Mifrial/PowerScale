@@ -57,4 +57,13 @@ describe('SceneBridgeService', () => {
   it('не рисует мост не по прямоугольнику', () => {
     expect(service.paint(bridge({ type: 'point', x: 0, y: 0 }), 64, 1)).toBeNull();
   });
+
+  it('заливает низкую часть съезда', () => {
+    const shape = { type: 'rect' as const, x: 0, y: 0, w: 200, h: 120 };
+    const props = { kind: 'ramp' as const, elevation: 48, height: 16 };
+    const plain = service.paint(bridge(shape, props), 64, 1, 0);
+    const contact = service.paint(bridge(shape, props), 64, 1, 0.5);
+
+    expect(contact?.context.instructions.length ?? 0).toBeGreaterThan(plain?.context.instructions.length ?? 0);
+  });
 });

@@ -744,9 +744,13 @@ export class SceneNavigationService {
           const belowLevel = triangles[group.below].level;
           const below = this.levelElevation(levels.get(belowLevel), mid);
           const delta = above - below;
-          const type = this.transitionType(delta, step, climb, drop);
-          if (type !== null) {
-            this.addLevelLink(triangles, group.deckTriangle, group.below, group.from, group.to, type, delta);
+          // Переход направленный: вверх — `climb`, вниз — `drop`. Один и тот
+          // же перепад не может быть одновременно подъёмом и спуском, поэтому
+          // звено пишется в каждую сторону со своим типом и знаком.
+          const up = this.transitionType(delta, step, climb, drop);
+          const down = this.transitionType(-delta, step, climb, drop);
+          if (up !== null || down !== null) {
+            this.addLevelLink(triangles, group.deckTriangle, group.below, group.from, group.to, up, down, delta);
           }
           group = null;
         };
@@ -829,19 +833,33 @@ export class SceneNavigationService {
   }
 
   /** Двустороннее звено между уровнями. */
+  /**
+   * Добавляет звено между настилом и нижним уровнем.
+   *
+   * `up` — переход снизу вверх, `down` — сверху вниз. Направления
+   * независимы: спуск может быть разрешён, когда подъём уже нет (настил выше
+   * `climbIpari`, но в пределах `dropIpari`). Тогда звено существует только
+   * в одну сторону, и маршрут не полезет наверх там, где не сможет.
+   */
   private addLevelLink(
     triangles: SceneNavTriangle[],
     deck: number,
     base: number,
     from: ScenePoint,
     to: ScenePoint,
-    type: SceneNavTransitionType,
+    up: SceneNavTransitionType | null,
+    down: SceneNavTransitionType | null,
     delta: number,
   ): void {
     const length = this.distance(from, to);
-    const transition: SceneNavTransition = { type, delta };
-    triangles[deck].links.push({ to: base, left: from, right: to, length, transition });
-    triangles[base].links.push({ to: deck, left: from, right: to, length, transition });
+    if (down !== null) {
+      const transition: SceneNavTransition = { type: down, delta: -delta };
+      triangles[deck].links.push({ to: base, left: from, right: to, length, transition });
+    }
+    if (up !== null) {
+      const transition: SceneNavTransition = { type: up, delta };
+      triangles[base].links.push({ to: deck, left: from, right: to, length, transition });
+    }
   }
 
   /** Ориентированная площадь кольца. */
@@ -1399,14 +1417,16 @@ export class SceneNavigationService {
     }
 
     // Переходы между уровнями: подъём и спуск стоят как участок пути.
+    // Тип берётся у звена, а не из разницы `elevation`: у съезда высота
+    // участка — это высокий конец, но переход с него на землю всё равно `walk`.
     for (let index = 1; index < segments.length; index += 1) {
-      const delta = segments[index].elevation - segments[index - 1].elevation;
-      const resolution = Math.max(1, mesh.resolution);
-      const step = resolution * SCENE_NAVIGATION.stepIpari;
-      if (Math.abs(delta) <= step) {
+      const transition = segments[index].transition;
+      if (transition === null || transition.type === 'walk') {
         continue;
       }
-      cost += resolution * (delta > 0 ? SCENE_NAVIGATION.climbCostIpari : SCENE_NAVIGATION.dropCostIpari);
+      const resolution = Math.max(1, mesh.resolution);
+      cost +=
+        resolution * (transition.type === 'climb' ? SCENE_NAVIGATION.climbCostIpari : SCENE_NAVIGATION.dropCostIpari);
     }
 
     return { points, segments: [...segments], distance, cost };
@@ -1428,7 +1448,7 @@ export class SceneNavigationService {
   /** Точка внутри региона; небольшая граница считается проходимой. */
   private regionContains(region: SceneNavRegion, point: ScenePoint): boolean {
     const inside = this.geometry.pointInPolygon(point, region.outer);
-    if (!inside && this.geometry.distanceToPolyline(point, region.outer) > SCENE_NAVIGATION.linkEpsilon) {
+    if (!inside && this.geometry.distanceToPolyline(point, region.outer, true) > SCENE_NAVIGATION.linkEpsilon) {
       return false;
     }
     for (const hole of region.holes) {
@@ -1436,7 +1456,7 @@ export class SceneNavigationService {
       // не должен стоить как сквозь препятствие.
       if (
         this.geometry.pointInPolygon(point, hole) &&
-        this.geometry.distanceToPolyline(point, hole) > SCENE_NAVIGATION.linkEpsilon
+        this.geometry.distanceToPolyline(point, hole, true) > SCENE_NAVIGATION.linkEpsilon
       ) {
         return false;
       }

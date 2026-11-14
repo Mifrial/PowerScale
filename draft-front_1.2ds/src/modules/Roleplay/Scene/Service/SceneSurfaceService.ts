@@ -40,6 +40,24 @@ export function surfaceCenter(grid: SceneSurfaceGrid, index: number): ScenePoint
   return [grid.x + (column + 0.5) * grid.cell, grid.y + (row + 0.5) * grid.cell];
 }
 
+/**
+ * Точка стоит под настилом: клетка несёт конечный положительный зазор.
+ *
+ * `Infinity` — потолка нет вовсе, `<= 0` — настил лежит на поверхности и
+ * заменяет пол. Оба случая не «под настилом», иначе актёр на лугу считался бы
+ * стоящим под мостом.
+ */
+export function surfaceUnderDeck(grid: SceneSurfaceGrid, x: number, y: number): boolean {
+  const cell = surfaceIndex(grid, x, y);
+  if (cell < 0) {
+    return false;
+  }
+
+  const clearance = grid.clearance[cell];
+
+  return Number.isFinite(clearance) && clearance > 0;
+}
+
 /** Обход клеток в границах фигуры. */
 type CellVisitor = (index: number, center: ScenePoint) => void;
 

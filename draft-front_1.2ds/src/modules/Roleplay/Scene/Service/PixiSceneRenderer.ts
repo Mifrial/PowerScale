@@ -24,6 +24,7 @@ import { SceneDecorService } from '@/modules/Roleplay/Scene/Service/SceneDecorSe
 import type { SceneActorPaint } from '@/modules/Roleplay/Scene/Service/SceneActorService';
 import { SceneActorService } from '@/modules/Roleplay/Scene/Service/SceneActorService';
 import { SceneBridgeService } from '@/modules/Roleplay/Scene/Service/SceneBridgeService';
+import { sceneRampBlockedShare } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import { SceneGrassMeshService } from '@/modules/Roleplay/Scene/Service/SceneGrassMeshService';
 import { SceneGrassService } from '@/modules/Roleplay/Scene/Service/SceneGrassService';
 import { SceneGrassShader } from '@/modules/Roleplay/Scene/Service/SceneGrassShader';
@@ -723,8 +724,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.carpet = null;
     const bounds = { x: 0, y: 0, width: board.boundWidth, height: board.boundHeight };
     // Мосты и съезды — пол над водой и под оверлеями, декором и акторами.
+    // Съезду нужна доля низкой части: под ней насыпь, а не просвет.
+    const heightElements = [...terrainElements, ...bridgeElements];
     for (const element of bridgeElements) {
-      const painted = this.bridge.paint(element, resolution, this.zoom());
+      const blockedShare =
+        element.props.kind === 'ramp' ? sceneRampBlockedShare(element, heightElements, resolution) : 0;
+      const painted = this.bridge.paint(element, resolution, this.zoom(), blockedShare);
       if (painted !== null) {
         ground.addChild(painted);
       }

@@ -12,7 +12,7 @@ import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_
 import { SCENE_PREVIEW } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_PREVIEW';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
-import { SceneSurfaceService, surfaceIndex } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
+import { SceneSurfaceService, surfaceUnderDeck } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { SceneVisibilityService } from '@/modules/Roleplay/Scene/Service/SceneVisibilityService';
 
 /** Внешние данные предпросмотра. */
@@ -435,11 +435,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return false;
     }
 
-    const cell = surfaceIndex(surface, actor.x, actor.y);
-
-    // Отрицательный зазор — настил лежит на поверхности (замена пола), а не
-    // потолок над головой. Иначе актёр на мосту рисовался бы призраком.
-    return cell >= 0 && surface.clearance[cell] > 0;
+    return surfaceUnderDeck(surface, actor.x, actor.y);
   }
 
   /** Сетка поверхностей с кэшем: обзор не пересобирает её на каждый клик. */

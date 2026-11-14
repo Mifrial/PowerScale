@@ -361,6 +361,8 @@ describe('SceneNavigationService', () => {
     expect(withRamp).not.toBeNull();
     expect(withRamp?.segments.some((segment) => segment.level > 0)).toBe(true);
     expect(crossesRect(withRamp?.points ?? [], 450, 320, 150, 60)).toBe(true);
+    // Съезд — постепенный подъём, а не спуск с кромки.
+    expect(withRamp?.segments.some((segment) => segment.transition?.type === 'drop')).toBe(false);
   });
 
   it('перелезает через перила только с доплатой и обходит их по торцу', () => {
@@ -373,6 +375,8 @@ describe('SceneNavigationService', () => {
     expect(across).not.toBeNull();
     expect(across?.segments.some((segment) => segment.level > 0)).toBe(true);
     expect(across?.segments.some((segment) => segment.transition?.type === 'climb')).toBe(true);
+    // Обратно с перил — спуск, а не второй подъём.
+    expect(across?.segments.some((segment) => segment.transition?.type === 'drop')).toBe(true);
 
     // Вдоль настила маршрут остаётся внутри и перил не касается.
     expect(along).not.toBeNull();
@@ -425,6 +429,35 @@ describe('SceneNavigationService', () => {
     expect(under).not.toBeNull();
     expect(under?.segments.every((segment) => segment.level === 0)).toBe(true);
     expect(onDeck).toBeNull();
+  });
+
+  it('спускает с торца настила, но не поднимает обратно', () => {
+    // 1.4 ипари: спуск в пределах dropIpari, подъём выше climbIpari.
+    const deck = rect(2, 'support', 450, 300, 100, 100, { kind: 'bridge', speed: 150, elevation: 90, height: 16 }, 20);
+    const down = service.route(board, [grass(), deck], 64, [500, 350], [300, 350], {
+      ...options,
+      fromLevel: 1,
+    });
+    const up = service.route(board, [grass(), deck], 64, [300, 350], [500, 350], {
+      ...options,
+      toLevel: 1,
+    });
+
+    expect(down).not.toBeNull();
+    expect(down?.segments[0]?.level).toBe(1);
+    expect(down?.segments.some((segment) => segment.transition?.type === 'drop')).toBe(true);
+    // Вверх 1.4 ипари не поднять: звена нет, настил недоступен.
+    expect(up).toBeNull();
+  });
+
+  it('не спускает с настила выше dropIpari', () => {
+    const deck = rect(2, 'support', 450, 300, 100, 100, { kind: 'bridge', speed: 150, elevation: 140, height: 16 }, 20);
+    const down = service.route(board, [grass(), deck], 64, [500, 350], [300, 350], {
+      ...options,
+      fromLevel: 1,
+    });
+
+    expect(down).toBeNull();
   });
 
   it('проходит щель шириной 1 ипари телом 0.3 и не проходит 0.4', () => {
