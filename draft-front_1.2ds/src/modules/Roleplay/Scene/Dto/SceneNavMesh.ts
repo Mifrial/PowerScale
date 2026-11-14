@@ -1,4 +1,5 @@
 import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
+import type { SceneDeckFrame } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRampSlope } from '@/modules/Roleplay/Scene/Dto/SceneRampSlope';
 
@@ -40,6 +41,8 @@ export interface SceneNavTriangle {
   level: number;
   /** Высота уровня над нулём поля, единицы сцены. */
   elevation: number;
+  /** Полоса перил: узкий уровень на `railHeightIpari` выше настила. */
+  rail: boolean;
   centroid: ScenePoint;
   links: SceneNavLink[];
 }
@@ -53,6 +56,10 @@ export interface SceneNavRegion {
   elevation: number;
   /** Съезд: высота меняется вдоль длинной стороны; у настила — `null`. */
   slope: SceneRampSlope | null;
+  /** Полоса перил: полосы соединяются только по длинным сторонам. */
+  rail: boolean;
+  /** Рамка настила для правил порталов; у базы — `null`. */
+  frame: SceneDeckFrame | null;
   outer: ScenePoint[];
   holes: ScenePoint[][];
 }

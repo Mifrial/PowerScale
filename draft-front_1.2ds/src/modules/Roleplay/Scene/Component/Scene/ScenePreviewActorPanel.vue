@@ -34,7 +34,7 @@ defineEmits<{
         :model-value="selected.sightRadius"
         :resolution="resolution"
         label="Обзор, ипари"
-        hint="Клик по карте — маршрут; клик по актору — переключить наблюдателя."
+        hint="Клик — маршрут; Alt+клик — по земле; клик по актору — переключить наблюдателя."
         :min="resolution"
         :max="100000"
         @update:model-value="(value) => $emit('sight', selected?.id ?? 0, value)"

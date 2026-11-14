@@ -90,9 +90,11 @@ const {
   selectedId: previewSelectedId,
   selectedActor: previewSelectedActor,
   route: previewRoute,
+  levelMenu: previewLevelMenu,
   select: selectPreviewActor,
   setSightRadius: setPreviewSightRadius,
   onMapClick: onPreviewClick,
+  chooseLevel: previewChooseLevel,
 } = useScenePreviewActors({
   enabled: () => preview.value,
   board: () => activeViewBoard.value,
@@ -592,7 +594,9 @@ function messageOf(exception: unknown): string {
           :actors="previewActorList"
           :selected-actor-id="previewSelectedId"
           :route="previewRoute"
+          :level-menu="previewLevelMenu"
           @point="onPreviewClick"
+          @level="previewChooseLevel"
           @draw="onDraw"
           @shape="onShape"
           @path="onPath"

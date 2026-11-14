@@ -2,6 +2,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
+import type { SceneLevelMenu } from '@/modules/Roleplay/Scene/Dto/SceneLevelMenu';
 import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { ScenePreviewActor } from '@/modules/Roleplay/Scene/Dto/ScenePreviewActor';
@@ -9,6 +10,7 @@ import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurface
 import { SCENE_ACTOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ACTOR';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_PREVIEW } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_PREVIEW';
+import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
 import { SceneSurfaceService, surfaceIndex } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { SceneVisibilityService } from '@/modules/Roleplay/Scene/Service/SceneVisibilityService';
@@ -46,6 +48,8 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   const actors = ref<ScenePreviewActor[]>([]);
   const selectedId = ref<number | null>(null);
   const route = ref<SceneNavRoute | null>(null);
+  const levelMenu = ref<SceneLevelMenu | null>(null);
+  let menuPoint: ScenePoint | null = null;
   const navigation = new SceneNavigationService();
   const surfaces = new SceneSurfaceService();
   const visibility = new SceneVisibilityService();
@@ -163,8 +167,11 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     return best;
   }
 
-  /** Клик: выбрать актора или отправить выбранного в точку. */
-  function onMapClick(point: ScenePoint): void {
+  /** Клик: выбрать актора, отправить по земле (Alt) или показать выбор уровня. */
+  function onMapClick(point: ScenePoint, under = false, at?: ScenePoint): void {
+    levelMenu.value = null;
+    menuPoint = null;
+
     const actor = actorAt(point);
     if (actor !== null) {
       select(actor.id);
@@ -172,27 +179,110 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return;
     }
 
-    moveTo(point);
+    const selected = selectedActor.value;
+    const board = options.board();
+    if (selected === null || board === null) {
+      return;
+    }
+
+    if (under) {
+      moveTo(point, 0);
+
+      return;
+    }
+
+    const mesh = navigation.build(board, options.elements(), options.resolution(), { agentRadius: selected.radius });
+    if (mesh === null) {
+      moveTo(point);
+
+      return;
+    }
+
+    const levels = navigation.levelsAt(mesh, point);
+    if (levels.length === 0) {
+      moveTo(point);
+
+      return;
+    }
+
+    const choices = levels
+      .map((level) => ({
+        ...level,
+        route: navigation.routeOn(mesh, [selected.x, selected.y], point, {
+          agentRadius: selected.radius,
+          fromLevel: selected.level ?? 0,
+          toLevel: level.level,
+        }),
+      }))
+      .filter((choice) => choice.route !== null);
+    if (choices.length === 0) {
+      return;
+    }
+    if (choices.length === 1) {
+      const only = choices[0]?.route;
+      if (only !== null && only !== undefined) {
+        applyRoute(selected.id, only);
+      }
+
+      return;
+    }
+
+    menuPoint = point;
+    levelMenu.value = {
+      x: at?.[0] ?? 0,
+      y: at?.[1] ?? 0,
+      options: choices.map((choice) => ({
+        level: choice.level,
+        label:
+          choice.level === 0
+            ? 'Под настилом'
+            : `На настил ${sceneUnits.formatUnits(Math.round(choice.elevation), options.resolution())}`,
+      })),
+    };
   }
 
   /** Маршрут выбранного актора и анимация движения. */
-  function moveTo(point: ScenePoint): void {
+  function moveTo(point: ScenePoint, level?: number): boolean {
     const actor = selectedActor.value;
     const board = options.board();
     if (actor === null || board === null) {
-      return;
+      return false;
     }
 
     const result = navigation.route(board, options.elements(), options.resolution(), [actor.x, actor.y], point, {
       agentRadius: actor.radius,
       fromLevel: actor.level ?? 0,
+      toLevel: level,
     });
     if (result === null || result.points.length < 2) {
-      return;
+      return false;
     }
 
+    applyRoute(actor.id, result);
+
+    return true;
+  }
+
+  /** Выбор уровня из меню. */
+  function chooseLevel(level: number): void {
+    const point = menuPoint;
+    levelMenu.value = null;
+    menuPoint = null;
+    if (point !== null) {
+      moveTo(point, level);
+    }
+  }
+
+  /** Закрывает меню уровня. */
+  function closeLevelMenu(): void {
+    levelMenu.value = null;
+    menuPoint = null;
+  }
+
+  /** Ставит маршрут и запускает движение. */
+  function applyRoute(actorId: number, result: SceneNavRoute): void {
     route.value = result;
-    startMotion(actor.id, result);
+    startMotion(actorId, result);
   }
 
   /** Запускает движение по маршруту с уровнями. */
@@ -347,7 +437,9 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
     const cell = surfaceIndex(surface, actor.x, actor.y);
 
-    return cell >= 0 && Number.isFinite(surface.clearance[cell]);
+    // Отрицательный зазор — настил лежит на поверхности (замена пола), а не
+    // потолок над головой. Иначе актёр на мосту рисовался бы призраком.
+    return cell >= 0 && surface.clearance[cell] > 0;
   }
 
   /** Сетка поверхностей с кэшем: обзор не пересобирает её на каждый клик. */
@@ -405,10 +497,13 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     selectedId,
     selectedActor,
     route,
+    levelMenu,
     select,
     setSightRadius,
     actorAt,
     onMapClick,
     moveTo,
+    chooseLevel,
+    closeLevelMenu,
   };
 }

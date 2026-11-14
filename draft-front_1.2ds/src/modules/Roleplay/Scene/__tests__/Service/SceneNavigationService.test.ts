@@ -130,7 +130,9 @@ describe('SceneNavigationService', () => {
 
   it('не срезает через воду, если мост дешевле', () => {
     const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20 }, 10);
-    const bridge = rect(3, 'support', 450, 200, 100, 120, { kind: 'bridge', speed: 150 }, 20);
+    // Мост поперёк реки: короткие стороны лежат на берегах, перила — вдоль
+    // течения. Маршрут входит с торца и не задевает перила.
+    const bridge = rect(3, 'support', 450, 410, 100, 80, { kind: 'bridge', speed: 150 }, 20);
     const options = { agentRadius: 10 };
     const withBridge = service.route(board, [grass(), water, bridge], 64, [200, 450], [800, 450], options);
     const withoutBridge = service.route(board, [grass(), water], 64, [200, 450], [800, 450], options);
@@ -138,7 +140,7 @@ describe('SceneNavigationService', () => {
     expect(withBridge).not.toBeNull();
     expect(withoutBridge).not.toBeNull();
     expect(withBridge?.cost).toBeLessThan(withoutBridge?.cost ?? Number.POSITIVE_INFINITY);
-    expect(crossesRect(withBridge?.points ?? [], 450, 200, 100, 120)).toBe(true);
+    expect(crossesRect(withBridge?.points ?? [], 450, 410, 100, 80)).toBe(true);
 
     const inWaterOutsideBridge = (withBridge?.points ?? []).some((point, index, points) => {
       if (index === 0) return false;
@@ -149,7 +151,7 @@ describe('SceneNavigationService', () => {
         const t = sample / steps;
         const x = from[0] + (point[0] - from[0]) * t;
         const y = from[1] + (point[1] - from[1]) * t;
-        if (x >= 450 && x <= 550 && (y < 200 || y > 320)) return true;
+        if (x >= 450 && x <= 550 && (y < 410 || y > 490)) return true;
       }
 
       return false;
@@ -168,19 +170,19 @@ describe('SceneNavigationService', () => {
     expect(route).toBeNull();
   });
 
-  it('не уходит к дальнему углу моста, если ближний берег короче', () => {
+  it('пересекает мост по середине, а не через дальний угол', () => {
     const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20 }, 10);
-    const bridge = rect(3, 'support', 400, 300, 200, 100, { kind: 'bridge', speed: 150 }, 20);
+    const bridge = rect(3, 'support', 400, 450, 200, 100, { kind: 'bridge', speed: 150 }, 20);
     const route = service.route(board, [grass(), water, bridge], 64, [300, 500], [700, 500], options);
 
     expect(route).not.toBeNull();
-    // Мост пересекается у южного края: выход к цели не через северо-восточный
-    // угол, который добавляет лишний крюк.
-    const crossesSouthEdge = route?.points.some(
-      (point) => point[1] >= 390 && point[1] <= 410 && point[0] >= 400 && point[0] <= 600,
+    // Вход и выход — по коротким сторонам; через перила у дальнего угла не
+    // лезем, маршрут идёт серединой настила.
+    const crossesMiddle = route?.points.some(
+      (point) => point[1] >= 480 && point[1] <= 520 && point[0] >= 400 && point[0] <= 600,
     );
-    expect(crossesSouthEdge).toBe(true);
-    expect(route?.points.some((point) => near(point, 600, 300, 16))).toBe(false);
+    expect(crossesMiddle).toBe(true);
+    expect(route?.points.some((point) => near(point, 600, 450, 16))).toBe(false);
   });
 
   it('не срезает через длинный разрез триангуляции у выреза', () => {
@@ -359,6 +361,70 @@ describe('SceneNavigationService', () => {
     expect(withRamp).not.toBeNull();
     expect(withRamp?.segments.some((segment) => segment.level > 0)).toBe(true);
     expect(crossesRect(withRamp?.points ?? [], 450, 320, 150, 60)).toBe(true);
+  });
+
+  it('перелезает через перила только с доплатой и обходит их по торцу', () => {
+    // Настил во всю доску: торцы за краем поля, поэтому единственный путь
+    // с юга на север — через перила. Перила выше настила на 0.5 ипари.
+    const bridge = rect(2, 'support', -1000, 350, 3000, 100, { kind: 'bridge', speed: 150 }, 20);
+    const across = service.route(board, [grass(), bridge], 64, [500, 500], [500, 300], options);
+    const along = service.route(board, [grass(), bridge], 64, [50, 400], [950, 400], options);
+
+    expect(across).not.toBeNull();
+    expect(across?.segments.some((segment) => segment.level > 0)).toBe(true);
+    expect(across?.segments.some((segment) => segment.transition?.type === 'climb')).toBe(true);
+
+    // Вдоль настила маршрут остаётся внутри и перил не касается.
+    expect(along).not.toBeNull();
+    expect(along?.segments.every((segment) => segment.level === 0)).toBe(true);
+  });
+
+  it('находит все уровни под точкой', () => {
+    const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20 }, 10);
+    const bridge = rect(
+      3,
+      'support',
+      450,
+      300,
+      100,
+      100,
+      { kind: 'bridge', speed: 150, elevation: 100, height: 16 },
+      20,
+    );
+    const mesh = service.build(board, [grass(), water, bridge], 64, options);
+    if (mesh === null) {
+      throw new Error('ожидалась сетка навигации');
+    }
+
+    const levels = service.levelsAt(mesh, [500, 350]);
+    expect(levels.map((level) => level.level)).toEqual([1, 0]);
+    expect(service.levelsAt(mesh, [200, 350]).map((level) => level.level)).toEqual([0]);
+  });
+
+  it('ведёт по указанному уровню цели', () => {
+    const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20 }, 10);
+    const bridge = rect(
+      3,
+      'support',
+      450,
+      300,
+      100,
+      100,
+      { kind: 'bridge', speed: 150, elevation: 100, height: 16 },
+      20,
+    );
+    const under = service.route(board, [grass(), water, bridge], 64, [200, 350], [800, 350], {
+      ...options,
+      toLevel: 0,
+    });
+    const onDeck = service.route(board, [grass(), water, bridge], 64, [200, 350], [800, 350], {
+      ...options,
+      toLevel: 1,
+    });
+
+    expect(under).not.toBeNull();
+    expect(under?.segments.every((segment) => segment.level === 0)).toBe(true);
+    expect(onDeck).toBeNull();
   });
 
   it('проходит щель шириной 1 ипари телом 0.3 и не проходит 0.4', () => {

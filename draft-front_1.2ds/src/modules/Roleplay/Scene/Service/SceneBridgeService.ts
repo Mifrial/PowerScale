@@ -1,6 +1,7 @@
 import { Graphics } from 'pixi.js';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
+import { sceneDeckFrame, sceneDeckRailWidth } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 /** Размеры настила, общие для моста и съезда. */
@@ -329,6 +330,10 @@ export class SceneBridgeService {
 
     const base = Math.max(1, resolution);
     const shape = element.shape;
+    const frame = sceneDeckFrame(element);
+    if (frame === null) {
+      throw new Error('SceneBridgeService.metrics требует прямоугольник');
+    }
     const short = Math.max(1, Math.min(shape.w, shape.h));
     const rise = Math.max(0, element.props.elevation ?? 0);
     const thickness = Math.max(1, element.props.height ?? base * SCENE_BRIDGE.thicknessIpari);
@@ -344,7 +349,7 @@ export class SceneBridgeService {
       line: Math.max(1, 1.5 / Math.max(0.001, zoom)),
       rise,
       thickness,
-      rail: Math.max(1, short * SCENE_BRIDGE.railWidth),
+      rail: sceneDeckRailWidth(frame),
       inset: Math.max(1, short * SCENE_BRIDGE.deckInset),
       planks: Math.max(1, Math.round((shape.w >= shape.h ? shape.w : shape.h) / (base * SCENE_BRIDGE.plankIpari))),
       rotation: sceneRotation(element),

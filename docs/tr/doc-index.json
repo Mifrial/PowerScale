@@ -7834,15 +7834,15 @@
             "kind": "plan",
             "state": "ЧАСТИЧНО",
             "stateSource": "token",
-            "statusRaw": "~ЧАСТИЧНО~, 2026-11-14 — срез A (плоский настил, поворот) и срез B",
+            "statusRaw": "~ЧАСТИЧНО~, 2026-11-14 — срез A (плоский настил, поворот), срез B",
             "layers": [
                 "PHP",
                 "VUE"
             ],
             "basis": null,
             "date": "2026-11-14",
-            "bytes": 10041,
-            "lines": 127,
+            "bytes": 13717,
+            "lines": 161,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7868,8 +7868,8 @@
             ],
             "basis": "МОК",
             "date": "2026-11-12",
-            "bytes": 52903,
-            "lines": 594,
+            "bytes": 53111,
+            "lines": 596,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7901,8 +7901,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 25467,
-            "lines": 370,
+            "bytes": 26218,
+            "lines": 378,
             "modules": [
                 "Roleplay/Scene"
             ],

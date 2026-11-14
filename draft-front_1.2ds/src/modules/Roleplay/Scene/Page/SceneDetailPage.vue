@@ -53,9 +53,11 @@ const {
   selectedId: previewSelectedId,
   selectedActor: previewSelectedActor,
   route: previewRoute,
+  levelMenu: previewLevelMenu,
   select: selectPreviewActor,
   setSightRadius: setPreviewSightRadius,
   onMapClick: onPreviewClick,
+  chooseLevel: previewChooseLevel,
 } = useScenePreviewActors({
   enabled: () => scene.value !== null,
   board: () => board.value,
@@ -234,7 +236,9 @@ function zoomLabel(): string {
             :actors="previewActorList"
             :selected-actor-id="previewSelectedId"
             :route="previewRoute"
+            :level-menu="previewLevelMenu"
             @point="onPreviewClick"
+            @level="previewChooseLevel"
             @selection="onSelection"
             @viewport="onViewport"
           />

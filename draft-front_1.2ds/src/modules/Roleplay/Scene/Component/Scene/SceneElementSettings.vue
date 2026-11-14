@@ -18,6 +18,7 @@ import {
   sceneDeckBaseElevation,
   sceneDeckClearance,
   sceneDeckThickness,
+  sceneRampSlope,
 } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
@@ -72,13 +73,40 @@ const deckClearance = computed(() =>
   isDeck.value ? sceneDeckClearance(props.element, props.elements, props.resolution) : null,
 );
 
+/** Зазор под съездом на низком и высоком концах, единицы сцены. */
+const rampClearance = computed(() => {
+  if (props.element.props.kind !== 'ramp') {
+    return null;
+  }
+
+  const slope = sceneRampSlope(props.element, props.elements, props.resolution);
+  if (slope === null) {
+    return null;
+  }
+
+  const base = sceneDeckBaseElevation(props.element, props.elements, props.resolution);
+  const thickness = sceneDeckThickness(props.element, props.resolution);
+
+  return { low: slope.low - thickness - base, high: slope.high - thickness - base };
+});
+
 /** Проход под настилом открыт, если зазор не меньше роста тела. */
-const clearanceOpen = computed(() => deckClearance.value !== null && deckClearance.value >= bodyHeight.value);
+const clearanceOpen = computed(() => {
+  if (rampClearance.value !== null) {
+    return rampClearance.value.high >= bodyHeight.value;
+  }
+
+  return deckClearance.value !== null && deckClearance.value >= bodyHeight.value;
+});
 
 /** Подсказка к полю подъёма: до какой высоты поднять настил. */
 const elevationHint = computed(() => {
   if (!isDeck.value) {
     return undefined;
+  }
+
+  if (props.element.props.kind === 'ramp') {
+    return 'Съезд садится низким концом на поверхность; высокий конец задаёт подъём.';
   }
 
   const required =
@@ -89,10 +117,28 @@ const elevationHint = computed(() => {
   return `Проход под настилом: поднимите верхнюю поверхность до ${sceneUnits.formatUnits(required, props.resolution)} ипари, чтобы прошёл человек.`;
 });
 
-/** Зазор в ипари для карточки. */
-const clearanceText = computed(() =>
-  deckClearance.value === null ? '' : sceneUnits.formatUnits(Math.round(deckClearance.value), props.resolution),
-);
+/** Зазор в ипари для карточки: у съезда — диапазон от низкого до высокого конца. */
+const clearanceText = computed(() => {
+  if (rampClearance.value !== null) {
+    const low = sceneUnits.formatUnits(Math.round(rampClearance.value.low), props.resolution);
+    const high = sceneUnits.formatUnits(Math.round(rampClearance.value.high), props.resolution);
+
+    return `${low}…${high}`;
+  }
+
+  return deckClearance.value === null ? '' : sceneUnits.formatUnits(Math.round(deckClearance.value), props.resolution);
+});
+
+/** Статус прохода: у съезда низкий конец всегда лежит на поверхности. */
+const clearanceStatus = computed(() => {
+  if (rampClearance.value !== null) {
+    return rampClearance.value.high >= bodyHeight.value
+      ? 'под высоким концом открыт, под низким закрыт'
+      : 'проход закрыт';
+  }
+
+  return clearanceOpen.value ? 'проход открыт' : 'проход закрыт';
+});
 
 const targetOptions = computed(() =>
   props.boards
@@ -242,14 +288,11 @@ function onAssetPreset(item: AssetItem): void {
         hide-details
         @update:model-value="(value) => patchNumber('rotation', value)"
       />
-      <div v-if="deckClearance !== null" class="scene-element-settings__clearance">
+      <div v-if="isDeck" class="scene-element-settings__clearance">
         <v-icon size="16" :color="clearanceOpen ? 'success' : 'error'">
           {{ clearanceOpen ? 'mdi-arrow-expand-vertical' : 'mdi-close-octagon-outline' }}
         </v-icon>
-        <span>
-          Зазор под настилом {{ clearanceText }} ипари —
-          {{ clearanceOpen ? 'проход открыт' : 'проход закрыт' }}
-        </span>
+        <span>Зазор под настилом {{ clearanceText }} ипари — {{ clearanceStatus }}</span>
       </div>
     </template>
 

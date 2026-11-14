@@ -17,6 +17,15 @@ import type {
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
+import type { SceneDeckFrame } from '@/modules/Roleplay/Scene/Service/SceneDeck';
+import {
+  sceneDeckEndEdge,
+  sceneDeckFrame,
+  sceneDeckRailHeight,
+  sceneDeckRailPolygons,
+  sceneDeckRailSlope,
+  sceneRampBaseBlocker,
+} from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
 import type { SceneRampSlope } from '@/modules/Roleplay/Scene/Dto/SceneRampSlope';
 import {
@@ -36,6 +45,8 @@ export interface SceneNavigationOptions {
   agentRadius?: number;
   /** Уровень старта: 0 — земля, больше — настил. По умолчанию земля. */
   fromLevel?: number;
+  /** Уровень цели: 0 — земля, больше — настил. Без него берётся верхний. */
+  toLevel?: number;
 }
 
 /** Ребро треугольника для склейки соседей. */
@@ -189,7 +200,7 @@ export class SceneNavigationService {
       return null;
     }
 
-    return this.routeOn(mesh, from, to);
+    return this.routeOn(mesh, from, to, options);
   }
 
   /** Маршрут по уже построенной сетке. */
@@ -208,9 +219,9 @@ export class SceneNavigationService {
       start = this.nearestTriangle(mesh, from, startLevel);
     }
 
-    let goal = this.locateTop(mesh, to);
+    let goal = options.toLevel === undefined ? this.locateTop(mesh, to) : this.locate(mesh, to, options.toLevel);
     if (goal < 0) {
-      goal = this.nearestTriangle(mesh, to, 0);
+      goal = this.nearestTriangle(mesh, to, options.toLevel ?? 0);
     }
     if (start < 0 || goal < 0) {
       return null;
@@ -401,7 +412,25 @@ export class SceneNavigationService {
     const blockers: Polygon[] = [];
     const carves: Polygon[] = [];
     const positives: { element: SceneElement; speed: number }[] = [];
-    const decks: { element: SceneElement; speed: number; elevation: number; slope: SceneRampSlope | null }[] = [];
+    const decks: {
+      element: SceneElement;
+      speed: number;
+      elevation: number;
+      slope: SceneRampSlope | null;
+      frame: SceneDeckFrame | null;
+      railBlocks: Polygon[];
+      blockers: Polygon[];
+    }[] = [];
+    const rails: {
+      speed: number;
+      elevation: number;
+      slope: SceneRampSlope | null;
+      frame: SceneDeckFrame | null;
+      ring: ScenePoint[];
+      blockers: Polygon[];
+      order: number;
+      id: number;
+    }[] = [];
     const levelBlockers: { elevation: number; polygon: Polygon }[] = [];
 
     for (const element of elements) {
@@ -437,20 +466,47 @@ export class SceneNavigationService {
       if (element.kind === 'terrain' || element.kind === 'support') {
         const speed = this.speedOf(element);
         const elevation = sceneSurfaceElevation(element, resolution);
-        if (isSceneDeck(element) && elevation > step) {
+        const deck = isSceneDeck(element);
+        const deckFrame = deck ? sceneDeckFrame(element) : null;
+        const railBlocks =
+          deckFrame === null
+            ? []
+            : sceneDeckRailPolygons(deckFrame, resolution, agentRadius).map((ring) => [ring] as Polygon);
+        const railRings = deckFrame === null ? [] : sceneDeckRailPolygons(deckFrame, resolution, 0);
+        const slope = element.props.kind === 'ramp' ? sceneRampSlope(element, elements, resolution) : null;
+        const railElevation = elevation + sceneDeckRailHeight(resolution);
+        const railSlope = slope === null ? null : sceneDeckRailSlope(slope, resolution);
+
+        if (deck && elevation > step) {
           // Настил выше шага — отдельный уровень. Если зазор под ним меньше
-          // роста тела, базовый слой под настилом закрыт.
-          if (sceneDeckClearance(element, elements, resolution) < bodyHeight) {
+          // роста тела, базовый слой под настилом закрыт. У съезда закрыта
+          // только низкая часть: под высоким концом пройти можно.
+          if (element.props.kind === 'ramp') {
+            const rampBlocker = sceneRampBaseBlocker(element, elements, resolution, agentRadius);
+            if (rampBlocker !== null) {
+              blockers.push([rampBlocker]);
+            }
+          } else if (sceneDeckClearance(element, elements, resolution) < bodyHeight) {
             const blocker = this.polygonOf(element, resolution, agentRadius);
             if (blocker !== null) blockers.push(blocker);
           }
           if (speed > 0) {
-            decks.push({
-              element,
-              speed,
-              elevation,
-              slope: element.props.kind === 'ramp' ? sceneRampSlope(element, elements, resolution) : null,
-            });
+            const deckBlockers = levelBlockers
+              .filter((blocker) => Math.abs(blocker.elevation - elevation) <= step)
+              .map((blocker) => blocker.polygon);
+            decks.push({ element, speed, elevation, slope, frame: deckFrame, railBlocks, blockers: deckBlockers });
+            for (const ring of railRings) {
+              rails.push({
+                speed,
+                elevation: railElevation,
+                slope: railSlope,
+                frame: deckFrame,
+                ring,
+                blockers: deckBlockers,
+                order: element.sortOrder,
+                id: element.id,
+              });
+            }
           }
           continue;
         }
@@ -459,6 +515,28 @@ export class SceneNavigationService {
           const blocker = this.polygonOf(element, resolution, agentRadius);
           if (blocker !== null) blockers.push(blocker);
         } else {
+          // Настил на уровне пола: его перила закрывают свои полосы, а сам
+          // настил остаётся обычной проходимой поверхностью.
+          if (deck) {
+            for (const block of railBlocks) {
+              blockers.push(block);
+            }
+            const floorBlockers = levelBlockers
+              .filter((blocker) => Math.abs(blocker.elevation - elevation) <= step)
+              .map((blocker) => blocker.polygon);
+            for (const ring of railRings) {
+              rails.push({
+                speed,
+                elevation: railElevation,
+                slope: railSlope,
+                frame: deckFrame,
+                ring,
+                blockers: floorBlockers,
+                order: element.sortOrder,
+                id: element.id,
+              });
+            }
+          }
           positives.push({ element, speed });
         }
       }
@@ -491,25 +569,82 @@ export class SceneNavigationService {
       covered = this.unionMany([...this.polygonsOf(covered), shape]);
     }
 
-    // Настилы снизу вверх: уровень — это высота, а не порядок создания.
-    const sorted = [...decks].sort(
-      (left, right) => left.elevation - right.elevation || left.element.sortOrder - right.element.sortOrder,
-    );
-    sorted.forEach((deck, index) => {
+    // Настилы и их перила снизу вверх: уровень — это высота, а не порядок
+    // создания. Перила выше настила на `railHeightIpari`, поэтому попадают
+    // на следующий уровень.
+    const levelEntries: {
+      polygon: MultiPolygon;
+      speed: number;
+      elevation: number;
+      slope: SceneRampSlope | null;
+      rail: boolean;
+      frame: SceneDeckFrame | null;
+      order: number;
+      id: number;
+    }[] = [];
+
+    for (const deck of decks) {
       const shape = this.polygonOf(deck.element, resolution, 0);
       if (shape === null) {
-        return;
+        continue;
       }
 
-      const deckBlockers = levelBlockers
-        .filter((blocker) => Math.abs(blocker.elevation - deck.elevation) <= step)
-        .map((blocker) => blocker.polygon);
       let region: MultiPolygon = [shape];
-      if (deckBlockers.length > 0) {
-        region = this.subtract(region, this.unionMany(deckBlockers));
+      if (deck.blockers.length > 0) {
+        region = this.subtract(region, this.unionMany(deck.blockers));
+      }
+      if (deck.railBlocks.length > 0) {
+        region = this.subtract(region, this.unionMany(deck.railBlocks));
       }
       region = this.intersect(region, [frame]);
-      this.pushRegions(regions, region, deck.speed, index + 1, deck.elevation, deck.slope);
+      levelEntries.push({
+        polygon: region,
+        speed: deck.speed,
+        elevation: deck.elevation,
+        slope: deck.slope,
+        rail: false,
+        frame: deck.frame,
+        order: deck.element.sortOrder,
+        id: deck.element.id,
+      });
+    }
+
+    for (const rail of rails) {
+      let region: MultiPolygon = [[rail.ring]];
+      if (rail.blockers.length > 0) {
+        region = this.subtract(region, this.unionMany(rail.blockers));
+      }
+      region = this.intersect(region, [frame]);
+      levelEntries.push({
+        polygon: region,
+        speed: rail.speed,
+        elevation: rail.elevation,
+        slope: rail.slope,
+        rail: true,
+        frame: rail.frame,
+        order: rail.order,
+        id: rail.id,
+      });
+    }
+
+    levelEntries.sort(
+      (left, right) =>
+        left.elevation - right.elevation ||
+        Number(left.rail) - Number(right.rail) ||
+        left.order - right.order ||
+        left.id - right.id,
+    );
+    levelEntries.forEach((entry, index) => {
+      this.pushRegions(
+        regions,
+        entry.polygon,
+        entry.speed,
+        index + 1,
+        entry.elevation,
+        entry.slope,
+        entry.rail,
+        entry.frame,
+      );
     });
 
     return regions;
@@ -523,6 +658,8 @@ export class SceneNavigationService {
     level: number,
     elevation: number,
     slope: SceneRampSlope | null = null,
+    rail = false,
+    frame: SceneDeckFrame | null = null,
   ): void {
     for (const polygon of geometry) {
       if (polygon.length === 0) continue;
@@ -533,6 +670,8 @@ export class SceneNavigationService {
         level,
         elevation,
         slope,
+        rail,
+        frame,
         outer,
         holes: polygon
           .slice(1)
@@ -577,6 +716,16 @@ export class SceneNavigationService {
         const length = this.distance(a, b);
         if (length <= SCENE_NAVIGATION.linkEpsilon) {
           continue;
+        }
+
+        // Перила стоят по длинным сторонам, вход — с торцов. Уровень перил
+        // соединяется только длинными сторонами, уровень настила — только
+        // торцами: иначе A* перескочил бы перила как обычный край.
+        if (region.frame !== null) {
+          const end = sceneDeckEndEdge(region.frame, a, b);
+          if (region.rail ? end : !end) {
+            continue;
+          }
         }
 
         const dx = (b[0] - a[0]) / length;
@@ -723,7 +872,7 @@ export class SceneNavigationService {
       const bounds = this.boundsOfRing(region.outer);
       const spans = Math.ceil(bounds.width / cell) > 1 || Math.ceil(bounds.height / cell) > 1;
       if (!spans) {
-        this.pushTriangles(triangles, polygon, region.speed, region.level, region.elevation);
+        this.pushTriangles(triangles, polygon, region.speed, region.level, region.elevation, region.rail);
         continue;
       }
 
@@ -741,7 +890,7 @@ export class SceneNavigationService {
             ],
           ]);
           for (const piece of clipped) {
-            this.pushTriangles(triangles, piece, region.speed, region.level, region.elevation);
+            this.pushTriangles(triangles, piece, region.speed, region.level, region.elevation, region.rail);
           }
         }
       }
@@ -757,6 +906,7 @@ export class SceneNavigationService {
     speed: number,
     level: number,
     elevation: number,
+    rail: boolean,
   ): void {
     if (polygon.length === 0 || polygon[0].length < 3) {
       return;
@@ -784,6 +934,7 @@ export class SceneNavigationService {
         speed,
         level,
         elevation,
+        rail,
         centroid: [(points[0][0] + points[1][0] + points[2][0]) / 3, (points[0][1] + points[1][1] + points[2][1]) / 3],
         links: [],
       });
@@ -1326,7 +1477,7 @@ export class SceneNavigationService {
     let best = -1;
     for (let index = 0; index < mesh.triangles.length; index += 1) {
       const triangle = mesh.triangles[index];
-      if (!this.inTriangle(point, triangle.points)) {
+      if (triangle.rail || !this.inTriangle(point, triangle.points)) {
         continue;
       }
       if (best < 0 || triangle.level > mesh.triangles[best].level) {
@@ -1335,6 +1486,30 @@ export class SceneNavigationService {
     }
 
     return best;
+  }
+
+  /**
+   * Уровни, на которых лежит точка: земля, настилы, без перил.
+   *
+   * Нужно для выбора «на настил или под настил»: если уровней несколько,
+   * маршрут строится до каждого, а выбор остаётся за игроком.
+   */
+  levelsAt(mesh: SceneNavMesh, point: ScenePoint): { level: number; elevation: number }[] {
+    const found = new Map<number, number>();
+    for (const triangle of mesh.triangles) {
+      if (triangle.rail || !this.inTriangle(point, triangle.points)) {
+        continue;
+      }
+
+      const current = found.get(triangle.level);
+      if (current === undefined || triangle.elevation > current) {
+        found.set(triangle.level, triangle.elevation);
+      }
+    }
+
+    return [...found.entries()]
+      .map(([level, elevation]) => ({ level, elevation }))
+      .sort((left, right) => right.elevation - left.elevation || right.level - left.level);
   }
 
   /** Ближайший треугольник уровня в пределах радиуса агента. */

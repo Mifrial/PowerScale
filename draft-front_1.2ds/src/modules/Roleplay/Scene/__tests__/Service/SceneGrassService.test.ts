@@ -12,10 +12,15 @@ import { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/Sce
 
 const board: SceneBounds = { x: 0, y: 0, width: 1000, height: 1000 };
 
-const element = (id: number, shape: SceneShape, props: SceneElement['props']): SceneElement => ({
+const element = (
+  id: number,
+  shape: SceneShape,
+  props: SceneElement['props'],
+  kind: SceneElement['kind'] = 'terrain',
+): SceneElement => ({
   id,
   boardId: 1,
-  kind: 'terrain',
+  kind,
   shape,
   props,
   sortOrder: id,
@@ -70,6 +75,19 @@ describe('SceneGrassService', () => {
       const insideSand =
         tuft.x >= 400 - margin && tuft.x <= 600 + margin && tuft.y >= 400 - margin && tuft.y <= 600 + margin;
       expect(insideSand).toBe(false);
+    }
+  });
+
+  it('не сеет траву на настиле моста', () => {
+    const bridge = element(2, { type: 'rect', x: 400, y: 400, w: 200, h: 200 }, { kind: 'bridge' }, 'support');
+    const tufts = service.placeCarpet([grass(), bridge], board, 64);
+    const margin = spill(64);
+
+    expect(tufts.length).toBeGreaterThan(100);
+    for (const tuft of tufts) {
+      const insideBridge =
+        tuft.x >= 400 - margin && tuft.x <= 600 + margin && tuft.y >= 400 - margin && tuft.y <= 600 + margin;
+      expect(insideBridge).toBe(false);
     }
   });
 

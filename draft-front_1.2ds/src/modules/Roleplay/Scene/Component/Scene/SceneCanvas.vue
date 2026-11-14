@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneHandleTarget } from '@/modules/Roleplay/Scene/Dto/SceneHandleTarget';
+import type { SceneLevelMenu } from '@/modules/Roleplay/Scene/Dto/SceneLevelMenu';
 import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
 import type { SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
@@ -42,6 +43,8 @@ const props = withDefaults(
     route?: SceneNavRoute | null;
     /** Тактические оверлеи предпросмотра; null — выключены. */
     overlay?: SceneOverlay | null;
+    /** Меню выбора уровня под точкой клика; null — скрыто. */
+    levelMenu?: SceneLevelMenu | null;
   }>(),
   {
     tool: 'select',
@@ -52,6 +55,7 @@ const props = withDefaults(
     selectedActorId: null,
     route: null,
     overlay: null,
+    levelMenu: null,
   },
 );
 
@@ -69,7 +73,8 @@ const emit = defineEmits<{
   removeVertex: [elementId: number, index: number];
   editStart: [];
   editEnd: [];
-  point: [point: ScenePoint];
+  point: [point: ScenePoint, under: boolean, at: ScenePoint];
+  level: [level: number];
 }>();
 
 const host = ref<HTMLElement | null>(null);
@@ -802,7 +807,8 @@ function onPointerUp(event: PointerEvent): void {
     applySelection(hit === null ? [] : [hit.id]);
     const point = scenePointOf(event);
     if (point !== null) {
-      emit('point', point);
+      const at = screenPointOf(event);
+      emit('point', point, event.altKey, [at.x, at.y]);
     }
   }
 
@@ -891,6 +897,24 @@ defineExpose({ fit, zoomBy });
         </li>
       </ul>
     </div>
+
+    <div
+      v-if="props.levelMenu"
+      class="scene-canvas__levels"
+      :style="{ left: `${props.levelMenu.x}px`, top: `${props.levelMenu.y}px` }"
+      @pointerdown.stop
+      @wheel.stop
+    >
+      <button
+        v-for="option in props.levelMenu.options"
+        :key="option.level"
+        type="button"
+        class="scene-canvas__level"
+        @click="emit('level', option.level)"
+      >
+        {{ option.label }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -970,5 +994,36 @@ defineExpose({ fit, zoomBy });
   height: 10px;
   border-radius: 3px;
   border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.scene-canvas__levels {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.94);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  transform: translate(4px, 4px);
+}
+
+.scene-canvas__level {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.scene-canvas__level:hover {
+  background: rgba(96, 165, 250, 0.2);
 }
 </style>

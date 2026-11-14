@@ -730,9 +730,17 @@ export class PixiSceneRenderer implements ISceneRenderer {
       }
     }
 
+    // Трава сеется только по террейну, но настил обязан её перекрывать:
+    // иначе пучки растут прямо на досках. Трава идёт первой, чтобы более
+    // поздние мосты и съезды попали в блокеры раскладки.
+    const grassElements = [
+      ...terrainElements.filter((element) => element.props.kind === 'grass'),
+      ...terrainElements.filter((element) => element.props.kind !== 'grass'),
+      ...bridgeElements,
+    ];
     const carpet = this.editing
       ? []
-      : this.grass.band(this.grass.placeCarpet(terrainElements, bounds, resolution), resolution);
+      : this.grass.band(this.grass.placeCarpet(grassElements, bounds, resolution), resolution);
     const props = [
       ...carpet.map((band, index) => ({
         anchorY: band.y,
@@ -764,7 +772,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
           },
         };
       }),
-      ...(this.editing ? [] : this.grass.placeClumps(terrainElements, bounds, resolution)).map((tuft) => ({
+      ...(this.editing ? [] : this.grass.placeClumps(grassElements, bounds, resolution)).map((tuft) => ({
         anchorY: tuft.y,
         rank: 0,
         order: 0,
