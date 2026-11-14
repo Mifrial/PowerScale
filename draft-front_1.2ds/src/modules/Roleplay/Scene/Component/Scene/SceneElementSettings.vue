@@ -20,6 +20,12 @@ import {
   sceneDeckThickness,
   sceneRampSlope,
 } from '@/modules/Roleplay/Scene/Service/SceneHeight';
+import {
+  sceneRampAttachment,
+  type SceneCompass,
+  type SceneDeckEnd,
+  type SceneRampAttachment,
+} from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
 const AssetLibraryField = defineAsyncComponent(() => import('@/modules/Library/Asset/Component/AssetLibraryField.vue'));
@@ -39,7 +45,20 @@ const emit = defineEmits<{
   widthAll: [width: number];
   smooth: [];
   corner: [];
+  attachRamp: [end: SceneDeckEnd];
 }>();
+
+/** Прилагательное для торца по стороне света. */
+const COMPASS_LABELS: Record<SceneCompass, string> = {
+  north: 'северному',
+  'north-east': 'северо-восточному',
+  east: 'восточному',
+  'south-east': 'юго-восточному',
+  south: 'южному',
+  'south-west': 'юго-западному',
+  west: 'западному',
+  'north-west': 'северо-западному',
+};
 
 const assetPublicId = computed(() => props.element.assetPublicId ?? null);
 
@@ -138,6 +157,41 @@ const clearanceStatus = computed(() => {
   }
 
   return clearanceOpen.value ? 'проход открыт' : 'проход закрыт';
+});
+
+/**
+ * Съезды, которые можно приставить к торцам выбранного моста.
+ *
+ * Торец, к которому съезд не ставится (настил на земле), в список не попадает.
+ * Если не осталось ни одного, кнопка не показывается.
+ */
+const rampAttachments = computed(() => {
+  const list: { end: SceneDeckEnd; attachment: SceneRampAttachment }[] = [];
+  if (props.element.props.kind !== 'bridge' || props.element.shape.type !== 'rect') {
+    return list;
+  }
+
+  const board = props.boards.find((item) => item.id === props.element.boardId);
+  for (const end of ['start', 'end'] as const) {
+    const attachment = sceneRampAttachment(props.element, props.elements, props.resolution, end);
+    if (attachment === null) {
+      continue;
+    }
+
+    // Валидатор держит прямоугольник внутри поля: съезд, вылезший за край,
+    // не сохранится, поэтому такой торец в меню не предлагаем.
+    const shape = attachment.shape;
+    if (
+      board !== undefined &&
+      (shape.x < 0 || shape.y < 0 || shape.x + shape.w > board.boundWidth || shape.y + shape.h > board.boundHeight)
+    ) {
+      continue;
+    }
+
+    list.push({ end, attachment });
+  }
+
+  return list;
 });
 
 const targetOptions = computed(() =>
@@ -294,6 +348,22 @@ function onAssetPreset(item: AssetItem): void {
         </v-icon>
         <span>Зазор под настилом {{ clearanceText }} ипари — {{ clearanceStatus }}</span>
       </div>
+      <v-menu v-if="rampAttachments.length > 0" location="bottom start">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" variant="tonal" size="small" prepend-icon="mdi-trending-up" block>
+            Съезд к торцу
+          </v-btn>
+        </template>
+        <v-list density="compact">
+          <v-list-item
+            v-for="item in rampAttachments"
+            :key="item.end"
+            :title="`К ${COMPASS_LABELS[item.attachment.direction]} торцу`"
+            :subtitle="`длина ${sceneUnits.formatUnits(Math.round(item.attachment.length), props.resolution)} ипари`"
+            @click="emit('attachRamp', item.end)"
+          />
+        </v-list>
+      </v-menu>
     </template>
 
     <template v-if="props.element.kind === 'obstacle'">

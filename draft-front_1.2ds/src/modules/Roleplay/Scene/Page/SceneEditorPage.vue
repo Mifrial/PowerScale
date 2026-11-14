@@ -28,6 +28,7 @@ import { useScenePreviewActors } from '@/modules/Roleplay/Scene/Composables/useS
 import { getSceneApi } from '@/modules/Roleplay/Scene/init';
 import { SceneApiError } from '@/modules/Roleplay/Scene/Service/SceneApiError';
 import { SceneDraftMapper } from '@/modules/Roleplay/Scene/Service/SceneDraftMapper';
+import { sceneRampAttachment, type SceneDeckEnd } from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
 
 const route = useRoute();
 const router = useRouter();
@@ -315,6 +316,28 @@ function smoothShape(): void {
 function cornerShape(): void {
   if (selectedElement.value === null) return;
   state.cornerShape(selectedElement.value.id);
+}
+
+/**
+ * Приставляет съезд к торцу выбранного моста.
+ *
+ * Геометрия считается по настилу: высокий конец съезда ложится ровно на торец,
+ * длина — 1:3 к подъёму, ширина и скорость наследуются. Так «горбатый» мост
+ * собирается из трёх элементов без ручной подгонки координат.
+ */
+function attachRamp(end: SceneDeckEnd): void {
+  if (selectedElement.value === null) return;
+  const attachment = sceneRampAttachment(selectedElement.value, draft.value.elements, draft.value.resolution, end);
+  const definition = SCENE_TOOLS.find((item) => item.id === 'ramp');
+  if (attachment === null || definition === undefined) {
+    error.value = 'К этому торцу съезд не поставить: настил лежит на поверхности';
+
+    return;
+  }
+
+  state.createElement(definition, attachment.shape, attachment.props);
+  error.value = null;
+  notice.value = 'Съезд приставлен к торцу';
 }
 
 /** Заливка поля террейном выбранного шаблона. */
@@ -611,11 +634,7 @@ function messageOf(exception: unknown): string {
           @selection="onSelection"
           @viewport="onViewport"
         />
-        <SceneOverlayControls
-          v-if="preview"
-          v-model:costs="overlayCosts"
-          v-model:visibility="overlayVisibility"
-        />
+        <SceneOverlayControls v-if="preview" v-model:costs="overlayCosts" v-model:visibility="overlayVisibility" />
         <ScenePreviewActorPanel
           v-if="preview"
           :actors="previewActorList"
@@ -637,7 +656,11 @@ function messageOf(exception: unknown): string {
               />
             </template>
           </v-tooltip>
-          <v-tooltip v-if="preview" location="bottom" :text="previewFull ? 'Выйти из полноэкранного режима' : 'На весь экран'">
+          <v-tooltip
+            v-if="preview"
+            location="bottom"
+            :text="previewFull ? 'Выйти из полноэкранного режима' : 'На весь экран'"
+          >
             <template #activator="{ props: tooltipProps }">
               <v-btn
                 v-bind="tooltipProps"
@@ -750,6 +773,7 @@ function messageOf(exception: unknown): string {
                 @width-all="setWidthAll"
                 @smooth="smoothShape"
                 @corner="cornerShape"
+                @attach-ramp="attachRamp"
               />
             </v-expansion-panel-text>
           </v-expansion-panel>

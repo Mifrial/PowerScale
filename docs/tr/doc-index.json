@@ -7834,15 +7834,15 @@
             "kind": "plan",
             "state": "ЧАСТИЧНО",
             "stateSource": "token",
-            "statusRaw": "~ЧАСТИЧНО~, 2026-11-14 — срез A (плоский настил, поворот), срез B",
+            "statusRaw": "~ЧАСТИЧНО~, 2026-11-15 — срез A (плоский настил, поворот), срез B",
             "layers": [
                 "PHP",
                 "VUE"
             ],
             "basis": null,
-            "date": "2026-11-14",
-            "bytes": 17633,
-            "lines": 198,
+            "date": "2026-11-15",
+            "bytes": 19992,
+            "lines": 220,
             "modules": [
                 "Roleplay/Scene"
             ],
