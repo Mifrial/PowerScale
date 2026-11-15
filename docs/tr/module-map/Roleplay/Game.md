@@ -42,6 +42,9 @@
 - `Mifrial\Roleplay\Game\Action\AbortProcessGameAction`
 - `Mifrial\Roleplay\Game\Action\RunGameActionAction`
 - `Mifrial\Roleplay\Game\Action\CastGameSpellAction`
+- `Mifrial\Roleplay\Game\Action\SustainGameSpellAction`
+- `Mifrial\Roleplay\Game\Action\DropGameSpellAction`
+- `Mifrial\Roleplay\Game\Action\GetGameActiveSpellsAction`
 - `Mifrial\Roleplay\Game\Action\ResolveGameStrikeWindowAction`
 - `Mifrial\Roleplay\Game\Action\StartGameBattleAction`
 - `Mifrial\Roleplay\Game\Action\SetGameBattleRosterAction`
@@ -155,6 +158,9 @@
 | `game.abortProcess` | `AbortProcessGameAction` | да |
 | `game.runAction` | `RunGameActionAction` | да |
 | `game.castSpell` | `CastGameSpellAction` | да |
+| `game.sustainSpell` | `SustainGameSpellAction` | да |
+| `game.dropSpell` | `DropGameSpellAction` | да |
+| `game.getActiveSpells` | `GetGameActiveSpellsAction` | нет |
 | `game.resolveStrikeWindow` | `ResolveGameStrikeWindowAction` | да |
 | `game.applyEconomy` | `ApplyGameEconomyAction` | да |
 | `game.getShop` | `GetGameShopAction` | да |

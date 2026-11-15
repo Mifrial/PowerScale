@@ -100,9 +100,13 @@ GameCharacterEntry
 
 Frontend/mock R3 может подготовить typed `GameSessionState`,
 `GameBattleState` и `GameStateSnapshot`, но эта boundary не является доказательством
-backend durable state. NPC использует `npc.version` как authoritative sheet и
-`npc.actual_version` как единственный технический CAS counter, без approved
-snapshot или player moderation lifecycle.
+backend durable state. NPC использует `npc.version` как authoritative документ
+(`choices` + последний сохранённый `sheet`), а на чтении карточки лист
+пересчитывается из `choices` на ревизии NPC. Runtime-ключи сохранённого
+снимка (`states`: заряды, отклонение) при этом переносятся в пересобранный
+лист — их пишут операции листа, а не выборы. `npc.actual_version` остаётся
+единственным техническим CAS counter, без approved snapshot или player
+moderation lifecycle.
 
 R4-FE может подготовить opt-in `GameCombatCommand` через Game API boundary для
 решений атаки/защиты и mock authoritative effect. Decision command изменяет

@@ -13,7 +13,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 
 `doc-index.json` — машинный источник для `show.php`; целиком его не читать.
 Карточки `module-map/` — факты из кода; здесь — заявленные статусы документов.
-Документов: 347, планов: 226.
+Документов: 356, планов: 235.
 
 ## Схема статусов
 
@@ -41,7 +41,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | `review` | 63 | 1 | 0 | 0 | 2 | 0 | 0 | 49 | 11 |
 | `rule` | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 6 |
 | `specs` | 22 | 2 | 0 | 0 | 0 | 4 | 0 | 5 | 11 |
-| `tr` | 250 | 10 | 18 | 34 | 149 | 4 | 1 | 8 | 26 |
+| `tr` | 259 | 10 | 20 | 35 | 155 | 4 | 1 | 8 | 26 |
 | `tz` | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 |
 
 ## Модуль × состояние × слой
@@ -64,11 +64,11 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Roleplay/Keyword](module-map/Roleplay/Keyword.md) | 3 | 0 | 0 | 3 | 0 | 0 | 3 | 2 | 0 |
 | [Roleplay/Map](module-map/Roleplay/Map.md) | 3 | 0 | 3 | 0 | 0 | 0 | 3 | 3 | 3 |
 | [Roleplay/Mechanic](module-map/Roleplay/Mechanic.md) | 9 | 0 | 0 | 2 | 6 | 0 | 6 | 4 | 0 |
-| [Roleplay/Rule](module-map/Roleplay/Rule.md) | 50 | 5 | 7 | 8 | 24 | 3 | 16 | 20 | 2 |
+| [Roleplay/Rule](module-map/Roleplay/Rule.md) | 54 | 5 | 8 | 9 | 26 | 3 | 19 | 23 | 2 |
 | [Roleplay/RuleSpace](module-map/Roleplay/RuleSpace.md) | 8 | 0 | 0 | 8 | 0 | 0 | 6 | 3 | 0 |
-| [Roleplay/Scene](module-map/Roleplay/Scene.md) | 3 | 0 | 3 | 0 | 0 | 0 | 3 | 3 | 3 |
+| [Roleplay/Scene](module-map/Roleplay/Scene.md) | 7 | 0 | 4 | 0 | 3 | 0 | 6 | 7 | 4 |
 | [Versioning/Space](module-map/Versioning/Space.md) | 2 | 0 | 0 | 0 | 2 | 0 | 2 | 0 | 0 |
-| — | 135 | 6 | 4 | 6 | 10 | 46 | 7 | 12 | 0 |
+| — | 136 | 6 | 4 | 6 | 11 | 46 | 8 | 13 | 1 |
 
 ## Реализация: где есть PHP и где только мок
 
@@ -85,8 +85,9 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 - **Статус прозой, но не распознан** (21, `docs/tr`): [TR.md](TR.md), [architecture.md](architecture.md), [auth-system.md](auth-system.md), [character-system.md](character-system.md), [chat-system.md](chat-system.md), [combat-layers-prerequisite.md](combat-layers-prerequisite.md), [contract-status.md](contract-status.md), [cross-domain.md](cross-domain.md), и ещё 13.
 - Полный список: `show.php --unrecognized --zone=tr --limit=0`.
 - **Планы без строки статуса** (0): нет.
-- **Битые ссылки** (3):
+- **Битые ссылки** (4):
 - `docs/review/tr-code-reconciliation-2026-08.md` -> `tr-audit-2026-08.md` — исключение: снимок 2026-08-30: ссылается на документ аудита, который в репозиторий не попал
+- `docs/tr/scene-system.md` -> `scene-plan-06-objects.md` — **не в исключениях**
 - `docs/tr/smarttable-plan-01-connection.md` -> `../../.cursor/plans` — исключение: внешний каталог планировщика, в репозитории его нет
 - `docs/tr/spell-roadmap.md` -> `spell-plan-10-backend.md` — исключение: документ запланирован (веха M10, статус TODO), ещё не написан
 
