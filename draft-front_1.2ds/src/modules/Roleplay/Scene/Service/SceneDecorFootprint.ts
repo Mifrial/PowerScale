@@ -40,8 +40,13 @@ export function sceneDecorFootprint(element: FootprintElement, resolution: numbe
 /**
  * Силуэт точечного декора в мировых координатах и его низ.
  *
- * `bottom` возвращается в единицах сцены: у старой модели это доля ширины
- * спрайта, у новой — явное поле. Сетка поверхности переводит его в ипари.
+ * Явное поле `props.silhouette` — канон. Без него зона непрозрачности
+ * совпадает с основанием: мастер уже нарисовал видимую массу объекта, и тень
+ * должна начинаться от неё, а не от круга, посаженного на якорь. Старые сцены
+ * без обоих полей живут на долях ширины спрайта.
+ *
+ * `bottom` возвращается в единицах сцены: у новой модели это явное поле, у
+ * старой — доля ширины спрайта. Сетка поверхности переводит его в ипари.
  */
 export function sceneDecorSilhouette(
   element: FootprintElement,
@@ -52,11 +57,12 @@ export function sceneDecorSilhouette(
   }
 
   const center: ScenePoint = [element.shape.x, element.shape.y];
-  const silhouette = element.props.silhouette;
-  if (silhouette !== undefined && silhouette !== null) {
-    const area = footprintWorld(silhouette, center, sceneDecorRotation(element));
+  const rotation = sceneDecorRotation(element);
+  const zone = sceneSilhouetteZone(element.props);
+  if (zone !== null) {
+    const area = footprintWorld(zone.shape, center, rotation);
 
-    return area === null ? null : { area, bottom: Math.max(0, silhouette.bottom) };
+    return area === null ? null : { area, bottom: Math.max(0, zone.bottom) };
   }
 
   const size = spriteSize(element, resolution);
@@ -69,6 +75,26 @@ export function sceneDecorSilhouette(
     area: { shape: 'circle', center, radius },
     bottom: size * ((element.props.sightBottom ?? SCENE_SURFACE.decorSightBottom) / 100),
   };
+}
+
+/**
+ * Зона непрозрачности: явный силуэт или, по умолчанию, основание.
+ *
+ * `null` — новых полей нет, остаются старые проценты ширины спрайта.
+ */
+function sceneSilhouetteZone(props: FootprintElement['props']): { shape: SceneFootprint; bottom: number } | null {
+  if (props.silhouette !== undefined && props.silhouette !== null) {
+    const { bottom, ...shape } = props.silhouette;
+
+    return { shape, bottom };
+  }
+
+  if (props.footprint !== undefined && props.footprint !== null) {
+    // Видимая масса уже обведена основанием: тень начинается от земли.
+    return { shape: props.footprint, bottom: 0 };
+  }
+
+  return null;
 }
 
 /**
@@ -87,13 +113,36 @@ export function sceneFootprintShape(element: FootprintElement, _resolution: numb
     return null;
   }
 
-  const rotation = sceneDecorRotation(element);
-  const origin = footprintOrigin(footprint, [element.shape.x, element.shape.y], rotation);
+  return zoneWorldShape([element.shape.x, element.shape.y], sceneDecorRotation(element), footprint);
+}
+
+/**
+ * Мировая фигура зоны непрозрачности для редактора вершин.
+ *
+ * Та же механика, что у основания: явный силуэт или, по умолчанию, основание.
+ * Круг и старые проценты вершин не имеют.
+ */
+export function sceneSilhouetteShape(element: FootprintElement, _resolution: number): SceneShape | null {
+  if (element.shape.type !== 'point') {
+    return null;
+  }
+
+  const zone = sceneSilhouetteZone(element.props);
+  if (zone === null || zone.shape.shape !== 'polygon') {
+    return null;
+  }
+
+  return zoneWorldShape([element.shape.x, element.shape.y], sceneDecorRotation(element), zone.shape);
+}
+
+/** Полигон зоны в мировых координатах: точки и ручки повёрнуты, якорь и смещение учтены. */
+function zoneWorldShape(center: ScenePoint, rotation: number, zone: SceneFootprint & { shape: 'polygon' }): SceneShape {
+  const origin = footprintOrigin(zone, center, rotation);
 
   return {
     type: 'polygon',
-    points: rawWorldPoints(footprint, origin, rotation),
-    handles: footprint.handles?.map((handle) => rotateHandle(handle, rotation)),
+    points: rawWorldPoints(zone, origin, rotation),
+    handles: zone.handles?.map((handle) => rotateHandle(handle, rotation)),
   };
 }
 
@@ -108,14 +157,35 @@ export function sceneFootprintLocalPoint(element: FootprintElement, point: Scene
     return [Math.round(point[0]), Math.round(point[1])];
   }
 
-  const radians = (sceneDecorRotation(element) * Math.PI) / 180;
+  return zoneLocalPoint(
+    [element.shape.x, element.shape.y],
+    sceneDecorRotation(element),
+    point,
+    element.props.footprint?.offset,
+  );
+}
+
+/** Мировая точка в локальную точку зоны непрозрачности. */
+export function sceneSilhouetteLocalPoint(element: FootprintElement, point: ScenePoint): ScenePoint {
+  if (element.shape.type !== 'point') {
+    return [Math.round(point[0]), Math.round(point[1])];
+  }
+
+  const zone = sceneSilhouetteZone(element.props);
+
+  return zoneLocalPoint([element.shape.x, element.shape.y], sceneDecorRotation(element), point, zone?.shape.offset);
+}
+
+/** Обратный поворот точки к локальным координатам формы со смещением. */
+function zoneLocalPoint(center: ScenePoint, rotation: number, point: ScenePoint, offset?: ScenePoint): ScenePoint {
+  const radians = (rotation * Math.PI) / 180;
   const cosine = Math.cos(radians);
   const sine = Math.sin(radians);
-  const dx = point[0] - element.shape.x;
-  const dy = point[1] - element.shape.y;
-  const offset = element.props.footprint?.offset ?? ([0, 0] as ScenePoint);
+  const dx = point[0] - center[0];
+  const dy = point[1] - center[1];
+  const shift = offset ?? ([0, 0] as ScenePoint);
 
-  return [Math.round(dx * cosine + dy * sine - offset[0]), Math.round(-dx * sine + dy * cosine - offset[1])];
+  return [Math.round(dx * cosine + dy * sine - shift[0]), Math.round(-dx * sine + dy * cosine - shift[1])];
 }
 
 /** Мировое смещение ручки в локальное: поворот без переноса. */
@@ -130,8 +200,8 @@ export function sceneFootprintLocalOffset(element: FootprintElement, offset: Sce
 /**
  * Основание и силуэт по умолчанию для карточки и шаблона.
  *
- * Карточка показывает те же числа, что видит расчёт: явное поле, иначе —
- * старую долю спрайта, переведённую в единицы сцены.
+ * Карточка показывает те же числа, что видит расчёт: явное поле, иначе
+ * основание, а у старой модели — доля ширины спрайта в единицах сцены.
  */
 export function sceneDecorFootprintDefaults(
   element: FootprintElement,
@@ -142,11 +212,15 @@ export function sceneDecorFootprintDefaults(
     shape: 'circle' as const,
     radius: Math.round(size * ((element.props.baseRadius ?? SCENE_SURFACE.decorBaseRadius) / 100)),
   };
-  const silhouette = element.props.silhouette ?? {
-    shape: 'circle' as const,
-    radius: Math.round(size * ((element.props.sightRadius ?? SCENE_SURFACE.decorSightRadius) / 100)),
-    bottom: Math.round(size * ((element.props.sightBottom ?? SCENE_SURFACE.decorSightBottom) / 100)),
-  };
+  const zone = sceneSilhouetteZone(element.props);
+  const silhouette =
+    zone !== null
+      ? { ...zone.shape, bottom: zone.bottom }
+      : {
+          shape: 'circle' as const,
+          radius: Math.round(size * ((element.props.sightRadius ?? SCENE_SURFACE.decorSightRadius) / 100)),
+          bottom: Math.round(size * ((element.props.sightBottom ?? SCENE_SURFACE.decorSightBottom) / 100)),
+        };
 
   return { footprint, silhouette };
 }

@@ -8,6 +8,7 @@ import {
   sceneDecorSilhouette,
   sceneFootprintLocalPoint,
   sceneFootprintShape,
+  sceneSilhouetteShape,
   spriteSize,
 } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 
@@ -132,6 +133,36 @@ describe('SceneDecorFootprint', () => {
     expect(editable.handles?.length).toBe(4);
   });
 
+  it('по умолчанию берёт зону непрозрачности с основания', () => {
+    const points: ScenePoint[] = [
+      [-20, -30],
+      [20, -30],
+      [20, -5],
+      [-20, -5],
+    ];
+    const element = decor({ footprint: { shape: 'polygon', points } });
+    const silhouette = sceneDecorSilhouette(element, RESOLUTION);
+
+    // Тень начинается от обведённой видимой массы, а не от круга на якоре:
+    // ниже якоря зоны нет.
+    expect(silhouette?.bottom).toBe(0);
+    expect(silhouette?.area).toEqual({
+      shape: 'polygon',
+      points: [
+        [80, 70],
+        [120, 70],
+        [120, 95],
+        [80, 95],
+      ],
+    });
+
+    const editable = sceneSilhouetteShape(element, RESOLUTION);
+    if (editable === null || editable.type !== 'polygon') {
+      throw new Error('ожидался редактируемый полигон силуэта');
+    }
+    expect(editable.points.length).toBe(4);
+  });
+
   it('показывает карточке явные поля или старые доли', () => {
     const explicit = sceneDecorFootprintDefaults(
       decor({
@@ -149,5 +180,9 @@ describe('SceneDecorFootprint', () => {
     );
     expect(legacy.footprint).toEqual({ shape: 'circle', radius: 13 });
     expect(legacy.silhouette).toEqual({ shape: 'circle', radius: 29, bottom: 54 });
+
+    // Новая модель без явного силуэта: карточка показывает зону основания.
+    const derived = sceneDecorFootprintDefaults(decor({ footprint: { shape: 'circle', radius: 22 } }), RESOLUTION);
+    expect(derived.silhouette).toEqual({ shape: 'circle', radius: 22, bottom: 0 });
   });
 });

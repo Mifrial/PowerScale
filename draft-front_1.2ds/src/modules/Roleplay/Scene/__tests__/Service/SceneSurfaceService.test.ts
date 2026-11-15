@@ -336,6 +336,40 @@ describe('SceneSurfaceService', () => {
     expect(boulder.sightBottom[cellOf(boulder, 10, 8)]).toBe(0);
   });
 
+  it('по умолчанию берёт перекрытие обзора с основания, а не с круга на якоре', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(
+          2,
+          'decor',
+          { type: 'point', x: 128, y: 128 },
+          {
+            scale: 200,
+            footprint: {
+              shape: 'polygon',
+              points: [
+                [-30, -40],
+                [30, -40],
+                [30, -5],
+                [-30, -5],
+              ],
+            },
+          },
+          10,
+        ),
+      ],
+      64,
+    );
+
+    // Видимая масса обведена над якорем: там и перекрытие.
+    expect(grid.sightBottom[cellOf(grid, 8, 6)]).toBe(0);
+    // Под якорем, где стоял бы круг, клетка прозрачна — тень не начинается
+    // на земле перед камнем.
+    expect(grid.sightBottom[cellOf(grid, 8, 9)]).toBe(Number.POSITIVE_INFINITY);
+  });
+
   it('держит полигон основания и низ силуэта из новых полей', () => {
     const grid = service.build(
       board(),

@@ -29,6 +29,7 @@ import {
 } from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
 import { sceneDecorFootprintDefaults } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
+import type { SceneDecorZone } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import type { SceneFootprint } from '@/modules/Roleplay/Scene/Dto/SceneFootprint';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
@@ -50,9 +51,11 @@ const emit = defineEmits<{
   smooth: [];
   corner: [];
   attachRamp: [end: SceneDeckEnd];
-  outline: [target: 'footprint'];
+  outline: [target: SceneDecorZone];
   footprintSmooth: [];
   footprintCorner: [];
+  silhouetteSmooth: [];
+  silhouetteCorner: [];
   saveObject: [];
   applyObject: [];
 }>();
@@ -137,7 +140,13 @@ const footprintOffset = computed<ScenePoint>(() => props.element.props.footprint
 
 const blocksVision = computed(() => props.element.props.blocksVision !== false);
 
-const silhouetteKind = computed(() => props.element.props.silhouette?.shape ?? 'circle');
+/**
+ * Вид зоны непрозрачности: явный силуэт или, по умолчанию, основание.
+ *
+ * Пока силуэт не задан явно, зона совпадает с основанием — карточка и карта
+ * показывают один и тот же контур.
+ */
+const silhouetteKind = computed(() => props.element.props.silhouette?.shape ?? decorDefaults.value.silhouette.shape);
 
 const silhouetteRadius = computed(() => {
   const silhouette = props.element.props.silhouette;
@@ -151,7 +160,7 @@ const silhouetteRadius = computed(() => {
 
   const derived = decorDefaults.value.silhouette;
 
-  return derived.shape === 'circle' ? derived.radius : 0;
+  return derived.shape === 'circle' ? derived.radius : outlineRadius(derived.points);
 });
 
 const silhouetteBottom = computed(() => {
@@ -162,9 +171,17 @@ const silhouetteBottom = computed(() => {
 
 const silhouettePointCount = computed(() => {
   const silhouette = props.element.props.silhouette;
+  if (silhouette?.shape === 'polygon') {
+    return silhouette.points.length;
+  }
 
-  return silhouette?.shape === 'polygon' ? silhouette.points.length : 0;
+  const derived = decorDefaults.value.silhouette;
+
+  return derived.shape === 'polygon' ? derived.points.length : 0;
 });
+
+/** Смещение зоны непрозрачности от якоря, единицы сцены. */
+const silhouetteOffset = computed<ScenePoint>(() => props.element.props.silhouette?.offset ?? [0, 0]);
 
 /** Мост и съезд: у них `height` — толщина настила, а не высота объёма. */
 const isDeck = computed(
@@ -412,32 +429,95 @@ function outlineRadius(points: ScenePoint[]): number {
 
 /** Радиус силуэта в единицах сцены; полигон не трогаем. */
 function patchSilhouetteRadius(value: number): void {
-  const current = props.element.props.silhouette;
-
   patch({
     silhouette: {
       shape: 'circle',
       radius: Math.max(1, Math.round(value)),
       bottom: silhouetteBottom.value,
-      ...(current?.offset === undefined ? {} : { offset: current.offset }),
+      ...(silhouetteOffset.value[0] === 0 && silhouetteOffset.value[1] === 0 ? {} : { offset: silhouetteOffset.value }),
     },
   });
 }
 
 /** Низ силуэта: форму сохраняем, меняем только высоту. */
 function patchSilhouetteBottom(value: number): void {
-  const current = props.element.props.silhouette;
-  const offset = current?.offset === undefined ? {} : { offset: current.offset };
-  const shape =
-    current?.shape === 'polygon'
-      ? { shape: 'polygon' as const, points: current.points, ...offset }
-      : { shape: 'circle' as const, radius: Math.max(1, silhouetteRadius.value), ...offset };
+  patch({ silhouette: { ...silhouetteShape(), bottom: Math.max(0, Math.round(value)) } });
+}
 
-  patch({ silhouette: { ...shape, bottom: Math.max(0, Math.round(value)) } });
+/** Текущая форма силуэта без высоты: явная или снятая с основания. */
+function silhouetteShape(): SceneFootprint {
+  const current = props.element.props.silhouette;
+  if (current?.shape === 'polygon') {
+    return { shape: 'polygon', points: current.points, ...offsetOf(current) };
+  }
+
+  if (current?.shape === 'circle') {
+    return { shape: 'circle', radius: current.radius, ...offsetOf(current) };
+  }
+
+  const derived = decorDefaults.value.silhouette;
+  const offset = silhouetteOffset.value;
+
+  return derived.shape === 'polygon'
+    ? { shape: 'polygon', points: derived.points, offset }
+    : { shape: 'circle', radius: derived.radius, offset };
+}
+
+/** Смещение, если оно ненулевое: лишние поля в контракт не пишем. */
+function offsetOf(footprint: SceneFootprint): { offset?: ScenePoint } {
+  return footprint.offset === undefined ? {} : { offset: footprint.offset };
+}
+
+/** Смещение всей зоны непрозрачности от якоря спрайта. */
+function patchSilhouetteOffset(axis: 0 | 1, value: number): void {
+  const current = silhouetteOffset.value;
+  const offset: ScenePoint = axis === 0 ? [Math.round(value), current[1]] : [current[0], Math.round(value)];
+
+  patch({ silhouette: { ...silhouetteShape(), offset, bottom: silhouetteBottom.value } });
+}
+
+/** Смена вида зоны непрозрачности: полигон начинается с восьмиугольника по кругу. */
+function patchSilhouetteKind(value: string | null): void {
+  if (value === 'polygon') {
+    if (props.element.props.silhouette?.shape === 'polygon') {
+      return;
+    }
+
+    const shape = silhouetteShape();
+    if (shape.shape === 'polygon') {
+      patch({ silhouette: { ...shape, bottom: silhouetteBottom.value } });
+
+      return;
+    }
+
+    patch({
+      silhouette: {
+        shape: 'polygon',
+        points: regularPolygon(Math.max(1, shape.radius)),
+        offset: silhouetteOffset.value,
+        bottom: silhouetteBottom.value,
+      },
+    });
+
+    return;
+  }
+
+  patch({
+    silhouette: {
+      shape: 'circle',
+      radius: Math.max(1, silhouetteRadius.value),
+      offset: silhouetteOffset.value,
+      bottom: silhouetteBottom.value,
+    },
+  });
 }
 
 function outlineFootprint(): void {
   emit('outline', 'footprint');
+}
+
+function outlineSilhouette(): void {
+  emit('outline', 'silhouette');
 }
 
 function onAsset(publicId: string | null): void {
@@ -857,16 +937,65 @@ function onAssetCleared(publicId: string | null): void {
         @update:model-value="patchFlag('blocksVision', $event)"
       />
       <template v-if="blocksVision">
+        <v-select
+          :model-value="silhouetteKind"
+          :items="FOOTPRINT_KINDS"
+          label="Непрозрачность"
+          density="compact"
+          variant="outlined"
+          hide-details
+          @update:model-value="patchSilhouetteKind"
+        />
         <SceneDistanceField
           v-if="silhouetteKind === 'circle'"
           :model-value="silhouetteRadius"
           :resolution="props.resolution"
           label="Радиус силуэта, ипари"
+          hint="Зона, от которой начинается тень; по умолчанию совпадает с основанием."
           :min="1"
           :max="100000"
           @update:model-value="patchSilhouetteRadius"
         />
-        <span v-else class="text-caption">Силуэт: полигон, {{ silhouettePointCount }} точек</span>
+        <div v-else class="scene-element-settings__row">
+          <span class="text-caption">Полигон: {{ silhouettePointCount }} точек</span>
+          <v-btn size="small" variant="tonal" prepend-icon="mdi-vector-polygon" @click="outlineSilhouette">
+            Обвести
+          </v-btn>
+        </div>
+        <div class="scene-element-settings__row">
+          <SceneDistanceField
+            :model-value="silhouetteOffset[0]"
+            :resolution="props.resolution"
+            label="Смещение X, ипари"
+            :min="-100000"
+            :max="100000"
+            @update:model-value="(value) => patchSilhouetteOffset(0, value)"
+          />
+          <SceneDistanceField
+            :model-value="silhouetteOffset[1]"
+            :resolution="props.resolution"
+            label="Смещение Y, ипари"
+            :min="-100000"
+            :max="100000"
+            @update:model-value="(value) => patchSilhouetteOffset(1, value)"
+          />
+        </div>
+        <div v-if="silhouetteKind === 'polygon'" class="scene-element-settings__row">
+          <v-btn
+            variant="tonal"
+            size="small"
+            prepend-icon="mdi-transit-connection-variant"
+            @click="emit('silhouetteSmooth')"
+          >
+            Сгладить
+          </v-btn>
+          <v-btn variant="tonal" size="small" prepend-icon="mdi-vector-square" @click="emit('silhouetteCorner')">
+            Углы
+          </v-btn>
+        </div>
+        <span v-if="silhouetteKind === 'polygon'" class="text-caption">
+          Вершины и ручки зоны — на карте, как у основания.
+        </span>
         <SceneDistanceField
           :model-value="silhouetteBottom"
           :resolution="props.resolution"

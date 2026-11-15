@@ -18,7 +18,7 @@ import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRe
 import { SCENE_OVERLAY } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OVERLAY';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
 import { SceneOverlayService } from '@/modules/Roleplay/Scene/Service/SceneOverlayService';
-import { sceneFootprintShape } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
+import { sceneFootprintShape, sceneSilhouetteShape } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
 import { createPixiSceneRenderer } from '@/modules/Roleplay/Scene/Service/Instance/pixiSceneRenderer';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
@@ -530,6 +530,12 @@ function selectedContours(): EditableContour[] {
       if (footprint !== null) {
         contours.push({ elementId: element.id, part: 'footprint', shape: footprint });
       }
+
+      const silhouette =
+        element.props.blocksVision === false ? null : sceneSilhouetteShape(element, props.model.resolution);
+      if (silhouette !== null) {
+        contours.push({ elementId: element.id, part: 'silhouette', shape: silhouette });
+      }
     }
   }
 
@@ -545,6 +551,10 @@ function contourShape(elementId: number, part: SceneVertexPart): SceneShape | nu
 
   if (part === 'footprint') {
     return sceneFootprintShape(element, props.model.resolution);
+  }
+
+  if (part === 'silhouette') {
+    return sceneSilhouetteShape(element, props.model.resolution);
   }
 
   return element.shape.type === 'polygon' || element.shape.type === 'path' ? element.shape : null;

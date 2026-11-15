@@ -22,6 +22,7 @@ import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderM
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { SceneVertexPart } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
+import type { SceneDecorZone } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
 import { SCENE_ELEMENT_KIND_LABELS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ELEMENT_KIND_LABELS';
@@ -36,7 +37,10 @@ import { getAssetApi } from '@/modules/Library/Asset/init';
 import { SceneApiError } from '@/modules/Roleplay/Scene/Service/SceneApiError';
 import { SceneDraftMapper } from '@/modules/Roleplay/Scene/Service/SceneDraftMapper';
 import { sceneRampAttachment, type SceneDeckEnd } from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
-import { sceneFootprintLocalPoint } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
+import {
+  sceneFootprintLocalPoint,
+  sceneSilhouetteLocalPoint,
+} from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import {
   sceneObjectMeta,
   sceneObjectTemplateOf,
@@ -59,7 +63,7 @@ const saving = ref(false);
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 /** Обводка основания выбранного декора: клики собираются в полигон. */
-const outlineTarget = ref<'footprint' | null>(null);
+const outlineTarget = ref<SceneDecorZone | null>(null);
 /** Сохранение декора как объекта библиотеки. */
 const objectSaveOpen = ref(false);
 /** Выбор готового объекта из библиотеки. */
@@ -296,10 +300,10 @@ function onShape(shape: SceneShape): void {
   state.createElement(definition, shape);
 }
 
-/** Начинает обводку основания выбранного декора. */
-function startOutline(target: 'footprint'): void {
+/** Начинает обводку зоны выбранного декора: основания или силуэта. */
+function startOutline(target: SceneDecorZone): void {
   if (selectedElement.value === null || selectedElement.value.shape.type !== 'point') {
-    error.value = 'Обвести основание можно только у точечного декора';
+    error.value = 'Обвести зону можно только у точечного декора';
 
     return;
   }
@@ -307,30 +311,49 @@ function startOutline(target: 'footprint'): void {
   outlineTarget.value = target;
   tool.value = 'select';
   error.value = null;
-  notice.value = 'Обведите основание: клики по карте, двойной клик — замкнуть, Esc — отмена';
+  notice.value =
+    target === 'footprint'
+      ? 'Обведите основание: клики по карте, двойной клик — замкнуть, Esc — отмена'
+      : 'Обведите зону непрозрачности: клики по карте, двойной клик — замкнуть, Esc — отмена';
 }
 
 /**
- * Применяет нарисованный полигон как основание.
+ * Применяет нарисованный полигон как зону декора.
  *
  * Клики приходят в мировых координатах; в свойстве хранится локальный контур
  * от якоря, повёрнутый на `props.rotation`. Поэтому точка переводится обратным
- * поворотом — тогда основание едет вместе со спрайтом.
+ * поворотом — тогда зона едет вместе со спрайтом.
  */
 function applyOutline(shape: SceneShape): void {
   const element = selectedElement.value;
+  const zone = outlineTarget.value;
   outlineTarget.value = null;
   notice.value = null;
-  if (element === null || element.shape.type !== 'point' || shape.type !== 'polygon') {
+  if (element === null || element.shape.type !== 'point' || shape.type !== 'polygon' || zone === null) {
     return;
   }
 
-  const offset = element.props.footprint?.offset;
-  const points = shape.points.map((point): ScenePoint => sceneFootprintLocalPoint(element, point));
-  const footprint = { shape: 'polygon' as const, points, ...(offset === undefined ? {} : { offset }) };
+  if (zone === 'footprint') {
+    const offset = element.props.footprint?.offset;
+    const points = shape.points.map((point): ScenePoint => sceneFootprintLocalPoint(element, point));
+    const footprint = { shape: 'polygon' as const, points, ...(offset === undefined ? {} : { offset }) };
+    state.updateElementProps(element.id, { ...element.props, footprint });
+    notice.value = 'Основание обведено';
 
-  state.updateElementProps(element.id, { ...element.props, footprint });
-  notice.value = 'Основание обведено';
+    return;
+  }
+
+  const offset = element.props.silhouette?.offset;
+  const bottom = element.props.silhouette?.bottom ?? 0;
+  const points = shape.points.map((point): ScenePoint => sceneSilhouetteLocalPoint(element, point));
+  const silhouette = {
+    shape: 'polygon' as const,
+    points,
+    bottom,
+    ...(offset === undefined ? {} : { offset }),
+  };
+  state.updateElementProps(element.id, { ...element.props, silhouette });
+  notice.value = 'Зона непрозрачности обведена';
 }
 
 /** Готовая лента из кликов. */
@@ -347,10 +370,10 @@ function onPath(points: ScenePoint[]): void {
   state.createPath(definition, points, pathWidth.value, Object.keys(extra).length === 0 ? undefined : extra);
 }
 
-/** Перетаскивание вершины полигона или ленты. */
+/** Перетаскивание вершины полигона, ленты или зоны декора. */
 function onVertex(elementId: number, index: number, point: ScenePoint, part: SceneVertexPart = 'shape'): void {
-  if (part === 'footprint') {
-    state.moveFootprintVertex(elementId, index, point);
+  if (part !== 'shape') {
+    state.moveZoneVertex(elementId, part, index, point);
 
     return;
   }
@@ -367,8 +390,8 @@ function onHandle(
   mirror: boolean,
   part: SceneVertexPart = 'shape',
 ): void {
-  if (part === 'footprint') {
-    state.moveFootprintHandle(elementId, index, side, offset, mirror);
+  if (part !== 'shape') {
+    state.moveZoneHandle(elementId, part, index, side, offset, mirror);
 
     return;
   }
@@ -388,8 +411,8 @@ function onInsertVertex(
   tolerance: number,
   part: SceneVertexPart = 'shape',
 ): void {
-  if (part === 'footprint') {
-    state.insertFootprintVertex(elementId, point, tolerance);
+  if (part !== 'shape') {
+    state.insertZoneVertex(elementId, part, point, tolerance);
 
     return;
   }
@@ -399,8 +422,8 @@ function onInsertVertex(
 
 /** Alt+клик по вершине удаляет её. */
 function onRemoveVertex(elementId: number, index: number, part: SceneVertexPart = 'shape'): void {
-  if (part === 'footprint') {
-    state.removeFootprintVertex(elementId, index);
+  if (part !== 'shape') {
+    state.removeZoneVertex(elementId, part, index);
 
     return;
   }
@@ -408,16 +431,16 @@ function onRemoveVertex(elementId: number, index: number, part: SceneVertexPart 
   state.removeVertex(elementId, index);
 }
 
-/** Сглаживает полигон основания. */
-function smoothFootprint(): void {
+/** Сглаживает полигон зоны декора. */
+function smoothZone(zone: SceneDecorZone): void {
   if (selectedElement.value === null) return;
-  state.smoothFootprint(selectedElement.value.id);
+  state.smoothZone(selectedElement.value.id, zone);
 }
 
-/** Убирает кривизну основания. */
-function cornerFootprint(): void {
+/** Убирает кривизну зоны декора. */
+function cornerZone(zone: SceneDecorZone): void {
   if (selectedElement.value === null) return;
-  state.cornerFootprint(selectedElement.value.id);
+  state.cornerZone(selectedElement.value.id, zone);
 }
 
 /** Шаблон выбранного декора: снимок основания, силуэта и скорости. */
@@ -1107,8 +1130,10 @@ function messageOf(exception: unknown): string {
                 @corner="cornerShape"
                 @attach-ramp="attachRamp"
                 @outline="startOutline"
-                @footprint-smooth="smoothFootprint"
-                @footprint-corner="cornerFootprint"
+                @footprint-smooth="smoothZone('footprint')"
+                @footprint-corner="cornerZone('footprint')"
+                @silhouette-smooth="smoothZone('silhouette')"
+                @silhouette-corner="cornerZone('silhouette')"
                 @save-object="startSaveObject"
                 @apply-object="startApplyObject"
               />

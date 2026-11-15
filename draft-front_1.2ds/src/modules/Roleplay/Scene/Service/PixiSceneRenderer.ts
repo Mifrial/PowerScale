@@ -30,6 +30,7 @@ import {
   sceneDecorFootprint,
   sceneDecorSilhouette,
   sceneFootprintShape,
+  sceneSilhouetteShape,
   type SceneWorldFootprint,
 } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import { SceneGrassMeshService } from '@/modules/Roleplay/Scene/Service/SceneGrassMeshService';
@@ -1581,6 +1582,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
         if (footprint !== null) {
           this.drawVertices(layer, footprint, element.id, 'footprint');
         }
+
+        const silhouette =
+          element.props.blocksVision === false ? null : sceneSilhouetteShape(element, this.model.resolution);
+        if (silhouette !== null) {
+          this.drawVertices(layer, silhouette, element.id, 'silhouette');
+        }
       }
 
       if (element.shape.type === 'polygon' || element.shape.type === 'path') {
@@ -1638,7 +1645,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const size = 8 / zoom;
     const focus = this.vertexFocus;
     const focused = focus !== null && focus.elementId === elementId && (focus.part ?? 'shape') === part;
-    const idleColor = part === 'footprint' ? 0x22d3ee : 0xfacc15;
+    const idleColor = part === 'footprint' ? 0x22d3ee : part === 'silhouette' ? 0x7dd3fc : 0xfacc15;
     const vertices = new Graphics();
     for (let index = 0; index < shape.points.length; index += 1) {
       const [x, y] = shape.points[index];

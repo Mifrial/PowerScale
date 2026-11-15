@@ -10,6 +10,7 @@ import type { SceneSaveSnapshot } from '@/modules/Roleplay/Scene/Dto/SceneSaveSn
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneToolDefinition } from '@/modules/Roleplay/Scene/Dto/SceneToolDefinition';
 import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
+import type { SceneDecorZone } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import { SceneDraftMapper } from '@/modules/Roleplay/Scene/Service/SceneDraftMapper';
 import { SceneDraftService } from '@/modules/Roleplay/Scene/Service/SceneDraftService';
 import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
@@ -18,6 +19,7 @@ import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sc
 import {
   sceneFootprintLocalOffset,
   sceneFootprintLocalPoint,
+  sceneSilhouetteLocalPoint,
 } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 
 /** Предел числа шагов истории. */
@@ -479,21 +481,24 @@ export function useSceneDraft(initial: SceneDetail) {
     markDirty();
   }
 
-  /** Двигает вершину основания декора; точка приходит в мировых координатах. */
-  function moveFootprintVertex(elementId: number, index: number, point: ScenePoint): void {
+  /** Двигает вершину зоны декора; точка приходит в мировых координатах. */
+  function moveZoneVertex(elementId: number, zone: SceneDecorZone, index: number, point: ScenePoint): void {
     const element = draft.value.elements.find((item) => item.id === elementId);
     if (element === undefined || element.shape.type !== 'point') {
       return;
     }
 
-    service.setFootprintVertex(draft.value, elementId, index, sceneFootprintLocalPoint(element, point));
+    const local =
+      zone === 'footprint' ? sceneFootprintLocalPoint(element, point) : sceneSilhouetteLocalPoint(element, point);
+    service.setZoneVertex(draft.value, elementId, zone, index, local);
     draft.value.elements = [...draft.value.elements];
     markDirty();
   }
 
-  /** Двигает ручку Безье основания; смещение приходит в мировых координатах. */
-  function moveFootprintHandle(
+  /** Двигает ручку Безье зоны; смещение приходит в мировых координатах. */
+  function moveZoneHandle(
     elementId: number,
+    zone: SceneDecorZone,
     index: number,
     side: SceneHandleSide,
     offset: ScenePoint,
@@ -505,28 +510,25 @@ export function useSceneDraft(initial: SceneDetail) {
     }
 
     const local = sceneFootprintLocalOffset(element, offset);
-    service.setFootprintHandle(draft.value, elementId, index, side, local);
+    service.setZoneHandle(draft.value, elementId, zone, index, side, local);
     if (mirror) {
-      service.setFootprintHandle(draft.value, elementId, index, side === 'in' ? 'out' : 'in', [-local[0], -local[1]]);
+      service.setZoneHandle(draft.value, elementId, zone, index, side === 'in' ? 'out' : 'in', [-local[0], -local[1]]);
     }
 
     draft.value.elements = [...draft.value.elements];
     markDirty();
   }
 
-  /** Вставляет вершину в основание, сохраняя форму кривой. */
-  function insertFootprintVertex(elementId: number, point: ScenePoint, tolerance: number): boolean {
+  /** Вставляет вершину в зону, сохраняя форму кривой. */
+  function insertZoneVertex(elementId: number, zone: SceneDecorZone, point: ScenePoint, tolerance: number): boolean {
     const element = draft.value.elements.find((item) => item.id === elementId);
     if (element === undefined || element.shape.type !== 'point') {
       return false;
     }
 
-    const inserted = service.insertFootprintVertex(
-      draft.value,
-      elementId,
-      sceneFootprintLocalPoint(element, point),
-      tolerance,
-    );
+    const local =
+      zone === 'footprint' ? sceneFootprintLocalPoint(element, point) : sceneSilhouetteLocalPoint(element, point);
+    const inserted = service.insertZoneVertex(draft.value, elementId, zone, local, tolerance);
     if (!inserted) {
       return false;
     }
@@ -537,23 +539,23 @@ export function useSceneDraft(initial: SceneDetail) {
     return true;
   }
 
-  /** Удаляет вершину основания; минимум три точки. */
-  function removeFootprintVertex(elementId: number, index: number): void {
-    service.removeFootprintVertex(draft.value, elementId, index);
+  /** Удаляет вершину зоны; минимум три точки. */
+  function removeZoneVertex(elementId: number, zone: SceneDecorZone, index: number): void {
+    service.removeZoneVertex(draft.value, elementId, zone, index);
     draft.value.elements = [...draft.value.elements];
     markDirty();
   }
 
-  /** Сглаживает полигон основания. */
-  function smoothFootprint(elementId: number): void {
-    service.smoothFootprint(draft.value, elementId);
+  /** Сглаживает полигон зоны. */
+  function smoothZone(elementId: number, zone: SceneDecorZone): void {
+    service.smoothZone(draft.value, elementId, zone);
     draft.value.elements = [...draft.value.elements];
     markDirty();
   }
 
-  /** Убирает кривизну основания. */
-  function cornerFootprint(elementId: number): void {
-    service.cornerFootprint(draft.value, elementId);
+  /** Убирает кривизну зоны. */
+  function cornerZone(elementId: number, zone: SceneDecorZone): void {
+    service.cornerZone(draft.value, elementId, zone);
     draft.value.elements = [...draft.value.elements];
     markDirty();
   }
@@ -678,12 +680,12 @@ export function useSceneDraft(initial: SceneDetail) {
     moveHandle,
     insertVertex,
     removeVertex,
-    moveFootprintVertex,
-    moveFootprintHandle,
-    insertFootprintVertex,
-    removeFootprintVertex,
-    smoothFootprint,
-    cornerFootprint,
+    moveZoneVertex,
+    moveZoneHandle,
+    insertZoneVertex,
+    removeZoneVertex,
+    smoothZone,
+    cornerZone,
     setPathWidth,
     setPathWidthAll,
     smoothShape,

@@ -8,6 +8,7 @@ import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftE
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElementKind';
 import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
+import type { SceneDecorZone } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import { SCENE_BOARD_DEFAULTS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BOARD_DEFAULTS';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
@@ -306,38 +307,78 @@ export class SceneDraftService {
     };
   }
 
-  /** Полигон основания элемента; null — основание не полигон. */
-  private footprintPolygonOf(element: SceneDraftElement): (SceneShape & { type: 'polygon' }) | null {
-    const footprint = element.props.footprint;
-    if (footprint === undefined || footprint === null || footprint.shape !== 'polygon') {
+  /** Зона декора: основание или силуэт. */
+  private zoneOf(element: SceneDraftElement, zone: SceneDecorZone): SceneFootprint | null {
+    return zone === 'footprint' ? (element.props.footprint ?? null) : (element.props.silhouette ?? null);
+  }
+
+  /** Полигон зоны; null — зона не полигон. */
+  private zonePolygonOf(element: SceneDraftElement, zone: SceneDecorZone): (SceneShape & { type: 'polygon' }) | null {
+    this.materializeZone(element, zone);
+    const value = this.zoneOf(element, zone);
+    if (value === null || value.shape !== 'polygon') {
       return null;
     }
 
-    return { type: 'polygon', points: footprint.points, handles: footprint.handles };
+    return { type: 'polygon', points: value.points, handles: value.handles };
   }
 
-  /** Записывает полигон обратно в основание, сохраняя смещение формы. */
-  private setFootprintPolygon(element: SceneDraftElement, shape: SceneShape & { type: 'polygon' }): void {
-    const offset = element.props.footprint?.offset;
-    element.props = {
-      ...element.props,
-      footprint: {
-        shape: 'polygon',
-        points: shape.points,
-        ...(shape.handles === undefined ? {} : { handles: shape.handles }),
-        ...(offset === undefined ? {} : { offset }),
-      },
+  /**
+   * Явная зона перед правкой.
+   *
+   * Пока силуэт не задан, он совпадает с основанием. Первое перетаскивание
+   * вершины снимает копию с основания: правка одной зоны не должна молча
+   * менять другую.
+   */
+  private materializeZone(element: SceneDraftElement, zone: SceneDecorZone): void {
+    if (zone !== 'silhouette' || element.props.silhouette !== undefined) {
+      return;
+    }
+
+    const footprint = element.props.footprint;
+    if (footprint === undefined || footprint === null) {
+      return;
+    }
+
+    element.props = { ...element.props, silhouette: { ...footprint, bottom: 0 } };
+  }
+
+  /** Записывает полигон обратно в зону, сохраняя смещение формы и низ силуэта. */
+  private setZonePolygon(
+    element: SceneDraftElement,
+    zone: SceneDecorZone,
+    shape: SceneShape & { type: 'polygon' },
+  ): void {
+    const current = this.zoneOf(element, zone);
+    const offset = current?.offset;
+    const polygon = {
+      shape: 'polygon' as const,
+      points: shape.points,
+      ...(shape.handles === undefined ? {} : { handles: shape.handles }),
+      ...(offset === undefined ? {} : { offset }),
     };
+
+    element.props =
+      zone === 'footprint'
+        ? { ...element.props, footprint: polygon }
+        : { ...element.props, silhouette: { ...polygon, bottom: this.silhouetteBottom(element) } };
   }
 
-  /** Двигает вершину основания; точка уже локальная. */
-  setFootprintVertex(draft: SceneDraft, elementId: number, index: number, point: ScenePoint): void {
+  /** Низ силуэта: у полигона сохраняется, у новой зоны — ноль. */
+  private silhouetteBottom(element: SceneDraftElement): number {
+    const silhouette = element.props.silhouette;
+
+    return silhouette === undefined || silhouette === null ? 0 : Math.max(0, silhouette.bottom);
+  }
+
+  /** Двигает вершину зоны; точка уже локальная. */
+  setZoneVertex(draft: SceneDraft, elementId: number, zone: SceneDecorZone, index: number, point: ScenePoint): void {
     const element = draft.elements.find((item) => item.id === elementId);
     if (element === undefined) {
       return;
     }
 
-    const shape = this.footprintPolygonOf(element);
+    const shape = this.zonePolygonOf(element, zone);
     if (shape === null || index < 0 || index >= shape.points.length) {
       return;
     }
@@ -345,13 +386,14 @@ export class SceneDraftService {
     const points = shape.points.map((item, position) =>
       position === index ? ([Math.round(point[0]), Math.round(point[1])] as ScenePoint) : item,
     );
-    this.setFootprintPolygon(element, { ...shape, points });
+    this.setZonePolygon(element, zone, { ...shape, points });
   }
 
-  /** Двигает ручку Безье основания; смещение уже локальное. */
-  setFootprintHandle(
+  /** Двигает ручку Безье зоны; смещение уже локальное. */
+  setZoneHandle(
     draft: SceneDraft,
     elementId: number,
+    zone: SceneDecorZone,
     index: number,
     side: SceneHandleSide,
     offset: ScenePoint,
@@ -361,24 +403,30 @@ export class SceneDraftService {
       return;
     }
 
-    const shape = this.footprintPolygonOf(element);
+    const shape = this.zonePolygonOf(element, zone);
     if (shape === null || index < 0 || index >= shape.points.length) {
       return;
     }
 
     const handles = sceneCurveService.normalizeHandles(shape.points, shape.handles);
     handles[index] = { ...handles[index], [side]: [Math.round(offset[0]), Math.round(offset[1])] };
-    this.setFootprintPolygon(element, { ...shape, handles });
+    this.setZonePolygon(element, zone, { ...shape, handles });
   }
 
-  /** Вставляет вершину в основание, сохраняя форму кривой. */
-  insertFootprintVertex(draft: SceneDraft, elementId: number, point: ScenePoint, tolerance: number): boolean {
+  /** Вставляет вершину в зону, сохраняя форму кривой. */
+  insertZoneVertex(
+    draft: SceneDraft,
+    elementId: number,
+    zone: SceneDecorZone,
+    point: ScenePoint,
+    tolerance: number,
+  ): boolean {
     const element = draft.elements.find((item) => item.id === elementId);
     if (element === undefined) {
       return false;
     }
 
-    const shape = this.footprintPolygonOf(element);
+    const shape = this.zonePolygonOf(element, zone);
     if (shape === null) {
       return false;
     }
@@ -402,19 +450,19 @@ export class SceneDraftService {
     const points = shape.points.slice();
     points.splice(split.index + 1, 0, [Math.round(split.point[0]), Math.round(split.point[1])]);
     handles.splice(split.index + 1, 0, split.handle);
-    this.setFootprintPolygon(element, { ...shape, points, handles });
+    this.setZonePolygon(element, zone, { ...shape, points, handles });
 
     return true;
   }
 
-  /** Удаляет вершину основания; минимум три точки. */
-  removeFootprintVertex(draft: SceneDraft, elementId: number, index: number): void {
+  /** Удаляет вершину зоны; минимум три точки. */
+  removeZoneVertex(draft: SceneDraft, elementId: number, zone: SceneDecorZone, index: number): void {
     const element = draft.elements.find((item) => item.id === elementId);
     if (element === undefined) {
       return;
     }
 
-    const shape = this.footprintPolygonOf(element);
+    const shape = this.zonePolygonOf(element, zone);
     if (shape === null || shape.points.length <= 3 || index < 0 || index >= shape.points.length) {
       return;
     }
@@ -423,37 +471,37 @@ export class SceneDraftService {
     const handles = sceneCurveService
       .normalizeHandles(shape.points, shape.handles)
       .filter((_, position) => position !== index);
-    this.setFootprintPolygon(element, { ...shape, points, handles });
+    this.setZonePolygon(element, zone, { ...shape, points, handles });
   }
 
-  /** Плавные ручки основания по соседним вершинам. */
-  smoothFootprint(draft: SceneDraft, elementId: number): void {
+  /** Плавные ручки зоны по соседним вершинам. */
+  smoothZone(draft: SceneDraft, elementId: number, zone: SceneDecorZone): void {
     const element = draft.elements.find((item) => item.id === elementId);
     if (element === undefined) {
       return;
     }
 
-    const shape = this.footprintPolygonOf(element);
+    const shape = this.zonePolygonOf(element, zone);
     if (shape === null) {
       return;
     }
 
-    this.setFootprintPolygon(element, { ...shape, handles: sceneCurveService.autoHandles(shape.points) });
+    this.setZonePolygon(element, zone, { ...shape, handles: sceneCurveService.autoHandles(shape.points) });
   }
 
-  /** Прямые сегменты основания. */
-  cornerFootprint(draft: SceneDraft, elementId: number): void {
+  /** Прямые сегменты зоны. */
+  cornerZone(draft: SceneDraft, elementId: number, zone: SceneDecorZone): void {
     const element = draft.elements.find((item) => item.id === elementId);
     if (element === undefined) {
       return;
     }
 
-    const shape = this.footprintPolygonOf(element);
+    const shape = this.zonePolygonOf(element, zone);
     if (shape === null) {
       return;
     }
 
-    this.setFootprintPolygon(element, {
+    this.setZonePolygon(element, zone, {
       ...shape,
       handles: shape.points.map(() => sceneCurveService.zeroHandle()),
     });

@@ -270,35 +270,72 @@ describe('SceneDraftService', () => {
       return footprint.points;
     };
 
-    service.setFootprintVertex(state, decor.id, 1, [50, 5]);
+    service.setZoneVertex(state, decor.id, 'footprint', 1, [50, 5]);
     expect(points()[1]).toEqual([50, 5]);
 
-    expect(service.insertFootprintVertex(state, decor.id, [25, 2.5], 3)).toBe(true);
+    expect(service.insertZoneVertex(state, decor.id, 'footprint', [25, 2.5], 3)).toBe(true);
     expect(points().length).toBe(5);
 
-    service.setFootprintHandle(state, decor.id, 1, 'out', [10, 0]);
+    service.setZoneHandle(state, decor.id, 'footprint', 1, 'out', [10, 0]);
     const withHandle = decor.props.footprint;
     if (withHandle?.shape !== 'polygon') {
       throw new Error('ожидался полигон основания');
     }
     expect(withHandle.handles?.[1].out).toEqual([10, 0]);
 
-    service.removeFootprintVertex(state, decor.id, 1);
+    service.removeZoneVertex(state, decor.id, 'footprint', 1);
     expect(points().length).toBe(4);
 
-    service.smoothFootprint(state, decor.id);
+    service.smoothZone(state, decor.id, 'footprint');
     const smoothed = decor.props.footprint;
     if (smoothed?.shape !== 'polygon') {
       throw new Error('ожидался полигон основания');
     }
     expect(smoothed.handles?.length).toBe(points().length);
 
-    service.cornerFootprint(state, decor.id);
+    service.cornerZone(state, decor.id, 'footprint');
     const cornered = decor.props.footprint;
     if (cornered?.shape !== 'polygon') {
       throw new Error('ожидался полигон основания');
     }
     expect(cornered.handles?.every((handle) => handle.in[0] === 0 && handle.out[0] === 0)).toBe(true);
+  });
+
+  it('снимает силуэт с основания при первой правке зоны', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const decor = service.addElement(
+      state,
+      10,
+      'decor',
+      { type: 'point', x: 100, y: 200 },
+      {
+        footprint: {
+          shape: 'polygon',
+          points: [
+            [0, 0],
+            [40, 0],
+            [40, 40],
+            [0, 40],
+          ],
+        },
+      },
+    );
+
+    service.setZoneVertex(state, decor.id, 'silhouette', 2, [60, 60]);
+
+    const silhouette = decor.props.silhouette;
+    if (silhouette?.shape !== 'polygon') {
+      throw new Error('ожидался полигон силуэта');
+    }
+    expect(silhouette.points[2]).toEqual([60, 60]);
+    expect(silhouette.bottom).toBe(0);
+    // Основание осталось прежним: правка одной зоны не меняет другую.
+    const footprint = decor.props.footprint;
+    if (footprint?.shape !== 'polygon') {
+      throw new Error('ожидался полигон основания');
+    }
+    expect(footprint.points[2]).toEqual([40, 40]);
   });
 
   it('rescales enclosure footprints with the parent board', () => {
