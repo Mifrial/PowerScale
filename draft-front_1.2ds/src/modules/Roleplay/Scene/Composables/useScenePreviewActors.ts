@@ -270,7 +270,9 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
         label:
           choice.level === 0
             ? 'Под настилом'
-            : `На настил ${sceneUnits.formatUnits(Math.round(choice.elevation), options.resolution())}`,
+            : choice.elevation > 0
+              ? `На настил ${sceneUnits.formatUnits(Math.round(choice.elevation), options.resolution())}`
+              : 'На настил',
       })),
     };
   }
