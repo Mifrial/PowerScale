@@ -10,7 +10,8 @@ import LoreArticleBody from '@/modules/Roleplay/Lore/Component/LoreArticleBody.v
 const props = defineProps<{
   worldCode: string;
   articleCode: string | null;
-  knownCodes: string[];
+  /** Известные коды мира; undefined — мир ещё не загружен, битые ссылки не помечаем. */
+  knownCodes?: string[];
 }>();
 
 const open = defineModel<boolean>('open', { default: false });
