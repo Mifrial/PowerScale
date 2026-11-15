@@ -174,7 +174,15 @@ function overlayPaint(): SceneOverlayPaint | null {
     overlay.radius === null && sightRadius !== undefined ? { ...overlay, radius: sightRadius } : overlay;
   const observer: ScenePoint | null = actor === null ? null : [actor.x, actor.y];
 
-  return overlays.paint(board, props.model.elements, props.model.resolution, effective, observer, actor?.level ?? 0);
+  return overlays.paint(
+    board,
+    props.model.elements,
+    props.model.resolution,
+    effective,
+    observer,
+    actor?.level ?? 0,
+    actor?.height,
+  );
 }
 
 /** Пересобирает оверлей под текущие настройки и данные сцены. */

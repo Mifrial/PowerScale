@@ -3,6 +3,11 @@ import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurface
 import type { SceneVisibility } from '@/modules/Roleplay/Scene/Dto/SceneVisibility';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { surfaceCenter, surfaceFloor, surfaceIndex } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
+import {
+  sceneBodyHeight,
+  sceneSightEyeIpari,
+  sceneSightTargetIpari,
+} from '@/modules/Roleplay/Scene/Service/SceneSight';
 
 /**
  * Видимость клеток поля.
@@ -15,6 +20,10 @@ import { surfaceCenter, surfaceFloor, surfaceIndex } from '@/modules/Roleplay/Sc
  * `sightBottom…sightTop`. Поэтому ствол закрывает токен, крона, начинающаяся
  * выше глаз, — нет, а настил не пускает луч сквозь себя, но не мешает смотреть
  * с него и из-под него.
+ *
+ * Глаза — 90% роста наблюдателя, тело цели — 75% её роста: рост у персонажей
+ * разный, а фиксированных дробных высот в данных нет. Рост по умолчанию —
+ * `SCENE_NAVIGATION.bodyHeightIpari`; сцена хранит его целыми единицами.
  */
 export class SceneVisibilityService {
   /**
@@ -22,15 +31,15 @@ export class SceneVisibilityService {
    *
    * @param radius Радиус обзора в единицах сцены; без него — всё поле.
    * @param eye Высота глаз наблюдателя, ипари.
-   * @param target Высота тела цели, ипари.
+   * @param target Высота точки тела цели, ипари.
    * @param level Уровень наблюдателя: 0 — поверхность, выше — настил.
    */
   map(
     grid: SceneSurfaceGrid,
     from: ScenePoint,
     radius = Number.POSITIVE_INFINITY,
-    eye = SCENE_SURFACE.eyeIpari,
-    target = SCENE_SURFACE.targetIpari,
+    eye = sceneSightEyeIpari(sceneBodyHeight(grid.resolution), grid.resolution),
+    target = sceneSightTargetIpari(sceneBodyHeight(grid.resolution), grid.resolution),
     level = 0,
   ): SceneVisibility {
     const visible = new Uint8Array(grid.columns * grid.rows);
@@ -56,7 +65,10 @@ export class SceneVisibilityService {
           continue;
         }
 
-        if (index === origin || this.clearLine(grid, from, center, origin, index, eye, target, fromFloor, fromFloor)) {
+        if (
+          index === origin ||
+          this.clearLine(grid, from, center, origin, index, eye, target, fromFloor, fromFloor, level, 0)
+        ) {
           visible[index] = 1;
         }
       }
@@ -75,8 +87,8 @@ export class SceneVisibilityService {
     grid: SceneSurfaceGrid,
     from: ScenePoint,
     to: ScenePoint,
-    eye = SCENE_SURFACE.eyeIpari,
-    target = SCENE_SURFACE.targetIpari,
+    eye = sceneSightEyeIpari(sceneBodyHeight(grid.resolution), grid.resolution),
+    target = sceneSightTargetIpari(sceneBodyHeight(grid.resolution), grid.resolution),
     fromLevel = 0,
     toLevel = 0,
   ): boolean {
@@ -93,7 +105,7 @@ export class SceneVisibilityService {
     const fromFloor = surfaceFloor(grid, from, fromLevel) / grid.resolution;
     const toFloor = surfaceFloor(grid, to, toLevel) / grid.resolution;
 
-    return this.clearLine(grid, from, to, origin, index, eye, target, fromFloor, toFloor);
+    return this.clearLine(grid, from, to, origin, index, eye, target, fromFloor, toFloor, fromLevel, toLevel);
   }
 
   /**
@@ -101,9 +113,14 @@ export class SceneVisibilityService {
    *
    * Под настилом тело упирается в низ перекрытия: глаза не могут быть выше
    * зазора, иначе луч из-под моста начинался бы внутри самого настила.
+   * На настиле зазор относится к пространству под ним и высоту не режет.
    * `Infinity` и неположительный зазор — потолка нет.
    */
-  private eyeHeight(grid: SceneSurfaceGrid, cell: number, height: number): number {
+  private eyeHeight(grid: SceneSurfaceGrid, cell: number, height: number, underCeiling: boolean): number {
+    if (!underCeiling) {
+      return height;
+    }
+
     const clearance = grid.clearance[cell] / grid.resolution;
     if (!Number.isFinite(clearance) || clearance <= 0) {
       return height;
@@ -143,12 +160,14 @@ export class SceneVisibilityService {
     targetHeight: number,
     fromFloor: number,
     toFloor: number,
+    fromLevel: number,
+    toLevel: number,
   ): boolean {
     const distance = Math.hypot(to[0] - from[0], to[1] - from[1]);
     const step = Math.max(1, grid.cell * SCENE_SURFACE.sightStep);
     const steps = Math.max(1, Math.ceil(distance / step));
-    const start = fromFloor + this.eyeHeight(grid, origin, eye);
-    const finish = toFloor + this.eyeHeight(grid, target, targetHeight);
+    const start = fromFloor + this.eyeHeight(grid, origin, eye, fromLevel === 0);
+    const finish = toFloor + this.eyeHeight(grid, target, targetHeight, toLevel === 0);
 
     // Тонкий настил пересекается у самых концов луча, куда выборка по центрам
     // клеток не попадает. Полоса с конечным верхом — потолок, а не стена:

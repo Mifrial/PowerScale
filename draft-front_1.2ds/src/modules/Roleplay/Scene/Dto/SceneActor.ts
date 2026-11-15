@@ -14,6 +14,8 @@ export interface SceneActor {
   facing: number;
   /** Радиус footprint в единицах сцены. */
   radius: number;
+  /** Рост тела в единицах сцены; от него считаются глаза и цель обзора. */
+  height?: number;
   /** Радиус обзора в единицах сцены; у предпросмотра задаётся отдельно. */
   sightRadius?: number;
   /** Тинт стендалки. */

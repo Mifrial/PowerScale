@@ -12,6 +12,11 @@ import type { SceneVisibility } from '@/modules/Roleplay/Scene/Dto/SceneVisibili
 import { SCENE_OVERLAY } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OVERLAY';
 import { SceneSurfaceService } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { SceneVisibilityService } from '@/modules/Roleplay/Scene/Service/SceneVisibilityService';
+import {
+  sceneBodyHeight,
+  sceneSightEyeIpari,
+  sceneSightTargetIpari,
+} from '@/modules/Roleplay/Scene/Service/SceneSight';
 
 /** Цвет и прозрачность одной заливки. */
 interface OverlayStyle {
@@ -46,8 +51,9 @@ export class SceneOverlayService {
     options: SceneOverlay,
     observer: ScenePoint | null,
     level = 0,
+    height?: number,
   ): SceneOverlayPaint {
-    return this.build(this.grid(board, elements, resolution), options, resolution, observer, level);
+    return this.build(this.grid(board, elements, resolution), options, resolution, observer, level, height);
   }
 
   /** Собирает заливки для включённых оверлеев. */
@@ -57,13 +63,25 @@ export class SceneOverlayService {
     resolution: number,
     observer: ScenePoint | null,
     level = 0,
+    height?: number,
   ): SceneOverlayPaint {
     const costs = options.costs ? this.costBands(grid) : [];
     let fog: SceneOverlayMask | null = null;
     if (options.visibility) {
       const from = observer ?? this.center(grid);
       const radius = options.radius ?? Math.max(1, resolution) * SCENE_OVERLAY.sightIpari;
-      fog = this.hiddenMask(grid, this.visibility.map(grid, from, radius, undefined, undefined, level));
+      const body = height ?? sceneBodyHeight(resolution);
+      fog = this.hiddenMask(
+        grid,
+        this.visibility.map(
+          grid,
+          from,
+          radius,
+          sceneSightEyeIpari(body, resolution),
+          sceneSightTargetIpari(sceneBodyHeight(resolution), resolution),
+          level,
+        ),
+      );
     }
 
     return { costs, fog };

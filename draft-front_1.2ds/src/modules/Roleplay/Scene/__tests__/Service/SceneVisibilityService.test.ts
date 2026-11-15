@@ -141,6 +141,28 @@ describe('SceneVisibilityService', () => {
     expect(service.sees(flat, [320, 560], [320, 80], undefined, undefined, 1, 0)).toBe(true);
   });
 
+  it('пропускает луч под настилом, который выше глаз', () => {
+    const large: SceneBoard = { ...board, boundWidth: 640, boundHeight: 640 };
+    const grid = surfaces.build(
+      large,
+      [
+        element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 640, h: 640 }, { kind: 'grass' }),
+        element(
+          2,
+          'support',
+          { type: 'rect', x: 240, y: 0, w: 160, h: 640 },
+          { kind: 'bridge', elevation: 100, height: 16 },
+        ),
+      ],
+      64,
+    );
+
+    // Глаза на 1.078 ниже низа полосы 1.3125 — луч идёт под путепроводом.
+    expect(service.sees(grid, [80, 320], [560, 320])).toBe(true);
+    // Сквозь доски на настил по-прежнему не видно.
+    expect(service.sees(grid, [80, 320], [320, 320], undefined, undefined, 0, 1)).toBe(false);
+  });
+
   it('под мостом на врезанном русле видно вдоль воды, но не на настил', () => {
     const large: SceneBoard = { ...board, boundWidth: 640, boundHeight: 640 };
     const grid = surfaces.build(

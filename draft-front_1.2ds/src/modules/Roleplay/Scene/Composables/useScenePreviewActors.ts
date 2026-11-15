@@ -18,6 +18,11 @@ import {
   surfaceUnderDeck,
 } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { SceneVisibilityService } from '@/modules/Roleplay/Scene/Service/SceneVisibilityService';
+import {
+  sceneBodyHeight,
+  sceneSightEyeIpari,
+  sceneSightTargetIpari,
+} from '@/modules/Roleplay/Scene/Service/SceneSight';
 
 /** Внешние данные предпросмотра. */
 export interface ScenePreviewActorOptions {
@@ -121,6 +126,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
         y: markerMoved ? point.y : (old?.y ?? point.y),
         facing: old?.facing ?? 0,
         radius: Math.max(1, resolution * SCENE_ACTOR.radiusIpari),
+        height: sceneBodyHeight(resolution),
         tint: role === 'player_start' ? 0x8fb4ff : 0xffb38f,
         label: element.props.label || (role === 'player_start' ? 'Манекен' : 'Токен'),
         selected: element.id === selectedId.value,
@@ -447,6 +453,8 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     const board = options.board();
     const surface = board === null || !options.enabled() ? null : surfaceGrid(board);
     const observerPoint: ScenePoint | null = observer === null ? null : [observer.x, observer.y];
+    const resolution = Math.max(1, options.resolution());
+    const body = sceneBodyHeight(resolution);
     actors.value = actors.value.map((actor) => {
       const under = surface === null ? false : isUnderDeck(surface, actor);
       if (observer === null || observerPoint === null || surface === null || actor.id === observer.id) {
@@ -462,8 +470,8 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
           surface,
           observerPoint,
           [actor.x, actor.y],
-          undefined,
-          undefined,
+          sceneSightEyeIpari(observer.height ?? body, resolution),
+          sceneSightTargetIpari(actor.height ?? body, resolution),
           observer.level ?? 0,
           actor.level ?? 0,
         );
