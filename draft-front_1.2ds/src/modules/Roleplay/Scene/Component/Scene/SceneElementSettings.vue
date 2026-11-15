@@ -183,6 +183,11 @@ const silhouettePointCount = computed(() => {
 /** Смещение зоны непрозрачности от якоря, единицы сцены. */
 const silhouetteOffset = computed<ScenePoint>(() => props.element.props.silhouette?.offset ?? [0, 0]);
 
+/** Зона ещё не отделена от основания: править её отдельно нечего. */
+const silhouetteImplicit = computed(
+  () => props.element.props.silhouette === undefined && props.element.props.footprint !== undefined,
+);
+
 /** Мост и съезд: у них `height` — толщина настила, а не высота объёма. */
 const isDeck = computed(
   () =>
@@ -518,6 +523,11 @@ function outlineFootprint(): void {
 
 function outlineSilhouette(): void {
   emit('outline', 'silhouette');
+}
+
+/** Отделяет зону непрозрачности от основания: копия становится явной. */
+function detachSilhouette(): void {
+  patch({ silhouette: { ...silhouetteShape(), bottom: silhouetteBottom.value } });
 }
 
 function onAsset(publicId: string | null): void {
@@ -937,65 +947,73 @@ function onAssetCleared(publicId: string | null): void {
         @update:model-value="patchFlag('blocksVision', $event)"
       />
       <template v-if="blocksVision">
-        <v-select
-          :model-value="silhouetteKind"
-          :items="FOOTPRINT_KINDS"
-          label="Непрозрачность"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="patchSilhouetteKind"
-        />
-        <SceneDistanceField
-          v-if="silhouetteKind === 'circle'"
-          :model-value="silhouetteRadius"
-          :resolution="props.resolution"
-          label="Радиус силуэта, ипари"
-          hint="Зона, от которой начинается тень; по умолчанию совпадает с основанием."
-          :min="1"
-          :max="100000"
-          @update:model-value="patchSilhouetteRadius"
-        />
-        <div v-else class="scene-element-settings__row">
-          <span class="text-caption">Полигон: {{ silhouettePointCount }} точек</span>
-          <v-btn size="small" variant="tonal" prepend-icon="mdi-vector-polygon" @click="outlineSilhouette">
-            Обвести
+        <div v-if="silhouetteImplicit" class="scene-element-settings__row">
+          <span class="text-caption">Зона совпадает с основанием</span>
+          <v-btn size="small" variant="tonal" prepend-icon="mdi-link-variant-off" @click="detachSilhouette">
+            Отделить
           </v-btn>
         </div>
-        <div class="scene-element-settings__row">
-          <SceneDistanceField
-            :model-value="silhouetteOffset[0]"
-            :resolution="props.resolution"
-            label="Смещение X, ипари"
-            :min="-100000"
-            :max="100000"
-            @update:model-value="(value) => patchSilhouetteOffset(0, value)"
+        <template v-else>
+          <v-select
+            :model-value="silhouetteKind"
+            :items="FOOTPRINT_KINDS"
+            label="Непрозрачность"
+            density="compact"
+            variant="outlined"
+            hide-details
+            @update:model-value="patchSilhouetteKind"
           />
           <SceneDistanceField
-            :model-value="silhouetteOffset[1]"
+            v-if="silhouetteKind === 'circle'"
+            :model-value="silhouetteRadius"
             :resolution="props.resolution"
-            label="Смещение Y, ипари"
-            :min="-100000"
+            label="Радиус силуэта, ипари"
+            hint="Зона, от которой начинается тень."
+            :min="1"
             :max="100000"
-            @update:model-value="(value) => patchSilhouetteOffset(1, value)"
+            @update:model-value="patchSilhouetteRadius"
           />
-        </div>
-        <div v-if="silhouetteKind === 'polygon'" class="scene-element-settings__row">
-          <v-btn
-            variant="tonal"
-            size="small"
-            prepend-icon="mdi-transit-connection-variant"
-            @click="emit('silhouetteSmooth')"
-          >
-            Сгладить
-          </v-btn>
-          <v-btn variant="tonal" size="small" prepend-icon="mdi-vector-square" @click="emit('silhouetteCorner')">
-            Углы
-          </v-btn>
-        </div>
-        <span v-if="silhouetteKind === 'polygon'" class="text-caption">
-          Вершины и ручки зоны — на карте, как у основания.
-        </span>
+          <div v-else class="scene-element-settings__row">
+            <span class="text-caption">Полигон: {{ silhouettePointCount }} точек</span>
+            <v-btn size="small" variant="tonal" prepend-icon="mdi-vector-polygon" @click="outlineSilhouette">
+              Обвести
+            </v-btn>
+          </div>
+          <div class="scene-element-settings__row">
+            <SceneDistanceField
+              :model-value="silhouetteOffset[0]"
+              :resolution="props.resolution"
+              label="Смещение X, ипари"
+              :min="-100000"
+              :max="100000"
+              @update:model-value="(value) => patchSilhouetteOffset(0, value)"
+            />
+            <SceneDistanceField
+              :model-value="silhouetteOffset[1]"
+              :resolution="props.resolution"
+              label="Смещение Y, ипари"
+              :min="-100000"
+              :max="100000"
+              @update:model-value="(value) => patchSilhouetteOffset(1, value)"
+            />
+          </div>
+          <div v-if="silhouetteKind === 'polygon'" class="scene-element-settings__row">
+            <v-btn
+              variant="tonal"
+              size="small"
+              prepend-icon="mdi-transit-connection-variant"
+              @click="emit('silhouetteSmooth')"
+            >
+              Сгладить
+            </v-btn>
+            <v-btn variant="tonal" size="small" prepend-icon="mdi-vector-square" @click="emit('silhouetteCorner')">
+              Углы
+            </v-btn>
+          </div>
+          <span v-if="silhouetteKind === 'polygon'" class="text-caption">
+            Вершины и ручки зоны — на карте, как у основания.
+          </span>
+        </template>
         <SceneDistanceField
           :model-value="silhouetteBottom"
           :resolution="props.resolution"

@@ -531,8 +531,13 @@ function selectedContours(): EditableContour[] {
         contours.push({ elementId: element.id, part: 'footprint', shape: footprint });
       }
 
+      // Неявный силуэт совпадает с основанием: его вершины лежат на вершинах
+      // основания, и перетаскивание попало бы в чужую зону. Правим только
+      // отделённую копию.
       const silhouette =
-        element.props.blocksVision === false ? null : sceneSilhouetteShape(element, props.model.resolution);
+        element.props.blocksVision === false || element.props.silhouette === undefined
+          ? null
+          : sceneSilhouetteShape(element, props.model.resolution);
       if (silhouette !== null) {
         contours.push({ elementId: element.id, part: 'silhouette', shape: silhouette });
       }

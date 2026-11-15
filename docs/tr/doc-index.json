@@ -7895,8 +7895,8 @@
             ],
             "basis": "МОК",
             "date": "2026-11-12",
-            "bytes": 54861,
-            "lines": 610,
+            "bytes": 55063,
+            "lines": 612,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7928,8 +7928,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 32086,
-            "lines": 433,
+            "bytes": 32375,
+            "lines": 435,
             "modules": [
                 "Roleplay/Scene"
             ],

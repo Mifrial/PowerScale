@@ -1584,7 +1584,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
         }
 
         const silhouette =
-          element.props.blocksVision === false ? null : sceneSilhouetteShape(element, this.model.resolution);
+          element.props.blocksVision === false || element.props.silhouette === undefined
+            ? null
+            : sceneSilhouetteShape(element, this.model.resolution);
         if (silhouette !== null) {
           this.drawVertices(layer, silhouette, element.id, 'silhouette');
         }
