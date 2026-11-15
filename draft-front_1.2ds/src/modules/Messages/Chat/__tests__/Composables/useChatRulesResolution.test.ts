@@ -9,6 +9,7 @@ const emptyContext = (overrides: Partial<ChatRulesContext> = {}): ChatRulesConte
   tokenSources: [],
   processAttachments: (attachments) => attachments,
   spaceId: 1,
+  spaceCode: 'actual',
   rulesRevision: 5,
   ...overrides,
 });
@@ -30,6 +31,7 @@ describe('useChatRulesResolution', () => {
     expect(resolution.error.value).toBeNull();
     expect(resolution.inlineContext.value?.tokenLabels.movement).toBe('Движение');
     expect(resolution.inlineContext.value?.spaceId).toBe(1);
+    expect(resolution.inlineContext.value?.spaceCode).toBe('actual');
     expect(resolution.tokenSources.value).toEqual([]);
   });
 

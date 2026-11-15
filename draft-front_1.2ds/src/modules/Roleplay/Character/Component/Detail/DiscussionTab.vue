@@ -11,6 +11,7 @@ const props = defineProps<{
   discussionChatId: number | null;
   /** Ревизия персонажа — правила для чипов/ссылок обсуждения. */
   spaceId: number;
+  spaceCode?: string | null;
   rulesRevision: number;
 }>();
 
@@ -21,7 +22,7 @@ const rulesLoading = ref(false);
 const rulesError = ref<string | null>(null);
 
 const context = computed<ChatRulesContext>(() =>
-  characterChatRulesContextService.build(rules.value, props.spaceId, props.rulesRevision),
+  characterChatRulesContextService.build(rules.value, props.spaceId, props.rulesRevision, props.spaceCode),
 );
 
 const inlineContext = computed(() => chatInlineRendererContext(context.value));

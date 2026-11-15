@@ -147,10 +147,12 @@ export function registerCharacterModule(): void {
         revision.rules,
         detail.character.spaceId,
         detail.character.rulesRevision,
+        detail.character.spaceCode,
       );
       const inlineContext: Record<string, unknown> = {
         tokenLabels: context.tokenLabels,
         spaceId: context.spaceId,
+        spaceCode: context.spaceCode,
         rulesRevision: context.rulesRevision,
       };
 

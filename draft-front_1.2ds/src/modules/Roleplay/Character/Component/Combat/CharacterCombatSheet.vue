@@ -143,6 +143,7 @@ function onSetOccupyHands(itemId: number, occupyHands: number): void {
     v-model:open="ruleSlider.state.open"
     :rule-code="ruleSlider.state.ruleCode"
     :space-id="spaceId"
+    :space-code="version?.spaceCode ?? null"
     :rules-revision="rulesRevision"
     :rules="rules"
     :keywords="keywords"

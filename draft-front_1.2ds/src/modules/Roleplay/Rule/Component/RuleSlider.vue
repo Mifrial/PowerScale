@@ -14,6 +14,10 @@ const props = defineProps<{
   /** Контекст ревизии (пространство + номер ревизии): резолвим правило из её среза, а не каталога. */
   spaceId?: number | null;
   rulesRevision?: number | null;
+  /** Код пространства для перехода на страницу правила. */
+  spaceCode?: string | null;
+  /** Контекст маршрута (`draft` или номер ревизии); по умолчанию — `rulesRevision`. */
+  ctx?: string | number | null;
   /** Готовый срез правил (редактор/карточка персонажа) — без повторной загрузки ревизии. */
   rules?: Rule[];
   keywords?: Keyword[];
@@ -33,6 +37,17 @@ const typeLabel = computed(() =>
 );
 
 const resolvedKeywords = computed(() => props.keywords ?? catalogKeywords.value);
+
+const pageCtx = computed(() => props.ctx ?? props.rulesRevision ?? null);
+
+const pageTo = computed(() => {
+  const rule = ruleData.value;
+  const spaceCode = props.spaceCode;
+  const ctx = pageCtx.value;
+  if (!rule || !spaceCode || ctx == null || ctx === '') return null;
+
+  return `/space/${spaceCode}/${ctx}/rules/${encodeURIComponent(rule.code)}`;
+});
 
 async function loadRule() {
   const id = props.ruleCode;
@@ -84,7 +99,7 @@ watch(
 </script>
 
 <template>
-  <SlidePanel v-model="open" width="640px">
+  <SlidePanel v-model="open" width="640px" :page-to="pageTo" page-label="Открыть страницу правила">
     <div v-if="ruleData" class="pa-6">
       <div class="rule-slider__title">
         <div class="rule-slider__title-main">
@@ -110,7 +125,14 @@ watch(
     <div v-else class="d-flex justify-center pa-8">
       <v-progress-circular indeterminate width="2" size="28" color="primary" />
     </div>
-    <RuleSlider v-model:open="nestedOpen" :rule-code="nestedRuleId" :rules="sliceRules" :keywords="resolvedKeywords" />
+    <RuleSlider
+      v-model:open="nestedOpen"
+      :rule-code="nestedRuleId"
+      :space-code="spaceCode"
+      :ctx="pageCtx"
+      :rules="sliceRules"
+      :keywords="resolvedKeywords"
+    />
   </SlidePanel>
 </template>
 

@@ -23,6 +23,7 @@ export class GameChatRulesContextService {
     mechanics: Mechanic[],
     spaceId?: number | null,
     rulesRevision?: number | null,
+    spaceCode?: string | null,
     rng: DiceRng = Math.random,
   ): ChatRulesContext {
     const tokenLabels: Record<string, string> = {};
@@ -61,6 +62,6 @@ export class GameChatRulesContextService {
       });
     };
 
-    return { tokenLabels, tokenSources, processAttachments, spaceId, rulesRevision };
+    return { tokenLabels, tokenSources, processAttachments, spaceId, spaceCode, rulesRevision };
   }
 }

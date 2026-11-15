@@ -256,6 +256,7 @@ watch(
             v-if="activeTab === 'discussion'"
             :discussion-chat-id="discussionChatId"
             :space-id="spaceId ?? 0"
+            :space-code="version?.spaceCode ?? null"
             :rules-revision="shownVersion.rulesRevision"
           />
         </v-window-item>
@@ -286,6 +287,7 @@ watch(
       v-model:open="ruleSlider.state.open"
       :rule-code="ruleSlider.state.ruleCode"
       :space-id="spaceId"
+      :space-code="version?.spaceCode ?? null"
       :rules-revision="version?.rulesRevision ?? null"
       :rules="rules"
       :keywords="keywords"

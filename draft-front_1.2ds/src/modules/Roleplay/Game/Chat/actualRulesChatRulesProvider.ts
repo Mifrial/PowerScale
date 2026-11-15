@@ -19,6 +19,12 @@ export const actualRulesChatRulesProvider: IChatRulesProvider = {
     const revision = await useSpaceRevision().fetchRevision(space.id, space.revision);
     const mechanics = await getMechanicApi().getMechanics();
 
-    return gameChatRulesContextService.buildChatRulesContext(revision.rules, mechanics, space.id, space.revision);
+    return gameChatRulesContextService.buildChatRulesContext(
+      revision.rules,
+      mechanics,
+      space.id,
+      space.revision,
+      space.code,
+    );
   },
 };

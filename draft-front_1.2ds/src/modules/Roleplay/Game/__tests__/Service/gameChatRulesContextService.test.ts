@@ -55,7 +55,8 @@ const MECHANICS: Mechanic[] = [
 
 describe('buildChatRulesContext', () => {
   it('строит имена правил и источник «Вставить ссылку» из ревизии', async () => {
-    const context = gameChatRulesContextService.buildChatRulesContext(RULES, MECHANICS);
+    const context = gameChatRulesContextService.buildChatRulesContext(RULES, MECHANICS, 1, 4, 'actual');
+    expect(context.spaceCode).toBe('actual');
     expect(context.tokenLabels.roll).toBe('Бросок');
     expect(context.tokenLabels.strength).toBeUndefined();
     expect(context.tokenLabels['check-simple']).toBe('Простая проверка');

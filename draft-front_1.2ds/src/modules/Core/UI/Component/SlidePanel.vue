@@ -1,24 +1,7 @@
 <script setup lang="ts">
 import { watch, onUnmounted } from 'vue';
-
-/** Счётчик вложенных панелей: закрытый слайдер не должен снимать overflow у открытого родителя. */
-let overflowLocks = 0;
-
-function lockOverflow(): void {
-  if (overflowLocks === 0) {
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-  }
-  overflowLocks += 1;
-}
-
-function unlockOverflow(): void {
-  overflowLocks = Math.max(0, overflowLocks - 1);
-  if (overflowLocks === 0) {
-    document.documentElement.style.overflow = '';
-    document.body.style.overflow = '';
-  }
-}
+import type { RouteLocationRaw } from 'vue-router';
+import { useSlidePanelStack } from '@/modules/Core/UI/Composables/useSlidePanelStack';
 
 withDefaults(
   defineProps<{
@@ -26,16 +9,23 @@ withDefaults(
     maxWidth?: string;
     bodyFlex?: boolean;
     closeOnBackdrop?: boolean;
+    /** Страница сущности слайдера: под кнопкой закрытия появляется кнопка перехода. */
+    pageTo?: RouteLocationRaw | null;
+    pageLabel?: string;
   }>(),
   {
     width: '520px',
     bodyFlex: false,
     closeOnBackdrop: true,
+    pageTo: null,
+    pageLabel: 'Открыть страницу',
   },
 );
 
 const open = defineModel<boolean>({ default: false });
+const { registerCloser, closeAllPanels, acquireOverflowLock, releaseOverflowLock } = useSlidePanelStack();
 let holdsOverflowLock = false;
+let unregisterCloser: (() => void) | null = null;
 
 function close() {
   open.value = false;
@@ -47,16 +37,25 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
+function onPageClick(event: MouseEvent, navigate: (event?: MouseEvent) => Promise<unknown>): void {
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+  closeAllPanels();
+  void navigate(event);
+}
+
 function acquireLock(): void {
   if (holdsOverflowLock) return;
-  lockOverflow();
+  acquireOverflowLock();
+  unregisterCloser = registerCloser(close);
   window.addEventListener('keydown', onKeydown);
   holdsOverflowLock = true;
 }
 
 function releaseLock(): void {
   if (!holdsOverflowLock) return;
-  unlockOverflow();
+  releaseOverflowLock();
+  unregisterCloser?.();
+  unregisterCloser = null;
   window.removeEventListener('keydown', onKeydown);
   holdsOverflowLock = false;
 }
@@ -86,8 +85,21 @@ onUnmounted(() => {
           @click="closeOnBackdrop && close()"
         />
         <div class="slide-panel" :style="{ width, maxWidth }">
-          <div class="slide-close-tab" aria-label="Закрыть" @click="close">
-            <v-icon>mdi-close</v-icon>
+          <div class="slide-tabs">
+            <button type="button" class="slide-tab" aria-label="Закрыть" @click="close">
+              <v-icon>mdi-close</v-icon>
+            </button>
+            <router-link v-if="pageTo" v-slot="{ href, navigate }" :to="pageTo" custom>
+              <a
+                class="slide-tab"
+                :href="href"
+                :title="pageLabel"
+                :aria-label="pageLabel"
+                @click="onPageClick($event, navigate)"
+              >
+                <v-icon>mdi-open-in-new</v-icon>
+              </a>
+            </router-link>
           </div>
 
           <div v-if="$slots.header" class="slide-header">
@@ -130,16 +142,24 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-.slide-close-tab {
+.slide-tabs {
   position: absolute;
   top: 10px;
   right: 100%;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.slide-tab {
   width: 36px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  border: 0;
   background:
     linear-gradient(
       to right,
@@ -152,13 +172,21 @@ onUnmounted(() => {
   border-radius: 8px 0 0 8px;
   cursor: pointer;
   color: rgba(var(--v-theme-on-surface), var(--v-text-disabled-opacity));
+  font: inherit;
+  line-height: 1;
+  text-decoration: none;
   transition:
     background-color 0.15s ease,
     color 0.15s ease;
 }
-.slide-close-tab:hover {
+.slide-tab:hover,
+.slide-tab:focus-visible {
   background-color: rgb(var(--v-theme-primaryLight));
   color: rgb(var(--v-theme-primary));
+}
+.slide-tab:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
 }
 
 .slide-header {

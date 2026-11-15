@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useGroupStore } from '@/modules/Core/User/Store/groups';
 import { useUserStore } from '@/modules/Core/User/Store/users';
-import { isAdmin, useCurrentUser } from '@/modules/Core/User/init';
+import { accessService, isAdmin, useCurrentUser } from '@/modules/Core/User/init';
 import type { User } from '@/modules/Core/User/Dto/User';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import UserAvatarField from '@/modules/Core/User/Component/UserAvatarField.vue';
@@ -22,6 +22,14 @@ const userData = ref<User | null>(null);
 const loadError = ref('');
 
 const canViewSensitive = computed(() => props.userId === viewerId.value || isAdmin(currentUser.value));
+
+const pageTo = computed(() => {
+  const id = props.userId;
+  if (id == null) return null;
+  const canViewPage = id === viewerId.value || accessService.hasAnyPermission(currentUser.value, ['user.view']);
+
+  return canViewPage ? `/users/${id}` : null;
+});
 
 const displayName = computed(() => {
   if (!userData.value) return '';
@@ -74,7 +82,7 @@ watch(
 </script>
 
 <template>
-  <SlidePanel v-model="open" width="520px">
+  <SlidePanel v-model="open" width="520px" :page-to="pageTo" page-label="Открыть профиль">
     <template #header>
       <div class="d-flex align-center ga-2 w-100">
         <v-btn icon variant="text" size="small" @click="open = false">
