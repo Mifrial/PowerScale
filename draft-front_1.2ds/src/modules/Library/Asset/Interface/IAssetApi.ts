@@ -7,6 +7,6 @@ import type { AssetQuery } from '@/modules/Library/Asset/Dto/AssetQuery';
 export interface IAssetApi {
   findPage(query: AssetQuery, signal?: AbortSignal): Promise<AssetPage>;
   create(request: AssetCreateRequest, signal?: AbortSignal): Promise<AssetItem>;
-  update(id: number, name: string, signal?: AbortSignal): Promise<AssetItem>;
+  update(id: number, name: string, meta?: Record<string, unknown>, signal?: AbortSignal): Promise<AssetItem>;
   archive(id: number, signal?: AbortSignal): Promise<void>;
 }

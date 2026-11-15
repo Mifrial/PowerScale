@@ -52,6 +52,8 @@ const emit = defineEmits<{
   outline: [target: 'footprint'];
   footprintSmooth: [];
   footprintCorner: [];
+  saveObject: [];
+  applyObject: [];
 }>();
 
 /** Прилагательное для торца по стороне света. */
@@ -706,6 +708,23 @@ function onAssetPreset(item: AssetItem): void {
         @update:model-value="onAsset"
         @select="onAssetPreset"
       />
+      <div class="scene-element-settings__row">
+        <v-btn
+          size="small"
+          variant="tonal"
+          prepend-icon="mdi-cube-outline"
+          :disabled="assetPublicId === null"
+          @click="emit('saveObject')"
+        >
+          Сохранить как объект
+        </v-btn>
+        <v-btn size="small" variant="tonal" prepend-icon="mdi-cube-send" @click="emit('applyObject')">
+          Взять из объекта
+        </v-btn>
+      </div>
+      <span v-if="assetPublicId === null" class="text-caption text-medium-emphasis">
+        Объект сохраняет основание, силуэт и скорость вместе со спрайтом. Без ассета сохранять нечего.
+      </span>
       <v-text-field
         :model-value="currentSpeed"
         type="number"

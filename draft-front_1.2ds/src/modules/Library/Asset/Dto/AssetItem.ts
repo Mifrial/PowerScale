@@ -8,6 +8,8 @@ export interface AssetItem {
   /** Имя загруженного файла: стабильный ключ пресетов потребителя. */
   originalName?: string | null;
   name: string;
+  /** Данные потребителя: у сцены здесь лежит шаблон объекта. */
+  meta?: Record<string, unknown> | null;
   width: number | null;
   height: number | null;
   mime: string | null;

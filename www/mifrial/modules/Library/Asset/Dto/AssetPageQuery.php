@@ -20,6 +20,7 @@ final class AssetPageQuery
      * @param string|null $searchQuery Подстрока имени.
      * @param int $limit Размер страницы.
      * @param int $offset Сдвиг.
+     * @param bool $hasMetaOnly Только записи с данными потребителя.
      *
      * @return void
      */
@@ -30,6 +31,7 @@ final class AssetPageQuery
         private readonly ?string $searchQuery,
         private readonly int $limit,
         private readonly int $offset,
+        private readonly bool $hasMetaOnly = false,
     ) {
     }
 
@@ -91,5 +93,15 @@ final class AssetPageQuery
     public function getOffset(): int
     {
         return $this->offset;
+    }
+
+    /**
+     * Только записи с данными потребителя.
+     *
+     * @return bool Флаг.
+     */
+    public function hasMetaOnly(): bool
+    {
+        return $this->hasMetaOnly;
     }
 }

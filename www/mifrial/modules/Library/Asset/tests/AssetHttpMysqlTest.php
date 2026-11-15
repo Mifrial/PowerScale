@@ -280,6 +280,65 @@ final class AssetHttpMysqlTest extends TestCase
     }
 
     /**
+     * Шаблон в `meta`: запись, фильтр палитры и очистка.
+     *
+     * @return void
+     */
+    public function testMetaTemplateAndFilter(): void
+    {
+        $alice = $this->addUser('alice');
+        $this->setActor($alice);
+        $this->collections()->ensure(self::MODULE, self::COLLECTION, 'Декор');
+
+        $template = ['sceneObject' => ['version' => 1, 'scale' => 320, 'speed' => 0]];
+        $file = $this->addFile($alice);
+        $withMeta = $this->dispatch(
+            'asset.create',
+            $this->createPayload($file, 'personal', 'Дуб', $template),
+        );
+        self::assertTrue($withMeta['success']);
+        self::assertEquals($template, $withMeta['data']['meta']);
+
+        $plain = $this->dispatch(
+            'asset.create',
+            $this->createPayload($this->addFile($alice), 'personal', 'Просто файл'),
+        );
+        self::assertTrue($plain['success']);
+        self::assertNull($plain['data']['meta']);
+
+        $objects = $this->pagePayload('personal');
+        $objects['hasMeta'] = true;
+        $objectPage = $this->dispatch('asset.findPage', $objects);
+        self::assertTrue($objectPage['success']);
+        self::assertSame(1, $objectPage['data']['total']);
+        self::assertSame('Дуб', $objectPage['data']['items'][0]['name']);
+        self::assertEquals($template, $objectPage['data']['items'][0]['meta']);
+
+        $allPage = $this->dispatch('asset.findPage', $this->pagePayload('personal'));
+        self::assertSame(2, $allPage['data']['total']);
+
+        $updated = $this->dispatch('asset.update', [
+            'id' => $withMeta['data']['id'],
+            'name' => 'Дуб',
+            'meta' => ['sceneObject' => ['version' => 2]],
+        ]);
+        self::assertTrue($updated['success']);
+        self::assertEquals(['sceneObject' => ['version' => 2]], $updated['data']['meta']);
+
+        $cleared = $this->dispatch('asset.update', [
+            'id' => $withMeta['data']['id'],
+            'name' => 'Дуб',
+            'meta' => [],
+        ]);
+        self::assertTrue($cleared['success']);
+        self::assertNull($cleared['data']['meta']);
+        self::assertSame(0, $this->dispatch('asset.findPage', $objects)['data']['total']);
+
+        $invalid = $this->createPayload($this->addFile($alice), 'personal', 'Список', [1, 2, 3]);
+        self::assertSame('ASSET_INVALID', $this->dispatch('asset.create', $invalid)['error']['code']);
+    }
+
+    /**
      * Вход страницы.
      *
      * @param string $scope Часть библиотеки.
@@ -303,11 +362,16 @@ final class AssetHttpMysqlTest extends TestCase
      * @param string $filePublicId Внешний id файла.
      * @param string $scope Часть библиотеки.
      * @param string|null $name Подпись.
+     * @param array<int|string, mixed>|null $meta Данные потребителя.
      *
      * @return array<string, mixed> Вход.
      */
-    private function createPayload(string $filePublicId, string $scope, ?string $name = null): array
-    {
+    private function createPayload(
+        string $filePublicId,
+        string $scope,
+        ?string $name = null,
+        ?array $meta = null,
+    ): array {
         $payload = [
             'collectionModule' => self::MODULE,
             'collectionCode' => self::COLLECTION,
@@ -316,6 +380,10 @@ final class AssetHttpMysqlTest extends TestCase
         ];
         if ($name !== null) {
             $payload['name'] = $name;
+        }
+
+        if ($meta !== null) {
+            $payload['meta'] = $meta;
         }
 
         return $payload;

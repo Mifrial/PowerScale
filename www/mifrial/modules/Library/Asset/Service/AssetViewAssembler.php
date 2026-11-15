@@ -35,6 +35,7 @@ final class AssetViewAssembler
             'filePublicId' => $fileRecord?->getPublicId(),
             'originalName' => $fileRecord?->getOriginalName(),
             'name' => $assetRecord->getName(),
+            'meta' => $assetRecord->getMeta(),
             'width' => $fileRecord?->getWidth(),
             'height' => $fileRecord?->getHeight(),
             'mime' => $fileRecord?->getMime(),

@@ -88,6 +88,24 @@ final class AssetValues
     }
 
     /**
+     * Необязательный объект JSON.
+     *
+     * @param array<string, mixed> $fields Строка.
+     * @param string $key Поле.
+     *
+     * @return array<string, mixed>|null Объект или null.
+     */
+    public static function optionalArray(array $fields, string $key): ?array
+    {
+        $value = $fields[$key] ?? null;
+        if (!is_array($value) || $value === [] || array_is_list($value)) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    /**
      * Обязательная дата.
      *
      * @param array<string, mixed> $fields Строка.

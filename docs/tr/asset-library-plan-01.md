@@ -63,6 +63,7 @@
 | `is_shared` | `BoolField` | общая или личная |
 | `owner_id` | `UserReferenceField`, nullable | владелец личной |
 | `name` | `StringField(120)` | подпись в библиотеке |
+| `meta` | `JsonField`, nullable | данные потребителя: шаблон объекта сцены и прочее |
 | `is_archived` | `BoolField` | скрыта из выдачи; файл и ссылки сцен живут |
 | `created_at` | `DateTimeField` | момент добавления |
 
@@ -78,6 +79,9 @@
 - Жёсткого удаления нет: только архив. Дубликаты одного файла в одной
   коллекции в первом срезе не запрещаются — это задача кураторства, не
   целостности.
+- `meta` библиотека не толкует: это объект JSON, который кладёт потребитель.
+  Проверяется форма — объект с ключами-строками, глубина ≤ 4, размер ≤ 8 КБ;
+  пустой объект очищает поле. Значения внутри — забота потребителя.
 
 ## 4. Коллекции потребителей
 
@@ -116,9 +120,9 @@
 
 | Действие | Вход | Результат |
 |---|---|---|
-| `asset.findPage` | `collectionModule`, `collectionCode`, `scope` (`shared`/`personal`), `q`, `limit`, `offset` | `items`, `total` |
-| `asset.create` | `collectionModule`, `collectionCode`, `filePublicId`, `name?`, `scope` | созданный ассет |
-| `asset.update` | `id`, `name` | обновлённый ассет |
+| `asset.findPage` | `collectionModule`, `collectionCode`, `scope` (`shared`/`personal`), `q`, `hasMeta`, `limit`, `offset` | `items`, `total` |
+| `asset.create` | `collectionModule`, `collectionCode`, `filePublicId`, `name?`, `scope`, `meta?` | созданный ассет |
+| `asset.update` | `id`, `name`, `meta?` | обновлённый ассет |
 | `asset.archive` | `id` | пустой успех |
 
 - `scope` обязателен: диалог показывает общую и личную части отдельными
@@ -127,10 +131,14 @@
 - Страница сортируется по `name ASC`, затем `id ASC`; архивные ассеты в
   выдачу не попадают.
 - `q` — подстрока `name`, регистронезависимо средствами SmartTable.
+- `hasMeta: true` оставляет только записи с непустым `meta`: так палитра
+  объектов не листает всю коллекцию. `meta: {}` в `create`/`update`
+  равносилен очистке поля.
 - JSON-вид: `id`, `collectionModule`, `collectionCode`, `collectionTitle`,
-  `filePublicId`, `originalName`, `name`, `width`, `height`, `mime`, `size`,
-  `isShared`, `ownerId`, `isArchived`, `createdAt`. `originalName` — имя
-  загруженного файла: по нему потребитель (Scene) подбирает пресет декора.
+  `filePublicId`, `originalName`, `name`, `meta`, `width`, `height`, `mime`,
+  `size`, `isShared`, `ownerId`, `isArchived`, `createdAt`. `originalName` —
+  имя загруженного файла: по нему потребитель (Scene) подбирает пресет декора.
+  `meta` — данные потребителя, библиотека отдаёт их как есть.
   Если строка файла архивная или пропала, поля файла приходят как `null`;
   запись ассета остаётся видимой.
 - Ошибки: `ASSET_INVALID`, `ASSET_DENIED`, `ASSET_NOT_FOUND`,

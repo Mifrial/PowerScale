@@ -7,4 +7,6 @@ export interface AssetCreateRequest {
   filePublicId: string;
   scope: AssetScope;
   name?: string;
+  /** Данные потребителя; пустой объект равносилен отсутствию. */
+  meta?: Record<string, unknown>;
 }

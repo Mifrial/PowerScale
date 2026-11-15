@@ -23,6 +23,7 @@ final class AssetRecord
      * @param bool $isShared Общая часть.
      * @param int|null $ownerId Владелец личной части.
      * @param string $name Подпись в библиотеке.
+     * @param array<string, mixed>|null $meta Данные потребителя.
      * @param bool $isArchived Архив.
      * @param DateTime $createdAt Момент добавления.
      *
@@ -35,6 +36,7 @@ final class AssetRecord
         private readonly bool $isShared,
         private readonly ?int $ownerId,
         private readonly string $name,
+        private readonly ?array $meta,
         private readonly bool $isArchived,
         private readonly DateTime $createdAt,
     ) {
@@ -58,6 +60,7 @@ final class AssetRecord
             AssetValues::requireBool($fields, 'is_shared'),
             AssetValues::optionalInt($fields, 'owner_id'),
             AssetValues::requireString($fields, 'name'),
+            AssetValues::optionalArray($fields, 'meta'),
             AssetValues::requireBool($fields, 'is_archived'),
             AssetValues::requireDateTime($fields, 'created_at'),
         );
@@ -121,6 +124,16 @@ final class AssetRecord
     public function getName(): string
     {
         return $this->name;
+    }
+
+    /**
+     * Данные потребителя.
+     *
+     * @return array<string, mixed>|null Объект или null.
+     */
+    public function getMeta(): ?array
+    {
+        return $this->meta;
     }
 
     /**

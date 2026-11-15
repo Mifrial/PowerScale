@@ -9,6 +9,7 @@ use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Field\BoolField;
 use Mifrial\Core\SmartTable\Field\DateTimeField;
 use Mifrial\Core\SmartTable\Field\IdField;
+use Mifrial\Core\SmartTable\Field\JsonField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
@@ -52,6 +53,9 @@ final class AssetItemTable extends SmartTableDefinition
             ])),
             new UserReferenceField('owner_id', FieldSettings::fromOptions(['indexed' => true]), 'setNull'),
             new StringField('name', FieldSettings::fromOptions(['required' => true]), 120),
+            // Данные потребителя: шаблон сцены, настройки инструмента и прочее.
+            // Библиотека их не толкует, только хранит и отдаёт обратно.
+            new JsonField('meta', FieldSettings::fromOptions([])),
             new BoolField('is_archived', FieldSettings::fromOptions([
                 'required' => true,
                 'default' => false,

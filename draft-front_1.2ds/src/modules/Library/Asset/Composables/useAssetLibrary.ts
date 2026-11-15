@@ -13,7 +13,7 @@ const PAGE_SIZE = 24;
  * Состояние диалога библиотеки: вкладки, поиск, страницы, загрузка и правки.
  */
 export function useAssetLibrary(options: AssetLibraryOptions) {
-  const scope = ref<AssetScope>('shared');
+  const scope = ref<AssetScope>(options.initialScope ?? 'shared');
   const items = ref<AssetItem[]>([]);
   const total = ref(0);
   const search = ref('');
@@ -139,6 +139,7 @@ export function useAssetLibrary(options: AssetLibraryOptions) {
     };
     const trimmedSearch = search.value.trim();
     if (trimmedSearch !== '') query.q = trimmedSearch;
+    if (options.getHasMeta?.() === true) query.hasMeta = true;
 
     return query;
   }

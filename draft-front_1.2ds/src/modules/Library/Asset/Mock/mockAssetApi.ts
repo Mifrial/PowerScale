@@ -137,6 +137,7 @@ function matches(item: AssetItem, query: AssetQuery): boolean {
   if (item.isShared !== (query.scope === 'shared')) return false;
   if (item.isArchived) return false;
   if (query.scope === 'personal' && item.ownerId !== getCurrentUserId()) return false;
+  if (query.hasMeta === true && (item.meta === undefined || item.meta === null)) return false;
 
   const search = query.q?.trim().toLocaleLowerCase('ru') ?? '';
 
@@ -167,6 +168,7 @@ export const mockAssetApi: IAssetApi = {
       collectionTitle: request.collectionCode === 'terrain' ? 'Текстуры террейна' : 'Декор',
       filePublicId: request.filePublicId,
       name: request.name?.trim() || `Ассет ${id}`,
+      meta: request.meta ?? null,
       width: null,
       height: null,
       mime: 'image/png',
@@ -181,13 +183,13 @@ export const mockAssetApi: IAssetApi = {
     return item;
   },
 
-  async update(id: number, name: string, signal?: AbortSignal): Promise<AssetItem> {
+  async update(id: number, name: string, meta?: Record<string, unknown>, signal?: AbortSignal): Promise<AssetItem> {
     await abortableDelay(80, signal);
     const item = catalog.find((entry) => entry.id === id);
     if (!item) throw new AssetApiError('ASSET_NOT_FOUND', 'Asset was not found');
     if (!canEdit(item)) throw new AssetApiError('ASSET_DENIED', 'Asset access is denied');
 
-    const updated = { ...item, name };
+    const updated = meta === undefined ? { ...item, name } : { ...item, name, meta };
     catalog = catalog.map((entry) => (entry.id === id ? updated : entry));
 
     return updated;

@@ -2343,8 +2343,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-13",
-            "bytes": 17005,
-            "lines": 249,
+            "bytes": 17925,
+            "lines": 257,
             "modules": [
                 "Library/Asset"
             ],
@@ -7861,21 +7861,23 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-15 — срез B6.1 (основание и силуэт в единицах",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-15 — B6.1 (основание и силуэт) и B6.2",
             "layers": [
                 "PHP",
                 "VUE"
             ],
             "basis": null,
             "date": "2026-11-15",
-            "bytes": 6980,
-            "lines": 86,
+            "bytes": 9265,
+            "lines": 112,
             "modules": [
                 "Roleplay/Scene"
             ],
             "linksCount": 1,
             "brokenLinks": [],
-            "backlinks": []
+            "backlinks": [
+                "docs/tr/scene-system.md"
+            ]
         },
         {
             "path": "docs/tr/scene-renderer.md",
@@ -7925,12 +7927,12 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 28202,
-            "lines": 395,
+            "bytes": 29280,
+            "lines": 406,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 6,
+            "linksCount": 7,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",

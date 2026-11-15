@@ -23,8 +23,9 @@ export class AssetApi implements IAssetApi {
     return this.requireData(response, 'Asset create returned no data');
   }
 
-  async update(id: number, name: string, signal?: AbortSignal): Promise<AssetItem> {
-    const response = await this.engine.runAction<AssetItem>('asset.update', { id, name }, signal);
+  async update(id: number, name: string, meta?: Record<string, unknown>, signal?: AbortSignal): Promise<AssetItem> {
+    const payload = meta === undefined ? { id, name } : { id, name, meta };
+    const response = await this.engine.runAction<AssetItem>('asset.update', payload, signal);
 
     return this.requireData(response, 'Asset update returned no data');
   }

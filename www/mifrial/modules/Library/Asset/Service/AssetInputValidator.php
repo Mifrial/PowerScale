@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Library\Asset\Service;
 
+use JsonException;
 use Mifrial\Library\Asset\Exception\AssetInvalidException;
 
 /**
@@ -11,6 +12,16 @@ use Mifrial\Library\Asset\Exception\AssetInvalidException;
  */
 final class AssetInputValidator
 {
+    /**
+     * Предел размера `meta`: объект — данные потребителя, не склад файлов.
+     */
+    private const META_MAX_BYTES = 8192;
+
+    /**
+     * Предел вложенности `meta`.
+     */
+    private const META_MAX_DEPTH = 4;
+
     /**
      * Проверяет ключ коллекции и возвращает нормализованный модуль.
      *
@@ -116,6 +127,81 @@ final class AssetInputValidator
         }
 
         return $normalized;
+    }
+
+    /**
+     * Проверяет данные потребителя и нормализует их.
+     *
+     * Библиотека не толкует `meta`: это объект, который кладёт потребитель.
+     * Проверяется только форма — объект, ключи-строки, разумная глубина и
+     * размер, — чтобы в JSON-колонку не попал мусор. Пустой объект означает
+     * «данных нет» и очищает поле.
+     *
+     * @param array<int|string, mixed> $meta Данные из запроса.
+     *
+     * @return array<string, mixed>|null Объект или null.
+     *
+     * @throws AssetInvalidException Если форма, глубина или размер неверны.
+     */
+    public function normalizeMeta(array $meta): ?array
+    {
+        if ($meta === []) {
+            return null;
+        }
+
+        if (array_is_list($meta)) {
+            throw new AssetInvalidException('Asset meta must be an object');
+        }
+
+        $this->assertMetaNode($meta, 1);
+        try {
+            $encoded = json_encode($meta, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw new AssetInvalidException('Asset meta is not JSON');
+        }
+
+        if (strlen($encoded) > self::META_MAX_BYTES) {
+            throw new AssetInvalidException('Asset meta is too large');
+        }
+
+        return $meta;
+    }
+
+    /**
+     * Рекурсивно проверяет ключи и глубину.
+     *
+     * @param array<int|string, mixed> $node Узел.
+     * @param int $depth Текущая глубина.
+     *
+     * @return void
+     *
+     * @throws AssetInvalidException Если ключ или глубина неверны.
+     */
+    private function assertMetaNode(array $node, int $depth): void
+    {
+        if ($depth > self::META_MAX_DEPTH) {
+            throw new AssetInvalidException('Asset meta is too deep');
+        }
+
+        if (array_is_list($node)) {
+            foreach ($node as $item) {
+                if (is_array($item)) {
+                    $this->assertMetaNode($item, $depth + 1);
+                }
+            }
+
+            return;
+        }
+
+        foreach ($node as $key => $value) {
+            if (!is_string($key)) {
+                throw new AssetInvalidException('Asset meta keys must be strings');
+            }
+
+            if (is_array($value)) {
+                $this->assertMetaNode($value, $depth + 1);
+            }
+        }
     }
 
     /**

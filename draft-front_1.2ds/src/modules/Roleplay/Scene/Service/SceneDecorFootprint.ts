@@ -223,3 +223,42 @@ function rotateHandle(handle: SceneHandle, degrees: number): SceneHandle {
     out: rotatePoint(handle.out, degrees),
   };
 }
+
+/**
+ * Масштабирует форму основания: разрешение поля, шаблон объекта, rescale.
+ *
+ * Точки и ручки локальные и могут быть отрицательными, поэтому округление —
+ * единственная нормализация; ноль и отрицательный радиус недопустимы.
+ */
+export function scaleSceneFootprint(footprint: SceneFootprint, factor: number): SceneFootprint {
+  if (factor === 1) {
+    return footprint;
+  }
+
+  const offset =
+    footprint.offset === undefined
+      ? {}
+      : {
+          offset: [Math.round(footprint.offset[0] * factor), Math.round(footprint.offset[1] * factor)] as ScenePoint,
+        };
+
+  if (footprint.shape === 'circle') {
+    return {
+      shape: 'circle',
+      radius: Math.min(100000, Math.max(1, Math.round(footprint.radius * factor))),
+      ...offset,
+    };
+  }
+
+  const handles = footprint.handles?.map((handle): SceneHandle => ({
+    in: [Math.round(handle.in[0] * factor), Math.round(handle.in[1] * factor)],
+    out: [Math.round(handle.out[0] * factor), Math.round(handle.out[1] * factor)],
+  }));
+
+  return {
+    shape: 'polygon',
+    points: footprint.points.map((point): ScenePoint => [Math.round(point[0] * factor), Math.round(point[1] * factor)]),
+    ...(handles === undefined ? {} : { handles }),
+    ...offset,
+  };
+}

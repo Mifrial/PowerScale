@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Library\Asset\Dto\Action;
 
 use Mifrial\Core\Kernel\Interface\Action\IActionInput;
+use Mifrial\Core\Kernel\Value\Optional\OptionalBool;
 use Mifrial\Core\Kernel\Value\Optional\OptionalString;
 
 /**
@@ -21,6 +22,7 @@ final class FindAssetPageInput implements IActionInput
      * @param OptionalString $q Подстрока имени.
      * @param int $limit Размер страницы.
      * @param int $offset Сдвиг.
+     * @param OptionalBool $hasMeta Только записи с данными потребителя.
      *
      * @return void
      */
@@ -31,6 +33,7 @@ final class FindAssetPageInput implements IActionInput
         public readonly OptionalString $q,
         public readonly int $limit,
         public readonly int $offset,
+        public readonly OptionalBool $hasMeta,
     ) {
     }
 }

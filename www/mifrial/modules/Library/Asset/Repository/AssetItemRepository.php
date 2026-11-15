@@ -41,6 +41,7 @@ final class AssetItemRepository
      * @param bool $isShared Общая часть.
      * @param int|null $ownerId Владелец личной части.
      * @param string $name Подпись.
+     * @param array<string, mixed>|null $meta Данные потребителя.
      *
      * @return int Id.
      *
@@ -52,6 +53,7 @@ final class AssetItemRepository
         bool $isShared,
         ?int $ownerId,
         string $name,
+        ?array $meta = null,
     ): int {
         return $this->errors->insert(
             $this->itemRecords,
@@ -61,6 +63,7 @@ final class AssetItemRepository
                 'is_shared' => $isShared,
                 'owner_id' => $ownerId,
                 'name' => $name,
+                'meta' => $meta,
                 'is_archived' => false,
             ],
             'Asset row is invalid',
@@ -139,6 +142,27 @@ final class AssetItemRepository
     }
 
     /**
+     * Пишет данные потребителя; null очищает.
+     *
+     * @param int $assetId Id.
+     * @param array<string, mixed>|null $meta Объект или null.
+     *
+     * @return void
+     *
+     * @throws AssetNotFoundException Если строки нет.
+     * @throws AssetInvalidException Если поле недопустимо.
+     */
+    public function updateMeta(int $assetId, ?array $meta): void
+    {
+        $this->errors->updateById(
+            $this->itemRecords,
+            $assetId,
+            ['meta' => $meta],
+            'Asset meta is invalid',
+        );
+    }
+
+    /**
      * Ставит архивную отметку.
      *
      * @param int $assetId Id.
@@ -181,6 +205,12 @@ final class AssetItemRepository
         $searchQuery = $pageQuery->getSearchQuery();
         if ($searchQuery !== null) {
             $filter[] = ['%name' => '%' . $searchQuery . '%'];
+        }
+
+        if ($pageQuery->hasMetaOnly()) {
+            // Палитра объектов берёт только записи с шаблоном: файл без meta
+            // ещё не объект, у него нет ни основания, ни силуэта.
+            $filter[] = ['!=meta' => null];
         }
 
         return $filter;

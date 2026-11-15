@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import SceneBoardSettings from '@/modules/Roleplay/Scene/Component/Scene/SceneBoardSettings.vue';
 import SceneBoardTabs from '@/modules/Roleplay/Scene/Component/Scene/SceneBoardTabs.vue';
@@ -9,7 +9,10 @@ import SceneElementSettings from '@/modules/Roleplay/Scene/Component/Scene/Scene
 import SceneLocationSettings from '@/modules/Roleplay/Scene/Component/Scene/SceneLocationSettings.vue';
 import SceneOverlayControls from '@/modules/Roleplay/Scene/Component/Scene/SceneOverlayControls.vue';
 import ScenePreviewActorPanel from '@/modules/Roleplay/Scene/Component/Scene/ScenePreviewActorPanel.vue';
+import SceneObjectSaveDialog from '@/modules/Roleplay/Scene/Component/Scene/SceneObjectSaveDialog.vue';
+import SceneObjectPalette from '@/modules/Roleplay/Scene/Component/Scene/SceneObjectPalette.vue';
 import SceneToolbar from '@/modules/Roleplay/Scene/Component/Scene/SceneToolbar.vue';
+import type { AssetItem } from '@/modules/Library/Asset/Dto/AssetItem';
 import type { SceneConflict } from '@/modules/Roleplay/Scene/Dto/SceneConflict';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
@@ -21,16 +24,27 @@ import type { SceneVertexPart } from '@/modules/Roleplay/Scene/Dto/SceneVertexTa
 import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
 import { SCENE_ELEMENT_KIND_LABELS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ELEMENT_KIND_LABELS';
+import { SCENE_ASSET_COLLECTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ASSET_COLLECTIONS';
 import { SCENE_EMPTY_DETAIL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_EMPTY_DETAIL';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
 import { useSceneDraft } from '@/modules/Roleplay/Scene/Composables/useSceneDraft';
 import { useSceneFullscreen } from '@/modules/Roleplay/Scene/Composables/useSceneFullscreen';
 import { useScenePreviewActors } from '@/modules/Roleplay/Scene/Composables/useScenePreviewActors';
 import { getSceneApi } from '@/modules/Roleplay/Scene/init';
+import { getAssetApi } from '@/modules/Library/Asset/init';
 import { SceneApiError } from '@/modules/Roleplay/Scene/Service/SceneApiError';
 import { SceneDraftMapper } from '@/modules/Roleplay/Scene/Service/SceneDraftMapper';
 import { sceneRampAttachment, type SceneDeckEnd } from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
 import { sceneFootprintLocalPoint } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
+import {
+  sceneObjectMeta,
+  sceneObjectTemplateOf,
+  sceneObjectTemplateProps,
+} from '@/modules/Roleplay/Scene/Service/SceneObjectTemplate';
+
+const AssetLibraryDialog = defineAsyncComponent(
+  () => import('@/modules/Library/Asset/Component/AssetLibraryDialog.vue'),
+);
 
 const route = useRoute();
 const router = useRouter();
@@ -45,6 +59,15 @@ const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 /** Обводка основания выбранного декора: клики собираются в полигон. */
 const outlineTarget = ref<'footprint' | null>(null);
+/** Сохранение декора как объекта библиотеки. */
+const objectSaveOpen = ref(false);
+/** Выбор готового объекта из библиотеки. */
+const objectApplyOpen = ref(false);
+/** Готовые объекты палитры и объект, ждущий клика по карте. */
+const objectList = ref<AssetItem[]>([]);
+const objectListLoading = ref(false);
+const objectListError = ref<string | null>(null);
+const pendingObject = ref<AssetItem | null>(null);
 const conflict = ref<SceneConflict | null>(null);
 const viewport = ref<SceneViewport | null>(null);
 const boardPanelKey = ref(0);
@@ -152,6 +175,15 @@ watch(
   },
 );
 
+watch(
+  () => openPanels.value.includes('objects'),
+  (isOpen) => {
+    if (isOpen && objectList.value.length === 0 && !objectListLoading.value) {
+      void loadObjects();
+    }
+  },
+);
+
 onMounted(load);
 onMounted(() => {
   window.addEventListener('beforeunload', onBeforeUnload);
@@ -238,6 +270,13 @@ function reload(): void {
 }
 
 function onDraw(from: ScenePoint, to: ScenePoint): void {
+  const pending = pendingObject.value;
+  if (pending !== null) {
+    placeObject(pending, from);
+
+    return;
+  }
+
   const definition = toolDefinition.value;
   if (definition === null) return;
   state.createFromDrag(definition, from, to);
@@ -375,6 +414,158 @@ function smoothFootprint(): void {
 function cornerFootprint(): void {
   if (selectedElement.value === null) return;
   state.cornerFootprint(selectedElement.value.id);
+}
+
+/** Шаблон выбранного декора: снимок основания, силуэта и скорости. */
+const objectTemplate = computed(() =>
+  selectedElement.value === null ? null : sceneObjectTemplateOf(selectedElement.value, draft.value.resolution),
+);
+const objectMeta = computed(() => (objectTemplate.value === null ? null : sceneObjectMeta(objectTemplate.value)));
+const objectFileId = computed(() => selectedElement.value?.assetPublicId ?? null);
+const objectSuggestedName = computed(() => {
+  const label = selectedElement.value?.props.label?.trim() ?? '';
+
+  return label === '' ? 'Объект' : label;
+});
+
+/** Открывает диалог сохранения объекта. */
+function startSaveObject(): void {
+  if (selectedElement.value === null) return;
+  if (selectedElement.value.assetPublicId === null) {
+    error.value = 'У декора нет ассета: сначала выберите спрайт';
+
+    return;
+  }
+
+  error.value = null;
+  objectSaveOpen.value = true;
+}
+
+/** Открывает библиотеку готовых объектов. */
+function startApplyObject(): void {
+  if (selectedElement.value === null) return;
+  error.value = null;
+  objectApplyOpen.value = true;
+}
+
+function onObjectSaved(item: AssetItem): void {
+  notice.value = `Объект «${item.name}» сохранён в библиотеку`;
+  void loadObjects();
+}
+
+/**
+ * Готовые объекты коллекции декора.
+ *
+ * Палитра показывает и общие, и личные записи: объект — это шаблон, а не
+ * файл, поэтому делить его по владельцу незачем. Библиотека отдаёт только
+ * записи с `meta`, без шаблона ставить нечего.
+ */
+async function loadObjects(): Promise<void> {
+  objectListLoading.value = true;
+  objectListError.value = null;
+  try {
+    const collection = SCENE_ASSET_COLLECTIONS.decor;
+    const [personal, shared] = await Promise.all([
+      getAssetApi().findPage({
+        collectionModule: collection.module,
+        collectionCode: collection.code,
+        scope: 'personal',
+        hasMeta: true,
+        limit: 100,
+        offset: 0,
+      }),
+      getAssetApi().findPage({
+        collectionModule: collection.module,
+        collectionCode: collection.code,
+        scope: 'shared',
+        hasMeta: true,
+        limit: 100,
+        offset: 0,
+      }),
+    ]);
+    objectList.value = [...personal.items, ...shared.items].sort((left, right) =>
+      left.name.localeCompare(right.name, 'ru'),
+    );
+  } catch (caught) {
+    objectListError.value =
+      caught instanceof SceneApiError ? caught.message : 'Не удалось загрузить объекты библиотеки';
+  } finally {
+    objectListLoading.value = false;
+  }
+}
+
+/** Вооружает постановку выбранным объектом. */
+function pickObject(item: AssetItem): void {
+  if (sceneObjectTemplateProps(item.meta, draft.value.resolution) === null) {
+    error.value = `У ассета «${item.name}» нет шаблона объекта`;
+
+    return;
+  }
+
+  pendingObject.value = item;
+  tool.value = 'decor';
+  error.value = null;
+  notice.value = `Клик по карте поставит «${item.name}»; Esc — отмена`;
+}
+
+/** Снимает вооружённую постановку. */
+function cancelObject(): void {
+  pendingObject.value = null;
+  if (tool.value === 'decor') {
+    tool.value = 'select';
+  }
+
+  notice.value = null;
+}
+
+/** Ставит объект в точку карты: спрайт и физика одним шагом истории. */
+function placeObject(item: AssetItem, point: ScenePoint): void {
+  const definition = SCENE_TOOLS.find((entry) => entry.id === 'decor');
+  const props = sceneObjectTemplateProps(item.meta, draft.value.resolution);
+  const board = activeBoard.value;
+  if (definition === undefined || props === null || board === null) {
+    cancelObject();
+
+    return;
+  }
+
+  const shape: SceneShape = {
+    type: 'point',
+    x: Math.min(board.boundWidth, Math.max(0, Math.round(point[0]))),
+    y: Math.min(board.boundHeight, Math.max(0, Math.round(point[1]))),
+  };
+
+  state.beginEdit();
+  const elementId = state.createElement(definition, shape, props);
+  if (elementId !== null && item.filePublicId !== null) {
+    state.setElementAsset(elementId, item.filePublicId);
+  }
+  state.endEdit();
+
+  pendingObject.value = null;
+  tool.value = 'select';
+  notice.value = `Объект «${item.name}» поставлен`;
+}
+
+/** Применяет шаблон объекта: спрайт и физику одним шагом истории. */
+function onObjectPicked(item: AssetItem): void {
+  const element = selectedElement.value;
+  if (element === null) return;
+  const props = sceneObjectTemplateProps(item.meta, draft.value.resolution);
+  if (props === null) {
+    error.value = `У ассета «${item.name}» нет шаблона объекта`;
+
+    return;
+  }
+
+  state.beginEdit();
+  state.updateElementProps(element.id, { ...element.props, ...props });
+  if (item.filePublicId !== null) {
+    state.setElementAsset(element.id, item.filePublicId);
+  }
+  state.endEdit();
+  error.value = null;
+  notice.value = `Объект «${item.name}» применён`;
 }
 
 /** Начало перетаскивания: один шаг истории. */
@@ -559,6 +750,12 @@ function onKeydown(event: KeyboardEvent): void {
   }
 
   if (event.key === 'Escape') {
+    if (pendingObject.value !== null) {
+      cancelObject();
+
+      return;
+    }
+
     if (outlineTarget.value !== null) {
       outlineTarget.value = null;
       notice.value = null;
@@ -842,6 +1039,22 @@ function messageOf(exception: unknown): string {
             </v-expansion-panel-text>
           </v-expansion-panel>
 
+          <v-expansion-panel value="objects">
+            <v-expansion-panel-title class="text-subtitle-2">Объекты</v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <SceneObjectPalette
+                :objects="objectList"
+                :loading="objectListLoading"
+                :error="objectListError"
+                :pending-id="pendingObject?.id ?? null"
+                :resolution="draft.resolution"
+                @pick="pickObject"
+                @refresh="loadObjects"
+                @cancel="cancelObject"
+              />
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+
           <v-expansion-panel v-if="selectedElement !== null" value="element">
             <v-expansion-panel-title class="text-subtitle-2">
               <span>{{ elementTitle }}</span>
@@ -881,6 +1094,8 @@ function messageOf(exception: unknown): string {
                 @outline="startOutline"
                 @footprint-smooth="smoothFootprint"
                 @footprint-corner="cornerFootprint"
+                @save-object="startSaveObject"
+                @apply-object="startApplyObject"
               />
             </v-expansion-panel-text>
           </v-expansion-panel>
@@ -894,6 +1109,26 @@ function messageOf(exception: unknown): string {
         </v-expansion-panels>
       </aside>
     </div>
+
+    <SceneObjectSaveDialog
+      v-model="objectSaveOpen"
+      :file-public-id="objectFileId"
+      :collection-module="SCENE_ASSET_COLLECTIONS.decor.module"
+      :collection-code="SCENE_ASSET_COLLECTIONS.decor.code"
+      :collection-title="SCENE_ASSET_COLLECTIONS.decor.title"
+      :meta="objectMeta"
+      :suggested-name="objectSuggestedName"
+      @saved="onObjectSaved"
+    />
+
+    <AssetLibraryDialog
+      v-model="objectApplyOpen"
+      has-meta
+      :collection-module="SCENE_ASSET_COLLECTIONS.decor.module"
+      :collection-code="SCENE_ASSET_COLLECTIONS.decor.code"
+      :collection-title="SCENE_ASSET_COLLECTIONS.decor.title"
+      @select="onObjectPicked"
+    />
 
     <SceneConflictDialog
       :conflict="conflict"

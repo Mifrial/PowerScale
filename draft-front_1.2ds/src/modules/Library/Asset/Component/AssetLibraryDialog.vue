@@ -11,6 +11,8 @@ const props = defineProps<{
   collectionModule: string;
   collectionCode: string;
   collectionTitle: string;
+  /** Только записи с данными потребителя: библиотека объектов. */
+  hasMeta?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -38,16 +40,31 @@ const {
 } = useAssetLibrary({
   getCollectionModule: () => props.collectionModule,
   getCollectionCode: () => props.collectionCode,
+  getHasMeta: () => props.hasMeta === true,
+  initialScope: props.hasMeta === true ? 'personal' : 'shared',
 });
 
 const selectedId = ref<number | null>(null);
 const selectedItem = computed(() => items.value.find((item) => item.id === selectedId.value) ?? null);
 const canUpload = computed(() =>
-  scope.value === 'shared' ? currentUser.value?.bypass === true : currentUser.value !== null,
+  props.hasMeta === true
+    ? false
+    : scope.value === 'shared'
+      ? currentUser.value?.bypass === true
+      : currentUser.value !== null,
 );
-const emptyMessage = computed(() =>
-  scope.value === 'shared' ? 'В общей библиотеке пока пусто' : 'Загрузите первый личный ассет',
+const dialogTitle = computed(() =>
+  props.hasMeta === true ? `Объекты · ${props.collectionTitle}` : `Библиотека ассетов · ${props.collectionTitle}`,
 );
+const emptyMessage = computed(() => {
+  if (props.hasMeta === true) {
+    return scope.value === 'shared'
+      ? 'В общей библиотеке пока нет объектов'
+      : 'Сохраните декор как объект — он появится здесь';
+  }
+
+  return scope.value === 'shared' ? 'В общей библиотеке пока пусто' : 'Загрузите первый личный ассет';
+});
 
 watch(
   () => props.modelValue,
@@ -108,7 +125,7 @@ function onRename(item: AssetItem, name: string): void {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <v-card>
-      <v-card-title>Библиотека ассетов · {{ props.collectionTitle }}</v-card-title>
+      <v-card-title>{{ dialogTitle }}</v-card-title>
       <v-tabs :model-value="scope" density="compact" @update:model-value="onScopeChange">
         <v-tab value="shared">Общие</v-tab>
         <v-tab value="personal">Мои</v-tab>

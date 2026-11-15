@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Library\Asset\Dto\Action;
 
 use Mifrial\Core\Kernel\Interface\Action\IActionInput;
+use Mifrial\Core\Kernel\Value\Optional\OptionalArray;
 use Mifrial\Core\Kernel\Value\Optional\OptionalString;
 
 /**
@@ -20,6 +21,7 @@ final class CreateAssetInput implements IActionInput
      * @param string $filePublicId Внешний id файла.
      * @param string $scope Общая или личная часть.
      * @param OptionalString $name Подпись; пусто — из имени файла.
+     * @param OptionalArray $meta Данные потребителя.
      *
      * @return void
      */
@@ -29,6 +31,7 @@ final class CreateAssetInput implements IActionInput
         public readonly string $filePublicId,
         public readonly string $scope,
         public readonly OptionalString $name,
+        public readonly OptionalArray $meta,
     ) {
     }
 }

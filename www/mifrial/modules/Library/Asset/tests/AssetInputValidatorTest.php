@@ -82,6 +82,32 @@ final class AssetInputValidatorTest extends TestCase
     }
 
     /**
+     * Данные потребителя: объект, глубина, размер и очистка.
+     *
+     * @return void
+     */
+    public function testMeta(): void
+    {
+        self::assertNull($this->validator->normalizeMeta([]));
+        self::assertSame(
+            ['sceneObject' => ['version' => 1, 'speed' => 0, 'points' => [[0, 0], [10, 5]]]],
+            $this->validator->normalizeMeta([
+                'sceneObject' => ['version' => 1, 'speed' => 0, 'points' => [[0, 0], [10, 5]]],
+            ]),
+        );
+
+        $this->assertInvalid(fn (): ?array => $this->validator->normalizeMeta([1, 2, 3]));
+        $this->assertInvalid(fn (): ?array => $this->validator->normalizeMeta([0 => ['a' => 1]]));
+        $this->assertInvalid(fn (): ?array => $this->validator->normalizeMeta([
+            'a' => ['b' => ['c' => ['d' => ['e' => 1]]]],
+        ]));
+        $this->assertInvalid(fn (): ?array => $this->validator->normalizeMeta([
+            'payload' => str_repeat('a', 9000),
+        ]));
+        $this->assertInvalid(fn (): ?array => $this->validator->normalizeMeta(['bad' => INF]));
+    }
+
+    /**
      * Ожидает ASSET_INVALID.
      *
      * @param callable $operation Операция.

@@ -70,6 +70,7 @@ final class AssetHttpService
             ),
             $input->limit,
             $input->offset,
+            $input->hasMeta->isPresent() && $input->hasMeta->getValue(),
         ));
         $fileIds = [];
         foreach ($page->getItems() as $assetRecord) {
@@ -113,12 +114,16 @@ final class AssetHttpService
             $fileRecord->getOriginalName(),
         );
         $isShared = $scope === AssetScope::Shared;
+        $meta = $input->meta->isPresent()
+            ? $this->inputValidator->normalizeMeta($input->meta->getValue())
+            : null;
         $assetId = $this->itemRepository->add(
             $collectionRecord->getId(),
             $fileRecord->getId(),
             $isShared,
             $isShared ? null : $actor->getUserId(),
             $name,
+            $meta,
         );
 
         return $this->viewAssembler->assemble(
@@ -144,6 +149,13 @@ final class AssetHttpService
         $this->assertCanEdit($actor, $assetRecord);
         $name = $this->inputValidator->normalizeName($input->name, '');
         $this->itemRepository->updateName($assetRecord->getId(), $name);
+        if ($input->meta->isPresent()) {
+            $this->itemRepository->updateMeta(
+                $assetRecord->getId(),
+                $this->inputValidator->normalizeMeta($input->meta->getValue()),
+            );
+        }
+
         $assetRecord = $this->itemRepository->getById($input->id);
         $collectionRecord = $this->collectionRepository->getById($assetRecord->getCollectionId());
         $fileRecords = $this->fileResolver->findPageFiles([$assetRecord->getFileId()]);

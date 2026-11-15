@@ -11,6 +11,7 @@ import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleS
 import { SCENE_BOARD_DEFAULTS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BOARD_DEFAULTS';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
+import { scaleSceneFootprint } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 
 /**
  * Мутации черновика локации: поля, элементы, временные id.
@@ -690,31 +691,7 @@ export class SceneDraftService {
    * что фигура и высота. Точки локальные и могут быть отрицательными.
    */
   private scaleFootprint(footprint: SceneFootprint, factor: number): SceneFootprint {
-    const offset =
-      footprint.offset === undefined
-        ? {}
-        : {
-            offset: [Math.round(footprint.offset[0] * factor), Math.round(footprint.offset[1] * factor)] as ScenePoint,
-          };
-
-    if (footprint.shape === 'circle') {
-      return { shape: 'circle', radius: this.scaleSize(footprint.radius, factor), ...offset };
-    }
-
-    const handles = footprint.handles?.map((handle) => ({
-      in: [Math.round(handle.in[0] * factor), Math.round(handle.in[1] * factor)] as ScenePoint,
-      out: [Math.round(handle.out[0] * factor), Math.round(handle.out[1] * factor)] as ScenePoint,
-    }));
-
-    return {
-      shape: 'polygon',
-      points: footprint.points.map((point): ScenePoint => [
-        Math.round(point[0] * factor),
-        Math.round(point[1] * factor),
-      ]),
-      ...(handles === undefined ? {} : { handles }),
-      ...offset,
-    };
+    return scaleSceneFootprint(footprint, factor);
   }
 
   /** Масштабирует вертикальную длину; ноль допустим. */
