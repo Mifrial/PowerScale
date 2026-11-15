@@ -45,6 +45,7 @@ async function load(code: string): Promise<void> {
   const current = ++requestId;
   loading.value = true;
   error.value = null;
+  article.value = null;
   try {
     const detail = await getLoreApi().getArticle(props.worldCode, code);
     if (current !== requestId) return;
