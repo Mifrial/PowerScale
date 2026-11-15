@@ -15,7 +15,6 @@
 ## Порты
 
 - `Mifrial\Core\Image\Interface\Service\IImageTransform`
-- `Mifrial\Core\Image\Interface\Service\IImageFrame`
 
 ## Маршруты
 
@@ -26,13 +25,12 @@
 ## Контракты `Interface/`
 
 - `Interface/Container/IImageContainer.php` — Контейнер портов модуля Image.
-- `Interface/Service/IImageFrame.php` — Порт чтения видимой рамки картинки: где кончаются прозрачные поля.
 - `Interface/Service/IImageTransform.php` — Порт построения производной картинки.
 
 ## Зависимости
 
 - **Зависит от:** [Core/Kernel](Kernel.md)
-- **От него зависят:** [Core/File](File.md), [Core/User](User.md)
+- **От него зависят:** [Core/User](User.md)
 
 ## События
 

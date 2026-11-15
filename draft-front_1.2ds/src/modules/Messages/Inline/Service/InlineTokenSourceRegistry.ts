@@ -2,12 +2,19 @@ import type { ITokenSource } from '@/modules/Messages/Inline/Interface/ITokenSou
 
 /**
  * Реестр источников «Вставить ссылку»: глобальные и добавленные донорами.
+ * Один тип — один источник: повторная регистрация (HMR, повторная инициализация) заменяет прежний.
  */
 export class InlineTokenSourceRegistry {
   private readonly sources: ITokenSource[] = [];
 
   register(source: ITokenSource): void {
-    this.sources.push(source);
+    const index = this.sources.findIndex((candidate) => candidate.type === source.type);
+    if (index === -1) {
+      this.sources.push(source);
+
+      return;
+    }
+    this.sources[index] = source;
   }
 
   list(): ITokenSource[] {

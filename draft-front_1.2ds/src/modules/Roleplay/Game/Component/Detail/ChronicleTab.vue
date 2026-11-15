@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useCurrentUser } from '@/modules/Core/User/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { sheetAccessService } from '@/modules/Roleplay/Character/init';
 import { gameTimeLabel } from '@/modules/Roleplay/Game/Utils/gameTime';
 import { CHRONICLE_EPOCH_LABEL } from '@/modules/Roleplay/Game/Constant/Chronicle/CHRONICLE_EPOCH_LABEL';
 import type { Chronicle } from '@/modules/Roleplay/Game/Dto/Chronicle';
@@ -12,37 +10,26 @@ import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/Creat
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameRosterNpc } from '@/modules/Roleplay/Game/Dto/GameRosterNpc';
-import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
-import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
-import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
-import type { User } from '@/modules/Core/User/Dto/User';
-import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import ChronicleEntryDialog from '@/modules/Roleplay/Game/Component/Detail/ChronicleEntryDialog.vue';
 import ChronicleEntryContent from '@/modules/Roleplay/Game/Component/Detail/ChronicleEntryContent.vue';
-import { SheetCard } from '@/modules/Roleplay/Character/init';
+import GameCharacterDetailSlider from '@/modules/Roleplay/Game/Component/Detail/GameCharacterDetailSlider.vue';
+import NpcDetailSlider from '@/modules/Roleplay/Game/Component/Detail/NpcDetailSlider.vue';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
   active: boolean;
   gameId: number;
   canManage: boolean;
-  spaceId: number | null;
-  rulesRevision: number | null;
 }>();
-
-const { currentUser } = useCurrentUser();
 
 const chronicle = ref<Chronicle | null>(null);
 const entries = ref<ChronicleEntry[]>([]);
 const memberships = ref<GameCharacterMembership[]>([]);
 const npcs = ref<GameNpc[]>([]);
-const refCharacterProjection = ref<GameRuntimeEntityProjection | null>(null);
-const refNpc = ref<GameNpc | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const actionError = ref<string | null>(null);
 let loadSequence = 0;
-let referenceSequence = 0;
 
 const formOpen = ref(false);
 const formInitial = ref<ChronicleEntry | null>(null);
@@ -74,55 +61,22 @@ function offsetLabel(entry: ChronicleEntry): string {
   return `${gameTimeLabel(entry.offset)} ${epochLabel()}`;
 }
 
-function npcCtx(user: User, npc: GameNpc): SheetAccessContext {
-  return { user, ownerId: null, characterId: npc.id, gameId: props.gameId };
-}
+// Ссылки летописи открывают полную деталку сущности в слайдере, а не компактную карточку в диалоге.
+const refCharacterId = ref<number | null>(null);
+const refNpcId = ref<number | null>(null);
+const characterSliderOpen = ref(false);
+const npcSliderOpen = ref(false);
 
-const refView = ref<ChronicleRef | null>(null);
-
-const refViewOpen = computed({
-  get: () => refView.value !== null,
-  set: (value: boolean) => {
-    if (!value) refView.value = null;
-  },
-});
-
-/** Данные для просмотра листа по ссылке (SheetCard по видимым секциям). */
-const refCard = computed<{
-  name: string;
-  version: CharacterVersion | null;
-  visibleSections: SheetSection[];
-  shortDescription: string | null;
-  fullDescription: string | null;
-} | null>(() => {
-  const ref = refView.value;
-  const user = currentUser.value;
-  if (!ref || !user) return null;
+function openRef(ref: ChronicleRef): void {
   if (ref.kind === 'character') {
-    const membership = memberships.value.find(
-      (candidate) => candidate.characterId === ref.id && candidate.membershipStatus === 'active',
-    );
-    if (!membership) return null;
+    refCharacterId.value = ref.id;
+    characterSliderOpen.value = true;
 
-    return {
-      name: membership.characterName,
-      version: refCharacterProjection.value?.version ?? null,
-      visibleSections: refCharacterProjection.value?.visibleSections ?? [],
-      shortDescription: refCharacterProjection.value?.summary.shortDescription ?? null,
-      fullDescription: null,
-    };
+    return;
   }
-  const npc = refNpc.value;
-  if (!npc) return null;
-
-  return {
-    name: npc.name,
-    version: npc.version,
-    visibleSections: sheetAccessService.visibleSheetSections(user, npc.visibility, npcCtx(user, npc)),
-    shortDescription: npc.shortDescription,
-    fullDescription: npc.fullDescription,
-  };
-});
+  refNpcId.value = ref.id;
+  npcSliderOpen.value = true;
+}
 
 async function load(): Promise<void> {
   const requestSequence = ++loadSequence;
@@ -166,26 +120,6 @@ function openCreate(): void {
 function openEdit(entry: ChronicleEntry): void {
   formInitial.value = entry;
   formOpen.value = true;
-}
-
-async function openRef(ref: ChronicleRef): Promise<void> {
-  const requestSequence = ++referenceSequence;
-  refView.value = ref;
-  refCharacterProjection.value = null;
-  refNpc.value = null;
-  try {
-    if (ref.kind === 'character') {
-      const projection = await getGameApi().getRuntimeEntity(props.gameId, `character:${ref.id}`, 'full');
-      if (requestSequence !== referenceSequence) return;
-      refCharacterProjection.value = projection;
-    } else {
-      const npc = await getGameApi().getNpc(props.gameId, ref.id);
-      if (requestSequence !== referenceSequence) return;
-      refNpc.value = npc;
-    }
-  } catch {
-    if (requestSequence === referenceSequence) refView.value = null;
-  }
 }
 
 function toLegacyNpc(summary: GameRosterNpc): GameNpc {
@@ -322,26 +256,8 @@ watch(
     </v-card>
   </v-dialog>
 
-  <v-dialog v-model="refViewOpen" max-width="560">
-    <v-card v-if="refCard">
-      <v-card-title class="d-flex align-center">
-        <span class="text-h6">{{ refCard.name }}</span>
-        <v-spacer />
-        <v-btn icon variant="text" size="small" @click="refViewOpen = false"><v-icon>mdi-close</v-icon></v-btn>
-      </v-card-title>
-      <v-card-text>
-        <SheetCard
-          :name="refCard.name"
-          :version="refCard.version"
-          :visible-sections="refCard.visibleSections"
-          :space-id="spaceId"
-          :rules-revision="rulesRevision"
-          :short-description="refCard.shortDescription"
-          :full-description="refCard.fullDescription"
-        />
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+  <GameCharacterDetailSlider v-model:open="characterSliderOpen" :game-id="gameId" :character-id="refCharacterId" />
+  <NpcDetailSlider v-model:open="npcSliderOpen" :game-id="gameId" :npc-id="refNpcId" />
 </template>
 
 <style scoped>

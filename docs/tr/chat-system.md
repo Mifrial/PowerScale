@@ -20,7 +20,7 @@ attachments: ChatAttachment[]
 
 `roll` является видом attachment payload. Старые `dice_result` и `send(text, rolls)` не являются текущим контрактом.
 
-Attachment может быть доменным opaque payload, который обрабатывается зарегистрированным renderer/processor. Inline-чипы используют отдельный renderer context с подписями токенов и ключами среза, без импорта внутренних DTO донора.
+Attachment может быть доменным opaque payload, который обрабатывается зарегистрированным renderer/processor. Inline-чипы используют отдельный renderer context с подписями токенов и ключами среза, без импорта внутренних DTO донора. Чип персонажа/НПС при наличии host-колбэка `openEntity` открывает боевую карточку (игровой чат), иначе — полную деталку в слайдере (заметки, мессенджер, летопись); игра и контекст деталки приходят ключами `gameId`/`entityContext` в inline-context хоста.
 
 `IChatApi` предоставляет `getChats`, `addPrivate`, `addGroup`, `getMessages`, `getTotalMessageCount`, `sendMessage(chatId, content, attachments)`, `updateMessageVisibility`, `sendSystemMessage`, `markChatRead` и `sync(since)`. Inbox `getChats` и SSE `/api/chat/sync` показывают все чаты, где пользователь состоит членом, независимо от `type`; Chat при этом не знает о Game/Character. `private`/`group` остаются host-типами для create. Доменные команды не добавляют поля в базовый `ChatMessage`: результат передаётся через `ChatAttachment`.
 

@@ -246,7 +246,10 @@ module.config плана 1 — хвост); просмотр HTTP+Vue —
 **`Messages/Chat`** (ленивый) — хост сообщений, HTTP actions + SSE
 `/api/chat/sync`; не Roleplay. **`Messages/Inline`** (ленивый) — общие
 инлайн-примитивы и TipTap-редактор без домена. **`Messages/Notes`** — личные
-заметки автора о сущности-хосте, HTTP actions `note.*`, слайдер и `/notes`.
+заметки автора о сущности-хосте, HTTP actions `note.*`, слайдер и `/notes`;
+inline-ссылки на персонажа/НПС открывают деталку в слайдере по контексту
+заметки, сам Notes доменных модулей не знает
+([`notes-plan-05-entity-links.md`](notes-plan-05-entity-links.md)).
 **`Versioning/Space`** (ленивый) — кластер
 identity/экземпляр/space/revision + состав; не Core, не Rule.
 **`Roleplay/Keyword`**, **`Roleplay/Mechanic`**, **`Roleplay/Rule`**,

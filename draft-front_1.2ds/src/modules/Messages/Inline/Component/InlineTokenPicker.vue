@@ -116,7 +116,7 @@ function insertToken(option: ITokenOption) {
 
     <v-card v-if="activeSource" min-width="280" max-width="340" elevation="8" border>
       <v-card-text class="pa-2">
-        <div v-if="sources.length > 1" class="d-flex ga-1 mb-2">
+        <div v-if="sources.length > 1" class="d-flex ga-1 mb-2 flex-wrap">
           <v-chip
             v-for="(src, si) in sources"
             :key="src.type"

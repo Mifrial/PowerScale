@@ -33,16 +33,16 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 356,
-        "plans": 235,
-        "brokenLinks": 4,
+        "documents": 352,
+        "plans": 231,
+        "brokenLinks": 3,
         "byZone": {
             "old": 1,
             "promts": 2,
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 259,
+            "tr": 255,
             "tz": 2
         },
         "byZoneState": {
@@ -70,13 +70,13 @@
             },
             "tr": {
                 "нет": 26,
-                "СДЕЛАНО": 155,
+                "СДЕЛАНО": 150,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 35,
                 "ПЛАН": 10,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
-                "В РАБОТЕ": 20
+                "В РАБОТЕ": 21
             },
             "tz": {
                 "нет": 1,
@@ -86,12 +86,12 @@
         "byState": {
             "СНИМОК": 65,
             "нет": 57,
-            "СДЕЛАНО": 157,
+            "СДЕЛАНО": 152,
             "ПЛАН": 13,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 35,
             "ОТМЕНЁН": 1,
-            "В РАБОТЕ": 20
+            "В РАБОТЕ": 21
         }
     },
     "modules": {
@@ -201,12 +201,13 @@
             }
         },
         "Messages/Notes": {
-            "docs": 5,
+            "docs": 6,
             "state": {
-                "СДЕЛАНО": 5
+                "СДЕЛАНО": 4,
+                "В РАБОТЕ": 2
             },
             "layer": {
-                "VUE": 4,
+                "VUE": 5,
                 "PHP": 3,
                 "МОК": 2
             }
@@ -301,15 +302,14 @@
             }
         },
         "Roleplay/Scene": {
-            "docs": 7,
+            "docs": 3,
             "state": {
-                "В РАБОТЕ": 4,
-                "СДЕЛАНО": 3
+                "В РАБОТЕ": 3
             },
             "layer": {
-                "PHP": 6,
-                "VUE": 7,
-                "МОК": 4
+                "PHP": 3,
+                "VUE": 3,
+                "МОК": 3
             }
         },
         "Versioning/Space": {
@@ -322,21 +322,20 @@
             }
         },
         "—": {
-            "docs": 136,
+            "docs": 135,
             "state": {
                 "СНИМОК": 58,
                 "нет": 46,
-                "СДЕЛАНО": 11,
+                "СДЕЛАНО": 10,
                 "ПЛАН": 6,
                 "ОТЛОЖЕН": 5,
                 "В РАБОТЕ": 4,
                 "ЧАСТИЧНО": 6
             },
             "layer": {
-                "PHP": 8,
+                "PHP": 7,
                 "НИГДЕ": 5,
-                "VUE": 13,
-                "МОК": 1
+                "VUE": 12
             }
         }
     },
@@ -2143,10 +2142,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 21618,
-            "lines": 172,
+            "bytes": 21841,
+            "lines": 173,
             "modules": [],
-            "linksCount": 130,
+            "linksCount": 131,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/prompts/campaign.md",
@@ -2233,8 +2232,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 33015,
-            "lines": 294,
+            "bytes": 32289,
+            "lines": 293,
             "modules": [],
             "linksCount": 36,
             "brokenLinks": [],
@@ -2314,33 +2313,6 @@
                 "docs/tr/versioning-plan-01.md",
                 "docs/tr/versioning-roadmap.md",
                 "docs/tr/vue-rule-split-plan-01.md"
-            ]
-        },
-        {
-            "path": "docs/tr/asset-library-plan-01.md",
-            "title": "План Asset Library 1 — библиотека ассетов",
-            "zone": "tr",
-            "kind": "plan",
-            "state": "СДЕЛАНО",
-            "stateSource": "token",
-            "statusRaw": "~СДЕЛАНО~, 2026-11-13 — PHP, Vue и mock готовы; полигон",
-            "layers": [
-                "PHP",
-                "VUE",
-                "МОК"
-            ],
-            "basis": "PHP",
-            "date": "2026-11-13",
-            "bytes": 16831,
-            "lines": 247,
-            "modules": [],
-            "linksCount": 4,
-            "brokenLinks": [],
-            "backlinks": [
-                "docs/tr/architecture.md",
-                "docs/tr/scene-plan-01.md",
-                "docs/tr/scene-plan-02-battleground.md",
-                "docs/tr/scene-system.md"
             ]
         },
         {
@@ -2533,7 +2505,6 @@
                 "docs/tr/game-roadmap.md",
                 "docs/tr/game-system.md",
                 "docs/tr/scene-plan-01.md",
-                "docs/tr/scene-plan-03-decor-occlusion.md",
                 "docs/tr/scene-renderer.md",
                 "docs/tr/scene-system.md",
                 "docs/tr/spatial-roadmap.md",
@@ -2977,7 +2948,7 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 27011,
+            "bytes": 27441,
             "lines": 229,
             "modules": [
                 "Roleplay/Character"
@@ -3251,7 +3222,7 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 12278,
+            "bytes": 12692,
             "lines": 126,
             "modules": [
                 "Messages/Chat"
@@ -3487,10 +3458,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 31663,
-            "lines": 146,
+            "bytes": 29401,
+            "lines": 144,
             "modules": [],
-            "linksCount": 18,
+            "linksCount": 16,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -3549,7 +3520,6 @@
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/architecture.md",
-                "docs/tr/asset-library-plan-01.md",
                 "docs/tr/data-model.md",
                 "docs/tr/image-plan-01.md",
                 "docs/tr/image-plan-02-avatar-crop.md"
@@ -6218,26 +6188,52 @@
             ]
         },
         {
+            "path": "docs/tr/notes-plan-05-entity-links.md",
+            "title": "План 05 — inline-ссылки персонажа/НПС в Messages/Notes",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~ — 2026-11-15",
+            "layers": [
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-15",
+            "bytes": 22769,
+            "lines": 326,
+            "modules": [
+                "Messages/Notes"
+            ],
+            "linksCount": 0,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/architecture.md",
+                "docs/tr/notes-roadmap.md"
+            ]
+        },
+        {
             "path": "docs/tr/notes-roadmap.md",
             "title": "Нарезка Messages/Notes",
             "zone": "tr",
             "kind": "plan",
-            "state": "СДЕЛАНО",
+            "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~СДЕЛАНО~ — 2026-11-08. Шаги 0–3 сделаны: `Messages/Inline`,",
+            "statusRaw": "~В РАБОТЕ~ — 2026-11-15. Шаги 0–4 сделаны: `Messages/Inline`,",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "PHP",
-            "date": "2026-11-08",
-            "bytes": 14570,
-            "lines": 208,
+            "date": "2026-11-15",
+            "bytes": 15329,
+            "lines": 215,
             "modules": [
                 "Messages/Notes"
             ],
-            "linksCount": 8,
+            "linksCount": 9,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -7657,134 +7653,27 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-12 — M1–M3 готовы; M4.1 (единицы, сетка, раскладка), M4.2 (геометрия и террейн), M4.3 (компактные значения, превью, полигон) и M4.4 (лента, Безье, панели, история) сделаны. T2.1–T2.6 (материалы, кромка, вода, декор, превью, пресеты, CC0, поле глубины, течение по руслу, пена, трава и Y-сортировка) сделаны, T2.7 (трава-ковёр и акторы), T2.8 (полноэкранный предпросмотр) и T2.9 (мосты) в работе; следующий шаг — T1.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-11 — M1–M3 готовы; M4.1 (единицы, сетка, раскладка), M4.2 (геометрия и террейн), M4.3 (компактные значения, превью, полигон) и M4.4 (лента, Безье, панели, история) сделаны. T2.1–T2.5 (материалы, кромка, вода, декор, превью, пресеты, CC0, поле глубины, течение по руслу и пена) сделаны; следующий шаг — T1.",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "PHP",
-            "date": "2026-11-12",
-            "bytes": 34406,
-            "lines": 482,
+            "date": "2026-11-11",
+            "bytes": 27838,
+            "lines": 406,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 11,
+            "linksCount": 8,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
-                "docs/tr/asset-library-plan-01.md",
-                "docs/tr/decisions.md",
                 "docs/tr/scene-plan-01.md",
-                "docs/tr/scene-plan-02-water-shaders.md",
                 "docs/tr/scene-renderer.md",
                 "docs/tr/scene-system.md",
                 "docs/tr/spatial-roadmap.md"
-            ]
-        },
-        {
-            "path": "docs/tr/scene-plan-02-battleground.md",
-            "title": "План: минимальная карта и тактический предпросмотр",
-            "zone": "tr",
-            "kind": "plan",
-            "state": "СДЕЛАНО",
-            "stateSource": "token",
-            "statusRaw": "~СДЕЛАНО~, 2026-11-13.",
-            "layers": [
-                "VUE"
-            ],
-            "basis": "МОК",
-            "date": "2026-11-13",
-            "bytes": 12315,
-            "lines": 157,
-            "modules": [
-                "Roleplay/Scene"
-            ],
-            "linksCount": 3,
-            "brokenLinks": [],
-            "backlinks": [
-                "docs/tr/asset-library-plan-01.md",
-                "docs/tr/scene-plan-01.md",
-                "docs/tr/scene-plan-03-decor-occlusion.md"
-            ]
-        },
-        {
-            "path": "docs/tr/scene-plan-02-water-shaders.md",
-            "title": "План Scene 02 — вода на шейдерах",
-            "zone": "tr",
-            "kind": "plan",
-            "state": "В РАБОТЕ",
-            "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-12 — река и стоячая вода разведены на два",
-            "layers": [
-                "PHP",
-                "VUE",
-                "МОК"
-            ],
-            "basis": null,
-            "date": "2026-11-12",
-            "bytes": 26860,
-            "lines": 328,
-            "modules": [
-                "Roleplay/Scene"
-            ],
-            "linksCount": 3,
-            "brokenLinks": [],
-            "backlinks": [
-                "docs/tr/decisions.md",
-                "docs/tr/scene-plan-01.md",
-                "docs/tr/scene-renderer.md"
-            ]
-        },
-        {
-            "path": "docs/tr/scene-plan-03-decor-occlusion.md",
-            "title": "План: коллизия декора и высотный обзор",
-            "zone": "tr",
-            "kind": "plan",
-            "state": "СДЕЛАНО",
-            "stateSource": "token",
-            "statusRaw": "~СДЕЛАНО~, 2026-11-13.",
-            "layers": [
-                "PHP",
-                "VUE"
-            ],
-            "basis": "PHP",
-            "date": "2026-11-13",
-            "bytes": 5335,
-            "lines": 85,
-            "modules": [
-                "Roleplay/Scene"
-            ],
-            "linksCount": 2,
-            "brokenLinks": [],
-            "backlinks": [
-                "docs/tr/scene-plan-02-battleground.md"
-            ]
-        },
-        {
-            "path": "docs/tr/scene-plan-05-bridge-deck.md",
-            "title": "Настилы, мосты и съезды",
-            "zone": "tr",
-            "kind": "plan",
-            "state": "СДЕЛАНО",
-            "stateSource": "token",
-            "statusRaw": "~СДЕЛАНО~, 2026-11-15 — срезы A, B, B3–B6 и B7 (LOS с потолком)",
-            "layers": [
-                "PHP",
-                "VUE"
-            ],
-            "basis": null,
-            "date": "2026-11-15",
-            "bytes": 25047,
-            "lines": 272,
-            "modules": [
-                "Roleplay/Scene"
-            ],
-            "linksCount": 0,
-            "brokenLinks": [],
-            "backlinks": [
-                "docs/tr/scene-renderer.md"
             ]
         },
         {
@@ -7794,28 +7683,26 @@
             "kind": "canon",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-12 — просмотр и редактор на PixiJS готовы; материалы террейна, кромка, рваные границы, вода, трава и декор-спрайты сделаны, акторы — в работе; инстансинг, LOD и fog — в плане.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-11 — просмотр и редактор на PixiJS готовы; материалы террейна, кромка, вода, декор-спрайты и превью сделаны; инстансинг, LOD и fog — в плане.",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "МОК",
-            "date": "2026-11-12",
-            "bytes": 55315,
-            "lines": 614,
+            "date": "2026-11-11",
+            "bytes": 28419,
+            "lines": 365,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 6,
+            "linksCount": 4,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
                 "docs/tr/battleground-system.md",
                 "docs/tr/decisions.md",
                 "docs/tr/scene-plan-01.md",
-                "docs/tr/scene-plan-02-battleground.md",
-                "docs/tr/scene-plan-02-water-shaders.md",
                 "docs/tr/scene-system.md",
                 "docs/tr/spatial-roadmap.md"
             ]
@@ -7835,22 +7722,18 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 33679,
-            "lines": 446,
+            "bytes": 22184,
+            "lines": 338,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 7,
-            "brokenLinks": [
-                "scene-plan-06-objects.md"
-            ],
+            "linksCount": 5,
+            "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
-                "docs/tr/asset-library-plan-01.md",
                 "docs/tr/battleground-system.md",
                 "docs/tr/decisions.md",
                 "docs/tr/scene-plan-01.md",
-                "docs/tr/scene-plan-02-water-shaders.md",
                 "docs/tr/scene-renderer.md",
                 "docs/tr/spatial-roadmap.md"
             ]

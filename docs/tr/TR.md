@@ -78,6 +78,7 @@
 - [План Notes 2: хранение и HTTP](notes-plan-02-storage-http.md) — схема `note`, `INotes`, 8 действий `note.*`, MySQL/HTTP-тесты.
 - [План Notes 3: Vue](notes-plan-03-vue.md) — API/mock, `NotesWorkspace`, `NotesSlider`, `/notes`, реестр хостов.
 - [План Notes 4: Character и Game](notes-plan-04-character.md) — `owner_notes`/`personalNotes` сняты, слайдер на страницах хостов.
+- [План Notes 5: inline-ссылки](notes-plan-05-entity-links.md) — персонаж/НПС в заметке открывает полную деталку в слайдере; Notes не знает домена.
 - [План Cache 1: драйвер](cache-plan-01.md) — `Core/Cache`, `ICacheStore`; TTL ≤ 30 суток; ST и Versioning — политики.
 - [Нарезка Versioning](versioning-roadmap.md) — `Versioning/Space`: кластер; хвост часов в Rule 1.
 - [План Versioning 1: кластер и фасад](versioning-plan-01.md) — сделано; `vt_note`; TTL среза 30 суток.

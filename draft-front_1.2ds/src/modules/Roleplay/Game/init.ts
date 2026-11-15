@@ -38,7 +38,7 @@ import { inGameSheetSource } from '@/modules/Roleplay/Game/Sheet/inGameSheetSour
 import { registerCharacterCardExtension, registerInGameSheetSource } from '@/modules/Roleplay/Character/init';
 import { registerNoteHost } from '@/modules/Messages/Notes/init';
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
-import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
+import { gameNoteContextService } from '@/modules/Roleplay/Game/Service/Instance/gameNoteContextService';
 
 // Компоненты регистрируются асинхронно (defineAsyncComponent): init.ts не тянет .vue/CSS
 // при импорте в node-тестах (routes → store → init) и код-сплитится по месту использования.
@@ -160,21 +160,15 @@ export function registerGameModule(): void {
     resolveEditorContext: async (id) => {
       const detail = await getGameApi().getGame(id);
       const revision = await useSpaceRevision().fetchRevision(detail.game.spaceId, detail.game.rulesRevision);
-      const context = gameChatRulesContextService.buildChatRulesContext(
-        revision.rules,
-        [],
-        detail.game.spaceId,
-        detail.game.rulesRevision,
-        detail.game.spaceCode,
-      );
-      const inlineContext: Record<string, unknown> = {
-        tokenLabels: context.tokenLabels,
-        spaceId: context.spaceId,
-        spaceCode: context.spaceCode,
-        rulesRevision: context.rulesRevision,
-      };
 
-      return { inlineContext, tokenSources: context.tokenSources };
+      return gameNoteContextService.build({
+        rules: revision.rules,
+        mechanics: [],
+        spaceId: detail.game.spaceId,
+        spaceCode: detail.game.spaceCode,
+        rulesRevision: detail.game.rulesRevision,
+        gameId: detail.game.id,
+      });
     },
   });
 }
@@ -203,6 +197,7 @@ export { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/
 export { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 export { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 export { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
+export { gameNoteContextService } from '@/modules/Roleplay/Game/Service/Instance/gameNoteContextService';
 export { rollService, simpleCheckRollService };
 export { movementStateService } from '@/modules/Roleplay/Game/Service/Instance/movementStateService';
 export { actionOperationResolutionService } from '@/modules/Roleplay/Game/Service/Instance/actionOperationResolutionService';

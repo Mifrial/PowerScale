@@ -297,7 +297,7 @@
             "namespace": "Mifrial\\Core\\File",
             "container": "Mifrial\\Core\\File\\Container\\FileContainer",
             "locator": "Mifrial\\Core\\File\\Interface\\Container\\IFileContainer",
-            "setup": "Closure(IServiceLocator)",
+            "setup": "Mifrial\\Core\\File\\Setup\\FileModuleSetup",
             "requestBind": null,
             "ports": [
                 "Mifrial\\Core\\File\\Interface\\Service\\IFiles",
@@ -343,14 +343,12 @@
             ],
             "readme": true,
             "dependsOn": [
-                "Core/Image",
                 "Core/Kernel",
                 "Core/SmartTable",
                 "Core/User"
             ],
             "dependedOnBy": [
                 "Core/User",
-                "Library/Asset",
                 "Roleplay/Map",
                 "Roleplay/Scene"
             ],
@@ -376,8 +374,7 @@
             "setup": null,
             "requestBind": null,
             "ports": [
-                "Mifrial\\Core\\Image\\Interface\\Service\\IImageTransform",
-                "Mifrial\\Core\\Image\\Interface\\Service\\IImageFrame"
+                "Mifrial\\Core\\Image\\Interface\\Service\\IImageTransform"
             ],
             "routes": [],
             "events": [],
@@ -386,11 +383,6 @@
                     "name": "IImageContainer",
                     "path": "Interface/Container/IImageContainer.php",
                     "summary": "Контейнер портов модуля Image."
-                },
-                {
-                    "name": "IImageFrame",
-                    "path": "Interface/Service/IImageFrame.php",
-                    "summary": "Порт чтения видимой рамки картинки: где кончаются прозрачные поля."
                 },
                 {
                     "name": "IImageTransform",
@@ -403,7 +395,6 @@
                 "Core/Kernel"
             ],
             "dependedOnBy": [
-                "Core/File",
                 "Core/User"
             ],
             "plans": []
@@ -526,7 +517,6 @@
                 "Core/Mail",
                 "Core/SmartTable",
                 "Core/User",
-                "Library/Asset",
                 "Messages/Chat",
                 "Messages/Notes",
                 "Roleplay/Character",
@@ -778,7 +768,6 @@
                 "Core/Logger",
                 "Core/Mail",
                 "Core/User",
-                "Library/Asset",
                 "Messages/Chat",
                 "Messages/Notes",
                 "Roleplay/Character",
@@ -1113,7 +1102,6 @@
                 "Core/Auth",
                 "Core/File",
                 "Core/Logger",
-                "Library/Asset",
                 "Messages/Chat",
                 "Messages/Notes",
                 "Roleplay/Character",
@@ -1203,80 +1191,6 @@
                     "kind": "canon",
                     "state": null,
                     "date": "2026-09-03",
-                    "hasStatus": true
-                }
-            ]
-        },
-        {
-            "key": "Library/Asset",
-            "group": "Library",
-            "name": "Asset",
-            "path": "modules/Library/Asset",
-            "namespace": "Mifrial\\Library\\Asset",
-            "container": "Mifrial\\Library\\Asset\\Container\\AssetContainer",
-            "locator": "Mifrial\\Library\\Asset\\Interface\\Container\\IAssetContainer",
-            "setup": "Mifrial\\Library\\Asset\\Setup\\AssetModuleSetup",
-            "requestBind": null,
-            "ports": [
-                "Mifrial\\Library\\Asset\\Interface\\Service\\IAssetCollections",
-                "Mifrial\\Library\\Asset\\Service\\AssetHttpService",
-                "Mifrial\\Library\\Asset\\Action\\FindAssetPageAction",
-                "Mifrial\\Library\\Asset\\Action\\CreateAssetAction",
-                "Mifrial\\Library\\Asset\\Action\\UpdateAssetAction",
-                "Mifrial\\Library\\Asset\\Action\\ArchiveAssetAction"
-            ],
-            "routes": [
-                {
-                    "action": "asset.findPage",
-                    "handler": "Mifrial\\Library\\Asset\\Action\\FindAssetPageAction",
-                    "csrf": true
-                },
-                {
-                    "action": "asset.create",
-                    "handler": "Mifrial\\Library\\Asset\\Action\\CreateAssetAction",
-                    "csrf": true
-                },
-                {
-                    "action": "asset.update",
-                    "handler": "Mifrial\\Library\\Asset\\Action\\UpdateAssetAction",
-                    "csrf": true
-                },
-                {
-                    "action": "asset.archive",
-                    "handler": "Mifrial\\Library\\Asset\\Action\\ArchiveAssetAction",
-                    "csrf": true
-                }
-            ],
-            "events": [],
-            "contracts": [
-                {
-                    "name": "IAssetContainer",
-                    "path": "Interface/Container/IAssetContainer.php",
-                    "summary": "Публичный контейнер модуля Library/Asset."
-                },
-                {
-                    "name": "IAssetCollections",
-                    "path": "Interface/Service/IAssetCollections.php",
-                    "summary": "Публичный порт коллекций для модулей-потребителей."
-                }
-            ],
-            "readme": false,
-            "dependsOn": [
-                "Core/File",
-                "Core/Kernel",
-                "Core/SmartTable",
-                "Core/User"
-            ],
-            "dependedOnBy": [
-                "Roleplay/Scene"
-            ],
-            "plans": [
-                {
-                    "path": "docs/tr/asset-library-plan-01.md",
-                    "title": "План Asset Library 1 — библиотека ассетов",
-                    "kind": "plan",
-                    "state": "СДЕЛАНО",
-                    "date": "2026-11-13",
                     "hasStatus": true
                 }
             ]
@@ -1534,6 +1448,22 @@
             "dependedOnBy": [],
             "plans": [
                 {
+                    "path": "docs/tr/notes-plan-05-entity-links.md",
+                    "title": "План 05 — inline-ссылки персонажа/НПС в Messages/Notes",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-15",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/notes-roadmap.md",
+                    "title": "Нарезка Messages/Notes",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-15",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/notes-plan-01-inline-extract.md",
                     "title": "План 01 — вынос Messages/Inline из Chat",
                     "kind": "plan",
@@ -1560,14 +1490,6 @@
                 {
                     "path": "docs/tr/notes-plan-04-character.md",
                     "title": "План 04 — Character: удаление owner_notes и слайдер заметок",
-                    "kind": "plan",
-                    "state": "СДЕЛАНО",
-                    "date": "2026-11-08",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/notes-roadmap.md",
-                    "title": "Нарезка Messages/Notes",
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-11-08",
@@ -1883,6 +1805,9 @@
                 "Mifrial\\Roleplay\\Game\\Action\\AbortProcessGameAction",
                 "Mifrial\\Roleplay\\Game\\Action\\RunGameActionAction",
                 "Mifrial\\Roleplay\\Game\\Action\\CastGameSpellAction",
+                "Mifrial\\Roleplay\\Game\\Action\\SustainGameSpellAction",
+                "Mifrial\\Roleplay\\Game\\Action\\DropGameSpellAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameActiveSpellsAction",
                 "Mifrial\\Roleplay\\Game\\Action\\ResolveGameStrikeWindowAction",
                 "Mifrial\\Roleplay\\Game\\Action\\StartGameBattleAction",
                 "Mifrial\\Roleplay\\Game\\Action\\SetGameBattleRosterAction",
@@ -2232,6 +2157,21 @@
                     "action": "game.castSpell",
                     "handler": "Mifrial\\Roleplay\\Game\\Action\\CastGameSpellAction",
                     "csrf": true
+                },
+                {
+                    "action": "game.sustainSpell",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\SustainGameSpellAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.dropSpell",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\DropGameSpellAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.getActiveSpells",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameActiveSpellsAction",
+                    "csrf": false
                 },
                 {
                     "action": "game.resolveStrikeWindow",
@@ -3263,6 +3203,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/spell-real-plan-10-crystal.md",
+                    "title": "План M10 — кристалл, мана и записи",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-14",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/rule-content-plan-02-concentration.md",
                     "title": "C2 — план реализации концентрации",
                     "kind": "plan",
@@ -3527,6 +3475,46 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/spell-real-plan-04-saturation.md",
+                    "title": "План M4 — насыщение и остаток РУ",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-05-magic-deviation.md",
+                    "title": "План M5 — магическое отклонение",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-06-active-spells.md",
+                    "title": "План M6 — активные заклинания",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-11",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-08-charges.md",
+                    "title": "План M8 — заряды и Генератор",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-14",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-09-core.md",
+                    "title": "План M9 — ядро и мощь источника",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-14",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/rule-content-queue.md",
                     "title": "Очередь правил: runtime и зависимости",
                     "kind": "canon",
@@ -3713,7 +3701,7 @@
             "namespace": "Mifrial\\Roleplay\\Scene",
             "container": "Mifrial\\Roleplay\\Scene\\Container\\SceneContainer",
             "locator": "Mifrial\\Roleplay\\Scene\\Interface\\Container\\ISceneContainer",
-            "setup": "Closure(IServiceLocator)",
+            "setup": "Mifrial\\Roleplay\\Scene\\Setup\\SceneModuleSetup",
             "requestBind": null,
             "ports": [
                 "Mifrial\\Roleplay\\Scene\\Service\\SceneCatalogHttp",
@@ -3758,8 +3746,7 @@
                 "Core/File",
                 "Core/Kernel",
                 "Core/SmartTable",
-                "Core/User",
-                "Library/Asset"
+                "Core/User"
             ],
             "dependedOnBy": [],
             "plans": [
@@ -3768,23 +3755,7 @@
                     "title": "Локации сцен: authoring-срез",
                     "kind": "plan",
                     "state": "В РАБОТЕ",
-                    "date": "2026-11-12",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/scene-plan-02-water-shaders.md",
-                    "title": "План Scene 02 — вода на шейдерах",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-11-12",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/scene-plan-04-render-and-nav-fixes.md",
-                    "title": "План: слои травы, пресеты декора и устойчивый маршрут",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-11-13",
+                    "date": "2026-11-11",
                     "hasStatus": true
                 },
                 {
@@ -3792,7 +3763,7 @@
                     "title": "Рендерер локаций сцен",
                     "kind": "canon",
                     "state": "В РАБОТЕ",
-                    "date": "2026-11-12",
+                    "date": "2026-11-11",
                     "hasStatus": true
                 },
                 {
@@ -3801,38 +3772,6 @@
                     "kind": "canon",
                     "state": "В РАБОТЕ",
                     "date": "2026-11-10",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/scene-plan-02-battleground.md",
-                    "title": "План: минимальная карта и тактический предпросмотр",
-                    "kind": "plan",
-                    "state": "СДЕЛАНО",
-                    "date": "2026-11-13",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/scene-plan-03-decor-occlusion.md",
-                    "title": "План: коллизия декора и высотный обзор",
-                    "kind": "plan",
-                    "state": "СДЕЛАНО",
-                    "date": "2026-11-13",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/scene-plan-05-bridge-deck.md",
-                    "title": "Настилы, мосты и съезды",
-                    "kind": "plan",
-                    "state": "СДЕЛАНО",
-                    "date": "2026-11-15",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/scene-plan-06-objects.md",
-                    "title": "Объекты: основание, силуэт и библиотека шаблонов",
-                    "kind": "plan",
-                    "state": "СДЕЛАНО",
-                    "date": "2026-11-15",
                     "hasStatus": true
                 }
             ]

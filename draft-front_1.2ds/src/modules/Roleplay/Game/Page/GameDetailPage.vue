@@ -6,6 +6,7 @@ import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
+import { gameNoteContextService } from '@/modules/Roleplay/Game/Service/Instance/gameNoteContextService';
 
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
@@ -66,12 +67,19 @@ const discussionContext = computed<ChatRulesContext>(() =>
 );
 
 const discussionInline = computed(() => chatInlineRendererContext(discussionContext.value));
-const notesInline = computed<Record<string, unknown>>(() => ({
-  tokenLabels: discussionContext.value.tokenLabels,
-  spaceId: discussionContext.value.spaceId,
-  spaceCode: discussionContext.value.spaceCode,
-  rulesRevision: discussionContext.value.rulesRevision,
-}));
+// Ссылки в заметках игры: правила ревизии + персонажи и активные НПС этой игры.
+const notesContext = computed(() =>
+  gameNoteContextService.build({
+    rules: discussionRules.value,
+    mechanics: discussionMechanics.value,
+    spaceId: detail.value?.game.spaceId ?? null,
+    spaceCode: detail.value?.game.spaceCode ?? null,
+    rulesRevision: detail.value?.game.rulesRevision ?? null,
+    gameId: detail.value?.game.id ?? 0,
+  }),
+);
+const notesInline = computed(() => notesContext.value.inlineContext);
+const notesSources = computed(() => notesContext.value.tokenSources);
 
 const gameId = computed(() => {
   const raw = route.params.id;
@@ -364,13 +372,7 @@ watch(detail, (value) => {
           />
         </v-window-item>
         <v-window-item value="chronicle">
-          <ChronicleTab
-            :active="activeTab === 'chronicle'"
-            :game-id="detail.game.id"
-            :can-manage="canManageMembers"
-            :space-id="detail.game.spaceId"
-            :rules-revision="detail.game.rulesRevision"
-          />
+          <ChronicleTab :active="activeTab === 'chronicle'" :game-id="detail.game.id" :can-manage="canManageMembers" />
         </v-window-item>
         <v-window-item v-if="isMember" value="game-chat">
           <!-- Живой игровой чат; монтируем только при открытой вкладке (D7) -->
@@ -413,7 +415,7 @@ watch(detail, (value) => {
     :host-id="detail.game.id"
     :title="detail.game.name"
     :inline-context="notesInline"
-    :token-sources="discussionContext.tokenSources"
+    :token-sources="notesSources"
   />
 
   <UserProfileSlider v-model:open="ownerSliderOpen" :user-id="ownerSliderUserId" />
